@@ -36,6 +36,16 @@ using namespace quicr::internal;
 #define SERVER_KEY_FILE "key.pem"
 
 ///
+/// log handler utility
+///
+template<typename... Ts>
+void
+log(quicr::LogLevel level, const Ts&... vals)
+{
+  auto ss = std::stringstream();
+}
+
+///
 /// Quicr/Quic Stack callback handlers.
 ///
 
@@ -71,7 +81,6 @@ quicrq_app_check_source_time(TransportContext* cb_ctx,
   }
   // log here delta
 }
-
 
 // media consumer object callback from quicr stack
 int
@@ -186,7 +195,8 @@ QuicRTransport::~QuicRTransport()
 }
 
 bool
-QuicRTransport::hasDataToSendToNet() {
+QuicRTransport::hasDataToSendToNet()
+{
   std::lock_guard<std::mutex> lock(sendQMutex);
   return !sendQ.empty();
 }
@@ -216,7 +226,8 @@ void
 QuicRTransport::recvDataFromNet(Data& data_in)
 {
   // todo: support group_id and object_id reporting
-  application_delegate.on_data_arrived(data_in.quicr_name, std::move(data_in.app_data), 0, 0);
+  application_delegate.on_data_arrived(
+    data_in.quicr_name, std::move(data_in.app_data), 0, 0);
 }
 
 void
@@ -234,7 +245,7 @@ QuicRTransport::register_publish_sources(
       publisher.length(),
       nullptr);
     assert(obj_src_context);
-    auto pub_context = new PublisherContext{publisher, obj_src_context, this};
+    auto pub_context = new PublisherContext{ publisher, obj_src_context, this };
 
     // enable publishing
     auto ret = quicrq_cnx_post_media(
@@ -242,8 +253,8 @@ QuicRTransport::register_publish_sources(
       reinterpret_cast<uint8_t*>(const_cast<char*>(publisher.data())),
       publisher.length(),
       true);
-    if (!ret) {
-      // log error
+    if (ret) {
+      logger.log(LogLevel::error, "Failed to add publisher: ");
       continue;
     }
     publishers[publisher] = std::move(*pub_context);
@@ -255,7 +266,7 @@ QuicRTransport::unregister_publish_sources(
   const std::vector<std::string>& publisher_names)
 {
   for (auto& publisher : publisher_names) {
-    if(!publishers.count(publisher)) {
+    if (!publishers.count(publisher)) {
       continue;
     }
     auto src_ctx = publishers[publisher];
@@ -299,7 +310,12 @@ QuicRTransport::subscribe(const std::vector<std::string>& names)
   }
 }
 
-void QuicRTransport::publish_named_data(const std::string& url, Data&& data)
+void
+QuicRTransport::unsubscribe(const std::vector<std::string>& names)
+{}
+
+void
+QuicRTransport::publish_named_data(const std::string& url, Data&& data)
 {
   std::lock_guard<std::mutex> lock(sendQMutex);
   sendQ.push(std::move(data));

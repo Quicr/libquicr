@@ -67,7 +67,6 @@ struct ConsumerContext
 class QuicRTransport
 {
 public:
-
   // Payload and metadata
   struct Data
   {

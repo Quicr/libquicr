@@ -47,9 +47,14 @@ struct QuicRClient
               const std::string& server,
               const uint16_t port);
 
-  ~QuicRClient() = delete;
+  ~QuicRClient();
 
-  void register_names(const std::vector<std::string>& name, bool use_reliable_transport);
+  // Transport APIs
+  bool is_transport_ready();
+
+  // Pub/Sub APIs
+  void register_names(const std::vector<std::string>& name,
+                      bool use_reliable_transport);
 
   void unregister_names(const std::vector<std::string>& name);
 
@@ -67,7 +72,6 @@ struct QuicRClient
   void close();
 
 private:
-  Delegate& delegate;
   struct Transport;
   std::unique_ptr<Transport> transport_handle;
 };

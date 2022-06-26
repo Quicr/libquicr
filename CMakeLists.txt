@@ -45,7 +45,6 @@ enable_testing()
 ###
 # External libraries
 find_package(OpenSSL 1.1 REQUIRED)
-set(LIBRARIES OpenSSL::Crypto)
 
 # contrib
 
@@ -71,8 +70,10 @@ if (APPLE)
     set(Picoquic_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/picoquic/lib/x86_64)
     set(QuicrProto_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/qproto/lib/x86_64)
   endif()
-  list(APPEND LIBRARIES)
 
+  set(PTLS_LIBRARIES picotls-core picotls-openssl picotls-fusion)
+  set(Picoquic_LIBRARIES picoquic-core picoquic-log)
+  set(QuicrProto_LIBRARIES quicrq-core)
 endif(APPLE)
 
 
@@ -100,6 +101,8 @@ target_include_directories(${LIB_NAME}
     ${OPENSSL_INCLUDE_DIR}
 )
 
+target_link_libraries(${LIB_NAME} ${QuicrProto_LIBRARIES} ${Picoquic_LIBRARIES} ${PTLS_LIBRARIES})
+
 ###
 ### Tests
 ###
@@ -109,4 +112,4 @@ target_include_directories(${LIB_NAME}
 ### Applications
 ###
 
-#add_subdirectory(cmd)
+add_subdirectory(cmd)
