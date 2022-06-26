@@ -41,6 +41,8 @@ struct QuicRClient
                                  bytes&& data,
                                  uint64_t group_id,
                                  uint64_t object_id) = 0;
+
+    virtual void on_connection_close(const std::string& name) = 0;
   };
 
   QuicRClient(Delegate& delegate,

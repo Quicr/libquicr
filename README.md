@@ -20,7 +20,9 @@ build with a clean slate
 `make format` will format the code based on 
 clang-format.
 
-If there are openssl errors, please ensure 
+If openssl isn't installed, `brew install openssl1.1` 
+should fix it.
+If there are still openssl errors, please ensure 
 `OPENSSL_ROOT_DIR` is setup via
 
 ```

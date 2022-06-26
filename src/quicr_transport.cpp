@@ -38,6 +38,7 @@ using namespace quicr::internal;
 ///
 /// log handler utility
 ///
+
 template<typename... Ts>
 void
 log(quicr::LogLevel level, const Ts&... vals)
@@ -87,8 +88,8 @@ int
 object_stream_consumer_fn(
   quicrq_media_consumer_enum action,
   void* object_consumer_ctx,
-  uint64_t current_time,
-  uint64_t object_id,
+  uint64_t /*current_time*/,
+  uint64_t /*object_id*/,
   const uint8_t* data,
   size_t data_length,
   quicrq_object_stream_consumer_properties_t* /*properties*/)
@@ -105,9 +106,7 @@ object_stream_consumer_fn(
     case quicrq_media_close:
       /* Remove the reference to the media context, as the caller will
        * free it. */
-      cons_ctx->object_consumer_ctx = nullptr;
-      /* Close streams and other resource */
-      assert(0);
+      cons_ctx->transport->on_media_close(cons_ctx);
       break;
     default:
       ret = -1;
@@ -119,7 +118,7 @@ object_stream_consumer_fn(
 
 // main packet loop for the application
 int
-quicrq_app_loop_cb(picoquic_quic_t* quic,
+quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
                    picoquic_packet_loop_cb_enum cb_mode,
                    void* callback_ctx,
                    void* callback_arg)
@@ -191,7 +190,47 @@ quicrq_app_loop_cb(picoquic_quic_t* quic,
 
 QuicRTransport::~QuicRTransport()
 {
-  // close();
+  close();
+  if (quicTransportThread.joinable()) {
+    quicTransportThread.join();
+  }
+}
+
+void
+QuicRTransport::close()
+{
+  // clean up publish sources
+  if (!publishers.empty()) {
+    for (auto const& [name, pub_ctx] : publishers) {
+      if (pub_ctx.object_source_ctx) {
+        quicrq_publish_object_fin(pub_ctx.object_source_ctx);
+        quicrq_delete_object_source(pub_ctx.object_source_ctx);
+        // logger->info << "Removed source [" << source_id << std::flush;
+      }
+    }
+  }
+
+  publishers.clear();
+
+  if (!consumers.empty()) {
+    for (auto const& [name, cons_ctx] : consumers) {
+      if (cons_ctx.object_consumer_ctx) {
+        quicrq_unsubscribe_object_stream(cons_ctx.object_consumer_ctx);
+      }
+    }
+  }
+
+  consumers.clear();
+
+  if (transport_context.cn_ctx) {
+    if (!quicrq_cnx_has_stream(cnx_ctx)) {
+      quicrq_close_cnx(cnx_ctx);
+    }
+  }
+
+  if (quicr_ctx) {
+    quicrq_delete(quicr_ctx);
+  }
 }
 
 bool
@@ -265,16 +304,22 @@ void
 QuicRTransport::unregister_publish_sources(
   const std::vector<std::string>& publisher_names)
 {
-  for (auto& publisher : publisher_names) {
-    if (!publishers.count(publisher)) {
+  if (publishers.empty()) {
+    return;
+  }
+  auto it = publishers.begin();
+  while (it != publishers.end()) {
+    if (!publishers.count(it->first)) {
+      ++it;
       continue;
     }
-    auto src_ctx = publishers[publisher];
+    auto src_ctx = publishers[it->first];
     if (src_ctx.object_source_ctx) {
       quicrq_publish_object_fin(src_ctx.object_source_ctx);
       quicrq_delete_object_source(src_ctx.object_source_ctx);
       // logger->info << "Removed source [" << source_id << std::flush;
     }
+    it = publishers.erase(it);
   }
 }
 
@@ -291,7 +336,6 @@ QuicRTransport::subscribe(const std::vector<std::string>& names)
     memset(consumer_media_ctx, 0, sizeof(ConsumerContext));
     consumer_media_ctx->quicr_name = name;
     consumer_media_ctx->transport = this;
-    consumer_media_ctx->cnx_ctx = cnx_ctx;
     constexpr auto use_datagram = true;
     constexpr auto in_order = true;
     consumer_media_ctx->object_consumer_ctx = quicrq_subscribe_object_stream(
@@ -312,13 +356,50 @@ QuicRTransport::subscribe(const std::vector<std::string>& names)
 
 void
 QuicRTransport::unsubscribe(const std::vector<std::string>& names)
-{}
+{
+  if (consumers.empty()) {
+    return;
+  }
+
+  auto it = consumers.begin();
+  while (it != consumers.end()) {
+    if (!consumers.count(it->first)) {
+      ++it;
+      continue;
+    }
+    auto cons_ctx = consumers[it->first];
+    if (cons_ctx.object_consumer_ctx) {
+      quicrq_unsubscribe_object_stream(cons_ctx.object_consumer_ctx);
+    }
+    it = consumers.erase(it);
+  }
+}
 
 void
-QuicRTransport::publish_named_data(const std::string& url, Data&& data)
+QuicRTransport::publish_named_data(const std::string& /*url*/, Data&& data)
 {
   std::lock_guard<std::mutex> lock(sendQMutex);
   sendQ.push(std::move(data));
+}
+
+void
+QuicRTransport::on_media_close(ConsumerContext* cons_ctx)
+{
+  if (cons_ctx && cons_ctx->object_consumer_ctx) {
+    if (consumers.empty()) {
+      logger.log(LogLevel::warn, "on_media_close: Consumer Context mising");
+      return;
+    }
+    auto it = consumers.begin();
+    while (it != consumers.end()) {
+      if (it->second.object_consumer_ctx == cons_ctx->object_consumer_ctx) {
+        application_delegate.on_connection_close(it->first);
+        it = consumers.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  }
 }
 
 QuicRTransport::QuicRTransport(QuicRClient::Delegate& delegate_in,
@@ -375,10 +456,6 @@ QuicRTransport::QuicRTransport(QuicRClient::Delegate& delegate_in,
   transport_context.transport = this;
   transport_context.qr_ctx = quicr_ctx;
   transport_context.cn_ctx = cnx_ctx;
-
-  quicr_client_ctx.port = sfuPort;
-  memcpy(&quicr_client_ctx.server_address, &addr, addr.ss_len);
-  quicr_client_ctx.server_address_len = sizeof(quicr_client_ctx.server_address);
 }
 
 void
@@ -416,9 +493,6 @@ QuicRTransport::runQuicProcess()
                                  &transport_context);
 
   logger.log(LogLevel::info, "Quicr loop Done ");
-  /* free all the media sources */
-  // quicrq_app_free_sources(&quicr_client_context);
-  /* Free the quicrq context */
-  quicrq_delete(quicr_client_ctx.qr_ctx);
+  close();
   return ret;
 }

@@ -1,6 +1,8 @@
+#include <atomic>
 #include <iomanip>
 #include <iostream>
 #include <queue>
+#include <signal.h>
 #include <sstream>
 #include <thread>
 #include <vector>
@@ -9,9 +11,7 @@
 
 using namespace quicr;
 using namespace std::chrono_literals;
-
-uint64_t conference_id = 1234;
-bool done = false;
+std::atomic<bool> done = false;
 
 static std::string
 to_hex(const std::vector<uint8_t>& data)
@@ -35,6 +35,11 @@ struct Forty : QuicRClient::Delegate
   {
     std::lock_guard<std::mutex> lock(recv_q_mutex);
     recv_q.push(data);
+  }
+
+  void on_connection_close(const std::string& name)
+  {
+    std::cout << "consumer connection closed: " << name << "\n";
   }
 
   void log(LogLevel /*level*/, const std::string& message)
@@ -69,6 +74,7 @@ read_loop(Forty* delegate)
     }
     std::cout << "[40B:<<<<] " << to_hex(data) << std::endl;
   }
+  std::cout << "read_loop done\n";
 }
 
 void
@@ -85,8 +91,20 @@ send_loop(QuicRClient& qclient, const std::string& name)
     qclient.publish_named_data(name, std::move(data), 0, 0);
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
   }
+  std::cout << "done send_loop\n";
 }
 
+void
+signal_callback_handler(int signum)
+{
+  done = true;
+}
+
+void
+setup_signal_handlers()
+{
+  signal(SIGINT, signal_callback_handler);
+}
 int
 main(int argc, char* argv[])
 {
@@ -108,6 +126,8 @@ main(int argc, char* argv[])
     std::cerr << "other-client-id: some string that is not self" << std::endl;
     return -1;
   }
+
+  setup_signal_handlers();
 
   // server ip and port
   server_ip.assign(argv[1]);

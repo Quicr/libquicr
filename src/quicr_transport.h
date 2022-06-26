@@ -36,15 +36,6 @@ struct TransportContext
   QuicRTransport* transport;
 };
 
-struct QuicRClientContext
-{
-  std::string server_name;
-  uint16_t port;
-  struct sockaddr_storage server_address;
-  socklen_t server_address_len;
-  quicrq_ctx_t* qr_ctx;
-};
-
 struct PublisherContext
 {
   std::string quicr_name;
@@ -55,9 +46,7 @@ struct PublisherContext
 struct ConsumerContext
 {
   std::string quicr_name;
-  quicrq_reassembly_context_t reassembly_ctx;
   quicrq_object_stream_consumer_ctx* object_consumer_ctx;
-  quicrq_cnx_ctx_t* cnx_ctx;
   QuicRTransport* transport;
 };
 
@@ -87,7 +76,7 @@ public:
   void unsubscribe(const std::vector<std::string>& names);
   void start();
   bool ready();
-  void shutdown();
+  void close();
 
   // callback registered with the underlying quicr stack
   static int quicr_callback(picoquic_cnx_t* cnx,
@@ -114,6 +103,12 @@ public:
     return netTransportQuic->runQuicProcess();
   }
 
+  // APis interacting with unerlying quic stack for sending and receiving the
+  // data
+  bool hasDataToSendToNet();
+  bool getDataToSendToNet(Data& data_out);
+  void recvDataFromNet(Data& data_in);
+  void on_media_close(ConsumerContext* cons_ctx);
   const PublisherContext& get_publisher_context(const std::string& name) const
   {
     return publishers.at(name);
@@ -121,23 +116,16 @@ public:
 
   void wake_up_all_sources();
 
-  // APis interacting with unerlying quic stack for sending and receiving the
-  // data
-  bool hasDataToSendToNet();
-  bool getDataToSendToNet(Data& data_out);
-  void recvDataFromNet(Data& data_in);
-
 private:
   // Queue of data to be sent
   std::queue<Data> sendQ;
   std::mutex sendQMutex;
 
   TransportContext transport_context;
-  QuicRClientContext quicr_client_ctx;
 
   // todo : implement RAII mechanism
   picoquic_quic_config_t config;
-  quicrq_ctx_t* quicr_ctx;
+  quicrq_ctx_t* quicr_ctx = nullptr;
   quicrq_cnx_ctx_t* cnx_ctx = nullptr;
   picoquic_quic_t* quic = nullptr;
 
