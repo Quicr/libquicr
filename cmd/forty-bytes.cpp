@@ -59,11 +59,11 @@ private:
 };
 
 void
-read_loop(Forty& delegate)
+read_loop(Forty* delegate)
 {
   std::cout << "Client read audio loop init\n";
   while (!done) {
-    auto data = delegate.recv();
+    auto data = delegate->recv();
     if (data.empty()) {
       continue;
     }
@@ -129,10 +129,10 @@ main(int argc, char* argv[])
   you.assign(argv[5]);
 
   // Delegate
-  Forty delegate;
+  auto delegate = std::make_unique<Forty>();
   // QuicRClient
   auto qclient =
-    std::make_unique<QuicRClient>(delegate, server_ip, server_port);
+    std::make_unique<QuicRClient>(*delegate, server_ip, server_port);
 
   if (mode == "recv") {
     if (you.empty()) {
@@ -144,12 +144,13 @@ main(int argc, char* argv[])
     qclient->subscribe(std::vector<std::string>{ you }, false, false);
 
     while (!qclient->is_transport_ready()) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
 
     std::cout << "Transport is ready" << std::endl;
-    read_loop(delegate);
+    read_loop(delegate.get());
   } else if (mode == "send") {
+
     if (me.empty()) {
       std::cout << "Bad choice for self-client-id" << std::endl;
       exit(-1);
@@ -159,12 +160,32 @@ main(int argc, char* argv[])
     qclient->register_names(std::vector<std::string>{ me }, true);
 
     while (!qclient->is_transport_ready()) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
 
     std::cout << "Transport is ready" << std::endl;
 
     send_loop(*qclient.get(), me);
+
+  } else {
+
+    if (me.empty() || you.empty()) {
+      std::cout << "Bad choice for clientId(s)" << std::endl;
+      exit(-1);
+    }
+
+    qclient->register_names(std::vector<std::string>{ me }, true);
+    qclient->subscribe(std::vector<std::string>{ you }, false, false);
+
+    while (!qclient->is_transport_ready()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+
+    std::cout << "Transport is ready" << std::endl;
+
+    std::thread reader(read_loop, delegate.get());
+    send_loop(*qclient.get(), me);
+    reader.join();
   }
 
   return 0;
