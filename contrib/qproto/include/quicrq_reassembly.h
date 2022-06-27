@@ -19,7 +19,9 @@ extern "C" {
 
 typedef struct st_quicrq_reassembly_context_t {
     picosplay_tree_t object_tree;
+    uint64_t next_group_id;
     uint64_t next_object_id;
+    uint64_t final_group_id;
     uint64_t final_object_id;
     int is_finished : 1;
 } quicrq_reassembly_context_t;
@@ -33,7 +35,9 @@ typedef enum {
 typedef int (*quicrq_reassembly_object_ready_fn)(
     void* media_ctx,
     uint64_t current_time,
+    uint64_t group_id,
     uint64_t object_id,
+    uint8_t flags,
     const uint8_t* data,
     size_t data_length,
     quicrq_reassembly_object_mode_enum object_mode);
@@ -45,8 +49,11 @@ int quicrq_reassembly_input(
     quicrq_reassembly_context_t* reassembly_ctx,
     uint64_t current_time,
     const uint8_t* data,
+    uint64_t group_id,
     uint64_t object_id,
     uint64_t offset,
+    uint8_t flags,
+    uint64_t nb_objects_previous_group,
     int is_last_fragment,
     size_t data_length,
     quicrq_reassembly_object_ready_fn ready_fn,
@@ -58,6 +65,7 @@ int quicrq_reassembly_learn_start_point(quicrq_reassembly_context_t* reassembly_
 /* Obtain the final object ID */
 int quicrq_reassembly_learn_final_object_id(
     quicrq_reassembly_context_t* reassembly_ctx,
+    uint64_t final_group_id,
     uint64_t final_object_id);
 
 /* Find the object number of the last reassembled object */

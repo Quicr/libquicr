@@ -14,7 +14,7 @@ extern "C" {
  * The minor version is updated when the protocol changes
  * Only the letter is updated if the code changes without changing the protocol
  */
-#define QUICRQ_VERSION "0.11a"
+#define QUICRQ_VERSION "0.20a"
 
 /* QUICR ALPN and QUICR port
  * For version zero, the ALPN is set to "quicr-h<minor>", where <minor> is
@@ -22,7 +22,7 @@ extern "C" {
  * different protocol versions will not be compatible, and connections attempts
  * between such binaries will fail, forcing deployments of compatible versions.
  */
-#define QUICRQ_ALPN "quicr-h11"
+#define QUICRQ_ALPN "quicr-h20"
 #define QUICRQ_PORT 853
 
 /* QUICR error codes */
@@ -112,7 +112,8 @@ typedef struct st_quicrq_media_object_source_properties_t {
 } quicrq_media_object_source_properties_t;
 
 typedef struct st_quicrq_media_object_properties_t {
-    int tbd;
+    uint8_t flags;
+    int is_new_group;
 } quicrq_media_object_properties_t;
 
 typedef struct st_quicrq_media_object_source_ctx_t quicrq_media_object_source_ctx_t;
@@ -126,6 +127,7 @@ int quicrq_publish_object(
     quicrq_media_object_source_ctx_t* object_source_ctx,
     uint8_t* object,
     size_t object_length,
+    int is_new_group,
     quicrq_media_object_properties_t * properties);
 
 void quicrq_publish_object_fin(quicrq_media_object_source_ctx_t* object_source_ctx);
@@ -191,6 +193,7 @@ typedef int (*quicrq_media_publisher_fn)(
     uint8_t* data,
     size_t data_max_size,
     size_t* data_length,
+    int* is_new_group,
     int* is_last_fragment,
     int* is_media_finished,
     int *is_still_active,
@@ -239,13 +242,14 @@ typedef enum {
 } quicrq_media_consumer_enum;
 
 typedef struct st_quicrq_object_stream_consumer_properties_t {
-    int tbd;
+    uint8_t flags;
 } quicrq_object_stream_consumer_properties_t;
 
 typedef int (*quicrq_object_stream_consumer_fn)(
     quicrq_media_consumer_enum action,
     void* object_consumer_ctx,
     uint64_t current_time,
+    uint64_t group_id,
     uint64_t object_id,
     const uint8_t* data,
     size_t data_length,
@@ -274,9 +278,12 @@ typedef int (*quicrq_media_consumer_fn)(
     void* media_ctx,
     uint64_t current_time,
     const uint8_t* data,
+    uint64_t group_id,
     uint64_t object_id,
     uint64_t offset,
     uint64_t queue_delay,
+    uint8_t flags,
+    uint64_t nb_objects_previous_group,
     int is_last_fragment,
     size_t data_length);
 

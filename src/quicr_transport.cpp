@@ -89,6 +89,7 @@ object_stream_consumer_fn(
   quicrq_media_consumer_enum action,
   void* object_consumer_ctx,
   uint64_t /*current_time*/,
+  uint64_t /*group_id*/,
   uint64_t /*object_id*/,
   const uint8_t* data,
   size_t data_length,
@@ -98,6 +99,10 @@ object_stream_consumer_fn(
   int ret = 0;
   switch (action) {
     case quicrq_media_datagram_ready: {
+      if(!data) {
+        std::cerr << "data is null" << std::endl;
+        break;
+      }
       auto payload = quicr::bytes(data, data + data_length);
       quicr::internal::QuicRTransport::Data recv_data = { cons_ctx->quicr_name,
                                                           std::move(payload) };
@@ -175,10 +180,12 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
         // log warn
         break;
       }
+
       ret = quicrq_publish_object(
         publish_ctx.object_source_ctx,
         reinterpret_cast<uint8_t*>(data.app_data.data()),
         data.app_data.size(),
+        1,
         nullptr);
 
       if (ret != 0) {
@@ -351,6 +358,7 @@ QuicRTransport::subscribe(const std::vector<std::string>& names)
     consumer_media_ctx->transport = this;
     constexpr auto use_datagram = true;
     constexpr auto in_order = true;
+
     consumer_media_ctx->object_consumer_ctx = quicrq_subscribe_object_stream(
       cnx_ctx,
       reinterpret_cast<uint8_t*>(const_cast<char*>(name.data())),
