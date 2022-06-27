@@ -107,6 +107,7 @@ object_stream_consumer_fn(
       /* Remove the reference to the media context, as the caller will
        * free it. */
       cons_ctx->transport->on_media_close(cons_ctx);
+      ret = 0;
       break;
     default:
       ret = -1;
@@ -128,77 +129,87 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
 
   if (cb_ctx == nullptr) {
     return PICOQUIC_ERROR_UNEXPECTED_ERROR;
-  } else {
-    switch (cb_mode) {
-      case picoquic_packet_loop_ready:
-        if (callback_arg != nullptr) {
-          auto* options = (picoquic_packet_loop_options_t*)callback_arg;
-          options->do_time_check = 1;
-        }
-        if (cb_ctx->transport) {
-          std::lock_guard<std::mutex> lock(
-            cb_ctx->transport->quicConnectionReadyMutex);
-          cb_ctx->transport->quicConnectionReady = true;
-        } else {
-          // log error here
-        }
-        ret = 0;
-        break;
-      case picoquic_packet_loop_after_receive:
-        /* Post receive callback */
-        ret = quicrq_app_loop_cb_check_fin(cb_ctx);
-        break;
-      case picoquic_packet_loop_after_send:
-        /* if a client, exit the loop if connection is gone. */
-        ret = quicrq_app_loop_cb_check_fin(cb_ctx);
-        break;
-      case picoquic_packet_loop_port_update:
-        break;
-      case picoquic_packet_loop_time_check: {
-        /* check local test sources */
-        quicrq_app_check_source_time(
-          cb_ctx, (packet_loop_time_check_arg_t*)callback_arg);
-        quicr::internal::QuicRTransport::Data data;
-        auto got = cb_ctx->transport->getDataToSendToNet(data);
-        if (!got || data.app_data.empty()) {
-          break;
-        }
-        auto& publish_ctx =
-          cb_ctx->transport->get_publisher_context(data.quicr_name);
-        if (!publish_ctx.object_source_ctx) {
-          // log warn
-          break;
-        }
-        ret = quicrq_publish_object(
-          publish_ctx.object_source_ctx,
-          reinterpret_cast<uint8_t*>(data.app_data.data()),
-          data.app_data.size(),
-          nullptr);
-
-        if (ret != 0) {
-          // log error
-        }
-      } break;
-      default:
-        ret = PICOQUIC_ERROR_UNEXPECTED_ERROR;
-        break;
-    }
   }
 
+  if(cb_ctx->transport->shutting_down) {
+    return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
+  }
+
+  switch (cb_mode) {
+    case picoquic_packet_loop_ready:
+      if (callback_arg != nullptr) {
+        auto* options = (picoquic_packet_loop_options_t*)callback_arg;
+        options->do_time_check = 1;
+      }
+      if (cb_ctx->transport) {
+        std::lock_guard<std::mutex> lock(
+          cb_ctx->transport->quicConnectionReadyMutex);
+        cb_ctx->transport->quicConnectionReady = true;
+      } else {
+        // log error here
+      }
+      ret = 0;
+      break;
+    case picoquic_packet_loop_after_receive:
+      /* Post receive callback */
+      ret = quicrq_app_loop_cb_check_fin(cb_ctx);
+      break;
+    case picoquic_packet_loop_after_send:
+      /* if a client, exit the loop if connection is gone. */
+      ret = quicrq_app_loop_cb_check_fin(cb_ctx);
+      break;
+    case picoquic_packet_loop_port_update:
+      break;
+    case picoquic_packet_loop_time_check: {
+      /* check local test sources */
+      quicrq_app_check_source_time(
+        cb_ctx, (packet_loop_time_check_arg_t*)callback_arg);
+      quicr::internal::QuicRTransport::Data data;
+      auto got = cb_ctx->transport->getDataToSendToNet(data);
+      if (!got || data.app_data.empty()) {
+        break;
+      }
+      auto& publish_ctx =
+        cb_ctx->transport->get_publisher_context(data.quicr_name);
+      if (!publish_ctx.object_source_ctx) {
+        // log warn
+        break;
+      }
+      ret = quicrq_publish_object(
+        publish_ctx.object_source_ctx,
+        reinterpret_cast<uint8_t*>(data.app_data.data()),
+        data.app_data.size(),
+        nullptr);
+
+      if (ret != 0) {
+        // log error
+      }
+    } break;
+    default:
+      ret = PICOQUIC_ERROR_UNEXPECTED_ERROR;
+      break;
+  }
   return ret;
 }
 
 QuicRTransport::~QuicRTransport()
 {
-  close();
+  shutting_down = true;
+  // ensure transport thread finishes
+  // and resources are cleaned up.
   if (quicTransportThread.joinable()) {
     quicTransportThread.join();
   }
+
 }
 
 void
 QuicRTransport::close()
 {
+  if(closed) {
+    return;
+  }
+
   // clean up publish sources
   if (!publishers.empty()) {
     for (auto const& [name, pub_ctx] : publishers) {
@@ -222,15 +233,17 @@ QuicRTransport::close()
 
   consumers.clear();
 
+  if (quicr_ctx) {
+    quicrq_delete(quicr_ctx);
+  }
+
   if (transport_context.cn_ctx) {
     if (!quicrq_cnx_has_stream(cnx_ctx)) {
       quicrq_close_cnx(cnx_ctx);
     }
   }
 
-  if (quicr_ctx) {
-    quicrq_delete(quicr_ctx);
-  }
+  closed = true;
 }
 
 bool
@@ -387,7 +400,7 @@ QuicRTransport::on_media_close(ConsumerContext* cons_ctx)
 {
   if (cons_ctx && cons_ctx->object_consumer_ctx) {
     if (consumers.empty()) {
-      logger.log(LogLevel::warn, "on_media_close: Consumer Context mising");
+      logger.log(LogLevel::warn, "on_media_close: Consumer Context missing");
       return;
     }
     auto it = consumers.begin();
@@ -492,6 +505,7 @@ QuicRTransport::runQuicProcess()
                                  quicrq_app_loop_cb,
                                  &transport_context);
 
+  std::cerr << "QuicrLoop Done Ret " << ret << std::endl;
   logger.log(LogLevel::info, "Quicr loop Done ");
   close();
   return ret;

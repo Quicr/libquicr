@@ -59,23 +59,44 @@ Publisher
 Pub/Sub - 2 Way message exchange
 ```
 Client 1
-./forty <server-ip> 7777 sendrecv client1 client2
+./forty <aws-server-ip> 7777 sendrecv client1 client2
 
 Client 2
-./forty <server-ip> 7777 sendrecv client2 client1
+./forty <aws-server-ip> 7777 sendrecv client2 client1
 
 ```
 
-Please reach out to Suhas for IP Address of the server
+Please reach out to Suhas for IP Address of the QuicR origin 
+server deployed in AWS K8s Cluster.
+The deployment details for the same can be found 
+at https://sqbu-github.cisco.com/cto-media/quicr-deploy/
 
-### Test against local origin
- Details wil be provided soon
 
-### Test against local relay
-Details will be provided soon
+Local QuicR origin/relay setup
+----------------------------------
+ For dev-testing, it would be beneficial to build and run 
+the origin/relay locally
+
+- Build [quicrq](https://github.com/Quicr/quicrq) 
+  and its dependencies (picotols/picoquic)
+- Run Origin as
+```
+./quicrq_app -q qlog_server -p 7777 -c ../picoquic/certs/cert.pem -k ../picoquic/certs/key.pem -a quicr-h00 server
+```
+- Run Relay as
+```
+/quicrq_app -q qlog_relay -p 8888 -c ../picoquic/certs/cert.pem -k ../picoquic/certs/key.pem -a quicr-h00 relay localhost d 7777
+```
+
+Above example, show Origin server running at 127.0.0.1:7777 and relay at 127.0.0.1:8888 and 
+connecting to the Origin server.
 
 Some Limitations in the prototype
 ---------------------------------
 
 - Names cannot be reused after the publisher connection is closed 
 [ This will be addressed in the coming changes to the stack]
+- If there is inactivity for more than 30s, underlying QUIC connection 
+ is terminated. This is due to the fact that the prototype was built
+ with realtime media flow in mind. One can hack out of by sending
+ 1-byte message periodically

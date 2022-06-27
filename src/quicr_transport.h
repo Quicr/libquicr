@@ -103,7 +103,7 @@ public:
     return netTransportQuic->runQuicProcess();
   }
 
-  // APis interacting with unerlying quic stack for sending and receiving the
+  // APIs interacting with underlying quic stack for sending and receiving the
   // data
   bool hasDataToSendToNet();
   bool getDataToSendToNet(Data& data_out);
@@ -116,24 +116,25 @@ public:
 
   void wake_up_all_sources();
 
+  std::atomic<bool> shutting_down = false;
+  std::atomic<bool> closed = false;
 private:
-  // Queue of data to be sent
+  // Queue of data to be published
   std::queue<Data> sendQ;
   std::mutex sendQMutex;
 
-  TransportContext transport_context;
-
-  // todo : implement RAII mechanism
+  // todo : implement RAII
   picoquic_quic_config_t config;
   quicrq_ctx_t* quicr_ctx = nullptr;
   quicrq_cnx_ctx_t* cnx_ctx = nullptr;
   picoquic_quic_t* quic = nullptr;
 
-  // source_id -> pub_ctx
+  // Underlying context for the transport
+  TransportContext transport_context;
+  // source -> pub_ctx
   std::map<std::string, PublisherContext> publishers = {};
-  // source_id -> consumer_ctx
+  // source_ -> consumer_ctx
   std::map<std::string, ConsumerContext> consumers = {};
-
   // Handler of transport events from the application
   QuicRClient::Delegate& application_delegate;
 

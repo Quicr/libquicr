@@ -55,17 +55,17 @@ struct QuicRClient
   bool is_transport_ready();
 
   // Pub/Sub APIs
-  void register_names(const std::vector<std::string>& name,
+  void register_names(const std::vector<std::string>& names,
                       bool use_reliable_transport);
 
-  void unregister_names(const std::vector<std::string>& name);
+  void unregister_names(const std::vector<std::string>& names);
 
   void publish_named_data(const std::string& name,
                           bytes&& data,
                           uint8_t priority,
                           uint64_t best_before);
 
-  void subscribe(const std::vector<std::string>& name,
+  void subscribe(const std::vector<std::string>& names,
                  bool use_reliable_transport,
                  bool in_order_delivery);
 

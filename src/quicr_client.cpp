@@ -41,15 +41,17 @@ QuicRClient::QuicRClient(QuicRClient::Delegate& delegate_in,
 QuicRClient::~QuicRClient() = default;
 
 void
-QuicRClient::register_names(const std::vector<std::string>& name,
+QuicRClient::register_names(const std::vector<std::string>& names,
                             bool /*use_reliable_transport*/)
 {
-  transport_handle->quicr_transport->register_publish_sources(name);
+  transport_handle->quicr_transport->register_publish_sources(names);
 }
 
 void
-QuicRClient::unregister_names(const std::vector<std::string>& /*names*/)
-{}
+QuicRClient::unregister_names(const std::vector<std::string>& names)
+{
+  transport_handle->quicr_transport->unregister_publish_sources(names);
+}
 
 void
 QuicRClient::publish_named_data(const std::string& name,
@@ -79,6 +81,12 @@ bool
 QuicRClient::is_transport_ready()
 {
   return transport_handle->quicr_transport->ready();
+}
+
+void
+QuicRClient::close()
+{
+  return transport_handle->quicr_transport->close();
 }
 
 }

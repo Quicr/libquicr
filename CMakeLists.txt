@@ -76,8 +76,6 @@ if (APPLE)
   set(QuicrProto_LIBRARIES quicrq-core)
 endif(APPLE)
 
-
-
 ###
 ### Library Config
 ###
@@ -106,7 +104,7 @@ target_link_libraries(${LIB_NAME} ${QuicrProto_LIBRARIES} ${Picoquic_LIBRARIES} 
 ###
 ### Tests
 ###
-#add_subdirectory(test)
+add_subdirectory(test)
 
 ###
 ### Applications
