@@ -133,4 +133,5 @@ add_subdirectory(test)
 ### Applications
 ###
 
-add_subdirectory(cmd)
+add_subdirectory(cmd/forty)
+add_subdirectory(cmd/chat-quicr)
