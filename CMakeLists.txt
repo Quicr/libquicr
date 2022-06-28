@@ -48,7 +48,19 @@ find_package(OpenSSL 1.1 REQUIRED)
 
 # contrib
 
-if (APPLE)
+if (IS_DIRECTORY "/ws/picotls" AND IS_DIRECTORY "/ws/picoquic" AND IS_DIRECTORY "/ws/quicrq")
+  message("Using /ws for picotls, picoquic, and quicrq")
+  set(Picotls_INCLUDE_DIR  /ws/picotls/include)
+  set(Picoquic_INCLUDE_DIR /ws/picoquic/picoquic)
+  set(Picoquic_loglib_INCLUDE_DIR /ws/picoquic/loglib)
+  set(QuicrProto_INCLUDE_DIR /ws/quicrq/include/)
+
+  set(Picotls_LIB_DIR /ws/picotls/)
+  set(Picoquic_LIB_DIR /ws/picoquic/)
+  set(QuicrProto_LIB_DIR /ws/quicrq/)
+
+elseif (APPLE)
+  message("Updating for Apple device")
   execute_process(
           COMMAND uname -m
           RESULT_VARIABLE result
@@ -71,10 +83,20 @@ if (APPLE)
     set(QuicrProto_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/qproto/lib/x86_64)
   endif()
 
-  set(PTLS_LIBRARIES picotls-core picotls-openssl picotls-fusion)
-  set(Picoquic_LIBRARIES picoquic-core picoquic-log)
-  set(QuicrProto_LIBRARIES quicrq-core)
 endif(APPLE)
+
+find_package( OpenSSL 1)
+if (OPENSSL_FOUND)
+  include_directories(${OPENSSL_INCLUDE_DIR})
+  set (SSL_LIBS ${OPENSSL_LIBRARIES})
+else()
+  set(SSL_LIBS )
+endif()
+
+#set(PTLS_LIBRARIES picotls-core picotls-openssl picotls-fusion)
+set(PTLS_LIBRARIES picotls-core picotls-openssl)
+set(Picoquic_LIBRARIES picoquic-core picoquic-log)
+set(QuicrProto_LIBRARIES quicrq-core)
 
 ###
 ### Library Config
@@ -95,11 +117,12 @@ target_include_directories(${LIB_NAME}
     ${Picotls_INCLUDE_DIR}
     ${Picoquic_INCLUDE_DIR}
     ${QuicrProto_INCLUDE_DIR}
+    ${Picoquic_loglib_INCLUDE_DIR}
   PRIVATE
     ${OPENSSL_INCLUDE_DIR}
 )
 
-target_link_libraries(${LIB_NAME} ${QuicrProto_LIBRARIES} ${Picoquic_LIBRARIES} ${PTLS_LIBRARIES})
+target_link_libraries(${LIB_NAME} ${QuicrProto_LIBRARIES} ${Picoquic_LIBRARIES} ${PTLS_LIBRARIES} ${SSL_LIBS})
 
 ###
 ### Tests

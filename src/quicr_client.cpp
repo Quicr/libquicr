@@ -1,5 +1,4 @@
 #include <queue>
-
 #include "quicr_transport.h"
 #include <quicr/quicr_client.h>
 
