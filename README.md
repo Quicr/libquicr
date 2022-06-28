@@ -6,6 +6,52 @@ Implementation of transport layer api based on QuicR
 Quickstart
 ----------
 
+### Docker Dev Image
+The developer image contains ```picotls```, ```picoquic``` and ```quicrq```, which are required
+for many other builds.  The container works by running it with a volume mount ```/ws/src```
+to the source to be compiled. The above libraries are in the ```/ws/``` directory, which is expected for builds.
+
+While ```quicrq``` is included under ```/ws/quicrq```, the container can be used to develop and compile
+it by mounting ```quicrq``` directory to ```/ws/src```. 
+
+#### Build Docker image
+The docker container has been tested to work for both ARM (M1/Apple Silicon) and x86.  
+
+```
+git clone git@github.com:Quicr/libquicr.git
+cd libquicr
+
+tar -c -C ../ ./quicrq ./libquicr  \
+    | docker buildx build --progress=plain \
+        --output type=docker \
+        -f libquicr/build.Dockerfile -t quicr/libquicr:latest -
+```
+
+#### Compile libquicr
+
+```
+cd <libquicr directory>
+
+rm -rf $(pwd)/build
+docker run --rm \
+    -v $(pwd):/ws/src \
+    quicr/libquicr:latest make all 
+```
+
+#### Run binaries
+
+For now, it's best to run the binaries in interactive shell.  The images have been built for linux.  Run
+the image in interactive mode to access the shell prompt.  From there you can access the binaries. 
+```quicrq``` and others are located under ```/ws/```.   For example, you can run ```/ws/quircq/quicrq_app``` binary. 
+
+```
+docker run --rm -it \
+    -v $(pwd):/ws/src \
+    quicr/libquicr:latest bash
+```
+
+### Non-Docker Build
+
 Using the convenient Makefile that wraps CMake:
 
 ```
@@ -29,6 +75,13 @@ If there are still openssl errors, please ensure
 export PKG_CONFIG_PATH="/usr/local/opt/openssl@1.1/lib/pkgconfig"
 ```
 
+---
+## Run-time
+
+### Running Relays/Etc.
+
+> **NOTE:** The docker dev image has ```quicrq``` and other dependencies under ```/ws/```  
+
 The `forty` test program can be run as below
 
 ```
@@ -48,21 +101,21 @@ Pub/Sub with forty
 
 ```
 Subcriber
-./forty <server-ip> 7777 recv alice bob
+build/cmd/forty <server-ip> 7777 recv alice bob
 ```
 
 ```
 Publisher
-./forty <server-ip> 7777 send bob alice
+build/cmd/forty <server-ip> 7777 send bob alice
 ```
 
 Pub/Sub - 2 Way message exchange
 ```
 Client 1
-./forty <aws-server-ip> 7777 sendrecv client1 client2
+build/cmd/forty <aws-server-ip> 7777 sendrecv client1 client2
 
 Client 2
-./forty <aws-server-ip> 7777 sendrecv client2 client1
+build/cmd/forty <aws-server-ip> 7777 sendrecv client2 client1
 
 ```
 
@@ -74,19 +127,26 @@ at https://sqbu-github.cisco.com/cto-media/quicr-deploy/
 
 Local QuicR origin/relay setup
 ----------------------------------
- For dev-testing, it would be beneficial to build and run 
-the origin/relay locally
+For dev-testing, it would be beneficial to build and run 
+the origin/relay locally.  Use the dev docker image for this. 
 
-- Build [quicrq](https://github.com/Quicr/quicrq) 
-  and its dependencies (picotols/picoquic)
+- Run Docker Image
+    ```
+    docker run --rm -it \
+    -v $(pwd):/ws/src \
+    quicr/libquicr:latest bash
+    ```
+
 - Run Origin as
-```
-./quicrq_app -q qlog_server -p 7777 -c ../picoquic/certs/cert.pem -k ../picoquic/certs/key.pem -a quicr-h00 server
-```
+    ```
+    export QUICRQ=/ws/quicrq
+    $QUICRQ/quicrq_app -q qlog_server -p 7777 -c ../picoquic/certs/cert.pem -k ../picoquic/certs/key.pem -a quicr-h00 server
+    ```
 - Run Relay as
-```
-/quicrq_app -q qlog_relay -p 8888 -c ../picoquic/certs/cert.pem -k ../picoquic/certs/key.pem -a quicr-h00 relay localhost d 7777
-```
+    ```
+    export QUICRQ=/ws/quicrq
+    $QUICRQ/quicrq_app -q qlog_relay -p 8888 -c ../picoquic/certs/cert.pem -k ../picoquic/certs/key.pem -a quicr-h00 relay localhost d 7777
+    ```
 
 Above example, show Origin server running at 127.0.0.1:7777 and relay at 127.0.0.1:8888 and 
 connecting to the Origin server.

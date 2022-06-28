@@ -6,6 +6,7 @@
 #include <queue>
 #include <string>
 #include <thread>
+#include <atomic>
 
 #include <netinet/in.h>
 #include <stdint.h>

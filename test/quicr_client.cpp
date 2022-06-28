@@ -1,5 +1,6 @@
 #include <vector>
 #include <string>
+#include <memory>
 
 #include <doctest/doctest.h>
 #include <quicr/quicr_client.h>
