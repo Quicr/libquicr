@@ -1,17 +1,11 @@
 # Build libquicr
 #
 # BUILD:
-#   DOCKER_BUILDKIT=1 docker build \
-#              --platform linux/arm64 \
-#              -t quicr/libquicr:latest \
-#              -f build.Dockerfile .
-#
-#
+#   DOCKER_BUILDKIT=1
 #   tar -c -C ../ ./quicrq ./libquicr  \
 #           | docker buildx build --progress=plain \
 #               --output type=docker \
 #               -f libquicr/build.Dockerfile -t quicr/libquicr:latest -
-
 #
 # RUN and build code
 #   docker run --rm \

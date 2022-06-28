@@ -15,7 +15,7 @@ While ```quicrq``` is included under ```/ws/quicrq```, the container can be used
 it by mounting ```quicrq``` directory to ```/ws/src```. 
 
 #### Build Docker image
-The docker container has been tested to work for both ARM (M1/Apple silicon) and x86.  
+The docker container has been tested to work for both ARM (M1/Apple Silicon) and x86.  
 
 ```
 git clone git@github.com:Quicr/libquicr.git
@@ -101,7 +101,7 @@ Pub/Sub with forty
 
 ```
 Subcriber
-build/cmd//forty <server-ip> 7777 recv alice bob
+build/cmd/forty <server-ip> 7777 recv alice bob
 ```
 
 ```
