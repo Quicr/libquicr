@@ -1,13 +1,13 @@
+#include <quicr/quicr_client.h>
+#include <signal.h>
+
 #include <atomic>
 #include <iomanip>
 #include <iostream>
 #include <queue>
-#include <signal.h>
 #include <sstream>
 #include <thread>
 #include <vector>
-
-#include <quicr/quicr_client.h>
 
 using namespace quicr;
 using namespace std::chrono_literals;
@@ -27,7 +27,6 @@ to_hex(const std::vector<uint8_t>& data)
 // Delegate Implementation
 struct Forty : QuicRClient::Delegate
 {
-
   void on_data_arrived(const std::string& name,
                        bytes&& data,
                        uint64_t group_id,
@@ -170,7 +169,6 @@ main(int argc, char* argv[])
     std::cout << "Transport is ready" << std::endl;
     read_loop(delegate.get());
   } else if (mode == "send") {
-
     if (me.empty()) {
       std::cout << "Bad choice for self-client-id" << std::endl;
       exit(-1);
@@ -186,9 +184,7 @@ main(int argc, char* argv[])
     std::cout << "Transport is ready" << std::endl;
 
     send_loop(*qclient.get(), me);
-
   } else {
-
     if (me.empty() || you.empty()) {
       std::cout << "Bad choice for clientId(s)" << std::endl;
       exit(-1);

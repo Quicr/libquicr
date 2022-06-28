@@ -697,9 +697,9 @@ void picoquic_set_rejected_version(picoquic_cnx_t* cnx, uint32_t rejected_versio
 int picoquic_esni_client_from_file(picoquic_cnx_t * cnx, char const * esni_rr_file_name);
 
 /* Connection events.
- * The "probe new path" API attempts to validate a new path. If multipath is enabled,
+ * The "probe new path" API attempts to check_client a new path. If multipath is enabled,
  * the new path will come in addition to the set of existing paths; if not,
- * the new path when validated will replace the default path.
+ * the new path when check_clientd will replace the default path.
  * The "abandon path" should only be used if multipath is enabled, and if more than
  * one path is available -- otherwise, just close the connection. If the command
  * is accepted, the peer will be informed of the need to close the path, and the
