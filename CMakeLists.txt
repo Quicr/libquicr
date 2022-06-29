@@ -59,7 +59,11 @@ if (IS_DIRECTORY "/ws/picotls" AND IS_DIRECTORY "/ws/picoquic" AND IS_DIRECTORY 
   set(Picoquic_LIB_DIR /ws/picoquic/)
   set(QuicrProto_LIB_DIR /ws/quicrq/)
 
-elseif (APPLE)
+  set(PTLS_LIBRARIES picotls-core picotls-openssl)
+  set(Picoquic_LIBRARIES picoquic-core picoquic-log)
+  set(QuicrProto_LIBRARIES quicrq-core)
+
+elseif(APPLE)
   message("Updating for Apple device")
   execute_process(
           COMMAND uname -m
@@ -83,9 +87,12 @@ elseif (APPLE)
     set(QuicrProto_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/qproto/lib/x86_64)
   endif()
 
-endif(APPLE)
+  set(PTLS_LIBRARIES picotls-core picotls-openssl picotls-fusion)
+  set(Picoquic_LIBRARIES picoquic-core picoquic-log)
+  set(QuicrProto_LIBRARIES quicrq-core)
 
-find_package( OpenSSL 1)
+endif()
+
 if (OPENSSL_FOUND)
   include_directories(${OPENSSL_INCLUDE_DIR})
   set (SSL_LIBS ${OPENSSL_LIBRARIES})
@@ -94,9 +101,6 @@ else()
 endif()
 
 #set(PTLS_LIBRARIES picotls-core picotls-openssl picotls-fusion)
-set(PTLS_LIBRARIES picotls-core picotls-openssl)
-set(Picoquic_LIBRARIES picoquic-core picoquic-log)
-set(QuicrProto_LIBRARIES quicrq-core)
 
 ###
 ### Library Config
@@ -133,5 +137,4 @@ add_subdirectory(test)
 ### Applications
 ###
 
-add_subdirectory(cmd/forty)
-add_subdirectory(cmd/chat-quicr)
+add_subdirectory(cmd)
