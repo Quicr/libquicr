@@ -133,13 +133,16 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
   auto* cb_ctx = (TransportContext*)callback_ctx;
 
   if (cb_ctx == nullptr) {
+    std::cerr << "[quir-loopcb]: cb_ctx is null\n";
     return PICOQUIC_ERROR_UNEXPECTED_ERROR;
   }
 
   if(cb_ctx->transport->shutting_down) {
+    std::cerr << "[quir-loopcb]: shutting down \n";
     return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
   }
 
+  std::cerr << "[quir-loopcb]: cb_mode " << cb_mode << std::endl;
   switch (cb_mode) {
     case picoquic_packet_loop_ready:
       if (callback_arg != nullptr) {
@@ -201,6 +204,7 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
 
 QuicRTransport::~QuicRTransport()
 {
+  logger.log(LogLevel::debug, "[quicr]: ~QuicRTransport");
   shutting_down = true;
   // ensure transport thread finishes
   // and resources are cleaned up.
@@ -316,6 +320,8 @@ QuicRTransport::register_publish_sources(
       logger.log(LogLevel::error, "Failed to add publisher: ");
       continue;
     }
+
+    logger.log(LogLevel::info, "Registered Source " + publisher);
     publishers[publisher] = std::move(*pub_context);
   }
 }
@@ -397,8 +403,9 @@ QuicRTransport::unsubscribe(const std::vector<std::string>& names)
 }
 
 void
-QuicRTransport::publish_named_data(const std::string& /*url*/, Data&& data)
+QuicRTransport::publish_named_data(const std::string& url, Data&& data)
 {
+  logger.log(LogLevel::debug, "[quicr]: publish media on " + url);
   std::lock_guard<std::mutex> lock(sendQMutex);
   sendQ.push(std::move(data));
 }
@@ -503,6 +510,7 @@ QuicRTransport::ready()
 int
 QuicRTransport::runQuicProcess()
 {
+  logger.log(LogLevel::debug, "[quicr]: Starting Packet Loop");
   // run the packet loop
   int ret = picoquic_packet_loop(quic,
                                  0,

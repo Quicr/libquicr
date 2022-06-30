@@ -13,6 +13,8 @@ using namespace quicr;
 using namespace std::chrono_literals;
 std::atomic<bool> done = false;
 
+bool always_on_mode = true;
+
 static std::string
 to_hex(const std::vector<uint8_t>& data)
 {
@@ -83,12 +85,23 @@ send_loop(QuicRClient& qclient, const std::string& name)
                                   4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7,
                                   8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
   uint32_t pkt_num = 0;
+  std::cout << "Always On Mode Enabled:" << always_on_mode << std::endl;
+  auto alive = std::string{"alive"};
 
   while (!done) {
-    auto data = bytes(forty_bytes, forty_bytes + sizeof(forty_bytes));
-    std::cout << "[40B:>>>>>] " << to_hex(data) << std::endl;
-    qclient.publish_named_data(name, std::move(data), 0, 0);
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    if (always_on_mode) {
+      std::string msg;
+      std::cout << "sending alive" << std::endl;
+      auto alive_bytes = bytes(alive.begin(), alive.end());
+      qclient.publish_named_data(name, std::move(alive_bytes), 0, 0);
+      std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+    } else {
+      auto data = bytes(forty_bytes, forty_bytes + sizeof(forty_bytes));
+      std::cout << "[40B:>>>>>] " << to_hex(data) << std::endl;
+      qclient.publish_named_data(name, std::move(data), 0, 0);
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
   }
   std::cout << "done send_loop\n";
 }
