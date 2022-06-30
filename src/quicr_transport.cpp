@@ -142,7 +142,6 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
     return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
   }
 
-  std::cerr << "[quir-loopcb]: cb_mode " << cb_mode << std::endl;
   switch (cb_mode) {
     case picoquic_packet_loop_ready:
       if (callback_arg != nullptr) {
@@ -153,6 +152,7 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
         std::lock_guard<std::mutex> lock(
           cb_ctx->transport->quicConnectionReadyMutex);
         cb_ctx->transport->quicConnectionReady = true;
+        std::cerr << "[quir-loopcb]: picoquic_packet_loop_ready " << std::endl;
       } else {
         // log error here
       }
