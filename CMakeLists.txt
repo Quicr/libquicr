@@ -1,9 +1,18 @@
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.18)
 
 project(quicr
   VERSION 0.1
   LANGUAGES C CXX
 )
+
+# Building tests by default depends on whether this is a subproject
+if (DEFINED PROJECT_NAME)
+    # Option to control building tests
+    option(quicr_BUILD_TESTS "Build Tests for quicr" OFF)
+else()
+    # Option to control building tests
+    option(quicr_BUILD_TESTS "Build Tests for quicr" ON)
+endif()
 
 option(CLANG_TIDY "Perform linting with clang-tidy" OFF)
 
@@ -34,11 +43,6 @@ if(CLANG_TIDY)
     message(WARNING "clang-tidy requested, but not found")
   endif()
 endif()
-
-###
-### Enable testing
-###
-enable_testing()
 
 ###
 ### Dependencies
@@ -120,9 +124,12 @@ target_include_directories(${LIB_NAME}
 target_link_libraries(${LIB_NAME} ${QPROTO_LIBRARIES} ${Picoquic_LIBRARIES} ${PTLS_LIBRARIES} ${SSL_LIBS})
 
 ###
-### Tests
+### Enable testing and add tests if quicr_BUILD_TESTS is ON
 ###
-add_subdirectory(test)
+if(quicr_BUILD_TESTS)
+  enable_testing()
+  add_subdirectory(test)
+endif()
 
 ###
 ### Applications
