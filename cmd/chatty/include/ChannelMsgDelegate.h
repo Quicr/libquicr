@@ -29,6 +29,8 @@ private:
 
   virtual void log(quicr::LogLevel level, const std::string& message) override;
 
+  virtual void on_object_published(const std::string& name, uint64_t group_id, uint64_t object_id) override;
+
 private:
   std::mutex queue_mutex;
   std::map<std::string, std::queue<quicr::bytes>> received_byte_queues;

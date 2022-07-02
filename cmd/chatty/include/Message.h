@@ -5,11 +5,11 @@
 class Message
 {
 public:
-    Message(const std::string& name, const std::string& msg);
+  Message(const std::string& name, const std::string& msg);
 
-    quicr::bytes operator()();
+  quicr::bytes operator()();
 
 private:
-    std::string sender;
-    std::string data;
+  std::string sender;
+  std::string data;
 };

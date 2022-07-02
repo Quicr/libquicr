@@ -13,7 +13,7 @@ using namespace quicr;
 using namespace std::chrono_literals;
 std::atomic<bool> done = false;
 
-bool always_on_mode = true;
+bool always_on_mode = false;
 
 static std::string
 to_hex(const std::vector<uint8_t>& data)
@@ -41,6 +41,14 @@ struct Forty : QuicRClient::Delegate
   void on_connection_close(const std::string& name)
   {
     std::cout << "consumer connection closed: " << name << "\n";
+  }
+
+  void on_object_published(const std::string& name,
+                           uint64_t group_id,
+                           uint64_t object_id)
+  {
+    std::cout << name << " object_published: group:" << group_id
+              << " object_id " << object_id << std::endl;
   }
 
   void log(LogLevel /*level*/, const std::string& message)
@@ -86,7 +94,7 @@ send_loop(QuicRClient& qclient, const std::string& name)
                                   8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
   uint32_t pkt_num = 0;
   std::cout << "Always On Mode Enabled:" << always_on_mode << std::endl;
-  auto alive = std::string{"alive"};
+  auto alive = std::string{ "alive" };
 
   while (!done) {
 
@@ -104,6 +112,7 @@ send_loop(QuicRClient& qclient, const std::string& name)
     }
   }
   std::cout << "done send_loop\n";
+  qclient.unregister_names({name});
 }
 
 void
@@ -117,6 +126,7 @@ setup_signal_handlers()
 {
   signal(SIGINT, signal_callback_handler);
 }
+
 int
 main(int argc, char* argv[])
 {
@@ -138,8 +148,6 @@ main(int argc, char* argv[])
     std::cerr << "other-client-id: some string that is not self" << std::endl;
     return -1;
   }
-
-  setup_signal_handlers();
 
   // server ip and port
   server_ip.assign(argv[1]);
@@ -165,6 +173,8 @@ main(int argc, char* argv[])
   // QuicRClient
   auto qclient =
     std::make_unique<QuicRClient>(*delegate, server_ip, server_port);
+
+  setup_signal_handlers();
 
   if (mode == "recv") {
     if (you.empty()) {

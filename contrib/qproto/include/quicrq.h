@@ -14,7 +14,7 @@ extern "C" {
  * The minor version is updated when the protocol changes
  * Only the letter is updated if the code changes without changing the protocol
  */
-#define QUICRQ_VERSION "0.20a"
+#define QUICRQ_VERSION "0.20b"
 
 /* QUICR ALPN and QUICR port
  * For version zero, the ALPN is set to "quicr-h<minor>", where <minor> is
@@ -122,89 +122,18 @@ quicrq_media_object_source_ctx_t* quicrq_publish_object_source(quicrq_ctx_t* qr_
     quicrq_media_object_source_properties_t * properties);
 int quicrq_object_source_set_start(quicrq_media_object_source_ctx_t* object_source_ctx, uint64_t start_group_id, uint64_t start_object_id);
 
-
 int quicrq_publish_object(
     quicrq_media_object_source_ctx_t* object_source_ctx,
     uint8_t* object,
     size_t object_length,
     int is_new_group,
-    quicrq_media_object_properties_t * properties);
+    quicrq_media_object_properties_t * properties,
+    uint64_t* published_group_id,
+    uint64_t* published_object_id);
 
 void quicrq_publish_object_fin(quicrq_media_object_source_ctx_t* object_source_ctx);
 
 void quicrq_delete_object_source(quicrq_media_object_source_ctx_t* object_source_ctx);
-
-/* Media publisher API.
- * 
- * Publisher connect a source to a local context by calling `quicrq_publish_source`.
- * This registers an URL for the source, and creates a source entry in the local context.
- * 
- * - qr_ctx: QUICR context in which the media is published
- * - url, url_length: URL of the media fragment
- * - media_publisher_subscribe_fn: callback function for subscribing a new consumer to the media source.
- * - media_publisher_fn: callback function for processing media arrival
- * - media_ctx: media context managed by the publisher, specific to that URL.
- * 
- * When a subscribe request arrives, the stack looks for a media source, which could be
- * an actual source, or the cached version of the media published by another node
- * for that URL. (In relays and origin servers, a new cache entry is automatically
- * created upon the request to an URL.) Once the stack has identified the source
- * context, it will make a first call to the "subscribe" function, which will
- * return a "media context" specific to that source and that subscription.
- * 
- * After that, the stack will try to send the media as a series of objects, each
- * composed of a series of fragments. The data is obtained by a series of calls
- * to the "publisher" function, with the following parameters:
- * 
- * - action: set to get data for retrieving data, or close to indicate end of
- *   the transmission. After a call to close, the media context can be freed.
- * - media_ctx: as produced by the call to the subscribe function.
- * - data: either NULL, or a pointer to the memory location where data shall
- *   be copied. (See below for the logic of calling the function twice)
- * - data_max_size: the space available at the memory location.
- * - &data_length: the data available to fill that space.
- * - &is_last_fragment: whether this is the last fragment in a object
- * - &is_media_finished: whether there is no more data to send.
- * - current_time: time, in microseconds. (May be virtual time during simulations
- *   and tests.)
- * 
- * The stack will make two calls to fill a packet: a first call with "data" set
- * to NULL to learn the number of bytes available, and the value of "is_last_fragment"
- * and "is_media_finished", and a second call to actually request the data. It is
- * essential that data_length, is_last_fragment and is_media_finished are set to
- * the same value in both calls.
- * 
- * The media is sent as a series of objects. The stack inserts a small header in
- * front of each fragment to specify the object number, the offset in the object,
- * and whether this is the last fragment. This is used by the reassembly
- * processes (see quicrq_reassembly.h). Intermediate relay may wait until the
- * last fragment is received to forward data belonging to a object.
- */
-
-typedef enum {
-    quicrq_media_source_get_data = 0,
-    quicrq_media_source_close
-} quicrq_media_source_action_enum;
-
-typedef void* (*quicrq_media_publisher_subscribe_fn)(void* pub_ctx, quicrq_stream_ctx_t * stream_ctx);
-typedef int (*quicrq_media_publisher_fn)(
-    quicrq_media_source_action_enum action,
-    void* media_ctx,
-    uint8_t* data,
-    size_t data_max_size,
-    size_t* data_length,
-    int* is_new_group,
-    int* is_last_fragment,
-    int* is_media_finished,
-    int *is_still_active,
-    uint64_t current_time);
-typedef void (*quicrq_media_publisher_delete_fn)(void* pub_ctx);
-
-typedef struct st_quicrq_media_source_ctx_t quicrq_media_source_ctx_t;
-quicrq_media_source_ctx_t* quicrq_publish_source(quicrq_ctx_t* qr_ctx, const uint8_t* url, size_t url_length,
-    void* pub_ctx, quicrq_media_publisher_subscribe_fn subscribe_fn, 
-    quicrq_media_publisher_fn getdata_fn, quicrq_media_publisher_delete_fn delete_fn);
-void quicrq_delete_source(quicrq_media_source_ctx_t* srce_ctx, quicrq_ctx_t* qr_ctx);
 
 /* Management of default sources, used for example by proxies or relays.
  * The callback creates a context for the specified URL, returning the parameters that would be otherwise
@@ -263,57 +192,20 @@ quicrq_object_stream_consumer_ctx* quicrq_subscribe_object_stream(quicrq_cnx_ctx
 
 void quicrq_unsubscribe_object_stream(quicrq_object_stream_consumer_ctx* subscribe_ctx);
 
- /* Quic media consumer.
-  * The application sets a "media consumer function" and a "media consumer context" for
-  * the media stream. On the client side, this is done by a call to "quicrq_cnx_subscribe_media"
-  * which will trigger the opening of the media stream through the protocol.
-  * 
-  * For client published streams, the client uses "quicrq_cnx_post_media"
-  * to start the media stream. The server will receive an initial command
-  * containing the media URL, and use 
-  */
-
-typedef int (*quicrq_media_consumer_fn)(
-    quicrq_media_consumer_enum action,
-    void* media_ctx,
-    uint64_t current_time,
-    const uint8_t* data,
-    uint64_t group_id,
-    uint64_t object_id,
-    uint64_t offset,
-    uint64_t queue_delay,
-    uint8_t flags,
-    uint64_t nb_objects_previous_group,
-    int is_last_fragment,
-    size_t data_length);
-
-int quicrq_cnx_subscribe_media(quicrq_cnx_ctx_t* cnx_ctx,
-    const uint8_t* url, size_t url_length, int use_datagrams,
-    quicrq_media_consumer_fn media_consumer_fn, void* media_ctx);
-
-int quicrq_cnx_subscribe_media_ex(quicrq_cnx_ctx_t* cnx_ctx, const uint8_t* url, size_t url_length,
-    int use_datagrams, quicrq_media_consumer_fn media_consumer_fn, void* media_ctx, quicrq_stream_ctx_t** p_stream_ctx);
-
 int quicrq_cnx_post_media(quicrq_cnx_ctx_t* cnx_ctx, const uint8_t* url, size_t url_length,
     int use_datagrams);
 
 typedef int (*quicrq_media_consumer_init_fn)(quicrq_stream_ctx_t* stream_ctx, const uint8_t* url, size_t url_length);
 int quicrq_set_media_init_callback(quicrq_ctx_t* ctx, quicrq_media_consumer_init_fn media_init_fn);
 
-int quicrq_set_media_stream_ctx(quicrq_stream_ctx_t* stream_ctx, quicrq_media_consumer_fn media_fn, void* media_ctx);
-
 quicrq_cnx_ctx_t* quicrq_first_connection(quicrq_ctx_t* qr_ctx);
 int quicrq_cnx_has_stream(quicrq_cnx_ctx_t* cnx_ctx);
 int quicrq_close_cnx(quicrq_cnx_ctx_t* cnx_ctx);
 int quicrq_is_cnx_disconnected(quicrq_cnx_ctx_t* cnx_ctx);
-void quicrq_source_wakeup(quicrq_media_source_ctx_t* srce_ctx);
 
 int quicrq_callback(picoquic_cnx_t* cnx,
     uint64_t stream_id, uint8_t* bytes, size_t length,
     picoquic_call_back_event_t fin_or_event, void* callback_ctx, void* v_stream_ctx);
-
-
-
 
 /* Handling of extra repeats
  *

@@ -18,6 +18,9 @@ struct TestDelegate: public QuicRClient::Delegate
 
   void on_connection_close(const std::string& name)
   {}
+
+  void on_object_published(const std::string& name, uint64_t group_id, uint64_t object_id)
+  {}
 };
 
 TEST_CASE("Object Lifetime")

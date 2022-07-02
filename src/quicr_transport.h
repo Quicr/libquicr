@@ -1,12 +1,12 @@
 #pragma once
 
+#include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <mutex>
 #include <queue>
 #include <string>
 #include <thread>
-#include <atomic>
 
 #include <netinet/in.h>
 #include <stdint.h>
@@ -104,6 +104,11 @@ public:
     return netTransportQuic->runQuicProcess();
   }
 
+  // delegate helpers
+  void on_object_published(const std::string& name,
+                           uint64_t group_id,
+                           uint64_t object_id);
+
   // APIs interacting with underlying quic stack for sending and receiving the
   // data
   bool hasDataToSendToNet();
@@ -115,10 +120,9 @@ public:
     return publishers.at(name);
   }
 
-  void wake_up_all_sources();
-
   std::atomic<bool> shutting_down = false;
   std::atomic<bool> closed = false;
+
 private:
   // Queue of data to be published
   std::queue<Data> sendQ;

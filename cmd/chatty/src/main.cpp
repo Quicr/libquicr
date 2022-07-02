@@ -42,9 +42,13 @@ main(int argc, char** argv)
   client.OnReceive = [](auto channel, const auto& data) {
     std::string msg;
     msg.reserve(data.size());
-    std::transform(data.begin(), data.end(), std::back_inserter(msg), [](uint8_t c) { return static_cast<char>(c); });
+    std::transform(data.begin(),
+                   data.end(),
+                   std::back_inserter(msg),
+                   [](uint8_t c) { return static_cast<char>(c); });
 
-    std::cout << "[" << data.size() << "B:<<<<][" << channel << "] " << msg << std::endl;
+    std::cout << "[" << data.size() << "B:<<<<][" << channel << "] " << msg
+              << std::endl;
   };
 
   client.Login(me);

@@ -3,11 +3,12 @@
 #include <algorithm>
 
 Message::Message(const std::string& name, const std::string& msg)
-    : sender(name), data(msg)
-{
-}
+  : sender(name)
+  , data(msg)
+{}
 
-quicr::bytes Message::operator()()
+quicr::bytes
+Message::operator()()
 {
 
   quicr::bytes bytes;

@@ -44,7 +44,8 @@ public:
 
   std::vector<std::string> GetChannels() const;
 
-  std::function<void(const std::string& name, const quicr::bytes& data)> OnReceive;
+  std::function<void(const std::string& name, const quicr::bytes& data)>
+    OnReceive;
 
 private:
   void check_client() const;

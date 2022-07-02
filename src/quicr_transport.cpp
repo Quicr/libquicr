@@ -99,7 +99,7 @@ object_stream_consumer_fn(
   int ret = 0;
   switch (action) {
     case quicrq_media_datagram_ready: {
-      if(!data) {
+      if (!data) {
         std::cerr << "data is null" << std::endl;
         break;
       }
@@ -137,7 +137,7 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
     return PICOQUIC_ERROR_UNEXPECTED_ERROR;
   }
 
-  if(cb_ctx->transport->shutting_down) {
+  if (cb_ctx->transport->shutting_down) {
     std::cerr << "[quir-loopcb]: shutting down \n";
     return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
   }
@@ -170,8 +170,8 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
       break;
     case picoquic_packet_loop_time_check: {
       /* check local test sources */
-      quicrq_app_check_source_time(
-        cb_ctx, (packet_loop_time_check_arg_t*)callback_arg);
+      quicrq_app_check_source_time(cb_ctx,
+                                   (packet_loop_time_check_arg_t*)callback_arg);
       quicr::internal::QuicRTransport::Data data;
       auto got = cb_ctx->transport->getDataToSendToNet(data);
       if (!got || data.app_data.empty()) {
@@ -184,16 +184,24 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
         break;
       }
 
-      ret = quicrq_publish_object(
-        publish_ctx.object_source_ctx,
-        reinterpret_cast<uint8_t*>(data.app_data.data()),
-        data.app_data.size(),
-        1,
-        nullptr);
+      uint64_t group_id = 0;
+      uint64_t object_id = 0;
+
+      ret =
+        quicrq_publish_object(publish_ctx.object_source_ctx,
+                              reinterpret_cast<uint8_t*>(data.app_data.data()),
+                              data.app_data.size(),
+                              1,
+                              nullptr,
+                              &group_id,
+                              &object_id);
 
       if (ret != 0) {
         // log error
       }
+      cb_ctx->transport->on_object_published(
+        data.quicr_name, group_id, object_id);
+
     } break;
     default:
       ret = PICOQUIC_ERROR_UNEXPECTED_ERROR;
@@ -211,13 +219,12 @@ QuicRTransport::~QuicRTransport()
   if (quicTransportThread.joinable()) {
     quicTransportThread.join();
   }
-
 }
 
 void
 QuicRTransport::close()
 {
-  if(closed) {
+  if (closed) {
     return;
   }
 
@@ -343,7 +350,7 @@ QuicRTransport::unregister_publish_sources(
     if (src_ctx.object_source_ctx) {
       quicrq_publish_object_fin(src_ctx.object_source_ctx);
       quicrq_delete_object_source(src_ctx.object_source_ctx);
-      // logger->info << "Removed source [" << source_id << std::flush;
+      logger.log(LogLevel::info, "Removed source [" + it->first + "]");
     }
     it = publishers.erase(it);
   }
@@ -408,6 +415,14 @@ QuicRTransport::publish_named_data(const std::string& url, Data&& data)
   logger.log(LogLevel::debug, "[quicr]: publish media on " + url);
   std::lock_guard<std::mutex> lock(sendQMutex);
   sendQ.push(std::move(data));
+}
+
+void
+QuicRTransport::on_object_published(const std::string& name,
+                                    uint64_t group_id,
+                                    uint64_t object_id)
+{
+  application_delegate.on_object_published(name, group_id, object_id);
 }
 
 void
