@@ -134,4 +134,6 @@ endif()
 ### Applications
 ###
 
-add_subdirectory(cmd)
+if(quicr_BUILD_cmd)
+  add_subdirectory(cmd)
+endif()
