@@ -2,8 +2,8 @@
 
 if (GIT_SUBMODULE)
     set(Picoquic_LIBRARIES picoquic-core picoquic-log )
-    set(Picoquic_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/contrib/picoquic/picoquic
-                                ${CMAKE_SOURCE_DIR}/contrib/picoquic/loglib)
+    set(Picoquic_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/contrib/picoquic/picoquic
+                                ${PROJECT_SOURCE_DIR}/contrib/picoquic/loglib)
     message(STATUS "huahhaaaha ${Picoquic_INCLUDE_DIRS}")
 else(GIT_SUBMODULE)
     find_path(Picoquic_INCLUDE_DIR

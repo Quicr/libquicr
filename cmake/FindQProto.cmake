@@ -2,7 +2,7 @@
 
 if (GIT_SUBMODULE)
     set(QPROTO_LIBRARIES quicrq-core)
-    set(QPROTO_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/contrib/qproto/include)
+    set(QPROTO_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/contrib/qproto/include)
     message(STATUS "huahhaaaha ${QPROTO_INCLUDE_DIRS}")
 else(GIT_SUBMODULE)
     find_path(QUICRQ_INCLUDE_DIR

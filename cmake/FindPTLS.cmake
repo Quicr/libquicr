@@ -10,7 +10,7 @@ if (GIT_SUBMODULE)
         set(PTLS_LIBRARIES ${PTLS_CORE_LIBRARY} ${PTLS_OPENSSL_LIBRARY})
         unset(PTLS_FUSION_LIBRARY)
     endif()
-    set(PTLS_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/contrib/picotls/include)
+    set(PTLS_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/contrib/picotls/include)
 else(GIT_SUBMODULE)
     find_path(PTLS_INCLUDE_DIR
         NAMES picotls/openssl.h
