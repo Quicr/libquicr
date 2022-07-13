@@ -111,8 +111,8 @@ target_include_directories(${LIB_NAME}
     $<INSTALL_INTERFACE:include/${PROJECT_NAME}-${PROJECT_VERSION}>
     ${Picotls_INCLUDE_DIR}
     ${Picoquic_INCLUDE_DIR}
+    ${QuicrProto_INCLUDE_DIR}
     ${Picoquic_loglib_INCLUDE_DIR}
-    ${QuicrProto_LIB_DIR}
   PRIVATE
     ${OPENSSL_INCLUDE_DIR}
 )
