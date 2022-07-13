@@ -81,7 +81,7 @@ elseif(S_DIRECTORY "/ws/picotls" AND IS_DIRECTORY "/ws/picoquic" AND IS_DIRECTOR
 
   set(PTLS_LIBRARIES picotls-core picotls-openssl)
   set(Picoquic_LIBRARIES picoquic-core picoquic-log)
-  set(QuicrProto_LIBRARIES quicrq-core)
+  set(QPROTO_LIBRARIES quicrq-core)
 endif(GIT_SUBMODULE)
 
 
@@ -103,12 +103,16 @@ file(GLOB_RECURSE LIB_HEADERS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/inc
 file(GLOB_RECURSE LIB_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 add_library(${LIB_NAME} ${ILB_HEADERS} ${LIB_SOURCES})
-target_link_directories(${LIB_NAME} PUBLIC ${Picotls_LIB_DIR} ${Picoquic_LIB_DIR} ${QProto_LIB_DIR})
+target_link_directories(${LIB_NAME} PUBLIC ${Picotls_LIB_DIR} ${Picoquic_LIB_DIR} ${QuicrProto_LIB_DIR})
 target_link_libraries(${LIB_NAME} OpenSSL::Crypto)
 target_include_directories(${LIB_NAME}
   PUBLIC
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include/${PROJECT_NAME}-${PROJECT_VERSION}>
+    ${Picotls_INCLUDE_DIR}
+    ${Picoquic_INCLUDE_DIR}
+    ${Picoquic_loglib_INCLUDE_DIR}
+    ${QuicrProto_LIB_DIR}
   PRIVATE
     ${OPENSSL_INCLUDE_DIR}
 )
