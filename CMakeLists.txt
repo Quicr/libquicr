@@ -1,8 +1,8 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.19)
 
 project(quicr
   VERSION 0.1
-  LANGUAGES CXX
+  LANGUAGES C CXX
 )
 
 option(CLANG_TIDY "Perform linting with clang-tidy" OFF)
@@ -17,7 +17,7 @@ include(CheckCXXCompilerFlag)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-  add_compile_options(-Wall -pedantic -Wextra -Wmissing-declarations)
+  add_compile_options(-pedantic -Wmissing-declarations)
 elseif(MSVC)
   add_compile_options(/W4 /WX)
 
@@ -46,9 +46,29 @@ enable_testing()
 # External libraries
 find_package(OpenSSL 1.1 REQUIRED)
 
-# contrib
 
-if (IS_DIRECTORY "/ws/picotls" AND IS_DIRECTORY "/ws/picoquic" AND IS_DIRECTORY "/ws/quicrq")
+# contrib
+option(GIT_SUBMODULE "Check submodules during build" OFF)
+if (GIT_SUBMODULE)
+  message("Using git submodules to bring in deps")
+  include(cmake/AddGitSubmodule.cmake)
+  add_git_submodule(${CMAKE_SOURCE_DIR}/contrib/picotls)
+  add_git_submodule(${CMAKE_SOURCE_DIR}/contrib/picoquic)
+  add_git_submodule(${CMAKE_SOURCE_DIR}/contrib/qproto)
+  
+  set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+ find_package(PTLS)
+ find_package(Picoquic)
+ find_package(QProto REQUIRED)
+
+ include_directories(include tests
+        ${QPROTO_INCLUDE_DIRS}
+        ${Picoquic_INCLUDE_DIRS} 
+        ${PTLS_INCLUDE_DIRS} 
+        ${OPENSSL_INCLUDE_DIR})
+
+
+elseif(S_DIRECTORY "/ws/picotls" AND IS_DIRECTORY "/ws/picoquic" AND IS_DIRECTORY "/ws/quicrq")
   message("Using /ws for picotls, picoquic, and quicrq")
   set(Picotls_INCLUDE_DIR  /ws/picotls/include)
   set(Picoquic_INCLUDE_DIR /ws/picoquic/picoquic)
@@ -61,37 +81,9 @@ if (IS_DIRECTORY "/ws/picotls" AND IS_DIRECTORY "/ws/picoquic" AND IS_DIRECTORY 
 
   set(PTLS_LIBRARIES picotls-core picotls-openssl)
   set(Picoquic_LIBRARIES picoquic-core picoquic-log)
-  set(QuicrProto_LIBRARIES quicrq-core)
+  set(QPROTO_LIBRARIES quicrq-core)
+endif(GIT_SUBMODULE)
 
-elseif(APPLE)
-  message("Updating for Apple device")
-  execute_process(
-          COMMAND uname -m
-          RESULT_VARIABLE result
-          OUTPUT_VARIABLE OSX_NATIVE_ARCHITECTURE
-          OUTPUT_STRIP_TRAILING_WHITESPACE
-  )
-
-  set(Picotls_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/picotls/include)
-  set(Picoquic_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/picoquic/include)
-  set(QuicrProto_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/qproto/include)
-
-  if(OSX_NATIVE_ARCHITECTURE STREQUAL "arm64")
-    set(Picotls_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/picotls/lib/arm64)
-    set(Picoquic_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/picoquic/lib/arm64)
-    set(QuicrProto_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/qproto/lib/arm64)
-
-  else()
-    set(Picotls_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/picotls/lib/x86_64)
-    set(Picoquic_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/picoquic/lib/x86_64)
-    set(QuicrProto_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/qproto/lib/x86_64)
-  endif()
-
-  set(PTLS_LIBRARIES picotls-core picotls-openssl picotls-fusion)
-  set(Picoquic_LIBRARIES picoquic-core picoquic-log)
-  set(QuicrProto_LIBRARIES quicrq-core)
-
-endif()
 
 if (OPENSSL_FOUND)
   include_directories(${OPENSSL_INCLUDE_DIR})
@@ -100,7 +92,6 @@ else()
   set(SSL_LIBS )
 endif()
 
-#set(PTLS_LIBRARIES picotls-core picotls-openssl picotls-fusion)
 
 ###
 ### Library Config
@@ -126,7 +117,7 @@ target_include_directories(${LIB_NAME}
     ${OPENSSL_INCLUDE_DIR}
 )
 
-target_link_libraries(${LIB_NAME} ${QuicrProto_LIBRARIES} ${Picoquic_LIBRARIES} ${PTLS_LIBRARIES} ${SSL_LIBS})
+target_link_libraries(${LIB_NAME} ${QPROTO_LIBRARIES} ${Picoquic_LIBRARIES} ${PTLS_LIBRARIES} ${SSL_LIBS})
 
 ###
 ### Tests
