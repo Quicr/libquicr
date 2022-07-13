@@ -48,26 +48,41 @@ find_package(OpenSSL 1.1 REQUIRED)
 
 
 # contrib
-option(GIT_SUBMODULE "Check submodules during build" ON)
-include(cmake/AddGitSubmodule.cmake)
-add_git_submodule(${CMAKE_SOURCE_DIR}/contrib/picotls)
-add_git_submodule(${CMAKE_SOURCE_DIR}/contrib/picoquic)
-add_git_submodule(${CMAKE_SOURCE_DIR}/contrib/qproto)
+option(GIT_SUBMODULE "Check submodules during build" OFF)
+if (GIT_SUBMODULE)
+  message("Using git submodules to bring in deps")
+  include(cmake/AddGitSubmodule.cmake)
+  add_git_submodule(${CMAKE_SOURCE_DIR}/contrib/picotls)
+  add_git_submodule(${CMAKE_SOURCE_DIR}/contrib/picoquic)
+  add_git_submodule(${CMAKE_SOURCE_DIR}/contrib/qproto)
+  
+  set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+ find_package(PTLS)
+ find_package(Picoquic)
+ find_package(QProto REQUIRED)
 
-set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-find_package(PTLS)
-find_package(Picoquic)
-find_package(QProto REQUIRED)
-
-message (STATUS "Header: ${QPROTO_INCLUDE_DIRS}")
-message (STATUS "Header: ${Picoquic_INCLUDE_DIRS}")
-message (STATUS "Header: ${PTLS_INCLUDE_DIRS}")
-
-include_directories(include tests
+ include_directories(include tests
         ${QPROTO_INCLUDE_DIRS}
         ${Picoquic_INCLUDE_DIRS} 
         ${PTLS_INCLUDE_DIRS} 
         ${OPENSSL_INCLUDE_DIR})
+
+
+elseif(S_DIRECTORY "/ws/picotls" AND IS_DIRECTORY "/ws/picoquic" AND IS_DIRECTORY "/ws/quicrq")
+  message("Using /ws for picotls, picoquic, and quicrq")
+  set(Picotls_INCLUDE_DIR  /ws/picotls/include)
+  set(Picoquic_INCLUDE_DIR /ws/picoquic/picoquic)
+  set(Picoquic_loglib_INCLUDE_DIR /ws/picoquic/loglib)
+  set(QuicrProto_INCLUDE_DIR /ws/quicrq/include/)
+
+  set(Picotls_LIB_DIR /ws/picotls/)
+  set(Picoquic_LIB_DIR /ws/picoquic/)
+  set(QuicrProto_LIB_DIR /ws/quicrq/)
+
+  set(PTLS_LIBRARIES picotls-core picotls-openssl)
+  set(Picoquic_LIBRARIES picoquic-core picoquic-log)
+  set(QuicrProto_LIBRARIES quicrq-core)
+endif(GIT_SUBMODULE)
 
 
 if (OPENSSL_FOUND)
