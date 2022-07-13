@@ -52,13 +52,17 @@ find_package(OpenSSL 1.1 REQUIRED)
 
 
 # contrib
-option(quicr_GIT_SUBMODULE "Check submodules during build" ON)
+option(quicr_GIT_SUBMODULE "Check submodules during build" OFF)
+option(quicr_ADD_MODULES_RECURSIVELY "Check to add sub-modules recursively" OFF)
+
 if (quicr_GIT_SUBMODULE)
   message("Using git submodules to bring in deps")
-  include(cmake/AddGitSubmodule.cmake)
-  add_git_submodule(${PROJECT_SOURCE_DIR}/contrib/picotls)
-  add_git_submodule(${PROJECT_SOURCE_DIR}/contrib/picoquic)
-  add_git_submodule(${PROJECT_SOURCE_DIR}/contrib/qproto)
+  if (quicr_ADD_MODULES_RECURSIVELY)
+    include(cmake/AddGitSubmodule.cmake)
+    add_git_submodule(${PROJECT_SOURCE_DIR}/contrib/picotls)
+    add_git_submodule(${PROJECT_SOURCE_DIR}/contrib/picoquic)
+    add_git_submodule(${PROJECT_SOURCE_DIR}/contrib/qproto)
+   endif(quicr_ADD_MODULES_RECURSIVELY)
   
   set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
   find_package(PTLS)
