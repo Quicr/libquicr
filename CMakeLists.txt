@@ -68,7 +68,7 @@ if (GIT_SUBMODULE)
         ${OPENSSL_INCLUDE_DIR})
 
 
-elseif(S_DIRECTORY "/ws/picotls" AND IS_DIRECTORY "/ws/picoquic" AND IS_DIRECTORY "/ws/quicrq")
+elseif(IS_DIRECTORY "/ws/picotls" AND IS_DIRECTORY "/ws/picoquic" AND IS_DIRECTORY "/ws/quicrq")
   message("Using /ws for picotls, picoquic, and quicrq")
   set(Picotls_INCLUDE_DIR  /ws/picotls/include)
   set(Picoquic_INCLUDE_DIR /ws/picoquic/picoquic)
