@@ -52,8 +52,8 @@ find_package(OpenSSL 1.1 REQUIRED)
 
 
 # contrib
-option(GIT_SUBMODULE "Check submodules during build" OFF)
-if (GIT_SUBMODULE)
+option(quicr_GIT_SUBMODULE "Check submodules during build" OFF)
+if (quicr_GIT_SUBMODULE)
   message("Using git submodules to bring in deps")
   include(cmake/AddGitSubmodule.cmake)
   add_git_submodule(${CMAKE_SOURCE_DIR}/contrib/picotls)
@@ -61,16 +61,15 @@ if (GIT_SUBMODULE)
   add_git_submodule(${CMAKE_SOURCE_DIR}/contrib/qproto)
   
   set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
- find_package(PTLS)
- find_package(Picoquic)
- find_package(QProto REQUIRED)
+  find_package(PTLS)
+  find_package(Picoquic)
+  find_package(QProto REQUIRED)
 
- include_directories(include tests
+  include_directories(include tests
         ${QPROTO_INCLUDE_DIRS}
         ${Picoquic_INCLUDE_DIRS} 
         ${PTLS_INCLUDE_DIRS} 
         ${OPENSSL_INCLUDE_DIR})
-
 
 elseif(IS_DIRECTORY "/ws/picotls" AND IS_DIRECTORY "/ws/picoquic" AND IS_DIRECTORY "/ws/quicrq")
   message("Using /ws for picotls, picoquic, and quicrq")
