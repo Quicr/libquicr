@@ -1,11 +1,11 @@
 # - Try to find Picoquic
 
-if (GIT_SUBMODULE)
+if (quicr_GIT_SUBMODULE)
     set(Picoquic_LIBRARIES picoquic-core picoquic-log )
     set(Picoquic_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/contrib/picoquic/picoquic
                                 ${PROJECT_SOURCE_DIR}/contrib/picoquic/loglib)
     message(STATUS "huahhaaaha ${Picoquic_INCLUDE_DIRS}")
-else(GIT_SUBMODULE)
+else(quicr_GIT_SUBMODULE)
     find_path(Picoquic_INCLUDE_DIR
         NAMES picoquic.h
         HINTS ${CMAKE_SOURCE_DIR}/../picoquic/picoquic
@@ -38,5 +38,5 @@ else(GIT_SUBMODULE)
             ${Picoquic_INCLUDE_DIR}
             ${Picoquic_BINLOG_DIR})
     endif()
-endif(GIT_SUBMODULE)
+endif(quicr_GIT_SUBMODULE)
 mark_as_advanced(Picoquic_LIBRARIES Picoquic_INCLUDE_DIRS)

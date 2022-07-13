@@ -1,5 +1,5 @@
 # - Try to find Picotls
-if (GIT_SUBMODULE)
+if (quicr_GIT_SUBMODULE)
     set(PTLS_CORE_LIBRARY picotls-core)
     set(PTLS_OPENSSL_LIBRARY picotls-openssl)
     if(WITH_FUSION)
@@ -11,7 +11,7 @@ if (GIT_SUBMODULE)
         unset(PTLS_FUSION_LIBRARY)
     endif()
     set(PTLS_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/contrib/picotls/include)
-else(GIT_SUBMODULE)
+else(quicr_GIT_SUBMODULE)
     find_path(PTLS_INCLUDE_DIR
         NAMES picotls/openssl.h
         HINTS ${PTLS_PREFIX}/include/picotls
@@ -53,5 +53,5 @@ else(GIT_SUBMODULE)
             set(PTLS_WITH_FUSION_DEFAULT ON)
         endif()
     endif()
-endif(GIT_SUBMODULE)
+endif(quicr_GIT_SUBMODULE)
 mark_as_advanced(PTLS_LIBRARIES PTLS_INCLUDE_DIRS)

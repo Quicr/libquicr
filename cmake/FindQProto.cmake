@@ -1,10 +1,10 @@
 # - Try to find Quicrq
 
-if (GIT_SUBMODULE)
+if (quicr_GIT_SUBMODULE)
     set(QPROTO_LIBRARIES quicrq-core)
     set(QPROTO_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/contrib/qproto/include)
     message(STATUS "huahhaaaha ${QPROTO_INCLUDE_DIRS}")
-else(GIT_SUBMODULE)
+else(quicr_GIT_SUBMODULE)
     find_path(QUICRQ_INCLUDE_DIR
             NAMES quicrq.h
             HINTS ${CMAKE_SOURCE_DIR}/../quicrq/include
@@ -34,6 +34,6 @@ else(GIT_SUBMODULE)
             ${QUICRQ_CORE_LIBRARY})
         set(QPROTO_INCLUDE_DIRS ${QUICRQ_INCLUDE_DIR} ${QUICRQ_INTERNAL_DIR})
     endif()
-endif(GIT_SUBMODULE)
+endif(quicr_GIT_SUBMODULE)
 
 mark_as_advanced(QPROTO_LIBRARIES QPROTO_INCLUDE_DIRS)
