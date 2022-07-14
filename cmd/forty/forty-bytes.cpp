@@ -11,7 +11,7 @@
 
 using namespace quicr;
 using namespace std::chrono_literals;
-std::atomic<bool> done = false;
+std::atomic<bool> done{};
 
 bool always_on_mode = false;
 
@@ -38,20 +38,20 @@ struct Forty : QuicRClient::Delegate
     recv_q.push(data);
   }
 
-  void on_connection_close(const std::string& name)
+  virtual void on_connection_close(const std::string& name) override
   {
     std::cout << "consumer connection closed: " << name << "\n";
   }
 
-  void on_object_published(const std::string& name,
+  virtual void on_object_published(const std::string& name,
                            uint64_t group_id,
-                           uint64_t object_id)
+                           uint64_t object_id) override
   {
     std::cout << name << " object_published: group:" << group_id
               << " object_id " << object_id << std::endl;
   }
 
-  void log(LogLevel /*level*/, const std::string& message)
+  virtual void log(LogLevel /*level*/, const std::string& message) override
   {
     std::cerr << message << std::endl;
   }

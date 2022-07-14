@@ -29,7 +29,7 @@
 .DS_Store
 *.swp
 *~
-build
+/build
 
 # log files
 *.log
@@ -39,7 +39,7 @@ build
 cmake-build-debug
 
 # Editor files/directories
-.vscode
+/.vscode
 /.vs
 /CMakeSettings.json
 .projections.json
