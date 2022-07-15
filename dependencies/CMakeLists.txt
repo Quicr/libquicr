@@ -2,7 +2,7 @@
 include(FetchContent)
 
 # Fetch the picoquic library, which brings in picotls with it
-message(STATUS "Retreiving picoquic")
+message(STATUS "Retrieving picoquic")
 FetchContent_Declare(
     picoquic
     GIT_REPOSITORY  https://github.com/private-octopus/picoquic.git
@@ -13,7 +13,7 @@ FetchContent_Declare(
 set(PICOQUIC_FETCH_PTLS ON)
 
 # Fetch the quicrq library
-message(STATUS "Retreiving quicrq")
+message(STATUS "Retrieving quicrq")
 FetchContent_Declare(
     quicrq
     GIT_REPOSITORY  git@github.com:Quicr/quicrq.git
@@ -24,7 +24,7 @@ FetchContent_Declare(
 if(quicr_BUILD_TESTS)
     find_package(doctest QUIET)
     if(NOT doctest_FOUND)
-        message(STATUS "Retreiving doctest")
+        message(STATUS "Retrieving doctest")
 
         # Fetch the doctest library
         FetchContent_Declare(
