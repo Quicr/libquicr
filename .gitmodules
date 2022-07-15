@@ -1,9 +1,0 @@
-[submodule "contrib/qproto"]
-	path = contrib/qproto
-	url = https://github.com/Quicr/quicrq.git
-[submodule "contrib/picoquic"]
-	path = contrib/picoquic
-	url = https://github.com/private-octopus/picoquic.git
-[submodule "contrib/picotls"]
-	path = contrib/picotls
-	url = https://github.com/h2o/picotls.git
