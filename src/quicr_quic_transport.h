@@ -27,34 +27,34 @@
 
 namespace quicr::internal {
 
-class QuicRTransport;
+class QuicRQTransport;
 
 // Context shared with th the underlying quicr stack
 struct TransportContext
 {
   quicrq_ctx_t* qr_ctx;
   quicrq_cnx_ctx_t* cn_ctx;
-  QuicRTransport* transport;
+  QuicRQTransport* transport;
 };
 
 struct PublisherContext
 {
   std::string quicr_name;
   quicrq_media_object_source_ctx_t* object_source_ctx; // used with/object api
-  QuicRTransport* transport;
+  QuicRQTransport* transport;
 };
 
 struct ConsumerContext
 {
   std::string quicr_name;
   quicrq_object_stream_consumer_ctx* object_consumer_ctx;
-  QuicRTransport* transport;
+  QuicRQTransport* transport;
 };
 
 ///
-/// QuicrTransport - Manages QuicR Protocol
+/// QuicrTransport - Manages QuicR Protocol over QUIC
 ///
-class QuicRTransport
+class QuicRQTransport
 {
 public:
   // Payload and metadata
@@ -64,11 +64,11 @@ public:
     bytes app_data;
   };
 
-  QuicRTransport(QuicRClient::Delegate& delegate_in,
-                 const std::string& sfuName_in,
-                 const uint16_t sfuPort_in);
+  QuicRQTransport(QuicRClient::Delegate& delegate_in,
+                  const std::string& sfuName_in,
+                  const uint16_t sfuPort_in);
 
-  ~QuicRTransport();
+  ~QuicRQTransport();
 
   void register_publish_sources(const std::vector<std::string>& publishers);
   void unregister_publish_sources(const std::vector<std::string>& publishers);
@@ -96,7 +96,7 @@ public:
   // Thread and its function managing quic context.
   std::thread quicTransportThread;
   int runQuicProcess();
-  static int quicTransportThreadFunc(QuicRTransport* netTransportQuic)
+  static int quicTransportThreadFunc(QuicRQTransport* netTransportQuic)
   {
     if (!netTransportQuic) {
       throw std::runtime_error("Transpor not initialized");

@@ -21,7 +21,7 @@
 #include <ws2tcpip.h>
 #endif
 
-#include "quicr_transport.h"
+#include "quicr_quic_transport.h"
 
 #include "autoqlog.h"
 #include "picoquic.h"
@@ -104,7 +104,7 @@ object_stream_consumer_fn(
         break;
       }
       auto payload = quicr::bytes(data, data + data_length);
-      quicr::internal::QuicRTransport::Data recv_data = { cons_ctx->quicr_name,
+      quicr::internal::QuicRQTransport::Data recv_data = {cons_ctx->quicr_name,
                                                           std::move(payload) };
       cons_ctx->transport->recvDataFromNet(recv_data);
     } break;
@@ -172,7 +172,7 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
       /* check local test sources */
       quicrq_app_check_source_time(cb_ctx,
                                    (packet_loop_time_check_arg_t*)callback_arg);
-      quicr::internal::QuicRTransport::Data data;
+      quicr::internal::QuicRQTransport::Data data;
       auto got = cb_ctx->transport->getDataToSendToNet(data);
       if (!got || data.app_data.empty()) {
         break;
@@ -210,7 +210,7 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
   return ret;
 }
 
-QuicRTransport::~QuicRTransport()
+QuicRQTransport::~QuicRQTransport()
 {
   logger.log(LogLevel::debug, "[quicr]: ~QuicRTransport");
   shutting_down = true;
@@ -222,7 +222,7 @@ QuicRTransport::~QuicRTransport()
 }
 
 void
-QuicRTransport::close()
+QuicRQTransport::close()
 {
   if (closed) {
     return;
@@ -265,7 +265,7 @@ QuicRTransport::close()
 }
 
 bool
-QuicRTransport::hasDataToSendToNet()
+QuicRQTransport::hasDataToSendToNet()
 {
   std::lock_guard<std::mutex> lock(sendQMutex);
   return !sendQ.empty();
@@ -274,7 +274,7 @@ QuicRTransport::hasDataToSendToNet()
 // Provide data to be sent over the transport
 // Called by underlying transport
 bool
-QuicRTransport::getDataToSendToNet(Data& data_out)
+QuicRQTransport::getDataToSendToNet(Data& data_out)
 {
   // get packet to send from Q
   Data data;
@@ -293,7 +293,7 @@ QuicRTransport::getDataToSendToNet(Data& data_out)
 }
 
 void
-QuicRTransport::recvDataFromNet(Data& data_in)
+QuicRQTransport::recvDataFromNet(Data& data_in)
 {
   // todo: support group_id and object_id reporting
   application_delegate.on_data_arrived(
@@ -301,7 +301,7 @@ QuicRTransport::recvDataFromNet(Data& data_in)
 }
 
 void
-QuicRTransport::register_publish_sources(
+QuicRQTransport::register_publish_sources(
   const std::vector<std::string>& publisher_names)
 {
   if (!quicr_ctx) {
@@ -334,7 +334,7 @@ QuicRTransport::register_publish_sources(
 }
 
 void
-QuicRTransport::unregister_publish_sources(
+QuicRQTransport::unregister_publish_sources(
   const std::vector<std::string>& publisher_names)
 {
   if (publishers.empty()) {
@@ -357,7 +357,7 @@ QuicRTransport::unregister_publish_sources(
 }
 
 void
-QuicRTransport::subscribe(const std::vector<std::string>& names)
+QuicRQTransport::subscribe(const std::vector<std::string>& names)
 {
   if (names.empty()) {
     logger.log(LogLevel::warn, "Empty subscribe list");
@@ -389,7 +389,7 @@ QuicRTransport::subscribe(const std::vector<std::string>& names)
 }
 
 void
-QuicRTransport::unsubscribe(const std::vector<std::string>& names)
+QuicRQTransport::unsubscribe(const std::vector<std::string>& names)
 {
   if (consumers.empty()) {
     return;
@@ -410,7 +410,7 @@ QuicRTransport::unsubscribe(const std::vector<std::string>& names)
 }
 
 void
-QuicRTransport::publish_named_data(const std::string& url, Data&& data)
+QuicRQTransport::publish_named_data(const std::string& url, Data&& data)
 {
   logger.log(LogLevel::debug, "[quicr]: publish media on " + url);
   std::lock_guard<std::mutex> lock(sendQMutex);
@@ -418,15 +418,15 @@ QuicRTransport::publish_named_data(const std::string& url, Data&& data)
 }
 
 void
-QuicRTransport::on_object_published(const std::string& name,
-                                    uint64_t group_id,
-                                    uint64_t object_id)
+QuicRQTransport::on_object_published(const std::string& name,
+                                     uint64_t group_id,
+                                     uint64_t object_id)
 {
   application_delegate.on_object_published(name, group_id, object_id);
 }
 
 void
-QuicRTransport::on_media_close(ConsumerContext* cons_ctx)
+QuicRQTransport::on_media_close(ConsumerContext* cons_ctx)
 {
   if (cons_ctx && cons_ctx->object_consumer_ctx) {
     if (consumers.empty()) {
@@ -445,9 +445,9 @@ QuicRTransport::on_media_close(ConsumerContext* cons_ctx)
   }
 }
 
-QuicRTransport::QuicRTransport(QuicRClient::Delegate& delegate_in,
-                               const std::string& sfuName,
-                               const uint16_t sfuPort)
+QuicRQTransport::QuicRQTransport(QuicRClient::Delegate& delegate_in,
+                                 const std::string& sfuName,
+                                 const uint16_t sfuPort)
   : quicConnectionReady(false)
   , quicr_ctx(quicrq_create_empty())
   , application_delegate(delegate_in)
@@ -502,13 +502,13 @@ QuicRTransport::QuicRTransport(QuicRClient::Delegate& delegate_in,
 }
 
 void
-QuicRTransport::start()
+QuicRQTransport::start()
 {
   quicTransportThread = std::thread(quicTransportThreadFunc, this);
 }
 
 bool
-QuicRTransport::ready()
+QuicRQTransport::ready()
 {
   bool ret;
   {
@@ -523,7 +523,7 @@ QuicRTransport::ready()
 
 // Main quic process thread and the packet loop
 int
-QuicRTransport::runQuicProcess()
+QuicRQTransport::runQuicProcess()
 {
   logger.log(LogLevel::debug, "[quicr]: Starting Packet Loop");
   // run the packet loop

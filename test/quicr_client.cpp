@@ -4,7 +4,7 @@
 
 #include <doctest/doctest.h>
 #include <quicr/quicr_client.h>
-#include "../src/quicr_transport.h"
+#include "../src/quicr_quic_transport.h"
 
 using namespace quicr;
 

@@ -1,4 +1,4 @@
-#include "quicr_transport.h"
+#include "quicr_quic_transport.h"
 #include <queue>
 #include <quicr/quicr_client.h>
 
@@ -15,7 +15,7 @@ struct QuicRClient::Transport
                      const uint16_t port)
     : delegate(delegate_in)
     , quicr_transport(
-        std::make_unique<internal::QuicRTransport>(delegate_in, server, port))
+        std::make_unique<internal::QuicRQTransport>(delegate_in, server, port))
   {
     // kick off the transport loop
     quicr_transport->start();
@@ -24,7 +24,7 @@ struct QuicRClient::Transport
   ~Transport() = default;
 
   const Delegate& delegate;
-  std::unique_ptr<internal::QuicRTransport> quicr_transport;
+  std::unique_ptr<internal::QuicRQTransport> quicr_transport;
 };
 
 ///
@@ -58,7 +58,7 @@ QuicRClient::publish_named_data(const std::string& name,
                                 uint8_t /*priority*/,
                                 uint64_t /*best_before*/)
 {
-  auto data = internal::QuicRTransport::Data{ name, std::move(data_in) };
+  auto data = internal::QuicRQTransport::Data{name, std::move(data_in) };
   transport_handle->quicr_transport->publish_named_data(name, std::move(data));
 }
 
