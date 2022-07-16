@@ -5,6 +5,19 @@ Implementation of transport layer api based on QuicR
 
 Quickstart
 ----------
+### Cmake FetchContent
+
+All the dependecies are now fetched via cmake and below steps should 
+build libquicr.a
+
+```
+git clone git@github.com:Quicr/libquicr.git
+cd libquicr
+mkdir build
+cd build
+cmake ..
+make all
+```
 
 ### Docker Dev Image
 The developer image contains ```picotls```, ```picoquic``` and ```quicrq```, which are required
@@ -28,6 +41,7 @@ tar -c -C ../ ./quicrq ./libquicr  \
 ```
 
 #### Compile libquicr
+
 
 ```
 cd <libquicr directory>
