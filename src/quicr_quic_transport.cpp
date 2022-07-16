@@ -28,23 +28,12 @@
 #include "picoquic_packet_loop.h"
 #include "picoquic_utils.h"
 #include "picosocks.h"
-//PEJ#include "picotls.h"
+// PEJ#include "picotls.h"
 
 using namespace quicr::internal;
 
 #define SERVER_CERT_FILE "cert.pem"
 #define SERVER_KEY_FILE "key.pem"
-
-///
-/// log handler utility
-///
-
-template<typename... Ts>
-void
-log(quicr::LogLevel level, const Ts&... vals)
-{
-  auto ss = std::stringstream();
-}
 
 ///
 /// Quicr/Quic Stack callback handlers.
@@ -83,6 +72,24 @@ quicrq_app_check_source_time(TransportContext* cb_ctx,
   // log here delta
 }
 
+// subscribe pattern notify of names available
+int
+quicrq_subscribe_notify_name(void* notify_ctx,
+                             const uint8_t* url,
+                             size_t url_length)
+{
+  int ret = 0;
+  auto* ctx = (WildCardSubscribeContext*)notify_ctx;
+
+  if (!ctx) {
+    return -1;
+  }
+
+  auto name = std::string(url, url + url_length);
+  ctx->transport->on_pattern_match(ctx, std::move(name));
+  return ret;
+}
+
 // media consumer object callback from quicr stack
 int
 object_stream_consumer_fn(
@@ -104,8 +111,8 @@ object_stream_consumer_fn(
         break;
       }
       auto payload = quicr::bytes(data, data + data_length);
-      quicr::internal::QuicRQTransport::Data recv_data = {cons_ctx->quicr_name,
-                                                          std::move(payload) };
+      quicr::internal::QuicRQTransport::Data recv_data = { cons_ctx->quicr_name,
+                                                           std::move(payload) };
       cons_ctx->transport->recvDataFromNet(recv_data);
     } break;
     case quicrq_media_close:
@@ -302,7 +309,7 @@ QuicRQTransport::recvDataFromNet(Data& data_in)
 
 void
 QuicRQTransport::register_publish_sources(
-  const std::vector<std::string>& publisher_names)
+  const std::vector<quicr::QuicrName>& publisher_names)
 {
   if (!quicr_ctx) {
     throw std::runtime_error("quicr context is empty\n");
@@ -311,53 +318,93 @@ QuicRQTransport::register_publish_sources(
   for (auto& publisher : publisher_names) {
     auto obj_src_context = quicrq_publish_object_source(
       quicr_ctx,
-      reinterpret_cast<uint8_t*>(const_cast<char*>(publisher.data())),
-      publisher.length(),
+      reinterpret_cast<uint8_t*>(const_cast<char*>(publisher.name.data())),
+      publisher.name.length(),
       nullptr);
     assert(obj_src_context);
-    auto pub_context = new PublisherContext{ publisher, obj_src_context, this };
+    auto pub_context =
+      new PublisherContext{ publisher.name, obj_src_context, this };
 
     // enable publishing
     auto ret = quicrq_cnx_post_media(
       cnx_ctx,
-      reinterpret_cast<uint8_t*>(const_cast<char*>(publisher.data())),
-      publisher.length(),
+      reinterpret_cast<uint8_t*>(const_cast<char*>(publisher.name.data())),
+      publisher.name.length(),
       true);
     if (ret) {
       logger.log(LogLevel::error, "Failed to add publisher: ");
       continue;
     }
 
-    logger.log(LogLevel::info, "Registered Source " + publisher);
-    publishers[publisher] = std::move(*pub_context);
+    logger.log(LogLevel::info, "Registered Source " + publisher.name);
+    publishers[publisher.name] = std::move(*pub_context);
   }
 }
 
 void
 QuicRQTransport::unregister_publish_sources(
-  const std::vector<std::string>& publisher_names)
+  const std::vector<quicr::QuicrName>& publisher_names)
 {
   if (publishers.empty()) {
     return;
   }
-  auto it = publishers.begin();
-  while (it != publishers.end()) {
-    if (!publishers.count(it->first)) {
-      ++it;
-      continue;
+
+  for (auto& publisher : publisher_names) {
+    auto it = publishers.begin();
+    while (it != publishers.end()) {
+      if (!publishers.count(publisher.name)) {
+        ++it;
+        continue;
+      }
+      auto src_ctx = publishers[it->first];
+      if (src_ctx.object_source_ctx) {
+        quicrq_publish_object_fin(src_ctx.object_source_ctx);
+        quicrq_delete_object_source(src_ctx.object_source_ctx);
+        logger.log(LogLevel::info, "Removed source [" + it->first + "]");
+      }
+      it = publishers.erase(it);
+      break;
     }
-    auto src_ctx = publishers[it->first];
-    if (src_ctx.object_source_ctx) {
-      quicrq_publish_object_fin(src_ctx.object_source_ctx);
-      quicrq_delete_object_source(src_ctx.object_source_ctx);
-      logger.log(LogLevel::info, "Removed source [" + it->first + "]");
-    }
-    it = publishers.erase(it);
   }
 }
 
 void
-QuicRQTransport::subscribe(const std::vector<std::string>& names)
+QuicRQTransport::on_pattern_match(WildCardSubscribeContext* ctx,
+                                  std::string&& name)
+{
+  logger.log(LogLevel::info, "Got subscriber pattern match:" + name);
+  subscribe({ { name, 0 } });
+  // add to name matching the pattern
+  ctx->mapped_names.push_back(name);
+}
+
+void
+QuicRQTransport::subscribe(const std::string& name)
+{
+  auto consumer_media_ctx = new ConsumerContext{};
+  memset(consumer_media_ctx, 0, sizeof(ConsumerContext));
+  consumer_media_ctx->quicr_name = name;
+  consumer_media_ctx->transport = this;
+  constexpr auto use_datagram = true;
+  constexpr auto in_order = true;
+
+  consumer_media_ctx->object_consumer_ctx = quicrq_subscribe_object_stream(
+    cnx_ctx,
+    reinterpret_cast<uint8_t*>(const_cast<char*>(name.data())),
+    name.length(),
+    use_datagram,
+    in_order,
+    object_stream_consumer_fn,
+    consumer_media_ctx);
+
+  assert(consumer_media_ctx->object_consumer_ctx);
+
+  consumers[name] = *consumer_media_ctx;
+  logger.log(LogLevel::info, "Subscriber added " + name);
+}
+
+void
+QuicRQTransport::subscribe(const std::vector<quicr::QuicrName>& names)
 {
   if (names.empty()) {
     logger.log(LogLevel::warn, "Empty subscribe list");
@@ -365,47 +412,79 @@ QuicRQTransport::subscribe(const std::vector<std::string>& names)
   }
 
   for (auto& name : names) {
-    auto consumer_media_ctx = new ConsumerContext{};
-    memset(consumer_media_ctx, 0, sizeof(ConsumerContext));
-    consumer_media_ctx->quicr_name = name;
-    consumer_media_ctx->transport = this;
-    constexpr auto use_datagram = true;
-    constexpr auto in_order = true;
+    if (!name.mask) {
+      // full subscribe
+      subscribe(name.name);
+    } else {
+      auto wildcard_ctx =
+        new WildCardSubscribeContext{ name, this, {}, cnx_ctx, nullptr };
+      wildcard_ctx->stream_ctx = quicrq_cnx_subscribe_pattern(
+        cnx_ctx,
+        reinterpret_cast<uint8_t*>(const_cast<char*>(name.name.data())),
+        name.mask,
+        quicrq_subscribe_notify_name,
+        wildcard_ctx);
+      if (wildcard_ctx->stream_ctx) {
+        //  report error or fail return
+      }
 
-    consumer_media_ctx->object_consumer_ctx = quicrq_subscribe_object_stream(
-      cnx_ctx,
-      reinterpret_cast<uint8_t*>(const_cast<char*>(name.data())),
-      name.length(),
-      use_datagram,
-      in_order,
-      object_stream_consumer_fn,
-      consumer_media_ctx);
-
-    assert(consumer_media_ctx->object_consumer_ctx);
-
-    consumers[name] = *consumer_media_ctx;
-    // logger.log(LogLevel::info, "Subscriber ")
+      logger.log(LogLevel::info,
+                 "Adding Subscriber pattern fot name: " + name.name);
+      wildcard_patterns.push_back(wildcard_ctx);
+    }
   }
 }
 
 void
-QuicRQTransport::unsubscribe(const std::vector<std::string>& names)
+QuicRQTransport::unsubscribe(const std::string& name)
 {
-  if (consumers.empty()) {
-    return;
-  }
-
   auto it = consumers.begin();
   while (it != consumers.end()) {
-    if (!consumers.count(it->first)) {
+    if (!consumers.count(name)) {
       ++it;
       continue;
     }
     auto cons_ctx = consumers[it->first];
     if (cons_ctx.object_consumer_ctx) {
       quicrq_unsubscribe_object_stream(cons_ctx.object_consumer_ctx);
+      logger.log(LogLevel::info, "Subscription cancelled: " + name);
     }
     it = consumers.erase(it);
+    break;
+  }
+}
+
+void
+QuicRQTransport::unsubscribe(const std::vector<std::string>& names)
+{
+  for (auto& name : names) {
+    unsubscribe(name);
+  }
+}
+
+void
+QuicRQTransport::unsubscribe(const std::vector<quicr::QuicrName>& names)
+{
+  if (consumers.empty()) {
+    return;
+  }
+
+  for (auto& name : names) {
+    if (name.mask) {
+      // clean up matching subscribers for this pattern
+      for (auto& ctx : wildcard_patterns) {
+        // found a matching name for the pattern
+        if (ctx->name.name == name.name && ctx->name.mask == name.mask) {
+          logger.log(LogLevel::info, "Unsubscribe Pattern: subscribers match");
+          unsubscribe(ctx->mapped_names);
+          // close the pattern
+          quicrq_cnx_subscribe_pattern_close(ctx->cnx_ctx, ctx->stream_ctx);
+        }
+      }
+    } else {
+      // full name
+      unsubscribe(name.name);
+    }
   }
 }
 
@@ -479,7 +558,7 @@ QuicRQTransport::QuicRQTransport(QuicRClient::Delegate& delegate_in,
   // update quicr context with the quic stack
   quicrq_set_quic(quicr_ctx, quic);
 
-  struct sockaddr_storage addr = { 0 };
+  struct sockaddr_storage addr;
   int is_name = 0;
   char const* sni = nullptr;
 

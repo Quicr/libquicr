@@ -1,3 +1,3 @@
 add_subdirectory(forty)
-add_subdirectory(chatty)
+#add_subdirectory(chatty)
 

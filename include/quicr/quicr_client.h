@@ -1,8 +1,9 @@
 #pragma once
+#include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
-#include <memory>
 
 namespace quicr {
 
@@ -26,9 +27,17 @@ struct LogHandler
   virtual void log(LogLevel /*level*/, const std::string& /*message*/) {}
 };
 
+// Names to be used in QuicR protocol.
+// Mask is no-op for publish and is
+// applicable for subscribes.
+struct QuicrName
+{
+  std::string name;
+  size_t mask = 0; // zero implies full name
+};
+
 struct QuicRClient
 {
-
   // Application delegate to report callbacks from the transport
   struct Delegate : LogHandler
   {
@@ -61,21 +70,21 @@ struct QuicRClient
   bool is_transport_ready();
 
   // Pub/Sub APIs
-  void register_names(const std::vector<std::string>& names,
+  void register_names(const std::vector<QuicrName>& names,
                       bool use_reliable_transport);
 
-  void unregister_names(const std::vector<std::string>& names);
+  void unregister_names(const std::vector<QuicrName>& names);
 
   void publish_named_data(const std::string& name,
                           bytes&& data,
                           uint8_t priority,
                           uint64_t best_before);
 
-  void subscribe(const std::vector<std::string>& names,
+  void subscribe(const std::vector<QuicrName>& names,
                  bool use_reliable_transport,
                  bool in_order_delivery);
 
-  void unsubscribe(const std::vector<std::string>& names);
+  void unsubscribe(const std::vector<QuicrName>& names);
 
   void close();
 

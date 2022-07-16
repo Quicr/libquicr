@@ -44,6 +44,15 @@ struct PublisherContext
   QuicRQTransport* transport;
 };
 
+struct WildCardSubscribeContext
+{
+  QuicrName name;
+  QuicRQTransport* transport;
+  std::vector<std::string> mapped_names = {};
+  quicrq_cnx_ctx_t* cnx_ctx;
+  quicrq_stream_ctx_t* stream_ctx;
+};
+
 struct ConsumerContext
 {
   std::string quicr_name;
@@ -70,11 +79,13 @@ public:
 
   ~QuicRQTransport();
 
-  void register_publish_sources(const std::vector<std::string>& publishers);
-  void unregister_publish_sources(const std::vector<std::string>& publishers);
+  void register_publish_sources(
+    const std::vector<quicr::QuicrName>& publishers);
+  void unregister_publish_sources(
+    const std::vector<quicr::QuicrName>& publishers);
   void publish_named_data(const std::string& url, Data&& data);
-  void subscribe(const std::vector<std::string>& names);
-  void unsubscribe(const std::vector<std::string>& names);
+  void subscribe(const std::vector<quicr::QuicrName>& names);
+  void unsubscribe(const std::vector<quicr::QuicrName>& names);
   void start();
   bool ready();
   void close();
@@ -109,8 +120,8 @@ public:
                            uint64_t group_id,
                            uint64_t object_id);
 
-  // APIs interacting with underlying quic stack for sending and receiving the
-  // data
+  // APIs interacting with underlying quic stack for
+  // sending and receiving the data
   bool hasDataToSendToNet();
   bool getDataToSendToNet(Data& data_out);
   void recvDataFromNet(Data& data_in);
@@ -120,10 +131,16 @@ public:
     return publishers.at(name);
   }
 
+  void on_pattern_match(WildCardSubscribeContext* ctx, std::string&& name);
+
   std::atomic<bool> shutting_down = false;
   std::atomic<bool> closed = false;
 
 private:
+  void subscribe(const std::string& name);
+  void unsubscribe(const std::string& name);
+  void unsubscribe(const std::vector<std::string>& name);
+
   // Queue of data to be published
   std::queue<Data> sendQ;
   std::mutex sendQMutex;
@@ -140,9 +157,10 @@ private:
   std::map<std::string, PublisherContext> publishers = {};
   // source_ -> consumer_ctx
   std::map<std::string, ConsumerContext> consumers = {};
+  // subscriber patterns
+  std::vector<WildCardSubscribeContext*> wildcard_patterns = {};
   // Handler of transport events from the application
   QuicRClient::Delegate& application_delegate;
-
   LogHandler& logger;
 };
 

@@ -29,10 +29,10 @@ to_hex(const std::vector<uint8_t>& data)
 // Delegate Implementation
 struct Forty : QuicRClient::Delegate
 {
-  void on_data_arrived(const std::string& name,
+  void on_data_arrived(const std::string& /*name*/,
                        bytes&& data,
-                       uint64_t group_id,
-                       uint64_t object_id) override
+                       uint64_t /*group_id*/,
+                       uint64_t /*object_id*/) override
   {
     std::lock_guard<std::mutex> lock(recv_q_mutex);
     recv_q.push(data);
@@ -44,8 +44,8 @@ struct Forty : QuicRClient::Delegate
   }
 
   virtual void on_object_published(const std::string& name,
-                           uint64_t group_id,
-                           uint64_t object_id) override
+                                   uint64_t group_id,
+                                   uint64_t object_id) override
   {
     std::cout << name << " object_published: group:" << group_id
               << " object_id " << object_id << std::endl;
@@ -87,12 +87,11 @@ read_loop(Forty* delegate)
 }
 
 void
-send_loop(QuicRClient& qclient, const std::string& name)
+send_loop(QuicRClient& qclient, std::string& name)
 {
   const uint8_t forty_bytes[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3,
                                   4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7,
                                   8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-  uint32_t pkt_num = 0;
   std::cout << "Always On Mode Enabled:" << always_on_mode << std::endl;
   auto alive = std::string{ "alive" };
 
@@ -112,11 +111,12 @@ send_loop(QuicRClient& qclient, const std::string& name)
     }
   }
   std::cout << "done send_loop\n";
-  qclient.unregister_names({name});
+  auto qname = QuicrName{ name, 0 };
+  qclient.unregister_names({ qname });
 }
 
 void
-signal_callback_handler(int signum)
+signal_callback_handler(int /*signum*/)
 {
   done = true;
 }
@@ -134,18 +134,19 @@ main(int argc, char* argv[])
   std::string transport_type;
   std::string me;
   std::string you;
-  uint64_t source_id = 0x1000;
   uint16_t server_port = 7777;
   std::string server_ip;
   if (argc < 5) {
     std::cerr << "Usage: forty <server> <port> <mode> <self-client-id> "
-                 "<other-client-id>"
+                 "<other-client-id> <mask-length>"
               << std::endl;
     std::cerr << "port: server ip for quicr origin/relay" << std::endl;
     std::cerr << "port: server port for quicr origin/relay" << std::endl;
     std::cerr << "mode: sendrecv/send/recv" << std::endl;
     std::cerr << "self-client-id: some string" << std::endl;
     std::cerr << "other-client-id: some string that is not self" << std::endl;
+    std::cerr << "mask-length: Length of mask when subscribing in octets"
+              << std::endl;
     return -1;
   }
 
@@ -168,6 +169,15 @@ main(int argc, char* argv[])
   me.assign(argv[4]);
   you.assign(argv[5]);
 
+  // mask length
+  std::string mask_str;
+  size_t mask = 0;
+  if (argv)
+    mask_str.assign(argv[6]);
+  if (!mask_str.empty()) {
+    mask = std::stoi(mask_str, nullptr);
+  }
+
   // Delegate
   auto delegate = std::make_unique<Forty>();
   // QuicRClient
@@ -183,7 +193,8 @@ main(int argc, char* argv[])
     }
 
     // all the params are not used in the lib yet
-    qclient->subscribe(std::vector<std::string>{ you }, false, false);
+    auto qname = QuicrName{ you, mask };
+    qclient->subscribe(std::vector<QuicrName>{ qname }, false, false);
 
     while (!qclient->is_transport_ready()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(5));
@@ -198,7 +209,7 @@ main(int argc, char* argv[])
     }
 
     // all the params are not used in the lib yet
-    qclient->register_names(std::vector<std::string>{ me }, true);
+    qclient->register_names({ { me, 0 } }, true);
 
     while (!qclient->is_transport_ready()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(5));
@@ -213,8 +224,8 @@ main(int argc, char* argv[])
       exit(-1);
     }
 
-    qclient->register_names(std::vector<std::string>{ me }, true);
-    qclient->subscribe(std::vector<std::string>{ you }, false, false);
+    qclient->register_names({ { me, 0 } }, true);
+    qclient->subscribe({ { you, mask } }, false, false);
 
     while (!qclient->is_transport_ready()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(5));

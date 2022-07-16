@@ -10,6 +10,7 @@ namespace quicr {
 
 struct QuicRClient::Transport
 {
+  // TODO: Support multiple transports
   explicit Transport(Delegate& delegate_in,
                      const std::string& server,
                      const uint16_t port)
@@ -40,14 +41,14 @@ QuicRClient::QuicRClient(QuicRClient::Delegate& delegate_in,
 QuicRClient::~QuicRClient() = default;
 
 void
-QuicRClient::register_names(const std::vector<std::string>& names,
+QuicRClient::register_names(const std::vector<QuicrName>& names,
                             bool /*use_reliable_transport*/)
 {
   transport_handle->quicr_transport->register_publish_sources(names);
 }
 
 void
-QuicRClient::unregister_names(const std::vector<std::string>& names)
+QuicRClient::unregister_names(const std::vector<QuicrName>& names)
 {
   transport_handle->quicr_transport->unregister_publish_sources(names);
 }
@@ -58,12 +59,12 @@ QuicRClient::publish_named_data(const std::string& name,
                                 uint8_t /*priority*/,
                                 uint64_t /*best_before*/)
 {
-  auto data = internal::QuicRQTransport::Data{name, std::move(data_in) };
+  auto data = internal::QuicRQTransport::Data{ name, std::move(data_in) };
   transport_handle->quicr_transport->publish_named_data(name, std::move(data));
 }
 
 void
-QuicRClient::subscribe(const std::vector<std::string>& names,
+QuicRClient::subscribe(const std::vector<QuicrName>& names,
                        bool /*use_reliable_transport*/,
                        bool /*in_order_delivery*/)
 {
@@ -71,7 +72,7 @@ QuicRClient::subscribe(const std::vector<std::string>& names,
 }
 
 void
-QuicRClient::unsubscribe(const std::vector<std::string>& names)
+QuicRClient::unsubscribe(const std::vector<QuicrName>& names)
 {
   transport_handle->quicr_transport->unsubscribe(names);
 }

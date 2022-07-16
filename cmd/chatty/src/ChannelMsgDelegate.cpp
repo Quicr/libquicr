@@ -48,7 +48,11 @@ ChannelMsgDelegate::log(quicr::LogLevel /*level*/, const std::string& message)
   std::clog << "[log] " << message << std::endl;
 }
 
-void ChannelMsgDelegate::on_object_published(const std::string& name, uint64_t group_id, uint64_t object_id)
+void
+ChannelMsgDelegate::on_object_published(const std::string& name,
+                                        uint64_t group_id,
+                                        uint64_t object_id)
 {
-  std::clog << name << " object_published: group:" << group_id << " object_id " << object_id << std::endl;
+  std::clog << name << " object_published: group:" << group_id << " object_id "
+            << object_id << std::endl;
 }
