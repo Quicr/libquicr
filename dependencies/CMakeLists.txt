@@ -10,8 +10,8 @@ if(IS_DIRECTORY "/ws/picoquic")
 else()
     message(STATUS "Retrieving picoquic")
     FetchContent_Declare(picoquic
-        GIT_REPOSITORY      https://github.com/private-octopus/picoquic.git
-        GIT_TAG             master
+        GIT_REPOSITORY  https://github.com/private-octopus/picoquic.git
+        GIT_TAG         master
     )
 endif()
 
