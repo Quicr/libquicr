@@ -15,7 +15,7 @@ else()
     )
 endif()
 
-# Set the option to force picoquic to fetch the picotls
+# Set the option to force picoquic to fetch picotls
 set(PICOQUIC_FETCH_PTLS ON)
 
 # Fetch the quicrq library
