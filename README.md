@@ -143,21 +143,19 @@ Local QuicR origin/relay setup
 For dev-testing, it would be beneficial to build and run 
 the origin/relay locally.  Use the dev docker image for this. 
 
-- Run Docker Image
-    ```
-    docker run --rm -it \
-    -v $(pwd):/ws/src \
-    quicr/libquicr:latest bash
-    ```
-
 - Run Origin as
     ```
     export QUICRQ=/ws/quicrq
+    or
+    export QUICRQ=./build/_deps/quicrq-build ( non docker )
+    
     $QUICRQ/quicrq_app -q qlog_server -p 7777 -c ../picoquic/certs/cert.pem -k ../picoquic/certs/key.pem  server
     ```
 - Run Relay as
     ```
     export QUICRQ=/ws/quicrq
+    or 
+    export QUICRQ=./build/_deps/quicrq-build ( non docker )
     $QUICRQ/quicrq_app -q qlog_relay -p 8888 -c ../picoquic/certs/cert.pem -k ../picoquic/certs/key.pem relay localhost d 7777
     ```
 
