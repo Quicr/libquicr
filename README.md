@@ -5,6 +5,8 @@ Implementation of transport layer api based on QuicR.
 Please see for further details
 [QuicR Protocol](https://www.ietf.org/id/draft-jennings-moq-quicr-proto-01.html)
 
+The actual protocol implementation is covered [here](https://github.com/Quicr/quicrq).
+
 Quickstart
 ----------
 ### Cmake FetchContent
