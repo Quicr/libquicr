@@ -120,16 +120,20 @@ the origin/relay locally.  Use the dev docker image for this.
 - Run Origin as
     ```
     export QUICRQ=/ws/quicrq
+    export CERT_PATH=../picoquic/certs
     or
     export QUICRQ=./build/_deps/quicrq-build ( non docker, from project root )
+    export CERT_PATH=./certs
     
     $QUICRQ/quicrq_app -q qlog_server -p 7777 -c ../picoquic/certs/cert.pem -k ../picoquic/certs/key.pem  server
     ```
 - Run Relay as
     ```
     export QUICRQ=/ws/quicrq
+    export CERT_PATH=../picoquic/certs
     or 
     export QUICRQ=./build/_deps/quicrq-build ( non docker, from project root )
+    export CERT_PATH=./certs
     $QUICRQ/quicrq_app -q qlog_relay -p 8888 -c ../picoquic/certs/cert.pem -k ../picoquic/certs/key.pem relay localhost d 7777
     ```
 
