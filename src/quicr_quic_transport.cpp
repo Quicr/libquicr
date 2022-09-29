@@ -196,7 +196,7 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
       }
 
       // Harcoded - Change it //
-      auto propertes = quicrq_media_object_properties_t {0, 1};
+      auto propertes = quicrq_media_object_properties_t {0};
       ret =
         quicrq_publish_object(publish_ctx.object_source_ctx,
                               reinterpret_cast<uint8_t*>(data.app_data.data()),
@@ -317,7 +317,7 @@ QuicRQTransport::register_publish_sources(
   }
 
   for (auto& publisher : publisher_names) {
-      quicrq_media_object_source_properties_t src_props = {0};
+      quicrq_media_object_source_properties_t src_props = {0, 0};
       src_props.use_real_time_caching = 1;
       auto obj_src_context = quicrq_publish_object_source(
               quicr_ctx,
