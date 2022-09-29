@@ -57,7 +57,10 @@ TEST_CASE("Subscribe/Unsubscribe Names")
   TestDelegate delegate;
   {
     auto qr_client = std::make_unique<QuicRClient>(delegate, "127.0.0.1", 1245);
-    qr_client->subscribe(std::vector<QuicrName>{{"1",0}, {"2", 0}}, false, false);
+    auto intent = SubscribeIntent{SubscribeIntent::Mode::immediate, 0 , 0};
+    qr_client->subscribe(std::vector<QuicrName>{{"1",0}, {"2", 0}},
+                         intent,
+                         false, false);
     qr_client->unsubscribe({{"1",0}, {"2", 0}});
     CHECK_NOTHROW(qr_client->close());
   }

@@ -36,6 +36,34 @@ struct QuicrName
   size_t mask = 0; // zero implies full name
 };
 
+/*
+ * typedef enum {
+    quicrq_subscribe_intent_current_group = 0,
+    quicrq_subscribe_intent_next_group = 1,
+    quicrq_subscribe_intent_start_point = 2
+} quicrq_subscribe_intent_enum;
+
+typedef struct st_quicrq_subscribe_intent_t {
+    quicrq_subscribe_intent_enum intent_mode;
+    uint64_t start_group_id;
+    uint64_t start_object_id;
+} quicrq_subscribe_intent_t;
+
+ */
+// Subscribe Intent
+struct SubscribeIntent {
+    enum class Mode {
+        immediate = 0, // Start from the most latest object
+        wait_up = 1,   // Start from the following group
+        sync_up = 2,   // Start from the request position
+    };
+
+    Mode mode;
+    uint64_t group_id;  // Applicable when mode == sync_up
+    uint64_t object_id; // ^^^^^ Ditto ^^^^
+};
+
+
 struct QuicRClient
 {
   // Application delegate to report callbacks from the transport
@@ -77,10 +105,13 @@ struct QuicRClient
 
   void publish_named_data(const std::string& name,
                           bytes&& data,
+                          uint64_t group_id,
+                          uint64_t object_id,
                           uint8_t priority,
                           uint64_t best_before);
 
   void subscribe(const std::vector<QuicrName>& names,
+                 SubscribeIntent& intent,
                  bool use_reliable_transport,
                  bool in_order_delivery);
 

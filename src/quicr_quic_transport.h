@@ -47,6 +47,7 @@ struct PublisherContext
 struct WildCardSubscribeContext
 {
   QuicrName name;
+  SubscribeIntent intent;
   QuicRQTransport* transport;
   std::vector<std::string> mapped_names = {};
   quicrq_cnx_ctx_t* cnx_ctx;
@@ -70,6 +71,8 @@ public:
   struct Data
   {
     std::string quicr_name;
+    uint64_t group_id;
+    uint64_t object_id;
     bytes app_data;
   };
 
@@ -84,7 +87,7 @@ public:
   void unregister_publish_sources(
     const std::vector<quicr::QuicrName>& publishers);
   void publish_named_data(const std::string& url, Data&& data);
-  void subscribe(const std::vector<quicr::QuicrName>& names);
+  void subscribe(const std::vector<quicr::QuicrName>& names, SubscribeIntent& intent);
   void unsubscribe(const std::vector<quicr::QuicrName>& names);
   void start();
   bool ready();
@@ -137,7 +140,7 @@ public:
   std::atomic<bool> closed = false;
 
 private:
-  void subscribe(const std::string& name);
+  void subscribe(const std::string& name, SubscribeIntent& intent);
   void unsubscribe(const std::string& name);
   void unsubscribe(const std::vector<std::string>& name);
 

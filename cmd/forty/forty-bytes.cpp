@@ -13,7 +13,7 @@ using namespace quicr;
 using namespace std::chrono_literals;
 std::atomic<bool> done{};
 
-bool always_on_mode = false;
+bool chat_mode = false;
 
 static std::string
 to_hex(const std::vector<uint8_t>& data)
@@ -76,12 +76,26 @@ void
 read_loop(Forty* delegate)
 {
   std::cout << "Client read audio loop init\n";
+  std::string chat_message;
   while (!done) {
     auto data = delegate->recv();
     if (data.empty()) {
       continue;
     }
-    std::cout << "[40B:<<<<] " << to_hex(data) << std::endl;
+    if (chat_mode) {
+        auto msg = std::string(data.begin(), data.end());
+        std::cout << chat_message << std::endl;
+        if (msg == "end") {
+            std::cout << "[<<<<] " << chat_message << std::endl;
+            chat_message= "";
+        } else {
+            chat_message += msg;
+        }
+
+    } else {
+        std::cout << "[40B:<<<<] " << to_hex(data) << std::endl;
+    }
+
   }
   std::cout << "read_loop done\n";
 }
@@ -92,23 +106,26 @@ send_loop(QuicRClient& qclient, std::string& name)
   const uint8_t forty_bytes[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3,
                                   4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7,
                                   8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-  std::cout << "Always On Mode Enabled:" << always_on_mode << std::endl;
-  auto alive = std::string{ "alive" };
+  auto group_id = 100;
+  auto object_id = 0;
 
   while (!done) {
 
-    if (always_on_mode) {
+    if (chat_mode) {
       std::string msg;
-      std::cout << "sending alive" << std::endl;
-      auto alive_bytes = bytes(alive.begin(), alive.end());
-      qclient.publish_named_data(name, std::move(alive_bytes), 0, 0);
-      std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+      std::cout << "Send message: ";
+      std::cin >> msg;
+      msg += "end";
+      auto msg_bytes = bytes(msg.begin(), msg.end());
+      qclient.publish_named_data(name, std::move(msg_bytes), group_id, object_id, 0, 0);
     } else {
       auto data = bytes(forty_bytes, forty_bytes + sizeof(forty_bytes));
       std::cout << "[40B:>>>>>] " << to_hex(data) << std::endl;
-      qclient.publish_named_data(name, std::move(data), 0, 0);
+      qclient.publish_named_data(name, std::move(data), group_id, object_id, 0, 0);
       std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
+      object_id += 1;
+
   }
   std::cout << "done send_loop\n";
   auto qname = QuicrName{ name, 0 };
@@ -194,7 +211,11 @@ main(int argc, char* argv[])
 
     // all the params are not used in the lib yet
     auto qname = QuicrName{ you, mask };
-    qclient->subscribe(std::vector<QuicrName>{ qname }, false, false);
+    auto intent = SubscribeIntent{SubscribeIntent::Mode::immediate, 0, 0};
+    qclient->subscribe(std::vector<QuicrName>{ qname },
+                       intent,
+                       false,
+                       false);
 
     while (!qclient->is_transport_ready()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(5));
@@ -225,7 +246,11 @@ main(int argc, char* argv[])
     }
 
     qclient->register_names({ { me, 0 } }, true);
-    qclient->subscribe({ { you, mask } }, false, false);
+    auto intent = SubscribeIntent{SubscribeIntent::Mode::immediate, 0, 0};
+    qclient->subscribe({ { you, mask } },
+                       intent,
+                       false,
+                       false);
 
     while (!qclient->is_transport_ready()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(5));
