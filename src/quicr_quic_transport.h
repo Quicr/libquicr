@@ -139,6 +139,10 @@ public:
   std::atomic<bool> shutting_down = false;
   std::atomic<bool> closed = false;
 
+  // used by quic stack callbacks
+  template<typename... Ts>
+  void log(const Ts& ...vals) const;
+
 private:
   void subscribe(const std::string& name, SubscribeIntent& intent);
   void unsubscribe(const std::string& name);

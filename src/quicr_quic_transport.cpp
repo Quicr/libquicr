@@ -148,26 +148,27 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
     return PICOQUIC_ERROR_UNEXPECTED_ERROR;
   }
 
+  if (cb_ctx->transport == nullptr) {
+    std::cerr << "[quir-loopcb]: transport context is null\n";
+    return PICOQUIC_ERROR_UNEXPECTED_ERROR;
+  }
+
   if (cb_ctx->transport->shutting_down) {
-    std::cerr << "[quir-loopcb]: shutting down \n";
+    cb_ctx->transport->log("[quir-loopcb]: shutting down");
     return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
   }
 
   switch (cb_mode) {
-    case picoquic_packet_loop_ready:
-      if (callback_arg != nullptr) {
-        auto* options = (picoquic_packet_loop_options_t*)callback_arg;
-        options->do_time_check = 1;
-      }
-      if (cb_ctx->transport) {
-        std::lock_guard<std::mutex> lock(
-          cb_ctx->transport->quicConnectionReadyMutex);
+    case picoquic_packet_loop_ready: {
+        if (callback_arg != nullptr) {
+            auto *options = (picoquic_packet_loop_options_t *) callback_arg;
+            options->do_time_check = 1;
+        }
+        std::lock_guard<std::mutex> lock(cb_ctx->transport->quicConnectionReadyMutex);
         cb_ctx->transport->quicConnectionReady = true;
-        std::cerr << "[quir-loopcb]: picoquic_packet_loop_ready " << std::endl;
-      } else {
-        // log error here
-      }
-      ret = 0;
+        cb_ctx->transport->log("[quir-loopcb]: picoquic_packet_loop_read");
+        ret = 0;
+    }
       break;
     case picoquic_packet_loop_after_receive:
       /* Post receive callback */
@@ -191,10 +192,9 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
       auto& publish_ctx =
         cb_ctx->transport->get_publisher_context(data.quicr_name);
       if (!publish_ctx.object_source_ctx) {
-        // log warn
+        cb_ctx->transport->log("[quir-loopcb]: Object source context misseing");
         break;
       }
-
       // Harcoded - Change it //
       auto propertes = quicrq_media_object_properties_t {0};
       ret =
@@ -206,8 +206,9 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
                               data.object_id);
 
       if (ret != 0) {
-        // log error
+          cb_ctx->transport->log("[quir-loopcb]: quicrq_publish_object error:", ret);
       }
+
       cb_ctx->transport->on_object_published(
         data.quicr_name,data.group_id, data.object_id);
     } break;
@@ -216,6 +217,14 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
       break;
   }
   return ret;
+}
+
+
+template<typename ...Ts>
+void QuicRQTransport::log(const Ts &...vals) const {
+    auto ss = std::stringstream();
+    (ss << ... << vals);
+    logger.log(LogLevel::info, ss.str());
 }
 
 QuicRQTransport::~QuicRQTransport()
@@ -340,7 +349,7 @@ QuicRQTransport::register_publish_sources(
           continue;
       }
 
-      quicrq_object_source_set_start(obj_src_context, 100, 0);
+      //quicrq_object_source_set_start(obj_src_context, 100, 0);
 
       logger.log(LogLevel::info, "Registered Source " + publisher.name);
       publishers[publisher.name] = std::move(*pub_context);
