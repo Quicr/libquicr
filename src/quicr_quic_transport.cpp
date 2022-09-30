@@ -197,6 +197,9 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
       }
       // Harcoded - Change it //
       auto propertes = quicrq_media_object_properties_t {0};
+      cb_ctx->transport->log("[quir-loopcb]:publishing: group:", data.group_id,
+                             " object:", data.object_id, " size:", data.app_data.size(),
+                             " url: ", data.quicr_name);
       ret =
         quicrq_publish_object(publish_ctx.object_source_ctx,
                               reinterpret_cast<uint8_t*>(data.app_data.data()),
@@ -523,7 +526,7 @@ QuicRQTransport::unsubscribe(const std::vector<quicr::QuicrName>& names)
 void
 QuicRQTransport::publish_named_data(const std::string& url, Data&& data)
 {
-  logger.log(LogLevel::debug, "[quicr]: publish media on " + url);
+  //logger.log(LogLevel::debug, "[quicr]: publish media on " + url);
   std::lock_guard<std::mutex> lock(sendQMutex);
   sendQ.push(std::move(data));
 }
