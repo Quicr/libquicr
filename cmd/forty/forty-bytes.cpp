@@ -106,7 +106,7 @@ send_loop(QuicRClient& qclient, std::string& name)
   const uint8_t forty_bytes[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3,
                                   4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7,
                                   8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-  auto group_id = 100;
+  auto group_id = 0;
   auto object_id = 0;
 
   while (!done) {
@@ -121,10 +121,11 @@ send_loop(QuicRClient& qclient, std::string& name)
     } else {
       auto data = bytes(forty_bytes, forty_bytes + sizeof(forty_bytes));
       std::cout << "[40B:>>>>>] " << to_hex(data) << std::endl;
-      qclient.publish_named_data(name, std::move(data), group_id, object_id, 0, 0);
+      qclient.publish_named_data(name, std::move(data), group_id, object_id, 0x81, 0);
       std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
-      object_id += 1;
+    group_id += 1;
+    object_id = 0;
 
   }
   std::cout << "done send_loop\n";

@@ -73,6 +73,7 @@ public:
     std::string quicr_name;
     uint64_t group_id;
     uint64_t object_id;
+    uint8_t priority;
     bytes app_data;
   };
 

@@ -58,10 +58,10 @@ QuicRClient::publish_named_data(const std::string& name,
                                 bytes&& data_in,
                                 uint64_t group_id,
                                 uint64_t object_id,
-                                uint8_t /*priority*/,
+                                uint8_t priority,
                                 uint64_t /*best_before*/)
 {
-  auto data = internal::QuicRQTransport::Data{ name, group_id, object_id, std::move(data_in) };
+  auto data = internal::QuicRQTransport::Data{ name, group_id, object_id, priority, std::move(data_in) };
   transport_handle->quicr_transport->publish_named_data(name, std::move(data));
 }
 

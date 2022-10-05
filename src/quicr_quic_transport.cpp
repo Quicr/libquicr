@@ -115,6 +115,7 @@ object_stream_consumer_fn(
       quicr::internal::QuicRQTransport::Data recv_data = { cons_ctx->quicr_name,
                                                            group_id,
                                                            object_id,
+                                                           0,
                                                            std::move(payload) };
       std::cerr <<  "data-in "<< group_id << ","<< object_id << std::endl;
       cons_ctx->transport->recvDataFromNet(recv_data);
@@ -196,7 +197,7 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
         break;
       }
       // Harcoded - Change it //
-      auto propertes = quicrq_media_object_properties_t {0};
+      auto propertes = quicrq_media_object_properties_t { data.priority, 1 };
       cb_ctx->transport->log("[quir-loopcb]:publishing: group:", data.group_id,
                              " object:", data.object_id, " size:", data.app_data.size(),
                              " url: ", data.quicr_name);
