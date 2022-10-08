@@ -330,8 +330,9 @@ QuicRQTransport::register_publish_sources(
   }
 
   for (auto& publisher : publisher_names) {
-      quicrq_media_object_source_properties_t src_props = {0, 0};
+      quicrq_media_object_source_properties_t src_props = {1, publisher.start_group_id, publisher.start_object_id};
       src_props.use_real_time_caching = 1;
+
       auto obj_src_context = quicrq_publish_object_source(
               quicr_ctx,
               reinterpret_cast<uint8_t *>(const_cast<char *>(publisher.name.data())),

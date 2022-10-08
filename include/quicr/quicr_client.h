@@ -33,7 +33,9 @@ struct LogHandler
 struct QuicrName
 {
   std::string name;
-  size_t mask = 0; // zero implies full name
+  size_t mask {0}; // zero implies full name
+  uint64_t start_group_id {0};
+  uint64_t start_object_id {0};
 };
 
 /*
