@@ -92,4 +92,10 @@ QuicRClient::close()
   return transport_handle->quicr_transport->close();
 }
 
+void
+QuicRClient::set_congestion_control_status(bool status) {
+  transport_handle->quicr_transport->set_congestion_control_status(status);
+}
+
+
 }

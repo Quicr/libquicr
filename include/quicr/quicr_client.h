@@ -121,6 +121,9 @@ struct QuicRClient
 
   void close();
 
+  // advanced transport functions
+  void set_congestion_control_status(bool status);
+
 private:
   struct Transport;
   std::unique_ptr<Transport> transport_handle;

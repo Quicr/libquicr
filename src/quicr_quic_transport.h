@@ -93,6 +93,7 @@ public:
   void start();
   bool ready();
   void close();
+  void set_congestion_control_status(bool status);
 
   // callback registered with the underlying quicr stack
   static int quicr_callback(picoquic_cnx_t* cnx,
