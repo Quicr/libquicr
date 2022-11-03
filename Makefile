@@ -24,7 +24,7 @@ test-libs: ${BUILD_DIR}
 
 test: ${BUILD_DIR} test/*
 
-	cmake --build ${BUILD_DIR} --target neoMedia_test
+	cmake --build ${BUILD_DIR} --target quicr_test 
 
 tidy:
 	cmake -B${BUILD_DIR} -DCLANG_TIDY=ON -DCMAKE_BUILD_TYPE=Debug .

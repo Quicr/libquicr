@@ -494,7 +494,6 @@ QuicRQTransport::unsubscribe(const std::string& name)
       quicrq_unsubscribe_object_stream(cons_ctx.object_consumer_ctx);
       logger.log(LogLevel::info, "Subscription cancelled: " + name);
     }
-    it = consumers.erase(it);
     break;
   }
 }
