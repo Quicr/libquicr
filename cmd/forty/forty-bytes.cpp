@@ -108,6 +108,7 @@ send_loop(QuicRClient& qclient, std::string& name)
                                   8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
   auto group_id = 0;
   auto object_id = 0;
+  auto GROUP_SIZE = 50;
 
   while (!done) {
 
@@ -123,9 +124,14 @@ send_loop(QuicRClient& qclient, std::string& name)
       std::cout << "[40B:>>>>>] " << to_hex(data) << std::endl;
       qclient.publish_named_data(name, std::move(data), group_id, object_id, 0x81, 0);
       std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      object_id += 1;
     }
-    group_id += 1;
-    object_id = 0;
+
+    if(object_id >= GROUP_SIZE) {
+      group_id += 1;
+      object_id = 0;
+      std::cout << "[40B:>>>>>] New GROUP " << group_id << std::endl;
+    }
 
   }
   std::cout << "done send_loop\n";
@@ -212,7 +218,7 @@ main(int argc, char* argv[])
 
     // all the params are not used in the lib yet
     auto qname = QuicrName{ you, mask };
-    auto intent = SubscribeIntent{SubscribeIntent::Mode::immediate, 0, 0};
+    auto intent = SubscribeIntent{SubscribeIntent::Mode::wait_up, 0, 0};
     qclient->subscribe(std::vector<QuicrName>{ qname },
                        intent,
                        false,
@@ -240,6 +246,7 @@ main(int argc, char* argv[])
     std::cout << "Transport is ready" << std::endl;
 
     send_loop(*qclient.get(), me);
+
   } else {
     if (me.empty() || you.empty()) {
       std::cout << "Bad choice for clientId(s)" << std::endl;
