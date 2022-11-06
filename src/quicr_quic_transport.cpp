@@ -107,7 +107,7 @@ object_stream_consumer_fn(
   switch (action) {
     case quicrq_media_datagram_ready: {
       if (!data) {
-        std::cerr << "[obj consumer fn] data is null" << std::endl;
+        std::cerr << "[consumerFn] data is null" << std::endl;
         break;
       }
       auto payload = quicr::bytes(data, data + data_length);
@@ -116,14 +116,14 @@ object_stream_consumer_fn(
                                                            object_id,
                                                            0,
                                                            std::move(payload) };
-      std::cerr << "[obj consumer fn]:data-in group: "<< group_id
-                << ", object:"<< object_id  << ", length:" << data_length << std::endl;
+      std::cerr << "[consumerFn]:data-in name:"<<  recv_data.quicr_name << ", group: "<< recv_data.group_id
+                << ", object:"<< recv_data.object_id  << ", length:" << data_length << std::endl;
       cons_ctx->transport->recvDataFromNet(recv_data);
     } break;
     case quicrq_media_close:
       /* Remove the reference to the media context, as the caller will
        * free it. */
-      std::cerr << "[obj consumer fn] media close" << std::endl;
+      std::cerr << "[consumerFn] media close" << std::endl;
       cons_ctx->transport->on_media_close(cons_ctx);
       ret = 0;
       break;
@@ -327,7 +327,7 @@ QuicRQTransport::recvDataFromNet(Data& data_in)
 {
   // todo: support group_id and object_id reporting
   application_delegate.on_data_arrived(
-    data_in.quicr_name, std::move(data_in.app_data), 0, 0);
+    data_in.quicr_name, std::move(data_in.app_data), data_in.group_id, data_in.object_id);
 }
 
 void
