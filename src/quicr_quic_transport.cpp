@@ -201,7 +201,7 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
       auto propertes = quicrq_media_object_properties_t { data.priority};
       cb_ctx->transport->log("[quir-loopcb]:publishing: group:", data.group_id,
                              " object:", data.object_id, " size:", data.app_data.size(),
-                             " url: ", data.quicr_name);
+                             " url: ", data.quicr_name, ", priority:", propertes.flags);
       ret =
         quicrq_publish_object(publish_ctx.object_source_ctx,
                               reinterpret_cast<uint8_t*>(data.app_data.data()),

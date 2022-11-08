@@ -246,6 +246,8 @@ main(int argc, char* argv[])
 
     std::cout << "Transport is ready" << std::endl;
     read_loop(delegate.get());
+    qclient->unsubscribe({qname_audio, qname_video});
+
   } else if (mode == "send") {
     if (me.empty()) {
       std::cout << "Bad choice for self-client-id" << std::endl;
