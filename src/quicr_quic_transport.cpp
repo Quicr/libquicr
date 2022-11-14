@@ -107,7 +107,7 @@ object_stream_consumer_fn(
   switch (action) {
     case quicrq_media_datagram_ready: {
       if (!data) {
-        std::cerr << "[consumerFn] data is null" << std::endl;
+        cons_ctx->transport->log("[consumerFn] data is null");
         break;
       }
       auto payload = quicr::bytes(data, data + data_length);
@@ -116,15 +116,17 @@ object_stream_consumer_fn(
                                                            object_id,
                                                            0,
                                                            std::move(payload) };
-      std::cerr << "[consumerFn]:data-in name:"<<  recv_data.quicr_name << ", group: "<< recv_data.group_id
-                << ", object:"<< recv_data.object_id  << ", length:" << data_length << std::endl;
+      cons_ctx->transport->log("[consumerFn]:data-in name:", recv_data.quicr_name,
+                               ", group: ", recv_data.group_id,
+                               ", object:", recv_data.object_id,
+                               ", length:" , data_length);
+
       cons_ctx->transport->recvDataFromNet(recv_data);
     } break;
     case quicrq_media_close:
       /* Remove the reference to the media context, as the caller will
        * free it. */
-      std::cerr << "[consumerFn] media close" << std::endl;
-      cons_ctx->transport->on_media_close(cons_ctx);
+      cons_ctx->transport->log("[consumerFn] media close");
       ret = 0;
       break;
     default:
