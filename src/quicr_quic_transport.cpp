@@ -362,7 +362,7 @@ QuicRQTransport::register_publish_sources(
               cnx_ctx,
               reinterpret_cast<uint8_t *>(const_cast<char *>(publisher.name.data())),
               publisher.name.length(),
-              true);
+        quicrq_transport_mode_enum::quicrq_transport_mode_datagram);
       if (ret) {
           logger.log(LogLevel::error, "Failed to add publisher: ");
           continue;
@@ -442,7 +442,7 @@ QuicRQTransport::subscribe(const std::string& name, quicr::SubscribeIntent& inte
     cnx_ctx,
     reinterpret_cast<uint8_t*>(const_cast<char*>(name.data())),
     name.length(),
-    use_datagram,
+    quicrq_transport_mode_enum::quicrq_transport_mode_datagram,
     in_order,
     &sub_intent,
     object_stream_consumer_fn,
@@ -498,6 +498,7 @@ QuicRQTransport::unsubscribe(const std::string& name)
     auto cons_ctx = consumers[it->first];
     if (cons_ctx.object_consumer_ctx) {
       quicrq_unsubscribe_object_stream(cons_ctx.object_consumer_ctx);
+      it = consumers.erase(it);
       logger.log(LogLevel::info, "Subscription cancelled: " + name);
     }
     break;
