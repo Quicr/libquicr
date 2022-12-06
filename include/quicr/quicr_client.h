@@ -33,9 +33,9 @@ struct LogHandler
 struct QuicrName
 {
   std::string name;
-  size_t mask {0}; // zero implies full name
-  uint64_t start_group_id {0};
-  uint64_t start_object_id {0};
+  size_t mask{ 0 }; // zero implies full name
+  uint64_t start_group_id{ 0 };
+  uint64_t start_object_id{ 0 };
 };
 
 /*
@@ -53,18 +53,19 @@ typedef struct st_quicrq_subscribe_intent_t {
 
  */
 // Subscribe Intent
-struct SubscribeIntent {
-    enum class Mode {
-        immediate = 0, // Start from the most latest object
-        wait_up = 1,   // Start from the following group
-        sync_up = 2,   // Start from the request position
-    };
+struct SubscribeIntent
+{
+  enum class Mode
+  {
+    immediate = 0, // Start from the most latest object
+    wait_up = 1,   // Start from the following group
+    sync_up = 2,   // Start from the request position
+  };
 
-    Mode mode;
-    uint64_t group_id;  // Applicable when mode == sync_up
-    uint64_t object_id; // ^^^^^ Ditto ^^^^
+  Mode mode;
+  uint64_t group_id;  // Applicable when mode == sync_up
+  uint64_t object_id; // ^^^^^ Ditto ^^^^
 };
-
 
 struct QuicRClient
 {

@@ -26,7 +26,8 @@ to_hex(const std::vector<uint8_t>& data)
   return hex.str();
 }
 
-struct Datum {
+struct Datum
+{
   uint64_t group_id;
   uint64_t object_id;
   std::string name;
@@ -42,7 +43,7 @@ struct Forty : QuicRClient::Delegate
                        uint64_t object_id) override
   {
     std::lock_guard<std::mutex> lock(recv_q_mutex);
-    recv_q.push({ group_id, object_id, name, data} );
+    recv_q.push({ group_id, object_id, name, data });
   }
 
   virtual void on_connection_close(const std::string& name) override
@@ -90,27 +91,29 @@ read_loop(Forty* delegate)
       continue;
     }
     if (chat_mode) {
-        auto msg = std::string(datum.data.begin(), datum.data.end());
-        std::cout << chat_message << std::endl;
-        if (msg == "end") {
-            std::cout << "[<<<<] " << chat_message << std::endl;
-            chat_message= "";
-        } else {
-            chat_message += msg;
-        }
+      auto msg = std::string(datum.data.begin(), datum.data.end());
+      std::cout << chat_message << std::endl;
+      if (msg == "end") {
+        std::cout << "[<<<<] " << chat_message << std::endl;
+        chat_message = "";
+      } else {
+        chat_message += msg;
+      }
 
     } else {
-        std::cout<<"[40B:<<<<]:" << datum.name <<  ", Group:" << datum.group_id
-                << ", Object:" << datum.object_id  << ", Data: "
-                <<  to_hex(datum.data) << std::endl;
+      std::cout << "[40B:<<<<]:" << datum.name << ", Group:" << datum.group_id
+                << ", Object:" << datum.object_id
+                << ", Data: " << to_hex(datum.data) << std::endl;
     }
-
   }
   std::cout << "read_loop done\n";
 }
 
 void
-send_loop(QuicRClient* qclient, std::string name, uint64_t loop_interval=50, uint64_t group_size=1)
+send_loop(QuicRClient* qclient,
+          std::string name,
+          uint64_t loop_interval = 50,
+          uint64_t group_size = 1)
 {
   const uint8_t forty_bytes[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3,
                                   4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7,
@@ -127,21 +130,22 @@ send_loop(QuicRClient* qclient, std::string name, uint64_t loop_interval=50, uin
       std::cin >> msg;
       msg += "end";
       auto msg_bytes = bytes(msg.begin(), msg.end());
-      qclient->publish_named_data(name, std::move(msg_bytes), group_id, object_id, 0, 0);
+      qclient->publish_named_data(
+        name, std::move(msg_bytes), group_id, object_id, 0, 0);
     } else {
       auto data = bytes(forty_bytes, forty_bytes + sizeof(forty_bytes));
       std::cout << "[40B:>>>>>] " << name << to_hex(data) << std::endl;
-      qclient->publish_named_data(name, std::move(data), group_id, object_id, 0x81, 0);
+      qclient->publish_named_data(
+        name, std::move(data), group_id, object_id, 0x81, 0);
       std::this_thread::sleep_for(std::chrono::milliseconds(loop_interval));
       object_id += 1;
     }
 
-    if(object_id >= group_size) {
+    if (object_id >= group_size) {
       group_id += 1;
       object_id = 0;
       std::cout << name << "[40B:>>>>>] New GROUP " << group_id << std::endl;
     }
-
   }
   std::cout << "done send_loop\n";
   auto qname = QuicrName{ name, 0 };
@@ -227,18 +231,14 @@ main(int argc, char* argv[])
 
     // all the params are not used in the lib yet
     auto qname_audio = QuicrName{ you + "_audio", mask };
-    auto intent = SubscribeIntent{SubscribeIntent::Mode::immediate, 0, 0};
-    qclient->subscribe(std::vector<QuicrName>{ qname_audio },
-                       intent,
-                       false,
-                       true);
+    auto intent = SubscribeIntent{ SubscribeIntent::Mode::immediate, 0, 0 };
+    qclient->subscribe(
+      std::vector<QuicrName>{ qname_audio }, intent, false, true);
 
     auto qname_video = QuicrName{ you + "_video", mask };
-    intent = SubscribeIntent{SubscribeIntent::Mode::immediate, 0, 0};
-    qclient->subscribe(std::vector<QuicrName>{ qname_video },
-                       intent,
-                       false,
-                       true);
+    intent = SubscribeIntent{ SubscribeIntent::Mode::immediate, 0, 0 };
+    qclient->subscribe(
+      std::vector<QuicrName>{ qname_video }, intent, false, true);
 
     while (!qclient->is_transport_ready()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(5));
@@ -246,7 +246,7 @@ main(int argc, char* argv[])
 
     std::cout << "Transport is ready" << std::endl;
     read_loop(delegate.get());
-    qclient->unsubscribe({qname_audio, qname_video});
+    qclient->unsubscribe({ qname_audio, qname_video });
 
   } else if (mode == "send") {
     if (me.empty()) {
@@ -254,11 +254,11 @@ main(int argc, char* argv[])
       exit(-1);
     }
 
-    auto me_audio = me + std::string {"_audio"};
-    auto me_video = me + std::string {"_video"};
+    auto me_audio = me + std::string{ "_audio" };
+    auto me_video = me + std::string{ "_video" };
 
     // all the params are not used in the lib yet
-    qclient->register_names({ { me_audio, 0 }, {me_video, 0} }, false);
+    qclient->register_names({ { me_audio, 0 }, { me_video, 0 } }, false);
 
     while (!qclient->is_transport_ready()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(5));
@@ -266,7 +266,7 @@ main(int argc, char* argv[])
 
     std::cout << "Transport is ready" << std::endl;
 
-    std::thread audio_sender(send_loop,  qclient.get(), me_audio, 50, 1);
+    std::thread audio_sender(send_loop, qclient.get(), me_audio, 50, 1);
     send_loop(qclient.get(), me_video, 33, 50);
     audio_sender.join();
 
@@ -277,11 +277,8 @@ main(int argc, char* argv[])
     }
 
     qclient->register_names({ { me, 0 } }, true);
-    auto intent = SubscribeIntent{SubscribeIntent::Mode::immediate, 0, 0};
-    qclient->subscribe({ { you, mask } },
-                       intent,
-                       false,
-                       false);
+    auto intent = SubscribeIntent{ SubscribeIntent::Mode::immediate, 0, 0 };
+    qclient->subscribe({ { you, mask } }, intent, false, false);
 
     while (!qclient->is_transport_ready()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(5));

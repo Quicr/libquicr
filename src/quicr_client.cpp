@@ -36,7 +36,8 @@ QuicRClient::QuicRClient(QuicRClient::Delegate& delegate_in,
                          const std::string& server,
                          const uint16_t port)
   : transport_handle(std::make_unique<Transport>(delegate_in, server, port))
-{}
+{
+}
 
 QuicRClient::~QuicRClient() = default;
 
@@ -61,7 +62,9 @@ QuicRClient::publish_named_data(const std::string& name,
                                 uint8_t priority,
                                 uint64_t /*best_before*/)
 {
-  auto data = internal::QuicRQTransport::Data{ name, group_id, object_id, priority, std::move(data_in) };
+  auto data = internal::QuicRQTransport::Data{
+    name, group_id, object_id, priority, std::move(data_in)
+  };
   transport_handle->quicr_transport->publish_named_data(name, std::move(data));
 }
 
@@ -93,9 +96,9 @@ QuicRClient::close()
 }
 
 void
-QuicRClient::set_congestion_control_status(bool status) {
+QuicRClient::set_congestion_control_status(bool status)
+{
   transport_handle->quicr_transport->set_congestion_control_status(status);
 }
-
 
 }
