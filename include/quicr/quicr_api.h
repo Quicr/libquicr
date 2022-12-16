@@ -83,9 +83,9 @@ struct RelayInfo {
     TCP
   };
 
-  std::string   relay;     // Relay IP or FQDN being redirected to
+  std::string   hostname;  // Relay IP or FQDN
   uint16_t      port;      // Relay port to connect to
-  RelayProtocol proto;
+  RelayProtocol proto;     // Transport protocol to use 
 };
 
 /**
@@ -334,6 +334,7 @@ class QuicRClient
    * 
    * @param name        Name ID to publish a message to. Length is 128
    * @param priority    Priority value for the message
+   * @param ttl         Time to live value, represented as milliseconds of age to be in cache
    * @param publishId   The publisher Id from publish intent result
    * @param data        Data of the message to send. This can be up to max
    *                    message size. If the message is larger than MTU it will
@@ -345,6 +346,7 @@ class QuicRClient
    */
   bool publish(const QuicRNameId& name,
                uint8_t            priority,
+               uint32_t           ttl,
                uint64_t           publishId,
                uint32_t           seqId,
                const bytes&       data);
@@ -391,12 +393,13 @@ class QuicRClient
 };
 
 
-
-/****************************************************************************
- * Revisit the below. 
+/*********************************************************************
+ * @todo update the below
  */
 
-// Server Delegate QUICR protocol callback
+/*
+ * Server/Relay callback methods
+ */
 class ServerDelegate
 {
 
@@ -413,7 +416,7 @@ class ServerDelegate
    * callbacks will be called. The delegate implementation
    * shall decide the right callback for their usage.
    */
-  virtual void cb_published_object(const QuicRNameId& name,
+  virtual void on_published_object(const QuicRNameId& name,
                                    uint8_t priority,
                                    uint64_t best_before,
                                    bool use_reliable_transport,
