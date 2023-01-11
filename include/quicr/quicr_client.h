@@ -151,6 +151,16 @@ class PublisherDelegate
 */
 class QuicRClient
 {
+  enum class ClientStatus {
+      READY = 0,
+      CONNECTING, 
+      RELAY_HOST_INVALID,
+      RELAY_PORT_INVALID,
+      RELAY_NOT_CONNECTED,
+      TRANSPORT_ERROR,
+      UNAUTHORIZED,
+      TERMINATED,
+  };
 
   /*
    * @brief Setup a QUICR Client with publisher and subscriber functionality
@@ -187,8 +197,16 @@ class QuicRClient
               const uint16_t port,
               PublisherDelegate& pub_delegate);
 
-  // Transport APIs
-  bool is_transport_ready();
+  /**
+   * @brief Get the client status
+   * 
+   * @details This method should be used to determine if the client is
+   *   connected and ready for publishing and subscribing to messages.
+   *   Status will indicate the type of error if not ready. 
+   * 
+   * @returns client status
+   */
+  ClientStatus status();
 
   /* 
    * @brief  Send interest to publish media under a given QUICR Namespace
