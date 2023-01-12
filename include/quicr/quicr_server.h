@@ -9,7 +9,6 @@
 /*
  * API for implementing server side of the QUICR protocol
  */
-
 namespace quicr
 {
 

@@ -231,7 +231,8 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
 
       cb_ctx->transport->on_object_published(
         data.quicr_name, data.group_id, data.object_id);
-    } break;
+    }
+    break;
     default:
       ret = PICOQUIC_ERROR_UNEXPECTED_ERROR;
       break;
