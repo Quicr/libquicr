@@ -5,8 +5,7 @@
 Message::Message(const std::string& name, const std::string& msg)
   : sender(name)
   , data(msg)
-{
-}
+{}
 
 quicr::bytes
 Message::operator()()

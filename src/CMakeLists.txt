@@ -1,5 +1,5 @@
 add_library(quicr
-        quicr_client_old.cpp
+    quicr_client.cpp
     quicr_quic_transport.cpp)
 target_compile_options(quicr
     PRIVATE
