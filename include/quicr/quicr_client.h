@@ -24,7 +24,7 @@ class SubscriberDelegate
    *  @details This callback will be called when a subscription response
    *          is received, on error, or timeout. 
    */
-  virtual void on_subscribe_response(const QUICRNamespace& quicr_namespace,
+  virtual void onSubscribeResponse(const QUICRNamespace& quicr_namespace,
                                      const SubscribeResult& result) = 0;
 
   /*
@@ -37,8 +37,8 @@ class SubscriberDelegate
    *           the stream or subscription timeout or other application
    *           reasons
    */
-  virtual void on_subscription_ended(const QUICRNamespace& quicr_namespace,
-                                     const SubscribeResult& reason) = 0;
+  virtual void onSubscriptionEnded(const QUICRNamespace& quicr_namespace,
+                                   const SubscribeResult& reason) = 0;
 
   /*
    * @brief Report arrival of subscribed QUICR object fragment under a Name
@@ -52,7 +52,7 @@ class SubscriberDelegate
    * 
    * 
    *  @note: It is important that the implementations not perform 
-   *         compute intesive tasks in this callback, but rather
+   *         compute intensive tasks in this callback, but rather
    *         copy/move the needed information and hand back the control
    *         to the stack  
    * 
@@ -60,11 +60,11 @@ class SubscriberDelegate
    *         callbacks will be called. The delegate implementation
    *         shall decide the right callback for their usage.
    */
-  virtual void on_subscribed_object(const QUICRName& name,
-                                    uint8_t priority,
-                                    uint64_t best_before,
-                                    bool use_reliable_transport,
-                                    bytes&& data) = 0;
+  virtual void onSubscribedObject(const QUICRName& name,
+                                  uint8_t priority,
+                                  uint64_t best_before,
+                                  bool use_reliable_transport,
+                                  bytes&& data) {}
 
   /*
    * @brief Report arrival of subscribed QUICR object fragment under a Name
@@ -88,13 +88,13 @@ class SubscriberDelegate
    *         callbacks will be called. The delegate implementation
    *         shall decide the right callback for their usage.
    */
-  virtual void on_subscribed_object_fragment(const QUICRName& name,
-                                             uint8_t priority,
-                                             uint64_t best_before,
-                                             bool use_reliable_transport,
-                                             const uint16_t fragment_number,
-                                             uint16_t num_total_fragments,
-                                             bytes&& data) = 0;
+  virtual void onSubscribedObjectFragment(const QUICRName& name,
+                                          uint8_t priority,
+                                          const uint64_t& best_before,
+                                          bool use_reliable_transport,
+                                          const uint16_t fragment_number,
+                                          uint16_t num_total_fragments,
+                                          bytes&& data) = 0;
 };
 
 /*
@@ -114,7 +114,7 @@ class PublisherDelegate
    * @details Entities processing the Subscribe Request MUST validate the request 
    * @todo: Add payload with origin signed blob
    */ 
-  void publish_intent_response(const QUICRContext& context_id,
+  void onPublishIntentResponse(const QUICRContext& context_id,
                                const QUICRNamespace& quicr_namespace,
                                const PublishIntentResult& result);
 
@@ -129,21 +129,22 @@ class PublisherDelegate
    * @param result                   : Result of the publish operation
    * 
    */
-  virtual void on_publish_fragment_result(const QUICRName& quicr_name,
+  virtual void onPublishFragmentResult(const QUICRName& quicr_name,
                                           const uint16_t fragment_number,
                                           uint16_t num_total_fragments,
-                                          const PublishMsgResult& result) = 0;
+                                          const PublishMsgResult& result) {};
 
  
   /*
-   * @brief Reports result of obejct published under the Name, 
+   * @brief Reports result of object published under the Name, by
+   *        the local stack
    *
    * @param quicr_name               : Identifies the QUICR Name for the object
    * @param result                   : Result of the publish operation
    * 
    */
-  virtual void on_publish_object_result(const QUICRName& quicr_name,
-                                        const PublishMsgResult& result) = 0;
+  virtual void onPublishObjectResult(const QUICRName& quicr_name,
+                                      const PublishMsgResult& result) {};
 };
 
 /*
@@ -165,36 +166,30 @@ class QuicRClient
   /*
    * @brief Setup a QUICR Client with publisher and subscriber functionality
    *
-   * @param server              : QUICR Server address
-   * @param port                : QUICR Server Port
+   * @param transport           : QuicRTransport class implementation
    * @param subscriber_delagate : Reference to receive callback for subscriber operations
    * @param publisher_delgatw   : Reference to receive callback for publisher operations
    */
-  QuicRClient(const std::string& server,
-              const uint16_t port,
+  QuicRClient(ITransport& transport,
               SubscriberDelegate& subscriber_delegate,
               PublisherDelegate& pub_delegate);
 
   /*
    * @brief Setup a QUICR Client with subscriber functionality
    *
-   * @param server              : QUICR Server address
-   * @param port                : QUICR Server Port
+   * @param transport           : QuicRTransport class implementation
    * @param subscriber_delagate : Reference to receive callback for subscriber operations
    */
-  QuicRClient(const std::string& server,
-              const uint16_t port,
+  QuicRClient(ITransport& transport,
               SubscriberDelegate& subscriber_delegate);
 
   /*
    * @brief Setup a QUICR Client with publisher functionality
-   *
-   * @param server              : QUICR Server address
-   * @param port                : QUICR Server Port
-   * @param publisher_delgatw   : Reference to receive callback for publisher operations
+    *
+    * @param transport           : QuicRTransport class implementation
+    * @param publisher_delgatw   : Reference to receive callback for publisher operations
    */
-  QuicRClient(const std::string& server,
-              const uint16_t port,
+  QuicRClient(ITransport& transport,
               PublisherDelegate& pub_delegate);
 
   /**
@@ -208,21 +203,15 @@ class QuicRClient
    */
   ClientStatus status();
 
-  /* 
-   * @brief  Send interest to publish media under a given QUICR Namespace
-   *         
-   * Note (0): Intent to publish is typically done at a higher level
-   *           grouping than individual obhjects.
-   *           ex: user1/ or user1/cam1 or user1/space3/
-   *           This ties authz to prefix/group rather than individial
-   *           data objects.
+  /**
+   * @brief Run client API event loop
    *
-   * Note (1): Authorization Token shall embed the information
-   *           needed for the authorizing entity to bind the name
-   *           to the token.
+   * @details This method will connect to the relay/transport and run
+   *    an event loop for calling the callbacks
    *
-   * TBD: Support array of names
+   * @returns client status
    */
+  virtual ClientStatus run() = 0;
 
   /*
    * @brief Publish intent to publish on a QUICR Namespace
@@ -232,38 +221,32 @@ class QuicRClient
    * @param auth_token            : Auth Token to valiadate the Subscribe Request
    * @param payload               : Opaque payload to be forwarded to the Origin 
    */
-  bool publish_intent(const QUICRNamespace& quicr_namespace,
-                      const std::string& origin_url,      
-                      const std::string& auth_token,
-                      bytes&& payload);
+  bool publishIntent(const QUICRNamespace& quicr_namespace,
+                     const std::string& origin_url,
+                     const std::string& auth_token,
+                     bytes&& payload);
 
   /*
    * @brief Stop publishing on the given QUICR namespace
    * 
-   * @param quicr_namespace        : Identifies QUICR namespace
-   * @param origin_url            : Origin serving the QUICR Session    
+   * @param quicr_namespace       : Identifies QUICR namespace
    * @param auth_token            : Auth Token to valiadate the Subscribe Request
-   * @param payload               : Opaque payload to be forwarded to the Origin 
    */
-  void publish_intent_end(const QUICRContext& context_id,
-                          const QUICRNamespace& name,
-                          const std::string& auth_token);
+  void publishIntentEnd(const QUICRNamespace& name,
+                        const std::string& auth_token);
+
 
   /*
-   *  Subscribe interest to the given QuicrName with appropriate
-   *   prefix as defined by the application
-   */
-  /*
-   * @brief Perform subscription operationon a given QUICR namespace
+   * @brief Perform subscription operation a given QUICR namespace
    * 
    * @param namespace             : Identifies QUICR namespace
    * @param subscribe_intent      : Subscribe intent to determine the start point for 
-   *                                 serving the mactched objects. The application
+   *                                 serving the matched objects. The application
    *                                 may choose a different intent mode, but must
    *                                 be aware of the effects.
    * @param origin_url            : Origin serving the QUICR Session    
    * @param use_reliable_transport: Reliable or Unreliable transport 
-   * @param auth_token            : Auth Token to valiadate the Subscribe Request
+   * @param auth_token            : Auth Token to validate the Subscribe Request
    * @param payload               : Opaque payload to be forwarded to the Origin 
    * 
    * @details Entities processing the Subscribe Request MUST validate the request 
