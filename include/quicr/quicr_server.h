@@ -111,7 +111,7 @@ class ServerDelegate
                                    bool use_reliable_transport,
                                    const uint16_t fragment_number,
                                    uint16_t num_total_fragments,
-                                   bytes&& data) = 0;
+                                   bytes&& data) {}
 
   /*
    * @brief Report arrival of subscribe request for a QUICR Namespace
@@ -141,7 +141,7 @@ class ServerDelegate
                             const std::string& origin_url,
                             bool use_reliable_transport,
                             const std::string& auth_token,
-                            bytes&& data) = 0;
+                            bytes&& data) {}
 };
 
 class QuicRServer
