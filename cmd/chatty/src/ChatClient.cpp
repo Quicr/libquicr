@@ -8,7 +8,8 @@
 ChatClient::ChatClient(const std::string& ip, int port)
   : delegate{ std::make_shared<ChannelMsgDelegate>() }
   , client{ std::make_unique<quicr::QuicRClient>(*delegate, ip, port) }
-{}
+{
+}
 
 void
 ChatClient::Login(const std::string& name)

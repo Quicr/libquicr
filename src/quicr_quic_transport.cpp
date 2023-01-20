@@ -113,15 +113,17 @@ object_stream_consumer_fn(
         break;
       }
       auto payload = quicr::bytes(data, data + data_length);
-      quicr::internal::QuicRQTransport::Data recv_data = { cons_ctx->quicr_name,
-                                                           group_id,
-                                                           object_id,
-                                                           0,
-                                                           std::move(payload) };
-      cons_ctx->transport->log("[consumerFn]:data-in name:", recv_data.quicr_name,
-                               ", group: ", recv_data.group_id,
-                               ", object:", recv_data.object_id,
-                               ", length:" , data_length);
+      quicr::internal::QuicRQTransport::Data recv_data = {
+        cons_ctx->quicr_name, group_id, object_id, 0, std::move(payload)
+      };
+      cons_ctx->transport->log("[consumerFn]:data-in name:",
+                               recv_data.quicr_name,
+                               ", group: ",
+                               recv_data.group_id,
+                               ", object:",
+                               recv_data.object_id,
+                               ", length:",
+                               data_length);
 
       cons_ctx->transport->recvDataFromNet(recv_data);
     } break;
@@ -129,7 +131,7 @@ object_stream_consumer_fn(
       /* Remove the reference to the media context, as the caller will
        * free it. */
       cons_ctx->transport->log("[consumerFn] media close");
-      //cons_ctx->transport->on_media_close()
+      // cons_ctx->transport->on_media_close()
       ret = 0;
       break;
     default:
@@ -167,16 +169,16 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
 
   switch (cb_mode) {
     case picoquic_packet_loop_ready: {
-        if (callback_arg != nullptr) {
-            auto *options = (picoquic_packet_loop_options_t *) callback_arg;
-            options->do_time_check = 1;
-        }
-        std::lock_guard<std::mutex> lock(cb_ctx->transport->quicConnectionReadyMutex);
-        cb_ctx->transport->quicConnectionReady = true;
-        cb_ctx->transport->log("[quir-loopcb]: picoquic_packet_loop_read");
-        ret = 0;
-    }
-      break;
+      if (callback_arg != nullptr) {
+        auto* options = (picoquic_packet_loop_options_t*)callback_arg;
+        options->do_time_check = 1;
+      }
+      std::lock_guard<std::mutex> lock(
+        cb_ctx->transport->quicConnectionReadyMutex);
+      cb_ctx->transport->quicConnectionReady = true;
+      cb_ctx->transport->log("[quir-loopcb]: picoquic_packet_loop_read");
+      ret = 0;
+    } break;
     case picoquic_packet_loop_after_receive:
       /* Post receive callback */
       ret = quicrq_app_loop_cb_check_fin(cb_ctx);
@@ -203,10 +205,17 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
         break;
       }
       // Harcoded - Change it //
-      auto propertes = quicrq_media_object_properties_t { data.priority};
-      cb_ctx->transport->log("[quir-loopcb]:publishing: group:", data.group_id,
-                             " object:", data.object_id, " size:", data.app_data.size(),
-                             " url: ", data.quicr_name, ", priority:", propertes.flags);
+      auto propertes = quicrq_media_object_properties_t{ data.priority };
+      cb_ctx->transport->log("[quir-loopcb]:publishing: group:",
+                             data.group_id,
+                             " object:",
+                             data.object_id,
+                             " size:",
+                             data.app_data.size(),
+                             " url: ",
+                             data.quicr_name,
+                             ", priority:",
+                             propertes.flags);
       ret =
         quicrq_publish_object(publish_ctx.object_source_ctx,
                               reinterpret_cast<uint8_t*>(data.app_data.data()),
@@ -216,12 +225,14 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
                               data.object_id);
 
       if (ret != 0) {
-          cb_ctx->transport->log("[quir-loopcb]: quicrq_publish_object error:", ret);
+        cb_ctx->transport->log("[quir-loopcb]: quicrq_publish_object error:",
+                               ret);
       }
 
       cb_ctx->transport->on_object_published(
-        data.quicr_name,data.group_id, data.object_id);
-    } break;
+        data.quicr_name, data.group_id, data.object_id);
+    }
+    break;
     default:
       ret = PICOQUIC_ERROR_UNEXPECTED_ERROR;
       break;
@@ -229,12 +240,13 @@ quicrq_app_loop_cb(picoquic_quic_t* /*quic*/,
   return ret;
 }
 
-
-template<typename ...Ts>
-void QuicRQTransport::log(const Ts &...vals) const {
-    auto ss = std::stringstream();
-    (ss << ... << vals);
-    logger.log(LogLevel::info, ss.str());
+template<typename... Ts>
+void
+QuicRQTransport::log(const Ts&... vals) const
+{
+  auto ss = std::stringstream();
+  (ss << ... << vals);
+  logger.log(LogLevel::info, ss.str());
 }
 
 QuicRQTransport::~QuicRQTransport()
@@ -294,9 +306,9 @@ QuicRQTransport::close()
 void
 QuicRQTransport::set_congestion_control_status(bool status)
 {
-    if(quicr_ctx) {
-      quicrq_enable_congestion_control(quicr_ctx, status);
-    }
+  if (quicr_ctx) {
+    quicrq_enable_congestion_control(quicr_ctx, status);
+  }
 }
 
 bool
@@ -331,8 +343,10 @@ void
 QuicRQTransport::recvDataFromNet(Data& data_in)
 {
   // todo: support group_id and object_id reporting
-  application_delegate.on_data_arrived(
-    data_in.quicr_name, std::move(data_in.app_data), data_in.group_id, data_in.object_id);
+  application_delegate.on_data_arrived(data_in.quicr_name,
+                                       std::move(data_in.app_data),
+                                       data_in.group_id,
+                                       data_in.object_id);
 }
 
 void
@@ -344,34 +358,35 @@ QuicRQTransport::register_publish_sources(
   }
 
   for (auto& publisher : publisher_names) {
-      quicrq_media_object_source_properties_t src_props = {1, publisher.start_group_id, publisher.start_object_id};
-      src_props.use_real_time_caching = 1;
+    quicrq_media_object_source_properties_t src_props = {
+      1, publisher.start_group_id, publisher.start_object_id
+    };
+    src_props.use_real_time_caching = 1;
 
-      auto obj_src_context = quicrq_publish_object_source(
-              quicr_ctx,
-              reinterpret_cast<uint8_t *>(const_cast<char *>(publisher.name.data())),
-              publisher.name.length(),
-              &src_props);
-      assert(obj_src_context);
-      auto pub_context =
-              new PublisherContext{publisher.name, obj_src_context, this};
+    auto obj_src_context = quicrq_publish_object_source(
+      quicr_ctx,
+      reinterpret_cast<uint8_t*>(const_cast<char*>(publisher.name.data())),
+      publisher.name.length(),
+      &src_props);
+    assert(obj_src_context);
+    auto pub_context =
+      new PublisherContext{ publisher.name, obj_src_context, this };
 
+    // enable publishing
+    auto ret = quicrq_cnx_post_media(
+      cnx_ctx,
+      reinterpret_cast<uint8_t*>(const_cast<char*>(publisher.name.data())),
+      publisher.name.length(),
+      quicrq_transport_mode_enum::quicrq_transport_mode_datagram);
+    if (ret) {
+      logger.log(LogLevel::error, "Failed to add publisher: ");
+      continue;
+    }
 
-      // enable publishing
-      auto ret = quicrq_cnx_post_media(
-              cnx_ctx,
-              reinterpret_cast<uint8_t *>(const_cast<char *>(publisher.name.data())),
-              publisher.name.length(),
-        quicrq_transport_mode_enum::quicrq_transport_mode_datagram);
-      if (ret) {
-          logger.log(LogLevel::error, "Failed to add publisher: ");
-          continue;
-      }
+    // quicrq_object_source_set_start(obj_src_context, 100, 0);
 
-      //quicrq_object_source_set_start(obj_src_context, 100, 0);
-
-      logger.log(LogLevel::info, "Registered Source " + publisher.name);
-      publishers[publisher.name] = std::move(*pub_context);
+    logger.log(LogLevel::info, "Registered Source " + publisher.name);
+    publishers[publisher.name] = std::move(*pub_context);
   }
 }
 
@@ -413,7 +428,8 @@ QuicRQTransport::on_pattern_match(WildCardSubscribeContext* ctx,
 }
 
 void
-QuicRQTransport::subscribe(const std::string& name, quicr::SubscribeIntent& intent)
+QuicRQTransport::subscribe(const std::string& name,
+                           quicr::SubscribeIntent& intent)
 {
   auto consumer_media_ctx = new ConsumerContext{};
   memset(consumer_media_ctx, 0, sizeof(ConsumerContext));
@@ -425,17 +441,20 @@ QuicRQTransport::subscribe(const std::string& name, quicr::SubscribeIntent& inte
   quicrq_subscribe_intent_t sub_intent = {};
   sub_intent.start_group_id = intent.group_id;
   sub_intent.start_object_id = intent.object_id;
-  switch(intent.mode) {
-      case quicr::SubscribeIntent::Mode::immediate:
-          sub_intent.intent_mode = quicrq_subscribe_intent_enum::quicrq_subscribe_intent_current_group;
-          break;
-      case quicr::SubscribeIntent::Mode::wait_up:
-          sub_intent.intent_mode = quicrq_subscribe_intent_enum::quicrq_subscribe_intent_next_group;
-          break;
-      case quicr::SubscribeIntent::Mode::sync_up:
-          sub_intent.intent_mode = quicrq_subscribe_intent_enum::quicrq_subscribe_intent_start_point;
-          // TODO: validate proper group/object
-          break;
+  switch (intent.mode) {
+    case quicr::SubscribeIntent::Mode::immediate:
+      sub_intent.intent_mode =
+        quicrq_subscribe_intent_enum::quicrq_subscribe_intent_current_group;
+      break;
+    case quicr::SubscribeIntent::Mode::wait_up:
+      sub_intent.intent_mode =
+        quicrq_subscribe_intent_enum::quicrq_subscribe_intent_next_group;
+      break;
+    case quicr::SubscribeIntent::Mode::sync_up:
+      sub_intent.intent_mode =
+        quicrq_subscribe_intent_enum::quicrq_subscribe_intent_start_point;
+      // TODO: validate proper group/object
+      break;
   }
 
   consumer_media_ctx->object_consumer_ctx = quicrq_subscribe_object_stream(
@@ -455,7 +474,8 @@ QuicRQTransport::subscribe(const std::string& name, quicr::SubscribeIntent& inte
 }
 
 void
-QuicRQTransport::subscribe(const std::vector<quicr::QuicrName>& names, quicr::SubscribeIntent& intent)
+QuicRQTransport::subscribe(const std::vector<quicr::QuicrName>& names,
+                           quicr::SubscribeIntent& intent)
 {
   if (names.empty()) {
     logger.log(LogLevel::warn, "Empty subscribe list");
@@ -467,8 +487,9 @@ QuicRQTransport::subscribe(const std::vector<quicr::QuicrName>& names, quicr::Su
       // full subscribe
       subscribe(name.name, intent);
     } else {
-      auto wildcard_ctx =
-        new WildCardSubscribeContext{ name, intent, this, {}, cnx_ctx, nullptr };
+      auto wildcard_ctx = new WildCardSubscribeContext{
+        name, intent, this, {}, cnx_ctx, nullptr
+      };
       wildcard_ctx->stream_ctx = quicrq_cnx_subscribe_pattern(
         cnx_ctx,
         reinterpret_cast<uint8_t*>(const_cast<char*>(name.name.data())),
@@ -542,7 +563,7 @@ QuicRQTransport::unsubscribe(const std::vector<quicr::QuicrName>& names)
 void
 QuicRQTransport::publish_named_data(const std::string& url, Data&& data)
 {
-  //logger.log(LogLevel::debug, "[quicr]: publish media on " + url);
+  // logger.log(LogLevel::debug, "[quicr]: publish media on " + url);
   std::lock_guard<std::mutex> lock(sendQMutex);
   sendQ.push(std::move(data));
 }

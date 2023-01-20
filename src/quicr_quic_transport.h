@@ -88,7 +88,8 @@ public:
   void unregister_publish_sources(
     const std::vector<quicr::QuicrName>& publishers);
   void publish_named_data(const std::string& url, Data&& data);
-  void subscribe(const std::vector<quicr::QuicrName>& names, SubscribeIntent& intent);
+  void subscribe(const std::vector<quicr::QuicrName>& names,
+                 SubscribeIntent& intent);
   void unsubscribe(const std::vector<quicr::QuicrName>& names);
   void start();
   bool ready();
@@ -143,7 +144,7 @@ public:
 
   // used by quic stack callbacks
   template<typename... Ts>
-  void log(const Ts& ...vals) const;
+  void log(const Ts&... vals) const;
 
 private:
   void subscribe(const std::string& name, SubscribeIntent& intent);
