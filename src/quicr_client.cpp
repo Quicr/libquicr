@@ -3,18 +3,26 @@
 
 namespace quicr {
 
-quicr::QuicRClient::QuicRClient(ITransport& transport,
-                                SubscriberDelegate& subscriber_delegate,
-                                PublisherDelegate& pub_delegate)
+quicr::QuicRClient::QuicRClient(ITransport& transport_in,
+                                std::shared_ptr<SubscriberDelegate>subscriber_delegate,
+                                std::shared_ptr<PublisherDelegate> pub_delegate)
+  : transport(transport_in)
+  , sub_delegate(subscriber_delegate)
+  , pub_delegate(pub_delegate)
 {
 }
 
-QuicRClient::QuicRClient(ITransport& transport,
-                         SubscriberDelegate& subscriber_delegate)
+QuicRClient::QuicRClient(ITransport& transport_in,
+                         std::shared_ptr<SubscriberDelegate>subscriber_delegate)
+  : transport(transport_in)
+  , sub_delegate(subscriber_delegate)
 {
 }
 
-QuicRClient::QuicRClient(ITransport& transport, PublisherDelegate& pub_delegate)
+QuicRClient::QuicRClient(ITransport& transport_in,
+                         std::shared_ptr<PublisherDelegate> pub_delegate)
+  : transport(transport_in)
+  , pub_delegate(pub_delegate)
 {
 }
 

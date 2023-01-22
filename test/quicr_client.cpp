@@ -53,8 +53,8 @@ struct TestPublisherDelegate : public PublisherDelegate
 
 TEST_CASE("Object Lifetime")
 {
-  TestSubscriberDelegate sub_delegate{};
-  TestPublisherDelegate pub_delegate{};
+  std::shared_ptr<TestSubscriberDelegate> sub_delegate {};
+  std::shared_ptr<TestPublisherDelegate> pub_delegate{};
   ITransport fake_transport;
   CHECK_NOTHROW(
     std::make_unique<QuicRClient>(fake_transport, sub_delegate, pub_delegate));
