@@ -12,7 +12,6 @@ namespace quicr {
 
 class SubscriberDelegate
 {
-
   virtual ~SubscriberDelegate() = default;
   
   /**
@@ -38,44 +37,18 @@ class SubscriberDelegate
    *           reasons
    */
   virtual void onSubscriptionEnded(const QUICRNamespace& quicr_namespace,
-                                   const SubscribeResult& reason) = 0;
+                                   const SubscribeResult& result) = 0;
 
   /*
-   * @brief Report arrival of subscribed QUICR object fragment under a Name
+   * @brief Report arrival of subscribed QUICR object under a Name
    *
    * @param quicr_name               : Identifies the QUICR Name for the object
-   * @param priority                 : Identifies the relative priority of the current object
-   * @param best_before              : TTL for the object to be useful for the application
+   * @param priority                 : Identifies the relative priority of the
+   *                                   current object
+   * @param expiry_age_ms            : Time hint for the object to be in cache
+*                                      before being purged after reception
    * @param use_reliable_transport   : Indicates the preference for the object's
    *                                   transport, if forwarded.
-   * @param data                   : Opaque payload of the fragment
-   * 
-   * 
-   *  @note: It is important that the implementations not perform 
-   *         compute intensive tasks in this callback, but rather
-   *         copy/move the needed information and hand back the control
-   *         to the stack  
-   * 
-   *  @note: Both the on_publish_object and on_publish_object_fragment
-   *         callbacks will be called. The delegate implementation
-   *         shall decide the right callback for their usage.
-   */
-  virtual void onSubscribedObject(const QUICRName& name,
-                                  uint8_t priority,
-                                  uint64_t best_before,
-                                  bool use_reliable_transport,
-                                  bytes&& data) {}
-
-  /*
-   * @brief Report arrival of subscribed QUICR object fragment under a Name
-   *
-   * @param quicr_name               : Identifies the QUICR Name for the object
-   * @param priority                 : Identifies the relative priority of the current object
-   * @param best_before              : TTL for the object to be useful for the application
-   * @param use_reliable_transport   : Indicates the preference for the object's
-   *                                   transport, if forwarded.
-   * @param fragment_number          : Current Fragment Identifier
-   * @param num_total_fragments      : identifies current object's fragment count
    * @param data                     : Opaque payload of the fragment
    * 
    * 
@@ -88,12 +61,37 @@ class SubscriberDelegate
    *         callbacks will be called. The delegate implementation
    *         shall decide the right callback for their usage.
    */
-  virtual void onSubscribedObjectFragment(const QUICRName& name,
+  virtual void onSubscribedObject(const QUICRName& quicr_name,
+                                  uint8_t priority,
+                                  uint16_t expiry_age_ms,
+                                  bool use_reliable_transport,
+                                  bytes&& data) {}
+
+  /*
+   * @brief Report arrival of subscribed QUICR object fragment under a Name
+   *
+   * @param quicr_name               : Identifies the QUICR Name for the object
+   * @param priority                 : Identifies the relative priority of the current object
+   * @param best_before              : TTL for the object to be useful for the application
+   * @param use_reliable_transport   : Indicates the preference for the object's
+   *                                   transport, if forwarded.
+   * @param offset                   : Current fragment offset
+   * @param is_last_fragment         : Indicates if the current fragment is the
+   *                                   last fragment
+   * @param data                     : Opaque payload of the fragment
+   * 
+   * 
+   *  @note: It is important that the implementations not perform 
+   *         compute intensive tasks in this callback, but rather
+   *         copy/move the needed information and hand back the control
+   *         to the stack  
+   */
+  virtual void onSubscribedObjectFragment(const QUICRName& quicr_name,
                                           uint8_t priority,
-                                          uint64_t best_before,
+                                          uint16_t expiry_age_ms,
                                           bool use_reliable_transport,
-                                          const uint16_t fragment_number,
-                                          uint16_t num_total_fragments,
+                                          const uint64_t& offset,
+                                          bool is_last_fragment,
                                           bytes&& data) {}
 };
 
@@ -114,7 +112,7 @@ class PublisherDelegate
    * @todo: Add payload with origin signed blob
    */ 
   void onPublishIntentResponse(const QUICRNamespace& quicr_namespace,
-                               const PublishIntentResult& result);
+                               const PublishIntentResult& result) = 0;
 
 
   /*
@@ -122,14 +120,14 @@ class PublisherDelegate
    *        by the local stack.
    *
    * @param quicr_name               : Identifies the QUICR Name for the object
-   * @param fragment_number          : Current Fragment Identifier
-   * @param num_total_fragments      : Identifies current object's fragment count
+   * @param offset                   : Current fragment offset
+   * @param is_last_fragment         : Indicates if the current fragment is the
+   *                                   last fragment
    * @param result                   : Result of the publish operation
-   * 
    */
   virtual void onPublishFragmentResult(const QUICRName& quicr_name,
-                                       const uint16_t fragment_number,
-                                       uint16_t num_total_fragments,
+                                       const uint64_t& offset,
+                                       bool is_last_fragment,
                                        const PublishMsgResult& result) {}
 
  
@@ -141,7 +139,7 @@ class PublisherDelegate
    * 
    */
   virtual void onPublishObjectResult(const QUICRName& quicr_name,
-                                     const PublishMsgResult& result) = 0;
+                                     const PublishMsgResult& result) {};
 };
 
 /*
@@ -151,7 +149,7 @@ class QuicRClient
 {
   enum class ClientStatus {
       READY = 0,
-      CONNECTING, 
+      CONNECTING,
       RELAY_HOST_INVALID,
       RELAY_PORT_INVALID,
       RELAY_NOT_CONNECTED,
@@ -163,9 +161,9 @@ class QuicRClient
   /*
    * @brief Setup a QUICR Client with publisher and subscriber functionality
    *
-   * @param transport            QuicRTransport class implementation
-   * @param subscriber_delagate : Reference to receive callback for subscriber operations
-   * @param publisher_delgatw   : Reference to receive callback for publisher operations
+   * @param transport            : QuicRTransport class implementation
+   * @param subscriber_delegate  : Reference to receive callback for subscriber operations
+   * @param publisher_delegate   : Reference to receive callback for publisher operations
    */
   QuicRClient(ITransport& transport,
               SubscriberDelegate& subscriber_delegate,
@@ -174,8 +172,8 @@ class QuicRClient
   /*
    * @brief Setup a QUICR Client with subscriber functionality
    *
-   * @param transport            QuicRTransport class implementation
-   * @param subscriber_delagate : Reference to receive callback for subscriber operations
+   * @param transport            : QuicRTransport class implementation
+   * @param subscriber_delegate  : Reference to receive callback for subscriber operations
    */
   QuicRClient(ITransport& transport,
               SubscriberDelegate& subscriber_delegate);
@@ -183,8 +181,8 @@ class QuicRClient
   /*
    * @brief Setup a QUICR Client with publisher functionality
    *
-   * @param transport            QuicRTransport class implementation
-   * @param publisher_delgatw   : Reference to receive callback for publisher operations
+   * @param transport            : QuicRTransport class implementation
+   * @param publisher_delegate   : Reference to receive callback for publisher operations
    */
   QuicRClient(ITransport& transport,
               PublisherDelegate& pub_delegate);
@@ -215,41 +213,39 @@ class QuicRClient
    * 
    * @param quicr_namespace        : Identifies QUICR namespace
    * @param origin_url            : Origin serving the QUICR Session    
-   * @param auth_token            : Auth Token to valiadate the Subscribe Request
-   * @param payload               : Opaque payload to be forwarded to the Origin 
+   * @param auth_token            : Auth Token to validate the Subscribe Request
+   * @param payload               : Opaque payload to be forwarded to the Origin
    */
   bool publishIntent(const QUICRNamespace& quicr_namespace,
-                      const std::string& origin_url,
-                      const std::string& auth_token,
-                      bytes&& payload,
-                      QUICRContext& context_id);
+                     const std::string& origin_url,
+                     const std::string& auth_token,
+                     bytes&& payload);
 
   /*
    * @brief Stop publishing on the given QUICR namespace
    * 
    * @param quicr_namespace        : Identifies QUICR namespace
-   * @param origin_url            : Origin serving the QUICR Session    
-   * @param auth_token            : Auth Token to valiadate the Subscribe Request
-   * @param payload               : Opaque payload to be forwarded to the Origin 
+   * @param origin_url             : Origin serving the QUICR Session
+   * @param auth_token             : Auth Token to valiadate the Subscribe Request
+   * @param payload                : Opaque payload to be forwarded to the Origin
    */
-  void publishIntentEnd(const QUICRContext& context_id,
-                        const QUICRNamespace& name,
+  void publishIntentEnd(const QUICRNamespace& quicr_namespace,
                         const std::string& auth_token);
 
   /*
    * @brief Perform subscription operation a given QUICR namespace
    * 
-   * @param namespace             : Identifies QUICR namespace
-   * @param subscribe_intent      : Subscribe intent to determine the start point for 
-   *                                 serving the matched objects. The application
-   *                                 may choose a different intent mode, but must
-   *                                 be aware of the effects.
+   * @param quicr_namespace       : Identifies QUICR namespace
+   * @param subscribe_intent      : Subscribe intent to determine the start point for
+   *                                serving the matched objects. The application
+   *                                may choose a different intent mode, but must
+   *                                be aware of the effects.
    * @param origin_url            : Origin serving the QUICR Session    
    * @param use_reliable_transport: Reliable or Unreliable transport 
    * @param auth_token            : Auth Token to validate the Subscribe Request
-   * @param payload               : Opaque payload to be forwarded to the Origin 
+   * @parm e2e_token              : Opaque token to be forwarded to the Origin
    * 
-   * @details Entities processing the Subscribe Request MUST validate the request 
+   * @details Entities processing the Subscribe Request MUST validate the request
    *          against the token, verify if the Origin specified in the origin_url
    *          is trusted and forward the request to the next hop Relay for that
    *          Origin or to the Origin (if it is the next hop) unless the entity 
@@ -262,10 +258,8 @@ class QuicRClient
                  const std::string& origin_url,
                  bool use_reliable_transport,
                  const std::string& auth_token,
-                 bytes&& payload,
-                 QUICRContext& context_id);
+                 bytes&& e2e_token);
 
-  
    /*
    * @brief Stop subscription on the given QUICR namespace
    * 
@@ -273,19 +267,51 @@ class QuicRClient
    * @param origin_url            : Origin serving the QUICR Session    
    * @param auth_token            : Auth Token to valiadate the Subscribe Request
    */
-  void unsubscribe(const QUICRContext& context_id,
-                   const QUICRNamespace& quicr_namespace,
-                   const std::string& origin_url, 
+  void unsubscribe(const QUICRNamespace& quicr_namespace,
+                   const std::string& origin_url,
                    const std::string& auth_token);
 
-
-
-  void publishNamedObject(const QUICRContext& context_id,
-                          const QUICRName& name,
+  /*
+   * @brief Publish Named object
+   *
+   * @param quicr_name               : Identifies the QUICR Name for the object
+   * @param priority                 : Identifies the relative priority of the
+   *                                   current object
+   * @param expiry_age_ms            : Time hint for the object to be in cache
+*                                      before being purged after reception
+   * @param use_reliable_transport   : Indicates the preference for the object's
+   *                                   transport, if forwarded.
+   * @param data                     : Opaque payload
+   *
+   */
+  void publishNamedObject(const QUICRName& quicr_name,
                           uint8_t priority,
-                          uint64_t best_before,
+                          uint16_t expiry_age_ms,
                           bool use_reliable_transport,
-                          bytes&& data) {}
+                          bytes&& data);
+
+
+  /*
+   * @brief Publish Named object
+   *
+   * @param quicr_name               : Identifies the QUICR Name for the object
+   * @param priority                 : Identifies the relative priority of the
+   *                                   current object
+   * @param expiry_age_ms            : Time hint for the object to be in cache
+                                       before being purged after reception
+   * @param use_reliable_transport   : Indicates the preference for the object's
+   *                                   transport, if forwarded.
+   * @param offset                   : Current fragment offset
+   * @param is_last_fragment         : Indicates if the current fragment is the
+   * @param data                     : Opaque payload of the fragment
+   */
+  void publishNamedObjectFragment(const QUICRName& quicr_name,
+                                  uint8_t priority,
+                                  uint16_t expiry_age_ms,
+                                  bool use_reliable_transport,
+                                  const uint64_t& offset,
+                                  bool is_last_fragment,
+                                  bytes&& data);
 };
 
 }
