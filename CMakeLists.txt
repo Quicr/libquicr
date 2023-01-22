@@ -53,9 +53,10 @@ if(BUILD_TESTING AND quicr_BUILD_TESTS)
         include(${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake)
     endif()
     add_subdirectory(test)
-
-    ###
-    ### Applications for testing
-    ###
-    add_subdirectory(cmd)
 endif()
+
+###
+### Applications
+###
+###
+#add_subdirectory(cmd)

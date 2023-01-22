@@ -1,6 +1,6 @@
 add_library(quicr
-        quicr_client_old.cpp
-    quicr_quic_transport.cpp)
+        quicr_client.cpp)
+
 target_compile_options(quicr
     PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall>

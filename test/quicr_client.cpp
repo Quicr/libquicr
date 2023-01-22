@@ -1,70 +1,61 @@
-#include <vector>
-#include <string>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include <doctest/doctest.h>
 #include <quicr/quicr_client.h>
-#include "../src/quicr_quic_transport.h"
 
 using namespace quicr;
 
-struct TestDelegate: public QuicRClient::Delegate
+struct TestSubscriberDelegate : public SubscriberDelegate
 {
-  void on_data_arrived(const std::string& /*name*/,
-                        bytes&& /*data*/,
-                        uint64_t /*group_id*/,
-                        uint64_t /*object_id*/) override
-  {}
+  TestSubscriberDelegate() = default;
+  ~TestSubscriberDelegate() = default;
 
-  void on_connection_close(const std::string& /*name*/) override
-  {}
+  void onSubscribeResponse(const QUICRNamespace& quicr_namespace,
+                           const SubscribeResult& result)
+  {
+  }
 
-  void on_object_published(const std::string& /*name*/, uint64_t /*group_id*/, uint64_t /*object_id*/) override
-  {}
+  void onSubscriptionEnded(const QUICRNamespace& quicr_namespace,
+                           const SubscribeResult& result)
+  {
+  }
+
+  void onSubscribedObject(const QUICRName& quicr_name,
+                          uint8_t priority,
+                          uint16_t expiry_age_ms,
+                          bool use_reliable_transport,
+                          bytes&& data)
+  {
+  }
+
+  void onSubscribedObjectFragment(const QUICRName& quicr_name,
+                                  uint8_t priority,
+                                  uint16_t expiry_age_ms,
+                                  bool use_reliable_transport,
+                                  const uint64_t& offset,
+                                  bool is_last_fragment,
+                                  bytes&& data)
+  {
+  }
+};
+
+struct TestPublisherDelegate : public PublisherDelegate
+{
+  void onPublishIntentResponse(const QUICRNamespace& quicr_namespace,
+                               const PublishIntentResult& result) override
+  {
+  }
+
+  ~TestPublisherDelegate() override = default;
 };
 
 TEST_CASE("Object Lifetime")
 {
-  TestDelegate delegate;
-  CHECK_NOTHROW(std::make_unique<QuicRClient>(delegate, "127.0.0.1", 1245));
+  TestSubscriberDelegate sub_delegate{};
+  TestPublisherDelegate pub_delegate{};
+  ITransport fake_transport;
+  CHECK_NOTHROW(
+    std::make_unique<QuicRClient>(fake_transport, sub_delegate, pub_delegate));
 }
-
-TEST_CASE("Register/Unregister Publish Names")
-{
-    TestDelegate delegate;
-    {
-        auto qr_client = std::make_unique<QuicRClient>(delegate, "127.0.0.1", 1245);
-        auto name = QuicrName {"1", 0};
-        qr_client->register_names(std::vector<QuicrName> { {"1", 0}, {"2", 0 } }, true);
-        CHECK_NOTHROW(qr_client->close());
-    }
-
-  {
-    auto qr_client = std::make_unique<QuicRClient>(delegate, "127.0.0.1", 1245);
-    qr_client->register_names(std::vector<QuicrName> { {"1", 0}, {"2", 0 } }, true);
-    CHECK_NOTHROW(qr_client->unregister_names(std::vector<QuicrName> { {"1", 0}, {"2", 0 } }));
-  }
-
-  // unregister non existing names
-  {
-    auto qr_client = std::make_unique<QuicRClient>(delegate, "127.0.0.1", 1245);
-    CHECK_NOTHROW(qr_client->unregister_names(std::vector<QuicrName> { {"1", 0}, {"2", 0 } }));
-  }
-}
-
-TEST_CASE("Subscribe/Unsubscribe Names")
-{
-  TestDelegate delegate;
-  {
-    auto qr_client = std::make_unique<QuicRClient>(delegate, "127.0.0.1", 1245);
-    auto intent = SubscribeIntent{SubscribeIntent::Mode::immediate, 0 , 0};
-    qr_client->subscribe(std::vector<QuicrName>{{"1",0}, {"2", 0}},
-                         intent,
-                         false, false);
-    qr_client->unsubscribe({{"1",0}, {"2", 0}});
-    CHECK_NOTHROW(qr_client->close());
-  }
-
-
-}
-
