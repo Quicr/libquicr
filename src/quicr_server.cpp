@@ -6,7 +6,7 @@ namespace quicr {
  * Start the  QUICR server at the port specified.
  *  @param delegate: Callback handlers for QUICR operations
  */
-QuicRServer::QuicRServer(ITransport&, ServerDelegate& delegate) {}
+QuicRServer::QuicRServer(qtransport::ITransport&, ServerDelegate& delegate) {}
 
 // Transport APIs
 bool

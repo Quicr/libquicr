@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include <transport/transport.h>
 #include <quicr/quicr_common.h>
 
 /*
@@ -148,7 +149,7 @@ public:
    * Start the  QUICR server at the port specified.
    *  @param delegate: Callback handlers for QUICR operations
    */
-  QuicRServer(ITransport&, ServerDelegate& delegate);
+  QuicRServer(qtransport::ITransport&, ServerDelegate& delegate);
 
   // Transport APIs
   bool is_transport_ready();
