@@ -16,11 +16,6 @@ enum struct MessageType : uint8_t
   Subscribe = 1,
 };
 
-/* QuicrNamespace encode and decode is temporarily
- * added here. This needs to be moved to QuicrNameSpace
- * class/struct that offers encode and decode operations
- */
-
 ///
 /// Message Types
 ///
@@ -35,6 +30,6 @@ struct Subscribe
 void
 operator<<(MessageBuffer& buffer, const Subscribe& msg);
 bool
-operator>>(const MessageBuffer& buffer, Subscribe& msg);
+operator>>(MessageBuffer& buffer, Subscribe& msg);
 
 }

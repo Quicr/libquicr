@@ -2,8 +2,12 @@
 
 #include "encode.h"
 
-using namespace quicr::messages;
 using quicr::bytes;
+
+namespace quicr::messages {
+///
+///  Subscribe Encode & Decode
+///
 
 void
 operator<<(MessageBuffer& buffer, const Subscribe& msg)
@@ -27,10 +31,15 @@ operator>>(MessageBuffer& buffer, Subscribe& msg)
   }
 
   buffer >> msg.transaction_id;
-  buffer >> msg.quicr_namespace.hi;
   buffer >> msg.quicr_namespace.low;
+  buffer >> msg.quicr_namespace.hi;
   uint8_t mask = 0;
   buffer >> mask;
   msg.quicr_namespace.mask = mask;
+  uint8_t intent = 0;
+  buffer >> intent;
+  msg.intent = static_cast<SubscribeIntent>(intent);
   return true;
+}
+
 }

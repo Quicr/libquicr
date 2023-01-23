@@ -2,7 +2,7 @@
 #include <iomanip>
 #include <sstream>
 
-using namespace quicr::messages;
+namespace quicr::messages {
 
 std::string
 MessageBuffer::to_hex()
@@ -15,7 +15,9 @@ MessageBuffer::to_hex()
   return hex.str();
 }
 
-/******************    atomic types *************************/
+///
+/// Atomic Types
+///
 
 void
 operator<<(MessageBuffer& msg, const uint64_t& val)
@@ -82,7 +84,6 @@ operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
 {
   uint8_t vecSize = 0;
   msg >> vecSize;
-
   if (vecSize == 0) {
     return false;
   }
@@ -91,6 +92,10 @@ operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
   val = msg.back(vecSize);
   return true;
 }
+
+///
+/// Varints
+///
 
 void
 operator<<(MessageBuffer& msg, const uintVar_t& v)
@@ -191,4 +196,6 @@ uint64_t
 fromVarInt(uintVar_t v)
 {
   return static_cast<uint64_t>(v);
+}
+
 }
