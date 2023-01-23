@@ -16,10 +16,7 @@ if(MSVC)
     target_compile_definitions(quicr _CRT_SECURE_NO_WARNINGS)
 endif()
 target_link_libraries(quicr
-    PRIVATE
-        picoquic-core
     PUBLIC
-        quicrq-core
-        picoquic-log)
+        quicr-transport)
 target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include)
 

@@ -1,6 +1,8 @@
 #include <quicr/quicr_client.h>
 #include <quicr/quicr_common.h>
 
+#include "state.h"
+
 namespace quicr {
 
 quicr::QuicRClient::QuicRClient(
@@ -10,6 +12,7 @@ quicr::QuicRClient::QuicRClient(
   : transport(transport_in)
   , sub_delegate(subscriber_delegate)
   , pub_delegate(pub_delegate)
+  , state(std::make_unique<State>())
 {
 }
 
@@ -18,6 +21,7 @@ QuicRClient::QuicRClient(
   std::shared_ptr<SubscriberDelegate> subscriber_delegate)
   : transport(transport_in)
   , sub_delegate(subscriber_delegate)
+  , state(std::make_unique<State>())
 {
 }
 
@@ -25,6 +29,7 @@ QuicRClient::QuicRClient(ITransport& transport_in,
                          std::shared_ptr<PublisherDelegate> pub_delegate)
   : transport(transport_in)
   , pub_delegate(pub_delegate)
+  , state(std::make_unique<State>())
 {
 }
 

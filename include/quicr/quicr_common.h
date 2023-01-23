@@ -6,10 +6,6 @@
 
 namespace quicr {
 
-// TODO: Adding this to get all the things compiling
-//       this will be replaced soon
-using ITransport = void*;
-
 // TODO: Do we need a different structure or the name
 using bytes = std::vector<uint8_t>;
 

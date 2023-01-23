@@ -4,6 +4,9 @@
 
 #include <doctest/doctest.h>
 #include <quicr/quicr_client.h>
+#include <transport/transport.h>
+
+#include "fake_transport.h"
 
 using namespace quicr;
 
@@ -51,11 +54,14 @@ struct TestPublisherDelegate : public PublisherDelegate
   ~TestPublisherDelegate() override = default;
 };
 
+struct QuicRClient::State
+{};
+
 TEST_CASE("Object Lifetime")
 {
   std::shared_ptr<TestSubscriberDelegate> sub_delegate{};
   std::shared_ptr<TestPublisherDelegate> pub_delegate{};
-  ITransport fake_transport;
+  FakeTransport fake_transport;
   CHECK_NOTHROW(
     std::make_unique<QuicRClient>(fake_transport, sub_delegate, pub_delegate));
 }
