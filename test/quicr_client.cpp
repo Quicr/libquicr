@@ -53,7 +53,7 @@ struct TestPublisherDelegate : public PublisherDelegate
 
 TEST_CASE("Object Lifetime")
 {
-  std::shared_ptr<TestSubscriberDelegate> sub_delegate {};
+  std::shared_ptr<TestSubscriberDelegate> sub_delegate{};
   std::shared_ptr<TestPublisherDelegate> pub_delegate{};
   ITransport fake_transport;
   CHECK_NOTHROW(
