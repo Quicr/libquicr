@@ -1,9 +1,13 @@
+#pragma once
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include <quicr/quicr_common.h>
+#include <transport/transport.h>
+
+using qtransport::ITransport;
 
 namespace quicr {
 
@@ -334,6 +338,9 @@ public:
                                   bytes&& data);
 
 private:
+  // forward declaration
+  struct State;
+  std::unique_ptr<State> state;
   ClientStatus client_status{ ClientStatus::TERMINATED };
   ITransport& transport;
   std::shared_ptr<SubscriberDelegate> sub_delegate;

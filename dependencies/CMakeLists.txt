@@ -1,36 +1,12 @@
 # Enable fetching content
 include(FetchContent)
 
-# Fetch the picoquic library, which brings in picotls with it
-if(IS_DIRECTORY "/ws/picoquic")
-    message(STATUS "Using picoquic from /ws/picoquic")
-    FetchContent_Declare(picoquic
-        URL             /ws/picoquic
-    )
-else()
-    message(STATUS "Retrieving picoquic")
-    FetchContent_Declare(picoquic
-        GIT_REPOSITORY  https://github.com/private-octopus/picoquic.git
-        GIT_TAG         master
-    )
-endif()
-
-# Set the option to force picoquic to fetch picotls
-set(PICOQUIC_FETCH_PTLS ON)
-
-# Fetch the quicrq library
-if(IS_DIRECTORY "/ws/quicrq")
-    message(STATUS "Using quicrq from /ws/quicrq")
-    FetchContent_Declare(quicrq
-        URL             /ws/quicrq
-    )
-else()
-    message(STATUS "Retrieving quicrq")
-    FetchContent_Declare(quicrq
-        GIT_REPOSITORY  git@github.com:Quicr/quicrq.git
+# Transport
+message(STATUS "Retrieving transport")
+FetchContent_Declare(transport
+        GIT_REPOSITORY  git@github.com:Quicr/transport.git
         GIT_TAG         main
-    )
-endif()
+        )
 
 # DocTest for testing
 if(quicr_BUILD_TESTS)
@@ -50,4 +26,4 @@ if(quicr_BUILD_TESTS)
 endif()
 
 # Make dependencies available
-FetchContent_MakeAvailable(picoquic quicrq)
+FetchContent_MakeAvailable(transport)
