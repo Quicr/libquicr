@@ -1,3 +1,4 @@
+#pragma once
 #include <vector>
 
 namespace quicr::messages {
@@ -29,7 +30,6 @@ struct MessageBuffer
 
   std::string to_hex();
 
-private:
   std::vector<uint8_t> buffer;
 };
 

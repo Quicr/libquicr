@@ -31,6 +31,12 @@ struct QUICRNamespace
   size_t mask{
     0
   }; // Number of significant bits (big-endian) of hi + low bits.  0 - 128
+
+  bool operator<(const QUICRNamespace& other) const
+  {
+    return (this->hi < other.hi && this->low < other.low &&
+            this->mask < other.mask);
+  }
 };
 
 /**

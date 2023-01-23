@@ -1,4 +1,5 @@
 #pragma once
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -338,13 +339,29 @@ public:
                                   bytes&& data);
 
 private:
-  // forward declaration
+  // State to store per-subscribe context
+  struct SubscribeContext
+  {
+    enum struct State
+    {
+      Unknown = 0,
+      SubscribePending,
+      Subscribed
+    };
+
+    State state;
+    qtransport::TransportContextId transport_context_id;
+    qtransport::MediaStreamId media_stream_id;
+  };
+
   struct State;
   std::unique_ptr<State> state;
   ClientStatus client_status{ ClientStatus::TERMINATED };
   ITransport& transport;
+  qtransport::TransportContextId transport_context_id;
   std::shared_ptr<SubscriberDelegate> sub_delegate;
   std::shared_ptr<PublisherDelegate> pub_delegate;
+  std::map<QUICRNamespace, SubscribeContext> subscribe_state{};
 };
 
 }

@@ -1,3 +1,5 @@
+#pragma once
+#include <random>
 #include <string>
 #include <vector>
 
@@ -15,6 +17,9 @@ enum struct MessageType : uint8_t
   Unknown = 0,
   Subscribe = 1,
 };
+
+uint64_t
+transaction_id();
 
 ///
 /// Message Types
