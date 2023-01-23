@@ -4,13 +4,16 @@
 #include "message_buffer.h"
 #include <quicr/quicr_common.h>
 
-/* Utilties to encode and decode protocol messages */
+/**
+ *  Utilties to encode and decode protocol messages
+ */
 namespace quicr::messages
 {
 
-///
-/// Common
-///
+/*===========================================================================*/
+// Common
+/*===========================================================================*/
+
 enum class MessageType : uint8_t
 {
   Unknown = 0,
@@ -36,7 +39,7 @@ enum class Response : uint8_t
 
 
 /*===========================================================================*/
-// Subscribe
+// Subscribe Message Types
 /*===========================================================================*/
 
 struct Subscribe
@@ -91,7 +94,7 @@ operator>>(MessageBuffer& buffer, SubscribeEnd& msg);
 
 
 /*===========================================================================*/
-// Publish
+// Publish Message Types
 /*===========================================================================*/
 
 struct DatagramHeader
