@@ -15,8 +15,11 @@ All the dependecies are now fetched via cmake and below steps should
 build libquicr.a
 
 ```
+brew install openssl
+export PKG_CONFIG_PATH="/opt/homebrew/opt/openssl@3/lib/pkgconfig"
 git clone git@github.com:Quicr/libquicr.git
 cd libquicr
+git submodule update --init --recursive
 mkdir build
 cd build
 cmake ..
