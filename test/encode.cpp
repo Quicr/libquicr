@@ -16,7 +16,8 @@ TEST_CASE("Subscribe Message encode/decode")
   MessageBuffer buffer;
   buffer << s;
   Subscribe s_out;
-  buffer >> s_out;
+  CHECK((buffer >> s_out));
+  
   CHECK_EQ(s_out.transaction_id, s.transaction_id);
   CHECK_EQ(s_out.quicr_namespace.mask, s.quicr_namespace.mask);
   CHECK_EQ(s_out.quicr_namespace.low, s.quicr_namespace.low);
@@ -30,7 +31,8 @@ TEST_CASE("SubscribeResponse Message encode/decode")
   MessageBuffer buffer;
   buffer << s;
   SubscribeResponse s_out;
-  buffer >> s_out;
+  CHECK((buffer >> s_out));
+
   CHECK_EQ(s_out.message_type, s.message_type);
   CHECK_EQ(s_out.response, s.response);
   CHECK_EQ(s_out.transaction_id, s.transaction_id);
@@ -43,7 +45,8 @@ TEST_CASE("SubscribeEnd Message encode/decode")
   MessageBuffer buffer;
   buffer << s;
   SubscribeEnd s_out;
-  buffer >> s_out;
+  CHECK((buffer >> s_out));
+
   CHECK_EQ(s_out.message_type, s.message_type);
   CHECK_EQ(s_out.media_id, s.media_id);
   CHECK_EQ(s_out.payload, s.payload);
