@@ -1,7 +1,7 @@
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
-#include <memory>
 
 #include <quicr/quicr_common.h>
 
@@ -193,7 +193,8 @@ public:
    * @param subscriber_delegate  : Reference to receive callback for subscriber
    * operations
    */
-  QuicRClient(ITransport& transport, std::shared_ptr<SubscriberDelegate> subscriber_delegate);
+  QuicRClient(ITransport& transport,
+              std::shared_ptr<SubscriberDelegate> subscriber_delegate);
 
   /*
    * @brief Setup a QUICR Client with publisher functionality
@@ -202,7 +203,8 @@ public:
    * @param publisher_delegate   : Reference to receive callback for publisher
    * operations
    */
-  QuicRClient(ITransport& transport, std::shared_ptr<PublisherDelegate> pub_delegate);
+  QuicRClient(ITransport& transport,
+              std::shared_ptr<PublisherDelegate> pub_delegate);
 
   /**
    * @brief Get the client status
@@ -332,7 +334,7 @@ public:
                                   bytes&& data);
 
 private:
-  ClientStatus client_status;
+  ClientStatus client_status{ ClientStatus::TERMINATED };
   ITransport& transport;
   std::shared_ptr<SubscriberDelegate> sub_delegate;
   std::shared_ptr<PublisherDelegate> pub_delegate;

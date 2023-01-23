@@ -1,5 +1,9 @@
 # Test Binary
-add_executable(quicr_test main.cpp quicr_client.cpp)
+add_executable(quicr_test
+                main.cpp
+                quicr_client.cpp
+                encode.cpp)
+target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(quicr_test PRIVATE quicr doctest::doctest)
 target_compile_options(quicr_test
     PRIVATE
