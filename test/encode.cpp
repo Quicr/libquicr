@@ -1,11 +1,14 @@
 #include <doctest/doctest.h>
 #include <memory>
 
-// TODO (suhas) : Can this be done better ?
-#include "../src/encode.h"
+#include "encode.h"
 
 using namespace quicr;
 using namespace quicr::messages;
+
+/*===========================================================================*/
+// Subscribe Message Types
+/*===========================================================================*/
 
 TEST_CASE("Subscribe Message encode/decode")
 {
@@ -55,6 +58,43 @@ TEST_CASE("SubscribeEnd Message encode/decode")
   CHECK_EQ(s_out.payload, s.payload);
 }
 
+
+/*===========================================================================*/
+// Publish Message Types
+/*===========================================================================*/
+
+TEST_CASE("PublishIntent Message encode/decode")
+{
+  QUICRNamespace qnamespace{ 0x1000, 0x2000, 3 };
+  PublishIntent pi{ MessageType::Publish, 0x1000, qnamespace, 1u, {0, 1, 2, 3, 4}, uintVar_t{0x0100}, uintVar_t{0x0000} };
+  MessageBuffer buffer;
+  buffer << pi;
+  PublishIntent pi_out;
+  CHECK((buffer >> pi_out));
+
+  CHECK_EQ(pi_out.message_type, pi.message_type);
+  CHECK_EQ(pi_out.transaction_id, pi.transaction_id);
+  CHECK_EQ(pi_out.quicr_namespace.hi, pi.quicr_namespace.hi);
+  CHECK_EQ(pi_out.quicr_namespace.low, pi.quicr_namespace.low);
+  CHECK_EQ(pi_out.mask, pi.mask);
+  CHECK_EQ(pi_out.payload, pi.payload);
+  CHECK_EQ(pi_out.media_id, pi.media_id);
+  CHECK_EQ(pi_out.datagram_capable, pi.datagram_capable);
+}
+
+TEST_CASE("PublishIntentResponse Message encode/decode")
+{
+  PublishIntentResponse pir{ MessageType::Publish, Response::Ok, 0x1000 };
+  MessageBuffer buffer;
+  buffer << pir;
+  PublishIntentResponse pir_out;
+  CHECK((buffer >> pir_out));
+
+  CHECK_EQ(pir_out.message_type, pir.message_type);
+  CHECK_EQ(pir_out.response, pir.response);
+  CHECK_EQ(pir_out.transaction_id, pir.transaction_id);
+}
+
 TEST_CASE("Publish Message encode/decode")
 {
   Header d{ uintVar_t{ 0x1000 },
@@ -76,4 +116,31 @@ TEST_CASE("Publish Message encode/decode")
   CHECK_EQ(p_out.media_type, p.media_type);
   CHECK_EQ(p_out.media_data_length, p.media_data_length);
   CHECK_EQ(p_out.media_data, p.media_data);
+}
+
+TEST_CASE("PublishStream Message encode/decode")
+{
+  PublishStream ps{ uintVar_t{5}, {0, 1, 2, 3, 4} };
+  MessageBuffer buffer;
+  buffer << ps;
+  PublishStream ps_out;
+  CHECK((buffer >> ps_out));
+
+  CHECK_EQ(ps_out.media_data_length, ps.media_data_length);
+  CHECK_EQ(ps_out.media_data, ps.media_data);
+}
+
+TEST_CASE("PublishIntentEnd Message encode/decode")
+{
+  const std::string name = "12345";
+  PublishIntentEnd pie{ MessageType::Publish, uintVar_t{5}, {name.begin(), name.end()}, {0, 1, 2, 3, 4} };
+  MessageBuffer buffer;
+  buffer << pie;
+  PublishIntentEnd pie_out;
+  CHECK((buffer >> pie_out));
+
+  CHECK_EQ(pie_out.message_type, pie.message_type);
+  CHECK_EQ(pie_out.name_length, pie.name_length);
+  CHECK_EQ(pie_out.name, pie.name);
+  CHECK_EQ(pie_out.payload, pie.payload);
 }
