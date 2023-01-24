@@ -10,6 +10,14 @@ namespace quicr::messages
 // Subscribe Encode & Decode
 /*===========================================================================*/
 
+uint64_t
+transaction_id()
+{
+  std::default_random_engine engine(time(0));
+  std::uniform_int_distribution distribution(1, 9);
+  return distribution(engine);
+}
+
 void
 operator<<(MessageBuffer& buffer, const Subscribe& msg)
 {

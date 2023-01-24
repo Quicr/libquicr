@@ -2,11 +2,11 @@
 #include <string>
 #include <vector>
 
+#include "encode.h"
+#include "fake_transport.h"
 #include <doctest/doctest.h>
 #include <quicr/quicr_client.h>
 #include <transport/transport.h>
-
-#include "fake_transport.h"
 
 using namespace quicr;
 
@@ -64,4 +64,38 @@ TEST_CASE("Object Lifetime")
   FakeTransport fake_transport;
   CHECK_NOTHROW(
     std::make_unique<QuicRClient>(fake_transport, sub_delegate, pub_delegate));
+}
+
+TEST_CASE("Subscribe encode, send and receive")
+{
+  std::shared_ptr<TestSubscriberDelegate> sub_delegate{};
+  std::shared_ptr<TestPublisherDelegate> pub_delegate{};
+  FakeTransportDelegate transport_delegate;
+
+  auto transport = std::make_shared<FakeTransport>();
+
+  auto qclient =
+    std::make_unique<QuicRClient>(*transport, sub_delegate, pub_delegate);
+
+  /*
+   * void subscribe(const QUICRNamespace& quicr_namespace,
+                 const SubscribeIntent& intent,
+                 const std::string& origin_url,
+                 bool use_reliable_transport,
+                 const std::string& auth_token,
+                 bytes&& e2e_token);
+   */
+  qclient->subscribe(
+    { 0x1000, 0x2000, 3 }, SubscribeIntent::wait_up, "", false, "", {});
+
+  auto fake_transport = std::reinterpret_pointer_cast<FakeTransport>(transport);
+  messages::Subscribe s;
+  messages::MessageBuffer msg{ fake_transport->stored_data };
+  msg >> s;
+
+  CHECK_EQ(s.transaction_id, s.transaction_id);
+  CHECK_EQ(s.quicr_namespace.low, 0x2000);
+  CHECK_EQ(s.quicr_namespace.hi, 0x1000);
+  CHECK_EQ(s.quicr_namespace.mask, 3);
+  CHECK_EQ(s.intent, SubscribeIntent::wait_up);
 }

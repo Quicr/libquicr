@@ -1,6 +1,8 @@
 #include <quicr/quicr_client.h>
 #include <quicr/quicr_common.h>
 
+#include "encode.h"
+#include "message_buffer.h"
 #include "state.h"
 
 namespace quicr {
@@ -14,6 +16,7 @@ quicr::QuicRClient::QuicRClient(
   , pub_delegate(pub_delegate)
   , state(std::make_unique<State>())
 {
+  transport_context_id = transport.start();
 }
 
 QuicRClient::QuicRClient(
@@ -23,6 +26,7 @@ QuicRClient::QuicRClient(
   , sub_delegate(subscriber_delegate)
   , state(std::make_unique<State>())
 {
+  transport_context_id = transport.start();
 }
 
 QuicRClient::QuicRClient(ITransport& transport_in,
@@ -31,6 +35,7 @@ QuicRClient::QuicRClient(ITransport& transport_in,
   , pub_delegate(pub_delegate)
   , state(std::make_unique<State>())
 {
+  transport_context_id = transport.start();
 }
 
 bool
@@ -56,9 +61,31 @@ QuicRClient::subscribe(const QUICRNamespace& quicr_namespace,
                        const std::string& auth_token,
                        bytes&& e2e_token)
 {
-  /*
-   *
-   */
+  // encode subscribe
+  messages::MessageBuffer msg{};
+  auto transaction_id = messages::transaction_id();
+  messages::Subscribe subscribe{ 0x1, transaction_id, quicr_namespace, intent };
+  msg << subscribe;
+
+  qtransport::MediaStreamId msid{};
+  if (!subscribe_state.count(quicr_namespace)) {
+    // create a new media-stream for this subscribe
+    auto msid = transport.createMediaStream(transaction_id, false);
+    subscribe_state[quicr_namespace] = SubscribeContext{
+      SubscribeContext::State::SubscribePending, transaction_id, msid
+    };
+    transport.enqueue(transport_context_id, msid, std::move(msg.buffer));
+    return;
+  } else {
+    auto& ctx = subscribe_state[quicr_namespace];
+    if (ctx.state == SubscribeContext::State::Subscribed) {
+      // already subscribed
+      return;
+    } else if (ctx.state == SubscribeContext::State::SubscribePending) {
+      // todo - resend or wait or may be take in timeout in the api
+    }
+    transport.enqueue(transport_context_id, msid, std::move(msg.buffer));
+  }
 }
 
 void

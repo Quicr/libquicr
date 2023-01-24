@@ -1,3 +1,5 @@
+#pragma once
+#include <random>
 #include <string>
 #include <vector>
 
@@ -21,6 +23,12 @@ enum class MessageType : uint8_t
   Publish = 2,
 };
 
+uint64_t
+transaction_id();
+
+///
+/// Message Types
+///
 enum class MediaType : uint8_t
 {
   Manifest,
