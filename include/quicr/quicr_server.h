@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <map>
 
 #include <quicr/quicr_common.h>
 #include <transport/transport.h>
@@ -247,9 +248,29 @@ public:
                          bytes&& data);
 
 private:
+
+  // State per publish_intent and related publish
+  struct PublishContext
+  {
+    enum struct State
+    {
+      Unknown = 0,
+      Pending,
+      Ready
+    };
+
+    State state{ State::Unknown };
+    qtransport::TransportContextId transport_context_id{ 0 };
+    qtransport::MediaStreamId media_stream_id{ 0 };
+    uint64_t group_id{ 0 };
+    uint64_t object_id{ 0 };
+    uint64_t offset{ 0 };
+  };
+
   qtransport::ITransport& transport;
   qtransport::TransportContextId transport_context_id;
   std::shared_ptr<ServerDelegate> delegate;
+  std::map<QUICRName, PublishContext> publish_state{};
 };
 
 } // namespace quicr
