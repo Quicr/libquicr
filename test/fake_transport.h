@@ -17,13 +17,17 @@ struct FakeTransport : public ITransport
     return 0x2000;
   }
 
+  void close(const TransportContextId &context_id) {};
+
+  void closeMediaStream(const TransportContextId &context_id,
+                                MediaStreamId mStreamId) {};
   void close() {}
 
-  Error enqueue(const TransportContextId& tcid,
+  TransportError enqueue(const TransportContextId& tcid,
                 const MediaStreamId& msid,
                 std::vector<uint8_t>&& bytes)
   {
-    return Error::None;
+    return TransportError::None;
   }
 
   std::optional<std::vector<uint8_t>> dequeue(const TransportContextId& tcid,
