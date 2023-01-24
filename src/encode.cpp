@@ -102,6 +102,61 @@ operator>>(MessageBuffer& buffer, SubscribeEnd& msg)
 /*===========================================================================*/
 
 void
+operator<<(MessageBuffer& buffer, const PublishIntent& msg)
+{
+  buffer << msg.datagram_capable;
+  buffer << msg.media_id;
+  buffer << msg.payload;
+  buffer << msg.mask;
+  buffer << msg.quicr_namespace.hi;
+  buffer << msg.quicr_namespace.low;
+  buffer << msg.transaction_id;
+  buffer << static_cast<uint8_t>(msg.message_type);
+}
+
+bool
+operator>>(MessageBuffer& buffer, PublishIntent& msg)
+{
+  uint8_t msg_type;
+  buffer >> msg_type;
+  msg.message_type = static_cast<MessageType>(msg_type);
+
+  buffer >> msg.transaction_id;
+  buffer >> msg.quicr_namespace.low;
+  buffer >> msg.quicr_namespace.hi;
+  buffer >> msg.mask;
+  buffer >> msg.payload;
+  buffer >> msg.media_id;
+  buffer >> msg.datagram_capable;
+
+  return true;
+}
+
+void
+operator<<(MessageBuffer& buffer, const PublishIntentResponse& msg)
+{
+  buffer << msg.transaction_id;
+  buffer << static_cast<uint8_t>(msg.response);
+  buffer << static_cast<uint8_t>(msg.message_type);
+}
+
+bool
+operator>>(MessageBuffer& buffer, PublishIntentResponse& msg)
+{
+  uint8_t msg_type;
+  buffer >> msg_type;
+  msg.message_type = static_cast<MessageType>(msg_type);
+
+  uint8_t response;
+  buffer >> response;
+  msg.response = static_cast<Response>(response);
+
+  buffer >> msg.transaction_id;
+
+  return true;
+}
+
+void
 operator<<(MessageBuffer& buffer, const Header& msg)
 {
   buffer << msg.flags;
@@ -154,6 +209,49 @@ operator>>(MessageBuffer& buffer, PublishDatagram& msg)
   if (msg.media_data.size() != static_cast<size_t>(msg.media_data_length)) {
     return false;
   }
+
+  return true;
+}
+
+void
+operator<<(MessageBuffer& buffer, const PublishStream& msg)
+{
+  buffer << msg.media_data;
+  buffer << msg.media_data_length;
+}
+
+bool
+operator>>(MessageBuffer& buffer, PublishStream& msg)
+{
+  buffer >> msg.media_data_length;
+  buffer >> msg.media_data;
+
+  return msg.media_data.size() == static_cast<size_t>(msg.media_data_length);
+}
+
+void
+operator<<(MessageBuffer& buffer, const PublishIntentEnd& msg)
+{
+  buffer << msg.payload;
+  buffer << msg.name;
+  buffer << msg.name_length;
+  buffer << static_cast<uint8_t>(msg.message_type);
+}
+
+bool
+operator>>(MessageBuffer& buffer, PublishIntentEnd& msg)
+{
+  uint8_t msg_type;
+  buffer >> msg_type;
+  msg.message_type = static_cast<MessageType>(msg_type);
+
+  buffer >> msg.name_length;
+  buffer >> msg.name;
+
+  if (msg.name.size() != static_cast<size_t>(msg.name_length))
+    return false;
+
+  buffer >> msg.payload;
 
   return true;
 }
