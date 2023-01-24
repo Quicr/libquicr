@@ -188,6 +188,7 @@ public:
    * @todo: Add payload with origin signed blob
    */
   void subscribeResponse(const QUICRNamespace& quicr_namespace,
+                         const uint64_t& transaction_id,
                          const SubscribeResult& result);
 
   /*
@@ -244,6 +245,11 @@ public:
                          uint64_t offset,
                          bool is_last_fragment,
                          bytes&& data);
+
+private:
+  qtransport::ITransport& transport;
+  qtransport::TransportContextId transport_context_id;
+  std::shared_ptr<ServerDelegate> delegate;
 };
 
 } // namespace quicr

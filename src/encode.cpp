@@ -53,10 +53,12 @@ operator>>(MessageBuffer& buffer, Subscribe& msg)
 void
 operator<<(MessageBuffer& buffer, const SubscribeResponse& msg)
 {
-  buffer << msg.media_id;
+  buffer << static_cast<uint8_t>(msg.quicr_namespace.mask);
+  buffer << msg.quicr_namespace.hi;
+  buffer << msg.quicr_namespace.low;
   buffer << msg.transaction_id;
   buffer << static_cast<uint8_t>(msg.response);
-  buffer << static_cast<uint8_t>(msg.message_type);
+  buffer << static_cast<uint8_t>(MessageType::SubscribeResponse);
 }
 
 bool
@@ -64,14 +66,20 @@ operator>>(MessageBuffer& buffer, SubscribeResponse& msg)
 {
   uint8_t msg_type;
   buffer >> msg_type;
-  msg.message_type = static_cast<MessageType>(msg_type);
+  if (msg_type != static_cast<uint8_t>(MessageType::SubscribeResponse)) {
+    return false;
+  }
 
   uint8_t response;
   buffer >> response;
-  msg.response = static_cast<Response>(response);
+  msg.response = static_cast<SubscribeResult::SubscribeStatus>(response);
 
   buffer >> msg.transaction_id;
-  buffer >> msg.media_id;
+  buffer >> msg.quicr_namespace.low;
+  buffer >> msg.quicr_namespace.hi;
+  uint8_t mask = 0;
+  buffer >> mask;
+  msg.quicr_namespace.mask = mask;
 
   return true;
 }

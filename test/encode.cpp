@@ -26,18 +26,18 @@ TEST_CASE("Subscribe Message encode/decode")
 
 TEST_CASE("SubscribeResponse Message encode/decode")
 {
-  SubscribeResponse s{
-    MessageType::Unknown, Response::Ok, 0x1000, uintVar_t{ 0x0100 }
-  };
+  QUICRNamespace qnamespace{ 0x1000, 0x2000, 3 };
+
+  SubscribeResponse s{ qnamespace,
+                       SubscribeResult::SubscribeStatus::Ok,
+                       0x1000 };
   MessageBuffer buffer;
   buffer << s;
   SubscribeResponse s_out;
   CHECK((buffer >> s_out));
-
-  CHECK_EQ(s_out.message_type, s.message_type);
+  CHECK_EQ(s_out.quicr_namespace, s.quicr_namespace);
   CHECK_EQ(s_out.response, s.response);
   CHECK_EQ(s_out.transaction_id, s.transaction_id);
-  CHECK_EQ(s_out.media_id, s.media_id);
 }
 
 TEST_CASE("SubscribeEnd Message encode/decode")

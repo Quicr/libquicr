@@ -20,6 +20,7 @@ enum class MessageType : uint8_t
   Unknown = 0,
   Subscribe = 1,
   Publish = 2,
+  SubscribeResponse = 3,
 };
 
 uint64_t
@@ -34,14 +35,6 @@ enum class MediaType : uint8_t
   Advertisement,
   Text,
   RealtimeMedia
-};
-
-enum class Response : uint8_t
-{
-  Ok = 0,
-  Expired = 1,
-  Fail = 2,
-  Redirect = 3
 };
 
 /*===========================================================================*/
@@ -63,10 +56,9 @@ operator>>(MessageBuffer& buffer, Subscribe& msg);
 
 struct SubscribeResponse
 {
-  MessageType message_type;
-  Response response;
+  QUICRNamespace quicr_namespace;
+  SubscribeResult::SubscribeStatus response;
   uint64_t transaction_id;
-  uintVar_t media_id;
   /* TODO:
    *
    * signature(32)

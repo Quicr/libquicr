@@ -107,15 +107,6 @@ TEST_CASE("Publish encode, send and receive")
 
   auto qclient =
     std::make_unique<QuicRClient>(*transport, sub_delegate, pub_delegate);
-
-  /*
-   * void
-QuicRClient::publishNamedObject(const QUICRName& quicr_name,
-                                uint8_t priority,
-                                uint16_t expiry_age_ms,
-                                bool use_reliable_transport,
-                                bytes&& data)
-   */
   std::vector<uint8_t> say_hello = { 'H', 'E', 'L', 'L', '0' };
   qclient->publishNamedObject(
     { 0x1000, 0x2000 }, 0, 0, false, std::move(say_hello));

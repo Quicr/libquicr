@@ -129,9 +129,9 @@ struct SubscribeResult
   };
 
   SubscribeStatus status; // Subscription status
-  std::string reason_string;
-  std::optional<uint64_t> subscriber_expiry_interval;
-  RelayInfo redirectInfo; // Set only if status is redirect
+  std::string reason_string{};
+  std::optional<uint64_t> subscriber_expiry_interval{};
+  RelayInfo redirectInfo{}; // Set only if status is redirect
 };
 
 /**
