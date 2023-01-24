@@ -59,4 +59,4 @@ endif()
 ### Applications
 ###
 ###
-#add_subdirectory(cmd)
+add_subdirectory(cmd)
