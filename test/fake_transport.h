@@ -7,13 +7,18 @@ struct FakeTransportDelegate : public ITransport::TransportDelegate
 {
   ~FakeTransportDelegate() = default;
 
-  void on_connection_status(const TransportStatus status) override {}
+  virtual void on_connection_status(const TransportContextId &context_id,
+                                    const TransportStatus status) override {}
 
-  virtual void on_new_connection(const TransportContextId& context_id) override
-  {
-  }
+  virtual void on_new_connection(const TransportContextId &context_id,
+                                 const TransportRemote &remote) override {}
 
-  virtual void on_recv_notify(TransportContextId& tcid) override{};
+
+  void onNewMediaStream(const TransportContextId &context_id,
+                                const MediaStreamId &mStreamId) override {}
+
+  void on_recv_notify(const TransportContextId &context_id) override {}
+
 };
 
 struct FakeTransport : public ITransport
