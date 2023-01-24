@@ -1,6 +1,5 @@
 #include <doctest/doctest.h>
 #include <memory>
-#include <quicr/quicr_client.h>
 
 // TODO (suhas) : Can this be done better ?
 #include "../src/encode.h"
@@ -26,7 +25,9 @@ TEST_CASE("Subscribe Message encode/decode")
 
 TEST_CASE("SubscribeResponse Message encode/decode")
 {
-  SubscribeResponse s{ MessageType::Unknown, Response::Ok, 0x1000, uintVar_t{0x0100} };
+  SubscribeResponse s{
+    MessageType::Unknown, Response::Ok, 0x1000, uintVar_t{ 0x0100 }
+  };
   MessageBuffer buffer;
   buffer << s;
   SubscribeResponse s_out;
@@ -39,7 +40,9 @@ TEST_CASE("SubscribeResponse Message encode/decode")
 
 TEST_CASE("SubscribeEnd Message encode/decode")
 {
-  SubscribeEnd s{ MessageType::Unknown, uintVar_t{0x1000}, {1, 2, 3, 4, 5} };
+  SubscribeEnd s{ MessageType::Unknown,
+                  uintVar_t{ 0x1000 },
+                  { 1, 2, 3, 4, 5 } };
   MessageBuffer buffer;
   buffer << s;
   SubscribeEnd s_out;
@@ -51,14 +54,12 @@ TEST_CASE("SubscribeEnd Message encode/decode")
 
 TEST_CASE("Publish Message encode/decode")
 {
-  DatagramHeader d {
-    uintVar_t{0x1000},
-    uintVar_t{0x0100},
-    uintVar_t{0x0010},
-    uintVar_t{0x0001},
-    0x0000
-  };
-  PublishDatagram p{ d, MediaType::Text, uintVar_t{5}, {1, 2, 3, 4, 5}};
+  DatagramHeader d{ uintVar_t{ 0x1000 },
+                    uintVar_t{ 0x0100 },
+                    uintVar_t{ 0x0010 },
+                    uintVar_t{ 0x0001 },
+                    0x0000 };
+  PublishDatagram p{ d, MediaType::Text, uintVar_t{ 5 }, { 1, 2, 3, 4, 5 } };
   MessageBuffer buffer;
   buffer << p;
   PublishDatagram p_out;
@@ -67,7 +68,8 @@ TEST_CASE("Publish Message encode/decode")
   CHECK_EQ(p_out.datagram_header.media_id, p.datagram_header.media_id);
   CHECK_EQ(p_out.datagram_header.group_id, p.datagram_header.group_id);
   CHECK_EQ(p_out.datagram_header.object_id, p.datagram_header.object_id);
-  CHECK_EQ(p_out.datagram_header.offset_and_fin, p.datagram_header.offset_and_fin);
+  CHECK_EQ(p_out.datagram_header.offset_and_fin,
+           p.datagram_header.offset_and_fin);
   CHECK_EQ(p_out.datagram_header.flags, p.datagram_header.flags);
   CHECK_EQ(p_out.media_type, p.media_type);
   CHECK_EQ(p_out.media_data_length, p.media_data_length);

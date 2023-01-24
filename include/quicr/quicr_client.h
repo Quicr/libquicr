@@ -345,13 +345,30 @@ private:
     enum struct State
     {
       Unknown = 0,
-      SubscribePending,
-      Subscribed
+      Pending,
+      Ready
     };
 
     State state;
     qtransport::TransportContextId transport_context_id;
     qtransport::MediaStreamId media_stream_id;
+    uint64_t transaction_id;
+  };
+
+  // State per publish_intent and related publish
+  struct PublishContext
+  {
+    enum struct State
+    {
+      Unknown = 0,
+      Pending,
+      Ready
+    };
+
+    State state;
+    qtransport::TransportContextId transport_context_id;
+    qtransport::MediaStreamId media_stream_id;
+    uint64_t transaction_id;
   };
 
   struct State;

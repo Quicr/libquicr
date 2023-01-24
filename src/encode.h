@@ -9,8 +9,7 @@
 /**
  *  Utilties to encode and decode protocol messages
  */
-namespace quicr::messages
-{
+namespace quicr::messages {
 
 /*===========================================================================*/
 // Common
@@ -45,7 +44,6 @@ enum class Response : uint8_t
   Redirect = 3
 };
 
-
 /*===========================================================================*/
 // Subscribe Message Types
 /*===========================================================================*/
@@ -70,7 +68,7 @@ struct SubscribeResponse
   uint64_t transaction_id;
   uintVar_t media_id;
   /* TODO:
-   * 
+   *
    * signature(32)
    * [Reason Phrase Length (i)],
    * [Reason Phrase (..)],
@@ -99,7 +97,6 @@ void
 operator<<(MessageBuffer& buffer, const SubscribeEnd& msg);
 bool
 operator>>(MessageBuffer& buffer, SubscribeEnd& msg);
-
 
 /*===========================================================================*/
 // Publish Message Types
