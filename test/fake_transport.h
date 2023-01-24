@@ -1,7 +1,21 @@
-#pragma
+#pragma once
 #include <transport/transport.h>
 
 using namespace qtransport;
+
+struct FakeTransportDelegate : public ITransport::TransportDelegate
+{
+  ~FakeTransportDelegate() = default;
+
+  void on_connection_status(const TransportStatus status) override {}
+
+  virtual void on_new_connection(const TransportContextId& context_id) override
+  {
+  }
+
+  virtual void on_recv_notify(TransportContextId& tcid) override{};
+};
+
 struct FakeTransport : public ITransport
 {
 
@@ -27,6 +41,7 @@ struct FakeTransport : public ITransport
                 const MediaStreamId& msid,
                 std::vector<uint8_t>&& bytes)
   {
+    stored_data = std::move(bytes);
     return TransportError::None;
   }
 
@@ -35,4 +50,6 @@ struct FakeTransport : public ITransport
   {
     return std::nullopt;
   }
+
+  std::vector<uint8_t> stored_data;
 };

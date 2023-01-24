@@ -1,0 +1,7 @@
+[submodule "dependencies/transport"]
+	path = dependencies/transport
+	url = git@github.com:Quicr/transport.git
+	branch = main
+[submodule "dependencies/doctest"]
+	path = dependencies/doctest
+	url = https://github.com/doctest/doctest.git

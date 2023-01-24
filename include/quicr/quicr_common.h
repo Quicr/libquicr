@@ -1,5 +1,4 @@
 #pragma once
-
 #include <optional>
 #include <string>
 #include <vector>
@@ -31,6 +30,23 @@ struct QUICRNamespace
   size_t mask{
     0
   }; // Number of significant bits (big-endian) of hi + low bits.  0 - 128
+
+  bool operator<(const QUICRNamespace& other) const
+  {
+    return std::tie(hi, low) < std::tie(other.hi, other.low);
+  }
+
+  bool operator==(const QUICRNamespace& other) const
+  {
+    auto res = (this->hi ^ other.hi) | (this->low ^ other.low) |
+               (this->mask ^ other.mask);
+    return res == 0;
+  }
+
+  bool operator!=(const QUICRNamespace& other) const
+  {
+    return !operator==(other);
+  }
 };
 
 /**
@@ -45,6 +61,8 @@ struct QUICRName
   uint64_t low;
 };
 
+bool
+is_quicr_name_in_namespace(const QUICRNamespace& ns, const QUICRName& n);
 /**
  * Hint providing the start point to serve a subscrption request.
  * Relays use this information to determine the start-point and
