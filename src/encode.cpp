@@ -4,8 +4,7 @@
 
 using quicr::bytes;
 
-namespace quicr::messages
-{
+namespace quicr::messages {
 /*===========================================================================*/
 // Subscribe Encode & Decode
 /*===========================================================================*/
@@ -35,8 +34,7 @@ operator>>(MessageBuffer& buffer, Subscribe& msg)
 {
   uint8_t msg_type;
   buffer >> msg_type;
-  if (msg_type != static_cast<uint8_t>(MessageType::Subscribe))
-  {
+  if (msg_type != static_cast<uint8_t>(MessageType::Subscribe)) {
     return false;
   }
 
@@ -51,7 +49,6 @@ operator>>(MessageBuffer& buffer, Subscribe& msg)
   msg.intent = static_cast<SubscribeIntent>(intent);
   return true;
 }
-
 
 void
 operator<<(MessageBuffer& buffer, const SubscribeResponse& msg)
@@ -68,7 +65,7 @@ operator>>(MessageBuffer& buffer, SubscribeResponse& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   msg.message_type = static_cast<MessageType>(msg_type);
-  
+
   uint8_t response;
   buffer >> response;
   msg.response = static_cast<Response>(response);
@@ -78,7 +75,6 @@ operator>>(MessageBuffer& buffer, SubscribeResponse& msg)
 
   return true;
 }
-
 
 void
 operator<<(MessageBuffer& buffer, const SubscribeEnd& msg)
@@ -142,8 +138,7 @@ operator>>(MessageBuffer& buffer, PublishDatagram& msg)
 {
   uint8_t msg_type;
   buffer >> msg_type;
-  if (msg_type != static_cast<uint8_t>(MessageType::Publish))
-  {
+  if (msg_type != static_cast<uint8_t>(MessageType::Publish)) {
     return false;
   }
 
@@ -156,8 +151,7 @@ operator>>(MessageBuffer& buffer, PublishDatagram& msg)
   buffer >> msg.media_data_length;
   buffer >> msg.media_data;
 
-  if (msg.media_data.size() != static_cast<size_t>(msg.media_data_length))
-  {
+  if (msg.media_data.size() != static_cast<size_t>(msg.media_data_length)) {
     return false;
   }
 

@@ -1,6 +1,7 @@
 # Test Binary
 add_executable(quicr_test
                 main.cpp
+                name.cpp
                 quicr_client.cpp
                 encode.cpp)
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)

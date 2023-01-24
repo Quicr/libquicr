@@ -16,8 +16,7 @@ struct FakeTransportDelegate : public ITransport::TransportDelegate
   virtual void on_recv_notify(TransportContextId& tcid) override{};
 };
 
-struct FakeTransport
-  : public ITransport
+struct FakeTransport : public ITransport
 {
 
   TransportStatus status() { return TransportStatus::Ready; }

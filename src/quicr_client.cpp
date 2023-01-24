@@ -3,9 +3,34 @@
 
 #include "encode.h"
 #include "message_buffer.h"
-#include "state.h"
 
 namespace quicr {
+///
+/// Common
+///
+
+bool
+is_quicr_name_in_namespace(const QUICRNamespace& ns, const QUICRName& n)
+{
+  auto a = ns.hi ^ n.hi;
+  auto b = ns.low ^ n.low;
+  unsigned count = 0;
+  while (a > 0) {
+    count += a & 1;
+    a >>= 1;
+  }
+
+  while (b > 0) {
+    count += b & 1;
+    b >>= 1;
+  }
+
+  return count == ns.mask;
+}
+
+///
+/// QuicRClient
+///
 
 quicr::QuicRClient::QuicRClient(
   ITransport& transport_in,
@@ -14,7 +39,6 @@ quicr::QuicRClient::QuicRClient(
   : transport(transport_in)
   , sub_delegate(subscriber_delegate)
   , pub_delegate(pub_delegate)
-  , state(std::make_unique<State>())
 {
   transport_context_id = transport.start();
 }
@@ -24,7 +48,6 @@ QuicRClient::QuicRClient(
   std::shared_ptr<SubscriberDelegate> subscriber_delegate)
   : transport(transport_in)
   , sub_delegate(subscriber_delegate)
-  , state(std::make_unique<State>())
 {
   transport_context_id = transport.start();
 }
@@ -33,7 +56,6 @@ QuicRClient::QuicRClient(ITransport& transport_in,
                          std::shared_ptr<PublisherDelegate> pub_delegate)
   : transport(transport_in)
   , pub_delegate(pub_delegate)
-  , state(std::make_unique<State>())
 {
   transport_context_id = transport.start();
 }
@@ -71,17 +93,19 @@ QuicRClient::subscribe(const QUICRNamespace& quicr_namespace,
   if (!subscribe_state.count(quicr_namespace)) {
     // create a new media-stream for this subscribe
     auto msid = transport.createMediaStream(transaction_id, false);
-    subscribe_state[quicr_namespace] = SubscribeContext{
-      SubscribeContext::State::SubscribePending, transaction_id, msid
-    };
+    subscribe_state[quicr_namespace] =
+      SubscribeContext{ SubscribeContext::State::Pending,
+                        transport_context_id,
+                        msid,
+                        transaction_id };
     transport.enqueue(transport_context_id, msid, std::move(msg.buffer));
     return;
   } else {
     auto& ctx = subscribe_state[quicr_namespace];
-    if (ctx.state == SubscribeContext::State::Subscribed) {
+    if (ctx.state == SubscribeContext::State::Ready) {
       // already subscribed
       return;
-    } else if (ctx.state == SubscribeContext::State::SubscribePending) {
+    } else if (ctx.state == SubscribeContext::State::Pending) {
       // todo - resend or wait or may be take in timeout in the api
     }
     transport.enqueue(transport_context_id, msid, std::move(msg.buffer));
@@ -113,6 +137,7 @@ QuicRClient::publishNamedObjectFragment(const QUICRName& quicr_name,
                                         bool is_last_fragment,
                                         bytes&& data)
 {
+  throw std::runtime_error("UnImplemented");
 }
 
 } // namespace quicr

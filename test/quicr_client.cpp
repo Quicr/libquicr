@@ -54,9 +54,6 @@ struct TestPublisherDelegate : public PublisherDelegate
   ~TestPublisherDelegate() override = default;
 };
 
-struct QuicRClient::State
-{};
-
 TEST_CASE("Object Lifetime")
 {
   std::shared_ptr<TestSubscriberDelegate> sub_delegate{};
