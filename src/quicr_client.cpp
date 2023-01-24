@@ -66,13 +66,14 @@ QuicRClient::publishIntent(const QUICRNamespace& quicr_namespace,
                            const std::string& auth_token,
                            bytes&& payload)
 {
-  return false;
+  throw std::runtime_error("UnImplemented");
 }
 
 void
 QuicRClient::publishIntentEnd(const QUICRNamespace& quicr_namespace,
                               const std::string& auth_token)
 {
+  throw std::runtime_error("UnImplemented");
 }
 
 void
@@ -92,7 +93,7 @@ QuicRClient::subscribe(const QUICRNamespace& quicr_namespace,
   qtransport::MediaStreamId msid{};
   if (!subscribe_state.count(quicr_namespace)) {
     // create a new media-stream for this subscribe
-    auto msid = transport.createMediaStream(transaction_id, false);
+    auto msid = transport.createMediaStream(transport_context_id, false);
     subscribe_state[quicr_namespace] =
       SubscribeContext{ SubscribeContext::State::Pending,
                         transport_context_id,
@@ -117,6 +118,7 @@ QuicRClient::unsubscribe(const QUICRNamespace& quicr_namespace,
                          const std::string& origin_url,
                          const std::string& auth_token)
 {
+  throw std::runtime_error("UnImplemented");
 }
 
 void
@@ -126,6 +128,40 @@ QuicRClient::publishNamedObject(const QUICRName& quicr_name,
                                 bool use_reliable_transport,
                                 bytes&& data)
 {
+  // start populating message to encode
+  messages::PublishDatagram datagram;
+  // retrieve the context
+  PublishContext context{};
+
+  if (!publish_state.count(quicr_name)) {
+    auto msid = transport.createMediaStream(transport_context_id, false);
+    context.transport_context_id = transport_context_id;
+    context.media_stream_id = msid;
+    context.state = PublishContext::State::Pending;
+    context.group_id = 0;
+    context.object_id = 0;
+  } else {
+    context = publish_state[quicr_name];
+    datagram.header.media_id =
+      static_cast<messages::uintVar_t>(context.media_stream_id);
+  }
+
+  datagram.header.media_id =
+    static_cast<messages::uintVar_t>(context.media_stream_id);
+  datagram.header.group_id = static_cast<messages::uintVar_t>(context.group_id);
+  datagram.header.object_id =
+    static_cast<messages::uintVar_t>(context.object_id);
+  datagram.header.flags = 0x0;
+  datagram.header.offset_and_fin = static_cast<messages::uintVar_t>(1);
+  datagram.media_type = messages::MediaType::RealtimeMedia;
+  datagram.media_data_length = static_cast<messages::uintVar_t>(data.size());
+  datagram.media_data = std::move(data);
+
+  messages::MessageBuffer msg;
+  msg << datagram;
+
+  transport.enqueue(
+    transport_context_id, context.media_stream_id, std::move(msg.buffer));
 }
 
 void

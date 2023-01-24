@@ -7,18 +7,22 @@ struct FakeTransportDelegate : public ITransport::TransportDelegate
 {
   ~FakeTransportDelegate() = default;
 
-  virtual void on_connection_status(const TransportContextId &context_id,
-                                    const TransportStatus status) override {}
+  virtual void on_connection_status(const TransportContextId& context_id,
+                                    const TransportStatus status) override
+  {
+  }
 
-  virtual void on_new_connection(const TransportContextId &context_id,
-                                 const TransportRemote &remote) override {}
+  virtual void on_new_connection(const TransportContextId& context_id,
+                                 const TransportRemote& remote) override
+  {
+  }
 
+  void onNewMediaStream(const TransportContextId& context_id,
+                        const MediaStreamId& mStreamId) override
+  {
+  }
 
-  void onNewMediaStream(const TransportContextId &context_id,
-                                const MediaStreamId &mStreamId) override {}
-
-  void on_recv_notify(const TransportContextId &context_id) override {}
-
+  void on_recv_notify(const TransportContextId& context_id) override {}
 };
 
 struct FakeTransport : public ITransport
@@ -36,15 +40,15 @@ struct FakeTransport : public ITransport
     return 0x2000;
   }
 
-  void close(const TransportContextId &context_id) {};
+  void close(const TransportContextId& context_id){};
 
-  void closeMediaStream(const TransportContextId &context_id,
-                                MediaStreamId mStreamId) {};
+  void closeMediaStream(const TransportContextId& context_id,
+                        MediaStreamId mStreamId){};
   void close() {}
 
   TransportError enqueue(const TransportContextId& tcid,
-                const MediaStreamId& msid,
-                std::vector<uint8_t>&& bytes)
+                         const MediaStreamId& msid,
+                         std::vector<uint8_t>&& bytes)
   {
     stored_data = std::move(bytes);
     return TransportError::None;

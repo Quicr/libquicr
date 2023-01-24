@@ -38,6 +38,6 @@ TEST_CASE("QUICRNamespace Map Lookup")
 TEST_CASE("QUICRName Map Lookup with QuicRNamespace ")
 {
   quicr::QUICRNamespace qns1{ 0x11111111, 0x22222200, 8 };
-  quicr::QUICRName qn1 {0x11111111, 0x222222FF };
+  quicr::QUICRName qn1{ 0x11111111, 0x222222FF };
   CHECK(quicr::is_quicr_name_in_namespace(qns1, qn1));
 }

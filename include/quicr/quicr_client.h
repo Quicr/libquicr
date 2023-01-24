@@ -349,10 +349,10 @@ private:
       Ready
     };
 
-    State state;
-    qtransport::TransportContextId transport_context_id;
-    qtransport::MediaStreamId media_stream_id;
-    uint64_t transaction_id;
+    State state{ State::Unknown };
+    qtransport::TransportContextId transport_context_id{ 0 };
+    qtransport::MediaStreamId media_stream_id{ 0 };
+    uint64_t transaction_id{ 0 };
   };
 
   // State per publish_intent and related publish
@@ -365,10 +365,12 @@ private:
       Ready
     };
 
-    State state;
-    qtransport::TransportContextId transport_context_id;
-    qtransport::MediaStreamId media_stream_id;
-    uint64_t transaction_id;
+    State state{ State::Unknown };
+    qtransport::TransportContextId transport_context_id{ 0 };
+    qtransport::MediaStreamId media_stream_id{ 0 };
+    uint64_t group_id{ 0 };
+    uint64_t object_id{ 0 };
+    uint64_t offset{ 0 };
   };
 
   ClientStatus client_status{ ClientStatus::TERMINATED };
@@ -377,6 +379,7 @@ private:
   std::shared_ptr<SubscriberDelegate> sub_delegate;
   std::shared_ptr<PublisherDelegate> pub_delegate;
   std::map<QUICRNamespace, SubscribeContext> subscribe_state{};
+  std::map<QUICRName, PublishContext> publish_state{};
 };
 
 }

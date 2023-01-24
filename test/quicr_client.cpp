@@ -96,3 +96,34 @@ TEST_CASE("Subscribe encode, send and receive")
   CHECK_EQ(s.quicr_namespace.mask, 3);
   CHECK_EQ(s.intent, SubscribeIntent::wait_up);
 }
+
+TEST_CASE("Publish encode, send and receive")
+{
+  std::shared_ptr<TestSubscriberDelegate> sub_delegate{};
+  std::shared_ptr<TestPublisherDelegate> pub_delegate{};
+  FakeTransportDelegate transport_delegate;
+
+  auto transport = std::make_shared<FakeTransport>();
+
+  auto qclient =
+    std::make_unique<QuicRClient>(*transport, sub_delegate, pub_delegate);
+
+  /*
+   * void
+QuicRClient::publishNamedObject(const QUICRName& quicr_name,
+                                uint8_t priority,
+                                uint16_t expiry_age_ms,
+                                bool use_reliable_transport,
+                                bytes&& data)
+   */
+  std::vector<uint8_t> say_hello = { 'H', 'E', 'L', 'L', '0' };
+  qclient->publishNamedObject(
+    { 0x1000, 0x2000 }, 0, 0, false, std::move(say_hello));
+
+  auto fake_transport = std::reinterpret_pointer_cast<FakeTransport>(transport);
+  messages::PublishDatagram d;
+  messages::MessageBuffer msg{ fake_transport->stored_data };
+  msg >> d;
+  say_hello = { 'H', 'E', 'L', 'L', '0' };
+  CHECK_EQ(d.media_data, say_hello);
+}

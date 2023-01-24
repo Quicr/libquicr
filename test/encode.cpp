@@ -16,7 +16,7 @@ TEST_CASE("Subscribe Message encode/decode")
   buffer << s;
   Subscribe s_out;
   CHECK((buffer >> s_out));
-  
+
   CHECK_EQ(s_out.transaction_id, s.transaction_id);
   CHECK_EQ(s_out.quicr_namespace.mask, s.quicr_namespace.mask);
   CHECK_EQ(s_out.quicr_namespace.low, s.quicr_namespace.low);
@@ -57,23 +57,22 @@ TEST_CASE("SubscribeEnd Message encode/decode")
 
 TEST_CASE("Publish Message encode/decode")
 {
-  DatagramHeader d{ uintVar_t{ 0x1000 },
-                    uintVar_t{ 0x0100 },
-                    uintVar_t{ 0x0010 },
-                    uintVar_t{ 0x0001 },
-                    0x0000 };
+  Header d{ uintVar_t{ 0x1000 },
+            uintVar_t{ 0x0100 },
+            uintVar_t{ 0x0010 },
+            uintVar_t{ 0x0001 },
+            0x0000 };
   PublishDatagram p{ d, MediaType::Text, uintVar_t{ 5 }, { 1, 2, 3, 4, 5 } };
   MessageBuffer buffer;
   buffer << p;
   PublishDatagram p_out;
   CHECK((buffer >> p_out));
 
-  CHECK_EQ(p_out.datagram_header.media_id, p.datagram_header.media_id);
-  CHECK_EQ(p_out.datagram_header.group_id, p.datagram_header.group_id);
-  CHECK_EQ(p_out.datagram_header.object_id, p.datagram_header.object_id);
-  CHECK_EQ(p_out.datagram_header.offset_and_fin,
-           p.datagram_header.offset_and_fin);
-  CHECK_EQ(p_out.datagram_header.flags, p.datagram_header.flags);
+  CHECK_EQ(p_out.header.media_id, p.header.media_id);
+  CHECK_EQ(p_out.header.group_id, p.header.group_id);
+  CHECK_EQ(p_out.header.object_id, p.header.object_id);
+  CHECK_EQ(p_out.header.offset_and_fin, p.header.offset_and_fin);
+  CHECK_EQ(p_out.header.flags, p.header.flags);
   CHECK_EQ(p_out.media_type, p.media_type);
   CHECK_EQ(p_out.media_data_length, p.media_data_length);
   CHECK_EQ(p_out.media_data, p.media_data);

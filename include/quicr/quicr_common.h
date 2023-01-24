@@ -59,6 +59,19 @@ struct QUICRName
 {
   uint64_t hi;
   uint64_t low;
+
+  bool operator<(const QUICRName& other) const
+  {
+    return std::tie(hi, low) < std::tie(other.hi, other.low);
+  }
+
+  bool operator==(const QUICRName& other) const
+  {
+    auto res = (this->hi ^ other.hi) | (this->low ^ other.low);
+    return res == 0;
+  }
+
+  bool operator!=(const QUICRName& other) const { return !operator==(other); }
 };
 
 bool

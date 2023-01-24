@@ -102,7 +102,7 @@ operator>>(MessageBuffer& buffer, SubscribeEnd& msg);
 // Publish Message Types
 /*===========================================================================*/
 
-struct DatagramHeader
+struct Header
 {
   uintVar_t media_id;
   uintVar_t group_id;
@@ -112,13 +112,13 @@ struct DatagramHeader
 };
 
 void
-operator<<(MessageBuffer& buffer, const DatagramHeader& msg);
+operator<<(MessageBuffer& buffer, const Header& msg);
 bool
-operator>>(MessageBuffer& buffer, DatagramHeader& msg);
+operator>>(MessageBuffer& buffer, Header& msg);
 
 struct PublishDatagram
 {
-  DatagramHeader datagram_header;
+  Header header;
   MediaType media_type;
   uintVar_t media_data_length;
   std::vector<uint8_t> media_data;

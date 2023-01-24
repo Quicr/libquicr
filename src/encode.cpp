@@ -102,7 +102,7 @@ operator>>(MessageBuffer& buffer, SubscribeEnd& msg)
 /*===========================================================================*/
 
 void
-operator<<(MessageBuffer& buffer, const DatagramHeader& msg)
+operator<<(MessageBuffer& buffer, const Header& msg)
 {
   buffer << msg.flags;
   buffer << msg.offset_and_fin;
@@ -112,7 +112,7 @@ operator<<(MessageBuffer& buffer, const DatagramHeader& msg)
 }
 
 bool
-operator>>(MessageBuffer& buffer, DatagramHeader& msg)
+operator>>(MessageBuffer& buffer, Header& msg)
 {
   buffer >> msg.media_id;
   buffer >> msg.group_id;
@@ -129,7 +129,7 @@ operator<<(MessageBuffer& buffer, const PublishDatagram& msg)
   buffer << msg.media_data;
   buffer << msg.media_data_length;
   buffer << static_cast<uint8_t>(msg.media_type);
-  buffer << msg.datagram_header;
+  buffer << msg.header;
   buffer << static_cast<uint8_t>(MessageType::Publish);
 }
 
@@ -142,7 +142,7 @@ operator>>(MessageBuffer& buffer, PublishDatagram& msg)
     return false;
   }
 
-  buffer >> msg.datagram_header;
+  buffer >> msg.header;
 
   uint8_t media_type;
   buffer >> media_type;
