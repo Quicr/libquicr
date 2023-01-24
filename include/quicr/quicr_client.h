@@ -371,8 +371,6 @@ private:
     uint64_t transaction_id;
   };
 
-  struct State;
-  std::unique_ptr<State> state;
   ClientStatus client_status{ ClientStatus::TERMINATED };
   ITransport& transport;
   qtransport::TransportContextId transport_context_id;
