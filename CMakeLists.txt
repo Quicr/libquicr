@@ -45,13 +45,8 @@ add_subdirectory(src)
 include(CTest)
 if(BUILD_TESTING AND quicr_BUILD_TESTS)
     find_package(doctest QUIET)
-    if(doctest_FOUND)
-        # Include for doctest_discover_tests()
-        include(doctest)
-    else()
-        # Include the CMake file for doctest_discover_tests() if content fetched
-        include(${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake)
-    endif()
+    # Include the CMake file for doctest_discover_tests() if content fetched
+    include(${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake)
     add_subdirectory(test)
 endif()
 
