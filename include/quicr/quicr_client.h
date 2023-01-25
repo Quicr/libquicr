@@ -36,7 +36,7 @@ public:
     const QUICRNamespace& quicr_namespace,
     const SubscribeResult::SubscribeStatus& result) = 0;
 
-  /*
+  /**
    * @brief Indicates a given subscription is no longer valid
    *
    * @param quicr_namespace       : Identifies QUICR namespace
@@ -49,7 +49,7 @@ public:
   virtual void onSubscriptionEnded(const QUICRNamespace& quicr_namespace,
                                    const SubscribeResult& result) = 0;
 
-  /*
+  /**
    * @brief Report arrival of subscribed QUICR object under a Name
    *
    * @param quicr_name               : Identifies the QUICR Name for the object
@@ -79,7 +79,7 @@ public:
   {
   }
 
-  /*
+  /**
    * @brief Report arrival of subscribed QUICR object fragment under a Name
    *
    * @param quicr_name               : Identifies the QUICR Name for the object
@@ -111,7 +111,7 @@ public:
   }
 };
 
-/*
+/**
  *  Publisher common delegate callback operations
  */
 class PublisherDelegate
@@ -133,7 +133,7 @@ public:
                                        const PublishIntentResult& result) = 0;
 };
 
-/*
+/**
  *   Client API for using QUICR Protocol
  */
 class QuicRClient
