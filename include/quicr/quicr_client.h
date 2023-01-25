@@ -184,7 +184,7 @@ public:
    * @param relayInfo        : Relay Information to be used by the transport
    * operations
    */
-  QuicRClient(RelayInfo &relayInfo);
+  QuicRClient(RelayInfo& relayInfo);
 
   /**
    * @brief Get the client status

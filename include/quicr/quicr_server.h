@@ -3,11 +3,11 @@
 #include <map>
 #include <optional>
 #include <string>
-#include <vector>
 #include <thread>
+#include <vector>
 
-#include <quicr/quicr_common.h>
 #include <quicr/message_buffer.h>
+#include <quicr/quicr_common.h>
 #include <transport/transport.h>
 
 /*
@@ -155,7 +155,7 @@ public:
    * @param relayInfo        : Relay Information to be used by the transport
    * @param delegate         : Server delegate
    */
-  QuicRServer(RelayInfo &relayInfo, ServerDelegate& delegate);
+  QuicRServer(RelayInfo& relayInfo, ServerDelegate& delegate);
 
   // Transport APIs
   bool is_transport_ready();
@@ -256,27 +256,27 @@ private:
   /*
    * Implementation of the the transport delegate
    */
-  class TransportDelegate : public qtransport::ITransport::TransportDelegate {
+  class TransportDelegate : public qtransport::ITransport::TransportDelegate
+  {
   public:
-      TransportDelegate(QuicRServer &server);
+    TransportDelegate(QuicRServer& server);
 
-      void on_connection_status(
-        const qtransport::TransportContextId& context_id,
-        const qtransport::TransportStatus status) override;
-      void on_new_connection(
-        const qtransport::TransportContextId& context_id,
-        const qtransport::TransportRemote& remote) override;
-      void on_new_media_stream(
-        const qtransport::TransportContextId& context_id,
-        const qtransport::MediaStreamId& mStreamId) override;
-      void on_recv_notify(const qtransport::TransportContextId& context_id,
-                          const qtransport::MediaStreamId& mStreamId) override;
+    void on_connection_status(
+      const qtransport::TransportContextId& context_id,
+      const qtransport::TransportStatus status) override;
+    void on_new_connection(const qtransport::TransportContextId& context_id,
+                           const qtransport::TransportRemote& remote) override;
+    void on_new_media_stream(
+      const qtransport::TransportContextId& context_id,
+      const qtransport::MediaStreamId& mStreamId) override;
+    void on_recv_notify(const qtransport::TransportContextId& context_id,
+                        const qtransport::MediaStreamId& mStreamId) override;
 
-    private:
-      QuicRServer &server;
+  private:
+    QuicRServer& server;
   };
 
-  std::shared_ptr<qtransport::ITransport> setupTransport(RelayInfo &relayInfo);
+  std::shared_ptr<qtransport::ITransport> setupTransport(RelayInfo& relayInfo);
 
   void handle_subscribe(messages::MessageBuffer&& msg);
   void handle_publish(messages::MessageBuffer&& msg);

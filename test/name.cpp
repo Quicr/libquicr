@@ -4,7 +4,6 @@
 
 #include <quicr/quicr_name.h>
 
-
 // Tests for QuicrName and QuicrNamespace
 
 TEST_CASE("QUICRNamespace Equality")
@@ -47,36 +46,38 @@ TEST_CASE("QUICRName Map Lookup with QuicRNamespace ")
 
 TEST_CASE("quicr::Name Constructor Tests")
 {
-  quicr::Name val42( 0x42 );
-  quicr::Name str42( "0x42" );
-  CHECK_EQ( val42, str42 );
+  quicr::Name val42(0x42);
+  quicr::Name str42("0x42");
+  CHECK_EQ(val42, str42);
 
-  quicr::Name hex42( "0x42" );
-  CHECK_EQ( val42, hex42 );
+  quicr::Name hex42("0x42");
+  CHECK_EQ(val42, hex42);
 
-  CHECK_LT( quicr::Name("0x123"), quicr::Name("0x124") );
-  CHECK_GT( quicr::Name("0x123"), quicr::Name("0x122") );
-  CHECK_NE( quicr::Name("0x123"), quicr::Name("0x122") );
+  CHECK_LT(quicr::Name("0x123"), quicr::Name("0x124"));
+  CHECK_GT(quicr::Name("0x123"), quicr::Name("0x122"));
+  CHECK_NE(quicr::Name("0x123"), quicr::Name("0x122"));
 
   CHECK_NOTHROW(quicr::Name("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"));
-  CHECK_THROWS( quicr::Name("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0"));
+  CHECK_THROWS(quicr::Name("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0"));
 }
 
 TEST_CASE("quicr::Name Bit Shifting Tests")
 {
-  CHECK_EQ( (quicr::Name("0x1234") >> 4), quicr::Name("0x123") );
-  CHECK_EQ( (quicr::Name("0x1234") << 4), quicr::Name("0x12340") );
-  CHECK_EQ( (quicr::Name("0x0123456789abcdef0123456789abcdef") >> 64), quicr::Name( 0x123456789abcdef ) );
+  CHECK_EQ((quicr::Name("0x1234") >> 4), quicr::Name("0x123"));
+  CHECK_EQ((quicr::Name("0x1234") << 4), quicr::Name("0x12340"));
+  CHECK_EQ((quicr::Name("0x0123456789abcdef0123456789abcdef") >> 64),
+           quicr::Name(0x123456789abcdef));
 }
 
 TEST_CASE("quicr::Name Arithmetic Tests")
 {
-  quicr::Name val42( 0x42 );
-  quicr::Name val41( 0x41 );
-  quicr::Name val43( 0x43 );
-  CHECK_EQ( val42 + 1, val43 );
-  CHECK_EQ( val42 - 1, val41 );
-  CHECK_EQ( quicr::Name("0x0FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF") + 1, quicr::Name("0x10000000000000000000000000000000" ) );
+  quicr::Name val42(0x42);
+  quicr::Name val41(0x41);
+  quicr::Name val43(0x43);
+  CHECK_EQ(val42 + 1, val43);
+  CHECK_EQ(val42 - 1, val41);
+  CHECK_EQ(quicr::Name("0x0FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF") + 1,
+           quicr::Name("0x10000000000000000000000000000000"));
 }
 
 TEST_CASE("quicr::Name Byte Array Tests")
@@ -95,15 +96,17 @@ TEST_CASE("quicr::Name Byte Array Tests")
 
 TEST_CASE("quicr::Name Logical Arithmetic Tests")
 {
-  auto arith_and = quicr::Name("0x01010101010101010101010101010101") & quicr::Name("0x10101010101010101010101010101010");
-  CHECK_EQ( arith_and, quicr::Name("0x0") );
+  auto arith_and = quicr::Name("0x01010101010101010101010101010101") &
+                   quicr::Name("0x10101010101010101010101010101010");
+  CHECK_EQ(arith_and, quicr::Name("0x0"));
 
   auto arith_and2 = quicr::Name("0x0101010101010101") & 0x1010101010101010;
-  CHECK_EQ( arith_and2, quicr::Name("0x0") );
+  CHECK_EQ(arith_and2, quicr::Name("0x0"));
 
-  auto arith_or = quicr::Name("0x01010101010101010101010101010101") | quicr::Name("0x10101010101010101010101010101010");
-  CHECK_EQ( arith_or, quicr::Name("0x11111111111111111111111111111111" ) );
+  auto arith_or = quicr::Name("0x01010101010101010101010101010101") |
+                  quicr::Name("0x10101010101010101010101010101010");
+  CHECK_EQ(arith_or, quicr::Name("0x11111111111111111111111111111111"));
 
   auto arith_or2 = quicr::Name("0x0101010101010101") | 0x1010101010101010;
-  CHECK_EQ( arith_or2, quicr::Name("0x1111111111111111" ) );
+  CHECK_EQ(arith_or2, quicr::Name("0x1111111111111111"));
 }

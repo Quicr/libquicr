@@ -82,7 +82,7 @@ QuicRServer::subscribeResponse(const QUICRNamespace& quicr_namespace,
 
   messages::MessageBuffer msg;
   msg << response;
-  //transport.enqueue(transport_context_id, 0x0, std::move(msg.buffer));
+  // transport.enqueue(transport_context_id, 0x0, std::move(msg.buffer));
 }
 
 void

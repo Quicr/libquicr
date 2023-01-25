@@ -52,7 +52,11 @@ TEST_CASE("Object Lifetime")
 {
   TestServerDelegate delegate{};
   FakeTransport fake_transport;
-  RelayInfo relayInfo = { hostname: "127.0.0.1", port: 1234, proto: RelayInfo::Protocol::UDP };
+  RelayInfo relayInfo = {
+    hostname : "127.0.0.1",
+    port : 1234,
+    proto : RelayInfo::Protocol::UDP
+  };
   CHECK_NOTHROW(std::make_unique<QuicRServer>(relayInfo, delegate));
 }
 

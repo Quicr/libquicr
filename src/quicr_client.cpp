@@ -31,22 +31,20 @@ is_quicr_name_in_namespace(const QUICRNamespace& ns, const QUICRName& n)
 ///
 /// QuicRClient
 ///
-QuicRClient::QuicRClient(RelayInfo &relayInfo)
+QuicRClient::QuicRClient(RelayInfo& relayInfo)
 {
   qtransport::TransportRemote server = {
-    host_or_ip: relayInfo.hostname,
-    port: relayInfo.port,
-    proto: relayInfo.proto == RelayInfo::Protocol::UDP
-      ? qtransport::TransportProtocol::UDP : qtransport::TransportProtocol::QUIC,
+    host_or_ip : relayInfo.hostname,
+    port : relayInfo.port,
+    proto : relayInfo.proto == RelayInfo::Protocol::UDP
+      ? qtransport::TransportProtocol::UDP
+      : qtransport::TransportProtocol::QUIC,
   };
-
-
 
   qtransport::ITransport::make_client_transport(std::move(server), );
 
-  //transport_context_id = transport.start();
+  // transport_context_id = transport.start();
 }
-
 
 bool
 QuicRClient::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
