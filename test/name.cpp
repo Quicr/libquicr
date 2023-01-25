@@ -1,4 +1,3 @@
-#pragma once
 #include <doctest/doctest.h>
 #include <map>
 #include <quicr/quicr_common.h>
