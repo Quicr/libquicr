@@ -137,6 +137,7 @@ public:
    * mapping the subscribe context, namespaces and other relation information.
    */
   virtual void onSubscribe(const QUICRNamespace& quicr_namespace,
+                           const uint64_t& subscriber_id,
                            const SubscribeIntent subscribe_intent,
                            const std::string& origin_url,
                            bool use_reliable_transport,
@@ -223,7 +224,8 @@ public:
    * @param data                     : Opaque object payload
    *
    */
-  void sendNamedObject(const QUICRName& quicr_name,
+  void sendNamedObject(const uint64_t& subscriber_id,
+                       const QUICRName& quicr_name,
                        uint8_t priority,
                        uint64_t best_before,
                        bool use_reliable_transport,
@@ -278,8 +280,28 @@ private:
 
   std::shared_ptr<qtransport::ITransport> setupTransport(RelayInfo& relayInfo);
 
-  void handle_subscribe(messages::MessageBuffer&& msg);
-  void handle_publish(messages::MessageBuffer&& msg);
+  void handle_subscribe(const qtransport::TransportContextId& context_id,
+                        const qtransport::MediaStreamId& mStreamId,
+                        messages::MessageBuffer&& msg);
+  void handle_publish(const qtransport::TransportContextId& context_id,
+                      const qtransport::MediaStreamId& mStreamId,
+                      messages::MessageBuffer&& msg);
+
+  struct SubscribeContext
+  {
+    enum struct State
+    {
+      Unknown = 0,
+      Pending,
+      Ready
+    };
+
+    State state{ State::Unknown };
+    qtransport::TransportContextId transport_context_id{ 0 };
+    qtransport::MediaStreamId media_stream_id{ 0 };
+    uint64_t transaction_id{ 0 };
+    uint64_t subscriber_id {0};
+  };
 
   // State per publish_intent and related publish
   struct PublishContext
@@ -301,11 +323,13 @@ private:
 
   std::shared_ptr<qtransport::ITransport> transport;
   qtransport::TransportRemote t_relay;
-  qtransport::TransportContextId transport_context_id;
   ServerDelegate& delegate;
+  std::map<QUICRNamespace, SubscribeContext> subscribe_state{};
+  std::map<uint64_t , SubscribeContext> subscribe_id_state{};
   std::map<QUICRName, PublishContext> publish_state{};
-
+  TransportDelegate transport_delegate;
   bool running{ false };
+  uint64_t subscriber_id {0};
 };
 
 } // namespace quicr

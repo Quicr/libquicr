@@ -56,7 +56,7 @@ public:
 
     std::cout << " onPublisherObject: Namespace " << to_hex(quicr_name) << std::endl;
     for(const auto& s : subscribers) {
-      server->sendNamedObject(quicr_name, 0, 0, false, std::move(data));
+      server->sendNamedObject(s, quicr_name, 0, 0, false, std::move(data));
     }
 
   }
@@ -72,6 +72,7 @@ public:
   }
 
   virtual void onSubscribe(const quicr::QUICRNamespace& quicr_namespace,
+                           const uint64_t& subscriber_id,
                            const quicr::SubscribeIntent subscribe_intent,
                            const std::string& origin_url,
                            bool use_reliable_transport,
@@ -79,7 +80,7 @@ public:
                            quicr::bytes&& data)
   {
     std::cout << " onSubscribe: Namespace " << to_hex(quicr_namespace) << std::endl;
-    subscribers.insert(quicr_namespace);
+    subscribers.insert(subscriber_id);
     // respond with response
     auto result = quicr::SubscribeResult{quicr::SubscribeResult::SubscribeStatus::Ok, "", {}, {}};
     server->subscribeResponse(quicr_namespace, 0x0, result);
@@ -99,7 +100,7 @@ public:
 
   std::unique_ptr<quicr::QuicRServer> server;
   std::shared_ptr<qtransport::ITransport> transport;
-  std::set<quicr::QUICRNamespace> subscribers = {};
+  std::set<uint64_t> subscribers = {};
 };
 
 

@@ -13,6 +13,8 @@ namespace quicr {
  */
 QuicRServer::QuicRServer(RelayInfo& relayInfo, ServerDelegate& delegate_in)
   : delegate(delegate_in)
+    , transport_delegate(*this)
+
 {
   t_relay.host_or_ip = relayInfo.hostname;
   t_relay.port = relayInfo.port;
@@ -26,18 +28,15 @@ QuicRServer::QuicRServer(RelayInfo& relayInfo, ServerDelegate& delegate_in)
   }
 
   transport = setupTransport(relayInfo);
-
-  transport_context_id = transport->start();
+  transport->start();
 }
 
 std::shared_ptr<qtransport::ITransport>
 QuicRServer::setupTransport(RelayInfo& relayInfo)
 {
   qtransport::LogHandler logger;
-  TransportDelegate t_delegate(*this);
-
   return qtransport::ITransport::make_server_transport(
-    t_relay, t_delegate, logger);
+    t_relay, transport_delegate, logger);
 }
 
 // Transport APIs
@@ -93,7 +92,8 @@ QuicRServer::subscriptionEnded(const QUICRNamespace& quicr_namespace,
 }
 
 void
-QuicRServer::sendNamedObject(const QUICRName& quicr_name,
+QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
+                              const QUICRName& quicr_name,
                              uint8_t priority,
                              uint64_t best_before,
                              bool use_reliable_transport,
@@ -101,27 +101,14 @@ QuicRServer::sendNamedObject(const QUICRName& quicr_name,
 {
   // start populating message to encode
   messages::PublishDatagram datagram;
-  // retrieve the context
-  PublishContext context{};
-
-  if (!publish_state.count(quicr_name)) {
-    auto msid = transport->createMediaStream(transport_context_id, false);
-    context.transport_context_id = transport_context_id;
-    context.media_stream_id = msid;
-    context.state = PublishContext::State::Pending;
-    context.group_id = 0;
-    context.object_id = 0;
-  } else {
-    context = publish_state[quicr_name];
-    datagram.header.media_id =
-      static_cast<messages::uintVar_t>(context.media_stream_id);
+  if (subscribe_id_state.count(subscriber_id) == 0) {
+    return ;
   }
+
+  auto& context = subscribe_id_state[subscriber_id];
 
   datagram.header.media_id =
     static_cast<messages::uintVar_t>(context.media_stream_id);
-  datagram.header.group_id = static_cast<messages::uintVar_t>(context.group_id);
-  datagram.header.object_id =
-    static_cast<messages::uintVar_t>(context.object_id);
   datagram.header.flags = 0x0;
   datagram.header.offset_and_fin = static_cast<messages::uintVar_t>(1);
   datagram.media_type =
@@ -133,7 +120,7 @@ QuicRServer::sendNamedObject(const QUICRName& quicr_name,
   msg << datagram;
 
   transport->enqueue(
-    transport_context_id, context.media_stream_id, std::move(msg.buffer));
+    context.transport_context_id, context.media_stream_id, std::move(msg.buffer));
 }
 
 void
@@ -153,19 +140,35 @@ QuicRServer::sendNamedFragment(const QUICRName& name,
 ///
 
 void
-QuicRServer::handle_subscribe(messages::MessageBuffer&& msg)
+QuicRServer::handle_subscribe(const qtransport::TransportContextId& context_id,
+                              const qtransport::MediaStreamId& mStreamId,
+                              messages::MessageBuffer&& msg)
 {
   messages::Subscribe subscribe;
   msg >> subscribe;
+  if (subscribe_state.count(subscribe.quicr_namespace) == 0) {
+    SubscribeContext context;
+    context.transport_context_id = context_id;
+    context.subscriber_id = subscriber_id;
+    subscriber_id++;
+    context.media_stream_id = mStreamId;
+    subscribe_state[subscribe.quicr_namespace] = context;
+    subscribe_id_state[context.subscriber_id] = context;
+  }
+  auto& context = subscribe_state[subscribe.quicr_namespace];
+
   delegate.onSubscribe(
-    subscribe.quicr_namespace, subscribe.intent, "", false, "", {});
+    subscribe.quicr_namespace, context.subscriber_id, subscribe.intent, "", false, "", {});
 }
 
 void
-QuicRServer::handle_publish(messages::MessageBuffer&& msg)
+QuicRServer::handle_publish(const qtransport::TransportContextId& context_id,
+                            const qtransport::MediaStreamId& mStreamId,
+                            messages::MessageBuffer&& msg)
 {
   messages::PublishDatagram datagram;
   msg >> datagram;
+  // TODO: Add publish_state when we support PublishIntent
   delegate.onPublisherObject(
     datagram.header.name, 0, 0, false, std::move(datagram.media_data));
 }
@@ -189,6 +192,7 @@ QuicRServer::TransportDelegate::on_new_connection(
   const qtransport::TransportContextId& context_id,
   const qtransport::TransportRemote& remote)
 {
+
 }
 void
 QuicRServer::TransportDelegate::on_new_media_stream(
@@ -211,10 +215,10 @@ QuicRServer::TransportDelegate::on_recv_notify(
       uint8_t msg_type = data.value().back();
       messages::MessageBuffer msg_buffer{ data.value() };
       if (msg_type == static_cast<uint8_t>(messages::MessageType::Subscribe)) {
-        server.handle_subscribe(std::move(msg_buffer));
+        server.handle_subscribe(context_id, mStreamId, std::move(msg_buffer));
       } else if (msg_type ==
                  static_cast<uint8_t>(messages::MessageType::Publish)) {
-        server.handle_publish(std::move(msg_buffer));
+        server.handle_publish(context_id, mStreamId, std::move(msg_buffer));
       }
 
     } else {

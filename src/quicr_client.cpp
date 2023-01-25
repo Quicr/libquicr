@@ -251,7 +251,6 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
 {
   if (msg.buffer.empty()) {
     std::cout << "Transport Reported Empty Data" << std::endl;
-
     return;
   }
 
