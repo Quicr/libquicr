@@ -91,17 +91,14 @@ public:
   virtual void on_connection_status(const qtransport::TransportContextId &context_id,
                                     const qtransport::TransportStatus status) {}
 
-
-
   virtual void on_new_connection(const qtransport::TransportContextId &context_id,
                                  const qtransport::TransportRemote &remote) {}
 
+  virtual void on_new_media_stream(const qtransport::TransportContextId &context_id,
+                                   const qtransport::MediaStreamId &mStreamId) {}
 
-  virtual void onNewMediaStream(const qtransport::TransportContextId &context_id,
-                                const qtransport::MediaStreamId &mStreamId) {}
-
-
-  virtual void on_recv_notify(const qtransport::TransportContextId &context_id) {}
+  virtual void on_recv_notify(const qtransport::TransportContextId &context_id,
+                              const qtransport::MediaStreamId &mStreamId) {}
 
   std::unique_ptr<quicr::QuicRServer> server;
   std::shared_ptr<qtransport::ITransport> transport;
