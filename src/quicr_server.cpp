@@ -11,8 +11,7 @@ namespace quicr {
  * Start the  QUICR server at the port specified.
  *  @param delegate: Callback handlers for QUICR operations
  */
-QuicRServer::QuicRServer(RelayInfo &relayInfo,
-                         ServerDelegate& delegate_in)
+QuicRServer::QuicRServer(RelayInfo& relayInfo, ServerDelegate& delegate_in)
   : delegate(delegate_in)
 {
   transport_context_id = transport.start();
@@ -45,7 +44,7 @@ QuicRServer::run()
 int
 QuicRServer::runDequeueLoop()
 {
-  while(running) {
+  while (running) {
     auto data = transport.dequeue(transport_context_id, 0x0);
     if (!data.has_value()) {
       std::this_thread::sleep_for(std::chrono::microseconds(2));
@@ -53,10 +52,11 @@ QuicRServer::runDequeueLoop()
     }
 
     uint8_t msg_type = data.value().back();
-    messages::MessageBuffer msg_buffer {data.value()};
+    messages::MessageBuffer msg_buffer{ data.value() };
     if (msg_type == static_cast<uint8_t>(messages::MessageType::Subscribe)) {
       handle_subscribe(std::move(msg_buffer));
-    } else if (msg_type == static_cast<uint8_t>(messages::MessageType::Publish)) {
+    } else if (msg_type ==
+               static_cast<uint8_t>(messages::MessageType::Publish)) {
       handle_publish(std::move(msg_buffer));
     }
   }
@@ -149,23 +149,26 @@ QuicRServer::sendNamedFragment(const QUICRName& name,
   throw std::runtime_error("Unimplemented");
 }
 
-
 ///
 /// Private
 ///
 
 void
-QuicRServer::handle_subscribe(messages::MessageBuffer&& msg) {
+QuicRServer::handle_subscribe(messages::MessageBuffer&& msg)
+{
   messages::Subscribe subscribe;
   msg >> subscribe;
-  delegate.onSubscribe(subscribe.quicr_namespace, subscribe.intent, "", false, "", {} );
+  delegate.onSubscribe(
+    subscribe.quicr_namespace, subscribe.intent, "", false, "", {});
 }
 
 void
-QuicRServer::handle_publish(messages::MessageBuffer&& msg) {
+QuicRServer::handle_publish(messages::MessageBuffer&& msg)
+{
   messages::PublishDatagram datagram;
   msg >> datagram;
-  delegate.onPublisherObject(datagram.header.name, 0, 0, false, std::move(datagram.media_data));
+  delegate.onPublisherObject(
+    datagram.header.name, 0, 0, false, std::move(datagram.media_data));
 }
 
 }

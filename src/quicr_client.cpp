@@ -1,3 +1,7 @@
+#include <sstream>
+#include <iomanip>
+#include <iostream>
+
 #include <quicr/quicr_client.h>
 #include <quicr/quicr_common.h>
 
@@ -8,6 +12,32 @@ namespace quicr {
 ///
 /// Common
 ///
+
+// TODO Remove this
+static std::string to_hex(const quicr::QUICRNamespace& ns) {
+  std::stringstream stream;
+  stream << "0x"
+         << std::setfill ('0')
+         << std::setw(sizeof(uint64_t)*2)
+         << std::hex
+         << ns.hi
+         << std::setw(sizeof(uint64_t)*2)
+         << ns.low;
+  return stream.str();
+}
+
+static std::string to_hex(const quicr::QUICRName& name) {
+  std::stringstream stream;
+  stream << "0x"
+         << std::setfill ('0')
+         << std::setw(sizeof(uint64_t)*2)
+         << std::hex
+         << name.hi
+         << std::setw(sizeof(uint64_t)*2)
+         << name.low;
+  return stream.str();
+}
+
 
 bool
 is_quicr_name_in_namespace(const QUICRNamespace& ns, const QUICRName& n)
@@ -29,24 +59,75 @@ is_quicr_name_in_namespace(const QUICRNamespace& ns, const QUICRName& n)
 }
 
 ///
-/// QuicRClient
+/// Transport Delegate Implementation
 ///
-QuicRClient::QuicRClient(RelayInfo &relayInfo)
+
+class QuicRTransportDelegate : public ITransport::TransportDelegate
+{
+public:
+  QuicRTransportDelegate(std::shared_ptr<ITransport> transport_in, QuicRClient& client_in)
+    : transport(transport_in),
+      client(client_in) {}
+
+  virtual ~QuicRTransportDelegate() = default;
+
+  virtual void on_connection_status(
+    const qtransport::TransportContextId& context_id,
+    const qtransport::TransportStatus status)
+  {
+  }
+
+  virtual void on_new_connection(
+    const qtransport::TransportContextId& context_id,
+    const qtransport::TransportRemote& remote)
+  {
+  }
+
+  virtual void on_new_media_stream(
+    const qtransport::TransportContextId& context_id,
+    const qtransport::MediaStreamId& mStreamId)
+  {
+  }
+
+  virtual void on_recv_notify(const qtransport::TransportContextId& context_id,
+                              const qtransport::MediaStreamId& mStreamId)
+  {
+    auto data = transport->dequeue(context_id, mStreamId);
+    if (!data.has_value()) {
+      return;
+    }
+    messages::MessageBuffer msg_buffer {data.value()};
+    client.handle(std::move(msg_buffer));
+  }
+private:
+  std::shared_ptr<ITransport> transport;
+  QuicRClient& client;
+};
+
+
+void QuicRClient::make_transport(RelayInfo& relay_info, qtransport::LogHandler& logger)
 {
   qtransport::TransportRemote server = {
-    host_or_ip: relayInfo.hostname,
-    port: relayInfo.port,
-    proto: relayInfo.proto == RelayInfo::Protocol::UDP
-      ? qtransport::TransportProtocol::UDP : qtransport::TransportProtocol::QUIC,
+    host_or_ip : relay_info.hostname,
+    port : relay_info.port,
+    proto : relay_info.proto == RelayInfo::Protocol::UDP
+      ? qtransport::TransportProtocol::UDP
+      : qtransport::TransportProtocol::QUIC,
   };
-
-
-
-  qtransport::ITransport::make_client_transport(std::move(server), );
-
-  //transport_context_id = transport.start();
+  transport_delegate = std::make_unique<QuicRTransportDelegate>();
+  transport = qtransport::ITransport::make_client_transport(server, *transport_delegate, logger);
+  transport_context_id = transport->start();
 }
 
+///
+/// QuicRClient
+///
+/// \param relayInfo
+QuicRClient::QuicRClient(RelayInfo& relay_info, qtransport::LogHandler& logger)
+  : transport_delegate(std::make_unique<QuicRTransportDelegate>())
+{
+  make_transport(relay_info, logger);
+}
 
 bool
 QuicRClient::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
@@ -75,7 +156,10 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
                        const std::string& auth_token,
                        bytes&& e2e_token)
 {
-  sub_delegate = subscriber_delegate;
+
+  if(!sub_delegates.count(quicr_namespace)) {
+    sub_delegates[quicr_namespace] = subscriber_delegate;
+  }
 
   // encode subscribe
   messages::MessageBuffer msg{};
@@ -86,13 +170,13 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
   qtransport::MediaStreamId msid{};
   if (!subscribe_state.count(quicr_namespace)) {
     // create a new media-stream for this subscribe
-    auto msid = transport.createMediaStream(transport_context_id, false);
+    auto msid = transport->createMediaStream(transport_context_id, false);
     subscribe_state[quicr_namespace] =
       SubscribeContext{ SubscribeContext::State::Pending,
                         transport_context_id,
                         msid,
                         transaction_id };
-    transport.enqueue(transport_context_id, msid, std::move(msg.buffer));
+    transport->enqueue(transport_context_id, msid, std::move(msg.buffer));
     return;
   } else {
     auto& ctx = subscribe_state[quicr_namespace];
@@ -102,7 +186,7 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
     } else if (ctx.state == SubscribeContext::State::Pending) {
       // todo - resend or wait or may be take in timeout in the api
     }
-    transport.enqueue(transport_context_id, msid, std::move(msg.buffer));
+    transport->enqueue(transport_context_id, msid, std::move(msg.buffer));
   }
 }
 
@@ -127,7 +211,7 @@ QuicRClient::publishNamedObject(const QUICRName& quicr_name,
   PublishContext context{};
 
   if (!publish_state.count(quicr_name)) {
-    auto msid = transport.createMediaStream(transport_context_id, false);
+    auto msid = transport->createMediaStream(transport_context_id, false);
     context.transport_context_id = transport_context_id;
     context.media_stream_id = msid;
     context.state = PublishContext::State::Pending;
@@ -153,7 +237,7 @@ QuicRClient::publishNamedObject(const QUICRName& quicr_name,
   messages::MessageBuffer msg;
   msg << datagram;
 
-  transport.enqueue(
+  transport->enqueue(
     transport_context_id, context.media_stream_id, std::move(msg.buffer));
 }
 
@@ -169,4 +253,37 @@ QuicRClient::publishNamedObjectFragment(const QUICRName& quicr_name,
   throw std::runtime_error("UnImplemented");
 }
 
+void
+QuicRClient::handle(messages::MessageBuffer&& msg)
+{
+  if(msg.buffer.empty()) {
+    std::cout << "Transport Reported Empty Data" <<std::endl;
+
+    return;
+  }
+
+  uint8_t msg_type = msg.back();
+
+  if (msg_type == static_cast<uint8_t>(messages::MessageType::SubscribeResponse)) {
+    messages::SubscribeResponse response;
+    msg >> response;
+    if (sub_delegates.count(response.quicr_namespace)) {
+      sub_delegates[response.quicr_namespace]->onSubscribeResponse(response.quicr_namespace, response.response);
+    } else {
+      std::cout << "Got SubscribeResponse: No delegate found for namespace" << to_hex(response.quicr_namespace) << std::endl;
+    }
+  } else if (msg_type ==
+             static_cast<uint8_t>(messages::MessageType::Publish)) {
+    messages::PublishDatagram datagram;
+    msg >> datagram;
+    for (const auto& entry : sub_delegates) {
+      if (is_quicr_name_in_namespace(entry.first, datagram.header.name)) {
+        sub_delegates[entry.first]->onSubscribedObject(datagram.header.name, 0x0, false, std::move(datagram.media_data));
+      } else {
+        std::cout << "Name:" << to_hex(datagram.header.name) << ", not in namespace " << to_hex(entry.first) << std::endl;
+      }
+    }
+  }
+
+}
 } // namespace quicr

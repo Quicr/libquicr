@@ -7,6 +7,7 @@
 
 #include <quicr/quicr_common.h>
 #include <transport/transport.h>
+#include <quicr/message_buffer.h>
 
 using qtransport::ITransport;
 
@@ -32,7 +33,7 @@ public:
    *          is received, on error, or timeout.
    */
   virtual void onSubscribeResponse(const QUICRNamespace& quicr_namespace,
-                                   const SubscribeResult& result) = 0;
+                                   const SubscribeResult::SubscribeStatus& result) = 0;
 
   /*
    * @brief Indicates a given subscription is no longer valid
@@ -129,35 +130,6 @@ public:
    */
   virtual void onPublishIntentResponse(const QUICRNamespace& quicr_namespace,
                                        const PublishIntentResult& result) = 0;
-
-  /*
-   * @brief Reports result of fragment published generated
-   *        by the local stack.
-   *
-   * @param quicr_name               : Identifies the QUICR Name for the object
-   * @param offset                   : Current fragment offset
-   * @param is_last_fragment         : Indicates if the current fragment is the
-   *                                   last fragment
-   * @param result                   : Result of the publish operation
-   */
-  virtual void onPublishFragmentResult(const QUICRName& quicr_name,
-                                       const uint64_t& offset,
-                                       bool is_last_fragment,
-                                       const PublishMsgResult& result)
-  {
-  }
-
-  /*
-   * @brief Reports result of obejct published under the Name,
-   *        by the local stack
-   * @param quicr_name               : Identifies the QUICR Name for the object
-   * @param result                   : Result of the publish operation
-   *
-   */
-  virtual void onPublishObjectResult(const QUICRName& quicr_name,
-                                     const PublishMsgResult& result)
-  {
-  }
 };
 
 /*
@@ -184,7 +156,7 @@ public:
    * @param relayInfo        : Relay Information to be used by the transport
    * operations
    */
-  QuicRClient(RelayInfo &relayInfo);
+   QuicRClient(RelayInfo& relayInfo, qtransport::LogHandler& logger);
 
   /**
    * @brief Get the client status
@@ -308,7 +280,12 @@ public:
                                   bool is_last_fragment,
                                   bytes&& data);
 
+  void handle(messages::MessageBuffer&& msg);
+
 private:
+
+  void make_transport(RelayInfo& relay_info, qtransport::LogHandler& logger);
+
   // State to store per-subscribe context
   struct SubscribeContext
   {
@@ -344,12 +321,15 @@ private:
   };
 
   ClientStatus client_status{ ClientStatus::TERMINATED };
-  ITransport& transport;
   qtransport::TransportContextId transport_context_id;
-  std::shared_ptr<SubscriberDelegate> sub_delegate;
-  std::shared_ptr<PublisherDelegate> pub_delegate;
+  std::map<QUICRNamespace, std::shared_ptr<SubscriberDelegate>> sub_delegates;
+  std::map<QUICRName, std::shared_ptr<SubscriberDelegate>> sub_name_delegates;
+
+  std::map<QUICRNamespace,std::shared_ptr<PublisherDelegate>> pub_delegates;
   std::map<QUICRNamespace, SubscribeContext> subscribe_state{};
   std::map<QUICRName, PublishContext> publish_state{};
+  std::unique_ptr<ITransport::TransportDelegate> transport_delegate;
+  std::shared_ptr<ITransport> transport;
 };
 
 }

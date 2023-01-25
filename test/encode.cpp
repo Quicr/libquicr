@@ -99,13 +99,10 @@ TEST_CASE("PublishIntentResponse Message encode/decode")
 
 TEST_CASE("Publish Message encode/decode")
 {
-  QUICRName qn{ 0x1000, 0x2000};
-  Header d{ uintVar_t{ 0x1000 },
-            qn,
-            uintVar_t{ 0x0100 },
-            uintVar_t{ 0x0010 },
-            uintVar_t{ 0x0001 },
-            0x0000 };
+  QUICRName qn{ 0x1000, 0x2000 };
+  Header d{ uintVar_t{ 0x1000 }, qn,
+            uintVar_t{ 0x0100 }, uintVar_t{ 0x0010 },
+            uintVar_t{ 0x0001 }, 0x0000 };
   PublishDatagram p{ d, MediaType::Text, uintVar_t{ 5 }, { 1, 2, 3, 4, 5 } };
   MessageBuffer buffer;
   buffer << p;

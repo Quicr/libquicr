@@ -3,11 +3,11 @@
 #include <map>
 #include <optional>
 #include <string>
-#include <vector>
 #include <thread>
+#include <vector>
 
-#include <quicr/quicr_common.h>
 #include <quicr/message_buffer.h>
+#include <quicr/quicr_common.h>
 #include <transport/transport.h>
 
 /*
@@ -155,7 +155,7 @@ public:
    * @param relayInfo        : Relay Information to be used by the transport
    * @param delegate         : Server delegate
    */
-  QuicRServer(RelayInfo &relayInfo, ServerDelegate& delegate);
+  QuicRServer(RelayInfo& relayInfo, ServerDelegate& delegate);
 
   // Transport APIs
   bool is_transport_ready();
