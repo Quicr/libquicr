@@ -5,6 +5,3 @@
 [submodule "dependencies/doctest"]
 	path = dependencies/doctest
 	url = https://github.com/doctest/doctest.git
-[submodule "dependencies/cantina"]
-	path = dependencies/cantina
-	url = git@github.com:Quicr/cantina.git
