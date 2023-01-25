@@ -94,6 +94,14 @@ void Publisher::Run(std::shared_ptr<quicr::QuicRClient> &client)
     // Assign the client pointer
     this->client = client;
 
+    // Issue a publish intent
+    quicr::QUICRNamespace quicr_namespace{
+        std::numeric_limits<std::uint64_t>::max(),
+        std::numeric_limits<std::uint64_t>::max(),
+        8};
+    std::string auth_token = "TOKEN";
+    client->publishIntentEnd(quicr_namespace, auth_token);
+
     // The following is jsut to do something until the client logic is complete
 
     unsigned counter = 0;
