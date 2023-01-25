@@ -4,6 +4,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <thread>
 
 #include <quicr/quicr_common.h>
 #include <quicr/message_buffer.h>
@@ -274,6 +275,18 @@ private:
   qtransport::TransportContextId transport_context_id;
   ServerDelegate& delegate;
   std::map<QUICRName, PublishContext> publish_state{};
+
+  // Placeholdoer
+  std::thread dequeue_thread;
+  int runDequeueLoop();
+  static int dequeueThreadFunc(QuicRServer* server)
+  {
+    if (!server) {
+      throw std::runtime_error("Server is not set");
+    }
+    return server->runDequeueLoop();
+  }
+
   bool running{ false };
 };
 

@@ -37,25 +37,32 @@ QuicRServer::is_transport_ready()
 bool
 QuicRServer::run()
 {
-  std::thread transport_dequeue([&]() {
-    while (this->running) {
-      auto data = this->transport.dequeue(this->transport_context_id, 0x0);
-      if (data->empty()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
-        continue;
-      }
-      // check what message have we dequeue
-      messages::MessageBuffer msg{ data.value() };
-      auto val = msg.back();
-      if (val == static_cast<uint8_t>(messages::MessageType::Subscribe)) {
-        handle_subscribe(std::move(msg));
-      } else if (val == static_cast<uint8_t>(messages::MessageType::Publish)) {
-        handle_publish(std::move(msg));
-      }
-    }
-  });
+  running = true;
+  dequeue_thread = std::thread(dequeueThreadFunc, this);
 
   return true;
+}
+
+int
+QuicRServer::runDequeueLoop()
+{
+  while(running) {
+    auto data = transport.dequeue(transport_context_id, 0x0);
+    if (!data.has_value()) {
+      std::this_thread::sleep_for(std::chrono::microseconds(2));
+      continue;
+    }
+
+    uint8_t msg_type = data.value().back();
+    messages::MessageBuffer msg_buffer {data.value()};
+    if (msg_type == static_cast<uint8_t>(messages::MessageType::Subscribe)) {
+      handle_subscribe(std::move(msg_buffer));
+    } else if (msg_type == static_cast<uint8_t>(messages::MessageType::Publish)) {
+      handle_publish(std::move(msg_buffer));
+    }
+  }
+
+  dequeue_thread.join();
 }
 
 void
