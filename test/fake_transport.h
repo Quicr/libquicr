@@ -17,12 +17,12 @@ struct FakeTransportDelegate : public ITransport::TransportDelegate
   {
   }
 
-  void onNewMediaStream(const TransportContextId& context_id,
+  virtual void on_new_media_stream(const TransportContextId& context_id,
                         const MediaStreamId& mStreamId) override
   {
   }
 
-  void on_recv_notify(const TransportContextId& context_id) override {}
+  void on_recv_notify(const TransportContextId& context_id, const MediaStreamId& mediaStreamId) override {}
 };
 
 struct FakeTransport : public ITransport
