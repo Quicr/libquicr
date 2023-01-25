@@ -178,38 +178,13 @@ public:
     TERMINATED,
   };
 
-  /*
+  /**
    * @brief Setup a QUICR Client with publisher and subscriber functionality
    *
-   * @param transport            : QuicRTransport class implementation
-   * @param subscriber_delegate  : Reference to receive callback for subscriber
-   * operations
-   * @param publisher_delegate   : Reference to receive callback for publisher
+   * @param relayInfo        : Relay Information to be used by the transport
    * operations
    */
-  QuicRClient(ITransport& transport,
-              std::shared_ptr<SubscriberDelegate> subscriber_delegate,
-              std::shared_ptr<PublisherDelegate> pub_delegate);
-
-  /*
-   * @brief Setup a QUICR Client with subscriber functionality
-   *
-   * @param transport            : QuicRTransport class implementation
-   * @param subscriber_delegate  : Reference to receive callback for subscriber
-   * operations
-   */
-  QuicRClient(ITransport& transport,
-              std::shared_ptr<SubscriberDelegate> subscriber_delegate);
-
-  /*
-   * @brief Setup a QUICR Client with publisher functionality
-   *
-   * @param transport            : QuicRTransport class implementation
-   * @param publisher_delegate   : Reference to receive callback for publisher
-   * operations
-   */
-  QuicRClient(ITransport& transport,
-              std::shared_ptr<PublisherDelegate> pub_delegate);
+  QuicRClient(RelayInfo &relayInfo);
 
   /**
    * @brief Get the client status
@@ -222,20 +197,22 @@ public:
    */
   ClientStatus status() const { return client_status; }
 
-  /*
+  /**
    * @brief Publish intent to publish on a QUICR Namespace
    *
-   * @param quicr_namespace        : Identifies QUICR namespace
+   * @param pub_delegate          : Publisher delegate reference
+   * @param quicr_namespace       : Identifies QUICR namespace
    * @param origin_url            : Origin serving the QUICR Session
    * @param auth_token            : Auth Token to validate the Subscribe Request
    * @param payload               : Opaque payload to be forwarded to the Origin
    */
-  bool publishIntent(const QUICRNamespace& quicr_namespace,
+  bool publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
+                     const QUICRNamespace& quicr_namespace,
                      const std::string& origin_url,
                      const std::string& auth_token,
                      bytes&& payload);
 
-  /*
+  /**
    * @brief Stop publishing on the given QUICR namespace
    *
    * @param quicr_namespace        : Identifies QUICR namespace
@@ -248,9 +225,11 @@ public:
   void publishIntentEnd(const QUICRNamespace& quicr_namespace,
                         const std::string& auth_token);
 
-  /*
+  /**
    * @brief Perform subscription operation a given QUICR namespace
    *
+   * @param subscriber_delegate   : Reference to receive callback for subscriber
+   *                                ooperations
    * @param quicr_namespace       : Identifies QUICR namespace
    * @param subscribe_intent      : Subscribe intent to determine the start
    * point for serving the matched objects. The application may choose a
@@ -268,14 +247,15 @@ public:
    *          It is expected for the Relays to store the subscriber state
    * mapping the subscribe context, namespaces and other relation information.
    */
-  void subscribe(const QUICRNamespace& quicr_namespace,
+  void subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
+                 const QUICRNamespace& quicr_namespace,
                  const SubscribeIntent& intent,
                  const std::string& origin_url,
                  bool use_reliable_transport,
                  const std::string& auth_token,
                  bytes&& e2e_token);
 
-  /*
+  /**
    * @brief Stop subscription on the given QUICR namespace
    *
    * @param quicr_namespace        : Identifies QUICR namespace
@@ -287,7 +267,7 @@ public:
                    const std::string& origin_url,
                    const std::string& auth_token);
 
-  /*
+  /**
    * @brief Publish Named object
    *
    * @param quicr_name               : Identifies the QUICR Name for the object
@@ -306,7 +286,7 @@ public:
                           bool use_reliable_transport,
                           bytes&& data);
 
-  /*
+  /**
    * @brief Publish Named object
    *
    * @param quicr_name               : Identifies the QUICR Name for the object

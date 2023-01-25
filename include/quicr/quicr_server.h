@@ -15,7 +15,7 @@
  */
 namespace quicr {
 
-/*
+/**
  * Server delegate QUICR callback methods implemented by the QUICR Server
  * implementation
  */
@@ -24,10 +24,11 @@ class ServerDelegate
 public:
   virtual ~ServerDelegate() = default;
 
-  /*
+  /**
    * @brief  Reports interest to publish under given
    * QuicrName.
    *
+   * @param
    * @param namespace             : Identifies QUICR namespace
    * @param origin_url            : Origin serving the QUICR Session
    * @param use_reliable_transport: Reliable or Unreliable transport
@@ -148,11 +149,13 @@ public:
 class QuicRServer
 {
 public:
-  /*
+  /**
    * Start the  QUICR server at the port specified.
-   *  @param delegate: Callback handlers for QUICR operations
+   *
+   * @param relayInfo        : Relay Information to be used by the transport
+   * @param delegate         : Server delegate
    */
-  QuicRServer(qtransport::ITransport&, ServerDelegate& delegate);
+  QuicRServer(RelayInfo &relayInfo, ServerDelegate& delegate);
 
   // Transport APIs
   bool is_transport_ready();
@@ -167,7 +170,7 @@ public:
    */
   bool run();
 
-  /*
+  /**
    * @brief Send publish intent response
    *
    * @param quicr_namespace       : Identifies QUICR namespace
@@ -180,7 +183,7 @@ public:
   void publishIntentResponse(const QUICRNamespace& quicr_namespace,
                              const PublishIntentResult& result);
 
-  /*
+  /**
    * @brief Send subscribe response
    *
    * @param quicr_namespace       : Identifies QUICR namespace
@@ -194,7 +197,7 @@ public:
                          const uint64_t& transaction_id,
                          const SubscribeResult& result);
 
-  /*
+  /**
    * @brief Indicates a given subscription is no longer valid
    *
    * @param quicr_namespace       : Identifies QUICR namespace
@@ -207,7 +210,7 @@ public:
   void subscriptionEnded(const QUICRNamespace& quicr_namespace,
                          const SubscribeResult& result);
 
-  /*
+  /**
    * @brief Send a named QUICR media object
    *
    * @param quicr_name               : Identifies the QUICR Name for the object
@@ -226,7 +229,7 @@ public:
                        bool use_reliable_transport,
                        bytes&& data);
 
-  /*
+  /**
    * @brief Send a named QUICR media object fragment
    *
    * @param quicr_name               : Identifies the QUICR Name for the object
