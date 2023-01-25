@@ -1,4 +1,5 @@
-add_subdirectory(forty)
+add_subdirectory(qcurl)
+#add_subdirectory(forty)
 # The following is still under development and does not build
 #add_subdirectory(chatty)
 
