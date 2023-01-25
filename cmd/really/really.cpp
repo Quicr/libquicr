@@ -32,17 +32,14 @@ static std::string to_hex(const quicr::QUICRName& name) {
   return stream.str();
 }
 
-class ReallyServer : public quicr::ServerDelegate,
-                     public  qtransport::ITransport::TransportDelegate,
-                     public qtransport::LogHandler {
-
+class ReallyServer : public quicr::ServerDelegate {
 public:
 
   ~ReallyServer() = default;
-   ReallyServer() {
-    auto remote = qtransport::TransportRemote{"localhost", 5555, qtransport::TransportProtocol::UDP};
-    transport = qtransport::ITransport::make_server_transport(remote, *this, *this);
-    server = std::make_unique<quicr::QuicRServer>(*transport, *this);
+  ReallyServer() {
+    quicr::RelayInfo relayInfo = { hostname: "127.0.0.1", port: 1234, proto: quicr::RelayInfo::Protocol::UDP };
+
+    server = std::make_unique<quicr::QuicRServer>(relayInfo, *this);
   }
 
   virtual void onPublishIntent(const quicr::QUICRNamespace& quicr_name,
