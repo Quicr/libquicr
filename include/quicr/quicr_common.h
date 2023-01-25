@@ -8,7 +8,7 @@ namespace quicr {
 // TODO: Do we need a different structure or the name
 using bytes = std::vector<uint8_t>;
 
-/*
+/**
  * Context information managed by the underlying QUICR Stack
  * Applications get the QUICRContextId and pass same for
  * as part of the API operations.
@@ -93,13 +93,10 @@ enum class SubscribeIntent
  */
 struct RelayInfo
 {
-
   enum class Protocol
   {
-    QUIC = 0,
-    UDP,
-    TLS,
-    TCP
+    UDP = 0,
+    QUIC
   };
 
   std::string hostname; // Relay IP or FQDN

@@ -31,41 +31,31 @@ is_quicr_name_in_namespace(const QUICRNamespace& ns, const QUICRName& n)
 ///
 /// QuicRClient
 ///
-
-quicr::QuicRClient::QuicRClient(
-  ITransport& transport_in,
-  std::shared_ptr<SubscriberDelegate> subscriber_delegate,
-  std::shared_ptr<PublisherDelegate> pub_delegate)
-  : transport(transport_in)
-  , sub_delegate(subscriber_delegate)
-  , pub_delegate(pub_delegate)
+QuicRClient::QuicRClient(RelayInfo &relayInfo)
 {
-  transport_context_id = transport.start();
+  qtransport::TransportRemote server = {
+    host_or_ip: relayInfo.hostname,
+    port: relayInfo.port,
+    proto: relayInfo.proto == RelayInfo::Protocol::UDP
+      ? qtransport::TransportProtocol::UDP : qtransport::TransportProtocol::QUIC,
+  };
+
+
+
+  qtransport::ITransport::make_client_transport(std::move(server), );
+
+  //transport_context_id = transport.start();
 }
 
-QuicRClient::QuicRClient(
-  ITransport& transport_in,
-  std::shared_ptr<SubscriberDelegate> subscriber_delegate)
-  : transport(transport_in)
-  , sub_delegate(subscriber_delegate)
-{
-  transport_context_id = transport.start();
-}
-
-QuicRClient::QuicRClient(ITransport& transport_in,
-                         std::shared_ptr<PublisherDelegate> pub_delegate)
-  : transport(transport_in)
-  , pub_delegate(pub_delegate)
-{
-  transport_context_id = transport.start();
-}
 
 bool
-QuicRClient::publishIntent(const QUICRNamespace& quicr_namespace,
+QuicRClient::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
+                           const QUICRNamespace& quicr_namespace,
                            const std::string& origin_url,
                            const std::string& auth_token,
                            bytes&& payload)
 {
+  this->pub_delegate = pub_delegate;
   throw std::runtime_error("UnImplemented");
 }
 
@@ -77,13 +67,16 @@ QuicRClient::publishIntentEnd(const QUICRNamespace& quicr_namespace,
 }
 
 void
-QuicRClient::subscribe(const QUICRNamespace& quicr_namespace,
+QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
+                       const QUICRNamespace& quicr_namespace,
                        const SubscribeIntent& intent,
                        const std::string& origin_url,
                        bool use_reliable_transport,
                        const std::string& auth_token,
                        bytes&& e2e_token)
 {
+  sub_delegate = subscriber_delegate;
+
   // encode subscribe
   messages::MessageBuffer msg{};
   auto transaction_id = messages::transaction_id();

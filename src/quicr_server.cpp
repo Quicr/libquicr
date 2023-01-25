@@ -11,10 +11,9 @@ namespace quicr {
  * Start the  QUICR server at the port specified.
  *  @param delegate: Callback handlers for QUICR operations
  */
-QuicRServer::QuicRServer(qtransport::ITransport& transport_in,
+QuicRServer::QuicRServer(RelayInfo &relayInfo,
                          ServerDelegate& delegate_in)
-  : transport(transport_in),
-    delegate(delegate_in)
+  : delegate(delegate_in)
 {
   transport_context_id = transport.start();
 }
