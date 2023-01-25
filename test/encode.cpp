@@ -58,7 +58,6 @@ TEST_CASE("SubscribeEnd Message encode/decode")
   CHECK_EQ(s_out.payload, s.payload);
 }
 
-
 /*===========================================================================*/
 // Publish Message Types
 /*===========================================================================*/
@@ -66,7 +65,10 @@ TEST_CASE("SubscribeEnd Message encode/decode")
 TEST_CASE("PublishIntent Message encode/decode")
 {
   QUICRNamespace qnamespace{ 0x1000, 0x2000, 3 };
-  PublishIntent pi{ MessageType::Publish, 0x1000, qnamespace, 1u, {0, 1, 2, 3, 4}, uintVar_t{0x0100}, uintVar_t{0x0000} };
+  PublishIntent pi{ MessageType::Publish, 0x1000,
+                    qnamespace,           1u,
+                    { 0, 1, 2, 3, 4 },    uintVar_t{ 0x0100 },
+                    uintVar_t{ 0x0000 } };
   MessageBuffer buffer;
   buffer << pi;
   PublishIntent pi_out;
@@ -97,7 +99,9 @@ TEST_CASE("PublishIntentResponse Message encode/decode")
 
 TEST_CASE("Publish Message encode/decode")
 {
+  QUICRName qn{ 0x1000, 0x2000};
   Header d{ uintVar_t{ 0x1000 },
+            qn,
             uintVar_t{ 0x0100 },
             uintVar_t{ 0x0010 },
             uintVar_t{ 0x0001 },
@@ -120,7 +124,7 @@ TEST_CASE("Publish Message encode/decode")
 
 TEST_CASE("PublishStream Message encode/decode")
 {
-  PublishStream ps{ uintVar_t{5}, {0, 1, 2, 3, 4} };
+  PublishStream ps{ uintVar_t{ 5 }, { 0, 1, 2, 3, 4 } };
   MessageBuffer buffer;
   buffer << ps;
   PublishStream ps_out;
@@ -133,7 +137,10 @@ TEST_CASE("PublishStream Message encode/decode")
 TEST_CASE("PublishIntentEnd Message encode/decode")
 {
   const std::string name = "12345";
-  PublishIntentEnd pie{ MessageType::Publish, uintVar_t{5}, {name.begin(), name.end()}, {0, 1, 2, 3, 4} };
+  PublishIntentEnd pie{ MessageType::Publish,
+                        uintVar_t{ 5 },
+                        { name.begin(), name.end() },
+                        { 0, 1, 2, 3, 4 } };
   MessageBuffer buffer;
   buffer << pie;
   PublishIntentEnd pie_out;

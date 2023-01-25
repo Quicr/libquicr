@@ -1,5 +1,4 @@
 #include <memory>
-#include <string>
 #include <vector>
 
 #include <doctest/doctest.h>
@@ -81,7 +80,6 @@ TEST_CASE("SubscribeResponse encode, send and receive")
   CHECK_EQ(resp.response, SubscribeResult::SubscribeStatus::Ok);
 }
 
-
 TEST_CASE("Send Object Message Encode, send and receive")
 {
 
@@ -91,7 +89,6 @@ TEST_CASE("Send Object Message Encode, send and receive")
   auto transport = std::make_shared<FakeTransport>();
 
   auto qserver = std::make_unique<QuicRServer>(*transport, delegate);
-
 
   std::vector<uint8_t> say_hello = { 'H', 'E', 'L', 'L', '0' };
   qserver->sendNamedObject(

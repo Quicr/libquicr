@@ -2,7 +2,7 @@
 #include <quicr/quicr_common.h>
 
 #include "encode.h"
-#include "message_buffer.h"
+#include "quicr/message_buffer.h"
 
 namespace quicr {
 ///

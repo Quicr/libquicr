@@ -1,11 +1,12 @@
 #pragma once
 
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
-#include <map>
 
 #include <quicr/quicr_common.h>
+#include <quicr/message_buffer.h>
 #include <transport/transport.h>
 
 /*
@@ -248,6 +249,8 @@ public:
                          bytes&& data);
 
 private:
+  void handle_subscribe(messages::MessageBuffer&& msg);
+  void handle_publish(messages::MessageBuffer&& msg);
 
   // State per publish_intent and related publish
   struct PublishContext
@@ -269,8 +272,9 @@ private:
 
   qtransport::ITransport& transport;
   qtransport::TransportContextId transport_context_id;
-  std::shared_ptr<ServerDelegate> delegate;
+  ServerDelegate& delegate;
   std::map<QUICRName, PublishContext> publish_state{};
+  bool running{ false };
 };
 
 } // namespace quicr

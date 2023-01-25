@@ -2,16 +2,19 @@
 #include <quicr/quicr_server.h>
 
 #include "encode.h"
-#include "message_buffer.h"
+#include "quicr/message_buffer.h"
+#include <thread>
 
 namespace quicr {
+
 /*
  * Start the  QUICR server at the port specified.
  *  @param delegate: Callback handlers for QUICR operations
  */
 QuicRServer::QuicRServer(qtransport::ITransport& transport_in,
-                         ServerDelegate& delegate)
-  : transport(transport_in)
+                         ServerDelegate& delegate_in)
+  : transport(transport_in),
+    delegate(delegate_in)
 {
   transport_context_id = transport.start();
 }
@@ -34,7 +37,25 @@ QuicRServer::is_transport_ready()
 bool
 QuicRServer::run()
 {
-  return false;
+  std::thread transport_dequeue([&]() {
+    while (this->running) {
+      auto data = this->transport.dequeue(this->transport_context_id, 0x0);
+      if (data->empty()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        continue;
+      }
+      // check what message have we dequeue
+      messages::MessageBuffer msg{ data.value() };
+      auto val = msg.back();
+      if (val == static_cast<uint8_t>(messages::MessageType::Subscribe)) {
+        handle_subscribe(std::move(msg));
+      } else if (val == static_cast<uint8_t>(messages::MessageType::Publish)) {
+        handle_publish(std::move(msg));
+      }
+    }
+  });
+
+  return true;
 }
 
 void
@@ -91,13 +112,15 @@ QuicRServer::sendNamedObject(const QUICRName& quicr_name,
       static_cast<messages::uintVar_t>(context.media_stream_id);
   }
 
-  datagram.header.media_id = static_cast<messages::uintVar_t>(context.media_stream_id);
+  datagram.header.media_id =
+    static_cast<messages::uintVar_t>(context.media_stream_id);
   datagram.header.group_id = static_cast<messages::uintVar_t>(context.group_id);
   datagram.header.object_id =
     static_cast<messages::uintVar_t>(context.object_id);
   datagram.header.flags = 0x0;
   datagram.header.offset_and_fin = static_cast<messages::uintVar_t>(1);
-  datagram.media_type = messages::MediaType::RealtimeMedia; // TODO this should not be here
+  datagram.media_type =
+    messages::MediaType::RealtimeMedia; // TODO this should not be here
   datagram.media_data_length = static_cast<messages::uintVar_t>(data.size());
   datagram.media_data = std::move(data);
 
@@ -118,6 +141,25 @@ QuicRServer::sendNamedFragment(const QUICRName& name,
                                bytes&& data)
 {
   throw std::runtime_error("Unimplemented");
+}
+
+
+///
+/// Private
+///
+
+void
+QuicRServer::handle_subscribe(messages::MessageBuffer&& msg) {
+  messages::Subscribe subscribe;
+  msg >> subscribe;
+  delegate.onSubscribe(subscribe.quicr_namespace, subscribe.intent, "", false, "", {} );
+}
+
+void
+QuicRServer::handle_publish(messages::MessageBuffer&& msg) {
+  messages::PublishDatagram datagram;
+  msg >> datagram;
+  delegate.onPublisherObject(datagram.header.name, 0, 0, false, std::move(datagram.media_data));
 }
 
 }

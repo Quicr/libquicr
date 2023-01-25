@@ -222,16 +222,6 @@ public:
    */
   ClientStatus status() const { return client_status; }
 
-  /**
-   * @brief Run client API event loop
-   *
-   * @details This method will connect to the relay/transport and run
-   *    an event loop for calling the callbacks
-   *
-   * @returns client status
-   */
-  ClientStatus run();
-
   /*
    * @brief Publish intent to publish on a QUICR Namespace
    *

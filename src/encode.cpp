@@ -172,11 +172,15 @@ operator<<(MessageBuffer& buffer, const Header& msg)
   buffer << msg.object_id;
   buffer << msg.group_id;
   buffer << msg.media_id;
+  buffer << msg.name.hi;
+  buffer << msg.name.low;
 }
 
 bool
 operator>>(MessageBuffer& buffer, Header& msg)
 {
+  buffer >> msg.name.low;
+  buffer >> msg.name.hi;
   buffer >> msg.media_id;
   buffer >> msg.group_id;
   buffer >> msg.object_id;

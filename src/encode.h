@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include "message_buffer.h"
+#include "quicr/message_buffer.h"
 #include <quicr/quicr_common.h>
 
 /**
@@ -98,7 +98,6 @@ operator<<(MessageBuffer& buffer, const SubscribeEnd& msg);
 bool
 operator>>(MessageBuffer& buffer, SubscribeEnd& msg);
 
-
 /*===========================================================================*/
 // Publish Message Types
 /*===========================================================================*/
@@ -113,9 +112,9 @@ struct PublishIntent
   uint8_t mask;
   //  *     relay_auth_token_length(i),
   //  *     relay_token(…),
-   std::vector<uint8_t> payload;
-   uintVar_t media_id;
-   uintVar_t datagram_capable;
+  std::vector<uint8_t> payload;
+  uintVar_t media_id;
+  uintVar_t datagram_capable;
 };
 
 void
@@ -141,6 +140,7 @@ operator>>(MessageBuffer& buffer, PublishIntentResponse& msg);
 struct Header
 {
   uintVar_t media_id;
+  QUICRName name; // TODO: this needs to be removed
   uintVar_t group_id;
   uintVar_t object_id;
   uintVar_t offset_and_fin;
@@ -184,7 +184,7 @@ struct PublishIntentEnd
   //  * relay_auth_token_length(i),
   //  * relay_token(…),
   std::vector<uint8_t> payload;
- };
+};
 
 void
 operator<<(MessageBuffer& buffer, const PublishIntentEnd& msg);
