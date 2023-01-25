@@ -3,7 +3,7 @@
 #include <map>
 #include <quicr/quicr_common.h>
 
-//#include <quicr/quicr_name.h>
+#include <quicr/quicr_name.h>
 
 
 // Tests for QuicrName and QuicrNamespace
@@ -46,7 +46,7 @@ TEST_CASE("QUICRName Map Lookup with QuicRNamespace ")
   CHECK(quicr::is_quicr_name_in_namespace(qns1, qn1));
 }
 
-//TEST_CASE("QUICR::Name Basic Test ")
-//{
-//  CHECK(quicr::Name( 0x42 ) == quicr::Name( std::string( "0x42" ) ) );
-//}
+TEST_CASE("QUICR::Name Basic Test ")
+{
+  CHECK(quicr::Name( 0x42 ) == quicr::Name( std::string( "0x42" ) ) );
+}
