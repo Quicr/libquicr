@@ -9,12 +9,35 @@ namespace quicr {
 
 /*
  * Start the  QUICR server at the port specified.
- *  @param delegate: Callback handlers for QUICR operations
+ *  @param delegate_in: Callback handlers for QUICR operations
  */
 QuicRServer::QuicRServer(RelayInfo& relayInfo, ServerDelegate& delegate_in)
   : delegate(delegate_in)
 {
-  transport_context_id = transport.start();
+  t_relay.host_or_ip = relayInfo.hostname;
+  t_relay.port = relayInfo.port;
+  switch (relayInfo.proto) {
+    case RelayInfo::Protocol::UDP:
+      t_relay.proto = qtransport::TransportProtocol::UDP;
+      break;
+    default:
+      t_relay.proto = qtransport::TransportProtocol::QUIC;
+      break;
+  }
+
+  transport = setupTransport(relayInfo);
+
+  transport_context_id = transport->start();
+}
+
+std::shared_ptr<qtransport::ITransport>
+QuicRServer::setupTransport(RelayInfo& relayInfo)
+{
+  qtransport::LogHandler logger;
+  TransportDelegate t_delegate(*this);
+
+  return qtransport::ITransport::make_server_transport(
+    t_relay, t_delegate, logger);
 }
 
 // Transport APIs
@@ -36,32 +59,8 @@ bool
 QuicRServer::run()
 {
   running = true;
-  dequeue_thread = std::thread(dequeueThreadFunc, this);
 
   return true;
-}
-
-int
-QuicRServer::runDequeueLoop()
-{
-  while (running) {
-    auto data = transport.dequeue(transport_context_id, 0x0);
-    if (!data.has_value()) {
-      std::this_thread::sleep_for(std::chrono::microseconds(2));
-      continue;
-    }
-
-    uint8_t msg_type = data.value().back();
-    messages::MessageBuffer msg_buffer{ data.value() };
-    if (msg_type == static_cast<uint8_t>(messages::MessageType::Subscribe)) {
-      handle_subscribe(std::move(msg_buffer));
-    } else if (msg_type ==
-               static_cast<uint8_t>(messages::MessageType::Publish)) {
-      handle_publish(std::move(msg_buffer));
-    }
-  }
-
-  dequeue_thread.join();
 }
 
 void
@@ -83,7 +82,7 @@ QuicRServer::subscribeResponse(const QUICRNamespace& quicr_namespace,
 
   messages::MessageBuffer msg;
   msg << response;
-  transport.enqueue(transport_context_id, 0x0, std::move(msg.buffer));
+  // transport.enqueue(transport_context_id, 0x0, std::move(msg.buffer));
 }
 
 void
@@ -106,7 +105,7 @@ QuicRServer::sendNamedObject(const QUICRName& quicr_name,
   PublishContext context{};
 
   if (!publish_state.count(quicr_name)) {
-    auto msid = transport.createMediaStream(transport_context_id, false);
+    auto msid = transport->createMediaStream(transport_context_id, false);
     context.transport_context_id = transport_context_id;
     context.media_stream_id = msid;
     context.state = PublishContext::State::Pending;
@@ -133,7 +132,7 @@ QuicRServer::sendNamedObject(const QUICRName& quicr_name,
   messages::MessageBuffer msg;
   msg << datagram;
 
-  transport.enqueue(
+  transport->enqueue(
     transport_context_id, context.media_stream_id, std::move(msg.buffer));
 }
 
@@ -171,4 +170,57 @@ QuicRServer::handle_publish(messages::MessageBuffer&& msg)
     datagram.header.name, 0, 0, false, std::move(datagram.media_data));
 }
 
+// --------------------------------------------------
+// Transport Delegate Implementation
+// ---------------
+QuicRServer::TransportDelegate::TransportDelegate(quicr::QuicRServer& server)
+  : server(server)
+{
 }
+
+void
+QuicRServer::TransportDelegate::on_connection_status(
+  const qtransport::TransportContextId& context_id,
+  const qtransport::TransportStatus status)
+{
+}
+void
+QuicRServer::TransportDelegate::on_new_connection(
+  const qtransport::TransportContextId& context_id,
+  const qtransport::TransportRemote& remote)
+{
+}
+void
+QuicRServer::TransportDelegate::on_new_media_stream(
+  const qtransport::TransportContextId& context_id,
+  const qtransport::MediaStreamId& mStreamId)
+{
+}
+
+void
+QuicRServer::TransportDelegate::on_recv_notify(
+  const qtransport::TransportContextId& context_id,
+  const qtransport::MediaStreamId& mStreamId)
+{
+  while (true) {
+    auto data = server.transport->dequeue(context_id, mStreamId);
+
+    if (data.has_value()) {
+      server.transport->enqueue(context_id, mStreamId, std::move(data.value()));
+
+      uint8_t msg_type = data.value().back();
+      messages::MessageBuffer msg_buffer{ data.value() };
+      if (msg_type == static_cast<uint8_t>(messages::MessageType::Subscribe)) {
+        server.handle_subscribe(std::move(msg_buffer));
+      } else if (msg_type ==
+                 static_cast<uint8_t>(messages::MessageType::Publish)) {
+        server.handle_publish(std::move(msg_buffer));
+      }
+
+    } else {
+      break;
+    }
+  }
+}
+
+} /* namespace end */

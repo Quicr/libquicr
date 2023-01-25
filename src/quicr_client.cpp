@@ -61,7 +61,6 @@ is_quicr_name_in_namespace(const QUICRNamespace& ns, const QUICRName& n)
 ///
 /// Transport Delegate Implementation
 ///
-
 class QuicRTransportDelegate : public ITransport::TransportDelegate
 {
 public:

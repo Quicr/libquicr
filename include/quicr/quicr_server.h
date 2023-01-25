@@ -253,6 +253,31 @@ public:
                          bytes&& data);
 
 private:
+  /*
+   * Implementation of the the transport delegate
+   */
+  class TransportDelegate : public qtransport::ITransport::TransportDelegate
+  {
+  public:
+    TransportDelegate(QuicRServer& server);
+
+    void on_connection_status(
+      const qtransport::TransportContextId& context_id,
+      const qtransport::TransportStatus status) override;
+    void on_new_connection(const qtransport::TransportContextId& context_id,
+                           const qtransport::TransportRemote& remote) override;
+    void on_new_media_stream(
+      const qtransport::TransportContextId& context_id,
+      const qtransport::MediaStreamId& mStreamId) override;
+    void on_recv_notify(const qtransport::TransportContextId& context_id,
+                        const qtransport::MediaStreamId& mStreamId) override;
+
+  private:
+    QuicRServer& server;
+  };
+
+  std::shared_ptr<qtransport::ITransport> setupTransport(RelayInfo& relayInfo);
+
   void handle_subscribe(messages::MessageBuffer&& msg);
   void handle_publish(messages::MessageBuffer&& msg);
 
@@ -274,7 +299,8 @@ private:
     uint64_t offset{ 0 };
   };
 
-  qtransport::ITransport& transport;
+  std::shared_ptr<qtransport::ITransport> transport;
+  qtransport::TransportRemote t_relay;
   qtransport::TransportContextId transport_context_id;
   ServerDelegate& delegate;
   std::map<QUICRName, PublishContext> publish_state{};
