@@ -5,9 +5,9 @@
 #include <string>
 #include <vector>
 
+#include <quicr/message_buffer.h>
 #include <quicr/quicr_common.h>
 #include <transport/transport.h>
-#include <quicr/message_buffer.h>
 
 using qtransport::ITransport;
 
@@ -32,8 +32,9 @@ public:
    *  @details This callback will be called when a subscription response
    *          is received, on error, or timeout.
    */
-  virtual void onSubscribeResponse(const QUICRNamespace& quicr_namespace,
-                                   const SubscribeResult::SubscribeStatus& result) = 0;
+  virtual void onSubscribeResponse(
+    const QUICRNamespace& quicr_namespace,
+    const SubscribeResult::SubscribeStatus& result) = 0;
 
   /*
    * @brief Indicates a given subscription is no longer valid
@@ -156,7 +157,7 @@ public:
    * @param relayInfo        : Relay Information to be used by the transport
    * operations
    */
-   QuicRClient(RelayInfo& relayInfo, qtransport::LogHandler& logger);
+  QuicRClient(RelayInfo& relayInfo, qtransport::LogHandler& logger);
 
   /**
    * @brief Get the client status
@@ -282,8 +283,9 @@ public:
 
   void handle(messages::MessageBuffer&& msg);
 
-private:
+  std::shared_ptr<ITransport> transport;
 
+private:
   void make_transport(RelayInfo& relay_info, qtransport::LogHandler& logger);
 
   // State to store per-subscribe context
@@ -325,11 +327,10 @@ private:
   std::map<QUICRNamespace, std::shared_ptr<SubscriberDelegate>> sub_delegates;
   std::map<QUICRName, std::shared_ptr<SubscriberDelegate>> sub_name_delegates;
 
-  std::map<QUICRNamespace,std::shared_ptr<PublisherDelegate>> pub_delegates;
+  std::map<QUICRNamespace, std::shared_ptr<PublisherDelegate>> pub_delegates;
   std::map<QUICRNamespace, SubscribeContext> subscribe_state{};
   std::map<QUICRName, PublishContext> publish_state{};
   std::unique_ptr<ITransport::TransportDelegate> transport_delegate;
-  std::shared_ptr<ITransport> transport;
 };
 
 }

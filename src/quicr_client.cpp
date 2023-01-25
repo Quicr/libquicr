@@ -1,6 +1,6 @@
-#include <sstream>
 #include <iomanip>
 #include <iostream>
+#include <sstream>
 
 #include <quicr/quicr_client.h>
 #include <quicr/quicr_common.h>
@@ -14,30 +14,23 @@ namespace quicr {
 ///
 
 // TODO Remove this
-static std::string to_hex(const quicr::QUICRNamespace& ns) {
+static std::string
+to_hex(const quicr::QUICRNamespace& ns)
+{
   std::stringstream stream;
-  stream << "0x"
-         << std::setfill ('0')
-         << std::setw(sizeof(uint64_t)*2)
-         << std::hex
-         << ns.hi
-         << std::setw(sizeof(uint64_t)*2)
-         << ns.low;
+  stream << "0x" << std::setfill('0') << std::setw(sizeof(uint64_t) * 2)
+         << std::hex << ns.hi << std::setw(sizeof(uint64_t) * 2) << ns.low;
   return stream.str();
 }
 
-static std::string to_hex(const quicr::QUICRName& name) {
+static std::string
+to_hex(const quicr::QUICRName& name)
+{
   std::stringstream stream;
-  stream << "0x"
-         << std::setfill ('0')
-         << std::setw(sizeof(uint64_t)*2)
-         << std::hex
-         << name.hi
-         << std::setw(sizeof(uint64_t)*2)
-         << name.low;
+  stream << "0x" << std::setfill('0') << std::setw(sizeof(uint64_t) * 2)
+         << std::hex << name.hi << std::setw(sizeof(uint64_t) * 2) << name.low;
   return stream.str();
 }
-
 
 bool
 is_quicr_name_in_namespace(const QUICRNamespace& ns, const QUICRName& n)
@@ -64,9 +57,10 @@ is_quicr_name_in_namespace(const QUICRNamespace& ns, const QUICRName& n)
 class QuicRTransportDelegate : public ITransport::TransportDelegate
 {
 public:
-  QuicRTransportDelegate(std::shared_ptr<ITransport> transport_in, QuicRClient& client_in)
-    : transport(transport_in),
-      client(client_in) {}
+  QuicRTransportDelegate(QuicRClient& client_in)
+    : client(client_in)
+  {
+  }
 
   virtual ~QuicRTransportDelegate() = default;
 
@@ -91,20 +85,21 @@ public:
   virtual void on_recv_notify(const qtransport::TransportContextId& context_id,
                               const qtransport::MediaStreamId& mStreamId)
   {
-    auto data = transport->dequeue(context_id, mStreamId);
+    auto data = client.transport->dequeue(context_id, mStreamId);
     if (!data.has_value()) {
       return;
     }
-    messages::MessageBuffer msg_buffer {data.value()};
+    messages::MessageBuffer msg_buffer{ data.value() };
     client.handle(std::move(msg_buffer));
   }
+
 private:
-  std::shared_ptr<ITransport> transport;
   QuicRClient& client;
 };
 
-
-void QuicRClient::make_transport(RelayInfo& relay_info, qtransport::LogHandler& logger)
+void
+QuicRClient::make_transport(RelayInfo& relay_info,
+                            qtransport::LogHandler& logger)
 {
   qtransport::TransportRemote server = {
     host_or_ip : relay_info.hostname,
@@ -113,8 +108,9 @@ void QuicRClient::make_transport(RelayInfo& relay_info, qtransport::LogHandler& 
       ? qtransport::TransportProtocol::UDP
       : qtransport::TransportProtocol::QUIC,
   };
-  transport_delegate = std::make_unique<QuicRTransportDelegate>();
-  transport = qtransport::ITransport::make_client_transport(server, *transport_delegate, logger);
+  transport_delegate = std::make_unique<QuicRTransportDelegate>(*this);
+  transport = qtransport::ITransport::make_client_transport(
+    server, *transport_delegate, logger);
   transport_context_id = transport->start();
 }
 
@@ -123,7 +119,6 @@ void QuicRClient::make_transport(RelayInfo& relay_info, qtransport::LogHandler& 
 ///
 /// \param relayInfo
 QuicRClient::QuicRClient(RelayInfo& relay_info, qtransport::LogHandler& logger)
-  : transport_delegate(std::make_unique<QuicRTransportDelegate>())
 {
   make_transport(relay_info, logger);
 }
@@ -135,7 +130,6 @@ QuicRClient::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                            const std::string& auth_token,
                            bytes&& payload)
 {
-  this->pub_delegate = pub_delegate;
   throw std::runtime_error("UnImplemented");
 }
 
@@ -156,7 +150,7 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
                        bytes&& e2e_token)
 {
 
-  if(!sub_delegates.count(quicr_namespace)) {
+  if (!sub_delegates.count(quicr_namespace)) {
     sub_delegates[quicr_namespace] = subscriber_delegate;
   }
 
@@ -255,34 +249,41 @@ QuicRClient::publishNamedObjectFragment(const QUICRName& quicr_name,
 void
 QuicRClient::handle(messages::MessageBuffer&& msg)
 {
-  if(msg.buffer.empty()) {
-    std::cout << "Transport Reported Empty Data" <<std::endl;
+  if (msg.buffer.empty()) {
+    std::cout << "Transport Reported Empty Data" << std::endl;
 
     return;
   }
 
   uint8_t msg_type = msg.back();
 
-  if (msg_type == static_cast<uint8_t>(messages::MessageType::SubscribeResponse)) {
+  if (msg_type ==
+      static_cast<uint8_t>(messages::MessageType::SubscribeResponse)) {
     messages::SubscribeResponse response;
     msg >> response;
     if (sub_delegates.count(response.quicr_namespace)) {
-      sub_delegates[response.quicr_namespace]->onSubscribeResponse(response.quicr_namespace, response.response);
+      sub_delegates[response.quicr_namespace]->onSubscribeResponse(
+        response.quicr_namespace, response.response);
     } else {
-      std::cout << "Got SubscribeResponse: No delegate found for namespace" << to_hex(response.quicr_namespace) << std::endl;
+      std::cout << "Got SubscribeResponse: No delegate found for namespace"
+                << to_hex(response.quicr_namespace) << std::endl;
     }
-  } else if (msg_type ==
-             static_cast<uint8_t>(messages::MessageType::Publish)) {
+  } else if (msg_type == static_cast<uint8_t>(messages::MessageType::Publish)) {
     messages::PublishDatagram datagram;
     msg >> datagram;
     for (const auto& entry : sub_delegates) {
       if (is_quicr_name_in_namespace(entry.first, datagram.header.name)) {
-        sub_delegates[entry.first]->onSubscribedObject(datagram.header.name, 0x0, false, std::move(datagram.media_data));
+        sub_delegates[entry.first]->onSubscribedObject(
+          datagram.header.name,
+          0x0,
+          0x0,
+          false,
+          std::move(datagram.media_data));
       } else {
-        std::cout << "Name:" << to_hex(datagram.header.name) << ", not in namespace " << to_hex(entry.first) << std::endl;
+        std::cout << "Name:" << to_hex(datagram.header.name)
+                  << ", not in namespace " << to_hex(entry.first) << std::endl;
       }
     }
   }
-
 }
 } // namespace quicr

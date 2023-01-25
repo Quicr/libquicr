@@ -47,7 +47,6 @@ Name::Name(const std::string& hex_value)
 Name::Name(uint8_t* data, size_t length)
   : Name(std::vector<uint8_t>{ data, data + length })
 {
-
 }
 
 Name::Name(const uint8_t* data, size_t length)
