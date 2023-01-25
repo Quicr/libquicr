@@ -2,6 +2,10 @@
 #include <doctest/doctest.h>
 #include <map>
 #include <quicr/quicr_common.h>
+
+//#include <quicr/quicr_name.h>
+
+
 // Tests for QuicrName and QuicrNamespace
 
 TEST_CASE("QUICRNamespace Equality")
@@ -41,3 +45,8 @@ TEST_CASE("QUICRName Map Lookup with QuicRNamespace ")
   quicr::QUICRName qn1{ 0x11111111, 0x222222FF };
   CHECK(quicr::is_quicr_name_in_namespace(qns1, qn1));
 }
+
+//TEST_CASE("QUICR::Name Basic Test ")
+//{
+//  CHECK(quicr::Name( 0x42 ) == quicr::Name( std::string( "0x42" ) ) );
+//}
