@@ -158,6 +158,11 @@ public:
    */
   QuicRServer(RelayInfo& relayInfo, ServerDelegate& delegate);
 
+  /**
+   * API for unit test cases .
+   */
+  QuicRServer(std::shared_ptr<qtransport::ITransport> transport, ServerDelegate& delegate);
+
   // Transport APIs
   bool is_transport_ready();
 

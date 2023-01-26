@@ -31,6 +31,13 @@ QuicRServer::QuicRServer(RelayInfo& relayInfo, ServerDelegate& delegate_in)
   transport->start();
 }
 
+QuicRServer::QuicRServer(std::shared_ptr<qtransport::ITransport> transport_in, ServerDelegate& delegate_in)
+: delegate(delegate_in)
+  , transport_delegate(*this)
+  , transport(transport_in){
+
+}
+
 std::shared_ptr<qtransport::ITransport>
 QuicRServer::setupTransport(RelayInfo& relayInfo)
 {

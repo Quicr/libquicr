@@ -160,6 +160,11 @@ public:
   QuicRClient(RelayInfo& relayInfo, qtransport::LogHandler& logger);
 
   /**
+   * API for usages in Tests. Applications don't need to be bothered
+   * about the transport
+   */
+  QuicRClient(std::shared_ptr<ITransport> transport);
+  /**
    * @brief Get the client status
    *
    * @details This method should be used to determine if the client is

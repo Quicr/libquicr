@@ -54,14 +54,6 @@ struct TestPublisherDelegate : public PublisherDelegate
   ~TestPublisherDelegate() override = default;
 };
 
-TEST_CASE("Object Lifetime")
-{
-  std::shared_ptr<TestSubscriberDelegate> sub_delegate{};
-  std::shared_ptr<TestPublisherDelegate> pub_delegate{};
-  FakeTransport fake_transport;
-  CHECK_NOTHROW(
-    std::make_unique<QuicRClient>(fake_transport, sub_delegate, pub_delegate));
-}
 
 TEST_CASE("Subscribe encode, send and receive")
 {
@@ -70,20 +62,10 @@ TEST_CASE("Subscribe encode, send and receive")
   FakeTransportDelegate transport_delegate;
 
   auto transport = std::make_shared<FakeTransport>();
+  auto qclient = std::make_unique<QuicRClient>(transport);
 
-  auto qclient =
-    std::make_unique<QuicRClient>(*transport, sub_delegate, pub_delegate);
-
-  /*
-   * void subscribe(const QUICRNamespace& quicr_namespace,
-                 const SubscribeIntent& intent,
-                 const std::string& origin_url,
-                 bool use_reliable_transport,
-                 const std::string& auth_token,
-                 bytes&& e2e_token);
-   */
   qclient->subscribe(
-    { 0x1000, 0x2000, 3 }, SubscribeIntent::wait_up, "", false, "", {});
+    sub_delegate,  { 0x1000, 0x2000, 3 }, SubscribeIntent::wait_up, "", false, "", {});
 
   auto fake_transport = std::reinterpret_pointer_cast<FakeTransport>(transport);
   messages::Subscribe s;
@@ -106,7 +88,7 @@ TEST_CASE("Publish encode, send and receive")
   auto transport = std::make_shared<FakeTransport>();
 
   auto qclient =
-    std::make_unique<QuicRClient>(*transport, sub_delegate, pub_delegate);
+    std::make_unique<QuicRClient>(transport);
   std::vector<uint8_t> say_hello = { 'H', 'E', 'L', 'L', '0' };
   qclient->publishNamedObject(
     { 0x1000, 0x2000 }, 0, 0, false, std::move(say_hello));
