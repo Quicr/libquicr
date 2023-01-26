@@ -161,7 +161,8 @@ public:
   /**
    * API for unit test cases .
    */
-  QuicRServer(std::shared_ptr<qtransport::ITransport> transport, ServerDelegate& delegate);
+  QuicRServer(std::shared_ptr<qtransport::ITransport> transport,
+              ServerDelegate& delegate);
 
   // Transport APIs
   bool is_transport_ready();
@@ -305,7 +306,7 @@ private:
     qtransport::TransportContextId transport_context_id{ 0 };
     qtransport::MediaStreamId media_stream_id{ 0 };
     uint64_t transaction_id{ 0 };
-    uint64_t subscriber_id {0};
+    uint64_t subscriber_id{ 0 };
   };
 
   // State per publish_intent and related publish
@@ -330,11 +331,11 @@ private:
   qtransport::TransportRemote t_relay;
   ServerDelegate& delegate;
   std::map<QUICRNamespace, SubscribeContext> subscribe_state{};
-  std::map<uint64_t , SubscribeContext> subscribe_id_state{};
+  std::map<uint64_t, SubscribeContext> subscribe_id_state{};
   std::map<QUICRName, PublishContext> publish_state{};
   TransportDelegate transport_delegate;
   bool running{ false };
-  uint64_t subscriber_id {0};
+  uint64_t subscriber_id{ 0 };
 };
 
 } // namespace quicr

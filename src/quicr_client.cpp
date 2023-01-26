@@ -123,8 +123,8 @@ QuicRClient::QuicRClient(RelayInfo& relay_info, qtransport::LogHandler& logger)
   make_transport(relay_info, logger);
 }
 
-
-QuicRClient::QuicRClient(std::shared_ptr<ITransport> transport_in) {
+QuicRClient::QuicRClient(std::shared_ptr<ITransport> transport_in)
+{
   transport = transport_in;
 }
 

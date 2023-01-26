@@ -13,7 +13,7 @@ namespace quicr {
  */
 QuicRServer::QuicRServer(RelayInfo& relayInfo, ServerDelegate& delegate_in)
   : delegate(delegate_in)
-    , transport_delegate(*this)
+  , transport_delegate(*this)
 
 {
   t_relay.host_or_ip = relayInfo.hostname;
@@ -31,11 +31,12 @@ QuicRServer::QuicRServer(RelayInfo& relayInfo, ServerDelegate& delegate_in)
   transport->start();
 }
 
-QuicRServer::QuicRServer(std::shared_ptr<qtransport::ITransport> transport_in, ServerDelegate& delegate_in)
-: delegate(delegate_in)
+QuicRServer::QuicRServer(std::shared_ptr<qtransport::ITransport> transport_in,
+                         ServerDelegate& delegate_in)
+  : delegate(delegate_in)
   , transport_delegate(*this)
-  , transport(transport_in){
-
+  , transport(transport_in)
+{
 }
 
 std::shared_ptr<qtransport::ITransport>
@@ -100,7 +101,7 @@ QuicRServer::subscriptionEnded(const QUICRNamespace& quicr_namespace,
 
 void
 QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
-                              const QUICRName& quicr_name,
+                             const QUICRName& quicr_name,
                              uint8_t priority,
                              uint64_t best_before,
                              bool use_reliable_transport,
@@ -109,7 +110,7 @@ QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
   // start populating message to encode
   messages::PublishDatagram datagram;
   if (subscribe_id_state.count(subscriber_id) == 0) {
-    return ;
+    return;
   }
 
   auto& context = subscribe_id_state[subscriber_id];
@@ -126,8 +127,9 @@ QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
   messages::MessageBuffer msg;
   msg << datagram;
 
-  transport->enqueue(
-    context.transport_context_id, context.media_stream_id, std::move(msg.buffer));
+  transport->enqueue(context.transport_context_id,
+                     context.media_stream_id,
+                     std::move(msg.buffer));
 }
 
 void
@@ -164,8 +166,13 @@ QuicRServer::handle_subscribe(const qtransport::TransportContextId& context_id,
   }
   auto& context = subscribe_state[subscribe.quicr_namespace];
 
-  delegate.onSubscribe(
-    subscribe.quicr_namespace, context.subscriber_id, subscribe.intent, "", false, "", {});
+  delegate.onSubscribe(subscribe.quicr_namespace,
+                       context.subscriber_id,
+                       subscribe.intent,
+                       "",
+                       false,
+                       "",
+                       {});
 }
 
 void
@@ -199,7 +206,6 @@ QuicRServer::TransportDelegate::on_new_connection(
   const qtransport::TransportContextId& context_id,
   const qtransport::TransportRemote& remote)
 {
-
 }
 void
 QuicRServer::TransportDelegate::on_new_media_stream(

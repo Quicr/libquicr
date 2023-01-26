@@ -54,7 +54,6 @@ struct TestPublisherDelegate : public PublisherDelegate
   ~TestPublisherDelegate() override = default;
 };
 
-
 TEST_CASE("Subscribe encode, send and receive")
 {
   std::shared_ptr<TestSubscriberDelegate> sub_delegate{};
@@ -64,8 +63,13 @@ TEST_CASE("Subscribe encode, send and receive")
   auto transport = std::make_shared<FakeTransport>();
   auto qclient = std::make_unique<QuicRClient>(transport);
 
-  qclient->subscribe(
-    sub_delegate,  { 0x1000, 0x2000, 3 }, SubscribeIntent::wait_up, "", false, "", {});
+  qclient->subscribe(sub_delegate,
+                     { 0x1000, 0x2000, 3 },
+                     SubscribeIntent::wait_up,
+                     "",
+                     false,
+                     "",
+                     {});
 
   auto fake_transport = std::reinterpret_pointer_cast<FakeTransport>(transport);
   messages::Subscribe s;
@@ -87,8 +91,7 @@ TEST_CASE("Publish encode, send and receive")
 
   auto transport = std::make_shared<FakeTransport>();
 
-  auto qclient =
-    std::make_unique<QuicRClient>(transport);
+  auto qclient = std::make_unique<QuicRClient>(transport);
   std::vector<uint8_t> say_hello = { 'H', 'E', 'L', 'L', '0' };
   qclient->publishNamedObject(
     { 0x1000, 0x2000 }, 0, 0, false, std::move(say_hello));

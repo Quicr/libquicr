@@ -24,7 +24,7 @@ Namespace::contains(const Name& name) const
 {
   if (name.size() != _mask_name.size())
     return false;
-    
+
   auto insig_bits = max_uint_type_bit_size - _sig_bits;
   return (name >> insig_bits) == (_mask_name >> insig_bits);
 }
