@@ -124,16 +124,16 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
   messages::Subscribe subscribe{ 0x1, transaction_id, quicr_namespace, intent };
   msg << subscribe;
 
-  qtransport::MediaStreamId msid{};
+  //qtransport::MediaStreamId msid{};
   if (!subscribe_state.count(quicr_namespace)) {
     // create a new media-stream for this subscribe
-    auto msid = transport->createMediaStream(transport_context_id, false);
+		//msid = transport->createMediaStream(transport_context_id, false);
     subscribe_state[quicr_namespace] =
       SubscribeContext{ SubscribeContext::State::Pending,
                         transport_context_id,
-                        msid,
+                        media_stream_id,
                         transaction_id };
-    transport->enqueue(transport_context_id, msid, std::move(msg.buffer));
+    transport->enqueue(transport_context_id, media_stream_id, std::move(msg.buffer));
     return;
   } else {
     auto& ctx = subscribe_state[quicr_namespace];
@@ -143,7 +143,7 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
     } else if (ctx.state == SubscribeContext::State::Pending) {
       // todo - resend or wait or may be take in timeout in the api
     }
-    transport->enqueue(transport_context_id, msid, std::move(msg.buffer));
+    transport->enqueue(transport_context_id, media_stream_id, std::move(msg.buffer));
   }
 }
 
