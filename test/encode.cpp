@@ -12,7 +12,7 @@ using namespace quicr::messages;
 
 TEST_CASE("Subscribe Message encode/decode")
 {
-  quicr::Namespace qnamespace{ 0x1000, 0x2000, 3 };
+  quicr::Namespace qnamespace{ {"0x10000000000000002000"}, 125 };
 
   Subscribe s{ 1, 0x1000, qnamespace, SubscribeIntent::immediate };
   MessageBuffer buffer;
@@ -21,15 +21,13 @@ TEST_CASE("Subscribe Message encode/decode")
   CHECK((buffer >> s_out));
 
   CHECK_EQ(s_out.transaction_id, s.transaction_id);
-  CHECK_EQ(s_out.quicr_namespace.mask, s.quicr_namespace.mask);
-  CHECK_EQ(s_out.quicr_namespace.low, s.quicr_namespace.low);
-  CHECK_EQ(s_out.quicr_namespace.hi, s.quicr_namespace.hi);
+  CHECK_EQ(s_out.quicr_namespace, s.quicr_namespace);
   CHECK_EQ(s_out.intent, s.intent);
 }
 
 TEST_CASE("SubscribeResponse Message encode/decode")
 {
-  quicr::Namespace qnamespace{ 0x1000, 0x2000, 3 };
+  quicr::Namespace qnamespace{ {"0x10000000000000002000"}, 125 };
 
   SubscribeResponse s{ qnamespace,
                        SubscribeResult::SubscribeStatus::Ok,
@@ -64,7 +62,7 @@ TEST_CASE("SubscribeEnd Message encode/decode")
 
 TEST_CASE("PublishIntent Message encode/decode")
 {
-  quicr::Namespace qnamespace{ 0x1000, 0x2000, 3 };
+  quicr::Namespace qnamespace{ {"0x10000000000000002000"}, 125 };
   PublishIntent pi{ MessageType::Publish, 0x1000,
                     qnamespace,           1u,
                     { 0, 1, 2, 3, 4 },    uintVar_t{ 0x0100 },
@@ -76,8 +74,7 @@ TEST_CASE("PublishIntent Message encode/decode")
 
   CHECK_EQ(pi_out.message_type, pi.message_type);
   CHECK_EQ(pi_out.transaction_id, pi.transaction_id);
-  CHECK_EQ(pi_out.quicr_namespace.hi, pi.quicr_namespace.hi);
-  CHECK_EQ(pi_out.quicr_namespace.low, pi.quicr_namespace.low);
+  CHECK_EQ(pi_out.quicr_namespace, pi.quicr_namespace);
   CHECK_EQ(pi_out.mask, pi.mask);
   CHECK_EQ(pi_out.payload, pi.payload);
   CHECK_EQ(pi_out.media_id, pi.media_id);
@@ -99,7 +96,7 @@ TEST_CASE("PublishIntentResponse Message encode/decode")
 
 TEST_CASE("Publish Message encode/decode")
 {
-  quicr::Name qn{ 0x1000, 0x2000 };
+  quicr::Name qn{ "0x10000000000000002000" };
   Header d{ uintVar_t{ 0x1000 }, qn,
             uintVar_t{ 0x0100 }, uintVar_t{ 0x0010 },
             uintVar_t{ 0x0001 }, 0x0000 };

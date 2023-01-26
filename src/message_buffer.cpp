@@ -203,21 +203,16 @@ fromVarInt(uintVar_t v)
 void
 operator<<(MessageBuffer& msg, const quicr::Name& val)
 {
-  msg.push_back(val.data());
+  msg << val.data();
 }
 
 bool
 operator>>(MessageBuffer& msg, quicr::Name& val)
 {
-  uint8_t vecSize = 0;
-  msg >> vecSize;
-  if (vecSize == 0) {
+  std::vector<uint8_t> bytes{};
+  if (!(msg >> bytes))
     return false;
-  }
 
-  std::vector<uint8_t> bytes;
-  bytes.resize(vecSize);
-  bytes = msg.back(vecSize);
   val = Name{bytes};
 
   return true;

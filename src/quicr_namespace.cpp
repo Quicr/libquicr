@@ -1,7 +1,6 @@
 #include <quicr/quicr_namespace.h>
 #include <quicr/message_buffer.h>
 
-#include <iostream>
 #include <sstream>
 
 namespace quicr {
@@ -91,18 +90,27 @@ operator<(const Namespace& a, const Namespace& b)
   return a._mask_name < b._mask_name;
 }
 
+std::ostream&
+operator<<(std::ostream& os, const Namespace& ns)
+{
+  os << ns.to_hex();
+  return os;
+}
+
 void
 operator<<(messages::MessageBuffer& msg, const quicr::Namespace& val)
 {
-  msg << val._mask_name;
   msg.push_back(val._sig_bits);
+  msg << val._mask_name;
 }
 
 bool
 operator>>(messages::MessageBuffer& msg, quicr::Namespace& val)
 {
+  msg >> val._mask_name;
   val._sig_bits = msg.back();
   msg.pop_back();
-  return msg >> val._mask_name;
+
+  return true;
 }
 }

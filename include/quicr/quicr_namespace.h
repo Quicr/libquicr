@@ -4,7 +4,7 @@
 
 namespace quicr {
 namespace messages {
-class MessageBuffer;
+struct MessageBuffer;
 }
 
 class Namespace
@@ -27,6 +27,8 @@ public:
   friend bool operator!=(const Namespace& a, const Namespace& b);
   friend bool operator>(const Namespace& a, const Namespace& b);
   friend bool operator<(const Namespace& a, const Namespace& b);
+
+  friend std::ostream& operator<<(std::ostream& os, const Namespace& ns);
 
   friend void operator<<(messages::MessageBuffer& msg, const Namespace& ns);
   friend bool operator>>(messages::MessageBuffer& msg, Namespace& ns);
