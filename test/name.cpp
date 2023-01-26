@@ -7,10 +7,7 @@
 
 TEST_CASE("quicr::Name Constructor Tests")
 {
-  quicr::Name val42(0x42);
-  quicr::Name str42("0x42");
-  CHECK_EQ(val42, str42);
-
+  quicr::Name val42("0x42");
   quicr::Name hex42("0x42");
   CHECK_EQ(val42, hex42);
 
@@ -27,27 +24,46 @@ TEST_CASE("quicr::Name Bit Shifting Tests")
   CHECK_EQ((quicr::Name("0x1234") >> 4), quicr::Name("0x123"));
   CHECK_EQ((quicr::Name("0x1234") << 4), quicr::Name("0x12340"));
   CHECK_EQ((quicr::Name("0x0123456789abcdef0123456789abcdef") >> 64),
-           quicr::Name(0x123456789abcdef));
+           quicr::Name("0x123456789abcdef"));
 }
 
 TEST_CASE("quicr::Name Arithmetic Tests")
 {
-  quicr::Name val42(0x42);
-  quicr::Name val41(0x41);
-  quicr::Name val43(0x43);
+  quicr::Name val42("0x42");
+  quicr::Name val41("0x41");
+  quicr::Name val43("0x43");
   CHECK_EQ(val42 + 1, val43);
   CHECK_EQ(val42 - 1, val41);
   CHECK_EQ(quicr::Name("0x0FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF") + 1,
            quicr::Name("0x10000000000000000000000000000000"));
+
+  quicr::Name val42_copy(val42);
+  CHECK_NE(val42_copy++, val43);
+  CHECK_EQ(val42_copy, val43);
+  CHECK_NE(val42_copy--, val42);
+  CHECK_EQ(val42_copy, val42);
+  CHECK_EQ(++val42_copy, val43);
+  CHECK_EQ(--val42_copy, val42);
 }
 
 TEST_CASE("quicr::Name Byte Array Tests")
 {
-  quicr::Name name_to_bytes("0x10000000000000000000000000000000");
-  auto byte_arr = name_to_bytes.data();
+  auto make_bytes = [](quicr::Name::uint_type v) {
+    std::vector<uint8_t> result(sizeof(quicr::Name::uint_type));
+    for (size_t i = 0; i < sizeof(quicr::Name::uint_type); ++i) {
+      result[i] = static_cast<uint8_t>((v >> 8 * i));
+    }
+    return result;
+  };
+
+  auto byte_arr = make_bytes(0x1000000000000000);
+  auto low_byte_arr = make_bytes(0x0000000000000000);
+  byte_arr.insert(byte_arr.end(), low_byte_arr.begin(), low_byte_arr.end());
+
   CHECK_FALSE(byte_arr.empty());
   CHECK_EQ(byte_arr.size(), 16);
-
+  
+  quicr::Name name_to_bytes("0x10000000000000000000000000000000");
   quicr::Name name_from_bytes(byte_arr);
   CHECK_EQ(name_from_bytes, name_to_bytes);
 

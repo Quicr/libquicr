@@ -1,6 +1,6 @@
 #pragma once
 
-#include "quicr_name.h"
+#include <quicr/quicr_name.h>
 
 namespace quicr {
 namespace messages {

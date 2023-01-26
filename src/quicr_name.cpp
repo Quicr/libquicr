@@ -1,4 +1,5 @@
 #include <quicr/quicr_name.h>
+#include <quicr/message_buffer.h>
 
 #include <bitset>
 #include <iomanip>
@@ -10,9 +11,9 @@
 #include <iostream>
 
 namespace quicr {
-Name::Name(uint_type value)
+Name::Name()
   : _hi{ 0 }
-  , _low{ value }
+  , _low{ 0 }
 {
 }
 
@@ -110,6 +111,7 @@ Name::to_hex() const
   if (_hi != 0)
     stream << _hi;
 
+  stream << std::setw(sizeof(uint_type) * 2) << std::setfill('0');
   stream << _low;
   return stream.str();
 }
@@ -230,6 +232,32 @@ Name::operator-=(uint_type value)
   std::tie(_low, _hi) = split_bitset(result_bits);
 }
 
+Name Name::operator++()
+{
+  *this += 1;
+  return *this;
+}
+
+Name Name::operator++(int)
+{
+  Name name(*this);
+  ++(*this);
+  return name;
+}
+
+Name Name::operator--()
+{
+  *this -= 1;
+  return *this;
+}
+
+Name Name::operator--(int)
+{
+  Name name(*this);
+  --(*this);
+  return name;
+}
+
 Name
 Name::operator&(uint_type value) const
 {
@@ -348,5 +376,23 @@ operator<<(std::ostream& os, const Name& name)
 {
   os << name.to_hex();
   return os;
+}
+
+void
+operator<<(messages::MessageBuffer& msg, const Name& val)
+{
+  msg << val.data();
+}
+
+bool
+operator>>(messages::MessageBuffer& msg, Name& val)
+{
+  std::vector<uint8_t> bytes{};
+  if (!(msg >> bytes))
+    return false;
+
+  val = Name{bytes};
+
+  return true;
 }
 }

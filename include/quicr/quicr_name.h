@@ -4,13 +4,16 @@
 #include <vector>
 
 namespace quicr {
+namespace messages {
+struct MessageBuffer;
+}
+
 class Name
 {
 public:
   using uint_type = uint64_t;
 
-  Name() : _hi{0}, _low{0} {}
-  Name(uint_type value);
+  Name();
   Name(const std::string& hex_value);
   Name(uint8_t* data, size_t length);
   Name(const uint8_t* data, size_t length);
@@ -19,14 +22,16 @@ public:
   Name(Name&& other);
   ~Name() = default;
 
-  std::vector<uint8_t> data() const;
-  size_t size() const;
   std::string to_hex() const;
 
   Name operator>>(uint16_t value) const;
   Name operator<<(uint16_t value) const;
   Name operator+(uint_type value) const;
   void operator+=(uint_type value);
+  Name operator++();
+  Name operator++(int);
+  Name operator--();
+  Name operator--(int);
   Name operator-(uint_type value) const;
   void operator-=(uint_type value);
   Name operator&(uint_type value) const;
@@ -50,7 +55,13 @@ public:
 
   friend std::ostream& operator<<(std::ostream& os, const Name& name);
 
+  friend void operator<<(messages::MessageBuffer& msg, const Name& ns);
+  friend bool operator>>(messages::MessageBuffer& msg, Name& ns);
+
 private:
+  std::vector<uint8_t> data() const;
+  size_t size() const;
+
   uint_type _hi;
   uint_type _low;
 };
