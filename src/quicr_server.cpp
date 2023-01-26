@@ -4,6 +4,7 @@
 #include "encode.h"
 #include "quicr/message_buffer.h"
 #include <thread>
+#include <iostream>
 
 namespace quicr {
 
@@ -114,7 +115,7 @@ QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
   }
 
   auto& context = subscribe_id_state[subscriber_id];
-
+  datagram.header.name = quicr_name;
   datagram.header.media_id =
     static_cast<messages::uintVar_t>(context.media_stream_id);
   datagram.header.flags = 0x0;
@@ -228,10 +229,11 @@ QuicRServer::TransportDelegate::on_recv_notify(
     auto data = server.transport->dequeue(context_id, mStreamId);
 
     if (data.has_value()) {
-      server.transport->enqueue(context_id, mStreamId, std::move(data.value()));
-
       uint8_t msg_type = data.value().back();
       messages::MessageBuffer msg_buffer{ data.value() };
+      //std::cout << msg_buffer.to_hex() << std::endl;
+      //messages::PublishDatagram datagram;
+      //msg_buffer >> datagram;
       if (msg_type == static_cast<uint8_t>(messages::MessageType::Subscribe)) {
         server.handle_subscribe(context_id, mStreamId, std::move(msg_buffer));
       } else if (msg_type ==

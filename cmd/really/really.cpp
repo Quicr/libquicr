@@ -30,7 +30,7 @@ public:
                                  bool use_reliable_transport,
                                  quicr::bytes&& data)  {
 
-    std::cout << " onPublisherObject: Namespace " << quicr_name.to_hex() << std::endl;
+    std::cout << " onPublisherObject: Name " << quicr_name.to_hex() << std::endl;
 
     std::list<Subscriptions::Remote> list = subscribeList.find(quicr_name);
 

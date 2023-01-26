@@ -178,7 +178,7 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
     datagram.header.media_id =
       static_cast<messages::uintVar_t>(context.media_stream_id);
   }
-
+  datagram.header.name = quicr_name;
   datagram.header.media_id =
     static_cast<messages::uintVar_t>(context.media_stream_id);
   datagram.header.group_id = static_cast<messages::uintVar_t>(context.group_id);
@@ -189,7 +189,6 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
   datagram.media_type = messages::MediaType::RealtimeMedia;
   datagram.media_data_length = static_cast<messages::uintVar_t>(data.size());
   datagram.media_data = std::move(data);
-
   messages::MessageBuffer msg;
   msg << datagram;
 
