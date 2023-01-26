@@ -330,7 +330,8 @@ private:
   std::shared_ptr<qtransport::ITransport> transport;
   qtransport::TransportRemote t_relay;
   ServerDelegate& delegate;
-  std::map<quicr::Namespace, SubscribeContext> subscribe_state{};
+  std::map<quicr::Namespace,
+           std::map<qtransport::TransportContextId, SubscribeContext>> subscribe_state{};
   std::map<uint64_t , SubscribeContext> subscribe_id_state{};
   std::map<quicr::Name, PublishContext> publish_state{};
   TransportDelegate transport_delegate;
