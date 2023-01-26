@@ -31,9 +31,14 @@ public:
                                  quicr::bytes&& data)  {
 
     std::cout << " onPublisherObject: Namespace " << quicr_name.to_hex() << std::endl;
-    for(const auto& s : subscribers) {
-      server->sendNamedObject(s, quicr_name, 0, 0, false, std::move(data));
+
+    std::list<Subscriptions::Remote> list = subscribeList.find(quicr_name);
+
+    for (auto dest: list) {
+      server->sendNamedObject(dest.subscribe_id,
+                              quicr_name, 0, 0, false, std::move(data));
     }
+
 
   }
 
@@ -56,8 +61,9 @@ public:
                            quicr::bytes&& data)
   {
     std::cout << " onSubscribe: Namespace " << quicr_namespace.to_hex() << std::endl;
-    subscribers.insert(subscriber_id);
-    subscribeList.add(quicr_namespace.)
+
+    Subscriptions::Remote remote = { subscribe_id: subscriber_id };
+    subscribeList.add(quicr_namespace.name(), quicr_namespace.length(), remote);
 
 
     // respond with response

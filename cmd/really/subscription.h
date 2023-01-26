@@ -5,21 +5,11 @@
 #include <optional>
 
 #include <transport/transport.h>
+#include <quicr/quicr_name.h>
+#include <quicr/quicr_namespace.h>
 
 class Subscriptions {
 public:
-
-  struct qName {
-    uint8_t       data[16];
-
-    bool operator==(const qName &o) const {
-      return std::memcmp(data, o.data, sizeof(data));
-    }
-
-    bool operator<(const qName &o) const {
-      return std::memcmp(data, o.data, sizeof(data));
-    }
-  };
 
   struct Remote {
     uint64_t subscribe_id;
@@ -42,16 +32,16 @@ public:
 
   Subscriptions();
 
-  void get_masked_quicRName(const qName &src, qName &dst, const int len);
+  void get_masked_quicRName(const quicr::Name &src, quicr::Name &dst, const int len);
 
-  void add(const qName& name, const int len, const Remote& remote );
+  void add(const quicr::Name& name, const int len, const Remote& remote );
   
-  void remove(const qName& name, const int len, const Remote& remote );
+  void remove(const quicr::Name& name, const int len, const Remote& remote );
   
-  std::list<Remote> find(  const qName& name  ) ;
+  std::list<Remote> find(  const quicr::Name& name  ) ;
     
  private:
-  std::vector< std::map<qName,std::set<Remote>> > subscriptions;
+  std::vector< std::map<quicr::Name,std::set<Remote>> > subscriptions;
 
 };
 
