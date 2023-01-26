@@ -338,6 +338,7 @@ private:
   std::map<quicr::Namespace, SubscribeContext> subscribe_state{};
   std::map<quicr::Name, PublishContext> publish_state{};
   std::unique_ptr<ITransport::TransportDelegate> transport_delegate;
+  uint64_t media_stream_id {0};
 };
 
 }

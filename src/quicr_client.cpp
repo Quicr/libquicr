@@ -70,6 +70,7 @@ QuicRClient::make_transport(RelayInfo& relay_info,
   transport = qtransport::ITransport::make_client_transport(
     server, *transport_delegate, logger);
   transport_context_id = transport->start();
+  media_stream_id =  transport->createMediaStream(transport_context_id, false);
 }
 
 ///
@@ -167,9 +168,8 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
   PublishContext context{};
 
   if (!publish_state.count(quicr_name)) {
-    auto msid = transport->createMediaStream(transport_context_id, false);
     context.transport_context_id = transport_context_id;
-    context.media_stream_id = msid;
+    context.media_stream_id = media_stream_id;
     context.state = PublishContext::State::Pending;
     context.group_id = 0;
     context.object_id = 0;
