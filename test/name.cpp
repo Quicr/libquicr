@@ -3,46 +3,7 @@
 #include <quicr/quicr_common.h>
 
 #include <quicr/quicr_name.h>
-
-// Tests for QuicrName and QuicrNamespace
-
-TEST_CASE("QUICRNamespace Equality")
-{
-  quicr::QUICRNamespace qns1{ 0x1000, 0x2000, 3 };
-  quicr::QUICRNamespace qns2{ 0x1000, 0x2000, 3 };
-  quicr::QUICRNamespace qns3{ 0x1000, 0x2000, 4 };
-  quicr::QUICRNamespace qns4{ 0x2000, 0x2000, 3 };
-
-  CHECK_EQ(qns1, qns2);
-  CHECK_NE(qns1, qns3);
-  CHECK_NE(qns1, qns4);
-}
-
-TEST_CASE("QUICRNamespace Map Lookup")
-{
-  quicr::QUICRNamespace qns1{ 0x1000, 0x2000, 3 };
-  quicr::QUICRNamespace qns2{ 0x1000, 0x3000, 5 };
-  quicr::QUICRNamespace qns3{ 0x1000, 0x4000, 4 };
-
-  std::map<quicr::QUICRNamespace, int> qns_map;
-  qns_map[qns1] = 1;
-  qns_map[qns2] = 2;
-
-  CHECK_EQ(qns_map.size(), 2);
-  CHECK_EQ(qns_map.count(qns1), 1);
-  CHECK_EQ(qns_map.count(qns2), 1);
-  CHECK_EQ(qns_map.count(qns3), 0);
-  CHECK_EQ(qns_map[qns1], 1);
-  CHECK_EQ(qns_map[qns2], 2);
-  CHECK_THROWS(qns_map.at(qns3));
-}
-
-TEST_CASE("QUICRName Map Lookup with QuicRNamespace ")
-{
-  quicr::QUICRNamespace qns1{ 0x11111111, 0x22222200, 8 };
-  quicr::QUICRName qn1{ 0x11111111, 0x222222FF };
-  CHECK(quicr::is_quicr_name_in_namespace(qns1, qn1));
-}
+#include <quicr/quicr_namespace.h>
 
 TEST_CASE("quicr::Name Constructor Tests")
 {
@@ -109,4 +70,34 @@ TEST_CASE("quicr::Name Logical Arithmetic Tests")
 
   auto arith_or2 = quicr::Name("0x0101010101010101") | 0x1010101010101010;
   CHECK_EQ(arith_or2, quicr::Name("0x1111111111111111"));
+}
+
+TEST_CASE("quicr::Namespace Contains Names Test")
+{
+  quicr::Namespace ns({ "0x11111111111111112222222222222200" }, 120);
+
+  quicr::Name valid_name("0x111111111111111122222222222222FF");
+  CHECK(ns.contains(valid_name));
+
+  quicr::Name another_valid_name("0x11111111111111112222222222222211");
+  CHECK(ns.contains(another_valid_name));
+
+  quicr::Name invalid_name("0x11111111111111112222222222222300");
+  CHECK_FALSE(ns.contains(invalid_name));
+
+  quicr::Name invalid_sized_name("0x111111111111222222222300");
+  CHECK_FALSE(ns.contains(invalid_sized_name));
+}
+
+TEST_CASE("quicr::Namespace Contains Namespaces Test")
+{
+  quicr::Namespace ns({ "0x11111111111111112222222222220000" }, 112);
+
+  quicr::Namespace valid_namespace({ "0x11111111111111112222222222222200" },
+                                   120);
+  CHECK(ns.contains(valid_namespace));
+
+  quicr::Namespace invalid_namespace({ "0x11111111111111112222222222000000" },
+                                     104);
+  CHECK_FALSE(ns.contains(invalid_namespace));
 }

@@ -19,7 +19,7 @@ public:
   friend bool operator<(const Namespace& a, const Namespace& b);
 
 private:
-  Name _name;
-  uint16_t _sig_bits;
+  Name _mask_name;
+  const uint16_t _sig_bits;
 };
 }
