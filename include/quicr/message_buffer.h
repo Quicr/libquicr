@@ -1,4 +1,8 @@
 #pragma once
+
+#include <quicr/quicr_name.h>
+#include <quicr/quicr_namespace.h>
+
 #include <vector>
 
 namespace quicr::messages {
@@ -59,5 +63,10 @@ bool
 operator>>(MessageBuffer& msg, uintVar_t& val);
 uintVar_t toVarInt(uint64_t);
 uint64_t fromVarInt(uintVar_t);
+
+void
+operator<<(MessageBuffer& msg, const quicr::Name& val);
+bool
+operator>>(MessageBuffer& msg, quicr::Name& val);
 
 }

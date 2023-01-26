@@ -10,48 +10,6 @@
 
 namespace quicr {
 ///
-/// Common
-///
-
-// TODO Remove this
-static std::string
-to_hex(const quicr::QUICRNamespace& ns)
-{
-  std::stringstream stream;
-  stream << "0x" << std::setfill('0') << std::setw(sizeof(uint64_t) * 2)
-         << std::hex << ns.hi << std::setw(sizeof(uint64_t) * 2) << ns.low;
-  return stream.str();
-}
-
-static std::string
-to_hex(const quicr::QUICRName& name)
-{
-  std::stringstream stream;
-  stream << "0x" << std::setfill('0') << std::setw(sizeof(uint64_t) * 2)
-         << std::hex << name.hi << std::setw(sizeof(uint64_t) * 2) << name.low;
-  return stream.str();
-}
-
-bool
-is_quicr_name_in_namespace(const QUICRNamespace& ns, const QUICRName& n)
-{
-  auto a = ns.hi ^ n.hi;
-  auto b = ns.low ^ n.low;
-  unsigned count = 0;
-  while (a > 0) {
-    count += a & 1;
-    a >>= 1;
-  }
-
-  while (b > 0) {
-    count += b & 1;
-    b >>= 1;
-  }
-
-  return count == ns.mask;
-}
-
-///
 /// Transport Delegate Implementation
 ///
 class QuicRTransportDelegate : public ITransport::TransportDelegate
@@ -130,7 +88,7 @@ QuicRClient::QuicRClient(std::shared_ptr<ITransport> transport_in)
 
 bool
 QuicRClient::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
-                           const QUICRNamespace& quicr_namespace,
+                           const quicr::Namespace& quicr_namespace,
                            const std::string& origin_url,
                            const std::string& auth_token,
                            bytes&& payload)
@@ -139,7 +97,7 @@ QuicRClient::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
 }
 
 void
-QuicRClient::publishIntentEnd(const QUICRNamespace& quicr_namespace,
+QuicRClient::publishIntentEnd(const quicr::Namespace& quicr_namespace,
                               const std::string& auth_token)
 {
   throw std::runtime_error("UnImplemented");
@@ -147,7 +105,7 @@ QuicRClient::publishIntentEnd(const QUICRNamespace& quicr_namespace,
 
 void
 QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
-                       const QUICRNamespace& quicr_namespace,
+                       const quicr::Namespace& quicr_namespace,
                        const SubscribeIntent& intent,
                        const std::string& origin_url,
                        bool use_reliable_transport,
@@ -189,7 +147,7 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
 }
 
 void
-QuicRClient::unsubscribe(const QUICRNamespace& quicr_namespace,
+QuicRClient::unsubscribe(const quicr::Namespace& quicr_namespace,
                          const std::string& origin_url,
                          const std::string& auth_token)
 {
@@ -197,7 +155,7 @@ QuicRClient::unsubscribe(const QUICRNamespace& quicr_namespace,
 }
 
 void
-QuicRClient::publishNamedObject(const QUICRName& quicr_name,
+QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
                                 uint8_t priority,
                                 uint16_t expiry_age_ms,
                                 bool use_reliable_transport,
@@ -240,7 +198,7 @@ QuicRClient::publishNamedObject(const QUICRName& quicr_name,
 }
 
 void
-QuicRClient::publishNamedObjectFragment(const QUICRName& quicr_name,
+QuicRClient::publishNamedObjectFragment(const quicr::Name& quicr_name,
                                         uint8_t priority,
                                         uint16_t expiry_age_ms,
                                         bool use_reliable_transport,
@@ -270,13 +228,13 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
         response.quicr_namespace, response.response);
     } else {
       std::cout << "Got SubscribeResponse: No delegate found for namespace"
-                << to_hex(response.quicr_namespace) << std::endl;
+                << response.quicr_namespace.to_hex() << std::endl;
     }
   } else if (msg_type == static_cast<uint8_t>(messages::MessageType::Publish)) {
     messages::PublishDatagram datagram;
     msg >> datagram;
     for (const auto& entry : sub_delegates) {
-      if (is_quicr_name_in_namespace(entry.first, datagram.header.name)) {
+      if (entry.first.contains(datagram.header.name)) {
         sub_delegates[entry.first]->onSubscribedObject(
           datagram.header.name,
           0x0,
@@ -284,8 +242,8 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
           false,
           std::move(datagram.media_data));
       } else {
-        std::cout << "Name:" << to_hex(datagram.header.name)
-                  << ", not in namespace " << to_hex(entry.first) << std::endl;
+        std::cout << "Name:" << datagram.header.name.to_hex()
+                  << ", not in namespace " << entry.first.to_hex() << std::endl;
       }
     }
   }

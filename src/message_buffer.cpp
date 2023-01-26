@@ -1,4 +1,5 @@
-#include "quicr/message_buffer.h"
+#include <quicr/message_buffer.h>
+
 #include <iomanip>
 #include <sstream>
 
@@ -198,4 +199,27 @@ fromVarInt(uintVar_t v)
   return static_cast<uint64_t>(v);
 }
 
+
+void
+operator<<(MessageBuffer& msg, const quicr::Name& val)
+{
+  msg.push_back(val.data());
+}
+
+bool
+operator>>(MessageBuffer& msg, quicr::Name& val)
+{
+  uint8_t vecSize = 0;
+  msg >> vecSize;
+  if (vecSize == 0) {
+    return false;
+  }
+
+  std::vector<uint8_t> bytes;
+  bytes.resize(vecSize);
+  bytes = msg.back(vecSize);
+  val = Name{bytes};
+
+  return true;
+}
 }

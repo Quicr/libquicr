@@ -12,7 +12,7 @@ using namespace quicr;
 class TestServerDelegate : public ServerDelegate
 {
 
-  virtual void onPublishIntent(const QUICRNamespace& quicr_name,
+  virtual void onPublishIntent(const quicr::Namespace& quicr_name,
                                const std::string& origin_url,
                                bool use_reliable_transport,
                                const std::string& auth_token,
@@ -20,7 +20,7 @@ class TestServerDelegate : public ServerDelegate
   {
   }
 
-  virtual void onPublisherObject(const QUICRName& quicr_name,
+  virtual void onPublisherObject(const quicr::Name& quicr_name,
                                  uint8_t priority,
                                  uint16_t expiry_age_ms,
                                  bool use_reliable_transport,
@@ -28,7 +28,7 @@ class TestServerDelegate : public ServerDelegate
   {
   }
 
-  virtual void onPublishedFragment(const QUICRName& quicr_name,
+  virtual void onPublishedFragment(const quicr::Name& quicr_name,
                                    uint8_t priority,
                                    uint16_t expiry_age_ms,
                                    bool use_reliable_transport,
@@ -38,7 +38,7 @@ class TestServerDelegate : public ServerDelegate
   {
   }
 
-  virtual void onSubscribe(const QUICRNamespace& quicr_namespace,
+  virtual void onSubscribe(const quicr::Namespace& quicr_namespace,
                            const SubscribeIntent subscribe_intent,
                            const std::string& origin_url,
                            bool use_reliable_transport,

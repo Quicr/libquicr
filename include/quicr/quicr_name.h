@@ -9,7 +9,7 @@ class Name
 public:
   using uint_type = uint64_t;
 
-  Name() = delete;
+  Name() : _hi{0}, _low{0} {}
   Name(uint_type value);
   Name(const std::string& hex_value);
   Name(uint8_t* data, size_t length);

@@ -22,9 +22,7 @@ operator<<(MessageBuffer& buffer, const Subscribe& msg)
 {
   // TODO: namespace encode and decode needs to be part of its own class
   buffer << static_cast<uint8_t>(msg.intent);
-  buffer << static_cast<uint8_t>(msg.quicr_namespace.mask);
-  buffer << msg.quicr_namespace.hi;
-  buffer << msg.quicr_namespace.low;
+  buffer << msg.quicr_namespace;
   buffer << msg.transaction_id;
   buffer << static_cast<uint8_t>(MessageType::Subscribe);
 }
@@ -39,11 +37,7 @@ operator>>(MessageBuffer& buffer, Subscribe& msg)
   }
 
   buffer >> msg.transaction_id;
-  buffer >> msg.quicr_namespace.low;
-  buffer >> msg.quicr_namespace.hi;
-  uint8_t mask = 0;
-  buffer >> mask;
-  msg.quicr_namespace.mask = mask;
+  buffer >> msg.quicr_namespace;
   uint8_t intent = 0;
   buffer >> intent;
   msg.intent = static_cast<SubscribeIntent>(intent);
@@ -53,9 +47,7 @@ operator>>(MessageBuffer& buffer, Subscribe& msg)
 void
 operator<<(MessageBuffer& buffer, const SubscribeResponse& msg)
 {
-  buffer << static_cast<uint8_t>(msg.quicr_namespace.mask);
-  buffer << msg.quicr_namespace.hi;
-  buffer << msg.quicr_namespace.low;
+  buffer << msg.quicr_namespace;
   buffer << msg.transaction_id;
   buffer << static_cast<uint8_t>(msg.response);
   buffer << static_cast<uint8_t>(MessageType::SubscribeResponse);
@@ -75,11 +67,7 @@ operator>>(MessageBuffer& buffer, SubscribeResponse& msg)
   msg.response = static_cast<SubscribeResult::SubscribeStatus>(response);
 
   buffer >> msg.transaction_id;
-  buffer >> msg.quicr_namespace.low;
-  buffer >> msg.quicr_namespace.hi;
-  uint8_t mask = 0;
-  buffer >> mask;
-  msg.quicr_namespace.mask = mask;
+  buffer >> msg.quicr_namespace;
 
   return true;
 }
@@ -116,8 +104,7 @@ operator<<(MessageBuffer& buffer, const PublishIntent& msg)
   buffer << msg.media_id;
   buffer << msg.payload;
   buffer << msg.mask;
-  buffer << msg.quicr_namespace.hi;
-  buffer << msg.quicr_namespace.low;
+  buffer << msg.quicr_namespace;
   buffer << msg.transaction_id;
   buffer << static_cast<uint8_t>(msg.message_type);
 }
@@ -130,8 +117,7 @@ operator>>(MessageBuffer& buffer, PublishIntent& msg)
   msg.message_type = static_cast<MessageType>(msg_type);
 
   buffer >> msg.transaction_id;
-  buffer >> msg.quicr_namespace.low;
-  buffer >> msg.quicr_namespace.hi;
+  buffer >> msg.quicr_namespace;
   buffer >> msg.mask;
   buffer >> msg.payload;
   buffer >> msg.media_id;
@@ -172,15 +158,13 @@ operator<<(MessageBuffer& buffer, const Header& msg)
   buffer << msg.object_id;
   buffer << msg.group_id;
   buffer << msg.media_id;
-  buffer << msg.name.hi;
-  buffer << msg.name.low;
+  buffer << msg.name;
 }
 
 bool
 operator>>(MessageBuffer& buffer, Header& msg)
 {
-  buffer >> msg.name.low;
-  buffer >> msg.name.hi;
+  buffer >> msg.name;
   buffer >> msg.media_id;
   buffer >> msg.group_id;
   buffer >> msg.object_id;

@@ -15,17 +15,17 @@ struct TestSubscriberDelegate : public SubscriberDelegate
   TestSubscriberDelegate() = default;
   ~TestSubscriberDelegate() = default;
 
-  void onSubscribeResponse(const QUICRNamespace& quicr_namespace,
+  void onSubscribeResponse(const quicr::Namespace& quicr_namespace,
                            const SubscribeResult& result)
   {
   }
 
-  void onSubscriptionEnded(const QUICRNamespace& quicr_namespace,
+  void onSubscriptionEnded(const quicr::Namespace& quicr_namespace,
                            const SubscribeResult& result)
   {
   }
 
-  void onSubscribedObject(const QUICRName& quicr_name,
+  void onSubscribedObject(const quicr::Name& quicr_name,
                           uint8_t priority,
                           uint16_t expiry_age_ms,
                           bool use_reliable_transport,
@@ -33,7 +33,7 @@ struct TestSubscriberDelegate : public SubscriberDelegate
   {
   }
 
-  void onSubscribedObjectFragment(const QUICRName& quicr_name,
+  void onSubscribedObjectFragment(const quicr::Name& quicr_name,
                                   uint8_t priority,
                                   uint16_t expiry_age_ms,
                                   bool use_reliable_transport,
@@ -46,7 +46,7 @@ struct TestSubscriberDelegate : public SubscriberDelegate
 
 struct TestPublisherDelegate : public PublisherDelegate
 {
-  void onPublishIntentResponse(const QUICRNamespace& quicr_namespace,
+  void onPublishIntentResponse(const quicr::Namespace& quicr_namespace,
                                const PublishIntentResult& result) override
   {
   }
@@ -64,7 +64,7 @@ TEST_CASE("Subscribe encode, send and receive")
   auto qclient = std::make_unique<QuicRClient>(transport);
 
   qclient->subscribe(sub_delegate,
-                     { 0x1000, 0x2000, 3 },
+                     { {"0x10002000"}, 3 },
                      SubscribeIntent::wait_up,
                      "",
                      false,
@@ -77,9 +77,7 @@ TEST_CASE("Subscribe encode, send and receive")
   msg >> s;
 
   CHECK_EQ(s.transaction_id, s.transaction_id);
-  CHECK_EQ(s.quicr_namespace.low, 0x2000);
-  CHECK_EQ(s.quicr_namespace.hi, 0x1000);
-  CHECK_EQ(s.quicr_namespace.mask, 3);
+  CHECK_EQ(s.quicr_namespace, quicr::Namespace{ {"0x10002000"}, 3 });
   CHECK_EQ(s.intent, SubscribeIntent::wait_up);
 }
 

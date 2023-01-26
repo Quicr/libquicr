@@ -12,7 +12,7 @@ using namespace quicr::messages;
 
 TEST_CASE("Subscribe Message encode/decode")
 {
-  QUICRNamespace qnamespace{ 0x1000, 0x2000, 3 };
+  quicr::Namespace qnamespace{ 0x1000, 0x2000, 3 };
 
   Subscribe s{ 1, 0x1000, qnamespace, SubscribeIntent::immediate };
   MessageBuffer buffer;
@@ -29,7 +29,7 @@ TEST_CASE("Subscribe Message encode/decode")
 
 TEST_CASE("SubscribeResponse Message encode/decode")
 {
-  QUICRNamespace qnamespace{ 0x1000, 0x2000, 3 };
+  quicr::Namespace qnamespace{ 0x1000, 0x2000, 3 };
 
   SubscribeResponse s{ qnamespace,
                        SubscribeResult::SubscribeStatus::Ok,
@@ -64,7 +64,7 @@ TEST_CASE("SubscribeEnd Message encode/decode")
 
 TEST_CASE("PublishIntent Message encode/decode")
 {
-  QUICRNamespace qnamespace{ 0x1000, 0x2000, 3 };
+  quicr::Namespace qnamespace{ 0x1000, 0x2000, 3 };
   PublishIntent pi{ MessageType::Publish, 0x1000,
                     qnamespace,           1u,
                     { 0, 1, 2, 3, 4 },    uintVar_t{ 0x0100 },
@@ -99,7 +99,7 @@ TEST_CASE("PublishIntentResponse Message encode/decode")
 
 TEST_CASE("Publish Message encode/decode")
 {
-  QUICRName qn{ 0x1000, 0x2000 };
+  quicr::Name qn{ 0x1000, 0x2000 };
   Header d{ uintVar_t{ 0x1000 }, qn,
             uintVar_t{ 0x0100 }, uintVar_t{ 0x0010 },
             uintVar_t{ 0x0001 }, 0x0000 };

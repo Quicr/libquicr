@@ -26,7 +26,7 @@ public:
 
   /**
    * @brief  Reports interest to publish under given
-   * QuicrName.
+   * quicr::Name.
    *
    * @param
    * @param namespace             : Identifies QUICR namespace
@@ -44,7 +44,7 @@ public:
    *           It is expected for the Relays to store the publisher state
    * mapping the namespaces and other relation information.
    */
-  virtual void onPublishIntent(const QUICRNamespace& quicr_name,
+  virtual void onPublishIntent(const quicr::Namespace& quicr_name,
                                const std::string& origin_url,
                                bool use_reliable_transport,
                                const std::string& auth_token,
@@ -75,7 +75,7 @@ public:
    *         callbacks will be called. The delegate implementation
    *         shall decide the right callback for their usage.
    */
-  virtual void onPublisherObject(const QUICRName& quicr_name,
+  virtual void onPublisherObject(const quicr::Name& quicr_name,
                                  uint8_t priority,
                                  uint16_t expiry_age_ms,
                                  bool use_reliable_transport,
@@ -105,7 +105,7 @@ public:
    *         copy/move the needed information and hand back the control
    *         to the stack
    */
-  virtual void onPublishedFragment(const QUICRName& quicr_name,
+  virtual void onPublishedFragment(const quicr::Name& quicr_name,
                                    uint8_t priority,
                                    uint16_t expiry_age_ms,
                                    bool use_reliable_transport,
@@ -136,7 +136,7 @@ public:
    *          It is expected for the Relays to store the subscriber state
    * mapping the subscribe context, namespaces and other relation information.
    */
-  virtual void onSubscribe(const QUICRNamespace& quicr_namespace,
+  virtual void onSubscribe(const quicr::Namespace& quicr_namespace,
                            const uint64_t& subscriber_id,
                            const SubscribeIntent subscribe_intent,
                            const std::string& origin_url,
@@ -187,7 +187,7 @@ public:
    * request
    * @todo: Add payload with origin signed blob
    */
-  void publishIntentResponse(const QUICRNamespace& quicr_namespace,
+  void publishIntentResponse(const quicr::Namespace& quicr_namespace,
                              const PublishIntentResult& result);
 
   /**
@@ -200,7 +200,7 @@ public:
    * request
    * @todo: Add payload with origin signed blob
    */
-  void subscribeResponse(const QUICRNamespace& quicr_namespace,
+  void subscribeResponse(const quicr::Namespace& quicr_namespace,
                          const uint64_t& transaction_id,
                          const SubscribeResult& result);
 
@@ -214,7 +214,7 @@ public:
    *           the stream or subscription timeout or other application
    *           reasons
    */
-  void subscriptionEnded(const QUICRNamespace& quicr_namespace,
+  void subscriptionEnded(const quicr::Namespace& quicr_namespace,
                          const SubscribeResult& result);
 
   /**
@@ -231,7 +231,7 @@ public:
    *
    */
   void sendNamedObject(const uint64_t& subscriber_id,
-                       const QUICRName& quicr_name,
+                       const quicr::Name& quicr_name,
                        uint8_t priority,
                        uint64_t best_before,
                        bool use_reliable_transport,
@@ -252,7 +252,7 @@ public:
    *                                   last fragment
    * @param data                     : Opaque object fragment payload
    */
-  void sendNamedFragment(const QUICRName& name,
+  void sendNamedFragment(const quicr::Name& name,
                          uint8_t priority,
                          uint64_t best_before,
                          bool use_reliable_transport,
@@ -330,9 +330,9 @@ private:
   std::shared_ptr<qtransport::ITransport> transport;
   qtransport::TransportRemote t_relay;
   ServerDelegate& delegate;
-  std::map<QUICRNamespace, SubscribeContext> subscribe_state{};
-  std::map<uint64_t, SubscribeContext> subscribe_id_state{};
-  std::map<QUICRName, PublishContext> publish_state{};
+  std::map<quicr::Namespace, SubscribeContext> subscribe_state{};
+  std::map<uint64_t , SubscribeContext> subscribe_id_state{};
+  std::map<quicr::Name, PublishContext> publish_state{};
   TransportDelegate transport_delegate;
   bool running{ false };
   uint64_t subscriber_id{ 0 };

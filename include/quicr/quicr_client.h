@@ -7,6 +7,8 @@
 
 #include <quicr/message_buffer.h>
 #include <quicr/quicr_common.h>
+#include <quicr/quicr_name.h>
+#include <quicr/quicr_namespace.h>
 #include <transport/transport.h>
 
 using qtransport::ITransport;
@@ -33,7 +35,7 @@ public:
    *          is received, on error, or timeout.
    */
   virtual void onSubscribeResponse(
-    const QUICRNamespace& quicr_namespace,
+    const quicr::Namespace& quicr_namespace,
     const SubscribeResult::SubscribeStatus& result) = 0;
 
   /**
@@ -46,7 +48,7 @@ public:
    *           the stream or subscription timeout or other application
    *           reasons
    */
-  virtual void onSubscriptionEnded(const QUICRNamespace& quicr_namespace,
+  virtual void onSubscriptionEnded(const quicr::Namespace& quicr_namespace,
                                    const SubscribeResult& result) = 0;
 
   /**
@@ -71,7 +73,7 @@ public:
    *         callbacks will be called. The delegate implementation
    *         shall decide the right callback for their usage.
    */
-  virtual void onSubscribedObject(const QUICRName& quicr_name,
+  virtual void onSubscribedObject(const quicr::Name& quicr_name,
                                   uint8_t priority,
                                   uint16_t expiry_age_ms,
                                   bool use_reliable_transport,
@@ -100,7 +102,7 @@ public:
    *         copy/move the needed information and hand back the control
    *         to the stack
    */
-  virtual void onSubscribedObjectFragment(const QUICRName& quicr_name,
+  virtual void onSubscribedObjectFragment(const quicr::Name& quicr_name,
                                           uint8_t priority,
                                           uint16_t expiry_age_ms,
                                           bool use_reliable_transport,
@@ -129,7 +131,7 @@ public:
    * request
    * @todo: Add payload with origin signed blob
    */
-  virtual void onPublishIntentResponse(const QUICRNamespace& quicr_namespace,
+  virtual void onPublishIntentResponse(const quicr::Namespace& quicr_namespace,
                                        const PublishIntentResult& result) = 0;
 };
 
@@ -185,7 +187,7 @@ public:
    * @param payload               : Opaque payload to be forwarded to the Origin
    */
   bool publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
-                     const QUICRNamespace& quicr_namespace,
+                     const quicr::Namespace& quicr_namespace,
                      const std::string& origin_url,
                      const std::string& auth_token,
                      bytes&& payload);
@@ -200,7 +202,7 @@ public:
    * @param payload                : Opaque payload to be forwarded to the
    * Origin
    */
-  void publishIntentEnd(const QUICRNamespace& quicr_namespace,
+  void publishIntentEnd(const quicr::Namespace& quicr_namespace,
                         const std::string& auth_token);
 
   /**
@@ -226,7 +228,7 @@ public:
    * mapping the subscribe context, namespaces and other relation information.
    */
   void subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
-                 const QUICRNamespace& quicr_namespace,
+                 const quicr::Namespace& quicr_namespace,
                  const SubscribeIntent& intent,
                  const std::string& origin_url,
                  bool use_reliable_transport,
@@ -241,7 +243,7 @@ public:
    * @param auth_token            : Auth Token to valiadate the Subscribe
    * Request
    */
-  void unsubscribe(const QUICRNamespace& quicr_namespace,
+  void unsubscribe(const quicr::Namespace& quicr_namespace,
                    const std::string& origin_url,
                    const std::string& auth_token);
 
@@ -258,7 +260,7 @@ public:
    * @param data                     : Opaque payload
    *
    */
-  void publishNamedObject(const QUICRName& quicr_name,
+  void publishNamedObject(const quicr::Name& quicr_name,
                           uint8_t priority,
                           uint16_t expiry_age_ms,
                           bool use_reliable_transport,
@@ -278,7 +280,7 @@ public:
    * @param is_last_fragment         : Indicates if the current fragment is the
    * @param data                     : Opaque payload of the fragment
    */
-  void publishNamedObjectFragment(const QUICRName& quicr_name,
+  void publishNamedObjectFragment(const quicr::Name& quicr_name,
                                   uint8_t priority,
                                   uint16_t expiry_age_ms,
                                   bool use_reliable_transport,
@@ -329,12 +331,12 @@ private:
 
   ClientStatus client_status{ ClientStatus::TERMINATED };
   qtransport::TransportContextId transport_context_id;
-  std::map<QUICRNamespace, std::shared_ptr<SubscriberDelegate>> sub_delegates;
-  std::map<QUICRName, std::shared_ptr<SubscriberDelegate>> sub_name_delegates;
+  std::map<quicr::Namespace, std::shared_ptr<SubscriberDelegate>> sub_delegates;
+  std::map<quicr::Name, std::shared_ptr<SubscriberDelegate>> sub_name_delegates;
 
-  std::map<QUICRNamespace, std::shared_ptr<PublisherDelegate>> pub_delegates;
-  std::map<QUICRNamespace, SubscribeContext> subscribe_state{};
-  std::map<QUICRName, PublishContext> publish_state{};
+  std::map<quicr::Namespace, std::shared_ptr<PublisherDelegate>> pub_delegates;
+  std::map<quicr::Namespace, SubscribeContext> subscribe_state{};
+  std::map<quicr::Name, PublishContext> publish_state{};
   std::unique_ptr<ITransport::TransportDelegate> transport_delegate;
 };
 
