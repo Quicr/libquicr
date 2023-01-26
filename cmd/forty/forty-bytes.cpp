@@ -148,7 +148,7 @@ send_loop(QuicRClient* qclient,
     }
   }
   std::cout << "done send_loop\n";
-  auto qname = QuicrName{ name, 0 };
+  auto qname = quicr::Name{ name, 0 };
   qclient->unregister_names({ qname });
 }
 
@@ -230,15 +230,15 @@ main(int argc, char* argv[])
     }
 
     // all the params are not used in the lib yet
-    auto qname_audio = QuicrName{ you + "_audio", mask };
+    auto qname_audio = quicr::Name{ you + "_audio", mask };
     auto intent = SubscribeIntent{ SubscribeIntent::Mode::immediate, 0, 0 };
     qclient->subscribe(
-      std::vector<QuicrName>{ qname_audio }, intent, false, true);
+      std::vector<quicr::Name>{ qname_audio }, intent, false, true);
 
-    auto qname_video = QuicrName{ you + "_video", mask };
+    auto qname_video = quicr::Name{ you + "_video", mask };
     intent = SubscribeIntent{ SubscribeIntent::Mode::immediate, 0, 0 };
     qclient->subscribe(
-      std::vector<QuicrName>{ qname_video }, intent, false, true);
+      std::vector<quicr::Name>{ qname_video }, intent, false, true);
 
     while (!qclient->is_transport_ready()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(5));

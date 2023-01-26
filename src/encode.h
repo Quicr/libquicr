@@ -3,8 +3,10 @@
 #include <string>
 #include <vector>
 
-#include "quicr/message_buffer.h"
+#include <quicr/message_buffer.h>
 #include <quicr/quicr_common.h>
+#include <quicr/quicr_name.h>
+#include <quicr/quicr_namespace.h>
 
 /**
  *  Utilties to encode and decode protocol messages
@@ -53,7 +55,7 @@ struct Subscribe
 {
   uint8_t version;
   uint64_t transaction_id;
-  QUICRNamespace quicr_namespace;
+  quicr::Namespace quicr_namespace;
   SubscribeIntent intent;
 };
 
@@ -64,7 +66,7 @@ operator>>(MessageBuffer& buffer, Subscribe& msg);
 
 struct SubscribeResponse
 {
-  QUICRNamespace quicr_namespace;
+  quicr::Namespace quicr_namespace;
   SubscribeResult::SubscribeStatus response;
   uint64_t transaction_id;
   /* TODO:
@@ -108,7 +110,7 @@ struct PublishIntent
   //  *     origin_url_length(i),
   //  *     origin_url(…)…,
   uint64_t transaction_id;
-  QUICRNamespace quicr_namespace;
+  quicr::Namespace quicr_namespace;
   uint8_t mask;
   //  *     relay_auth_token_length(i),
   //  *     relay_token(…),
@@ -140,7 +142,7 @@ operator>>(MessageBuffer& buffer, PublishIntentResponse& msg);
 struct Header
 {
   uintVar_t media_id;
-  QUICRName name; // TODO: this needs to be removed
+  quicr::Name name;
   uintVar_t group_id;
   uintVar_t object_id;
   uintVar_t offset_and_fin;

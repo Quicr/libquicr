@@ -3,6 +3,9 @@
 #include <string>
 #include <vector>
 
+#include <quicr/quicr_name.h>
+#include <quicr/quicr_namespace.h>
+
 namespace quicr {
 
 // TODO: Do we need a different structure or the name
@@ -15,67 +18,6 @@ using bytes = std::vector<uint8_t>;
  */
 using QUICRContext = uint64_t;
 
-/**
- *  QUICRNamespace identifies set of possible QUICRNames
- *  The mask length captures the length of bits, up to 128 bits, that are
- *  significant. Non-significant bits are ignored. In this sense,
- *  a namespace is like an IPv6 prefix/len
- */
-struct QUICRNamespace
-{
-  uint64_t
-    hi; // High ordered bits of the 128bit name Id (on-wire is big-endian)
-  uint64_t
-    low; // Low ordered bits of the 128bit name Id (on-wire is big-endian)
-  size_t mask{
-    0
-  }; // Number of significant bits (big-endian) of hi + low bits.  0 - 128
-
-  bool operator<(const QUICRNamespace& other) const
-  {
-    return std::tie(hi, low) < std::tie(other.hi, other.low);
-  }
-
-  bool operator==(const QUICRNamespace& other) const
-  {
-    auto res = (this->hi ^ other.hi) | (this->low ^ other.low) |
-               (this->mask ^ other.mask);
-    return res == 0;
-  }
-
-  bool operator!=(const QUICRNamespace& other) const
-  {
-    return !operator==(other);
-  }
-};
-
-/**
- * Published media objects are uniquely identifed with QUICRName.
- * The construction and the intepretation of the bits are
- * application specific. QUICR protocol and API must consider
- * these bits as opaque
- */
-struct QUICRName
-{
-  uint64_t hi;
-  uint64_t low;
-
-  bool operator<(const QUICRName& other) const
-  {
-    return std::tie(hi, low) < std::tie(other.hi, other.low);
-  }
-
-  bool operator==(const QUICRName& other) const
-  {
-    auto res = (this->hi ^ other.hi) | (this->low ^ other.low);
-    return res == 0;
-  }
-
-  bool operator!=(const QUICRName& other) const { return !operator==(other); }
-};
-
-bool
-is_quicr_name_in_namespace(const QUICRNamespace& ns, const QUICRName& n);
 /**
  * Hint providing the start point to serve a subscrption request.
  * Relays use this information to determine the start-point and
@@ -153,7 +95,7 @@ struct PublishIntentResult
 {
   PublishStatus status;     // Publish status
   RelayInfo redirectInfo;   // Set only if status is redirect
-  QUICRName reassignedName; // Set only if status is ReAssigned
+  quicr::Name reassignedName; // Set only if status is ReAssigned
 };
 
 /**

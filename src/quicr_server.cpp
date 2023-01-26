@@ -71,14 +71,14 @@ QuicRServer::run()
 }
 
 void
-QuicRServer::publishIntentResponse(const QUICRNamespace& quicr_namespace,
+QuicRServer::publishIntentResponse(const quicr::Namespace& quicr_namespace,
                                    const PublishIntentResult& result)
 {
   throw std::runtime_error("Unimplemented");
 }
 
 void
-QuicRServer::subscribeResponse(const QUICRNamespace& quicr_namespace,
+QuicRServer::subscribeResponse(const quicr::Namespace& quicr_namespace,
                                const uint64_t& transaction_id,
                                const SubscribeResult& result)
 {
@@ -93,7 +93,7 @@ QuicRServer::subscribeResponse(const QUICRNamespace& quicr_namespace,
 }
 
 void
-QuicRServer::subscriptionEnded(const QUICRNamespace& quicr_namespace,
+QuicRServer::subscriptionEnded(const quicr::Namespace& quicr_namespace,
                                const SubscribeResult& result)
 {
   throw std::runtime_error("Unimplemented");
@@ -101,7 +101,7 @@ QuicRServer::subscriptionEnded(const QUICRNamespace& quicr_namespace,
 
 void
 QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
-                             const QUICRName& quicr_name,
+                              const quicr::Name& quicr_name,
                              uint8_t priority,
                              uint64_t best_before,
                              bool use_reliable_transport,
@@ -133,7 +133,7 @@ QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
 }
 
 void
-QuicRServer::sendNamedFragment(const QUICRName& name,
+QuicRServer::sendNamedFragment(const quicr::Name& name,
                                uint8_t priority,
                                uint64_t best_before,
                                bool use_reliable_transport,

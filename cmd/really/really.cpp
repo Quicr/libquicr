@@ -8,30 +8,6 @@
 #include <iomanip>
 #include <set>
 
-static std::string to_hex(const quicr::QUICRNamespace& ns) {
-  std::stringstream stream;
-  stream << "0x"
-         << std::setfill ('0')
-         << std::setw(sizeof(uint64_t)*2)
-         << std::hex
-         << ns.hi
-         << std::setw(sizeof(uint64_t)*2)
-         << ns.low;
-  return stream.str();
-}
-
-static std::string to_hex(const quicr::QUICRName& name) {
-  std::stringstream stream;
-  stream << "0x"
-         << std::setfill ('0')
-         << std::setw(sizeof(uint64_t)*2)
-         << std::hex
-         << name.hi
-         << std::setw(sizeof(uint64_t)*2)
-         << name.low;
-  return stream.str();
-}
-
 class ReallyServer : public quicr::ServerDelegate {
 public:
 
@@ -42,26 +18,26 @@ public:
     server = std::make_unique<quicr::QuicRServer>(relayInfo, *this);
   }
 
-  virtual void onPublishIntent(const quicr::QUICRNamespace& quicr_name,
+  virtual void onPublishIntent(const quicr::Namespace& quicr_name,
                                const std::string& origin_url,
                                bool use_reliable_transport,
                                const std::string& auth_token,
                                quicr::bytes&& e2e_token) {};
 
-  virtual void onPublisherObject(const quicr::QUICRName& quicr_name,
+  virtual void onPublisherObject(const quicr::Name& quicr_name,
                                  uint8_t priority,
                                  uint16_t expiry_age_ms,
                                  bool use_reliable_transport,
                                  quicr::bytes&& data)  {
 
-    std::cout << " onPublisherObject: Namespace " << to_hex(quicr_name) << std::endl;
+    std::cout << " onPublisherObject: Namespace " << quicr_name.to_hex() << std::endl;
     for(const auto& s : subscribers) {
       server->sendNamedObject(s, quicr_name, 0, 0, false, std::move(data));
     }
 
   }
 
-  virtual void onPublishedFragment(const quicr::QUICRName& quicr_name,
+  virtual void onPublishedFragment(const quicr::Name& quicr_name,
                                    uint8_t priority,
                                    uint16_t expiry_age_ms,
                                    bool use_reliable_transport,
@@ -71,7 +47,7 @@ public:
   {
   }
 
-  virtual void onSubscribe(const quicr::QUICRNamespace& quicr_namespace,
+  virtual void onSubscribe(const quicr::Namespace& quicr_namespace,
                            const uint64_t& subscriber_id,
                            const quicr::SubscribeIntent subscribe_intent,
                            const std::string& origin_url,
@@ -79,7 +55,7 @@ public:
                            const std::string& auth_token,
                            quicr::bytes&& data)
   {
-    std::cout << " onSubscribe: Namespace " << to_hex(quicr_namespace) << std::endl;
+    std::cout << " onSubscribe: Namespace " << quicr_namespace.to_hex() << std::endl;
     subscribers.insert(subscriber_id);
     // respond with response
     auto result = quicr::SubscribeResult{quicr::SubscribeResult::SubscribeStatus::Ok, "", {}, {}};
