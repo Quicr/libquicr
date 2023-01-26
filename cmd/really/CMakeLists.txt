@@ -1,4 +1,6 @@
-add_executable(really really.cpp)
+add_executable(really
+        really.cpp
+        subscription.cpp)
 target_link_libraries(really PRIVATE quicr)
 
 target_compile_options(really

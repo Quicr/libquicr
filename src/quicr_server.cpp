@@ -155,16 +155,20 @@ QuicRServer::handle_subscribe(const qtransport::TransportContextId& context_id,
 {
   messages::Subscribe subscribe;
   msg >> subscribe;
-  if (subscribe_state.count(subscribe.quicr_namespace) == 0) {
+
+  if (subscribe_state[subscribe.quicr_namespace].count(context_id) == 0) {
     SubscribeContext context;
     context.transport_context_id = context_id;
-    context.subscriber_id = subscriber_id;
-    subscriber_id++;
     context.media_stream_id = mStreamId;
-    subscribe_state[subscribe.quicr_namespace] = context;
+    context.subscriber_id = subscriber_id;
+
+    subscriber_id++;
+
+    subscribe_state[subscribe.quicr_namespace][context_id] = context;
     subscribe_id_state[context.subscriber_id] = context;
   }
-  auto& context = subscribe_state[subscribe.quicr_namespace];
+
+  auto& context = subscribe_state[subscribe.quicr_namespace][context_id];
 
   delegate.onSubscribe(subscribe.quicr_namespace,
                        context.subscriber_id,
@@ -183,6 +187,7 @@ QuicRServer::handle_publish(const qtransport::TransportContextId& context_id,
   messages::PublishDatagram datagram;
   msg >> datagram;
   // TODO: Add publish_state when we support PublishIntent
+
   delegate.onPublisherObject(
     datagram.header.name, 0, 0, false, std::move(datagram.media_data));
 }

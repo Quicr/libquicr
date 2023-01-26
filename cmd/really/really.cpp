@@ -1,12 +1,12 @@
 #include <quicr/quicr_server.h>
 #include <quicr/quicr_common.h>
 #include <transport/transport.h>
-#include <transport_udp.h>
 
 #include <iostream>
 #include <sstream>
 #include <iomanip>
 #include <set>
+#include "subscription.h"
 
 class ReallyServer : public quicr::ServerDelegate {
 public:
@@ -31,9 +31,14 @@ public:
                                  quicr::bytes&& data)  {
 
     std::cout << " onPublisherObject: Namespace " << quicr_name.to_hex() << std::endl;
-    for(const auto& s : subscribers) {
-      server->sendNamedObject(s, quicr_name, 0, 0, false, std::move(data));
+
+    std::list<Subscriptions::Remote> list = subscribeList.find(quicr_name);
+
+    for (auto dest: list) {
+      server->sendNamedObject(dest.subscribe_id,
+                              quicr_name, 0, 0, false, std::move(data));
     }
+
 
   }
 
@@ -56,7 +61,11 @@ public:
                            quicr::bytes&& data)
   {
     std::cout << " onSubscribe: Namespace " << quicr_namespace.to_hex() << std::endl;
-    subscribers.insert(subscriber_id);
+
+    Subscriptions::Remote remote = { subscribe_id: subscriber_id };
+    subscribeList.add(quicr_namespace.name(), quicr_namespace.length(), remote);
+
+
     // respond with response
     auto result = quicr::SubscribeResult{quicr::SubscribeResult::SubscribeStatus::Ok, "", {}, {}};
     server->subscribeResponse(quicr_namespace, 0x0, result);
@@ -77,6 +86,9 @@ public:
   std::unique_ptr<quicr::QuicRServer> server;
   std::shared_ptr<qtransport::ITransport> transport;
   std::set<uint64_t> subscribers = {};
+
+private:
+  Subscriptions subscribeList;
 };
 
 
