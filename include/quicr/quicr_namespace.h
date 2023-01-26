@@ -21,6 +21,8 @@ public:
 
   bool contains(const Name& name) const;
   bool contains(const Namespace& name_space) const;
+  Name name() const { return _mask_name; }
+  uint16_t length() { return _sig_bits; }
   std::string to_hex() const;
 
   friend bool operator==(const Namespace& a, const Namespace& b);
