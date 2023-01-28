@@ -294,9 +294,6 @@ QuicRQTransport::close()
 void
 QuicRQTransport::set_congestion_control_status(bool status)
 {
-    if(quicr_ctx) {
-      quicrq_enable_congestion_control(quicr_ctx, status);
-    }
 }
 
 bool
