@@ -7,33 +7,13 @@
 BUILD_DIR=build
 CLANG_FORMAT=clang-format -i
 
-.PHONY: all tidy test libs test-libs test-all gen example everything clean cclean format
+.PHONY: all clean cclean format
 
 all: ${BUILD_DIR}
 	cmake --build ${BUILD_DIR}
 
 ${BUILD_DIR}: CMakeLists.txt cmd/CMakeLists.txt
-	cmake -B${BUILD_DIR} -DCMAKE_BUILD_TYPE=Debug .
-
-libs: ${BUILD_DIR}
-	cmake --build ${BUILD_DIR} --target metrics
-
-test-libs: ${BUILD_DIR}
-	cmake --build ${BUILD_DIR} --target metrics_test
-	cd build/lib/metrics/test/ && ctest
-
-test: ${BUILD_DIR} test/*
-
-	cmake --build ${BUILD_DIR} --target quicr_test 
-
-tidy:
-	cmake -B${BUILD_DIR} -DCLANG_TIDY=ON -DCMAKE_BUILD_TYPE=Debug .
-
-vcpkg-status:
-	less build/vcpkg_installed/vcpkg/status
-
-everything: ${BUILD_DIR}
-	cmake --build ${BUILD_DIR}
+	cmake -B${BUILD_DIR} -DBUILD_TESTING=TRUE -DCMAKE_BUILD_TYPE=Debug .
 
 clean:
 	cmake --build ${BUILD_DIR} --target clean
