@@ -6,9 +6,9 @@ project(quicr
         LANGUAGES CXX)
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-    option(QUICR_BUILD_TESTS "Build tests for quicr" OFF)
-else()
     option(QUICR_BUILD_TESTS "Build tests for quicr" ON)
+else()
+    option(QUICR_BUILD_TESTS "Build tests for quicr" OFF)
 endif()
 
 option(CLANG_TIDY "Perform linting with clang-tidy" OFF)
@@ -51,4 +51,6 @@ endif()
 ### Applications
 ###
 ###
-add_subdirectory(cmd)
+if(BUILD_TESTING AND QUICR_BUILD_TESTS)
+  add_subdirectory(cmd)
+endif() 
