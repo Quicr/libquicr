@@ -294,6 +294,10 @@ QuicRQTransport::close()
 void
 QuicRQTransport::set_congestion_control_status(bool status)
 {
+  if (status && warp_mode) {
+    logger.log(LogLevel::info, "Set Congestion Control: warp_mode " + warp_mode);
+    quicrq_enable_congestion_control(quicr_ctx, quicrq_congestion_control_group_p);
+  }
 }
 
 bool
@@ -341,6 +345,7 @@ QuicRQTransport::register_publish_sources(
   }
 
   for (auto& publisher : publisher_names) {
+      quicrq_transport_mode_enum transport_mode = quicrq_transport_mode_enum::quicrq_transport_mode_datagram;
       quicrq_media_object_source_properties_t src_props = {1, publisher.start_group_id, publisher.start_object_id};
       src_props.use_real_time_caching = 1;
 
@@ -353,13 +358,16 @@ QuicRQTransport::register_publish_sources(
       auto pub_context =
               new PublisherContext{publisher.name, obj_src_context, this};
 
+      if (warp_mode) {
+        logger.log(LogLevel::info, "Setting transport mode warp");
+        transport_mode = quicrq_transport_mode_enum ::quicrq_transport_mode_warp;
+      }
 
       // enable publishing
       auto ret = quicrq_cnx_post_media(
               cnx_ctx,
               reinterpret_cast<uint8_t *>(const_cast<char *>(publisher.name.data())),
-              publisher.name.length(),
-        quicrq_transport_mode_enum::quicrq_transport_mode_datagram);
+              publisher.name.length(), transport_mode);
       if (ret) {
           logger.log(LogLevel::error, "Failed to add publisher: ");
           continue;
@@ -417,7 +425,9 @@ QuicRQTransport::subscribe(const std::string& name, quicr::SubscribeIntent& inte
   consumer_media_ctx->quicr_name = name;
   consumer_media_ctx->transport = this;
   constexpr auto use_datagram = true;
-  constexpr auto in_order = true;
+  quicrq_transport_mode_enum transport_mode = quicrq_transport_mode_enum::quicrq_transport_mode_datagram;
+  // default to in-order
+  quicrq_subscribe_order_enum subscribe_order = quicrq_subscribe_order_enum::quicrq_subscribe_in_order;
 
   quicrq_subscribe_intent_t sub_intent = {};
   sub_intent.start_group_id = intent.group_id;
@@ -435,12 +445,18 @@ QuicRQTransport::subscribe(const std::string& name, quicr::SubscribeIntent& inte
           break;
   }
 
-  consumer_media_ctx->object_consumer_ctx = quicrq_subscribe_object_stream(
+  if (warp_mode) {
+    logger.log(LogLevel::info, "WarpMode enabled ?" + warp_mode);
+    subscribe_order = quicrq_subscribe_order_enum::quicrq_subscribe_in_order_skip_to_group_ahead;
+    transport_mode = quicrq_transport_mode_enum::quicrq_transport_mode_warp;
+  }
+
+    consumer_media_ctx->object_consumer_ctx = quicrq_subscribe_object_stream(
     cnx_ctx,
     reinterpret_cast<uint8_t*>(const_cast<char*>(name.data())),
     name.length(),
-    quicrq_transport_mode_enum::quicrq_transport_mode_datagram,
-    in_order,
+    transport_mode,
+    subscribe_order,
     &sub_intent,
     object_stream_consumer_fn,
     consumer_media_ctx);
@@ -574,11 +590,13 @@ QuicRQTransport::on_media_close(ConsumerContext* cons_ctx)
 
 QuicRQTransport::QuicRQTransport(QuicRClient::Delegate& delegate_in,
                                  const std::string& sfuName,
-                                 const uint16_t sfuPort)
+                                 const uint16_t sfuPort,
+                                 bool enable_warp_mode)
   : quicConnectionReady(false)
   , quicr_ctx(quicrq_create_empty())
   , application_delegate(delegate_in)
   , logger(delegate_in)
+  , warp_mode(enable_warp_mode)
 {
   logger.log(LogLevel::info, "Quicr Client Transport");
 

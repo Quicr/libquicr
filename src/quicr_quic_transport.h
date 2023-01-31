@@ -79,7 +79,8 @@ public:
 
   QuicRQTransport(QuicRClient::Delegate& delegate_in,
                   const std::string& sfuName_in,
-                  const uint16_t sfuPort_in);
+                  const uint16_t sfuPort_in,
+                  bool enable_warp_mode = false);
 
   ~QuicRQTransport();
 
@@ -171,6 +172,7 @@ private:
   // Handler of transport events from the application
   QuicRClient::Delegate& application_delegate;
   LogHandler& logger;
+  bool warp_mode { false };
 };
 
 } // namespace quicr
