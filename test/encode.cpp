@@ -100,7 +100,12 @@ TEST_CASE("Publish Message encode/decode")
   Header d{ uintVar_t{ 0x1000 }, qn,
             uintVar_t{ 0x0100 }, uintVar_t{ 0x0010 },
             uintVar_t{ 0x0001 }, 0x0000 };
-  PublishDatagram p{ d, MediaType::Text, uintVar_t{ 5 }, { 1, 2, 3, 4, 5 } };
+
+  std::vector<uint8_t> data(256);
+  for (int i = 0; i < 256; ++i)
+    data[i] = i;
+
+  PublishDatagram p{ d, MediaType::Text, uintVar_t{ 256 }, data};
   MessageBuffer buffer;
   buffer << p;
   PublishDatagram p_out;
@@ -114,6 +119,7 @@ TEST_CASE("Publish Message encode/decode")
   CHECK_EQ(p_out.media_type, p.media_type);
   CHECK_EQ(p_out.media_data_length, p.media_data_length);
   CHECK_EQ(p_out.media_data, p.media_data);
+  CHECK_EQ(p_out.media_data, data);
 }
 
 TEST_CASE("PublishStream Message encode/decode")

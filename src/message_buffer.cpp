@@ -46,7 +46,7 @@ void
 operator<<(MessageBuffer& msg, const std::vector<uint8_t>& val)
 {
   msg.push_back(val);
-  msg.push_back(val.size());
+  msg << toVarInt(val.size());
 }
 
 bool
@@ -83,14 +83,14 @@ operator>>(MessageBuffer& msg, uint8_t& val)
 bool
 operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
 {
-  uint8_t vecSize = 0;
+  uintVar_t vecSize{0};
   msg >> vecSize;
-  if (vecSize == 0) {
+  if (fromVarInt(vecSize) == 0) {
     return false;
   }
 
-  val.resize(vecSize);
-  val = msg.back(vecSize);
+  val.resize(fromVarInt(vecSize));
+  val = msg.back(fromVarInt(vecSize));
   return true;
 }
 
@@ -177,10 +177,13 @@ operator>>(MessageBuffer& msg, uintVar_t& v)
   ok &= msg >> byte[2];
   ok &= msg >> byte[1];
   ok &= msg >> byte[0];
-  uint64_t val = ((uint64_t)(byte[3] & 0x0F) << 56) +
-                 ((uint64_t)(byte[2]) << 48) + ((uint64_t)(byte[1]) << 40) +
-                 ((uint64_t)(byte[0]) << 32) + ((uint64_t)(byte[2]) << 24) +
-                 ((uint64_t)(byte[2]) << 16) + ((uint64_t)(byte[1]) << 8) +
+  uint64_t val = ((uint64_t)(byte[7] & 0x0F) << 56) +
+                 ((uint64_t)(byte[6]) << 48) +
+                 ((uint64_t)(byte[5]) << 40) +
+                 ((uint64_t)(byte[4]) << 32) +
+                 ((uint64_t)(byte[3]) << 24) +
+                 ((uint64_t)(byte[2]) << 16) +
+                 ((uint64_t)(byte[1]) << 8) +
                  ((uint64_t)(byte[0]) << 0);
   v = toVarInt(val);
   return ok;
