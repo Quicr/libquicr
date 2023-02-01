@@ -2,6 +2,7 @@
 #include <map>
 #include <quicr/quicr_common.h>
 
+#include <quicr/hex_endec.h>
 #include <quicr/quicr_name.h>
 #include <quicr/quicr_namespace.h>
 
@@ -62,7 +63,7 @@ TEST_CASE("quicr::Name Byte Array Tests")
 
   CHECK_FALSE(byte_arr.empty());
   CHECK_EQ(byte_arr.size(), 16);
-  
+
   quicr::Name name_to_bytes("0x10000000000000000000000000000000");
   quicr::Name name_from_bytes(byte_arr);
   CHECK_EQ(name_from_bytes, name_to_bytes);
@@ -90,18 +91,25 @@ TEST_CASE("quicr::Name Logical Arithmetic Tests")
 
 TEST_CASE("quicr::Namespace Contains Names Test")
 {
-  quicr::Namespace ns({ "0x11111111111111112222222222222200" }, 120);
+  quicr::HexEndec<128, 64, 56, 8> formatter_128bit;
+  std::string mask = formatter_128bit.Encode(
+    0x1111111111111111ull, 0x22222222222222ull, 0x00ull);
+  quicr::Namespace ns(mask, 120);
 
-  quicr::Name valid_name("0x111111111111111122222222222222FF");
+  quicr::Name valid_name(formatter_128bit.Encode(
+    0x1111111111111111ull, 0x22222222222222ull, 0xFFull));
   CHECK(ns.contains(valid_name));
 
-  quicr::Name another_valid_name("0x11111111111111112222222222222211");
+  quicr::Name another_valid_name(formatter_128bit.Encode(
+    0x1111111111111111ull, 0x22222222222222ull, 0x11ull));
   CHECK(ns.contains(another_valid_name));
 
-  quicr::Name invalid_name("0x11111111111111112222222222222300");
+  quicr::Name invalid_name(formatter_128bit.Encode(
+    0x1111111111111111ull, 0x22222222222223ull, 0x00ull));
   CHECK_FALSE(ns.contains(invalid_name));
 
-  quicr::Name invalid_sized_name("0x111111111111222222222300");
+  quicr::Name invalid_sized_name(quicr::HexEndec<127, 64, 56, 7>::Encode(
+    0x1111111111111111ull, 0x22222222222222ull, 0x0ull));
   CHECK_FALSE(ns.contains(invalid_sized_name));
 }
 

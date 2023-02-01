@@ -5,8 +5,8 @@ add_executable(quicr_test
                 name.cpp
                 quicr_client.cpp
                 quicr_server.cpp
-                encode.cpp)
-                
+                encode.cpp
+                hex_endec.cpp)
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
 target_link_libraries(quicr_test PRIVATE quicr doctest::doctest)
