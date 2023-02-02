@@ -240,6 +240,7 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
           0x0,
           false,
           std::move(datagram.media_data));
+        break;
       } else {
         std::cout << "Name:" << datagram.header.name.to_hex()
                   << ", not in namespace " << entry.first.to_hex() << std::endl;

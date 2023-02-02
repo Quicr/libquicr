@@ -4,6 +4,7 @@
 #include <quicr/quicr_namespace.h>
 
 #include <vector>
+#include <cassert>
 
 namespace quicr::messages {
 

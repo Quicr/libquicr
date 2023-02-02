@@ -2,6 +2,9 @@
 
 #include <cstdint>
 #include <vector>
+#include <string>
+#include <cstdlib>
+#include <stdexcept>
 
 namespace quicr {
 namespace messages {

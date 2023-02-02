@@ -7,8 +7,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
-
-#include <iostream>
+#include <cstring>
 
 namespace quicr {
 Name::Name()
