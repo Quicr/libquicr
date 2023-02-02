@@ -3,8 +3,6 @@
 #include <transport/transport.h>
 
 #include <iostream>
-#include <sstream>
-#include <iomanip>
 #include <set>
 #include "subscription.h"
 
@@ -97,7 +95,7 @@ int main() {
   really_server.server->run();
 
   while(1) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
     //std::cout << "waiting for the data..." << std::endl;
   }
 }
