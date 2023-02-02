@@ -2,7 +2,7 @@
 
 #include <quicr/hex_endec.h>
 
-TEST_CASE("quicr::HexEndec Encode/Decode Test")
+TEST_CASE("quicr::HexEndec 128bit Encode/Decode Test")
 {
   const std::string hex_value = "0x11111111111111112222222222222200";
   const uint64_t first_part = 0x1111111111111111ull;
@@ -15,6 +15,24 @@ TEST_CASE("quicr::HexEndec Encode/Decode Test")
   CHECK_EQ(mask, hex_value);
 
   const auto [one, two, three] = formatter_128bit.Decode(hex_value);
+  CHECK_EQ(one, first_part);
+  CHECK_EQ(two, second_part);
+  CHECK_EQ(three, third_part);
+}
+
+TEST_CASE("quicr::HexEndec 64bit Encode/Decode Test")
+{
+  const std::string hex_value = "0x1111111122222200";
+  const uint64_t first_part = 0x11111111ull;
+  const uint64_t second_part = 0x222222ull;
+  const uint8_t third_part = 0x00ull;
+
+  quicr::HexEndec<64, 32, 24, 8> formatter_64bit;
+  const std::string mask =
+    formatter_64bit.Encode(first_part, second_part, third_part);
+  CHECK_EQ(mask, hex_value);
+
+  const auto [one, two, three] = formatter_64bit.Decode(hex_value);
   CHECK_EQ(one, first_part);
   CHECK_EQ(two, second_part);
   CHECK_EQ(three, third_part);

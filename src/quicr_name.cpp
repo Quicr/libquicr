@@ -107,11 +107,11 @@ Name::to_hex() const
   std::stringstream stream;
   stream << "0x" << std::hex;
 
-  if (_hi != 0)
-    stream << _hi;
-
+  stream << std::setw(sizeof(uint_type) * 2) << std::setfill('0');
+  stream << _hi;
   stream << std::setw(sizeof(uint_type) * 2) << std::setfill('0');
   stream << _low;
+  
   return stream.str();
 }
 

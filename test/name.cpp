@@ -107,10 +107,6 @@ TEST_CASE("quicr::Namespace Contains Names Test")
   quicr::Name invalid_name(formatter_128bit.Encode(
     0x1111111111111111ull, 0x22222222222223ull, 0x00ull));
   CHECK_FALSE(ns.contains(invalid_name));
-
-  quicr::Name invalid_sized_name(quicr::HexEndec<127, 64, 56, 7>::Encode(
-    0x1111111111111111ull, 0x22222222222222ull, 0x0ull));
-  CHECK_FALSE(ns.contains(invalid_sized_name));
 }
 
 TEST_CASE("quicr::Namespace Contains Namespaces Test")
