@@ -126,6 +126,7 @@ public:
   template<typename Uint_t = uint64_t>
   static inline std::array<Uint_t, sizeof...(N)> Decode(const std::string& hex)
   {
+    static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
     static_assert(Size >= (N + ...), "Total bits cannot exceed specified size");
     static_assert(is_valid_uint<Uint_t>::value, "Type must be unsigned integer");
 
@@ -142,6 +143,7 @@ public:
   template<typename Uint_t = uint64_t>
   static inline std::vector<Uint_t> Decode(const std::vector<uint8_t>& distribution, const std::string& hex)
   {
+    static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
     static_assert(is_valid_uint<Uint_t>::value, "Type must be unsigned integer");
 
     std::string clean_hex = hex;
