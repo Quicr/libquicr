@@ -1,7 +1,8 @@
 #pragma once
 
+#include <quicr/quicr_name.h>
+
 #include <array>
-#include <bitset>
 #include <cstdint>
 #include <iomanip>
 #include <limits>
@@ -132,8 +133,27 @@ public:
 
     std::vector<uint8_t> distribution;
     (distribution.push_back(N), ...);
+    
+    ValidateString(hex);
 
-    auto result = Decode(distribution, hex);
+    auto result = Decode(distribution, quicr::Name{hex});
+    std::array<Uint_t, sizeof...(N)> out;
+    std::copy_n(result.begin(), sizeof...(N), out.begin());
+
+    return out;
+  }
+
+  template<typename Uint_t = uint64_t>
+  static inline std::array<Uint_t, sizeof...(N)> Decode(const quicr::Name& name)
+  {
+    static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
+    static_assert(Size >= (N + ...), "Total bits cannot exceed specified size");
+    static_assert(is_valid_uint<Uint_t>::value, "Type must be unsigned integer");
+
+    std::vector<uint8_t> distribution;
+    (distribution.push_back(N), ...);
+
+    auto result = Decode(distribution, name);
     std::array<Uint_t, sizeof...(N)> out;
     std::copy_n(result.begin(), sizeof...(N), out.begin());
 
@@ -143,9 +163,33 @@ public:
   template<typename Uint_t = uint64_t>
   static inline std::vector<Uint_t> Decode(const std::vector<uint8_t>& distribution, const std::string& hex)
   {
+    ValidateString(hex);
+    return Decode<Uint_t>(distribution, quicr::Name{hex});
+  }
+  
+  template<typename Uint_t = uint64_t>
+  static inline std::vector<Uint_t> Decode(const std::vector<uint8_t>& distribution, const quicr::Name& name)
+  {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
     static_assert(is_valid_uint<Uint_t>::value, "Type must be unsigned integer");
 
+    uint8_t size_of_name = sizeof(quicr::Name::uint_type) * 8 * 2;
+    quicr::Name temp = name << (size_of_name - Size);
+    
+    std::vector<Uint_t> result(distribution.size());
+    for (size_t i = 0; i < distribution.size(); ++i)
+    {
+      auto dist = distribution.at(i);
+      result[i] = std::stoull((temp >> (size_of_name - dist)).to_hex(), nullptr, 16);
+      temp = temp << dist;
+    };
+
+    return result;
+  }
+
+private:
+  static inline void ValidateString(const std::string& hex)
+  {
     std::string clean_hex = hex;
     auto found = clean_hex.find("0x");
     if (found != std::string::npos)
@@ -155,40 +199,6 @@ public:
       throw std::runtime_error("Hex string value must be " +
                                std::to_string(Size / 4) + " characters (" +
                                std::to_string(Size / 8) + " bytes)");
-
-    std::bitset<Size> bits;
-    const uint8_t size_of = sizeof(uint64_t) * 2;
-    if (Size > size_of * 4)
-    {
-      size_t midpoint = clean_hex.length() - size_of;    
-      std::string low_bits = "0x" + clean_hex.substr(midpoint, size_of);
-      clean_hex.erase(midpoint, size_of);
-      std::string hi_bits = "0x" + clean_hex;
-
-      auto hi = std::stoull(hi_bits, nullptr, 16);
-      auto low = std::stoull(low_bits, nullptr, 16);
-
-      bits |= std::bitset<Size>(low) | (std::bitset<Size>(hi) << (Size / 2));
-    }
-    else
-    {
-      bits |= std::bitset<Size>(std::stoull(clean_hex, nullptr, 16));
-    }
-
-    std::vector<Uint_t> result(distribution.size());
-    for (int i = distribution.size() - 1; i >= 0; --i)
-    {
-      std::bitset<Size> mask = std::bitset<Size>{}.set();
-      
-      auto dist = distribution.at(i);
-      mask <<= dist;
-      mask.flip();
-
-      result[i] = (bits & mask).to_ullong();
-      bits >>= dist;
-    };
-
-    return result;
   }
 };
 }
