@@ -51,7 +51,7 @@ public:
    * @param ...values The unsigned values to be encoded into the hex string.
    *
    * @returns Hex string containing the provided values distributed according to
-   * N in order.
+   *          N in order.
    */
   template<typename... UInt_ts>
   static inline std::string Encode(UInt_ts... values)
@@ -79,6 +79,7 @@ public:
 
     return Encode(distribution, vals);
   }
+
   static inline std::string Encode(const std::vector<uint8_t>& distribution, const std::vector<uint64_t>& values)
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
@@ -119,7 +120,7 @@ public:
    * @param hex The hex string to decode. Must have a length in bytes
    *            corresponding to the size in bits of Size.
    *
-   * @returns Structred binding of values decoded from hex string corresponding
+   * @returns Structured binding of values decoded from hex string corresponding
    *          in order to the size of N.
    */
   template<typename Uint_t = uint64_t>
