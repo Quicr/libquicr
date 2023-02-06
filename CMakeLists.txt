@@ -1,15 +1,16 @@
 cmake_minimum_required(VERSION 3.13)
 
-project(quicr
-        VERSION 1.0.0.0
-        DESCRIPTION "quicr library"
-        LANGUAGES CXX)
-
-if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+# Build tests by default only if not a sub-project
+if(DEFINED PROJECT_NAME)
     option(QUICR_BUILD_TESTS "Build tests for quicr" ON)
 else()
     option(QUICR_BUILD_TESTS "Build tests for quicr" OFF)
 endif()
+
+project(quicr
+        VERSION 1.0.0.0
+        DESCRIPTION "quicr library"
+        LANGUAGES CXX)
 
 option(CLANG_TIDY "Perform linting with clang-tidy" OFF)
 
