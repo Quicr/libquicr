@@ -12,9 +12,11 @@ namespace quicr {
  * Start the  QUICR server at the port specified.
  *  @param delegate_in: Callback handlers for QUICR operations
  */
-QuicRServer::QuicRServer(RelayInfo& relayInfo, ServerDelegate& delegate_in)
+QuicRServer::QuicRServer(RelayInfo& relayInfo, ServerDelegate& delegate_in,
+                         qtransport::LogHandler& logger)
   : delegate(delegate_in)
   , transport_delegate(*this)
+  , logHandler(logger)
 
 {
   t_relay.host_or_ip = relayInfo.hostname;
@@ -33,8 +35,10 @@ QuicRServer::QuicRServer(RelayInfo& relayInfo, ServerDelegate& delegate_in)
 }
 
 QuicRServer::QuicRServer(std::shared_ptr<qtransport::ITransport> transport_in,
-                         ServerDelegate& delegate_in)
+                         ServerDelegate& delegate_in,
+                         qtransport::LogHandler& logger)
   : delegate(delegate_in)
+  , logHandler(logger)
   , transport_delegate(*this)
   , transport(transport_in)
 {
@@ -43,9 +47,8 @@ QuicRServer::QuicRServer(std::shared_ptr<qtransport::ITransport> transport_in,
 std::shared_ptr<qtransport::ITransport>
 QuicRServer::setupTransport(RelayInfo& relayInfo)
 {
-  qtransport::LogHandler logger;
   return qtransport::ITransport::make_server_transport(
-    t_relay, transport_delegate, logger);
+    t_relay, transport_delegate, logHandler);
 }
 
 // Transport APIs
