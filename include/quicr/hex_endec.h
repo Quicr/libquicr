@@ -181,7 +181,7 @@ public:
     {
       auto dist = distribution.at(i);
       result[i] = std::stoull((temp >> (size_of_name - dist)).to_hex(), nullptr, 16);
-      temp = temp << dist;
+      temp <<= dist;
     };
 
     return result;

@@ -28,7 +28,9 @@ public:
   std::string to_hex() const;
 
   Name operator>>(uint16_t value) const;
+  Name operator>>=(uint16_t value);
   Name operator<<(uint16_t value) const;
+  Name operator<<=(uint16_t value);
   Name operator+(uint_type value) const;
   void operator+=(uint_type value);
   Name operator++();

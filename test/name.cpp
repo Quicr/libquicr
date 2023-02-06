@@ -24,8 +24,45 @@ TEST_CASE("quicr::Name Bit Shifting Tests")
 {
   CHECK_EQ((quicr::Name("0x1234") >> 4), quicr::Name("0x123"));
   CHECK_EQ((quicr::Name("0x1234") << 4), quicr::Name("0x12340"));
-  CHECK_EQ((quicr::Name("0x0123456789abcdef0123456789abcdef") >> 64),
-           quicr::Name("0x123456789abcdef"));
+
+  {
+  const quicr::Name unshifted_32bit("0x123456789abcdeff00000000");
+  const quicr::Name shifted_32bit("0x123456789abcdeff");
+  CHECK_EQ((unshifted_32bit >> 32), shifted_32bit);
+  CHECK_EQ((shifted_32bit << 32), unshifted_32bit);
+  }
+
+  {
+  quicr::Name unshifted_64bit = quicr::Name("0x123456789abcdeff123456789abcdeff");
+  quicr::Name shifted_64bit = quicr::Name("0x123456789abcdeff");
+  quicr::Name shifted_72bit = quicr::Name("0x123456789abcde");
+  CHECK_EQ((unshifted_64bit >> 64), shifted_64bit);
+  CHECK_EQ((unshifted_64bit >> 72), shifted_72bit);
+  CHECK_EQ((shifted_64bit >> 8), shifted_72bit);
+  }
+
+  {
+  quicr::Name unshifted_64bit = quicr::Name("0x123456789abcdeff");
+  quicr::Name shifted_64bit = quicr::Name("0x123456789abcdeff0000000000000000");
+  quicr::Name shifted_72bit = quicr::Name("0x3456789abcdeff000000000000000000");
+  CHECK_EQ((unshifted_64bit << 64), shifted_64bit);
+  CHECK_EQ((unshifted_64bit << 72), shifted_72bit);
+  CHECK_EQ((shifted_64bit << 8), shifted_72bit);
+  }
+
+  {
+    const quicr::Name unshifted_bits = quicr::Name("0x00000000000000000000000000000001");
+    quicr::Name bits = unshifted_bits;
+    for (int i = 0; i < 64; ++i)
+      bits <<= 1;
+
+    CHECK_EQ(bits, quicr::Name("0x00000000000000010000000000000000"));
+
+    for (int i = 0; i < 64; ++i)
+      bits >>= 1;
+
+    CHECK_EQ(bits, unshifted_bits);
+  }
 }
 
 TEST_CASE("quicr::Name Arithmetic Tests")
@@ -35,8 +72,22 @@ TEST_CASE("quicr::Name Arithmetic Tests")
   quicr::Name val43("0x43");
   CHECK_EQ(val42 + 1, val43);
   CHECK_EQ(val42 - 1, val41);
+
+  CHECK_EQ(quicr::Name("0x00000000000000010000000000000000") + 1,
+           quicr::Name("0x00000000000000010000000000000001"));
   CHECK_EQ(quicr::Name("0x0FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF") + 1,
            quicr::Name("0x10000000000000000000000000000000"));
+  CHECK_EQ(quicr::Name("0x0000000000000000FFFFFFFFFFFFFFFF") + 0xFFFFFFFF,
+           quicr::Name("0x000000000000000100000000FFFFFFFE"));
+           
+  CHECK_EQ(quicr::Name("0x00000000000000010000000000000000") - 1,
+           quicr::Name("0x0000000000000000FFFFFFFFFFFFFFFF"));
+  CHECK_EQ(quicr::Name("0x0FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF") - 1,
+           quicr::Name("0x0FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE"));
+  CHECK_EQ(quicr::Name("0x0000000000000000FFFFFFFFFFFFFFFF") - 0xFFFFFFFFFFFFFFFF,
+           quicr::Name("0x00000000000000000000000000000000"));
+  CHECK_EQ(quicr::Name("0x00000000000000010000000000000000") - 2,
+           quicr::Name("0x0000000000000000FFFFFFFFFFFFFFFE"));
 
   quicr::Name val42_copy(val42);
   CHECK_NE(val42_copy++, val43);

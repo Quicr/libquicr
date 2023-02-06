@@ -1,15 +1,15 @@
 #include <quicr/quicr_name.h>
 #include <quicr/message_buffer.h>
 
-#include <bitset>
 #include <iomanip>
-#include <limits>
 #include <sstream>
 #include <string>
 #include <tuple>
 #include <cstring>
 
 namespace quicr {
+static constexpr size_t uint_type_bit_size = sizeof(Name::uint_type) * 8;
+
 Name::Name()
   : _hi{ 0 }
   , _low{ 0 }
@@ -115,66 +115,64 @@ Name::to_hex() const
   return stream.str();
 }
 
-static const size_t uint_type_bit_size = sizeof(Name::uint_type) * 8;
-static const size_t max_uint_type_bit_size = uint_type_bit_size * 2;
-using bitset_t = std::bitset<max_uint_type_bit_size>;
-static const bitset_t bitset_divider(
-  std::numeric_limits<Name::uint_type>::max());
-
-static bitset_t
-make_bitset(Name::uint_type low, Name::uint_type hi)
-{
-  bitset_t bits;
-  bits |= bitset_t(low) | (bitset_t(hi) << uint_type_bit_size);
-  return bits;
-}
-
-static std::pair<Name::uint_type, Name::uint_type>
-split_bitset(const bitset_t& bits)
-{
-  Name::uint_type a = (bits & bitset_divider).to_ullong();
-  Name::uint_type b = (bits >> uint_type_bit_size & bitset_divider).to_ullong();
-  return { a, b };
-}
-
 Name
 Name::operator>>(uint16_t value) const
 {
-  auto bits = make_bitset(_low, _hi);
-  bits >>= value;
   Name name(*this);
-  std::tie(name._low, name._hi) = split_bitset(bits);
-
+  name >>= value;
   return name;
+}
+
+Name
+Name::operator>>=(uint16_t value)
+{
+  if (value == 0)
+    return *this;
+
+  const auto size_of = sizeof(uint_type) * 8;
+  if (value < size_of)
+  {
+    _low = _low >> value;
+    _low |= _hi << (uint_type_bit_size - value);
+    _hi = _hi >> value;
+  }
+  else
+  {
+    _low = _hi >> (value - uint_type_bit_size);
+    _hi = 0;
+  }
+
+  return *this;
 }
 
 Name
 Name::operator<<(uint16_t value) const
 {
-  auto bits = make_bitset(_low, _hi);
-  bits <<= value;
   Name name(*this);
-  std::tie(name._low, name._hi) = split_bitset(bits);
-
+  name <<= value;
   return name;
 }
 
-static bitset_t
-add_bitset(const bitset_t& x, const bitset_t& y)
+Name
+Name::operator<<=(uint16_t value)
 {
-  auto full_adder = [](bool a, bool b, bool& carry) {
-    bool sum = a ^ b ^ carry;
-    carry = (a && b) || (a && carry) || (b && carry);
-    return sum;
-  };
+  if (value == 0)
+    return *this;
 
-  bool carry = false;
-  bitset_t result;
-  for (size_t i = 0; i < x.size(); ++i) {
-    result[i] = full_adder(x[i], y[i], carry);
+  const auto size_of = sizeof(uint_type) * 8;
+  if (value < size_of)
+  {
+    _hi = _hi << value;
+    _hi |= _low >> (uint_type_bit_size - value);
+    _low = _low << value;
+  }
+  else
+  {
+    _hi = _low << (value - uint_type_bit_size);
+    _low = 0;
   }
 
-  return result;
+  return *this;
 }
 
 Name
@@ -188,29 +186,11 @@ Name::operator+(uint_type value) const
 void
 Name::operator+=(uint_type value)
 {
-  auto bits = make_bitset(_low, _hi);
-  bitset_t value_bits(value);
-
-  auto result_bits = add_bitset(bits, value_bits);
-  std::tie(_low, _hi) = split_bitset(result_bits);
-}
-
-static bitset_t
-sub_bitset(const bitset_t& x, const bitset_t& y)
-{
-  auto full_subtractor = [](bool a, bool b, bool& borrow) {
-    bool diff = a ^ b ^ borrow;
-    borrow = (!a && borrow) || (!a && b) || (b && borrow);
-    return diff;
-  };
-
-  bool borrow = false;
-  bitset_t result;
-  for (size_t i = 0; i < x.size(); ++i) {
-    result[i] = full_subtractor(x[i], y[i], borrow);
+  if (_low + value < _low)
+  {
+    ++_hi;
   }
-
-  return result;
+  _low += value;
 }
 
 Name
@@ -224,11 +204,11 @@ Name::operator-(uint_type value) const
 void
 Name::operator-=(uint_type value)
 {
-  auto bits = make_bitset(_low, _hi);
-  bitset_t value_bits(value);
-
-  auto result_bits = sub_bitset(bits, value_bits);
-  std::tie(_low, _hi) = split_bitset(result_bits);
+  if (_low - value > _low)
+  {
+    --_hi;
+  }
+  _low -= value;
 }
 
 Name Name::operator++()
