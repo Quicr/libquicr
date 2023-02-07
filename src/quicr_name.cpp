@@ -1,11 +1,10 @@
 #include <quicr/quicr_name.h>
 #include <quicr/message_buffer.h>
 
+#include <cstring>
 #include <iomanip>
 #include <sstream>
 #include <string>
-#include <tuple>
-#include <cstring>
 
 namespace quicr {
 static constexpr size_t uint_type_bit_size = sizeof(Name::uint_type) * 8;
@@ -16,10 +15,22 @@ Name::Name()
 {
 }
 
+Name::Name(const Name& other)
+  : _hi{ other._hi }
+  , _low{ other._low }
+{
+}
+
+Name::Name(Name&& other)
+  : _hi{ std::move(other._hi) }
+  , _low{ std::move(other._low) }
+{
+}
+
 Name::Name(const std::string& hex_value)
 {
   std::string clean_hex = hex_value;
-  auto found = clean_hex.find("0x");
+  auto found = clean_hex.substr(0, 2).find("0x");
   if (found != std::string::npos)
     clean_hex.erase(found, 2);
 
@@ -30,13 +41,8 @@ Name::Name(const std::string& hex_value)
 
   if (clean_hex.length() > size_of) {
     size_t midpoint = clean_hex.length() - size_of;
-
-    std::string low_bits = "0x" + clean_hex.substr(midpoint, size_of);
-    clean_hex.erase(midpoint, size_of);
-    std::string hi_bits = "0x" + clean_hex;
-
-    _hi = std::stoull(hi_bits, nullptr, 16);
-    _low = std::stoull(low_bits, nullptr, 16);
+    _hi = std::stoull(clean_hex.substr(0, midpoint), nullptr, 16);
+    _low = std::stoull(clean_hex.substr(midpoint, size_of), nullptr, 16);
   } else {
     _hi = 0;
     _low = std::stoull(clean_hex, nullptr, 16);
@@ -55,8 +61,7 @@ Name::Name(const uint8_t* data, size_t length)
 
 Name::Name(const std::vector<uint8_t>& data)
 {
-  const size_t size_of = sizeof(Name::uint_type);
-  auto midpoint = std::prev(data.end(), size_of);
+  auto midpoint = std::prev(data.end(), sizeof(uint_type));
 
   std::vector<uint8_t> hi_bits{ data.begin(), midpoint };
   std::memcpy(&_hi, hi_bits.data(), hi_bits.size());
@@ -65,52 +70,15 @@ Name::Name(const std::vector<uint8_t>& data)
   std::memcpy(&_low, low_bits.data(), low_bits.size());
 }
 
-Name::Name(const Name& other)
-  : _hi{ other._hi }
-  , _low{ other._low }
-{
-}
-
-Name::Name(Name&& other)
-  : _hi{ std::move(other._hi) }
-  , _low{ std::move(other._low) }
-{
-}
-
-std::vector<uint8_t>
-Name::data() const
-{
-  auto make_bytes = [](Name::uint_type v) {
-    std::vector<uint8_t> result(sizeof(Name::uint_type));
-    for (size_t i = 0; i < sizeof(Name::uint_type); ++i) {
-      result[i] = static_cast<uint8_t>((v >> 8 * i));
-    }
-    return result;
-  };
-
-  std::vector<uint8_t> bytes = make_bytes(_hi);
-  std::vector<uint8_t> low_bytes = make_bytes(_low);
-  bytes.insert(bytes.end(), low_bytes.begin(), low_bytes.end());
-
-  return bytes;
-}
-
-size_t
-Name::size() const
-{
-  return data().size();
-}
-
 std::string
 Name::to_hex() const
 {
-  std::stringstream stream;
-  stream << "0x" << std::hex;
+  constexpr uint8_t size_of = sizeof(uint_type) * 2;
 
-  stream << std::setw(sizeof(uint_type) * 2) << std::setfill('0');
-  stream << _hi;
-  stream << std::setw(sizeof(uint_type) * 2) << std::setfill('0');
-  stream << _low;
+  std::ostringstream stream;
+  stream << "0x" << std::hex << std::setfill('0');
+  stream << std::setw(size_of) << _hi;
+  stream << std::setw(size_of) << _low;
   
   return stream.str();
 }
@@ -129,8 +97,7 @@ Name::operator>>=(uint16_t value)
   if (value == 0)
     return *this;
 
-  const auto size_of = sizeof(uint_type) * 8;
-  if (value < size_of)
+  if (value < uint_type_bit_size)
   {
     _low = _low >> value;
     _low |= _hi << (uint_type_bit_size - value);
@@ -159,8 +126,7 @@ Name::operator<<=(uint16_t value)
   if (value == 0)
     return *this;
 
-  const auto size_of = sizeof(uint_type) * 8;
-  if (value < size_of)
+  if (value < uint_type_bit_size)
   {
     _hi = _hi << value;
     _hi |= _low >> (uint_type_bit_size - value);
@@ -329,7 +295,7 @@ Name::operator=(Name&& other)
 bool
 operator==(const Name& a, const Name& b)
 {
-  return std::tie(a._hi, a._low) == std::tie(b._hi, b._low);
+  return a._hi == b._hi && a._low == b._low;
 }
 
 bool
@@ -341,13 +307,13 @@ operator!=(const Name& a, const Name& b)
 bool
 operator>(const Name& a, const Name& b)
 {
-  return std::tie(a._hi, a._low) > std::tie(b._hi, b._low);
+  return a._hi >= b._hi && a._low > b._low;
 }
 
 bool
 operator<(const Name& a, const Name& b)
 {
-  return std::tie(a._hi, a._low) < std::tie(b._hi, b._low);
+  return a._hi <= b._hi && a._low < b._low;
 }
 
 std::ostream&
@@ -355,6 +321,20 @@ operator<<(std::ostream& os, const Name& name)
 {
   os << name.to_hex();
   return os;
+}
+
+std::vector<uint8_t>
+Name::data() const
+{
+  std::vector<uint8_t> result(sizeof(uint_type) * 2);
+
+  for (uint8_t i = 0; i < sizeof(uint_type); ++i)
+  {
+    result[i] = static_cast<uint8_t>(( _hi >> 8 * i));
+    result[i + sizeof(uint_type)] = static_cast<uint8_t>((_low >> 8 * i));
+  }
+
+  return result;
 }
 
 void

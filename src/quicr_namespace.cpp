@@ -5,16 +5,16 @@
 
 namespace quicr {
 
-const size_t max_uint_type_bit_size = sizeof(Name::uint_type) * 8 * 2;
+constexpr size_t max_uint_type_bit_size = sizeof(Name::uint_type) * 8 * 2;
 
-Namespace::Namespace(const Name& name, uint16_t sig_bits)
+Namespace::Namespace(const Name& name, uint8_t sig_bits)
   : _mask_name{ (name >> (max_uint_type_bit_size - sig_bits))
                 << (max_uint_type_bit_size - sig_bits) }
   , _sig_bits{ sig_bits }
 {
 }
 
-Namespace::Namespace(Name&& name, uint16_t sig_bits)
+Namespace::Namespace(Name&& name, uint8_t sig_bits)
   : _mask_name{ std::move(name >> (max_uint_type_bit_size - sig_bits))
                 << (max_uint_type_bit_size - sig_bits) }
   , _sig_bits{ sig_bits }
@@ -36,7 +36,7 @@ Namespace::Namespace(Namespace&& ns)
 bool
 Namespace::contains(const Name& name) const
 {
-  auto insig_bits = max_uint_type_bit_size - _sig_bits;
+  const uint8_t insig_bits = max_uint_type_bit_size - _sig_bits;
   return (name >> insig_bits) == (_mask_name >> insig_bits);
 }
 

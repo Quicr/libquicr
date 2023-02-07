@@ -17,12 +17,12 @@ public:
   using uint_type = uint64_t;
 
   Name();
+  Name(const Name& other);
+  Name(Name&& other);
   Name(const std::string& hex_value);
   Name(uint8_t* data, size_t length);
   Name(const uint8_t* data, size_t length);
   Name(const std::vector<uint8_t>& data);
-  Name(const Name& other);
-  Name(Name&& other);
   ~Name() = default;
 
   std::string to_hex() const;
@@ -65,7 +65,6 @@ public:
 
 private:
   std::vector<uint8_t> data() const;
-  size_t size() const;
 
   uint_type _hi;
   uint_type _low;

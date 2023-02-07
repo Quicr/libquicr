@@ -11,8 +11,8 @@ class Namespace
 {
 public:
   Namespace() = default;
-  Namespace(const Name& name, uint16_t sig_bits);
-  Namespace(Name&& name, uint16_t sig_bits);
+  Namespace(const Name& name, uint8_t sig_bits);
+  Namespace(Name&& name, uint8_t sig_bits);
   Namespace(const Namespace& ns);
   Namespace(Namespace&& ns);
 
@@ -37,6 +37,6 @@ public:
 
 private:
   Name _mask_name;
-  uint16_t _sig_bits;
+  uint8_t _sig_bits;
 };
 }
