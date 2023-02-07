@@ -27,8 +27,8 @@ public:
   /**
    * @brief Callback for subscription response
    *
-   * @param quicr_namespace: QUICR Namespace associated with the Subscribe
-   * Request
+   * @param quicr_namespace: QUICR Namespace associated with the
+   *                         Subscribe Request
    * @param result         : Result for the subscription
    *
    *  @details This callback will be called when a subscription response

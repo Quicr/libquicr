@@ -155,14 +155,17 @@ public:
    *
    * @param relayInfo        : Relay Information to be used by the transport
    * @param delegate         : Server delegate
+   * @param logger           : Log handler instance. Will be used by transport
+   *                           quicr api
    */
-  QuicRServer(RelayInfo& relayInfo, ServerDelegate& delegate);
+  QuicRServer(RelayInfo& relayInfo, ServerDelegate& delegate,
+              qtransport::LogHandler& logger);
 
   /**
    * API for unit test cases .
    */
   QuicRServer(std::shared_ptr<qtransport::ITransport> transport,
-              ServerDelegate& delegate);
+              ServerDelegate& delegate, qtransport::LogHandler& logger);
 
   // Transport APIs
   bool is_transport_ready();
@@ -327,6 +330,7 @@ private:
     uint64_t offset{ 0 };
   };
 
+  qtransport::LogHandler & log_handler;
   std::shared_ptr<qtransport::ITransport> transport;
   qtransport::TransportRemote t_relay;
   ServerDelegate& delegate;

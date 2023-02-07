@@ -13,7 +13,10 @@ public:
   ReallyServer() {
     quicr::RelayInfo relayInfo = { hostname: "127.0.0.1", port: 1234, proto: quicr::RelayInfo::Protocol::UDP };
 
-    server = std::make_unique<quicr::QuicRServer>(relayInfo, *this);
+    qtransport::LogHandler logger;
+    server = std::make_unique<quicr::QuicRServer>(relayInfo,
+                                                  *this,
+                                                  logger);
   }
 
   virtual void onPublishIntent(const quicr::Namespace& quicr_name,

@@ -57,7 +57,10 @@ TEST_CASE("Object Lifetime")
     port : 1234,
     proto : RelayInfo::Protocol::UDP
   };
-  CHECK_NOTHROW(std::make_unique<QuicRServer>(relayInfo, delegate));
+  qtransport::LogHandler logger;
+  CHECK_NOTHROW(std::make_unique<QuicRServer>(relayInfo,
+                                              delegate,
+                                              logger));
 }
 
 #if 0
