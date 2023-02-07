@@ -330,7 +330,7 @@ private:
     uint64_t offset{ 0 };
   };
 
-  qtransport::LogHandler &logHandler;
+  qtransport::LogHandler & log_handler;
   std::shared_ptr<qtransport::ITransport> transport;
   qtransport::TransportRemote t_relay;
   ServerDelegate& delegate;
