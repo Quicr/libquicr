@@ -4,7 +4,7 @@
 
 namespace quicr {
 namespace messages {
-struct MessageBuffer;
+class MessageBuffer;
 }
 
 class Namespace

@@ -120,12 +120,12 @@ QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
   auto& context = subscribe_id_state[subscriber_id];
   datagram.header.name = quicr_name;
   datagram.header.media_id =
-    static_cast<messages::uintVar_t>(context.media_stream_id);
+    static_cast<uintVar_t>(context.media_stream_id);
   datagram.header.flags = 0x0;
-  datagram.header.offset_and_fin = static_cast<messages::uintVar_t>(1);
+  datagram.header.offset_and_fin = static_cast<uintVar_t>(1);
   datagram.media_type =
     messages::MediaType::RealtimeMedia; // TODO this should not be here
-  datagram.media_data_length = static_cast<messages::uintVar_t>(data.size());
+  datagram.media_data_length = static_cast<uintVar_t>(data.size());
   datagram.media_data = std::move(data);
 
   messages::MessageBuffer msg;
@@ -133,7 +133,7 @@ QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
 
   transport->enqueue(context.transport_context_id,
                      context.media_stream_id,
-                     std::move(msg.buffer));
+                     msg.get());
 }
 
 void

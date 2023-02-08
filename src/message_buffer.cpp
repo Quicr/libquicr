@@ -3,24 +3,94 @@
 #include <iomanip>
 #include <sstream>
 
-namespace quicr::messages {
+namespace quicr {
+uintVar_t
+to_varint(uint64_t v)
+{
+  assert(v < ((uint64_t)0x1 << 61));
+  return static_cast<uintVar_t>(v);
+}
+
+uint64_t
+from_varint(uintVar_t v)
+{
+  return static_cast<uint64_t>(v);
+}
+
+namespace messages {
+MessageBuffer::MessageBuffer(MessageBuffer&& other)
+  : _buffer{std::move(other._buffer)}
+{
+}
+
+MessageBuffer::MessageBuffer(const std::vector<uint8_t>& buffer)
+  : _buffer{buffer}
+{
+}
+
+MessageBuffer::MessageBuffer(std::vector<uint8_t>&& buffer)
+  : _buffer{std::move(buffer)}
+{
+}
+  
+void MessageBuffer::push_back(const std::vector<uint8_t>& data)
+{
+  _buffer.insert(_buffer.end(), data.begin(), data.end());
+}
+
+void MessageBuffer::pop_back(uint16_t len)
+{
+  if (len > _buffer.size())
+    throw std::out_of_range("len cannot be longer than the size of the buffer");
+
+  const auto delta = _buffer.size() - len;
+  _buffer.erase(_buffer.begin() + delta, _buffer.end());
+};
+
+std::vector<uint8_t> MessageBuffer::back(uint16_t len)
+{
+  if (len > _buffer.size())
+    throw std::out_of_range("len cannot be longer than the size of the buffer");
+
+  std::vector<uint8_t> vec(len);
+  const auto delta = _buffer.size() - len;
+  std::copy(_buffer.begin() + delta, _buffer.end(), vec.begin());
+
+  return vec;
+}
 
 std::string
-MessageBuffer::to_hex()
+MessageBuffer::to_hex() const
 {
-  std::stringstream hex(std::ios_base::out);
-  hex.flags(std::ios::hex);
-  for (const auto& byte : buffer) {
-    hex << std::setw(2) << std::setfill('0') << int(byte);
+  std::ostringstream hex;
+  hex << std::hex << std::setfill('0');
+  for (const auto& byte : _buffer) {
+    hex << std::setw(2) << int(byte);
   }
   return hex.str();
 }
 
-///
-/// Atomic Types
-///
+void MessageBuffer::operator=(MessageBuffer&& other)
+{
+  _buffer = std::move(other._buffer);
+}
 
-void
+MessageBuffer&
+operator<<(MessageBuffer& msg, const uint8_t val)
+{
+  msg.push_back(val);
+  return msg;
+}
+
+bool
+operator>>(MessageBuffer& msg, uint8_t& val)
+{
+  val = msg.back();
+  msg.pop_back();
+  return true;
+}
+
+MessageBuffer&
 operator<<(MessageBuffer& msg, const uint64_t& val)
 {
   // TODO - std::copy version for little endian machines optimization
@@ -34,19 +104,8 @@ operator<<(MessageBuffer& msg, const uint64_t& val)
   msg.push_back(uint8_t((val >> 40) & 0xFF));
   msg.push_back(uint8_t((val >> 48) & 0xFF));
   msg.push_back(uint8_t((val >> 56) & 0xFF));
-}
 
-void
-operator<<(MessageBuffer& msg, const uint8_t val)
-{
-  msg.push_back(val);
-}
-
-void
-operator<<(MessageBuffer& msg, const std::vector<uint8_t>& val)
-{
-  msg.push_back(val);
-  msg << toVarInt(val.size());
+  return msg;
 }
 
 bool
@@ -72,12 +131,12 @@ operator>>(MessageBuffer& msg, uint64_t& val)
   return ok;
 }
 
-bool
-operator>>(MessageBuffer& msg, uint8_t& val)
+MessageBuffer&
+operator<<(MessageBuffer& msg, const std::vector<uint8_t>& val)
 {
-  val = msg.back();
-  msg.pop_back();
-  return true;
+  msg.push_back(val);
+  msg << to_varint(val.size());
+  return msg;
 }
 
 bool
@@ -85,35 +144,35 @@ operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
 {
   uintVar_t vecSize{0};
   msg >> vecSize;
-  if (fromVarInt(vecSize) == 0) {
+
+  size_t len = from_varint(vecSize);
+  if (len == 0) {
     return false;
   }
 
-  val.resize(fromVarInt(vecSize));
-  val = msg.back(fromVarInt(vecSize));
+  val.resize(len);
+  val = msg.back(len);
+  msg.pop_back(len);
+  
   return true;
 }
 
-///
-/// Varints
-///
-
-void
+MessageBuffer&
 operator<<(MessageBuffer& msg, const uintVar_t& v)
 {
-  uint64_t val = fromVarInt(v);
+  uint64_t val = from_varint(v);
 
   assert(val < ((uint64_t)1 << 61));
 
   if (val <= ((uint64_t)1 << 7)) {
     msg.push_back(uint8_t(((val >> 0) & 0x7F)) | 0x00);
-    return;
+    return msg;
   }
 
   if (val <= ((uint64_t)1 << 14)) {
     msg.push_back(uint8_t((val >> 0) & 0xFF));
     msg.push_back(uint8_t(((val >> 8) & 0x3F) | 0x80));
-    return;
+    return msg;
   }
 
   if (val <= ((uint64_t)1 << 29)) {
@@ -121,7 +180,7 @@ operator<<(MessageBuffer& msg, const uintVar_t& v)
     msg.push_back(uint8_t((val >> 8) & 0xFF));
     msg.push_back(uint8_t((val >> 16) & 0xFF));
     msg.push_back(uint8_t(((val >> 24) & 0x1F) | 0x80 | 0x40));
-    return;
+    return msg;
   }
 
   msg.push_back(uint8_t((val >> 0) & 0xFF));
@@ -132,6 +191,8 @@ operator<<(MessageBuffer& msg, const uintVar_t& v)
   msg.push_back(uint8_t((val >> 40) & 0xFF));
   msg.push_back(uint8_t((val >> 48) & 0xFF));
   msg.push_back(uint8_t(((val >> 56) & 0x0F) | 0x80 | 0x40 | 0x20));
+
+  return msg;
 }
 
 bool
@@ -145,7 +206,7 @@ operator>>(MessageBuffer& msg, uintVar_t& v)
   if ((first & (0x80)) == 0) {
     ok &= msg >> byte[0];
     uint8_t val = ((byte[0] & 0x7F) << 0);
-    v = toVarInt(val);
+    v = to_varint(val);
     return ok;
   }
 
@@ -153,7 +214,7 @@ operator>>(MessageBuffer& msg, uintVar_t& v)
     ok &= msg >> byte[1];
     ok &= msg >> byte[0];
     uint16_t val = (((uint16_t)byte[1] & 0x3F) << 8) + ((uint16_t)byte[0] << 0);
-    v = toVarInt(val);
+    v = to_varint(val);
     return ok;
   }
 
@@ -165,7 +226,7 @@ operator>>(MessageBuffer& msg, uintVar_t& v)
     uint32_t val = ((uint32_t)(byte[3] & 0x1F) << 24) +
                    ((uint32_t)byte[2] << 16) + ((uint32_t)byte[1] << 8) +
                    ((uint32_t)byte[0] << 0);
-    v = toVarInt(val);
+    v = to_varint(val);
     return ok;
   }
 
@@ -185,20 +246,9 @@ operator>>(MessageBuffer& msg, uintVar_t& v)
                  ((uint64_t)(byte[2]) << 16) +
                  ((uint64_t)(byte[1]) << 8) +
                  ((uint64_t)(byte[0]) << 0);
-  v = toVarInt(val);
+  v = to_varint(val);
   return ok;
 }
 
-uintVar_t
-toVarInt(uint64_t v)
-{
-  assert(v < ((uint64_t)0x1 << 61));
-  return static_cast<uintVar_t>(v);
-}
-
-uint64_t
-fromVarInt(uintVar_t v)
-{
-  return static_cast<uint64_t>(v);
-}
-}
+} // namespace quicr::messages
+} // namespace quicr

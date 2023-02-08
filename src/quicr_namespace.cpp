@@ -110,8 +110,10 @@ bool
 operator>>(messages::MessageBuffer& msg, quicr::Namespace& val)
 {
   msg >> val._mask_name;
-  val._sig_bits = msg.back();
-  msg.pop_back();
+
+  uintVar_t sig_bits{0};
+  msg >> sig_bits;
+  val._sig_bits = static_cast<uint16_t>(sig_bits);
 
   return true;
 }

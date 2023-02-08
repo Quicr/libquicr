@@ -133,7 +133,7 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
                         transport_context_id,
                         media_stream_id,
                         transaction_id };
-    transport->enqueue(transport_context_id, media_stream_id, std::move(msg.buffer));
+    transport->enqueue(transport_context_id, media_stream_id, msg.get());
     return;
   } else {
     auto& ctx = subscribe_state[quicr_namespace];
@@ -143,7 +143,7 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
     } else if (ctx.state == SubscribeContext::State::Pending) {
       // todo - resend or wait or may be take in timeout in the api
     }
-    transport->enqueue(transport_context_id, media_stream_id, std::move(msg.buffer));
+    transport->enqueue(transport_context_id, media_stream_id, msg.get());
   }
 }
 
@@ -176,24 +176,24 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
   } else {
     context = publish_state[quicr_name];
     datagram.header.media_id =
-      static_cast<messages::uintVar_t>(context.media_stream_id);
+      static_cast<uintVar_t>(context.media_stream_id);
   }
   datagram.header.name = quicr_name;
   datagram.header.media_id =
-    static_cast<messages::uintVar_t>(context.media_stream_id);
-  datagram.header.group_id = static_cast<messages::uintVar_t>(context.group_id);
+    static_cast<uintVar_t>(context.media_stream_id);
+  datagram.header.group_id = static_cast<uintVar_t>(context.group_id);
   datagram.header.object_id =
-    static_cast<messages::uintVar_t>(context.object_id);
+    static_cast<uintVar_t>(context.object_id);
   datagram.header.flags = 0x0;
-  datagram.header.offset_and_fin = static_cast<messages::uintVar_t>(1);
+  datagram.header.offset_and_fin = static_cast<uintVar_t>(1);
   datagram.media_type = messages::MediaType::RealtimeMedia;
-  datagram.media_data_length = static_cast<messages::uintVar_t>(data.size());
+  datagram.media_data_length = static_cast<uintVar_t>(data.size());
   datagram.media_data = std::move(data);
   messages::MessageBuffer msg;
   msg << datagram;
 
   transport->enqueue(
-    transport_context_id, context.media_stream_id, std::move(msg.buffer));
+    transport_context_id, context.media_stream_id, msg.get());
 }
 
 void
@@ -211,7 +211,7 @@ QuicRClient::publishNamedObjectFragment(const quicr::Name& quicr_name,
 void
 QuicRClient::handle(messages::MessageBuffer&& msg)
 {
-  if (msg.buffer.empty()) {
+  if (msg.empty()) {
     std::cout << "Transport Reported Empty Data" << std::endl;
     return;
   }
