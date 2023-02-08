@@ -13,7 +13,6 @@ public:
   ReallyServer() {
     quicr::RelayInfo relayInfo = { hostname: "127.0.0.1", port: 1234, proto: quicr::RelayInfo::Protocol::UDP };
 
-    qtransport::LogHandler logger;
     server = std::make_unique<quicr::QuicRServer>(relayInfo,
                                                   *this,
                                                   logger);
@@ -91,6 +90,7 @@ public:
 
 private:
   Subscriptions subscribeList;
+  qtransport::LogHandler logger;
 };
 
 
