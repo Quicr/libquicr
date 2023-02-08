@@ -15,39 +15,39 @@ struct TestSubscriberDelegate : public SubscriberDelegate
   TestSubscriberDelegate() = default;
   ~TestSubscriberDelegate() = default;
 
-  void onSubscribeResponse(const quicr::Namespace& quicr_namespace,
-                           const SubscribeResult& result)
+  void onSubscribeResponse(const quicr::Namespace& /* quicr_namespace */,
+                           const SubscribeResult::SubscribeStatus& /* result */)
   {
   }
 
-  void onSubscriptionEnded(const quicr::Namespace& quicr_namespace,
-                           const SubscribeResult& result)
+  void onSubscriptionEnded(const quicr::Namespace& /* quicr_namespace */,
+                           const SubscribeResult& /* result */)
   {
   }
 
-  void onSubscribedObject(const quicr::Name& quicr_name,
-                          uint8_t priority,
-                          uint16_t expiry_age_ms,
-                          bool use_reliable_transport,
-                          bytes&& data)
+  void onSubscribedObject(const quicr::Name& /* quicr_name */,
+                          uint8_t /* priority */,
+                          uint16_t /* expiry_age_ms */,
+                          bool /* use_reliable_transport */,
+                          bytes&& /* data */)
   {
   }
 
-  void onSubscribedObjectFragment(const quicr::Name& quicr_name,
-                                  uint8_t priority,
-                                  uint16_t expiry_age_ms,
-                                  bool use_reliable_transport,
-                                  const uint64_t& offset,
-                                  bool is_last_fragment,
-                                  bytes&& data)
+  void onSubscribedObjectFragment(const quicr::Name& /* quicr_name */,
+                                  uint8_t /* priority */,
+                                  uint16_t /* expiry_age_ms */,
+                                  bool /* use_reliable_transport */,
+                                  const uint64_t& /* offset */,
+                                  bool /* is_last_fragment */,
+                                  bytes&& /* data */)
   {
   }
 };
 
 struct TestPublisherDelegate : public PublisherDelegate
 {
-  void onPublishIntentResponse(const quicr::Namespace& quicr_namespace,
-                               const PublishIntentResult& result) override
+  void onPublishIntentResponse(const quicr::Namespace& /* quicr_namespace */,
+                               const PublishIntentResult& /* result */) override
   {
   }
 

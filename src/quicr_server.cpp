@@ -11,6 +11,32 @@
 
 namespace quicr {
 
+void ServerDelegate::onPublishedFragment(const quicr::Name& /* quicr_name */,
+                                  uint8_t /* priority */,
+                                  uint16_t /* expiry_age_ms */,
+                                  bool /* use_reliable_transport */,
+                                  const uint64_t& /* offset */,
+                                  bool /* is_last_fragment */,
+                                  bytes&& /* data */)
+{
+}
+void ServerDelegate::onSubscribe(const quicr::Namespace& /* quicr_namespace */,
+                          const uint64_t& /* subscriber_id */,
+                          const SubscribeIntent /* subscribe_intent */,
+                          const std::string& /* origin_url */,
+                          bool /* use_reliable_transport */,
+                          const std::string& /* auth_token */,
+                          bytes&& /* data */)
+{
+}
+
+void ServerDelegate::onUnsubscribe(const quicr::Namespace& /* quicr_namespace */,
+                          const uint64_t& /* subscriber_id */,
+                          const std::string& /* auth_token */)
+{
+}
+
+
 /*
  * Start the  QUICR server at the port specified.
  *  @param delegate_in: Callback handlers for QUICR operations
@@ -18,8 +44,8 @@ namespace quicr {
 QuicRServer::QuicRServer(RelayInfo& relayInfo, ServerDelegate& delegate_in,
                          qtransport::LogHandler& logger)
   : delegate(delegate_in)
-  , transport_delegate(*this)
   , log_handler(logger)
+  , transport_delegate(*this)
 
 {
   t_relay.host_or_ip = relayInfo.hostname;
@@ -48,7 +74,7 @@ QuicRServer::QuicRServer(std::shared_ptr<qtransport::ITransport> transport_in,
 }
 
 std::shared_ptr<qtransport::ITransport>
-QuicRServer::setupTransport(RelayInfo& relayInfo)
+QuicRServer::setupTransport([[maybe_unused]] RelayInfo& relayInfo)
 {
   return qtransport::ITransport::make_server_transport(
     t_relay, transport_delegate, log_handler);
@@ -78,8 +104,8 @@ QuicRServer::run()
 }
 
 void
-QuicRServer::publishIntentResponse(const quicr::Namespace& quicr_namespace,
-                                   const PublishIntentResult& result)
+QuicRServer::publishIntentResponse(const quicr::Namespace& /* quicr_namespace */,
+                                   const PublishIntentResult& /* result */)
 {
   throw std::runtime_error("Unimplemented");
 }
@@ -100,8 +126,8 @@ QuicRServer::subscribeResponse(const quicr::Namespace& quicr_namespace,
 }
 
 void
-QuicRServer::subscriptionEnded(const quicr::Namespace& quicr_namespace,
-                               const SubscribeResult& result)
+QuicRServer::subscriptionEnded(const quicr::Namespace& /* quicr_namespace */,
+                               const SubscribeResult& /* result */)
 {
   throw std::runtime_error("Unimplemented");
 }
@@ -109,9 +135,9 @@ QuicRServer::subscriptionEnded(const quicr::Namespace& quicr_namespace,
 void
 QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
                               const quicr::Name& quicr_name,
-                             uint8_t priority,
-                             uint64_t best_before,
-                             bool use_reliable_transport,
+                             [[maybe_unused]] uint8_t priority,
+                             [[maybe_unused]] uint64_t best_before,
+                             [[maybe_unused]] bool use_reliable_transport,
                              bytes&& data)
 {
   // start populating message to encode
@@ -140,13 +166,13 @@ QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
 }
 
 void
-QuicRServer::sendNamedFragment(const quicr::Name& name,
-                               uint8_t priority,
-                               uint64_t best_before,
-                               bool use_reliable_transport,
-                               uint64_t offset,
-                               bool is_last_fragment,
-                               bytes&& data)
+QuicRServer::sendNamedFragment(const quicr::Name& /* name */,
+                               uint8_t /* priority */,
+                               uint64_t /* best_before */,
+                               bool /* use_reliable_transport */,
+                               uint64_t /* offset */,
+                               bool /* is_last_fragment */,
+                               bytes&& /* data */)
 {
   throw std::runtime_error("Unimplemented");
 }
@@ -187,8 +213,8 @@ QuicRServer::handle_subscribe(const qtransport::TransportContextId& context_id,
 }
 
 void
-QuicRServer::handle_publish(const qtransport::TransportContextId& context_id,
-                            const qtransport::MediaStreamId& mStreamId,
+QuicRServer::handle_publish([[maybe_unused]] const qtransport::TransportContextId& context_id,
+                            [[maybe_unused]] const qtransport::MediaStreamId& mStreamId,
                             messages::MessageBuffer&& msg)
 {
   messages::PublishDatagram datagram;

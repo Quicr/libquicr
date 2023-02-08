@@ -12,38 +12,39 @@ using namespace quicr;
 class TestServerDelegate : public ServerDelegate
 {
 
-  virtual void onPublishIntent(const quicr::Namespace& quicr_name,
-                               const std::string& origin_url,
-                               bool use_reliable_transport,
-                               const std::string& auth_token,
-                               bytes&& e2e_token) override
+  virtual void onPublishIntent(const quicr::Namespace& /* quicr_name */,
+                               const std::string& /* origin_url */,
+                               bool /* use_reliable_transport */,
+                               const std::string& /* auth_token */,
+                               bytes&& /* e2e_token */) override
   {
   }
 
-  virtual void onPublisherObject(const quicr::Name& quicr_name,
-                                 uint8_t priority,
-                                 uint16_t expiry_age_ms,
-                                 bool use_reliable_transport,
-                                 bytes&& data) override
+  virtual void onPublisherObject(const quicr::Name& /* quicr_name */,
+                                 uint8_t /* priority */,
+                                 uint16_t /* expiry_age_ms */,
+                                 bool /* use_reliable_transport */,
+                                 bytes&& /* data */) override
   {
   }
 
-  virtual void onPublishedFragment(const quicr::Name& quicr_name,
-                                   uint8_t priority,
-                                   uint16_t expiry_age_ms,
-                                   bool use_reliable_transport,
-                                   const uint64_t& offset,
-                                   bool is_last_fragment,
-                                   bytes&& data)
+  virtual void onPublishedFragment(const quicr::Name& /* quicr_name */,
+                                   uint8_t /* priority */,
+                                   uint16_t /* expiry_age_ms */,
+                                   bool /* use_reliable_transport */,
+                                   const uint64_t& /* offset */,
+                                   bool /* is_last_fragment */,
+                                   bytes&& /* data */) override
   {
   }
 
-  virtual void onSubscribe(const quicr::Namespace& quicr_namespace,
-                           const SubscribeIntent subscribe_intent,
-                           const std::string& origin_url,
-                           bool use_reliable_transport,
-                           const std::string& auth_token,
-                           bytes&& data)
+  virtual void onSubscribe(const quicr::Namespace& /* quicr_namespace */,
+                           const uint64_t& /* subscriber_id */,
+                           const SubscribeIntent /* subscribe_intent */,
+                           const std::string& /* origin_url */,
+                           bool /* use_reliable_transport */,
+                           const std::string& /* auth_token */,
+                           bytes&& /* data */) override
   {
   }
 };
@@ -53,9 +54,9 @@ TEST_CASE("Object Lifetime")
   TestServerDelegate delegate{};
   FakeTransport fake_transport;
   RelayInfo relayInfo = {
-    hostname : "127.0.0.1",
-    port : 1234,
-    proto : RelayInfo::Protocol::UDP
+    .hostname = "127.0.0.1",
+    .port = 1234,
+    .proto = RelayInfo::Protocol::UDP
   };
   qtransport::LogHandler logger;
   CHECK_NOTHROW(std::make_unique<QuicRServer>(relayInfo,

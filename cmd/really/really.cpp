@@ -11,23 +11,23 @@ public:
 
   ~ReallyServer() = default;
   ReallyServer() {
-    quicr::RelayInfo relayInfo = { hostname: "127.0.0.1", port: 1234, proto: quicr::RelayInfo::Protocol::UDP };
+    quicr::RelayInfo relayInfo = { .hostname = "127.0.0.1", .port = 1234, .proto = quicr::RelayInfo::Protocol::UDP };
 
     server = std::make_unique<quicr::QuicRServer>(relayInfo,
                                                   *this,
                                                   logger);
   }
 
-  virtual void onPublishIntent(const quicr::Namespace& quicr_name,
-                               const std::string& origin_url,
-                               bool use_reliable_transport,
-                               const std::string& auth_token,
-                               quicr::bytes&& e2e_token) {};
+  virtual void onPublishIntent(const quicr::Namespace& /*quicr_name */,
+                               const std::string& /* origin_url */,
+                               bool /* use_reliable_transport */,
+                               const std::string& /* auth_token */,
+                               quicr::bytes&& /* e2e_token */) {};
 
   virtual void onPublisherObject(const quicr::Name& quicr_name,
-                                 uint8_t priority,
-                                 uint16_t expiry_age_ms,
-                                 bool use_reliable_transport,
+                                 [[maybe_unused]] uint8_t priority,
+                                 [[maybe_unused]] uint16_t expiry_age_ms,
+                                 [[maybe_unused]] bool use_reliable_transport,
                                  quicr::bytes&& data)  {
 
     std::cout << " onPublisherObject: Name " << quicr_name.to_hex() << std::endl;
@@ -43,27 +43,27 @@ public:
 
   }
 
-  virtual void onPublishedFragment(const quicr::Name& quicr_name,
-                                   uint8_t priority,
-                                   uint16_t expiry_age_ms,
-                                   bool use_reliable_transport,
-                                   const uint64_t& offset,
-                                   bool is_last_fragment,
-                                   quicr::bytes&& data)
+  virtual void onPublishedFragment(const quicr::Name& /* quicr_name */,
+                                   uint8_t /* priority */,
+                                   uint16_t /* expiry_age_ms */,
+                                   bool /* use_reliable_transport */,
+                                   const uint64_t& /* offset */,
+                                   bool /* is_last_fragment */,
+                                   quicr::bytes&& /* data */)
   {
   }
 
   virtual void onSubscribe(const quicr::Namespace& quicr_namespace,
                            const uint64_t& subscriber_id,
-                           const quicr::SubscribeIntent subscribe_intent,
-                           const std::string& origin_url,
-                           bool use_reliable_transport,
-                           const std::string& auth_token,
-                           quicr::bytes&& data)
+                           [[maybe_unused]] const quicr::SubscribeIntent subscribe_intent,
+                           [[maybe_unused]] const std::string& origin_url,
+                           [[maybe_unused]] bool use_reliable_transport,
+                           [[maybe_unused]] const std::string& auth_token,
+                           [[maybe_unused]] quicr::bytes&& data)
   {
     std::cout << " onSubscribe: Namespace " << quicr_namespace.to_hex() << std::endl;
 
-    Subscriptions::Remote remote = { subscribe_id: subscriber_id };
+    Subscriptions::Remote remote = { .subscribe_id = subscriber_id };
     subscribeList.add(quicr_namespace.name(), quicr_namespace.length(), remote);
 
 
@@ -72,17 +72,17 @@ public:
     server->subscribeResponse(quicr_namespace, 0x0, result);
   }
 
-  virtual void on_connection_status(const qtransport::TransportContextId &context_id,
-                                    const qtransport::TransportStatus status) {}
+  virtual void on_connection_status(const qtransport::TransportContextId& /* context_id */,
+                                    const qtransport::TransportStatus /* status */) {}
 
-  virtual void on_new_connection(const qtransport::TransportContextId &context_id,
-                                 const qtransport::TransportRemote &remote) {}
+  virtual void on_new_connection(const qtransport::TransportContextId& /* context_id */,
+                                 const qtransport::TransportRemote& /* remote */) {}
 
-  virtual void on_new_media_stream(const qtransport::TransportContextId &context_id,
-                                   const qtransport::MediaStreamId &mStreamId) {}
+  virtual void on_new_media_stream(const qtransport::TransportContextId& /* context_id */,
+                                   const qtransport::MediaStreamId& /* mStreamId */) {}
 
-  virtual void on_recv_notify(const qtransport::TransportContextId &context_id,
-                              const qtransport::MediaStreamId &mStreamId) {}
+  virtual void on_recv_notify(const qtransport::TransportContextId& /* context_id */,
+                              const qtransport::MediaStreamId& /* mStreamId */) {}
 
   std::unique_ptr<quicr::QuicRServer> server;
   std::shared_ptr<qtransport::ITransport> transport;

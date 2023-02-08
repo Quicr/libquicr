@@ -111,9 +111,7 @@ public:
                                    bool use_reliable_transport,
                                    const uint64_t& offset,
                                    bool is_last_fragment,
-                                   bytes&& data)
-  {
-  }
+                                   bytes&& data);
 
   /*
    * @brief Report arrival of subscribe request for a QUICR Namespace
@@ -142,9 +140,7 @@ public:
                            const std::string& origin_url,
                            bool use_reliable_transport,
                            const std::string& auth_token,
-                           bytes&& data)
-  {
-  }
+                           bytes&& data);
 
   /**
    * @brief Unsubscribe callback method
@@ -158,9 +154,7 @@ public:
    */
   virtual void onUnsubscribe(const quicr::Namespace& quicr_namespace,
                              const uint64_t& subscriber_id,
-                             const std::string& auth_token)
-  {
-  }
+                             const std::string& auth_token);
 };
 
 class QuicRServer
@@ -347,15 +341,15 @@ private:
     uint64_t offset{ 0 };
   };
 
+  ServerDelegate& delegate;
   qtransport::LogHandler & log_handler;
+  TransportDelegate transport_delegate;
   std::shared_ptr<qtransport::ITransport> transport;
   qtransport::TransportRemote t_relay;
-  ServerDelegate& delegate;
   std::map<quicr::Namespace,
            std::map<qtransport::TransportContextId, SubscribeContext>> subscribe_state{};
   std::map<uint64_t , SubscribeContext> subscribe_id_state{};
   std::map<quicr::Name, PublishContext> publish_state{};
-  TransportDelegate transport_delegate;
   bool running{ false };
   uint64_t subscriber_id{ 0 };
 };

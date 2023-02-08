@@ -9,6 +9,25 @@
 #include "quicr/message_buffer.h"
 
 namespace quicr {
+
+void SubscriberDelegate::onSubscribedObject(const quicr::Name& /* quicr_name */,
+                                  uint8_t /* priority */,
+                                  uint16_t /* expiry_age_ms*/,
+                                  bool /* use_reliable_transport */,
+                                  bytes&& /* data */)
+{
+}
+
+void SubscriberDelegate::onSubscribedObjectFragment(const quicr::Name& /* quicr_name */,
+                                          uint8_t /* priority */,
+                                          uint16_t /* expiry_age_ms*/,
+                                          bool /* use_reliable_transport */,
+                                          const uint64_t& /* offset */,
+                                          bool /* is_last_fragment */,
+                                          bytes&& /* data */)
+{
+}
+
 ///
 /// Transport Delegate Implementation
 ///
@@ -23,20 +42,20 @@ public:
   virtual ~QuicRTransportDelegate() = default;
 
   virtual void on_connection_status(
-    const qtransport::TransportContextId& context_id,
-    const qtransport::TransportStatus status)
+    const qtransport::TransportContextId& /* context_id */,
+    const qtransport::TransportStatus /* status */ )
   {
   }
 
   virtual void on_new_connection(
-    const qtransport::TransportContextId& context_id,
-    const qtransport::TransportRemote& remote)
+    const qtransport::TransportContextId& /* context_id */,
+    const qtransport::TransportRemote& /* remote */)
   {
   }
 
   virtual void on_new_media_stream(
-    const qtransport::TransportContextId& context_id,
-    const qtransport::MediaStreamId& mStreamId)
+    const qtransport::TransportContextId& /* context_id */,
+    const qtransport::MediaStreamId& /* mStreamId */)
   {
   }
 
@@ -60,9 +79,9 @@ QuicRClient::make_transport(RelayInfo& relay_info,
                             qtransport::LogHandler& logger)
 {
   qtransport::TransportRemote server = {
-    host_or_ip : relay_info.hostname,
-    port : relay_info.port,
-    proto : relay_info.proto == RelayInfo::Protocol::UDP
+    .host_or_ip = relay_info.hostname,
+    .port = relay_info.port,
+    .proto = relay_info.proto == RelayInfo::Protocol::UDP
       ? qtransport::TransportProtocol::UDP
       : qtransport::TransportProtocol::QUIC,
   };
@@ -88,18 +107,18 @@ QuicRClient::QuicRClient(std::shared_ptr<ITransport> transport_in)
 }
 
 bool
-QuicRClient::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
-                           const quicr::Namespace& quicr_namespace,
-                           const std::string& origin_url,
-                           const std::string& auth_token,
-                           bytes&& payload)
+QuicRClient::publishIntent(std::shared_ptr<PublisherDelegate> /* pub_delegate */,
+                           const quicr::Namespace& /* quicr_namespace */,
+                           const std::string& /* origin_url */,
+                           const std::string& /* auth_token */,
+                           bytes&& /* payload */)
 {
   throw std::runtime_error("UnImplemented");
 }
 
 void
-QuicRClient::publishIntentEnd(const quicr::Namespace& quicr_namespace,
-                              const std::string& auth_token)
+QuicRClient::publishIntentEnd(const quicr::Namespace& /* quicr_namespace */,
+                              const std::string& /* auth_token */)
 {
   throw std::runtime_error("UnImplemented");
 }
@@ -108,10 +127,10 @@ void
 QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
                        const quicr::Namespace& quicr_namespace,
                        const SubscribeIntent& intent,
-                       const std::string& origin_url,
-                       bool use_reliable_transport,
-                       const std::string& auth_token,
-                       bytes&& e2e_token)
+                       [[maybe_unused]] const std::string& origin_url,
+                       [[maybe_unused]] bool use_reliable_transport,
+                       [[maybe_unused]] const std::string& auth_token,
+                       [[maybe_unused]] bytes&& e2e_token)
 {
 
   if (!sub_delegates.count(quicr_namespace)) {
@@ -148,18 +167,18 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
 }
 
 void
-QuicRClient::unsubscribe(const quicr::Namespace& quicr_namespace,
-                         const std::string& origin_url,
-                         const std::string& auth_token)
+QuicRClient::unsubscribe(const quicr::Namespace& /* quicr_namespace */,
+                         const std::string& /* origin_url */,
+                         const std::string& /* auth_token */)
 {
   throw std::runtime_error("UnImplemented");
 }
 
 void
 QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
-                                uint8_t priority,
-                                uint16_t expiry_age_ms,
-                                bool use_reliable_transport,
+                                [[maybe_unused]] uint8_t priority,
+                                [[maybe_unused]] uint16_t expiry_age_ms,
+                                [[maybe_unused]] bool use_reliable_transport,
                                 bytes&& data)
 {
   // start populating message to encode
@@ -197,13 +216,13 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
 }
 
 void
-QuicRClient::publishNamedObjectFragment(const quicr::Name& quicr_name,
-                                        uint8_t priority,
-                                        uint16_t expiry_age_ms,
-                                        bool use_reliable_transport,
-                                        const uint64_t& offset,
-                                        bool is_last_fragment,
-                                        bytes&& data)
+QuicRClient::publishNamedObjectFragment(const quicr::Name& /* quicr_name */,
+                                        uint8_t /* priority */,
+                                        uint16_t /* expiry_age_ms */,
+                                        bool /* use_reliable_transport */,
+                                        const uint64_t& /* offset */,
+                                        bool /* is_last_fragment */,
+                                        bytes&& /* data */)
 {
   throw std::runtime_error("UnImplemented");
 }
