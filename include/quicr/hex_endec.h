@@ -8,6 +8,9 @@
 #include <limits>
 #include <sstream>
 #include <vector>
+#include <cassert>
+#include <algorithm>
+#include <bitset>
 
 namespace quicr {
 /**
