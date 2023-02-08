@@ -36,8 +36,9 @@ public:
     std::list<Subscriptions::Remote> list = subscribeList.find(quicr_name);
 
     for (auto dest: list) {
+			quicr::bytes copy = data;
       server->sendNamedObject(dest.subscribe_id,
-                              quicr_name, 0, 0, false, std::move(data));
+                              quicr_name, 0, 0, false, std::move(copy));
     }
 
 

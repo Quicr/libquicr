@@ -13,8 +13,8 @@ public:
 
   struct Remote {
     uint64_t subscribe_id;
-    u_int64_t context_id;
-    u_int64_t stream_id;
+    uint64_t context_id;
+    uint64_t stream_id;
 
     bool operator==(const Remote &o) const {
       return subscribe_id == o.subscribe_id

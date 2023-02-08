@@ -145,6 +145,22 @@ public:
                            bytes&& data)
   {
   }
+
+  /**
+   * @brief Unsubscribe callback method
+   *
+   * @details Called for each unsubscribe message
+   *
+   * @param quicr_namespace          QuicR name/len
+   * @param subscriber_id            Subscriber ID connection/transport that
+   *                                 sent the message
+   * @param auth_token               Auth token to verify if value
+   */
+  virtual void onUnsubscribe(const quicr::Namespace& quicr_namespace,
+                             const uint64_t& subscriber_id,
+                             const std::string& auth_token)
+  {
+  }
 };
 
 class QuicRServer
@@ -165,7 +181,8 @@ public:
    * API for unit test cases .
    */
   QuicRServer(std::shared_ptr<qtransport::ITransport> transport,
-              ServerDelegate& delegate, qtransport::LogHandler& logger);
+              ServerDelegate& delegate /* TODO: Considering shared or weak pointer */,
+              qtransport::LogHandler& logger);
 
   // Transport APIs
   bool is_transport_ready();

@@ -3,8 +3,11 @@
 
 #include "encode.h"
 #include "quicr/message_buffer.h"
-#include <thread>
 #include <iostream>
+#include <sstream>
+#include <thread>
+
+#include <arpa/inet.h>
 
 namespace quicr {
 
@@ -209,18 +212,33 @@ QuicRServer::TransportDelegate::on_connection_status(
   const qtransport::TransportContextId& context_id,
   const qtransport::TransportStatus status)
 {
+  std::stringstream log_msg;
+  log_msg << "connection_status: cid: " << context_id << " status: " << int(status);
+  server.log_handler.log(qtransport::LogLevel::debug, log_msg.str());
 }
+
 void
 QuicRServer::TransportDelegate::on_new_connection(
   const qtransport::TransportContextId& context_id,
   const qtransport::TransportRemote& remote)
 {
+  std::stringstream log_msg;
+  log_msg << "new_connection: cid: " << context_id
+          << " remote: " << remote.host_or_ip
+          << " port:" << ntohs(remote.port);
+  server.log_handler.log(qtransport::LogLevel::debug, log_msg.str());
 }
+
 void
 QuicRServer::TransportDelegate::on_new_media_stream(
   const qtransport::TransportContextId& context_id,
   const qtransport::MediaStreamId& mStreamId)
 {
+  std::stringstream log_msg;
+  log_msg << "new_stream: cid: " << context_id
+          << " msid: " << mStreamId;
+
+  server.log_handler.log(qtransport::LogLevel::debug, log_msg.str());
 }
 
 void
