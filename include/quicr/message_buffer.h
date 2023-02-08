@@ -29,7 +29,7 @@ public:
   MessageBuffer(const MessageBuffer& other) = delete;
   ~MessageBuffer() = default;
 
-  constexpr bool empty() const { return _buffer.empty(); }
+  bool empty() const { return _buffer.empty(); }
 
   void push_back(uint8_t t) { _buffer.push_back(t); }
   void pop_back() { _buffer.pop_back(); }
