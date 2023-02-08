@@ -6,9 +6,9 @@
 #include <thread>
 #include <vector>
 
-#include "message_buffer.h"
-#include "quicr_common.h"
-#include "transport/transport.h"
+#include <quicr/message_buffer.h>
+#include <quicr/quicr_common.h>
+#include <transport/transport.h>
 
 /*
  * API for implementing server side of the QUICR protocol

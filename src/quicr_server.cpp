@@ -7,6 +7,8 @@
 #include <sstream>
 #include <thread>
 
+#include <arpa/inet.h>
+
 namespace quicr {
 
 /*
