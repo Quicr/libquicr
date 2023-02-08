@@ -6,6 +6,16 @@
 using namespace quicr;
 using namespace quicr::messages;
 
+TEST_CASE("MessageBuffer Decode Exception")
+{
+  uint8_t max = std::numeric_limits<uint8_t>::max();
+  MessageBuffer buffer;
+  buffer << max;
+  uint64_t out;
+  CHECK_THROWS((buffer >> out));
+}
+
+
 /*===========================================================================*/
 // Subscribe Message Types
 /*===========================================================================*/
@@ -18,7 +28,7 @@ TEST_CASE("Subscribe Message encode/decode")
   MessageBuffer buffer;
   buffer << s;
   Subscribe s_out;
-  CHECK((buffer >> s_out));
+  CHECK_NOTHROW((buffer >> s_out));
 
   CHECK_EQ(s_out.transaction_id, s.transaction_id);
   CHECK_EQ(s_out.quicr_namespace, s.quicr_namespace);
@@ -35,7 +45,7 @@ TEST_CASE("SubscribeResponse Message encode/decode")
   MessageBuffer buffer;
   buffer << s;
   SubscribeResponse s_out;
-  CHECK((buffer >> s_out));
+  CHECK_NOTHROW((buffer >> s_out));
   CHECK_EQ(s_out.quicr_namespace, s.quicr_namespace);
   CHECK_EQ(s_out.response, s.response);
   CHECK_EQ(s_out.transaction_id, s.transaction_id);
@@ -49,7 +59,7 @@ TEST_CASE("SubscribeEnd Message encode/decode")
   MessageBuffer buffer;
   buffer << s;
   SubscribeEnd s_out;
-  CHECK((buffer >> s_out));
+  CHECK_NOTHROW((buffer >> s_out));
 
   CHECK_EQ(s_out.message_type, s.message_type);
   CHECK_EQ(s_out.media_id, s.media_id);
@@ -70,7 +80,7 @@ TEST_CASE("PublishIntent Message encode/decode")
   MessageBuffer buffer;
   buffer << pi;
   PublishIntent pi_out;
-  CHECK((buffer >> pi_out));
+  CHECK_NOTHROW((buffer >> pi_out));
 
   CHECK_EQ(pi_out.message_type, pi.message_type);
   CHECK_EQ(pi_out.transaction_id, pi.transaction_id);
@@ -87,7 +97,7 @@ TEST_CASE("PublishIntentResponse Message encode/decode")
   MessageBuffer buffer;
   buffer << pir;
   PublishIntentResponse pir_out;
-  CHECK((buffer >> pir_out));
+  CHECK_NOTHROW((buffer >> pir_out));
 
   CHECK_EQ(pir_out.message_type, pir.message_type);
   CHECK_EQ(pir_out.response, pir.response);
@@ -109,7 +119,7 @@ TEST_CASE("Publish Message encode/decode")
   MessageBuffer buffer;
   buffer << p;
   PublishDatagram p_out;
-  CHECK((buffer >> p_out));
+  CHECK_NOTHROW((buffer >> p_out));
 
   CHECK_EQ(p_out.header.media_id, p.header.media_id);
   CHECK_EQ(p_out.header.group_id, p.header.group_id);
@@ -128,7 +138,7 @@ TEST_CASE("PublishStream Message encode/decode")
   MessageBuffer buffer;
   buffer << ps;
   PublishStream ps_out;
-  CHECK((buffer >> ps_out));
+  CHECK_NOTHROW((buffer >> ps_out));
 
   CHECK_EQ(ps_out.media_data_length, ps.media_data_length);
   CHECK_EQ(ps_out.media_data, ps.media_data);
@@ -144,7 +154,7 @@ TEST_CASE("PublishIntentEnd Message encode/decode")
   MessageBuffer buffer;
   buffer << pie;
   PublishIntentEnd pie_out;
-  CHECK((buffer >> pie_out));
+  CHECK_NOTHROW((buffer >> pie_out));
 
   CHECK_EQ(pie_out.message_type, pie.message_type);
   CHECK_EQ(pie_out.name_length, pie.name_length);

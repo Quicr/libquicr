@@ -347,9 +347,7 @@ bool
 operator>>(messages::MessageBuffer& msg, Name& val)
 {
   std::vector<uint8_t> bytes{};
-  if (!(msg >> bytes))
-    return false;
-
+  msg >> bytes;
   val = Name{bytes};
 
   return true;

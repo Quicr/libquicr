@@ -52,17 +52,22 @@ public:
 private:
   std::vector<uint8_t> _buffer;
 };
+
+struct MessageBufferException : public std::runtime_error
+{
+  using std::runtime_error::runtime_error;
+};
   
 MessageBuffer& operator<<(MessageBuffer& msg, uint8_t val);
-bool operator>>(MessageBuffer& msg, uint8_t& val);
+MessageBuffer& operator>>(MessageBuffer& msg, uint8_t& val);
 
 MessageBuffer& operator<<(MessageBuffer& msg, const uint64_t& val);
-bool operator>>(MessageBuffer& msg, uint64_t& val);
+MessageBuffer& operator>>(MessageBuffer& msg, uint64_t& val);
 
 MessageBuffer& operator<<(MessageBuffer& msg, const uintVar_t& val);
-bool operator>>(MessageBuffer& msg, uintVar_t& val);
+MessageBuffer& operator>>(MessageBuffer& msg, uintVar_t& val);
 
 MessageBuffer& operator<<(MessageBuffer& msg, const std::vector<uint8_t>& val);
-bool operator>>(MessageBuffer& msg, std::vector<uint8_t>& val);
+MessageBuffer& operator>>(MessageBuffer& msg, std::vector<uint8_t>& val);
 }
 }

@@ -278,9 +278,6 @@ QuicRServer::TransportDelegate::on_recv_notify(
     if (data.has_value()) {
       uint8_t msg_type = data.value().back();
       messages::MessageBuffer msg_buffer{ data.value() };
-      //std::cout << msg_buffer.to_hex() << std::endl;
-      //messages::PublishDatagram datagram;
-      //msg_buffer >> datagram;
       if (msg_type == static_cast<uint8_t>(messages::MessageType::Subscribe)) {
         server.handle_subscribe(context_id, mStreamId, std::move(msg_buffer));
       } else if (msg_type ==

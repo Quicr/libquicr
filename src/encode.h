@@ -59,9 +59,9 @@ struct Subscribe
   SubscribeIntent intent;
 };
 
-void
+MessageBuffer&
 operator<<(MessageBuffer& buffer, const Subscribe& msg);
-bool
+MessageBuffer&
 operator>>(MessageBuffer& buffer, Subscribe& msg);
 
 struct SubscribeResponse
@@ -79,9 +79,9 @@ struct SubscribeResponse
    */
 };
 
-void
+MessageBuffer&
 operator<<(MessageBuffer& buffer, const SubscribeResponse& msg);
-bool
+MessageBuffer&
 operator>>(MessageBuffer& buffer, SubscribeResponse& msg);
 
 struct SubscribeEnd
@@ -95,9 +95,9 @@ struct SubscribeEnd
    */
 };
 
-void
+MessageBuffer&
 operator<<(MessageBuffer& buffer, const SubscribeEnd& msg);
-bool
+MessageBuffer&
 operator>>(MessageBuffer& buffer, SubscribeEnd& msg);
 
 /*===========================================================================*/
@@ -119,9 +119,9 @@ struct PublishIntent
   uintVar_t datagram_capable;
 };
 
-void
+MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishIntent& msg);
-bool
+MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishIntent& msg);
 
 struct PublishIntentResponse
@@ -134,9 +134,9 @@ struct PublishIntentResponse
   // *  [Reason Phrase (..)],
 };
 
-void
+MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishIntentResponse& msg);
-bool
+MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishIntentResponse& msg);
 
 struct Header
@@ -149,9 +149,9 @@ struct Header
   uint8_t flags;
 };
 
-void
+MessageBuffer&
 operator<<(MessageBuffer& buffer, const Header& msg);
-bool
+MessageBuffer&
 operator>>(MessageBuffer& buffer, Header& msg);
 
 struct PublishDatagram
@@ -162,9 +162,9 @@ struct PublishDatagram
   std::vector<uint8_t> media_data;
 };
 
-void
+MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishDatagram& msg);
-bool
+MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishDatagram& msg);
 
 struct PublishStream
@@ -173,9 +173,9 @@ struct PublishStream
   std::vector<uint8_t> media_data;
 };
 
-void
+MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishStream& msg);
-bool
+MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishStream& msg);
 
 struct PublishIntentEnd
@@ -188,9 +188,9 @@ struct PublishIntentEnd
   std::vector<uint8_t> payload;
 };
 
-void
+MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishIntentEnd& msg);
-bool
+MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishIntentEnd& msg);
 
 }
