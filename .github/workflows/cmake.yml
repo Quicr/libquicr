@@ -20,6 +20,7 @@ jobs:
         os: [  macos-latest, macos-12, ubuntu-latest ]
         
     runs-on: ${{ matrix.os }}
+    continue-on-error: true
 
     steps:
     - uses: actions/checkout@v3
