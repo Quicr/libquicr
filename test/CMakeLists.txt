@@ -25,5 +25,5 @@ if(MSVC)
     target_compile_definitions(quicr_test _CRT_SECURE_NO_WARNINGS)
 endif()
 
-add_test(NAME quicr_test
-         COMMAND quicr_test)
+include(${CMAKE_SOURCE_DIR}/dependencies/doctest/scripts/cmake/doctest.cmake)
+doctest_discover_tests(quicr_test)
