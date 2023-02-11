@@ -11,37 +11,40 @@
 
 namespace quicr {
 
-void ServerDelegate::onPublishedFragment(const quicr::Name& /* quicr_name */,
-                                  uint8_t /* priority */,
-                                  uint16_t /* expiry_age_ms */,
-                                  bool /* use_reliable_transport */,
-                                  const uint64_t& /* offset */,
-                                  bool /* is_last_fragment */,
-                                  bytes&& /* data */)
+void
+ServerDelegate::onPublishedFragment(const quicr::Name& /* quicr_name */,
+                                    uint8_t /* priority */,
+                                    uint16_t /* expiry_age_ms */,
+                                    bool /* use_reliable_transport */,
+                                    const uint64_t& /* offset */,
+                                    bool /* is_last_fragment */,
+                                    bytes&& /* data */)
 {
 }
-void ServerDelegate::onSubscribe(const quicr::Namespace& /* quicr_namespace */,
-                          const uint64_t& /* subscriber_id */,
-                          const SubscribeIntent /* subscribe_intent */,
-                          const std::string& /* origin_url */,
-                          bool /* use_reliable_transport */,
-                          const std::string& /* auth_token */,
-                          bytes&& /* data */)
-{
-}
-
-void ServerDelegate::onUnsubscribe(const quicr::Namespace& /* quicr_namespace */,
-                          const uint64_t& /* subscriber_id */,
-                          const std::string& /* auth_token */)
+void
+ServerDelegate::onSubscribe(const quicr::Namespace& /* quicr_namespace */,
+                            const uint64_t& /* subscriber_id */,
+                            const SubscribeIntent /* subscribe_intent */,
+                            const std::string& /* origin_url */,
+                            bool /* use_reliable_transport */,
+                            const std::string& /* auth_token */,
+                            bytes&& /* data */)
 {
 }
 
+void
+ServerDelegate::onUnsubscribe(const quicr::Namespace& /* quicr_namespace */,
+                              const uint64_t& /* subscriber_id */,
+                              const std::string& /* auth_token */)
+{
+}
 
 /*
  * Start the  QUICR server at the port specified.
  *  @param delegate_in: Callback handlers for QUICR operations
  */
-QuicRServer::QuicRServer(RelayInfo& relayInfo, ServerDelegate& delegate_in,
+QuicRServer::QuicRServer(RelayInfo& relayInfo,
+                         ServerDelegate& delegate_in,
                          qtransport::LogHandler& logger)
   : delegate(delegate_in)
   , log_handler(logger)
@@ -104,8 +107,9 @@ QuicRServer::run()
 }
 
 void
-QuicRServer::publishIntentResponse(const quicr::Namespace& /* quicr_namespace */,
-                                   const PublishIntentResult& /* result */)
+QuicRServer::publishIntentResponse(
+  const quicr::Namespace& /* quicr_namespace */,
+  const PublishIntentResult& /* result */)
 {
   throw std::runtime_error("Unimplemented");
 }
@@ -134,7 +138,7 @@ QuicRServer::subscriptionEnded(const quicr::Namespace& /* quicr_namespace */,
 
 void
 QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
-                              const quicr::Name& quicr_name,
+                             const quicr::Name& quicr_name,
                              [[maybe_unused]] uint8_t priority,
                              [[maybe_unused]] uint64_t best_before,
                              [[maybe_unused]] bool use_reliable_transport,
@@ -148,8 +152,7 @@ QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
 
   auto& context = subscribe_id_state[subscriber_id];
   datagram.header.name = quicr_name;
-  datagram.header.media_id =
-    static_cast<uintVar_t>(context.media_stream_id);
+  datagram.header.media_id = static_cast<uintVar_t>(context.media_stream_id);
   datagram.header.flags = 0x0;
   datagram.header.offset_and_fin = static_cast<uintVar_t>(1);
   datagram.media_type =
@@ -160,9 +163,8 @@ QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
   messages::MessageBuffer msg;
   msg << datagram;
 
-  transport->enqueue(context.transport_context_id,
-                     context.media_stream_id,
-                     msg.get());
+  transport->enqueue(
+    context.transport_context_id, context.media_stream_id, msg.get());
 }
 
 void
@@ -213,16 +215,22 @@ QuicRServer::handle_subscribe(const qtransport::TransportContextId& context_id,
 }
 
 void
-QuicRServer::handle_publish([[maybe_unused]] const qtransport::TransportContextId& context_id,
-                            [[maybe_unused]] const qtransport::MediaStreamId& mStreamId,
-                            messages::MessageBuffer&& msg)
+QuicRServer::handle_publish(
+  [[maybe_unused]] const qtransport::TransportContextId& context_id,
+  [[maybe_unused]] const qtransport::MediaStreamId& mStreamId,
+  messages::MessageBuffer&& msg)
 {
   messages::PublishDatagram datagram;
   msg >> datagram;
   // TODO: Add publish_state when we support PublishIntent
 
-  delegate.onPublisherObject(
-    datagram.header.name, 0, 0, false, std::move(datagram.media_data));
+  delegate.onPublisherObject(datagram.header.name,
+                             context_id,
+                             mStreamId,
+                             0,
+                             0,
+                             false,
+                             std::move(datagram.media_data));
 }
 
 // --------------------------------------------------
@@ -239,7 +247,8 @@ QuicRServer::TransportDelegate::on_connection_status(
   const qtransport::TransportStatus status)
 {
   std::stringstream log_msg;
-  log_msg << "connection_status: cid: " << context_id << " status: " << int(status);
+  log_msg << "connection_status: cid: " << context_id
+          << " status: " << int(status);
   server.log_handler.log(qtransport::LogLevel::debug, log_msg.str());
 }
 
@@ -250,8 +259,7 @@ QuicRServer::TransportDelegate::on_new_connection(
 {
   std::stringstream log_msg;
   log_msg << "new_connection: cid: " << context_id
-          << " remote: " << remote.host_or_ip
-          << " port:" << ntohs(remote.port);
+          << " remote: " << remote.host_or_ip << " port:" << ntohs(remote.port);
   server.log_handler.log(qtransport::LogLevel::debug, log_msg.str());
 }
 
@@ -261,8 +269,7 @@ QuicRServer::TransportDelegate::on_new_media_stream(
   const qtransport::MediaStreamId& mStreamId)
 {
   std::stringstream log_msg;
-  log_msg << "new_stream: cid: " << context_id
-          << " msid: " << mStreamId;
+  log_msg << "new_stream: cid: " << context_id << " msid: " << mStreamId;
 
   server.log_handler.log(qtransport::LogLevel::debug, log_msg.str());
 }

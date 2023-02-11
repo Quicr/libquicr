@@ -20,11 +20,14 @@ class TestServerDelegate : public ServerDelegate
   {
   }
 
-  virtual void onPublisherObject(const quicr::Name& /* quicr_name */,
-                                 uint8_t /* priority */,
-                                 uint16_t /* expiry_age_ms */,
-                                 bool /* use_reliable_transport */,
-                                 bytes&& /* data */) override
+  virtual void onPublisherObject(
+    const quicr::Name& /* quicr_name */,
+    [[maybe_unused]] const qtransport::TransportContextId& context_id,
+    [[maybe_unused]] const qtransport::MediaStreamId& stream_id,
+    uint8_t /* priority */,
+    uint16_t /* expiry_age_ms */,
+    bool /* use_reliable_transport */,
+    bytes&& /* data */) override
   {
   }
 
@@ -53,15 +56,11 @@ TEST_CASE("Object Lifetime")
 {
   TestServerDelegate delegate{};
   FakeTransport fake_transport;
-  RelayInfo relayInfo = {
-    .hostname = "127.0.0.1",
-    .port = 1234,
-    .proto = RelayInfo::Protocol::UDP
-  };
+  RelayInfo relayInfo = { .hostname = "127.0.0.1",
+                          .port = 1234,
+                          .proto = RelayInfo::Protocol::UDP };
   qtransport::LogHandler logger;
-  CHECK_NOTHROW(std::make_unique<QuicRServer>(relayInfo,
-                                              delegate,
-                                              logger));
+  CHECK_NOTHROW(std::make_unique<QuicRServer>(relayInfo, delegate, logger));
 }
 
 #if 0
