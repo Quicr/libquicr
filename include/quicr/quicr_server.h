@@ -50,10 +50,16 @@ public:
                                const std::string& auth_token,
                                bytes&& e2e_token) = 0;
 
-  /*
+  /**
    * @brief Reports arrival of fully assembled QUICR object under the name
    *
+   *  @details Entities implementing this API shall perform look up
+   *           on active subscriptions for the name to forward the
+   *           objects.
+   *
    * @param quicr_name               : Identifies the QUICR Name for the object
+   * @param context_id               : Context id the message was received on
+   * @param stream_id                : Stream ID the message was received on
    * @param priority                 : Identifies the relative priority of the
    *                                   current object
    * @param expiry_age_ms            : Time hint for the object to be in cache
@@ -61,10 +67,6 @@ public:
    * @param use_reliable_transport   : Indicates the preference for the object's
    *                                   transport, if forwarded.
    * @param data                     : Opaque payload of the fragment
-   *
-   *  @details Entities implementing this API shall perform look up
-   *           on active subscriptions for the name to forward the
-   *           objects.
    *
    * @note: It is important that the implementations not perform
    *         compute intensive tasks in this callback, but rather
@@ -75,11 +77,14 @@ public:
    *         callbacks will be called. The delegate implementation
    *         shall decide the right callback for their usage.
    */
-  virtual void onPublisherObject(const quicr::Name& quicr_name,
-                                 uint8_t priority,
-                                 uint16_t expiry_age_ms,
-                                 bool use_reliable_transport,
-                                 bytes&& data) = 0;
+  virtual void onPublisherObject(
+    const quicr::Name& quicr_name,
+    const qtransport::TransportContextId& context_id,
+    const qtransport::MediaStreamId& stream_id,
+    uint8_t priority,
+    uint16_t expiry_age_ms,
+    bool use_reliable_transport,
+    bytes&& data) = 0;
 
   /*
    * @brief arrival of published QUICR object fragment under a Name
@@ -113,10 +118,22 @@ public:
                                    bool is_last_fragment,
                                    bytes&& data);
 
-  /*
+  /**
    * @brief Report arrival of subscribe request for a QUICR Namespace
+	 *
+   * @details Entities processing the Subscribe Request MUST validate the
+   * 		request against the token, verify if the Origin specified in the origin_url
+   *    is trusted and forward the request to the next hop Relay for that
+   *    Origin or to the Origin (if it is the next hop) unless the entity
+   *    itself the Origin server.
+   *    It is expected for the Relays to store the subscriber state
+   *    mapping the subscribe context, namespaces and other relation information.
    *
    * @param namespace             : Identifies QUICR namespace
+   * @param subscriber_id            Subscriber ID connection/transport that
+   *                                 sent the message
+   * @param context_id               : Context id the message was received on
+   * @param stream_id                : Stream ID the message was received on
    * @param subscribe_intent      : Subscribe intent to determine the start
    * point for serving the mactched objects. The application may choose a
    * different intent mode, but must be aware of the effects.
@@ -126,16 +143,11 @@ public:
    * Request
    * @param payload               : Opaque payload to be forwarded to the Origin
    *
-   * @details Entities processing the Subscribe Request MUST validate the
-   * request against the token, verify if the Origin specified in the origin_url
-   *          is trusted and forward the request to the next hop Relay for that
-   *          Origin or to the Origin (if it is the next hop) unless the entity
-   *          itself the Origin server.
-   *          It is expected for the Relays to store the subscriber state
-   * mapping the subscribe context, namespaces and other relation information.
    */
   virtual void onSubscribe(const quicr::Namespace& quicr_namespace,
                            const uint64_t& subscriber_id,
+                           const qtransport::TransportContextId& context_id,
+                           const qtransport::MediaStreamId& stream_id,
                            const SubscribeIntent subscribe_intent,
                            const std::string& origin_url,
                            bool use_reliable_transport,
@@ -168,15 +180,17 @@ public:
    * @param logger           : Log handler instance. Will be used by transport
    *                           quicr api
    */
-  QuicRServer(RelayInfo& relayInfo, ServerDelegate& delegate,
+  QuicRServer(RelayInfo& relayInfo,
+              ServerDelegate& delegate,
               qtransport::LogHandler& logger);
 
   /**
    * API for unit test cases .
    */
-  QuicRServer(std::shared_ptr<qtransport::ITransport> transport,
-              ServerDelegate& delegate /* TODO: Considering shared or weak pointer */,
-              qtransport::LogHandler& logger);
+  QuicRServer(
+    std::shared_ptr<qtransport::ITransport> transport,
+    ServerDelegate& delegate /* TODO: Considering shared or weak pointer */,
+    qtransport::LogHandler& logger);
 
   // Transport APIs
   bool is_transport_ready();
@@ -342,13 +356,14 @@ private:
   };
 
   ServerDelegate& delegate;
-  qtransport::LogHandler & log_handler;
+  qtransport::LogHandler& log_handler;
   TransportDelegate transport_delegate;
   std::shared_ptr<qtransport::ITransport> transport;
   qtransport::TransportRemote t_relay;
   std::map<quicr::Namespace,
-           std::map<qtransport::TransportContextId, SubscribeContext>> subscribe_state{};
-  std::map<uint64_t , SubscribeContext> subscribe_id_state{};
+           std::map<qtransport::TransportContextId, SubscribeContext>>
+    subscribe_state{};
+  std::map<uint64_t, SubscribeContext> subscribe_id_state{};
   std::map<quicr::Name, PublishContext> publish_state{};
   bool running{ false };
   uint64_t subscriber_id{ 0 };
