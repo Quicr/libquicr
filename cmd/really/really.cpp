@@ -67,6 +67,8 @@ public:
   virtual void onSubscribe(
     const quicr::Namespace& quicr_namespace,
     const uint64_t& subscriber_id,
+    [[maybe_unused]] const qtransport::TransportContextId& context_id,
+    [[maybe_unused]] const qtransport::MediaStreamId& stream_id,
     [[maybe_unused]] const quicr::SubscribeIntent subscribe_intent,
     [[maybe_unused]] const std::string& origin_url,
     [[maybe_unused]] bool use_reliable_transport,

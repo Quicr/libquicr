@@ -43,6 +43,8 @@ class TestServerDelegate : public ServerDelegate
 
   virtual void onSubscribe(const quicr::Namespace& /* quicr_namespace */,
                            const uint64_t& /* subscriber_id */,
+                           const qtransport::TransportContextId& /* context_id */,
+                           const qtransport::TransportContextId& /*stream_id */,
                            const SubscribeIntent /* subscribe_intent */,
                            const std::string& /* origin_url */,
                            bool /* use_reliable_transport */,

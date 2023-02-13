@@ -118,10 +118,22 @@ public:
                                    bool is_last_fragment,
                                    bytes&& data);
 
-  /*
+  /**
    * @brief Report arrival of subscribe request for a QUICR Namespace
+	 *
+   * @details Entities processing the Subscribe Request MUST validate the
+   * 		request against the token, verify if the Origin specified in the origin_url
+   *    is trusted and forward the request to the next hop Relay for that
+   *    Origin or to the Origin (if it is the next hop) unless the entity
+   *    itself the Origin server.
+   *    It is expected for the Relays to store the subscriber state
+   *    mapping the subscribe context, namespaces and other relation information.
    *
    * @param namespace             : Identifies QUICR namespace
+   * @param subscriber_id            Subscriber ID connection/transport that
+   *                                 sent the message
+   * @param context_id               : Context id the message was received on
+   * @param stream_id                : Stream ID the message was received on
    * @param subscribe_intent      : Subscribe intent to determine the start
    * point for serving the mactched objects. The application may choose a
    * different intent mode, but must be aware of the effects.
@@ -131,16 +143,11 @@ public:
    * Request
    * @param payload               : Opaque payload to be forwarded to the Origin
    *
-   * @details Entities processing the Subscribe Request MUST validate the
-   * request against the token, verify if the Origin specified in the origin_url
-   *          is trusted and forward the request to the next hop Relay for that
-   *          Origin or to the Origin (if it is the next hop) unless the entity
-   *          itself the Origin server.
-   *          It is expected for the Relays to store the subscriber state
-   * mapping the subscribe context, namespaces and other relation information.
    */
   virtual void onSubscribe(const quicr::Namespace& quicr_namespace,
                            const uint64_t& subscriber_id,
+                           const qtransport::TransportContextId& context_id,
+                           const qtransport::MediaStreamId& stream_id,
                            const SubscribeIntent subscribe_intent,
                            const std::string& origin_url,
                            bool use_reliable_transport,
