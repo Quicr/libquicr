@@ -98,23 +98,4 @@ operator<<(std::ostream& os, const Namespace& ns)
   os << ns.to_hex();
   return os;
 }
-
-void
-operator<<(messages::MessageBuffer& msg, const quicr::Namespace& val)
-{
-  msg.push_back(val._sig_bits);
-  msg << val._mask_name;
-}
-
-bool
-operator>>(messages::MessageBuffer& msg, quicr::Namespace& val)
-{
-  msg >> val._mask_name;
-
-  uintVar_t sig_bits{0};
-  msg >> sig_bits;
-  val._sig_bits = static_cast<uint16_t>(sig_bits);
-
-  return true;
-}
 }

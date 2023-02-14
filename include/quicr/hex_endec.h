@@ -102,7 +102,7 @@ public:
       bits |= std::bitset<Size>(value) << remaining_bits;
     };
 
-    if (Size > sizeof(uint64_t) * 8)
+    if constexpr(Size > sizeof(uint64_t) * 8)
     {
       static const std::bitset<Size> bitset_divider(std::numeric_limits<uint64_t>::max());
       ss << std::setw(Size / 8) << (bits >> (Size / 2) & bitset_divider).to_ullong();
@@ -176,7 +176,7 @@ public:
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
     static_assert(is_valid_uint<Uint_t>::value, "Type must be unsigned integer");
 
-    uint8_t size_of_name = sizeof(quicr::Name::uint_type) * 8 * 2;
+    constexpr uint8_t size_of_name = quicr::Name::size() * 8;
     quicr::Name temp = name << (size_of_name - Size);
     
     std::vector<Uint_t> result(distribution.size());
@@ -194,7 +194,7 @@ private:
   static inline void ValidateString(const std::string& hex)
   {
     std::string clean_hex = hex;
-    auto found = clean_hex.find("0x");
+    auto found = clean_hex.substr(0, 2).find("0x");
     if (found != std::string::npos)
       clean_hex.erase(found, 2);
 

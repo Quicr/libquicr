@@ -1,3 +1,4 @@
+#include <array>
 #include <string>
 #include <ctime>
 
@@ -21,7 +22,6 @@ transaction_id()
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const Subscribe& msg)
 {
-  // TODO: namespace encode and decode needs to be part of its own class
   buffer << static_cast<uint8_t>(msg.intent);
   buffer << msg.quicr_namespace;
   buffer << msg.transaction_id;
@@ -275,6 +275,47 @@ operator>>(MessageBuffer& buffer, PublishIntentEnd& msg)
   buffer >> msg.payload;
 
   return buffer;
+}
+
+messages::MessageBuffer&
+operator<<(messages::MessageBuffer& msg, const quicr::Name& val)
+{
+  constexpr uint8_t size = quicr::Name::size();
+  for (size_t i = 0; i < size; ++i)
+    msg << val[size - 1 - i];
+
+  return msg;
+}
+
+messages::MessageBuffer&
+operator>>(messages::MessageBuffer& msg, quicr::Name& val)
+{
+  constexpr uint8_t size = quicr::Name::size();
+  std::array<uint8_t, size> bytes;
+  for (int i = 0; i < size; ++i)
+    msg >> bytes[i];
+
+  val = Name{bytes.data(), size};
+
+  return msg;
+}
+
+messages::MessageBuffer&
+operator<<(messages::MessageBuffer& msg, const quicr::Namespace& val)
+{
+  msg << val.length() << val.name();
+  return msg;
+}
+
+messages::MessageBuffer&
+operator>>(messages::MessageBuffer& msg, quicr::Namespace& val)
+{
+  quicr::Name name_mask;
+  uint8_t sig_bits;
+  msg >> name_mask >> sig_bits;
+  val = Namespace{name_mask, sig_bits};
+
+  return msg;
 }
 
 }

@@ -100,17 +100,11 @@ TEST_CASE("quicr::Name Arithmetic Tests")
 
 TEST_CASE("quicr::Name Byte Array Tests")
 {
-  auto make_bytes = [](quicr::Name::uint_type v) {
-    std::vector<uint8_t> result(sizeof(quicr::Name::uint_type));
-    for (size_t i = 0; i < sizeof(quicr::Name::uint_type); ++i) {
-      result[i] = static_cast<uint8_t>((v >> 8 * i));
-    }
-    return result;
-  };
-
-  auto byte_arr = make_bytes(0x1000000000000000);
-  auto low_byte_arr = make_bytes(0x0000000000000000);
-  byte_arr.insert(byte_arr.end(), low_byte_arr.begin(), low_byte_arr.end());
+  std::vector<uint8_t> byte_arr(sizeof(quicr::Name::uint_type) * 2);
+  for (size_t i = 0; i < sizeof(quicr::Name::uint_type); ++i) {
+    byte_arr[i] = static_cast<uint8_t>((0x0 >> 8 * i));
+    byte_arr[i + sizeof(quicr::Name::uint_type)] = static_cast<uint8_t>((0x1000000000000000 >> 8 * i));
+  }
 
   CHECK_FALSE(byte_arr.empty());
   CHECK_EQ(byte_arr.size(), 16);

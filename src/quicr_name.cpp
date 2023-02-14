@@ -7,7 +7,7 @@
 #include <string>
 
 namespace quicr {
-static constexpr size_t uint_type_bit_size = sizeof(Name::uint_type) * 8;
+static constexpr size_t uint_type_bit_size = Name::size() * 4;
 
 Name::Name()
   : _hi{ 0 }
@@ -34,15 +34,14 @@ Name::Name(const std::string& hex_value)
   if (found != std::string::npos)
     clean_hex.erase(found, 2);
 
-  const auto size_of = sizeof(Name::uint_type) * 2;
-  if (clean_hex.length() > size_of * 2)
+  if (clean_hex.length() > size() * 2)
     throw NameException("Hex string cannot be longer than " +
-                        std::to_string(size_of * 2) + " bytes");
+                        std::to_string(size() * 2) + " bytes");
 
-  if (clean_hex.length() > size_of) {
-    size_t midpoint = clean_hex.length() - size_of;
+  if (clean_hex.length() > size()) {
+    size_t midpoint = clean_hex.length() - size();
     _hi = std::stoull(clean_hex.substr(0, midpoint), nullptr, 16);
-    _low = std::stoull(clean_hex.substr(midpoint, size_of), nullptr, 16);
+    _low = std::stoull(clean_hex.substr(midpoint, size()), nullptr, 16);
   } else {
     _hi = 0;
     _low = std::stoull(clean_hex, nullptr, 16);
@@ -61,19 +60,15 @@ Name::Name(const uint8_t* data, size_t length)
 
 Name::Name(const std::vector<uint8_t>& data)
 {
-  auto midpoint = std::prev(data.end(), sizeof(uint_type));
-
-  std::vector<uint8_t> hi_bits{ data.begin(), midpoint };
-  std::memcpy(&_hi, hi_bits.data(), hi_bits.size());
-
-  std::vector<uint8_t> low_bits{ midpoint, data.end() };
-  std::memcpy(&_low, low_bits.data(), low_bits.size());
+  constexpr size_t size_of = size() / 2;
+  std::memcpy(&_low, data.data()          , size_of);
+  std::memcpy(&_hi , data.data() + size_of, size_of);
 }
 
 std::string
 Name::to_hex() const
 {
-  constexpr uint8_t size_of = sizeof(uint_type) * 2;
+  constexpr uint8_t size_of = size();
 
   std::ostringstream stream;
   stream << "0x" << std::hex << std::setfill('0');
@@ -82,6 +77,15 @@ Name::to_hex() const
   
   return stream.str();
 }
+
+std::uint8_t Name::operator[](std::size_t index) const
+{
+  if (index >= size())
+    throw std::out_of_range("Cannot access index outside of max size of quicr::Name");
+
+  if (index < sizeof(uint_type)) return (_low >> (index * 8)) & 0xff;
+  return (_hi >> ((index - sizeof(uint_type)) * 8)) & 0xff;
+} 
 
 Name
 Name::operator>>(uint16_t value) const
@@ -321,35 +325,5 @@ operator<<(std::ostream& os, const Name& name)
 {
   os << name.to_hex();
   return os;
-}
-
-std::vector<uint8_t>
-Name::data() const
-{
-  std::vector<uint8_t> result(sizeof(uint_type) * 2);
-
-  for (uint8_t i = 0; i < sizeof(uint_type); ++i)
-  {
-    result[i] = static_cast<uint8_t>(( _hi >> 8 * i));
-    result[i + sizeof(uint_type)] = static_cast<uint8_t>((_low >> 8 * i));
-  }
-
-  return result;
-}
-
-void
-operator<<(messages::MessageBuffer& msg, const Name& val)
-{
-  msg << val.data();
-}
-
-bool
-operator>>(messages::MessageBuffer& msg, Name& val)
-{
-  std::vector<uint8_t> bytes{};
-  msg >> bytes;
-  val = Name{bytes};
-
-  return true;
 }
 }
