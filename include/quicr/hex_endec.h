@@ -2,15 +2,14 @@
 
 #include <quicr/quicr_name.h>
 
+#include <algorithm>
 #include <array>
+#include <bitset>
+#include <cassert>
 #include <cstdint>
 #include <iomanip>
-#include <limits>
-#include <sstream>
+#include <span>
 #include <vector>
-#include <cassert>
-#include <algorithm>
-#include <bitset>
 
 namespace quicr {
 /**
@@ -20,18 +19,18 @@ namespace quicr {
  * The hex string created by/passed to this class is of the format:
  *     0xXX...XYY...YZZ...Z....
  *       |____||____||____|
- *         N0    N1    N2   ...
+ *        Dist0 Dist1 Dist2   ...
  *       |_____________________|
  *                Size
- * Where N is the distribution of bits for each value provided. For Example:
+ * Where Dist is the distribution of bits for each value provided. For Example:
  *   HexEndec<64, 32, 24, 8>
  * Describes a 64 bit hex value, distributed into 3 sections 32bit, 24bit, and
  * 8bit respectively.
  *
  * @tparam Size The maximum size in bits of the Hex string
- * @tparam ...N The distribution of bits for each value passed.
+ * @tparam ...Dist The distribution of bits for each value passed.
  */
-template<uint8_t Size, uint8_t... N>
+template<uint16_t Size, uint8_t... Dist>
 class HexEndec
 {
   template<typename... UInt_ts>
@@ -44,164 +43,234 @@ public:
   HexEndec()
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
-    static_assert(Size == (N + ...), "Total bits must be equal to Size");
+    static_assert(Size == (Dist + ...), "Total bits must be equal to Size");
   }
 
   /**
-   * @brief Encodes the last N bits of values in order according to distribution
-   *        of N and builds a hex string that is the size in bits of Size.
+   * @brief Encodes the last Dist bits of values in order according to distribution
+   *        of Dist and builds a hex string that is the size in bits of Size.
    * 
    * @tparam ...UInt_ts The unsigned integer types to be passed.
    * @param ...values The unsigned values to be encoded into the hex string.
    *
    * @returns Hex string containing the provided values distributed according to
-   *          N in order.
+   *          Dist in order.
    */
   template<typename... UInt_ts>
   static inline std::string Encode(UInt_ts... values)
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
-    static_assert(Size == (N + ...), "Total bits cannot exceed specified size");
-    static_assert(sizeof...(N) == sizeof...(UInt_ts),
+    static_assert(Size == (Dist + ...), "Total bits cannot exceed specified size");
+    static_assert(sizeof...(Dist) == sizeof...(UInt_ts),
                   "Number of values should match distribution of bits");
+    static_assert(is_valid_uint<UInt_ts...>::value, "Arguments must all be unsigned integers");
 
-    std::vector<uint8_t> distribution;
-    (distribution.push_back(N), ...);
-
-    return Encode(distribution, std::forward<UInt_ts>(values)...);
+    std::array<uint8_t, sizeof...(UInt_ts)> distribution{Dist...};
+    return Encode(std::span<uint8_t>(distribution), std::forward<UInt_ts>(values)...);
   }
   
   template<typename... UInt_ts>
-  static inline std::string Encode(const std::vector<uint8_t>& distribution, UInt_ts... values)
+  static inline std::string Encode(std::span<uint8_t> distribution, UInt_ts... values)
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
     static_assert(is_valid_uint<UInt_ts...>::value, "Arguments must all be unsigned integers");
-    assert(distribution.size() == sizeof...(UInt_ts) && "Number of values should match distribution of bits");
+    assert(distribution.size() == sizeof...(UInt_ts) &&  "Number of values should match distribution of bits");
 
-    std::vector<uint64_t> vals;
-    (vals.push_back(values), ...);
-
-    return Encode(distribution, vals);
+    std::array<uint64_t, sizeof...(UInt_ts)> vals{values...};
+    return Encode(distribution, std::span<uint64_t>(vals));
+  }
+  
+  template<size_t N, typename... UInt_ts>
+  static inline std::string Encode(std::array<uint8_t, N> distribution, UInt_ts... values)
+  {
+    return Encode(std::span<uint8_t>(distribution), std::forward<UInt_ts>(values)...);
   }
 
-  static inline std::string Encode(const std::vector<uint8_t>& distribution, const std::vector<uint64_t>& values)
+  template<bool B = Size <= sizeof(uint64_t) * 8>
+  static inline typename std::enable_if<B, std::string>::type
+  Encode(std::span<uint8_t> distribution, std::span<uint64_t> values)
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
     assert(distribution.size() == values.size() && "Number of values should match distribution of bits");
 
-    std::ostringstream ss;
-    ss << std::hex << "0x" << std::setfill('0');
+    uint64_t bits = 0;
+    for (size_t i = 0; i < values.size(); ++i)
+    {
+      const uint64_t& value = values[i];
+      uint8_t dist = distribution[i];
+      bits <<= dist;
+      bits |= (value & ~(~0x0ull << dist));
+    };
+    
+    char hex[Size / 4 + 1];
+    std::snprintf(hex, Size / 4 + 1, "%0*llX", Size / 4, bits);
+
+    return std::string("0x") + hex;
+  }
+  
+  template<bool B = Size <= sizeof(uint64_t) * 8>
+  static inline typename std::enable_if<B, std::string>::type
+  Encode(std::vector<uint8_t> distribution, std::vector<uint64_t> values)
+  {
+    return Encode(std::span<uint8_t>(distribution), std::span<uint64_t>(values));
+  }
+  
+  template<size_t D_N, size_t V_N, bool B = Size <= sizeof(uint64_t) * 8>
+  static inline typename std::enable_if<B, std::string>::type
+  Encode(std::array<uint8_t, D_N> distribution, std::array<uint64_t, V_N> values)
+  {
+    return Encode(std::span<uint8_t>(distribution), std::span<uint64_t>(values));
+  }
+
+  template<bool B = Size <= sizeof(uint64_t) * 8>
+  static inline typename std::enable_if<!B, std::string>::type
+  Encode(std::span<uint8_t> distribution, std::span<uint64_t> values)
+  {
+    static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
+    assert(distribution.size() == values.size() && "Number of values should match distribution of bits");
 
     std::bitset<Size> bits;
-    uint8_t remaining_bits = Size;
-    int i = 0;
-    for (const auto& value : values)
+    for (size_t i = 0; i < values.size(); ++i)
     {
-      uint8_t dist = distribution.at(i++);
-      remaining_bits -= dist;
-      bits |= std::bitset<Size>(value) << remaining_bits;
+      const uint64_t& value = values[i];
+      uint8_t dist = distribution[i];
+      bits <<= dist;
+      bits |= std::bitset<Size>(dist >= sizeof(uint64_t) * 8 ? value : (value & ~(~0x0ull << dist)));
     };
 
-    if constexpr(Size > sizeof(uint64_t) * 8)
-    {
-      static const std::bitset<Size> bitset_divider(std::numeric_limits<uint64_t>::max());
-      ss << std::setw(Size / 8) << (bits >> (Size / 2) & bitset_divider).to_ullong();
-      ss << std::setw(Size / 8) << (bits & bitset_divider).to_ullong();
-    }
-    else
-    {
-      ss << std::setw(Size / 4) << bits.to_ullong();
-    }
+    static const std::bitset<Size> bits_mask = (std::bitset<Size>().set() >> 64).flip();
+    constexpr size_t sizeof_uint64_bits = sizeof(uint64_t) * 8;
 
-    return ss.str();
+    std::string out_hex = "0x";
+    for (size_t i = 0; i < Size / sizeof_uint64_bits; ++i)
+    {
+      char hex[sizeof(uint64_t) * 2 + 1];
+      std::snprintf(hex, sizeof(uint64_t) * 2 + 1, "%0*llX", int(sizeof(uint64_t) * 2), ((bits & bits_mask) >> (Size - sizeof_uint64_bits)).to_ullong());
+      out_hex += hex;
+      bits <<= sizeof_uint64_bits;
+    }
+    
+    return out_hex;
+  }
+  
+  template<bool B = Size <= sizeof(uint64_t) * 8>
+  static inline typename std::enable_if<!B, std::string>::type
+  Encode(std::vector<uint8_t> distribution, std::vector<uint64_t> values)
+  {
+    return Encode(std::span<uint8_t>(distribution), std::span<uint64_t>(values));
+  }
+  
+  template<size_t D_N, size_t V_N, bool B = Size <= sizeof(uint64_t) * 8>
+  static inline typename std::enable_if<!B, std::string>::type
+  Encode(std::array<uint8_t, D_N> distribution, std::array<uint64_t, V_N> values)
+  {
+    return Encode(std::span<uint8_t>(distribution), std::span<uint64_t>(values));
   }
 
   /**
    * @brief Decodes a hex string that has size in bits of Size into a list of
-   *        values sized according to N in order.
+   *        values sized according to Dist in order.
    * 
    * @tparam Uint_t The unsigned integer type to return.
    * @param hex The hex string to decode. Must have a length in bytes
    *            corresponding to the size in bits of Size.
    *
    * @returns Structured binding of values decoded from hex string corresponding
-   *          in order to the size of N.
+   *          in order to the size of Dist.
    */
   template<typename Uint_t = uint64_t>
-  static inline std::array<Uint_t, sizeof...(N)> Decode(const std::string& hex)
+  static inline std::array<Uint_t, sizeof...(Dist)> Decode(const std::string& hex)
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
-    static_assert(Size >= (N + ...), "Total bits cannot exceed specified size");
+    static_assert(Size >= (Dist + ...), "Total bits cannot exceed specified size");
     static_assert(is_valid_uint<Uint_t>::value, "Type must be unsigned integer");
 
-    std::vector<uint8_t> distribution;
-    (distribution.push_back(N), ...);
-    
-    ValidateString(hex);
-
-    auto result = Decode(distribution, quicr::Name{hex});
-    std::array<Uint_t, sizeof...(N)> out;
-    std::copy_n(std::make_move_iterator(result.begin()), sizeof...(N), out.begin());
+    std::array<uint8_t, sizeof...(Dist)> distribution{Dist...};
+    auto result = Decode(distribution, hex);
+    std::array<Uint_t, sizeof...(Dist)> out;
+    std::copy_n(std::make_move_iterator(result.begin()), sizeof...(Dist), out.begin());
 
     return out;
   }
 
   template<typename Uint_t = uint64_t>
-  static inline std::array<Uint_t, sizeof...(N)> Decode(const quicr::Name& name)
+  static inline std::array<Uint_t, sizeof...(Dist)> Decode(const quicr::Name& name)
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
-    static_assert(Size >= (N + ...), "Total bits cannot exceed specified size");
+    static_assert(Size >= (Dist + ...), "Total bits cannot exceed specified size");
     static_assert(is_valid_uint<Uint_t>::value, "Type must be unsigned integer");
 
-    std::vector<uint8_t> distribution;
-    (distribution.push_back(N), ...);
-
-    auto result = Decode(distribution, name);
-    std::array<Uint_t, sizeof...(N)> out;
-    std::copy_n(std::make_move_iterator(result.begin()), sizeof...(N), out.begin());
+    std::array<uint8_t, sizeof...(Dist)> distribution{Dist...};
+    auto result = Decode(distribution, name.to_hex());
+    std::array<Uint_t, sizeof...(Dist)> out;
+    std::copy_n(std::make_move_iterator(result.begin()), sizeof...(Dist), out.begin());
 
     return out;
   }
   
-  template<typename Uint_t = uint64_t>
-  static inline std::vector<Uint_t> Decode(const std::vector<uint8_t>& distribution, const std::string& hex)
-  {
-    ValidateString(hex);
-    return Decode<Uint_t>(distribution, quicr::Name{hex});
-  }
-  
-  template<typename Uint_t = uint64_t>
-  static inline std::vector<Uint_t> Decode(const std::vector<uint8_t>& distribution, const quicr::Name& name)
+  template<typename Uint_t = uint64_t, bool B = Size <= sizeof(uint64_t) * 8>
+  static inline typename std::enable_if<B, std::vector<Uint_t>>::type
+  Decode(std::span<uint8_t> distribution, const std::string& hex)
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
     static_assert(is_valid_uint<Uint_t>::value, "Type must be unsigned integer");
 
-    constexpr uint8_t size_of_name = quicr::Name::size() * 8;
-    quicr::Name temp = name << (size_of_name - Size);
-    
-    std::vector<Uint_t> result(distribution.size());
-    for (size_t i = 0; i < distribution.size(); ++i)
+    const auto dist_size = distribution.size();
+    std::vector<uint64_t> result(dist_size);
+    uint64_t bits = std::stoull(hex, nullptr, 16);
+    for (int i = dist_size - 1; i >= 0; --i)
     {
-      auto dist = distribution.at(i);
-      result[i] = std::stoull((temp >> (size_of_name - dist)).to_hex(), nullptr, 16);
-      temp <<= dist;
-    };
+      const auto dist = distribution[i];
+      result[i] = bits & ~(~0x0ull << dist);
+      bits >>= dist;
+    }
 
     return result;
   }
 
-private:
-  static inline void ValidateString(const std::string& hex)
+  template<typename Uint_t = uint64_t, bool B = Size <= sizeof(uint64_t) * 8>
+  static inline typename std::enable_if<!B, std::vector<Uint_t>>::type
+  Decode(std::span<uint8_t> distribution, const std::string& hex)
   {
-    std::string clean_hex = hex;
-    auto found = clean_hex.substr(0, 2).find("0x");
-    if (found != std::string::npos)
-      clean_hex.erase(found, 2);
+    static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
+    static_assert(is_valid_uint<Uint_t>::value, "Type must be unsigned integer");
 
-    if (clean_hex.length() != Size / 4)
+    uint8_t start_pos = 0;
+    if (hex.substr(0, 2) == "0x")
+      start_pos = 2;
+
+    constexpr uint8_t hex_length = Size / 4;
+    if (hex.length() - start_pos != hex_length)
       throw std::runtime_error("Hex string value must be " +
-                               std::to_string(Size / 4) + " characters (" +
-                               std::to_string(Size / 8) + " bytes)");
+                              std::to_string(hex_length) + " characters (" +
+                              std::to_string(Size / 8) + " bytes)");
+
+    std::bitset<Size> bits;
+    const uint8_t section_length = sizeof(uint64_t) * 2;
+    constexpr size_t sizeof_uint64_bits = sizeof(uint64_t) * 8;
+    constexpr size_t num_sections = Size / sizeof_uint64_bits;
+    for (size_t i = start_pos, j = 0; i < (section_length * num_sections); i += section_length)
+    {
+      std::string section = hex.substr(i, section_length);
+      bits |= std::bitset<Size>(std::stoull(section, nullptr, 16)) << (sizeof_uint64_bits * (num_sections - ++j));
+    }
+
+    const auto dist_size = distribution.size();
+    std::vector<uint64_t> result(dist_size);
+    for (size_t i = 0; i < dist_size; ++i)
+    {
+      const auto dist = distribution[i];
+      result[i] = (bits >> (Size - dist)).to_ullong();
+      bits <<= dist;
+    }
+
+    return result;
+  }
+  
+  template<typename Uint_t = uint64_t>
+  static inline std::vector<Uint_t> Decode(std::span<uint8_t> distribution, const quicr::Name& name)
+  {
+    return Decode(distribution, name.to_hex());
   }
 };
 }
