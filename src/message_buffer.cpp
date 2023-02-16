@@ -171,18 +171,18 @@ operator<<(MessageBuffer& msg, const uintVar_t& v)
     throw MessageBufferException("uintVar_t cannot have a value greater than 1 << 61");
   }
 
-  if (val <= ((uint64_t)1 << 7)) {
+  if (val < ((uint64_t)1 << 7)) {
     msg.push_back(uint8_t(((val >> 0) & 0x7F)) | 0x00);
     return msg;
   }
 
-  if (val <= ((uint64_t)1 << 14)) {
+  if (val < ((uint64_t)1 << 14)) {
     msg.push_back(uint8_t((val >> 0) & 0xFF));
     msg.push_back(uint8_t(((val >> 8) & 0x3F) | 0x80));
     return msg;
   }
 
-  if (val <= ((uint64_t)1 << 29)) {
+  if (val < ((uint64_t)1 << 29)) {
     msg.push_back(uint8_t((val >> 0) & 0xFF));
     msg.push_back(uint8_t((val >> 8) & 0xFF));
     msg.push_back(uint8_t((val >> 16) & 0xFF));

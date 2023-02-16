@@ -161,3 +161,17 @@ TEST_CASE("PublishIntentEnd Message encode/decode")
   CHECK_EQ(pie_out.name, pie.name);
   CHECK_EQ(pie_out.payload, pie.payload);
 }
+
+TEST_CASE("VarInt Encode/Decode")
+{
+  MessageBuffer buffer;
+  std::vector<uintVar_t> values = { uintVar_t{128}, uintVar_t{16384}, uintVar_t{536870912} };
+  for (const auto& value : values)
+  {
+    buffer << value;
+    uintVar_t out;
+    buffer >> out;
+
+    CHECK_NE(out, uintVar_t{0});
+  }
+}
