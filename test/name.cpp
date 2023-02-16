@@ -16,6 +16,9 @@ TEST_CASE("quicr::Name Constructor Tests")
   CHECK_GT(quicr::Name("0x123"), quicr::Name("0x122"));
   CHECK_NE(quicr::Name("0x123"), quicr::Name("0x122"));
 
+  CHECK_GT(quicr::Name("0x20000000000000001"), quicr::Name("0x10000000000000002"));
+  CHECK_LT(quicr::Name("0x10000000000000002"), quicr::Name("0x20000000000000001"));
+
   CHECK_NOTHROW(quicr::Name("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"));
   CHECK_THROWS(quicr::Name("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0"));
 }

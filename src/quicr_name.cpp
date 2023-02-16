@@ -29,22 +29,20 @@ Name::Name(Name&& other)
 
 Name::Name(const std::string& hex_value)
 {
-  std::string clean_hex = hex_value;
-  auto found = clean_hex.substr(0, 2).find("0x");
-  if (found != std::string::npos)
-    clean_hex.erase(found, 2);
+  uint8_t start_pos = 0;
+  if (hex_value.substr(0, 2) == "0x")
+    start_pos  = 2;
 
-  if (clean_hex.length() > size() * 2)
+  if (hex_value.length() - start_pos > size() * 2)
     throw NameException("Hex string cannot be longer than " +
                         std::to_string(size() * 2) + " bytes");
 
-  if (clean_hex.length() > size()) {
-    size_t midpoint = clean_hex.length() - size();
-    _hi = std::stoull(clean_hex.substr(0, midpoint), nullptr, 16);
-    _low = std::stoull(clean_hex.substr(midpoint, size()), nullptr, 16);
+  if (hex_value.length() - start_pos > size()) {
+    _hi = std::stoull(hex_value.substr(start_pos, hex_value.length() - start_pos - size()), nullptr, 16);
+    _low = std::stoull(hex_value.substr(hex_value.length() - size(), size()), nullptr, 16);
   } else {
     _hi = 0;
-    _low = std::stoull(clean_hex, nullptr, 16);
+    _low = std::stoull(hex_value, nullptr, 16);
   }
 }
 
@@ -311,13 +309,17 @@ operator!=(const Name& a, const Name& b)
 bool
 operator>(const Name& a, const Name& b)
 {
-  return a._hi >= b._hi && a._low > b._low;
+  if (a._hi > b._hi) return true;
+  if (b._hi > a._hi) return false;
+  return a._low > b._low;
 }
 
 bool
 operator<(const Name& a, const Name& b)
 {
-  return a._hi <= b._hi && a._low < b._low;
+  if (a._hi < b._hi) return true;
+  if (b._hi < a._hi) return false;
+  return a._low < b._low;
 }
 
 std::ostream&
