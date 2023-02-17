@@ -128,6 +128,7 @@ QuicRClient::QuicRClient(RelayInfo& relay_info, qtransport::LogHandler& logger)
   : log_handler(logger)
 {
   make_transport(relay_info, logger);
+  log_handler.log(qtransport::LogLevel::info, "Initialize QuicRClient");
 }
 
 QuicRClient::QuicRClient(std::shared_ptr<ITransport> transport_in)
