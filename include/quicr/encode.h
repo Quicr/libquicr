@@ -3,10 +3,10 @@
 #include <string>
 #include <vector>
 
-#include "message_buffer.h"
-#include "quicr_common.h"
-#include "quicr_name.h"
-#include "quicr_namespace.h"
+#include <quicr/message_buffer.h>
+#include <quicr/quicr_common.h>
+#include <quicr/quicr_name.h>
+#include <quicr/quicr_namespace.h>
 
 /**
  *  Utilties to encode and decode protocol messages
