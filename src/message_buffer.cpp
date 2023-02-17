@@ -2,6 +2,7 @@
 
 #include <iomanip>
 #include <sstream>
+#include <cassert>
 
 namespace quicr {
 uintVar_t
