@@ -1,8 +1,7 @@
 #include <array>
-#include <string>
 #include <ctime>
 
-#include "encode.h"
+#include <quicr/encode.h>
 
 using quicr::bytes;
 
@@ -35,9 +34,9 @@ operator>>(MessageBuffer& buffer, Subscribe& msg)
 {
   uint8_t msg_type;
   buffer >> msg_type;
-  if (msg_type != static_cast<uint8_t>(MessageType::Subscribe))
-  {
-    throw MessageBufferException("Message type for Subscribe object must be MessageType::Subscribe");
+  if (msg_type != static_cast<uint8_t>(MessageType::Subscribe)) {
+    throw MessageBufferException(
+      "Message type for Subscribe object must be MessageType::Subscribe");
   }
 
   buffer >> msg.transaction_id;
@@ -65,9 +64,9 @@ operator>>(MessageBuffer& buffer, SubscribeResponse& msg)
 {
   uint8_t msg_type;
   buffer >> msg_type;
-  if (msg_type != static_cast<uint8_t>(MessageType::SubscribeResponse))
-  {
-    throw MessageBufferException("Message type for SubscribeResponse object must be MessageType::SubscribeResponse");
+  if (msg_type != static_cast<uint8_t>(MessageType::SubscribeResponse)) {
+    throw MessageBufferException("Message type for SubscribeResponse object "
+                                 "must be MessageType::SubscribeResponse");
   }
 
   uint8_t response;
@@ -205,9 +204,9 @@ operator>>(MessageBuffer& buffer, PublishDatagram& msg)
 {
   uint8_t msg_type;
   buffer >> msg_type;
-  if (msg_type != static_cast<uint8_t>(MessageType::Publish))
-  {
-    throw MessageBufferException("Message type for PublishDatagram object must be MessageType::Publish");
+  if (msg_type != static_cast<uint8_t>(MessageType::Publish)) {
+    throw MessageBufferException(
+      "Message type for PublishDatagram object must be MessageType::Publish");
   }
 
   buffer >> msg.header;
@@ -219,9 +218,9 @@ operator>>(MessageBuffer& buffer, PublishDatagram& msg)
   buffer >> msg.media_data_length;
   buffer >> msg.media_data;
 
-  if (msg.media_data.size() != static_cast<size_t>(msg.media_data_length))
-  {
-    throw MessageBufferException("PublishDatagram size of decoded media data must match decoded length");
+  if (msg.media_data.size() != static_cast<size_t>(msg.media_data_length)) {
+    throw MessageBufferException(
+      "PublishDatagram size of decoded media data must match decoded length");
   }
 
   return buffer;
@@ -240,9 +239,9 @@ operator>>(MessageBuffer& buffer, PublishStream& msg)
 {
   buffer >> msg.media_data_length;
   buffer >> msg.media_data;
-  if (msg.media_data.size() != static_cast<size_t>(msg.media_data_length))
-  {
-    throw MessageBufferException("PublishStream size of decoded media data must match decoded length");
+  if (msg.media_data.size() != static_cast<size_t>(msg.media_data_length)) {
+    throw MessageBufferException(
+      "PublishStream size of decoded media data must match decoded length");
   }
 
   return buffer;
@@ -270,7 +269,8 @@ operator>>(MessageBuffer& buffer, PublishIntentEnd& msg)
   buffer >> msg.name;
 
   if (msg.name.size() != static_cast<size_t>(msg.name_length))
-    throw MessageBufferException("PublishIntentEnd size of decoded media data must match decoded length");
+    throw MessageBufferException(
+      "PublishIntentEnd size of decoded media data must match decoded length");
 
   buffer >> msg.payload;
 
@@ -295,7 +295,7 @@ operator>>(messages::MessageBuffer& msg, quicr::Name& val)
   for (int i = 0; i < size; ++i)
     msg >> bytes[i];
 
-  val = Name{bytes.data(), size};
+  val = Name{ bytes.data(), size };
 
   return msg;
 }
@@ -313,7 +313,7 @@ operator>>(messages::MessageBuffer& msg, quicr::Namespace& val)
   quicr::Name name_mask;
   uint8_t sig_bits;
   msg >> name_mask >> sig_bits;
-  val = Namespace{name_mask, sig_bits};
+  val = Namespace{ name_mask, sig_bits };
 
   return msg;
 }

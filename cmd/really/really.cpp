@@ -1,8 +1,12 @@
 #include <quicr/quicr_common.h>
 #include <quicr/quicr_server.h>
+#include <quicr/encode.h>
+#include <quicr/message_buffer.h>
 #include <transport/transport.h>
 
 #include "subscription.h"
+#include "testLogger.h"
+
 #include <iostream>
 #include <set>
 
@@ -26,19 +30,12 @@ public:
                                quicr::bytes&& /* e2e_token */){};
 
   virtual void onPublisherObject(
-    const quicr::Name& quicr_name,
     const qtransport::TransportContextId& context_id,
     const qtransport::MediaStreamId& stream_id,
-    [[maybe_unused]] uint8_t priority,
-    [[maybe_unused]] uint16_t expiry_age_ms,
     [[maybe_unused]] bool use_reliable_transport,
-    quicr::bytes&& data)
+    quicr::messages::PublishDatagram && datagram)
   {
-
-    std::cout << " onPublisherObject: Name " << quicr_name.to_hex()
-              << std::endl;
-
-    std::list<Subscriptions::Remote> list = subscribeList.find(quicr_name);
+    std::list<Subscriptions::Remote> list = subscribeList.find(datagram.header.name);
 
     for (auto dest : list) {
 
@@ -48,21 +45,13 @@ public:
         continue;
       }
 
-      quicr::bytes copy = data;
-      server->sendNamedObject(
-        dest.subscribe_id, quicr_name, 0, 0, false, std::move(copy));
+      server->sendNamedObject(dest.subscribe_id, false, datagram);
     }
   }
 
-  virtual void onPublishedFragment(const quicr::Name& /* quicr_name */,
-                                   uint8_t /* priority */,
-                                   uint16_t /* expiry_age_ms */,
-                                   bool /* use_reliable_transport */,
-                                   const uint64_t& /* offset */,
-                                   bool /* is_last_fragment */,
-                                   quicr::bytes&& /* data */)
-  {
-  }
+  virtual void onUnsubscribe(const quicr::Namespace& /* quicr_namespace */,
+                             const uint64_t& /* subscriber_id */,
+                             const std::string& /* auth_token */) {}
 
   virtual void onSubscribe(
     const quicr::Namespace& quicr_namespace,
@@ -88,37 +77,13 @@ public:
     server->subscribeResponse(quicr_namespace, 0x0, result);
   }
 
-  virtual void on_connection_status(
-    const qtransport::TransportContextId& /* context_id */,
-    const qtransport::TransportStatus /* status */)
-  {
-  }
-
-  virtual void on_new_connection(
-    const qtransport::TransportContextId& /* context_id */,
-    const qtransport::TransportRemote& /* remote */)
-  {
-  }
-
-  virtual void on_new_media_stream(
-    const qtransport::TransportContextId& /* context_id */,
-    const qtransport::MediaStreamId& /* mStreamId */)
-  {
-  }
-
-  virtual void on_recv_notify(
-    const qtransport::TransportContextId& /* context_id */,
-    const qtransport::MediaStreamId& /* mStreamId */)
-  {
-  }
-
   std::unique_ptr<quicr::QuicRServer> server;
   std::shared_ptr<qtransport::ITransport> transport;
   std::set<uint64_t> subscribers = {};
 
 private:
   Subscriptions subscribeList;
-  qtransport::LogHandler logger;
+  testLogger logger;
 };
 
 int
@@ -129,6 +94,5 @@ main()
 
   while (1) {
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-    // std::cout << "waiting for the data..." << std::endl;
   }
 }

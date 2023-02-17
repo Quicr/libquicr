@@ -1,6 +1,7 @@
 add_executable(really
         really.cpp
-        subscription.cpp)
+        subscription.cpp
+        testLogger.cpp)
 target_link_libraries(really PRIVATE quicr)
 
 target_compile_options(really

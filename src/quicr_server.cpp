@@ -1,43 +1,33 @@
 #include <quicr/quicr_common.h>
 #include <quicr/quicr_server.h>
 
-#include "encode.h"
-#include "quicr/message_buffer.h"
 #include <iostream>
+#include <quicr/encode.h>
+#include <quicr/message_buffer.h>
 #include <sstream>
 #include <thread>
 
 #include <arpa/inet.h>
 
 namespace quicr {
-
 void
-ServerDelegate::onPublishedFragment(const quicr::Name& /* quicr_name */,
-                                    uint8_t /* priority */,
-                                    uint16_t /* expiry_age_ms */,
-                                    bool /* use_reliable_transport */,
-                                    const uint64_t& /* offset */,
-                                    bool /* is_last_fragment */,
-                                    bytes&& /* data */)
-{
-}
-void
-ServerDelegate::onSubscribe(const quicr::Namespace& /* quicr_namespace */,
-                            const uint64_t& /* subscriber_id */,
-                            const qtransport::TransportContextId& /* context_id */,
-                            const qtransport::MediaStreamId& /* stream_id */,
-	                          const SubscribeIntent /* subscribe_intent */,
-                            const std::string& /* origin_url */,
-                            bool /* use_reliable_transport */,
-                            const std::string& /* auth_token */,
-                            bytes&& /* data */)
+ServerDelegate::onSubscribe(
+  const quicr::Namespace& /*quicr_namespace*/,
+  const uint64_t& /*subscriber_id*/,
+  const qtransport::TransportContextId& /*context_id*/,
+  const qtransport::MediaStreamId& /*stream_id*/,
+  const SubscribeIntent /*subscribe_intent*/,
+  const std::string& /*origin_url*/,
+  bool /*use_reliable_transport*/,
+  const std::string& /*auth_token*/,
+  bytes&& /*data*/)
 {
 }
 
 void
-ServerDelegate::onUnsubscribe(const quicr::Namespace& /* quicr_namespace */,
-                              const uint64_t& /* subscriber_id */,
-                              const std::string& /* auth_token */)
+ServerDelegate::onUnsubscribe(const quicr::Namespace& /*quicr_namespace*/,
+                              const uint64_t& /*subscriber_id*/,
+                              const std::string& /*auth_token*/)
 {
 }
 
@@ -140,45 +130,21 @@ QuicRServer::subscriptionEnded(const quicr::Namespace& /* quicr_namespace */,
 
 void
 QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
-                             const quicr::Name& quicr_name,
-                             [[maybe_unused]] uint8_t priority,
-                             [[maybe_unused]] uint64_t best_before,
                              [[maybe_unused]] bool use_reliable_transport,
-                             bytes&& data)
+                             const messages::PublishDatagram& datagram)
 {
   // start populating message to encode
-  messages::PublishDatagram datagram;
   if (subscribe_id_state.count(subscriber_id) == 0) {
     return;
   }
 
   auto& context = subscribe_id_state[subscriber_id];
-  datagram.header.name = quicr_name;
-  datagram.header.media_id = static_cast<uintVar_t>(context.media_stream_id);
-  datagram.header.flags = 0x0;
-  datagram.header.offset_and_fin = static_cast<uintVar_t>(1);
-  datagram.media_type =
-    messages::MediaType::RealtimeMedia; // TODO this should not be here
-  datagram.media_data_length = static_cast<uintVar_t>(data.size());
-  datagram.media_data = std::move(data);
-
   messages::MessageBuffer msg;
+
   msg << datagram;
 
   transport->enqueue(
     context.transport_context_id, context.media_stream_id, msg.get());
-}
-
-void
-QuicRServer::sendNamedFragment(const quicr::Name& /* name */,
-                               uint8_t /* priority */,
-                               uint64_t /* best_before */,
-                               bool /* use_reliable_transport */,
-                               uint64_t /* offset */,
-                               bool /* is_last_fragment */,
-                               bytes&& /* data */)
-{
-  throw std::runtime_error("Unimplemented");
 }
 
 ///
@@ -209,8 +175,8 @@ QuicRServer::handle_subscribe(const qtransport::TransportContextId& context_id,
 
   delegate.onSubscribe(subscribe.quicr_namespace,
                        context.subscriber_id,
-											 context_id,
-											 mStreamId,
+                       context_id,
+                       mStreamId,
                        subscribe.intent,
                        "",
                        false,
@@ -226,15 +192,17 @@ QuicRServer::handle_publish(
 {
   messages::PublishDatagram datagram;
   msg >> datagram;
+
   // TODO: Add publish_state when we support PublishIntent
 
-  delegate.onPublisherObject(datagram.header.name,
-                             context_id,
-                             mStreamId,
-                             0,
-                             0,
-                             false,
-                             std::move(datagram.media_data));
+  //  std::ostringstream log_msg;
+  //  log_msg << "handle_publish: cid: " << context_id << " sid: " << mStreamId
+  //          << " gid: " << from_varint(datagram.header.group_id)
+  //          << " oid: " << from_varint(datagram.header.object_id)
+  //          << " off: " << from_varint(datagram.header.offset_and_fin);
+  //  log_handler.log(qtransport::LogLevel::info, log_msg.str());
+
+  delegate.onPublisherObject(context_id, mStreamId, false, std::move(datagram));
 }
 
 // --------------------------------------------------
@@ -287,10 +255,14 @@ QuicRServer::TransportDelegate::on_recv_notify(
     auto data = server.transport->dequeue(context_id, mStreamId);
 
     if (data.has_value()) {
+
+      // TODO: Extracting type will change when the message is encoded correctly
       uint8_t msg_type = data.value().back();
+
       messages::MessageBuffer msg_buffer{ data.value() };
       if (msg_type == static_cast<uint8_t>(messages::MessageType::Subscribe)) {
         server.handle_subscribe(context_id, mStreamId, std::move(msg_buffer));
+
       } else if (msg_type ==
                  static_cast<uint8_t>(messages::MessageType::Publish)) {
         server.handle_publish(context_id, mStreamId, std::move(msg_buffer));

@@ -1,30 +1,58 @@
+#include <chrono>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <thread>
 
+#include <quicr/encode.h>
+#include <quicr/message_buffer.h>
 #include <quicr/quicr_client.h>
 #include <quicr/quicr_common.h>
 
-#include "encode.h"
-#include "quicr/message_buffer.h"
-
 namespace quicr {
 
-void SubscriberDelegate::onSubscribedObject(const quicr::Name& /* quicr_name */,
-                                  uint8_t /* priority */,
-                                  uint16_t /* expiry_age_ms*/,
-                                  bool /* use_reliable_transport */,
-                                  bytes&& /* data */)
+/*
+ * Nested map to reassemble message fragments
+ *
+ *    Structure:
+ *       fragments[<circular index>] = map[quicr_name] = map[offset] = data
+ *
+ *    Circular index is a small int value that increments from 1 to max. It
+ *    wraps to 1 after reaching max size.  In this sense, it's a circular
+ * buffer. Upon moving to a new index the new index data will be purged (if any
+ * exists).
+ *
+ *    Fragment reassembly avoids timers and time interval based checks. It
+ *    instead is based on received data. Every message quicr_name is checked to
+ *    see if it's complete. If so, the published object callback will be
+ * executed. If not, it'll only update the map with the new offset value.
+ * Incomplete messages can exist in the cache for as long as the circular index
+ * hasn't wrapped to the same point in cache.  Under high load/volume, this can
+ * wrap within a minute or two.  Under very little load, this could linger for
+ * hours. This is okay considering the only harm is a little extra memory being
+ * used. Extra memory is a trade-off for being event/message driven instead of
+ * timer based with threading/locking/...
+ */
+static std::map<int, std::map<quicr::Name, std::map<int, bytes>>> fragments;
+
+void
+SubscriberDelegate::onSubscribedObject(const quicr::Name& /* quicr_name */,
+                                       uint8_t /* priority */,
+                                       uint16_t /* expiry_age_ms*/,
+                                       bool /* use_reliable_transport */,
+                                       bytes&& /* data */)
 {
 }
 
-void SubscriberDelegate::onSubscribedObjectFragment(const quicr::Name& /* quicr_name */,
-                                          uint8_t /* priority */,
-                                          uint16_t /* expiry_age_ms*/,
-                                          bool /* use_reliable_transport */,
-                                          const uint64_t& /* offset */,
-                                          bool /* is_last_fragment */,
-                                          bytes&& /* data */)
+void
+SubscriberDelegate::onSubscribedObjectFragment(
+  const quicr::Name& /* quicr_name */,
+  uint8_t /* priority */,
+  uint16_t /* expiry_age_ms*/,
+  bool /* use_reliable_transport */,
+  const uint64_t& /* offset */,
+  bool /* is_last_fragment */,
+  bytes&& /* data */)
 {
 }
 
@@ -43,7 +71,7 @@ public:
 
   virtual void on_connection_status(
     const qtransport::TransportContextId& /* context_id */,
-    const qtransport::TransportStatus /* status */ )
+    const qtransport::TransportStatus /* status */)
   {
   }
 
@@ -82,14 +110,14 @@ QuicRClient::make_transport(RelayInfo& relay_info,
     .host_or_ip = relay_info.hostname,
     .port = relay_info.port,
     .proto = relay_info.proto == RelayInfo::Protocol::UDP
-      ? qtransport::TransportProtocol::UDP
-      : qtransport::TransportProtocol::QUIC,
+               ? qtransport::TransportProtocol::UDP
+               : qtransport::TransportProtocol::QUIC,
   };
   transport_delegate = std::make_unique<QuicRTransportDelegate>(*this);
   transport = qtransport::ITransport::make_client_transport(
     server, *transport_delegate, logger);
   transport_context_id = transport->start();
-  media_stream_id =  transport->createMediaStream(transport_context_id, false);
+  media_stream_id = transport->createMediaStream(transport_context_id, false);
 }
 
 ///
@@ -97,21 +125,24 @@ QuicRClient::make_transport(RelayInfo& relay_info,
 ///
 
 QuicRClient::QuicRClient(RelayInfo& relay_info, qtransport::LogHandler& logger)
+  : log_handler(logger)
 {
   make_transport(relay_info, logger);
 }
 
 QuicRClient::QuicRClient(std::shared_ptr<ITransport> transport_in)
+  : log_handler(def_log_handler)
 {
   transport = transport_in;
 }
 
 bool
-QuicRClient::publishIntent(std::shared_ptr<PublisherDelegate> /* pub_delegate */,
-                           const quicr::Namespace& /* quicr_namespace */,
-                           const std::string& /* origin_url */,
-                           const std::string& /* auth_token */,
-                           bytes&& /* payload */)
+QuicRClient::publishIntent(
+  std::shared_ptr<PublisherDelegate> /* pub_delegate */,
+  const quicr::Namespace& /* quicr_namespace */,
+  const std::string& /* origin_url */,
+  const std::string& /* auth_token */,
+  bytes&& /* payload */)
 {
   throw std::runtime_error("UnImplemented");
 }
@@ -143,10 +174,10 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
   messages::Subscribe subscribe{ 0x1, transaction_id, quicr_namespace, intent };
   msg << subscribe;
 
-  //qtransport::MediaStreamId msid{};
+  // qtransport::MediaStreamId msid{};
   if (!subscribe_state.count(quicr_namespace)) {
     // create a new media-stream for this subscribe
-		//msid = transport->createMediaStream(transport_context_id, false);
+    // msid = transport->createMediaStream(transport_context_id, false);
     subscribe_state[quicr_namespace] =
       SubscribeContext{ SubscribeContext::State::Pending,
                         transport_context_id,
@@ -193,26 +224,93 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
     context.group_id = 0;
     context.object_id = 0;
   } else {
+    // TODO: Never hit this since context is not added to published state and
+    // objects are not to be repeated
     context = publish_state[quicr_name];
-    datagram.header.media_id =
-      static_cast<uintVar_t>(context.media_stream_id);
+    datagram.header.media_id = static_cast<uintVar_t>(context.media_stream_id);
   }
+
   datagram.header.name = quicr_name;
-  datagram.header.media_id =
-    static_cast<uintVar_t>(context.media_stream_id);
+  datagram.header.media_id = static_cast<uintVar_t>(context.media_stream_id);
   datagram.header.group_id = static_cast<uintVar_t>(context.group_id);
-  datagram.header.object_id =
-    static_cast<uintVar_t>(context.object_id);
+  datagram.header.object_id = static_cast<uintVar_t>(context.object_id);
   datagram.header.flags = 0x0;
   datagram.header.offset_and_fin = static_cast<uintVar_t>(1);
   datagram.media_type = messages::MediaType::RealtimeMedia;
-  datagram.media_data_length = static_cast<uintVar_t>(data.size());
-  datagram.media_data = std::move(data);
-  messages::MessageBuffer msg;
-  msg << datagram;
 
-  transport->enqueue(
-    transport_context_id, context.media_stream_id, msg.get());
+  // Fragment the payload if needed
+  if (data.size() <= quicr::MAX_TRANSPORT_DATA_SIZE) {
+    messages::MessageBuffer msg;
+
+    datagram.media_data_length = static_cast<uintVar_t>(data.size());
+    datagram.media_data = std::move(data);
+
+    msg << datagram;
+
+    // No fragmenting needed
+    transport->enqueue(
+      transport_context_id, context.media_stream_id, msg.get());
+  } else {
+    // Fragments required. At this point this only counts whole blocks
+    int frag_num = data.size() / quicr::MAX_TRANSPORT_DATA_SIZE;
+    int frag_remaining_bytes = data.size() % quicr::MAX_TRANSPORT_DATA_SIZE;
+
+    std::cout << "Sending frags: " << frag_num << std::endl;
+
+    int offset = 0;
+
+    while (frag_num-- > 0) {
+      messages::MessageBuffer msg;
+
+      if (frag_num == 1 && !frag_remaining_bytes) {
+        datagram.header.offset_and_fin = to_varint((offset << 1) + 1);
+      } else {
+        datagram.header.offset_and_fin = to_varint(offset << 1);
+      }
+
+      bytes frag_data(data.begin() + offset,
+                      data.begin() + offset + quicr::MAX_TRANSPORT_DATA_SIZE);
+
+      datagram.media_data_length = to_varint(frag_data.size());
+      datagram.media_data = std::move(frag_data);
+
+      msg << datagram;
+
+      offset += quicr::MAX_TRANSPORT_DATA_SIZE;
+
+      /*
+       * For UDP based transports, some level of pacing is required to prevent
+       * buffer overruns throughput the network path and with the remote end.
+       *  TODO: Fix... This is set a bit high because the server code is running
+       * too slow
+       */
+      if ((frag_num % 30) == 0)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+      transport->enqueue(
+        transport_context_id, context.media_stream_id, msg.get());
+    }
+
+    // Send last fragment, which will be less than MAX_TRANSPORT_DATA_SIZE
+    if (frag_remaining_bytes) {
+      messages::MessageBuffer msg;
+      datagram.header.offset_and_fin = uintVar_t((offset << 1) + 1);
+
+      bytes frag_data(data.begin() + offset, data.end());
+      datagram.media_data_length = static_cast<uintVar_t>(frag_data.size());
+      datagram.media_data = std::move(frag_data);
+
+      msg << datagram;
+
+      //			std::cout << "Pub-frag remaining msg size: " <<
+      // data.size()
+      //			          << " offset: " <<
+      // uint64_t(datagram.header.offset_and_fin) << std::endl;
+
+      transport->enqueue(
+        transport_context_id, context.media_stream_id, msg.get());
+    }
+  }
 }
 
 void
@@ -225,6 +323,93 @@ QuicRClient::publishNamedObjectFragment(const quicr::Name& /* quicr_name */,
                                         bytes&& /* data */)
 {
   throw std::runtime_error("UnImplemented");
+}
+
+bool
+QuicRClient::notify_pub_fragment(const messages::PublishDatagram& datagram,
+                                 const std::map<int, bytes>& frag_map)
+{
+  if ((frag_map.rbegin()->first & 0x1) != 0x1) {
+    return false; // Not complete, return false that this can NOT be deleted
+  }
+
+  bytes reassembled;
+
+  int seq_bytes = 0;
+  for (const auto& item : frag_map) {
+    if ((item.first >> 1) - seq_bytes != 0) {
+      // Gap in offsets, missing data, return false that this can NOT be deleted
+      return false;
+    }
+
+    reassembled.insert(
+      reassembled.end(), item.second.begin(), item.second.end());
+    seq_bytes += item.second.size();
+  }
+
+  for (const auto& entry : sub_delegates) {
+    quicr::bytes copy = reassembled;
+
+    if (entry.first.contains(datagram.header.name)) {
+      sub_delegates[entry.first]->onSubscribedObject(
+        datagram.header.name, 0x0, 0x0, false, std::move(copy));
+    } else {
+      std::cout << "Name:" << datagram.header.name.to_hex()
+                << ", not in namespace " << entry.first.to_hex() << std::endl;
+    }
+  }
+
+  return true;
+}
+
+void
+QuicRClient::handle_pub_fragment(messages::PublishDatagram&& datagram)
+{
+  static int cindex = 1;
+
+  // Check the current index first considering it's likely in the current buffer
+  const auto& msg_iter = fragments[cindex].find(datagram.header.name);
+  if (msg_iter != fragments[cindex].end()) {
+    // Found
+    msg_iter->second.emplace(from_varint(datagram.header.offset_and_fin),
+                             std::move(datagram.media_data));
+    if (notify_pub_fragment(datagram, msg_iter->second))
+      fragments[cindex].erase(msg_iter);
+
+  } else {
+    // Not in current buffer, search all buffers
+    bool found = false;
+    for (auto& buf : fragments) {
+      const auto& msg_iter = buf.second.find(datagram.header.name);
+      if (msg_iter != buf.second.end()) {
+        // Found
+        msg_iter->second.emplace(from_varint(datagram.header.offset_and_fin),
+                                 std::move(datagram.media_data));
+        if (notify_pub_fragment(datagram, msg_iter->second)) {
+          fragments[cindex].erase(msg_iter);
+        }
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      // If not found in any buffer, then add to current buffer
+      fragments[cindex][datagram.header.name].emplace(
+        from_varint(datagram.header.offset_and_fin),
+        std::move(datagram.media_data));
+    }
+  }
+
+  // Move to next buffer if reached max
+  if ((int)fragments[cindex].size() >= MAX_FRAGMENT_NAMES_PENDING_PER_BUFFER) {
+    if (cindex < MAX_FRAGMENT_BUFFERS)
+      ++cindex;
+    else
+      cindex = 1;
+
+    fragments.erase(cindex);
+  }
 }
 
 void
@@ -248,21 +433,30 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
       std::cout << "Got SubscribeResponse: No delegate found for namespace"
                 << response.quicr_namespace.to_hex() << std::endl;
     }
+
   } else if (msg_type == static_cast<uint8_t>(messages::MessageType::Publish)) {
     messages::PublishDatagram datagram;
     msg >> datagram;
-    for (const auto& entry : sub_delegates) {
-      if (entry.first.contains(datagram.header.name)) {
-        sub_delegates[entry.first]->onSubscribedObject(
-          datagram.header.name,
-          0x0,
-          0x0,
-          false,
-          std::move(datagram.media_data));
-      } else {
-        std::cout << "Name:" << datagram.header.name.to_hex()
-                  << ", not in namespace " << entry.first.to_hex() << std::endl;
+
+    if (from_varint(datagram.header.offset_and_fin) == 0x1) {
+      // No-fragment, process as single object
+
+      for (const auto& entry : sub_delegates) {
+        if (entry.first.contains(datagram.header.name)) {
+          sub_delegates[entry.first]->onSubscribedObject(
+            datagram.header.name,
+            0x0,
+            0x0,
+            false,
+            std::move(datagram.media_data));
+        } else {
+          std::cout << "Name:" << datagram.header.name.to_hex()
+                    << ", not in namespace " << entry.first.to_hex()
+                    << std::endl;
+        }
       }
+    } else { // is a fragment
+      handle_pub_fragment(std::move(datagram));
     }
   }
 }

@@ -3,10 +3,10 @@
 #include <string>
 #include <vector>
 
-#include <quicr/message_buffer.h>
-#include <quicr/quicr_common.h>
-#include <quicr/quicr_name.h>
-#include <quicr/quicr_namespace.h>
+#include "message_buffer.h"
+#include "quicr_common.h"
+#include "quicr_name.h"
+#include "quicr_namespace.h"
 
 /**
  *  Utilties to encode and decode protocol messages
@@ -193,11 +193,14 @@ operator<<(MessageBuffer& buffer, const PublishIntentEnd& msg);
 MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishIntentEnd& msg);
 
+messages::MessageBuffer&
+operator<<(messages::MessageBuffer& msg, const Name& ns);
+messages::MessageBuffer&
+operator>>(messages::MessageBuffer& msg, Name& ns);
 
-messages::MessageBuffer& operator<<(messages::MessageBuffer& msg, const Name& ns);
-messages::MessageBuffer& operator>>(messages::MessageBuffer& msg, Name& ns);
-
-messages::MessageBuffer& operator<<(messages::MessageBuffer& msg, const Namespace& ns);
-messages::MessageBuffer& operator>>(messages::MessageBuffer& msg, Namespace& ns);
+messages::MessageBuffer&
+operator<<(messages::MessageBuffer& msg, const Namespace& ns);
+messages::MessageBuffer&
+operator>>(messages::MessageBuffer& msg, Namespace& ns);
 
 }
