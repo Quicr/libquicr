@@ -28,7 +28,7 @@ jobs:
         submodules: recursive
         
     - name: Install Packages
-      run: brew install pkgconfig
+      run: brew install pkg-config
       if: matrix.os != 'ubuntu-latest'
 
     - name: Configure CMake
