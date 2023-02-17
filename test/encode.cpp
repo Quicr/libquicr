@@ -1,7 +1,7 @@
 #include <doctest/doctest.h>
 #include <memory>
 
-#include "encode.h"
+#include <quicr/encode.h>
 
 using namespace quicr;
 using namespace quicr::messages;

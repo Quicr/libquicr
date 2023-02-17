@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 
-#include "encode.h"
+#include <quicr/encode.h>
 #include "fake_transport.h"
 #include <doctest/doctest.h>
 #include <quicr/quicr_client.h>
@@ -64,7 +64,7 @@ TEST_CASE("Subscribe encode, send and receive")
   auto qclient = std::make_unique<QuicRClient>(transport);
 
   qclient->subscribe(sub_delegate,
-                     { {"0x10000000000000002000"}, 125 },
+                     { { "0x10000000000000002000" }, 125 },
                      SubscribeIntent::wait_up,
                      "",
                      false,
@@ -77,7 +77,8 @@ TEST_CASE("Subscribe encode, send and receive")
   msg >> s;
 
   CHECK_EQ(s.transaction_id, s.transaction_id);
-  CHECK_EQ(s.quicr_namespace, quicr::Namespace{ {"0x10000000000000002000"}, 125 });
+  CHECK_EQ(s.quicr_namespace,
+           quicr::Namespace{ { "0x10000000000000002000" }, 125 });
   CHECK_EQ(s.intent, SubscribeIntent::wait_up);
 }
 
