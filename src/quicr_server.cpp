@@ -194,14 +194,6 @@ QuicRServer::handle_publish(
   msg >> datagram;
 
   // TODO: Add publish_state when we support PublishIntent
-
-  //  std::ostringstream log_msg;
-  //  log_msg << "handle_publish: cid: " << context_id << " sid: " << mStreamId
-  //          << " gid: " << from_varint(datagram.header.group_id)
-  //          << " oid: " << from_varint(datagram.header.object_id)
-  //          << " off: " << from_varint(datagram.header.offset_and_fin);
-  //  log_handler.log(qtransport::LogLevel::info, log_msg.str());
-
   delegate.onPublisherObject(context_id, mStreamId, false, std::move(datagram));
 }
 
