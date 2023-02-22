@@ -352,10 +352,12 @@ QuicRClient::notify_pub_fragment(const messages::PublishDatagram& datagram,
     if (entry.first.contains(datagram.header.name)) {
       sub_delegates[entry.first]->onSubscribedObject(
         datagram.header.name, 0x0, 0x0, false, std::move(copy));
-    } else {
+    }
+    /* TODO: Consider adding log only if no delegate was found
+    else {
       std::cout << "Name:" << datagram.header.name.to_hex()
                 << ", not in namespace " << entry.first.to_hex() << std::endl;
-    }
+    } */
   }
 
   return true;
@@ -448,11 +450,13 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
             0x0,
             false,
             std::move(datagram.media_data));
-        } else {
+        }
+        /* TODO: Consider adding log only if no delegate was found
+        else {
           std::cout << "Name:" << datagram.header.name.to_hex()
                     << ", not in namespace " << entry.first.to_hex()
                     << std::endl;
-        }
+        } */
       }
     } else { // is a fragment
       handle_pub_fragment(std::move(datagram));
