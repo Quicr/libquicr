@@ -256,14 +256,12 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
     int frag_num = data.size() / quicr::MAX_TRANSPORT_DATA_SIZE;
     int frag_remaining_bytes = data.size() % quicr::MAX_TRANSPORT_DATA_SIZE;
 
-    //std::cout << "Sending frags: " << frag_num << std::endl;
-
     int offset = 0;
 
     while (frag_num-- > 0) {
       messages::MessageBuffer msg;
 
-      if (frag_num == 1 && !frag_remaining_bytes) {
+      if (frag_num == 0 && !frag_remaining_bytes) {
         datagram.header.offset_and_fin = to_varint((offset << 1) + 1);
       } else {
         datagram.header.offset_and_fin = to_varint(offset << 1);
