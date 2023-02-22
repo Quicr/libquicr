@@ -256,7 +256,7 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
     int frag_num = data.size() / quicr::MAX_TRANSPORT_DATA_SIZE;
     int frag_remaining_bytes = data.size() % quicr::MAX_TRANSPORT_DATA_SIZE;
 
-    std::cout << "Sending frags: " << frag_num << std::endl;
+    //std::cout << "Sending frags: " << frag_num << std::endl;
 
     int offset = 0;
 
