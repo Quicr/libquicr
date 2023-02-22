@@ -138,8 +138,8 @@ public:
 class QuicRClient
 {
 public:
-  int MAX_FRAGMENT_NAMES_PENDING_PER_BUFFER = 5000;
-  int MAX_FRAGMENT_BUFFERS = 20;
+  unsigned int MAX_FRAGMENT_NAMES_PENDING_PER_BUFFER = 5000;
+  unsigned int MAX_FRAGMENT_BUFFERS = 20;
 
   enum class ClientStatus
   {

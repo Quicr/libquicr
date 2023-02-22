@@ -364,7 +364,7 @@ QuicRClient::notify_pub_fragment(const messages::PublishDatagram& datagram,
 void
 QuicRClient::handle_pub_fragment(messages::PublishDatagram&& datagram)
 {
-  static int cindex = 1;
+  static unsigned int cindex = 1;
 
   // Check the current index first considering it's likely in the current buffer
   const auto& msg_iter = fragments[cindex].find(datagram.header.name);
@@ -401,7 +401,7 @@ QuicRClient::handle_pub_fragment(messages::PublishDatagram&& datagram)
   }
 
   // Move to next buffer if reached max
-  if ((int)fragments[cindex].size() >= MAX_FRAGMENT_NAMES_PENDING_PER_BUFFER) {
+  if (fragments[cindex].size() >= MAX_FRAGMENT_NAMES_PENDING_PER_BUFFER) {
     if (cindex < MAX_FRAGMENT_BUFFERS)
       ++cindex;
     else
