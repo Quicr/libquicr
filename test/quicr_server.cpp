@@ -4,8 +4,8 @@
 #include <doctest/doctest.h>
 #include <quicr/quicr_server.h>
 
-#include "../src/encode.h"
 #include "fake_transport.h"
+#include "quicr/encode.h"
 
 using namespace quicr;
 
@@ -21,35 +21,30 @@ class TestServerDelegate : public ServerDelegate
   }
 
   virtual void onPublisherObject(
-    const quicr::Name& /* quicr_name */,
     [[maybe_unused]] const qtransport::TransportContextId& context_id,
     [[maybe_unused]] const qtransport::MediaStreamId& stream_id,
-    uint8_t /* priority */,
-    uint16_t /* expiry_age_ms */,
+    [[maybe_unused]] bool use_reliable_transport,
+    [[maybe_unused]] messages::PublishDatagram&& datagram) override
+  {
+  }
+
+
+  virtual void onSubscribe(
+    const quicr::Namespace& /* quicr_namespace */,
+    const uint64_t& /* subscriber_id */,
+    const qtransport::TransportContextId& /* context_id */,
+    const qtransport::TransportContextId& /*stream_id */,
+    const SubscribeIntent /* subscribe_intent */,
+    const std::string& /* origin_url */,
     bool /* use_reliable_transport */,
+    const std::string& /* auth_token */,
     bytes&& /* data */) override
   {
   }
 
-  virtual void onPublishedFragment(const quicr::Name& /* quicr_name */,
-                                   uint8_t /* priority */,
-                                   uint16_t /* expiry_age_ms */,
-                                   bool /* use_reliable_transport */,
-                                   const uint64_t& /* offset */,
-                                   bool /* is_last_fragment */,
-                                   bytes&& /* data */) override
-  {
-  }
-
-  virtual void onSubscribe(const quicr::Namespace& /* quicr_namespace */,
-                           const uint64_t& /* subscriber_id */,
-                           const qtransport::TransportContextId& /* context_id */,
-                           const qtransport::TransportContextId& /*stream_id */,
-                           const SubscribeIntent /* subscribe_intent */,
-                           const std::string& /* origin_url */,
-                           bool /* use_reliable_transport */,
-                           const std::string& /* auth_token */,
-                           bytes&& /* data */) override
+  virtual void onUnsubscribe(const quicr::Namespace& /* quicr_namespace */,
+                             const uint64_t& /* subscriber_id */,
+                             const std::string& /* auth_token */) override
   {
   }
 };

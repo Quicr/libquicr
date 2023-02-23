@@ -1,5 +1,5 @@
-#include <quicr/quicr_name.h>
 #include <quicr/message_buffer.h>
+#include <quicr/quicr_name.h>
 
 #include <cstring>
 #include <iomanip>
@@ -59,8 +59,8 @@ Name::Name(const uint8_t* data, size_t length)
 Name::Name(const std::vector<uint8_t>& data)
 {
   constexpr size_t size_of = size() / 2;
-  std::memcpy(&_low, data.data()          , size_of);
-  std::memcpy(&_hi , data.data() + size_of, size_of);
+  std::memcpy(&_low, data.data(), size_of);
+  std::memcpy(&_hi, data.data() + size_of, size_of);
 }
 
 std::string
@@ -72,18 +72,21 @@ Name::to_hex() const
   stream << "0x" << std::hex << std::setfill('0');
   stream << std::setw(size_of) << _hi;
   stream << std::setw(size_of) << _low;
-  
+
   return stream.str();
 }
 
-std::uint8_t Name::operator[](std::size_t index) const
+std::uint8_t
+Name::operator[](std::size_t index) const
 {
   if (index >= size())
-    throw std::out_of_range("Cannot access index outside of max size of quicr::Name");
+    throw std::out_of_range(
+      "Cannot access index outside of max size of quicr::Name");
 
-  if (index < sizeof(uint_type)) return (_low >> (index * 8)) & 0xff;
+  if (index < sizeof(uint_type))
+    return (_low >> (index * 8)) & 0xff;
   return (_hi >> ((index - sizeof(uint_type)) * 8)) & 0xff;
-} 
+}
 
 Name
 Name::operator>>(uint16_t value) const
@@ -99,14 +102,11 @@ Name::operator>>=(uint16_t value)
   if (value == 0)
     return *this;
 
-  if (value < uint_type_bit_size)
-  {
+  if (value < uint_type_bit_size) {
     _low = _low >> value;
     _low |= _hi << (uint_type_bit_size - value);
     _hi = _hi >> value;
-  }
-  else
-  {
+  } else {
     _low = _hi >> (value - uint_type_bit_size);
     _hi = 0;
   }
@@ -128,14 +128,11 @@ Name::operator<<=(uint16_t value)
   if (value == 0)
     return *this;
 
-  if (value < uint_type_bit_size)
-  {
+  if (value < uint_type_bit_size) {
     _hi = _hi << value;
     _hi |= _low >> (uint_type_bit_size - value);
     _low = _low << value;
-  }
-  else
-  {
+  } else {
     _hi = _low << (value - uint_type_bit_size);
     _low = 0;
   }
@@ -154,8 +151,7 @@ Name::operator+(uint_type value) const
 void
 Name::operator+=(uint_type value)
 {
-  if (_low + value < _low)
-  {
+  if (_low + value < _low) {
     ++_hi;
   }
   _low += value;
@@ -172,33 +168,36 @@ Name::operator-(uint_type value) const
 void
 Name::operator-=(uint_type value)
 {
-  if (_low - value > _low)
-  {
+  if (_low - value > _low) {
     --_hi;
   }
   _low -= value;
 }
 
-Name Name::operator++()
+Name
+Name::operator++()
 {
   *this += 1;
   return *this;
 }
 
-Name Name::operator++(int)
+Name
+Name::operator++(int)
 {
   Name name(*this);
   ++(*this);
   return name;
 }
 
-Name Name::operator--()
+Name
+Name::operator--()
 {
   *this -= 1;
   return *this;
 }
 
-Name Name::operator--(int)
+Name
+Name::operator--(int)
 {
   Name name(*this);
   --(*this);

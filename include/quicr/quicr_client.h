@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include <quicr/encode.h>
 #include <quicr/message_buffer.h>
 #include <quicr/quicr_common.h>
 #include <quicr/quicr_name.h>
@@ -137,6 +138,9 @@ public:
 class QuicRClient
 {
 public:
+  unsigned int MAX_FRAGMENT_NAMES_PENDING_PER_BUFFER = 5000;
+  unsigned int MAX_FRAGMENT_BUFFERS = 20;
+
   enum class ClientStatus
   {
     READY = 0,
@@ -289,6 +293,13 @@ public:
   std::shared_ptr<ITransport> transport;
 
 private:
+  bool notify_pub_fragment(const messages::PublishDatagram& datagram,
+                           const std::map<int, bytes>& frag_map);
+  void handle_pub_fragment(messages::PublishDatagram&& datagram);
+
+  qtransport::LogHandler def_log_handler;
+  qtransport::LogHandler& log_handler;
+
   void make_transport(RelayInfo& relay_info, qtransport::LogHandler& logger);
 
   // State to store per-subscribe context
@@ -334,7 +345,7 @@ private:
   std::map<quicr::Namespace, SubscribeContext> subscribe_state{};
   std::map<quicr::Name, PublishContext> publish_state{};
   std::unique_ptr<ITransport::TransportDelegate> transport_delegate;
-  uint64_t media_stream_id {0};
+  uint64_t media_stream_id{ 0 };
 };
 
 }

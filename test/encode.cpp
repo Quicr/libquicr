@@ -1,7 +1,7 @@
 #include <doctest/doctest.h>
 #include <memory>
 
-#include "encode.h"
+#include <quicr/encode.h>
 
 using namespace quicr;
 using namespace quicr::messages;
@@ -15,14 +15,13 @@ TEST_CASE("MessageBuffer Decode Exception")
   CHECK_THROWS((buffer >> out));
 }
 
-
 /*===========================================================================*/
 // Subscribe Message Types
 /*===========================================================================*/
 
 TEST_CASE("Subscribe Message encode/decode")
 {
-  quicr::Namespace qnamespace{ {"0x10000000000000002000"}, 125 };
+  quicr::Namespace qnamespace{ { "0x10000000000000002000" }, 125 };
 
   Subscribe s{ 1, 0x1000, qnamespace, SubscribeIntent::immediate };
   MessageBuffer buffer;
@@ -37,7 +36,7 @@ TEST_CASE("Subscribe Message encode/decode")
 
 TEST_CASE("SubscribeResponse Message encode/decode")
 {
-  quicr::Namespace qnamespace{ {"0x10000000000000002000"}, 125 };
+  quicr::Namespace qnamespace{ { "0x10000000000000002000" }, 125 };
 
   SubscribeResponse s{ qnamespace,
                        SubscribeResult::SubscribeStatus::Ok,
@@ -72,7 +71,7 @@ TEST_CASE("SubscribeEnd Message encode/decode")
 
 TEST_CASE("PublishIntent Message encode/decode")
 {
-  quicr::Namespace qnamespace{ {"0x10000000000000002000"}, 125 };
+  quicr::Namespace qnamespace{ { "0x10000000000000002000" }, 125 };
   PublishIntent pi{ MessageType::Publish, 0x1000,
                     qnamespace,           1u,
                     { 0, 1, 2, 3, 4 },    uintVar_t{ 0x0100 },
@@ -115,7 +114,7 @@ TEST_CASE("Publish Message encode/decode")
   for (int i = 0; i < 256; ++i)
     data[i] = i;
 
-  PublishDatagram p{ d, MediaType::Text, uintVar_t{ 256 }, data};
+  PublishDatagram p{ d, MediaType::Text, uintVar_t{ 256 }, data };
   MessageBuffer buffer;
   buffer << p;
   PublishDatagram p_out;

@@ -193,11 +193,14 @@ operator<<(MessageBuffer& buffer, const PublishIntentEnd& msg);
 MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishIntentEnd& msg);
 
+messages::MessageBuffer&
+operator<<(messages::MessageBuffer& msg, const Name& ns);
+messages::MessageBuffer&
+operator>>(messages::MessageBuffer& msg, Name& ns);
 
-messages::MessageBuffer& operator<<(messages::MessageBuffer& msg, const Name& ns);
-messages::MessageBuffer& operator>>(messages::MessageBuffer& msg, Name& ns);
-
-messages::MessageBuffer& operator<<(messages::MessageBuffer& msg, const Namespace& ns);
-messages::MessageBuffer& operator>>(messages::MessageBuffer& msg, Namespace& ns);
+messages::MessageBuffer&
+operator<<(messages::MessageBuffer& msg, const Namespace& ns);
+messages::MessageBuffer&
+operator>>(messages::MessageBuffer& msg, Namespace& ns);
 
 }

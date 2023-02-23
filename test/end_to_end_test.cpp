@@ -5,8 +5,8 @@
 #include <quicr/quicr_client.h>
 #include <quicr/quicr_server.h>
 
-#include "../src/encode.h"
 #include "fake_transport.h"
+#include <quicr/encode.h>
 
 /*
  *

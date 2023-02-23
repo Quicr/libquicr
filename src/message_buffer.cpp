@@ -2,6 +2,7 @@
 
 #include <iomanip>
 #include <sstream>
+#include <cassert>
 
 namespace quicr {
 uintVar_t
@@ -19,26 +20,28 @@ from_varint(uintVar_t v)
 
 namespace messages {
 MessageBuffer::MessageBuffer(MessageBuffer&& other)
-  : _buffer{std::move(other._buffer)}
+  : _buffer{ std::move(other._buffer) }
 {
 }
 
 MessageBuffer::MessageBuffer(const std::vector<uint8_t>& buffer)
-  : _buffer{buffer}
+  : _buffer{ buffer }
 {
 }
 
 MessageBuffer::MessageBuffer(std::vector<uint8_t>&& buffer)
-  : _buffer{std::move(buffer)}
+  : _buffer{ std::move(buffer) }
 {
 }
-  
-void MessageBuffer::push_back(const std::vector<uint8_t>& data)
+
+void
+MessageBuffer::push_back(const std::vector<uint8_t>& data)
 {
   _buffer.insert(_buffer.end(), data.begin(), data.end());
 }
 
-void MessageBuffer::pop_back(uint16_t len)
+void
+MessageBuffer::pop_back(uint16_t len)
 {
   if (len > _buffer.size())
     throw std::out_of_range("len cannot be longer than the size of the buffer");
@@ -47,7 +50,8 @@ void MessageBuffer::pop_back(uint16_t len)
   _buffer.erase(_buffer.begin() + delta, _buffer.end());
 };
 
-std::vector<uint8_t> MessageBuffer::back(uint16_t len)
+std::vector<uint8_t>
+MessageBuffer::back(uint16_t len)
 {
   if (len > _buffer.size())
     throw std::out_of_range("len cannot be longer than the size of the buffer");
@@ -70,7 +74,8 @@ MessageBuffer::to_hex() const
   return hex.str();
 }
 
-void MessageBuffer::operator=(MessageBuffer&& other)
+void
+MessageBuffer::operator=(MessageBuffer&& other)
 {
   _buffer = std::move(other._buffer);
 }
@@ -85,8 +90,7 @@ operator<<(MessageBuffer& msg, const uint8_t val)
 MessageBuffer&
 operator>>(MessageBuffer& msg, uint8_t& val)
 {
-  if (msg.empty())
-  {
+  if (msg.empty()) {
     throw MessageBufferException("Cannot read from empty message buffer");
   }
 
@@ -146,7 +150,7 @@ operator<<(MessageBuffer& msg, const std::vector<uint8_t>& val)
 MessageBuffer&
 operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
 {
-  uintVar_t vecSize{0};
+  uintVar_t vecSize{ 0 };
   msg >> vecSize;
 
   size_t len = from_varint(vecSize);
@@ -157,7 +161,7 @@ operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
   val.resize(len);
   val = msg.back(len);
   msg.pop_back(len);
-  
+
   return msg;
 }
 
@@ -166,9 +170,9 @@ operator<<(MessageBuffer& msg, const uintVar_t& v)
 {
   uint64_t val = from_varint(v);
 
-  if(val >= ((uint64_t)1 << 61))
-  {
-    throw MessageBufferException("uintVar_t cannot have a value greater than 1 << 61");
+  if (val >= ((uint64_t)1 << 61)) {
+    throw MessageBufferException(
+      "uintVar_t cannot have a value greater than 1 << 61");
   }
 
   if (val < ((uint64_t)1 << 7)) {
@@ -244,12 +248,9 @@ operator>>(MessageBuffer& msg, uintVar_t& v)
   msg >> byte[1];
   msg >> byte[0];
   uint64_t val = ((uint64_t)(byte[7] & 0x0F) << 56) +
-                 ((uint64_t)(byte[6]) << 48) +
-                 ((uint64_t)(byte[5]) << 40) +
-                 ((uint64_t)(byte[4]) << 32) +
-                 ((uint64_t)(byte[3]) << 24) +
-                 ((uint64_t)(byte[2]) << 16) +
-                 ((uint64_t)(byte[1]) << 8) +
+                 ((uint64_t)(byte[6]) << 48) + ((uint64_t)(byte[5]) << 40) +
+                 ((uint64_t)(byte[4]) << 32) + ((uint64_t)(byte[3]) << 24) +
+                 ((uint64_t)(byte[2]) << 16) + ((uint64_t)(byte[1]) << 8) +
                  ((uint64_t)(byte[0]) << 0);
   v = to_varint(val);
   return msg;

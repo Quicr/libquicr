@@ -8,6 +8,15 @@
 
 namespace quicr {
 
+/**
+ * Max transport data size, not counting IP + UDP + QUIC + QUICR headers.
+ *    This is the maximum size of the payload data. IPv4 + UDP is 28 bytes,
+ *    QUIC adds around 25 bytes and QUICR adds 66 bytes. Assuming a 1400 MTU
+ *    end-to-end, 1400 - 119 = 1281.  A max data size of 1280 should be good
+ *    end-to-end for all paths.
+ */
+const uint16_t MAX_TRANSPORT_DATA_SIZE = 1280;
+
 // TODO: Do we need a different structure or the name
 using bytes = std::vector<uint8_t>;
 
@@ -93,8 +102,8 @@ enum class PublishStatus
  */
 struct PublishIntentResult
 {
-  PublishStatus status;     // Publish status
-  RelayInfo redirectInfo;   // Set only if status is redirect
+  PublishStatus status;       // Publish status
+  RelayInfo redirectInfo;     // Set only if status is redirect
   quicr::Name reassignedName; // Set only if status is ReAssigned
 };
 
