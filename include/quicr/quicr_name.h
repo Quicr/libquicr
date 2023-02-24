@@ -51,6 +51,7 @@ public:
   void operator|=(const Name& other);
   Name operator^(const Name& other) const;
   void operator^=(const Name& other);
+  Name operator~() const;
 
   Name& operator=(const Name& other);
   Name& operator=(Name&& other);

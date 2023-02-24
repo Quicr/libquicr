@@ -31,15 +31,19 @@ Name::Name(const std::string& hex_value)
 {
   uint8_t start_pos = 0;
   if (hex_value.substr(0, 2) == "0x")
-    start_pos  = 2;
+    start_pos = 2;
 
   if (hex_value.length() - start_pos > size() * 2)
     throw NameException("Hex string cannot be longer than " +
                         std::to_string(size() * 2) + " bytes");
 
   if (hex_value.length() - start_pos > size()) {
-    _hi = std::stoull(hex_value.substr(start_pos, hex_value.length() - start_pos - size()), nullptr, 16);
-    _low = std::stoull(hex_value.substr(hex_value.length() - size(), size()), nullptr, 16);
+    _hi = std::stoull(
+      hex_value.substr(start_pos, hex_value.length() - start_pos - size()),
+      nullptr,
+      16);
+    _low = std::stoull(
+      hex_value.substr(hex_value.length() - size(), size()), nullptr, 16);
   } else {
     _hi = 0;
     _low = std::stoull(hex_value, nullptr, 16);
@@ -277,6 +281,15 @@ Name::operator^=(const Name& other)
   _low ^= other._low;
 }
 
+Name
+Name::operator~() const
+{
+  Name name(*this);
+  name._hi = ~_hi;
+  name._low = ~_low;
+  return name;
+}
+
 Name&
 Name::operator=(const Name& other)
 {
@@ -308,16 +321,20 @@ operator!=(const Name& a, const Name& b)
 bool
 operator>(const Name& a, const Name& b)
 {
-  if (a._hi > b._hi) return true;
-  if (b._hi > a._hi) return false;
+  if (a._hi > b._hi)
+    return true;
+  if (b._hi > a._hi)
+    return false;
   return a._low > b._low;
 }
 
 bool
 operator<(const Name& a, const Name& b)
 {
-  if (a._hi < b._hi) return true;
-  if (b._hi < a._hi) return false;
+  if (a._hi < b._hi)
+    return true;
+  if (b._hi < a._hi)
+    return false;
   return a._low < b._low;
 }
 
