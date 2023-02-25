@@ -15,7 +15,7 @@ struct TestSubscriberDelegate : public SubscriberDelegate
   ~TestSubscriberDelegate() = default;
 
   void onSubscribeResponse(const quicr::Namespace& /* quicr_namespace */,
-                           const SubscribeResult::SubscribeStatus& /* result */)
+                           const SubscribeResult& /* result */)
   {
   }
 
