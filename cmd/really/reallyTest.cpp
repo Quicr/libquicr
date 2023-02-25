@@ -1,6 +1,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <cstring>
 #include <quicr/quicr_client.h>
 #include <quicr/quicr_common.h>
 #include <sstream>
