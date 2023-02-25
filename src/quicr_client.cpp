@@ -90,10 +90,13 @@ public:
   virtual void on_recv_notify(const qtransport::TransportContextId& context_id,
                               const qtransport::MediaStreamId& mStreamId)
   {
+    // TODO: Consider running the below async or in a thread
+
     auto data = client.transport->dequeue(context_id, mStreamId);
     if (!data.has_value()) {
       return;
     }
+
     messages::MessageBuffer msg_buffer{ data.value() };
     client.handle(std::move(msg_buffer));
   }
@@ -135,6 +138,10 @@ QuicRClient::QuicRClient(std::shared_ptr<ITransport> transport_in)
   : log_handler(def_log_handler)
 {
   transport = transport_in;
+}
+
+QuicRClient::~QuicRClient() {
+
 }
 
 bool
@@ -199,11 +206,22 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
 }
 
 void
-QuicRClient::unsubscribe(const quicr::Namespace& /* quicr_namespace */,
+QuicRClient::unsubscribe(const quicr::Namespace& quicr_namespace,
                          const std::string& /* origin_url */,
                          const std::string& /* auth_token */)
 {
-  throw std::runtime_error("UnImplemented");
+  // The removal of the delegate is done on receive of subscription ended
+
+  messages::MessageBuffer msg{};
+  messages::Unsubscribe unsub { 0x1, quicr_namespace };
+  msg << unsub;
+
+  if (subscribe_state.count(quicr_namespace)) {
+    subscribe_state.erase(quicr_namespace);
+  }
+
+  transport->enqueue(transport_context_id, media_stream_id, msg.get());
+
 }
 
 void
@@ -353,11 +371,6 @@ QuicRClient::notify_pub_fragment(const messages::PublishDatagram& datagram,
       sub_delegates[entry.first]->onSubscribedObject(
         datagram.header.name, 0x0, 0x0, false, std::move(copy));
     }
-    /* TODO: Consider adding log only if no delegate was found
-    else {
-      std::cout << "Name:" << datagram.header.name.to_hex()
-                << ", not in namespace " << entry.first.to_hex() << std::endl;
-    } */
   }
 
   return true;
@@ -423,43 +436,65 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
 
   uint8_t msg_type = msg.back();
 
-  if (msg_type ==
-      static_cast<uint8_t>(messages::MessageType::SubscribeResponse)) {
-    messages::SubscribeResponse response;
-    msg >> response;
-    if (sub_delegates.count(response.quicr_namespace)) {
-      sub_delegates[response.quicr_namespace]->onSubscribeResponse(
-        response.quicr_namespace, response.response);
-    } else {
-      std::cout << "Got SubscribeResponse: No delegate found for namespace"
-                << response.quicr_namespace.to_hex() << std::endl;
+  switch (msg_type) {
+    case static_cast<uint8_t>(messages::MessageType::SubscribeResponse): {
+      messages::SubscribeResponse response;
+      msg >> response;
+
+      SubscribeResult result {.status = response.response };
+
+      if (sub_delegates.count(response.quicr_namespace)) {
+        sub_delegates[response.quicr_namespace]->onSubscribeResponse(
+          response.quicr_namespace, result);
+      } else {
+        std::cout << "Got SubscribeResponse: No delegate found for namespace"
+                  << response.quicr_namespace.to_hex() << std::endl;
+      }
+
+      break;
     }
 
-  } else if (msg_type == static_cast<uint8_t>(messages::MessageType::Publish)) {
-    messages::PublishDatagram datagram;
-    msg >> datagram;
+    case static_cast<uint8_t>(messages::MessageType::SubscribeEnd): {
+      messages::SubscribeEnd subEnd;
+      msg >> subEnd;
 
-    if (from_varint(datagram.header.offset_and_fin) == 0x1) {
-      // No-fragment, process as single object
+      if (sub_delegates.count(subEnd.quicr_namespace)) {
+        sub_delegates[subEnd.quicr_namespace]->onSubscriptionEnded(
+          subEnd.quicr_namespace, subEnd.reason);
 
-      for (const auto& entry : sub_delegates) {
-        if (entry.first.contains(datagram.header.name)) {
-          sub_delegates[entry.first]->onSubscribedObject(
-            datagram.header.name,
-            0x0,
-            0x0,
-            false,
-            std::move(datagram.media_data));
-        }
-        /* TODO: Consider adding log only if no delegate was found
-        else {
-          std::cout << "Name:" << datagram.header.name.to_hex()
-                    << ", not in namespace " << entry.first.to_hex()
-                    << std::endl;
-        } */
+        // clean up the delegate memory
+        sub_delegates.erase(subEnd.quicr_namespace);
+
+      } else {
+        std::cout << "Got SubscribeEnded: No delegate found for namespace "
+                  << subEnd.quicr_namespace.to_hex() << std::endl;
       }
-    } else { // is a fragment
-      handle_pub_fragment(std::move(datagram));
+
+      break;
+    }
+
+    case static_cast<uint8_t>(messages::MessageType::Publish): {
+      messages::PublishDatagram datagram;
+      msg >> datagram;
+
+      if (from_varint(datagram.header.offset_and_fin) == 0x1) {
+        // No-fragment, process as single object
+
+        for (const auto& entry : sub_delegates) {
+          if (entry.first.contains(datagram.header.name)) {
+            sub_delegates[entry.first]->onSubscribedObject(
+              datagram.header.name,
+              0x0,
+              0x0,
+              false,
+              std::move(datagram.media_data));
+          }
+        }
+      } else { // is a fragment
+        handle_pub_fragment(std::move(datagram));
+      }
+
+      break;
     }
   }
 }

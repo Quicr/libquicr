@@ -37,20 +37,21 @@ public:
    */
   virtual void onSubscribeResponse(
     const quicr::Namespace& quicr_namespace,
-    const SubscribeResult::SubscribeStatus& result) = 0;
+    const SubscribeResult& result) = 0;
 
   /**
    * @brief Indicates a given subscription is no longer valid
    *
-   * @param quicr_namespace       : Identifies QUICR namespace
-   * @parm result                 : Status of Subscribe operation
-   *
    * @details  Subscription can terminate when a publisher terminated
    *           the stream or subscription timeout or other application
    *           reasons
+   *
+   * @param quicr_namespace       : Identifies QUICR namespace
+   * @param reason                : Reason indicating end operation
+   *
    */
   virtual void onSubscriptionEnded(const quicr::Namespace& quicr_namespace,
-                                   const SubscribeResult& result) = 0;
+                                   const SubscribeResult::SubscribeStatus& reason) = 0;
 
   /**
    * @brief Report arrival of subscribed QUICR object under a Name
@@ -153,6 +154,8 @@ public:
     TERMINATED,
   };
 
+  ~QuicRClient();
+
   /**
    * @brief Setup a QUICR Client with publisher and subscriber functionality
    *
@@ -238,10 +241,10 @@ public:
   /**
    * @brief Stop subscription on the given QUICR namespace
    *
-   * @param quicr_namespace        : Identifies QUICR namespace
+   * @param quicr_namespace       : Identifies QUICR namespace
    * @param origin_url            : Origin serving the QUICR Session
-   * @param auth_token            : Auth Token to valiadate the Subscribe
-   * Request
+   * @param auth_token            : Auth Token to validate the Subscribe
+   *                                Request
    */
   void unsubscribe(const quicr::Namespace& quicr_namespace,
                    const std::string& origin_url,

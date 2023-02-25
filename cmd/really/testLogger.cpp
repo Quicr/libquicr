@@ -16,6 +16,9 @@ void testLogger::log(qtransport::LogLevel level, const std::string &string) {
   case qtransport::LogLevel::warn:
     lvl = "WARN";
     break;
+  case qtransport::LogLevel::debug:
+    lvl = "DEBUG";
+    break;
   default:
     lvl = "INFO";
     break;

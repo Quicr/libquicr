@@ -23,6 +23,8 @@ enum class MessageType : uint8_t
   Subscribe = 1,
   Publish = 2,
   SubscribeResponse = 3,
+  Unsubscribe = 4,
+  SubscribeEnd = 5,
 };
 
 uint64_t
@@ -59,6 +61,17 @@ struct Subscribe
   SubscribeIntent intent;
 };
 
+struct Unsubscribe
+{
+  uint8_t version;
+  quicr::Namespace quicr_namespace;
+};
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const Unsubscribe& msg);
+MessageBuffer&
+operator>>(MessageBuffer& buffer, Unsubscribe& msg);
+
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const Subscribe& msg);
 MessageBuffer&
@@ -86,13 +99,8 @@ operator>>(MessageBuffer& buffer, SubscribeResponse& msg);
 
 struct SubscribeEnd
 {
-  MessageType message_type;
-  uintVar_t media_id;
-  std::vector<uint8_t> payload;
-  /* TODO
-   * relay_auth_token_length(i),
-   * relay_token(…),
-   */
+  quicr::Namespace quicr_namespace;
+  SubscribeResult::SubscribeStatus reason;
 };
 
 MessageBuffer&

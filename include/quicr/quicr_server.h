@@ -179,29 +179,33 @@ public:
   /**
    * @brief Send subscribe response
    *
+   * @details Entities processing the Subscribe Request MUST validate the
+   * request
+   *
+   * @param subscriber_id         : Subscriber ID to send the message to
    * @param quicr_namespace       : Identifies QUICR namespace
    * @param result                : Status of Subscribe operation
    *
-   * @details Entities processing the Subscribe Request MUST validate the
-   * request
-   * @todo: Add payload with origin signed blob
    */
-  void subscribeResponse(const quicr::Namespace& quicr_namespace,
-                         const uint64_t& transaction_id,
+  void subscribeResponse(const uint64_t& subscriber_id,
+                         const quicr::Namespace& quicr_namespace,
                          const SubscribeResult& result);
 
   /**
-   * @brief Indicates a given subscription is no longer valid
-   *
-   * @param quicr_namespace       : Identifies QUICR namespace
-   * @param result                : Status of Subscribe operation
+   * @brief Send subscription end message
    *
    * @details  Subscription can terminate when a publisher terminated
-   *           the stream or subscription timeout or other application
-   *           reasons
+   *           the stream or subscription timeout, upon unsubscribe,
+   *           or other application reasons
+   *
+   * @param subscriber_id         : Subscriber ID to send the message to
+   * @param quicr_namespace       : Identifies QUICR namespace
+   * @param reason                : Reason of Subscribe End operation
+   *
    */
-  void subscriptionEnded(const quicr::Namespace& quicr_namespace,
-                         const SubscribeResult& result);
+  void subscriptionEnded(const uint64_t& subscriber_id,
+                         const quicr::Namespace& quicr_namespace,
+                         const SubscribeResult::SubscribeStatus& reason);
 
   /**
    * @brief Send a named QUICR media object
@@ -245,6 +249,9 @@ private:
   void handle_subscribe(const qtransport::TransportContextId& context_id,
                         const qtransport::MediaStreamId& mStreamId,
                         messages::MessageBuffer&& msg);
+  void handle_unsubscribe(const qtransport::TransportContextId& context_id,
+                          const qtransport::MediaStreamId& mStreamId,
+                          messages::MessageBuffer&& msg);
   void handle_publish(const qtransport::TransportContextId& context_id,
                       const qtransport::MediaStreamId& mStreamId,
                       messages::MessageBuffer&& msg);
