@@ -306,14 +306,14 @@ QuicRServer::TransportDelegate::on_recv_notify(
 
       messages::MessageBuffer msg_buffer{ data.value() };
 
-      switch (msg_type) {
-        case static_cast<uint8_t>(messages::MessageType::Subscribe):
+      switch (static_cast<messages::MessageType>(msg_type)) {
+        case messages::MessageType::Subscribe:
           server.handle_subscribe(context_id, mStreamId, std::move(msg_buffer));
           break;
-        case static_cast<uint8_t>(messages::MessageType::Publish):
+        case messages::MessageType::Publish:
           server.handle_publish(context_id, mStreamId, std::move(msg_buffer));
           break;
-        case static_cast<uint8_t>(messages::MessageType::Unsubscribe):
+        case messages::MessageType::Unsubscribe:
           server.handle_unsubscribe(context_id, mStreamId, std::move(msg_buffer));
           break;
         default:
