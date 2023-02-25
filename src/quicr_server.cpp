@@ -107,25 +107,52 @@ QuicRServer::publishIntentResponse(
 }
 
 void
-QuicRServer::subscribeResponse(const quicr::Namespace& quicr_namespace,
-                               const uint64_t& transaction_id,
+QuicRServer::subscribeResponse(const uint64_t& subscriber_id,
+                               const quicr::Namespace& quicr_namespace,
                                const SubscribeResult& result)
 {
+  // start populating message to encode
+  if (subscribe_id_state.count(subscriber_id) == 0) {
+    return;
+  }
+
+  auto& context = subscribe_id_state[subscriber_id];
+
   messages::SubscribeResponse response;
-  response.transaction_id = transaction_id;
+  response.transaction_id = subscriber_id;
   response.quicr_namespace = quicr_namespace;
   response.response = result.status;
 
   messages::MessageBuffer msg;
   msg << response;
-  // transport.enqueue(transport_context_id, 0x0, std::move(msg.buffer));
+
+  transport->enqueue(context.transport_context_id,
+                    context.media_stream_id,
+                    msg.get());
 }
 
 void
-QuicRServer::subscriptionEnded(const quicr::Namespace& /* quicr_namespace */,
-                               const SubscribeResult& /* result */)
+QuicRServer::subscriptionEnded(const uint64_t& subscriber_id,
+                               const quicr::Namespace& quicr_namespace,
+                               const SubscribeResult::SubscribeStatus& reason)
 {
-  throw std::runtime_error("Unimplemented");
+  // start populating message to encode
+  if (subscribe_id_state.count(subscriber_id) == 0) {
+    return;
+  }
+
+  auto& context = subscribe_id_state[subscriber_id];
+
+  messages::SubscribeEnd subEnd;
+  subEnd.quicr_namespace = quicr_namespace;
+  subEnd.reason = reason;
+
+  messages::MessageBuffer msg;
+  msg << subEnd;
+
+  transport->enqueue(context.transport_context_id,
+                     context.media_stream_id,
+                     msg.get());
 }
 
 void
@@ -182,6 +209,32 @@ QuicRServer::handle_subscribe(const qtransport::TransportContextId& context_id,
                        false,
                        "",
                        {});
+}
+
+void
+QuicRServer::handle_unsubscribe(const qtransport::TransportContextId& context_id,
+                                const qtransport::MediaStreamId& /* mStreamId */,
+                                messages::MessageBuffer&& msg)
+{
+  messages::Unsubscribe unsub;
+  msg >> unsub;
+
+  // Remove states if state exists
+  if (subscribe_state[unsub.quicr_namespace].count(context_id) != 0) {
+    auto& context = subscribe_state[unsub.quicr_namespace][context_id];
+
+
+    // Before removing, exec callback
+    delegate.onUnsubscribe(unsub.quicr_namespace,
+                           context.subscriber_id, { });
+
+    subscribe_id_state.erase(context.subscriber_id);
+    subscribe_state[unsub.quicr_namespace].erase(context_id);
+
+    if (subscribe_state[unsub.quicr_namespace].size() > 0) {
+      subscribe_state.erase(unsub.quicr_namespace);
+    }
+  }
 }
 
 void
@@ -243,21 +296,28 @@ QuicRServer::TransportDelegate::on_recv_notify(
   const qtransport::TransportContextId& context_id,
   const qtransport::MediaStreamId& mStreamId)
 {
+
+  // TODO: Consider running this in a task/async thread
   while (true) {
     auto data = server.transport->dequeue(context_id, mStreamId);
 
     if (data.has_value()) {
-
-      // TODO: Extracting type will change when the message is encoded correctly
       uint8_t msg_type = data.value().back();
 
       messages::MessageBuffer msg_buffer{ data.value() };
-      if (msg_type == static_cast<uint8_t>(messages::MessageType::Subscribe)) {
-        server.handle_subscribe(context_id, mStreamId, std::move(msg_buffer));
 
-      } else if (msg_type ==
-                 static_cast<uint8_t>(messages::MessageType::Publish)) {
-        server.handle_publish(context_id, mStreamId, std::move(msg_buffer));
+      switch (msg_type) {
+        case static_cast<uint8_t>(messages::MessageType::Subscribe):
+          server.handle_subscribe(context_id, mStreamId, std::move(msg_buffer));
+          break;
+        case static_cast<uint8_t>(messages::MessageType::Publish):
+          server.handle_publish(context_id, mStreamId, std::move(msg_buffer));
+          break;
+        case static_cast<uint8_t>(messages::MessageType::Unsubscribe):
+          server.handle_unsubscribe(context_id, mStreamId, std::move(msg_buffer));
+          break;
+        default:
+          break;
       }
 
     } else {

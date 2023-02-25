@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <set>
+#include <sstream>
 
 class ReallyServer : public quicr::ServerDelegate
 {
@@ -49,9 +50,23 @@ public:
     }
   }
 
-  virtual void onUnsubscribe(const quicr::Namespace& /* quicr_namespace */,
-                             const uint64_t& /* subscriber_id */,
-                             const std::string& /* auth_token */) {}
+  virtual void onUnsubscribe(const quicr::Namespace& quicr_namespace,
+                             const uint64_t& subscriber_id,
+                             const std::string& /* auth_token */) {
+
+
+    std::ostringstream log_msg;
+    log_msg << "onUnsubscribe: Namespace " << quicr_namespace.to_hex()
+            << " subscribe_id: " << subscriber_id;
+
+    logger.log(qtransport::LogLevel::info, log_msg.str());
+
+    server->subscriptionEnded(subscriber_id, quicr_namespace,
+                              quicr::SubscribeResult::SubscribeStatus::Ok);
+
+    Subscriptions::Remote remote = { .subscribe_id = subscriber_id };
+    subscribeList.remove(quicr_namespace.name(), quicr_namespace.length(), remote);
+  }
 
   virtual void onSubscribe(
     const quicr::Namespace& quicr_namespace,
@@ -64,8 +79,13 @@ public:
     [[maybe_unused]] const std::string& auth_token,
     [[maybe_unused]] quicr::bytes&& data)
   {
-    std::cout << " onSubscribe: Namespace " << quicr_namespace.to_hex()
-              << std::endl;
+    std::ostringstream log_msg;
+    log_msg << "onSubscribe: Namespace " << quicr_namespace.to_hex()
+            << "/" << int(quicr_namespace.length())
+            << " subscribe_id: " << subscriber_id;
+
+
+    logger.log(qtransport::LogLevel::info, log_msg.str());
 
     Subscriptions::Remote remote = { .subscribe_id = subscriber_id };
     subscribeList.add(quicr_namespace.name(), quicr_namespace.length(), remote);
@@ -74,7 +94,7 @@ public:
     auto result = quicr::SubscribeResult{
       quicr::SubscribeResult::SubscribeStatus::Ok, "", {}, {}
     };
-    server->subscribeResponse(quicr_namespace, 0x0, result);
+    server->subscribeResponse(subscriber_id, quicr_namespace, result);
   }
 
   std::unique_ptr<quicr::QuicRServer> server;

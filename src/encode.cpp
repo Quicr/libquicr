@@ -49,6 +49,30 @@ operator>>(MessageBuffer& buffer, Subscribe& msg)
 }
 
 MessageBuffer&
+operator<<(MessageBuffer& buffer, const Unsubscribe& msg)
+{
+  buffer << msg.quicr_namespace;
+  buffer << static_cast<uint8_t>(MessageType::Unsubscribe);
+
+  return buffer;
+}
+
+MessageBuffer&
+operator>>(MessageBuffer& buffer, Unsubscribe& msg)
+{
+  uint8_t msg_type;
+  buffer >> msg_type;
+  if (msg_type != static_cast<uint8_t>(MessageType::Unsubscribe)) {
+    throw MessageBufferException(
+      "Message type for Unsubscribe object must be MessageType::Unsubscribe");
+  }
+
+  buffer >> msg.quicr_namespace;
+
+  return buffer;
+}
+
+MessageBuffer&
 operator<<(MessageBuffer& buffer, const SubscribeResponse& msg)
 {
   buffer << msg.quicr_namespace;
@@ -82,9 +106,10 @@ operator>>(MessageBuffer& buffer, SubscribeResponse& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const SubscribeEnd& msg)
 {
-  buffer << msg.payload;
-  buffer << msg.media_id;
-  buffer << static_cast<uint8_t>(msg.message_type);
+  buffer << msg.quicr_namespace;
+  buffer << static_cast<uint8_t>(msg.reason);
+  buffer << static_cast<uint8_t>(MessageType::SubscribeEnd);
+
   return buffer;
 }
 
@@ -93,10 +118,16 @@ operator>>(MessageBuffer& buffer, SubscribeEnd& msg)
 {
   uint8_t msg_type;
   buffer >> msg_type;
-  msg.message_type = static_cast<MessageType>(msg_type);
+  if (msg_type != static_cast<uint8_t>(MessageType::SubscribeEnd)) {
+    throw MessageBufferException("Message type for SubscribeEnd object "
+                                 "must be MessageType::SubscribeEnd");
+  }
 
-  buffer >> msg.media_id;
-  buffer >> msg.payload;
+  uint8_t reason;
+  buffer >> reason;
+  msg.reason = static_cast<SubscribeResult::SubscribeStatus>(reason);
+
+  buffer >> msg.quicr_namespace;
 
   return buffer;
 }

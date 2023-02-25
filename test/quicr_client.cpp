@@ -6,7 +6,6 @@
 #include "fake_transport.h"
 #include <doctest/doctest.h>
 #include <quicr/quicr_client.h>
-#include <transport/transport.h>
 
 using namespace quicr;
 
@@ -21,7 +20,7 @@ struct TestSubscriberDelegate : public SubscriberDelegate
   }
 
   void onSubscriptionEnded(const quicr::Namespace& /* quicr_namespace */,
-                           const SubscribeResult& /* result */)
+                           const SubscribeResult::SubscribeStatus& /* result */)
   {
   }
 

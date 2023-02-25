@@ -52,17 +52,18 @@ TEST_CASE("SubscribeResponse Message encode/decode")
 
 TEST_CASE("SubscribeEnd Message encode/decode")
 {
-  SubscribeEnd s{ MessageType::Unknown,
-                  uintVar_t{ 0x1000 },
-                  { 1, 2, 3, 4, 5 } };
+  quicr::Namespace qnamespace{ { "0x10000000000000002000" }, 125 };
+
+  SubscribeEnd s{ .quicr_namespace = qnamespace,
+                  .reason = SubscribeResult::SubscribeStatus::Ok};
+
   MessageBuffer buffer;
   buffer << s;
   SubscribeEnd s_out;
   CHECK_NOTHROW((buffer >> s_out));
 
-  CHECK_EQ(s_out.message_type, s.message_type);
-  CHECK_EQ(s_out.media_id, s.media_id);
-  CHECK_EQ(s_out.payload, s.payload);
+  CHECK_EQ(s_out.quicr_namespace, s.quicr_namespace);
+  CHECK_EQ(s_out.reason, s.reason);
 }
 
 /*===========================================================================*/
