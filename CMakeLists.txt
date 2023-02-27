@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.13)
 
 # Build tests by default only if not a sub-project
 if(DEFINED PROJECT_NAME)
-    option(QUICR_BUILD_TESTS "Build tests for quicr" ON)
-else()
     option(QUICR_BUILD_TESTS "Build tests for quicr" OFF)
+else()
+    option(QUICR_BUILD_TESTS "Build tests for quicr" ON)
 endif()
 
 project(quicr
