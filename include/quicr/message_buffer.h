@@ -1,22 +1,56 @@
 #pragma once
 
-#include <quicr/quicr_name.h>
-#include <quicr/quicr_namespace.h>
-
+#include <cassert>
+#include <ostream>
 #include <vector>
 
 namespace quicr {
 /**
  * @brief Variable length integer
  */
-enum class uintVar_t : uint64_t
+class uintVar_t
 {
+public:
+  uintVar_t() = default;
+  uintVar_t(const uintVar_t&) = default;
+  constexpr uintVar_t(uint64_t v)
+    : _value{ v }
+  {
+    assert(v < 0x1ull << 61);
+  }
+
+  constexpr operator uint64_t() const { return _value; }
+  constexpr uintVar_t& operator=(uintVar_t other)
+  {
+    _value = other._value;
+    return *this;
+  }
+  constexpr uintVar_t& operator=(uint64_t value)
+  {
+    assert(value < 0x1ull << 61);
+    _value = value;
+    return *this;
+  }
+
+  constexpr bool operator==(uintVar_t other) { return _value == other._value; }
+  constexpr bool operator!=(uintVar_t other) { return !(*this == other); }
+  constexpr bool operator>(uintVar_t other) { return _value > other._value; }
+  constexpr bool operator>=(uintVar_t other) { return _value >= other._value; }
+  constexpr bool operator<(uintVar_t other) { return _value < other._value; }
+  constexpr bool operator<=(uintVar_t other) { return _value <= other._value; }
+
+  friend std::ostream& operator<<(std::ostream& os, uintVar_t v)
+  {
+    return os << v._value;
+  }
+
+private:
+  uint64_t _value;
 };
+}
 
-uintVar_t to_varint(uint64_t);
-uint64_t from_varint(uintVar_t);
+namespace quicr::messages {
 
-namespace messages {
 /**
  * @brief Defines a buffer that can be sent over transport. Cannot be copied.
  */
@@ -24,50 +58,39 @@ class MessageBuffer
 {
 public:
   MessageBuffer() = default;
+  MessageBuffer(size_t reserve_size) { _buffer.reserve(reserve_size); }
+  MessageBuffer(const MessageBuffer& other) = default;
   MessageBuffer(MessageBuffer&& other);
   MessageBuffer(const std::vector<uint8_t>& buffer);
   MessageBuffer(std::vector<uint8_t>&& buffer);
-  MessageBuffer(const MessageBuffer& other) = delete;
   ~MessageBuffer() = default;
 
   bool empty() const { return _buffer.empty(); }
 
-  void push_back(uint8_t t) { _buffer.push_back(t); }
-  void pop_back() { _buffer.pop_back(); }
-  uint8_t back() const { return _buffer.back(); }
+  void push(uint8_t t) { _buffer.push_back(t); }
+  void pop();
+  const uint8_t& front() const { return _buffer.front(); }
 
-  void push_back(const std::vector<uint8_t>& data);
-  void pop_back(uint16_t len);
-  std::vector<uint8_t> back(uint16_t len);
+  void push(const std::vector<uint8_t>& data);
+  void push(std::vector<uint8_t>&& data);
+  void pop(uint16_t len);
+  std::vector<uint8_t> front(uint16_t len);
 
-  /**
-   * @brief Returns an rvalue reference to the buffer (moving it).
-   */
-  std::vector<uint8_t>&& get() { return std::move(_buffer); }
+  std::vector<uint8_t> get();
 
   std::string to_hex() const;
 
   void operator=(const MessageBuffer& other) = delete;
   void operator=(MessageBuffer&& other);
 
+  template<typename Uint_t>
+  friend MessageBuffer& operator<<(MessageBuffer& msg, Uint_t val);
+  template<typename Uint_t>
+  friend MessageBuffer& operator>>(MessageBuffer& msg, Uint_t& val);
+
 private:
   std::vector<uint8_t> _buffer;
 };
-
-struct MessageBufferException : public std::runtime_error
-{
-  using std::runtime_error::runtime_error;
-};
-
-MessageBuffer&
-operator<<(MessageBuffer& msg, uint8_t val);
-MessageBuffer&
-operator>>(MessageBuffer& msg, uint8_t& val);
-
-MessageBuffer&
-operator<<(MessageBuffer& msg, const uint64_t& val);
-MessageBuffer&
-operator>>(MessageBuffer& msg, uint64_t& val);
 
 MessageBuffer&
 operator<<(MessageBuffer& msg, const uintVar_t& val);
@@ -77,6 +100,16 @@ operator>>(MessageBuffer& msg, uintVar_t& val);
 MessageBuffer&
 operator<<(MessageBuffer& msg, const std::vector<uint8_t>& val);
 MessageBuffer&
+operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val);
+MessageBuffer&
 operator>>(MessageBuffer& msg, std::vector<uint8_t>& val);
-}
+
+/**
+ * @brief General exceptions for errors coming from MessageBuffer
+ */
+struct MessageBufferException : public std::runtime_error
+{
+  using std::runtime_error::runtime_error;
+};
+
 }

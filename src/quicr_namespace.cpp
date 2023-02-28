@@ -5,7 +5,7 @@
 
 namespace quicr {
 
-constexpr size_t max_uint_type_bit_size = sizeof(Name::uint_type) * 8 * 2;
+constexpr size_t max_uint_type_bit_size = quicr::Name::size() * 8;
 
 Namespace::Namespace(const Name& name, uint8_t sig_bits)
   : _mask_name{ (name >> (max_uint_type_bit_size - sig_bits))

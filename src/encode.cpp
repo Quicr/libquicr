@@ -1,5 +1,6 @@
 #include <array>
 #include <ctime>
+#include <string>
 
 #include <quicr/encode.h>
 
@@ -21,10 +22,10 @@ transaction_id()
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const Subscribe& msg)
 {
-  buffer << static_cast<uint8_t>(msg.intent);
-  buffer << msg.quicr_namespace;
-  buffer << msg.transaction_id;
   buffer << static_cast<uint8_t>(MessageType::Subscribe);
+  buffer << msg.transaction_id;
+  buffer << msg.quicr_namespace;
+  buffer << static_cast<uint8_t>(msg.intent);
 
   return buffer;
 }
@@ -51,8 +52,8 @@ operator>>(MessageBuffer& buffer, Subscribe& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const Unsubscribe& msg)
 {
-  buffer << msg.quicr_namespace;
   buffer << static_cast<uint8_t>(MessageType::Unsubscribe);
+  buffer << msg.quicr_namespace;
 
   return buffer;
 }
@@ -75,10 +76,10 @@ operator>>(MessageBuffer& buffer, Unsubscribe& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const SubscribeResponse& msg)
 {
-  buffer << msg.quicr_namespace;
-  buffer << msg.transaction_id;
-  buffer << static_cast<uint8_t>(msg.response);
   buffer << static_cast<uint8_t>(MessageType::SubscribeResponse);
+  buffer << static_cast<uint8_t>(msg.response);
+  buffer << msg.transaction_id;
+  buffer << msg.quicr_namespace;
 
   return buffer;
 }
@@ -106,9 +107,9 @@ operator>>(MessageBuffer& buffer, SubscribeResponse& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const SubscribeEnd& msg)
 {
-  buffer << msg.quicr_namespace;
-  buffer << static_cast<uint8_t>(msg.reason);
   buffer << static_cast<uint8_t>(MessageType::SubscribeEnd);
+  buffer << static_cast<uint8_t>(msg.reason);
+  buffer << msg.quicr_namespace;
 
   return buffer;
 }
@@ -139,13 +140,26 @@ operator>>(MessageBuffer& buffer, SubscribeEnd& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishIntent& msg)
 {
-  buffer << msg.datagram_capable;
-  buffer << msg.media_id;
-  buffer << msg.payload;
-  buffer << msg.mask;
-  buffer << msg.quicr_namespace;
-  buffer << msg.transaction_id;
   buffer << static_cast<uint8_t>(msg.message_type);
+  buffer << msg.transaction_id;
+  buffer << msg.quicr_namespace;
+  buffer << msg.mask;
+  buffer << msg.payload;
+  buffer << msg.media_id;
+  buffer << msg.datagram_capable;
+  return buffer;
+}
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, PublishIntent&& msg)
+{
+  buffer << static_cast<uint8_t>(msg.message_type);
+  buffer << msg.transaction_id;
+  buffer << msg.quicr_namespace;
+  buffer << msg.mask;
+  buffer << std::move(msg.payload);
+  buffer << msg.media_id;
+  buffer << msg.datagram_capable;
   return buffer;
 }
 
@@ -169,9 +183,9 @@ operator>>(MessageBuffer& buffer, PublishIntent& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishIntentResponse& msg)
 {
-  buffer << msg.transaction_id;
-  buffer << static_cast<uint8_t>(msg.response);
   buffer << static_cast<uint8_t>(msg.message_type);
+  buffer << static_cast<uint8_t>(msg.response);
+  buffer << msg.transaction_id;
 
   return buffer;
 }
@@ -195,12 +209,12 @@ operator>>(MessageBuffer& buffer, PublishIntentResponse& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const Header& msg)
 {
-  buffer << msg.flags;
-  buffer << msg.offset_and_fin;
-  buffer << msg.object_id;
-  buffer << msg.group_id;
-  buffer << msg.media_id;
   buffer << msg.name;
+  buffer << msg.media_id;
+  buffer << msg.group_id;
+  buffer << msg.object_id;
+  buffer << msg.offset_and_fin;
+  buffer << msg.flags;
 
   return buffer;
 }
@@ -221,11 +235,23 @@ operator>>(MessageBuffer& buffer, Header& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishDatagram& msg)
 {
-  buffer << msg.media_data;
-  buffer << msg.media_data_length;
-  buffer << static_cast<uint8_t>(msg.media_type);
-  buffer << msg.header;
   buffer << static_cast<uint8_t>(MessageType::Publish);
+  buffer << msg.header;
+  buffer << static_cast<uint8_t>(msg.media_type);
+  buffer << msg.media_data_length;
+  buffer << msg.media_data;
+
+  return buffer;
+}
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, PublishDatagram&& msg)
+{
+  buffer << static_cast<uint8_t>(MessageType::Publish);
+  buffer << std::move(msg.header);
+  buffer << static_cast<uint8_t>(msg.media_type);
+  buffer << msg.media_data_length;
+  buffer << std::move(msg.media_data);
 
   return buffer;
 }
@@ -260,8 +286,16 @@ operator>>(MessageBuffer& buffer, PublishDatagram& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishStream& msg)
 {
-  buffer << msg.media_data;
   buffer << msg.media_data_length;
+  buffer << msg.media_data;
+  return buffer;
+}
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, PublishStream&& msg)
+{
+  buffer << msg.media_data_length;
+  buffer << std::move(msg.media_data);
   return buffer;
 }
 
@@ -281,10 +315,19 @@ operator>>(MessageBuffer& buffer, PublishStream& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishIntentEnd& msg)
 {
-  buffer << msg.payload;
-  buffer << msg.name;
-  buffer << msg.name_length;
   buffer << static_cast<uint8_t>(msg.message_type);
+  buffer << msg.name;
+  buffer << msg.payload;
+
+  return buffer;
+}
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, PublishIntentEnd&& msg)
+{
+  buffer << static_cast<uint8_t>(msg.message_type);
+  buffer << msg.name;
+  buffer << std::move(msg.payload);
 
   return buffer;
 }
@@ -296,13 +339,7 @@ operator>>(MessageBuffer& buffer, PublishIntentEnd& msg)
   buffer >> msg_type;
   msg.message_type = static_cast<MessageType>(msg_type);
 
-  buffer >> msg.name_length;
   buffer >> msg.name;
-
-  if (msg.name.size() != static_cast<size_t>(msg.name_length))
-    throw MessageBufferException(
-      "PublishIntentEnd size of decoded media data must match decoded length");
-
   buffer >> msg.payload;
 
   return buffer;
@@ -313,7 +350,7 @@ operator<<(messages::MessageBuffer& msg, const quicr::Name& val)
 {
   constexpr uint8_t size = quicr::Name::size();
   for (size_t i = 0; i < size; ++i)
-    msg << val[size - 1 - i];
+    msg << val[i];
 
   return msg;
 }
@@ -334,7 +371,7 @@ operator>>(messages::MessageBuffer& msg, quicr::Name& val)
 messages::MessageBuffer&
 operator<<(messages::MessageBuffer& msg, const quicr::Namespace& val)
 {
-  msg << val.length() << val.name();
+  msg << val.name() << val.length();
   return msg;
 }
 

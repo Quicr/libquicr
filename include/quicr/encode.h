@@ -1,12 +1,13 @@
 #pragma once
-#include <random>
-#include <string>
-#include <vector>
 
 #include <quicr/message_buffer.h>
 #include <quicr/quicr_common.h>
 #include <quicr/quicr_name.h>
 #include <quicr/quicr_namespace.h>
+
+#include <random>
+#include <string>
+#include <vector>
 
 /**
  *  Utilties to encode and decode protocol messages
@@ -130,6 +131,8 @@ struct PublishIntent
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishIntent& msg);
 MessageBuffer&
+operator<<(MessageBuffer& buffer, PublishIntent&& msg);
+MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishIntent& msg);
 
 struct PublishIntentResponse
@@ -173,6 +176,8 @@ struct PublishDatagram
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishDatagram& msg);
 MessageBuffer&
+operator<<(MessageBuffer& buffer, PublishDatagram&& msg);
+MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishDatagram& msg);
 
 struct PublishStream
@@ -184,13 +189,14 @@ struct PublishStream
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishStream& msg);
 MessageBuffer&
+operator<<(MessageBuffer& buffer, PublishStream&& msg);
+MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishStream& msg);
 
 struct PublishIntentEnd
 {
   MessageType message_type;
-  uintVar_t name_length;
-  std::vector<uint8_t> name;
+  quicr::Name name;
   //  * relay_auth_token_length(i),
   //  * relay_token(…),
   std::vector<uint8_t> payload;
@@ -199,16 +205,18 @@ struct PublishIntentEnd
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishIntentEnd& msg);
 MessageBuffer&
+operator<<(MessageBuffer& buffer, PublishIntentEnd&& msg);
+MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishIntentEnd& msg);
 
-messages::MessageBuffer&
-operator<<(messages::MessageBuffer& msg, const Name& ns);
-messages::MessageBuffer&
-operator>>(messages::MessageBuffer& msg, Name& ns);
+MessageBuffer&
+operator<<(MessageBuffer& msg, const Name& ns);
+MessageBuffer&
+operator>>(MessageBuffer& msg, Name& ns);
 
-messages::MessageBuffer&
-operator<<(messages::MessageBuffer& msg, const Namespace& ns);
-messages::MessageBuffer&
-operator>>(messages::MessageBuffer& msg, Namespace& ns);
+MessageBuffer&
+operator<<(MessageBuffer& msg, const Namespace& ns);
+MessageBuffer&
+operator>>(MessageBuffer& msg, Namespace& ns);
 
 }

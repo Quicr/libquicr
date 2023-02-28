@@ -126,9 +126,8 @@ QuicRServer::subscribeResponse(const uint64_t& subscriber_id,
   messages::MessageBuffer msg;
   msg << response;
 
-  transport->enqueue(context.transport_context_id,
-                    context.media_stream_id,
-                    msg.get());
+  transport->enqueue(
+    context.transport_context_id, context.media_stream_id, msg.get());
 }
 
 void
@@ -150,9 +149,8 @@ QuicRServer::subscriptionEnded(const uint64_t& subscriber_id,
   messages::MessageBuffer msg;
   msg << subEnd;
 
-  transport->enqueue(context.transport_context_id,
-                     context.media_stream_id,
-                     msg.get());
+  transport->enqueue(
+    context.transport_context_id, context.media_stream_id, msg.get());
 }
 
 void
@@ -212,9 +210,10 @@ QuicRServer::handle_subscribe(const qtransport::TransportContextId& context_id,
 }
 
 void
-QuicRServer::handle_unsubscribe(const qtransport::TransportContextId& context_id,
-                                const qtransport::MediaStreamId& /* mStreamId */,
-                                messages::MessageBuffer&& msg)
+QuicRServer::handle_unsubscribe(
+  const qtransport::TransportContextId& context_id,
+  const qtransport::MediaStreamId& /* mStreamId */,
+  messages::MessageBuffer&& msg)
 {
   messages::Unsubscribe unsub;
   msg >> unsub;
@@ -223,10 +222,8 @@ QuicRServer::handle_unsubscribe(const qtransport::TransportContextId& context_id
   if (subscribe_state[unsub.quicr_namespace].count(context_id) != 0) {
     auto& context = subscribe_state[unsub.quicr_namespace][context_id];
 
-
     // Before removing, exec callback
-    delegate.onUnsubscribe(unsub.quicr_namespace,
-                           context.subscriber_id, { });
+    delegate.onUnsubscribe(unsub.quicr_namespace, context.subscriber_id, {});
 
     subscribe_id_state.erase(context.subscriber_id);
     subscribe_state[unsub.quicr_namespace].erase(context_id);
@@ -302,8 +299,8 @@ QuicRServer::TransportDelegate::on_recv_notify(
     auto data = server.transport->dequeue(context_id, mStreamId);
 
     if (data.has_value()) {
-      uint8_t msg_type = data.value().back();
-
+      // TODO: Extracting type will change when the message is encoded correctly
+      uint8_t msg_type = data.value().front();
       messages::MessageBuffer msg_buffer{ data.value() };
 
       switch (static_cast<messages::MessageType>(msg_type)) {
@@ -314,7 +311,8 @@ QuicRServer::TransportDelegate::on_recv_notify(
           server.handle_publish(context_id, mStreamId, std::move(msg_buffer));
           break;
         case messages::MessageType::Unsubscribe:
-          server.handle_unsubscribe(context_id, mStreamId, std::move(msg_buffer));
+          server.handle_unsubscribe(
+            context_id, mStreamId, std::move(msg_buffer));
           break;
         default:
           break;

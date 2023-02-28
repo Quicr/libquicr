@@ -9,24 +9,6 @@
 namespace quicr {
 static constexpr size_t uint_type_bit_size = Name::size() * 4;
 
-Name::Name()
-  : _hi{ 0 }
-  , _low{ 0 }
-{
-}
-
-Name::Name(const Name& other)
-  : _hi{ other._hi }
-  , _low{ other._low }
-{
-}
-
-Name::Name(Name&& other)
-  : _hi{ std::move(other._hi) }
-  , _low{ std::move(other._low) }
-{
-}
-
 Name::Name(const std::string& hex_value)
 {
   uint8_t start_pos = 0;
@@ -288,22 +270,6 @@ Name::operator~() const
   name._hi = ~_hi;
   name._low = ~_low;
   return name;
-}
-
-Name&
-Name::operator=(const Name& other)
-{
-  _hi = other._hi;
-  _low = other._low;
-  return *this;
-}
-
-Name&
-Name::operator=(Name&& other)
-{
-  _hi = std::move(other._hi);
-  _low = std::move(other._low);
-  return *this;
 }
 
 bool

@@ -70,9 +70,8 @@ TEST_CASE("Subscribe encode, send and receive")
                      "",
                      {});
 
-  auto fake_transport = std::reinterpret_pointer_cast<FakeTransport>(transport);
   messages::Subscribe s;
-  messages::MessageBuffer msg{ fake_transport->stored_data };
+  messages::MessageBuffer msg{ transport->stored_data };
   msg >> s;
 
   CHECK_EQ(s.transaction_id, s.transaction_id);

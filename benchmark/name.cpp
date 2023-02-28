@@ -15,7 +15,7 @@ static void BM_NameCopyConstruct(benchmark::State& state)
     quicr::Name name("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
     for (auto _ : state)
     {
-        quicr::Name __(name);
+        [[maybe_unused]] quicr::Name __(name);
     }
 }
 

@@ -13,12 +13,12 @@ class MessageBuffer;
 
 class Name
 {
-public:
   using uint_type = uint64_t;
 
-  Name();
-  Name(const Name& other);
-  Name(Name&& other);
+public:
+  constexpr Name() = default;
+  constexpr Name(const Name& other) = default;
+  Name(Name&& other) = default;
   Name(const std::string& hex_value);
   Name(uint8_t* data, size_t length);
   Name(const uint8_t* data, size_t length);
@@ -53,8 +53,8 @@ public:
   void operator^=(const Name& other);
   Name operator~() const;
 
-  Name& operator=(const Name& other);
-  Name& operator=(Name&& other);
+  constexpr Name& operator=(const Name& other) = default;
+  constexpr Name& operator=(Name&& other) = default;
 
   friend bool operator<(const Name& a, const Name& b);
   friend bool operator>(const Name& a, const Name& b);
@@ -64,8 +64,8 @@ public:
   friend std::ostream& operator<<(std::ostream& os, const Name& name);
 
 private:
-  uint_type _hi;
-  uint_type _low;
+  uint_type _hi{ 0 };
+  uint_type _low{ 0 };
 };
 
 struct NameException : public std::runtime_error

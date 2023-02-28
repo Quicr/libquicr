@@ -55,15 +55,30 @@ TEST_CASE("SubscribeEnd Message encode/decode")
   quicr::Namespace qnamespace{ { "0x10000000000000002000" }, 125 };
 
   SubscribeEnd s{ .quicr_namespace = qnamespace,
-                  .reason = SubscribeResult::SubscribeStatus::Ok};
+                  .reason = SubscribeResult::SubscribeStatus::Ok };
 
   MessageBuffer buffer;
-  buffer << s;
+  auto s_copy = s;
+  buffer << std::move(s_copy);
   SubscribeEnd s_out;
   CHECK_NOTHROW((buffer >> s_out));
 
   CHECK_EQ(s_out.quicr_namespace, s.quicr_namespace);
   CHECK_EQ(s_out.reason, s.reason);
+}
+
+TEST_CASE("Unsubscribe Message encode/decode")
+{
+  quicr::Namespace qnamespace{ { "0x10000000000000002000" }, 125 };
+
+  Unsubscribe us{ .quicr_namespace = qnamespace };
+
+  MessageBuffer buffer;
+  buffer << us;
+  Unsubscribe us_out;
+  CHECK_NOTHROW((buffer >> us_out));
+
+  CHECK_EQ(us_out.quicr_namespace, us.quicr_namespace);
 }
 
 /*===========================================================================*/
@@ -78,7 +93,8 @@ TEST_CASE("PublishIntent Message encode/decode")
                     { 0, 1, 2, 3, 4 },    uintVar_t{ 0x0100 },
                     uintVar_t{ 0x0000 } };
   MessageBuffer buffer;
-  buffer << pi;
+  auto pi_copy = pi;
+  buffer << std::move(pi_copy);
   PublishIntent pi_out;
   CHECK_NOTHROW((buffer >> pi_out));
 
@@ -117,7 +133,8 @@ TEST_CASE("Publish Message encode/decode")
 
   PublishDatagram p{ d, MediaType::Text, uintVar_t{ 256 }, data };
   MessageBuffer buffer;
-  buffer << p;
+  auto p_copy = p;
+  buffer << std::move(p_copy);
   PublishDatagram p_out;
   CHECK_NOTHROW((buffer >> p_out));
 
@@ -136,7 +153,8 @@ TEST_CASE("PublishStream Message encode/decode")
 {
   PublishStream ps{ uintVar_t{ 5 }, { 0, 1, 2, 3, 4 } };
   MessageBuffer buffer;
-  buffer << ps;
+  auto ps_copy = ps;
+  buffer << std::move(ps_copy);
   PublishStream ps_out;
   CHECK_NOTHROW((buffer >> ps_out));
 
@@ -146,18 +164,14 @@ TEST_CASE("PublishStream Message encode/decode")
 
 TEST_CASE("PublishIntentEnd Message encode/decode")
 {
-  const std::string name = "12345";
-  PublishIntentEnd pie{ MessageType::Publish,
-                        uintVar_t{ 5 },
-                        { name.begin(), name.end() },
-                        { 0, 1, 2, 3, 4 } };
+  PublishIntentEnd pie{ MessageType::Publish, { "12345" }, { 0, 1, 2, 3, 4 } };
   MessageBuffer buffer;
-  buffer << pie;
+  auto pie_copy = pie;
+  buffer << std::move(pie_copy);
   PublishIntentEnd pie_out;
   CHECK_NOTHROW((buffer >> pie_out));
 
   CHECK_EQ(pie_out.message_type, pie.message_type);
-  CHECK_EQ(pie_out.name_length, pie.name_length);
   CHECK_EQ(pie_out.name, pie.name);
   CHECK_EQ(pie_out.payload, pie.payload);
 }
@@ -165,13 +179,14 @@ TEST_CASE("PublishIntentEnd Message encode/decode")
 TEST_CASE("VarInt Encode/Decode")
 {
   MessageBuffer buffer;
-  std::vector<uintVar_t> values = { uintVar_t{128}, uintVar_t{16384}, uintVar_t{536870912} };
-  for (const auto& value : values)
-  {
+  std::vector<uintVar_t> values = { uintVar_t{ 128 },
+                                    uintVar_t{ 16384 },
+                                    uintVar_t{ 536870912 } };
+  for (const auto& value : values) {
     buffer << value;
     uintVar_t out;
     buffer >> out;
 
-    CHECK_NE(out, uintVar_t{0});
+    CHECK_NE(out, uintVar_t{ 0 });
   }
 }

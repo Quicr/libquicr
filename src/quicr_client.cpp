@@ -140,9 +140,7 @@ QuicRClient::QuicRClient(std::shared_ptr<ITransport> transport_in)
   transport = transport_in;
 }
 
-QuicRClient::~QuicRClient() {
-
-}
+QuicRClient::~QuicRClient() {}
 
 bool
 QuicRClient::publishIntent(
@@ -213,7 +211,7 @@ QuicRClient::unsubscribe(const quicr::Namespace& quicr_namespace,
   // The removal of the delegate is done on receive of subscription ended
 
   messages::MessageBuffer msg{};
-  messages::Unsubscribe unsub { 0x1, quicr_namespace };
+  messages::Unsubscribe unsub{ 0x1, quicr_namespace };
   msg << unsub;
 
   if (subscribe_state.count(quicr_namespace)) {
@@ -221,7 +219,6 @@ QuicRClient::unsubscribe(const quicr::Namespace& quicr_namespace,
   }
 
   transport->enqueue(transport_context_id, media_stream_id, msg.get());
-
 }
 
 void
@@ -280,15 +277,15 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
       messages::MessageBuffer msg;
 
       if (frag_num == 0 && !frag_remaining_bytes) {
-        datagram.header.offset_and_fin = to_varint((offset << 1) + 1);
+        datagram.header.offset_and_fin = (offset << 1) + 1;
       } else {
-        datagram.header.offset_and_fin = to_varint(offset << 1);
+        datagram.header.offset_and_fin = offset << 1;
       }
 
       bytes frag_data(data.begin() + offset,
                       data.begin() + offset + quicr::MAX_TRANSPORT_DATA_SIZE);
 
-      datagram.media_data_length = to_varint(frag_data.size());
+      datagram.media_data_length = frag_data.size();
       datagram.media_data = std::move(frag_data);
 
       msg << datagram;
@@ -385,7 +382,7 @@ QuicRClient::handle_pub_fragment(messages::PublishDatagram&& datagram)
   const auto& msg_iter = fragments[cindex].find(datagram.header.name);
   if (msg_iter != fragments[cindex].end()) {
     // Found
-    msg_iter->second.emplace(from_varint(datagram.header.offset_and_fin),
+    msg_iter->second.emplace(datagram.header.offset_and_fin,
                              std::move(datagram.media_data));
     if (notify_pub_fragment(datagram, msg_iter->second))
       fragments[cindex].erase(msg_iter);
@@ -397,7 +394,7 @@ QuicRClient::handle_pub_fragment(messages::PublishDatagram&& datagram)
       const auto& msg_iter = buf.second.find(datagram.header.name);
       if (msg_iter != buf.second.end()) {
         // Found
-        msg_iter->second.emplace(from_varint(datagram.header.offset_and_fin),
+        msg_iter->second.emplace(datagram.header.offset_and_fin,
                                  std::move(datagram.media_data));
         if (notify_pub_fragment(datagram, msg_iter->second)) {
           fragments[cindex].erase(msg_iter);
@@ -410,8 +407,7 @@ QuicRClient::handle_pub_fragment(messages::PublishDatagram&& datagram)
     if (!found) {
       // If not found in any buffer, then add to current buffer
       fragments[cindex][datagram.header.name].emplace(
-        from_varint(datagram.header.offset_and_fin),
-        std::move(datagram.media_data));
+        datagram.header.offset_and_fin, std::move(datagram.media_data));
     }
   }
 
@@ -434,14 +430,14 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
     return;
   }
 
-  uint8_t msg_type = msg.back();
+  uint8_t msg_type = msg.front();
 
   switch (msg_type) {
     case static_cast<uint8_t>(messages::MessageType::SubscribeResponse): {
       messages::SubscribeResponse response;
       msg >> response;
 
-      SubscribeResult result {.status = response.response };
+      SubscribeResult result{ .status = response.response };
 
       if (sub_delegates.count(response.quicr_namespace)) {
         sub_delegates[response.quicr_namespace]->onSubscribeResponse(
@@ -477,7 +473,7 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
       messages::PublishDatagram datagram;
       msg >> datagram;
 
-      if (from_varint(datagram.header.offset_and_fin) == 0x1) {
+      if (datagram.header.offset_and_fin == uintVar_t(0x1)) {
         // No-fragment, process as single object
 
         for (const auto& entry : sub_delegates) {
