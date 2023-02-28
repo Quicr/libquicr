@@ -365,8 +365,9 @@ QuicRClient::notify_pub_fragment(const messages::PublishDatagram& datagram,
     quicr::bytes copy = reassembled;
 
     if (entry.first.contains(datagram.header.name)) {
-      sub_delegates[entry.first]->onSubscribedObject(
-        datagram.header.name, 0x0, 0x0, false, std::move(copy));
+      if (auto sub_delegate = sub_delegates[entry.first].lock())
+        sub_delegate->onSubscribedObject(
+          datagram.header.name, 0x0, 0x0, false, std::move(copy));
     }
   }
 
@@ -440,8 +441,8 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
       SubscribeResult result{ .status = response.response };
 
       if (sub_delegates.count(response.quicr_namespace)) {
-        sub_delegates[response.quicr_namespace]->onSubscribeResponse(
-          response.quicr_namespace, result);
+        if (auto sub_delegate = sub_delegates[response.quicr_namespace].lock())
+          sub_delegate->onSubscribeResponse(response.quicr_namespace, result);
       } else {
         std::cout << "Got SubscribeResponse: No delegate found for namespace"
                   << response.quicr_namespace.to_hex() << std::endl;
@@ -455,8 +456,9 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
       msg >> subEnd;
 
       if (sub_delegates.count(subEnd.quicr_namespace)) {
-        sub_delegates[subEnd.quicr_namespace]->onSubscriptionEnded(
-          subEnd.quicr_namespace, subEnd.reason);
+        if (auto sub_delegate = sub_delegates[subEnd.quicr_namespace].lock())
+          sub_delegate->onSubscriptionEnded(subEnd.quicr_namespace,
+                                            subEnd.reason);
 
         // clean up the delegate memory
         sub_delegates.erase(subEnd.quicr_namespace);
@@ -478,12 +480,12 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
 
         for (const auto& entry : sub_delegates) {
           if (entry.first.contains(datagram.header.name)) {
-            sub_delegates[entry.first]->onSubscribedObject(
-              datagram.header.name,
-              0x0,
-              0x0,
-              false,
-              std::move(datagram.media_data));
+            if (auto sub_delegate = sub_delegates[entry.first].lock())
+              sub_delegate->onSubscribedObject(datagram.header.name,
+                                               0x0,
+                                               0x0,
+                                               false,
+                                               std::move(datagram.media_data));
           }
         }
       } else { // is a fragment
