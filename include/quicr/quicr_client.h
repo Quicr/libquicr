@@ -35,9 +35,8 @@ public:
    *  @details This callback will be called when a subscription response
    *          is received, on error, or timeout.
    */
-  virtual void onSubscribeResponse(
-    const quicr::Namespace& quicr_namespace,
-    const SubscribeResult& result) = 0;
+  virtual void onSubscribeResponse(const quicr::Namespace& quicr_namespace,
+                                   const SubscribeResult& result) = 0;
 
   /**
    * @brief Indicates a given subscription is no longer valid
@@ -50,8 +49,9 @@ public:
    * @param reason                : Reason indicating end operation
    *
    */
-  virtual void onSubscriptionEnded(const quicr::Namespace& quicr_namespace,
-                                   const SubscribeResult::SubscribeStatus& reason) = 0;
+  virtual void onSubscriptionEnded(
+    const quicr::Namespace& quicr_namespace,
+    const SubscribeResult::SubscribeStatus& reason) = 0;
 
   /**
    * @brief Report arrival of subscribed QUICR object under a Name
@@ -341,10 +341,10 @@ private:
 
   ClientStatus client_status{ ClientStatus::TERMINATED };
   qtransport::TransportContextId transport_context_id;
-  std::map<quicr::Namespace, std::shared_ptr<SubscriberDelegate>> sub_delegates;
-  std::map<quicr::Name, std::shared_ptr<SubscriberDelegate>> sub_name_delegates;
+  std::map<quicr::Namespace, std::weak_ptr<SubscriberDelegate>> sub_delegates;
+  std::map<quicr::Name, std::weak_ptr<SubscriberDelegate>> sub_name_delegates;
 
-  std::map<quicr::Namespace, std::shared_ptr<PublisherDelegate>> pub_delegates;
+  std::map<quicr::Namespace, std::weak_ptr<PublisherDelegate>> pub_delegates;
   std::map<quicr::Namespace, SubscribeContext> subscribe_state{};
   std::map<quicr::Name, PublishContext> publish_state{};
   std::unique_ptr<ITransport::TransportDelegate> transport_delegate;
