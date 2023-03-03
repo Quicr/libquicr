@@ -299,23 +299,29 @@ QuicRServer::TransportDelegate::on_recv_notify(
     auto data = server.transport->dequeue(context_id, mStreamId);
 
     if (data.has_value()) {
-      // TODO: Extracting type will change when the message is encoded correctly
-      uint8_t msg_type = data.value().front();
-      messages::MessageBuffer msg_buffer{ data.value() };
+      try {
+        // TODO: Extracting type will change when the message is encoded correctly
+        uint8_t msg_type = data.value().front();
+        messages::MessageBuffer msg_buffer{data.value()};
 
-      switch (static_cast<messages::MessageType>(msg_type)) {
-        case messages::MessageType::Subscribe:
-          server.handle_subscribe(context_id, mStreamId, std::move(msg_buffer));
-          break;
-        case messages::MessageType::Publish:
-          server.handle_publish(context_id, mStreamId, std::move(msg_buffer));
-          break;
-        case messages::MessageType::Unsubscribe:
-          server.handle_unsubscribe(
-            context_id, mStreamId, std::move(msg_buffer));
-          break;
-        default:
-          break;
+        switch (static_cast<messages::MessageType>(msg_type)) {
+          case messages::MessageType::Subscribe:
+            server.handle_subscribe(context_id, mStreamId, std::move(msg_buffer));
+            break;
+          case messages::MessageType::Publish:
+            server.handle_publish(context_id, mStreamId, std::move(msg_buffer));
+            break;
+          case messages::MessageType::Unsubscribe:
+            server.handle_unsubscribe(
+              context_id, mStreamId, std::move(msg_buffer));
+            break;
+          default:
+            break;
+        }
+      } catch (const std::exception& /* ex */) {
+        // catches MessageBufferException
+        // Ignore for now
+        continue;
       }
 
     } else {

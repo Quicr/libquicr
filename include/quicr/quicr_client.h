@@ -294,6 +294,7 @@ public:
   void handle(messages::MessageBuffer&& msg);
 
   std::shared_ptr<ITransport> transport;
+  qtransport::LogHandler& log_handler;
 
 private:
   bool notify_pub_fragment(const messages::PublishDatagram& datagram,
@@ -301,7 +302,6 @@ private:
   void handle_pub_fragment(messages::PublishDatagram&& datagram);
 
   qtransport::LogHandler def_log_handler;
-  qtransport::LogHandler& log_handler;
 
   void make_transport(RelayInfo& relay_info, qtransport::LogHandler& logger);
 
