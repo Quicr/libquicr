@@ -98,7 +98,14 @@ public:
     }
 
     messages::MessageBuffer msg_buffer{ data.value() };
-    client.handle(std::move(msg_buffer));
+
+    try {
+      client.handle(std::move(msg_buffer));
+    } catch (const std::exception& /* ex */) {
+      // Catches MessageBufferException
+      client.log_handler.log(qtransport::LogLevel::info, "Dropping malformed received message");
+      return;
+    }
   }
 
 private:
