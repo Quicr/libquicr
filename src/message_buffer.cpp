@@ -49,7 +49,8 @@ void
 MessageBuffer::pop(uint16_t len)
 {
   if (len > _buffer.size())
-    throw std::out_of_range("len cannot be longer than the size of the buffer");
+    throw OutOfRangeException(
+      "len cannot be longer than the size of the buffer");
 
   _buffer.erase(_buffer.begin(), std::next(_buffer.begin(), len));
 };
@@ -58,7 +59,8 @@ std::vector<uint8_t>
 MessageBuffer::front(uint16_t len)
 {
   if (len > _buffer.size())
-    throw std::out_of_range("len cannot be longer than the size of the buffer");
+    throw OutOfRangeException(
+      "len cannot be longer than the size of the buffer");
 
   return { _buffer.begin(), std::next(_buffer.begin(), len) };
 }
@@ -86,6 +88,7 @@ MessageBuffer::operator=(MessageBuffer&& other)
   _buffer = std::move(other._buffer);
 }
 
+// clang-format off
 constexpr uint16_t
 swap_bytes(uint16_t value)
 {
@@ -95,8 +98,8 @@ swap_bytes(uint16_t value)
 constexpr uint32_t
 swap_bytes(uint32_t value)
 {
-  return ((value >> 24) & 0x000000ff) | ((value >> 8) & 0x0000ff00) |
-         ((value << 8) & 0x00ff0000) | ((value << 24) & 0xff000000);
+  return ((value >> 24) & 0x000000ff) | ((value >>  8) & 0x0000ff00) |
+         ((value <<  8) & 0x00ff0000) | ((value << 24) & 0xff000000);
 }
 
 constexpr uint64_t
@@ -108,12 +111,13 @@ swap_bytes(uint64_t value)
   return ((value >> 56) & 0x00000000000000ff) |
          ((value >> 40) & 0x000000000000ff00) |
          ((value >> 24) & 0x0000000000ff0000) |
-         ((value >> 8) & 0x00000000ff000000) |
-         ((value << 8) & 0x000000ff00000000) |
+         ((value >>  8) & 0x00000000ff000000) |
+         ((value <<  8) & 0x000000ff00000000) |
          ((value << 24) & 0x0000ff0000000000) |
          ((value << 40) & 0x00ff000000000000) |
          ((value << 56) & 0xff00000000000000);
 }
+// clang-format on
 
 template<typename Uint_t>
 MessageBuffer&
@@ -144,12 +148,12 @@ MessageBuffer&
 operator>>(MessageBuffer& msg, Uint_t& val)
 {
   if (msg.empty()) {
-    throw MessageBufferException("Cannot read from empty message buffer");
+    throw MessageBuffer::ReadException("Cannot read from empty message buffer");
   }
 
   constexpr size_t byte_length = sizeof(Uint_t);
   if (msg._buffer.size() < byte_length) {
-    throw MessageBufferException(
+    throw MessageBuffer::ReadException(
       "Cannot read mismatched size buffer into size of type: Wanted " +
       std::to_string(byte_length) + " but buffer only contains " +
       std::to_string(msg._buffer.size()));
@@ -179,7 +183,7 @@ MessageBuffer&
 operator>>(MessageBuffer& msg, uint8_t& val)
 {
   if (msg.empty()) {
-    throw MessageBufferException("Cannot read from empty message buffer");
+    throw MessageBuffer::ReadException("Cannot read from empty message buffer");
   }
 
   val = msg.front();
@@ -211,7 +215,7 @@ operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
 
   size_t len = vec_size;
   if (len == 0) {
-    throw MessageBufferException("Decoded vector size is 0");
+    throw MessageBuffer::ReadException("Decoded vector size is 0");
   }
 
   val = msg.front(len);
@@ -224,11 +228,6 @@ MessageBuffer&
 operator<<(MessageBuffer& msg, const uintVar_t& v)
 {
   uint64_t val = v;
-
-  if (val >= ((uint64_t)1 << 61)) {
-    throw MessageBufferException(
-      "uintVar_t cannot have a value greater than 1 << 61");
-  }
 
   if (val < ((uint64_t)1 << 7)) {
     msg.push(uint8_t(((val >> 0) & 0x7F)) | 0x00);

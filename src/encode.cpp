@@ -36,8 +36,8 @@ operator>>(MessageBuffer& buffer, Subscribe& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Subscribe)) {
-    throw MessageBufferException(
-      "Message type for Subscribe object must be MessageType::Subscribe");
+    throw MessageBuffer::MessageTypeException("Message type for Subscribe object must "
+                                              "be MessageType::Subscribe");
   }
 
   buffer >> msg.transaction_id;
@@ -64,8 +64,8 @@ operator>>(MessageBuffer& buffer, Unsubscribe& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Unsubscribe)) {
-    throw MessageBufferException(
-      "Message type for Unsubscribe object must be MessageType::Unsubscribe");
+    throw MessageBuffer::MessageTypeException("Message type for Unsubscribe object "
+                                              "must be MessageType::Unsubscribe");
   }
 
   buffer >> msg.quicr_namespace;
@@ -90,8 +90,8 @@ operator>>(MessageBuffer& buffer, SubscribeResponse& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::SubscribeResponse)) {
-    throw MessageBufferException("Message type for SubscribeResponse object "
-                                 "must be MessageType::SubscribeResponse");
+    throw MessageBuffer::MessageTypeException("Message type for SubscribeResponse object "
+                                              "must be MessageType::SubscribeResponse");
   }
 
   uint8_t response;
@@ -120,8 +120,8 @@ operator>>(MessageBuffer& buffer, SubscribeEnd& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::SubscribeEnd)) {
-    throw MessageBufferException("Message type for SubscribeEnd object "
-                                 "must be MessageType::SubscribeEnd");
+    throw MessageBuffer::MessageTypeException("Message type for SubscribeEnd object "
+                                       "must be MessageType::SubscribeEnd");
   }
 
   uint8_t reason;
@@ -262,7 +262,7 @@ operator>>(MessageBuffer& buffer, PublishDatagram& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Publish)) {
-    throw MessageBufferException(
+    throw MessageBuffer::MessageTypeException(
       "Message type for PublishDatagram object must be MessageType::Publish");
   }
 
@@ -276,7 +276,7 @@ operator>>(MessageBuffer& buffer, PublishDatagram& msg)
   buffer >> msg.media_data;
 
   if (msg.media_data.size() != static_cast<size_t>(msg.media_data_length)) {
-    throw MessageBufferException(
+    throw MessageBuffer::LengthException(
       "PublishDatagram size of decoded media data must match decoded length");
   }
 
@@ -305,7 +305,7 @@ operator>>(MessageBuffer& buffer, PublishStream& msg)
   buffer >> msg.media_data_length;
   buffer >> msg.media_data;
   if (msg.media_data.size() != static_cast<size_t>(msg.media_data_length)) {
-    throw MessageBufferException(
+    throw MessageBuffer::LengthException(
       "PublishStream size of decoded media data must match decoded length");
   }
 

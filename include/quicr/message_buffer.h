@@ -56,6 +56,27 @@ namespace quicr::messages {
  */
 class MessageBuffer
 {
+public:  
+  struct ReadException : public std::runtime_error
+  {
+    using std::runtime_error::runtime_error;
+  };
+
+  struct OutOfRangeException : public ReadException
+  {
+    using ReadException::ReadException;
+  };
+
+  struct MessageTypeException : public ReadException
+  {
+    using ReadException::ReadException;
+  };
+
+  struct LengthException : public ReadException
+  {
+    using ReadException::ReadException;
+  };
+
 public:
   MessageBuffer() = default;
   MessageBuffer(size_t reserve_size) { _buffer.reserve(reserve_size); }
@@ -103,13 +124,5 @@ MessageBuffer&
 operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val);
 MessageBuffer&
 operator>>(MessageBuffer& msg, std::vector<uint8_t>& val);
-
-/**
- * @brief General exceptions for errors coming from MessageBuffer
- */
-struct MessageBufferException : public std::runtime_error
-{
-  using std::runtime_error::runtime_error;
-};
 
 }

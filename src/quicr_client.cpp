@@ -101,10 +101,20 @@ public:
 
     try {
       client.handle(std::move(msg_buffer));
-    } catch (const std::exception& /* ex */) {
-      // Catches MessageBufferException
-      client.log_handler.log(qtransport::LogLevel::info, "Dropping malformed received message");
+    } catch (const messages::MessageBuffer::ReadException& e) {
+      client.log_handler.log(qtransport::LogLevel::info,
+                             "Dropping malformed message: " +
+                               std::string(e.what()));
       return;
+    } catch (const std::exception& /* ex */) {
+      client.log_handler.log(qtransport::LogLevel::info,
+                             "Dropping malformed message");
+      return;
+    } catch (...) {
+      client.log_handler.log(
+        qtransport::LogLevel::fatal,
+        "Received malformed message with unknown fatal error");
+      throw;
     }
   }
 
@@ -440,8 +450,8 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
 
   uint8_t msg_type = msg.front();
 
-  switch (msg_type) {
-    case static_cast<uint8_t>(messages::MessageType::SubscribeResponse): {
+  switch (static_cast<messages::MessageType>(msg_type)) {
+    case messages::MessageType::SubscribeResponse: {
       messages::SubscribeResponse response;
       msg >> response;
 
@@ -458,7 +468,7 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
       break;
     }
 
-    case static_cast<uint8_t>(messages::MessageType::SubscribeEnd): {
+    case messages::MessageType::SubscribeEnd: {
       messages::SubscribeEnd subEnd;
       msg >> subEnd;
 
@@ -478,7 +488,7 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
       break;
     }
 
-    case static_cast<uint8_t>(messages::MessageType::Publish): {
+    case messages::MessageType::Publish: {
       messages::PublishDatagram datagram;
       msg >> datagram;
 

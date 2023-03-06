@@ -300,13 +300,15 @@ QuicRServer::TransportDelegate::on_recv_notify(
 
     if (data.has_value()) {
       try {
-        // TODO: Extracting type will change when the message is encoded correctly
+        // TODO: Extracting type will change when the message is encoded
+        // correctly
         uint8_t msg_type = data.value().front();
-        messages::MessageBuffer msg_buffer{data.value()};
+        messages::MessageBuffer msg_buffer{ data.value() };
 
         switch (static_cast<messages::MessageType>(msg_type)) {
           case messages::MessageType::Subscribe:
-            server.handle_subscribe(context_id, mStreamId, std::move(msg_buffer));
+            server.handle_subscribe(
+              context_id, mStreamId, std::move(msg_buffer));
             break;
           case messages::MessageType::Publish:
             server.handle_publish(context_id, mStreamId, std::move(msg_buffer));
@@ -318,10 +320,15 @@ QuicRServer::TransportDelegate::on_recv_notify(
           default:
             break;
         }
-      } catch (const std::exception& /* ex */) {
-        // catches MessageBufferException
-        // Ignore for now
+      } catch (const messages::MessageBuffer::ReadException& /* ex */) {
         continue;
+      } catch (const std::exception& /* ex */) {
+        continue;
+      } catch (...) {
+        server.log_handler.log(
+          qtransport::LogLevel::fatal,
+          "Received unknown error while reading from message buffer.");
+        throw;
       }
 
     } else {
