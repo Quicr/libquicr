@@ -81,18 +81,18 @@ public:
   {
   }
 
-  virtual void on_new_media_stream(
+  virtual void on_new_stream(
     const qtransport::TransportContextId& /* context_id */,
-    const qtransport::MediaStreamId& /* mStreamId */)
+    const qtransport::StreamId& /* mStreamId */)
   {
   }
 
   virtual void on_recv_notify(const qtransport::TransportContextId& context_id,
-                              const qtransport::MediaStreamId& mStreamId)
+                              const qtransport::StreamId& streamId)
   {
     // TODO: Consider running the below async or in a thread
 
-    auto data = client.transport->dequeue(context_id, mStreamId);
+    auto data = client.transport->dequeue(context_id, streamId);
     if (!data.has_value()) {
       return;
     }
@@ -124,6 +124,7 @@ private:
 
 void
 QuicRClient::make_transport(RelayInfo& relay_info,
+                            qtransport::TransportConfig tconfig,
                             qtransport::LogHandler& logger)
 {
   qtransport::TransportRemote server = {
@@ -134,21 +135,43 @@ QuicRClient::make_transport(RelayInfo& relay_info,
                : qtransport::TransportProtocol::QUIC,
   };
   transport_delegate = std::make_unique<QuicRTransportDelegate>(*this);
+
+
   transport = qtransport::ITransport::make_client_transport(
-    server, *transport_delegate, logger);
+    server, std::move(tconfig), *transport_delegate, logger);
+
   transport_context_id = transport->start();
-  media_stream_id = transport->createMediaStream(transport_context_id, false);
+
+  while (transport->status() == qtransport::TransportStatus::Connecting) {
+    std::ostringstream log_msg;
+    log_msg << "Waiting for client to be ready, got: " << int(transport->status());
+    logger.log(qtransport::LogLevel::info, log_msg.str());
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+
+  if (transport->status() != qtransport::TransportStatus::Ready) {
+    std::ostringstream log_msg;
+    log_msg << "Transport failed to connect to server, got: "
+            << int(transport->status());
+    logger.log(qtransport::LogLevel::fatal, log_msg.str());
+    throw std::runtime_error(log_msg.str());
+  }
+
+
+  transport_stream_id = transport->createStream(transport_context_id, false);
 }
 
 ///
 /// QuicRClient
 ///
 
-QuicRClient::QuicRClient(RelayInfo& relay_info, qtransport::LogHandler& logger)
+QuicRClient::QuicRClient(RelayInfo& relay_info,
+                         qtransport::TransportConfig tconfig,
+                         qtransport::LogHandler& logger)
   : log_handler(logger)
 {
-  make_transport(relay_info, logger);
   log_handler.log(qtransport::LogLevel::info, "Initialize QuicRClient");
+  make_transport(relay_info, std::move(tconfig), logger);
 }
 
 QuicRClient::QuicRClient(std::shared_ptr<ITransport> transport_in)
@@ -204,9 +227,9 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
     subscribe_state[quicr_namespace] =
       SubscribeContext{ SubscribeContext::State::Pending,
                         transport_context_id,
-                        media_stream_id,
+                        transport_stream_id,
                         transaction_id };
-    transport->enqueue(transport_context_id, media_stream_id, msg.get());
+    transport->enqueue(transport_context_id, transport_stream_id, msg.get());
     return;
   } else {
     auto& ctx = subscribe_state[quicr_namespace];
@@ -216,7 +239,7 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
     } else if (ctx.state == SubscribeContext::State::Pending) {
       // todo - resend or wait or may be take in timeout in the api
     }
-    transport->enqueue(transport_context_id, media_stream_id, msg.get());
+    transport->enqueue(transport_context_id, transport_stream_id, msg.get());
   }
 }
 
@@ -235,7 +258,7 @@ QuicRClient::unsubscribe(const quicr::Namespace& quicr_namespace,
     subscribe_state.erase(quicr_namespace);
   }
 
-  transport->enqueue(transport_context_id, media_stream_id, msg.get());
+  transport->enqueue(transport_context_id, transport_stream_id, msg.get());
 }
 
 void
@@ -252,7 +275,7 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
 
   if (!publish_state.count(quicr_name)) {
     context.transport_context_id = transport_context_id;
-    context.media_stream_id = media_stream_id;
+    context.transport_stream_id = transport_stream_id;
     context.state = PublishContext::State::Pending;
     context.group_id = 0;
     context.object_id = 0;
@@ -260,11 +283,11 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
     // TODO: Never hit this since context is not added to published state and
     // objects are not to be repeated
     context = publish_state[quicr_name];
-    datagram.header.media_id = static_cast<uintVar_t>(context.media_stream_id);
+    datagram.header.media_id = static_cast<uintVar_t>(context.transport_stream_id);
   }
 
   datagram.header.name = quicr_name;
-  datagram.header.media_id = static_cast<uintVar_t>(context.media_stream_id);
+  datagram.header.media_id = static_cast<uintVar_t>(context.transport_stream_id);
   datagram.header.group_id = static_cast<uintVar_t>(context.group_id);
   datagram.header.object_id = static_cast<uintVar_t>(context.object_id);
   datagram.header.flags = 0x0;
@@ -282,7 +305,7 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
 
     // No fragmenting needed
     transport->enqueue(
-      transport_context_id, context.media_stream_id, msg.get());
+      transport_context_id, context.transport_stream_id, msg.get());
   } else {
     // Fragments required. At this point this only counts whole blocks
     int frag_num = data.size() / quicr::MAX_TRANSPORT_DATA_SIZE;
@@ -319,7 +342,7 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
       transport->enqueue(
-        transport_context_id, context.media_stream_id, msg.get());
+        transport_context_id, context.transport_stream_id, msg.get());
     }
 
     // Send last fragment, which will be less than MAX_TRANSPORT_DATA_SIZE
@@ -339,7 +362,7 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
       // uint64_t(datagram.header.offset_and_fin) << std::endl;
 
       transport->enqueue(
-        transport_context_id, context.media_stream_id, msg.get());
+        transport_context_id, context.transport_stream_id, msg.get());
     }
   }
 }
@@ -511,6 +534,9 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
 
       break;
     }
+
+    default:
+      break;
   }
 }
 } // namespace quicr

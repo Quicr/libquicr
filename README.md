@@ -75,70 +75,21 @@ Running Examples
 
 ### Running Relays/Etc.
 
-The `forty` test program can be run as below
+In order to test QUIC, the server/```really``` needs to have a certificate. The program expects
+the
+
+Generate self-signed certificate for really server to test with.
 
 ```
-Usage
-> ./build/cmd/forty 
-Usage: forty <server> <port> <mode> <name-for-self> <peer-name> <mask>
-server: server ip for quicr origin/relay
-port: server port for quicr origin/relay
-mode: sendrecv/send/recv
-name-for-self: some string
-peer-name: some string that is not the same as self
-mask: default to zero for full name match
+cd build/cmd/really
+openssl req -nodes -x509 -newkey rsa:2048 -days 365 -keyout ca-key.pem -out ca-cert.pem
+openssl req -nodes -newkey rsa:2048 -keyout server-key.pem -out server-req.pem
 ```
 
-Pub/Sub with forty
--------------------
-### Test against cloud relay/origin server
-
+Run: 
 ```
-Subcriber
-build/cmd/forty <server-ip> 7777 recv alice bob
-```
+cd build/cmd/really
+./really
 
-```
-Publisher
-build/cmd/forty <server-ip> 7777 send bob alice
-```
+./reallyTest
 
-Pub/Sub - 2 Way message exchange
-```
-Client 1
-build/cmd/forty <aws-server-ip> 7777 sendrecv client1 client2
-
-Client 2
-build/cmd/forty <aws-server-ip> 7777 sendrecv client2 client1
-
-```
-
-
-
-Local QuicR origin/relay setup
-----------------------------------
-For dev-testing, it would be beneficial to build and run 
-the origin/relay locally.  Use the dev docker image for this. 
-
-- Run Origin as
-    ```
-    export QUICRQ=/ws/quicrq
-    export CERT_PATH=../picoquic/certs
-    or
-    export QUICRQ=./build/_deps/quicrq-build ( non docker, from project root )
-    export CERT_PATH=./certs
-    
-    $QUICRQ/quicrq_app -q qlog_server -p 7777 -c ../picoquic/certs/cert.pem -k ../picoquic/certs/key.pem  server
-    ```
-- Run Relay as
-    ```
-    export QUICRQ=/ws/quicrq
-    export CERT_PATH=../picoquic/certs
-    or 
-    export QUICRQ=./build/_deps/quicrq-build ( non docker, from project root )
-    export CERT_PATH=./certs
-    $QUICRQ/quicrq_app -q qlog_relay -p 8888 -c ../picoquic/certs/cert.pem -k ../picoquic/certs/key.pem relay localhost d 7777
-    ```
-
-Above example, show Origin server running at 127.0.0.1:7777 and relay at 127.0.0.1:8888 and 
-connecting to the Origin server.

@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
 
   char *relayName = getenv("REALLY_RELAY");
   if (!relayName) {
-    static char defaultRelay[] = "localhost";
+    static char defaultRelay[] = "127.0.0.1";
     relayName = defaultRelay;
   }
 
@@ -115,13 +115,12 @@ int main(int argc, char *argv[]) {
 
   quicr::RelayInfo relay{.hostname = relayName,
                           .port = uint16_t(port),
-                          .proto = quicr::RelayInfo::Protocol::UDP};
+                          .proto = quicr::RelayInfo::Protocol::QUIC};
 
-  quicr::QuicRClient client(relay, logger);
+  qtransport::TransportConfig tcfg {.tls_cert_filename = NULL,
+                                    .tls_key_filename = NULL };
+  quicr::QuicRClient client(relay, tcfg, logger);
 
-  // TODO: Update to use status to check when ready - For now sleep to give it
-  // some time
-  std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
   if (data.size() > 0) {
     // do publish
@@ -155,8 +154,7 @@ int main(int argc, char *argv[]) {
     std::this_thread::sleep_for(std::chrono::seconds(15));
 
   }
-
-  std::this_thread::sleep_for(std::chrono::seconds(1));
+  std::this_thread::sleep_for(std::chrono::seconds(5));
 
   return 0;
 }

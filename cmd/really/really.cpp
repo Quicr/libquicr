@@ -135,9 +135,14 @@ public:
   {
     quicr::RelayInfo relayInfo = { .hostname = "127.0.0.1",
                                    .port = 1234,
-                                   .proto = quicr::RelayInfo::Protocol::UDP };
+                                   .proto = quicr::RelayInfo::Protocol::QUIC };
 
-    server = std::make_unique<quicr::QuicRServer>(relayInfo, *this, logger);
+    qtransport::TransportConfig tcfg {.tls_cert_filename = "./ca-cert.pem",
+                                      .tls_key_filename = "./server-key.pem" };
+    server = std::make_unique<quicr::QuicRServer>(relayInfo,
+                                                  tcfg,
+                                                  *this,
+                                                  logger);
   }
   ~ReallyServer() { server.reset(); };
 
@@ -149,7 +154,7 @@ public:
 
   virtual void onPublisherObject(
     const qtransport::TransportContextId& context_id,
-    const qtransport::MediaStreamId& stream_id,
+    const qtransport::StreamId& stream_id,
     [[maybe_unused]] bool use_reliable_transport,
     quicr::messages::PublishDatagram && datagram)
   {
@@ -189,7 +194,7 @@ public:
     const quicr::Namespace& quicr_namespace,
     const uint64_t& subscriber_id,
     [[maybe_unused]] const qtransport::TransportContextId& context_id,
-    [[maybe_unused]] const qtransport::MediaStreamId& stream_id,
+    [[maybe_unused]] const qtransport::StreamId& stream_id,
     [[maybe_unused]] const quicr::SubscribeIntent subscribe_intent,
     [[maybe_unused]] const std::string& origin_url,
     [[maybe_unused]] bool use_reliable_transport,
