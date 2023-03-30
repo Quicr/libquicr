@@ -90,31 +90,30 @@ public:
   virtual void on_recv_notify(const qtransport::TransportContextId& context_id,
                               const qtransport::StreamId& streamId)
   {
-    // TODO: Consider running the below async or in a thread
+    for (int i=0; i < 500; i++) {
+      auto data = client.transport->dequeue(context_id, streamId);
+      if (!data.has_value()) {
+          return;
+      }
+      messages::MessageBuffer msg_buffer{data.value()};
 
-    auto data = client.transport->dequeue(context_id, streamId);
-    if (!data.has_value()) {
-      return;
-    }
-
-    messages::MessageBuffer msg_buffer{ data.value() };
-
-    try {
-      client.handle(std::move(msg_buffer));
-    } catch (const messages::MessageBuffer::ReadException& e) {
-      client.log_handler.log(qtransport::LogLevel::info,
-                             "Dropping malformed message: " +
+      try {
+        client.handle(std::move(msg_buffer));
+      } catch (const messages::MessageBuffer::ReadException &e) {
+        client.log_handler.log(qtransport::LogLevel::info,
+                               "Dropping malformed message: " +
                                std::string(e.what()));
-      return;
-    } catch (const std::exception& /* ex */) {
-      client.log_handler.log(qtransport::LogLevel::info,
-                             "Dropping malformed message");
-      return;
-    } catch (...) {
-      client.log_handler.log(
-        qtransport::LogLevel::fatal,
-        "Received malformed message with unknown fatal error");
-      throw;
+          return;
+      } catch (const std::exception & /* ex */) {
+        client.log_handler.log(qtransport::LogLevel::info,
+                               "Dropping malformed message");
+          return;
+      } catch (...) {
+          client.log_handler.log(
+                  qtransport::LogLevel::fatal,
+                  "Received malformed message with unknown fatal error");
+          throw;
+      }
     }
   }
 
@@ -304,8 +303,15 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
     msg << datagram;
 
     // No fragmenting needed
-    transport->enqueue(
-      transport_context_id, context.transport_stream_id, msg.get());
+    // Block on queue full
+    while ((transport->enqueue(
+                       transport_context_id,
+                        context.transport_stream_id,
+                                msg.get()
+            ) == qtransport::TransportError::QueueFull)) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
   } else {
     // Fragments required. At this point this only counts whole blocks
     int frag_num = data.size() / quicr::MAX_TRANSPORT_DATA_SIZE;
@@ -341,8 +347,13 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
       if ((frag_num % 30) == 0)
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
-      transport->enqueue(
-        transport_context_id, context.transport_stream_id, msg.get());
+      while ((transport->enqueue(
+                         transport_context_id,
+                          context.transport_stream_id,
+                            msg.get())
+              ) == qtransport::TransportError::QueueFull) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
     }
 
     // Send last fragment, which will be less than MAX_TRANSPORT_DATA_SIZE
@@ -361,8 +372,13 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
       //			          << " offset: " <<
       // uint64_t(datagram.header.offset_and_fin) << std::endl;
 
-      transport->enqueue(
-        transport_context_id, context.transport_stream_id, msg.get());
+      while ((transport->enqueue(
+                        transport_context_id,
+                          context.transport_stream_id,
+                            msg.get())
+              ) == qtransport::TransportError::QueueFull) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
     }
   }
 }
