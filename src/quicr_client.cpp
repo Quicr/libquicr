@@ -90,11 +90,17 @@ public:
   virtual void on_recv_notify(const qtransport::TransportContextId& context_id,
                               const qtransport::StreamId& streamId)
   {
-    for (int i=0; i < 500; i++) {
+    for (int i=0; i < 60; i++) {
       auto data = client.transport->dequeue(context_id, streamId);
+
       if (!data.has_value()) {
           return;
       }
+
+//      std::cout << "on_recv_notify: context_id: " << context_id
+//                << " stream_id: " << streamId
+//                << " data sz: " << data.value().size() << std::endl;
+
       messages::MessageBuffer msg_buffer{data.value()};
 
       try {
