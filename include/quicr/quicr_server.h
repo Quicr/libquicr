@@ -5,6 +5,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <mutex>
 
 #include <quicr/encode.h>
 #include <quicr/message_buffer.h>
@@ -242,9 +243,16 @@ private:
     void on_recv_notify(const qtransport::TransportContextId& context_id,
                         const qtransport::StreamId& streamId) override;
 
+
+
   private:
     QuicRServer& server;
   };
+
+public:
+  std::mutex mutex;
+
+private:
 
   std::shared_ptr<qtransport::ITransport> setupTransport(
     RelayInfo& relayInfo, qtransport::TransportConfig cfg);

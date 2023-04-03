@@ -70,10 +70,12 @@ struct SubscribeResult
               // as indicated
     FailedError, // Failed due to relay error, error will be indicated
     FailedAuthz, // Valid credentials, but not authorized
-    TimeOut // Timed out. This happens if failed auth or if there is a failure
+    TimeOut, // Timed out. This happens if failed auth or if there is a failure
             // with the relay
             //   Auth failures are timed out because providing status of failed
             //   auth can be exploited
+    ConnectionClosed
+
   };
 
   SubscribeStatus status; // Subscription status

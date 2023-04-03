@@ -193,7 +193,10 @@ QuicRServer::handle_subscribe(const qtransport::TransportContextId& context_id,
   messages::Subscribe subscribe;
   msg >> subscribe;
 
+  std::lock_guard<std::mutex> lock(mutex);
+
   if (subscribe_state[subscribe.quicr_namespace].count(context_id) == 0) {
+
     SubscribeContext context;
     context.transport_context_id = context_id;
     context.transport_stream_id = streamId;
@@ -229,10 +232,14 @@ QuicRServer::handle_unsubscribe(
 
   // Remove states if state exists
   if (subscribe_state[unsub.quicr_namespace].count(context_id) != 0) {
+
+    std::lock_guard<std::mutex> lock(mutex);
+
     auto& context = subscribe_state[unsub.quicr_namespace][context_id];
 
     // Before removing, exec callback
     delegate.onUnsubscribe(unsub.quicr_namespace, context.subscriber_id, {});
+
 
     subscribe_id_state.erase(context.subscriber_id);
     subscribe_state[unsub.quicr_namespace].erase(context_id);
@@ -273,6 +280,37 @@ QuicRServer::TransportDelegate::on_connection_status(
   log_msg << "connection_status: cid: " << context_id
           << " status: " << int(status);
   server.log_handler.log(qtransport::LogLevel::debug, log_msg.str());
+
+  if (status == qtransport::TransportStatus::Disconnected) {
+    log_msg.str("");
+    log_msg << "Removing state for context_id: " << context_id;
+    server.log_handler.log(qtransport::LogLevel::info, log_msg.str());
+
+    std::lock_guard<std::mutex> lock(server.mutex);
+
+    std::vector<quicr::Namespace> namespaces_to_remove;
+    for (auto& sub: server.subscribe_state) {
+      if (sub.second.count(context_id) != 0) {
+
+
+        const auto& stream_id = sub.second[context_id].subscriber_id;
+
+        // Before removing, exec callback
+        server.delegate.onUnsubscribe(sub.first, stream_id, {});
+
+        server.subscribe_id_state.erase(stream_id);
+
+        if (sub.second.size() == 0) {
+          namespaces_to_remove.push_back(sub.first);
+        }
+      }
+
+      for (const auto& ns: namespaces_to_remove) {
+          server.subscribe_state.erase(ns);
+      }
+    }
+  }
+
 }
 
 void

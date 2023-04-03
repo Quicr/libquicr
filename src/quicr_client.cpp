@@ -70,9 +70,25 @@ public:
   virtual ~QuicRTransportDelegate() = default;
 
   virtual void on_connection_status(
-    const qtransport::TransportContextId& /* context_id */,
-    const qtransport::TransportStatus /* status */)
+    const qtransport::TransportContextId& context_id,
+    const qtransport::TransportStatus status)
   {
+    std::stringstream log_msg;
+    log_msg << "connection_status: cid: " << context_id
+            << " status: " << int(status);
+    client.log_handler.log(qtransport::LogLevel::debug, log_msg.str());
+
+    if (status == qtransport::TransportStatus::Disconnected) {
+      log_msg.str("");
+      log_msg << "Removing state for context_id: " << context_id;
+      client.log_handler.log(qtransport::LogLevel::info, log_msg.str());
+
+      client.removeSubscribeState(true, {},
+                                  SubscribeResult::SubscribeStatus::ConnectionClosed);
+
+      // TODO: Need to reconnect or inform app that client is no longer connected
+    }
+
   }
 
   virtual void on_new_connection(
@@ -185,7 +201,12 @@ QuicRClient::QuicRClient(std::shared_ptr<ITransport> transport_in)
   transport = transport_in;
 }
 
-QuicRClient::~QuicRClient() {}
+QuicRClient::~QuicRClient()
+{
+  removeSubscribeState(true, {},
+                      SubscribeResult::SubscribeStatus::ConnectionClosed);
+  transport.reset(); // wait for transport close
+}
 
 bool
 QuicRClient::publishIntent(
@@ -214,6 +235,8 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
                        [[maybe_unused]] const std::string& auth_token,
                        [[maybe_unused]] bytes&& e2e_token)
 {
+
+  std::lock_guard<std::mutex> lock(mutex);
 
   if (!sub_delegates.count(quicr_namespace)) {
     sub_delegates[quicr_namespace] = subscriber_delegate;
@@ -248,12 +271,44 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
   }
 }
 
+void QuicRClient::removeSubscribeState(bool all, const quicr::Namespace& quicr_namespace,
+                                       const SubscribeResult::SubscribeStatus& reason)
+{
+  std::lock_guard<std::mutex> lock(mutex);
+
+  if (all) { // Remove all states
+    std::vector<quicr::Namespace> namespaces_to_remove;
+    for (const auto& ns: subscribe_state) {
+      namespaces_to_remove.push_back(ns.first);
+    }
+
+    for (const auto& ns: namespaces_to_remove) {
+      removeSubscribeState(false, ns, reason);
+    }
+  }
+  else {
+    if (subscribe_state.count(quicr_namespace)) {
+      subscribe_state.erase(quicr_namespace);
+    }
+
+    if (sub_delegates.count(quicr_namespace)) {
+      if (auto sub_delegate = sub_delegates[quicr_namespace].lock())
+        sub_delegate->onSubscriptionEnded(quicr_namespace,
+                                          reason);
+
+      // clean up the delegate memory
+      sub_delegates.erase(quicr_namespace);
+    }
+  }
+}
+
 void
 QuicRClient::unsubscribe(const quicr::Namespace& quicr_namespace,
                          const std::string& /* origin_url */,
                          const std::string& /* auth_token */)
 {
   // The removal of the delegate is done on receive of subscription ended
+  std::lock_guard<std::mutex> lock(mutex);
 
   messages::MessageBuffer msg{};
   messages::Unsubscribe unsub{ 0x1, quicr_namespace };
@@ -265,6 +320,8 @@ QuicRClient::unsubscribe(const quicr::Namespace& quicr_namespace,
 
   transport->enqueue(transport_context_id, transport_stream_id, msg.get());
 }
+
+
 
 void
 QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
@@ -517,18 +574,7 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
       messages::SubscribeEnd subEnd;
       msg >> subEnd;
 
-      if (sub_delegates.count(subEnd.quicr_namespace)) {
-        if (auto sub_delegate = sub_delegates[subEnd.quicr_namespace].lock())
-          sub_delegate->onSubscriptionEnded(subEnd.quicr_namespace,
-                                            subEnd.reason);
-
-        // clean up the delegate memory
-        sub_delegates.erase(subEnd.quicr_namespace);
-
-      } else {
-        std::cout << "Got SubscribeEnded: No delegate found for namespace "
-                  << subEnd.quicr_namespace.to_hex() << std::endl;
-      }
+      removeSubscribeState(false, subEnd.quicr_namespace, subEnd.reason);
 
       break;
     }

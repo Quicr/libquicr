@@ -296,11 +296,16 @@ public:
                                   bytes&& data);
 
   void handle(messages::MessageBuffer&& msg);
+  void removeSubscribeState(bool all, const quicr::Namespace& quicr_namespace,
+                            const SubscribeResult::SubscribeStatus& reason);
 
   std::shared_ptr<ITransport> transport;
   qtransport::LogHandler& log_handler;
 
 private:
+  std::mutex mutex;
+
+
   bool notify_pub_fragment(const messages::PublishDatagram& datagram,
                            const std::map<int, bytes>& frag_map);
   void handle_pub_fragment(messages::PublishDatagram&& datagram);
