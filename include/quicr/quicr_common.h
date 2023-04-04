@@ -15,7 +15,7 @@ namespace quicr {
  *    end-to-end, 1400 - 119 = 1281.  A max data size of 1280 should be good
  *    end-to-end for all paths.
  */
-const uint16_t MAX_TRANSPORT_DATA_SIZE = 1280;
+constexpr uint16_t MAX_TRANSPORT_DATA_SIZE = 1000;
 
 // TODO: Do we need a different structure or the name
 using bytes = std::vector<uint8_t>;
@@ -26,6 +26,43 @@ using bytes = std::vector<uint8_t>;
  * as part of the API operations.
  */
 using QUICRContext = uint64_t;
+
+namespace messages {
+/**
+ * Type of message being sent/received
+ */
+enum class MessageType : uint8_t
+{
+  Unknown,
+  Subscribe,
+  SubscribeResponse,
+  SubscribeEnd,
+  Unsubscribe,
+  Publish,
+  PublishIntent,
+  PublishIntentResponse,
+  PublishIntentEnd,
+};
+
+/**
+ * Indicates the type of media being sent.
+ */
+enum class MediaType : uint8_t
+{
+  Manifest,
+  Advertisement,
+  Text,
+  RealtimeMedia
+};
+
+enum class Response : uint8_t
+{
+  Ok,
+  Expired,
+  Fail,
+  Redirect
+};
+}
 
 /**
  * Hint providing the start point to serve a subscrption request.
@@ -60,7 +97,7 @@ struct RelayInfo
  */
 struct SubscribeResult
 {
-
+  // TODO: Should be replaced with messages::Response
   enum class SubscribeStatus
   {
     Ok = 0,  // Success
@@ -83,36 +120,13 @@ struct SubscribeResult
 };
 
 /**
- * Publish intent and message status
- */
-enum class PublishStatus
-{
-  Ok = 0,      // Success
-  Redirect,    // Indicates the publish (intent or msg) should be reattempted to
-               // another relay
-  FailedError, // Failed due to relay error, error will be indicated
-  FailedAuthz, // Valid credentials, but not authorized
-  ReAssigned,  // Publish intent is ok, but name/len has been reassigned due to
-               // restrictions.
-  TimeOut      // Timed out. The relay failed or auth failed.
-};
-
-/**
  * PublishIntentResult defines the result of a publish intent
  */
 struct PublishIntentResult
 {
-  PublishStatus status;       // Publish status
+  messages::Response status;  // Publish status
   RelayInfo redirectInfo;     // Set only if status is redirect
   quicr::Name reassignedName; // Set only if status is ReAssigned
-};
-
-/**
- * PublishMsgResult defines the result of a publish message
- */
-struct PublishMsgResult
-{
-  PublishStatus status; // Publish status
 };
 
 }

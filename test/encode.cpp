@@ -89,9 +89,8 @@ TEST_CASE("PublishIntent Message encode/decode")
 {
   quicr::Namespace qnamespace{ { "0x10000000000000002000" }, 125 };
   PublishIntent pi{ MessageType::Publish, 0x1000,
-                    qnamespace,           1u,
-                    { 0, 1, 2, 3, 4 },    uintVar_t{ 0x0100 },
-                    uintVar_t{ 0x0000 } };
+                    qnamespace,           { 0, 1, 2, 3, 4 },
+                    uintVar_t{ 0x0100 },  uintVar_t{ 0x0000 } };
   MessageBuffer buffer;
   auto pi_copy = pi;
   buffer << std::move(pi_copy);
@@ -101,7 +100,6 @@ TEST_CASE("PublishIntent Message encode/decode")
   CHECK_EQ(pi_out.message_type, pi.message_type);
   CHECK_EQ(pi_out.transaction_id, pi.transaction_id);
   CHECK_EQ(pi_out.quicr_namespace, pi.quicr_namespace);
-  CHECK_EQ(pi_out.mask, pi.mask);
   CHECK_EQ(pi_out.payload, pi.payload);
   CHECK_EQ(pi_out.media_id, pi.media_id);
   CHECK_EQ(pi_out.datagram_capable, pi.datagram_capable);
@@ -109,7 +107,7 @@ TEST_CASE("PublishIntent Message encode/decode")
 
 TEST_CASE("PublishIntentResponse Message encode/decode")
 {
-  PublishIntentResponse pir{ MessageType::Publish, Response::Ok, 0x1000 };
+  PublishIntentResponse pir{ MessageType::Publish, {}, Response::Ok, 0x1000 };
   MessageBuffer buffer;
   buffer << pir;
   PublishIntentResponse pir_out;
@@ -164,7 +162,9 @@ TEST_CASE("PublishStream Message encode/decode")
 
 TEST_CASE("PublishIntentEnd Message encode/decode")
 {
-  PublishIntentEnd pie{ MessageType::Publish, { "12345" }, { 0, 1, 2, 3, 4 } };
+  PublishIntentEnd pie{ MessageType::Publish,
+                        { { "12345" }, 0u },
+                        { 0, 1, 2, 3, 4 } };
   MessageBuffer buffer;
   auto pie_copy = pie;
   buffer << std::move(pie_copy);
@@ -172,7 +172,7 @@ TEST_CASE("PublishIntentEnd Message encode/decode")
   CHECK_NOTHROW((buffer >> pie_out));
 
   CHECK_EQ(pie_out.message_type, pie.message_type);
-  CHECK_EQ(pie_out.name, pie.name);
+  CHECK_EQ(pie_out.quicr_namespace, pie.quicr_namespace);
   CHECK_EQ(pie_out.payload, pie.payload);
 }
 

@@ -12,7 +12,7 @@ namespace quicr::messages {
 /*===========================================================================*/
 
 uint64_t
-transaction_id()
+create_transaction_id()
 {
   std::default_random_engine engine(time(0));
   std::uniform_int_distribution distribution(1, 9);
@@ -36,8 +36,9 @@ operator>>(MessageBuffer& buffer, Subscribe& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Subscribe)) {
-    throw MessageBuffer::MessageTypeException("Message type for Subscribe object must "
-                                              "be MessageType::Subscribe");
+    throw MessageBuffer::MessageTypeException(
+      "Message type for Subscribe object must "
+      "be MessageType::Subscribe");
   }
 
   buffer >> msg.transaction_id;
@@ -64,8 +65,9 @@ operator>>(MessageBuffer& buffer, Unsubscribe& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Unsubscribe)) {
-    throw MessageBuffer::MessageTypeException("Message type for Unsubscribe object "
-                                              "must be MessageType::Unsubscribe");
+    throw MessageBuffer::MessageTypeException(
+      "Message type for Unsubscribe object "
+      "must be MessageType::Unsubscribe");
   }
 
   buffer >> msg.quicr_namespace;
@@ -90,8 +92,9 @@ operator>>(MessageBuffer& buffer, SubscribeResponse& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::SubscribeResponse)) {
-    throw MessageBuffer::MessageTypeException("Message type for SubscribeResponse object "
-                                              "must be MessageType::SubscribeResponse");
+    throw MessageBuffer::MessageTypeException(
+      "Message type for SubscribeResponse object "
+      "must be MessageType::SubscribeResponse");
   }
 
   uint8_t response;
@@ -120,8 +123,9 @@ operator>>(MessageBuffer& buffer, SubscribeEnd& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::SubscribeEnd)) {
-    throw MessageBuffer::MessageTypeException("Message type for SubscribeEnd object "
-                                       "must be MessageType::SubscribeEnd");
+    throw MessageBuffer::MessageTypeException(
+      "Message type for SubscribeEnd object "
+      "must be MessageType::SubscribeEnd");
   }
 
   uint8_t reason;
@@ -143,7 +147,6 @@ operator<<(MessageBuffer& buffer, const PublishIntent& msg)
   buffer << static_cast<uint8_t>(msg.message_type);
   buffer << msg.transaction_id;
   buffer << msg.quicr_namespace;
-  buffer << msg.mask;
   buffer << msg.payload;
   buffer << msg.media_id;
   buffer << msg.datagram_capable;
@@ -156,7 +159,6 @@ operator<<(MessageBuffer& buffer, PublishIntent&& msg)
   buffer << static_cast<uint8_t>(msg.message_type);
   buffer << msg.transaction_id;
   buffer << msg.quicr_namespace;
-  buffer << msg.mask;
   buffer << std::move(msg.payload);
   buffer << msg.media_id;
   buffer << msg.datagram_capable;
@@ -172,7 +174,6 @@ operator>>(MessageBuffer& buffer, PublishIntent& msg)
 
   buffer >> msg.transaction_id;
   buffer >> msg.quicr_namespace;
-  buffer >> msg.mask;
   buffer >> msg.payload;
   buffer >> msg.media_id;
   buffer >> msg.datagram_capable;
@@ -184,6 +185,7 @@ MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishIntentResponse& msg)
 {
   buffer << static_cast<uint8_t>(msg.message_type);
+  buffer << msg.quicr_namespace;
   buffer << static_cast<uint8_t>(msg.response);
   buffer << msg.transaction_id;
 
@@ -196,6 +198,8 @@ operator>>(MessageBuffer& buffer, PublishIntentResponse& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   msg.message_type = static_cast<MessageType>(msg_type);
+
+  buffer >> msg.quicr_namespace;
 
   uint8_t response;
   buffer >> response;
@@ -316,7 +320,7 @@ MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishIntentEnd& msg)
 {
   buffer << static_cast<uint8_t>(msg.message_type);
-  buffer << msg.name;
+  buffer << msg.quicr_namespace;
   buffer << msg.payload;
 
   return buffer;
@@ -326,7 +330,7 @@ MessageBuffer&
 operator<<(MessageBuffer& buffer, PublishIntentEnd&& msg)
 {
   buffer << static_cast<uint8_t>(msg.message_type);
-  buffer << msg.name;
+  buffer << msg.quicr_namespace;
   buffer << std::move(msg.payload);
 
   return buffer;
@@ -339,7 +343,7 @@ operator>>(MessageBuffer& buffer, PublishIntentEnd& msg)
   buffer >> msg_type;
   msg.message_type = static_cast<MessageType>(msg_type);
 
-  buffer >> msg.name;
+  buffer >> msg.quicr_namespace;
   buffer >> msg.payload;
 
   return buffer;

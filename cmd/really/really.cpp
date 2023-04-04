@@ -1,26 +1,25 @@
-#include <quicr/quicr_common.h>
-#include <quicr/quicr_server.h>
 #include <quicr/encode.h>
 #include <quicr/message_buffer.h>
+#include <quicr/quicr_common.h>
+#include <quicr/quicr_server.h>
 #include <transport/transport.h>
 
 #include "subscription.h"
 #include "testLogger.h"
 
-#include <iostream>
-#include <set>
-#include <sstream>
 #include <condition_variable>
 #include <csignal>
+#include <iostream>
 #include <mutex>
+#include <set>
+#include <sstream>
 
 // Module-level variables used to control program execution
-namespace really
-{
-static std::mutex main_mutex;                   // Main's mutex
-static bool terminate{false};                   // Termination flag
-static std::condition_variable cv;              // Main thread waits on this
-static const char* termination_reason{nullptr}; // Termination reason
+namespace really {
+static std::mutex main_mutex;                     // Main's mutex
+static bool terminate{ false };                   // Termination flag
+static std::condition_variable cv;                // Main thread waits on this
+static const char* termination_reason{ nullptr }; // Termination reason
 }
 
 /*
@@ -109,20 +108,17 @@ installSignalHandlers()
   sa.sa_flags = 0;
 
   // Catch SIGHUP (signal 1)
-  if (sigaction(SIGHUP, &sa, NULL) == -1)
-  {
+  if (sigaction(SIGHUP, &sa, NULL) == -1) {
     std::cerr << "Failed to install SIGHUP handler" << std::endl;
   }
 
   // Catch SIGINT (signal 2)
-  if (sigaction(SIGINT, &sa, NULL) == -1)
-  {
+  if (sigaction(SIGINT, &sa, NULL) == -1) {
     std::cerr << "Failed to install SIGINT handler" << std::endl;
   }
 
   // Catch SIGQUIT (signal 3)
-  if (sigaction(SIGQUIT, &sa, NULL) == -1)
-  {
+  if (sigaction(SIGQUIT, &sa, NULL) == -1) {
     std::cerr << "Failed to install SIGQUIT handler" << std::endl;
   }
 #endif
@@ -141,19 +137,31 @@ public:
   }
   ~ReallyServer() { server.reset(); };
 
-  virtual void onPublishIntent(const quicr::Namespace& /*quicr_name */,
+  virtual void onPublishIntent(const quicr::Namespace& quicr_namespace,
                                const std::string& /* origin_url */,
                                bool /* use_reliable_transport */,
                                const std::string& /* auth_token */,
-                               quicr::bytes&& /* e2e_token */){};
+                               quicr::bytes&& /* e2e_token */)
+  {
+    // TODO: Authenticate token
+    quicr::PublishIntentResult result{ quicr::messages::Response::Ok, {}, {} };
+    server->publishIntentResponse(quicr_namespace, result);
+  };
+
+  virtual void onPublishIntentEnd(const quicr::Namespace& quicr_namespace,
+                                  const std::string& /* auth_token */,
+                                  quicr::bytes&& /* e2e_token */)
+  {
+  }
 
   virtual void onPublisherObject(
     const qtransport::TransportContextId& context_id,
     const qtransport::MediaStreamId& stream_id,
     [[maybe_unused]] bool use_reliable_transport,
-    quicr::messages::PublishDatagram && datagram)
+    quicr::messages::PublishDatagram&& datagram)
   {
-    std::list<Subscriptions::Remote> list = subscribeList.find(datagram.header.name);
+    std::list<Subscriptions::Remote> list =
+      subscribeList.find(datagram.header.name);
 
     for (auto dest : list) {
 
@@ -169,8 +177,8 @@ public:
 
   virtual void onUnsubscribe(const quicr::Namespace& quicr_namespace,
                              const uint64_t& subscriber_id,
-                             const std::string& /* auth_token */) {
-
+                             const std::string& /* auth_token */)
+  {
 
     std::ostringstream log_msg;
     log_msg << "onUnsubscribe: Namespace " << quicr_namespace.to_hex()
@@ -178,11 +186,13 @@ public:
 
     logger.log(qtransport::LogLevel::info, log_msg.str());
 
-    server->subscriptionEnded(subscriber_id, quicr_namespace,
+    server->subscriptionEnded(subscriber_id,
+                              quicr_namespace,
                               quicr::SubscribeResult::SubscribeStatus::Ok);
 
     Subscriptions::Remote remote = { .subscribe_id = subscriber_id };
-    subscribeList.remove(quicr_namespace.name(), quicr_namespace.length(), remote);
+    subscribeList.remove(
+      quicr_namespace.name(), quicr_namespace.length(), remote);
   }
 
   virtual void onSubscribe(
@@ -197,10 +207,9 @@ public:
     [[maybe_unused]] quicr::bytes&& data)
   {
     std::ostringstream log_msg;
-    log_msg << "onSubscribe: Namespace " << quicr_namespace.to_hex()
-            << "/" << int(quicr_namespace.length())
+    log_msg << "onSubscribe: Namespace " << quicr_namespace.to_hex() << "/"
+            << int(quicr_namespace.length())
             << " subscribe_id: " << subscriber_id;
-
 
     logger.log(qtransport::LogLevel::info, log_msg.str());
 

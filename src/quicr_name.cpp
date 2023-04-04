@@ -52,14 +52,14 @@ Name::Name(const std::vector<uint8_t>& data)
 std::string
 Name::to_hex() const
 {
-  constexpr uint8_t size_of = size();
+  constexpr int size_of = size();
 
-  std::ostringstream stream;
-  stream << "0x" << std::hex << std::setfill('0');
-  stream << std::setw(size_of) << _hi;
-  stream << std::setw(size_of) << _low;
+  char hi_hex[size_of + 1];
+  std::snprintf(hi_hex, size_of + 1, "%0*llX", size_of, _hi);
+  char low_hex[size_of + 1];
+  std::snprintf(low_hex, size_of + 1, "%0*llX", size_of, _low);
 
-  return stream.str();
+  return std::string("0x") + hi_hex + low_hex;
 }
 
 std::uint8_t
