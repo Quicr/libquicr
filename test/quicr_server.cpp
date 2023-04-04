@@ -20,6 +20,12 @@ class TestServerDelegate : public ServerDelegate
   {
   }
 
+  virtual void onPublishIntentEnd(const quicr::Namespace&,
+                                  const std::string&,
+                                  bytes&&) override
+  {
+  }
+
   virtual void onPublisherObject(
     [[maybe_unused]] const qtransport::TransportContextId& context_id,
     [[maybe_unused]] const qtransport::StreamId& stream_id,
@@ -27,7 +33,6 @@ class TestServerDelegate : public ServerDelegate
     [[maybe_unused]] messages::PublishDatagram&& datagram) override
   {
   }
-
 
   virtual void onSubscribe(
     const quicr::Namespace& /* quicr_namespace */,

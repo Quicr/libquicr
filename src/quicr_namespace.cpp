@@ -21,18 +21,6 @@ Namespace::Namespace(Name&& name, uint8_t sig_bits)
 {
 }
 
-Namespace::Namespace(const Namespace& ns)
-  : _mask_name{ ns._mask_name }
-  , _sig_bits{ ns._sig_bits }
-{
-}
-
-Namespace::Namespace(Namespace&& ns)
-  : _mask_name{ std::move(ns._mask_name) }
-  , _sig_bits{ std::move(ns._sig_bits) }
-{
-}
-
 bool
 Namespace::contains(const Name& name) const
 {
@@ -50,22 +38,6 @@ std::string
 Namespace::to_hex() const
 {
   return _mask_name.to_hex();
-}
-
-Namespace&
-Namespace::operator=(const Namespace& other)
-{
-  _mask_name = other._mask_name;
-  _sig_bits = other._sig_bits;
-  return *this;
-}
-
-Namespace&
-Namespace::operator=(Namespace&& other)
-{
-  _mask_name = std::move(other._mask_name);
-  _sig_bits = std::move(other._sig_bits);
-  return *this;
 }
 
 bool

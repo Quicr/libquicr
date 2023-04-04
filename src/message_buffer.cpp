@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <array>
 #include <bit>
-#include <cassert>
 #include <iomanip>
 #include <sstream>
 #include <vector>
@@ -27,7 +26,10 @@ MessageBuffer::MessageBuffer(std::vector<uint8_t>&& buffer)
 void
 MessageBuffer::pop()
 {
-  assert(!_buffer.empty());
+  if (empty()) {
+    throw MessageBuffer::ReadException("Cannot pop from empty message buffer");
+  }
+
   _buffer.erase(_buffer.begin());
 }
 
@@ -66,6 +68,23 @@ MessageBuffer::front(uint16_t len)
 }
 
 std::vector<uint8_t>
+MessageBuffer::pop_front(uint16_t len)
+{
+  if (len == 0)
+    return {};
+
+  if (len > _buffer.size())
+    throw OutOfRangeException(
+      "len cannot be longer than the size of the buffer");
+
+  std::vector<uint8_t> front(len);
+  std::copy_n(std::make_move_iterator(_buffer.begin()), len, front.begin());
+  _buffer.erase(_buffer.begin(), std::next(_buffer.begin(), len));
+
+  return front;
+}
+
+std::vector<uint8_t>
 MessageBuffer::get()
 {
   return std::move(_buffer);
@@ -98,8 +117,10 @@ swap_bytes(uint16_t value)
 constexpr uint32_t
 swap_bytes(uint32_t value)
 {
-  return ((value >> 24) & 0x000000ff) | ((value >>  8) & 0x0000ff00) |
-         ((value <<  8) & 0x00ff0000) | ((value << 24) & 0xff000000);
+  return ((value >> 24) & 0x000000ff) |
+         ((value >>  8) & 0x0000ff00) |
+         ((value <<  8) & 0x00ff0000) |
+         ((value << 24) & 0xff000000);
 }
 
 constexpr uint64_t
@@ -213,14 +234,7 @@ operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
   uintVar_t vec_size = 0;
   msg >> vec_size;
 
-  size_t len = vec_size;
-  if (len == 0) {
-    throw MessageBuffer::ReadException("Decoded vector size is 0");
-  }
-
-  val = msg.front(len);
-  msg.pop(len);
-
+  val = msg.pop_front(vec_size);
   return msg;
 }
 

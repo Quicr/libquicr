@@ -108,11 +108,27 @@ QuicRServer::run()
 }
 
 void
-QuicRServer::publishIntentResponse(
-  const quicr::Namespace& /* quicr_namespace */,
-  const PublishIntentResult& /* result */)
+QuicRServer::publishIntentResponse(const quicr::Namespace& quicr_namespace,
+                                   const PublishIntentResult& result)
 {
-  throw std::runtime_error("Unimplemented");
+  if (!publish_namespaces.count(quicr_namespace))
+    return;
+
+  auto& context = publish_namespaces[quicr_namespace];
+  messages::PublishIntentResponse response{
+    messages::MessageType::PublishIntentResponse,
+    quicr_namespace,
+    result.status,
+    context.transaction_id
+  };
+
+  messages::MessageBuffer msg(sizeof(response));
+  msg << response;
+
+  context.state = PublishIntentContext::State::Ready;
+
+  transport->enqueue(
+    context.transport_context_id, context.transport_stream_id, msg.get());
 }
 
 void
@@ -251,21 +267,113 @@ QuicRServer::handle_unsubscribe(
 }
 
 void
-QuicRServer::handle_publish(
-  [[maybe_unused]] const qtransport::TransportContextId& context_id,
-  [[maybe_unused]] const qtransport::StreamId& streamId,
-  messages::MessageBuffer&& msg)
+QuicRServer::handle_publish(const qtransport::TransportContextId& context_id,
+                            const qtransport::MediaStreamId& streamId,
+                            messages::MessageBuffer&& msg)
 {
   messages::PublishDatagram datagram;
   msg >> datagram;
 
-  // TODO: Add publish_state when we support PublishIntent
-  delegate.onPublisherObject(context_id, streamId, false, std::move(datagram));
+  auto publish_namespace =
+    std::find_if(publish_namespaces.begin(),
+                 publish_namespaces.end(),
+                 [&datagram](const auto& ns) {
+                   return ns.first.contains(datagram.header.name);
+                 });
+
+  if (publish_namespace == publish_namespaces.end()) {
+    // No such namespace, don't publish yet.
+    return;
+  }
+
+  PublishContext context;
+  if (!publish_state.count(datagram.header.name)) {
+    context.transport_context_id = context_id;
+    context.transport_stream_id = streamId;
+
+    publish_state[datagram.header.name] = context;
+  } else {
+    context = publish_state[datagram.header.name];
+  }
+
+  delegate.onPublisherObject(context.transport_context_id,
+                             context._stream_id,
+                             false,
+                             std::move(datagram));
 }
 
-// --------------------------------------------------
+void
+QuicRServer::handle_publish_intent(
+  const qtransport::TransportContextId& context_id,
+  const qtransport::MediaStreamId& streamId,
+  messages::MessageBuffer&& msg)
+{
+  messages::PublishIntent intent;
+  msg >> intent;
+
+  if (!publish_namespaces.count(intent.quicr_namespace)) {
+    PublishIntentContext context;
+    context.state = PublishIntentContext::State::Pending;
+    context.transport_context_id = context_id;
+    context.transport_stream_id = streamId;
+    context.transaction_id = intent.transaction_id;
+
+    publish_namespaces[intent.quicr_namespace] = context;
+  } else {
+    auto state = publish_namespaces[intent.quicr_namespace].state;
+    switch (state) {
+      case PublishIntentContext::State::Pending:
+        // TODO: Resend response?
+        break;
+      case PublishIntentContext::State::Ready:
+        // TODO: Already registered this namespace successfully, do nothing?
+        break;
+      default:
+        break;
+    }
+  }
+
+  delegate.onPublishIntent(intent.quicr_namespace,
+                           "" /* intent.origin_url */,
+                           false,
+                           "" /* intent.relay_token */,
+                           std::move(intent.payload));
+}
+
+void
+QuicRServer::handle_publish_intent_end(
+  [[maybe_unused]] const qtransport::TransportContextId& context_id,
+  [[maybe_unused]] const qtransport::StreamId& streamId,
+  messages::MessageBuffer&& msg)
+{
+  messages::PublishIntentEnd intent_end;
+  msg >> intent_end;
+
+  const auto& name = intent_end.quicr_namespace;
+
+  if (!publish_namespaces.count(intent_end.quicr_namespace)) {
+    return;
+  }
+
+  publish_namespaces.erase(name);
+
+  for (auto it = publish_state.begin(); it != publish_state.end();) {
+    const auto& [name, _] = *it;
+    if (intent_end.quicr_namespace.contains(name))
+      it = publish_state.erase(it);
+    else
+      ++it;
+  }
+
+  delegate.onPublishIntentEnd(intent_end.quicr_namespace,
+                              "" /* intent_end.relay_token */,
+                              std::move(intent_end.payload));
+}
+
+/*===========================================================================*/
 // Transport Delegate Implementation
-// ---------------
+/*===========================================================================*/
+
 QuicRServer::TransportDelegate::TransportDelegate(quicr::QuicRServer& server)
   : server(server)
 {
@@ -349,10 +457,10 @@ QuicRServer::TransportDelegate::on_recv_notify(
       try {
         // TODO: Extracting type will change when the message is encoded
         // correctly
-        uint8_t msg_type = data.value().front();
+        auto msg_type = static_cast<messages::MessageType>(data->front());
         messages::MessageBuffer msg_buffer{ data.value() };
 
-        switch (static_cast<messages::MessageType>(msg_type)) {
+        switch (msg_type) {
           case messages::MessageType::Subscribe:
             server.handle_subscribe(
               context_id, streamId, std::move(msg_buffer));
@@ -364,6 +472,16 @@ QuicRServer::TransportDelegate::on_recv_notify(
             server.handle_unsubscribe(
               context_id, streamId, std::move(msg_buffer));
             break;
+          case messages::MessageType::PublishIntent: {
+            server.handle_publish_intent(
+              context_id, streamId, std::move(msg_buffer));
+            break;
+          }
+          case messages::MessageType::PublishIntentEnd: {
+            server.handle_publish_intent_end(
+              context_id, streamId, std::move(msg_buffer));
+            break;
+          }
           default:
             break;
         }
@@ -377,7 +495,6 @@ QuicRServer::TransportDelegate::on_recv_notify(
           "Received unknown error while reading from message buffer.");
         throw;
       }
-
     } else {
       break;
     }

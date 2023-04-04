@@ -36,7 +36,8 @@ class HexEndec
   template<typename... UInt_ts>
   struct is_valid_uint
     : std::bool_constant<(std::is_unsigned_v<UInt_ts> && ...)>
-  {};
+  {
+  };
 
 public:
   HexEndec()
@@ -126,10 +127,10 @@ public:
                   std::span<uint64_t>(values));
   }
 
-  template<size_t D_N, size_t V_N, bool B = Size <= sizeof(uint64_t) * 8>
+  template<size_t N, bool B = Size <= sizeof(uint64_t) * 8>
   static inline typename std::enable_if<B, std::string>::type Encode(
-    std::array<uint8_t, D_N> distribution,
-    std::array<uint64_t, V_N> values)
+    std::array<uint8_t, N> distribution,
+    std::array<uint64_t, N> values)
   {
     return Encode(std::span<uint8_t>(distribution),
                   std::span<uint64_t>(values));
@@ -182,10 +183,10 @@ public:
                   std::span<uint64_t>(values));
   }
 
-  template<size_t D_N, size_t V_N, bool B = Size <= sizeof(uint64_t) * 8>
+  template<size_t N, bool B = Size <= sizeof(uint64_t) * 8>
   static inline typename std::enable_if<!B, std::string>::type Encode(
-    std::array<uint8_t, D_N> distribution,
-    std::array<uint64_t, V_N> values)
+    std::array<uint8_t, N> distribution,
+    std::array<uint64_t, N> values)
   {
     return Encode(std::span<uint8_t>(distribution),
                   std::span<uint64_t>(values));
@@ -276,9 +277,10 @@ public:
 
     constexpr uint8_t hex_length = Size / 4;
     if (hex.length() - start_pos != hex_length)
-      throw std::runtime_error("Hex string value must be " +
-                               std::to_string(hex_length) + " characters (" +
-                               std::to_string(Size / 8) + " bytes)");
+      throw std::runtime_error(
+        "Hex string value must be " + std::to_string(hex_length) +
+        " characters (" + std::to_string(Size / 8) +
+        " bytes). Got: " + std::to_string(hex.length() - start_pos));
 
     std::bitset<Size> bits;
     const uint8_t section_length = sizeof(uint64_t) * 2;

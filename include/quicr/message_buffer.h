@@ -12,7 +12,8 @@ class uintVar_t
 {
 public:
   uintVar_t() = default;
-  uintVar_t(const uintVar_t&) = default;
+  constexpr uintVar_t(const uintVar_t&) = default;
+  constexpr uintVar_t(uintVar_t&&) = default;
   constexpr uintVar_t(uint64_t v)
     : _value{ v }
   {
@@ -20,11 +21,8 @@ public:
   }
 
   constexpr operator uint64_t() const { return _value; }
-  constexpr uintVar_t& operator=(uintVar_t other)
-  {
-    _value = other._value;
-    return *this;
-  }
+  constexpr uintVar_t& operator=(const uintVar_t&) = default;
+  constexpr uintVar_t& operator=(uintVar_t&&) = default;
   constexpr uintVar_t& operator=(uint64_t value)
   {
     assert(value < 0x1ull << 61);
@@ -56,7 +54,7 @@ namespace quicr::messages {
  */
 class MessageBuffer
 {
-public:  
+public:
   struct ReadException : public std::runtime_error
   {
     using std::runtime_error::runtime_error;
@@ -96,6 +94,7 @@ public:
   void push(std::vector<uint8_t>&& data);
   void pop(uint16_t len);
   std::vector<uint8_t> front(uint16_t len);
+  std::vector<uint8_t> pop_front(uint16_t len);
 
   std::vector<uint8_t> get();
 

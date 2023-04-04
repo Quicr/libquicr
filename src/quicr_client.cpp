@@ -209,21 +209,54 @@ QuicRClient::~QuicRClient()
 }
 
 bool
-QuicRClient::publishIntent(
-  std::shared_ptr<PublisherDelegate> /* pub_delegate */,
-  const quicr::Namespace& /* quicr_namespace */,
-  const std::string& /* origin_url */,
-  const std::string& /* auth_token */,
-  bytes&& /* payload */)
+QuicRClient::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
+                           const quicr::Namespace& quicr_namespace,
+                           const std::string& /* origin_url */,
+                           const std::string& /* auth_token */,
+                           bytes&& payload)
 {
-  throw std::runtime_error("UnImplemented");
+  if (!pub_delegates.count(quicr_namespace)) {
+    pub_delegates[quicr_namespace] = pub_delegate;
+  }
+
+  messages::PublishIntent intent{ messages::MessageType::PublishIntent,
+                                  messages::create_transaction_id(),
+                                  quicr_namespace,
+                                  std::move(payload),
+                                  media_stream_id,
+                                  1 };
+
+  messages::MessageBuffer msg{ sizeof(messages::PublishIntent) +
+                               payload.size() };
+  msg << intent;
+
+  auto error =
+    transport->enqueue(transport_context_id, media_stream_id, msg.get());
+
+  return error == qtransport::TransportError::None;
 }
 
 void
-QuicRClient::publishIntentEnd(const quicr::Namespace& /* quicr_namespace */,
-                              const std::string& /* auth_token */)
+QuicRClient::publishIntentEnd(const quicr::Namespace& quicr_namespace,
+                              [[maybe_unused]] const std::string& auth_token)
 {
-  throw std::runtime_error("UnImplemented");
+  if (!pub_delegates.count(quicr_namespace)) {
+    return;
+  }
+  pub_delegates.erase(quicr_namespace);
+
+  // TODO: Authenticate token.
+
+  messages::PublishIntentEnd intent_end{
+    messages::MessageType::PublishIntentEnd,
+    quicr_namespace,
+    {} // TODO: Figure out payload.
+  };
+
+  messages::MessageBuffer msg;
+  msg << intent_end;
+
+  transport->enqueue(transport_context_id, media_stream_id, msg.get());
 }
 
 void
@@ -244,7 +277,7 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
 
   // encode subscribe
   messages::MessageBuffer msg{};
-  auto transaction_id = messages::transaction_id();
+  auto transaction_id = messages::create_transaction_id();
   messages::Subscribe subscribe{ 0x1, transaction_id, quicr_namespace, intent };
   msg << subscribe;
 
@@ -554,9 +587,8 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
     return;
   }
 
-  uint8_t msg_type = msg.front();
-
-  switch (static_cast<messages::MessageType>(msg_type)) {
+  auto msg_type = static_cast<messages::MessageType>(msg.front());
+  switch (msg_type) {
     case messages::MessageType::SubscribeResponse: {
       messages::SubscribeResponse response;
       msg >> response;
@@ -602,6 +634,25 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
         }
       } else { // is a fragment
         handle_pub_fragment(std::move(datagram));
+      }
+
+      break;
+    }
+
+    case messages::MessageType::PublishIntentResponse: {
+      messages::PublishIntentResponse response;
+      msg >> response;
+
+      if (!pub_delegates.count(response.quicr_namespace)) {
+        std::cout
+          << "Got PublishIntentResponse: No delegate found for namespace "
+          << response.quicr_namespace << std::endl;
+        return;
+      }
+
+      if (auto delegate = pub_delegates[response.quicr_namespace].lock()) {
+        PublishIntentResult result{ .status = response.response };
+        delegate->onPublishIntentResponse(response.quicr_namespace, result);
       }
 
       break;

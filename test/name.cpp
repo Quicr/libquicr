@@ -31,6 +31,12 @@ TEST_CASE("quicr::Name Constructor Tests")
   CHECK(std::is_trivially_copy_assignable_v<quicr::Name>);
   CHECK(std::is_trivially_move_constructible_v<quicr::Name>);
   CHECK(std::is_trivially_move_assignable_v<quicr::Name>);
+
+  CHECK(std::is_trivially_destructible_v<quicr::Namespace>);
+  CHECK(std::is_trivially_copyable_v<quicr::Namespace>);
+  CHECK(std::is_trivially_copy_assignable_v<quicr::Namespace>);
+  CHECK(std::is_trivially_move_constructible_v<quicr::Namespace>);
+  CHECK(std::is_trivially_move_assignable_v<quicr::Namespace>);
 }
 
 TEST_CASE("quicr::Name Bit Shifting Tests")
