@@ -82,8 +82,9 @@ Generate self-signed certificate for really server to test with.
 
 ```
 cd build/cmd/really
-openssl req -nodes -x509 -newkey rsa:2048 -days 365 -keyout ca-key.pem -out ca-cert.pem
-openssl req -nodes -newkey rsa:2048 -keyout server-key.pem -out server-req.pem
+openssl req -nodes -x509 -newkey rsa:2048 -days 365 \
+    -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.quicr.ctgpoc.com" \
+    -keyout server-key.pem -out server-cert.pem
 ```
 
 Run: 

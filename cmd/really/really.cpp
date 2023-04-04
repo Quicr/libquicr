@@ -137,7 +137,7 @@ public:
                                    .port = 1234,
                                    .proto = quicr::RelayInfo::Protocol::QUIC };
 
-    qtransport::TransportConfig tcfg {.tls_cert_filename = "./ca-cert.pem",
+    qtransport::TransportConfig tcfg {.tls_cert_filename = "./server-cert.pem",
                                       .tls_key_filename = "./server-key.pem" };
     server = std::make_unique<quicr::QuicRServer>(relayInfo,
                                                   tcfg,
