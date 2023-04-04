@@ -274,7 +274,8 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
 void QuicRClient::removeSubscribeState(bool all, const quicr::Namespace& quicr_namespace,
                                        const SubscribeResult::SubscribeStatus& reason)
 {
-  std::lock_guard<std::mutex> lock(mutex);
+
+  std::unique_lock<std::mutex> lock(mutex);
 
   if (all) { // Remove all states
     std::vector<quicr::Namespace> namespaces_to_remove;
@@ -282,11 +283,14 @@ void QuicRClient::removeSubscribeState(bool all, const quicr::Namespace& quicr_n
       namespaces_to_remove.push_back(ns.first);
     }
 
+    lock.unlock(); // Unlock before calling self
+
     for (const auto& ns: namespaces_to_remove) {
       removeSubscribeState(false, ns, reason);
     }
   }
   else {
+
     if (subscribe_state.count(quicr_namespace)) {
       subscribe_state.erase(quicr_namespace);
     }
