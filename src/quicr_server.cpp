@@ -1,6 +1,7 @@
 #include <quicr/quicr_common.h>
 #include <quicr/quicr_server.h>
 
+#include <algorithm>
 #include <iostream>
 #include <quicr/encode.h>
 #include <quicr/message_buffer.h>
