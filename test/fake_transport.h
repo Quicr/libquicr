@@ -17,13 +17,13 @@ struct FakeTransportDelegate : public ITransport::TransportDelegate
   {
   }
 
-  virtual void on_new_media_stream(const TransportContextId& /* context_id */,
-                                   const MediaStreamId& /* mStreamId */) override
+  virtual void on_new_stream(const TransportContextId& /* context_id */,
+                                   const StreamId& /* streamId */) override
   {
   }
 
   void on_recv_notify(const TransportContextId& /* context_id */,
-                      const MediaStreamId& /* mediaStreamId */) override
+                      const StreamId& /* streamId */) override
   {
   }
 };
@@ -37,20 +37,20 @@ struct FakeTransport : public ITransport
 
   TransportStatus status() const { return TransportStatus::Ready; }
 
-  MediaStreamId createMediaStream(const TransportContextId& /* tcid */,
-                                  bool /* use_reliable_transport */)
+  StreamId createStream(const TransportContextId& /* tcid */,
+                        bool /* use_reliable_transport */)
   {
     return 0x2000;
   }
 
   void close(const TransportContextId& /* context_id */){};
 
-  void closeMediaStream(const TransportContextId& /* context_id */,
-                        MediaStreamId /* mStreamId */){};
+  void closeStream(const TransportContextId& /* context_id */,
+                        StreamId /* streamId */){};
   void close() {}
 
   TransportError enqueue(const TransportContextId& /* tcid */,
-                         const MediaStreamId& /* msid */,
+                         const StreamId& /* sid */,
                          std::vector<uint8_t>&& bytes)
   {
     stored_data = std::move(bytes);
@@ -58,7 +58,7 @@ struct FakeTransport : public ITransport
   }
 
   std::optional<std::vector<uint8_t>> dequeue(const TransportContextId& /* tcid */,
-                                              const MediaStreamId& /* msid */)
+                                              const StreamId& /* sid */)
   {
     return std::nullopt;
   }

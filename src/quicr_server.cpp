@@ -15,7 +15,7 @@ ServerDelegate::onSubscribe(
   const quicr::Namespace& /*quicr_namespace*/,
   const uint64_t& /*subscriber_id*/,
   const qtransport::TransportContextId& /*context_id*/,
-  const qtransport::MediaStreamId& /*stream_id*/,
+  const qtransport::StreamId& /*stream_id*/,
   const SubscribeIntent /*subscribe_intent*/,
   const std::string& /*origin_url*/,
   bool /*use_reliable_transport*/,
@@ -36,6 +36,7 @@ ServerDelegate::onUnsubscribe(const quicr::Namespace& /*quicr_namespace*/,
  *  @param delegate_in: Callback handlers for QUICR operations
  */
 QuicRServer::QuicRServer(RelayInfo& relayInfo,
+                         qtransport::TransportConfig tconfig,
                          ServerDelegate& delegate_in,
                          qtransport::LogHandler& logger)
   : delegate(delegate_in)
@@ -54,7 +55,7 @@ QuicRServer::QuicRServer(RelayInfo& relayInfo,
       break;
   }
 
-  transport = setupTransport(relayInfo);
+  transport = setupTransport(relayInfo, std::move(tconfig));
   transport->start();
 }
 
@@ -69,10 +70,13 @@ QuicRServer::QuicRServer(std::shared_ptr<qtransport::ITransport> transport_in,
 }
 
 std::shared_ptr<qtransport::ITransport>
-QuicRServer::setupTransport([[maybe_unused]] RelayInfo& relayInfo)
+QuicRServer::setupTransport([[maybe_unused]] RelayInfo& relayInfo,
+                            qtransport::TransportConfig cfg)
 {
+
   return qtransport::ITransport::make_server_transport(
-    t_relay, transport_delegate, log_handler);
+    t_relay, cfg, transport_delegate, log_handler);
+
 }
 
 // Transport APIs
@@ -94,6 +98,11 @@ bool
 QuicRServer::run()
 {
   running = true;
+
+  while (transport->status() != qtransport::TransportStatus::Ready) {
+    log_handler.log(qtransport::LogLevel::info, "Waiting for server to be ready");
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
 
   return true;
 }
@@ -119,7 +128,7 @@ QuicRServer::publishIntentResponse(const quicr::Namespace& quicr_namespace,
   context.state = PublishIntentContext::State::Ready;
 
   transport->enqueue(
-    context.transport_context_id, context.media_stream_id, msg.get());
+    context.transport_context_id, context.transport_stream_id, msg.get());
 }
 
 void
@@ -143,7 +152,7 @@ QuicRServer::subscribeResponse(const uint64_t& subscriber_id,
   msg << response;
 
   transport->enqueue(
-    context.transport_context_id, context.media_stream_id, msg.get());
+    context.transport_context_id, context.transport_stream_id, msg.get());
 }
 
 void
@@ -166,7 +175,7 @@ QuicRServer::subscriptionEnded(const uint64_t& subscriber_id,
   msg << subEnd;
 
   transport->enqueue(
-    context.transport_context_id, context.media_stream_id, msg.get());
+    context.transport_context_id, context.transport_stream_id, msg.get());
 }
 
 void
@@ -185,7 +194,7 @@ QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
   msg << datagram;
 
   transport->enqueue(
-    context.transport_context_id, context.media_stream_id, msg.get());
+    context.transport_context_id, context.transport_stream_id, msg.get());
 }
 
 ///
@@ -194,16 +203,19 @@ QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
 
 void
 QuicRServer::handle_subscribe(const qtransport::TransportContextId& context_id,
-                              const qtransport::MediaStreamId& mStreamId,
+                              const qtransport::StreamId& streamId,
                               messages::MessageBuffer&& msg)
 {
   messages::Subscribe subscribe;
   msg >> subscribe;
 
+  std::lock_guard<std::mutex> lock(mutex);
+
   if (subscribe_state[subscribe.quicr_namespace].count(context_id) == 0) {
+
     SubscribeContext context;
     context.transport_context_id = context_id;
-    context.media_stream_id = mStreamId;
+    context.transport_stream_id = streamId;
     context.subscriber_id = subscriber_id;
 
     subscriber_id++;
@@ -217,7 +229,7 @@ QuicRServer::handle_subscribe(const qtransport::TransportContextId& context_id,
   delegate.onSubscribe(subscribe.quicr_namespace,
                        context.subscriber_id,
                        context_id,
-                       mStreamId,
+                       streamId,
                        subscribe.intent,
                        "",
                        false,
@@ -228,7 +240,7 @@ QuicRServer::handle_subscribe(const qtransport::TransportContextId& context_id,
 void
 QuicRServer::handle_unsubscribe(
   const qtransport::TransportContextId& context_id,
-  const qtransport::MediaStreamId& /* mStreamId */,
+  const qtransport::StreamId& /* streamId */,
   messages::MessageBuffer&& msg)
 {
   messages::Unsubscribe unsub;
@@ -236,10 +248,14 @@ QuicRServer::handle_unsubscribe(
 
   // Remove states if state exists
   if (subscribe_state[unsub.quicr_namespace].count(context_id) != 0) {
+
+    std::lock_guard<std::mutex> lock(mutex);
+
     auto& context = subscribe_state[unsub.quicr_namespace][context_id];
 
     // Before removing, exec callback
     delegate.onUnsubscribe(unsub.quicr_namespace, context.subscriber_id, {});
+
 
     subscribe_id_state.erase(context.subscriber_id);
     subscribe_state[unsub.quicr_namespace].erase(context_id);
@@ -252,7 +268,7 @@ QuicRServer::handle_unsubscribe(
 
 void
 QuicRServer::handle_publish(const qtransport::TransportContextId& context_id,
-                            const qtransport::MediaStreamId& mStreamId,
+                            const qtransport::StreamId& streamId,
                             messages::MessageBuffer&& msg)
 {
   messages::PublishDatagram datagram;
@@ -273,7 +289,7 @@ QuicRServer::handle_publish(const qtransport::TransportContextId& context_id,
   PublishContext context;
   if (!publish_state.count(datagram.header.name)) {
     context.transport_context_id = context_id;
-    context.media_stream_id = mStreamId;
+    context.transport_stream_id = streamId;
 
     publish_state[datagram.header.name] = context;
   } else {
@@ -281,7 +297,7 @@ QuicRServer::handle_publish(const qtransport::TransportContextId& context_id,
   }
 
   delegate.onPublisherObject(context.transport_context_id,
-                             context.media_stream_id,
+                             context.transport_stream_id,
                              false,
                              std::move(datagram));
 }
@@ -289,7 +305,7 @@ QuicRServer::handle_publish(const qtransport::TransportContextId& context_id,
 void
 QuicRServer::handle_publish_intent(
   const qtransport::TransportContextId& context_id,
-  const qtransport::MediaStreamId& mStreamId,
+  const qtransport::StreamId& streamId,
   messages::MessageBuffer&& msg)
 {
   messages::PublishIntent intent;
@@ -299,7 +315,7 @@ QuicRServer::handle_publish_intent(
     PublishIntentContext context;
     context.state = PublishIntentContext::State::Pending;
     context.transport_context_id = context_id;
-    context.media_stream_id = mStreamId;
+    context.transport_stream_id = streamId;
     context.transaction_id = intent.transaction_id;
 
     publish_namespaces[intent.quicr_namespace] = context;
@@ -327,7 +343,7 @@ QuicRServer::handle_publish_intent(
 void
 QuicRServer::handle_publish_intent_end(
   [[maybe_unused]] const qtransport::TransportContextId& context_id,
-  [[maybe_unused]] const qtransport::MediaStreamId& mStreamId,
+  [[maybe_unused]] const qtransport::StreamId& streamId,
   messages::MessageBuffer&& msg)
 {
   messages::PublishIntentEnd intent_end;
@@ -372,6 +388,37 @@ QuicRServer::TransportDelegate::on_connection_status(
   log_msg << "connection_status: cid: " << context_id
           << " status: " << int(status);
   server.log_handler.log(qtransport::LogLevel::debug, log_msg.str());
+
+  if (status == qtransport::TransportStatus::Disconnected) {
+    log_msg.str("");
+    log_msg << "Removing state for context_id: " << context_id;
+    server.log_handler.log(qtransport::LogLevel::info, log_msg.str());
+
+    std::lock_guard<std::mutex> lock(server.mutex);
+
+    std::vector<quicr::Namespace> namespaces_to_remove;
+    for (auto& sub: server.subscribe_state) {
+      if (sub.second.count(context_id) != 0) {
+
+
+        const auto& stream_id = sub.second[context_id].subscriber_id;
+
+        // Before removing, exec callback
+        server.delegate.onUnsubscribe(sub.first, stream_id, {});
+
+        server.subscribe_id_state.erase(stream_id);
+
+        if (sub.second.size() == 0) {
+          namespaces_to_remove.push_back(sub.first);
+        }
+      }
+
+      for (const auto& ns: namespaces_to_remove) {
+          server.subscribe_state.erase(ns);
+      }
+    }
+  }
+
 }
 
 void
@@ -386,12 +433,12 @@ QuicRServer::TransportDelegate::on_new_connection(
 }
 
 void
-QuicRServer::TransportDelegate::on_new_media_stream(
+QuicRServer::TransportDelegate::on_new_stream(
   const qtransport::TransportContextId& context_id,
-  const qtransport::MediaStreamId& mStreamId)
+  const qtransport::StreamId& streamId)
 {
   std::stringstream log_msg;
-  log_msg << "new_stream: cid: " << context_id << " msid: " << mStreamId;
+  log_msg << "new_stream: cid: " << context_id << " msid: " << streamId;
 
   server.log_handler.log(qtransport::LogLevel::debug, log_msg.str());
 }
@@ -399,12 +446,12 @@ QuicRServer::TransportDelegate::on_new_media_stream(
 void
 QuicRServer::TransportDelegate::on_recv_notify(
   const qtransport::TransportContextId& context_id,
-  const qtransport::MediaStreamId& mStreamId)
+  const qtransport::StreamId& streamId)
 {
 
   // TODO: Consider running this in a task/async thread
   while (true) {
-    auto data = server.transport->dequeue(context_id, mStreamId);
+    auto data = server.transport->dequeue(context_id, streamId);
 
     if (data.has_value()) {
       try {
@@ -416,23 +463,23 @@ QuicRServer::TransportDelegate::on_recv_notify(
         switch (msg_type) {
           case messages::MessageType::Subscribe:
             server.handle_subscribe(
-              context_id, mStreamId, std::move(msg_buffer));
+              context_id, streamId, std::move(msg_buffer));
             break;
           case messages::MessageType::Publish:
-            server.handle_publish(context_id, mStreamId, std::move(msg_buffer));
+            server.handle_publish(context_id, streamId, std::move(msg_buffer));
             break;
           case messages::MessageType::Unsubscribe:
             server.handle_unsubscribe(
-              context_id, mStreamId, std::move(msg_buffer));
+              context_id, streamId, std::move(msg_buffer));
             break;
           case messages::MessageType::PublishIntent: {
             server.handle_publish_intent(
-              context_id, mStreamId, std::move(msg_buffer));
+              context_id, streamId, std::move(msg_buffer));
             break;
           }
           case messages::MessageType::PublishIntentEnd: {
             server.handle_publish_intent_end(
-              context_id, mStreamId, std::move(msg_buffer));
+              context_id, streamId, std::move(msg_buffer));
             break;
           }
           default:

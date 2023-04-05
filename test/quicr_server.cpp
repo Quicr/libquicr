@@ -28,7 +28,7 @@ class TestServerDelegate : public ServerDelegate
 
   virtual void onPublisherObject(
     [[maybe_unused]] const qtransport::TransportContextId& context_id,
-    [[maybe_unused]] const qtransport::MediaStreamId& stream_id,
+    [[maybe_unused]] const qtransport::StreamId& stream_id,
     [[maybe_unused]] bool use_reliable_transport,
     [[maybe_unused]] messages::PublishDatagram&& datagram) override
   {
@@ -62,7 +62,9 @@ TEST_CASE("Object Lifetime")
                           .port = 1234,
                           .proto = RelayInfo::Protocol::UDP };
   qtransport::LogHandler logger;
-  CHECK_NOTHROW(std::make_unique<QuicRServer>(relayInfo, delegate, logger));
+  qtransport::TransportConfig tcfg { .tls_cert_filename = NULL, .tls_key_filename = NULL};
+  CHECK_NOTHROW(std::make_unique<QuicRServer>(relayInfo, tcfg,
+                                              delegate, logger));
 }
 
 #if 0

@@ -5,6 +5,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <mutex>
 
 #include <quicr/encode.h>
 #include <quicr/message_buffer.h>
@@ -76,7 +77,7 @@ public:
    */
   virtual void onPublisherObject(
     const qtransport::TransportContextId& context_id,
-    const qtransport::MediaStreamId& stream_id,
+    const qtransport::StreamId& stream_id,
     bool use_reliable_transport,
     messages::PublishDatagram&& datagram) = 0;
 
@@ -110,7 +111,7 @@ public:
   virtual void onSubscribe(const quicr::Namespace& quicr_namespace,
                            const uint64_t& subscriber_id,
                            const qtransport::TransportContextId& context_id,
-                           const qtransport::MediaStreamId& stream_id,
+                           const qtransport::StreamId& stream_id,
                            const SubscribeIntent subscribe_intent,
                            const std::string& origin_url,
                            bool use_reliable_transport,
@@ -139,11 +140,13 @@ public:
    * Start the  QUICR server at the port specified.
    *
    * @param relayInfo        : Relay Information to be used by the transport
+   * @param tconfig          : Transport configuration
    * @param delegate         : Server delegate
    * @param logger           : Log handler instance. Will be used by transport
    *                           quicr api
    */
   QuicRServer(RelayInfo& relayInfo,
+              qtransport::TransportConfig tconfig,
               ServerDelegate& delegate,
               qtransport::LogHandler& logger);
 
@@ -239,37 +242,45 @@ private:
       const qtransport::TransportStatus status) override;
     void on_new_connection(const qtransport::TransportContextId& context_id,
                            const qtransport::TransportRemote& remote) override;
-    void on_new_media_stream(
+    void on_new_stream(
       const qtransport::TransportContextId& context_id,
-      const qtransport::MediaStreamId& mStreamId) override;
+      const qtransport::StreamId& streamId) override;
     void on_recv_notify(const qtransport::TransportContextId& context_id,
-                        const qtransport::MediaStreamId& mStreamId) override;
+                        const qtransport::StreamId& streamId) override;
+
+
 
   private:
     QuicRServer& server;
   };
 
-  std::shared_ptr<qtransport::ITransport> setupTransport(RelayInfo& relayInfo);
+public:
+  std::mutex mutex;
+
+private:
+
+  std::shared_ptr<qtransport::ITransport> setupTransport(
+    RelayInfo& relayInfo, qtransport::TransportConfig cfg);
 
   void handle_subscribe(const qtransport::TransportContextId& context_id,
-                        const qtransport::MediaStreamId& mStreamId,
+                        const qtransport::StreamId& streamId,
                         messages::MessageBuffer&& msg);
   void handle_unsubscribe(const qtransport::TransportContextId& context_id,
-                          const qtransport::MediaStreamId& mStreamId,
+                          const qtransport::StreamId& streamId,
                           messages::MessageBuffer&& msg);
   void handle_publish(const qtransport::TransportContextId& context_id,
-                      const qtransport::MediaStreamId& mStreamId,
+                      const qtransport::StreamId& streamId,
                       messages::MessageBuffer&& msg);
   void handle_publish_intent(const qtransport::TransportContextId& context_id,
-                             const qtransport::MediaStreamId& mStreamId,
+                             const qtransport::StreamId& mStreamId,
                              messages::MessageBuffer&& msg);
   void handle_publish_intent_response(
     const qtransport::TransportContextId& context_id,
-    const qtransport::MediaStreamId& mStreamId,
+    const qtransport::StreamId& mStreamId,
     messages::MessageBuffer&& msg);
   void handle_publish_intent_end(
     const qtransport::TransportContextId& context_id,
-    const qtransport::MediaStreamId& mStreamId,
+    const qtransport::StreamId& mStreamId,
     messages::MessageBuffer&& msg);
 
   struct Context
@@ -283,7 +294,7 @@ private:
 
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
-    qtransport::MediaStreamId media_stream_id{ 0 };
+    qtransport::StreamId transport_stream_id{ 0 };
   };
 
   struct SubscribeContext : public Context

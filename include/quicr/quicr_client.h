@@ -160,9 +160,13 @@ public:
    * @brief Setup a QUICR Client with publisher and subscriber functionality
    *
    * @param relayInfo        : Relay Information to be used by the transport
+   * @param tconfig          : Transport configuration
+   * @param logger           : Log handler, used by transport and API for loggings
    * operations
    */
-  QuicRClient(RelayInfo& relayInfo, qtransport::LogHandler& logger);
+  QuicRClient(RelayInfo& relayInfo,
+              qtransport::TransportConfig tconfig,
+              qtransport::LogHandler& logger);
 
   /**
    * API for usages in Tests. Applications don't need to be bothered
@@ -292,18 +296,25 @@ public:
                                   bytes&& data);
 
   void handle(messages::MessageBuffer&& msg);
+  void removeSubscribeState(bool all, const quicr::Namespace& quicr_namespace,
+                            const SubscribeResult::SubscribeStatus& reason);
 
   std::shared_ptr<ITransport> transport;
   qtransport::LogHandler& log_handler;
 
 private:
+  std::mutex mutex;
+
+
   bool notify_pub_fragment(const messages::PublishDatagram& datagram,
                            const std::map<int, bytes>& frag_map);
   void handle_pub_fragment(messages::PublishDatagram&& datagram);
 
   qtransport::LogHandler def_log_handler;
 
-  void make_transport(RelayInfo& relay_info, qtransport::LogHandler& logger);
+  void make_transport(RelayInfo& relay_info,
+                      qtransport::TransportConfig tconfig,
+                      qtransport::LogHandler& logger);
 
   // State to store per-subscribe context
   struct SubscribeContext
@@ -317,7 +328,7 @@ private:
 
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
-    qtransport::MediaStreamId media_stream_id{ 0 };
+    qtransport::StreamId transport_stream_id{ 0 };
     uint64_t transaction_id{ 0 };
   };
 
@@ -333,7 +344,7 @@ private:
 
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
-    qtransport::MediaStreamId media_stream_id{ 0 };
+    qtransport::StreamId transport_stream_id{ 0 };
     uint64_t group_id{ 0 };
     uint64_t object_id{ 0 };
     uint64_t offset{ 0 };
@@ -348,7 +359,7 @@ private:
   std::map<quicr::Namespace, SubscribeContext> subscribe_state{};
   std::map<quicr::Name, PublishContext> publish_state{};
   std::unique_ptr<ITransport::TransportDelegate> transport_delegate;
-  uint64_t media_stream_id{ 0 };
+  uint64_t transport_stream_id{ 0 };
 };
 
 }
