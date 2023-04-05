@@ -268,7 +268,7 @@ QuicRServer::handle_unsubscribe(
 
 void
 QuicRServer::handle_publish(const qtransport::TransportContextId& context_id,
-                            const qtransport::MediaStreamId& streamId,
+                            const qtransport::StreamId& streamId,
                             messages::MessageBuffer&& msg)
 {
   messages::PublishDatagram datagram;
@@ -297,7 +297,7 @@ QuicRServer::handle_publish(const qtransport::TransportContextId& context_id,
   }
 
   delegate.onPublisherObject(context.transport_context_id,
-                             context._stream_id,
+                             context.transport_stream_id,
                              false,
                              std::move(datagram));
 }
@@ -305,7 +305,7 @@ QuicRServer::handle_publish(const qtransport::TransportContextId& context_id,
 void
 QuicRServer::handle_publish_intent(
   const qtransport::TransportContextId& context_id,
-  const qtransport::MediaStreamId& streamId,
+  const qtransport::StreamId& streamId,
   messages::MessageBuffer&& msg)
 {
   messages::PublishIntent intent;

@@ -272,15 +272,15 @@ private:
                       const qtransport::StreamId& streamId,
                       messages::MessageBuffer&& msg);
   void handle_publish_intent(const qtransport::TransportContextId& context_id,
-                             const qtransport::MediaStreamId& mStreamId,
+                             const qtransport::StreamId& mStreamId,
                              messages::MessageBuffer&& msg);
   void handle_publish_intent_response(
     const qtransport::TransportContextId& context_id,
-    const qtransport::MediaStreamId& mStreamId,
+    const qtransport::StreamId& mStreamId,
     messages::MessageBuffer&& msg);
   void handle_publish_intent_end(
     const qtransport::TransportContextId& context_id,
-    const qtransport::MediaStreamId& mStreamId,
+    const qtransport::StreamId& mStreamId,
     messages::MessageBuffer&& msg);
 
   struct Context

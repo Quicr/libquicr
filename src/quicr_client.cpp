@@ -223,7 +223,7 @@ QuicRClient::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                                   messages::create_transaction_id(),
                                   quicr_namespace,
                                   std::move(payload),
-                                  media_stream_id,
+                                  transport_stream_id,
                                   1 };
 
   messages::MessageBuffer msg{ sizeof(messages::PublishIntent) +
@@ -231,7 +231,7 @@ QuicRClient::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
   msg << intent;
 
   auto error =
-    transport->enqueue(transport_context_id, media_stream_id, msg.get());
+    transport->enqueue(transport_context_id, transport_stream_id, msg.get());
 
   return error == qtransport::TransportError::None;
 }
@@ -256,7 +256,7 @@ QuicRClient::publishIntentEnd(const quicr::Namespace& quicr_namespace,
   messages::MessageBuffer msg;
   msg << intent_end;
 
-  transport->enqueue(transport_context_id, media_stream_id, msg.get());
+  transport->enqueue(transport_context_id, transport_stream_id, msg.get());
 }
 
 void
