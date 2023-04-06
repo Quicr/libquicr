@@ -39,6 +39,33 @@ TEST_CASE("quicr::Name Constructor Tests")
   CHECK(std::is_trivially_move_assignable_v<quicr::Namespace>);
 }
 
+TEST_CASE("quicr::Name To Hex Tests")
+{
+  {
+    std::string original_hex = "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
+    quicr::Name name = original_hex;
+
+    CHECK_EQ(name.to_hex(), original_hex);
+  }
+  {
+    std::string original_hex = "0xFFFFFFFFFFFFFFFF0000000000000000";
+    quicr::Name name = original_hex;
+
+    CHECK_EQ(name.to_hex(), original_hex);
+  }
+  {
+    std::string long_hex = "0x0000000000000000FFFFFFFFFFFFFFFF";
+    quicr::Name long_name = long_hex;
+
+    std::string short_hex = "0xFFFFFFFFFFFFFFFF";
+    quicr::Name not_short_name = short_hex;
+    CHECK_EQ(long_name.to_hex(), long_hex);
+    CHECK_NE(not_short_name.to_hex(), short_hex);
+    CHECK_EQ(long_name.to_hex(), not_short_name.to_hex());
+    CHECK_EQ(long_name, not_short_name);
+  }
+}
+
 TEST_CASE("quicr::Name Bit Shifting Tests")
 {
   CHECK_EQ((quicr::Name("0x1234") >> 4), quicr::Name("0x123"));
@@ -138,7 +165,7 @@ TEST_CASE("quicr::Name Byte Array Tests")
 {
   std::vector<uint8_t> byte_arr(quicr::Name::size());
   for (size_t i = 0; i < quicr::Name::size() / 2; ++i) {
-    byte_arr[i] = static_cast<uint8_t>((0x0 >> 8 * i));
+    byte_arr[i] = static_cast<uint8_t>(0x0);
     byte_arr[i + quicr::Name::size() / 2] =
       static_cast<uint8_t>((0x1000000000000000 >> 8 * i));
   }

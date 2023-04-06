@@ -203,15 +203,15 @@ public:
    * @returns Structured binding of values decoded from hex string corresponding
    *          in order to the size of Dist.
    */
-  template<typename Uint_t = uint64_t>
+  template<
+    typename Uint_t = uint64_t,
+    typename = typename std::enable_if<is_valid_uint<Uint_t>::value, Uint_t>>
   static inline std::array<Uint_t, sizeof...(Dist)> Decode(
     const std::string& hex)
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
     static_assert(Size >= (Dist + ...),
                   "Total bits cannot exceed specified size");
-    static_assert(is_valid_uint<Uint_t>::value,
-                  "Type must be unsigned integer");
 
     std::array<uint8_t, sizeof...(Dist)> distribution{ Dist... };
     auto result = Decode(distribution, hex);
@@ -222,15 +222,15 @@ public:
     return out;
   }
 
-  template<typename Uint_t = uint64_t>
+  template<
+    typename Uint_t = uint64_t,
+    typename = typename std::enable_if<is_valid_uint<Uint_t>::value, Uint_t>>
   static inline std::array<Uint_t, sizeof...(Dist)> Decode(
     const quicr::Name& name)
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
     static_assert(Size >= (Dist + ...),
                   "Total bits cannot exceed specified size");
-    static_assert(is_valid_uint<Uint_t>::value,
-                  "Type must be unsigned integer");
 
     std::array<uint8_t, sizeof...(Dist)> distribution{ Dist... };
     auto result = Decode(distribution, name.to_hex());
@@ -241,14 +241,15 @@ public:
     return out;
   }
 
-  template<typename Uint_t = uint64_t, bool B = Size <= sizeof(uint64_t) * 8>
+  template<
+    typename Uint_t = uint64_t,
+    bool B = Size <= sizeof(uint64_t) * 8,
+    typename = typename std::enable_if<is_valid_uint<Uint_t>::value, Uint_t>>
   static inline typename std::enable_if<B, std::vector<Uint_t>>::type Decode(
     std::span<uint8_t> distribution,
     const std::string& hex)
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
-    static_assert(is_valid_uint<Uint_t>::value,
-                  "Type must be unsigned integer");
 
     const auto dist_size = distribution.size();
     std::vector<uint64_t> result(dist_size);
@@ -262,14 +263,15 @@ public:
     return result;
   }
 
-  template<typename Uint_t = uint64_t, bool B = Size <= sizeof(uint64_t) * 8>
+  template<
+    typename Uint_t = uint64_t,
+    bool B = Size <= sizeof(uint64_t) * 8,
+    typename = typename std::enable_if<is_valid_uint<Uint_t>::value, Uint_t>>
   static inline typename std::enable_if<!B, std::vector<Uint_t>>::type Decode(
     std::span<uint8_t> distribution,
     const std::string& hex)
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
-    static_assert(is_valid_uint<Uint_t>::value,
-                  "Type must be unsigned integer");
 
     uint8_t start_pos = 0;
     if (hex.substr(0, 2) == "0x")
