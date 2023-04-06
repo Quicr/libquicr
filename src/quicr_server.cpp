@@ -451,7 +451,7 @@ QuicRServer::TransportDelegate::on_recv_notify(
 {
 
   // TODO: Consider running this in a task/async thread
-  while (true) {
+  for (int i=0; i < 100; i++) {
     auto data = server.transport->dequeue(context_id, streamId);
 
     if (data.has_value()) {
