@@ -215,7 +215,7 @@ main(int argc, char* argv[])
   auto delegate = std::make_unique<Forty>();
   // QuicRClient
   auto qclient =
-    std::make_unique<QuicRClient>(*delegate, server_ip, server_port);
+    std::make_unique<QuicRClient>(*delegate, server_ip, server_port, false);
 
   setup_signal_handlers();
 

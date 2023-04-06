@@ -92,7 +92,8 @@ struct QuicRClient
 
   QuicRClient(Delegate& delegate,
               const std::string& server,
-              const uint16_t port);
+              const uint16_t port,
+              bool enable_warp_mode = false);
 
   ~QuicRClient();
 

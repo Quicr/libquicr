@@ -13,10 +13,11 @@ struct QuicRClient::Transport
   // TODO: Support multiple transports
   explicit Transport(Delegate& delegate_in,
                      const std::string& server,
-                     const uint16_t port)
+                     const uint16_t port,
+                     bool enable_warp_mode)
     : delegate(delegate_in)
     , quicr_transport(
-        std::make_unique<internal::QuicRQTransport>(delegate_in, server, port))
+        std::make_unique<internal::QuicRQTransport>(delegate_in, server, port, enable_warp_mode))
   {
     // kick off the transport loop
     quicr_transport->start();
@@ -34,8 +35,9 @@ struct QuicRClient::Transport
 
 QuicRClient::QuicRClient(QuicRClient::Delegate& delegate_in,
                          const std::string& server,
-                         const uint16_t port)
-  : transport_handle(std::make_unique<Transport>(delegate_in, server, port))
+                         const uint16_t port,
+                         bool enable_warp_mode)
+  : transport_handle(std::make_unique<Transport>(delegate_in, server, port, enable_warp_mode))
 {}
 
 QuicRClient::~QuicRClient() = default;
