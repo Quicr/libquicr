@@ -192,6 +192,12 @@ QuicRClient::QuicRClient(RelayInfo& relay_info,
   : log_handler(logger)
 {
   log_handler.log(qtransport::LogLevel::info, "Initialize QuicRClient");
+
+  if (relay_info.proto == RelayInfo::Protocol::UDP) {
+    // For plain UDP, pacing is needed. Wtih QUIC it's not needed
+    need_pacing = true;
+  }
+
   make_transport(relay_info, std::move(tconfig), logger);
 }
 
@@ -409,7 +415,7 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
                         context.transport_stream_id,
                                 msg.get()
             ) == qtransport::TransportError::QueueFull)) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
 
   } else {
@@ -444,7 +450,7 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
        *  TODO: Fix... This is set a bit high because the server code is running
        * too slow
        */
-      if ((frag_num % 30) == 0)
+      if (need_pacing && (frag_num % 30) == 0)
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
       while ((transport->enqueue(
@@ -452,7 +458,7 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
                           context.transport_stream_id,
                             msg.get())
               ) == qtransport::TransportError::QueueFull) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+          std::this_thread::sleep_for(std::chrono::microseconds(100));
       }
     }
 
@@ -477,7 +483,7 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
                           context.transport_stream_id,
                             msg.get())
               ) == qtransport::TransportError::QueueFull) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+          std::this_thread::sleep_for(std::chrono::microseconds(100));
       }
     }
   }

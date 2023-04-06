@@ -350,6 +350,7 @@ private:
     uint64_t offset{ 0 };
   };
 
+  bool need_pacing { false };
   ClientStatus client_status{ ClientStatus::TERMINATED };
   qtransport::TransportContextId transport_context_id;
   std::map<quicr::Namespace, std::weak_ptr<SubscriberDelegate>> sub_delegates;
