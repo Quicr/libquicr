@@ -451,7 +451,7 @@ QuicRServer::TransportDelegate::on_recv_notify(
 {
 
   // don't starve other queues, read some number of messages at a time
-  for (int i=0; i < 300; i++) {
+  for (int i=0; i < 150; i++) {
     auto data = server.transport->dequeue(context_id, streamId);
 
     if (data.has_value()) {

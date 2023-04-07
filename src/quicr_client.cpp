@@ -106,7 +106,7 @@ public:
   virtual void on_recv_notify(const qtransport::TransportContextId& context_id,
                               const qtransport::StreamId& streamId)
   {
-    for (int i=0; i < 500; i++) {
+    for (int i=0; i < 150; i++) {
       auto data = client.transport->dequeue(context_id, streamId);
 
       if (!data.has_value()) {
