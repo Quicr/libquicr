@@ -84,7 +84,10 @@ QuicRServer::setupTransport([[maybe_unused]] RelayInfo& relayInfo,
 bool
 QuicRServer::is_transport_ready()
 {
-  return false;
+  if (transport->status() == qtransport::TransportStatus::Ready)
+    return true;
+  else
+    return false;
 }
 
 /**
@@ -100,12 +103,13 @@ QuicRServer::run()
 {
   running = true;
 
-  while (transport->status() != qtransport::TransportStatus::Ready) {
+  while (transport->status() == qtransport::TransportStatus::Connecting) {
     log_handler.log(qtransport::LogLevel::info, "Waiting for server to be ready");
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
-  return true;
+
+  return transport->status() == qtransport::TransportStatus::Ready ? true : false;
 }
 
 void
