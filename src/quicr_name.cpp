@@ -9,32 +9,27 @@
 namespace quicr {
 static constexpr size_t uint_type_bit_size = Name::size() * 4;
 
-Name::Name(const std::string& hex_value)
+Name::Name(const std::string& x)
 {
-  uint8_t start_pos = 0;
-  if (hex_value.substr(0, 2) == "0x")
-    start_pos = 2;
+  size_t start_pos = (x.substr(0, 2) == "0x") * 2;
+  auto hex_value = x.substr(start_pos, x.length() - start_pos);
 
-  if (hex_value.length() - start_pos > size() * 2)
+  if (hex_value.length() > size() * 2)
     throw NameException("Hex string cannot be longer than " +
                         std::to_string(size() * 2) + " bytes");
 
-  if (hex_value.length() - start_pos > size()) {
-    _hi = std::stoull(
-      hex_value.substr(start_pos, hex_value.length() - start_pos - size()),
-      nullptr,
-      16);
-    _low = std::stoull(
-      hex_value.substr(hex_value.length() - size(), size()), nullptr, 16);
+  if (hex_value.length() > size()) {
+    _hi = hex_to_uint(hex_value.substr(0, hex_value.length() - size()));
+    _low = hex_to_uint(hex_value.substr(hex_value.length() - size(), size()));
   } else {
     _hi = 0;
-    _low = std::stoull(hex_value, nullptr, 16);
+    _low = hex_to_uint(x.substr(0, x.length()));
   }
 }
 
 Name::Name(uint8_t* data, [[maybe_unused]] size_t length)
 {
-  assert(length == size());
+  assert(length == size() * 2);
 
   constexpr size_t size_of = size() / 2;
   std::memcpy(&_low, data, size_of);
@@ -43,7 +38,7 @@ Name::Name(uint8_t* data, [[maybe_unused]] size_t length)
 
 Name::Name(const uint8_t* data, [[maybe_unused]] size_t length)
 {
-  assert(length == size());
+  assert(length == size() * 2);
 
   constexpr size_t size_of = size() / 2;
   std::memcpy(&_low, data, size_of);

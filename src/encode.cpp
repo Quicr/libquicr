@@ -353,7 +353,7 @@ messages::MessageBuffer&
 operator<<(messages::MessageBuffer& msg, const quicr::Name& val)
 {
   constexpr uint8_t size = quicr::Name::size();
-  for (size_t i = 0; i < size; ++i)
+  for (int i = size - 1; i >= 0; --i)
     msg << val[i];
 
   return msg;
@@ -364,7 +364,7 @@ operator>>(messages::MessageBuffer& msg, quicr::Name& val)
 {
   constexpr uint8_t size = quicr::Name::size();
   std::array<uint8_t, size> bytes;
-  for (int i = 0; i < size; ++i)
+  for (int i = size - 1; i >= 0; --i)
     msg >> bytes[i];
 
   val = Name{ bytes.data(), size };

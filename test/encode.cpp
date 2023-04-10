@@ -21,7 +21,7 @@ TEST_CASE("MessageBuffer Decode Exception")
 
 TEST_CASE("Subscribe Message encode/decode")
 {
-  quicr::Namespace qnamespace{ { "0x10000000000000002000" }, 125 };
+  quicr::Namespace qnamespace{ 0x10000000000000002000_name, 125 };
 
   Subscribe s{ 1, 0x1000, qnamespace, SubscribeIntent::immediate };
   MessageBuffer buffer;
@@ -36,7 +36,7 @@ TEST_CASE("Subscribe Message encode/decode")
 
 TEST_CASE("SubscribeResponse Message encode/decode")
 {
-  quicr::Namespace qnamespace{ { "0x10000000000000002000" }, 125 };
+  quicr::Namespace qnamespace{ 0x10000000000000002000_name, 125 };
 
   SubscribeResponse s{ qnamespace,
                        SubscribeResult::SubscribeStatus::Ok,
@@ -52,7 +52,7 @@ TEST_CASE("SubscribeResponse Message encode/decode")
 
 TEST_CASE("SubscribeEnd Message encode/decode")
 {
-  quicr::Namespace qnamespace{ { "0x10000000000000002000" }, 125 };
+  quicr::Namespace qnamespace{ 0x10000000000000002000_name, 125 };
 
   SubscribeEnd s{ .quicr_namespace = qnamespace,
                   .reason = SubscribeResult::SubscribeStatus::Ok };
@@ -69,7 +69,7 @@ TEST_CASE("SubscribeEnd Message encode/decode")
 
 TEST_CASE("Unsubscribe Message encode/decode")
 {
-  quicr::Namespace qnamespace{ { "0x10000000000000002000" }, 125 };
+  quicr::Namespace qnamespace{ 0x10000000000000002000_name, 125 };
 
   Unsubscribe us{ .quicr_namespace = qnamespace };
 
@@ -87,7 +87,7 @@ TEST_CASE("Unsubscribe Message encode/decode")
 
 TEST_CASE("PublishIntent Message encode/decode")
 {
-  quicr::Namespace qnamespace{ { "0x10000000000000002000" }, 125 };
+  quicr::Namespace qnamespace{ 0x10000000000000002000_name, 125 };
   PublishIntent pi{ MessageType::Publish, 0x1000,
                     qnamespace,           { 0, 1, 2, 3, 4 },
                     uintVar_t{ 0x0100 },  uintVar_t{ 0x0000 } };
@@ -120,7 +120,7 @@ TEST_CASE("PublishIntentResponse Message encode/decode")
 
 TEST_CASE("Publish Message encode/decode")
 {
-  quicr::Name qn{ "0x10000000000000002000" };
+  quicr::Name qn = 0x10000000000000002000_name;
   Header d{ uintVar_t{ 0x1000 }, qn,
             uintVar_t{ 0x0100 }, uintVar_t{ 0x0010 },
             uintVar_t{ 0x0001 }, 0x0000 };
@@ -163,7 +163,7 @@ TEST_CASE("PublishStream Message encode/decode")
 TEST_CASE("PublishIntentEnd Message encode/decode")
 {
   PublishIntentEnd pie{ MessageType::Publish,
-                        { { "12345" }, 0u },
+                        { 12345_name, 0u },
                         { 0, 1, 2, 3, 4 } };
   MessageBuffer buffer;
   auto pie_copy = pie;

@@ -2,9 +2,9 @@
 #include <string>
 #include <vector>
 
-#include <quicr/encode.h>
 #include "fake_transport.h"
 #include <doctest/doctest.h>
+#include <quicr/encode.h>
 #include <quicr/quicr_client.h>
 
 using namespace quicr;
@@ -63,7 +63,7 @@ TEST_CASE("Subscribe encode, send and receive")
   auto qclient = std::make_unique<QuicRClient>(transport);
 
   qclient->subscribe(sub_delegate,
-                     { { "0x10000000000000002000" }, 125 },
+                     { 0x10000000000000002000_name, 125 },
                      SubscribeIntent::wait_up,
                      "",
                      false,
@@ -76,7 +76,7 @@ TEST_CASE("Subscribe encode, send and receive")
 
   CHECK_EQ(s.transaction_id, s.transaction_id);
   CHECK_EQ(s.quicr_namespace,
-           quicr::Namespace{ { "0x10000000000000002000" }, 125 });
+           quicr::Namespace{ 0x10000000000000002000_name, 125 });
   CHECK_EQ(s.intent, SubscribeIntent::wait_up);
 }
 
@@ -91,7 +91,7 @@ TEST_CASE("Publish encode, send and receive")
   auto qclient = std::make_unique<QuicRClient>(transport);
   std::vector<uint8_t> say_hello = { 'H', 'E', 'L', 'L', '0' };
   qclient->publishNamedObject(
-    { "0x10000000000000002000" }, 0, 0, false, std::move(say_hello));
+    0x10000000000000002000_name, 0, 0, false, std::move(say_hello));
 
   auto fake_transport = std::reinterpret_pointer_cast<FakeTransport>(transport);
   messages::PublishDatagram d;
