@@ -56,7 +56,7 @@ hex_to_uint(std::string_view x)
 
 template<typename T,
          typename = typename std::enable_if<std::is_unsigned_v<T>, T>::type>
-constexpr std::string
+std::string
 uint_to_hex(T y)
 {
   char x[sizeof(T) * 2 + 1] = "";
