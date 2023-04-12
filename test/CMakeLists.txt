@@ -3,6 +3,7 @@
 add_executable(quicr_test
                 main.cpp
                 name.cpp
+                namespace.cpp
                 quicr_client.cpp
                 quicr_server.cpp
                 encode.cpp

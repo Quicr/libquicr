@@ -8,30 +8,67 @@
 #include <vector>
 
 namespace quicr {
-namespace messages {
-class MessageBuffer;
+
+constexpr uint64_t
+hexchar_to_uint(char x)
+{
+  uint64_t y = 0;
+  if ('0' <= x && x <= '9')
+    y += x - '0';
+  else if ('A' <= x && x <= 'F')
+    y += x - 'A' + 10;
+  else if ('a' <= x && x <= 'f')
+    y += x - 'a' + 10;
+
+  return y;
 }
 
-/**
- * Compile-time hex string to unsigned integer conversion.
- */
-constexpr uint64_t
-hex_to_uint(const std::string_view& x)
+template<typename T,
+         typename = typename std::enable_if<std::is_unsigned_v<T>, T>::type>
+constexpr char
+uint_to_hexchar(T b)
 {
-  size_t start_pos = x.substr(0, 2) == "0x" ? 2 : 0;
+  char x = ' ';
+  if (b > 9)
+    x = b + 'A' - 10;
+  else
+    x = b + '0';
 
-  uint64_t y = 0;
-  for (size_t i = start_pos; i < x.length(); ++i) {
+  return x;
+}
+
+template<typename T,
+         typename = typename std::enable_if<std::is_unsigned_v<T>, T>::type>
+constexpr T
+hex_to_uint(std::string_view x)
+{
+  if (x.starts_with("0x"))
+    x.remove_prefix(2);
+
+  T y = 0;
+  for (size_t i = 0; i < x.length(); ++i) {
     y *= 16ull;
-    if ('0' <= x[i] && x[i] <= '9')
-      y += x[i] - '0';
-    else if ('A' <= x[i] && x[i] <= 'F')
-      y += x[i] - 'A' + 10;
-    else if ('a' <= x[i] && x[i] <= 'f')
-      y += x[i] - 'a' + 10;
+    y += hexchar_to_uint(x[i]);
   }
 
   return y;
+}
+
+template<typename T,
+         typename = typename std::enable_if<std::is_unsigned_v<T>, T>::type>
+constexpr std::string
+uint_to_hex(T y)
+{
+  char x[sizeof(T) * 2 + 1] = "";
+  for (int i = sizeof(T) * 2 - 1; i >= 0; --i) {
+    T b = y & 0x0F;
+    x[i] = uint_to_hexchar(b);
+    y -= b;
+    y /= 16;
+  }
+  x[sizeof(T) * 2] = '\0';
+
+  return x;
 }
 
 /**
@@ -51,29 +88,36 @@ class Name
   using uint_type = uint64_t;
 
 public:
-  constexpr Name() = default;
+  Name() = default;
   constexpr Name(const Name& other) = default;
   Name(Name&& other) = default;
-  Name(const std::string& x);
   Name(uint8_t* data, size_t length);
   Name(const uint8_t* data, size_t length);
   Name(const std::vector<uint8_t>& data);
-  constexpr Name(const std::string_view& x)
+
+  constexpr Name(std::string_view hex_value)
   {
-    size_t start_pos = (x.substr(0, 2) == "0x") * 2;
-    auto hex_value = x.substr(start_pos, x.length() - start_pos);
+    if (hex_value.starts_with("0x"))
+      hex_value.remove_prefix(2);
 
     if (hex_value.length() > size() * 2)
       throw NameException("Hex string cannot be longer than " +
                           std::to_string(size() * 2) + " bytes");
 
     if (hex_value.length() > size()) {
-      _hi = hex_to_uint(hex_value.substr(0, hex_value.length() - size()));
-      _low = hex_to_uint(hex_value.substr(hex_value.length() - size(), size()));
+      _hi =
+        hex_to_uint<uint64_t>(hex_value.substr(0, hex_value.length() - size()));
+      _low = hex_to_uint<uint64_t>(
+        hex_value.substr(hex_value.length() - size(), size()));
     } else {
       _hi = 0;
-      _low = hex_to_uint(x.substr(0, x.length()));
+      _low = hex_to_uint<uint64_t>(hex_value.substr(0, hex_value.length()));
     }
+  }
+
+  constexpr Name(const std::string& hex)
+    : Name(std::string_view(hex))
+  {
   }
 
   ~Name() = default;
@@ -104,7 +148,14 @@ public:
   void operator|=(const Name& other);
   Name operator^(const Name& other) const;
   void operator^=(const Name& other);
-  Name operator~() const;
+
+  constexpr Name operator~() const
+  {
+    Name name(*this);
+    name._hi = ~_hi;
+    name._low = ~_low;
+    return name;
+  }
 
   constexpr Name& operator=(const Name& other) = default;
   constexpr Name& operator=(Name&& other) = default;
@@ -117,8 +168,8 @@ public:
   friend std::ostream& operator<<(std::ostream& os, const Name& name);
 
 private:
-  uint_type _hi{ 0 };
-  uint_type _low{ 0 };
+  uint_type _hi;
+  uint_type _low;
 };
 
 }

@@ -1,11 +1,7 @@
 #include <doctest/doctest.h>
 
-#include <quicr/hex_endec.h>
-#include <quicr/quicr_common.h>
 #include <quicr/quicr_name.h>
-#include <quicr/quicr_namespace.h>
 
-#include <map>
 #include <type_traits>
 
 TEST_CASE("quicr::Name Constructor Tests")
@@ -24,17 +20,14 @@ TEST_CASE("quicr::Name Constructor Tests")
   CHECK_NOTHROW(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF_name);
   CHECK_THROWS(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0_name);
 
+  CHECK(std::is_trivial_v<quicr::Name>);
+  CHECK(std::is_trivially_constructible_v<quicr::Name>);
+  CHECK(std::is_trivially_default_constructible_v<quicr::Name>);
   CHECK(std::is_trivially_destructible_v<quicr::Name>);
   CHECK(std::is_trivially_copyable_v<quicr::Name>);
   CHECK(std::is_trivially_copy_assignable_v<quicr::Name>);
   CHECK(std::is_trivially_move_constructible_v<quicr::Name>);
   CHECK(std::is_trivially_move_assignable_v<quicr::Name>);
-
-  CHECK(std::is_trivially_destructible_v<quicr::Namespace>);
-  CHECK(std::is_trivially_copyable_v<quicr::Namespace>);
-  CHECK(std::is_trivially_copy_assignable_v<quicr::Namespace>);
-  CHECK(std::is_trivially_move_constructible_v<quicr::Namespace>);
-  CHECK(std::is_trivially_move_assignable_v<quicr::Namespace>);
 }
 
 TEST_CASE("quicr::Name To Hex Tests")
@@ -145,8 +138,8 @@ TEST_CASE("quicr::Name Arithmetic Tests")
 
 TEST_CASE("quicr::Name Bitwise Not Tests")
 {
-  quicr::Name zeros;
-  quicr::Name ones = ~zeros;
+  constexpr quicr::Name zeros = 0x0_name;
+  constexpr quicr::Name ones = ~zeros;
 
   quicr::Name expected_ones = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF_name;
   auto literal_ones = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF_name;
@@ -191,37 +184,4 @@ TEST_CASE("quicr::Name Logical Arithmetic Tests")
 
   auto arith_or2 = 0x0101010101010101_name | 0x1010101010101010;
   CHECK_EQ(arith_or2, 0x1111111111111111_name);
-}
-
-TEST_CASE("quicr::Namespace Contains Names Test")
-{
-  quicr::HexEndec<128, 64, 56, 8> formatter_128bit;
-  std::string mask = formatter_128bit.Encode(
-    0x1111111111111111ull, 0x22222222222222ull, 0x00ull);
-  quicr::Namespace ns(mask, 120);
-
-  quicr::Name valid_name(formatter_128bit.Encode(
-    0x1111111111111111ull, 0x22222222222222ull, 0xFFull));
-  CHECK(ns.contains(valid_name));
-
-  quicr::Name another_valid_name(formatter_128bit.Encode(
-    0x1111111111111111ull, 0x22222222222222ull, 0x11ull));
-  CHECK(ns.contains(another_valid_name));
-
-  quicr::Name invalid_name(formatter_128bit.Encode(
-    0x1111111111111111ull, 0x22222222222223ull, 0x00ull));
-  CHECK_FALSE(ns.contains(invalid_name));
-}
-
-TEST_CASE("quicr::Namespace Contains Namespaces Test")
-{
-  quicr::Namespace ns(0x11111111111111112222222222220000_name, 112);
-
-  quicr::Namespace valid_namespace(0x11111111111111112222222222222200_name,
-                                   120);
-  CHECK(ns.contains(valid_namespace));
-
-  quicr::Namespace invalid_namespace(0x11111111111111112222222222000000_name,
-                                     104);
-  CHECK_FALSE(ns.contains(invalid_namespace));
 }

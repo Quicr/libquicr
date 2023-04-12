@@ -4,9 +4,18 @@
 #include <vector>
 
 static void
-BM_NameConstructFromHex(benchmark::State& state)
+BM_NameConstructFromHexString(benchmark::State& state)
 {
   std::string str = "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
+  for (auto _ : state) {
+    [[maybe_unused]] quicr::Name __(str);
+  }
+}
+
+static void
+BM_NameConstructFromHexStringView(benchmark::State& state)
+{
+  std::string_view str = "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
   for (auto _ : state) {
     [[maybe_unused]] quicr::Name __(str);
   }
@@ -96,7 +105,8 @@ BM_NameToHex(benchmark::State& state)
   }
 }
 
-BENCHMARK(BM_NameConstructFromHex);
+BENCHMARK(BM_NameConstructFromHexString);
+BENCHMARK(BM_NameConstructFromHexStringView);
 BENCHMARK(BM_NameConstructFromVector);
 BENCHMARK(BM_NameConstructFromBytePointer);
 BENCHMARK(BM_NameCopyConstruct);
