@@ -9,7 +9,12 @@
 namespace quicr {
 Name::Name(uint8_t* data, size_t length)
 {
-  size_t size_of = std::min(length, size() / 2);
+  if (length > size() * 2)
+    throw NameException(
+      "Byte array length cannot be longer than length of Name: " +
+      std::to_string(size() * 2));
+
+  constexpr size_t size_of = size() / 2;
   std::memcpy(&_low, data, size_of);
   std::memcpy(&_hi, data + size_of, size_of);
 }
@@ -17,16 +22,23 @@ Name::Name(uint8_t* data, size_t length)
 Name::Name(const uint8_t* data, size_t length)
 {
   if (length > size() * 2)
-    throw NameException("");
+    throw NameException(
+      "Byte array length cannot be longer than length of Name: " +
+      std::to_string(size() * 2));
 
-  size_t size_of = std::min(length, size() / 2);
+  constexpr size_t size_of = size() / 2;
   std::memcpy(&_low, data, size_of);
   std::memcpy(&_hi, data + size_of, size_of);
 }
 
 Name::Name(const std::vector<uint8_t>& data)
 {
-  size_t size_of = std::min(data.size(), size() / 2);
+  if (data.size() > size() * 2)
+    throw NameException(
+      "Byte array length cannot be longer than length of Name: " +
+      std::to_string(size() * 2));
+
+  constexpr size_t size_of = size() / 2;
   std::memcpy(&_low, data.data(), size_of);
   std::memcpy(&_hi, data.data() + size_of, size_of);
 }
