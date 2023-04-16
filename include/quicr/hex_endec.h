@@ -197,8 +197,7 @@ public:
   template<
     typename Uint_t = uint64_t,
     typename = typename std::enable_if<is_valid_uint<Uint_t>::value, Uint_t>>
-  static constexpr std::array<Uint_t, sizeof...(Dist)> Decode(
-    std::string_view hex)
+  static inline std::array<Uint_t, sizeof...(Dist)> Decode(std::string_view hex)
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
     static_assert(Size >= (Dist + ...),
@@ -216,7 +215,7 @@ public:
   template<
     typename Uint_t = uint64_t,
     typename = typename std::enable_if<is_valid_uint<Uint_t>::value, Uint_t>>
-  static constexpr std::array<Uint_t, sizeof...(Dist)> Decode(
+  static inline std::array<Uint_t, sizeof...(Dist)> Decode(
     const quicr::Name& name)
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
@@ -236,7 +235,7 @@ public:
     typename Uint_t = uint64_t,
     bool B = Size <= sizeof(uint64_t) * 8,
     typename = typename std::enable_if<is_valid_uint<Uint_t>::value, Uint_t>>
-  static constexpr typename std::enable_if<B, std::vector<Uint_t>>::type Decode(
+  static inline typename std::enable_if<B, std::vector<Uint_t>>::type Decode(
     std::span<uint8_t> distribution,
     std::string_view hex)
   {
@@ -258,8 +257,9 @@ public:
     typename Uint_t = uint64_t,
     bool B = Size <= sizeof(uint64_t) * 8,
     typename = typename std::enable_if<is_valid_uint<Uint_t>::value, Uint_t>>
-  static constexpr typename std::enable_if<!B, std::vector<Uint_t>>::type
-  Decode(std::span<uint8_t> distribution, std::string_view hex)
+  static inline typename std::enable_if<!B, std::vector<Uint_t>>::type Decode(
+    std::span<uint8_t> distribution,
+    std::string_view hex)
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
 
@@ -297,8 +297,8 @@ public:
   }
 
   template<typename Uint_t = uint64_t>
-  static constexpr std::vector<Uint_t> Decode(std::span<uint8_t> distribution,
-                                              const quicr::Name& name)
+  static inline std::vector<Uint_t> Decode(std::span<uint8_t> distribution,
+                                           const quicr::Name& name)
   {
     return Decode(distribution, std::string_view(name.to_hex()));
   }
