@@ -409,14 +409,10 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
     msg << datagram;
 
     // No fragmenting needed
-    // Block on queue full
-    while ((transport->enqueue(
-                       transport_context_id,
-                        context.transport_stream_id,
-                                msg.get()
-            ) == qtransport::TransportError::QueueFull)) {
-      std::this_thread::sleep_for(std::chrono::microseconds(100));
-    }
+    // TODO: Add metric for dropping packets due to queue full == qtransport::TransportError::QueueFull
+    transport->enqueue(transport_context_id,
+                       context.transport_stream_id,
+                       msg.get());
 
   } else {
     // Fragments required. At this point this only counts whole blocks
@@ -453,12 +449,17 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
       if (need_pacing && (frag_num % 30) == 0)
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
-      while ((transport->enqueue(
-                         transport_context_id,
-                          context.transport_stream_id,
-                            msg.get())
-              ) == qtransport::TransportError::QueueFull) {
-          std::this_thread::sleep_for(std::chrono::microseconds(100));
+      /*
+       * TODO: A couple options here:
+       *  1) We can block for fragments since dropping a single fragment results in the
+       *    entire message being dropped
+       *  2) We can drop the message and if so, no need to process anymore fragments
+       */
+      if (transport->enqueue(transport_context_id,
+                             context.transport_stream_id,
+                             msg.get()) != qtransport::TransportError::None) {
+        // Error, such as queue full. Drop.
+        break;
       }
     }
 
@@ -478,10 +479,10 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
       //			          << " offset: " <<
       // uint64_t(datagram.header.offset_and_fin) << std::endl;
 
-      while ((transport->enqueue(
-                        transport_context_id,
-                          context.transport_stream_id,
-                            msg.get())
+      // Let's give this one a chance, it's the last in the fragment
+      while ((transport->enqueue(transport_context_id,
+                                 context.transport_stream_id,
+                                 msg.get())
               ) == qtransport::TransportError::QueueFull) {
           std::this_thread::sleep_for(std::chrono::microseconds(100));
       }
