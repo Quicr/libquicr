@@ -450,16 +450,38 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
       /*
-       * TODO: A couple options here:
-       *  1) We can block for fragments since dropping a single fragment results in the
-       *    entire message being dropped
-       *  2) We can drop the message and if so, no need to process anymore fragments
+       * TODO: will change to Priority Queueing
        */
-      if (transport->enqueue(transport_context_id,
-                             context.transport_stream_id,
-                             msg.get()) != qtransport::TransportError::None) {
-        // Error, such as queue full. Drop.
-        break;
+      if (offset == quicr::MAX_TRANSPORT_DATA_SIZE && data.size() < 40000
+          && transport->enqueue(transport_context_id,
+                                context.transport_stream_id,
+                                msg.get()) != qtransport::TransportError::None) {
+        // First message in fragment, drop the whole message and all fragments
+
+        // Attempt to slow the app down a little bit
+        std::cout << "Dropping message due to full queue" << std::endl;
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        return;
+
+      } else {
+        // Try several times to send the fragment
+        bool sent = false;
+        for (int i=0; i < 1; i++) {
+          if (transport->enqueue(transport_context_id,
+                                 context.transport_stream_id,
+                                 msg.get()) != qtransport::TransportError::None) {
+            std::this_thread::sleep_for(std::chrono::microseconds(100));
+          } else {
+            sent = true;
+            break;
+          }
+        }
+
+        if (not sent) {
+          std::cout << "Giving up on message, dropped" << std::endl;
+          // Was not able to send fragment, give up on this message
+          return;
+        }
       }
     }
 
@@ -479,13 +501,10 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
       //			          << " offset: " <<
       // uint64_t(datagram.header.offset_and_fin) << std::endl;
 
-      // Let's give this one a chance, it's the last in the fragment
-      while ((transport->enqueue(transport_context_id,
+      // We didn't get this far to drop the last/fin fragment. Block
+      transport->enqueue(transport_context_id,
                                  context.transport_stream_id,
-                                 msg.get())
-              ) == qtransport::TransportError::QueueFull) {
-          std::this_thread::sleep_for(std::chrono::microseconds(100));
-      }
+                                 msg.get());
     }
   }
 }
