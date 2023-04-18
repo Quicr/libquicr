@@ -115,7 +115,7 @@ public:
     }
   }
 
-  constexpr Name(const std::string& hex)
+  Name(const std::string& hex)
     : Name(std::string_view(hex))
   {
   }
