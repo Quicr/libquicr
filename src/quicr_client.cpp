@@ -409,14 +409,10 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
     msg << datagram;
 
     // No fragmenting needed
-    // Block on queue full
-    while ((transport->enqueue(
-                       transport_context_id,
-                        context.transport_stream_id,
-                                msg.get()
-            ) == qtransport::TransportError::QueueFull)) {
-      std::this_thread::sleep_for(std::chrono::microseconds(100));
-    }
+    // TODO: Add metric for dropping packets due to queue full == qtransport::TransportError::QueueFull
+    transport->enqueue(transport_context_id,
+                       context.transport_stream_id,
+                       msg.get());
 
   } else {
     // Fragments required. At this point this only counts whole blocks
@@ -453,39 +449,37 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
       if (need_pacing && (frag_num % 30) == 0)
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
-      while ((transport->enqueue(
-                         transport_context_id,
-                          context.transport_stream_id,
-                            msg.get())
-              ) == qtransport::TransportError::QueueFull) {
-          std::this_thread::sleep_for(std::chrono::microseconds(100));
+      if (transport->enqueue(transport_context_id,
+                     context.transport_stream_id,
+                             msg.get()) != qtransport::TransportError::None) {
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        // No point in finishing fragment if one is dropped
+        return;
       }
     }
 
     // Send last fragment, which will be less than MAX_TRANSPORT_DATA_SIZE
     if (frag_remaining_bytes) {
-      messages::MessageBuffer msg;
-      datagram.header.offset_and_fin = uintVar_t((offset << 1) + 1);
+        messages::MessageBuffer msg;
+        datagram.header.offset_and_fin = uintVar_t((offset << 1) + 1);
 
-      bytes frag_data(data.begin() + offset, data.end());
-      datagram.media_data_length = static_cast<uintVar_t>(frag_data.size());
-      datagram.media_data = std::move(frag_data);
+        bytes frag_data(data.begin() + offset, data.end());
+        datagram.media_data_length = static_cast<uintVar_t>(frag_data.size());
+        datagram.media_data = std::move(frag_data);
 
-      msg << datagram;
+        msg << datagram;
 
-      //			std::cout << "Pub-frag remaining msg size: " <<
-      // data.size()
-      //			          << " offset: " <<
-      // uint64_t(datagram.header.offset_and_fin) << std::endl;
+        //			std::cout << "Pub-frag remaining msg size: " <<
+        // data.size()
+        //			          << " offset: " <<
+        // uint64_t(datagram.header.offset_and_fin) << std::endl;
 
-      while ((transport->enqueue(
-                        transport_context_id,
-                          context.transport_stream_id,
-                            msg.get())
-              ) == qtransport::TransportError::QueueFull) {
-          std::this_thread::sleep_for(std::chrono::microseconds(100));
+        if (transport->enqueue(transport_context_id,
+                               context.transport_stream_id,
+                               msg.get()) != qtransport::TransportError::None) {
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        }
       }
-    }
   }
 }
 
