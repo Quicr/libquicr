@@ -1,63 +1,54 @@
 #include <doctest/doctest.h>
 
-#include <quicr/hex_endec.h>
-#include <quicr/quicr_common.h>
 #include <quicr/quicr_name.h>
-#include <quicr/quicr_namespace.h>
 
-#include <map>
 #include <type_traits>
 
 TEST_CASE("quicr::Name Constructor Tests")
 {
-  quicr::Name val42("0x42");
-  quicr::Name hex42("0x42");
+  constexpr quicr::Name val42(0x42_name);
+  constexpr quicr::Name hex42(0x42_name);
   CHECK_EQ(val42, hex42);
 
-  CHECK_LT(quicr::Name("0x123"), quicr::Name("0x124"));
-  CHECK_GT(quicr::Name("0x123"), quicr::Name("0x122"));
-  CHECK_NE(quicr::Name("0x123"), quicr::Name("0x122"));
+  CHECK_LT(0x123_name, 0x124_name);
+  CHECK_GT(0x123_name, 0x122_name);
+  CHECK_NE(0x123_name, 0x122_name);
 
-  CHECK_GT(quicr::Name("0x20000000000000001"),
-           quicr::Name("0x10000000000000002"));
-  CHECK_LT(quicr::Name("0x10000000000000002"),
-           quicr::Name("0x20000000000000001"));
+  CHECK_GT(0x20000000000000001_name, 0x10000000000000002_name);
+  CHECK_LT(0x10000000000000002_name, 0x20000000000000001_name);
 
-  CHECK_NOTHROW(quicr::Name("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"));
-  CHECK_THROWS(quicr::Name("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0"));
+  CHECK_NOTHROW(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF_name);
+  CHECK_THROWS(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0_name);
 
+  CHECK(std::is_trivial_v<quicr::Name>);
+  CHECK(std::is_trivially_constructible_v<quicr::Name>);
+  CHECK(std::is_trivially_default_constructible_v<quicr::Name>);
   CHECK(std::is_trivially_destructible_v<quicr::Name>);
   CHECK(std::is_trivially_copyable_v<quicr::Name>);
   CHECK(std::is_trivially_copy_assignable_v<quicr::Name>);
   CHECK(std::is_trivially_move_constructible_v<quicr::Name>);
   CHECK(std::is_trivially_move_assignable_v<quicr::Name>);
-
-  CHECK(std::is_trivially_destructible_v<quicr::Namespace>);
-  CHECK(std::is_trivially_copyable_v<quicr::Namespace>);
-  CHECK(std::is_trivially_copy_assignable_v<quicr::Namespace>);
-  CHECK(std::is_trivially_move_constructible_v<quicr::Namespace>);
-  CHECK(std::is_trivially_move_assignable_v<quicr::Namespace>);
 }
 
 TEST_CASE("quicr::Name To Hex Tests")
 {
   {
-    std::string original_hex = "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
+    std::string_view original_hex = "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
     quicr::Name name = original_hex;
 
     CHECK_EQ(name.to_hex(), original_hex);
   }
   {
-    std::string original_hex = "0xFFFFFFFFFFFFFFFF0000000000000000";
+    std::string_view original_hex = "0xFFFFFFFFFFFFFFFF0000000000000000";
     quicr::Name name = original_hex;
 
     CHECK_EQ(name.to_hex(), original_hex);
   }
   {
-    std::string long_hex = "0x0000000000000000FFFFFFFFFFFFFFFF";
+    std::string_view long_hex = "0x0000000000000000FFFFFFFFFFFFFFFF";
     quicr::Name long_name = long_hex;
 
-    std::string short_hex = "0xFFFFFFFFFFFFFFFF";
+    std::string_view short_hex = "0xFFFFFFFFFFFFFFFF";
     quicr::Name not_short_name = short_hex;
     CHECK_EQ(long_name.to_hex(), long_hex);
     CHECK_NE(not_short_name.to_hex(), short_hex);
@@ -68,45 +59,41 @@ TEST_CASE("quicr::Name To Hex Tests")
 
 TEST_CASE("quicr::Name Bit Shifting Tests")
 {
-  CHECK_EQ((quicr::Name("0x1234") >> 4), quicr::Name("0x123"));
-  CHECK_EQ((quicr::Name("0x1234") << 4), quicr::Name("0x12340"));
+  CHECK_EQ((0x1234_name >> 4), 0x123_name);
+  CHECK_EQ((0x1234_name << 4), 0x12340_name);
 
   {
-    const quicr::Name unshifted_32bit("0x123456789abcdeff00000000");
-    const quicr::Name shifted_32bit("0x123456789abcdeff");
+    const quicr::Name unshifted_32bit = 0x123456789abcdeff00000000_name;
+    const quicr::Name shifted_32bit = 0x123456789abcdeff_name;
     CHECK_EQ((unshifted_32bit >> 32), shifted_32bit);
     CHECK_EQ((shifted_32bit << 32), unshifted_32bit);
   }
 
   {
-    quicr::Name unshifted_64bit =
-      quicr::Name("0x123456789abcdeff123456789abcdeff");
-    quicr::Name shifted_64bit = quicr::Name("0x123456789abcdeff");
-    quicr::Name shifted_72bit = quicr::Name("0x123456789abcde");
+    quicr::Name unshifted_64bit = 0x123456789abcdeff123456789abcdeff_name;
+    quicr::Name shifted_64bit = 0x123456789abcdeff_name;
+    quicr::Name shifted_72bit = 0x123456789abcde_name;
     CHECK_EQ((unshifted_64bit >> 64), shifted_64bit);
     CHECK_EQ((unshifted_64bit >> 72), shifted_72bit);
     CHECK_EQ((shifted_64bit >> 8), shifted_72bit);
   }
 
   {
-    quicr::Name unshifted_64bit = quicr::Name("0x123456789abcdeff");
-    quicr::Name shifted_64bit =
-      quicr::Name("0x123456789abcdeff0000000000000000");
-    quicr::Name shifted_72bit =
-      quicr::Name("0x3456789abcdeff000000000000000000");
+    quicr::Name unshifted_64bit = 0x123456789abcdeff_name;
+    quicr::Name shifted_64bit = 0x123456789abcdeff0000000000000000_name;
+    quicr::Name shifted_72bit = 0x3456789abcdeff000000000000000000_name;
     CHECK_EQ((unshifted_64bit << 64), shifted_64bit);
     CHECK_EQ((unshifted_64bit << 72), shifted_72bit);
     CHECK_EQ((shifted_64bit << 8), shifted_72bit);
   }
 
   {
-    const quicr::Name unshifted_bits =
-      quicr::Name("0x00000000000000000000000000000001");
+    const quicr::Name unshifted_bits = 0x00000000000000000000000000000001_name;
     quicr::Name bits = unshifted_bits;
     for (int i = 0; i < 64; ++i)
       bits <<= 1;
 
-    CHECK_EQ(bits, quicr::Name("0x00000000000000010000000000000000"));
+    CHECK_EQ(bits, 0x00000000000000010000000000000000_name);
 
     for (int i = 0; i < 64; ++i)
       bits >>= 1;
@@ -117,28 +104,27 @@ TEST_CASE("quicr::Name Bit Shifting Tests")
 
 TEST_CASE("quicr::Name Arithmetic Tests")
 {
-  quicr::Name val42("0x42");
-  quicr::Name val41("0x41");
-  quicr::Name val43("0x43");
+  quicr::Name val42 = 0x42_name;
+  quicr::Name val41 = 0x41_name;
+  quicr::Name val43 = 0x43_name;
   CHECK_EQ(val42 + 1, val43);
   CHECK_EQ(val42 - 1, val41);
 
-  CHECK_EQ(quicr::Name("0x00000000000000010000000000000000") + 1,
-           quicr::Name("0x00000000000000010000000000000001"));
-  CHECK_EQ(quicr::Name("0x0FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF") + 1,
-           quicr::Name("0x10000000000000000000000000000000"));
-  CHECK_EQ(quicr::Name("0x0000000000000000FFFFFFFFFFFFFFFF") + 0xFFFFFFFF,
-           quicr::Name("0x000000000000000100000000FFFFFFFE"));
+  CHECK_EQ(0x00000000000000010000000000000000_name + 1,
+           0x00000000000000010000000000000001_name);
+  CHECK_EQ(0x0FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF_name + 1,
+           0x10000000000000000000000000000000_name);
+  CHECK_EQ(0x0000000000000000FFFFFFFFFFFFFFFF_name + 0xFFFFFFFF,
+           0x000000000000000100000000FFFFFFFE_name);
 
-  CHECK_EQ(quicr::Name("0x00000000000000010000000000000000") - 1,
-           quicr::Name("0x0000000000000000FFFFFFFFFFFFFFFF"));
-  CHECK_EQ(quicr::Name("0x0FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF") - 1,
-           quicr::Name("0x0FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE"));
-  CHECK_EQ(quicr::Name("0x0000000000000000FFFFFFFFFFFFFFFF") -
-             0xFFFFFFFFFFFFFFFF,
-           quicr::Name("0x00000000000000000000000000000000"));
-  CHECK_EQ(quicr::Name("0x00000000000000010000000000000000") - 2,
-           quicr::Name("0x0000000000000000FFFFFFFFFFFFFFFE"));
+  CHECK_EQ(0x00000000000000010000000000000000_name - 1,
+           0x0000000000000000FFFFFFFFFFFFFFFF_name);
+  CHECK_EQ(0x0FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF_name - 1,
+           0x0FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE_name);
+  CHECK_EQ(0x0000000000000000FFFFFFFFFFFFFFFF_name - 0xFFFFFFFFFFFFFFFF,
+           0x00000000000000000000000000000000_name);
+  CHECK_EQ(0x00000000000000010000000000000000_name - 2,
+           0x0000000000000000FFFFFFFFFFFFFFFE_name);
 
   quicr::Name val42_copy(val42);
   CHECK_EQ(val42_copy, val42);
@@ -152,13 +138,15 @@ TEST_CASE("quicr::Name Arithmetic Tests")
 
 TEST_CASE("quicr::Name Bitwise Not Tests")
 {
-  quicr::Name zeros;
-  quicr::Name ones = ~zeros;
+  constexpr quicr::Name zeros = 0x0_name;
+  constexpr quicr::Name ones = ~zeros;
 
-  quicr::Name expected_ones("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
+  quicr::Name expected_ones = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF_name;
+  auto literal_ones = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF_name;
 
   CHECK_NE(ones, zeros);
   CHECK_EQ(ones, expected_ones);
+  CHECK_EQ(literal_ones, expected_ones);
 }
 
 TEST_CASE("quicr::Name Byte Array Tests")
@@ -173,7 +161,7 @@ TEST_CASE("quicr::Name Byte Array Tests")
   CHECK_FALSE(byte_arr.empty());
   CHECK_EQ(byte_arr.size(), 16);
 
-  quicr::Name name_to_bytes("0x10000000000000000000000000000000");
+  quicr::Name name_to_bytes = 0x10000000000000000000000000000000_name;
   quicr::Name name_from_bytes(byte_arr);
   CHECK_EQ(name_from_bytes, name_to_bytes);
 
@@ -183,50 +171,17 @@ TEST_CASE("quicr::Name Byte Array Tests")
 
 TEST_CASE("quicr::Name Logical Arithmetic Tests")
 {
-  auto arith_and = quicr::Name("0x01010101010101010101010101010101") &
-                   quicr::Name("0x10101010101010101010101010101010");
-  CHECK_EQ(arith_and, quicr::Name("0x0"));
+  auto arith_and = 0x01010101010101010101010101010101_name &
+                   0x10101010101010101010101010101010_name;
+  CHECK_EQ(arith_and, 0x0_name);
 
-  auto arith_and2 = quicr::Name("0x0101010101010101") & 0x1010101010101010;
-  CHECK_EQ(arith_and2, quicr::Name("0x0"));
+  auto arith_and2 = 0x0101010101010101_name & 0x1010101010101010;
+  CHECK_EQ(arith_and2, 0x0_name);
 
-  auto arith_or = quicr::Name("0x01010101010101010101010101010101") |
-                  quicr::Name("0x10101010101010101010101010101010");
-  CHECK_EQ(arith_or, quicr::Name("0x11111111111111111111111111111111"));
+  auto arith_or = 0x01010101010101010101010101010101_name |
+                  0x10101010101010101010101010101010_name;
+  CHECK_EQ(arith_or, 0x11111111111111111111111111111111_name);
 
-  auto arith_or2 = quicr::Name("0x0101010101010101") | 0x1010101010101010;
-  CHECK_EQ(arith_or2, quicr::Name("0x1111111111111111"));
-}
-
-TEST_CASE("quicr::Namespace Contains Names Test")
-{
-  quicr::HexEndec<128, 64, 56, 8> formatter_128bit;
-  std::string mask = formatter_128bit.Encode(
-    0x1111111111111111ull, 0x22222222222222ull, 0x00ull);
-  quicr::Namespace ns(mask, 120);
-
-  quicr::Name valid_name(formatter_128bit.Encode(
-    0x1111111111111111ull, 0x22222222222222ull, 0xFFull));
-  CHECK(ns.contains(valid_name));
-
-  quicr::Name another_valid_name(formatter_128bit.Encode(
-    0x1111111111111111ull, 0x22222222222222ull, 0x11ull));
-  CHECK(ns.contains(another_valid_name));
-
-  quicr::Name invalid_name(formatter_128bit.Encode(
-    0x1111111111111111ull, 0x22222222222223ull, 0x00ull));
-  CHECK_FALSE(ns.contains(invalid_name));
-}
-
-TEST_CASE("quicr::Namespace Contains Namespaces Test")
-{
-  quicr::Namespace ns({ "0x11111111111111112222222222220000" }, 112);
-
-  quicr::Namespace valid_namespace({ "0x11111111111111112222222222222200" },
-                                   120);
-  CHECK(ns.contains(valid_namespace));
-
-  quicr::Namespace invalid_namespace({ "0x11111111111111112222222222000000" },
-                                     104);
-  CHECK_FALSE(ns.contains(invalid_namespace));
+  auto arith_or2 = 0x0101010101010101_name | 0x1010101010101010;
+  CHECK_EQ(arith_or2, 0x1111111111111111_name);
 }
