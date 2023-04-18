@@ -66,7 +66,7 @@ void
 BM_MessageBufferWriteName(benchmark::State& state)
 {
   quicr::messages::MessageBuffer buffer;
-  quicr::Name name("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
+  quicr::Name name = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF_name;
   for (auto _ : state) {
     buffer << name;
   }

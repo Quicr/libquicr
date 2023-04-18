@@ -7,43 +7,24 @@
 #include <string>
 
 namespace quicr {
-static constexpr size_t uint_type_bit_size = Name::size() * 4;
-
-Name::Name(const std::string& hex_value)
+Name::Name(uint8_t* data, size_t length)
 {
-  uint8_t start_pos = 0;
-  if (hex_value.substr(0, 2) == "0x")
-    start_pos = 2;
-
-  if (hex_value.length() - start_pos > size() * 2)
-    throw NameException("Hex string cannot be longer than " +
-                        std::to_string(size() * 2) + " bytes");
-
-  if (hex_value.length() - start_pos > size()) {
-    _hi = std::stoull(
-      hex_value.substr(start_pos, hex_value.length() - start_pos - size()),
-      nullptr,
-      16);
-    _low = std::stoull(
-      hex_value.substr(hex_value.length() - size(), size()), nullptr, 16);
-  } else {
-    _hi = 0;
-    _low = std::stoull(hex_value, nullptr, 16);
-  }
-}
-
-Name::Name(uint8_t* data, [[maybe_unused]] size_t length)
-{
-  assert(length == size());
+  if (length > size() * 2)
+    throw NameException(
+      "Byte array length cannot be longer than length of Name: " +
+      std::to_string(size() * 2));
 
   constexpr size_t size_of = size() / 2;
   std::memcpy(&_low, data, size_of);
   std::memcpy(&_hi, data + size_of, size_of);
 }
 
-Name::Name(const uint8_t* data, [[maybe_unused]] size_t length)
+Name::Name(const uint8_t* data, size_t length)
 {
-  assert(length == size());
+  if (length > size() * 2)
+    throw NameException(
+      "Byte array length cannot be longer than length of Name: " +
+      std::to_string(size() * 2));
 
   constexpr size_t size_of = size() / 2;
   std::memcpy(&_low, data, size_of);
@@ -52,6 +33,11 @@ Name::Name(const uint8_t* data, [[maybe_unused]] size_t length)
 
 Name::Name(const std::vector<uint8_t>& data)
 {
+  if (data.size() > size() * 2)
+    throw NameException(
+      "Byte array length cannot be longer than length of Name: " +
+      std::to_string(size() * 2));
+
   constexpr size_t size_of = size() / 2;
   std::memcpy(&_low, data.data(), size_of);
   std::memcpy(&_hi, data.data() + size_of, size_of);
@@ -60,13 +46,11 @@ Name::Name(const std::vector<uint8_t>& data)
 std::string
 Name::to_hex() const
 {
-  constexpr int size_of = size();
+  std::string hex = "0x";
+  hex += uint_to_hex(_hi);
+  hex += uint_to_hex(_low);
 
-  char hex[size_of * 2 + 1];
-  std::snprintf(hex, size_of + 1, "%0*llX", size_of, _hi);
-  std::snprintf(hex + size_of, size_of + 1, "%0*llX", size_of, _low);
-
-  return std::string("0x") + hex;
+  return hex;
 }
 
 std::uint8_t
@@ -88,6 +72,8 @@ Name::operator>>(uint16_t value) const
   name >>= value;
   return name;
 }
+
+static constexpr size_t uint_type_bit_size = Name::size() * 4;
 
 Name
 Name::operator>>=(uint16_t value)
@@ -268,15 +254,6 @@ Name::operator^=(const Name& other)
 {
   _hi ^= other._hi;
   _low ^= other._low;
-}
-
-Name
-Name::operator~() const
-{
-  Name name(*this);
-  name._hi = ~_hi;
-  name._low = ~_low;
-  return name;
 }
 
 bool

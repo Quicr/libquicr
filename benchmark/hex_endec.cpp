@@ -63,7 +63,7 @@ static void
 BM_HexEndecRealDecode(benchmark::State& state)
 {
   quicr::HexEndec<128, 24, 8, 24, 8, 16, 48> format;
-  quicr::Name name{ "0xA11CEE00F00001000000000000000000" };
+  quicr::Name name = 0xA11CEE00F00001000000000000000000_name;
   for (auto _ : state) {
     format.Decode(name);
   }

@@ -112,10 +112,7 @@ public:
       bits |= (value & ~(~0x0ull << dist));
     };
 
-    char hex[Size / 4 + 1];
-    std::snprintf(hex, Size / 4 + 1, "%0*llX", Size / 4, bits);
-
-    return std::string("0x") + hex;
+    return std::string("0x") + uint_to_hex<uint64_t>(bits);
   }
 
   template<bool B = Size <= sizeof(uint64_t) * 8>
@@ -160,14 +157,8 @@ public:
 
     std::string out_hex = "0x";
     for (size_t i = 0; i < Size / sizeof_uint64_bits; ++i) {
-      char hex[sizeof(uint64_t) * 2 + 1];
-      std::snprintf(
-        hex,
-        sizeof(uint64_t) * 2 + 1,
-        "%0*llX",
-        int(sizeof(uint64_t) * 2),
+      out_hex += uint_to_hex<uint64_t>(
         ((bits & bits_mask) >> (Size - sizeof_uint64_bits)).to_ullong());
-      out_hex += hex;
       bits <<= sizeof_uint64_bits;
     }
 
@@ -206,8 +197,7 @@ public:
   template<
     typename Uint_t = uint64_t,
     typename = typename std::enable_if<is_valid_uint<Uint_t>::value, Uint_t>>
-  static inline std::array<Uint_t, sizeof...(Dist)> Decode(
-    const std::string& hex)
+  static inline std::array<Uint_t, sizeof...(Dist)> Decode(std::string_view hex)
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
     static_assert(Size >= (Dist + ...),
@@ -233,7 +223,7 @@ public:
                   "Total bits cannot exceed specified size");
 
     std::array<uint8_t, sizeof...(Dist)> distribution{ Dist... };
-    auto result = Decode(distribution, name.to_hex());
+    auto result = Decode(distribution, std::string_view(name.to_hex()));
     std::array<Uint_t, sizeof...(Dist)> out;
     std::copy_n(
       std::make_move_iterator(result.begin()), sizeof...(Dist), out.begin());
@@ -247,13 +237,13 @@ public:
     typename = typename std::enable_if<is_valid_uint<Uint_t>::value, Uint_t>>
   static inline typename std::enable_if<B, std::vector<Uint_t>>::type Decode(
     std::span<uint8_t> distribution,
-    const std::string& hex)
+    std::string_view hex)
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
 
     const auto dist_size = distribution.size();
     std::vector<uint64_t> result(dist_size);
-    uint64_t bits = std::stoull(hex, nullptr, 16);
+    uint64_t bits = hex_to_uint<uint64_t>(hex);
     for (int i = dist_size - 1; i >= 0; --i) {
       const auto dist = distribution[i];
       result[i] = bits & ~(~0x0ull << dist);
@@ -269,7 +259,7 @@ public:
     typename = typename std::enable_if<is_valid_uint<Uint_t>::value, Uint_t>>
   static inline typename std::enable_if<!B, std::vector<Uint_t>>::type Decode(
     std::span<uint8_t> distribution,
-    const std::string& hex)
+    std::string_view hex)
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
 
@@ -290,9 +280,9 @@ public:
     constexpr size_t num_sections = Size / sizeof_uint64_bits;
     for (size_t i = start_pos, j = 0; i < (section_length * num_sections);
          i += section_length) {
-      std::string section = hex.substr(i, section_length);
-      bits |= std::bitset<Size>(std::stoull(section, nullptr, 16))
-              << (sizeof_uint64_bits * (num_sections - ++j));
+      bits |=
+        std::bitset<Size>(hex_to_uint<uint64_t>(hex.substr(i, section_length)))
+        << (sizeof_uint64_bits * (num_sections - ++j));
     }
 
     const auto dist_size = distribution.size();
@@ -310,7 +300,7 @@ public:
   static inline std::vector<Uint_t> Decode(std::span<uint8_t> distribution,
                                            const quicr::Name& name)
   {
-    return Decode(distribution, name.to_hex());
+    return Decode(distribution, std::string_view(name.to_hex()));
   }
 };
 }

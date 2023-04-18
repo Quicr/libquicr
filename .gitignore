@@ -47,3 +47,6 @@ cmake-build-debug
 
 # vcpkg
 /vcpkg_installed
+
+# Other
+.tmp.dprobes.h
