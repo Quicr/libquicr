@@ -14,10 +14,12 @@ public:
   uintVar_t() = default;
   constexpr uintVar_t(const uintVar_t&) = default;
   constexpr uintVar_t(uintVar_t&&) = default;
-  constexpr uintVar_t(uint64_t v)
-    : _value{ v }
+  constexpr uintVar_t(uint64_t value)
+    : _value{ value }
   {
-    assert(v < 0x1ull << 61);
+    if (value >= 0x1ull << 61)
+      throw std::runtime_error("Max value cannot be exceeded: " +
+                               std::to_string(0x1ull << 61));
   }
 
   constexpr operator uint64_t() const { return _value; }
@@ -25,7 +27,9 @@ public:
   constexpr uintVar_t& operator=(uintVar_t&&) = default;
   constexpr uintVar_t& operator=(uint64_t value)
   {
-    assert(value < 0x1ull << 61);
+    if (value >= 0x1ull << 61)
+      throw std::runtime_error("Max value cannot be exceeded: " +
+                               std::to_string(0x1ull << 61));
     _value = value;
     return *this;
   }
@@ -77,9 +81,9 @@ public:
 
 public:
   MessageBuffer() = default;
-  MessageBuffer(size_t reserve_size) { _buffer.reserve(reserve_size); }
   MessageBuffer(const MessageBuffer& other) = default;
-  MessageBuffer(MessageBuffer&& other);
+  MessageBuffer(MessageBuffer&& other) = default;
+  MessageBuffer(size_t reserve_size) { _buffer.reserve(reserve_size); }
   MessageBuffer(const std::vector<uint8_t>& buffer);
   MessageBuffer(std::vector<uint8_t>&& buffer);
   ~MessageBuffer() = default;
@@ -100,8 +104,8 @@ public:
 
   std::string to_hex() const;
 
-  void operator=(const MessageBuffer& other) = delete;
-  void operator=(MessageBuffer&& other);
+  MessageBuffer& operator=(const MessageBuffer& other) = default;
+  MessageBuffer& operator=(MessageBuffer&& other) = default;
 
   template<typename Uint_t>
   friend MessageBuffer& operator<<(MessageBuffer& msg, Uint_t val);

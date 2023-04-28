@@ -9,36 +9,36 @@
 namespace quicr {
 Name::Name(uint8_t* data, size_t length)
 {
-  if (length > size() * 2)
+  if (length > sizeof(Name) * 2)
     throw NameException(
       "Byte array length cannot be longer than length of Name: " +
-      std::to_string(size() * 2));
+      std::to_string(sizeof(Name) * 2));
 
-  constexpr size_t size_of = size() / 2;
+  constexpr size_t size_of = sizeof(Name) / 2;
   std::memcpy(&_low, data, size_of);
   std::memcpy(&_hi, data + size_of, size_of);
 }
 
 Name::Name(const uint8_t* data, size_t length)
 {
-  if (length > size() * 2)
+  if (length > sizeof(Name) * 2)
     throw NameException(
       "Byte array length cannot be longer than length of Name: " +
-      std::to_string(size() * 2));
+      std::to_string(sizeof(Name) * 2));
 
-  constexpr size_t size_of = size() / 2;
+  constexpr size_t size_of = sizeof(Name) / 2;
   std::memcpy(&_low, data, size_of);
   std::memcpy(&_hi, data + size_of, size_of);
 }
 
 Name::Name(const std::vector<uint8_t>& data)
 {
-  if (data.size() > size() * 2)
+  if (data.size() > sizeof(Name))
     throw NameException(
       "Byte array length cannot be longer than length of Name: " +
-      std::to_string(size() * 2));
+      std::to_string(sizeof(Name)));
 
-  constexpr size_t size_of = size() / 2;
+  constexpr size_t size_of = sizeof(Name) / 2;
   std::memcpy(&_low, data.data(), size_of);
   std::memcpy(&_hi, data.data() + size_of, size_of);
 }
@@ -56,13 +56,13 @@ Name::to_hex() const
 std::uint8_t
 Name::operator[](std::size_t index) const
 {
-  if (index >= size())
+  if (index >= sizeof(Name))
     throw std::out_of_range(
       "Cannot access index outside of max size of quicr::Name");
 
-  if (index < sizeof(uint_type))
+  if (index < sizeof(uint64_t))
     return (_low >> (index * 8)) & 0xff;
-  return (_hi >> ((index - sizeof(uint_type)) * 8)) & 0xff;
+  return (_hi >> ((index - sizeof(uint64_t)) * 8)) & 0xff;
 }
 
 Name
@@ -73,7 +73,7 @@ Name::operator>>(uint16_t value) const
   return name;
 }
 
-static constexpr size_t uint_type_bit_size = Name::size() * 4;
+static constexpr size_t uint64_t_bit_size = sizeof(Name) * 4;
 
 Name
 Name::operator>>=(uint16_t value)
@@ -81,12 +81,12 @@ Name::operator>>=(uint16_t value)
   if (value == 0)
     return *this;
 
-  if (value < uint_type_bit_size) {
+  if (value < uint64_t_bit_size) {
     _low = _low >> value;
-    _low |= _hi << (uint_type_bit_size - value);
+    _low |= _hi << (uint64_t_bit_size - value);
     _hi = _hi >> value;
   } else {
-    _low = _hi >> (value - uint_type_bit_size);
+    _low = _hi >> (value - uint64_t_bit_size);
     _hi = 0;
   }
 
@@ -107,12 +107,12 @@ Name::operator<<=(uint16_t value)
   if (value == 0)
     return *this;
 
-  if (value < uint_type_bit_size) {
+  if (value < uint64_t_bit_size) {
     _hi = _hi << value;
-    _hi |= _low >> (uint_type_bit_size - value);
+    _hi |= _low >> (uint64_t_bit_size - value);
     _low = _low << value;
   } else {
-    _hi = _low << (value - uint_type_bit_size);
+    _hi = _low << (value - uint64_t_bit_size);
     _low = 0;
   }
 
@@ -120,7 +120,7 @@ Name::operator<<=(uint16_t value)
 }
 
 Name
-Name::operator+(uint_type value) const
+Name::operator+(uint64_t value) const
 {
   Name name(*this);
   name += value;
@@ -128,7 +128,7 @@ Name::operator+(uint_type value) const
 }
 
 void
-Name::operator+=(uint_type value)
+Name::operator+=(uint64_t value)
 {
   if (_low + value < _low) {
     ++_hi;
@@ -137,7 +137,7 @@ Name::operator+=(uint_type value)
 }
 
 Name
-Name::operator-(uint_type value) const
+Name::operator-(uint64_t value) const
 {
   Name name(*this);
   name -= value;
@@ -145,7 +145,7 @@ Name::operator-(uint_type value) const
 }
 
 void
-Name::operator-=(uint_type value)
+Name::operator-=(uint64_t value)
 {
   if (_low - value > _low) {
     --_hi;
@@ -184,7 +184,7 @@ Name::operator--(int)
 }
 
 Name
-Name::operator&(uint_type value) const
+Name::operator&(uint64_t value) const
 {
   Name name(*this);
   name &= value;
@@ -192,13 +192,13 @@ Name::operator&(uint_type value) const
 }
 
 void
-Name::operator&=(uint_type value)
+Name::operator&=(uint64_t value)
 {
   _low &= value;
 }
 
 Name
-Name::operator|(uint_type value) const
+Name::operator|(uint64_t value) const
 {
   Name name(*this);
   name |= value;
@@ -206,7 +206,7 @@ Name::operator|(uint_type value) const
 }
 
 void
-Name::operator|=(uint_type value)
+Name::operator|=(uint64_t value)
 {
   _low |= value;
 }

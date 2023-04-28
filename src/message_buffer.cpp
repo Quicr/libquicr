@@ -8,11 +8,6 @@
 #include <vector>
 
 namespace quicr::messages {
-MessageBuffer::MessageBuffer(MessageBuffer&& other)
-  : _buffer{ std::move(other._buffer) }
-{
-}
-
 MessageBuffer::MessageBuffer(const std::vector<uint8_t>& buffer)
   : _buffer{ buffer }
 {
@@ -50,6 +45,9 @@ MessageBuffer::push(std::vector<uint8_t>&& data)
 void
 MessageBuffer::pop(uint16_t len)
 {
+  if (len == 0)
+    return;
+
   if (len > _buffer.size())
     throw OutOfRangeException(
       "len cannot be longer than the size of the buffer");
@@ -60,6 +58,9 @@ MessageBuffer::pop(uint16_t len)
 std::vector<uint8_t>
 MessageBuffer::front(uint16_t len)
 {
+  if (len == 0)
+    return {};
+
   if (len > _buffer.size())
     throw OutOfRangeException(
       "len cannot be longer than the size of the buffer");
@@ -99,12 +100,6 @@ MessageBuffer::to_hex() const
     hex << std::setw(2) << int(byte);
   }
   return hex.str();
-}
-
-void
-MessageBuffer::operator=(MessageBuffer&& other)
-{
-  _buffer = std::move(other._buffer);
 }
 
 // clang-format off

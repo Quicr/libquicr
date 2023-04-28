@@ -85,8 +85,6 @@ struct NameException : public std::runtime_error
  */
 class Name
 {
-  using uint_type = uint64_t;
-
 public:
   Name() = default;
   constexpr Name(const Name& other) = default;
@@ -100,48 +98,42 @@ public:
     if (hex_value.starts_with("0x"))
       hex_value.remove_prefix(2);
 
-    if (hex_value.length() > size() * 2)
+    if (hex_value.length() > sizeof(Name) * 2)
       throw NameException("Hex string cannot be longer than " +
-                          std::to_string(size() * 2) + " bytes");
+                          std::to_string(sizeof(Name) * 2) + " bytes");
 
-    if (hex_value.length() > size()) {
-      _hi =
-        hex_to_uint<uint64_t>(hex_value.substr(0, hex_value.length() - size()));
+    if (hex_value.length() > sizeof(Name)) {
+      _hi = hex_to_uint<uint64_t>(
+        hex_value.substr(0, hex_value.length() - sizeof(Name)));
       _low = hex_to_uint<uint64_t>(
-        hex_value.substr(hex_value.length() - size(), size()));
+        hex_value.substr(hex_value.length() - sizeof(Name), sizeof(Name)));
     } else {
       _hi = 0;
       _low = hex_to_uint<uint64_t>(hex_value.substr(0, hex_value.length()));
     }
   }
 
-  Name(const std::string& hex)
-    : Name(std::string_view(hex))
-  {
-  }
-
   ~Name() = default;
 
   std::string to_hex() const;
   std::uint8_t operator[](std::size_t offset) const;
-  static constexpr size_t size() { return sizeof(uint_type) * 2; }
 
   Name operator>>(uint16_t value) const;
   Name operator>>=(uint16_t value);
   Name operator<<(uint16_t value) const;
   Name operator<<=(uint16_t value);
-  Name operator+(uint_type value) const;
-  void operator+=(uint_type value);
+  Name operator+(uint64_t value) const;
+  void operator+=(uint64_t value);
   Name operator++();
   Name operator++(int);
   Name operator--();
   Name operator--(int);
-  Name operator-(uint_type value) const;
-  void operator-=(uint_type value);
-  Name operator&(uint_type value) const;
-  void operator&=(uint_type value);
-  Name operator|(uint_type value) const;
-  void operator|=(uint_type value);
+  Name operator-(uint64_t value) const;
+  void operator-=(uint64_t value);
+  Name operator&(uint64_t value) const;
+  void operator&=(uint64_t value);
+  Name operator|(uint64_t value) const;
+  void operator|=(uint64_t value);
   Name operator&(const Name& other) const;
   void operator&=(const Name& other);
   Name operator|(const Name& other) const;
@@ -168,10 +160,9 @@ public:
   friend std::ostream& operator<<(std::ostream& os, const Name& name);
 
 private:
-  uint_type _hi;
-  uint_type _low;
+  uint64_t _hi;
+  uint64_t _low;
 };
-
 }
 
 constexpr quicr::Name operator""_name(const char* x)
