@@ -93,3 +93,16 @@ TEST_CASE("quicr::HexEndec Decode Throw Test")
   CHECK_THROWS(formatter_128bit.Decode(invalid_hex_value));
   CHECK_THROWS(formatter_128bit.Decode(another_invalid_hex_value));
 }
+
+TEST_CASE("quicr::HexEndec Decode quicr::Name")
+{
+  const quicr::Name name = 0x11111111111111112222222222222233_name;
+  std::array<uint64_t, 3> results;
+
+  quicr::HexEndec<128, 64, 56, 8> formatter_128bit;
+  CHECK_NOTHROW(results = formatter_128bit.Decode(name));
+  CHECK_EQ(
+    results,
+    std::array<uint64_t, 3>{ 0x1111111111111111, 0x22222222222222, 0x33 });
+  CHECK_EQ(results[0], 0x1111111111111111);
+}

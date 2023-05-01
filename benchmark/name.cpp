@@ -4,7 +4,7 @@
 #include <vector>
 
 static void
-BM_NameConstructFromHexString(benchmark::State& state)
+Name_ConstructFromHexString(benchmark::State& state)
 {
   std::string str = "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
   for (auto _ : state) {
@@ -13,7 +13,7 @@ BM_NameConstructFromHexString(benchmark::State& state)
 }
 
 static void
-BM_NameConstructFromHexStringView(benchmark::State& state)
+Name_ConstructFromHexStringView(benchmark::State& state)
 {
   std::string_view str = "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
   for (auto _ : state) {
@@ -22,12 +22,11 @@ BM_NameConstructFromHexStringView(benchmark::State& state)
 }
 
 static void
-BM_NameConstructFromVector(benchmark::State& state)
+Name_ConstructFromVector(benchmark::State& state)
 {
   std::vector<uint8_t> data = {
-    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
   };
   for (auto _ : state) {
     [[maybe_unused]] quicr::Name __(data);
@@ -35,12 +34,10 @@ BM_NameConstructFromVector(benchmark::State& state)
 }
 
 static void
-BM_NameConstructFromBytePointer(benchmark::State& state)
+Name_ConstructFromBytePointer(benchmark::State& state)
 {
-  std::vector<uint8_t> vec_data = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                                    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                                    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                                    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+  std::vector<uint8_t> vec_data = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
                                     0xFF, 0xFF, 0xFF, 0xFF };
 
   uint8_t* data = vec_data.data();
@@ -52,7 +49,7 @@ BM_NameConstructFromBytePointer(benchmark::State& state)
 }
 
 static void
-BM_NameCopyConstruct(benchmark::State& state)
+Name_CopyConstruct(benchmark::State& state)
 {
   quicr::Name name = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF_name;
   for (auto _ : state) {
@@ -61,7 +58,7 @@ BM_NameCopyConstruct(benchmark::State& state)
 }
 
 static void
-BM_NameLeftShift(benchmark::State& state)
+Name_LeftShift(benchmark::State& state)
 {
   quicr::Name name = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF_name;
   for (auto _ : state) {
@@ -70,7 +67,7 @@ BM_NameLeftShift(benchmark::State& state)
 }
 
 static void
-BM_NameRightShift(benchmark::State& state)
+Name_RightShift(benchmark::State& state)
 {
   quicr::Name name = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF_name;
   for (auto _ : state) {
@@ -79,7 +76,7 @@ BM_NameRightShift(benchmark::State& state)
 }
 
 static void
-BM_NameAdd(benchmark::State& state)
+Name_Add(benchmark::State& state)
 {
   quicr::Name name = 0x0_name;
   for (auto _ : state) {
@@ -88,7 +85,7 @@ BM_NameAdd(benchmark::State& state)
 }
 
 static void
-BM_NameSub(benchmark::State& state)
+Name_Sub(benchmark::State& state)
 {
   quicr::Name name = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF_name;
   for (auto _ : state) {
@@ -97,7 +94,7 @@ BM_NameSub(benchmark::State& state)
 }
 
 static void
-BM_NameToHex(benchmark::State& state)
+Name_ToHex(benchmark::State& state)
 {
   quicr::Name name = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF_name;
   for (auto _ : state) {
@@ -105,21 +102,21 @@ BM_NameToHex(benchmark::State& state)
   }
 }
 
-BENCHMARK(BM_NameConstructFromHexString);
-BENCHMARK(BM_NameConstructFromHexStringView);
-BENCHMARK(BM_NameConstructFromVector);
-BENCHMARK(BM_NameConstructFromBytePointer);
-BENCHMARK(BM_NameCopyConstruct);
-BENCHMARK(BM_NameLeftShift);
-BENCHMARK(BM_NameRightShift);
-BENCHMARK(BM_NameAdd);
-BENCHMARK(BM_NameSub);
-BENCHMARK(BM_NameToHex);
+BENCHMARK(Name_ConstructFromHexString);
+BENCHMARK(Name_ConstructFromHexStringView);
+BENCHMARK(Name_ConstructFromVector);
+BENCHMARK(Name_ConstructFromBytePointer);
+BENCHMARK(Name_CopyConstruct);
+BENCHMARK(Name_LeftShift);
+BENCHMARK(Name_RightShift);
+BENCHMARK(Name_Add);
+BENCHMARK(Name_Sub);
+BENCHMARK(Name_ToHex);
 
 constexpr quicr::Name object_id_mask = 0x00000000000000000000000000001111_name;
 constexpr quicr::Name group_id_mask = 0x00000000000000000000111111110000_name;
 static void
-BM_NameRealArithmetic(benchmark::State& state)
+Name_RealArithmetic(benchmark::State& state)
 {
   quicr::Name name = 0xA11CEE00F00001000000000000000000_name;
   for (auto _ : state) {
@@ -130,4 +127,4 @@ BM_NameRealArithmetic(benchmark::State& state)
   }
 }
 
-BENCHMARK(BM_NameRealArithmetic);
+BENCHMARK(Name_RealArithmetic);

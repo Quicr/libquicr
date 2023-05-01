@@ -3,7 +3,7 @@
 #include <quicr/hex_endec.h>
 
 static void
-BM_HexEndecEncode4x32_to_128(benchmark::State& state)
+HexEndec_Encode4x32_to_128(benchmark::State& state)
 {
   quicr::HexEndec<128, 32, 32, 32, 32> format;
   for (auto _ : state) {
@@ -12,7 +12,7 @@ BM_HexEndecEncode4x32_to_128(benchmark::State& state)
 }
 
 static void
-BM_HexEndecDecode128_to_4x32(benchmark::State& state)
+HexEndec_Decode128_to_4x32(benchmark::State& state)
 {
   quicr::HexEndec<128, 32, 32, 32, 32> format;
   for (auto _ : state) {
@@ -21,7 +21,7 @@ BM_HexEndecDecode128_to_4x32(benchmark::State& state)
 }
 
 static void
-BM_HexEndecEncode4x16_to_64(benchmark::State& state)
+HexEndec_Encode4x16_to_64(benchmark::State& state)
 {
   quicr::HexEndec<64, 16, 16, 16, 16> format;
   for (auto _ : state) {
@@ -30,7 +30,7 @@ BM_HexEndecEncode4x16_to_64(benchmark::State& state)
 }
 
 static void
-BM_HexEndecDecode64_to_4x16(benchmark::State& state)
+HexEndec_Decode64_to_4x16(benchmark::State& state)
 {
   quicr::HexEndec<64, 16, 16, 16, 16> format;
   for (auto _ : state) {
@@ -38,13 +38,13 @@ BM_HexEndecDecode64_to_4x16(benchmark::State& state)
   }
 }
 
-BENCHMARK(BM_HexEndecEncode4x32_to_128);
-BENCHMARK(BM_HexEndecDecode128_to_4x32);
-BENCHMARK(BM_HexEndecEncode4x16_to_64);
-BENCHMARK(BM_HexEndecDecode64_to_4x16);
+BENCHMARK(HexEndec_Encode4x32_to_128);
+BENCHMARK(HexEndec_Decode128_to_4x32);
+BENCHMARK(HexEndec_Encode4x16_to_64);
+BENCHMARK(HexEndec_Decode64_to_4x16);
 
 static void
-BM_HexEndecRealEncode(benchmark::State& state)
+HexEndec_RealEncode(benchmark::State& state)
 {
   quicr::HexEndec<128, 24, 8, 24, 8, 16, 48> format;
   auto time = std::time(0);
@@ -60,14 +60,14 @@ BM_HexEndecRealEncode(benchmark::State& state)
 }
 
 static void
-BM_HexEndecRealDecode(benchmark::State& state)
+HexEndec_RealDecode(benchmark::State& state)
 {
   quicr::HexEndec<128, 24, 8, 24, 8, 16, 48> format;
-  quicr::Name name = 0xA11CEE00F00001000000000000000000_name;
+  quicr::Name qname = 0xA11CEE00F00001000000000000000000_name;
   for (auto _ : state) {
-    format.Decode(name);
+    format.Decode(qname);
   }
 }
 
-BENCHMARK(BM_HexEndecRealEncode);
-BENCHMARK(BM_HexEndecRealDecode);
+BENCHMARK(HexEndec_RealEncode);
+BENCHMARK(HexEndec_RealDecode);

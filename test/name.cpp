@@ -151,10 +151,10 @@ TEST_CASE("quicr::Name Bitwise Not Tests")
 
 TEST_CASE("quicr::Name Byte Array Tests")
 {
-  std::vector<uint8_t> byte_arr(quicr::Name::size());
-  for (size_t i = 0; i < quicr::Name::size() / 2; ++i) {
+  std::vector<uint8_t> byte_arr(sizeof(quicr::Name));
+  for (size_t i = 0; i < sizeof(quicr::Name) / 2; ++i) {
     byte_arr[i] = static_cast<uint8_t>(0x0);
-    byte_arr[i + quicr::Name::size() / 2] =
+    byte_arr[i + sizeof(quicr::Name) / 2] =
       static_cast<uint8_t>((0x1000000000000000 >> 8 * i));
   }
 

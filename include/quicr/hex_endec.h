@@ -263,22 +263,21 @@ public:
   {
     static_assert((Size & (Size - 1)) == 0, "Size must be a power of 2");
 
-    uint8_t start_pos = 0;
-    if (hex.substr(0, 2) == "0x")
-      start_pos = 2;
+    if (hex.starts_with("0x"))
+      hex.remove_prefix(2);
 
     constexpr uint8_t hex_length = Size / 4;
-    if (hex.length() - start_pos != hex_length)
-      throw std::runtime_error(
-        "Hex string value must be " + std::to_string(hex_length) +
-        " characters (" + std::to_string(Size / 8) +
-        " bytes). Got: " + std::to_string(hex.length() - start_pos));
+    if (hex.length() != hex_length)
+      throw std::runtime_error("Hex string value must be " +
+                               std::to_string(hex_length) + " characters (" +
+                               std::to_string(Size / 8) +
+                               " bytes). Got: " + std::to_string(hex.length()));
 
     std::bitset<Size> bits;
-    const uint8_t section_length = sizeof(uint64_t) * 2;
-    constexpr size_t sizeof_uint64_bits = sizeof(uint64_t) * 8;
+    constexpr uint8_t section_length = sizeof(uint64_t) * 2;
+    constexpr size_t sizeof_uint64_bits = section_length * 4;
     constexpr size_t num_sections = Size / sizeof_uint64_bits;
-    for (size_t i = start_pos, j = 0; i < (section_length * num_sections);
+    for (size_t i = 0, j = 0; i < (section_length * num_sections);
          i += section_length) {
       bits |=
         std::bitset<Size>(hex_to_uint<uint64_t>(hex.substr(i, section_length)))
