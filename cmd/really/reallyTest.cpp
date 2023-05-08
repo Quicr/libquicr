@@ -88,7 +88,8 @@ public:
 int
 main(int argc, char* argv[])
 {
-  if ((argc != 2) && (argc != 3)) {
+    auto pd = std::make_shared<pubDelegate>();
+    if ((argc != 2) && (argc != 3)) {
     std::cerr
       << "Relay address and port set in RELAY_RELAY and REALLY_PORT env "
          "variables."
@@ -139,7 +140,11 @@ main(int argc, char* argv[])
   quicr::QuicRClient client(relay, tcfg, logger);
 
   if (data.size() > 0) {
-    // do publish
+    auto nspace = quicr::Namespace(name, 96);
+    client.publishIntent(pd, nspace, {}, {}, {});
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+      // do publish
     logger.log(qtransport::LogLevel::info, "Publish");
     client.publishNamedObject(name, 0, 10000, false, std::move(data));
 
