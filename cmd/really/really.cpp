@@ -161,7 +161,7 @@ public:
 
   virtual void onPublisherObject(
     const qtransport::TransportContextId& context_id,
-    const qtransport::StreamId& stream_id,
+    [[maybe_unused]] const qtransport::StreamId& stream_id,
     [[maybe_unused]] bool use_reliable_transport,
     quicr::messages::PublishDatagram&& datagram)
   {
@@ -218,7 +218,7 @@ public:
 
     logger.log(qtransport::LogLevel::info, log_msg.str());
 
-    Subscriptions::Remote remote = { .context_id = context_id, .subscribe_id = subscriber_id };
+    Subscriptions::Remote remote = { .subscribe_id = subscriber_id, .context_id = context_id };
     subscribeList.add(quicr_namespace.name(), quicr_namespace.length(), remote);
 
     // respond with response
