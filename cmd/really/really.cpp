@@ -170,7 +170,7 @@ public:
 
     for (auto dest : list) {
 
-      if (dest.context_id == context_id && dest.stream_id == stream_id) {
+      if (dest.context_id == context_id) {
         // split horizon - drop packets back to the source that originated the
         // published object
         continue;
@@ -218,7 +218,7 @@ public:
 
     logger.log(qtransport::LogLevel::info, log_msg.str());
 
-    Subscriptions::Remote remote = { .subscribe_id = subscriber_id };
+    Subscriptions::Remote remote = { .context_id = context_id, .subscribe_id = subscriber_id };
     subscribeList.add(quicr_namespace.name(), quicr_namespace.length(), remote);
 
     // respond with response
