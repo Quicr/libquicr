@@ -364,8 +364,6 @@ QuicRClient::unsubscribe(const quicr::Namespace& quicr_namespace,
   transport->enqueue(transport_context_id, transport_stream_id, msg.get());
 }
 
-
-
 void
 QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
                                 [[maybe_unused]] uint8_t priority,
@@ -590,6 +588,8 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
   auto msg_type = static_cast<messages::MessageType>(msg.front());
   switch (msg_type) {
     case messages::MessageType::SubscribeResponse: {
+      std::lock_guard<std::mutex> _(mutex);
+
       messages::SubscribeResponse response;
       msg >> response;
 
@@ -616,20 +616,31 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
     }
 
     case messages::MessageType::Publish: {
+      std::lock_guard<std::mutex> _(mutex);
       messages::PublishDatagram datagram;
       msg >> datagram;
 
       if (datagram.header.offset_and_fin == uintVar_t(0x1)) {
         // No-fragment, process as single object
 
-        for (const auto& entry : sub_delegates) {
-          if (entry.first.contains(datagram.header.name)) {
-            if (auto sub_delegate = sub_delegates[entry.first].lock())
-              sub_delegate->onSubscribedObject(datagram.header.name,
-                                               0x0,
-                                               0x0,
-                                               false,
-                                               std::move(datagram.media_data));
+        for (auto it = sub_delegates.begin(); it != sub_delegates.end(); ++it) {
+          const auto& [ns, delegate] = *it;
+          if (!ns.contains(datagram.header.name)) {
+            continue;
+          }
+
+          if (auto sub_delegate = delegate.lock())
+          {
+            sub_delegate->onSubscribedObject(datagram.header.name,
+                                              0x0,
+                                              0x0,
+                                              false,
+                                              std::move(datagram.media_data));
+          }
+          else
+          {
+            it = sub_delegates.erase(it);
+            --it;
           }
         }
       } else { // is a fragment
@@ -640,6 +651,8 @@ QuicRClient::handle(messages::MessageBuffer&& msg)
     }
 
     case messages::MessageType::PublishIntentResponse: {
+      std::lock_guard<std::mutex> _(mutex);
+  
       messages::PublishIntentResponse response;
       msg >> response;
 
