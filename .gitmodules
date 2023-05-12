@@ -8,3 +8,9 @@
 [submodule "dependencies/qname"]
 	path = dependencies/qname
 	url = https://github.com/quicr/qname
+[submodule "dependencies/cantina"]
+	path = dependencies/cantina
+	url = git@github.com:Quicr/cantina
+[submodule "dependencies/quiche"]
+	path = dependencies/quiche
+	url = https://github.com/cloudflare/quiche.git

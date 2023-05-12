@@ -68,7 +68,8 @@ struct RelayInfo
   enum class Protocol
   {
     UDP = 0,
-    QUIC
+    QUIC,
+    H3
   };
 
   std::string hostname; // Relay IP or FQDN

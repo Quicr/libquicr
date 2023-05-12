@@ -7,7 +7,7 @@
  *
  *  Description:
  *      This file implements a session layer between the client APIs and the
- *      transport that uses raw data packets (either UDP or QUIC).
+ *      transport that uses raw data packets, namely UDP or QUIC.
  *
  *  Portability Issues:
  *      None.
