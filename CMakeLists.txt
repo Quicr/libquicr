@@ -27,34 +27,33 @@ if(CLANG_TIDY)
 endif()
 
 ###
+### Include Ctest to ensure BUILD_TESTING is set
+###
+include(CTest)
+
+###
 ### Dependencies
 ###
-
-# Fetch external content
 add_subdirectory(dependencies)
 
 ###
 ### Build the quicr library
 ###
-
 add_subdirectory(src)
 
 ###
 ### Enable testing and add tests if QUICR_BUILD_TESTS is ON
 ###
-include(CTest)
 if(BUILD_TESTING AND QUICR_BUILD_TESTS)
     add_subdirectory(test)
-endif() 
-
+endif()
 
 ###
 ### Applications
 ###
-###
 if(BUILD_TESTING AND QUICR_BUILD_TESTS)
   add_subdirectory(cmd)
-endif() 
+endif()
 
 if (BUILD_BENCHMARK)
     add_subdirectory(benchmark)

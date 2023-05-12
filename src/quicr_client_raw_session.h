@@ -1,10 +1,23 @@
+/*
+ *  quicr_client_raw_session.h
+ *
+ *  Copyright (C) 2023
+ *  Cisco Systems, Inc.
+ *  All Rights Reserved
+ *
+ *  Description:
+ *      This file defines a session layer between the client APIs and the
+ *      transport that uses raw data packets, namely UDP or QUIC.
+ *
+ *  Portability Issues:
+ *      None.
+ */
+
 #pragma once
 
 #include <map>
 #include <memory>
-#include <optional>
 #include <string>
-#include <vector>
 
 #include "quicr/encode.h"
 #include "quicr/message_buffer.h"
@@ -13,24 +26,16 @@
 #include "quicr/quicr_namespace.h"
 #include "transport/transport.h"
 #include "quicr/quicr_client_delegate.h"
-#include "quicr/quicr_client_common.h"
-#include "quicr/quicr_client_session.h"
+#include "quicr/quicr_client.h"
 
 namespace quicr {
 
-// Exception that may be thrown if there is a critical error
-class QuicRClientException : public std::runtime_error
-{
-  using std::runtime_error::runtime_error;
-};
-
 /**
- *   Client API for using QUICR Protocol
+ *   Client Raw Session Interface
  */
-class QuicRClient
+class QuicRClientRawSession : public QuicRClientSession
 {
 public:
-
   /**
    * @brief Setup a QUICR Client with publisher and subscriber functionality
    *
@@ -39,20 +44,20 @@ public:
    * @param logger           : Log handler, used by transport and API for loggings
    * operations
    */
-  QuicRClient(RelayInfo& relayInfo,
-              qtransport::TransportConfig tconfig,
-              qtransport::LogHandler& logger);
+  QuicRClientRawSession(RelayInfo& relayInfo,
+                        qtransport::TransportConfig tconfig,
+                        qtransport::LogHandler& logger);
 
   /**
    * API for usages in Tests. Applications don't need to be bothered
    * about the transport
    */
-  QuicRClient(std::shared_ptr<qtransport::ITransport> transport);
+  QuicRClientRawSession(std::shared_ptr<qtransport::ITransport> transport);
 
   /**
-   * @brief Destructor for the client
+   * @brief Destructor for the raw client session object
    */
-  ~QuicRClient() = default;
+  ~QuicRClientRawSession();
 
   /**
    * @brief Get the client status
@@ -63,7 +68,7 @@ public:
    *
    * @returns client status
    */
-  ClientStatus status() const { return client_session->status(); }
+  ClientStatus status() const override { return client_status; }
 
   /**
    * @brief Publish intent to publish on a QUICR Namespace
@@ -78,7 +83,7 @@ public:
                      const quicr::Namespace& quicr_namespace,
                      const std::string& origin_url,
                      const std::string& auth_token,
-                     bytes&& payload);
+                     bytes&& payload) override;
 
   /**
    * @brief Stop publishing on the given QUICR namespace
@@ -91,7 +96,7 @@ public:
    * Origin
    */
   void publishIntentEnd(const quicr::Namespace& quicr_namespace,
-                        const std::string& auth_token);
+                        const std::string& auth_token) override;
 
   /**
    * @brief Perform subscription operation a given QUICR namespace
@@ -121,7 +126,7 @@ public:
                  const std::string& origin_url,
                  bool use_reliable_transport,
                  const std::string& auth_token,
-                 bytes&& e2e_token);
+                 bytes&& e2e_token) override;
 
   /**
    * @brief Stop subscription on the given QUICR namespace
@@ -133,7 +138,7 @@ public:
    */
   void unsubscribe(const quicr::Namespace& quicr_namespace,
                    const std::string& origin_url,
-                   const std::string& auth_token);
+                   const std::string& auth_token) override;
 
   /**
    * @brief Publish Named object
@@ -152,7 +157,7 @@ public:
                           uint8_t priority,
                           uint16_t expiry_age_ms,
                           bool use_reliable_transport,
-                          bytes&& data);
+                          bytes&& data) override;
 
   /**
    * @brief Publish Named object
@@ -174,11 +179,73 @@ public:
                                   bool use_reliable_transport,
                                   const uint64_t& offset,
                                   bool is_last_fragment,
-                                  bytes&& data);
+                                  bytes&& data) override;
+
+  void handle(messages::MessageBuffer&& msg);
+  void removeSubscribeState(bool all, const quicr::Namespace& quicr_namespace,
+                            const SubscribeResult::SubscribeStatus& reason);
+
+  std::shared_ptr<qtransport::ITransport> transport;
+  qtransport::LogHandler& log_handler;
 
 protected:
+  std::mutex session_mutex;
 
-  std::unique_ptr<QuicRClientSession> client_session;
+  bool notify_pub_fragment(const messages::PublishDatagram& datagram,
+                           const std::map<int, bytes>& frag_map);
+  void handle_pub_fragment(messages::PublishDatagram&& datagram);
+
+  qtransport::LogHandler def_log_handler;
+
+  void make_transport(RelayInfo& relay_info,
+                      qtransport::TransportConfig tconfig,
+                      qtransport::LogHandler& logger);
+
+  // State to store per-subscribe context
+  struct SubscribeContext
+  {
+    enum struct State
+    {
+      Unknown = 0,
+      Pending,
+      Ready
+    };
+
+    State state{ State::Unknown };
+    qtransport::TransportContextId transport_context_id{ 0 };
+    qtransport::StreamId transport_stream_id{ 0 };
+    uint64_t transaction_id{ 0 };
+  };
+
+  // State per publish_intent and related publish
+  struct PublishContext
+  {
+    enum struct State
+    {
+      Unknown = 0,
+      Pending,
+      Ready
+    };
+
+    State state{ State::Unknown };
+    qtransport::TransportContextId transport_context_id{ 0 };
+    qtransport::StreamId transport_stream_id{ 0 };
+    uint64_t group_id{ 0 };
+    uint64_t object_id{ 0 };
+    uint64_t offset{ 0 };
+  };
+
+  bool need_pacing { false };
+  ClientStatus client_status{ ClientStatus::TERMINATED };
+  qtransport::TransportContextId transport_context_id;
+  std::map<quicr::Namespace, std::weak_ptr<SubscriberDelegate>> sub_delegates;
+  std::map<quicr::Name, std::weak_ptr<SubscriberDelegate>> sub_name_delegates;
+
+  std::map<quicr::Namespace, std::weak_ptr<PublisherDelegate>> pub_delegates;
+  std::map<quicr::Namespace, SubscribeContext> subscribe_state{};
+  std::map<quicr::Name, PublishContext> publish_state{};
+  std::unique_ptr<qtransport::ITransport::TransportDelegate> transport_delegate;
+  uint64_t transport_stream_id{ 0 };
 };
 
 }

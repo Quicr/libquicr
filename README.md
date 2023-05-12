@@ -9,9 +9,10 @@ The actual protocol implementation is covered [here](https://github.com/Quicr/qu
 
 Quickstart
 ----------
+
 ### Cmake FetchContent
 
-All the dependecies are now fetched via cmake and below steps should 
+All the dependecies are now fetched via cmake and below steps should
 build libquicr.a
 
 ```
@@ -34,9 +35,9 @@ for many other builds.  The container works by running it with a volume mount ``
 to the source to be compiled. The above libraries are in the ```/ws/``` directory, which is expected for builds.
 
 While ```quicrq``` is included under ```/ws/quicrq```, the container can be used to develop and compile
-it by mounting ```quicrq``` directory to ```/ws/src```. 
+it by mounting ```quicrq``` directory to ```/ws/src```.
 
-The docker container has been tested to work for both ARM (M1/Apple Silicon) and x86.  
+The docker container has been tested to work for both ARM (M1/Apple Silicon) and x86.
 
 ```
 git clone git@github.com:Quicr/libquicr.git
@@ -48,18 +49,17 @@ tar -c -C ../ ./quicrq ./libquicr  \
         -f libquicr/build.Dockerfile -t quicr/libquicr:latest -
 ```
 
-
 ```
 cd <libquicr directory>
 
 rm -rf $(pwd)/build
 docker run --rm \
     -v $(pwd):/ws/src \
-    quicr/libquicr:latest make all 
+    quicr/libquicr:latest make all
 ```
 
 For now, it's best to run the binaries in interactive shell.  The images have been built for linux.  Run
-the image in interactive mode to access the shell prompt.  From there you can access the binaries. 
+the image in interactive mode to access the shell prompt.  From there you can access the binaries.
 ```quicrq``` and others are located under ```/ws/```.   For example, you can run ```/ws/quircq/quicrq_app``` binary. 
 
 ```
@@ -67,8 +67,6 @@ docker run --rm -it \
     -v $(pwd):/ws/src \
     quicr/libquicr:latest bash
 ```
-
-
 
 Running Examples
 --------------
@@ -87,7 +85,8 @@ openssl req -nodes -x509 -newkey rsa:2048 -days 365 \
     -keyout server-key.pem -out server-cert.pem
 ```
 
-Run: 
+Run:
+
 ```
 cd build/cmd/really
 ./really
