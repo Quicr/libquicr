@@ -1,15 +1,13 @@
 #pragma once
 
-#include <map>
-#include <optional>
-#include <string>
-#include <thread>
-#include <vector>
-#include <mutex>
+#include <stdexcept>
+#include <memory>
 
 #include <quicr/encode.h>
 #include <quicr/message_buffer.h>
 #include <quicr/quicr_common.h>
+#include <quicr/quicr_server_delegate.h>
+#include <quicr/quicr_server_session.h>
 #include <transport/transport.h>
 
 /*
@@ -17,120 +15,10 @@
  */
 namespace quicr {
 
-/**
- * Server delegate QUICR callback methods implemented by the QUICR Server
- * implementation
- */
-class ServerDelegate
+// Exception that may be thrown if there is a critical error
+class QuicRServerException : public std::runtime_error
 {
-public:
-  virtual ~ServerDelegate() = default;
-
-  /**
-   * @brief  Reports interest to publish under given
-   * quicr::Name.
-   *
-   * @param
-   * @param namespace             : Identifies QUICR namespace
-   * @param origin_url            : Origin serving the QUICR Session
-   * @param use_reliable_transport: Reliable or Unreliable transport
-   * @param auth_token            : Auth Token to validate the Subscribe Request
-   * @parm e2e_token              : Opaque token to be forwarded to the Origin
-   *
-   *  @details Entities processing the Publish Intent MUST validate the request
-   *           against the auth_token, verify if the Origin specified
-   *           in the origin_url is trusted and forward the request to the
-   *           next hop Relay for that
-   *           Origin or to the Origin (if it is the next hop) unless the entity
-   *           itself the Origin server.
-   *           It is expected for the Relays to store the publisher state
-   * mapping the namespaces and other relation information.
-   */
-  virtual void onPublishIntent(const quicr::Namespace& quicr_name,
-                               const std::string& origin_url,
-                               bool use_reliable_transport,
-                               const std::string& auth_token,
-                               bytes&& e2e_token) = 0;
-
-  // TODO:Document this
-  virtual void onPublishIntentEnd(const quicr::Namespace& quicr_namespace,
-                                  const std::string& auth_token,
-                                  bytes&& e2e_token) = 0;
-
-  /**
-   * @brief Reports arrival of fully assembled QUICR object under the name
-   *
-   * @param context_id               : Context id the message was received on
-   * @param stream_id                : Stream ID the message was received on
-   * @param use_reliable_transport   : Indicates the preference for the object's
-   *                                   transport, if forwarded.
-   * @param datagram                 : QuicR Published Message Datagram
-   *
-   * @note: It is important that the implementations not perform
-   *         compute intensive tasks in this callback, but rather
-   *         copy/move the needed information and hand back the control
-   *         to the stack
-   *
-   *  @note: Both the on_publish_object and on_publish_object_fragment
-   *         callbacks will be called. The delegate implementation
-   *         shall decide the right callback for their usage.
-   */
-  virtual void onPublisherObject(
-    const qtransport::TransportContextId& context_id,
-    const qtransport::StreamId& stream_id,
-    bool use_reliable_transport,
-    messages::PublishDatagram&& datagram) = 0;
-
-  /**
-   * @brief Report arrival of subscribe request for a QUICR Namespace
-   *
-   * @details Entities processing the Subscribe Request MUST validate the
-   * 		request against the token, verify if the Origin specified in the
-   * origin_url is trusted and forward the request to the next hop Relay for
-   * that Origin or to the Origin (if it is the next hop) unless the entity
-   *    itself the Origin server.
-   *    It is expected for the Relays to store the subscriber state
-   *    mapping the subscribe context, namespaces and other relation
-   * information.
-   *
-   * @param namespace             : Identifies QUICR namespace
-   * @param subscriber_id            Subscriber ID connection/transport that
-   *                                 sent the message
-   * @param context_id               : Context id the message was received on
-   * @param stream_id                : Stream ID the message was received on
-   * @param subscribe_intent      : Subscribe intent to determine the start
-   * point for serving the mactched objects. The application may choose a
-   * different intent mode, but must be aware of the effects.
-   * @param origin_url            : Origin serving the QUICR Session
-   * @param use_reliable_transport: Reliable or Unreliable transport
-   * @param auth_token            : Auth Token to valiadate the Subscribe
-   * Request
-   * @param payload               : Opaque payload to be forwarded to the Origin
-   *
-   */
-  virtual void onSubscribe(const quicr::Namespace& quicr_namespace,
-                           const uint64_t& subscriber_id,
-                           const qtransport::TransportContextId& context_id,
-                           const qtransport::StreamId& stream_id,
-                           const SubscribeIntent subscribe_intent,
-                           const std::string& origin_url,
-                           bool use_reliable_transport,
-                           const std::string& auth_token,
-                           bytes&& data);
-
-  /**
-   * @brief Unsubscribe callback method
-   *
-   * @details Called for each unsubscribe message
-   *
-   * @param quicr_namespace          QuicR name/len
-   * @param subscriber_id            Subscriber ID connection/transport that
-   *                                 sent the message
-   * @param auth_token               Auth token to verify if value
-   */
-  virtual void onUnsubscribe(const quicr::Namespace& quicr_namespace,
-                             const uint64_t& subscriber_id,
-                             const std::string& auth_token);
+  using std::runtime_error::runtime_error;
 };
 
 class QuicRServer
@@ -228,106 +116,10 @@ public:
                        bool use_reliable_transport,
                        const messages::PublishDatagram& datagram);
 
-private:
-  /*
-   * Implementation of the transport delegate
-   */
-  class TransportDelegate : public qtransport::ITransport::TransportDelegate
-  {
-  public:
-    TransportDelegate(QuicRServer& server);
+protected:
 
-    void on_connection_status(
-      const qtransport::TransportContextId& context_id,
-      const qtransport::TransportStatus status) override;
-    void on_new_connection(const qtransport::TransportContextId& context_id,
-                           const qtransport::TransportRemote& remote) override;
-    void on_new_stream(
-      const qtransport::TransportContextId& context_id,
-      const qtransport::StreamId& streamId) override;
-    void on_recv_notify(const qtransport::TransportContextId& context_id,
-                        const qtransport::StreamId& streamId) override;
+  std::unique_ptr<QuicRServerSession> server_session;
 
-
-
-  private:
-    QuicRServer& server;
-  };
-
-public:
-  std::mutex mutex;
-
-private:
-
-  std::shared_ptr<qtransport::ITransport> setupTransport(
-    RelayInfo& relayInfo, qtransport::TransportConfig cfg);
-
-  void handle_subscribe(const qtransport::TransportContextId& context_id,
-                        const qtransport::StreamId& streamId,
-                        messages::MessageBuffer&& msg);
-  void handle_unsubscribe(const qtransport::TransportContextId& context_id,
-                          const qtransport::StreamId& streamId,
-                          messages::MessageBuffer&& msg);
-  void handle_publish(const qtransport::TransportContextId& context_id,
-                      const qtransport::StreamId& streamId,
-                      messages::MessageBuffer&& msg);
-  void handle_publish_intent(const qtransport::TransportContextId& context_id,
-                             const qtransport::StreamId& mStreamId,
-                             messages::MessageBuffer&& msg);
-  void handle_publish_intent_response(
-    const qtransport::TransportContextId& context_id,
-    const qtransport::StreamId& mStreamId,
-    messages::MessageBuffer&& msg);
-  void handle_publish_intent_end(
-    const qtransport::TransportContextId& context_id,
-    const qtransport::StreamId& mStreamId,
-    messages::MessageBuffer&& msg);
-
-  struct Context
-  {
-    enum struct State
-    {
-      Unknown = 0,
-      Pending,
-      Ready
-    };
-
-    State state{ State::Unknown };
-    qtransport::TransportContextId transport_context_id{ 0 };
-    qtransport::StreamId transport_stream_id{ 0 };
-  };
-
-  struct SubscribeContext : public Context
-  {
-    uint64_t transaction_id{ 0 };
-    uint64_t subscriber_id{ 0 };
-  };
-
-  struct PublishContext : public Context
-  {
-    uint64_t group_id{ 0 };
-    uint64_t object_id{ 0 };
-    uint64_t offset{ 0 };
-  };
-
-  struct PublishIntentContext : public Context
-  {
-    uint64_t transaction_id{ 0 };
-  };
-
-  ServerDelegate& delegate;
-  qtransport::LogHandler& log_handler;
-  TransportDelegate transport_delegate;
-  std::shared_ptr<qtransport::ITransport> transport;
-  qtransport::TransportRemote t_relay;
-  std::map<quicr::Namespace,
-           std::map<qtransport::TransportContextId, SubscribeContext>>
-    subscribe_state{};
-  std::map<uint64_t, SubscribeContext> subscribe_id_state{};
-  std::map<quicr::Name, PublishContext> publish_state{};
-  std::map<quicr::Namespace, PublishIntentContext> publish_namespaces{};
-  bool running{ false };
-  uint64_t subscriber_id{ 0 };
 };
 
 } // namespace quicr

@@ -2,10 +2,11 @@ add_library(quicr
             message_buffer.cpp
             encode.cpp
             quicr_client.cpp
+            quicr_client_raw_session.cpp
             quicr_server.cpp
+            quicr_server_raw_session.cpp
             quicr_name.cpp
-            quicr_namespace.cpp
-            )
+            quicr_namespace.cpp)
 
 target_compile_options(quicr
     PRIVATE
