@@ -17,6 +17,7 @@ public:
   Namespace(Namespace&& ns) = default;
   Namespace(const Name& name, uint8_t sig_bits);
   Namespace(Name&& name, uint8_t sig_bits);
+  Namespace(std::string_view str);
 
   Namespace& operator=(const Namespace& other) = default;
   Namespace& operator=(Namespace&& other) = default;

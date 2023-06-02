@@ -14,6 +14,14 @@ Namespace::Namespace(Name&& name, uint8_t sig_bits)
 {
 }
 
+Namespace::Namespace(std::string_view str)
+{
+  auto delim_pos = str.find_first_of('/');
+  _name = str.substr(0, delim_pos);
+  str.remove_prefix(delim_pos+1);
+  _sig_bits = std::atoi(str.data());
+}
+
 bool
 Namespace::contains(const Name& name) const
 {

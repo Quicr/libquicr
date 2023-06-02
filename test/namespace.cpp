@@ -40,3 +40,10 @@ TEST_CASE("quicr::Namespace Contains Namespaces Test")
   quicr::Namespace invalid_namespace(0x11111111111111112222222222000000_name, 104);
   CHECK_FALSE(base_namespace.contains(invalid_namespace));
 }
+
+TEST_CASE("quicr::Namespace String Constructor Test")
+{
+  quicr::Namespace ns = std::string_view("0xA11CEE00000001010007000000000000/80");
+  CHECK_EQ(ns.name(), 0xA11CEE00000001010007000000000000_name);
+  CHECK_EQ(ns.length(), 80);
+}
