@@ -44,6 +44,7 @@ TEST_CASE("quicr::Namespace Contains Namespaces Test")
 TEST_CASE("quicr::Namespace String Constructor Test")
 {
   quicr::Namespace ns = std::string_view("0xA11CEE00000001010007000000000000/80");
+  CHECK_EQ(ns.to_hex(), "0xA11CEE00000001010007000000000000/80");
   CHECK_EQ(ns.name(), 0xA11CEE00000001010007000000000000_name);
   CHECK_EQ(ns.length(), 80);
 }
