@@ -1,4 +1,5 @@
 #include "quicr_server_raw_session.h"
+#include "quicr_server_h3_session.h"
 
 #include <quicr/quicr_server.h>
 
@@ -17,6 +18,10 @@ QuicRServer::QuicRServer(RelayInfo& relayInfo,
       [[fallthrough]];
     case RelayInfo::Protocol::QUIC:
       server_session = std::make_unique<QuicRServerRawSession>(
+        relayInfo, tconfig, delegate_in, logger);
+      break;
+    case RelayInfo::Protocol::H3:
+      server_session = std::make_unique<QuicRServerH3Session>(
         relayInfo, tconfig, delegate_in, logger);
       break;
     default:

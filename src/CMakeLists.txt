@@ -1,10 +1,17 @@
 add_library(quicr
             message_buffer.cpp
             encode.cpp
+            pub_sub_registry.cpp
             quicr_client.cpp
             quicr_client_raw_session.cpp
             quicr_server.cpp
-            quicr_server_raw_session.cpp)
+            quicr_server_raw_session.cpp
+            quicr_server_h3_session.cpp
+            quicr_server_h3_connection.cpp
+            quicr_name.cpp
+            quicr_namespace.cpp
+            quiche_api_lock.cpp
+            quiche_types.cpp)
 
 # Suppress external lib warnings
 set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)
@@ -28,6 +35,8 @@ endif()
 target_link_libraries(quicr
     PUBLIC
         quicr-transport
-        qname)
+        qname
+        cantina::logger
+        cantina::networking
+        quiche_library)
 target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include)
-

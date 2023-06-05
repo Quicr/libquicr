@@ -3,5 +3,6 @@ Language:      Cpp
 BasedOnStyle:  Mozilla
 
 BreakAfterAttributes: Leave
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
 ...
-
