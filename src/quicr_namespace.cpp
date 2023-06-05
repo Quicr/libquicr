@@ -31,7 +31,7 @@ Namespace::contains(const Name& name) const
 std::string
 Namespace::to_hex() const
 {
-  return _name.to_hex();
+  return _name.to_hex() + "/" + std::to_string(_sig_bits);
 }
 
 bool
