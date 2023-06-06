@@ -27,6 +27,14 @@ using bytes = std::vector<uint8_t>;
  */
 using QUICRContext = uint64_t;
 
+enum class StreamMode : uint8_t
+{
+  Datagram,
+  PerObject,
+  PerGroup,
+  PerPriority,
+};
+
 namespace messages {
 /**
  * Indicates the type of media being sent.
@@ -71,9 +79,10 @@ struct RelayInfo
     QUIC
   };
 
-  std::string hostname; // Relay IP or FQDN
-  uint16_t port;        // Relay port to connect to
-  Protocol proto;       // Transport protocol to use
+  std::string hostname;         // Relay IP or FQDN
+  uint16_t port;                // Relay port to connect to
+  Protocol proto;               // Transport protocol to use
+  bool reliable_control_stream; // Indicates control stream reliability
 };
 
 /**

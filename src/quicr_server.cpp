@@ -1,4 +1,5 @@
 #include "quicr_server_raw_session.h"
+#include <quicr/quicr_server.h>
 
 #include <quicr/quicr_server.h>
 
@@ -55,10 +56,12 @@ QuicRServer::run()
 }
 
 void
-QuicRServer::publishIntentResponse(const quicr::Namespace& quicr_namespace,
-                                   const PublishIntentResult& result)
+QuicRServer::publishIntentResponse(
+  const quicr::Namespace& quicr_namespace,
+  const qtransport::TransportContextId& context_id,
+  const PublishIntentResult& result)
 {
-  server_session->publishIntentResponse(quicr_namespace, result);
+  server_session->publishIntentResponse(quicr_namespace, context_id, result);
 }
 
 void
@@ -82,10 +85,15 @@ QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
                              bool use_reliable_transport,
                              uint8_t priority,
                              uint16_t expiry_age_ms,
+                             bool new_stream,
                              const messages::PublishDatagram& datagram)
 {
-  server_session->sendNamedObject(
-    subscriber_id, use_reliable_transport, priority, expiry_age_ms, datagram);
+  server_session->sendNamedObject(subscriber_id,
+                                  priority,
+                                  expiry_age_ms,
+                                  use_reliable_transport,
+                                  new_stream,
+                                  datagram);
 }
 
 } /* namespace end */

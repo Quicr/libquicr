@@ -141,6 +141,7 @@ public:
   ~ReallyServer() { server.reset(); };
 
   virtual void onPublishIntent(const quicr::Namespace& quicr_namespace,
+                               const qtransport::TransportContextId context_id,
                                const std::string& /* origin_url */,
                                bool /* use_reliable_transport */,
                                const std::string& /* auth_token */,
@@ -150,7 +151,7 @@ public:
     logger.log(qtransport::LogLevel::info,
                "Publish intent namespace: " + std::string(quicr_namespace));
     quicr::PublishIntentResult result{ quicr::messages::Response::Ok, {}, {} };
-    server->publishIntentResponse(quicr_namespace, result);
+    server->publishIntentResponse(quicr_namespace, context_id, result);
   };
 
   virtual void onPublishIntentEnd(const quicr::Namespace& /* quicr_namespace */,
@@ -161,8 +162,8 @@ public:
 
   virtual void onPublisherObject(
     const qtransport::TransportContextId& context_id,
-    [[maybe_unused]] const qtransport::StreamId& stream_id,
-    [[maybe_unused]] bool use_reliable_transport,
+    bool use_reliable_transport,
+    bool new_stream,
     quicr::messages::PublishDatagram&& datagram)
   {
     std::list<Subscriptions::Remote> list =
@@ -176,7 +177,12 @@ public:
         continue;
       }
 
-      server->sendNamedObject(dest.subscribe_id, false, 1, 200, datagram);
+      server->sendNamedObject(dest.subscribe_id,
+                              1,
+                              200,
+                              use_reliable_transport,
+                              new_stream,
+                              datagram);
     }
   }
 

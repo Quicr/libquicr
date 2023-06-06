@@ -19,7 +19,7 @@
 
 #include "quicr_server_delegate.h"
 
-/*
+/**
  * QUICR Server Session Interface
  */
 namespace quicr {
@@ -27,20 +27,22 @@ namespace quicr {
 class QuicRServerSession
 {
 public:
-  // Default constructor and virtual destructor
   QuicRServerSession() = default;
   virtual ~QuicRServerSession() = default;
 
-  // Transport APIs
+  /**
+   * @brief Checks if the transport API is ready.
+   * @returns true if ready, false otherwise.
+   */
   virtual bool is_transport_ready() = 0;
 
   /**
    * @brief Run Server API event loop
    *
    * @details This method will open listening sockets and run an event loop
-   *    for callbacks.
+   *          for callbacks.
    *
-   * @returns true if error, false if no error
+   * @returns true if error, false if no error.
    */
   virtual bool run() = 0;
 
@@ -48,14 +50,17 @@ public:
    * @brief Send publish intent response
    *
    * @param quicr_namespace       : Identifies QUICR namespace
+   * @param context_id            : Context id for the transport
    * @param result                : Status of Publish Intetn
    *
    * @details Entities processing the Subscribe Request MUST validate the
    * request
    * @todo: Add payload with origin signed blob
    */
-  virtual void publishIntentResponse(const quicr::Namespace& quicr_namespace,
-                                     const PublishIntentResult& result) = 0;
+  virtual void publishIntentResponse(
+    const quicr::Namespace& quicr_namespace,
+    const qtransport::TransportContextId& context_id,
+    const PublishIntentResult& result) = 0;
 
   /**
    * @brief Send subscribe response
@@ -63,9 +68,9 @@ public:
    * @details Entities processing the Subscribe Request MUST validate the
    * request
    *
-   * @param subscriber_id         : Subscriber ID to send the message to
-   * @param quicr_namespace       : Identifies QUICR namespace
-   * @param result                : Status of Subscribe operation
+   * @param subscriber_id   : Subscriber ID to send the message to
+   * @param quicr_namespace : Identifies QUICR namespace
+   * @param result          : Status of Subscribe operation
    *
    */
   virtual void subscribeResponse(const uint64_t& subscriber_id,
@@ -79,9 +84,9 @@ public:
    *           the stream or subscription timeout, upon unsubscribe,
    *           or other application reasons
    *
-   * @param subscriber_id         : Subscriber ID to send the message to
-   * @param quicr_namespace       : Identifies QUICR namespace
-   * @param reason                : Reason of Subscribe End operation
+   * @param subscriber_id   : Subscriber ID to send the message to
+   * @param quicr_namespace : Identifies QUICR namespace
+   * @param reason          : Reason of Subscribe End operation
    *
    */
   virtual void subscriptionEnded(
@@ -92,21 +97,23 @@ public:
   /**
    * @brief Send a named QUICR media object
    *
-   * @param subscriber_id            : Subscriber ID to send the message to
-   * @param use_reliable_transport   : Indicates the preference for the object's
-   *                                   transport, if forwarded.
-   * @param priority                 : Identifies the relative priority of the
-   *                                   current object
-   * @param expiry_age_ms            : Time hint for the object to be in cache
-   *                                   before being purged after reception
-   * @param datagram                 : QuicR Publish Datagram to send
+   * @param subscriber_id           : Subscriber ID to send the message to
+   * @param use_reliable_transport  : Indicates the preference for the object's
+   *                                  transport, if forwarded.
+   * @param priority                : Identifies the relative priority of the
+   *                                  current object
+   * @param expiry_age_ms           : Time hint for the object to be in cache
+   *                                  before being purged after reception
+   * @param new_stream              : Denotes whether or not we need to create
+   *                                  a new stream.
+   * @param datagram                : QuicR Publish Datagram to send
    *
    */
   virtual void sendNamedObject(const uint64_t& subscriber_id,
                                bool use_reliable_transport,
                                uint8_t priority,
                                uint16_t expiry_age_ms,
+                               bool new_stream,
                                const messages::PublishDatagram& datagram) = 0;
 };
-
 } // namespace quicr

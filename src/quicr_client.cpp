@@ -6,27 +6,48 @@
 #include <memory>
 #include <utility>
 
+#include "client_raw_sessions/datagram_session.h"
+#include "client_raw_sessions/per_group_session.h"
+#include "client_raw_sessions/per_object_session.h"
+
 namespace quicr {
 
-///
-/// QuicRClient
-///
-
-QuicRClient::QuicRClient(RelayInfo& relay_info,
-                         qtransport::TransportConfig tconfig,
-                         qtransport::LogHandler& logger)
+std::unique_ptr<QuicRClientSession>
+make_client_session(RelayInfo& relay_info,
+                    qtransport::TransportConfig tconfig,
+                    qtransport::LogHandler& logger,
+                    StreamMode stream_mode)
 {
   switch (relay_info.proto) {
     case RelayInfo::Protocol::UDP:
-      [[fallthrough]];
+      return std::make_unique<ClientRawSession_Datagram>(
+        relay_info, tconfig, logger);
     case RelayInfo::Protocol::QUIC:
-      client_session =
-        std::make_unique<QuicRClientRawSession>(relay_info, tconfig, logger);
-      break;
+      switch (stream_mode) {
+        case StreamMode::PerGroup:
+          return std::make_unique<ClientRawSession_PerGroup>(
+            relay_info, tconfig, logger);
+        case StreamMode::PerObject:
+          return std::make_unique<ClientRawSession_PerObject>(
+            relay_info, tconfig, logger);
+        case StreamMode::Datagram:
+          [[fallthrough]];
+        default:
+          return std::make_unique<ClientRawSession_Datagram>(
+            relay_info, tconfig, logger);
+      }
     default:
       throw QuicRClientException("Unsupported relay protocol");
-      break;
   }
+}
+
+QuicRClient::QuicRClient(RelayInfo& relay_info,
+                         qtransport::TransportConfig tconfig,
+                         qtransport::LogHandler& logger,
+                         StreamMode stream_mode)
+{
+  client_session =
+    make_client_session(relay_info, tconfig, logger, stream_mode);
 }
 
 QuicRClient::QuicRClient(std::shared_ptr<qtransport::ITransport> transport_in,

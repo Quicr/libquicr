@@ -36,11 +36,10 @@ public:
   /**
    * Start the  QUICR server at the port specified.
    *
-   * @param relayInfo        : Relay Information to be used by the transport
-   * @param tconfig          : Transport configuration
-   * @param delegate         : Server delegate
-   * @param logger           : Log handler instance. Will be used by transport
-   *                           quicr api
+   * @param relayInfo : Relay Information to be used by the transport
+   * @param tconfig   : Transport configuration
+   * @param delegate  : Server delegate
+   * @param logger    : Log handler instance. Will be used by transport API
    */
   QuicRServerRawSession(RelayInfo& relayInfo,
                         qtransport::TransportConfig tconfig,
@@ -64,7 +63,7 @@ public:
    * @brief Run Server API event loop
    *
    * @details This method will open listening sockets and run an event loop
-   *    for callbacks.
+   *          for callbacks.
    *
    * @returns true if error, false if no error
    */
@@ -73,25 +72,27 @@ public:
   /**
    * @brief Send publish intent response
    *
-   * @param quicr_namespace       : Identifies QUICR namespace
-   * @param result                : Status of Publish Intetn
+   * @param quicr_namespace : Identifies QUICR namespace
+   * @param context_id      : Context id for the transport
+   * @param result          : Status of Publish Intent
    *
    * @details Entities processing the Subscribe Request MUST validate the
    * request
    * @todo: Add payload with origin signed blob
    */
   void publishIntentResponse(const quicr::Namespace& quicr_namespace,
+                             const qtransport::TransportContextId& context_id,
                              const PublishIntentResult& result) override;
 
   /**
    * @brief Send subscribe response
    *
    * @details Entities processing the Subscribe Request MUST validate the
-   * request
+   *          request
    *
-   * @param subscriber_id         : Subscriber ID to send the message to
-   * @param quicr_namespace       : Identifies QUICR namespace
-   * @param result                : Status of Subscribe operation
+   * @param subscriber_id   : Subscriber ID to send the message to
+   * @param quicr_namespace : Identifies QUICR namespace
+   * @param result          : Status of Subscribe operation
    *
    */
   void subscribeResponse(const uint64_t& subscriber_id,
@@ -105,9 +106,9 @@ public:
    *           the stream or subscription timeout, upon unsubscribe,
    *           or other application reasons
    *
-   * @param subscriber_id         : Subscriber ID to send the message to
-   * @param quicr_namespace       : Identifies QUICR namespace
-   * @param reason                : Reason of Subscribe End operation
+   * @param subscriber_id   : Subscriber ID to send the message to
+   * @param quicr_namespace : Identifies QUICR namespace
+   * @param reason          : Reason of Subscribe End operation
    *
    */
   void subscriptionEnded(
@@ -118,24 +119,27 @@ public:
   /**
    * @brief Send a named QUICR media object
    *
-   * @param subscriber_id            : Subscriber ID to send the message to
-   * @param use_reliable_transport   : Indicates the preference for the object's
-   *                                   transport, if forwarded.
-   * @param priority                 : Identifies the relative priority of the
-   *                                   current object
-   * @param expiry_age_ms            : Time hint for the object to be in cache
-   *                                   before being purged after reception
-   * @param datagram                 : QuicR Publish Datagram to send
+   * @param subscriber_id           : Subscriber ID to send the message to
+   * @param use_reliable_transport  : Indicates the preference for the object's
+   *                                  transport, if forwarded.
+   * @param priority                : Identifies the relative priority of the
+   *                                  current object
+   * @param expiry_age_ms           : Time hint for the object to be in cache
+   *                                  before being purged after reception
+   * @param new_stream              : Denotes whether or not we need to create a
+   *                                  new stream.
+   * @param datagram                : QuicR Publish Datagram to send
    *
    */
   void sendNamedObject(const uint64_t& subscriber_id,
                        bool use_reliable_transport,
                        uint8_t priority,
                        uint16_t expiry_age_ms,
+                       bool new_stream,
                        const messages::PublishDatagram& datagram) override;
 
 private:
-  /*
+  /**
    * Implementation of the transport delegate
    */
   class TransportDelegate : public qtransport::ITransport::TransportDelegate
@@ -146,10 +150,13 @@ private:
     void on_connection_status(
       const qtransport::TransportContextId& context_id,
       const qtransport::TransportStatus status) override;
+
     void on_new_connection(const qtransport::TransportContextId& context_id,
                            const qtransport::TransportRemote& remote) override;
+
     void on_new_stream(const qtransport::TransportContextId& context_id,
                        const qtransport::StreamId& streamId) override;
+
     void on_recv_notify(const qtransport::TransportContextId& context_id,
                         const qtransport::StreamId& streamId) override;
 
@@ -178,19 +185,26 @@ private:
   void handle_subscribe(const qtransport::TransportContextId& context_id,
                         const qtransport::StreamId& streamId,
                         messages::MessageBuffer&& msg);
+
   void handle_unsubscribe(const qtransport::TransportContextId& context_id,
                           const qtransport::StreamId& streamId,
                           messages::MessageBuffer&& msg);
+
   void handle_publish(const qtransport::TransportContextId& context_id,
                       const qtransport::StreamId& streamId,
+                      bool use_reliable_transport,
                       messages::MessageBuffer&& msg);
+
   void handle_publish_intent(const qtransport::TransportContextId& context_id,
                              const qtransport::StreamId& mStreamId,
+                             bool use_reliable_transport,
                              messages::MessageBuffer&& msg);
+
   void handle_publish_intent_response(
     const qtransport::TransportContextId& context_id,
     const qtransport::StreamId& mStreamId,
     messages::MessageBuffer&& msg);
+
   void handle_publish_intent_end(
     const qtransport::TransportContextId& context_id,
     const qtransport::StreamId& mStreamId,
@@ -206,22 +220,19 @@ private:
     };
 
     State state{ State::Unknown };
-    qtransport::TransportContextId transport_context_id{ 0 };
-    qtransport::StreamId transport_stream_id{ 0 };
+    qtransport::TransportContextId context_id{ 0 };
+    qtransport::StreamId stream_id{ 0 };
   };
 
   struct SubscribeContext : public Context
   {
     uint64_t transaction_id{ 0 };
     uint64_t subscriber_id{ 0 };
-    uint64_t group_id{ 0 };
-    uint64_t object_id{ 0 };
-    uint64_t prev_group_id{ 0 };
-    uint64_t prev_object_id{ 0 };
   };
 
-  struct PublishIntentContext : public Context
+  struct PublishContext : public Context
   {
+    quicr::Name name;
     uint64_t transaction_id{ 0 };
     uint64_t group_id{ 0 };
     uint64_t object_id{ 0 };
@@ -229,16 +240,22 @@ private:
     uint64_t prev_object_id{ 0 };
   };
 
+  qtransport::LogHandler& logger;
   ServerDelegate& delegate;
-  qtransport::LogHandler& log_handler;
+
   TransportDelegate transport_delegate;
   std::shared_ptr<qtransport::ITransport> transport;
+  qtransport::TransportContextId _context_id;
+  qtransport::StreamId _control_stream_id{ 0 };
   qtransport::TransportRemote t_relay;
-  std::map<quicr::Namespace,
-           std::map<qtransport::TransportContextId, SubscribeContext>>
+
+  namespace_map<std::map<qtransport::TransportContextId, SubscribeContext>>
     subscribe_state{};
   std::map<uint64_t, SubscribeContext> subscribe_id_state{};
-  namespace_map<PublishIntentContext> publish_namespaces{};
+
+  namespace_map<std::map<qtransport::TransportContextId, PublishContext>>
+    publish_namespaces{};
+
   bool running{ false };
   uint64_t subscriber_id{ 0 };
 };

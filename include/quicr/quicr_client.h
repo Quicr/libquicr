@@ -25,6 +25,22 @@ struct TransportConfig;
 
 namespace quicr {
 
+/**
+ * @brief Creation method for creating QuicR client sessions.
+ *
+ * @param relay_info  : The information for relay connection and peering.
+ * @param tconfig     : The configuration to use for connecting.
+ * @param logger      : The logger object to log to.
+ * @param stream_mode : The mode for creating streams.
+ *
+ * @returns The appropriate client session to use.
+ */
+std::unique_ptr<QuicRClientSession>
+make_client_session(RelayInfo& relay_info,
+                    qtransport::TransportConfig tconfig,
+                    qtransport::LogHandler& logger,
+                    StreamMode stream_mode);
+
 // Exception that may be thrown if there is a critical error
 class QuicRClientException : public std::runtime_error
 {
@@ -40,14 +56,15 @@ public:
   /**
    * @brief Setup a QUICR Client with publisher and subscriber functionality
    *
-   * @param relayInfo        : Relay Information to be used by the transport
-   * @param tconfig          : Transport configuration
-   * @param logger           : Log handler, used by transport and API for
-   * loggings operations
+   * @param relayInfo : Relay Information to be used by the transport
+   * @param tconfig   : Transport configuration
+   * @param logger    : Log handler, used by transport and API for
+   *                    loggings operations
    */
   QuicRClient(RelayInfo& relayInfo,
               qtransport::TransportConfig tconfig,
-              qtransport::LogHandler& logger);
+              qtransport::LogHandler& logger,
+              StreamMode stream_mode = quicr::StreamMode::Datagram);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber
@@ -106,12 +123,10 @@ public:
   /**
    * @brief Stop publishing on the given QUICR namespace
    *
-   * @param quicr_namespace        : Identifies QUICR namespace
-   * @param origin_url             : Origin serving the QUICR Session
-   * @param auth_token             : Auth Token to valiadate the Subscribe
-   * Request
-   * @param payload                : Opaque payload to be forwarded to the
-   * Origin
+   * @param quicr_namespace : Identifies QUICR namespace
+   * @param origin_url      : Origin serving the QUICR Session
+   * @param auth_token      : Auth Token to valiadate the Subscribe Request
+   * @param payload         : Opaque payload to be forwarded to the Origin
    */
   void publishIntentEnd(const quicr::Namespace& quicr_namespace,
                         const std::string& auth_token);
@@ -123,10 +138,10 @@ public:
    *                                ooperations
    * @param quicr_namespace       : Identifies QUICR namespace
    * @param subscribe_intent      : Subscribe intent to determine the start
-   * point for serving the matched objects. The application may choose a
-   * different intent mode, but must be aware of the effects.
+   *                                point for serving the matched objects. The
+   *                                application may choose a different intent
+   *                                mode, but must be aware of the effects.
    * @param origin_url            : Origin serving the QUICR Session
-   * @param use_reliable_transport: Reliable or Unreliable transport
    * @param auth_token            : Auth Token to validate the Subscribe Request
    * @parm e2e_token              : Opaque token to be forwarded to the Origin
    *
@@ -167,7 +182,6 @@ public:
    * @param expiry_age_ms            : Time hint for the object to be in cache
    *                                      before being purged after reception
    * @param use_reliable_transport   : Indicates the preference for the object's
-   *                                   transport, if forwarded.
    * @param data                     : Opaque payload
    *
    */
@@ -184,9 +198,8 @@ public:
    * @param priority                 : Identifies the relative priority of the
    *                                   current object
    * @param expiry_age_ms            : Time hint for the object to be in cache
-                                       before being purged after reception
+   *                                   before being purged after reception
    * @param use_reliable_transport   : Indicates the preference for the object's
-   *                                   transport, if forwarded.
    * @param offset                   : Current fragment offset
    * @param is_last_fragment         : Indicates if the current fragment is the
    * @param data                     : Opaque payload of the fragment

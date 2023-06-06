@@ -23,7 +23,7 @@
 
 namespace quicr {
 
-/*
+/**
  *  QUICR Subscriber delegate callback methods
  */
 class SubscriberDelegate
@@ -35,11 +35,11 @@ public:
   /**
    * @brief Callback for subscription response
    *
-   * @param quicr_namespace: QUICR Namespace associated with the
-   *                         Subscribe Request
-   * @param result         : Result for the subscription
+   * @param quicr_namespace : QUICR Namespace associated with the
+   *                          Subscribe Request
+   * @param result          : Result for the subscription
    *
-   *  @details This callback will be called when a subscription response
+   * @details This callback will be called when a subscription response
    *          is received, on error, or timeout.
    */
   virtual void onSubscribeResponse(const quicr::Namespace& quicr_namespace,
@@ -67,7 +67,7 @@ public:
    * @param priority                 : Identifies the relative priority of the
    *                                   current object
    * @param expiry_age_ms            : Time hint for the object to be in cache
-   *                                      before being purged after reception
+   *                                   before being purged after reception
    * @param use_reliable_transport   : Indicates the preference for the object's
    *                                   transport, if forwarded.
    * @param data                     : Opaque payload of the fragment
@@ -91,17 +91,17 @@ public:
   /**
    * @brief Report arrival of subscribed QUICR object fragment under a Name
    *
-   * @param quicr_name               : Identifies the QUICR Name for the object
-   * @param priority                 : Identifies the relative priority of the
-   * current object
-   * @param best_before              : TTL for the object to be useful for the
-   * application
-   * @param use_reliable_transport   : Indicates the preference for the object's
-   *                                   transport, if forwarded.
-   * @param offset                   : Current fragment offset
-   * @param is_last_fragment         : Indicates if the current fragment is the
-   *                                   last fragment
-   * @param data                     : Opaque payload of the fragment
+   * @param quicr_name              : Identifies the QUICR Name for the object
+   * @param priority                : Identifies the relative priority of the
+   *                                  current object
+   * @param best_before             : TTL for the object to be useful for the
+   *                                  application
+   * @param use_reliable_transport  : Indicates the preference for the object's
+   *                                  transport, if forwarded.
+   * @param offset                  : Current fragment offset
+   * @param is_last_fragment        : Indicates if the current fragment is the
+   *                                  last fragment
+   * @param data                    : Opaque payload of the fragment
    *
    *
    *  @note: It is important that the implementations not perform
@@ -127,14 +127,15 @@ public:
   PublisherDelegate() = default;
   virtual ~PublisherDelegate() = default;
 
-  /*
+  /**
    * @brief Callback on the response to the  publish intent
    *
-   * @param quicr_namespace       : Identifies QUICR namespace
-   * @param result                : Status of Publish Intetn
+   * @param quicr_namespace : Identifies QUICR namespace
+   * @param result          : Status of Publish Intetn
    *
    * @details Entities processing the Subscribe Request MUST validate the
-   * request
+   *          request
+   *
    * @todo: Add payload with origin signed blob
    */
   virtual void onPublishIntentResponse(const quicr::Namespace& quicr_namespace,

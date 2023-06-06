@@ -22,17 +22,19 @@ class QuicRServerException : public std::runtime_error
   using std::runtime_error::runtime_error;
 };
 
+/**
+ * API for implementing server side of the QUICR protocol
+ */
 class QuicRServer
 {
 public:
   /**
    * Start the  QUICR server at the port specified.
    *
-   * @param relayInfo        : Relay Information to be used by the transport
-   * @param tconfig          : Transport configuration
-   * @param delegate         : Server delegate
-   * @param logger           : Log handler instance. Will be used by transport
-   *                           quicr api
+   * @param relayInfo : Relay Information to be used by the transport
+   * @param tconfig   : Transport configuration
+   * @param delegate  : Server delegate
+   * @param logger    : Log handler instance. Will be used by transport API
    */
   QuicRServer(RelayInfo& relayInfo,
               qtransport::TransportConfig tconfig,
@@ -54,23 +56,25 @@ public:
    * @brief Run Server API event loop
    *
    * @details This method will open listening sockets and run an event loop
-   *    for callbacks.
+   *          for callbacks.
    *
-   * @returns true if error, false if no error
+   * @returns true if error, false otherwise
    */
   bool run();
 
   /**
    * @brief Send publish intent response
    *
-   * @param quicr_namespace       : Identifies QUICR namespace
-   * @param result                : Status of Publish Intetn
+   * @param quicr_namespace : Identifies QUICR namespace
+   * @param context_id      : Context id for the transport
+   * @param result          : Status of Publish Intetn
    *
    * @details Entities processing the Subscribe Request MUST validate the
    * request
    * @todo: Add payload with origin signed blob
    */
   void publishIntentResponse(const quicr::Namespace& quicr_namespace,
+                             const qtransport::TransportContextId& context_id,
                              const PublishIntentResult& result);
 
   /**
@@ -79,9 +83,9 @@ public:
    * @details Entities processing the Subscribe Request MUST validate the
    * request
    *
-   * @param subscriber_id         : Subscriber ID to send the message to
-   * @param quicr_namespace       : Identifies QUICR namespace
-   * @param result                : Status of Subscribe operation
+   * @param subscriber_id   : Subscriber ID to send the message to
+   * @param quicr_namespace : Identifies QUICR namespace
+   * @param result          : Status of Subscribe operation
    *
    */
   void subscribeResponse(const uint64_t& subscriber_id,
@@ -91,13 +95,13 @@ public:
   /**
    * @brief Send subscription end message
    *
-   * @details  Subscription can terminate when a publisher terminated
-   *           the stream or subscription timeout, upon unsubscribe,
-   *           or other application reasons
+   * @details Subscription can terminate when a publisher terminated
+   *          the stream or subscription timeout, upon unsubscribe,
+   *          or other application reasons
    *
-   * @param subscriber_id         : Subscriber ID to send the message to
-   * @param quicr_namespace       : Identifies QUICR namespace
-   * @param reason                : Reason of Subscribe End operation
+   * @param subscriber_id   : Subscriber ID to send the message to
+   * @param quicr_namespace : Identifies QUICR namespace
+   * @param reason          : Reason of Subscribe End operation
    *
    */
   void subscriptionEnded(const uint64_t& subscriber_id,
@@ -107,24 +111,25 @@ public:
   /**
    * @brief Send a named QUICR media object
    *
-   * @param subscriber_id            : Subscriber ID to send the message to
-   * @param use_reliable_transport   : Indicates the preference for the object's
-   *                                   transport, if forwarded.
-   * @param priority                 : Identifies the relative priority of the
-   *                                   current object
-   * @param expiry_age_ms            : Time hint for the object to be in cache
-   *                                   before being purged after reception
-   * @param datagram                 : QuicR Publish Datagram to send
+   * @param subscriber_id           : Subscriber ID to send the message to
+   * @param use_reliable_transport  : Indicates the preference for the object's
+   * @param priority                : Identifies the relative priority of the
+   *                                  current object
+   * @param expiry_age_ms           : Time hint for the object to be in cache
+   *                                  before being purged after reception
+   * @param new_stream              : Denotes whether or not we need to create
+   *                                  a new stream.
+   * @param datagram                : QuicR Publish Datagram to send
    *
    */
   void sendNamedObject(const uint64_t& subscriber_id,
                        bool use_reliable_transport,
                        uint8_t priority,
                        uint16_t expiry_age_ms,
+                       bool new_stream,
                        const messages::PublishDatagram& datagram);
 
 protected:
   std::unique_ptr<QuicRServerSession> server_session;
 };
-
 } // namespace quicr
