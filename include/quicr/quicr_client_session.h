@@ -24,7 +24,6 @@
 #include "quicr/quicr_namespace.h"
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_client_common.h"
-#include "quicr/quicr_client.h"
 
 /*
  * QUICR Client Session Interface
