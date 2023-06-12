@@ -26,6 +26,7 @@
 #include "cantina/network.h"
 #include "cantina/timer_manager.h"
 #include "cantina/async_requests.h"
+#include "transport/transport.h"
 #include "quicr/quicr_server_delegate.h"
 #include "quicr/quicr_server_session.h"
 #include "quicr_server_h3_connection.h"
@@ -59,10 +60,10 @@ public:
                        ServerDelegate& server_delegate,
                        qtransport::LogHandler& transport_logger);
 
-  ~QuicRServerH3Session();
+  virtual ~QuicRServerH3Session();
 
   ////////////////////////////////////////////////////////////////////////////
-  // Functions to satisfy the Transport & QuicRServer interface
+  // Functions to satisfy the QuicRServer interface
   ////////////////////////////////////////////////////////////////////////////
 
   // Transport API

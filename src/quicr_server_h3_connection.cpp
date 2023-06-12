@@ -201,11 +201,11 @@ H3ServerConnection::~H3ServerConnection()
   {
     if (registration.publisher)
     {
-      HandlePublishIntentEnded(registration);
+      PublishEndNotify(registration);
     }
     else
     {
-      HandleUnsubscribed(registration);
+      UnsubscribeNotify(registration);
     }
   }
 
@@ -945,7 +945,7 @@ H3ServerConnection::HandleH3FinishedEvent(
   if (status == 100) return;
 
   // Send a response back to the client
-  SendHTTPResponse(stream_id, status, {}, {}, final_response);
+  SendHTTPResponse(stream_id, status, {}, {}, false, final_response);
 
   // Expunge the request if this response is final
   if (final_response) ExpungeRequest(stream_id);
@@ -969,6 +969,11 @@ H3ServerConnection::HandleH3FinishedEvent(
  *      status_code [in]
  *          The status code to return
  *
+ *      prefix_length [in]
+ *          Prefix the message to send with the message length.  This is used
+ *          for responses that may result in multiple, concatenated messages.
+ *          Namely, a subscription will result in a stream of named objects.
+ *
  *      close_stream [in]
  *          Indicates whether the stream should be closed after the message
  *          is delivered.  The default is to close the stream.
@@ -984,6 +989,7 @@ H3ServerConnection::SendHTTPResponse(QUICStreamID stream_id,
                                      unsigned status_code,
                                      const HTTPHeaders& response_headers,
                                      const cantina::OctetString& response_body,
+                                     bool prefix_length,
                                      bool close_stream)
 {
   // Headers to send back in every reply
@@ -1033,16 +1039,33 @@ H3ServerConnection::SendHTTPResponse(QUICStreamID stream_id,
   delete[] headers;
 
   // If there is a response body, send it
-  if (!response_body.empty())
-  {
-    // Transmit the response body
-    QuicheCall(quiche_h3_send_body,
-               http3_connection,
-               quiche_connection,
-               stream_id,
-               const_cast<std::uint8_t*>(response_body.data()),
-               response_body.size(),
-               close_stream);
+  if (!response_body.empty()) {
+    if (prefix_length) {
+      cantina::DataBuffer data_buffer(sizeof(std::uint64_t) +
+                                      response_body.size());
+
+      // Insert the message length and the message
+      data_buffer.AppendValue(static_cast<std::uint64_t>(response_body.size()));
+      data_buffer.AppendValue(response_body);
+
+      // Transmit the response body
+      QuicheCall(quiche_h3_send_body,
+                 http3_connection,
+                 quiche_connection,
+                 stream_id,
+                 data_buffer.GetBufferPointer(),
+                 data_buffer.GetDataLength(),
+                 close_stream);
+    } else {
+      // Transmit the response body
+      QuicheCall(quiche_h3_send_body,
+                 http3_connection,
+                 quiche_connection,
+                 stream_id,
+                 const_cast<std::uint8_t*>(response_body.data()),
+                 response_body.size(),
+                 close_stream);
+    }
   }
 }
 
@@ -1092,10 +1115,9 @@ H3ServerConnection::ProcessRequest(QUICStreamID stream_id)
   // If either the method or path are empty, return 400
   if (request->method.empty() || request->path.empty()) return { true, 400 };
 
-  // Ensure the leading character is "/0x", though the balance of the URI
-  // is not validated; this will be changed in the future to a proper URI
-  if (!request->path.starts_with("/0x"))
-  {
+  // Ensure the URI leads with what is expected; this should be revised later
+  if ((!request->path.starts_with("/pub/0x")) &&
+      (!request->path.starts_with("/sub/0x"))) {
     logger->warning << "Invalid URI in path: " << request->path << std::flush;
     return { true, 400 };
   }
@@ -1127,7 +1149,16 @@ H3ServerConnection::ProcessRequest(QUICStreamID stream_id)
     logger->info << "Received DELETE for " << request->path << std::flush;
 
     // Assumption this signals Publication Intent ends
-    return { true, HandlePublishIntentEnd(request) };
+    if (!request->path.starts_with("/pub/0x"))
+    {
+      return { true, HandlePublishIntentEnd(request) };
+    }
+
+    // Assumption this signals Publication Intent ends
+    if (!request->path.starts_with("/sub/0x"))
+    {
+      return { true, HandleUnsubscribe(request) };
+    }
   }
 
   if (request->method == "GET") {
@@ -1272,46 +1303,7 @@ H3ServerConnection::HandlePublishIntentEnd(RequestData* request)
     logger->error << "Exception in PublishIntentEnd" << std::flush;
   }
 
-    return 500;
-}
-
-/*
- *  H3ServerConnection::HandlePublishIntentEnded()
- *
- *  Description:
- *      This function will handle case where a publication intent ended due
- *      to connection interruption.
- *
- *  Parameters:
- *      publisher [in]
- *          The publisher record in the pub/sub registry that is no longer
- *          publishing.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *      TODO: There is really no data to be passed to the application, except
- *            the namespace.  Perhaps the server delegate needs changes?
- */
-void
-H3ServerConnection::HandlePublishIntentEnded(const PubSubRecord& publisher)
-{
-  try {
-    // Create an async event to issue the call to the delegate
-    async_requests->Perform([&, publisher = publisher]() {
-      server_delegate.onPublishIntentEnd(
-        publisher.quicr_namespace, {}, {});
-    });
-  } catch (const std::exception& e) {
-    logger->error << "Failed to remove publisher: " << e.what()
-                  << std::flush;
-  } catch (...) {
-    logger->error << "Failed to remove publisher" << std::flush;
-  }
-
-  // Remove the registry entry since there was a failure
-  pub_sub_registry->Expunge(publisher.identifier);
+  return 500;
 }
 
 /*
@@ -1391,7 +1383,7 @@ H3ServerConnection::PublishIntentResponse(const PubSubRecord& publisher,
     }
 
     // Send the response to the client
-    SendHTTPResponse(publisher.stream_id, status_code, {}, msg.get());
+    SendHTTPResponse(publisher.stream_id, status_code, {}, msg.get(), false);
 
     // This request is now complete, so remove it
     ExpungeRequest(publisher.stream_id);
@@ -1512,6 +1504,18 @@ H3ServerConnection::HandleSubscribe(QUICStreamID stream_id,
     messages::Subscribe subscribe;
     msg >> subscribe;
 
+    // Ensure there isn't a subscriber on this connection for this namespace
+    // TODO: We should not have to perform this step.  However, since the
+    //       unsubscribe message does not specify the subscriber ID, all
+    //       that can be done is match on the connection ID and namespace.
+    //       This would be ambiguous if multiple were allowed.
+    if (pub_sub_registry->FindSubscriber(local_cid, subscribe.quicr_namespace)
+          .has_value()) {
+      logger->warning << "Duplicate subscription request on connection for: "
+                      << subscribe.quicr_namespace << std::flush;
+      return false;
+    }
+
     // Record the subscription
     subscriber_id = pub_sub_registry->Subscribe(local_cid,
                                                 stream_id,
@@ -1557,11 +1561,123 @@ H3ServerConnection::HandleSubscribe(QUICStreamID stream_id,
 }
 
 /*
- *  H3ServerConnection::HandleSubscribe()
+ *  H3ServerConnection::HandleUnsubscribe()
  *
  *  Description:
- *      This function will handle the case where a subscription ended because
- *      the connection was broken.
+ *      Handle requests from the client to terminate subscriptions.
+ *
+ *  Parameters:
+ *      request [in]
+ *          A pointer to the associated RequestData object.
+ *
+ *  Returns:
+ *      True in all cases. There is no value in signaling a failed unsubscribe.
+ *
+ *  Comments:
+ *      TODO: The security token is empty and it would not be available
+ *            if the connection closed abruptly.
+ */
+bool
+H3ServerConnection::HandleUnsubscribe(RequestData* request)
+{
+  PubSubRecord subscriber{};
+
+  try {
+    // Get the contents of the DELETE body
+    messages::MessageBuffer msg(std::move(request->request_body));
+
+    messages::Unsubscribe unsub;
+    msg >> unsub;
+
+    // Locate the subscriber record
+    auto subscribers = pub_sub_registry->FindSubscribers(unsub.quicr_namespace);
+    for (auto &item : subscribers)
+    {
+      if (item.connection_id == local_cid)
+      {
+        subscriber = item;
+        break;
+      }
+    }
+
+    // If the subscriber was not found, return
+    if (subscriber.identifier == 0) return true;
+
+    // Create an async event to issue the call to the delegate
+    async_requests->Perform([&,
+                             subscriber_id = subscriber.identifier,
+                             quicr_namespace = unsub.quicr_namespace]() {
+      server_delegate.onUnsubscribe(quicr_namespace, subscriber_id, {});
+    });
+
+    // Remove the subscriber from the registry
+    pub_sub_registry->Expunge(subscriber.identifier);
+
+    // Terminate the QUIC stream associated with this subscription
+    QuicheCall(quiche_h3_send_body,
+               http3_connection,
+               quiche_connection,
+               subscriber.stream_id,
+               nullptr,
+               0,
+               true);
+
+  } catch (const std::exception& e) {
+    logger->error << "Failed to handle unsubscribe: " << e.what()
+                  << std::flush;
+  } catch (...) {
+    logger->error << "Failed to handle unsubscribe" << std::flush;
+  }
+
+  // This should never fail
+  return true;
+}
+
+/*
+ *  H3ServerConnection::PublishEndNotify()
+ *
+ *  Description:
+ *      This function notify the application that a publish has ended.
+ *      This is generally due to connection termination.
+ *
+ *  Parameters:
+ *      publisher [in]
+ *          The publisher record in the pub/sub registry that is no longer
+ *          publishing.
+ *
+ *  Returns:
+ *      Nothing.
+ *
+ *  Comments:
+ *      TODO: There is really no data to be passed to the application, except
+ *            the namespace.  Perhaps the server delegate needs changes?
+ */
+void
+H3ServerConnection::PublishEndNotify(const PubSubRecord& publisher)
+{
+  try {
+    // Create an async event to issue the call to the delegate
+    async_requests->Perform([&, publisher = publisher]() {
+      server_delegate.onPublishIntentEnd(
+        publisher.quicr_namespace, {}, {});
+    });
+  } catch (const std::exception& e) {
+    logger->error << "Failed to remove publisher: " << e.what()
+                  << std::flush;
+  } catch (...) {
+    logger->error << "Failed to remove publisher" << std::flush;
+  }
+
+  // Remove the registry entry since there was a failure
+  pub_sub_registry->Expunge(publisher.identifier);
+}
+
+/*
+ *  H3ServerConnection::UnsubscribeNotify()
+ *
+ *  Description:
+ *      This function notify the application that a subscription has ended.
+ *      This is generally due to connection termination.
  *
  *  Parameters:
  *      subscriber [in]
@@ -1575,7 +1691,7 @@ H3ServerConnection::HandleSubscribe(QUICStreamID stream_id,
  *            if the connection closed abruptly.
  */
 void
-H3ServerConnection::HandleUnsubscribed(const PubSubRecord& subscriber)
+H3ServerConnection::UnsubscribeNotify(const PubSubRecord& subscriber)
 {
   try {
     // Create an async event to issue the call to the delegate
@@ -1683,6 +1799,7 @@ H3ServerConnection::SubscribeResponse(const PubSubRecord& subscriber,
                      status_code,
                      {},
                      msg.get(),
+                     true,
                      (result.status != SubscribeResult::SubscribeStatus::Ok));
 
     // If the request is complete, expunge it
@@ -1774,12 +1891,12 @@ H3ServerConnection::SubscriptionEnded(
 
     // Send the message indicating the subscription has ended
     QuicheCall(quiche_h3_send_body,
-                http3_connection,
-                quiche_connection,
-                subscriber.stream_id,
-                data_buffer.GetBufferPointer(),
-                data_buffer.GetDataLength(),
-                true);
+               http3_connection,
+               quiche_connection,
+               subscriber.stream_id,
+               data_buffer.GetBufferPointer(),
+               data_buffer.GetDataLength(),
+               true);
 
     // Remove the subscription record
     ExpungeRequest(subscriber.stream_id);
@@ -1841,20 +1958,21 @@ H3ServerConnection::SendNamedObject(const PubSubRecord& subscriber,
     {
       cantina::DataBuffer data_buffer(message.size() + sizeof(std::uint64_t));
 
-      // Insert the message length
+      // Insert the message length and message
       data_buffer.AppendValue(static_cast<std::uint64_t>(message.size()));
       data_buffer.AppendValue(message);
 
-      QuicheCall(quiche_h3_send_body,
-                 http3_connection,
-                 quiche_connection,
-                 subscriber.stream_id,
-                 data_buffer.GetBufferPointer(),
-                 data_buffer.GetDataLength(),
-                 false);
-    }
-    else
-    {
+      auto result = QuicheCall(quiche_h3_send_body,
+                               http3_connection,
+                               quiche_connection,
+                               subscriber.stream_id,
+                               data_buffer.GetBufferPointer(),
+                               data_buffer.GetDataLength(),
+                               false);
+      if (result < 0) {
+        logger->warning << "Failed to send named object" << std::flush;
+      }
+    } else {
       auto result =
         QuicheCall(quiche_h3_send_dgram,
                    http3_connection,

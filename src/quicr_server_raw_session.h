@@ -55,7 +55,7 @@ public:
     ServerDelegate& delegate /* TODO: Considering shared or weak pointer */,
     qtransport::LogHandler& logger);
 
-  ~QuicRServerRawSession() = default;
+  virtual ~QuicRServerRawSession() = default;
 
   // Transport APIs
   bool is_transport_ready() override;

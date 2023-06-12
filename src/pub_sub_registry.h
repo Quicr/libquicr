@@ -24,6 +24,7 @@
 #include "quic_identifier.h"
 #include "quiche_types.h"
 #include "quicr/quicr_namespace.h"
+#include "quicr/quicr_client_delegate.h"
 
 namespace quicr {
 
@@ -33,12 +34,14 @@ typedef std::uint64_t RegistryID;
 // Define a type to hold pub/sub details
 struct PubSubRecord
 {
-  RegistryID identifier;                        // Record identifier
-  bool publisher;                               // Publisher?
-  QUICConnectionID connection_id;               // QUIC connection ID
-  QUICStreamID stream_id;                       // QUIC stream ID
-  Namespace quicr_namespace;                    // QUICR Namespace
-  std::uint64_t transaction_id;                 // Client's transaction ID
+  RegistryID identifier;                          // Record identifier
+  bool publisher;                                 // Publisher?
+  QUICConnectionID connection_id;                 // QUIC connection ID
+  QUICStreamID stream_id;                         // QUIC stream ID
+  Namespace quicr_namespace;                      // QUICR Namespace
+  std::uint64_t transaction_id;                   // Client's transaction ID
+  std::weak_ptr<PublisherDelegate> pub_delegate;  // Publisher delegate
+  std::weak_ptr<SubscriberDelegate> sub_delegate; // Subscriber delegate
 };
 
 // Define the PubSubRegistry object
@@ -48,15 +51,19 @@ public:
   PubSubRegistry();
   ~PubSubRegistry() = default;
 
-  RegistryID Publish(const QUICConnectionID& connection_id,
-                     QUICStreamID stream_id,
-                     const Namespace& quicr_namespace,
-                     std::uint64_t client_transaction_id);
+  RegistryID Publish(
+    const QUICConnectionID& connection_id,
+    QUICStreamID stream_id,
+    const Namespace& quicr_namespace,
+    std::uint64_t client_transaction_id,
+    const std::shared_ptr<PublisherDelegate> pub_delegate = nullptr);
 
-  RegistryID Subscribe(const QUICConnectionID& connection_id,
-                       QUICStreamID stream_id,
-                       const Namespace& quicr_namespace,
-                       std::uint64_t client_transaction_id);
+  RegistryID Subscribe(
+    const QUICConnectionID& connection_id,
+    QUICStreamID stream_id,
+    const Namespace& quicr_namespace,
+    std::uint64_t client_transaction_id,
+    const std::shared_ptr<SubscriberDelegate> sub_delegate = nullptr);
 
   std::optional<PubSubRecord> FindRecord(RegistryID identifier);
 
@@ -66,8 +73,16 @@ public:
   std::optional<PubSubRecord> FindPublisher(const Namespace& quicr_namespace);
   std::optional<PubSubRecord> FindPublisher(const Name& quicr_name);
   std::vector<PubSubRecord> FindSubscribers(const Namespace& quicr_namespace);
+  std::optional<PubSubRecord> FindSubscriber(
+    const QUICConnectionID& connection_id,
+    const Namespace& quicr_namespace);
+  std::optional<PubSubRecord> FindSubscriber(
+    const QUICConnectionID& connection_id,
+    const QUICStreamID stream_id);
   std::vector<PubSubRecord> FindRegistrations(
     const QUICConnectionID& connection_id);
+
+  bool UpdateStreamID(RegistryID identifier, QUICStreamID stream_id);
 
 protected:
   RegistryID GetNextID();

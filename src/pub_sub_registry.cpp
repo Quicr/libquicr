@@ -58,6 +58,10 @@ PubSubRegistry::PubSubRegistry()
  *      client_transaction_id [in]
  *          Transaction ID received from the client.
  *
+ *      pub_delegate [in]
+ *          For clients, this is the publisher delegate object that would
+ *          receive callbacks related to this publisher.
+ *
  *  Returns:
  *      The unique identifier for this publisher record or 0 if there
  *      is already a publisher record for this namespace.  A zero value is
@@ -70,7 +74,8 @@ RegistryID
 PubSubRegistry::Publish(const QUICConnectionID& connection_id,
                         QUICStreamID stream_id,
                         const Namespace& quicr_namespace,
-                        std::uint64_t client_transaction_id)
+                        std::uint64_t client_transaction_id,
+                        const std::shared_ptr<PublisherDelegate> pub_delegate)
 {
   // Do a sanity check on the parameters
   if (connection_id.GetDataLength() == 0) return 0;
@@ -86,9 +91,12 @@ PubSubRegistry::Publish(const QUICConnectionID& connection_id,
   auto record_id = GetNextID();
 
   // Insert the publisher record
-  pub_sub_records[record_id] = { record_id,       true,
-                                 connection_id,   stream_id,
-                                 quicr_namespace, client_transaction_id };
+  pub_sub_records[record_id] = {
+    record_id,       true,
+    connection_id,   stream_id,
+    quicr_namespace, client_transaction_id,
+    pub_delegate,    std::weak_ptr<SubscriberDelegate>()
+  };
   publisher_map[quicr_namespace] = record_id;
   connection_map[connection_id].push_back(record_id);
 
@@ -114,6 +122,10 @@ PubSubRegistry::Publish(const QUICConnectionID& connection_id,
  *      client_transaction_id [in]
  *          Transaction ID received from the client.
  *
+ *      sub_delegate [in]
+ *          For clients, this is the subscriber delegate object that would
+ *          receive callbacks related to this subscriber.
+ *
  *  Returns:
  *      The unique identifier for this subscriber record.  A zero value is
  *      returned if one of the parameters appears to bad bad data.
@@ -122,10 +134,12 @@ PubSubRegistry::Publish(const QUICConnectionID& connection_id,
  *      None.
  */
 RegistryID
-PubSubRegistry::Subscribe(const QUICConnectionID& connection_id,
-                          QUICStreamID stream_id,
-                          const Namespace& quicr_namespace,
-                          std::uint64_t client_transaction_id)
+PubSubRegistry::Subscribe(
+  const QUICConnectionID& connection_id,
+  QUICStreamID stream_id,
+  const Namespace& quicr_namespace,
+  std::uint64_t client_transaction_id,
+  const std::shared_ptr<SubscriberDelegate> sub_delegate)
 {
   // Do a sanity check on the parameters
   if (connection_id.GetDataLength() == 0) return 0;
@@ -140,7 +154,9 @@ PubSubRegistry::Subscribe(const QUICConnectionID& connection_id,
   // Insert the subscriber record
   pub_sub_records[record_id] = { record_id,       false,
                                  connection_id,   stream_id,
-                                 quicr_namespace, client_transaction_id };
+                                 quicr_namespace, client_transaction_id,
+                                 std::weak_ptr<PublisherDelegate>(),
+                                 sub_delegate };
   subscriber_map[quicr_namespace].push_back(record_id);
   connection_map[connection_id].push_back(record_id);
 
@@ -417,6 +433,108 @@ PubSubRegistry::FindSubscribers(const Namespace& quicr_namespace)
 }
 
 /*
+ *  PubSubRegistry::FindSubscriber()
+ *
+ *  Description:
+ *      Find the subscriber for the given connection and namespace.
+ *
+ *  Parameters:
+ *      connection_id [in]
+ *          The QUIC connection ID associated with this subscription.
+ *
+ *      quicr_namespace [id]
+ *          The namespace for which the pub/sub registry records are sought.
+ *
+ *  Returns:
+ *      The record for the specified subscription or std::nullopt if the record
+ *      does not exist.
+ *
+ *  Comments:
+ *      This function exists to help enforce a rule that allows only one
+ *      subscription per connection and namespace.  This is necessary since
+ *      the unsubscribe message does not container a subscriber ID.
+ *      TODO: We should fix the reason this function exists, then remove this
+ *            function.
+ */
+std::optional<PubSubRecord>
+PubSubRegistry::FindSubscriber(const QUICConnectionID& connection_id,
+                               const Namespace& quicr_namespace)
+{
+  // Lock the mutex
+  std::unique_lock<std::mutex> lock(registry_mutex);
+
+  // Find the subscriber vector for the given namespace
+  auto it = subscriber_map.find(quicr_namespace);
+
+  // If nothing is found, return an empty vector
+  if (it == subscriber_map.end()) return std::nullopt;
+
+  // Iterate over the vector of subscribers
+  for (auto subscriber : it->second)
+  {
+    // Locate records for the subscriber
+    auto sub_it = pub_sub_records.find(subscriber);
+
+    // If found, return a copy of the record
+    if ((sub_it != pub_sub_records.end()) &&
+        (sub_it->second.connection_id == connection_id)) {
+        return sub_it->second;
+    }
+  }
+
+  return std::nullopt;
+}
+
+/*
+ *  PubSubRegistry::FindSubscriber()
+ *
+ *  Description:
+ *      Find the subscriber using the given stream_id.
+ *
+ *  Parameters:
+ *      connection_id [in]
+ *          The QUIC connection ID associated with this subscription.
+ *
+ *      stream_id [in]
+ *          The QUIC stream identifier associated with this subscription.
+ *
+ *  Returns:
+ *      The record for the specified subscription or std::nullopt if the record
+ *      does not exist.
+ *
+ *  Comments:
+ *      None.
+ */
+std::optional<PubSubRecord>
+PubSubRegistry::FindSubscriber(const QUICConnectionID& connection_id,
+                               const QUICStreamID stream_id)
+{
+  // Lock the mutex
+  std::unique_lock<std::mutex> lock(registry_mutex);
+
+  // Find the subscriber vector for the given connection ID
+  auto it = connection_map.find(connection_id);
+
+  // If nothing is found, return an empty vector
+  if (it == connection_map.end()) return std::nullopt;
+
+  // Iterate over the vector of subscribers
+  for (auto subscriber : it->second)
+  {
+    // Locate records for the subscriber
+    auto sub_it = pub_sub_records.find(subscriber);
+
+    // If found, return a copy of the record
+    if ((sub_it != pub_sub_records.end()) &&
+        (sub_it->second.stream_id == stream_id)) {
+        return sub_it->second;
+    }
+  }
+
+  return std::nullopt;
+}
+
+/*
  *  PubSubRegistry::FindRegistrations()
  *
  *  Description:
@@ -466,6 +584,39 @@ PubSubRegistry::FindRegistrations(const QUICConnectionID& connection_id)
   return records;
 }
 
+/*
+ *  PubSubRegistry::UpdateStreamID()
+ *
+ *  Description:
+ *      Update the QUIC stream ID associated with this pub/sub record.
+ *
+ *  Parameters:
+ *      identifier [id]
+ *          The pub/sub registry record identifier to update.
+ *
+ *      stream_id [in]
+ *          The QUIC stream ID to assign to this record.
+ *
+ *  Returns:
+ *      True if the record was updated, false if the record was not found.
+ *
+ *  Comments:
+ *      None.
+ */
+bool
+PubSubRegistry::UpdateStreamID(RegistryID identifier, QUICStreamID stream_id)
+{
+  // Lock the mutex
+  std::lock_guard<std::mutex> lock(registry_mutex);
+
+  auto it = pub_sub_records.find(identifier);
+
+  if (it == pub_sub_records.end()) return false;
+
+  it->second.stream_id = stream_id;
+
+  return true;
+}
 
 /*
  *  PubSubRegistry::GetNextID()

@@ -1154,8 +1154,6 @@ QuicRServerH3Session::sendNamedObject(const uint64_t& subscriber_id,
   connection->SendNamedObject(*subscriber,
                               use_reliable_transport,
                               datagram);
-
-  //! Not implemented
 }
 
 ////////////////////////////////////////////////////////////////////////////

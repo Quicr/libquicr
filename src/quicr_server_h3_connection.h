@@ -137,15 +137,19 @@ protected:
                         unsigned status_code,
                         const HTTPHeaders& response_headers,
                         const cantina::OctetString& response_body,
+                        bool prefix_length,
                         bool close_stream = true);
   std::pair<bool, unsigned> ProcessRequest(QUICStreamID stream_id);
   bool HandlePublishIntent(QUICStreamID stream_id, RequestData *request);
   unsigned HandlePublishIntentEnd(RequestData *request);
-  void HandlePublishIntentEnded(const PubSubRecord& publisher);
   unsigned HandlePublishNamedObject(QUICStreamID stream_id,
                                     RequestData* request);
   bool HandleSubscribe(QUICStreamID stream_id, RequestData* request);
-  void HandleUnsubscribed(const PubSubRecord& subscriber);
+  bool HandleUnsubscribe(RequestData* request);
+
+  void PublishEndNotify(const PubSubRecord& publisher);
+  void UnsubscribeNotify(const PubSubRecord& subscriber);
+
   void HandleH3ResetEvent(QUICStreamID stream_id, quiche_h3_event* event);
   void HandleH3PriorityUpdateEvent(QUICStreamID stream_id,
                                    quiche_h3_event* event);
@@ -190,7 +194,7 @@ protected:
   }
   void PostMessage(const cantina::RegistrationID& registration_id,
                    const std::string& message);
-  void SubscriptionCancelled(const cantina::RegistrationID& registration_id);
+  void SubscriptionCancelled(const cantina::RegistrationID& registration_id); //! TODO PEJ
 
   bool terminate;                               // Connection terminating flag
   cantina::LoggerPointer logger;                // Logger object
