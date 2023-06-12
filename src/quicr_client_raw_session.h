@@ -91,7 +91,7 @@ public:
    *
    * @returns client status
    */
-  ClientStatus status() const override { return client_status; }
+  ClientStatus status() override { return client_status; }
 
   /**
    * @brief Publish intent to publish on a QUICR Namespace
@@ -115,7 +115,7 @@ public:
    *
    * @param quicr_namespace        : Identifies QUICR namespace
    * @param origin_url             : Origin serving the QUICR Session
-   * @param auth_token             : Auth Token to valiadate the Subscribe
+   * @param auth_token             : Auth Token to validate the Subscribe
    * Request
    * @param payload                : Opaque payload to be forwarded to the
    * Origin

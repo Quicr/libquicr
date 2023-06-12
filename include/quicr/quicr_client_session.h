@@ -59,7 +59,7 @@ public:
    *
    * @returns client status
    */
-  virtual ClientStatus status() const = 0;
+  virtual ClientStatus status() = 0;
 
   /**
    * @brief Publish intent to publish on a QUICR Namespace

@@ -1,4 +1,5 @@
 #include "quicr_client_raw_session.h"
+#include "h3/quicr_client_h3_session.h"
 
 #include <quicr/quicr_client.h>
 #include <transport/transport.h>
@@ -22,6 +23,10 @@ QuicRClient::QuicRClient(RelayInfo& relay_info,
     case RelayInfo::Protocol::QUIC:
       client_session =
         std::make_unique<QuicRClientRawSession>(relay_info, tconfig, logger);
+      break;
+    case RelayInfo::Protocol::H3:
+      client_session =
+        std::make_unique<QuicRClientH3Session>(relay_info, tconfig, logger);
       break;
     default:
       throw QuicRClientException("Unsupported relay protocol");
