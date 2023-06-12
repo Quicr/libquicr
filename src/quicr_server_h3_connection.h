@@ -16,29 +16,29 @@
 
 #pragma once
 
+#include <chrono>
+#include <cstdint>
+#include <cstdlib>
+#include <deque>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
-#include <map>
-#include <cstdint>
-#include <cstdlib>
-#include <chrono>
 #include <utility>
-#include <deque>
-#include "cantina/logger.h"
-#include "cantina/timer_manager.h"
 #include "cantina/async_requests.h"
-#include "cantina/network.h"
 #include "cantina/data_packet.h"
+#include "cantina/logger.h"
+#include "cantina/network.h"
 #include "cantina/network_types.h"
 #include "cantina/octet_string.h"
 #include "cantina/registration_id.h"
-#include "quiche.h"
-#include "quicr/quicr_server_delegate.h"
-#include "quicr/quicr_common.h"
-#include "quic_identifier.h"
-#include "quiche_types.h"
+#include "cantina/timer_manager.h"
 #include "pub_sub_registry.h"
+#include "quic_identifier.h"
+#include "quiche.h"
+#include "quiche_types.h"
+#include "quicr/quicr_common.h"
+#include "quicr/quicr_server_delegate.h"
 
 namespace quicr {
 
@@ -120,6 +120,9 @@ public:
                        const messages::PublishDatagram& datagram);
 
 protected:
+  void PublishEndNotify(const PubSubRecord& publisher);
+  void UnsubscribeNotify(const PubSubRecord& subscriber);
+
   void ConsumePacket(cantina::DataPacket& data_packet);
   bool QuicheConsumeData(cantina::DataPacket& data_packet);
   void DispatchMessages(std::unique_lock<std::mutex>& lock,
@@ -133,28 +136,26 @@ protected:
   void HandleH3HeadersEvent(QUICStreamID stream_id, quiche_h3_event* event);
   void HandleH3DataEvent(QUICStreamID stream_id, quiche_h3_event* event);
   void HandleH3FinishedEvent(QUICStreamID stream_id, quiche_h3_event* event);
-  void SendHTTPResponse(QUICStreamID stream_id,
-                        unsigned status_code,
-                        const HTTPHeaders& response_headers,
-                        const cantina::OctetString& response_body,
-                        bool prefix_length,
-                        bool close_stream = true);
-  std::pair<bool, unsigned> ProcessRequest(QUICStreamID stream_id);
-  bool HandlePublishIntent(QUICStreamID stream_id, RequestData *request);
-  unsigned HandlePublishIntentEnd(RequestData *request);
-  unsigned HandlePublishNamedObject(QUICStreamID stream_id,
-                                    RequestData* request);
-  bool HandleSubscribe(QUICStreamID stream_id, RequestData* request);
-  bool HandleUnsubscribe(RequestData* request);
-
-  void PublishEndNotify(const PubSubRecord& publisher);
-  void UnsubscribeNotify(const PubSubRecord& subscriber);
-
   void HandleH3ResetEvent(QUICStreamID stream_id, quiche_h3_event* event);
   void HandleH3PriorityUpdateEvent(QUICStreamID stream_id,
                                    quiche_h3_event* event);
   void HandleH3DatagramEvent(QUICStreamID stream_id, quiche_h3_event* event);
   void HandleH3GoAwayEvent(QUICStreamID stream_id, quiche_h3_event* event);
+
+  void SendHTTPResponse(QUICStreamID stream_id,
+                        unsigned status_code,
+                        const HTTPHeaders& response_headers,
+                        const std::vector<std::uint8_t>& response_body,
+                        bool prefix_length,
+                        bool close_stream = true);
+  std::pair<bool, unsigned> ProcessRequest(QUICStreamID stream_id);
+  bool HandlePublishIntent(QUICStreamID stream_id, RequestData* request);
+  unsigned HandlePublishIntentEnd(RequestData* request);
+  unsigned HandlePublishNamedObject(QUICStreamID stream_id,
+                                    RequestData* request);
+  bool HandleSubscribe(QUICStreamID stream_id, RequestData* request);
+  bool HandleUnsubscribe(RequestData* request);
+
   void ProcessHeader(QUICStreamID stream_id,
                      std::string& name,
                      std::string& value);
@@ -192,9 +193,6 @@ protected:
 
     return 0;
   }
-  void PostMessage(const cantina::RegistrationID& registration_id,
-                   const std::string& message);
-  void SubscriptionCancelled(const cantina::RegistrationID& registration_id); //! TODO PEJ
 
   bool terminate;                               // Connection terminating flag
   cantina::LoggerPointer logger;                // Logger object
@@ -223,7 +221,7 @@ protected:
   std::map<QUICStreamID, RequestData> requests; // Request information
   std::map<std::uint64_t, std::uint64_t> connection_settings;
                                                 // Connections settings
-  std::mutex connection_lock;                   // Connection syncronization
+  std::mutex connection_lock; // Connection syncronization
 };
 
 // Define a shared pointer type for the H3ServerConnection

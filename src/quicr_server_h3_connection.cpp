@@ -10,10 +10,10 @@
  *      communication over a single QUIC connection.
  *
  *      There are three types of valid requests:
- *          - POST /path - Create a new space (space name is /path)
- *          - PUT /path - Post a message to a space
- *          - DELETE /path - Destroy a space
- *          - GET /path - Subscribe to a space
+ *          - POST /path - Indicate a publish intent
+ *          - PUT /path - Publish an object
+ *          - DELETE /path - Terminate a publication or subscription
+ *          - GET /path - Subscribe to a namespace
  *
  *      Response codes:
  *          POST:   201 if successful
@@ -23,13 +23,11 @@
  *                  400 if the request was unacceptable
  *          PUT:    200 if successful
  *                  400 if the request was unacceptable
- *                  404 if space does not exist
- *          DELETE: 200 if the publish was cancelled
- *                  400 if the request was unacceptable
- *                  404 if the publisher was not found
+ *                  404 if for objects published without publish intent
+ *          DELETE: 200 if the publish was cancelled (always succeeds)
  *          GET:    200 if successful
  *                  400 if the request was unacceptable
- *                  404 if the space does not exist
+ *                  404 if the namespace does not exist (not implemented)
  *
  *      And other request type will result in 501 being returned.
  *      Server errors will result in a 500 status code being returned.
@@ -47,13 +45,13 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include "quicr_server_h3_connection.h"
 #include "cantina/data_buffer.h"
 #include "cantina/logger_macros.h"
-#include "quicr_server_h3_connection.h"
 #include "quiche_api_lock.h"
-#include "quicr/quicr_name.h"
-#include "quicr/quicr_common.h"
 #include "quicr/encode.h"
+#include "quicr/quicr_common.h"
+#include "quicr/quicr_name.h"
 
 namespace quicr {
 
@@ -197,14 +195,10 @@ H3ServerConnection::~H3ServerConnection()
 
   // If there are publishers or subscribers remaining, let the app know they
   // are gone since the connection is terminating
-  for (const auto& registration : registrations)
-  {
-    if (registration.publisher)
-    {
+  for (const auto& registration : registrations) {
+    if (registration.publisher) {
       PublishEndNotify(registration);
-    }
-    else
-    {
+    } else {
       UnsubscribeNotify(registration);
     }
   }
@@ -231,6 +225,81 @@ H3ServerConnection::~H3ServerConnection()
   pub_sub_registry->Expunge(local_cid);
 
   logger->info << "Deleted connection " << local_cid << std::flush;
+}
+
+/*
+ *  H3ServerConnection::PublishEndNotify()
+ *
+ *  Description:
+ *      This function notify the application that a publish has ended.
+ *      This is generally due to connection termination.
+ *
+ *  Parameters:
+ *      publisher [in]
+ *          The publisher record in the pub/sub registry that is no longer
+ *          publishing.
+ *
+ *  Returns:
+ *      Nothing.
+ *
+ *  Comments:
+ *      TODO: There is really no data to be passed to the application, except
+ *            the namespace.  Perhaps the server delegate needs changes?
+ */
+void
+H3ServerConnection::PublishEndNotify(const PubSubRecord& publisher)
+{
+  try {
+    // Create an async event to issue the call to the delegate
+    async_requests->Perform([this, publisher = publisher]() {
+      server_delegate.onPublishIntentEnd(publisher.quicr_namespace, {}, {});
+    });
+  } catch (const std::exception& e) {
+    logger->error << "Failed to remove publisher: " << e.what() << std::flush;
+  } catch (...) {
+    logger->error << "Failed to remove publisher" << std::flush;
+  }
+
+  // Remove the registry entry since there was a failure
+  pub_sub_registry->Expunge(publisher.identifier);
+}
+
+/*
+ *  H3ServerConnection::UnsubscribeNotify()
+ *
+ *  Description:
+ *      This function notify the application that a subscription has ended.
+ *      This is generally due to connection termination.
+ *
+ *  Parameters:
+ *      subscriber [in]
+ *          The subscriber record in the pub/sub registry that is unsubscribing.
+ *
+ *  Returns:
+ *      Nothing.
+ *
+ *  Comments:
+ *      TODO: The security token is empty and it would not be available
+ *            if the connection closed abruptly.
+ */
+void
+H3ServerConnection::UnsubscribeNotify(const PubSubRecord& subscriber)
+{
+  try {
+    // Create an async event to issue the call to the delegate
+    async_requests->Perform([this, subscriber = subscriber]() {
+      server_delegate.onUnsubscribe(
+        subscriber.quicr_namespace, subscriber.identifier, {});
+    });
+  } catch (const std::exception& e) {
+    logger->error << "Failed to perform unsubscribe: " << e.what()
+                  << std::flush;
+  } catch (...) {
+    logger->error << "Failed to perform unsubscribe" << std::flush;
+  }
+
+  // Remove the registry entry since there was a failure
+  pub_sub_registry->Expunge(subscriber.identifier);
 }
 
 /*
@@ -413,6 +482,385 @@ QUICConnectionID
 H3ServerConnection::GetConnectionID()
 {
   return local_cid;
+}
+
+/*
+ *  H3ServerConnection::PublishIntentResponse()
+ *
+ *  Description:
+ *      This function is called by the application in response to the Publish
+ *      Intent request delivered.  This will deliver an appropriate HTTP
+ *      response back to the client.
+ *
+ *  Parameters:
+ *      publisher [in]
+ *          The publisher record from the pub/sub registry for this response.
+ *
+ *      result [in]
+ *          The result to send to the client as delivered by the application.
+ *
+ *  Returns:
+ *      Nothing.
+ *
+ *  Comments:
+ *      None.
+ */
+void
+H3ServerConnection::PublishIntentResponse(const PubSubRecord& publisher,
+                                          const PublishIntentResult& result)
+{
+  unsigned status_code; // HTTP status code to return
+
+  try {
+    messages::PublishIntentResponse response{
+      messages::MessageType::PublishIntentResponse,
+      publisher.quicr_namespace,
+      result.status,
+      publisher.transaction_id
+    };
+
+    messages::MessageBuffer msg(sizeof(response));
+    msg << response;
+
+    // Lock the connection object
+    std::unique_lock<std::mutex> lock(connection_lock);
+
+    // Update the response record
+    RequestData* request = FindRequest(publisher.stream_id);
+    if (!request) {
+      logger->warning << "Request for publish intent response not found";
+      return;
+    }
+
+    // Ensure the state is "Initiated"
+    if (request->state != H3RequestState::Initiated) {
+      logger->warning << "PublishIntentResponse found unexpected request state";
+      return;
+    }
+
+    // Update the response state
+    request->state = H3RequestState::Complete;
+
+    // Determine the appropriate status code
+    switch (result.status) {
+      case messages::Response::Ok:
+        status_code = 201;
+        break;
+      case messages::Response::Expired:
+        status_code = 419;
+        break;
+      case messages::Response::Fail:
+        status_code = 405;
+        break;
+      case messages::Response::Redirect:
+        status_code = 303;
+        break;
+      default:
+        status_code = 500;
+        break;
+    }
+
+    // Send the response to the client
+    SendHTTPResponse(publisher.stream_id, status_code, {}, msg.get(), false);
+
+    // This request is now complete, so remove it
+    ExpungeRequest(publisher.stream_id);
+
+    // If the request was rejected, we remove the publisher record
+    if (result.status != messages::Response::Ok) {
+      pub_sub_registry->Expunge(publisher.identifier);
+    }
+
+    // Dispatch Quiche messages
+    DispatchMessages(lock);
+  } catch (const std::exception& e) {
+    logger->error
+      << "Unexpected error trying to process publish response message: "
+      << e.what() << std::flush;
+  } catch (...) {
+    logger->error
+      << "Unexpected error trying to process publish response message"
+      << std::flush;
+  }
+}
+
+/*
+ *  H3ServerConnection::SubscribeResponse()
+ *
+ *  Description:
+ *      This function is called by the application in response to a subscription
+ *      request.  This will deliver an appropriate HTTP response back to the
+ *      client.
+ *
+ *  Parameters:
+ *      subscriber [in]
+ *          The subscriber record from the pub/sub registry for this response.
+ *
+ *      result [in]
+ *          The result to send to the client as delivered by the application.
+ *
+ *  Returns:
+ *      Nothing.
+ *
+ *  Comments:
+ *      None.
+ */
+void
+H3ServerConnection::SubscribeResponse(const PubSubRecord& subscriber,
+                                      const SubscribeResult& result)
+{
+  unsigned status_code; // HTTP status code to return
+
+  try {
+    messages::SubscribeResponse response;
+    response.transaction_id = subscriber.transaction_id;
+    response.quicr_namespace = subscriber.quicr_namespace;
+    response.response = result.status;
+
+    messages::MessageBuffer msg;
+    msg << response;
+
+    // Lock the connection object
+    std::unique_lock<std::mutex> lock(connection_lock);
+
+    // Update the response record
+    RequestData* request = FindRequest(subscriber.stream_id);
+    if (!request) {
+      logger->warning << "Request for subscribe response not found";
+      return;
+    }
+
+    // Ensure the state is "Initiated"
+    if (request->state != H3RequestState::Initiated) {
+      logger->warning << "SubscribeResponse found unexpected request state";
+      return;
+    }
+
+    // Determine the appropriate status code
+    switch (result.status) {
+      case SubscribeResult::SubscribeStatus::Ok:
+        request->state = H3RequestState::Active;
+        status_code = 200;
+        break;
+      case SubscribeResult::SubscribeStatus::Expired:
+        request->state = H3RequestState::Complete;
+        status_code = 419;
+        break;
+      case SubscribeResult::SubscribeStatus::Redirect:
+        request->state = H3RequestState::Complete;
+        status_code = 303;
+        break;
+      case SubscribeResult::SubscribeStatus::FailedError:
+        request->state = H3RequestState::Complete;
+        status_code = 405;
+        break;
+      case SubscribeResult::SubscribeStatus::FailedAuthz:
+        request->state = H3RequestState::Complete;
+        status_code = 401;
+        break;
+      case SubscribeResult::SubscribeStatus::TimeOut:
+        request->state = H3RequestState::Complete;
+        status_code = 408;
+        break;
+      default:
+        request->state = H3RequestState::Complete;
+        status_code = 500;
+        break;
+    }
+
+    // Send the response to the client, keeping this stream open if subscribing
+    SendHTTPResponse(subscriber.stream_id,
+                     status_code,
+                     {},
+                     msg.get(),
+                     true,
+                     (result.status != SubscribeResult::SubscribeStatus::Ok));
+
+    // If the request is complete, expunge it
+    if (request->state == H3RequestState::Complete) {
+      ExpungeRequest(subscriber.stream_id);
+    }
+
+    // If the request was rejected, we remove the subscriber record
+    if (result.status != SubscribeResult::SubscribeStatus::Ok) {
+      pub_sub_registry->Expunge(subscriber.identifier);
+    }
+
+    // Dispatch Quiche messages
+    DispatchMessages(lock);
+  } catch (const std::exception& e) {
+    logger->error
+      << "Unexpected error trying to process subscribe response message: "
+      << e.what() << std::flush;
+  } catch (...) {
+    logger->error
+      << "Unexpected error trying to process subscribe response message"
+      << std::flush;
+  }
+}
+
+/*
+ *  H3ServerConnection::SubscriptionEnded()
+ *
+ *  Description:
+ *      Notify the remote client that the subscription has ended.
+ *
+ *  Parameters:
+ *      subscriber [in]
+ *          The subscriber record from the pub/sub registry for this response.
+ *
+ *      quicr_namespace [in]
+ *          The namespace for this subscription.
+ *
+ *      result [in]
+ *          The reason the subscription has ended.
+ *
+ *  Returns:
+ *      Nothing.
+ *
+ *  Comments:
+ *      None.
+ */
+void
+H3ServerConnection::SubscriptionEnded(
+  const PubSubRecord& subscriber,
+  const quicr::Namespace& quicr_namespace,
+  const SubscribeResult::SubscribeStatus& reason)
+{
+  try {
+    // Lock the connection object
+    std::unique_lock<std::mutex> lock(connection_lock);
+
+    // Update the response record
+    RequestData* request = FindRequest(subscriber.stream_id);
+    if (!request) {
+      logger->warning << "Request for subscribe response not found";
+      return;
+    }
+
+    // Ensure the request is in the expected state
+    if (request->state != H3RequestState::Active) {
+      logger->warning << "Subscriber not in an active state; cannot unsubscribe"
+                      << std::flush;
+    }
+
+    messages::SubscribeEnd subEnd;
+    subEnd.quicr_namespace = quicr_namespace;
+    subEnd.reason = reason;
+
+    messages::MessageBuffer msg;
+    msg << subEnd;
+
+    // Move the buffer and create a DataBuffer object
+    std::vector<std::uint8_t> message_buffer = msg.get();
+    cantina::DataBuffer data_buffer(message_buffer.size() +
+                                    sizeof(std::uint64_t));
+
+    // Insert the message length
+    data_buffer.AppendValue(static_cast<std::uint64_t>(message_buffer.size()));
+    data_buffer.AppendValue(message_buffer);
+
+    // Send the message indicating the subscription has ended
+    QuicheCall(quiche_h3_send_body,
+               http3_connection,
+               quiche_connection,
+               subscriber.stream_id,
+               data_buffer.GetBufferPointer(),
+               data_buffer.GetDataLength(),
+               true);
+
+    // Remove the subscription record
+    ExpungeRequest(subscriber.stream_id);
+
+    // Remove the subscription record
+    pub_sub_registry->Expunge(subscriber.identifier);
+
+    // Dispatch Quiche messages
+    DispatchMessages(lock);
+  } catch (const std::exception& e) {
+    logger->error << "Unexpected error trying send subscription ended message: "
+                  << e.what() << std::flush;
+  } catch (...) {
+    logger->error << "Unexpected error trying send subscription ended message"
+                  << std::flush;
+  }
+}
+
+/*
+ *  H3ServerConnection::SendNamedObject()
+ *
+ *  Description:
+ *      This function will send an object to the subscriber.
+ *
+ *  Parameters:
+ *      subscriber [in]
+ *          The subscriber record from the pub/sub registry for this response.
+ *
+ *      use_reliable_transport [in]
+ *          If true, this datagram will be sent as an amendment to the GET
+ *          request for this subscription.  If false, it will be sent as an
+ *          HTTP datagram.
+ *
+ *  Returns:
+ *      Nothing.
+ *
+ *  Comments:
+ *      None.
+ */
+void
+H3ServerConnection::SendNamedObject(const PubSubRecord& subscriber,
+                                    bool use_reliable_transport,
+                                    const messages::PublishDatagram& datagram)
+{
+  try {
+    messages::MessageBuffer msg;
+    msg << datagram;
+    std::vector<std::uint8_t> message = msg.get();
+
+    // Lock the connection object
+    std::unique_lock<std::mutex> lock(connection_lock);
+
+    // If told to use a reliable transport of if the peer does not support
+    // datagrams, the message will be sent reliably
+    if (use_reliable_transport || !using_datagrams) {
+      cantina::DataBuffer data_buffer(message.size() + sizeof(std::uint64_t));
+
+      // Insert the message length and message
+      data_buffer.AppendValue(static_cast<std::uint64_t>(message.size()));
+      data_buffer.AppendValue(message);
+
+      auto result = QuicheCall(quiche_h3_send_body,
+                               http3_connection,
+                               quiche_connection,
+                               subscriber.stream_id,
+                               data_buffer.GetBufferPointer(),
+                               data_buffer.GetDataLength(),
+                               false);
+      if (result < 0) {
+        logger->warning << "Failed to send named object" << std::flush;
+      }
+    } else {
+      auto result = QuicheCall(quiche_h3_send_dgram,
+                               http3_connection,
+                               quiche_connection,
+                               subscriber.stream_id,
+                               const_cast<std::uint8_t*>(message.data()),
+                               message.size());
+
+      if (result < 0) {
+        logger->warning << "Failed to send datagram" << std::flush;
+      }
+    }
+
+    // Dispatch Quiche messages
+    DispatchMessages(lock);
+  } catch (const std::exception& e) {
+    logger->error << "Unexpected error trying to send named object: "
+                  << e.what() << std::flush;
+  } catch (...) {
+    logger->error << "Unexpected error trying to send named object"
+                  << std::flush;
+  }
 }
 
 /*
@@ -728,6 +1176,9 @@ H3ServerConnection::QuicheHTTP3EventHandler(std::unique_lock<std::mutex>& lock)
       logger->error << "Failed to create HTTP/3 connection" << std::flush;
       return false;
     }
+    logger->info << "Max datagram size is: "
+                 << quiche_conn_dgram_max_writable_len(quiche_connection)
+                 << std::flush;
   }
 
   // Process the HTTP/3 request
@@ -897,8 +1348,7 @@ H3ServerConnection::HandleH3DataEvent(QUICStreamID stream_id,
 
   LOGGER_DEBUG(logger,
                "[stream " << stream_id << "] Received "
-                          << request->request_body.size()
-                          << " octets in body");
+                          << request->request_body.size() << " octets in body");
 }
 
 /*
@@ -952,6 +1402,188 @@ H3ServerConnection::HandleH3FinishedEvent(
 }
 
 /*
+ *  H3ServerConnection::HandleH3ResetEvent()
+ *
+ *  Description:
+ *      This function is called when handling the QUICHE_H3_EVENT_RESET event.
+ *
+ *  Parameters:
+ *      stream_id [in]
+ *          QUIC stream on which this event occurred.
+ *
+ *      event [in]
+ *          A pointer to an quiche_h3_event structure for this event.
+ *
+ *  Returns:
+ *      Nothing.
+ *
+ *  Comments:
+ *      The connection mutex must be locked by the caller.
+ */
+void
+H3ServerConnection::HandleH3ResetEvent(QUICStreamID stream_id,
+                                       [[maybe_unused]] quiche_h3_event* event)
+{
+  LOGGER_DEBUG(logger, "[stream " << stream_id << "] H3 - reset");
+}
+
+/*
+ *  H3ServerConnection::HandleH3PriorityUpdateEvent()
+ *
+ *  Description:
+ *      This function is called when handling the
+ *      QUICHE_H3_EVENT_PRIORITY_UPDATE event.
+ *
+ *  Parameters:
+ *      stream_id [in]
+ *          QUIC stream on which this event occurred.
+ *
+ *      event [in]
+ *          A pointer to an quiche_h3_event structure for this event.
+ *
+ *  Returns:
+ *      Nothing.
+ *
+ *  Comments:
+ *      The connection mutex must be locked by the caller.
+ */
+void
+H3ServerConnection::HandleH3PriorityUpdateEvent(
+  QUICStreamID stream_id,
+  [[maybe_unused]] quiche_h3_event* event)
+{
+  LOGGER_DEBUG(logger, "[stream " << stream_id << "] H3 - priority update");
+}
+
+/*
+ *  H3ServerConnection::HandleH3DatagramEvent()
+ *
+ *  Description:
+ *      This function is called when handling the QUICHE_H3_EVENT_DATAGRAM
+ *      event.
+ *
+ *  Parameters:
+ *      stream_id [in]
+ *          QUIC stream on which this event occurred.
+ *
+ *      event [in]
+ *          A pointer to an quiche_h3_event structure for this event.
+ *
+ *  Returns:
+ *      Nothing.
+ *
+ *  Comments:
+ *      The connection mutex must be locked by the caller.
+ */
+void
+H3ServerConnection::HandleH3DatagramEvent(
+  QUICStreamID stream_id,
+  [[maybe_unused]] quiche_h3_event* event)
+{
+  std::uint64_t flow_id{};
+  std::size_t flow_id_length{};
+  cantina::DataBuffer buffer(max_packet_size);
+
+  LOGGER_DEBUG(logger, "[stream " << stream_id << "] H3 - event datagram");
+
+  // It's important to exhaust the queue when this event is triggered; see
+  // https://docs.quic.tech/quiche/h3/enum.Event.html#variant.Datagram
+  while (true) {
+    // Attempt to read the datagrams
+    auto bytes = QuicheCall(quiche_h3_recv_dgram,
+                            http3_connection,
+                            quiche_connection,
+                            &flow_id,
+                            &flow_id_length,
+                            buffer.GetBufferPointer(),
+                            buffer.GetBufferSize());
+
+    // Break out of the loop once done processing the queue
+    if (bytes == QUICHE_ERR_DONE) break;
+
+    // Check if there was an error
+    if (bytes < 0) {
+      logger->warning << "Unable to read datagram on stream " << stream_id
+                      << ": " << bytes << std::flush;
+      continue;
+    }
+
+    // Set the DataBuffer length
+    buffer.SetDataLength(bytes);
+
+    // Ensure there is some actual data to consider
+    if (flow_id_length >= buffer.GetDataLength()) {
+      logger->warning << "Received empty or malformed datagram on stream "
+                      << stream_id << " having flow ID " << flow_id
+                      << std::flush;
+      continue;
+    }
+
+    try {
+      // Create an vector to contain the message without the leading length
+      std::vector<std::uint8_t> message(
+        buffer.GetBufferPointer() + flow_id_length,
+        buffer.GetBufferPointer() + buffer.GetDataLength());
+
+      // Move the vector data into a MessageBuffer
+      messages::MessageBuffer msg(std::move(message));
+
+      // Deserialize the message
+      messages::PublishDatagram datagram;
+      msg >> datagram;
+
+      // Try to find the publisher
+      auto publisher = pub_sub_registry->FindPublisher(datagram.header.name);
+      if (!publisher.has_value()) {
+        logger->warning << "Unable to find publisher for name "
+                        << datagram.header.name << std::flush;
+        return;
+      }
+
+      // Create an async event to issue the call to the delegate
+      async_requests->Perform([this,
+                               stream_id,
+                               identifier = publisher->identifier,
+                               datagram = std::move(datagram)]() mutable {
+        server_delegate.onPublisherObject(
+          identifier, stream_id, false, std::move(datagram));
+      });
+    } catch (const std::exception& e) {
+      logger->error << "Error processing datagram: " << e.what() << std::flush;
+    } catch (...) {
+      logger->error << "Error processing datagram" << std::flush;
+    }
+  }
+}
+
+/*
+ *  H3ServerConnection::HandleH3GoAwayEvent()
+ *
+ *  Description:
+ *      This function is called when handling the QUICHE_H3_EVENT_GOAWAY
+ *      event.
+ *
+ *  Parameters:
+ *      stream_id [in]
+ *          QUIC stream on which this event occurred.
+ *
+ *      event [in]
+ *          A pointer to an quiche_h3_event structure for this event.
+ *
+ *  Returns:
+ *      Nothing.
+ *
+ *  Comments:
+ *      The connection mutex must be locked by the caller.
+ */
+void
+H3ServerConnection::HandleH3GoAwayEvent(QUICStreamID stream_id,
+                                        [[maybe_unused]] quiche_h3_event* event)
+{
+  LOGGER_DEBUG(logger, "[stream " << stream_id << "] H3 - event go away");
+}
+
+/*
  *  H3ServerConnection::SendHTTPResponse()
  *
  *  Description:
@@ -985,12 +1617,13 @@ H3ServerConnection::HandleH3FinishedEvent(
  *      The connection mutex must be locked by the caller.
  */
 void
-H3ServerConnection::SendHTTPResponse(QUICStreamID stream_id,
-                                     unsigned status_code,
-                                     const HTTPHeaders& response_headers,
-                                     const cantina::OctetString& response_body,
-                                     bool prefix_length,
-                                     bool close_stream)
+H3ServerConnection::SendHTTPResponse(
+  QUICStreamID stream_id,
+  unsigned status_code,
+  const HTTPHeaders& response_headers,
+  const std::vector<std::uint8_t>& response_body,
+  bool prefix_length,
+  bool close_stream)
 {
   // Headers to send back in every reply
   HTTPHeaders header_map = { { ":status", std::to_string(status_code) },
@@ -1033,7 +1666,8 @@ H3ServerConnection::SendHTTPResponse(QUICStreamID stream_id,
              header_map.size(),
              (close_stream ? response_body.empty() : false));
 
-  LOGGER_DEBUG(logger, "[stream " << stream_id << "] Sending response to client");
+  LOGGER_DEBUG(logger,
+               "[stream " << stream_id << "] Sending response to client");
 
   // Delete the headers array
   delete[] headers;
@@ -1149,16 +1783,16 @@ H3ServerConnection::ProcessRequest(QUICStreamID stream_id)
     logger->info << "Received DELETE for " << request->path << std::flush;
 
     // Assumption this signals Publication Intent ends
-    if (!request->path.starts_with("/pub/0x"))
-    {
+    if (request->path.starts_with("/pub/0x")) {
       return { true, HandlePublishIntentEnd(request) };
     }
 
-    // Assumption this signals Publication Intent ends
-    if (!request->path.starts_with("/sub/0x"))
-    {
+    // Assumption this signals Unsubscribe
+    if (request->path.starts_with("/sub/0x")) {
       return { true, HandleUnsubscribe(request) };
     }
+
+    return { true, 400 };
   }
 
   if (request->method == "GET") {
@@ -1197,7 +1831,7 @@ bool
 H3ServerConnection::HandlePublishIntent(QUICStreamID stream_id,
                                         RequestData* request)
 {
-  RegistryID publisher_id = 0;                  // Registry ID for publisher
+  RegistryID publisher_id = 0; // Registry ID for publisher
 
   try {
     // Get the contents of the POST body
@@ -1214,8 +1848,7 @@ H3ServerConnection::HandlePublishIntent(QUICStreamID stream_id,
                                              publish_intent.transaction_id);
 
     // If the registration failed, return 0
-    if (publisher_id == 0)
-    {
+    if (publisher_id == 0) {
       logger->warning << "Failed to create publisher for "
                       << publish_intent.quicr_namespace << std::flush;
       return false;
@@ -1225,7 +1858,8 @@ H3ServerConnection::HandlePublishIntent(QUICStreamID stream_id,
                  << publish_intent.quicr_namespace << std::flush;
 
     // Create an async event to issue the call to the delegate
-    async_requests->Perform([&, intent = std::move(publish_intent)]() mutable {
+    async_requests->Perform([this,
+                             intent = std::move(publish_intent)]() mutable {
       server_delegate.onPublishIntent(intent.quicr_namespace,
                                       "" /* intent.origin_url */,
                                       false,
@@ -1234,7 +1868,7 @@ H3ServerConnection::HandlePublishIntent(QUICStreamID stream_id,
     });
 
     return true;
-  } catch (const std::exception &e) {
+  } catch (const std::exception& e) {
     logger->error << "Failed to decode Publish Intent: " << e.what()
                   << std::flush;
   } catch (...) {
@@ -1287,7 +1921,8 @@ H3ServerConnection::HandlePublishIntentEnd(RequestData* request)
     }
 
     // Create an async event to issue the call to the delegate
-    async_requests->Perform([&, pie = std::move(publish_intent_end)]() mutable {
+    async_requests->Perform([this,
+                             pie = std::move(publish_intent_end)]() mutable {
       server_delegate.onPublishIntentEnd(
         pie.quicr_namespace, {}, std::move(pie.payload));
     });
@@ -1296,7 +1931,7 @@ H3ServerConnection::HandlePublishIntentEnd(RequestData* request)
     pub_sub_registry->Expunge(publisher->identifier);
 
     return 200;
-  } catch (const std::exception &e) {
+  } catch (const std::exception& e) {
     logger->error << "Exception in PublishIntentEnd: " << e.what()
                   << std::flush;
   } catch (...) {
@@ -1304,107 +1939,6 @@ H3ServerConnection::HandlePublishIntentEnd(RequestData* request)
   }
 
   return 500;
-}
-
-/*
- *  H3ServerConnection::PublishIntentResponse()
- *
- *  Description:
- *      This function is called by the application in response to the Publish
- *      Intent request delivered.  This will deliver an appropriate HTTP
- *      response back to the client.
- *
- *  Parameters:
- *      publisher [in]
- *          The publisher record from the pub/sub registry for this response.
- *
- *      result [in]
- *          The result to send to the client as delivered by the application.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *      None.
- */
-void
-H3ServerConnection::PublishIntentResponse(const PubSubRecord& publisher,
-                                          const PublishIntentResult& result)
-{
-  unsigned status_code;                         // HTTP status code to return
-
-  try {
-    messages::PublishIntentResponse response{
-      messages::MessageType::PublishIntentResponse,
-      publisher.quicr_namespace,
-      result.status,
-      publisher.transaction_id
-    };
-
-    messages::MessageBuffer msg(sizeof(response));
-    msg << response;
-
-    // Lock the connection object
-    std::unique_lock<std::mutex> lock(connection_lock);
-
-    // Update the response record
-    RequestData* request = FindRequest(publisher.stream_id);
-    if (!request) {
-      logger->warning << "Request for publish intent response not found";
-      return;
-    }
-
-    // Ensure the state is "Initiated"
-    if (request->state != H3RequestState::Initiated) {
-      logger->warning << "PublishIntentResponse found unexpected request state";
-      return;
-    }
-
-    // Update the response state
-    request->state = H3RequestState::Complete;
-
-    // Determine the appropriate status code
-    switch (result.status) {
-      case messages::Response::Ok:
-        status_code = 201;
-        break;
-      case messages::Response::Expired:
-        status_code = 419;
-        break;
-      case messages::Response::Fail:
-        status_code = 405;
-        break;
-      case messages::Response::Redirect:
-        status_code = 303;
-        break;
-      default:
-        status_code = 500;
-        break;
-    }
-
-    // Send the response to the client
-    SendHTTPResponse(publisher.stream_id, status_code, {}, msg.get(), false);
-
-    // This request is now complete, so remove it
-    ExpungeRequest(publisher.stream_id);
-
-    // If the request was rejected, we remove the publisher record
-    if (result.status != messages::Response::Ok)
-    {
-      pub_sub_registry->Expunge(publisher.identifier);
-    }
-
-    // Dispatch Quiche messages
-    DispatchMessages(lock);
-  } catch (const std::exception &e) {
-    logger->error
-      << "Unexpected error trying to process publish response message: "
-      << e.what() << std::flush;
-  } catch (...) {
-    logger->error
-      << "Unexpected error trying to process publish response message"
-      << std::flush;
-  }
 }
 
 /*
@@ -1446,19 +1980,19 @@ H3ServerConnection::HandlePublishNamedObject(
 
     // Try to find the publisher
     auto publisher = pub_sub_registry->FindPublisher(datagram.header.name);
-    if (!publisher.has_value())
-    {
+    if (!publisher.has_value()) {
       logger->warning << "Unable to find publisher for name "
                       << datagram.header.name << std::flush;
       return 404;
     }
 
     // Create an async event to issue the call to the delegate
-    async_requests->Perform([&, datagram = std::move(datagram)]() mutable {
-      server_delegate.onPublisherObject(publisher->identifier,
-                                        publisher->stream_id,
-                                        true,
-                                        std::move(datagram));
+    async_requests->Perform([this,
+                             identifier = publisher->identifier,
+                             stream_id = publisher->stream_id,
+                             datagram = std::move(datagram)]() mutable {
+      server_delegate.onPublisherObject(
+        identifier, stream_id, true, std::move(datagram));
     });
 
     return 200;
@@ -1495,7 +2029,7 @@ bool
 H3ServerConnection::HandleSubscribe(QUICStreamID stream_id,
                                     RequestData* request)
 {
-  RegistryID subscriber_id = 0;                 // Registry ID for subscriber
+  RegistryID subscriber_id = 0; // Registry ID for subscriber
 
   try {
     // Get the contents of the GET body
@@ -1523,8 +2057,7 @@ H3ServerConnection::HandleSubscribe(QUICStreamID stream_id,
                                                 subscribe.transaction_id);
 
     // If the registration failed, return 0
-    if (subscriber_id == 0)
-    {
+    if (subscriber_id == 0) {
       logger->warning << "Failed to create subscription for "
                       << subscribe.quicr_namespace << std::flush;
       return false;
@@ -1534,7 +2067,10 @@ H3ServerConnection::HandleSubscribe(QUICStreamID stream_id,
                  << std::flush;
 
     // Create an async event to issue the call to the delegate
-    async_requests->Perform([&, subscribe = std::move(subscribe)]() mutable {
+    async_requests->Perform([this,
+                             subscriber_id,
+                             stream_id,
+                             subscribe = std::move(subscribe)]() mutable {
       server_delegate.onSubscribe(subscribe.quicr_namespace,
                                   subscriber_id,
                                   subscriber_id,
@@ -1591,10 +2127,8 @@ H3ServerConnection::HandleUnsubscribe(RequestData* request)
 
     // Locate the subscriber record
     auto subscribers = pub_sub_registry->FindSubscribers(unsub.quicr_namespace);
-    for (auto &item : subscribers)
-    {
-      if (item.connection_id == local_cid)
-      {
+    for (auto& item : subscribers) {
+      if (item.connection_id == local_cid) {
         subscriber = item;
         break;
       }
@@ -1604,7 +2138,7 @@ H3ServerConnection::HandleUnsubscribe(RequestData* request)
     if (subscriber.identifier == 0) return true;
 
     // Create an async event to issue the call to the delegate
-    async_requests->Perform([&,
+    async_requests->Perform([this,
                              subscriber_id = subscriber.identifier,
                              quicr_namespace = unsub.quicr_namespace]() {
       server_delegate.onUnsubscribe(quicr_namespace, subscriber_id, {});
@@ -1623,561 +2157,13 @@ H3ServerConnection::HandleUnsubscribe(RequestData* request)
                true);
 
   } catch (const std::exception& e) {
-    logger->error << "Failed to handle unsubscribe: " << e.what()
-                  << std::flush;
+    logger->error << "Failed to handle unsubscribe: " << e.what() << std::flush;
   } catch (...) {
     logger->error << "Failed to handle unsubscribe" << std::flush;
   }
 
   // This should never fail
   return true;
-}
-
-/*
- *  H3ServerConnection::PublishEndNotify()
- *
- *  Description:
- *      This function notify the application that a publish has ended.
- *      This is generally due to connection termination.
- *
- *  Parameters:
- *      publisher [in]
- *          The publisher record in the pub/sub registry that is no longer
- *          publishing.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *      TODO: There is really no data to be passed to the application, except
- *            the namespace.  Perhaps the server delegate needs changes?
- */
-void
-H3ServerConnection::PublishEndNotify(const PubSubRecord& publisher)
-{
-  try {
-    // Create an async event to issue the call to the delegate
-    async_requests->Perform([&, publisher = publisher]() {
-      server_delegate.onPublishIntentEnd(
-        publisher.quicr_namespace, {}, {});
-    });
-  } catch (const std::exception& e) {
-    logger->error << "Failed to remove publisher: " << e.what()
-                  << std::flush;
-  } catch (...) {
-    logger->error << "Failed to remove publisher" << std::flush;
-  }
-
-  // Remove the registry entry since there was a failure
-  pub_sub_registry->Expunge(publisher.identifier);
-}
-
-/*
- *  H3ServerConnection::UnsubscribeNotify()
- *
- *  Description:
- *      This function notify the application that a subscription has ended.
- *      This is generally due to connection termination.
- *
- *  Parameters:
- *      subscriber [in]
- *          The subscriber record in the pub/sub registry that is unsubscribing.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *      TODO: The security token is empty and it would not be available
- *            if the connection closed abruptly.
- */
-void
-H3ServerConnection::UnsubscribeNotify(const PubSubRecord& subscriber)
-{
-  try {
-    // Create an async event to issue the call to the delegate
-    async_requests->Perform([&, subscriber = subscriber]() {
-      server_delegate.onUnsubscribe(
-        subscriber.quicr_namespace, subscriber.identifier, {});
-    });
-  } catch (const std::exception& e) {
-    logger->error << "Failed to perform unsubscribe: " << e.what()
-                  << std::flush;
-  } catch (...) {
-    logger->error << "Failed to perform unsubscribe" << std::flush;
-  }
-
-  // Remove the registry entry since there was a failure
-  pub_sub_registry->Expunge(subscriber.identifier);
-}
-
-/*
- *  H3ServerConnection::SubscribeResponse()
- *
- *  Description:
- *      This function is called by the application in response to a subscription
- *      request.  This will deliver an appropriate HTTP response back to the
- *      client.
- *
- *  Parameters:
- *      subscriber [in]
- *          The subscriber record from the pub/sub registry for this response.
- *
- *      result [in]
- *          The result to send to the client as delivered by the application.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *      None.
- */
-void
-H3ServerConnection::SubscribeResponse(const PubSubRecord& subscriber,
-                                      const SubscribeResult& result)
-{
-  unsigned status_code;                         // HTTP status code to return
-
-  try {
-    messages::SubscribeResponse response;
-    response.transaction_id = subscriber.transaction_id;
-    response.quicr_namespace = subscriber.quicr_namespace;
-    response.response = result.status;
-
-    messages::MessageBuffer msg;
-    msg << response;
-
-    // Lock the connection object
-    std::unique_lock<std::mutex> lock(connection_lock);
-
-    // Update the response record
-    RequestData* request = FindRequest(subscriber.stream_id);
-    if (!request) {
-      logger->warning << "Request for subscribe response not found";
-      return;
-    }
-
-    // Ensure the state is "Initiated"
-    if (request->state != H3RequestState::Initiated) {
-      logger->warning << "SubscribeResponse found unexpected request state";
-      return;
-    }
-
-    // Determine the appropriate status code
-    switch (result.status) {
-      case SubscribeResult::SubscribeStatus::Ok:
-        request->state = H3RequestState::Active;
-        status_code = 200;
-        break;
-      case SubscribeResult::SubscribeStatus::Expired:
-        request->state = H3RequestState::Complete;
-        status_code = 419;
-        break;
-      case SubscribeResult::SubscribeStatus::Redirect:
-        request->state = H3RequestState::Complete;
-        status_code = 303;
-        break;
-      case SubscribeResult::SubscribeStatus::FailedError:
-        request->state = H3RequestState::Complete;
-        status_code = 405;
-        break;
-      case SubscribeResult::SubscribeStatus::FailedAuthz:
-        request->state = H3RequestState::Complete;
-        status_code = 401;
-        break;
-      case SubscribeResult::SubscribeStatus::TimeOut:
-        request->state = H3RequestState::Complete;
-        status_code = 408;
-        break;
-      default:
-        request->state = H3RequestState::Complete;
-        status_code = 500;
-        break;
-    }
-
-    // Send the response to the client, keeping this stream open if subscribing
-    SendHTTPResponse(subscriber.stream_id,
-                     status_code,
-                     {},
-                     msg.get(),
-                     true,
-                     (result.status != SubscribeResult::SubscribeStatus::Ok));
-
-    // If the request is complete, expunge it
-    if (request->state == H3RequestState::Complete)
-    {
-      ExpungeRequest(subscriber.stream_id);
-    }
-
-    // If the request was rejected, we remove the subscriber record
-    if (result.status != SubscribeResult::SubscribeStatus::Ok)
-    {
-      pub_sub_registry->Expunge(subscriber.identifier);
-    }
-
-    // Dispatch Quiche messages
-    DispatchMessages(lock);
-  } catch (const std::exception &e) {
-    logger->error
-      << "Unexpected error trying to process subscribe response message: "
-      << e.what() << std::flush;
-  } catch (...) {
-    logger->error
-      << "Unexpected error trying to process subscribe response message"
-      << std::flush;
-  }
-}
-
-/*
- *  H3ServerConnection::SubscriptionEnded()
- *
- *  Description:
- *      Notify the remote client that the subscription has ended.
- *
- *  Parameters:
- *      subscriber [in]
- *          The subscriber record from the pub/sub registry for this response.
- *
- *      quicr_namespace [in]
- *          The namespace for this subscription.
- *
- *      result [in]
- *          The reason the subscription has ended.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *      None.
- */
-void
-H3ServerConnection::SubscriptionEnded(
-  const PubSubRecord& subscriber,
-  const quicr::Namespace& quicr_namespace,
-  const SubscribeResult::SubscribeStatus& reason)
-{
-  try {
-    // Lock the connection object
-    std::unique_lock<std::mutex> lock(connection_lock);
-
-    // Update the response record
-    RequestData* request = FindRequest(subscriber.stream_id);
-    if (!request) {
-      logger->warning << "Request for subscribe response not found";
-      return;
-    }
-
-    // Ensure the request is in the expected state
-    if (request->state != H3RequestState::Active)
-    {
-      logger->warning << "Subscriber not in an active state; cannot unsubscribe"
-                      << std::flush;
-    }
-
-    messages::SubscribeEnd subEnd;
-    subEnd.quicr_namespace = quicr_namespace;
-    subEnd.reason = reason;
-
-    messages::MessageBuffer msg;
-    msg << subEnd;
-
-    // Move the buffer and create a DataBuffer object
-    cantina::OctetString message_buffer = msg.get();
-    cantina::DataBuffer data_buffer(message_buffer.size() +
-                                    sizeof(std::uint64_t));
-
-    // Insert the message length
-    data_buffer.AppendValue(static_cast<std::uint64_t>(message_buffer.size()));
-    data_buffer.AppendValue(message_buffer);
-
-    // Send the message indicating the subscription has ended
-    QuicheCall(quiche_h3_send_body,
-               http3_connection,
-               quiche_connection,
-               subscriber.stream_id,
-               data_buffer.GetBufferPointer(),
-               data_buffer.GetDataLength(),
-               true);
-
-    // Remove the subscription record
-    ExpungeRequest(subscriber.stream_id);
-
-    // Remove the subscription record
-    pub_sub_registry->Expunge(subscriber.identifier);
-
-    // Dispatch Quiche messages
-    DispatchMessages(lock);
-  } catch (const std::exception &e) {
-    logger->error
-      << "Unexpected error trying send subscription ended message: "
-      << e.what() << std::flush;
-  } catch (...) {
-    logger->error
-      << "Unexpected error trying send subscription ended message"
-      << std::flush;
-  }
-}
-
-/*
- *  H3ServerConnection::SendNamedObject()
- *
- *  Description:
- *      This function will send an object to the subscriber.
- *
- *  Parameters:
- *      subscriber [in]
- *          The subscriber record from the pub/sub registry for this response.
- *
- *      use_reliable_transport [in]
- *          If true, this datagram will be sent as an amendment to the GET
- *          request for this subscription.  If false, it will be sent as an
- *          HTTP datagram.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *      None.
- */
-void
-H3ServerConnection::SendNamedObject(const PubSubRecord& subscriber,
-                                    bool use_reliable_transport,
-                                    const messages::PublishDatagram& datagram)
-{
-  try
-  {
-    messages::MessageBuffer msg;
-    msg << datagram;
-    cantina::OctetString message = msg.get();
-
-    // Lock the connection object
-    std::unique_lock<std::mutex> lock(connection_lock);
-
-    // If told to use a reliable transport of if the peer does not support
-    // datagrams, the message will be sent reliably
-    if (use_reliable_transport || !using_datagrams)
-    {
-      cantina::DataBuffer data_buffer(message.size() + sizeof(std::uint64_t));
-
-      // Insert the message length and message
-      data_buffer.AppendValue(static_cast<std::uint64_t>(message.size()));
-      data_buffer.AppendValue(message);
-
-      auto result = QuicheCall(quiche_h3_send_body,
-                               http3_connection,
-                               quiche_connection,
-                               subscriber.stream_id,
-                               data_buffer.GetBufferPointer(),
-                               data_buffer.GetDataLength(),
-                               false);
-      if (result < 0) {
-        logger->warning << "Failed to send named object" << std::flush;
-      }
-    } else {
-      auto result =
-        QuicheCall(quiche_h3_send_dgram,
-                   http3_connection,
-                   quiche_connection,
-                   subscriber.stream_id,
-                   const_cast<std::uint8_t*>(message.data()),
-                   message.size());
-
-      if (result < 0) {
-        logger->warning << "Failed to send datagram" << std::flush;
-      }
-    }
-
-    // Dispatch Quiche messages
-    DispatchMessages(lock);
-  } catch (const std::exception &e) {
-    logger->error
-      << "Unexpected error trying to send named object: "
-      << e.what() << std::flush;
-  } catch (...) {
-    logger->error
-      << "Unexpected error trying to send named object"
-      << std::flush;
-  }
-}
-
-/*
- *  H3ServerConnection::HandleH3ResetEvent()
- *
- *  Description:
- *      This function is called when handling the QUICHE_H3_EVENT_RESET event.
- *
- *  Parameters:
- *      stream_id [in]
- *          QUIC stream on which this event occurred.
- *
- *      event [in]
- *          A pointer to an quiche_h3_event structure for this event.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *      The connection mutex must be locked by the caller.
- */
-void
-H3ServerConnection::HandleH3ResetEvent(QUICStreamID stream_id,
-                                       [[maybe_unused]] quiche_h3_event* event)
-{
-  LOGGER_DEBUG(logger, "[stream " << stream_id << "] H3 - reset");
-}
-
-/*
- *  H3ServerConnection::HandleH3PriorityUpdateEvent()
- *
- *  Description:
- *      This function is called when handling the
- *      QUICHE_H3_EVENT_PRIORITY_UPDATE event.
- *
- *  Parameters:
- *      stream_id [in]
- *          QUIC stream on which this event occurred.
- *
- *      event [in]
- *          A pointer to an quiche_h3_event structure for this event.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *      The connection mutex must be locked by the caller.
- */
-void
-H3ServerConnection::HandleH3PriorityUpdateEvent(
-  QUICStreamID stream_id,
-  [[maybe_unused]] quiche_h3_event* event)
-{
-  LOGGER_DEBUG(logger, "[stream " << stream_id << "] H3 - priority update");
-}
-
-/*
- *  H3ServerConnection::HandleH3DatagramEvent()
- *
- *  Description:
- *      This function is called when handling the QUICHE_H3_EVENT_DATAGRAM
- *      event.
- *
- *  Parameters:
- *      stream_id [in]
- *          QUIC stream on which this event occurred.
- *
- *      event [in]
- *          A pointer to an quiche_h3_event structure for this event.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *      The connection mutex must be locked by the caller.
- */
-void
-H3ServerConnection::HandleH3DatagramEvent(
-  QUICStreamID stream_id,
-  [[maybe_unused]] quiche_h3_event* event)
-{
-  std::uint64_t flow_id{};
-  std::size_t flow_id_length{};
-  cantina::DataBuffer buffer(max_packet_size);
-
-  LOGGER_DEBUG(logger, "[stream " << stream_id << "] H3 - event datagram");
-
-  // It's important to exhaust the queue when this event is triggered; see
-  // https://docs.quic.tech/quiche/h3/enum.Event.html#variant.Datagram
-  while (true) {
-    // Attempt to read the datagrams
-    auto bytes = QuicheCall(quiche_h3_recv_dgram,
-                            http3_connection,
-                            quiche_connection,
-                            &flow_id,
-                            &flow_id_length,
-                            buffer.GetBufferPointer(),
-                            buffer.GetBufferSize());
-
-    // Break out of the loop once done processing the queue
-    if (bytes == QUICHE_ERR_DONE) break;
-
-    // Check if there was an error
-    if (bytes < 0) {
-      logger->warning << "Unable to read datagram on stream " << stream_id << ": "
-                      << bytes << std::flush;
-      continue;
-    }
-
-    // Set the DataBuffer length
-    buffer.SetDataLength(bytes);
-
-    // Ensure there is some actual data to consider
-    if (flow_id_length >= buffer.GetDataLength()) {
-      logger->warning << "Received empty or malformed datagram on stream "
-                      << stream_id << " having flow ID " << flow_id << std::flush;
-      continue;
-    }
-
-    try {
-      // Create an OctetString to contain the message without the leading length
-      cantina::OctetString message(buffer.GetBufferPointer() + flow_id_length,
-                                   buffer.GetBufferPointer() +
-                                     buffer.GetDataLength() - flow_id_length);
-
-      // Move the octet string data into a MessageBuffer
-      messages::MessageBuffer msg(std::move(message));
-
-      // Deserialize the message
-      messages::PublishDatagram datagram;
-      msg >> datagram;
-
-      // Try to find the publisher
-      auto publisher = pub_sub_registry->FindPublisher(datagram.header.name);
-      if (!publisher.has_value())
-      {
-        logger->warning << "Unable to find publisher for name "
-                        << datagram.header.name << std::flush;
-        return;
-      }
-
-      // Create an async event to issue the call to the delegate
-      async_requests->Perform([&, datagram = std::move(datagram)]() mutable {
-        server_delegate.onPublisherObject(publisher->identifier,
-                                          stream_id,
-                                          false,
-                                          std::move(datagram));
-      });
-    } catch (const std::exception& e) {
-      logger->error << "Error processing datagram: " << e.what() << std::flush;
-    } catch (...) {
-      logger->error << "Error processing datagram" << std::flush;
-    }
-  }
-}
-
-/*
- *  H3ServerConnection::HandleH3GoAwayEvent()
- *
- *  Description:
- *      This function is called when handling the QUICHE_H3_EVENT_GOAWAY
- *      event.
- *
- *  Parameters:
- *      stream_id [in]
- *          QUIC stream on which this event occurred.
- *
- *      event [in]
- *          A pointer to an quiche_h3_event structure for this event.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *      The connection mutex must be locked by the caller.
- */
-void
-H3ServerConnection::HandleH3GoAwayEvent(QUICStreamID stream_id,
-                                        [[maybe_unused]] quiche_h3_event* event)
-{
-  LOGGER_DEBUG(logger, "[stream " << stream_id << "] H3 - event go away");
 }
 
 /*
@@ -2212,7 +2198,7 @@ H3ServerConnection::ProcessHeader(QUICStreamID stream_id,
                           << value);
 
   // Find the request structure or create it if it doesn't exist
-  RequestData *request = FindRequest(stream_id, true);
+  RequestData* request = FindRequest(stream_id, true);
 
   // Update the request headers for this request
   request->request_headers[name] = value;
@@ -2278,8 +2264,7 @@ H3ServerConnection::FindRequest(QUICStreamID stream_id, bool create)
   auto iter = requests.find(stream_id);
 
   // Not found?
-  if (iter == requests.end())
-  {
+  if (iter == requests.end()) {
     // If not creating, return nullptr
     if (!create) return nullptr;
 

@@ -15,6 +15,11 @@
 
 #pragma once
 
+#include "quiche.h"
+#include "quicr/quicr_server_delegate.h"
+#include "quicr/quicr_server_session.h"
+#include "quicr_server_h3_connection.h"
+#include "transport/transport.h"
 #include <condition_variable>
 #include <map>
 #include <mutex>
@@ -22,24 +27,20 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include "cantina/async_requests.h"
 #include "cantina/logger.h"
 #include "cantina/network.h"
 #include "cantina/timer_manager.h"
-#include "cantina/async_requests.h"
-#include "transport/transport.h"
-#include "quicr/quicr_server_delegate.h"
-#include "quicr/quicr_server_session.h"
-#include "quicr_server_h3_connection.h"
-#include "quic_identifier.h"
-#include "quiche.h"
 #include "pub_sub_registry.h"
+#include "quic_identifier.h"
 
 /*
  * QUICR Server H3 Session Interface
  */
 namespace quicr {
 
-// Define an exception class for QuicRServerH3SessionException-related exceptions
+// Define an exception class for QuicRServerH3SessionException-related
+// exceptions
 class QuicRServerH3SessionException : public std::runtime_error
 {
   using std::runtime_error::runtime_error;
@@ -52,7 +53,9 @@ protected:
   static constexpr std::size_t Connection_ID_Len{ 20 };
   static constexpr std::uint64_t Connection_Timeout{ 5'000 }; // ms
   static constexpr std::uint64_t Heartbeat_Interval{ Connection_Timeout / 3 };
-  static constexpr std::size_t Max_Packet_Size{ 1350 };
+  static constexpr std::size_t Max_Packet_Size{
+    std::min(std::size_t(1350), std::size_t(MAX_TRANSPORT_DATA_SIZE))
+  };
 
 public:
   QuicRServerH3Session(RelayInfo& relay_info,
@@ -66,79 +69,23 @@ public:
   // Functions to satisfy the QuicRServer interface
   ////////////////////////////////////////////////////////////////////////////
 
-  // Transport API
   bool is_transport_ready() override;
-
-  /**
-   * @brief Run Server API event loop
-   *
-   * @details This method will open listening sockets and run an event loop
-   *    for callbacks.
-   *
-   * @returns true if error, false if no error
-   */
   bool run() override;
-
-  /**
-   * @brief Send publish intent response
-   *
-   * @param quicr_namespace       : Identifies QUICR namespace
-   * @param result                : Status of Publish Intetn
-   *
-   * @details Entities processing the Subscribe Request MUST validate the
-   * request
-   * @todo: Add payload with origin signed blob
-   */
   void publishIntentResponse(const quicr::Namespace& quicr_namespace,
                              const PublishIntentResult& result) override;
-
-  /**
-   * @brief Send subscribe response
-   *
-   * @details Entities processing the Subscribe Request MUST validate the
-   * request
-   *
-   * @param subscriber_id         : Subscriber ID to send the message to
-   * @param quicr_namespace       : Identifies QUICR namespace
-   * @param result                : Status of Subscribe operation
-   *
-   */
   void subscribeResponse(const uint64_t& subscriber_id,
                          const quicr::Namespace& quicr_namespace,
                          const SubscribeResult& result) override;
-
-  /**
-   * @brief Send subscription end message
-   *
-   * @details  Subscription can terminate when a publisher terminated
-   *           the stream or subscription timeout, upon unsubscribe,
-   *           or other application reasons
-   *
-   * @param subscriber_id         : Subscriber ID to send the message to
-   * @param quicr_namespace       : Identifies QUICR namespace
-   * @param reason                : Reason of Subscribe End operation
-   *
-   */
   void subscriptionEnded(
     const uint64_t& subscriber_id,
     const quicr::Namespace& quicr_namespace,
     const SubscribeResult::SubscribeStatus& reason) override;
-
-  /**
-   * @brief Send a named QUICR media object
-   *
-   * @param subscriber_id            : Subscriber ID to send the message to
-   * @param use_reliable_transport   : Indicates the preference for the object's
-   *                                   transport, if forwarded.
-   * @param datagram                 : QuicR Publish Datagram to send
-   *
-   */
   void sendNamedObject(const uint64_t& subscriber_id,
                        bool use_reliable_transport,
                        const messages::PublishDatagram& datagram) override;
 
   ////////////////////////////////////////////////////////////////////////////
-  // End of Interface Functions
+  // End of Functions to satisfy the QuicRServer interface
   ////////////////////////////////////////////////////////////////////////////
 
 protected:

@@ -13,16 +13,17 @@
  *
  */
 
-#include <memory>
-#include <chrono>
-#include <functional>
-#include <sstream>
 #include "quicr_server_h3_session.h"
-#include "cantina/memory_manager.h"
 #include "cantina/logger_macros.h"
+#include "cantina/memory_allocator.h"
+#include "cantina/memory_manager.h"
 #include "quic_identifier.h"
 #include "quiche_api_lock.h"
 #include "quiche_types.h"
+#include <chrono>
+#include <functional>
+#include <memory>
+#include <sstream>
 
 namespace quicr {
 
@@ -61,10 +62,14 @@ QuicRServerH3Session::QuicRServerH3Session(
   , timer_manager{ nullptr }
   , network{ nullptr }
   , server_delegate{ server_delegate }
-  , certificate{ transport_config.tls_cert_filename }
-  , certificate_key{ transport_config.tls_key_filename }
+  , certificate{ (transport_config.tls_cert_filename
+                    ? transport_config.tls_cert_filename
+                    : "") }
+  , certificate_key{ (transport_config.tls_key_filename
+                        ? transport_config.tls_key_filename
+                        : "") }
   , server_config{ nullptr }
-  , data_socket{0}
+  , data_socket{ 0 }
   , generator{ std::random_device()() }
   , network_registration{}
   , pub_sub_registry{ std::make_shared<PubSubRegistry>() }
@@ -100,19 +105,16 @@ QuicRServerH3Session::QuicRServerH3Session(
     transport_logger.log(log_level, message);
   };
 
-  // Create the logging object
-  logger =
-    std::make_shared<cantina::CustomLogger>(logging_function);
+  // Create a custom logging object to interface with the libquicr logger
+  logger = std::make_shared<cantina::CustomLogger>("H3", logging_function);
 
   logger->info << "QuicRServerH3Session starting" << std::flush;
 
   // Create a thread pool for use by the Network and TimerManager
-  auto thread_pool =
-    std::make_shared<cantina::ThreadPool>(logger, 5, 10);
+  auto thread_pool = std::make_shared<cantina::ThreadPool>(logger, 5, 10);
 
   // Create the TimerManager object
-  timer_manager =
-            std::make_shared<cantina::TimerManager>(logger, thread_pool);
+  timer_manager = std::make_shared<cantina::TimerManager>(logger, thread_pool);
 
   // Create an AsyncRequests object to facilitate asynchronous callbacks
   async_requests = std::make_shared<cantina::AsyncRequests>(thread_pool);
@@ -128,6 +130,7 @@ QuicRServerH3Session::QuicRServerH3Session(
     false,
     true,
     true);
+  MemoryAllocatorInitialize(memory_manager);
 
   // Define the local address on which to listen
   cantina::NetworkAddress listen_address(relay_info.hostname, relay_info.port);
@@ -220,11 +223,22 @@ QuicRServerH3Session::~QuicRServerH3Session()
   // Close the network data socket
   network->CloseSocket(data_socket);
 
-  // Wait for asynchronous requests to complete
-  async_requests.reset();
-
   // Release the configuration
   quiche_config_free(server_config);
+
+  // Destroy objects created
+  // TODO: This is required only because the qtransport logger is provided
+  //       as a reference and then that reference is access when the
+  //       MemoryManager terminates.  Resetting these objects forces
+  //       destruction.
+  network.reset();
+  cantina::MemoryAllocatorInitialize(
+    std::make_shared<cantina::MemoryManager>(cantina::MemoryPoolConfig{}),
+    true);
+  timer_manager.reset();
+
+  // Wait for asynchronous requests to complete
+  async_requests.reset();
 
   logger->info << "QuicRServerH3Session terminated" << std::flush;
 }
@@ -713,7 +727,7 @@ QuicRServerH3Session::NegotiateVersion(const QUICConnectionID& scid,
  *  QuicRServerH3Session::RequestRetry()
  *
  *  Description:
- *      This function will respond to a client's initial message and requesting
+ *      This function will respond to a client's initial message and request
  *      a Retry packet.
  *
  *  Parameters:
@@ -870,8 +884,7 @@ QuicRServerH3Session::ValidateToken(const QUICToken& token,
  *  QuicRServerH3Session::CreateConnectionID()
  *
  *  Description:
- *      This function will respond to a client's initial message and requesting
- *      a Retry packet.
+ *      This function will create a new QUIC connection identifier.
  *
  *  Parameters:
  *      None.
@@ -960,7 +973,7 @@ QuicRServerH3Session::publishIntentResponse(
 {
   // Locate the connection associated with this namespace
   auto publisher = pub_sub_registry->FindPublisher(quicr_namespace);
-  if (!publisher.has_value())  {
+  if (!publisher.has_value()) {
     logger->warning << "Could not find publisher record" << std::endl;
     return;
   }
@@ -1138,8 +1151,7 @@ QuicRServerH3Session::sendNamedObject(const uint64_t& subscriber_id,
 
   // If connection not found, just return
   if (item == connections.end()) {
-    logger->warning << "sendNamedObject could not find connection"
-                    << std::endl;
+    logger->warning << "sendNamedObject could not find connection" << std::endl;
     return;
   }
 
@@ -1151,9 +1163,7 @@ QuicRServerH3Session::sendNamedObject(const uint64_t& subscriber_id,
 
   // Forward the reason to the connection, passing the subscriber record to
   // avoid a second query by the connection object
-  connection->SendNamedObject(*subscriber,
-                              use_reliable_transport,
-                              datagram);
+  connection->SendNamedObject(*subscriber, use_reliable_transport, datagram);
 }
 
 ////////////////////////////////////////////////////////////////////////////

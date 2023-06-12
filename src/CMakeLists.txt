@@ -4,6 +4,8 @@ add_library(quicr
             pub_sub_registry.cpp
             quicr_client.cpp
             quicr_client_raw_session.cpp
+            quicr_client_h3_session.cpp
+            quicr_client_h3_connection.cpp
             quicr_server.cpp
             quicr_server_raw_session.cpp
             quicr_server_h3_session.cpp
@@ -38,5 +40,6 @@ target_link_libraries(quicr
         qname
         cantina::logger
         cantina::networking
+        cantina::sorted
         quiche_library)
 target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include)

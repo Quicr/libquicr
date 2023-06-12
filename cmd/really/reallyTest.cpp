@@ -134,11 +134,23 @@ main(int argc, char* argv[])
 
   quicr::RelayInfo relay{ .hostname = relayName,
                           .port = uint16_t(port),
-                          .proto = quicr::RelayInfo::Protocol::QUIC };
+                          .proto = quicr::RelayInfo::Protocol::H3 };
 
   qtransport::TransportConfig tcfg{ .tls_cert_filename = NULL,
                                     .tls_key_filename = NULL };
   quicr::QuicRClient client(relay, tcfg, logger);
+
+  // Wait until the connection is established
+  while(client.status() != quicr::ClientStatus::READY)
+  {
+    static bool logged_waiting = false;
+    if (!logged_waiting)
+    {
+      logger.log(qtransport::LogLevel::info, "Waiting for connection");
+      logged_waiting = true;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
 
   if (data.size() > 0) {
     auto nspace = quicr::Namespace(name, 96);

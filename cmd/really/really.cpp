@@ -131,7 +131,7 @@ public:
   {
     quicr::RelayInfo relayInfo = { .hostname = "127.0.0.1",
                                    .port = 1234,
-                                   .proto = quicr::RelayInfo::Protocol::QUIC };
+                                   .proto = quicr::RelayInfo::Protocol::H3 };
 
     qtransport::TransportConfig tcfg{ .tls_cert_filename = "./server-cert.pem",
                                       .tls_key_filename = "./server-key.pem" };

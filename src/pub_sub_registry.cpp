@@ -91,12 +91,16 @@ PubSubRegistry::Publish(const QUICConnectionID& connection_id,
   auto record_id = GetNextID();
 
   // Insert the publisher record
-  pub_sub_records[record_id] = {
-    record_id,       true,
-    connection_id,   stream_id,
-    quicr_namespace, client_transaction_id,
-    pub_delegate,    std::weak_ptr<SubscriberDelegate>()
-  };
+  pub_sub_records[record_id] = { .identifier = record_id,
+                                 .publisher = true,
+                                 .connection_id = connection_id,
+                                 .stream_id = stream_id,
+                                 .quicr_namespace = quicr_namespace,
+                                 .transaction_id = client_transaction_id,
+                                 .pub_delegate = pub_delegate,
+                                 .sub_delegate =
+                                   std::weak_ptr<SubscriberDelegate>() };
+
   publisher_map[quicr_namespace] = record_id;
   connection_map[connection_id].push_back(record_id);
 
@@ -152,11 +156,16 @@ PubSubRegistry::Subscribe(
   auto record_id = GetNextID();
 
   // Insert the subscriber record
-  pub_sub_records[record_id] = { record_id,       false,
-                                 connection_id,   stream_id,
-                                 quicr_namespace, client_transaction_id,
-                                 std::weak_ptr<PublisherDelegate>(),
-                                 sub_delegate };
+  pub_sub_records[record_id] = { .identifier = record_id,
+                                 .publisher = false,
+                                 .connection_id = connection_id,
+                                 .stream_id = stream_id,
+                                 .quicr_namespace = quicr_namespace,
+                                 .transaction_id = client_transaction_id,
+                                 .pub_delegate =
+                                   std::weak_ptr<PublisherDelegate>(),
+                                 .sub_delegate = sub_delegate };
+
   subscriber_map[quicr_namespace].push_back(record_id);
   connection_map[connection_id].push_back(record_id);
 
