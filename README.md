@@ -1,6 +1,8 @@
 libquicr
 ========
 
+[![CMake](https://github.com/Quicr/libquicr/actions/workflows/cmake.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/cmake.yml)
+
 Implementation of transport layer api based on QuicR.
 Please see for further details
 [QuicR Protocol](https://www.ietf.org/id/draft-jennings-moq-quicr-proto-01.html)
@@ -60,7 +62,7 @@ docker run --rm \
 
 For now, it's best to run the binaries in interactive shell.  The images have been built for linux.  Run
 the image in interactive mode to access the shell prompt.  From there you can access the binaries.
-```quicrq``` and others are located under ```/ws/```.   For example, you can run ```/ws/quircq/quicrq_app``` binary. 
+```quicrq``` and others are located under ```/ws/```.   For example, you can run ```/ws/quircq/quicrq_app``` binary.
 
 ```
 docker run --rm -it \
