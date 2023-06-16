@@ -93,13 +93,14 @@ public:
                      const PubSubRegistryPointer& pub_sub_registry,
                      ServerDelegate& server_delegate,
                      socket_t data_socket,
-                     std::size_t max_packet_size,
+                     std::size_t max_send_size,
+                     std::size_t max_recv_size,
                      const QUICConnectionID& local_cid,
                      const QUICConnectionID& remote_cid,
                      const cantina::NetworkAddress& local_address,
                      quiche_conn* quiche_connection,
                      std::uint64_t heartbeat_interval,
-                     const ClosureCallback& closure_callback);
+                     const ClosureCallback closure_callback);
   ~H3ServerConnection();
 
   void ProcessPacket(cantina::DataPacket& data_packet);
@@ -202,7 +203,8 @@ protected:
   PubSubRegistryPointer pub_sub_registry;       // Pub/Sub Registry
   ServerDelegate& server_delegate;              // Server delegate
   const socket_t data_socket;                   // Socket for communication
-  std::size_t max_packet_size;                  // Max size of data packets
+  std::size_t max_send_size;                    // Max sending packet size
+  std::size_t max_recv_size;                    // Max receiving packet size
   bool using_datagrams;                         // Connection using datagrams?
   const QUICConnectionID local_cid;             // Server's connection ID
   const QUICConnectionID remote_cid;            // Client connection ID

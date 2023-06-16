@@ -1,6 +1,7 @@
 add_library(quicr
             message_buffer.cpp
             encode.cpp
+            fragment_assembler.cpp
             pub_sub_registry.cpp
             quicr_client.cpp
             quicr_client_raw_session.cpp
@@ -10,8 +11,6 @@ add_library(quicr
             quicr_server_raw_session.cpp
             quicr_server_h3_session.cpp
             quicr_server_h3_connection.cpp
-            quicr_name.cpp
-            quicr_namespace.cpp
             quiche_api_lock.cpp
             quiche_types.cpp)
 

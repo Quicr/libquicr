@@ -121,11 +121,13 @@ QuicRServerH3Session::QuicRServerH3Session(
 
   // Create a MemoryManager for use by Network
   auto memory_manager = std::make_shared<cantina::MemoryManager>(
+    // clang-format off
     cantina::MemoryPoolConfig{
-      { 256, 0 },
-      { Max_Recv_Size, 5 },
-      { 65536, 0 },
+      { 256,           10 },
+      { Max_Recv_Size,  5 },
+      { 65536,          2 },
     },
+    // clang-format on
     logger,
     false,
     true,
@@ -296,8 +298,8 @@ QuicRServerH3Session::ConfigureQuiche()
   quiche_config_set_max_idle_timeout(server_config, Connection_Timeout);
 
   // Define max send/receive UDP buffer sizes
-  quiche_config_set_max_recv_udp_payload_size(server_config, Max_Packet_Size);
-  quiche_config_set_max_send_udp_payload_size(server_config, Max_Packet_Size);
+  quiche_config_set_max_recv_udp_payload_size(server_config, Max_Recv_Size);
+  quiche_config_set_max_send_udp_payload_size(server_config, Max_Recv_Size);
 
   // Set the size of the incoming buffer stream
   quiche_config_set_initial_max_data(server_config, 10'000'000);
@@ -554,7 +556,8 @@ QuicRServerH3Session::HandleNewConnection(std::uint32_t version,
       pub_sub_registry,
       server_delegate,
       data_socket,
-      Max_Packet_Size,
+      Max_Send_Size,
+      Max_Recv_Size,
       dcid,
       scid,
       local_address,
@@ -696,7 +699,7 @@ QuicRServerH3Session::NegotiateVersion(const QUICConnectionID& scid,
                                        const QUICConnectionID& dcid,
                                        const cantina::NetworkAddress& client)
 {
-  cantina::DataPacket version_packet(Max_Packet_Size);
+  cantina::DataPacket version_packet(Max_Recv_Size);
   ssize_t size;
 
   // Negotiate the version by creating a version negotiation packet
@@ -755,7 +758,7 @@ QuicRServerH3Session::RequestRetry(std::uint32_t version,
                                    const QUICConnectionID& dcid,
                                    const cantina::NetworkAddress& client)
 {
-  cantina::DataPacket retry_packet(Max_Packet_Size);
+  cantina::DataPacket retry_packet(Max_Recv_Size);
   ssize_t size;
 
   // Create a token

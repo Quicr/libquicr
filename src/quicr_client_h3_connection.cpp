@@ -13,8 +13,6 @@
  *             needed for H3 since there is a transport-level keep-alive.
  *             Just suppress those redundant SUBSCRIBE requests.
  *
- *             Object fragmentation is presently not implemented. (TODO)
- *
  *  Portability Issues:
  *      None.
  *
@@ -57,8 +55,11 @@ namespace quicr {
  *      data_socket [in]
  *          Socket over which communication exchanges occur.
  *
- *      max_packet_size [in]
+ *      max_send_size [in]
  *          Maximum size of data packets to transmit.
+ *
+ *      max_recv_size [in]
+ *          Maximum size of data packets to receive.
  *
  *      use_datagrams [in]
  *          Use datagrams is peer supports them.
@@ -99,14 +100,15 @@ H3ClientConnection::H3ClientConnection(
   const cantina::NetworkPointer& network,
   const PubSubRegistryPointer& pub_sub_registry,
   socket_t data_socket,
-  std::size_t max_packet_size,
+  std::size_t max_send_size,
+  std::size_t max_recv_size,
   bool use_datagrams,
   const QUICConnectionID& local_cid,
   const cantina::NetworkAddress& local_address,
   const std::string& hostname,
   quiche_conn* quiche_connection,
   std::uint64_t heartbeat_interval,
-  const ClosureCallback& closure_callback,
+  const ClosureCallback closure_callback,
   const cantina::RegistrationID& registration_id)
   : terminate{ false }
   , logger{ std::make_shared<cantina::Logger>(std::string("CNCT:") +
@@ -117,7 +119,8 @@ H3ClientConnection::H3ClientConnection(
   , network{ network }
   , pub_sub_registry{ pub_sub_registry }
   , data_socket{ data_socket }
-  , max_packet_size{ max_packet_size }
+  , max_send_size{ max_send_size }
+  , max_recv_size{ max_recv_size }
   , use_datagrams{ use_datagrams }
   , using_datagrams{ false }
   , local_cid{ local_cid }
@@ -617,7 +620,7 @@ void
 H3ClientConnection::QuicheEmitQUICMessages(std::unique_lock<std::mutex>& lock)
 {
   // Create the data packet for sending messages
-  cantina::DataPacket data_packet(max_packet_size);
+  cantina::DataPacket data_packet(max_recv_size);
 
   // Unlock the mutex
   lock.unlock();
@@ -843,11 +846,11 @@ H3ClientConnection::QuicheHTTP3EventHandler(std::unique_lock<std::mutex>& lock)
     }
     auto max_quiche_datagram =
       quiche_conn_dgram_max_writable_len(quiche_connection);
-    if ((max_quiche_datagram > 0) &&
-        (static_cast<std::size_t>(max_quiche_datagram) < max_packet_size)) {
-      logger->info << "Max datagram size is: " << max_quiche_datagram
-                   << std::flush;
-      max_packet_size = max_quiche_datagram;
+    if (max_quiche_datagram > 0) {
+      max_send_size =
+        std::min(static_cast<std::size_t>(max_quiche_datagram), max_send_size);
+      logger->info << "Max quiche datagram size is " << max_quiche_datagram
+                   << ", using " << max_send_size << std::flush;
     }
   }
 
@@ -1013,7 +1016,7 @@ void
 H3ClientConnection::HandleH3DataEvent(QUICStreamID stream_id,
                                       [[maybe_unused]] quiche_h3_event* event)
 {
-  std::vector<std::uint8_t> buffer(max_packet_size);
+  std::vector<std::uint8_t> buffer(max_recv_size);
 
   LOGGER_DEBUG(logger, "[stream " << stream_id << "] H3 - data event");
 
@@ -1034,7 +1037,7 @@ H3ClientConnection::HandleH3DataEvent(QUICStreamID stream_id,
                                 quiche_connection,
                                 stream_id,
                                 buffer.data(),
-                                max_packet_size);
+                                max_recv_size);
 
     if (length <= 0) break;
 
@@ -1203,7 +1206,7 @@ H3ClientConnection::HandleH3DatagramEvent(
 {
   std::uint64_t flow_id{};
   std::size_t flow_id_length{};
-  cantina::DataBuffer buffer(max_packet_size);
+  cantina::DataBuffer buffer(max_recv_size);
 
   LOGGER_DEBUG(logger, "[stream " << stream_id << "] H3 - event datagram");
 
@@ -1260,8 +1263,6 @@ H3ClientConnection::HandleH3DatagramEvent(
     std::vector<std::uint8_t> message(
       buffer.GetBufferPointer() + flow_id_length,
       buffer.GetBufferPointer() + buffer.GetDataLength());
-
-    // TODO: this does NOT presently handle packet fragmentation
 
     // Forward the published object
     HandleSubscribedObject(flow_id, false, message);
@@ -1577,13 +1578,6 @@ H3ClientConnection::HandleSubscribedObject(QUICStreamID stream_id,
                                            std::vector<std::uint8_t>& object)
 {
   try {
-    // Move the message body into msg
-    messages::MessageBuffer msg(std::move(object));
-
-    // Process the received message
-    messages::PublishDatagram datagram;
-    msg >> datagram;
-
     // Locate the subscriber record
     auto subscriber = pub_sub_registry->FindSubscriber(local_cid, stream_id);
 
@@ -1601,6 +1595,28 @@ H3ClientConnection::HandleSubscribedObject(QUICStreamID stream_id,
     if (!subscriber_delegate) {
       logger->warning << "Unable to get the subscriber delegate" << std::flush;
       return;
+    }
+
+    // Move the message body into msg
+    messages::MessageBuffer msg(std::move(object));
+
+    // Process the received message
+    messages::PublishDatagram datagram;
+    msg >> datagram;
+
+    // Ensure there is some data
+    if (datagram.media_data.empty()) {
+      logger->warning << "HandleSubscribedObject received an empty object"
+                      << std::flush;
+      return;
+    }
+
+    // If this is a fragment received via an unreliable transport, feed it to
+    // the fragment assembler
+    if (!reliable_transport &&
+        (datagram.header.offset_and_fin != uintVar_t(0x1))) {
+      datagram.media_data = fragment_assembler.ConsumeFragment(datagram);
+      if (datagram.media_data.empty()) return;
     }
 
     // Place a callback to deliver the publish intent response
@@ -2248,6 +2264,12 @@ H3ClientConnection::PublishNamedObject(const quicr::Name& quicr_name,
 {
   messages::MessageBuffer msg;
 
+  // If the data is empty, don't waste time
+  if (data.empty()) {
+    logger->warning << "Attempt to send an empty named object" << std::flush;
+    return;
+  }
+
   // Lock the client mutex
   std::unique_lock<std::mutex> lock(connection_lock);
 
@@ -2263,6 +2285,13 @@ H3ClientConnection::PublishNamedObject(const quicr::Name& quicr_name,
   if (!publisher.has_value()) {
     logger->warning << "PublishNamedObject could not find publisher for name "
                     << quicr_name << std::flush;
+    return;
+  }
+
+  // If using datagrams and the message is large, send it in pieces
+  if (!use_reliable_transport && using_datagrams &&
+      (data.size() > max_send_size)) {
+    PublishNamedObjectFragmented(lock, *publisher, quicr_name, std::move(data));
     return;
   }
 
@@ -2297,8 +2326,6 @@ H3ClientConnection::PublishNamedObject(const quicr::Name& quicr_name,
 
   // Send as a datagram?
   if (!use_reliable_transport && using_datagrams) {
-    // TODO: fragmentation is not supported yet
-
     auto result = QuicheCall(quiche_h3_send_dgram,
                              http3_connection,
                              quiche_connection,
@@ -2329,6 +2356,136 @@ H3ClientConnection::PublishNamedObject(const quicr::Name& quicr_name,
   } else {
     logger->warning << "Failed to send published message reliably on stream "
                     << stream_id << std::flush;
+  }
+}
+
+/*
+ *  H3ClientConnection::PublishNamedObjectFragmented
+ *
+ *  Description:
+ *      Publish messages by sending datagrams in fragments.
+ *
+ *  Parameters:
+ *      lock [in]
+ *          Unique lock object holding a lock to the connection mutex.  This
+ *          may be unlocked by this function to facilitate dispatching messages.
+ *
+ *      publisher [in]
+ *          The publisher record for this request.
+ *
+ *      quicr_name [in]
+ *          The QUICR name for the published object.
+ *
+ *      bytes [in]
+ *          The data to be published.
+ *
+ *  Returns:
+ *      Nothing.
+ *
+ *  Comments:
+ *      The connection mutex MUST be locked by the caller.
+ */
+void
+H3ClientConnection::PublishNamedObjectFragmented(
+  std::unique_lock<std::mutex>& lock,
+  const PubSubRecord& publisher,
+  const quicr::Name& quicr_name,
+  bytes&& data)
+{
+  try {
+    // Construct the datagram
+    messages::PublishDatagram datagram;
+    datagram.header.name = quicr_name;
+    datagram.header.media_id = static_cast<uintVar_t>(publisher.identifier);
+    datagram.header.group_id = static_cast<uintVar_t>(0);
+    datagram.header.object_id = static_cast<uintVar_t>(0);
+    datagram.header.flags = 0x0;
+    datagram.header.offset_and_fin = static_cast<uintVar_t>(1);
+    datagram.media_type = messages::MediaType::RealtimeMedia;
+
+    // Determine the number of fragments
+    std::size_t frag_num = (data.size() / max_send_size) + 1;
+    std::size_t frag_remaining_bytes = data.size() % max_send_size;
+
+    std::size_t offset = 0;
+
+    while (--frag_num > 0) {
+      messages::MessageBuffer msg;
+
+      if (frag_num == 1 && !frag_remaining_bytes) {
+        datagram.header.offset_and_fin = (offset << 1) + 1;
+      } else {
+        datagram.header.offset_and_fin = offset << 1;
+      }
+
+      bytes frag_data(data.begin() + offset,
+                      data.begin() + offset + max_send_size);
+
+      datagram.media_data_length = frag_data.size();
+      datagram.media_data = std::move(frag_data);
+
+      msg << datagram;
+
+      offset += max_send_size;
+
+      // Move the buffer from the message
+      std::vector<std::uint8_t> buffer = msg.get();
+
+      // Send the packet to quiche
+      auto result = QuicheCall(quiche_h3_send_dgram,
+                               http3_connection,
+                               quiche_connection,
+                               publisher.stream_id,
+                               buffer.data(),
+                               buffer.size());
+
+      if (result < 0) {
+        logger->warning << "Failed to send datagram for fragment" << std::flush;
+        return;
+      }
+
+      // Dispatch quiche messages
+      DispatchMessages(lock);
+    }
+
+    // Send last fragment, which will be less than max_send_size
+    if (frag_remaining_bytes) {
+      messages::MessageBuffer msg;
+      datagram.header.offset_and_fin = uintVar_t((offset << 1) + 1);
+
+      bytes frag_data(data.begin() + offset, data.end());
+      datagram.media_data_length = static_cast<uintVar_t>(frag_data.size());
+      datagram.media_data = std::move(frag_data);
+
+      msg << datagram;
+
+      // Move the buffer from the message
+      std::vector<std::uint8_t> buffer = msg.get();
+
+      // Send the packet to quiche
+      auto result = QuicheCall(quiche_h3_send_dgram,
+                               http3_connection,
+                               quiche_connection,
+                               publisher.stream_id,
+                               buffer.data(),
+                               buffer.size());
+
+      if (result < 0) {
+        logger->warning << "Failed to send datagram for fragment" << std::flush;
+        return;
+      }
+
+      // Dispatch quiche messages
+      DispatchMessages(lock);
+    }
+  } catch (const std::exception& e) {
+    logger->error << "PublishNamedObjectFragmented exception encoding message: "
+                  << e.what() << std::flush;
+    return;
+  } catch (...) {
+    logger->error << "PublishNamedObjectFragmented exception encoding message"
+                  << std::flush;
+    return;
   }
 }
 

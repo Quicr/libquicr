@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include "fragment_assembler.h"
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -95,14 +96,15 @@ public:
                      const cantina::NetworkPointer& network,
                      const PubSubRegistryPointer& pub_sub_registry,
                      socket_t data_socket,
-                     std::size_t max_packet_size,
+                     std::size_t max_send_size,
+                     std::size_t max_recv_size,
                      bool use_datagrams,
                      const QUICConnectionID& local_cid,
                      const cantina::NetworkAddress& local_address,
                      const std::string& hostname,
                      quiche_conn* quiche_connection,
                      std::uint64_t heartbeat_interval,
-                     const ClosureCallback& closure_callback,
+                     const ClosureCallback closure_callback,
                      const cantina::RegistrationID& registration_id);
   ~H3ClientConnection();
   void ProcessPacket(cantina::DataPacket& data_packet);
@@ -229,6 +231,11 @@ protected:
     return 0;
   }
 
+  void PublishNamedObjectFragmented(std::unique_lock<std::mutex>& lock,
+                                    const PubSubRecord& publisher,
+                                    const quicr::Name& quicr_name,
+                                    bytes&& data);
+
   // Return true if the HTTP status code indicates success
   constexpr bool IsSuccess(unsigned status_code)
   {
@@ -243,7 +250,8 @@ protected:
   cantina::NetworkPointer network;               // Network object
   PubSubRegistryPointer pub_sub_registry;        // Pub/Sub Registry
   const socket_t data_socket;                    // Socket for communication
-  std::size_t max_packet_size;                   // Max size of data packets
+  std::size_t max_send_size;                     // Max sending packet size
+  const std::size_t max_recv_size;               // Max receiving packet size
   bool use_datagrams;                            // Attempt to use datagrams?
   bool using_datagrams;                          // Connection using datagrams?
   QUICConnectionID local_cid;                    // Connection ID
@@ -266,6 +274,7 @@ protected:
   cantina::TimerID heartbeat_timer;             // Heartbeat (keepalive) timer
   std::map<QUICStreamID, RequestData> requests; // Request information
   std::map<std::uint64_t, std::uint64_t> connection_settings;
+  FragmentAssembler fragment_assembler;         // Datagram fragment assembler
   // Connections settings
   std::mutex connection_lock; // Connection syncronization
 };

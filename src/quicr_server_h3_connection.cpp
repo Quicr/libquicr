@@ -78,8 +78,11 @@ namespace quicr {
  *      server_delegate [in]
  *          A reference to the server delegate to which callbacks are made.
  *
- *      max_packet_size [in]
+ *      max_send_size [in]
  *          Maximum size of data packets to transmit.
+ *
+ *      max_recv_size [in]
+ *          Maximum size of data packets to receive.
  *
  *      local_cid [in]
  *          Local (server) connection ID.
@@ -115,13 +118,14 @@ H3ServerConnection::H3ServerConnection(
   const PubSubRegistryPointer& pub_sub_registry,
   ServerDelegate& server_delegate,
   socket_t data_socket,
-  std::size_t max_packet_size,
+  std::size_t max_send_size,
+  std::size_t max_recv_size,
   const QUICConnectionID& local_cid,
   const QUICConnectionID& remote_cid,
   const cantina::NetworkAddress& local_address,
   quiche_conn* quiche_connection,
   std::uint64_t heartbeat_interval,
-  const ClosureCallback& closure_callback)
+  const ClosureCallback closure_callback)
   : terminate{ false }
   , logger{ std::make_shared<cantina::Logger>(std::string("CNCT:") +
                                                 local_cid.SuffixString(),
@@ -132,7 +136,8 @@ H3ServerConnection::H3ServerConnection(
   , pub_sub_registry{ pub_sub_registry }
   , server_delegate{ server_delegate }
   , data_socket{ data_socket }
-  , max_packet_size{ max_packet_size }
+  , max_send_size{ max_send_size }
+  , max_recv_size{ max_recv_size }
   , using_datagrams{ false }
   , local_cid{ local_cid }
   , remote_cid{ remote_cid }
@@ -251,9 +256,10 @@ H3ServerConnection::PublishEndNotify(const PubSubRecord& publisher)
 {
   try {
     // Create an async event to issue the call to the delegate
-    async_requests->Perform([this, publisher = publisher]() {
-      server_delegate.onPublishIntentEnd(publisher.quicr_namespace, {}, {});
-    });
+    async_requests->Perform(
+      [server_delegate = &server_delegate, publisher = publisher]() {
+        server_delegate->onPublishIntentEnd(publisher.quicr_namespace, {}, {});
+      });
   } catch (const std::exception& e) {
     logger->error << "Failed to remove publisher: " << e.what() << std::flush;
   } catch (...) {
@@ -287,10 +293,11 @@ H3ServerConnection::UnsubscribeNotify(const PubSubRecord& subscriber)
 {
   try {
     // Create an async event to issue the call to the delegate
-    async_requests->Perform([this, subscriber = subscriber]() {
-      server_delegate.onUnsubscribe(
-        subscriber.quicr_namespace, subscriber.identifier, {});
-    });
+    async_requests->Perform(
+      [server_delegate = &server_delegate, subscriber = subscriber]() {
+        server_delegate->onUnsubscribe(
+          subscriber.quicr_namespace, subscriber.identifier, {});
+      });
   } catch (const std::exception& e) {
     logger->error << "Failed to perform unsubscribe: " << e.what()
                   << std::flush;
@@ -959,7 +966,7 @@ void
 H3ServerConnection::QuicheEmitQUICMessages(std::unique_lock<std::mutex>& lock)
 {
   // Create the data packet for sending messages
-  cantina::DataPacket data_packet(max_packet_size);
+  cantina::DataPacket data_packet(max_recv_size);
 
   // Unlock the mutex
   lock.unlock();
@@ -1178,11 +1185,11 @@ H3ServerConnection::QuicheHTTP3EventHandler(std::unique_lock<std::mutex>& lock)
     }
     auto max_quiche_datagram =
       quiche_conn_dgram_max_writable_len(quiche_connection);
-    if ((max_quiche_datagram > 0) &&
-        (static_cast<std::size_t>(max_quiche_datagram) < max_packet_size)) {
-      logger->info << "Max datagram size is: " << max_quiche_datagram
-                   << std::flush;
-      max_packet_size = max_quiche_datagram;
+    if (max_quiche_datagram > 0) {
+      max_send_size =
+        std::min(static_cast<std::size_t>(max_quiche_datagram), max_send_size);
+      logger->info << "Max quiche datagram size is " << max_quiche_datagram
+                   << ", using " << max_send_size << std::flush;
     }
   }
 
@@ -1328,7 +1335,7 @@ void
 H3ServerConnection::HandleH3DataEvent(QUICStreamID stream_id,
                                       [[maybe_unused]] quiche_h3_event* event)
 {
-  std::vector<std::uint8_t> buffer(max_packet_size);
+  std::vector<std::uint8_t> buffer(max_recv_size);
 
   LOGGER_DEBUG(logger, "[stream " << stream_id << "] H3 - data event");
 
@@ -1342,7 +1349,7 @@ H3ServerConnection::HandleH3DataEvent(QUICStreamID stream_id,
                                 quiche_connection,
                                 stream_id,
                                 buffer.data(),
-                                max_packet_size);
+                                max_recv_size);
 
     if (length <= 0) break;
 
@@ -1487,7 +1494,7 @@ H3ServerConnection::HandleH3DatagramEvent(
 {
   std::uint64_t flow_id{};
   std::size_t flow_id_length{};
-  cantina::DataBuffer buffer(max_packet_size);
+  cantina::DataBuffer buffer(max_recv_size);
 
   LOGGER_DEBUG(logger, "[stream " << stream_id << "] H3 - event datagram");
 
@@ -1546,11 +1553,11 @@ H3ServerConnection::HandleH3DatagramEvent(
       }
 
       // Create an async event to issue the call to the delegate
-      async_requests->Perform([this,
+      async_requests->Perform([server_delegate = &server_delegate,
                                stream_id,
                                identifier = publisher->identifier,
                                datagram = std::move(datagram)]() mutable {
-        server_delegate.onPublisherObject(
+        server_delegate->onPublisherObject(
           identifier, stream_id, false, std::move(datagram));
       });
     } catch (const std::exception& e) {
@@ -1863,13 +1870,13 @@ H3ServerConnection::HandlePublishIntent(QUICStreamID stream_id,
                  << publish_intent.quicr_namespace << std::flush;
 
     // Create an async event to issue the call to the delegate
-    async_requests->Perform([this,
+    async_requests->Perform([server_delegate = &server_delegate,
                              intent = std::move(publish_intent)]() mutable {
-      server_delegate.onPublishIntent(intent.quicr_namespace,
-                                      "" /* intent.origin_url */,
-                                      false,
-                                      "" /* intent.relay_token */,
-                                      std::move(intent.payload));
+      server_delegate->onPublishIntent(intent.quicr_namespace,
+                                       "" /* intent.origin_url */,
+                                       false,
+                                       "" /* intent.relay_token */,
+                                       std::move(intent.payload));
     });
 
     return true;
@@ -1926,9 +1933,9 @@ H3ServerConnection::HandlePublishIntentEnd(RequestData* request)
     }
 
     // Create an async event to issue the call to the delegate
-    async_requests->Perform([this,
+    async_requests->Perform([server_delegate = &server_delegate,
                              pie = std::move(publish_intent_end)]() mutable {
-      server_delegate.onPublishIntentEnd(
+      server_delegate->onPublishIntentEnd(
         pie.quicr_namespace, {}, std::move(pie.payload));
     });
 
@@ -1992,11 +1999,11 @@ H3ServerConnection::HandlePublishNamedObject(
     }
 
     // Create an async event to issue the call to the delegate
-    async_requests->Perform([this,
+    async_requests->Perform([server_delegate = &server_delegate,
                              identifier = publisher->identifier,
                              stream_id = publisher->stream_id,
                              datagram = std::move(datagram)]() mutable {
-      server_delegate.onPublisherObject(
+      server_delegate->onPublisherObject(
         identifier, stream_id, true, std::move(datagram));
     });
 
@@ -2072,19 +2079,19 @@ H3ServerConnection::HandleSubscribe(QUICStreamID stream_id,
                  << std::flush;
 
     // Create an async event to issue the call to the delegate
-    async_requests->Perform([this,
+    async_requests->Perform([server_delegate = &server_delegate,
                              subscriber_id,
                              stream_id,
                              subscribe = std::move(subscribe)]() mutable {
-      server_delegate.onSubscribe(subscribe.quicr_namespace,
-                                  subscriber_id,
-                                  subscriber_id,
-                                  stream_id,
-                                  subscribe.intent,
-                                  "",
-                                  false, // Use reliable transport?
-                                  "",
-                                  {});
+      server_delegate->onSubscribe(subscribe.quicr_namespace,
+                                   subscriber_id,
+                                   subscriber_id,
+                                   stream_id,
+                                   subscribe.intent,
+                                   "",
+                                   false, // Use reliable transport?
+                                   "",
+                                   {});
     });
 
     return true;
@@ -2143,10 +2150,10 @@ H3ServerConnection::HandleUnsubscribe(RequestData* request)
     if (subscriber.identifier == 0) return true;
 
     // Create an async event to issue the call to the delegate
-    async_requests->Perform([this,
+    async_requests->Perform([server_delegate = &server_delegate,
                              subscriber_id = subscriber.identifier,
                              quicr_namespace = unsub.quicr_namespace]() {
-      server_delegate.onUnsubscribe(quicr_namespace, subscriber_id, {});
+      server_delegate->onUnsubscribe(quicr_namespace, subscriber_id, {});
     });
 
     // Remove the subscriber from the registry

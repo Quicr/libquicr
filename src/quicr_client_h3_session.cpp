@@ -286,8 +286,8 @@ QuicRClientH3Session::ConfigureQuiche()
   quiche_config_set_max_idle_timeout(client_config, Connection_Timeout);
 
   // Define max send/receive UDP buffer sizes
-  quiche_config_set_max_recv_udp_payload_size(client_config, Max_Packet_Size);
-  quiche_config_set_max_send_udp_payload_size(client_config, Max_Packet_Size);
+  quiche_config_set_max_recv_udp_payload_size(client_config, Max_Recv_Size);
+  quiche_config_set_max_send_udp_payload_size(client_config, Max_Recv_Size);
 
   // Set the size of the incoming buffer stream
   quiche_config_set_initial_max_data(client_config, 10'000'000);
@@ -421,7 +421,8 @@ QuicRClientH3Session::CreateNewConnection(
       network,
       pub_sub_registry,
       connection_data.socket,
-      Max_Packet_Size,
+      Max_Send_Size,
+      Max_Recv_Size,
       use_datagrams,
       connection_data.id,
       connection_data.local_address,
