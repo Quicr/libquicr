@@ -51,7 +51,9 @@ struct FakeTransport : public ITransport
 
   TransportError enqueue(const TransportContextId& /* tcid */,
                          const StreamId& /* sid */,
-                         std::vector<uint8_t>&& bytes)
+                         std::vector<uint8_t>&& bytes,
+                         const uint8_t,
+                         const uint32_t)
   {
     stored_data = std::move(bytes);
     return TransportError::None;

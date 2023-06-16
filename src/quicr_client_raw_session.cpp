@@ -369,8 +369,8 @@ QuicRClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
 void
 QuicRClientRawSession::publishNamedObject(
   const quicr::Name& quicr_name,
-  [[maybe_unused]] uint8_t priority,
-  [[maybe_unused]] uint16_t expiry_age_ms,
+  uint8_t priority,
+  uint16_t expiry_age_ms,
   [[maybe_unused]] bool use_reliable_transport,
   bytes&& data)
 {
@@ -413,7 +413,7 @@ QuicRClientRawSession::publishNamedObject(
     // TODO: Add metric for dropping packets due to queue full == qtransport::TransportError::QueueFull
     transport->enqueue(transport_context_id,
                        context.transport_stream_id,
-                       msg.get());
+                       msg.get(), priority, expiry_age_ms);
 
   } else {
     // Fragments required. At this point this only counts whole blocks
@@ -452,7 +452,8 @@ QuicRClientRawSession::publishNamedObject(
 
       if (transport->enqueue(transport_context_id,
                      context.transport_stream_id,
-                             msg.get()) != qtransport::TransportError::None) {
+                             msg.get(),
+                             priority, expiry_age_ms) != qtransport::TransportError::None) {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
         // No point in finishing fragment if one is dropped
         return;
@@ -477,7 +478,8 @@ QuicRClientRawSession::publishNamedObject(
 
         if (transport->enqueue(transport_context_id,
                                context.transport_stream_id,
-                               msg.get()) != qtransport::TransportError::None) {
+                               msg.get(),
+                               priority, expiry_age_ms) != qtransport::TransportError::None) {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
         }
       }
