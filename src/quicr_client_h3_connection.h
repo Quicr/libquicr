@@ -243,7 +243,7 @@ protected:
   cantina::NetworkPointer network;               // Network object
   PubSubRegistryPointer pub_sub_registry;        // Pub/Sub Registry
   const socket_t data_socket;                    // Socket for communication
-  const std::size_t max_packet_size;             // Max size of data packets
+  std::size_t max_packet_size;                   // Max size of data packets
   bool use_datagrams;                            // Attempt to use datagrams?
   bool using_datagrams;                          // Connection using datagrams?
   QUICConnectionID local_cid;                    // Connection ID

@@ -841,9 +841,14 @@ H3ClientConnection::QuicheHTTP3EventHandler(std::unique_lock<std::mutex>& lock)
       logger->error << "Failed to create HTTP/3 connection" << std::flush;
       return false;
     }
-    logger->info << "Max datagram size is: "
-                 << quiche_conn_dgram_max_writable_len(quiche_connection)
-                 << std::flush;
+    auto max_quiche_datagram =
+      quiche_conn_dgram_max_writable_len(quiche_connection);
+    if ((max_quiche_datagram > 0) &&
+        (static_cast<std::size_t>(max_quiche_datagram) < max_packet_size)) {
+      logger->info << "Max datagram size is: " << max_quiche_datagram
+                   << std::flush;
+      max_packet_size = max_quiche_datagram;
+    }
   }
 
   // If the connection is pending, transition to connected state

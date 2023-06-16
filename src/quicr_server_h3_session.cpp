@@ -123,7 +123,7 @@ QuicRServerH3Session::QuicRServerH3Session(
   auto memory_manager = std::make_shared<cantina::MemoryManager>(
     cantina::MemoryPoolConfig{
       { 256, 0 },
-      { Max_Packet_Size, 5 },
+      { Max_Recv_Size, 5 },
       { 65536, 0 },
     },
     logger,
@@ -140,7 +140,7 @@ QuicRServerH3Session::QuicRServerH3Session(
                                                thread_pool,
                                                memory_manager,
                                                nullptr,
-                                               Max_Packet_Size,
+                                               Max_Recv_Size,
                                                2,
                                                5,
                                                2,

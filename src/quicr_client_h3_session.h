@@ -52,6 +52,7 @@ protected:
   static constexpr std::size_t Connection_ID_Len{ 20 };
   static constexpr std::uint64_t Connection_Timeout{ 5'000 }; // ms
   static constexpr std::uint64_t Heartbeat_Interval{ Connection_Timeout / 3 };
+  static constexpr std::uint64_t Max_Recv_Size{1500};
   static constexpr std::size_t Max_Packet_Size{
     std::min(std::size_t(1350), std::size_t(MAX_TRANSPORT_DATA_SIZE))
   };
