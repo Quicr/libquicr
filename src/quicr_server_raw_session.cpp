@@ -186,6 +186,8 @@ void
 QuicRServerRawSession::sendNamedObject(
   const uint64_t& subscriber_id,
   [[maybe_unused]] bool use_reliable_transport,
+  uint8_t priority,
+  uint16_t expiry_age_ms,
   const messages::PublishDatagram& datagram)
 {
   // start populating message to encode
@@ -199,7 +201,8 @@ QuicRServerRawSession::sendNamedObject(
   msg << datagram;
 
   transport->enqueue(
-    context.transport_context_id, context.transport_stream_id, msg.get());
+    context.transport_context_id, context.transport_stream_id,
+    msg.get(), priority, expiry_age_ms);
 }
 
 ///

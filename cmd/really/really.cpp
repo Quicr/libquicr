@@ -149,6 +149,7 @@ public:
                                quicr::bytes&& /* e2e_token */)
   {
     // TODO: Authenticate token
+    logger.log(qtransport::LogLevel::info, "Publish intent namespace: " + quicr_namespace.to_hex());
     quicr::PublishIntentResult result{ quicr::messages::Response::Ok, {}, {} };
     server->publishIntentResponse(quicr_namespace, result);
   };
@@ -176,7 +177,7 @@ public:
         continue;
       }
 
-      server->sendNamedObject(dest.subscribe_id, false, datagram);
+      server->sendNamedObject(dest.subscribe_id, false, 1, 200, datagram);
     }
   }
 

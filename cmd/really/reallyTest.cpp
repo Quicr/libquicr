@@ -141,6 +141,7 @@ main(int argc, char* argv[])
 
   if (data.size() > 0) {
     auto nspace = quicr::Namespace(name, 96);
+    logger.log(qtransport::LogLevel::info, "Publish Intent for name: " + name.to_hex() + " == namespace: " + nspace.to_hex());
     client.publishIntent(pd, nspace, {}, {}, {});
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
