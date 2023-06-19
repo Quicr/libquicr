@@ -137,6 +137,24 @@ Name::operator+=(uint64_t value)
 }
 
 Name
+Name::operator+(Name value) const
+{
+  Name name(*this);
+  name += value;
+  return name;
+}
+
+void
+Name::operator+=(Name value)
+{
+  if (_low + value._low < _low) {
+    ++_hi;
+  }
+  _low += value._low;
+  _hi += value._hi;
+}
+
+Name
 Name::operator-(uint64_t value) const
 {
   Name name(*this);
@@ -151,6 +169,26 @@ Name::operator-=(uint64_t value)
     --_hi;
   }
   _low -= value;
+}
+
+Name
+Name::operator-(Name value) const
+{
+  Name name(*this);
+  name -= value;
+  return name;
+}
+
+void
+Name::operator-=(Name value)
+{
+  if (_hi - value._hi > _hi) {
+    _hi = 0;
+    --_low;
+  } else {
+    _hi -= value._hi;
+  }
+  *this -= value._low;
 }
 
 Name
