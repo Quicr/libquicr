@@ -124,12 +124,16 @@ public:
   Name operator<<=(uint16_t value);
   Name operator+(uint64_t value) const;
   void operator+=(uint64_t value);
+  Name operator+(Name value) const;
+  void operator+=(Name value);
   Name operator++();
   Name operator++(int);
   Name operator--();
   Name operator--(int);
   Name operator-(uint64_t value) const;
   void operator-=(uint64_t value);
+  Name operator-(Name value) const;
+  void operator-=(Name value);
   Name operator&(uint64_t value) const;
   void operator&=(uint64_t value);
   Name operator|(uint64_t value) const;
@@ -165,7 +169,8 @@ private:
 };
 }
 
-constexpr quicr::Name operator""_name(const char* x)
+constexpr quicr::Name
+operator""_name(const char* x)
 {
   return { std::string_view(x) };
 }
