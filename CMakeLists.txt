@@ -58,7 +58,7 @@ if(BUILD_TESTING AND QUICR_BUILD_TESTS)
 endif()
 
 if (BUILD_BENCHMARKING AND quicr_BUILD_BENCHMARKS)
-    include(include(FetchContent))
+    include(FetchContent)
     set(BENCHMARK_USE_BUNDLED_GTEST OFF)
     set(BENCHMARK_ENABLE_TESTING OFF)
     FetchContent_Declare(
