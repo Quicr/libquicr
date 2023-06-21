@@ -2,8 +2,7 @@
 
 #include <quicr/message_buffer.h>
 #include <quicr/quicr_common.h>
-#include <quicr/quicr_name.h>
-#include <quicr/quicr_namespace.h>
+#include <quicr_name>
 
 #include <random>
 #include <string>
