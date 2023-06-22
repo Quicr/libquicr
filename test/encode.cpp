@@ -207,4 +207,3 @@ TEST_CASE("VarInt Encode/Decode")
     CHECK_EQ(fout.transaction_id, f.transaction_id);
     CHECK_EQ(fout.name, f.name);
   }
-
