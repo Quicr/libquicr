@@ -192,6 +192,7 @@ QuicRServerRawSession::sendNamedObject(
 {
   // start populating message to encode
   if (subscribe_id_state.count(subscriber_id) == 0) {
+    log_handler.log(qtransport::LogLevel::info, "Send Object, missing subscriber_id: " + std::to_string(subscriber_id));
     return;
   }
 
@@ -221,7 +222,7 @@ QuicRServerRawSession::handle_subscribe(
   std::lock_guard<std::mutex> lock(session_mutex);
 
   if (subscribe_state[subscribe.quicr_namespace].count(context_id) == 0) {
-
+    log_handler.log(qtransport::LogLevel::info, "New subscriber_id: " + std::to_string(subscriber_id));
     SubscribeContext context;
     context.transport_context_id = context_id;
     context.transport_stream_id = streamId;
@@ -268,7 +269,7 @@ QuicRServerRawSession::handle_unsubscribe(
     subscribe_id_state.erase(context.subscriber_id);
     subscribe_state[unsub.quicr_namespace].erase(context_id);
 
-    if (subscribe_state[unsub.quicr_namespace].size() > 0) {
+    if (subscribe_state[unsub.quicr_namespace].empty()) {
       subscribe_state.erase(unsub.quicr_namespace);
     }
   }
@@ -305,8 +306,8 @@ QuicRServerRawSession::handle_publish(
     context = publish_state[datagram.header.name];
   }
 
-  delegate.onPublisherObject(context.transport_context_id,
-                             context.transport_stream_id,
+  delegate.onPublisherObject(context_id,
+                             streamId,
                              false,
                              std::move(datagram));
 }
@@ -416,10 +417,14 @@ QuicRServerRawSession::TransportDelegate::on_connection_status(
         server.delegate.onUnsubscribe(sub.first, stream_id, {});
 
         server.subscribe_id_state.erase(stream_id);
+        sub.second.erase(context_id);
 
-        if (sub.second.size() == 0) {
+        if (sub.second.empty()) {
           namespaces_to_remove.push_back(sub.first);
         }
+
+        break;
+
       }
 
       for (const auto& ns : namespaces_to_remove) {
