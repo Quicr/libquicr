@@ -190,3 +190,61 @@ TEST_CASE("VarInt Encode/Decode")
     CHECK_NE(out, uintVar_t{ 0 });
   }
 }
+  ///
+  /// Get/GetResponse tests
+  ///
+
+  TEST_CASE("Get Message encode/decode")
+  {
+    quicr::Namespace qnamespace{ 0x10000000000000002000_name, 125 };
+
+    Get get{ 0x1000, qnamespace};
+    MessageBuffer buffer;
+    buffer << get;
+    Get get_out;
+    CHECK_NOTHROW((buffer >> get_out));
+
+    CHECK_EQ(get_out.transaction_id, get.transaction_id);
+    CHECK_EQ(get_out.resource, get.resource);
+  }
+
+
+  PublishDatagram create_publish_datagram(quicr::Name qn) {
+    Header d{ uintVar_t{ 0x1000 }, qn,
+              uintVar_t{ 0x0100 }, uintVar_t{ 0x0010 },
+              uintVar_t{ 0x0001 }, 0x0000 };
+
+    std::vector<uint8_t> data(256);
+    for (int i = 0; i < 256; ++i)
+      data[i] = i;
+
+    return PublishDatagram { d, MediaType::Text, uintVar_t{ 256 }, data };
+  }
+
+  TEST_CASE("GetResponse Message encode/decode")
+  {
+
+    quicr::Namespace qnamespace{ 0x10000000000000002000_name, 125 };
+    auto pd_vector = std::vector<PublishDatagram>{
+      create_publish_datagram(0x10000000000000002000_name),
+      create_publish_datagram(0x1000000000000000FFFF_name)
+      };
+
+    GetResponse gr{ qnamespace,
+                         SubscribeResult::SubscribeStatus::Ok,
+                         0x1000 ,
+                         static_cast<uintVar_t>(pd_vector.size()),
+                          pd_vector};
+
+    MessageBuffer buffer;
+    buffer << gr;
+
+    GetResponse g_out;
+    CHECK_NOTHROW((buffer >> g_out));
+    CHECK_EQ(g_out.resource, gr.resource);
+    CHECK_EQ(g_out.response, gr.response);
+    CHECK_EQ(g_out.transaction_id, gr.transaction_id);
+    CHECK_EQ(g_out.num_objects, gr.num_objects);
+    CHECK_EQ(g_out.objects[0].header.name, gr.objects[0].header.name);
+    CHECK_EQ(g_out.objects[1].header.name, gr.objects[1].header.name);
+  }
