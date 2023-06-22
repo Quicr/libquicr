@@ -1,0 +1,15 @@
+
+add_executable( quicr_mlstest main.cpp testLogger.cpp)
+
+target_link_libraries( quicr_mlstest LINK_PUBLIC quicr  picotls-core picotls-openssl)
+
+target_compile_options(quicr_mlstest
+        PRIVATE
+        $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall>
+        $<$<CXX_COMPILER_ID:MSVC>: >)
+
+set_target_properties(quicr_mlstest
+        PROPERTIES
+        CXX_STANDARD 20
+        CXX_STANDARD_REQUIRED YES
+        CXX_EXTENSIONS OFF)
