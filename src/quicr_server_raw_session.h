@@ -212,6 +212,11 @@ private:
     qtransport::StreamId transport_stream_id{ 0 };
   };
 
+  struct GetContext : public Context {
+    uint64_t transaction_id{ 0 };
+    uint64_t request_id{ 0 };
+  };
+
   struct SubscribeContext : public Context
   {
     uint64_t transaction_id{ 0 };
@@ -241,9 +246,14 @@ private:
   std::map<uint64_t, SubscribeContext> subscribe_id_state{};
   std::map<quicr::Name, PublishContext> publish_state{};
   std::map<quicr::Namespace, PublishIntentContext> publish_namespaces{};
+  // get namespaces might overlap with subscribe namespace,
+  // hence we need its own state for context mapping
   std::map<quicr::Namespace,
-           std::map<qtransport::TransportContextId, SubscribeContext>>
+           std::map<qtransport::TransportContextId, GetContext>>
     get_state{};
+  // reusing subscriber_id as key should be fine since
+  // it's semantics is a request counter
+  std::map<uint64_t, GetContext> get_context_state{};
 
   bool running{ false };
   uint64_t subscriber_id{ 0 };

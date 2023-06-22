@@ -52,6 +52,14 @@ class TestServerDelegate : public ServerDelegate
                              const std::string& /* auth_token */) override
   {
   }
+
+  virtual void onGet(const quicr::Namespace& quicr_namespace,
+                     const uint64_t& subscriber_id,
+                     const qtransport::TransportContextId& context_id,
+                     const qtransport::StreamId& stream_id,
+                     bool use_reliable_transport) override
+  {
+  }
 };
 
 TEST_CASE("Object Lifetime")

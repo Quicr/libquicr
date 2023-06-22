@@ -123,7 +123,8 @@ TEST_CASE("Get encode, send and receive")
   auto qclient = std::make_unique<QuicRClient>(transport);
 
   qclient->get(get_delegate,
-               { 0x10000000000000002000_name, 125 });
+               { 0x10000000000000002000_name, 125},
+               true);
 
   messages::Get get;
   messages::MessageBuffer msg{ transport->stored_data };

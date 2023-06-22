@@ -229,6 +229,19 @@ public:
     server->subscribeResponse(subscriber_id, quicr_namespace, result);
   }
 
+  void onGet(const quicr::Namespace& quicr_namespace,
+             const uint64_t& request_id,
+             const qtransport::TransportContextId& context_id,
+             const qtransport::StreamId& stream_id,
+             bool use_reliable_transport) {
+    std::ostringstream log_msg;
+    log_msg << "onGet: Namespace " << quicr_namespace.to_hex() << "/"
+            << int(quicr_namespace.length())
+            << " subscribe_id: " << request_id;
+    logger.log(qtransport::LogLevel::info, log_msg.str());
+    // TODO add logic to retrieve the object
+  }
+
   std::unique_ptr<quicr::QuicRServer> server;
   std::shared_ptr<qtransport::ITransport> transport;
   std::set<uint64_t> subscribers = {};

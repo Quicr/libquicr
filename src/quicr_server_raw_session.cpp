@@ -161,20 +161,20 @@ QuicRServerRawSession::subscribeResponse(
 
 void
 QuicRServerRawSession::getResponse(
-  const uint64_t& subscriber_id,
+  const uint64_t& request_id,
   const quicr::Namespace& quicr_namespace,
   const SubscribeResult& result,
   std::vector<messages::PublishDatagram>&& objects)
 {
   // start populating message to encode
-  if (subscribe_id_state.count(subscriber_id) == 0) {
+  if (get_context_state.count(request_id) == 0) {
     return;
   }
 
-  auto& context = subscribe_id_state[subscriber_id];
+  auto& context = get_context_state[request_id];
 
   messages::GetResponse response;
-  response.transaction_id = subscriber_id;
+  response.transaction_id = request_id;
   response.resource = quicr_namespace;
   response.response = result.status;
   response.num_objects = objects.size();
@@ -416,35 +416,29 @@ QuicRServerRawSession::handle_get(
   const qtransport::StreamId& streamId,
   messages::MessageBuffer&& msg)
 {
-  messages::Get get;
+  messages::Get get{};
   msg >> get;
 
   std::lock_guard<std::mutex> lock(session_mutex);
 
   if (get_state[get.resource].count(context_id) == 0) {
 
-    SubscribeContext context;
+    GetContext context;
     context.transport_context_id = context_id;
     context.transport_stream_id = streamId;
-    context.subscriber_id = subscriber_id;
-
+    context.request_id = subscriber_id;
+    get_state[get.resource][context_id] = context;
     subscriber_id++;
-
-    subscribe_state[subscribe.quicr_namespace][context_id] = context;
-    subscribe_id_state[context.subscriber_id] = context;
+    get_context_state[context.request_id] = context;
   }
 
-  auto& context = subscribe_state[subscribe.quicr_namespace][context_id];
+  auto& context = get_state[get.resource][context_id];
 
-  delegate.onSubscribe(subscribe.quicr_namespace,
-                       context.subscriber_id,
-                       context_id,
-                       streamId,
-                       subscribe.intent,
-                       "",
-                       false,
-                       "",
-                       {});
+  delegate.onGet(get.resource,
+                 context.request_id,
+                 context_id,
+                 streamId,
+                 false);
 }
 
 /*===========================================================================*/
@@ -538,7 +532,8 @@ QuicRServerRawSession::TransportDelegate::on_recv_notify(
 
         switch (msg_type) {
           case messages::MessageType::Get:
-            server.handle_get()
+            server.handle_get(context_id, streamId, std::move(msg_buffer));
+            break;
           case messages::MessageType::Subscribe:
             server.handle_subscribe(
               context_id, streamId, std::move(msg_buffer));
