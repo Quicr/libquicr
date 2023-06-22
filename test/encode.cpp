@@ -190,3 +190,20 @@ TEST_CASE("VarInt Encode/Decode")
     CHECK_NE(out, uintVar_t{ 0 });
   }
 }
+  ///
+  /// Fetch tests
+  ///
+
+  TEST_CASE("Fetch Message encode/decode")
+  {
+    quicr::Name qname{ 0x10000000000000002000_name};
+
+    Fetch f{ 0x1000, qname};
+    MessageBuffer buffer;
+    buffer << f;
+    Fetch fout;
+    CHECK_NOTHROW((buffer >> fout));
+
+    CHECK_EQ(fout.transaction_id, f.transaction_id);
+    CHECK_EQ(fout.name, f.name);
+  }

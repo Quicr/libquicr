@@ -190,4 +190,21 @@ operator<<(MessageBuffer& msg, const Namespace& ns);
 MessageBuffer&
 operator>>(MessageBuffer& msg, Namespace& ns);
 
+
+/*===========================================================================*/
+// Fetch Message Types
+/*===========================================================================*/
+
+struct Fetch
+{
+  uint64_t transaction_id;
+  quicr::Name name; // resource to retrieve
+  // TODO - Add authz
+};
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const Fetch& msg);
+MessageBuffer&
+operator>>(MessageBuffer& buffer, Fetch& msg);
+
 }

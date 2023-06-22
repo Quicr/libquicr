@@ -388,4 +388,34 @@ operator>>(messages::MessageBuffer& msg, quicr::Namespace& val)
   return msg;
 }
 
+///
+/// Fetch
+///
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const Fetch& msg)
+{
+  buffer << static_cast<uint8_t>(MessageType::Fetch);
+  buffer << msg.transaction_id;
+  buffer << msg.name;
+  return buffer;
 }
+
+MessageBuffer&
+operator>>(MessageBuffer& buffer, Fetch& msg)
+{
+  uint8_t msg_type;
+  buffer >> msg_type;
+  if (msg_type != static_cast<uint8_t>(MessageType::Fetch)) {
+    throw MessageBuffer::MessageTypeException(
+      "Message type for Fetch object must "
+      "be MessageType::Fetch");
+  }
+
+  buffer >> msg.transaction_id;
+  buffer >> msg.name;
+  return buffer;
+}
+
+}
+
