@@ -97,6 +97,11 @@ public:
                          const quicr::Namespace& quicr_namespace,
                          const SubscribeResult& result) override;
 
+  virtual void getResponse(const uint64_t& subscriber_id,
+                           const quicr::Namespace& quicr_namespace,
+                           const SubscribeResult& result,
+                           std::vector<messages::PublishDatagram>&& objects) override;
+
   /**
    * @brief Send subscription end message
    *
@@ -188,6 +193,11 @@ private:
     const qtransport::StreamId& mStreamId,
     messages::MessageBuffer&& msg);
 
+  void handle_get(const qtransport::TransportContextId& context_id,
+                        const qtransport::StreamId& streamId,
+                        messages::MessageBuffer&& msg);
+
+
   struct Context
   {
     enum struct State
@@ -231,6 +241,10 @@ private:
   std::map<uint64_t, SubscribeContext> subscribe_id_state{};
   std::map<quicr::Name, PublishContext> publish_state{};
   std::map<quicr::Namespace, PublishIntentContext> publish_namespaces{};
+  std::map<quicr::Namespace,
+           std::map<qtransport::TransportContextId, SubscribeContext>>
+    get_state{};
+
   bool running{ false };
   uint64_t subscriber_id{ 0 };
 };

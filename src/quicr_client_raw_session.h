@@ -181,6 +181,10 @@ public:
                                   bool is_last_fragment,
                                   bytes&& data) override;
 
+  void get(std::shared_ptr<GetDelegate> get_delegate,
+           const quicr::Namespace& quicr_namespace,
+           bool use_reliable_transport) override;
+
   void handle(messages::MessageBuffer&& msg);
   void removeSubscribeState(bool all, const quicr::Namespace& quicr_namespace,
                             const SubscribeResult::SubscribeStatus& reason);
@@ -240,6 +244,10 @@ protected:
   qtransport::TransportContextId transport_context_id;
   std::map<quicr::Namespace, std::weak_ptr<SubscriberDelegate>> sub_delegates;
   std::map<quicr::Name, std::weak_ptr<SubscriberDelegate>> sub_name_delegates;
+
+  std::map<quicr::Namespace, std::weak_ptr<GetDelegate>> get_delegates;
+  // reuse subscribe context, since the tracking information is same
+  std::map<quicr::Namespace, SubscribeContext> get_state{};
 
   std::map<quicr::Namespace, std::weak_ptr<PublisherDelegate>> pub_delegates;
   std::map<quicr::Namespace, SubscribeContext> subscribe_state{};

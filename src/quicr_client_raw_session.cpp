@@ -499,6 +499,46 @@ QuicRClientRawSession::publishNamedObjectFragment(
   throw std::runtime_error("UnImplemented");
 }
 
+void
+QuicRClientRawSession::get(std::shared_ptr<GetDelegate> get_delegate,
+                          const quicr::Namespace& quicr_namespace,
+                           bool /* use_reliable_transport */) {
+
+  std::lock_guard<std::mutex> lock(session_mutex);
+
+  if (!get_delegates.count(quicr_namespace)) {
+    get_delegates[quicr_namespace] = get_delegate;
+  }
+
+  // encode
+  messages::MessageBuffer msg{};
+  auto transaction_id = messages::create_transaction_id();
+  messages::Get get{ transaction_id, quicr_namespace };
+  msg << get;
+
+  // qtransport::MediaStreamId msid{};
+  if (!get_state.count(quicr_namespace)) {
+    // TODO: Revisit this to see if we need to create one and only media stream
+    get_state[quicr_namespace] =
+      SubscribeContext{ SubscribeContext::State::Pending,
+                        transport_context_id,
+                        transport_stream_id,
+                        transaction_id };
+    transport->enqueue(transport_context_id, transport_stream_id, msg.get());
+    return;
+  } else {
+    auto& ctx = get_state[quicr_namespace];
+    if (ctx.state == SubscribeContext::State::Ready) {
+      // already subscribed
+      return;
+    } else if (ctx.state == SubscribeContext::State::Pending) {
+      // todo - resend or wait or may be take in timeout in the api
+    }
+    transport->enqueue(transport_context_id, transport_stream_id, msg.get());
+  }
+}
+
+
 bool
 QuicRClientRawSession::notify_pub_fragment(
   const messages::PublishDatagram& datagram,
@@ -594,6 +634,30 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
 
   auto msg_type = static_cast<messages::MessageType>(msg.front());
   switch (msg_type) {
+    case messages::MessageType::GetResponse: {
+      messages::GetResponse response;
+      msg >> response;
+      SubscribeResult result{ .status = response.response };
+      if (get_delegates.count(response.resource)) {
+        if (auto delegate = get_delegates[response.resource].lock()) {
+          std::vector<GetDelegate::GetObject> objects;
+          if(response.num_objects) {
+            objects.reserve(response.num_objects);
+            for (size_t i = 0; i < response.num_objects; i++) {
+              // TODO: use emplace_back
+              objects.push_back({response.objects[i].header.name,
+                                   std::move(response.objects[i].media_data)});
+            }
+          }
+
+          delegate->onGetResponse(response.resource, result, std::move(objects));
+        }
+      } else {
+        std::cout << "Got GetResponse: No delegate found for namespace"
+                  << response.resource.to_hex() << std::endl;
+      }
+    }
+      break;
     case messages::MessageType::SubscribeResponse: {
       messages::SubscribeResponse response;
       msg >> response;
@@ -667,4 +731,6 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
       break;
   }
 }
+
+
 } // namespace quicr

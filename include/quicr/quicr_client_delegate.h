@@ -22,6 +22,23 @@
 
 namespace quicr {
 
+class GetDelegate {
+public:
+
+  struct GetObject {
+    quicr::Name name;
+    bytes&& object_data;
+  };
+
+  GetDelegate() = default;
+  virtual ~GetDelegate() = default;
+
+  virtual void onGetResponse(const quicr::Namespace& quicr_namespace,
+                             const SubscribeResult& result,
+                             std::vector<GetObject>&& objects) = 0;
+
+};
+
 /*
  *  QUICR Subscriber delegate callback methods
  */

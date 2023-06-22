@@ -160,6 +160,21 @@ public:
                                           const uint64_t& offset,
                                           bool is_last_fragment,
                                           bytes&& data) = 0;
+
+  /**
+   * @brief Perform GET operation a given QUICR namespace
+   *
+   * @param get_delegate          : Reference to receive callback for get
+   *                                operations
+   * @param quicr_namespace       : Identifies QUICR namespace
+   * @param use_reliable_transport: Reliable or Unreliable transport
+
+   * @details TODO.
+   */
+  virtual void get(std::shared_ptr<GetDelegate> get_delegate,
+                   const quicr::Namespace& quicr_namespace,
+                   bool use_reliable_transport) = 0;
+
 };
 
 } // namespace quicr

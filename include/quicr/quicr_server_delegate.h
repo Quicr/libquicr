@@ -140,6 +140,40 @@ public:
   virtual void onUnsubscribe(const quicr::Namespace& quicr_namespace,
                              const uint64_t& subscriber_id,
                              const std::string& auth_token) = 0;
+
+
+  /**
+   * @brief Report arrival of subscribe request for a QUICR Namespace
+   *
+   * @details Entities processing the Subscribe Request MUST validate the
+   * 		request against the token, verify if the Origin specified in the
+   * origin_url is trusted and forward the request to the next hop Relay for
+   * that Origin or to the Origin (if it is the next hop) unless the entity
+   *    itself the Origin server.
+   *    It is expected for the Relays to store the subscriber state
+   *    mapping the subscribe context, namespaces and other relation
+   * information.
+   *
+   * @param namespace             : Identifies QUICR namespace
+   * @param subscriber_id            Subscriber ID connection/transport that
+   *                                 sent the message
+   * @param context_id               : Context id the message was received on
+   * @param stream_id                : Stream ID the message was received on
+   * @param subscribe_intent      : Subscribe intent to determine the start
+   * point for serving the mactched objects. The application may choose a
+   * different intent mode, but must be aware of the effects.
+   * @param origin_url            : Origin serving the QUICR Session
+   * @param use_reliable_transport: Reliable or Unreliable transport
+   * @param auth_token            : Auth Token to valiadate the Subscribe
+   * Request
+   * @param payload               : Opaque payload to be forwarded to the Origin
+   *
+   */
+  virtual void onGet(const quicr::Namespace& quicr_namespace,
+                           const uint64_t& subscriber_id,
+                           const qtransport::TransportContextId& context_id,
+                           const qtransport::StreamId& stream_id,
+                           bool use_reliable_transport) = 0;
 };
 
 } // namespace quicr

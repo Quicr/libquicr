@@ -110,4 +110,12 @@ QuicRClient::publishNamedObjectFragment(const quicr::Name& quicr_name,
                                              std::move(data));
 }
 
+
+void
+QuicRClient::get(std::shared_ptr<GetDelegate> get_delegate,
+                 const quicr::Namespace& quicr_namespace)
+{
+  client_session->get(get_delegate, quicr_namespace);
+}
+
 } // namespace quicr

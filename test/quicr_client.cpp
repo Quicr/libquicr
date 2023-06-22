@@ -53,6 +53,18 @@ struct TestPublisherDelegate : public PublisherDelegate
   ~TestPublisherDelegate() override = default;
 };
 
+struct TestGetDelegate : public GetDelegate
+{
+  TestGetDelegate() = default;
+  ~TestGetDelegate() = default;
+
+  void onGetResponse(const quicr::Namespace& /* quicr_namespace */,
+                     const SubscribeResult& /* result */,
+                     std::vector<GetObject>&& /* data*/)
+  {
+  }
+};
+
 TEST_CASE("Subscribe encode, send and receive")
 {
   std::shared_ptr<TestSubscriberDelegate> sub_delegate{};
@@ -99,4 +111,24 @@ TEST_CASE("Publish encode, send and receive")
   msg >> d;
   say_hello = { 'H', 'E', 'L', 'L', '0' };
   CHECK_EQ(d.media_data, say_hello);
+}
+
+
+TEST_CASE("Get encode, send and receive")
+{
+  std::shared_ptr<TestGetDelegate> get_delegate{};
+  FakeTransportDelegate transport_delegate;
+
+  auto transport = std::make_shared<FakeTransport>();
+  auto qclient = std::make_unique<QuicRClient>(transport);
+
+  qclient->get(get_delegate,
+               { 0x10000000000000002000_name, 125 });
+
+  messages::Get get;
+  messages::MessageBuffer msg{ transport->stored_data };
+  msg >> get;
+
+  CHECK_EQ(get.resource,
+           quicr::Namespace{ 0x10000000000000002000_name, 125 });
 }

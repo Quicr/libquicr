@@ -75,6 +75,22 @@ public:
                                  const SubscribeResult& result) = 0;
 
   /**
+   * @brief Send subscribe response
+   *
+   * @details Entities processing the Subscribe Request MUST validate the
+   * request
+   *
+   * @param subscriber_id         : Subscriber ID to send the message to
+   * @param quicr_namespace       : Identifies QUICR namespace
+   * @param result                : Status of Subscribe operation
+   *
+   */
+  virtual void getResponse(const uint64_t& subscriber_id,
+                           const quicr::Namespace& quicr_namespace,
+                           const SubscribeResult& result,
+                           std::vector<messages::PublishDatagram>&& objects) = 0;
+
+  /**
    * @brief Send subscription end message
    *
    * @details  Subscription can terminate when a publisher terminated

@@ -158,6 +158,37 @@ QuicRServerRawSession::subscribeResponse(
     context.transport_context_id, context.transport_stream_id, msg.get());
 }
 
+
+void
+QuicRServerRawSession::getResponse(
+  const uint64_t& subscriber_id,
+  const quicr::Namespace& quicr_namespace,
+  const SubscribeResult& result,
+  std::vector<messages::PublishDatagram>&& objects)
+{
+  // start populating message to encode
+  if (subscribe_id_state.count(subscriber_id) == 0) {
+    return;
+  }
+
+  auto& context = subscribe_id_state[subscriber_id];
+
+  messages::GetResponse response;
+  response.transaction_id = subscriber_id;
+  response.resource = quicr_namespace;
+  response.response = result.status;
+  response.num_objects = objects.size();
+  std::for_each(objects.begin(), objects.end(), [&response](messages::PublishDatagram& o){
+    response.objects.emplace_back(o);
+  });
+
+  messages::MessageBuffer msg;
+  msg << response;
+
+  transport->enqueue(
+    context.transport_context_id, context.transport_stream_id, msg.get());
+}
+
 void
 QuicRServerRawSession::subscriptionEnded(
   const uint64_t& subscriber_id,
@@ -379,6 +410,43 @@ QuicRServerRawSession::handle_publish_intent_end(
                               std::move(intent_end.payload));
 }
 
+void
+QuicRServerRawSession::handle_get(
+  const qtransport::TransportContextId& context_id,
+  const qtransport::StreamId& streamId,
+  messages::MessageBuffer&& msg)
+{
+  messages::Get get;
+  msg >> get;
+
+  std::lock_guard<std::mutex> lock(session_mutex);
+
+  if (get_state[get.resource].count(context_id) == 0) {
+
+    SubscribeContext context;
+    context.transport_context_id = context_id;
+    context.transport_stream_id = streamId;
+    context.subscriber_id = subscriber_id;
+
+    subscriber_id++;
+
+    subscribe_state[subscribe.quicr_namespace][context_id] = context;
+    subscribe_id_state[context.subscriber_id] = context;
+  }
+
+  auto& context = subscribe_state[subscribe.quicr_namespace][context_id];
+
+  delegate.onSubscribe(subscribe.quicr_namespace,
+                       context.subscriber_id,
+                       context_id,
+                       streamId,
+                       subscribe.intent,
+                       "",
+                       false,
+                       "",
+                       {});
+}
+
 /*===========================================================================*/
 // Transport Delegate Implementation
 /*===========================================================================*/
@@ -469,6 +537,8 @@ QuicRServerRawSession::TransportDelegate::on_recv_notify(
         messages::MessageBuffer msg_buffer{ data.value() };
 
         switch (msg_type) {
+          case messages::MessageType::Get:
+            server.handle_get()
           case messages::MessageType::Subscribe:
             server.handle_subscribe(
               context_id, streamId, std::move(msg_buffer));
