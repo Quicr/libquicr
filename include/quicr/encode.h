@@ -192,33 +192,19 @@ operator>>(MessageBuffer& msg, Namespace& ns);
 
 
 /*===========================================================================*/
-// GET Message Types
+// Fetch Message Types
 /*===========================================================================*/
 
-struct Get
+struct Fetch
 {
   uint64_t transaction_id;
-  quicr::Namespace  resource; // resource to retrieve
+  quicr::Name name; // resource to retrieve
   // TODO - Add authz
 };
 
 MessageBuffer&
-operator<<(MessageBuffer& buffer, const Get& msg);
+operator<<(MessageBuffer& buffer, const Fetch& msg);
 MessageBuffer&
-operator>>(MessageBuffer& buffer, Get& msg);
-
-struct GetResponse
-{
-  quicr::Namespace resource;
-  SubscribeResult::SubscribeStatus response;
-  uint64_t transaction_id; // matches the get request
-  uintVar_t num_objects;
-  std::vector<PublishDatagram> objects;
-};
-
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const GetResponse& msg);
-MessageBuffer&
-operator>>(MessageBuffer& buffer, GetResponse& msg);
+operator>>(MessageBuffer& buffer, Fetch& msg);
 
 }

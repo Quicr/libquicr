@@ -389,85 +389,33 @@ operator>>(messages::MessageBuffer& msg, quicr::Namespace& val)
 }
 
 ///
-/// Get
+/// Fetch
 ///
 
 MessageBuffer&
-operator<<(MessageBuffer& buffer, const Get& msg)
+operator<<(MessageBuffer& buffer, const Fetch& msg)
 {
   buffer << static_cast<uint8_t>(MessageType::Get);
   buffer << msg.transaction_id;
-  buffer << msg.resource;
-
+  buffer << msg.name;
   return buffer;
 }
 
 MessageBuffer&
-operator>>(MessageBuffer& buffer, Get& msg)
+operator>>(MessageBuffer& buffer, Fetch& msg)
 {
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Get)) {
     throw MessageBuffer::MessageTypeException(
-      "Message type for Get object must "
-      "be MessageType::Get");
+      "Message type for Fetch object must "
+      "be MessageType::Fetch");
   }
 
   buffer >> msg.transaction_id;
-  buffer >> msg.resource;
+  buffer >> msg.name;
   return buffer;
 }
-
-///
-/// GetResponse
-///
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const GetResponse& msg)
-{
-  buffer << static_cast<uint8_t>(MessageType::GetResponse);
-  buffer << static_cast<uint8_t>(msg.response);
-  buffer << msg.transaction_id;
-  buffer << msg.resource;
-  buffer << static_cast<uintVar_t>(msg.objects.size());
-
-  // TODO we are storing/retrieving it as header + payload
-  //  Revisit this as it is inefficient and will have
-  //  implications on cache storage too ?
-
-  for(const auto& obj: msg.objects) {
-    buffer << obj;
-  }
-  return buffer;
-}
-
-MessageBuffer&
-operator>>(MessageBuffer& buffer, GetResponse& msg)
-{
-  uint8_t msg_type;
-  buffer >> msg_type;
-  if (msg_type != static_cast<uint8_t>(MessageType::GetResponse)) {
-    throw MessageBuffer::MessageTypeException(
-      "Message type for GetResponse object "
-      "must be MessageType::GetResponse");
-  }
-
-  uint8_t response;
-  buffer >> response;
-  msg.response = static_cast<SubscribeResult::SubscribeStatus>(response);
-
-  buffer >> msg.transaction_id;
-  buffer >> msg.resource;
-  uintVar_t num_objects;
-  buffer >> num_objects;
-  msg.num_objects = num_objects;
-  for(size_t i = 0; i < num_objects; i++) {
-    PublishDatagram obj;
-    buffer >> obj;
-    msg.objects.push_back(std::move(obj));
-  }
-  return buffer;
-}
-
 
 }
 
