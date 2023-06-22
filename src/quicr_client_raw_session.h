@@ -192,8 +192,10 @@ protected:
   std::mutex session_mutex;
 
   bool notify_pub_fragment(const messages::PublishDatagram& datagram,
+                           const std::weak_ptr<SubscriberDelegate> &delegate,
                            const std::map<int, bytes>& frag_map);
-  void handle_pub_fragment(messages::PublishDatagram&& datagram);
+  void handle_pub_fragment(messages::PublishDatagram&& datagram,
+                           const std::weak_ptr<SubscriberDelegate> &delegate);
 
   qtransport::LogHandler def_log_handler;
 
@@ -215,6 +217,10 @@ protected:
     qtransport::TransportContextId transport_context_id{ 0 };
     qtransport::StreamId transport_stream_id{ 0 };
     uint64_t transaction_id{ 0 };
+    uint64_t prev_group_id{ 0 };
+    uint64_t prev_object_id{ 0 };
+    uint64_t group_id{ 0 };
+    uint64_t object_id{ 0 };
   };
 
   // State per publish_intent and related publish
@@ -230,6 +236,8 @@ protected:
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
     qtransport::StreamId transport_stream_id{ 0 };
+    uint64_t prev_group_id{ 0 };
+    uint64_t prev_object_id{ 0 };
     uint64_t group_id{ 0 };
     uint64_t object_id{ 0 };
     uint64_t offset{ 0 };
@@ -238,12 +246,10 @@ protected:
   bool need_pacing { false };
   ClientStatus client_status{ ClientStatus::TERMINATED };
   qtransport::TransportContextId transport_context_id;
-  std::map<quicr::Namespace, std::weak_ptr<SubscriberDelegate>> sub_delegates;
-  std::map<quicr::Name, std::weak_ptr<SubscriberDelegate>> sub_name_delegates;
-
-  std::map<quicr::Namespace, std::weak_ptr<PublisherDelegate>> pub_delegates;
-  std::map<quicr::Namespace, SubscribeContext> subscribe_state{};
-  std::map<quicr::Name, PublishContext> publish_state{};
+  namespace_map<std::weak_ptr<SubscriberDelegate>> sub_delegates;
+  namespace_map<std::weak_ptr<PublisherDelegate>> pub_delegates;
+  namespace_map<SubscribeContext> subscribe_state{};
+  namespace_map<PublishContext> publish_state{};
   std::unique_ptr<qtransport::ITransport::TransportDelegate> transport_delegate;
   uint64_t transport_stream_id{ 0 };
 };

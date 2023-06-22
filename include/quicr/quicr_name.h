@@ -116,6 +116,8 @@ public:
   ~Name() = default;
 
   std::string to_hex() const;
+  uint64_t low64() const;
+
   std::uint8_t operator[](std::size_t offset) const;
 
   Name operator>>(uint16_t value) const;
