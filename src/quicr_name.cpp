@@ -53,6 +53,12 @@ Name::to_hex() const
   return hex;
 }
 
+uint64_t
+Name::low64() const
+{
+  return _low;
+}
+
 std::uint8_t
 Name::operator[](std::size_t index) const
 {

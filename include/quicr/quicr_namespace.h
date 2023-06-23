@@ -5,6 +5,8 @@
 #include <map>
 #include <ostream>
 
+#include <iostream>
+
 namespace quicr {
 
 /**
@@ -62,12 +64,12 @@ struct NamespaceComparator
 
   bool operator()(const Namespace& ns, const Name& name) const
   {
-    return ns.contains(name);
+    return ns < quicr::Namespace{name, ns.length()};
   }
 
   bool operator()(const Name& name, const Namespace& ns) const
   {
-    return ns.contains(name);
+    return quicr::Namespace{name, ns.length()} < ns;
   }
 };
 
