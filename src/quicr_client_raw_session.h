@@ -252,6 +252,7 @@ protected:
   namespace_map<PublishContext> publish_state{};
   std::unique_ptr<qtransport::ITransport::TransportDelegate> transport_delegate;
   uint64_t transport_stream_id{ 0 };
+
 };
 
 }

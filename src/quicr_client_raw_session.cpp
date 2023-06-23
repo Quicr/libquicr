@@ -18,6 +18,7 @@
 #include <iostream>
 #include <sstream>
 #include <thread>
+#include <string>
 
 #include "quicr_client_raw_session.h"
 #include "quicr/encode.h"
@@ -224,7 +225,9 @@ QuicRClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_dele
 {
   if (!pub_delegates.count(quicr_namespace)) {
     pub_delegates[quicr_namespace] = pub_delegate;
-    publish_state[quicr_namespace] = { .state = PublishContext::State::Pending };
+    publish_state[quicr_namespace] = { .state = PublishContext::State::Pending,
+                                       .transport_context_id = transport_context_id,
+                                       .transport_stream_id = transport_stream_id };
   }
 
   messages::PublishIntent intent{ messages::MessageType::PublishIntent,
@@ -403,12 +406,8 @@ QuicRClientRawSession::publishNamedObject(
 
 
   } else {
-    // TODO: Never hit this since context is not added to published state and
-    // objects are not to be repeated
-
     context.group_id = (n_low64 & 0xFFFFFFFF0000) >> 16;
     context.object_id = n_low64 & 0xFFFF;
-
 
     if (context.group_id - context.prev_group_id > 1) {
       std::ostringstream log_msg;
@@ -451,7 +450,6 @@ QuicRClientRawSession::publishNamedObject(
     msg << datagram;
 
     // No fragmenting needed
-    // TODO: Add metric for dropping packets due to queue full == qtransport::TransportError::QueueFull
     transport->enqueue(transport_context_id,
                        context.transport_stream_id,
                        msg.get(), priority, expiry_age_ms);
@@ -517,10 +515,13 @@ QuicRClientRawSession::publishNamedObject(
       //			          << " offset: " <<
       // uint64_t(datagram.header.offset_and_fin) << std::endl;
 
-      if (transport->enqueue(transport_context_id,
+      if (auto err = transport->enqueue(transport_context_id,
                              context.transport_stream_id,
                              msg.get(),
-                             priority, expiry_age_ms) != qtransport::TransportError::None) {
+                             priority, expiry_age_ms);
+                             err != qtransport::TransportError::None) {
+        log_handler.log(qtransport::LogLevel::warn,
+                        "Published object delayed due to enqueue error " + std::to_string((int)err));
         std::this_thread::sleep_for(std::chrono::microseconds(100));
       }
     }
@@ -711,9 +712,9 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
                                              0x0,
                                              false,
                                              std::move(datagram.media_data));
-          } else { // is a fragment
-            handle_pub_fragment(std::move(datagram), delegate);
           }
+        } else { // is a fragment
+          handle_pub_fragment(std::move(datagram), delegate);
         }
       }
       break;
