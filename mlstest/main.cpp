@@ -7,8 +7,19 @@
 #include <sstream>
 #include <thread>
 
-#include "testLogger.h"
+#include <hpke/random.h>
+#include <mls/common.h>
+#include <mls/state.h>
+#include <bytes/bytes.h>
 
+#include "testLogger.h"
+#include "mls_session.h"
+
+using namespace mls;
+
+
+
+/// quicr delegates
 class subDelegate : public quicr::SubscriberDelegate
 {
 public:
@@ -85,18 +96,18 @@ public:
   }
 };
 
-int
-main(int argc, char* argv[])
+int main(int argc, char* argv[])
 {
+
   auto pd = std::make_shared<pubDelegate>();
-  if ((argc != 2) && (argc != 3)) {
+  if (argc > 4 || argc < 3) {
     std::cerr
       << "MLS address and port set in MLS_RELAY and MLS_PORT env "
          "variables."
       << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Usage PUB: quicr_mlstest FF0001 pubData" << std::endl;
-    std::cerr << "Usage SUB: quicr_mlstest FF0000" << std::endl;
+    std::cerr << "Usage quicr_mlstest creator(1)/joiner(0) user_id "<< std::endl;
+    std::cerr << "Ex: quicr_mlstest 1 alice" << std::endl;
     exit(-1);
   }
 
@@ -113,7 +124,8 @@ main(int argc, char* argv[])
   if (portVar) {
     port = atoi(portVar);
   }
-
+  int is_creator = atoi(argv[1]);
+  auto user = std::string(argv[2]);
   auto name = quicr::Name(std::string(argv[1]));
 
   std::stringstream log_msg;
@@ -122,10 +134,13 @@ main(int argc, char* argv[])
   logger.log(qtransport::LogLevel::info, log_msg.str());
 
   std::vector<uint8_t> data;
-  if (argc == 3) {
+  if (argc == 4) {
     data.insert(
-      data.end(), (uint8_t*)(argv[2]), ((uint8_t*)(argv[2])) + strlen(argv[2]));
+      data.end(), (uint8_t*)(argv[3]), ((uint8_t*)(argv[3])) + strlen(argv[3]));
   }
+
+  MlsUserSession session = MlsUserSession(from_ascii("1234"), from_ascii(user));
+
 
   log_msg.str("");
   log_msg << "Connecting to " << relayName << ":" << port;
@@ -133,7 +148,7 @@ main(int argc, char* argv[])
 
   quicr::RelayInfo relay{ .hostname = relayName,
                           .port = uint16_t(port),
-                          .proto = quicr::RelayInfo::Protocol::QUIC };
+                          .proto = quicr::RelayInfo::Protocol::UDP };
 
   qtransport::TransportConfig tcfg{ .tls_cert_filename = NULL,
                                     .tls_key_filename = NULL };
@@ -147,6 +162,9 @@ main(int argc, char* argv[])
 
     // do publish
     logger.log(qtransport::LogLevel::info, "Publish");
+    //auto keypackage_data = tls::marshal(key_package);
+    //client.publishNamedObject(name, 0, 10000, false, std::move(keypackage_data));
+    quicr::bytes empty;
     client.publishNamedObject(name, 0, 10000, false, std::move(data));
 
   } else {

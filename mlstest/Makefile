@@ -185,6 +185,30 @@ quicr_mlstest/fast:
 	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/build
 .PHONY : quicr_mlstest/fast
 
+MlsUserSession.o: MlsUserSession.cpp.o
+.PHONY : MlsUserSession.o
+
+# target to build an object file
+MlsUserSession.cpp.o:
+	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.o
+.PHONY : MlsUserSession.cpp.o
+
+MlsUserSession.i: MlsUserSession.cpp.i
+.PHONY : MlsUserSession.i
+
+# target to preprocess a source file
+MlsUserSession.cpp.i:
+	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.i
+.PHONY : MlsUserSession.cpp.i
+
+MlsUserSession.s: MlsUserSession.cpp.s
+.PHONY : MlsUserSession.s
+
+# target to generate assembly for a file
+MlsUserSession.cpp.s:
+	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.s
+.PHONY : MlsUserSession.cpp.s
+
 main.o: main.cpp.o
 .PHONY : main.o
 
@@ -247,6 +271,9 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... test"
 	@echo "... quicr_mlstest"
+	@echo "... MlsUserSession.o"
+	@echo "... MlsUserSession.i"
+	@echo "... MlsUserSession.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"

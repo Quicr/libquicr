@@ -83,10 +83,24 @@ mlstest/CMakeFiles/quicr_mlstest.dir/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/quicr_mlstest.dir/main.cpp.s"
 	cd /Users/chaya/Github/libquicr/mlstest && /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/chaya/Github/libquicr/mlstest/main.cpp -o CMakeFiles/quicr_mlstest.dir/main.cpp.s
 
+mlstest/CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.o: mlstest/CMakeFiles/quicr_mlstest.dir/flags.make
+mlstest/CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.o: mlstest/MlsUserSession.cpp
+mlstest/CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.o: mlstest/CMakeFiles/quicr_mlstest.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/Users/chaya/Github/libquicr/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object mlstest/CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.o"
+	cd /Users/chaya/Github/libquicr/mlstest && /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT mlstest/CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.o -MF CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.o.d -o CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.o -c /Users/chaya/Github/libquicr/mlstest/MlsUserSession.cpp
+
+mlstest/CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.i"
+	cd /Users/chaya/Github/libquicr/mlstest && /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/chaya/Github/libquicr/mlstest/MlsUserSession.cpp > CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.i
+
+mlstest/CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.s"
+	cd /Users/chaya/Github/libquicr/mlstest && /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/chaya/Github/libquicr/mlstest/MlsUserSession.cpp -o CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.s
+
 mlstest/CMakeFiles/quicr_mlstest.dir/testLogger.cpp.o: mlstest/CMakeFiles/quicr_mlstest.dir/flags.make
 mlstest/CMakeFiles/quicr_mlstest.dir/testLogger.cpp.o: mlstest/testLogger.cpp
 mlstest/CMakeFiles/quicr_mlstest.dir/testLogger.cpp.o: mlstest/CMakeFiles/quicr_mlstest.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/Users/chaya/Github/libquicr/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object mlstest/CMakeFiles/quicr_mlstest.dir/testLogger.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/Users/chaya/Github/libquicr/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object mlstest/CMakeFiles/quicr_mlstest.dir/testLogger.cpp.o"
 	cd /Users/chaya/Github/libquicr/mlstest && /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT mlstest/CMakeFiles/quicr_mlstest.dir/testLogger.cpp.o -MF CMakeFiles/quicr_mlstest.dir/testLogger.cpp.o.d -o CMakeFiles/quicr_mlstest.dir/testLogger.cpp.o -c /Users/chaya/Github/libquicr/mlstest/testLogger.cpp
 
 mlstest/CMakeFiles/quicr_mlstest.dir/testLogger.cpp.i: cmake_force
@@ -100,17 +114,21 @@ mlstest/CMakeFiles/quicr_mlstest.dir/testLogger.cpp.s: cmake_force
 # Object files for target quicr_mlstest
 quicr_mlstest_OBJECTS = \
 "CMakeFiles/quicr_mlstest.dir/main.cpp.o" \
+"CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.o" \
 "CMakeFiles/quicr_mlstest.dir/testLogger.cpp.o"
 
 # External object files for target quicr_mlstest
 quicr_mlstest_EXTERNAL_OBJECTS =
 
 mlstest/quicr_mlstest: mlstest/CMakeFiles/quicr_mlstest.dir/main.cpp.o
+mlstest/quicr_mlstest: mlstest/CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.o
 mlstest/quicr_mlstest: mlstest/CMakeFiles/quicr_mlstest.dir/testLogger.cpp.o
 mlstest/quicr_mlstest: mlstest/CMakeFiles/quicr_mlstest.dir/build.make
 mlstest/quicr_mlstest: src/libquicr.a
 mlstest/quicr_mlstest: dependencies/transport/dependencies/picotls/libpicotls-core.a
 mlstest/quicr_mlstest: dependencies/transport/dependencies/picotls/libpicotls-openssl.a
+mlstest/quicr_mlstest: /Users/chaya/Github/mlspp/build/libmlspp.a
+mlstest/quicr_mlstest: /Users/chaya/Github/mlspp/build/lib/tls_syntax/libtls_syntax.a
 mlstest/quicr_mlstest: dependencies/transport/libquicr-transport.a
 mlstest/quicr_mlstest: dependencies/transport/dependencies/picoquic/libpicoquic-core.a
 mlstest/quicr_mlstest: dependencies/transport/dependencies/picotls/libpicotls-openssl.a
@@ -118,8 +136,12 @@ mlstest/quicr_mlstest: dependencies/transport/dependencies/picotls/libpicotls-co
 mlstest/quicr_mlstest: dependencies/transport/dependencies/boringssl/decrepit/libdecrepit.a
 mlstest/quicr_mlstest: dependencies/transport/dependencies/boringssl/ssl/libssl.a
 mlstest/quicr_mlstest: dependencies/transport/dependencies/boringssl/crypto/libcrypto.a
+mlstest/quicr_mlstest: /Users/chaya/Github/mlspp/build/lib/hpke/libhpke.a
+mlstest/quicr_mlstest: /Users/chaya/Github/mlspp/build/lib/bytes/libbytes.a
+mlstest/quicr_mlstest: /Users/chaya/Github/mlspp/build/lib/tls_syntax/libtls_syntax.a
+mlstest/quicr_mlstest: /opt/homebrew/opt/openssl@1.1/lib/libcrypto.dylib
 mlstest/quicr_mlstest: mlstest/CMakeFiles/quicr_mlstest.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/Users/chaya/Github/libquicr/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable quicr_mlstest"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/Users/chaya/Github/libquicr/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Linking CXX executable quicr_mlstest"
 	cd /Users/chaya/Github/libquicr/mlstest && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/quicr_mlstest.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

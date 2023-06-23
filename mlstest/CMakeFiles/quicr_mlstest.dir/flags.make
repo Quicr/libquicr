@@ -4,7 +4,7 @@
 # compile CXX with /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/Users/chaya/Github/libquicr/include -I/Users/chaya/Github/libquicr/dependencies/transport/include -I/Users/chaya/Github/libquicr/dependencies/transport/src -I/Users/chaya/Github/libquicr/dependencies/transport/dependencies/picoquic/picoquic -I/Users/chaya/Github/libquicr/dependencies/transport/dependencies/boringssl/include
+CXX_INCLUDES = -I/Users/chaya/Github/libquicr/include -I/Users/chaya/Github/libquicr/dependencies/transport/include -I/Users/chaya/Github/libquicr/dependencies/transport/src -I/Users/chaya/Github/libquicr/dependencies/transport/dependencies/picoquic/picoquic -I/Users/chaya/Github/libquicr/dependencies/transport/dependencies/boringssl/include -isystem /Users/chaya/Github/mlspp/include -isystem /Users/chaya/Github/mlspp/lib/bytes/include -isystem /Users/chaya/Github/mlspp/lib/tls_syntax/include -isystem /Users/chaya/Github/mlspp/third_party -isystem /Users/chaya/Github/mlspp/lib/hpke/include
 
 CXX_FLAGSarm64 = -std=c++20 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk -Wpedantic -Wextra -Wall
 

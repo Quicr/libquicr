@@ -1,4 +1,6 @@
 file(REMOVE_RECURSE
+  "CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.o"
+  "CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.o.d"
   "CMakeFiles/quicr_mlstest.dir/main.cpp.o"
   "CMakeFiles/quicr_mlstest.dir/main.cpp.o.d"
   "CMakeFiles/quicr_mlstest.dir/testLogger.cpp.o"
