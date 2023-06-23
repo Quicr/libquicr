@@ -56,6 +56,7 @@ public:
 
   ~QuicRServerRawSession() = default;
 
+
   // Transport APIs
   bool is_transport_ready() override;
 
@@ -162,6 +163,17 @@ private:
 public:
   std::mutex session_mutex;
 
+  /*
+   * Metrics
+   */
+  uint64_t recv_data_count { 0 };
+  uint64_t recv_data_count_null { 0 };
+  uint64_t recv_publish { 0 };
+  uint64_t recv_subscribes { 0 };
+  uint64_t recv_unsubscribes { 0 };
+  uint64_t recv_pub_intents { 0 };
+
+
 private:
 
   std::shared_ptr<qtransport::ITransport> setupTransport(
@@ -206,18 +218,19 @@ private:
   {
     uint64_t transaction_id{ 0 };
     uint64_t subscriber_id{ 0 };
-  };
-
-  struct PublishContext : public Context
-  {
     uint64_t group_id{ 0 };
     uint64_t object_id{ 0 };
-    uint64_t offset{ 0 };
+    uint64_t prev_group_id{ 0 };
+    uint64_t prev_object_id{ 0 };
   };
 
   struct PublishIntentContext : public Context
   {
     uint64_t transaction_id{ 0 };
+    uint64_t group_id{ 0 };
+    uint64_t object_id{ 0 };
+    uint64_t prev_group_id{ 0 };
+    uint64_t prev_object_id{ 0 };
   };
 
   ServerDelegate& delegate;
@@ -229,8 +242,7 @@ private:
            std::map<qtransport::TransportContextId, SubscribeContext>>
     subscribe_state{};
   std::map<uint64_t, SubscribeContext> subscribe_id_state{};
-  std::map<quicr::Name, PublishContext> publish_state{};
-  std::map<quicr::Namespace, PublishIntentContext> publish_namespaces{};
+  namespace_map<PublishIntentContext> publish_namespaces{};
   bool running{ false };
   uint64_t subscriber_id{ 0 };
 };
