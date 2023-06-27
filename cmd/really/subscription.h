@@ -5,8 +5,7 @@
 #include <optional>
 
 #include <transport/transport.h>
-#include <quicr/quicr_name.h>
-#include <quicr/quicr_namespace.h>
+#include <quicr_name>
 
 class Subscriptions {
 public:
@@ -26,8 +25,6 @@ public:
       return std::tie(subscribe_id, context_id, stream_id)
               < std::tie(o.subscribe_id, o.context_id, o.stream_id);
     }
-
-
   };
 
   Subscriptions();
@@ -35,11 +32,11 @@ public:
   void get_masked_quicRName(const quicr::Name &src, quicr::Name &dst, const int len);
 
   void add(const quicr::Name& name, const int len, const Remote& remote );
-  
+
   void remove(const quicr::Name& name, const int len, const Remote& remote );
-  
+
   std::list<Remote> find(  const quicr::Name& name  ) ;
-    
+
  private:
   std::vector< std::map<quicr::Name,std::set<Remote>> > subscriptions;
 

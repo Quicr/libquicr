@@ -350,27 +350,6 @@ operator>>(MessageBuffer& buffer, PublishIntentEnd& msg)
 }
 
 messages::MessageBuffer&
-operator<<(messages::MessageBuffer& msg, const quicr::Name& val)
-{
-  for (int i = sizeof(quicr::Name) - 1; i >= 0; --i)
-    msg << val[i];
-
-  return msg;
-}
-
-messages::MessageBuffer&
-operator>>(messages::MessageBuffer& msg, quicr::Name& val)
-{
-  std::array<uint8_t, sizeof(quicr::Name)> bytes;
-  for (int i = sizeof(quicr::Name) - 1; i >= 0; --i)
-    msg >> bytes[i];
-
-  val = Name{ bytes.data(), sizeof(quicr::Name) };
-
-  return msg;
-}
-
-messages::MessageBuffer&
 operator<<(messages::MessageBuffer& msg, const quicr::Namespace& val)
 {
   msg << val.name() << val.length();

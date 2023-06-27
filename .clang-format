@@ -1,5 +1,7 @@
 ---
 Language:      Cpp
 BasedOnStyle:  Mozilla
+
+BreakAfterAttributes: Leave
 ...
 

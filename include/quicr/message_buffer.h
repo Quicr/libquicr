@@ -1,6 +1,10 @@
 #pragma once
 
+#include <quicr/name.h>
+
+#include <bit>
 #include <cassert>
+#include <istream>
 #include <ostream>
 #include <vector>
 
@@ -44,6 +48,11 @@ public:
   friend std::ostream& operator<<(std::ostream& os, uintVar_t v)
   {
     return os << v._value;
+  }
+
+  friend std::istream& operator>>(std::istream& is, uintVar_t v)
+  {
+    return is >> v._value;
   }
 
 private:
@@ -100,7 +109,9 @@ public:
   std::vector<uint8_t> front(uint16_t len);
   std::vector<uint8_t> pop_front(uint16_t len);
 
+  [[deprecated("quicr::message::MessageBuffer::get is deprecated, use take")]]
   std::vector<uint8_t> get();
+  std::vector<uint8_t>&& take();
 
   std::string to_hex() const;
 
@@ -127,5 +138,55 @@ MessageBuffer&
 operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val);
 MessageBuffer&
 operator>>(MessageBuffer& msg, std::vector<uint8_t>& val);
+
+namespace {
+// clang-format off
+constexpr uint16_t
+swap_bytes(uint16_t value)
+{
+  if constexpr (std::endian::native == std::endian::big)
+    return value;
+
+  return ((value >> 8) & 0x00ff) | ((value << 8) & 0xff00);
+}
+
+constexpr uint32_t
+swap_bytes(uint32_t value)
+{
+  if constexpr (std::endian::native == std::endian::big)
+    return value;
+
+  return ((value >> 24) & 0x000000ff) |
+         ((value >>  8) & 0x0000ff00) |
+         ((value <<  8) & 0x00ff0000) |
+         ((value << 24) & 0xff000000);
+}
+
+constexpr uint64_t
+swap_bytes(uint64_t value)
+{
+  if constexpr (std::endian::native == std::endian::big)
+    return value;
+
+  return ((value >> 56) & 0x00000000000000ff) |
+         ((value >> 40) & 0x000000000000ff00) |
+         ((value >> 24) & 0x0000000000ff0000) |
+         ((value >>  8) & 0x00000000ff000000) |
+         ((value <<  8) & 0x000000ff00000000) |
+         ((value << 24) & 0x0000ff0000000000) |
+         ((value << 40) & 0x00ff000000000000) |
+         ((value << 56) & 0xff00000000000000);
+}
+
+constexpr quicr::Name
+swap_bytes(quicr::Name value)
+{
+  if constexpr (std::endian::native == std::endian::big)
+    return value;
+
+  return ((~0x0_name & swap_bytes(uint64_t(value))) << 64) | swap_bytes(uint64_t(value >> 64));
+}
+}
+// clang-format on
 
 }

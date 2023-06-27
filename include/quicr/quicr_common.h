@@ -3,8 +3,7 @@
 #include <string>
 #include <vector>
 
-#include <quicr/quicr_name.h>
-#include <quicr/quicr_namespace.h>
+#include <quicr_name>
 
 namespace quicr {
 

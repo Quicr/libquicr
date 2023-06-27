@@ -133,12 +133,10 @@ public:
                                    .port = 1234,
                                    .proto = quicr::RelayInfo::Protocol::QUIC };
 
-    qtransport::TransportConfig tcfg {.tls_cert_filename = "./server-cert.pem",
+    qtransport::TransportConfig tcfg{ .tls_cert_filename = "./server-cert.pem",
                                       .tls_key_filename = "./server-key.pem" };
-    server = std::make_unique<quicr::QuicRServer>(relayInfo,
-                                                  tcfg,
-                                                  *this,
-                                                  logger);
+    server =
+      std::make_unique<quicr::QuicRServer>(relayInfo, tcfg, *this, logger);
   }
   ~ReallyServer() { server.reset(); };
 
@@ -149,7 +147,8 @@ public:
                                quicr::bytes&& /* e2e_token */)
   {
     // TODO: Authenticate token
-    logger.log(qtransport::LogLevel::info, "Publish intent namespace: " + quicr_namespace.to_hex());
+    logger.log(qtransport::LogLevel::info,
+               "Publish intent namespace: " + std::string(quicr_namespace));
     quicr::PublishIntentResult result{ quicr::messages::Response::Ok, {}, {} };
     server->publishIntentResponse(quicr_namespace, result);
   };
@@ -187,7 +186,7 @@ public:
   {
 
     std::ostringstream log_msg;
-    log_msg << "onUnsubscribe: Namespace " << quicr_namespace.to_hex()
+    log_msg << "onUnsubscribe: Namespace " << quicr_namespace
             << " subscribe_id: " << subscriber_id;
 
     logger.log(qtransport::LogLevel::info, log_msg.str());
@@ -213,13 +212,14 @@ public:
     [[maybe_unused]] quicr::bytes&& data)
   {
     std::ostringstream log_msg;
-    log_msg << "onSubscribe: Namespace " << quicr_namespace.to_hex() << "/"
+    log_msg << "onSubscribe: Namespace " << quicr_namespace << "/"
             << int(quicr_namespace.length())
             << " subscribe_id: " << subscriber_id;
 
     logger.log(qtransport::LogLevel::info, log_msg.str());
 
-    Subscriptions::Remote remote = { .subscribe_id = subscriber_id, .context_id = context_id };
+    Subscriptions::Remote remote = { .subscribe_id = subscriber_id,
+                                     .context_id = context_id };
     subscribeList.add(quicr_namespace.name(), quicr_namespace.length(), remote);
 
     // respond with response
