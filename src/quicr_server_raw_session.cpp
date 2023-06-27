@@ -192,7 +192,9 @@ QuicRServerRawSession::sendNamedObject(
 {
   // start populating message to encode
   if (subscribe_id_state.count(subscriber_id) == 0) {
-    log_handler.log(qtransport::LogLevel::info, "Send Object, missing subscriber_id: " + std::to_string(subscriber_id));
+    log_handler.log(qtransport::LogLevel::info,
+                    "Send Object, missing subscriber_id: " +
+                      std::to_string(subscriber_id));
     return;
   }
 
@@ -224,7 +226,8 @@ QuicRServerRawSession::handle_subscribe(
   std::lock_guard<std::mutex> lock(session_mutex);
 
   if (subscribe_state[subscribe.quicr_namespace].count(context_id) == 0) {
-    log_handler.log(qtransport::LogLevel::info, "New subscriber_id: " + std::to_string(subscriber_id));
+    log_handler.log(qtransport::LogLevel::info,
+                    "New subscriber_id: " + std::to_string(subscriber_id));
     SubscribeContext context;
     context.transport_context_id = context_id;
     context.transport_stream_id = streamId;
@@ -296,38 +299,32 @@ QuicRServerRawSession::handle_publish(
     return;
   }
 
+  auto& [ns, context] = *publish_namespace;
 
-  uint64_t n_low64 = datagram.header.name.low64();
-  auto& [ns, context ] = *publish_namespace;
-
-  context.group_id = (n_low64 & 0xFFFFFFFF0000) >> 16;
-  context.object_id = n_low64 & 0xFFFF;
+  context.group_id = datagram.header.name.bits<uint64_t>(16, 32);
+  context.object_id = datagram.header.name.bits<uint64_t>(0, 16);
 
   if (context.group_id - context.prev_group_id > 1) {
     std::ostringstream log_msg;
-    log_msg << "RX Group jump for ns: "
-            << ns << " "
-            << context.group_id << " - " << context.prev_group_id
-            << " = " << context.group_id - context.prev_group_id - 1;
+    log_msg << "RX Group jump for ns: " << ns << " " << context.group_id
+            << " - " << context.prev_group_id << " = "
+            << context.group_id - context.prev_group_id - 1;
     log_handler.log(qtransport::LogLevel::info, log_msg.str());
   }
 
-  if (context.group_id == context.prev_group_id && context.object_id - context.prev_object_id > 1) {
+  if (context.group_id == context.prev_group_id &&
+      context.object_id - context.prev_object_id > 1) {
     std::ostringstream log_msg;
-    log_msg << "RX Object jump for ns: "
-            << ns << " "
-            << context.object_id << " - " << context.prev_object_id
-            << " = " << context.object_id - context.prev_object_id - 1;
+    log_msg << "RX Object jump for ns: " << ns << " " << context.object_id
+            << " - " << context.prev_object_id << " = "
+            << context.object_id - context.prev_object_id - 1;
     log_handler.log(qtransport::LogLevel::info, log_msg.str());
   }
 
   context.prev_group_id = context.group_id;
   context.prev_object_id = context.object_id;
 
-  delegate.onPublisherObject(context_id,
-                             streamId,
-                             false,
-                             std::move(datagram));
+  delegate.onPublisherObject(context_id, streamId, false, std::move(datagram));
 }
 
 void
@@ -435,7 +432,6 @@ QuicRServerRawSession::TransportDelegate::on_connection_status(
         }
 
         break;
-
       }
 
       for (const auto& ns : namespaces_to_remove) {
@@ -472,7 +468,6 @@ QuicRServerRawSession::TransportDelegate::on_recv_notify(
   const qtransport::TransportContextId& context_id,
   const qtransport::StreamId& streamId)
 {
-
 
   // don't starve other queues, read some number of messages at a time
   for (int i = 0; i < 150; i++) {
@@ -513,7 +508,8 @@ QuicRServerRawSession::TransportDelegate::on_recv_notify(
             break;
           }
           default:
-            server.log_handler.log(qtransport::LogLevel::info, "Invalid Message Type");
+            server.log_handler.log(qtransport::LogLevel::info,
+                                   "Invalid Message Type");
             break;
         }
       } catch (const messages::MessageBuffer::ReadException& /* ex */) {
@@ -523,9 +519,9 @@ QuicRServerRawSession::TransportDelegate::on_recv_notify(
         continue;
 
       } catch (const std::exception& /* ex */) {
-        server.log_handler.log(
-          qtransport::LogLevel::fatal,
-          "Received standard exception error while reading from message buffer.");
+        server.log_handler.log(qtransport::LogLevel::fatal,
+                               "Received standard exception error while "
+                               "reading from message buffer.");
         continue;
       } catch (...) {
         server.log_handler.log(

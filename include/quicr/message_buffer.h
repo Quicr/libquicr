@@ -184,8 +184,7 @@ swap_bytes(quicr::Name value)
   if constexpr (std::endian::native == std::endian::big)
     return value;
 
-  return ((0x0_name | swap_bytes(uint64_t(value))) << 64) |
-           swap_bytes(value.bits<uint64_t>(64, 64));
+  return ((~0x0_name & swap_bytes(uint64_t(value))) << 64) | swap_bytes(uint64_t(value >> 64));
 }
 }
 // clang-format on

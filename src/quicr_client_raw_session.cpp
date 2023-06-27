@@ -373,9 +373,6 @@ QuicRClientRawSession::publishNamedObject(
   // start populating message to encode
   messages::PublishDatagram datagram;
 
-  // Get group and object ids
-  uint64_t n_low64 = quicr_name.low64();
-
   auto found = publish_state.find(quicr_name);
 
   if (found == publish_state.end()) {
@@ -388,8 +385,8 @@ QuicRClientRawSession::publishNamedObject(
 
   auto& [ns, context] = *found;
 
-  context.group_id = (n_low64 & 0xFFFFFFFF0000) >> 16;
-  context.object_id = n_low64 & 0xFFFF;
+  context.group_id = datagram.header.name.bits<uint64_t>(16, 32);
+  context.object_id = datagram.header.name.bits<uint64_t>(0, 16);
 
   if (context.state != PublishContext::State::Ready) {
     context.transport_context_id = transport_context_id;
@@ -405,9 +402,6 @@ QuicRClientRawSession::publishNamedObject(
     log_handler.log(qtransport::LogLevel::info, log_msg.str());
 
   } else {
-    context.group_id = (n_low64 & 0xFFFFFFFF0000) >> 16;
-    context.object_id = n_low64 & 0xFFFF;
-
     if (context.group_id - context.prev_group_id > 1) {
       std::ostringstream log_msg;
       log_msg << "TX Group jump for ns: " << ns << " " << context.group_id
@@ -671,17 +665,14 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
       messages::PublishDatagram datagram;
       msg >> datagram;
 
-      // Get group and object ids
-      uint64_t n_low64 = datagram.header.name.low64();
-
       if (auto found = sub_delegates.find(datagram.header.name);
           found != sub_delegates.end()) {
         const auto& [ns, delegate] = *found;
 
         auto& context = subscribe_state[ns];
 
-        context.group_id = (n_low64 & 0xFFFFFFFF0000) >> 16;
-        context.object_id = n_low64 & 0xFFFF;
+        context.group_id = datagram.header.name.bits<uint64_t>(16, 32);
+        context.object_id = datagram.header.name.bits<uint64_t>(0, 16);
 
         if (context.group_id - context.prev_group_id > 1) {
           std::ostringstream log_msg;
