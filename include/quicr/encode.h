@@ -180,11 +180,6 @@ MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishIntentEnd& msg);
 
 MessageBuffer&
-operator<<(MessageBuffer& msg, const Name& ns);
-MessageBuffer&
-operator>>(MessageBuffer& msg, Name& ns);
-
-MessageBuffer&
 operator<<(MessageBuffer& msg, const Namespace& ns);
 MessageBuffer&
 operator>>(MessageBuffer& msg, Namespace& ns);

@@ -23,8 +23,8 @@ public:
   {
 
     std::stringstream log_msg;
-    log_msg << "onSubscriptionResponse: name: " << quicr_namespace.to_hex()
-            << "/" << int(quicr_namespace.length())
+    log_msg << "onSubscriptionResponse: name: " << quicr_namespace << "/"
+            << int(quicr_namespace.length())
             << " status: " << int(static_cast<uint8_t>(result.status));
 
     logger.log(qtransport::LogLevel::info, log_msg.str());
@@ -37,7 +37,7 @@ public:
   {
 
     std::stringstream log_msg;
-    log_msg << "onSubscriptionEnded: name: " << quicr_namespace.to_hex() << "/"
+    log_msg << "onSubscriptionEnded: name: " << quicr_namespace << "/"
             << int(quicr_namespace.length());
 
     logger.log(qtransport::LogLevel::info, log_msg.str());
@@ -51,7 +51,7 @@ public:
   {
     std::stringstream log_msg;
 
-    log_msg << "recv object: name: " << quicr_name.to_hex()
+    log_msg << "recv object: name: " << quicr_name
             << " data sz: " << data.size();
 
     if (data.size())
@@ -88,8 +88,8 @@ public:
 int
 main(int argc, char* argv[])
 {
-    auto pd = std::make_shared<pubDelegate>();
-    if ((argc != 2) && (argc != 3)) {
+  auto pd = std::make_shared<pubDelegate>();
+  if ((argc != 2) && (argc != 3)) {
     std::cerr
       << "Relay address and port set in RELAY_RELAY and REALLY_PORT env "
          "variables."
@@ -118,7 +118,7 @@ main(int argc, char* argv[])
 
   std::stringstream log_msg;
 
-  log_msg << "Name = " << name.to_hex();
+  log_msg << "Name = " << name;
   logger.log(qtransport::LogLevel::info, log_msg.str());
 
   std::vector<uint8_t> data;
@@ -141,11 +141,13 @@ main(int argc, char* argv[])
 
   if (data.size() > 0) {
     auto nspace = quicr::Namespace(name, 96);
-    logger.log(qtransport::LogLevel::info, "Publish Intent for name: " + name.to_hex() + " == namespace: " + nspace.to_hex());
+    logger.log(qtransport::LogLevel::info,
+               "Publish Intent for name: " + std::string(name) +
+                 " == namespace: " + std::string(nspace));
     client.publishIntent(pd, nspace, {}, {}, {});
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
-      // do publish
+    // do publish
     logger.log(qtransport::LogLevel::info, "Publish");
     client.publishNamedObject(name, 0, 10000, false, std::move(data));
 
@@ -158,7 +160,7 @@ main(int argc, char* argv[])
     log_msg.str(std::string());
     log_msg.clear();
 
-    log_msg << "Subscribe to " << name.to_hex() << "/" << 96;
+    log_msg << "Subscribe to " << name << "/" << 96;
     logger.log(qtransport::LogLevel::info, log_msg.str());
 
     quicr::SubscribeIntent intent = quicr::SubscribeIntent::immediate;

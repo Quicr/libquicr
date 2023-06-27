@@ -130,7 +130,7 @@ QuicRServerRawSession::publishIntentResponse(
   context.state = PublishIntentContext::State::Ready;
 
   transport->enqueue(
-    context.transport_context_id, context.transport_stream_id, msg.get());
+    context.transport_context_id, context.transport_stream_id, msg.take());
 }
 
 void
@@ -155,7 +155,7 @@ QuicRServerRawSession::subscribeResponse(
   msg << response;
 
   transport->enqueue(
-    context.transport_context_id, context.transport_stream_id, msg.get());
+    context.transport_context_id, context.transport_stream_id, msg.take());
 }
 
 void
@@ -179,7 +179,7 @@ QuicRServerRawSession::subscriptionEnded(
   msg << subEnd;
 
   transport->enqueue(
-    context.transport_context_id, context.transport_stream_id, msg.get());
+    context.transport_context_id, context.transport_stream_id, msg.take());
 }
 
 void
@@ -201,9 +201,11 @@ QuicRServerRawSession::sendNamedObject(
 
   msg << datagram;
 
-  transport->enqueue(
-    context.transport_context_id, context.transport_stream_id,
-    msg.get(), priority, expiry_age_ms);
+  transport->enqueue(context.transport_context_id,
+                     context.transport_stream_id,
+                     msg.take(),
+                     priority,
+                     expiry_age_ms);
 }
 
 ///
