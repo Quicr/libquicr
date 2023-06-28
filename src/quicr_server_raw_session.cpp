@@ -222,7 +222,6 @@ QuicRServerRawSession::handle_subscribe(
   std::lock_guard<std::mutex> lock(session_mutex);
 
   if (subscribe_state[subscribe.quicr_namespace].count(context_id) == 0) {
-    log_handler.log(qtransport::LogLevel::info, "New subscriber_id: " + std::to_string(subscriber_id));
     SubscribeContext context;
     context.transport_context_id = context_id;
     context.transport_stream_id = streamId;
