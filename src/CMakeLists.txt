@@ -4,9 +4,7 @@ add_library(quicr
             quicr_client.cpp
             quicr_client_raw_session.cpp
             quicr_server.cpp
-            quicr_server_raw_session.cpp
-            quicr_name.cpp
-            quicr_namespace.cpp)
+            quicr_server_raw_session.cpp)
 
 target_compile_options(quicr
     PRIVATE
@@ -22,6 +20,7 @@ if(MSVC)
 endif()
 target_link_libraries(quicr
     PUBLIC
-        quicr-transport)
+        quicr-transport
+        qname)
 target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include)
 

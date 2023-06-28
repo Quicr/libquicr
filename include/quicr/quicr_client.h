@@ -9,12 +9,12 @@
 #include "quicr/encode.h"
 #include "quicr/message_buffer.h"
 #include "quicr/quicr_common.h"
-#include "quicr/quicr_name.h"
-#include "quicr/quicr_namespace.h"
-#include "transport/transport.h"
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_client_common.h"
 #include "quicr/quicr_client_session.h"
+
+#include <transport/transport.h>
+#include <quicr_name>
 
 namespace quicr {
 

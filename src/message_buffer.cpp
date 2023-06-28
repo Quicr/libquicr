@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <array>
-#include <bit>
 #include <iomanip>
 #include <sstream>
 #include <vector>
@@ -91,6 +90,12 @@ MessageBuffer::get()
   return std::move(_buffer);
 }
 
+std::vector<uint8_t>&&
+MessageBuffer::take()
+{
+  return std::move(_buffer);
+}
+
 std::string
 MessageBuffer::to_hex() const
 {
@@ -101,39 +106,6 @@ MessageBuffer::to_hex() const
   }
   return hex.str();
 }
-
-// clang-format off
-constexpr uint16_t
-swap_bytes(uint16_t value)
-{
-  return ((value >> 8) & 0x00ff) | ((value << 8) & 0xff00);
-}
-
-constexpr uint32_t
-swap_bytes(uint32_t value)
-{
-  return ((value >> 24) & 0x000000ff) |
-         ((value >>  8) & 0x0000ff00) |
-         ((value <<  8) & 0x00ff0000) |
-         ((value << 24) & 0xff000000);
-}
-
-constexpr uint64_t
-swap_bytes(uint64_t value)
-{
-  if constexpr (std::endian::native == std::endian::big)
-    return value;
-
-  return ((value >> 56) & 0x00000000000000ff) |
-         ((value >> 40) & 0x000000000000ff00) |
-         ((value >> 24) & 0x0000000000ff0000) |
-         ((value >>  8) & 0x00000000ff000000) |
-         ((value <<  8) & 0x000000ff00000000) |
-         ((value << 24) & 0x0000ff0000000000) |
-         ((value << 40) & 0x00ff000000000000) |
-         ((value << 56) & 0xff00000000000000);
-}
-// clang-format on
 
 template<typename Uint_t>
 MessageBuffer&
@@ -150,6 +122,8 @@ template MessageBuffer&
 operator<<(MessageBuffer& msg, uint32_t val);
 template MessageBuffer&
 operator<<(MessageBuffer& msg, uint64_t val);
+template MessageBuffer&
+operator<<(MessageBuffer& msg, Name val);
 
 template<>
 MessageBuffer&
@@ -193,6 +167,8 @@ template MessageBuffer&
 operator>>(MessageBuffer& msg, uint32_t& val);
 template MessageBuffer&
 operator>>(MessageBuffer& msg, uint64_t& val);
+template MessageBuffer&
+operator>>(MessageBuffer& msg, Name& val);
 
 template<>
 MessageBuffer&

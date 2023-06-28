@@ -51,6 +51,26 @@ MessageBuffer_PushBack64(benchmark::State& state)
 }
 
 void
+MessageBuffer_PushBackName(benchmark::State& state)
+{
+  quicr::messages::MessageBuffer buffer;
+  constexpr quicr::Name name = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF_name;
+  for (auto _ : state) {
+    buffer << name;
+  }
+}
+
+void
+MessageBuffer_PushBackNamespace(benchmark::State& state)
+{
+  quicr::messages::MessageBuffer buffer;
+  constexpr quicr::Namespace ns(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF_name, 120);
+  for (auto _ : state) {
+    buffer << ns;
+  }
+}
+
+void
 MessageBuffer_PushBackVector(benchmark::State& state)
 {
   std::vector<uint8_t> buf(1280);
@@ -62,20 +82,11 @@ MessageBuffer_PushBackVector(benchmark::State& state)
   }
 }
 
-void
-MessageBuffer_WriteName(benchmark::State& state)
-{
-  quicr::messages::MessageBuffer buffer;
-  quicr::Name name = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF_name;
-  for (auto _ : state) {
-    buffer << name;
-  }
-}
-
 BENCHMARK(MessageBuffer_Construct);
 BENCHMARK(MessageBuffer_PushBack);
 BENCHMARK(MessageBuffer_PushBack16);
 BENCHMARK(MessageBuffer_PushBack32);
 BENCHMARK(MessageBuffer_PushBack64);
+BENCHMARK(MessageBuffer_PushBackName);
+BENCHMARK(MessageBuffer_PushBackNamespace);
 BENCHMARK(MessageBuffer_PushBackVector);
-BENCHMARK(MessageBuffer_WriteName);

@@ -15,10 +15,11 @@
 
 #pragma once
 
-#include <cstdint>
-#include "quicr/quicr_name.h"
-#include "quicr/quicr_namespace.h"
 #include "quicr/quicr_common.h"
+
+#include <quicr_name>
+
+#include <cstdint>
 
 namespace quicr {
 

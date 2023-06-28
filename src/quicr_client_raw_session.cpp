@@ -17,15 +17,15 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
-#include <thread>
 #include <string>
+#include <thread>
 
-#include "quicr_client_raw_session.h"
 #include "quicr/encode.h"
 #include "quicr/message_buffer.h"
 #include "quicr/quicr_client.h"
-#include "quicr/quicr_common.h"
 #include "quicr/quicr_client_delegate.h"
+#include "quicr/quicr_common.h"
+#include "quicr_client_raw_session.h"
 
 namespace quicr {
 
@@ -80,12 +80,12 @@ public:
       log_msg << "Removing state for context_id: " << context_id;
       client.log_handler.log(qtransport::LogLevel::info, log_msg.str());
 
-      client.removeSubscribeState(true, {},
-                                  SubscribeResult::SubscribeStatus::ConnectionClosed);
+      client.removeSubscribeState(
+        true, {}, SubscribeResult::SubscribeStatus::ConnectionClosed);
 
-      // TODO: Need to reconnect or inform app that client is no longer connected
+      // TODO: Need to reconnect or inform app that client is no longer
+      // connected
     }
-
   }
 
   virtual void on_new_connection(
@@ -103,35 +103,35 @@ public:
   virtual void on_recv_notify(const qtransport::TransportContextId& context_id,
                               const qtransport::StreamId& streamId)
   {
-    for (int i=0; i < 150; i++) {
+    for (int i = 0; i < 150; i++) {
       auto data = client.transport->dequeue(context_id, streamId);
 
       if (!data.has_value()) {
-          return;
+        return;
       }
 
-//      std::cout << "on_recv_notify: context_id: " << context_id
-//                << " stream_id: " << streamId
-//                << " data sz: " << data.value().size() << std::endl;
+      //      std::cout << "on_recv_notify: context_id: " << context_id
+      //                << " stream_id: " << streamId
+      //                << " data sz: " << data.value().size() << std::endl;
 
-      messages::MessageBuffer msg_buffer{data.value()};
+      messages::MessageBuffer msg_buffer{ data.value() };
 
       try {
         client.handle(std::move(msg_buffer));
-      } catch (const messages::MessageBuffer::ReadException &e) {
+      } catch (const messages::MessageBuffer::ReadException& e) {
         client.log_handler.log(qtransport::LogLevel::info,
                                "Dropping malformed message: " +
-                               std::string(e.what()));
-          return;
-      } catch (const std::exception & /* ex */) {
+                                 std::string(e.what()));
+        return;
+      } catch (const std::exception& /* ex */) {
         client.log_handler.log(qtransport::LogLevel::info,
                                "Dropping malformed message");
-          return;
+        return;
       } catch (...) {
-          client.log_handler.log(
-                  qtransport::LogLevel::fatal,
-                  "Received malformed message with unknown fatal error");
-          throw;
+        client.log_handler.log(
+          qtransport::LogLevel::fatal,
+          "Received malformed message with unknown fatal error");
+        throw;
       }
     }
   }
@@ -154,7 +154,6 @@ QuicRClientRawSession::make_transport(RelayInfo& relay_info,
   };
   transport_delegate = std::make_unique<QuicRTransportDelegate>(*this);
 
-
   transport = qtransport::ITransport::make_client_transport(
     server, std::move(tconfig), *transport_delegate, logger);
 
@@ -164,7 +163,8 @@ QuicRClientRawSession::make_transport(RelayInfo& relay_info,
 
   while (transport->status() == qtransport::TransportStatus::Connecting) {
     std::ostringstream log_msg;
-    log_msg << "Waiting for client to be ready, got: " << int(transport->status());
+    log_msg << "Waiting for client to be ready, got: "
+            << int(transport->status());
     logger.log(qtransport::LogLevel::info, log_msg.str());
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
@@ -211,23 +211,26 @@ QuicRClientRawSession::QuicRClientRawSession(
 
 QuicRClientRawSession::~QuicRClientRawSession()
 {
-  removeSubscribeState(true, {},
-                      SubscribeResult::SubscribeStatus::ConnectionClosed);
+  removeSubscribeState(
+    true, {}, SubscribeResult::SubscribeStatus::ConnectionClosed);
   transport.reset(); // wait for transport close
 }
 
 bool
-QuicRClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
-                           const quicr::Namespace& quicr_namespace,
-                           const std::string& /* origin_url */,
-                           const std::string& /* auth_token */,
-                           bytes&& payload)
+QuicRClientRawSession::publishIntent(
+  std::shared_ptr<PublisherDelegate> pub_delegate,
+  const quicr::Namespace& quicr_namespace,
+  const std::string& /* origin_url */,
+  const std::string& /* auth_token */,
+  bytes&& payload)
 {
   if (!pub_delegates.count(quicr_namespace)) {
     pub_delegates[quicr_namespace] = pub_delegate;
     publish_state[quicr_namespace] = { .state = PublishContext::State::Pending,
-                                       .transport_context_id = transport_context_id,
-                                       .transport_stream_id = transport_stream_id };
+                                       .transport_context_id =
+                                         transport_context_id,
+                                       .transport_stream_id =
+                                         transport_stream_id };
   }
 
   messages::PublishIntent intent{ messages::MessageType::PublishIntent,
@@ -242,7 +245,7 @@ QuicRClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_dele
   msg << intent;
 
   auto error =
-    transport->enqueue(transport_context_id, transport_stream_id, msg.get());
+    transport->enqueue(transport_context_id, transport_stream_id, msg.take());
 
   return error == qtransport::TransportError::None;
 }
@@ -268,7 +271,7 @@ QuicRClientRawSession::publishIntentEnd(
   messages::MessageBuffer msg;
   msg << intent_end;
 
-  transport->enqueue(transport_context_id, transport_stream_id, msg.get());
+  transport->enqueue(transport_context_id, transport_stream_id, msg.take());
 }
 
 void
@@ -301,7 +304,7 @@ QuicRClientRawSession::subscribe(
   messages::Subscribe subscribe{ 0x1, transaction_id, quicr_namespace, intent };
   msg << subscribe;
 
-  transport->enqueue(transport_context_id, transport_stream_id, msg.get());
+  transport->enqueue(transport_context_id, transport_stream_id, msg.take());
 }
 
 void
@@ -315,17 +318,16 @@ QuicRClientRawSession::removeSubscribeState(
 
   if (all) { // Remove all states
     std::vector<quicr::Namespace> namespaces_to_remove;
-    for (const auto& ns: subscribe_state) {
+    for (const auto& ns : subscribe_state) {
       namespaces_to_remove.push_back(ns.first);
     }
 
     lock.unlock(); // Unlock before calling self
 
-    for (const auto& ns: namespaces_to_remove) {
+    for (const auto& ns : namespaces_to_remove) {
       removeSubscribeState(false, ns, reason);
     }
-  }
-  else {
+  } else {
 
     if (subscribe_state.count(quicr_namespace)) {
       subscribe_state.erase(quicr_namespace);
@@ -333,8 +335,7 @@ QuicRClientRawSession::removeSubscribeState(
 
     if (sub_delegates.count(quicr_namespace)) {
       if (auto sub_delegate = sub_delegates[quicr_namespace].lock())
-        sub_delegate->onSubscriptionEnded(quicr_namespace,
-                                          reason);
+        sub_delegate->onSubscriptionEnded(quicr_namespace, reason);
 
       // clean up the delegate memory
       sub_delegates.erase(quicr_namespace);
@@ -358,37 +359,34 @@ QuicRClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
     subscribe_state.erase(quicr_namespace);
   }
 
-  transport->enqueue(transport_context_id, transport_stream_id, msg.get());
+  transport->enqueue(transport_context_id, transport_stream_id, msg.take());
 }
 
 void
 QuicRClientRawSession::publishNamedObject(
-  const quicr::Name &quicr_name,
+  const quicr::Name& quicr_name,
   uint8_t priority,
   uint16_t expiry_age_ms,
   [[maybe_unused]] bool use_reliable_transport,
-  bytes &&data) {
+  bytes&& data)
+{
   // start populating message to encode
   messages::PublishDatagram datagram;
-
-  // Get group and object ids
-  uint64_t n_low64 = quicr_name.low64();
 
   auto found = publish_state.find(quicr_name);
 
   if (found == publish_state.end()) {
     std::ostringstream log_msg;
-    log_msg << "No publish intent for '" << quicr_name
-            << "' missing, dropping";
+    log_msg << "No publish intent for '" << quicr_name << "' missing, dropping";
 
     log_handler.log(qtransport::LogLevel::info, log_msg.str());
     return;
   }
 
-  auto &[ns, context] = *found;
+  auto& [ns, context] = *found;
 
-  context.group_id = (n_low64 & 0xFFFFFFFF0000) >> 16;
-  context.object_id = n_low64 & 0xFFFF;
+  context.group_id = datagram.header.name.bits<uint64_t>(16, 32);
+  context.object_id = datagram.header.name.bits<uint64_t>(0, 16);
 
   if (context.state != PublishContext::State::Ready) {
     context.transport_context_id = transport_context_id;
@@ -399,31 +397,25 @@ QuicRClientRawSession::publishNamedObject(
     context.prev_object_id = context.object_id;
 
     std::ostringstream log_msg;
-    log_msg << "Adding new context for published ns: "
-            << ns << " "
+    log_msg << "Adding new context for published ns: " << ns << " "
             << context.group_id << " - " << context.prev_group_id;
     log_handler.log(qtransport::LogLevel::info, log_msg.str());
 
-
   } else {
-    context.group_id = (n_low64 & 0xFFFFFFFF0000) >> 16;
-    context.object_id = n_low64 & 0xFFFF;
-
     if (context.group_id - context.prev_group_id > 1) {
       std::ostringstream log_msg;
-      log_msg << "TX Group jump for ns: "
-              << ns << " "
-              << context.group_id << " - " << context.prev_group_id
-              << " = " << context.group_id - context.prev_group_id;
+      log_msg << "TX Group jump for ns: " << ns << " " << context.group_id
+              << " - " << context.prev_group_id << " = "
+              << context.group_id - context.prev_group_id;
       log_handler.log(qtransport::LogLevel::info, log_msg.str());
     }
 
-    if (context.group_id == context.prev_group_id && context.object_id - context.prev_object_id > 1) {
+    if (context.group_id == context.prev_group_id &&
+        context.object_id - context.prev_object_id > 1) {
       std::ostringstream log_msg;
-      log_msg << "TX Object jump for ns: "
-              << ns << " "
-              << context.object_id << " - " << context.prev_object_id
-              << " = " << context.object_id - context.prev_object_id;
+      log_msg << "TX Object jump for ns: " << ns << " " << context.object_id
+              << " - " << context.prev_object_id << " = "
+              << context.object_id - context.prev_object_id;
       log_handler.log(qtransport::LogLevel::info, log_msg.str());
     }
 
@@ -431,9 +423,9 @@ QuicRClientRawSession::publishNamedObject(
     context.prev_object_id = context.object_id;
   }
 
-
   datagram.header.name = quicr_name;
-  datagram.header.media_id = static_cast<uintVar_t>(context.transport_stream_id);
+  datagram.header.media_id =
+    static_cast<uintVar_t>(context.transport_stream_id);
   datagram.header.group_id = static_cast<uintVar_t>(context.group_id);
   datagram.header.object_id = static_cast<uintVar_t>(context.object_id);
   datagram.header.flags = 0x0;
@@ -452,7 +444,9 @@ QuicRClientRawSession::publishNamedObject(
     // No fragmenting needed
     transport->enqueue(transport_context_id,
                        context.transport_stream_id,
-                       msg.get(), priority, expiry_age_ms);
+                       msg.take(),
+                       priority,
+                       expiry_age_ms);
 
   } else {
     // Fragments required. At this point this only counts whole blocks
@@ -491,8 +485,10 @@ QuicRClientRawSession::publishNamedObject(
 
       if (transport->enqueue(transport_context_id,
                              context.transport_stream_id,
-                             msg.get(),
-                             priority, expiry_age_ms) != qtransport::TransportError::None) {
+                             msg.take(),
+                             priority,
+                             expiry_age_ms) !=
+          qtransport::TransportError::None) {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
         // No point in finishing fragment if one is dropped
         return;
@@ -510,18 +506,15 @@ QuicRClientRawSession::publishNamedObject(
 
       msg << datagram;
 
-      //			std::cout << "Pub-frag remaining msg size: " <<
-      // data.size()
-      //			          << " offset: " <<
-      // uint64_t(datagram.header.offset_and_fin) << std::endl;
-
       if (auto err = transport->enqueue(transport_context_id,
-                             context.transport_stream_id,
-                             msg.get(),
-                             priority, expiry_age_ms);
-                             err != qtransport::TransportError::None) {
+                                        context.transport_stream_id,
+                                        msg.take(),
+                                        priority,
+                                        expiry_age_ms);
+          err != qtransport::TransportError::None) {
         log_handler.log(qtransport::LogLevel::warn,
-                        "Published object delayed due to enqueue error " + std::to_string((int)err));
+                        "Published object delayed due to enqueue error " +
+                          std::to_string((int)err));
         std::this_thread::sleep_for(std::chrono::microseconds(100));
       }
     }
@@ -544,7 +537,7 @@ QuicRClientRawSession::publishNamedObjectFragment(
 bool
 QuicRClientRawSession::notify_pub_fragment(
   const messages::PublishDatagram& datagram,
-  const std::weak_ptr<SubscriberDelegate> &delegate,
+  const std::weak_ptr<SubscriberDelegate>& delegate,
   const std::map<int, bytes>& frag_map)
 {
   if ((frag_map.rbegin()->first & 0x1) != 0x1) {
@@ -579,8 +572,9 @@ QuicRClientRawSession::notify_pub_fragment(
 }
 
 void
-QuicRClientRawSession::handle_pub_fragment(messages::PublishDatagram&& datagram,
-                                           const std::weak_ptr<SubscriberDelegate> &delegate)
+QuicRClientRawSession::handle_pub_fragment(
+  messages::PublishDatagram&& datagram,
+  const std::weak_ptr<SubscriberDelegate>& delegate)
 {
   static unsigned int cindex = 1;
 
@@ -645,14 +639,14 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
       SubscribeResult result{ .status = response.response };
 
       if (sub_delegates.count(response.quicr_namespace)) {
-        auto &context = subscribe_state[response.quicr_namespace];
+        auto& context = subscribe_state[response.quicr_namespace];
         context.state = SubscribeContext::State::Ready;
 
         if (auto sub_delegate = sub_delegates[response.quicr_namespace].lock())
           sub_delegate->onSubscribeResponse(response.quicr_namespace, result);
       } else {
         std::cout << "Got SubscribeResponse: No delegate found for namespace"
-                  << response.quicr_namespace.to_hex() << std::endl;
+                  << response.quicr_namespace << std::endl;
       }
 
       break;
@@ -671,32 +665,29 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
       messages::PublishDatagram datagram;
       msg >> datagram;
 
-      // Get group and object ids
-      uint64_t n_low64 = datagram.header.name.low64();
+      if (auto found = sub_delegates.find(datagram.header.name);
+          found != sub_delegates.end()) {
+        const auto& [ns, delegate] = *found;
 
-      if (auto found = sub_delegates.find(datagram.header.name); found != sub_delegates.end()) {
-        const auto &[ns, delegate] = *found;
+        auto& context = subscribe_state[ns];
 
-        auto &context = subscribe_state[ns];
-
-        context.group_id = (n_low64 & 0xFFFFFFFF0000) >> 16;
-        context.object_id = n_low64 & 0xFFFF;
+        context.group_id = datagram.header.name.bits<uint64_t>(16, 32);
+        context.object_id = datagram.header.name.bits<uint64_t>(0, 16);
 
         if (context.group_id - context.prev_group_id > 1) {
           std::ostringstream log_msg;
-          log_msg << "RX Group jump for ns: "
-                  << ns << " "
-                  << context.group_id << " - " << context.prev_group_id
-                  << " = " << context.group_id - context.prev_group_id - 1;
+          log_msg << "RX Group jump for ns: " << ns << " " << context.group_id
+                  << " - " << context.prev_group_id << " = "
+                  << context.group_id - context.prev_group_id - 1;
           log_handler.log(qtransport::LogLevel::info, log_msg.str());
         }
 
-        if (context.group_id == context.prev_group_id && context.object_id - context.prev_object_id > 1) {
+        if (context.group_id == context.prev_group_id &&
+            context.object_id - context.prev_object_id > 1) {
           std::ostringstream log_msg;
-          log_msg << "RX Object jump for ns: "
-                  << ns << " "
-                  << context.object_id << " - " << context.prev_object_id
-                  << " = " << context.object_id - context.prev_object_id - 1;
+          log_msg << "RX Object jump for ns: " << ns << " " << context.object_id
+                  << " - " << context.prev_object_id << " = "
+                  << context.object_id - context.prev_object_id - 1;
           log_handler.log(qtransport::LogLevel::info, log_msg.str());
         }
 

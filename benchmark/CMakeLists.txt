@@ -1,10 +1,7 @@
 add_executable(quicr_benchmark
-                main.cpp
-                name.cpp
-                message_buffer.cpp
-                hex_endec.cpp)
+                message_buffer.cpp)
 
-target_link_libraries(quicr_benchmark PRIVATE quicr benchmark::benchmark)
+target_link_libraries(quicr_benchmark PRIVATE quicr benchmark::benchmark_main)
 target_include_directories(quicr_benchmark PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
 target_compile_options(quicr_benchmark
