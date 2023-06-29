@@ -1125,12 +1125,18 @@ QuicRServerH3Session::subscriptionEnded(
  * @param subscriber_id            : Subscriber ID to send the message to
  * @param use_reliable_transport   : Indicates the preference for the object's
  *                                   transport, if forwarded.
+ * @param priority                 : Identifies the relative priority of the
+ *                                   current object
+ * @param expiry_age_ms            : Time hint for the object to be in cache
+ *                                   before being purged after reception
  * @param datagram                 : QuicR Publish Datagram to send
  *
  */
 void
 QuicRServerH3Session::sendNamedObject(const uint64_t& subscriber_id,
                                       bool use_reliable_transport,
+                                      [[maybe_unused]] uint8_t priority,
+                                      [[maybe_unused]] uint16_t expiry_age_ms,
                                       const messages::PublishDatagram& datagram)
 {
   // Locate the connection associated with this namespace

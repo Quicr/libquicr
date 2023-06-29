@@ -81,9 +81,12 @@ public:
     const uint64_t& subscriber_id,
     const quicr::Namespace& quicr_namespace,
     const SubscribeResult::SubscribeStatus& reason) override;
-  void sendNamedObject(const uint64_t& subscriber_id,
-                       bool use_reliable_transport,
-                       const messages::PublishDatagram& datagram) override;
+  void sendNamedObject(
+    const uint64_t& subscriber_id,
+    bool use_reliable_transport,
+    uint8_t priority,
+    uint16_t expiry_age_ms,
+    const messages::PublishDatagram& datagram) override;
 
   ////////////////////////////////////////////////////////////////////////////
   // End of Functions to satisfy the QuicRServer interface

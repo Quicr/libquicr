@@ -23,7 +23,7 @@
 #include <optional>
 #include "quic_identifier.h"
 #include "quiche_types.h"
-#include "quicr/quicr_namespace.h"
+#include "quicr/namespace.h"
 #include "quicr/quicr_client_delegate.h"
 
 namespace quicr {

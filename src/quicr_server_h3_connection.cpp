@@ -51,7 +51,7 @@
 #include "quiche_api_lock.h"
 #include "quicr/encode.h"
 #include "quicr/quicr_common.h"
-#include "quicr/quicr_name.h"
+#include "quicr/name.h"
 
 namespace quicr {
 
@@ -568,7 +568,7 @@ H3ServerConnection::PublishIntentResponse(const PubSubRecord& publisher,
     }
 
     // Send the response to the client
-    SendHTTPResponse(publisher.stream_id, status_code, {}, msg.get(), false);
+    SendHTTPResponse(publisher.stream_id, status_code, {}, msg.take(), false);
 
     // This request is now complete, so remove it
     ExpungeRequest(publisher.stream_id);
@@ -679,7 +679,7 @@ H3ServerConnection::SubscribeResponse(const PubSubRecord& subscriber,
     SendHTTPResponse(subscriber.stream_id,
                      status_code,
                      {},
-                     msg.get(),
+                     msg.take(),
                      true,
                      (result.status != SubscribeResult::SubscribeStatus::Ok));
 
@@ -759,7 +759,7 @@ H3ServerConnection::SubscriptionEnded(
     msg << subEnd;
 
     // Move the buffer and create a DataBuffer object
-    std::vector<std::uint8_t> message_buffer = msg.get();
+    std::vector<std::uint8_t> message_buffer = msg.take();
     cantina::DataBuffer data_buffer(message_buffer.size() +
                                     sizeof(std::uint64_t));
 
@@ -822,7 +822,7 @@ H3ServerConnection::SendNamedObject(const PubSubRecord& subscriber,
   try {
     messages::MessageBuffer msg;
     msg << datagram;
-    std::vector<std::uint8_t> message = msg.get();
+    std::vector<std::uint8_t> message = msg.take();
 
     // Lock the connection object
     std::unique_lock<std::mutex> lock(connection_lock);

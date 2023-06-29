@@ -2001,7 +2001,7 @@ H3ClientConnection::PublishIntent(
 
     // Submit the HTTP request
     auto [result, stream_id] = InitiateRequest(
-      "POST", std::string("/pub/") + quicr_namespace.to_hex(), msg.get());
+      "POST", std::string("/pub/") + std::string(quicr_namespace), msg.take());
 
     // If successful, record this publisher
     if (result) {
@@ -2070,8 +2070,9 @@ H3ClientConnection::PublishIntentEnd(
     msg << intent_end;
 
     // Submit the HTTP request
-    InitiateRequest(
-      "DELETE", std::string("/pub/") + quicr_namespace.to_hex(), msg.get());
+    InitiateRequest("DELETE",
+                    std::string("/pub/") + std::string(quicr_namespace),
+                    msg.take());
 
     // Remove the publisher record
     pub_sub_registry->Expunge(publisher->identifier);
@@ -2161,7 +2162,7 @@ H3ClientConnection::Subscribe(
 
     // Submit the HTTP request
     auto [result, stream_id] = InitiateRequest(
-      "GET", std::string("/sub/") + quicr_namespace.to_hex(), msg.get());
+      "GET", std::string("/sub/") + std::string(quicr_namespace), msg.take());
 
     // If successful, record this publisher
     if (result) {
@@ -2223,8 +2224,9 @@ H3ClientConnection::Unsubscribe(const quicr::Namespace& quicr_namespace,
     msg << unsub;
 
     // Submit the HTTP request
-    InitiateRequest(
-      "DELETE", std::string("/sub/") + quicr_namespace.to_hex(), msg.get());
+    InitiateRequest("DELETE",
+                    std::string("/sub/") + std::string(quicr_namespace),
+                    msg.take());
 
     // Remove the subscriber record
     pub_sub_registry->Expunge(subscriber->identifier);
@@ -2322,7 +2324,7 @@ H3ClientConnection::PublishNamedObject(const quicr::Name& quicr_name,
   }
 
   // Move the buffer from the message
-  std::vector<std::uint8_t> buffer = msg.get();
+  std::vector<std::uint8_t> buffer = msg.take();
 
   // Send as a datagram?
   if (!use_reliable_transport && using_datagrams) {
@@ -2348,7 +2350,7 @@ H3ClientConnection::PublishNamedObject(const quicr::Name& quicr_name,
 
   // Submit the HTTP PUT request
   auto [result, stream_id] = InitiateRequest(
-    "PUT", std::string("/pub/") + quicr_name.to_hex(), msg.get());
+    "PUT", std::string("/pub/") + std::string(quicr_name), msg.take());
 
   if (result) {
     // Dispatch Quiche messages
@@ -2429,7 +2431,7 @@ H3ClientConnection::PublishNamedObjectFragmented(
       offset += max_send_size;
 
       // Move the buffer from the message
-      std::vector<std::uint8_t> buffer = msg.get();
+      std::vector<std::uint8_t> buffer = msg.take();
 
       // Send the packet to quiche
       auto result = QuicheCall(quiche_h3_send_dgram,
@@ -2460,7 +2462,7 @@ H3ClientConnection::PublishNamedObjectFragmented(
       msg << datagram;
 
       // Move the buffer from the message
-      std::vector<std::uint8_t> buffer = msg.get();
+      std::vector<std::uint8_t> buffer = msg.take();
 
       // Send the packet to quiche
       auto result = QuicheCall(quiche_h3_send_dgram,

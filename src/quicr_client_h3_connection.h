@@ -41,8 +41,8 @@
 #include "quiche_types.h"
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_common.h"
-#include "quicr/quicr_name.h"
-#include "quicr/quicr_namespace.h"
+#include "quicr/name.h"
+#include "quicr/namespace.h"
 
 namespace quicr {
 

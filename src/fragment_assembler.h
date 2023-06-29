@@ -22,7 +22,7 @@
 #include <map>
 #include <cstdint>
 #include "quicr/encode.h"
-#include "quicr/quicr_name.h"
+#include "quicr/name.h"
 #include "quicr/quicr_common.h"
 
 namespace quicr {
