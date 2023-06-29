@@ -133,7 +133,7 @@ main(int argc, char* argv[])
 
   quicr::RelayInfo relay{ .hostname = relayName,
                           .port = uint16_t(port),
-                          .proto = quicr::RelayInfo::Protocol::QUIC };
+                          .proto = quicr::RelayInfo::Protocol::UDP };
 
   qtransport::TransportConfig tcfg{ .tls_cert_filename = NULL,
                                     .tls_key_filename = NULL };
@@ -167,6 +167,11 @@ main(int argc, char* argv[])
     quicr::bytes empty;
     client.subscribe(
       sd, nspace, intent, "origin_url", false, "auth_token", std::move(empty));
+
+    logger.log(qtransport::LogLevel::info,
+               "Sleeping for 2 seconds before fetching");
+
+    client.fetchNamedObject(nspace, name);
 
     logger.log(qtransport::LogLevel::info,
                "Sleeping for 20 seconds before unsubscribing");

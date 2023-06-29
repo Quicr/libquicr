@@ -170,6 +170,7 @@ public:
   uint64_t recv_data_count_null { 0 };
   uint64_t recv_publish { 0 };
   uint64_t recv_subscribes { 0 };
+  uint64_t recv_fetches {0};
   uint64_t recv_unsubscribes { 0 };
   uint64_t recv_pub_intents { 0 };
 
@@ -199,6 +200,11 @@ private:
     const qtransport::TransportContextId& context_id,
     const qtransport::StreamId& mStreamId,
     messages::MessageBuffer&& msg);
+
+  void handle_fetch(const qtransport::TransportContextId& context_id,
+                    const qtransport::StreamId& streamId,
+                    messages::MessageBuffer&& msg);
+
 
   struct Context
   {

@@ -181,6 +181,18 @@ public:
                                   bool is_last_fragment,
                                   bytes&& data) override;
 
+
+  /**
+   * API to fetch a object matching the given name within the lookup context
+   * identified by its namespace.
+   * @param context
+   * @param name
+   * Note: The response to this API is asyncronously provided and is linked to
+   * the lookup_context.
+   */
+  void fetchNamedObject(const quicr::Namespace& lookup_context, const quicr::Name& name) override;
+
+
   void handle(messages::MessageBuffer&& msg);
   void removeSubscribeState(bool all, const quicr::Namespace& quicr_namespace,
                             const SubscribeResult::SubscribeStatus& reason);

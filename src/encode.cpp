@@ -376,6 +376,7 @@ operator<<(MessageBuffer& buffer, const Fetch& msg)
 {
   buffer << static_cast<uint8_t>(MessageType::Fetch);
   buffer << msg.transaction_id;
+  buffer << msg.context;
   buffer << msg.name;
   return buffer;
 }
@@ -392,6 +393,7 @@ operator>>(MessageBuffer& buffer, Fetch& msg)
   }
 
   buffer >> msg.transaction_id;
+  buffer >> msg.context;
   buffer >> msg.name;
   return buffer;
 }

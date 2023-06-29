@@ -196,14 +196,16 @@ TEST_CASE("VarInt Encode/Decode")
 
   TEST_CASE("Fetch Message encode/decode")
   {
+    quicr::Namespace context {0x10000000000000002000_name, 96};
     quicr::Name qname{ 0x10000000000000002000_name};
 
-    Fetch f{ 0x1000, qname};
+    Fetch f{ 0x1000, context, qname};
     MessageBuffer buffer;
     buffer << f;
     Fetch fout;
     CHECK_NOTHROW((buffer >> fout));
 
     CHECK_EQ(fout.transaction_id, f.transaction_id);
+    CHECK_EQ(fout.context, f.context);
     CHECK_EQ(fout.name, f.name);
   }

@@ -140,6 +140,21 @@ public:
   virtual void onUnsubscribe(const quicr::Namespace& quicr_namespace,
                              const uint64_t& subscriber_id,
                              const std::string& auth_token) = 0;
+
+
+  /**
+   *
+   * @param context
+   * @param name
+   * @param subscriber_id
+   * @param context_id
+   * @param stream_id
+   */
+  virtual void onFetchNamedObject(const quicr::Namespace& context,
+                                  const quicr::Name& name,
+                                  const uint64_t& subscriber_id,
+                                  const qtransport::TransportContextId& context_id,
+                                  const qtransport::StreamId& stream_id) = 0;
 };
 
 } // namespace quicr

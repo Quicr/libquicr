@@ -388,6 +388,33 @@ QuicRServerRawSession::handle_publish_intent_end(
                               std::move(intent_end.payload));
 }
 
+
+void
+QuicRServerRawSession::handle_fetch(
+  const qtransport::TransportContextId& context_id,
+  const qtransport::StreamId& streamId,
+  messages::MessageBuffer&& msg)
+{
+  messages::Fetch fetch;
+  msg >> fetch;
+
+  std::lock_guard<std::mutex> lock(session_mutex);
+  // fetches are tied to an existing subscription
+  if (subscribe_state[fetch.context].count(context_id) == 0) {
+      log_handler.log(qtransport::LogLevel::info,
+                    "Fetch failed, unknown context: " + std::string(fetch.context));
+
+  }
+
+  auto& context = subscribe_state[fetch.context][context_id];
+
+  delegate.onFetchNamedObject(fetch.context,
+                              fetch.name,
+                              context.subscriber_id,
+                              context_id,
+                              streamId);
+}
+
 /*===========================================================================*/
 // Transport Delegate Implementation
 /*===========================================================================*/
@@ -506,6 +533,12 @@ QuicRServerRawSession::TransportDelegate::on_recv_notify(
             server.handle_publish_intent_end(
               context_id, streamId, std::move(msg_buffer));
             break;
+          }
+          case messages::MessageType::Fetch: {
+            server.recv_fetches++;
+            server.handle_fetch(
+              context_id, streamId, std::move(msg_buffer));
+
           }
           default:
             server.log_handler.log(qtransport::LogLevel::info,

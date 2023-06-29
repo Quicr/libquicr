@@ -110,4 +110,9 @@ QuicRClient::publishNamedObjectFragment(const quicr::Name& quicr_name,
                                              std::move(data));
 }
 
+void
+QuicRClient::fetchNamedObject(const quicr::Namespace& context, const quicr::Name& name) {
+    client_session->fetchNamedObject(context, name);
+}
+
 } // namespace quicr

@@ -176,6 +176,17 @@ public:
                                   bool is_last_fragment,
                                   bytes&& data);
 
+  /**
+   * API to fetch a object matching the given name within the lookup context
+   * identified by its namespace.
+   * @param context
+   * @param name
+   * Note: The response to this API is asyncronously provided and is linked to
+   * the lookup_context.
+   */
+  void fetchNamedObject(const quicr::Namespace& context, const quicr::Name& name);
+
+
 protected:
 
   std::unique_ptr<QuicRClientSession> client_session;
