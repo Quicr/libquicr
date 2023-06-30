@@ -534,6 +534,25 @@ QuicRClientRawSession::publishNamedObjectFragment(
   throw std::runtime_error("UnImplemented");
 }
 
+void
+QuicRClientRawSession::fetchNamedObject(const quicr::Namespace &context, const quicr::Name &name) {
+
+  std::lock_guard<std::mutex> lock(session_mutex);
+
+  auto transaction_id = messages::create_transaction_id();
+
+  if (!subscribe_state.count(context)) {
+      throw std::runtime_error("fetchNamedObject:Lookup Context not found");
+  }
+
+  // encode fetch
+  messages::MessageBuffer msg{};
+  messages::Fetch fetch{ transaction_id, context, name } ;
+  msg << fetch;
+  const auto& state = subscribe_state.at(context);
+  transport->enqueue(state.transport_context_id, state.transport_stream_id, msg.take());
+}
+
 bool
 QuicRClientRawSession::notify_pub_fragment(
   const messages::PublishDatagram& datagram,

@@ -161,6 +161,18 @@ public:
                                           const uint64_t& offset,
                                           bool is_last_fragment,
                                           bytes&& data) = 0;
+
+
+  /**
+   *  API to fetch a object matching the given name within the lookup context
+   *  identified by its namespace.
+   * @param context
+   * @param name
+   * Note: The response to this API is asyncronously provided and is linked to
+   * the lookup_context.
+   */
+  virtual void fetchNamedObject(const quicr::Namespace& context, const quicr::Name& name) = 0;
+
 };
 
 } // namespace quicr

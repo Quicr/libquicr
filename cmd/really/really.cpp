@@ -131,7 +131,7 @@ public:
   {
     quicr::RelayInfo relayInfo = { .hostname = "127.0.0.1",
                                    .port = 1234,
-                                   .proto = quicr::RelayInfo::Protocol::QUIC };
+                                   .proto = quicr::RelayInfo::Protocol::UDP };
 
     qtransport::TransportConfig tcfg{ .tls_cert_filename = "./server-cert.pem",
                                       .tls_key_filename = "./server-key.pem" };
@@ -167,6 +167,9 @@ public:
   {
     std::list<Subscriptions::Remote> list =
       subscribeList.find(datagram.header.name);
+
+    // add to cache
+    cache[datagram.header.name] = datagram;
 
     for (auto dest : list) {
 
@@ -229,12 +232,38 @@ public:
     server->subscribeResponse(subscriber_id, quicr_namespace, result);
   }
 
+  virtual void onFetchNamedObject(const quicr::Namespace& context,
+                                  const quicr::Name& name,
+                                  const uint64_t& subscriber_id,
+                                  const qtransport::TransportContextId& context_id,
+                                  const qtransport::StreamId& stream_id) override {
+
+    std::ostringstream log_msg;
+    log_msg << "onFetchNamedObject: Namespace " << context
+            << " Name " << name
+            << " subscribe_id: " << subscriber_id;
+    logger.log(qtransport::LogLevel::info, log_msg.str());
+
+    if (cache.count(name) == 0 ) {
+        log_msg << "onFetchNamedObject: Cache Miss " << context
+            << " Name " << name
+            << " subscribe_id: " << subscriber_id;
+        logger.log(qtransport::LogLevel::info, log_msg.str());
+        // TODO: Add a way to report to the fetching client
+        return;
+    }
+    logger.log(qtransport::LogLevel::info, log_msg.str());
+    server->sendNamedObject(subscriber_id, false, 1, 200, cache[name]);
+  }
+
   std::unique_ptr<quicr::QuicRServer> server;
   std::shared_ptr<qtransport::ITransport> transport;
   std::set<uint64_t> subscribers = {};
 
 private:
   Subscriptions subscribeList;
+  // TODO: make it store bytes
+  std::map<quicr::Name, quicr::messages::PublishDatagram> cache{};
   testLogger logger;
 };
 

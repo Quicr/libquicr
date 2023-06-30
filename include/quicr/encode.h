@@ -192,6 +192,7 @@ operator>>(MessageBuffer& msg, Namespace& ns);
 struct Fetch
 {
   uint64_t transaction_id;
+  quicr::Namespace context; // scope to search
   quicr::Name name; // resource to retrieve
   // TODO - Add authz
 };
