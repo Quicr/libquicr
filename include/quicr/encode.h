@@ -38,16 +38,6 @@ struct Unsubscribe
   quicr::Namespace quicr_namespace;
 };
 
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const Unsubscribe& msg);
-MessageBuffer&
-operator>>(MessageBuffer& buffer, Unsubscribe& msg);
-
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const Subscribe& msg);
-MessageBuffer&
-operator>>(MessageBuffer& buffer, Subscribe& msg);
-
 struct SubscribeResponse
 {
   quicr::Namespace quicr_namespace;
@@ -63,21 +53,11 @@ struct SubscribeResponse
    */
 };
 
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const SubscribeResponse& msg);
-MessageBuffer&
-operator>>(MessageBuffer& buffer, SubscribeResponse& msg);
-
 struct SubscribeEnd
 {
   quicr::Namespace quicr_namespace;
   SubscribeResult::SubscribeStatus reason;
 };
-
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const SubscribeEnd& msg);
-MessageBuffer&
-operator>>(MessageBuffer& buffer, SubscribeEnd& msg);
 
 /*===========================================================================*/
 // Publish Message Types
@@ -97,13 +77,6 @@ struct PublishIntent
   uintVar_t datagram_capable;
 };
 
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const PublishIntent& msg);
-MessageBuffer&
-operator<<(MessageBuffer& buffer, PublishIntent&& msg);
-MessageBuffer&
-operator>>(MessageBuffer& buffer, PublishIntent& msg);
-
 struct PublishIntentResponse
 {
   MessageType message_type;
@@ -115,11 +88,6 @@ struct PublishIntentResponse
   // *  [Reason Phrase (..)],
 };
 
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const PublishIntentResponse& msg);
-MessageBuffer&
-operator>>(MessageBuffer& buffer, PublishIntentResponse& msg);
-
 struct Header
 {
   uintVar_t media_id;
@@ -130,11 +98,6 @@ struct Header
   uint8_t flags;
 };
 
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const Header& msg);
-MessageBuffer&
-operator>>(MessageBuffer& buffer, Header& msg);
-
 struct PublishDatagram
 {
   Header header;
@@ -143,25 +106,11 @@ struct PublishDatagram
   std::vector<uint8_t> media_data;
 };
 
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const PublishDatagram& msg);
-MessageBuffer&
-operator<<(MessageBuffer& buffer, PublishDatagram&& msg);
-MessageBuffer&
-operator>>(MessageBuffer& buffer, PublishDatagram& msg);
-
 struct PublishStream
 {
   uintVar_t media_data_length;
   std::vector<uint8_t> media_data;
 };
-
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const PublishStream& msg);
-MessageBuffer&
-operator<<(MessageBuffer& buffer, PublishStream&& msg);
-MessageBuffer&
-operator>>(MessageBuffer& buffer, PublishStream& msg);
 
 struct PublishIntentEnd
 {
@@ -171,19 +120,6 @@ struct PublishIntentEnd
   //  * relay_token(…),
   std::vector<uint8_t> payload;
 };
-
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const PublishIntentEnd& msg);
-MessageBuffer&
-operator<<(MessageBuffer& buffer, PublishIntentEnd&& msg);
-MessageBuffer&
-operator>>(MessageBuffer& buffer, PublishIntentEnd& msg);
-
-MessageBuffer&
-operator<<(MessageBuffer& msg, const Namespace& ns);
-MessageBuffer&
-operator>>(MessageBuffer& msg, Namespace& ns);
-
 
 /*===========================================================================*/
 // Fetch Message Types
@@ -196,9 +132,36 @@ struct Fetch
   // TODO - Add authz
 };
 
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const Fetch& msg);
-MessageBuffer&
-operator>>(MessageBuffer& buffer, Fetch& msg);
+/*===========================================================================*/
+// MessageBuffer operator overloads.
+// TODO: These should ideally be removed eventually.
+/*===========================================================================*/
 
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const PublishIntent& msg);
+MessageBuffer&
+operator<<(MessageBuffer& buffer, PublishIntent&& msg);
+MessageBuffer&
+operator>>(MessageBuffer& buffer, PublishIntent& msg);
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const PublishDatagram& msg);
+MessageBuffer&
+operator<<(MessageBuffer& buffer, PublishDatagram&& msg);
+MessageBuffer&
+operator>>(MessageBuffer& buffer, PublishDatagram& msg);
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const PublishStream& msg);
+MessageBuffer&
+operator<<(MessageBuffer& buffer, PublishStream&& msg);
+MessageBuffer&
+operator>>(MessageBuffer& buffer, PublishStream& msg);
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const PublishIntentEnd& msg);
+MessageBuffer&
+operator<<(MessageBuffer& buffer, PublishIntentEnd&& msg);
+MessageBuffer&
+operator>>(MessageBuffer& buffer, PublishIntentEnd& msg);
 }

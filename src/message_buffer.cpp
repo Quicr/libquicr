@@ -30,7 +30,9 @@ MessageBuffer::pop()
 void
 MessageBuffer::push(const std::vector<uint8_t>& data)
 {
-  _buffer.insert(_buffer.end(), data.begin(), data.end());
+  const auto length = _buffer.size();
+  _buffer.resize(length + data.size());
+  std::memcpy(_buffer.data() + length, data.data(), data.size());
 }
 
 void
@@ -55,7 +57,7 @@ MessageBuffer::pop(uint16_t len)
 };
 
 std::vector<uint8_t>
-MessageBuffer::front(uint16_t len)
+MessageBuffer::front(uint16_t len) const
 {
   if (len == 0)
     return {};
@@ -64,7 +66,10 @@ MessageBuffer::front(uint16_t len)
     throw OutOfRangeException(
       "len cannot be longer than the size of the buffer");
 
-  return { _buffer.begin(), std::next(_buffer.begin(), len) };
+  if (len == _buffer.size())
+    return _buffer;
+
+  return { std::begin(_buffer), std::next(std::begin(_buffer), len) };
 }
 
 std::vector<uint8_t>
@@ -77,9 +82,13 @@ MessageBuffer::pop_front(uint16_t len)
     throw OutOfRangeException(
       "len cannot be longer than the size of the buffer");
 
+  if (len == _buffer.size())
+    return std::move(_buffer);
+
   std::vector<uint8_t> front(len);
-  std::copy_n(std::make_move_iterator(_buffer.begin()), len, front.begin());
-  _buffer.erase(_buffer.begin(), std::next(_buffer.begin(), len));
+  std::copy_n(
+    std::make_move_iterator(std::begin(_buffer)), len, std::begin(front));
+  _buffer.erase(std::begin(_buffer), std::next(std::begin(_buffer), len));
 
   return front;
 }
@@ -105,82 +114,6 @@ MessageBuffer::to_hex() const
     hex << std::setw(2) << int(byte);
   }
   return hex.str();
-}
-
-template<typename Uint_t>
-MessageBuffer&
-operator<<(MessageBuffer& msg, Uint_t val)
-{
-  val = swap_bytes(val);
-  uint8_t* val_ptr = reinterpret_cast<uint8_t*>(&val);
-  msg._buffer.insert(msg._buffer.end(), val_ptr, val_ptr + sizeof(Uint_t));
-  return msg;
-}
-template MessageBuffer&
-operator<<(MessageBuffer& msg, uint16_t val);
-template MessageBuffer&
-operator<<(MessageBuffer& msg, uint32_t val);
-template MessageBuffer&
-operator<<(MessageBuffer& msg, uint64_t val);
-template MessageBuffer&
-operator<<(MessageBuffer& msg, Name val);
-
-template<>
-MessageBuffer&
-operator<<(MessageBuffer& msg, uint8_t val)
-{
-  msg.push(val);
-  return msg;
-}
-
-template<typename Uint_t>
-MessageBuffer&
-operator>>(MessageBuffer& msg, Uint_t& val)
-{
-  if (msg.empty()) {
-    throw MessageBuffer::ReadException("Cannot read from empty message buffer");
-  }
-
-  constexpr size_t byte_length = sizeof(Uint_t);
-  if (msg._buffer.size() < byte_length) {
-    throw MessageBuffer::ReadException(
-      "Cannot read mismatched size buffer into size of type: Wanted " +
-      std::to_string(byte_length) + " but buffer only contains " +
-      std::to_string(msg._buffer.size()));
-  }
-
-  auto buffer_front = msg._buffer.begin();
-  auto buffer_byte_end =
-    std::next(buffer_front, std::min(msg._buffer.size(), byte_length));
-
-  std::copy_n(std::make_move_iterator(buffer_front),
-              byte_length,
-              reinterpret_cast<uint8_t*>(&val));
-  msg._buffer.erase(buffer_front, buffer_byte_end);
-  val = swap_bytes(val);
-
-  return msg;
-}
-template MessageBuffer&
-operator>>(MessageBuffer& msg, uint16_t& val);
-template MessageBuffer&
-operator>>(MessageBuffer& msg, uint32_t& val);
-template MessageBuffer&
-operator>>(MessageBuffer& msg, uint64_t& val);
-template MessageBuffer&
-operator>>(MessageBuffer& msg, Name& val);
-
-template<>
-MessageBuffer&
-operator>>(MessageBuffer& msg, uint8_t& val)
-{
-  if (msg.empty()) {
-    throw MessageBuffer::ReadException("Cannot read from empty message buffer");
-  }
-
-  val = msg.front();
-  msg.pop();
-  return msg;
 }
 
 MessageBuffer&

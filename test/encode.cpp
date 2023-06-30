@@ -1,7 +1,14 @@
 #include <doctest/doctest.h>
-#include <memory>
 
 #include <quicr/encode.h>
+#include <quicr/message_buffer.h>
+#include <quicr/quicr_common.h>
+#include <quicr_name>
+
+#include <memory>
+#include <random>
+#include <string>
+#include <vector>
 
 using namespace quicr;
 using namespace quicr::messages;
@@ -92,8 +99,7 @@ TEST_CASE("PublishIntent Message encode/decode")
                     qnamespace,           { 0, 1, 2, 3, 4 },
                     uintVar_t{ 0x0100 },  uintVar_t{ 0x0000 } };
   MessageBuffer buffer;
-  auto pi_copy = pi;
-  buffer << std::move(pi_copy);
+  buffer << pi;
   PublishIntent pi_out;
   CHECK_NOTHROW((buffer >> pi_out));
 
@@ -190,20 +196,18 @@ TEST_CASE("VarInt Encode/Decode")
     CHECK_NE(out, uintVar_t{ 0 });
   }
 }
-  ///
-  /// Fetch tests
-  ///
+///
+/// Fetch tests
+///
 
-  TEST_CASE("Fetch Message encode/decode")
-  {
-    quicr::Name qname{ 0x10000000000000002000_name};
+TEST_CASE("Fetch Message encode/decode")
+{
+  Fetch f{ 0x1000, 0x10000000000000002000_name };
+  MessageBuffer buffer;
+  buffer << f;
+  Fetch fout;
+  CHECK_NOTHROW((buffer >> fout));
 
-    Fetch f{ 0x1000, qname};
-    MessageBuffer buffer;
-    buffer << f;
-    Fetch fout;
-    CHECK_NOTHROW((buffer >> fout));
-
-    CHECK_EQ(fout.transaction_id, f.transaction_id);
-    CHECK_EQ(fout.name, f.name);
-  }
+  CHECK_EQ(fout.transaction_id, f.transaction_id);
+  CHECK_EQ(fout.name, f.name);
+}
