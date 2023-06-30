@@ -952,11 +952,12 @@ QuicRServerH3Session::is_transport_ready()
  *    for callbacks.
  *
  * @returns true if error, false if no error
+ *          (Note: laps expects a true response, so this comment may be wrong)
  */
 bool
 QuicRServerH3Session::run()
 {
-  return false;
+  return true;
 }
 
 /**
