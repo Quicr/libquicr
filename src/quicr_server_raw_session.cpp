@@ -538,8 +538,8 @@ QuicRServerRawSession::TransportDelegate::on_recv_notify(
             server.recv_fetches++;
             server.handle_fetch(
               context_id, streamId, std::move(msg_buffer));
-
           }
+          break;
           default:
             server.log_handler.log(qtransport::LogLevel::info,
                                    "Invalid Message Type");

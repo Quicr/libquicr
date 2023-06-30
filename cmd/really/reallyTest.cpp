@@ -6,8 +6,11 @@
 #include <quicr/quicr_common.h>
 #include <sstream>
 #include <thread>
+#include <atomic>
 
 #include "testLogger.h"
+
+std::atomic<bool> subscribe_done{false};
 
 class subDelegate : public quicr::SubscriberDelegate
 {
@@ -58,6 +61,9 @@ public:
       log_msg << " data: " << data.data();
 
     logger.log(qtransport::LogLevel::info, log_msg.str());
+
+    subscribe_done = true;
+
   }
 
   void onSubscribedObjectFragment(
@@ -88,7 +94,6 @@ public:
 int
 main(int argc, char* argv[])
 {
-  auto pd = std::make_shared<pubDelegate>();
   if ((argc != 2) && (argc != 3)) {
     std::cerr
       << "Relay address and port set in RELAY_RELAY and REALLY_PORT env "
@@ -99,8 +104,6 @@ main(int argc, char* argv[])
     std::cerr << "Usage SUB: reallyTest FF0000" << std::endl;
     exit(-1);
   }
-
-  testLogger logger;
 
   char* relayName = getenv("REALLY_RELAY");
   if (!relayName) {
@@ -115,9 +118,8 @@ main(int argc, char* argv[])
   }
 
   auto name = quicr::Name(std::string(argv[1]));
-
+  testLogger logger;
   std::stringstream log_msg;
-
   log_msg << "Name = " << name;
   logger.log(qtransport::LogLevel::info, log_msg.str());
 
@@ -138,13 +140,15 @@ main(int argc, char* argv[])
   qtransport::TransportConfig tcfg{ .tls_cert_filename = NULL,
                                     .tls_key_filename = NULL };
   quicr::QuicRClient client(relay, tcfg, logger);
+  auto pub_delegate = std::make_shared<pubDelegate>();
+  auto sub_delegate = std::make_shared<subDelegate>(logger);
 
   if (data.size() > 0) {
     auto nspace = quicr::Namespace(name, 96);
     logger.log(qtransport::LogLevel::info,
                "Publish Intent for name: " + std::string(name) +
                  " == namespace: " + std::string(nspace));
-    client.publishIntent(pd, nspace, {}, {}, {});
+    client.publishIntent(pub_delegate, nspace, {}, {}, {});
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
     // do publish
@@ -154,7 +158,6 @@ main(int argc, char* argv[])
   } else {
     // do subscribe
     logger.log(qtransport::LogLevel::info, "Subscribe");
-    auto sd = std::make_shared<subDelegate>(logger);
     auto nspace = quicr::Namespace(name, 96);
 
     log_msg.str(std::string());
@@ -166,15 +169,18 @@ main(int argc, char* argv[])
     quicr::SubscribeIntent intent = quicr::SubscribeIntent::immediate;
     quicr::bytes empty;
     client.subscribe(
-      sd, nspace, intent, "origin_url", false, "auth_token", std::move(empty));
+      sub_delegate, nspace, intent, "origin_url", false, "auth_token", std::move(empty));
 
-    logger.log(qtransport::LogLevel::info,
-               "Sleeping for 2 seconds before fetching");
+    while(!subscribe_done) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        logger.log(qtransport::LogLevel::info, "waiting for subscribe to be done");
+    }
 
+    logger.log(qtransport::LogLevel::info, "Attempting to fetch now");
     client.fetchNamedObject(nspace, name);
 
     logger.log(qtransport::LogLevel::info,
-               "Sleeping for 20 seconds before unsubscribing");
+               "Sleeping for 30 seconds before unsubscribing");
     std::this_thread::sleep_for(std::chrono::seconds(20));
 
     logger.log(qtransport::LogLevel::info, "Now unsubscribing");
