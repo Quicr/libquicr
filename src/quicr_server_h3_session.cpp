@@ -978,7 +978,7 @@ QuicRServerH3Session::publishIntentResponse(
   // Locate the connection associated with this namespace
   auto publisher = pub_sub_registry->FindPublisher(quicr_namespace);
   if (!publisher.has_value()) {
-    logger->warning << "Could not find publisher record" << std::endl;
+    logger->warning << "Could not find publisher record" << std::flush;
     return;
   }
   if (publisher->publisher == false) {
@@ -996,7 +996,7 @@ QuicRServerH3Session::publishIntentResponse(
   // If connection not found, just return
   if (item == connections.end()) {
     logger->warning << "Could not find connection in publishIntentResponse"
-                    << std::endl;
+                    << std::flush;
     return;
   }
 
@@ -1032,7 +1032,7 @@ QuicRServerH3Session::subscribeResponse(
   auto subscriber = pub_sub_registry->FindRecord(subscriber_id);
   if (!subscriber.has_value()) {
     logger->warning << "subscribeResponse could not find subscriber record"
-                    << std::endl;
+                    << std::flush;
     return;
   }
   if (subscriber->publisher == true) {
@@ -1050,7 +1050,7 @@ QuicRServerH3Session::subscribeResponse(
   // If connection not found, just return
   if (item == connections.end()) {
     logger->warning << "subscribeResponse could not find connection"
-                    << std::endl;
+                    << std::flush;
     return;
   }
 
@@ -1087,7 +1087,7 @@ QuicRServerH3Session::subscriptionEnded(
   auto subscriber = pub_sub_registry->FindRecord(subscriber_id);
   if (!subscriber.has_value()) {
     logger->warning << "subscriptionEnded could not find subscriber record"
-                    << std::endl;
+                    << std::flush;
     return;
   }
   if (subscriber->publisher == true) {
@@ -1105,7 +1105,7 @@ QuicRServerH3Session::subscriptionEnded(
   // If connection not found, just return
   if (item == connections.end()) {
     logger->warning << "subscriptionEnded could not find connection"
-                    << std::endl;
+                    << std::flush;
     return;
   }
 
@@ -1144,7 +1144,7 @@ QuicRServerH3Session::sendNamedObject(const uint64_t& subscriber_id,
   auto subscriber = pub_sub_registry->FindRecord(subscriber_id);
   if (!subscriber.has_value()) {
     logger->warning << "sendNamedObject could not find subscriber record"
-                    << std::endl;
+                    << std::flush;
     return;
   }
   if (subscriber->publisher == true) {
@@ -1161,7 +1161,8 @@ QuicRServerH3Session::sendNamedObject(const uint64_t& subscriber_id,
 
   // If connection not found, just return
   if (item == connections.end()) {
-    logger->warning << "sendNamedObject could not find connection" << std::endl;
+    logger->warning << "sendNamedObject could not find connection"
+                    << std::flush;
     return;
   }
 
