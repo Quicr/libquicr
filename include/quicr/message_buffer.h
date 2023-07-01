@@ -3,62 +3,7 @@
 #include <quicr/name.h>
 
 #include <bit>
-#include <cassert>
-#include <istream>
-#include <ostream>
 #include <vector>
-
-namespace quicr {
-/**
- * @brief Variable length integer
- */
-class uintVar_t
-{
-public:
-  uintVar_t() = default;
-  constexpr uintVar_t(const uintVar_t&) = default;
-  constexpr uintVar_t(uintVar_t&&) = default;
-  constexpr uintVar_t(uint64_t value)
-    : _value{ value }
-  {
-    if (value >= 0x1ull << 61)
-      throw std::runtime_error("Max value cannot be exceeded: " +
-                               std::to_string(0x1ull << 61));
-  }
-
-  constexpr operator uint64_t() const { return _value; }
-  constexpr uintVar_t& operator=(const uintVar_t&) = default;
-  constexpr uintVar_t& operator=(uintVar_t&&) = default;
-  constexpr uintVar_t& operator=(uint64_t value)
-  {
-    if (value >= 0x1ull << 61)
-      throw std::runtime_error("Max value cannot be exceeded: " +
-                               std::to_string(0x1ull << 61));
-    _value = value;
-    return *this;
-  }
-
-  constexpr bool operator==(uintVar_t other) { return _value == other._value; }
-  constexpr bool operator!=(uintVar_t other) { return !(*this == other); }
-  constexpr bool operator>(uintVar_t other) { return _value > other._value; }
-  constexpr bool operator>=(uintVar_t other) { return _value >= other._value; }
-  constexpr bool operator<(uintVar_t other) { return _value < other._value; }
-  constexpr bool operator<=(uintVar_t other) { return _value <= other._value; }
-
-  friend std::ostream& operator<<(std::ostream& os, uintVar_t v)
-  {
-    return os << v._value;
-  }
-
-  friend std::istream& operator>>(std::istream& is, uintVar_t v)
-  {
-    return is >> v._value;
-  }
-
-private:
-  uint64_t _value;
-};
-}
 
 namespace quicr::messages {
 
@@ -72,8 +17,8 @@ swap_bytes(T value)
     return value;
 
   uint8_t* value_ptr = reinterpret_cast<uint8_t*>(&value);
-  for (size_t i = 0; i < sizeof(value) / 2; ++i) {
-    std::swap(value_ptr[i], value_ptr[sizeof(value) - 1 - i]);
+  for (size_t i = 0; i < sizeof(T) / 2; ++i) {
+    std::swap(value_ptr[i], value_ptr[(sizeof(T) - 1) - i]);
   }
   return value;
 }
@@ -188,14 +133,14 @@ public:
   MessageBuffer& operator=(const MessageBuffer& other) = default;
   MessageBuffer& operator=(MessageBuffer&& other) = default;
 
-  friend MessageBuffer& operator<<(MessageBuffer& msg, uint8_t val)
+  friend inline MessageBuffer& operator<<(MessageBuffer& msg, uint8_t val)
   {
     msg.push(val);
     return msg;
   }
 
   template<typename T>
-  friend MessageBuffer& operator<<(MessageBuffer& msg, T val)
+  friend inline MessageBuffer& operator<<(MessageBuffer& msg, T val)
   {
     val = swap_bytes(val);
     uint8_t* val_ptr = reinterpret_cast<uint8_t*>(&val);
@@ -208,7 +153,7 @@ public:
   }
 
   template<typename T>
-  friend MessageBuffer& operator>>(MessageBuffer& msg, T& val)
+  friend inline MessageBuffer& operator>>(MessageBuffer& msg, T& val)
   {
     if (msg.empty()) {
       throw MessageBuffer::ReadException(
@@ -249,14 +194,10 @@ private:
 };
 
 MessageBuffer&
-operator<<(MessageBuffer& msg, const uintVar_t& val);
-MessageBuffer&
-operator>>(MessageBuffer& msg, uintVar_t& val);
-
-MessageBuffer&
 operator<<(MessageBuffer& msg, const std::vector<uint8_t>& val);
 MessageBuffer&
 operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val);
 MessageBuffer&
 operator>>(MessageBuffer& msg, std::vector<uint8_t>& val);
+
 }

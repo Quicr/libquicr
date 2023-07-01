@@ -28,7 +28,7 @@ TEST_CASE("MessageBuffer Decode Exception")
 
 TEST_CASE("Subscribe Message encode/decode")
 {
-  quicr::Namespace qnamespace{ 0x10000000000000002000_name, 125 };
+  quicr::Namespace qnamespace{ 0x10000000000000002000_name, 128 };
 
   Subscribe s{ 1, 0x1000, qnamespace, SubscribeIntent::immediate };
   MessageBuffer buffer;
@@ -65,8 +65,7 @@ TEST_CASE("SubscribeEnd Message encode/decode")
                   .reason = SubscribeResult::SubscribeStatus::Ok };
 
   MessageBuffer buffer;
-  auto s_copy = s;
-  buffer << std::move(s_copy);
+  buffer << s;
   SubscribeEnd s_out;
   CHECK_NOTHROW((buffer >> s_out));
 
@@ -137,8 +136,7 @@ TEST_CASE("Publish Message encode/decode")
 
   PublishDatagram p{ d, MediaType::Text, uintVar_t{ 256 }, data };
   MessageBuffer buffer;
-  auto p_copy = p;
-  buffer << std::move(p_copy);
+  buffer << p;
   PublishDatagram p_out;
   CHECK_NOTHROW((buffer >> p_out));
 
@@ -157,8 +155,7 @@ TEST_CASE("PublishStream Message encode/decode")
 {
   PublishStream ps{ uintVar_t{ 5 }, { 0, 1, 2, 3, 4 } };
   MessageBuffer buffer;
-  auto ps_copy = ps;
-  buffer << std::move(ps_copy);
+  buffer << ps;
   PublishStream ps_out;
   CHECK_NOTHROW((buffer >> ps_out));
 
@@ -172,8 +169,7 @@ TEST_CASE("PublishIntentEnd Message encode/decode")
                         { 12345_name, 0u },
                         { 0, 1, 2, 3, 4 } };
   MessageBuffer buffer;
-  auto pie_copy = pie;
-  buffer << std::move(pie_copy);
+  buffer << pie;
   PublishIntentEnd pie_out;
   CHECK_NOTHROW((buffer >> pie_out));
 
