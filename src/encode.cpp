@@ -17,8 +17,12 @@ create_transaction_id()
   return distribution(engine);
 }
 
+/*===========================================================================*/
+// Common Encode & Decode
+/*===========================================================================*/
+
 MessageBuffer&
-operator<<(MessageBuffer& msg, const uintVar_t& v)
+operator<<(MessageBuffer& msg, const quicr::uintVar_t& v)
 {
   uint64_t val = v;
 
@@ -54,7 +58,7 @@ operator<<(MessageBuffer& msg, const uintVar_t& v)
 }
 
 MessageBuffer&
-operator>>(MessageBuffer& msg, uintVar_t& v)
+operator>>(MessageBuffer& msg, quicr::uintVar_t& v)
 {
   uint8_t byte[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
   uint8_t first = msg.front();
@@ -103,126 +107,30 @@ operator>>(MessageBuffer& msg, uintVar_t& v)
   return msg;
 }
 
-/*===========================================================================*/
-// Subscribe Encode & Decode
-/*===========================================================================*/
-
 MessageBuffer&
-operator<<(MessageBuffer& buffer, const Subscribe& msg)
+operator<<(MessageBuffer& msg, const std::vector<uint8_t>& val)
 {
-  buffer << static_cast<uint8_t>(MessageType::Subscribe);
-  buffer << msg.transaction_id;
-  buffer << msg.quicr_namespace;
-  buffer << static_cast<uint8_t>(msg.intent);
-
-  return buffer;
+  msg << static_cast<uintVar_t>(val.size());
+  msg.push(val);
+  return msg;
 }
 
 MessageBuffer&
-operator>>(MessageBuffer& buffer, Subscribe& msg)
+operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val)
 {
-  uint8_t msg_type;
-  buffer >> msg_type;
-  if (msg_type != static_cast<uint8_t>(MessageType::Subscribe)) {
-    throw MessageBuffer::MessageTypeException(
-      "Message type for Subscribe object must "
-      "be MessageType::Subscribe");
-  }
-
-  buffer >> msg.transaction_id;
-  buffer >> msg.quicr_namespace;
-  uint8_t intent = 0;
-  buffer >> intent;
-  msg.intent = static_cast<SubscribeIntent>(intent);
-
-  return buffer;
+  msg << static_cast<uintVar_t>(val.size());
+  msg.push(std::move(val));
+  return msg;
 }
 
 MessageBuffer&
-operator<<(MessageBuffer& buffer, const Unsubscribe& msg)
+operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
 {
-  buffer << static_cast<uint8_t>(MessageType::Unsubscribe);
-  buffer << msg.quicr_namespace;
+  uintVar_t vec_size = 0;
+  msg >> vec_size;
 
-  return buffer;
-}
-
-MessageBuffer&
-operator>>(MessageBuffer& buffer, Unsubscribe& msg)
-{
-  uint8_t msg_type;
-  buffer >> msg_type;
-  if (msg_type != static_cast<uint8_t>(MessageType::Unsubscribe)) {
-    throw MessageBuffer::MessageTypeException(
-      "Message type for Unsubscribe object "
-      "must be MessageType::Unsubscribe");
-  }
-
-  buffer >> msg.quicr_namespace;
-
-  return buffer;
-}
-
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const SubscribeResponse& msg)
-{
-  buffer << static_cast<uint8_t>(MessageType::SubscribeResponse);
-  buffer << static_cast<uint8_t>(msg.response);
-  buffer << msg.transaction_id;
-  buffer << msg.quicr_namespace;
-
-  return buffer;
-}
-
-MessageBuffer&
-operator>>(MessageBuffer& buffer, SubscribeResponse& msg)
-{
-  uint8_t msg_type;
-  buffer >> msg_type;
-  if (msg_type != static_cast<uint8_t>(MessageType::SubscribeResponse)) {
-    throw MessageBuffer::MessageTypeException(
-      "Message type for SubscribeResponse object "
-      "must be MessageType::SubscribeResponse");
-  }
-
-  uint8_t response;
-  buffer >> response;
-  msg.response = static_cast<SubscribeResult::SubscribeStatus>(response);
-
-  buffer >> msg.transaction_id;
-  buffer >> msg.quicr_namespace;
-
-  return buffer;
-}
-
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const SubscribeEnd& msg)
-{
-  buffer << static_cast<uint8_t>(MessageType::SubscribeEnd);
-  buffer << static_cast<uint8_t>(msg.reason);
-  buffer << msg.quicr_namespace;
-
-  return buffer;
-}
-
-MessageBuffer&
-operator>>(MessageBuffer& buffer, SubscribeEnd& msg)
-{
-  uint8_t msg_type;
-  buffer >> msg_type;
-  if (msg_type != static_cast<uint8_t>(MessageType::SubscribeEnd)) {
-    throw MessageBuffer::MessageTypeException(
-      "Message type for SubscribeEnd object "
-      "must be MessageType::SubscribeEnd");
-  }
-
-  uint8_t reason;
-  buffer >> reason;
-  msg.reason = static_cast<SubscribeResult::SubscribeStatus>(reason);
-
-  buffer >> msg.quicr_namespace;
-
-  return buffer;
+  val = msg.pop_front(vec_size);
+  return msg;
 }
 
 /*===========================================================================*/
@@ -265,61 +173,6 @@ operator>>(MessageBuffer& buffer, PublishIntent& msg)
   buffer >> msg.payload;
   buffer >> msg.media_id;
   buffer >> msg.datagram_capable;
-
-  return buffer;
-}
-
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const PublishIntentResponse& msg)
-{
-  buffer << static_cast<uint8_t>(msg.message_type);
-  buffer << msg.quicr_namespace;
-  buffer << static_cast<uint8_t>(msg.response);
-  buffer << msg.transaction_id;
-
-  return buffer;
-}
-
-MessageBuffer&
-operator>>(MessageBuffer& buffer, PublishIntentResponse& msg)
-{
-  uint8_t msg_type;
-  buffer >> msg_type;
-  msg.message_type = static_cast<MessageType>(msg_type);
-
-  buffer >> msg.quicr_namespace;
-
-  uint8_t response;
-  buffer >> response;
-  msg.response = static_cast<Response>(response);
-
-  buffer >> msg.transaction_id;
-
-  return buffer;
-}
-
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const Header& msg)
-{
-  buffer << msg.name;
-  buffer << msg.media_id;
-  buffer << msg.group_id;
-  buffer << msg.object_id;
-  buffer << msg.offset_and_fin;
-  buffer << msg.flags;
-
-  return buffer;
-}
-
-MessageBuffer&
-operator>>(MessageBuffer& buffer, Header& msg)
-{
-  buffer >> msg.name;
-  buffer >> msg.media_id;
-  buffer >> msg.group_id;
-  buffer >> msg.object_id;
-  buffer >> msg.offset_and_fin;
-  buffer >> msg.flags;
 
   return buffer;
 }
@@ -434,35 +287,6 @@ operator>>(MessageBuffer& buffer, PublishIntentEnd& msg)
   buffer >> msg.quicr_namespace;
   buffer >> msg.payload;
 
-  return buffer;
-}
-
-///
-/// Fetch
-///
-
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const Fetch& msg)
-{
-  buffer << static_cast<uint8_t>(MessageType::Fetch);
-  buffer << msg.transaction_id;
-  buffer << msg.name;
-  return buffer;
-}
-
-MessageBuffer&
-operator>>(MessageBuffer& buffer, Fetch& msg)
-{
-  uint8_t msg_type;
-  buffer >> msg_type;
-  if (msg_type != static_cast<uint8_t>(MessageType::Fetch)) {
-    throw MessageBuffer::MessageTypeException(
-      "Message type for Fetch object must "
-      "be MessageType::Fetch");
-  }
-
-  buffer >> msg.transaction_id;
-  buffer >> msg.name;
   return buffer;
 }
 

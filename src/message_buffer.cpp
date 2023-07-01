@@ -118,29 +118,18 @@ MessageBuffer::to_hex() const
 }
 
 MessageBuffer&
-operator<<(MessageBuffer& msg, const std::vector<uint8_t>& val)
+operator<<(MessageBuffer& msg, quicr::Namespace val)
 {
-  msg << static_cast<uintVar_t>(val.size());
-  msg.push(val);
-  return msg;
+  return msg << val.length() << val.name();
 }
 
 MessageBuffer&
-operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val)
+operator>>(MessageBuffer& msg, quicr::Namespace& val)
 {
-  msg << static_cast<uintVar_t>(val.size());
-  msg.push(std::move(val));
+  quicr::Name name;
+  uint8_t length;
+  msg >> length >> name;
+  val = { name, length };
   return msg;
 }
-
-MessageBuffer&
-operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
-{
-  uintVar_t vec_size = 0;
-  msg >> vec_size;
-
-  val = msg.pop_front(vec_size);
-  return msg;
-}
-
 } // namespace quicr::messages

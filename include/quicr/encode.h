@@ -21,33 +21,22 @@ uint64_t
 create_transaction_id();
 
 MessageBuffer&
-operator<<(MessageBuffer& msg, const uintVar_t& val);
+operator<<(MessageBuffer& msg, const quicr::uintVar_t& val);
 MessageBuffer&
-operator>>(MessageBuffer& msg, uintVar_t& val);
+operator>>(MessageBuffer& msg, quicr::uintVar_t& val);
+
+MessageBuffer&
+operator<<(MessageBuffer& msg, const std::vector<uint8_t>& val);
+MessageBuffer&
+operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val);
+MessageBuffer&
+operator>>(MessageBuffer& msg, std::vector<uint8_t>& val);
 
 /*===========================================================================*/
 // MessageBuffer operator overloads.
+//
+// Note: These are overloads for message types that contain vectors.
 /*===========================================================================*/
-
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const Unsubscribe& msg);
-MessageBuffer&
-operator>>(MessageBuffer& buffer, Unsubscribe& msg);
-
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const Subscribe& msg);
-MessageBuffer&
-operator>>(MessageBuffer& buffer, Subscribe& msg);
-
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const SubscribeResponse& msg);
-MessageBuffer&
-operator>>(MessageBuffer& buffer, SubscribeResponse& msg);
-
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const SubscribeEnd& msg);
-MessageBuffer&
-operator>>(MessageBuffer& buffer, SubscribeEnd& msg);
 
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishIntent& msg);

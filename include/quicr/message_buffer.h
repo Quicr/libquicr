@@ -1,16 +1,17 @@
 #pragma once
 
 #include <quicr/name.h>
+#include <quicr/namespace.h>
 
 #include <bit>
 #include <vector>
 
 namespace quicr::messages {
 
+// clang-format off
 namespace {
-
 template<typename T>
-constexpr T
+inline T
 swap_bytes(T value)
 {
   if constexpr (std::endian::native == std::endian::big)
@@ -33,7 +34,6 @@ swap_bytes(uint16_t value)
   return ((value >> 8) & 0x00ff) | ((value << 8) & 0xff00);
 }
 
-// clang-format off
 template<>
 constexpr uint32_t
 swap_bytes(uint32_t value)
@@ -72,13 +72,14 @@ swap_bytes(quicr::Name value)
     return value;
 
   constexpr auto ones = ~0x0_name;
-  return ((ones & swap_bytes(uint64_t(value))) << 64) | swap_bytes(uint64_t(value >> 64));
+  return ((ones & swap_bytes(uint64_t(value))) << 64) |
+           swap_bytes(uint64_t(value >> 64));
 }
 }
 // clang-format on
 
 /**
- * @brief Defines a buffer that can be sent over transport. Cannot be copied.
+ * @brief Defines a buffer that can be sent over transport.
  */
 class MessageBuffer
 {
@@ -142,13 +143,29 @@ public:
   template<typename T>
   friend inline MessageBuffer& operator<<(MessageBuffer& msg, T val)
   {
+    // if constexpr (quicr::is_integral_v<T>)
     val = swap_bytes(val);
+
     uint8_t* val_ptr = reinterpret_cast<uint8_t*>(&val);
 
     const auto length = msg._buffer.size();
     msg._buffer.resize(length + sizeof(T));
     std::memcpy(msg._buffer.data() + length, val_ptr, sizeof(T));
 
+    return msg;
+  }
+
+  friend MessageBuffer& operator<<(MessageBuffer& msg, quicr::Namespace val);
+
+  friend inline MessageBuffer& operator>>(MessageBuffer& msg, uint8_t& val)
+  {
+    if (msg.empty()) {
+      throw MessageBuffer::ReadException(
+        "Cannot read from empty message buffer");
+    }
+
+    val = msg.front();
+    msg.pop();
     return msg;
   }
 
@@ -172,32 +189,17 @@ public:
 
     msg._buffer.erase(msg._buffer.begin(),
                       std::next(msg._buffer.begin(), sizeof(T)));
+
+    // if constexpr (quicr::is_integral_v<T>)
     val = swap_bytes(val);
 
     return msg;
   }
 
-  friend MessageBuffer& operator>>(MessageBuffer& msg, uint8_t& val)
-  {
-    if (msg.empty()) {
-      throw MessageBuffer::ReadException(
-        "Cannot read from empty message buffer");
-    }
-
-    val = msg.front();
-    msg.pop();
-    return msg;
-  }
+  friend MessageBuffer& operator>>(MessageBuffer& msg, quicr::Namespace& val);
 
 private:
   std::vector<uint8_t> _buffer;
 };
-
-MessageBuffer&
-operator<<(MessageBuffer& msg, const std::vector<uint8_t>& val);
-MessageBuffer&
-operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val);
-MessageBuffer&
-operator>>(MessageBuffer& msg, std::vector<uint8_t>& val);
 
 }
