@@ -15,14 +15,15 @@
 
 #pragma once
 
-#include <map>
-#include <mutex>
-
-#include <quicr/encode.h>
-#include <quicr/message_buffer.h>
-#include <transport/transport.h>
+#include "quicr/encode.h"
+#include "quicr/message_buffer.h"
 #include "quicr/quicr_server_delegate.h"
 #include "quicr/quicr_server_session.h"
+
+#include <transport/transport.h>
+
+#include <map>
+#include <mutex>
 
 /*
  * QUICR Server Raw Session Interface
@@ -55,7 +56,6 @@ public:
     qtransport::LogHandler& logger);
 
   ~QuicRServerRawSession() = default;
-
 
   // Transport APIs
   bool is_transport_ready() override;
@@ -148,13 +148,10 @@ private:
       const qtransport::TransportStatus status) override;
     void on_new_connection(const qtransport::TransportContextId& context_id,
                            const qtransport::TransportRemote& remote) override;
-    void on_new_stream(
-      const qtransport::TransportContextId& context_id,
-      const qtransport::StreamId& streamId) override;
+    void on_new_stream(const qtransport::TransportContextId& context_id,
+                       const qtransport::StreamId& streamId) override;
     void on_recv_notify(const qtransport::TransportContextId& context_id,
                         const qtransport::StreamId& streamId) override;
-
-
 
   private:
     QuicRServerRawSession& server;
@@ -166,18 +163,17 @@ public:
   /*
    * Metrics
    */
-  uint64_t recv_data_count { 0 };
-  uint64_t recv_data_count_null { 0 };
-  uint64_t recv_publish { 0 };
-  uint64_t recv_subscribes { 0 };
-  uint64_t recv_unsubscribes { 0 };
-  uint64_t recv_pub_intents { 0 };
-
+  uint64_t recv_data_count{ 0 };
+  uint64_t recv_data_count_null{ 0 };
+  uint64_t recv_publish{ 0 };
+  uint64_t recv_subscribes{ 0 };
+  uint64_t recv_unsubscribes{ 0 };
+  uint64_t recv_pub_intents{ 0 };
 
 private:
-
   std::shared_ptr<qtransport::ITransport> setupTransport(
-    RelayInfo& relayInfo, qtransport::TransportConfig cfg);
+    RelayInfo& relayInfo,
+    qtransport::TransportConfig cfg);
 
   void handle_subscribe(const qtransport::TransportContextId& context_id,
                         const qtransport::StreamId& streamId,

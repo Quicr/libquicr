@@ -6,6 +6,13 @@ add_library(quicr
             quicr_server.cpp
             quicr_server_raw_session.cpp)
 
+# Suppress external lib warnings
+set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)
+target_compile_options(picotls-core PRIVATE -w)     # TODO Should move to qtransport
+target_compile_options(picotls-openssl PRIVATE -w)  # TODO Should move to qtransport
+target_compile_options(picoquic-core PRIVATE -w)    # TODO Should move to qtransport
+target_compile_options(quicr-transport PRIVATE -w)
+
 target_compile_options(quicr
     PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall>
