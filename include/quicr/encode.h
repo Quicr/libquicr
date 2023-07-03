@@ -2,8 +2,6 @@
 
 #include <quicr/message_buffer.h>
 #include <quicr/message_types.h>
-#include <quicr/quicr_common.h>
-#include <quicr_name>
 
 #include <string>
 #include <vector>
@@ -34,9 +32,27 @@ operator>>(MessageBuffer& msg, std::vector<uint8_t>& val);
 
 /*===========================================================================*/
 // MessageBuffer operator overloads.
-//
-// Note: These are overloads for message types that contain vectors.
 /*===========================================================================*/
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const Subscribe& msg);
+MessageBuffer&
+operator>>(MessageBuffer& buffer, Subscribe& msg);
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const Unsubscribe& msg);
+MessageBuffer&
+operator>>(MessageBuffer& buffer, Unsubscribe& msg);
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const SubscribeResponse& msg);
+MessageBuffer&
+operator>>(MessageBuffer& buffer, SubscribeResponse& msg);
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const SubscribeEnd& msg);
+MessageBuffer&
+operator>>(MessageBuffer& buffer, SubscribeEnd& msg);
 
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishIntent& msg);
@@ -44,6 +60,11 @@ MessageBuffer&
 operator<<(MessageBuffer& buffer, PublishIntent&& msg);
 MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishIntent& msg);
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const PublishIntentResponse& msg);
+MessageBuffer&
+operator>>(MessageBuffer& buffer, PublishIntentResponse& msg);
 
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishDatagram& msg);
@@ -65,4 +86,10 @@ MessageBuffer&
 operator<<(MessageBuffer& buffer, PublishIntentEnd&& msg);
 MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishIntentEnd& msg);
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const Fetch& msg);
+MessageBuffer&
+operator>>(MessageBuffer& buffer, Fetch& msg);
+
 }

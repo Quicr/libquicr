@@ -1,5 +1,8 @@
 #pragma once
 
+#include <exception>
+#include <istream>
+#include <ostream>
 #include <stdint.h>
 
 namespace quicr {
@@ -8,6 +11,8 @@ namespace quicr {
  */
 class uintVar_t
 {
+  static constexpr uint64_t _max_value = 0x1ull << 61;
+
 public:
   uintVar_t() = default;
   constexpr uintVar_t(const uintVar_t&) = default;
@@ -15,9 +20,9 @@ public:
   constexpr uintVar_t(uint64_t value)
     : _value{ value }
   {
-    if (value >= 0x1ull << 61)
-      throw std::runtime_error("Max value cannot be exceeded: " +
-                               std::to_string(0x1ull << 61));
+    if (value >= _max_value)
+      throw std::domain_error("Max value cannot be exceeded: " +
+                              std::to_string(_max_value));
   }
 
   constexpr operator uint64_t() const { return _value; }
@@ -25,9 +30,9 @@ public:
   constexpr uintVar_t& operator=(uintVar_t&&) = default;
   constexpr uintVar_t& operator=(uint64_t value)
   {
-    if (value >= 0x1ull << 61)
-      throw std::runtime_error("Max value cannot be exceeded: " +
-                               std::to_string(0x1ull << 61));
+    if (value >= _max_value)
+      throw std::domain_error("Max value cannot be exceeded: " +
+                              std::to_string(_max_value));
     _value = value;
     return *this;
   }

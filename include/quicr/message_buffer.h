@@ -10,21 +10,6 @@ namespace quicr::messages {
 
 // clang-format off
 namespace {
-template<typename T>
-inline T
-swap_bytes(T value)
-{
-  if constexpr (std::endian::native == std::endian::big)
-    return value;
-
-  uint8_t* value_ptr = reinterpret_cast<uint8_t*>(&value);
-  for (size_t i = 0; i < sizeof(T) / 2; ++i) {
-    std::swap(value_ptr[i], value_ptr[(sizeof(T) - 1) - i]);
-  }
-  return value;
-}
-
-template<>
 constexpr uint16_t
 swap_bytes(uint16_t value)
 {
@@ -34,7 +19,6 @@ swap_bytes(uint16_t value)
   return ((value >> 8) & 0x00ff) | ((value << 8) & 0xff00);
 }
 
-template<>
 constexpr uint32_t
 swap_bytes(uint32_t value)
 {
@@ -47,7 +31,6 @@ swap_bytes(uint32_t value)
          ((value << 24) & 0xff000000);
 }
 
-template<>
 constexpr uint64_t
 swap_bytes(uint64_t value)
 {
@@ -64,7 +47,6 @@ swap_bytes(uint64_t value)
          ((value << 56) & 0xff00000000000000);
 }
 
-template<>
 constexpr quicr::Name
 swap_bytes(quicr::Name value)
 {
@@ -73,7 +55,7 @@ swap_bytes(quicr::Name value)
 
   constexpr auto ones = ~0x0_name;
   return ((ones & swap_bytes(uint64_t(value))) << 64) |
-           swap_bytes(uint64_t(value >> 64));
+                  swap_bytes(uint64_t(value >> 64));
 }
 }
 // clang-format on
@@ -125,8 +107,17 @@ public:
   std::vector<uint8_t> front(uint16_t len) const;
   std::vector<uint8_t> pop_front(uint16_t len);
 
+  /**
+   * @brief Moves the whole buffer, leaving MessageBuffer empty.
+   * @returns The buffer as an rvalue-ref.
+   */
   [[deprecated("quicr::message::MessageBuffer::get is deprecated, use take")]]
   std::vector<uint8_t> get();
+
+  /**
+   * @brief Moves the whole buffer, leaving MessageBuffer empty.
+   * @returns The buffer as an rvalue-ref.
+   */
   std::vector<uint8_t>&& take();
 
   std::string to_hex() const;
@@ -134,19 +125,30 @@ public:
   MessageBuffer& operator=(const MessageBuffer& other) = default;
   MessageBuffer& operator=(MessageBuffer&& other) = default;
 
-  friend inline MessageBuffer& operator<<(MessageBuffer& msg, uint8_t val)
+  /**
+   * @brief A fancy operator for push, writes a byte on the end of the buffer.
+   * @param buffer The MessageBuffer to push to.
+   * @param value The byte to push.
+   * @returns The MessageBuffer that was written to.
+   */
+  friend inline MessageBuffer& operator<<(MessageBuffer& buffer, uint8_t value)
   {
-    msg.push(val);
-    return msg;
+    buffer._buffer.push_back(value);
+    return buffer;
   }
 
-  template<typename T>
-  friend inline MessageBuffer& operator<<(MessageBuffer& msg, T val)
+  /**
+   * @brief Writes QUICR integral types to the buffer in NBO.
+   * @tparam T A type satisfying quicr::is_integral.
+   * @param msg The MessageBuffer to write to.
+   * @param value The message to be written.
+   * @returns The MessageBuffer that was written to.
+   */
+  template<typename T, typename = std::enable_if_t<quicr::is_integral_v<T>, T>>
+  friend inline MessageBuffer& operator<<(MessageBuffer& msg, T value)
   {
-    // if constexpr (quicr::is_integral_v<T>)
-    val = swap_bytes(val);
-
-    uint8_t* val_ptr = reinterpret_cast<uint8_t*>(&val);
+    value = swap_bytes(value);
+    uint8_t* val_ptr = reinterpret_cast<uint8_t*>(&value);
 
     const auto length = msg._buffer.size();
     msg._buffer.resize(length + sizeof(T));
@@ -155,22 +157,47 @@ public:
     return msg;
   }
 
-  friend MessageBuffer& operator<<(MessageBuffer& msg, quicr::Namespace val);
+  /**
+   * @brief Overload for Namespace integral type to write in NBO.
+   * @param msg The MessageBuffer to write to.
+   * @param value The message to be written.
+   * @returns The MessageBuffer that was written to.
+   */
+  friend MessageBuffer& operator<<(MessageBuffer& msg, quicr::Namespace value)
+  {
+    if constexpr (std::endian::native == std::endian::big)
+      return msg << value.name() << value.length();
 
-  friend inline MessageBuffer& operator>>(MessageBuffer& msg, uint8_t& val)
+    return msg << value.length() << value.name();
+  }
+
+  /**
+   * @brief A fancy operator for pop, reads a byte off the buffer.
+   * @param buffer The MessageBuffer to read from.
+   * @param value The value to read into.
+   * @returns The MessageBuffer that was read from.
+   */
+  friend inline MessageBuffer& operator>>(MessageBuffer& msg, uint8_t& value)
   {
     if (msg.empty()) {
       throw MessageBuffer::ReadException(
         "Cannot read from empty message buffer");
     }
 
-    val = msg.front();
+    value = msg.front();
     msg.pop();
     return msg;
   }
 
-  template<typename T>
-  friend inline MessageBuffer& operator>>(MessageBuffer& msg, T& val)
+  /**
+   * @brief Reads QUICR integral types in HBO.
+   * @tparam T A type satisfying quicr::is_integral.
+   * @param buffer The MessageBuffer to read from.
+   * @param value The value to read into.
+   * @returns The MessageBuffer that was read from.
+   */
+  template<typename T, typename = std::enable_if_t<quicr::is_integral_v<T>, T>>
+  friend inline MessageBuffer& operator>>(MessageBuffer& msg, T& value)
   {
     if (msg.empty()) {
       throw MessageBuffer::ReadException(
@@ -184,22 +211,38 @@ public:
         std::to_string(msg._buffer.size()));
     }
 
-    auto val_ptr = reinterpret_cast<uint8_t*>(&val);
+    auto val_ptr = reinterpret_cast<uint8_t*>(&value);
     std::memcpy(val_ptr, msg._buffer.data(), sizeof(T));
 
     msg._buffer.erase(msg._buffer.begin(),
                       std::next(msg._buffer.begin(), sizeof(T)));
 
-    // if constexpr (quicr::is_integral_v<T>)
-    val = swap_bytes(val);
+    value = swap_bytes(value);
 
     return msg;
   }
 
-  friend MessageBuffer& operator>>(MessageBuffer& msg, quicr::Namespace& val);
+  /**
+   * @brief Overload for Namespace integral type to read into HBO.
+   * @param buffer The MessageBuffer to read from.
+   * @param value The value to read into.
+   * @returns The MessageBuffer that was read from.
+   */
+  friend MessageBuffer& operator>>(MessageBuffer& msg, quicr::Namespace& value)
+  {
+    quicr::Name name;
+    uint8_t length;
+
+    if constexpr (std::endian::native == std::endian::big)
+      msg >> name >> length;
+    else
+      msg >> length >> name;
+
+    value = { name, length };
+    return msg;
+  }
 
 private:
   std::vector<uint8_t> _buffer;
 };
-
 }

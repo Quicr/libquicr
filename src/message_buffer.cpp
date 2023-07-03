@@ -110,26 +110,10 @@ std::string
 MessageBuffer::to_hex() const
 {
   std::ostringstream hex;
-  hex << std::hex << std::setfill('0');
+  hex << std::hex << std::setfill('0') << std::uppercase;
   for (const auto& byte : _buffer) {
     hex << std::setw(2) << int(byte);
   }
   return hex.str();
-}
-
-MessageBuffer&
-operator<<(MessageBuffer& msg, quicr::Namespace val)
-{
-  return msg << val.length() << val.name();
-}
-
-MessageBuffer&
-operator>>(MessageBuffer& msg, quicr::Namespace& val)
-{
-  quicr::Name name;
-  uint8_t length;
-  msg >> length >> name;
-  val = { name, length };
-  return msg;
 }
 } // namespace quicr::messages

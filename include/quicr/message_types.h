@@ -1,8 +1,9 @@
 #pragma once
 
+#include <quicr/name.h>
+#include <quicr/namespace.h>
 #include <quicr/quicr_common.h>
 #include <quicr/uvarint.h>
-#include <quicr_name>
 
 #include <string>
 #include <vector>
