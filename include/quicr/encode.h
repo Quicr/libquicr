@@ -19,6 +19,11 @@ uint64_t
 create_transaction_id();
 
 MessageBuffer&
+operator<<(MessageBuffer& msg, quicr::Namespace value);
+MessageBuffer&
+operator>>(MessageBuffer& msg, quicr::Namespace& value);
+
+MessageBuffer&
 operator<<(MessageBuffer& msg, const quicr::uintVar_t& val);
 MessageBuffer&
 operator>>(MessageBuffer& msg, quicr::uintVar_t& val);

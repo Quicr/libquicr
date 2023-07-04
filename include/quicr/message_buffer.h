@@ -127,119 +127,80 @@ public:
 
   /**
    * @brief A fancy operator for push, writes a byte on the end of the buffer.
-   * @param buffer The MessageBuffer to push to.
    * @param value The byte to push.
    * @returns The MessageBuffer that was written to.
    */
-  friend inline MessageBuffer& operator<<(MessageBuffer& buffer, uint8_t value)
+  inline MessageBuffer& operator<<(uint8_t value)
   {
-    buffer._buffer.push_back(value);
-    return buffer;
+    _buffer.push_back(value);
+    return *this;
   }
 
   /**
    * @brief Writes QUICR integral types to the buffer in NBO.
    * @tparam T A type satisfying quicr::is_integral.
-   * @param msg The MessageBuffer to write to.
    * @param value The message to be written.
    * @returns The MessageBuffer that was written to.
    */
   template<typename T, typename = std::enable_if_t<quicr::is_integral_v<T>, T>>
-  friend inline MessageBuffer& operator<<(MessageBuffer& msg, T value)
+  inline MessageBuffer& operator<<(T value)
   {
     value = swap_bytes(value);
     uint8_t* val_ptr = reinterpret_cast<uint8_t*>(&value);
 
-    const auto length = msg._buffer.size();
-    msg._buffer.resize(length + sizeof(T));
-    std::memcpy(msg._buffer.data() + length, val_ptr, sizeof(T));
+    const auto length = _buffer.size();
+    _buffer.resize(length + sizeof(T));
+    std::memcpy(_buffer.data() + length, val_ptr, sizeof(T));
 
-    return msg;
-  }
-
-  /**
-   * @brief Overload for Namespace integral type to write in NBO.
-   * @param msg The MessageBuffer to write to.
-   * @param value The message to be written.
-   * @returns The MessageBuffer that was written to.
-   */
-  friend MessageBuffer& operator<<(MessageBuffer& msg, quicr::Namespace value)
-  {
-    if constexpr (std::endian::native == std::endian::big)
-      return msg << value.name() << value.length();
-
-    return msg << value.length() << value.name();
+    return *this;
   }
 
   /**
    * @brief A fancy operator for pop, reads a byte off the buffer.
-   * @param buffer The MessageBuffer to read from.
    * @param value The value to read into.
    * @returns The MessageBuffer that was read from.
    */
-  friend inline MessageBuffer& operator>>(MessageBuffer& msg, uint8_t& value)
+  inline MessageBuffer& operator>>(uint8_t& value)
   {
-    if (msg.empty()) {
+    if (empty()) {
       throw MessageBuffer::ReadException(
         "Cannot read from empty message buffer");
     }
 
-    value = msg.front();
-    msg.pop();
-    return msg;
+    value = front();
+    pop();
+    return *this;
   }
 
   /**
    * @brief Reads QUICR integral types in HBO.
    * @tparam T A type satisfying quicr::is_integral.
-   * @param buffer The MessageBuffer to read from.
    * @param value The value to read into.
    * @returns The MessageBuffer that was read from.
    */
   template<typename T, typename = std::enable_if_t<quicr::is_integral_v<T>, T>>
-  friend inline MessageBuffer& operator>>(MessageBuffer& msg, T& value)
+  inline MessageBuffer& operator>>(T& value)
   {
-    if (msg.empty()) {
+    if (empty()) {
       throw MessageBuffer::ReadException(
         "Cannot read from empty message buffer");
     }
 
-    if (msg._buffer.size() < sizeof(T)) {
+    if (_buffer.size() < sizeof(T)) {
       throw MessageBuffer::ReadException(
         "Cannot read mismatched size buffer into size of type: Wanted " +
         std::to_string(sizeof(T)) + " but buffer only contains " +
-        std::to_string(msg._buffer.size()));
+        std::to_string(_buffer.size()));
     }
 
     auto val_ptr = reinterpret_cast<uint8_t*>(&value);
-    std::memcpy(val_ptr, msg._buffer.data(), sizeof(T));
+    std::memcpy(val_ptr, _buffer.data(), sizeof(T));
 
-    msg._buffer.erase(msg._buffer.begin(),
-                      std::next(msg._buffer.begin(), sizeof(T)));
+    _buffer.erase(_buffer.begin(), std::next(_buffer.begin(), sizeof(T)));
 
     value = swap_bytes(value);
 
-    return msg;
-  }
-
-  /**
-   * @brief Overload for Namespace integral type to read into HBO.
-   * @param buffer The MessageBuffer to read from.
-   * @param value The value to read into.
-   * @returns The MessageBuffer that was read from.
-   */
-  friend MessageBuffer& operator>>(MessageBuffer& msg, quicr::Namespace& value)
-  {
-    quicr::Name name;
-    uint8_t length;
-
-    if constexpr (std::endian::native == std::endian::big)
-      msg >> name >> length;
-    else
-      msg >> length >> name;
-
-    value = { name, length };
-    return msg;
+    return *this;
   }
 
 private:

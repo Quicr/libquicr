@@ -22,6 +22,23 @@ create_transaction_id()
 /*===========================================================================*/
 
 MessageBuffer&
+operator<<(MessageBuffer& msg, quicr::Namespace value)
+{
+  return msg << value.name() << value.length();
+}
+
+MessageBuffer&
+operator>>(MessageBuffer& msg, quicr::Namespace& value)
+{
+  quicr::Name name;
+  uint8_t length;
+  msg >> name >> length;
+
+  value = { name, length };
+  return msg;
+}
+
+MessageBuffer&
 operator<<(MessageBuffer& msg, const quicr::uintVar_t& v)
 {
   uint64_t val = v;
