@@ -2,6 +2,7 @@
 
 #include <quicr/message_buffer.h>
 #include <quicr/message_types.h>
+#include <quicr/namespace.h>
 
 #include <string>
 #include <vector>
@@ -14,6 +15,12 @@ namespace quicr::messages {
 /*===========================================================================*/
 // Common
 /*===========================================================================*/
+
+struct MessageTypeException : public MessageBuffer::ReadException
+{
+  MessageTypeException(uint8_t type, MessageType expected_type);
+  MessageTypeException(MessageType type, MessageType expected_type);
+};
 
 uint64_t
 create_transaction_id();

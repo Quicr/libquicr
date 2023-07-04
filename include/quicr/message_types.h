@@ -9,6 +9,26 @@
 #include <vector>
 
 namespace quicr::messages {
+/*===========================================================================*/
+// Common
+/*===========================================================================*/
+
+/**
+ * Type of message being sent/received
+ */
+enum class MessageType : uint8_t
+{
+  Unknown,
+  Subscribe,
+  SubscribeResponse,
+  SubscribeEnd,
+  Unsubscribe,
+  Publish,
+  PublishIntent,
+  PublishIntentResponse,
+  PublishIntentEnd,
+  Fetch,
+};
 
 /*===========================================================================*/
 // Subscribe Message Types

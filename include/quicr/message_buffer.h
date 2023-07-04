@@ -1,7 +1,6 @@
 #pragma once
 
 #include <quicr/name.h>
-#include <quicr/namespace.h>
 
 #include <bit>
 #include <vector>
@@ -69,72 +68,89 @@ public:
   struct ReadException : public std::runtime_error
   {
     using std::runtime_error::runtime_error;
+    using std::runtime_error::what;
+  };
+
+  struct EmptyException : public ReadException
+  {
+    EmptyException();
   };
 
   struct OutOfRangeException : public ReadException
   {
-    using ReadException::ReadException;
-  };
-
-  struct MessageTypeException : public ReadException
-  {
-    using ReadException::ReadException;
+    OutOfRangeException(size_t length, size_t buffer_length);
   };
 
   struct LengthException : public ReadException
   {
+    LengthException(size_t data_length, size_t expected_length);
+  };
+
+  class TypeReadException : public ReadException
+  {
+  protected:
     using ReadException::ReadException;
   };
 
+private:
+  template<typename T>
+  struct TypeReadException_Internal : public TypeReadException
+  {
+    TypeReadException_Internal(size_t buffer_length)
+      : TypeReadException("buffer size is smaller than type size: " +
+                          std::to_string(buffer_length) + " < " +
+                          std::to_string(sizeof(T)))
+    {
+    }
+
+    using TypeReadException::what;
+  };
+
 public:
+  using buffer_t = std::vector<uint8_t>;
+
   MessageBuffer() = default;
   MessageBuffer(const MessageBuffer& other) = default;
   MessageBuffer(MessageBuffer&& other) = default;
   MessageBuffer(size_t reserve_size) { _buffer.reserve(reserve_size); }
-  MessageBuffer(const std::vector<uint8_t>& buffer);
-  MessageBuffer(std::vector<uint8_t>&& buffer);
+  MessageBuffer(const buffer_t& buffer);
+  MessageBuffer(buffer_t&& buffer);
   ~MessageBuffer() = default;
-
-  bool empty() const { return _buffer.empty(); }
-
-  void push(uint8_t t) { _buffer.push_back(t); }
-  void pop();
-  const uint8_t& front() const { return _buffer.front(); }
-
-  void push(const std::vector<uint8_t>& data);
-  void push(std::vector<uint8_t>&& data);
-  void pop(uint16_t len);
-  std::vector<uint8_t> front(uint16_t len) const;
-  std::vector<uint8_t> pop_front(uint16_t len);
-
-  /**
-   * @brief Moves the whole buffer, leaving MessageBuffer empty.
-   * @returns The buffer as an rvalue-ref.
-   */
-  [[deprecated("quicr::message::MessageBuffer::get is deprecated, use take")]]
-  std::vector<uint8_t> get();
-
-  /**
-   * @brief Moves the whole buffer, leaving MessageBuffer empty.
-   * @returns The buffer as an rvalue-ref.
-   */
-  std::vector<uint8_t>&& take();
-
-  std::string to_hex() const;
 
   MessageBuffer& operator=(const MessageBuffer& other) = default;
   MessageBuffer& operator=(MessageBuffer&& other) = default;
 
+  bool empty() const { return _buffer.empty() || size() == 0; }
+  size_t size() const { return _buffer.size() - _read_offset; }
+
+  void push(uint8_t t) { _buffer.push_back(t); }
+  void push(const buffer_t& data);
+  void push(buffer_t&& data);
+
+  void pop() { pop_or_clear(); }
+  void pop(uint16_t len);
+
+  const uint8_t& front() const { return *front_it(); }
+  buffer_t front(uint16_t len) const;
+
+  uint8_t pop_front();
+  buffer_t pop_front(uint16_t len);
+
+  /**
+   * @brief Moves the whole buffer, leaving MessageBuffer empty.
+   * @returns The buffer as an rvalue-ref.
+   */
+  buffer_t&& take();
+
+  std::string to_hex() const;
+
+public:
   /**
    * @brief A fancy operator for push, writes a byte on the end of the buffer.
    * @param value The byte to push.
    * @returns The MessageBuffer that was written to.
    */
-  inline MessageBuffer& operator<<(uint8_t value)
-  {
-    _buffer.push_back(value);
-    return *this;
-  }
+  MessageBuffer& operator<<(uint8_t value);
 
   /**
    * @brief Writes QUICR integral types to the buffer in NBO.
@@ -160,17 +176,7 @@ public:
    * @param value The value to read into.
    * @returns The MessageBuffer that was read from.
    */
-  inline MessageBuffer& operator>>(uint8_t& value)
-  {
-    if (empty()) {
-      throw MessageBuffer::ReadException(
-        "Cannot read from empty message buffer");
-    }
-
-    value = front();
-    pop();
-    return *this;
-  }
+  MessageBuffer& operator>>(uint8_t& value);
 
   /**
    * @brief Reads QUICR integral types in HBO.
@@ -181,22 +187,15 @@ public:
   template<typename T, typename = std::enable_if_t<quicr::is_integral_v<T>, T>>
   inline MessageBuffer& operator>>(T& value)
   {
-    if (empty()) {
-      throw MessageBuffer::ReadException(
-        "Cannot read from empty message buffer");
-    }
+    if (empty())
+      throw EmptyException();
 
-    if (_buffer.size() < sizeof(T)) {
-      throw MessageBuffer::ReadException(
-        "Cannot read mismatched size buffer into size of type: Wanted " +
-        std::to_string(sizeof(T)) + " but buffer only contains " +
-        std::to_string(_buffer.size()));
-    }
+    if (size() < sizeof(T))
+      throw TypeReadException_Internal<T>(size());
 
     auto val_ptr = reinterpret_cast<uint8_t*>(&value);
-    std::memcpy(val_ptr, _buffer.data(), sizeof(T));
-
-    _buffer.erase(_buffer.begin(), std::next(_buffer.begin(), sizeof(T)));
+    std::memcpy(val_ptr, _buffer.data() + _read_offset, sizeof(T));
+    pop_or_clear(sizeof(T));
 
     value = swap_bytes(value);
 
@@ -204,6 +203,15 @@ public:
   }
 
 private:
-  std::vector<uint8_t> _buffer;
+  buffer_t::iterator front_it();
+  buffer_t::const_iterator front_it() const;
+
+  std::move_iterator<buffer_t::iterator> front_move_it();
+
+  void pop_or_clear(size_t length = 1);
+
+private:
+  buffer_t _buffer;
+  size_t _read_offset = 0;
 };
 }

@@ -57,4 +57,10 @@ public:
 private:
   uint64_t _value;
 };
+
+constexpr uintVar_t
+operator""_uV(uint64_t value)
+{
+  return { value };
+}
 }

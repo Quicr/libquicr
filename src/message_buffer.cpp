@@ -1,4 +1,5 @@
 #include <quicr/message_buffer.h>
+
 #include <quicr/uvarint.h>
 
 #include <algorithm>
@@ -8,6 +9,36 @@
 #include <vector>
 
 namespace quicr::messages {
+
+/*===========================================================================*/
+// Exception definitions
+/*===========================================================================*/
+
+MessageBuffer::EmptyException::EmptyException()
+  : MessageBuffer::ReadException("buffer cannot be empty when reading")
+{
+}
+
+MessageBuffer::OutOfRangeException::OutOfRangeException(size_t length,
+                                                        size_t buffer_length)
+  : MessageBuffer::ReadException(
+      "length is longer than the size of the buffer: " +
+      std::to_string(length) + " > " + std::to_string(buffer_length))
+{
+}
+
+MessageBuffer::LengthException::LengthException(size_t data_length,
+                                                size_t expected_length)
+  : MessageBuffer::ReadException(
+      "length of decoded data must match separately decoded length: " +
+      std::to_string(data_length) + " != " + std::to_string(expected_length))
+{
+}
+
+/*===========================================================================*/
+// MessageBuffer definitions
+/*===========================================================================*/
+
 MessageBuffer::MessageBuffer(const std::vector<uint8_t>& buffer)
   : _buffer{ buffer }
 {
@@ -16,16 +47,6 @@ MessageBuffer::MessageBuffer(const std::vector<uint8_t>& buffer)
 MessageBuffer::MessageBuffer(std::vector<uint8_t>&& buffer)
   : _buffer{ std::move(buffer) }
 {
-}
-
-void
-MessageBuffer::pop()
-{
-  if (empty()) {
-    throw MessageBuffer::ReadException("Cannot pop from empty message buffer");
-  }
-
-  _buffer.erase(_buffer.begin());
 }
 
 void
@@ -45,64 +66,62 @@ MessageBuffer::push(std::vector<uint8_t>&& data)
 }
 
 void
-MessageBuffer::pop(uint16_t len)
+MessageBuffer::pop(uint16_t length)
 {
-  if (len == 0)
+  if (length == 0)
     return;
 
-  if (len > _buffer.size())
-    throw OutOfRangeException(
-      "len cannot be longer than the size of the buffer");
-
-  _buffer.erase(_buffer.begin(), std::next(_buffer.begin(), len));
+  pop_or_clear(length);
 };
 
 std::vector<uint8_t>
-MessageBuffer::front(uint16_t len) const
+MessageBuffer::front(uint16_t length) const
 {
-  if (len == 0)
+  if (length == 0)
     return {};
 
-  if (len > _buffer.size())
-    throw OutOfRangeException(
-      "len cannot be longer than the size of the buffer");
+  if (length > size())
+    throw OutOfRangeException(length, size());
 
-  if (len == _buffer.size())
+  if (length == size())
     return _buffer;
 
-  return { std::begin(_buffer), std::next(std::begin(_buffer), len) };
+  const auto& it = front_it();
+  return { it, it + length };
+}
+
+uint8_t
+MessageBuffer::pop_front()
+{
+  uint8_t value = *front_move_it();
+  pop_or_clear();
+  return value;
 }
 
 std::vector<uint8_t>
-MessageBuffer::pop_front(uint16_t len)
+MessageBuffer::pop_front(uint16_t length)
 {
-  if (len == 0)
+  if (length == 0)
     return {};
 
-  if (len > _buffer.size())
-    throw OutOfRangeException(
-      "len cannot be longer than the size of the buffer");
+  if (length > size())
+    throw OutOfRangeException(length, size());
 
-  if (len == _buffer.size())
-    return std::move(_buffer);
+  if (length == size())
+    return take();
 
-  std::vector<uint8_t> front(len);
-  std::copy_n(
-    std::make_move_iterator(std::begin(_buffer)), len, std::begin(front));
-  _buffer.erase(std::begin(_buffer), std::next(std::begin(_buffer), len));
+  std::vector<uint8_t> result(length);
+  std::copy_n(front_move_it(), length, result.begin());
+  pop_or_clear(length);
 
-  return front;
-}
-
-std::vector<uint8_t>
-MessageBuffer::get()
-{
-  return std::move(_buffer);
+  return result;
 }
 
 std::vector<uint8_t>&&
 MessageBuffer::take()
 {
+  _buffer.erase(_buffer.begin(), std::next(_buffer.begin(), _read_offset));
+  _read_offset = 0;
   return std::move(_buffer);
 }
 
@@ -111,9 +130,71 @@ MessageBuffer::to_hex() const
 {
   std::ostringstream hex;
   hex << std::hex << std::setfill('0') << std::uppercase;
-  for (const auto& byte : _buffer) {
-    hex << std::setw(2) << int(byte);
-  }
+  for (auto it = front_it(); it != _buffer.end(); ++it)
+    hex << std::setw(2) << int(*it);
   return hex.str();
+}
+
+/*===========================================================================*/
+// Stream operators
+/*===========================================================================*/
+
+MessageBuffer&
+MessageBuffer::operator<<(uint8_t value)
+{
+  _buffer.push_back(value);
+  return *this;
+}
+
+MessageBuffer&
+MessageBuffer::operator>>(uint8_t& value)
+{
+  value = pop_front();
+  return *this;
+}
+
+/*===========================================================================*/
+// Helper Methods
+/*===========================================================================*/
+
+MessageBuffer::buffer_t::iterator
+MessageBuffer::front_it()
+{
+  if (empty())
+    throw EmptyException();
+
+  return std::next(_buffer.begin(), _read_offset);
+}
+
+MessageBuffer::buffer_t::const_iterator
+MessageBuffer::front_it() const
+{
+  if (empty())
+    throw EmptyException();
+
+  return std::next(_buffer.begin(), _read_offset);
+}
+
+std::move_iterator<MessageBuffer::buffer_t::iterator>
+MessageBuffer::front_move_it()
+{
+  return std::make_move_iterator(front_it());
+}
+
+void
+MessageBuffer::pop_or_clear(size_t length)
+{
+  if (empty())
+    throw EmptyException();
+
+  if (length > size())
+    throw OutOfRangeException(length, size());
+
+  _read_offset += length;
+  if (!empty())
+    return;
+
+  _read_offset = 0;
+  _buffer.clear();
 }
 } // namespace quicr::messages

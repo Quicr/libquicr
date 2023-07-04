@@ -119,6 +119,7 @@ TEST_CASE("PublishIntentResponse Message encode/decode")
   CHECK_NOTHROW((buffer >> pir_out));
 
   CHECK_EQ(pir_out.message_type, pir.message_type);
+  CHECK_EQ(pir_out.quicr_namespace, pir.quicr_namespace);
   CHECK_EQ(pir_out.response, pir.response);
   CHECK_EQ(pir_out.transaction_id, pir.transaction_id);
 }
@@ -141,6 +142,7 @@ TEST_CASE("Publish Message encode/decode")
   CHECK_NOTHROW((buffer >> p_out));
 
   CHECK_EQ(p_out.header.media_id, p.header.media_id);
+  CHECK_EQ(p_out.header.name, p.header.name);
   CHECK_EQ(p_out.header.group_id, p.header.group_id);
   CHECK_EQ(p_out.header.object_id, p.header.object_id);
   CHECK_EQ(p_out.header.offset_and_fin, p.header.offset_and_fin);
@@ -181,20 +183,19 @@ TEST_CASE("PublishIntentEnd Message encode/decode")
 TEST_CASE("VarInt Encode/Decode")
 {
   MessageBuffer buffer;
-  std::vector<uintVar_t> values = { uintVar_t{ 128 },
-                                    uintVar_t{ 16384 },
-                                    uintVar_t{ 536870912 } };
+  std::vector<uintVar_t> values = { 128_uV, 16384_uV, 536870912_uV };
   for (const auto& value : values) {
     buffer << value;
     uintVar_t out;
     buffer >> out;
 
-    CHECK_NE(out, uintVar_t{ 0 });
+    CHECK_EQ(out, value);
   }
 }
-///
-/// Fetch tests
-///
+
+/*===========================================================================*/
+// Fetch Tests
+/*===========================================================================*/
 
 TEST_CASE("Fetch Message encode/decode")
 {

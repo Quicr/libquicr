@@ -1,5 +1,6 @@
 #include <array>
 #include <ctime>
+#include <map>
 #include <random>
 #include <string>
 
@@ -8,6 +9,41 @@
 using quicr::bytes;
 
 namespace quicr::messages {
+
+// clang-format off
+namespace {
+#define STRINGIFY(n) #n
+#define ENUM_MAPPING_ENTRY(n) { n, STRINGIFY(n) }
+std::map<MessageType, std::string> message_type_name = {
+  ENUM_MAPPING_ENTRY(MessageType::Unknown),
+  ENUM_MAPPING_ENTRY(MessageType::Subscribe),
+  ENUM_MAPPING_ENTRY(MessageType::SubscribeResponse),
+  ENUM_MAPPING_ENTRY(MessageType::SubscribeEnd),
+  ENUM_MAPPING_ENTRY(MessageType::Unsubscribe),
+  ENUM_MAPPING_ENTRY(MessageType::Publish),
+  ENUM_MAPPING_ENTRY(MessageType::PublishIntent),
+  ENUM_MAPPING_ENTRY(MessageType::PublishIntentResponse),
+  ENUM_MAPPING_ENTRY(MessageType::PublishIntentEnd),
+  ENUM_MAPPING_ENTRY(MessageType::Fetch),
+};
+#undef ENUM_MAPPING_ENTRY
+#undef ENUM_STRINGIFY
+}
+// clang-format on
+
+MessageTypeException::MessageTypeException(MessageType type,
+                                           MessageType expected_type)
+  : MessageBuffer::ReadException(message_type_name[type] +
+                                 " does not match expected message type: " +
+                                 message_type_name[expected_type])
+{
+}
+
+MessageTypeException::MessageTypeException(uint8_t type,
+                                           MessageType expected_type)
+  : MessageTypeException(static_cast<MessageType>(type), expected_type)
+{
+}
 
 uint64_t
 create_transaction_id()
@@ -90,7 +126,7 @@ operator>>(MessageBuffer& msg, quicr::uintVar_t& v)
   if ((first & (0x80 | 0x40)) == 0x80) {
     msg >> byte[1];
     msg >> byte[0];
-    uint16_t val = (((uint16_t)byte[1] & 0x3F) << 8) + ((uint16_t)byte[0] << 0);
+    uint16_t val = ((uint16_t(byte[1]) & 0x3F) << 8) + (uint16_t(byte[0]) << 0);
     v = val;
     return msg;
   }
@@ -171,9 +207,7 @@ operator>>(MessageBuffer& buffer, Subscribe& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Subscribe)) {
-    throw MessageBuffer::MessageTypeException(
-      "Message type for Subscribe object must "
-      "be MessageType::Subscribe");
+    throw MessageTypeException(msg_type, MessageType::Subscribe);
   }
 
   buffer >> msg.transaction_id;
@@ -200,9 +234,7 @@ operator>>(MessageBuffer& buffer, Unsubscribe& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Unsubscribe)) {
-    throw MessageBuffer::MessageTypeException(
-      "Message type for Unsubscribe object "
-      "must be MessageType::Unsubscribe");
+    throw MessageTypeException(msg_type, MessageType::Unsubscribe);
   }
 
   buffer >> msg.quicr_namespace;
@@ -227,9 +259,7 @@ operator>>(MessageBuffer& buffer, SubscribeResponse& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::SubscribeResponse)) {
-    throw MessageBuffer::MessageTypeException(
-      "Message type for SubscribeResponse object "
-      "must be MessageType::SubscribeResponse");
+    throw MessageTypeException(msg_type, MessageType::SubscribeResponse);
   }
 
   uint8_t response;
@@ -258,9 +288,7 @@ operator>>(MessageBuffer& buffer, SubscribeEnd& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::SubscribeEnd)) {
-    throw MessageBuffer::MessageTypeException(
-      "Message type for SubscribeEnd object "
-      "must be MessageType::SubscribeEnd");
+    throw MessageTypeException(msg_type, MessageType::SubscribeEnd);
   }
 
   uint8_t reason;
@@ -401,8 +429,7 @@ operator>>(MessageBuffer& buffer, PublishDatagram& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Publish)) {
-    throw MessageBuffer::MessageTypeException(
-      "Message type for PublishDatagram object must be MessageType::Publish");
+    throw MessageTypeException(msg_type, MessageType::Publish);
   }
 
   buffer >> msg.header;
@@ -415,8 +442,8 @@ operator>>(MessageBuffer& buffer, PublishDatagram& msg)
   buffer >> msg.media_data;
 
   if (msg.media_data.size() != static_cast<size_t>(msg.media_data_length)) {
-    throw MessageBuffer::LengthException(
-      "PublishDatagram size of decoded media data must match decoded length");
+    throw MessageBuffer::LengthException(msg.media_data.size(),
+                                         msg.media_data_length);
   }
 
   return buffer;
@@ -444,8 +471,8 @@ operator>>(MessageBuffer& buffer, PublishStream& msg)
   buffer >> msg.media_data_length;
   buffer >> msg.media_data;
   if (msg.media_data.size() != static_cast<size_t>(msg.media_data_length)) {
-    throw MessageBuffer::LengthException(
-      "PublishStream size of decoded media data must match decoded length");
+    throw MessageBuffer::LengthException(msg.media_data.size(),
+                                         msg.media_data_length);
   }
 
   return buffer;
@@ -503,9 +530,7 @@ operator>>(MessageBuffer& buffer, Fetch& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Fetch)) {
-    throw MessageBuffer::MessageTypeException(
-      "Message type for Fetch object must "
-      "be MessageType::Fetch");
+    throw MessageTypeException(msg_type, MessageType::Fetch);
   }
 
   buffer >> msg.transaction_id;
