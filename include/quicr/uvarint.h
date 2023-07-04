@@ -59,7 +59,7 @@ private:
 };
 
 constexpr uintVar_t
-operator""_uV(uint64_t value)
+operator""_uV(unsigned long long int value)
 {
   return { value };
 }
