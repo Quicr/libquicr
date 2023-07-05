@@ -3,6 +3,7 @@
 #include <quicr/name.h>
 
 #include <bit>
+#include <span>
 #include <vector>
 
 namespace quicr::messages {
@@ -107,14 +108,21 @@ private:
   };
 
 public:
-  using buffer_t = std::vector<uint8_t>;
+  using value_type = std::uint8_t;
+  using buffer_type = std::vector<value_type>;
+  using const_span_type = const std::span<const value_type>;
+
+  using iterator = buffer_type::iterator;
+  using const_iterator = buffer_type::const_iterator;
+  using pointer = buffer_type::pointer;
+  using const_pointer = buffer_type::const_pointer;
 
   MessageBuffer() = default;
   MessageBuffer(const MessageBuffer& other) = default;
   MessageBuffer(MessageBuffer&& other) = default;
   MessageBuffer(size_t reserve_size) { _buffer.reserve(reserve_size); }
-  MessageBuffer(const buffer_t& buffer);
-  MessageBuffer(buffer_t&& buffer);
+  MessageBuffer(const buffer_type& buffer);
+  MessageBuffer(buffer_type&& buffer);
   ~MessageBuffer() = default;
 
   MessageBuffer& operator=(const MessageBuffer& other) = default;
@@ -123,25 +131,41 @@ public:
   bool empty() const { return _buffer.empty() || size() == 0; }
   size_t size() const { return _buffer.size() - _read_offset; }
 
-  void push(uint8_t t) { _buffer.push_back(t); }
-  void push(const buffer_t& data);
-  void push(buffer_t&& data);
+  iterator begin() noexcept { return std::next(_buffer.begin(), _read_offset); }
+  const_iterator begin() const noexcept
+  {
+    return std::next(_buffer.begin(), _read_offset);
+  }
 
-  void pop() { pop_or_clear(); }
-  void pop(uint16_t len);
+  iterator end() noexcept { return _buffer.end(); }
+  const_iterator end() const noexcept { return _buffer.end(); }
 
-  const uint8_t& front() const { return *front_it(); }
-  buffer_t front(uint16_t len) const;
+  pointer data() noexcept { return _buffer.data() + _read_offset; }
+  const_pointer data() const noexcept { return _buffer.data() + _read_offset; }
 
-  uint8_t pop_front();
-  buffer_t pop_front(uint16_t len);
+  void push(const value_type& value) { _buffer.push_back(value); }
+  void push(const_span_type data);
+  void push(buffer_type&& data);
+
+  void pop() { cleanup(); }
+  void pop(uint16_t length);
+
+  const value_type& front() const;
+  const_span_type front(uint16_t length) const;
+
+  value_type pop_front();
+  buffer_type pop_front(uint16_t length);
 
   /**
    * @brief Moves the whole buffer, leaving MessageBuffer empty.
    * @returns The buffer as an rvalue-ref.
    */
-  buffer_t&& take();
+  buffer_type&& take();
 
+  /**
+   * @brief Prints out the message buffer in hexadecimal bytes.
+   * @returns The message buffer bytes as a hexadecimal string.
+   */
   std::string to_hex() const;
 
 public:
@@ -150,7 +174,7 @@ public:
    * @param value The byte to push.
    * @returns The MessageBuffer that was written to.
    */
-  MessageBuffer& operator<<(uint8_t value);
+  MessageBuffer& operator<<(const value_type& value);
 
   /**
    * @brief Writes QUICR integral types to the buffer in NBO.
@@ -162,7 +186,7 @@ public:
   inline MessageBuffer& operator<<(T value)
   {
     value = swap_bytes(value);
-    uint8_t* val_ptr = reinterpret_cast<uint8_t*>(&value);
+    value_type* val_ptr = reinterpret_cast<value_type*>(&value);
 
     const auto length = _buffer.size();
     _buffer.resize(length + sizeof(T));
@@ -176,7 +200,7 @@ public:
    * @param value The value to read into.
    * @returns The MessageBuffer that was read from.
    */
-  MessageBuffer& operator>>(uint8_t& value);
+  MessageBuffer& operator>>(value_type& value);
 
   /**
    * @brief Reads QUICR integral types in HBO.
@@ -193,9 +217,9 @@ public:
     if (size() < sizeof(T))
       throw TypeReadException_Internal<T>(size());
 
-    auto val_ptr = reinterpret_cast<uint8_t*>(&value);
-    std::memcpy(val_ptr, _buffer.data() + _read_offset, sizeof(T));
-    pop_or_clear(sizeof(T));
+    auto val_ptr = reinterpret_cast<value_type*>(&value);
+    std::memcpy(val_ptr, data(), sizeof(T));
+    cleanup(sizeof(T));
 
     value = swap_bytes(value);
 
@@ -203,15 +227,14 @@ public:
   }
 
 private:
-  buffer_t::iterator front_it();
-  buffer_t::const_iterator front_it() const;
-
-  std::move_iterator<buffer_t::iterator> front_move_it();
-
-  void pop_or_clear(size_t length = 1);
+  /**
+   * @brief Adds to the read offset, and eventually clears the buffer.
+   * @param length The amount to add to the read offset.
+   */
+  void cleanup(size_t length = 1);
 
 private:
-  buffer_t _buffer;
+  buffer_type _buffer;
   size_t _read_offset = 0;
 };
 }

@@ -4,6 +4,8 @@
 #include <quicr/message_types.h>
 #include <quicr/namespace.h>
 
+#include <ostream>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -16,14 +18,14 @@ namespace quicr::messages {
 // Common
 /*===========================================================================*/
 
-struct MessageTypeException : public MessageBuffer::ReadException
-{
-  MessageTypeException(uint8_t type, MessageType expected_type);
-  MessageTypeException(MessageType type, MessageType expected_type);
-};
-
 uint64_t
 create_transaction_id();
+
+struct MessageTypeException : public MessageBuffer::ReadException
+{
+  MessageTypeException(MessageType type, MessageType expected_type);
+  MessageTypeException(uint8_t type, MessageType expected_type);
+};
 
 MessageBuffer&
 operator<<(MessageBuffer& msg, quicr::Namespace value);
@@ -36,14 +38,14 @@ MessageBuffer&
 operator>>(MessageBuffer& msg, quicr::uintVar_t& val);
 
 MessageBuffer&
-operator<<(MessageBuffer& msg, const std::vector<uint8_t>& val);
+operator<<(MessageBuffer& msg, const std::span<const uint8_t> val);
 MessageBuffer&
 operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val);
 MessageBuffer&
 operator>>(MessageBuffer& msg, std::vector<uint8_t>& val);
 
 /*===========================================================================*/
-// MessageBuffer operator overloads.
+// Subscription message MessageBuffer operator overloads.
 /*===========================================================================*/
 
 MessageBuffer&
@@ -65,6 +67,10 @@ MessageBuffer&
 operator<<(MessageBuffer& buffer, const SubscribeEnd& msg);
 MessageBuffer&
 operator>>(MessageBuffer& buffer, SubscribeEnd& msg);
+
+/*===========================================================================*/
+// Publication message MessageBuffer operator overloads.
+/*===========================================================================*/
 
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishIntent& msg);
@@ -98,6 +104,10 @@ MessageBuffer&
 operator<<(MessageBuffer& buffer, PublishIntentEnd&& msg);
 MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishIntentEnd& msg);
+
+/*===========================================================================*/
+// Fetch message MessageBuffer operator overloads.
+/*===========================================================================*/
 
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const Fetch& msg);

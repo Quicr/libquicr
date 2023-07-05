@@ -28,14 +28,16 @@ std::map<MessageType, std::string> message_type_name = {
 };
 #undef ENUM_MAPPING_ENTRY
 #undef ENUM_STRINGIFY
+
+std::string to_string(MessageType type) { return message_type_name[type]; }
 }
 // clang-format on
 
 MessageTypeException::MessageTypeException(MessageType type,
                                            MessageType expected_type)
-  : MessageBuffer::ReadException(message_type_name[type] +
-                                 " does not match expected message type: " +
-                                 message_type_name[expected_type])
+  : MessageBuffer::ReadException(
+      to_string(type) +
+      " does not match expected message type: " + to_string(expected_type))
 {
 }
 
@@ -161,7 +163,7 @@ operator>>(MessageBuffer& msg, quicr::uintVar_t& v)
 }
 
 MessageBuffer&
-operator<<(MessageBuffer& msg, const std::vector<uint8_t>& val)
+operator<<(MessageBuffer& msg, const std::span<const uint8_t> val)
 {
   msg << static_cast<uintVar_t>(val.size());
   msg.push(val);

@@ -39,18 +39,18 @@ MessageBuffer::LengthException::LengthException(size_t data_length,
 // MessageBuffer definitions
 /*===========================================================================*/
 
-MessageBuffer::MessageBuffer(const std::vector<uint8_t>& buffer)
+MessageBuffer::MessageBuffer(const buffer_type& buffer)
   : _buffer{ buffer }
 {
 }
 
-MessageBuffer::MessageBuffer(std::vector<uint8_t>&& buffer)
+MessageBuffer::MessageBuffer(buffer_type&& buffer)
   : _buffer{ std::move(buffer) }
 {
 }
 
 void
-MessageBuffer::push(const std::vector<uint8_t>& data)
+MessageBuffer::push(const_span_type data)
 {
   const auto length = _buffer.size();
   _buffer.resize(length + data.size());
@@ -58,7 +58,7 @@ MessageBuffer::push(const std::vector<uint8_t>& data)
 }
 
 void
-MessageBuffer::push(std::vector<uint8_t>&& data)
+MessageBuffer::push(buffer_type&& data)
 {
   _buffer.insert(_buffer.end(),
                  std::make_move_iterator(data.begin()),
@@ -71,14 +71,26 @@ MessageBuffer::pop(uint16_t length)
   if (length == 0)
     return;
 
-  pop_or_clear(length);
+  cleanup(length);
 };
 
-std::vector<uint8_t>
+const uint8_t&
+MessageBuffer::front() const
+{
+  if (empty())
+    throw EmptyException();
+
+  return *begin();
+}
+
+MessageBuffer::const_span_type
 MessageBuffer::front(uint16_t length) const
 {
   if (length == 0)
     return {};
+
+  if (empty())
+    throw EmptyException();
 
   if (length > size())
     throw OutOfRangeException(length, size());
@@ -86,23 +98,30 @@ MessageBuffer::front(uint16_t length) const
   if (length == size())
     return _buffer;
 
-  const auto& it = front_it();
-  return { it, it + length };
+  const auto& it = begin();
+  return { it, length };
 }
 
 uint8_t
 MessageBuffer::pop_front()
 {
-  uint8_t value = *front_move_it();
-  pop_or_clear();
+  if (empty())
+    throw EmptyException();
+
+  uint8_t value = *std::make_move_iterator(begin());
+  cleanup();
+
   return value;
 }
 
-std::vector<uint8_t>
+MessageBuffer::buffer_type
 MessageBuffer::pop_front(uint16_t length)
 {
   if (length == 0)
     return {};
+
+  if (empty())
+    throw EmptyException();
 
   if (length > size())
     throw OutOfRangeException(length, size());
@@ -110,17 +129,17 @@ MessageBuffer::pop_front(uint16_t length)
   if (length == size())
     return take();
 
-  std::vector<uint8_t> result(length);
-  std::copy_n(front_move_it(), length, result.begin());
-  pop_or_clear(length);
+  buffer_type result(length);
+  std::copy_n(std::make_move_iterator(begin()), length, result.begin());
+  cleanup(length);
 
   return result;
 }
 
-std::vector<uint8_t>&&
+MessageBuffer::buffer_type&&
 MessageBuffer::take()
 {
-  _buffer.erase(_buffer.begin(), std::next(_buffer.begin(), _read_offset));
+  _buffer.erase(_buffer.begin(), this->begin());
   _read_offset = 0;
   return std::move(_buffer);
 }
@@ -130,8 +149,8 @@ MessageBuffer::to_hex() const
 {
   std::ostringstream hex;
   hex << std::hex << std::setfill('0') << std::uppercase;
-  for (auto it = front_it(); it != _buffer.end(); ++it)
-    hex << std::setw(2) << int(*it);
+  for (const auto& byte : *this)
+    hex << std::setw(2) << int(byte);
   return hex.str();
 }
 
@@ -140,7 +159,7 @@ MessageBuffer::to_hex() const
 /*===========================================================================*/
 
 MessageBuffer&
-MessageBuffer::operator<<(uint8_t value)
+MessageBuffer::operator<<(const uint8_t& value)
 {
   _buffer.push_back(value);
   return *this;
@@ -157,32 +176,8 @@ MessageBuffer::operator>>(uint8_t& value)
 // Helper Methods
 /*===========================================================================*/
 
-MessageBuffer::buffer_t::iterator
-MessageBuffer::front_it()
-{
-  if (empty())
-    throw EmptyException();
-
-  return std::next(_buffer.begin(), _read_offset);
-}
-
-MessageBuffer::buffer_t::const_iterator
-MessageBuffer::front_it() const
-{
-  if (empty())
-    throw EmptyException();
-
-  return std::next(_buffer.begin(), _read_offset);
-}
-
-std::move_iterator<MessageBuffer::buffer_t::iterator>
-MessageBuffer::front_move_it()
-{
-  return std::make_move_iterator(front_it());
-}
-
 void
-MessageBuffer::pop_or_clear(size_t length)
+MessageBuffer::cleanup(size_t length)
 {
   if (empty())
     throw EmptyException();
