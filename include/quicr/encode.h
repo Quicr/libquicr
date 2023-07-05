@@ -38,7 +38,7 @@ MessageBuffer&
 operator>>(MessageBuffer& msg, quicr::uintVar_t& val);
 
 MessageBuffer&
-operator<<(MessageBuffer& msg, const std::span<const uint8_t> val);
+operator<<(MessageBuffer& msg, std::span<const uint8_t> val);
 MessageBuffer&
 operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val);
 MessageBuffer&

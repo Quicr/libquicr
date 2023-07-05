@@ -110,7 +110,7 @@ private:
 public:
   using value_type = std::uint8_t;
   using buffer_type = std::vector<value_type>;
-  using const_span_type = const std::span<const value_type>;
+  using const_span_type = std::span<const value_type>;
 
   using iterator = buffer_type::iterator;
   using const_iterator = buffer_type::const_iterator;
