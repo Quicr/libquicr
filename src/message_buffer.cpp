@@ -98,8 +98,7 @@ MessageBuffer::front(uint16_t length) const
   if (length == size())
     return _buffer;
 
-  const auto& it = begin();
-  return { it, length };
+  return { data(), length };
 }
 
 uint8_t
