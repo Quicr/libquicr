@@ -6,7 +6,10 @@ add_subdirectory( transport )
 add_subdirectory( qname )
 
 # Cantina
-set(cantina_BUILD_ALL ON CACHE BOOL "Build All Cantina Modules")
+set(cantina_BUILD_LOGGER ON CACHE BOOL "Build Logger Module")
+set(cantina_BUILD_MEMMGR ON CACHE BOOL "Build Memory Manager Module")
+set(cantina_BUILD_NETWORKING ON CACHE BOOL "Build Networking Module")
+set(cantina_BUILD_THREADING ON CACHE BOOL "Build Threading Module")
 add_subdirectory(cantina)
 
 ### Quiche begin

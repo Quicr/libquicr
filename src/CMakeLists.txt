@@ -39,6 +39,5 @@ target_link_libraries(quicr
         qname
         cantina::logger
         cantina::networking
-        cantina::sorted
         quiche_library)
 target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include)

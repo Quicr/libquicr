@@ -33,7 +33,6 @@
 #include "cantina/network.h"
 #include "cantina/network_types.h"
 #include "cantina/registration_id.h"
-#include "cantina/sorted_deque.h"
 #include "cantina/timer_manager.h"
 #include "pub_sub_registry.h"
 #include "quic_identifier.h"
