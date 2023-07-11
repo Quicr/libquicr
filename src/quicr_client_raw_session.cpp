@@ -385,8 +385,8 @@ QuicRClientRawSession::publishNamedObject(
 
   auto& [ns, context] = *found;
 
-  context.group_id = datagram.header.name.bits<uint64_t>(16, 32);
-  context.object_id = datagram.header.name.bits<uint64_t>(0, 16);
+  context.group_id = quicr_name.bits<uint32_t>(16, 32);
+  context.object_id = quicr_name.bits<uint16_t>(0, 16);
 
   if (context.state != PublishContext::State::Ready) {
     context.transport_context_id = transport_context_id;
@@ -671,8 +671,8 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
 
         auto& context = subscribe_state[ns];
 
-        context.group_id = datagram.header.name.bits<uint64_t>(16, 32);
-        context.object_id = datagram.header.name.bits<uint64_t>(0, 16);
+        context.group_id = datagram.header.name.bits<uint32_t>(16, 32);
+        context.object_id = datagram.header.name.bits<uint16_t>(0, 16);
 
         if (context.group_id - context.prev_group_id > 1) {
           std::ostringstream log_msg;
