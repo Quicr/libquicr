@@ -40,7 +40,8 @@ target_link_libraries(quicr
         cantina::logger
         cantina::networking
         quiche_library)
-if (APPLE AND CMAKE_FRAMEWORK)
+if(APPLE)
+    # For various security functions used by Quiche + BoringSSL
     target_link_libraries(quicr
         PUBLIC
             "-framework Security"

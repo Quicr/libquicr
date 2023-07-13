@@ -20,16 +20,25 @@ set(QUICHE_BSSL_PATH ${CMAKE_CURRENT_BINARY_DIR}/transport/dependencies/boringss
 # Set Environment variables for cargo command.
 
 set(CARGO_CMD QUICHE_BSSL_PATH=${QUICHE_BSSL_PATH})
-if (CMAKE_FRAMEWORK)
-set(CARGO_CMD ${CARGO_CMD} QUICHE_BSSL_LINK_KIND=framework)
+if(CMAKE_FRAMEWORK)
+    set(CARGO_CMD ${CARGO_CMD} QUICHE_BSSL_SEARCH_KIND=framework)
+else()
+    set(CARGO_CMD ${CARGO_CMD} QUICHE_BSSL_SEARCH_KIND=native)
+    SET(CARGO_CMD QUICHE_BSSL_SEARCH_PATH=${QUICHE_BSSL_PATH}/ssl/,${QUICHE_BSSL_PATH}/crypto/)
 endif()
 
 # Set the actual cargo command to run.
 
-set(CARGO_CMD ${CARGO_CMD} cargo +m10x build -Z build-std --release --lib --features ffi)
+if(CMAKE_FRAMEWORK)
+    # For Catalyst builds
+    set(CARGO_CMD ${CARGO_CMD} cargo +m10x build -Z build-std --release --lib --features ffi)
+else()
+    # For non-Catalyst builds
+    set(CARGO_CMD ${CARGO_CMD} cargo build --release --lib --features ffi)
+endif()
 
 if (QUICHE_TARGET)
-set(CARGO_CMD ${CARGO_CMD} --target ${QUICHE_TARGET})
+    set(CARGO_CMD ${CARGO_CMD} --target ${QUICHE_TARGET})
 endif()
 
 set(CARGO_TARGET_DIR ${CMAKE_CURRENT_BINARY_DIR}/quiche)
@@ -39,7 +48,7 @@ add_custom_target(quiche_target ALL
     COMMENT Building Quiche library
     COMMAND ${CARGO_CMD}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/quiche/)
-add_dependencies(quiche_target crypto ssl quicr-transport)
+add_dependencies(quiche_target quicr-transport)
 
 add_library(quiche_library INTERFACE)
 add_dependencies(quiche_library quiche_target)
