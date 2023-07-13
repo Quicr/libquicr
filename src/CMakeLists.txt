@@ -40,4 +40,11 @@ target_link_libraries(quicr
         cantina::logger
         cantina::networking
         quiche_library)
+if (APPLE AND CMAKE_FRAMEWORK)
+    target_link_libraries(quicr
+        PUBLIC
+            "-framework Security"
+            "-framework Foundation")
+endif()
+
 target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include)

@@ -13,4 +13,5 @@
 	url = git@github.com:Quicr/cantina
 [submodule "dependencies/quiche"]
 	path = dependencies/quiche
-	url = https://github.com/cloudflare/quiche.git
+	url = https://github.com/paulej/quiche.git
+        branch = paulej_quicr
