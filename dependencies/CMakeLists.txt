@@ -21,10 +21,13 @@ set(QUICHE_BSSL_PATH ${CMAKE_CURRENT_BINARY_DIR}/transport/dependencies/boringss
 
 set(CARGO_CMD QUICHE_BSSL_PATH=${QUICHE_BSSL_PATH})
 if(CMAKE_FRAMEWORK)
+    set(CARGO_CMD ${CARGO_CMD} QUICHE_BSSL_LINK_KIND=framework)
     set(CARGO_CMD ${CARGO_CMD} QUICHE_BSSL_SEARCH_KIND=framework)
+    set(CARGO_CMD ${CARGO_CMD} QUICHE_BSSL_SEARCH_PATH=${QUICHE_BSSL_PATH})
 else()
+    set(CARGO_CMD ${CARGO_CMD} QUICHE_BSSL_LINK_KIND=static)
     set(CARGO_CMD ${CARGO_CMD} QUICHE_BSSL_SEARCH_KIND=native)
-    SET(CARGO_CMD QUICHE_BSSL_SEARCH_PATH=${QUICHE_BSSL_PATH}/ssl/,${QUICHE_BSSL_PATH}/crypto/)
+    set(CARGO_CMD ${CARGO_CMD} QUICHE_BSSL_SEARCH_PATH=${QUICHE_BSSL_PATH}/ssl/,${QUICHE_BSSL_PATH}/crypto/)
 endif()
 
 # Set the actual cargo command to run.
@@ -44,6 +47,7 @@ endif()
 set(CARGO_TARGET_DIR ${CMAKE_CURRENT_BINARY_DIR}/quiche)
 set(CARGO_CMD ${CARGO_CMD} --target-dir ${CARGO_TARGET_DIR})
 
+message("cargo=${CARGO_CMD}")
 add_custom_target(quiche_target ALL
     COMMENT Building Quiche library
     COMMAND ${CARGO_CMD}
