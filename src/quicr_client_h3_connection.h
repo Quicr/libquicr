@@ -70,7 +70,7 @@ protected:
   enum class H3RequestState
   {
     Initiated,
-    Processing,
+    Active,
     Complete
   };
 

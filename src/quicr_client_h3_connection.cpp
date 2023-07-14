@@ -1449,7 +1449,7 @@ H3ClientConnection::HandleSubscriberData(QUICStreamID stream_id,
       // Is this the first message for this subscription?
       if (request->state == H3RequestState::Initiated) {
         // Change request state to indicate data processing has started
-        request->state = H3RequestState::Processing;
+        request->state = H3RequestState::Active;
         HandleSubscribeResponse(stream_id, message);
       } else {
         HandleSubscribedObject(stream_id, true, message);
