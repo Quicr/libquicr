@@ -103,8 +103,7 @@ public:
                      const std::string& hostname,
                      quiche_conn* quiche_connection,
                      std::uint64_t heartbeat_interval,
-                     const ClosureCallback closure_callback,
-                     const cantina::RegistrationID& registration_id);
+                     const ClosureCallback closure_callback);
   ~H3ClientConnection();
   void ProcessPacket(cantina::DataPacket& data_packet);
   bool IsConnectionClosed();

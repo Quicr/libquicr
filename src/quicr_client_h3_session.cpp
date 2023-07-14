@@ -429,8 +429,7 @@ QuicRClientH3Session::CreateNewConnection(
       hostname,
       quiche_connection,
       Heartbeat_Interval,
-      [&, network_registration]() { ConnectionClosed(network_registration); },
-      network_registration);
+      [&, network_registration]() { ConnectionClosed(network_registration); });
   } catch (const H3ClientConnectionException& e) {
     logger->error << "Failed to create a QUIC Connection: " << e.what()
                   << std::flush;

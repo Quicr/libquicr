@@ -84,9 +84,6 @@ namespace quicr {
  *      closure_callback [in]
  *          Function to call when the connection is closing.
  *
- *      registration_id [in]
- *          Registration ID value to send in closure_callback().
- *
  *  Returns:
  *      Nothing.
  *
@@ -108,8 +105,7 @@ H3ClientConnection::H3ClientConnection(
   const std::string& hostname,
   quiche_conn* quiche_connection,
   std::uint64_t heartbeat_interval,
-  const ClosureCallback closure_callback,
-  const cantina::RegistrationID& registration_id)
+  const ClosureCallback closure_callback)
   : terminate{ false }
   , logger{ std::make_shared<cantina::Logger>(std::string("CNCT:") +
                                                 local_cid.SuffixString(),
@@ -129,7 +125,6 @@ H3ClientConnection::H3ClientConnection(
   , quiche_connection{ quiche_connection }
   , connection_state{ H3ConnectionState::ConnectPending }
   , closure_callback{ closure_callback }
-  , registration_id{ registration_id }
   , closure_notification{ false }
   , http3_config{ nullptr }
   , http3_connection{ nullptr }
