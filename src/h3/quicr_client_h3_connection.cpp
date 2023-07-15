@@ -565,7 +565,7 @@ H3ClientConnection::PublishNamedObject(const quicr::Name& quicr_name,
 
   // Submit the HTTP PUT request
   auto [result, stream_id] = InitiateRequest(
-    "PUT", std::string("/pub/") + std::string(quicr_name), buffer);
+    "PUT", std::string("/pub/") + std::string(quicr_name), std::move(buffer));
 
   if (result) {
     // Dispatch Quiche messages
@@ -1012,7 +1012,7 @@ std::pair<bool, QUICStreamID>
 H3ClientConnection::InitiateRequest(
   const std::string& method,
   const std::string path,
-  const std::vector<std::uint8_t>& request_body)
+  std::vector<std::uint8_t>&& request_body)
 {
   // Headers to send back in the reply
   HTTPHeaders header_map = { { ":method", method },
@@ -1055,16 +1055,7 @@ H3ClientConnection::InitiateRequest(
     logger->error << "Failed to form HTTP request" << std::flush;
   } else {
     if (!request_body.empty()) {
-      if (QuicheCall(quiche_h3_send_body,
-                     http3_connection,
-                     quiche_connection,
-                     request_stream,
-                     const_cast<std::uint8_t*>(request_body.data()),
-                     request_body.size(),
-                     true) < 0) {
-        logger->error << "Failed to send HTTP request body" << std::flush;
-        request_stream = -1; // To signal an error from this function
-      }
+      SendMessageBody(request_stream, request_body, true);
     }
   }
 

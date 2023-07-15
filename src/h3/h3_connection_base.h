@@ -87,6 +87,15 @@ protected:
     std::vector<std::uint8_t> request_body;
   };
 
+  struct MessageQueue
+  {
+    // Octets sent + actual vector of octets to send
+    std::deque<std::pair<std::size_t, std::vector<std::uint8_t>>> messages;
+
+    // Set the final flag when last buffer is sent?
+    bool final;
+  };
+
 public:
   H3ConnectionBase(const cantina::LoggerPointer& parent_logger,
                    const cantina::TimerManagerPointer& timer_manager,
@@ -125,6 +134,10 @@ protected:
   bool QuicheConsumeData(cantina::DataPacket& data_packet);
   void DispatchMessages(std::unique_lock<std::mutex>& lock,
                         cantina::TimerID timer_id = {});
+  void SendMessageBody(QUICStreamID stream_id,
+                       std::vector<std::uint8_t>& message,
+                       bool final);
+  void SendQueuedMessages();
   void QuicheEmitQUICMessages(std::unique_lock<std::mutex>& lock);
   void NotifyOnClosure(bool force_close = false);
   void CreateOrRefreshTimer(std::unique_lock<std::mutex>& lock,
@@ -206,6 +219,7 @@ protected:
   std::map<QUICStreamID, RequestData> requests; // Request information
   std::map<std::uint64_t, std::uint64_t> connection_settings;
                                                 // Connections settings
+  std::map<QUICStreamID, MessageQueue> queued_messages;
   std::mutex connection_lock;                   // Connection syncronization
 };
 

@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <utility>
 #include "h3_connection_base.h"
 #include "cantina/data_buffer.h"
 #include "cantina/logger_macros.h"
@@ -469,8 +470,11 @@ H3ConnectionBase::QuicheConsumeData(cantina::DataPacket& data_packet)
  */
 void
 H3ConnectionBase::DispatchMessages(std::unique_lock<std::mutex>& lock,
-                                     cantina::TimerID timer_id)
+                                   cantina::TimerID timer_id)
 {
+  // Send queued messages
+  SendQueuedMessages();
+
   // Emit QUIC messages Quiche has prepared
   QuicheEmitQUICMessages(lock);
 
@@ -479,6 +483,194 @@ H3ConnectionBase::DispatchMessages(std::unique_lock<std::mutex>& lock,
 
   // Ensure we have a (freshened) timeout timer running
   CreateOrRefreshTimer(lock, timer_id);
+}
+
+/*
+ *  H3ConnectionBase::SendMessageBody()
+ *
+ *  Description:
+ *      This will send a message body or queue it for later transmission
+ *      as required.
+ *
+ *  Parameters:
+ *      stream_id [in]
+ *          The stream on which this message should be sent.
+ *
+ *      message [in]
+ *          The HTTP request or response body part to send.  This buffer may
+ *          be moved and the contents should be considered invalid on return.
+ *
+ *      final [in]
+ *          Is this the final message?  Once all messages for this stream
+ *          are sent and seeing this flag at least once set to true,
+ *          Quiche will be told this is the final message.
+ *
+ *  Returns:
+ *      Nothing.
+ *
+ *  Comments:
+ *      The connection mutex must be locked by the caller.
+ */
+void
+H3ConnectionBase::SendMessageBody(QUICStreamID stream_id,
+                                  std::vector<std::uint8_t>& message,
+                                  bool final)
+{
+  // Ensure the message is not empty unless final is true
+  if (message.empty() && !final)
+  {
+    logger->error << "Attempt to send empty non-final message body on stream "
+                  << stream_id << std::flush;
+    return;
+  }
+
+  // If this stream already has queued messages, just append this one
+  auto it = queued_messages.find(stream_id);
+  if (it != queued_messages.end())
+  {
+    // Ensure the final flag was not previously set
+    if (it->second.final)
+    {
+      logger->error << "Final flag was previously set on messages for stream "
+                    << stream_id << std::flush;
+      return;
+    }
+
+    // Only queue it if there is actual data to send
+    if (!message.empty())
+    {
+      it->second.messages.emplace_back(std::make_pair(0, std::move(message)));
+    }
+
+    // Take note of the final flag
+    if (final) it->second.final = true;
+    return;
+  }
+
+  // Attempt to send the message immediately
+  auto octets_sent = QuicheCall(quiche_h3_send_body,
+                                http3_connection,
+                                quiche_connection,
+                                stream_id,
+                                message.data(),
+                                message.size(),
+                                final);
+
+  // If all octets were successfully transmitted, then return
+  if (static_cast<std::size_t>(octets_sent) == message.size()) return;
+
+  // If the stream is blocked, queue the message with octets 0 sent
+  if (octets_sent == QUICHE_ERR_DONE) octets_sent = 0;
+
+  // A negative result indicates an error; cannot recover from this
+  if (octets_sent < 0)
+  {
+    logger->error << "Unrecoverable error sending message body on stream "
+                  << stream_id << " (error=" << octets_sent << ")"
+                  << std::flush;
+    return;
+  }
+
+  auto [iit, success] = queued_messages.insert(
+    std::make_pair(stream_id, MessageQueue{ {}, final }));
+  if (!success)
+  {
+    logger->error << "Unable to insert message into queue on steam "
+                  << stream_id << std::flush;
+    return;
+  }
+
+  // Enqueue the message
+  iit->second.messages.emplace_back(
+    std::make_pair(octets_sent, std::move(message)));
+}
+
+/*
+ *  H3ConnectionBase::SendQueuedMessages()
+ *
+ *  Description:
+ *      This will attempt to send any messages that are presently queued.
+ *
+ *  Parameters:
+ *      None.
+ *
+ *  Returns:
+ *      Nothing.
+ *
+ *  Comments:
+ *      The connection mutex must be locked by the caller.
+ */
+void
+H3ConnectionBase::SendQueuedMessages()
+{
+  // Iterate over the queued messages map to send queued messages
+  for (auto it = queued_messages.begin(); it != queued_messages.end(); /**/)
+  {
+    // Set the final flag?
+    bool final = false;
+
+    // Process the deque for this stream until empty
+    while (!it->second.messages.empty())
+    {
+      // Make it convenient to reference the data buffer
+      auto &message = it->second.messages.front();
+
+      // If this is the last message in the queue, update the final flag
+      if (it->second.messages.size() == 1) final = it->second.final;
+
+      // Attempt to send the message
+      auto octets_sent =
+        QuicheCall(quiche_h3_send_body,
+                   http3_connection,
+                   quiche_connection,
+                   it->first,
+                   message.second.data() + message.first,
+                   message.second.size() - message.first,
+                   final);
+
+      // If the stream is blocked, just move on to the next stream
+      if (octets_sent == QUICHE_ERR_DONE) break;
+
+      // If there was an unrecoverable error, flush messages
+      if (octets_sent < 0)
+      {
+        logger->error << "Unrecoverable error sending message body on stream "
+                      << it->first << " (error=" << octets_sent << ")"
+                      << std::flush;
+        it->second.messages.clear();
+        break;
+      }
+
+      // If all octets were successfully transmitted, remove this buffer
+      if ((message.first +
+           static_cast<std::size_t>(octets_sent)) ==
+          message.second.size()) {
+
+        // Remove this message, as it's complete
+        it->second.messages.pop_front();
+
+        // Attempt to send the next message
+        continue;
+      }
+
+      // If only part of the data was sent, update the sent value
+      message.first += octets_sent;
+
+      // Since the stream buffer must be full, move on to the next stream
+      break;
+    }
+
+    // If the messages for this stream are all sent, remove the map entry
+    if (it->second.messages.empty())
+    {
+      it = queued_messages.erase(it);
+    }
+    else
+    {
+      // Move forward to the next stream
+      it++;
+    }
+  }
 }
 
 /*
@@ -968,9 +1160,6 @@ H3ConnectionBase::HandleH3FinishedEvent(QUICStreamID stream_id,
                     << std::flush;
     return;
   }
-
-  // Update the request state
-  request->state = H3RequestState::Complete;
 
   // Call routine to handle completed request
   auto result = HandleCompletedRequest(stream_id, request);

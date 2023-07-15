@@ -104,7 +104,7 @@ protected:
   void SendHTTPResponse(QUICStreamID stream_id,
                         unsigned status_code,
                         const HTTPHeaders& response_headers,
-                        const std::vector<std::uint8_t>& response_body,
+                        std::vector<std::uint8_t>& response_body,
                         bool prefix_length,
                         bool close_stream = true);
   bool HandlePublishIntent(QUICStreamID stream_id, RequestData* request);

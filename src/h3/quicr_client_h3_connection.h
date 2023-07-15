@@ -120,7 +120,7 @@ protected:
   std::pair<bool, QUICStreamID> InitiateRequest(
     const std::string& method,
     const std::string path,
-    const std::vector<std::uint8_t>& request_body);
+    std::vector<std::uint8_t>&& request_body);
 
   void HandleSubscriberData(QUICStreamID stream_id, RequestData* request);
   void HandleSubscribeResponse(QUICStreamID stream_id,
