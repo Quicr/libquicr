@@ -133,6 +133,7 @@ protected:
   ServerDelegate& server_delegate;              // Server delegate
   std::string certificate;                      // Certificate file
   std::string certificate_key;                  // Certificate Key file
+  bool use_datagrams;                           // Send media via QUIC datagrams
   quiche_config* server_config;                 // Quiche config context
   socket_t data_socket;                         // Socket for communication
   cantina::NetworkAddress local_address;        // Local server address

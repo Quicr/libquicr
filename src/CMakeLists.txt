@@ -3,6 +3,7 @@ add_library(quicr
             encode.cpp
             fragment_assembler.cpp
             pub_sub_registry.cpp
+            h3_connection_base.cpp
             quicr_client.cpp
             quicr_client_raw_session.cpp
             quicr_client_h3_session.cpp

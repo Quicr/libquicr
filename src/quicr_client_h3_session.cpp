@@ -426,11 +426,11 @@ QuicRClientH3Session::CreateNewConnection(
       use_datagrams,
       connection_data.id,
       connection_data.local_address,
-      hostname,
       quiche_connection,
       Heartbeat_Interval,
-      [&, network_registration]() { ConnectionClosed(network_registration); });
-  } catch (const H3ClientConnectionException& e) {
+      [&, network_registration]() { ConnectionClosed(network_registration); },
+      hostname);
+  } catch (const H3ConnectionException& e) {
     logger->error << "Failed to create a QUIC Connection: " << e.what()
                   << std::flush;
     // Error code from RFC 9000 Section 20.1 ("Internal error")

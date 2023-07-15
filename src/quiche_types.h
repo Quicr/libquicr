@@ -17,6 +17,7 @@
 
 #include <string>
 #include <cstdint>
+#include <limits>
 
 namespace quicr {
 
@@ -36,5 +37,8 @@ std::string QuicheQUICMsgTypeString(int type);
 
 // Stream identifiers
 typedef std::uint64_t QUICStreamID;
+
+constexpr std::uint64_t Invalid_QUIC_Stream_ID =
+  std::numeric_limits<std::uint64_t>::max();
 
 } // namespace quicr

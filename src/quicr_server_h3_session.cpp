@@ -68,6 +68,7 @@ QuicRServerH3Session::QuicRServerH3Session(
   , certificate_key{ (transport_config.tls_key_filename
                         ? transport_config.tls_key_filename
                         : "") }
+  , use_datagrams{ true } // TODO: We should signal this
   , server_config{ nullptr }
   , data_socket{ 0 }
   , generator{ std::random_device()() }
@@ -554,16 +555,16 @@ QuicRServerH3Session::HandleNewConnection(std::uint32_t version,
       async_requests,
       network,
       pub_sub_registry,
-      server_delegate,
       data_socket,
       Max_Send_Size,
       Max_Recv_Size,
+      use_datagrams,
       dcid,
-      scid,
       local_address,
       quiche_connection,
       Heartbeat_Interval,
-      [&, dcid]() { ConnectionClosed(dcid); });
+      [&, dcid]() { ConnectionClosed(dcid); },
+      server_delegate);
   } catch (const QuicRServerH3SessionException& e) {
     logger->error << "Failed to create a QUIC Connection: " << e.what()
                   << std::flush;
