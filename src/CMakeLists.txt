@@ -1,19 +1,19 @@
 add_library(quicr
             message_buffer.cpp
             encode.cpp
-            fragment_assembler.cpp
-            pub_sub_registry.cpp
-            h3_connection_base.cpp
             quicr_client.cpp
             quicr_client_raw_session.cpp
-            quicr_client_h3_session.cpp
-            quicr_client_h3_connection.cpp
             quicr_server.cpp
             quicr_server_raw_session.cpp
-            quicr_server_h3_session.cpp
-            quicr_server_h3_connection.cpp
-            quiche_api_lock.cpp
-            quiche_types.cpp)
+            h3/fragment_assembler.cpp
+            h3/pub_sub_registry.cpp
+            h3/h3_connection_base.cpp
+            h3/quicr_client_h3_session.cpp
+            h3/quicr_client_h3_connection.cpp
+            h3/quicr_server_h3_session.cpp
+            h3/quicr_server_h3_connection.cpp
+            h3/quiche_api_lock.cpp
+            h3/quiche_types.cpp)
 
 # Suppress external lib warnings
 set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)

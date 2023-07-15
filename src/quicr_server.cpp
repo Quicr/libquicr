@@ -1,5 +1,5 @@
 #include "quicr_server_raw_session.h"
-#include "quicr_server_h3_session.h"
+#include "h3/quicr_server_h3_session.h"
 
 #include <quicr/quicr_server.h>
 
