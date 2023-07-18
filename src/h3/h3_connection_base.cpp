@@ -153,7 +153,7 @@ H3ConnectionBase::H3ConnectionBase(
  */
 H3ConnectionBase::~H3ConnectionBase()
 {
-  logger->info << "Deleting connection: " << local_cid << std::flush;
+  logger->info << "Deleting connection " << local_cid << std::flush;
 
   // Lock the client mutex
   std::unique_lock<std::mutex> lock(connection_lock);
