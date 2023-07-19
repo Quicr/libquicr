@@ -6,7 +6,7 @@ CXX_DEFINES =
 
 CXX_INCLUDES = -I/Users/chaya/Github/libquicr/include -I/Users/chaya/Github/libquicr/dependencies/transport/include -I/Users/chaya/Github/libquicr/dependencies/transport/src -I/Users/chaya/Github/libquicr/dependencies/transport/dependencies/picoquic/picoquic -I/Users/chaya/Github/libquicr/dependencies/transport/dependencies/boringssl/include -isystem /Users/chaya/Github/mlspp/include -isystem /Users/chaya/Github/mlspp/lib/bytes/include -isystem /Users/chaya/Github/mlspp/lib/tls_syntax/include -isystem /Users/chaya/Github/mlspp/third_party -isystem /Users/chaya/Github/mlspp/lib/hpke/include
 
-CXX_FLAGSarm64 = -std=c++20 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk -Wpedantic -Wextra -Wall
+CXX_FLAGSarm64 = -O3 -DNDEBUG -std=c++20 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk -fcolor-diagnostics -Wpedantic -Wextra -Wall
 
-CXX_FLAGS = -std=c++20 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk -Wpedantic -Wextra -Wall
+CXX_FLAGS = -O3 -DNDEBUG -std=c++20 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk -fcolor-diagnostics -Wpedantic -Wextra -Wall
 

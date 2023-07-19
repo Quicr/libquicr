@@ -41,7 +41,7 @@ add_subdirectory(dependencies)
 ###
 add_subdirectory(src)
 
-add_subdirectory(mlstest)
+
 ###
 ### Enable testing and add tests if QUICR_BUILD_TESTS is ON
 ###
@@ -52,10 +52,12 @@ endif()
 ###
 ### Applications
 ###
-if(BUILD_TESTING AND QUICR_BUILD_TESTS)
+#if(BUILD_TESTING AND QUICR_BUILD_TESTS)
   add_subdirectory(cmd)
-endif()
+#endif()
 
 if (BUILD_BENCHMARK)
     add_subdirectory(benchmark)
 endif()
+
+add_subdirectory(mlstest)

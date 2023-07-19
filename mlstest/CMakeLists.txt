@@ -4,7 +4,7 @@ find_package(OpenSSL 1.1 REQUIRED)
 set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
 find_package(MLSPP REQUIRED)
 
-add_executable( quicr_mlstest main.cpp MlsUserSession.cpp testLogger.cpp)
+add_executable(quicr_mlstest main.cpp mls_user_session.cpp testLogger.cpp sub_delegate.cpp pub_delegate.cpp quicr_client_helper.cpp)
 
 target_link_libraries( quicr_mlstest LINK_PUBLIC
                             quicr picotls-core picotls-openssl MLSPP::mlspp  MLSPP::tls_syntax)

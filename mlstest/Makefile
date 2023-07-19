@@ -185,30 +185,6 @@ quicr_mlstest/fast:
 	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/build
 .PHONY : quicr_mlstest/fast
 
-MlsUserSession.o: MlsUserSession.cpp.o
-.PHONY : MlsUserSession.o
-
-# target to build an object file
-MlsUserSession.cpp.o:
-	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.o
-.PHONY : MlsUserSession.cpp.o
-
-MlsUserSession.i: MlsUserSession.cpp.i
-.PHONY : MlsUserSession.i
-
-# target to preprocess a source file
-MlsUserSession.cpp.i:
-	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.i
-.PHONY : MlsUserSession.cpp.i
-
-MlsUserSession.s: MlsUserSession.cpp.s
-.PHONY : MlsUserSession.s
-
-# target to generate assembly for a file
-MlsUserSession.cpp.s:
-	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.s
-.PHONY : MlsUserSession.cpp.s
-
 main.o: main.cpp.o
 .PHONY : main.o
 
@@ -232,6 +208,102 @@ main.s: main.cpp.s
 main.cpp.s:
 	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/main.cpp.s
 .PHONY : main.cpp.s
+
+mls_user_session.o: mls_user_session.cpp.o
+.PHONY : mls_user_session.o
+
+# target to build an object file
+mls_user_session.cpp.o:
+	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/mls_user_session.cpp.o
+.PHONY : mls_user_session.cpp.o
+
+mls_user_session.i: mls_user_session.cpp.i
+.PHONY : mls_user_session.i
+
+# target to preprocess a source file
+mls_user_session.cpp.i:
+	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/mls_user_session.cpp.i
+.PHONY : mls_user_session.cpp.i
+
+mls_user_session.s: mls_user_session.cpp.s
+.PHONY : mls_user_session.s
+
+# target to generate assembly for a file
+mls_user_session.cpp.s:
+	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/mls_user_session.cpp.s
+.PHONY : mls_user_session.cpp.s
+
+pub_delegate.o: pub_delegate.cpp.o
+.PHONY : pub_delegate.o
+
+# target to build an object file
+pub_delegate.cpp.o:
+	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/pub_delegate.cpp.o
+.PHONY : pub_delegate.cpp.o
+
+pub_delegate.i: pub_delegate.cpp.i
+.PHONY : pub_delegate.i
+
+# target to preprocess a source file
+pub_delegate.cpp.i:
+	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/pub_delegate.cpp.i
+.PHONY : pub_delegate.cpp.i
+
+pub_delegate.s: pub_delegate.cpp.s
+.PHONY : pub_delegate.s
+
+# target to generate assembly for a file
+pub_delegate.cpp.s:
+	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/pub_delegate.cpp.s
+.PHONY : pub_delegate.cpp.s
+
+quicr_client_helper.o: quicr_client_helper.cpp.o
+.PHONY : quicr_client_helper.o
+
+# target to build an object file
+quicr_client_helper.cpp.o:
+	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/quicr_client_helper.cpp.o
+.PHONY : quicr_client_helper.cpp.o
+
+quicr_client_helper.i: quicr_client_helper.cpp.i
+.PHONY : quicr_client_helper.i
+
+# target to preprocess a source file
+quicr_client_helper.cpp.i:
+	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/quicr_client_helper.cpp.i
+.PHONY : quicr_client_helper.cpp.i
+
+quicr_client_helper.s: quicr_client_helper.cpp.s
+.PHONY : quicr_client_helper.s
+
+# target to generate assembly for a file
+quicr_client_helper.cpp.s:
+	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/quicr_client_helper.cpp.s
+.PHONY : quicr_client_helper.cpp.s
+
+sub_delegate.o: sub_delegate.cpp.o
+.PHONY : sub_delegate.o
+
+# target to build an object file
+sub_delegate.cpp.o:
+	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/sub_delegate.cpp.o
+.PHONY : sub_delegate.cpp.o
+
+sub_delegate.i: sub_delegate.cpp.i
+.PHONY : sub_delegate.i
+
+# target to preprocess a source file
+sub_delegate.cpp.i:
+	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/sub_delegate.cpp.i
+.PHONY : sub_delegate.cpp.i
+
+sub_delegate.s: sub_delegate.cpp.s
+.PHONY : sub_delegate.s
+
+# target to generate assembly for a file
+sub_delegate.cpp.s:
+	cd /Users/chaya/Github/libquicr && $(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/sub_delegate.cpp.s
+.PHONY : sub_delegate.cpp.s
 
 testLogger.o: testLogger.cpp.o
 .PHONY : testLogger.o
@@ -271,12 +343,21 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... test"
 	@echo "... quicr_mlstest"
-	@echo "... MlsUserSession.o"
-	@echo "... MlsUserSession.i"
-	@echo "... MlsUserSession.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
+	@echo "... mls_user_session.o"
+	@echo "... mls_user_session.i"
+	@echo "... mls_user_session.s"
+	@echo "... pub_delegate.o"
+	@echo "... pub_delegate.i"
+	@echo "... pub_delegate.s"
+	@echo "... quicr_client_helper.o"
+	@echo "... quicr_client_helper.i"
+	@echo "... quicr_client_helper.s"
+	@echo "... sub_delegate.o"
+	@echo "... sub_delegate.i"
+	@echo "... sub_delegate.s"
 	@echo "... testLogger.o"
 	@echo "... testLogger.i"
 	@echo "... testLogger.s"

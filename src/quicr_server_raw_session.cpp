@@ -190,7 +190,10 @@ QuicRServerRawSession::sendNamedObject(
   uint16_t expiry_age_ms,
   const messages::PublishDatagram& datagram)
 {
+  log_handler.log(qtransport::LogLevel::info, "num subscribe_id_state "+ std::to_string(subscribe_id_state.size()));
   // start populating message to encode
+  log_handler.log(qtransport::LogLevel::info, "count of sub_id " + std::to_string(subscribe_id_state.count(subscriber_id)));
+
   if (subscribe_id_state.count(subscriber_id) == 0) {
     log_handler.log(qtransport::LogLevel::info, "Send Object, missing subscriber_id: " + std::to_string(subscriber_id));
     return;
@@ -200,6 +203,9 @@ QuicRServerRawSession::sendNamedObject(
   messages::MessageBuffer msg;
 
   msg << datagram;
+
+  log_handler.log(qtransport::LogLevel::info, "Sending Object, tcid " + std::to_string(context.transport_context_id));
+
 
   transport->enqueue(
     context.transport_context_id, context.transport_stream_id,
@@ -232,6 +238,9 @@ QuicRServerRawSession::handle_subscribe(
 
     subscribe_state[subscribe.quicr_namespace][context_id] = context;
     subscribe_id_state[context.subscriber_id] = context;
+    log_handler.log(qtransport::LogLevel::info, "Context "
+                                                  + std::to_string( subscribe_id_state[context.subscriber_id].subscriber_id));
+
   }
 
   auto& context = subscribe_state[subscribe.quicr_namespace][context_id];
@@ -292,6 +301,9 @@ QuicRServerRawSession::handle_publish(
                  });
 
   if (publish_namespace == publish_namespaces.end()) {
+    std::stringstream log_msg;
+    log_msg << "handle_publish: No such namespace " << datagram.header.name;
+    log_handler.log(qtransport::LogLevel::info, log_msg.str());
     // No such namespace, don't publish yet.
     return;
   }

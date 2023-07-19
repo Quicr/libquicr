@@ -8,8 +8,11 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/Users/chaya/Github/libquicr/mlstest/MlsUserSession.cpp" "mlstest/CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.o" "gcc" "mlstest/CMakeFiles/quicr_mlstest.dir/MlsUserSession.cpp.o.d"
   "/Users/chaya/Github/libquicr/mlstest/main.cpp" "mlstest/CMakeFiles/quicr_mlstest.dir/main.cpp.o" "gcc" "mlstest/CMakeFiles/quicr_mlstest.dir/main.cpp.o.d"
+  "/Users/chaya/Github/libquicr/mlstest/mls_user_session.cpp" "mlstest/CMakeFiles/quicr_mlstest.dir/mls_user_session.cpp.o" "gcc" "mlstest/CMakeFiles/quicr_mlstest.dir/mls_user_session.cpp.o.d"
+  "/Users/chaya/Github/libquicr/mlstest/pub_delegate.cpp" "mlstest/CMakeFiles/quicr_mlstest.dir/pub_delegate.cpp.o" "gcc" "mlstest/CMakeFiles/quicr_mlstest.dir/pub_delegate.cpp.o.d"
+  "/Users/chaya/Github/libquicr/mlstest/quicr_client_helper.cpp" "mlstest/CMakeFiles/quicr_mlstest.dir/quicr_client_helper.cpp.o" "gcc" "mlstest/CMakeFiles/quicr_mlstest.dir/quicr_client_helper.cpp.o.d"
+  "/Users/chaya/Github/libquicr/mlstest/sub_delegate.cpp" "mlstest/CMakeFiles/quicr_mlstest.dir/sub_delegate.cpp.o" "gcc" "mlstest/CMakeFiles/quicr_mlstest.dir/sub_delegate.cpp.o.d"
   "/Users/chaya/Github/libquicr/mlstest/testLogger.cpp" "mlstest/CMakeFiles/quicr_mlstest.dir/testLogger.cpp.o" "gcc" "mlstest/CMakeFiles/quicr_mlstest.dir/testLogger.cpp.o.d"
   )
 

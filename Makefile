@@ -796,19 +796,6 @@ quicr/fast:
 .PHONY : quicr/fast
 
 #=============================================================================
-# Target rules for targets named quicr_mlstest
-
-# Build rule for target.
-quicr_mlstest: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 quicr_mlstest
-.PHONY : quicr_mlstest
-
-# fast build rule for target.
-quicr_mlstest/fast:
-	$(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/build
-.PHONY : quicr_mlstest/fast
-
-#=============================================================================
 # Target rules for targets named quicr_test
 
 # Build rule for target.
@@ -846,6 +833,19 @@ reallyTest: cmake_check_build_system
 reallyTest/fast:
 	$(MAKE) $(MAKESILENT) -f cmd/really/CMakeFiles/reallyTest.dir/build.make cmd/really/CMakeFiles/reallyTest.dir/build
 .PHONY : reallyTest/fast
+
+#=============================================================================
+# Target rules for targets named quicr_mlstest
+
+# Build rule for target.
+quicr_mlstest: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 quicr_mlstest
+.PHONY : quicr_mlstest
+
+# fast build rule for target.
+quicr_mlstest/fast:
+	$(MAKE) $(MAKESILENT) -f mlstest/CMakeFiles/quicr_mlstest.dir/build.make mlstest/CMakeFiles/quicr_mlstest.dir/build
+.PHONY : quicr_mlstest/fast
 
 # Help Target
 help:

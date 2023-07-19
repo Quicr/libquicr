@@ -109,9 +109,11 @@ public:
           return;
       }
 
-//      std::cout << "on_recv_notify: context_id: " << context_id
-//                << " stream_id: " << streamId
-//                << " data sz: " << data.value().size() << std::endl;
+
+
+      std::cout << "on_recv_notify: context_id: " << context_id
+                << " stream_id: " << streamId
+                << " data sz: " << data.value().size() << std::endl;
 
       messages::MessageBuffer msg_buffer{data.value()};
 
@@ -623,18 +625,24 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
     case messages::MessageType::Publish: {
       messages::PublishDatagram datagram;
       msg >> datagram;
-
+      std::cerr << "messages::MessageType::Publish: name= " << datagram.header.name.to_hex() << std::endl;
       if (datagram.header.offset_and_fin == uintVar_t(0x1)) {
         // No-fragment, process as single object
 
         for (const auto& entry : sub_delegates) {
           if (entry.first.contains(datagram.header.name)) {
-            if (auto sub_delegate = sub_delegates[entry.first].lock())
-              sub_delegate->onSubscribedObject(datagram.header.name,
-                                               0x0,
-                                               0x0,
-                                               false,
-                                               std::move(datagram.media_data));
+            std::cerr << "del: ns" << entry.first.to_hex() << std::endl;
+            auto sub_delegate = sub_delegates[entry.first].lock();
+            if (sub_delegate == nullptr) {
+              std::cerr << "del: null subscribe delegate" << std::endl;
+              continue ;
+            }
+            sub_delegate->onSubscribedObject(datagram.header.name,
+                                             0x0,
+                                             0x0,
+                                             false,
+                                             std::move(datagram.media_data));
+
           }
         }
       } else { // is a fragment
