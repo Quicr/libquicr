@@ -290,10 +290,13 @@ QuicRServerRawSession::handle_publish(
   auto publish_namespace = publish_namespaces.find(datagram.header.name);
 
   if (publish_namespace == publish_namespaces.end()) {
+    // TODO: Add metrics for tracking dropped messages
+    /*
     std::ostringstream log_msg;
     log_msg << "Dropping published object, no namespace for "
             << datagram.header.name;
     log_handler.log(qtransport::LogLevel::info, log_msg.str());
+    */
     return;
   }
 
