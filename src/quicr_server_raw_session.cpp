@@ -413,7 +413,19 @@ QuicRServerRawSession::TransportDelegate::on_connection_status(
 
     std::lock_guard<std::mutex> lock(server.session_mutex);
 
-    std::vector<quicr::Namespace> namespaces_to_remove;
+    std::vector<quicr::Namespace> pub_names_to_remove;
+    for (auto & [ns, context]: server.publish_namespaces) {
+      if (context.transport_context_id = context_id) {
+        pub_names_to_remove.push_back(ns);
+        server.delegate.onPublishIntentEnd(ns, {}, {});
+      }
+    }
+
+    for (auto &ns: pub_names_to_remove) {
+      server.publish_namespaces.erase(ns);
+    }
+
+    std::vector<quicr::Namespace> sub_names_to_remove;
     for (auto& sub : server.subscribe_state) {
       if (sub.second.count(context_id) != 0) {
 
@@ -426,13 +438,13 @@ QuicRServerRawSession::TransportDelegate::on_connection_status(
         sub.second.erase(context_id);
 
         if (sub.second.empty()) {
-          namespaces_to_remove.push_back(sub.first);
+          sub_names_to_remove.push_back(sub.first);
         }
 
         break;
       }
 
-      for (const auto& ns : namespaces_to_remove) {
+      for (const auto& ns : sub_names_to_remove) {
         server.subscribe_state.erase(ns);
       }
     }
