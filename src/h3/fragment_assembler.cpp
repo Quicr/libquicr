@@ -102,7 +102,7 @@ FragmentAssembler::ConsumeFragment(messages::PublishDatagram& datagram)
         msg_iter->second.emplace(datagram.header.offset_and_fin,
                                  std::move(datagram.media_data));
         completed_datagram = CheckCompleteDatagram(msg_iter->second);
-        if (!completed_datagram.empty()) fragments[cindex].erase(msg_iter);
+        if (!completed_datagram.empty()) buf.second.erase(msg_iter);
         found = true;
         break;
       }
