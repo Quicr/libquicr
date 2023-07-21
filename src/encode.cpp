@@ -1,5 +1,7 @@
 #include <array>
 #include <ctime>
+#include <map>
+#include <random>
 #include <string>
 
 #include <quicr/encode.h>
@@ -7,9 +9,43 @@
 using quicr::bytes;
 
 namespace quicr::messages {
-/*===========================================================================*/
-// Subscribe Encode & Decode
-/*===========================================================================*/
+
+// clang-format off
+namespace {
+#define STRINGIFY(n) #n
+#define ENUM_MAPPING_ENTRY(n) { n, STRINGIFY(n) }
+std::map<MessageType, std::string> message_type_name = {
+  ENUM_MAPPING_ENTRY(MessageType::Unknown),
+  ENUM_MAPPING_ENTRY(MessageType::Subscribe),
+  ENUM_MAPPING_ENTRY(MessageType::SubscribeResponse),
+  ENUM_MAPPING_ENTRY(MessageType::SubscribeEnd),
+  ENUM_MAPPING_ENTRY(MessageType::Unsubscribe),
+  ENUM_MAPPING_ENTRY(MessageType::Publish),
+  ENUM_MAPPING_ENTRY(MessageType::PublishIntent),
+  ENUM_MAPPING_ENTRY(MessageType::PublishIntentResponse),
+  ENUM_MAPPING_ENTRY(MessageType::PublishIntentEnd),
+  ENUM_MAPPING_ENTRY(MessageType::Fetch),
+};
+#undef ENUM_MAPPING_ENTRY
+#undef ENUM_STRINGIFY
+
+std::string to_string(MessageType type) { return message_type_name[type]; }
+}
+// clang-format on
+
+MessageTypeException::MessageTypeException(MessageType type,
+                                           MessageType expected_type)
+  : MessageBuffer::ReadException(
+      to_string(type) +
+      " does not match expected message type: " + to_string(expected_type))
+{
+}
+
+MessageTypeException::MessageTypeException(uint8_t type,
+                                           MessageType expected_type)
+  : MessageTypeException(static_cast<MessageType>(type), expected_type)
+{
+}
 
 uint64_t
 create_transaction_id()
@@ -18,6 +54,143 @@ create_transaction_id()
   std::uniform_int_distribution distribution(1, 9);
   return distribution(engine);
 }
+
+/*===========================================================================*/
+// Common Encode & Decode
+/*===========================================================================*/
+
+MessageBuffer&
+operator<<(MessageBuffer& msg, quicr::Namespace value)
+{
+  return msg << value.name() << value.length();
+}
+
+MessageBuffer&
+operator>>(MessageBuffer& msg, quicr::Namespace& value)
+{
+  quicr::Name name;
+  uint8_t length;
+  msg >> name >> length;
+
+  value = { name, length };
+  return msg;
+}
+
+MessageBuffer&
+operator<<(MessageBuffer& msg, const quicr::uintVar_t& v)
+{
+  uint64_t val = v;
+
+  if (val < ((uint64_t)1 << 7)) {
+    msg.push(uint8_t(((val >> 0) & 0x7F)) | 0x00);
+    return msg;
+  }
+
+  if (val < ((uint64_t)1 << 14)) {
+    msg.push(uint8_t(((val >> 8) & 0x3F) | 0x80));
+    msg.push(uint8_t((val >> 0) & 0xFF));
+    return msg;
+  }
+
+  if (val < ((uint64_t)1 << 29)) {
+    msg.push(uint8_t(((val >> 24) & 0x1F) | 0x80 | 0x40));
+    msg.push(uint8_t((val >> 16) & 0xFF));
+    msg.push(uint8_t((val >> 8) & 0xFF));
+    msg.push(uint8_t((val >> 0) & 0xFF));
+    return msg;
+  }
+
+  msg.push(uint8_t(((val >> 56) & 0x0F) | 0x80 | 0x40 | 0x20));
+  msg.push(uint8_t((val >> 48) & 0xFF));
+  msg.push(uint8_t((val >> 40) & 0xFF));
+  msg.push(uint8_t((val >> 32) & 0xFF));
+  msg.push(uint8_t((val >> 24) & 0xFF));
+  msg.push(uint8_t((val >> 16) & 0xFF));
+  msg.push(uint8_t((val >> 8) & 0xFF));
+  msg.push(uint8_t((val >> 0) & 0xFF));
+
+  return msg;
+}
+
+MessageBuffer&
+operator>>(MessageBuffer& msg, quicr::uintVar_t& v)
+{
+  uint8_t byte[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  uint8_t first = msg.front();
+
+  if ((first & (0x80)) == 0) {
+    msg >> byte[0];
+    uint8_t val = ((byte[0] & 0x7F) << 0);
+    v = val;
+    return msg;
+  }
+
+  if ((first & (0x80 | 0x40)) == 0x80) {
+    msg >> byte[1];
+    msg >> byte[0];
+    uint16_t val = ((uint16_t(byte[1]) & 0x3F) << 8) + (uint16_t(byte[0]) << 0);
+    v = val;
+    return msg;
+  }
+
+  if ((first & (0x80 | 0x40 | 0x20)) == (0x80 | 0x40)) {
+    msg >> byte[3];
+    msg >> byte[2];
+    msg >> byte[1];
+    msg >> byte[0];
+    uint32_t val = ((uint32_t)(byte[3] & 0x1F) << 24) +
+                   ((uint32_t)byte[2] << 16) + ((uint32_t)byte[1] << 8) +
+                   ((uint32_t)byte[0] << 0);
+    v = val;
+    return msg;
+  }
+
+  msg >> byte[7];
+  msg >> byte[6];
+  msg >> byte[5];
+  msg >> byte[4];
+  msg >> byte[3];
+  msg >> byte[2];
+  msg >> byte[1];
+  msg >> byte[0];
+  uint64_t val = ((uint64_t)(byte[7] & 0x0F) << 56) +
+                 ((uint64_t)(byte[6]) << 48) + ((uint64_t)(byte[5]) << 40) +
+                 ((uint64_t)(byte[4]) << 32) + ((uint64_t)(byte[3]) << 24) +
+                 ((uint64_t)(byte[2]) << 16) + ((uint64_t)(byte[1]) << 8) +
+                 ((uint64_t)(byte[0]) << 0);
+  v = val;
+  return msg;
+}
+
+MessageBuffer&
+operator<<(MessageBuffer& msg, std::span<const uint8_t> val)
+{
+  msg << static_cast<uintVar_t>(val.size());
+  msg.push(val);
+  return msg;
+}
+
+MessageBuffer&
+operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val)
+{
+  msg << static_cast<uintVar_t>(val.size());
+  msg.push(std::move(val));
+  return msg;
+}
+
+MessageBuffer&
+operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
+{
+  uintVar_t vec_size = 0;
+  msg >> vec_size;
+
+  val = msg.pop_front(vec_size);
+  return msg;
+}
+
+/*===========================================================================*/
+// Subscribe Encode & Decode
+/*===========================================================================*/
 
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const Subscribe& msg)
@@ -36,9 +209,7 @@ operator>>(MessageBuffer& buffer, Subscribe& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Subscribe)) {
-    throw MessageBuffer::MessageTypeException(
-      "Message type for Subscribe object must "
-      "be MessageType::Subscribe");
+    throw MessageTypeException(msg_type, MessageType::Subscribe);
   }
 
   buffer >> msg.transaction_id;
@@ -65,9 +236,7 @@ operator>>(MessageBuffer& buffer, Unsubscribe& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Unsubscribe)) {
-    throw MessageBuffer::MessageTypeException(
-      "Message type for Unsubscribe object "
-      "must be MessageType::Unsubscribe");
+    throw MessageTypeException(msg_type, MessageType::Unsubscribe);
   }
 
   buffer >> msg.quicr_namespace;
@@ -92,9 +261,7 @@ operator>>(MessageBuffer& buffer, SubscribeResponse& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::SubscribeResponse)) {
-    throw MessageBuffer::MessageTypeException(
-      "Message type for SubscribeResponse object "
-      "must be MessageType::SubscribeResponse");
+    throw MessageTypeException(msg_type, MessageType::SubscribeResponse);
   }
 
   uint8_t response;
@@ -123,9 +290,7 @@ operator>>(MessageBuffer& buffer, SubscribeEnd& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::SubscribeEnd)) {
-    throw MessageBuffer::MessageTypeException(
-      "Message type for SubscribeEnd object "
-      "must be MessageType::SubscribeEnd");
+    throw MessageTypeException(msg_type, MessageType::SubscribeEnd);
   }
 
   uint8_t reason;
@@ -266,8 +431,7 @@ operator>>(MessageBuffer& buffer, PublishDatagram& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Publish)) {
-    throw MessageBuffer::MessageTypeException(
-      "Message type for PublishDatagram object must be MessageType::Publish");
+    throw MessageTypeException(msg_type, MessageType::Publish);
   }
 
   buffer >> msg.header;
@@ -280,8 +444,8 @@ operator>>(MessageBuffer& buffer, PublishDatagram& msg)
   buffer >> msg.media_data;
 
   if (msg.media_data.size() != static_cast<size_t>(msg.media_data_length)) {
-    throw MessageBuffer::LengthException(
-      "PublishDatagram size of decoded media data must match decoded length");
+    throw MessageBuffer::LengthException(msg.media_data.size(),
+                                         msg.media_data_length);
   }
 
   return buffer;
@@ -309,8 +473,8 @@ operator>>(MessageBuffer& buffer, PublishStream& msg)
   buffer >> msg.media_data_length;
   buffer >> msg.media_data;
   if (msg.media_data.size() != static_cast<size_t>(msg.media_data_length)) {
-    throw MessageBuffer::LengthException(
-      "PublishStream size of decoded media data must match decoded length");
+    throw MessageBuffer::LengthException(msg.media_data.size(),
+                                         msg.media_data_length);
   }
 
   return buffer;
@@ -349,24 +513,6 @@ operator>>(MessageBuffer& buffer, PublishIntentEnd& msg)
   return buffer;
 }
 
-messages::MessageBuffer&
-operator<<(messages::MessageBuffer& msg, const quicr::Namespace& val)
-{
-  msg << val.name() << val.length();
-  return msg;
-}
-
-messages::MessageBuffer&
-operator>>(messages::MessageBuffer& msg, quicr::Namespace& val)
-{
-  quicr::Name name_mask;
-  uint8_t sig_bits;
-  msg >> name_mask >> sig_bits;
-  val = Namespace{ name_mask, sig_bits };
-
-  return msg;
-}
-
 ///
 /// Fetch
 ///
@@ -386,9 +532,7 @@ operator>>(MessageBuffer& buffer, Fetch& msg)
   uint8_t msg_type;
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Fetch)) {
-    throw MessageBuffer::MessageTypeException(
-      "Message type for Fetch object must "
-      "be MessageType::Fetch");
+    throw MessageTypeException(msg_type, MessageType::Fetch);
   }
 
   buffer >> msg.transaction_id;
@@ -397,4 +541,3 @@ operator>>(MessageBuffer& buffer, Fetch& msg)
 }
 
 }
-

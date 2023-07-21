@@ -123,9 +123,10 @@ public:
                                "Dropping malformed message: " +
                                  std::string(e.what()));
         return;
-      } catch (const std::exception& /* ex */) {
+      } catch (const std::exception& e) {
         client.log_handler.log(qtransport::LogLevel::info,
-                               "Dropping malformed message");
+                               "Dropping malformed message: " +
+                                 std::string(e.what()));
         return;
       } catch (...) {
         client.log_handler.log(
