@@ -34,7 +34,7 @@ endif()
 
 if(CMAKE_FRAMEWORK)
     # For Catalyst builds
-    set(CARGO_CMD ${CARGO_CMD} cargo +m10x build -Z build-std --release --lib --features ffi)
+    set(CARGO_CMD ${CARGO_CMD} cargo +nightly build -Z build-std --release --lib --features ffi)
 else()
     # For non-Catalyst builds
     set(CARGO_CMD ${CARGO_CMD} cargo build --release --lib --features ffi)
