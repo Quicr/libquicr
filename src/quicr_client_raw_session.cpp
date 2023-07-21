@@ -597,7 +597,7 @@ QuicRClientRawSession::handle_pub_fragment(
         msg_iter->second.emplace(datagram.header.offset_and_fin,
                                  std::move(datagram.media_data));
         if (notify_pub_fragment(datagram, delegate, msg_iter->second)) {
-          fragments[cindex].erase(msg_iter);
+          buf.second.erase(msg_iter);
         }
         found = true;
         break;
