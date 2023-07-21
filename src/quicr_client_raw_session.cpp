@@ -15,6 +15,7 @@
 
 #include "quicr_client_raw_session.h"
 
+#include "helpers.h"
 #include "quicr/encode.h"
 #include "quicr/message_buffer.h"
 #include "quicr/quicr_client.h"
@@ -94,7 +95,7 @@ QuicRClientRawSession::QuicRClientRawSession(
   std::shared_ptr<qtransport::ITransport> transport_in,
   qtransport::LogHandler& logger)
   : has_shared_transport{ true }
-  , log_handler(logger)
+  , logger(logger)
   , transport(transport_in)
 {
 }
@@ -111,7 +112,7 @@ bool
 QuicRClientRawSession::connect()
 {
   transport_context_id = transport->start();
-  log_handler.log(qtransport::LogLevel::info,
+  logger.log(qtransport::LogLevel::info,
                   (std::ostringstream()
                    << "Connecting session " << transport_context_id << "...")
                     .str());
@@ -122,7 +123,7 @@ QuicRClientRawSession::connect()
   }
 
   if (stopping) {
-    log_handler.log(qtransport::LogLevel::info,
+    logger.log(qtransport::LogLevel::info,
                     (std::ostringstream() << "Cancelling connecting session "
                                           << transport_context_id)
                       .str());
@@ -134,7 +135,7 @@ QuicRClientRawSession::connect()
     msg << "Session " << transport_context_id
         << " failed to connect to server, transport status: "
         << int(transport->status());
-    log_handler.log(qtransport::LogLevel::fatal, msg.str());
+    logger.log(qtransport::LogLevel::fatal, msg.str());
 
     throw std::runtime_error(msg.str());
   }
@@ -150,7 +151,7 @@ QuicRClientRawSession::connect()
 bool
 QuicRClientRawSession::disconnect()
 {
-  log_handler.log(qtransport::LogLevel::debug,
+  logger.log(qtransport::LogLevel::debug,
                   (std::ostringstream()
                    << "Disconnecting session " << transport_context_id << "...")
                     .str());
@@ -159,14 +160,14 @@ QuicRClientRawSession::disconnect()
   try {
     transport->close(transport_context_id);
   } catch (const std::exception& e) {
-    log_handler.log(qtransport::LogLevel::error,
+    logger.log(qtransport::LogLevel::error,
                     (std::ostringstream()
                      << "Error disconnecting session " << transport_context_id
                      << ": " << e.what())
                       .str());
     return false;
   } catch (...) {
-    log_handler.log(qtransport::LogLevel::error,
+    logger.log(qtransport::LogLevel::error,
                     (std::ostringstream()
                      << "Unknown error disconnecting session "
                      << transport_context_id)
@@ -174,7 +175,7 @@ QuicRClientRawSession::disconnect()
     return false;
   }
 
-  log_handler.log(qtransport::LogLevel::info,
+  logger.log(qtransport::LogLevel::info,
                   (std::ostringstream() << "Successfully disconnected session: "
                                         << transport_context_id)
                     .str());
@@ -192,7 +193,7 @@ QuicRClientRawSession::on_connection_status(
     std::ostringstream log_msg;
     log_msg << "connection_status: cid: " << context_id
             << " status: " << int(status);
-    log_handler.log(qtransport::LogLevel::debug, log_msg.str());
+    logger.log(qtransport::LogLevel::debug, log_msg.str());
   }
 
   switch (status) {
@@ -208,7 +209,7 @@ QuicRClientRawSession::on_connection_status(
       client_status = ClientStatus::RELAY_NOT_CONNECTED;
       stopping = true;
 
-      log_handler.log(qtransport::LogLevel::info,
+      logger.log(qtransport::LogLevel::info,
                       (std::ostringstream()
                        << "Removing state for context_id: " << context_id)
                         .str());
@@ -261,15 +262,15 @@ QuicRClientRawSession::on_recv_notify(
     try {
       handle(std::move(msg_buffer));
     } catch (const messages::MessageBuffer::ReadException& e) {
-      log_handler.log(qtransport::LogLevel::info,
+      logger.log(qtransport::LogLevel::info,
                       "Dropping malformed message: " + std::string(e.what()));
       return;
     } catch (const std::exception& e) {
-      log_handler.log(qtransport::LogLevel::info,
+      logger.log(qtransport::LogLevel::info,
                       "Dropping malformed message: " + std::string(e.what()));
       return;
     } catch (...) {
-      log_handler.log(qtransport::LogLevel::fatal,
+      logger.log(qtransport::LogLevel::fatal,
                       "Received malformed message with unknown fatal error");
       throw;
     }
@@ -288,9 +289,7 @@ QuicRClientRawSession::publishIntent(
     pub_delegates[quicr_namespace] = pub_delegate;
     publish_state[quicr_namespace] = {
       .state = PublishContext::State::Pending,
-      .stream_id = _control_stream_id,
-      .name = quicr_namespace.name(),
-      .prev_name = quicr_namespace.name(),
+      .stream_id = transport_control_stream_id,
     };
   }
 
@@ -299,7 +298,7 @@ QuicRClientRawSession::publishIntent(
     messages::create_transaction_id(),
     quicr_namespace,
     std::move(payload),
-    _control_stream_id,
+    transport_control_stream_id,
     1,
   };
 
@@ -307,7 +306,7 @@ QuicRClientRawSession::publishIntent(
                                intent.payload.size() };
   msg << intent;
 
-  auto error = transport->enqueue(_context_id, _control_stream_id, msg.take());
+  auto error = transport->enqueue(transport_context_id, transport_control_stream_id, msg.take());
 
   return error == qtransport::TransportError::None;
 }
@@ -333,7 +332,7 @@ QuicRClientRawSession::publishIntentEnd(
   messages::MessageBuffer msg;
   msg << intent_end;
 
-  transport->enqueue(_context_id, _control_stream_id, msg.take());
+  transport->enqueue(transport_context_id, transport_control_stream_id, msg.take());
 }
 
 void
@@ -342,7 +341,7 @@ QuicRClientRawSession::subscribe(
   const quicr::Namespace& quicr_namespace,
   const SubscribeIntent& intent,
   [[maybe_unused]] const std::string& origin_url,
-  bool use_reliable_transport,
+  [[maybe_unused]] bool use_reliable_transport,
   [[maybe_unused]] const std::string& auth_token,
   [[maybe_unused]] bytes&& e2e_token)
 {
@@ -353,10 +352,9 @@ QuicRClientRawSession::subscribe(
   if (!sub_delegates.count(quicr_namespace)) {
     sub_delegates[quicr_namespace] = subscriber_delegate;
     subscribe_state[quicr_namespace] = SubscribeContext{
-      SubscribeContext::State::Pending,
-      _context_id,
-      transport->createStream(_context_id, use_reliable_transport),
-      transaction_id,
+      .state = SubscribeContext::State::Pending,
+      .stream_id = transport_control_stream_id,
+      .transaction_id = transaction_id,
     };
   }
 
@@ -365,7 +363,7 @@ QuicRClientRawSession::subscribe(
   msg << subscribe;
 
   transport->enqueue(
-    _context_id, subscribe_state[quicr_namespace].stream_id, msg.take());
+    transport_context_id, subscribe_state[quicr_namespace].stream_id, msg.take());
 }
 
 void
@@ -413,23 +411,25 @@ QuicRClientRawSession::publishNamedObject(const quicr::Name& name,
 {
   auto state = findPublishStream(name);
   if (!state.has_value()) {
-    LOG_INFO(logger,
-             "No publish intent for '" << name << "' missing, dropping");
+    LOG_INFO(logger, "No publish intent for '" << name << "' , dropping");
     return;
   }
 
   auto& [ns, context] = *state;
   context.name = name;
 
-  if (context.state != PublishContext::State::Ready) {
+  if (context.state == PublishContext::State::Ready) [[likely]] {
+     createPublishStream(context, use_reliable_transport);
+  } else {
+    context.prev_name = context.name;
     LOG_INFO(logger, "Adding publication stream for " << ns);
+
+    context.stream_id = transport->createStream(transport_context_id, use_reliable_transport);
+    context.state = PublishContext::State::Ready;
   }
 
-  createPublishStream(context, use_reliable_transport);
-
-  uint64_t jump = uint64_t(context.name - context.prev_name);
-  if (jump > 1u || jump > (1u << 16)) {
-    LOG_DEBUG(logger, "TX jump for " << context.name << ": " << jump);
+  if (detectJump(context.name, context.prev_name)) {
+    LOG_DEBUG(logger, "TX jump: " << context.name << " - " << context.prev_name << " = " << (context.name - context.prev_name));
   }
 
   context.prev_name = name;
@@ -443,8 +443,7 @@ QuicRClientRawSession::createPublishStream(PublishContext& context,
   if (context.state == PublishContext::State::Ready)
     return;
 
-  context.stream_id =
-    transport->createStream(_context_id, use_reliable_transport);
+  context.stream_id = transport->createStream(transport_context_id, use_reliable_transport);
   context.state = PublishContext::State::Ready;
 }
 

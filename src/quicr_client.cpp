@@ -54,7 +54,7 @@ QuicRClient::QuicRClient(std::shared_ptr<qtransport::ITransport> transport_in,
                          qtransport::LogHandler& logger)
 {
   client_session =
-    std::make_unique<QuicRClientRawSession>(transport_in, logger);
+    std::make_unique<ClientRawSession_Datagram>(transport_in, logger);
 }
 
 bool

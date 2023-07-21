@@ -274,6 +274,8 @@ protected:
   virtual void createPublishStream(PublishContext& context,
                                    bool use_reliable_transport);
 
+  virtual bool detectJump(Name a, Name b) const = 0;
+
   virtual void sendPublishData(const quicr::Name& name,
                                const PublishContext& context,
                                uint8_t priority,
@@ -289,7 +291,7 @@ protected:
   qtransport::TransportContextId transport_context_id;
   ClientStatus client_status{ ClientStatus::TERMINATED };
 
-  qtransport::LogHandler& log_handler;
+  qtransport::LogHandler& logger;
 
   namespace_map<std::weak_ptr<PublisherDelegate>> pub_delegates;
   namespace_map<PublishContext> publish_state{};

@@ -20,19 +20,28 @@ protected:
   virtual std::optional<std::pair<Namespace, PublishContext&>>
   findPublishStream(Name name)
   {
-    auto found = publish_state.find(name);
-    if (found == publish_state.end()) {
-      LOG_INFO(logger,
-               "No publish intent for '" << name << "' missing, dropping");
-      return std::nullopt;
+    if (auto found = publish_state.find(name); found != publish_state.end()) {
+      return *found;
     }
 
-    return *found;
+    return std::nullopt;
   }
 
-  void createPublishStream(PublishContext& context, bool)
+  virtual void createPublishStream(PublishContext& context, bool)
   {
-    QuicRClientRawSession::createPublishStream(context, false);
+    if (context.state == PublishContext::State::Ready)
+      return;
+
+    context.state = PublishContext::State::Ready;
+  }
+
+  virtual bool detectJump(Name a, Name b) const
+  {
+    const uint32_t group_id_jump =
+      a.bits<uint32_t>(16, 32) - b.bits<uint32_t>(16, 32);
+    const uint16_t object_id_jump =
+      a.bits<uint16_t>(0, 16) - b.bits<uint16_t>(0, 16);
+    return group_id_jump > 1u || (group_id_jump == 0 && object_id_jump > 1u);
   }
 
   virtual void sendPublishData(const quicr::Name& name,
@@ -63,7 +72,7 @@ protected:
 
       // No fragmenting needed
       transport->enqueue(
-        _context_id, context.stream_id, msg.take(), priority, expiry_age_ms);
+        transport_context_id, context.stream_id, msg.take(), priority, expiry_age_ms);
       return;
     }
 
@@ -101,7 +110,7 @@ protected:
       if (need_pacing && (frag_num % 30) == 0)
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
-      if (transport->enqueue(_context_id,
+      if (transport->enqueue(transport_context_id,
                              context.stream_id,
                              msg.take(),
                              priority,
@@ -124,7 +133,7 @@ protected:
 
       msg << datagram;
 
-      if (auto err = transport->enqueue(_context_id,
+      if (auto err = transport->enqueue(transport_context_id,
                                         context.stream_id,
                                         msg.take(),
                                         priority,

@@ -12,27 +12,26 @@ protected:
   virtual std::optional<std::pair<Namespace, PublishContext&>>
   findPublishStream(Name name)
   {
-    auto found = publish_state.find(name);
-    if (found == publish_state.end()) {
-      LOG_INFO(logger,
-               "No publish intent for '" << name << "' missing, dropping");
-      return std::nullopt;
+    if (auto found = publish_state.find(name); found != publish_state.end()) {
+      return *found;
     }
 
-    return *found;
+    return std::nullopt;
   }
 
   virtual void createPublishStream(PublishContext& context,
                                    bool use_reliable_transport)
   {
-    if (context.name != context.prev_name)
-      if (uint64_t diff = uint64_t(context.name - context.prev_name)) {
-        transport->closeStream(_context_id, context.stream_id);
-        context.state = PublishContext::State::Pending;
-      }
+    if (!use_reliable_transport || context.stream_id == transport_control_stream_id || context.stream_id == 0) return;
 
-    ClientRawSession_PerCategory::createPublishStream(context,
-                                                      use_reliable_transport);
+    transport->closeStream(transport_context_id, context.stream_id);
+    context.stream_id = transport->createStream(transport_context_id, use_reliable_transport);
+  }
+
+  virtual bool detectJump(Name a, Name b) const
+  {
+    auto jump = a - b;
+    return jump.bits<uint16_t>(0, 16) > 1u;
   }
 };
 

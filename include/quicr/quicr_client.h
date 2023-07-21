@@ -64,7 +64,7 @@ public:
   QuicRClient(RelayInfo& relayInfo,
               qtransport::TransportConfig tconfig,
               qtransport::LogHandler& logger,
-              StreamMode stream_mode = quicr::StreamMode::Datagram);
+              StreamMode stream_mode = quicr::StreamMode::PerGroup);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber

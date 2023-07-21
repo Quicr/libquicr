@@ -504,14 +504,16 @@ QuicRServerRawSession::TransportDelegate::on_connection_status(
     std::lock_guard<std::mutex> lock(server.session_mutex);
 
     std::vector<quicr::Namespace> pub_names_to_remove;
-    for (auto & [ns, context]: server.publish_namespaces) {
-      if (context.transport_context_id == context_id) {
-        pub_names_to_remove.push_back(ns);
-        server.delegate.onPublishIntentEnd(ns, {}, {});
+    for (auto& [ns, contexts] : server.publish_namespaces) {
+      for (auto& [id, _] : contexts) {
+        if (id == context_id) {
+          pub_names_to_remove.push_back(ns);
+          server.delegate.onPublishIntentEnd(ns, {}, {});
+        }
       }
     }
 
-    for (auto &ns: pub_names_to_remove) {
+    for (auto& ns : pub_names_to_remove) {
       server.publish_namespaces.erase(ns);
     }
 
