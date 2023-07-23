@@ -49,4 +49,7 @@ if(APPLE)
             "-framework Foundation")
 endif()
 
+# Disable Cantina logger macros below this level
+target_compile_definitions(quicr PRIVATE LOGGER_LEVEL=LOGGER_LEVEL_INFO)
+
 target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include)
