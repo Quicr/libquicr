@@ -266,7 +266,7 @@ H3ServerConnection::PublishIntentResponse(const PubSubRecord& publisher,
 
     // Send the response to the client
     std::vector<std::uint8_t> payload = msg.take();
-    SendHTTPResponse(publisher.stream_id, status_code, {}, payload, true);
+    SendHTTPResponse(publisher.stream_id, status_code, {}, payload, false);
 
     // This request is now complete, so remove it
     ExpungeRequest(publisher.stream_id);
