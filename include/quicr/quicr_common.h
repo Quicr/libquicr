@@ -28,25 +28,6 @@ using QUICRContext = uint64_t;
 
 namespace messages {
 /**
- * Type of message being sent/received
- */
-enum class MessageType : uint8_t
-{
-  Unknown,
-  Subscribe,
-  SubscribeResponse,
-  SubscribeEnd,
-  Unsubscribe,
-  Publish,
-  PublishIntent,
-  PublishIntentResponse,
-  PublishIntentEnd,
-  Fetch,
-
-  PeerMsg=128
-};
-
-/**
  * Indicates the type of media being sent.
  */
 enum class MediaType : uint8_t

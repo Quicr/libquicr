@@ -28,6 +28,9 @@ enum class MessageType : uint8_t
   PublishIntentResponse,
   PublishIntentEnd,
   Fetch,
+
+  PeerMsg=128
+
 };
 
 /*===========================================================================*/

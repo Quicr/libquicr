@@ -417,7 +417,7 @@ QuicRServerRawSession::TransportDelegate::on_connection_status(
 
     std::vector<quicr::Namespace> pub_names_to_remove;
     for (auto & [ns, context]: server.publish_namespaces) {
-      if (context.transport_context_id = context_id) {
+      if (context.transport_context_id == context_id) {
         pub_names_to_remove.push_back(ns);
         server.delegate.onPublishIntentEnd(ns, {}, {});
       }
