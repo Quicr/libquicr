@@ -1218,7 +1218,7 @@ H3ConnectionBase::HandleH3ResetEvent(QUICStreamID stream_id,
  */
 void
 H3ConnectionBase::HandleH3PriorityUpdateEvent(
-  QUICStreamID stream_id,
+  [[maybe_unused]] QUICStreamID stream_id,
   [[maybe_unused]] quiche_h3_event* event)
 {
   LOGGER_DEBUG(logger, "[stream " << stream_id << "] H3 - priority update");
@@ -1320,7 +1320,7 @@ H3ConnectionBase::HandleH3DatagramEvent(
  *      The connection mutex must be locked by the caller.
  */
 void
-H3ConnectionBase::HandleH3GoAwayEvent(QUICStreamID stream_id,
+H3ConnectionBase::HandleH3GoAwayEvent([[maybe_unused]] QUICStreamID stream_id,
                                       [[maybe_unused]] quiche_h3_event* event)
 {
   LOGGER_DEBUG(logger, "[stream " << stream_id << "] H3 - event go away");
