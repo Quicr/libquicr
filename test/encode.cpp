@@ -1,7 +1,14 @@
 #include <doctest/doctest.h>
-#include <memory>
 
 #include <quicr/encode.h>
+#include <quicr/message_buffer.h>
+#include <quicr/quicr_common.h>
+#include <quicr_name>
+
+#include <memory>
+#include <random>
+#include <string>
+#include <vector>
 
 using namespace quicr;
 using namespace quicr::messages;
@@ -21,7 +28,7 @@ TEST_CASE("MessageBuffer Decode Exception")
 
 TEST_CASE("Subscribe Message encode/decode")
 {
-  quicr::Namespace qnamespace{ 0x10000000000000002000_name, 125 };
+  quicr::Namespace qnamespace{ 0x10000000000000002000_name, 128 };
 
   Subscribe s{ 1, 0x1000, qnamespace, SubscribeIntent::immediate };
   MessageBuffer buffer;
@@ -58,8 +65,7 @@ TEST_CASE("SubscribeEnd Message encode/decode")
                   .reason = SubscribeResult::SubscribeStatus::Ok };
 
   MessageBuffer buffer;
-  auto s_copy = s;
-  buffer << std::move(s_copy);
+  buffer << s;
   SubscribeEnd s_out;
   CHECK_NOTHROW((buffer >> s_out));
 
@@ -92,8 +98,7 @@ TEST_CASE("PublishIntent Message encode/decode")
                     qnamespace,           { 0, 1, 2, 3, 4 },
                     uintVar_t{ 0x0100 },  uintVar_t{ 0x0000 } };
   MessageBuffer buffer;
-  auto pi_copy = pi;
-  buffer << std::move(pi_copy);
+  buffer << pi;
   PublishIntent pi_out;
   CHECK_NOTHROW((buffer >> pi_out));
 
@@ -114,6 +119,7 @@ TEST_CASE("PublishIntentResponse Message encode/decode")
   CHECK_NOTHROW((buffer >> pir_out));
 
   CHECK_EQ(pir_out.message_type, pir.message_type);
+  CHECK_EQ(pir_out.quicr_namespace, pir.quicr_namespace);
   CHECK_EQ(pir_out.response, pir.response);
   CHECK_EQ(pir_out.transaction_id, pir.transaction_id);
 }
@@ -131,12 +137,12 @@ TEST_CASE("Publish Message encode/decode")
 
   PublishDatagram p{ d, MediaType::Text, uintVar_t{ 256 }, data };
   MessageBuffer buffer;
-  auto p_copy = p;
-  buffer << std::move(p_copy);
+  buffer << p;
   PublishDatagram p_out;
   CHECK_NOTHROW((buffer >> p_out));
 
   CHECK_EQ(p_out.header.media_id, p.header.media_id);
+  CHECK_EQ(p_out.header.name, p.header.name);
   CHECK_EQ(p_out.header.group_id, p.header.group_id);
   CHECK_EQ(p_out.header.object_id, p.header.object_id);
   CHECK_EQ(p_out.header.offset_and_fin, p.header.offset_and_fin);
@@ -151,8 +157,7 @@ TEST_CASE("PublishStream Message encode/decode")
 {
   PublishStream ps{ uintVar_t{ 5 }, { 0, 1, 2, 3, 4 } };
   MessageBuffer buffer;
-  auto ps_copy = ps;
-  buffer << std::move(ps_copy);
+  buffer << ps;
   PublishStream ps_out;
   CHECK_NOTHROW((buffer >> ps_out));
 
@@ -166,8 +171,7 @@ TEST_CASE("PublishIntentEnd Message encode/decode")
                         { 12345_name, 0u },
                         { 0, 1, 2, 3, 4 } };
   MessageBuffer buffer;
-  auto pie_copy = pie;
-  buffer << std::move(pie_copy);
+  buffer << pie;
   PublishIntentEnd pie_out;
   CHECK_NOTHROW((buffer >> pie_out));
 
@@ -179,31 +183,28 @@ TEST_CASE("PublishIntentEnd Message encode/decode")
 TEST_CASE("VarInt Encode/Decode")
 {
   MessageBuffer buffer;
-  std::vector<uintVar_t> values = { uintVar_t{ 128 },
-                                    uintVar_t{ 16384 },
-                                    uintVar_t{ 536870912 } };
+  std::vector<uintVar_t> values = { 128_uV, 16384_uV, 536870912_uV };
   for (const auto& value : values) {
     buffer << value;
     uintVar_t out;
     buffer >> out;
 
-    CHECK_NE(out, uintVar_t{ 0 });
+    CHECK_EQ(out, value);
   }
 }
-  ///
-  /// Fetch tests
-  ///
 
-  TEST_CASE("Fetch Message encode/decode")
-  {
-    quicr::Name qname{ 0x10000000000000002000_name};
+/*===========================================================================*/
+// Fetch Tests
+/*===========================================================================*/
 
-    Fetch f{ 0x1000, qname};
-    MessageBuffer buffer;
-    buffer << f;
-    Fetch fout;
-    CHECK_NOTHROW((buffer >> fout));
+TEST_CASE("Fetch Message encode/decode")
+{
+  Fetch f{ 0x1000, 0x10000000000000002000_name };
+  MessageBuffer buffer;
+  buffer << f;
+  Fetch fout;
+  CHECK_NOTHROW((buffer >> fout));
 
-    CHECK_EQ(fout.transaction_id, f.transaction_id);
-    CHECK_EQ(fout.name, f.name);
-  }
+  CHECK_EQ(fout.transaction_id, f.transaction_id);
+  CHECK_EQ(fout.name, f.name);
+}

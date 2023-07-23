@@ -15,18 +15,18 @@
 
 #pragma once
 
+#include "quicr/encode.h"
+#include "quicr/message_buffer.h"
+#include "quicr/quicr_client.h"
+#include "quicr/quicr_client_delegate.h"
+#include "quicr/quicr_common.h"
+
+#include <quicr_name>
+#include <transport/transport.h>
+
 #include <map>
 #include <memory>
 #include <string>
-
-#include "quicr/encode.h"
-#include "quicr/message_buffer.h"
-#include "quicr/quicr_common.h"
-#include "transport/transport.h"
-#include "quicr/quicr_client_delegate.h"
-#include "quicr/quicr_client.h"
-
-#include <quicr_name>
 
 namespace quicr {
 
@@ -41,8 +41,8 @@ public:
    *
    * @param relayInfo        : Relay Information to be used by the transport
    * @param tconfig          : Transport configuration
-   * @param logger           : Log handler, used by transport and API for loggings
-   * operations
+   * @param logger           : Log handler, used by transport and API for
+   *                           loggings operations
    */
   QuicRClientRawSession(RelayInfo& relayInfo,
                         qtransport::TransportConfig tconfig,
@@ -182,7 +182,8 @@ public:
                                   bytes&& data) override;
 
   void handle(messages::MessageBuffer&& msg);
-  void removeSubscribeState(bool all, const quicr::Namespace& quicr_namespace,
+  void removeSubscribeState(bool all,
+                            const quicr::Namespace& quicr_namespace,
                             const SubscribeResult::SubscribeStatus& reason);
 
   std::shared_ptr<qtransport::ITransport> transport;
@@ -192,10 +193,10 @@ protected:
   std::mutex session_mutex;
 
   bool notify_pub_fragment(const messages::PublishDatagram& datagram,
-                           const std::weak_ptr<SubscriberDelegate> &delegate,
+                           const std::weak_ptr<SubscriberDelegate>& delegate,
                            const std::map<int, bytes>& frag_map);
   void handle_pub_fragment(messages::PublishDatagram&& datagram,
-                           const std::weak_ptr<SubscriberDelegate> &delegate);
+                           const std::weak_ptr<SubscriberDelegate>& delegate);
 
   qtransport::LogHandler def_log_handler;
 
@@ -243,7 +244,7 @@ protected:
     uint64_t offset{ 0 };
   };
 
-  bool need_pacing { false };
+  bool need_pacing{ false };
   ClientStatus client_status{ ClientStatus::TERMINATED };
   qtransport::TransportContextId transport_context_id;
   namespace_map<std::weak_ptr<SubscriberDelegate>> sub_delegates;
@@ -252,7 +253,6 @@ protected:
   namespace_map<PublishContext> publish_state{};
   std::unique_ptr<qtransport::ITransport::TransportDelegate> transport_delegate;
   uint64_t transport_stream_id{ 0 };
-
 };
 
 }

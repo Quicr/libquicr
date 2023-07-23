@@ -15,16 +15,15 @@
 
 #include "quicr_server_raw_session.h"
 
-#include <quicr/quicr_common.h>
+#include "quicr/encode.h"
+#include "quicr/message_buffer.h"
+#include "quicr/quicr_common.h"
 
 #include <algorithm>
+#include <arpa/inet.h>
 #include <iostream>
-#include <quicr/encode.h>
-#include <quicr/message_buffer.h>
 #include <sstream>
 #include <thread>
-
-#include <arpa/inet.h>
 
 namespace quicr {
 /*
