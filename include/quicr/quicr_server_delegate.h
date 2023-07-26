@@ -15,13 +15,14 @@
 
 #pragma once
 
-#include <string>
 #include <cstdint>
+#include <string>
 
-#include "quicr/quicr_common.h"
 #include "quicr/encode.h"
 #include "quicr/message_buffer.h"
-#include "transport/transport.h"
+#include "quicr/quicr_common.h"
+
+#include <transport/transport.h>
 
 namespace quicr {
 

@@ -71,12 +71,24 @@ MessageBuffer_PushBackNamespace(benchmark::State& state)
 }
 
 void
-MessageBuffer_PushBackVector(benchmark::State& state)
+MessageBuffer_PushBackVector_Copy(benchmark::State& state)
 {
   std::vector<uint8_t> buf(1280);
   std::generate(buf.begin(), buf.end(), std::rand);
 
-  quicr::messages::MessageBuffer buffer(1280 * 1000);
+  quicr::messages::MessageBuffer buffer;
+  for (auto _ : state) {
+    buffer.push(buf);
+  }
+}
+
+void
+MessageBuffer_PushBackVector_Reserved(benchmark::State& state)
+{
+  std::vector<uint8_t> buf(1280);
+  std::generate(buf.begin(), buf.end(), std::rand);
+
+  quicr::messages::MessageBuffer buffer(100000 * buf.size());
   for (auto _ : state) {
     buffer.push(buf);
   }
@@ -89,4 +101,5 @@ BENCHMARK(MessageBuffer_PushBack32);
 BENCHMARK(MessageBuffer_PushBack64);
 BENCHMARK(MessageBuffer_PushBackName);
 BENCHMARK(MessageBuffer_PushBackNamespace);
-BENCHMARK(MessageBuffer_PushBackVector);
+BENCHMARK(MessageBuffer_PushBackVector_Copy);
+BENCHMARK(MessageBuffer_PushBackVector_Reserved);

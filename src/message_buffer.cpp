@@ -1,5 +1,7 @@
 #include <quicr/message_buffer.h>
 
+#include <quicr/uvarint.h>
+
 #include <algorithm>
 #include <array>
 #include <iomanip>
@@ -7,34 +9,56 @@
 #include <vector>
 
 namespace quicr::messages {
-MessageBuffer::MessageBuffer(const std::vector<uint8_t>& buffer)
+
+/*===========================================================================*/
+// Exception definitions
+/*===========================================================================*/
+
+MessageBuffer::EmptyException::EmptyException()
+  : MessageBuffer::ReadException("buffer cannot be empty when reading")
+{
+}
+
+MessageBuffer::OutOfRangeException::OutOfRangeException(size_t length,
+                                                        size_t buffer_length)
+  : MessageBuffer::ReadException(
+      "length is longer than the size of the buffer: " +
+      std::to_string(length) + " > " + std::to_string(buffer_length))
+{
+}
+
+MessageBuffer::LengthException::LengthException(size_t data_length,
+                                                size_t expected_length)
+  : MessageBuffer::ReadException(
+      "length of decoded data must match separately decoded length: " +
+      std::to_string(data_length) + " != " + std::to_string(expected_length))
+{
+}
+
+/*===========================================================================*/
+// MessageBuffer definitions
+/*===========================================================================*/
+
+MessageBuffer::MessageBuffer(const buffer_type& buffer)
   : _buffer{ buffer }
 {
 }
 
-MessageBuffer::MessageBuffer(std::vector<uint8_t>&& buffer)
+MessageBuffer::MessageBuffer(buffer_type&& buffer)
   : _buffer{ std::move(buffer) }
 {
 }
 
 void
-MessageBuffer::pop()
+MessageBuffer::push(const_span_type data)
 {
-  if (empty()) {
-    throw MessageBuffer::ReadException("Cannot pop from empty message buffer");
-  }
-
-  _buffer.erase(_buffer.begin());
+  const auto length = _buffer.size();
+  _buffer.resize(length + data.size());
+  std::memcpy(_buffer.data() + length, data.data(), data.size());
 }
 
 void
-MessageBuffer::push(const std::vector<uint8_t>& data)
-{
-  _buffer.insert(_buffer.end(), data.begin(), data.end());
-}
-
-void
-MessageBuffer::push(std::vector<uint8_t>&& data)
+MessageBuffer::push(buffer_type&& data)
 {
   _buffer.insert(_buffer.end(),
                  std::make_move_iterator(data.begin()),
@@ -42,57 +66,80 @@ MessageBuffer::push(std::vector<uint8_t>&& data)
 }
 
 void
-MessageBuffer::pop(uint16_t len)
+MessageBuffer::pop(uint16_t length)
 {
-  if (len == 0)
+  if (length == 0)
     return;
 
-  if (len > _buffer.size())
-    throw OutOfRangeException(
-      "len cannot be longer than the size of the buffer");
-
-  _buffer.erase(_buffer.begin(), std::next(_buffer.begin(), len));
+  cleanup(length);
 };
 
-std::vector<uint8_t>
-MessageBuffer::front(uint16_t len)
+const uint8_t&
+MessageBuffer::front() const
 {
-  if (len == 0)
+  if (empty())
+    throw EmptyException();
+
+  return *begin();
+}
+
+MessageBuffer::const_span_type
+MessageBuffer::front(uint16_t length) const
+{
+  if (length == 0)
     return {};
 
-  if (len > _buffer.size())
-    throw OutOfRangeException(
-      "len cannot be longer than the size of the buffer");
+  if (empty())
+    throw EmptyException();
 
-  return { _buffer.begin(), std::next(_buffer.begin(), len) };
+  if (length > size())
+    throw OutOfRangeException(length, size());
+
+  if (length == size())
+    return _buffer;
+
+  return { data(), length };
 }
 
-std::vector<uint8_t>
-MessageBuffer::pop_front(uint16_t len)
+uint8_t
+MessageBuffer::pop_front()
 {
-  if (len == 0)
+  if (empty())
+    throw EmptyException();
+
+  uint8_t value = *std::make_move_iterator(begin());
+  cleanup();
+
+  return value;
+}
+
+MessageBuffer::buffer_type
+MessageBuffer::pop_front(uint16_t length)
+{
+  if (length == 0)
     return {};
 
-  if (len > _buffer.size())
-    throw OutOfRangeException(
-      "len cannot be longer than the size of the buffer");
+  if (empty())
+    throw EmptyException();
 
-  std::vector<uint8_t> front(len);
-  std::copy_n(std::make_move_iterator(_buffer.begin()), len, front.begin());
-  _buffer.erase(_buffer.begin(), std::next(_buffer.begin(), len));
+  if (length > size())
+    throw OutOfRangeException(length, size());
 
-  return front;
+  if (length == size())
+    return take();
+
+  buffer_type result(length);
+  std::copy_n(std::make_move_iterator(begin()), length, result.begin());
+  cleanup(length);
+
+  return result;
 }
 
-std::vector<uint8_t>
-MessageBuffer::get()
-{
-  return std::move(_buffer);
-}
-
-std::vector<uint8_t>&&
+MessageBuffer::buffer_type&&
 MessageBuffer::take()
 {
+  _buffer.erase(_buffer.begin(), this->begin());
+  _read_offset = 0;
   return std::move(_buffer);
 }
 
@@ -100,199 +147,48 @@ std::string
 MessageBuffer::to_hex() const
 {
   std::ostringstream hex;
-  hex << std::hex << std::setfill('0');
-  for (const auto& byte : _buffer) {
+  hex << std::hex << std::setfill('0') << std::uppercase;
+  for (const auto& byte : *this)
     hex << std::setw(2) << int(byte);
-  }
   return hex.str();
 }
 
-template<typename Uint_t>
+/*===========================================================================*/
+// Stream operators
+/*===========================================================================*/
+
 MessageBuffer&
-operator<<(MessageBuffer& msg, Uint_t val)
+MessageBuffer::operator<<(const uint8_t& value)
 {
-  val = swap_bytes(val);
-  uint8_t* val_ptr = reinterpret_cast<uint8_t*>(&val);
-  msg._buffer.insert(msg._buffer.end(), val_ptr, val_ptr + sizeof(Uint_t));
-  return msg;
-}
-template MessageBuffer&
-operator<<(MessageBuffer& msg, uint16_t val);
-template MessageBuffer&
-operator<<(MessageBuffer& msg, uint32_t val);
-template MessageBuffer&
-operator<<(MessageBuffer& msg, uint64_t val);
-template MessageBuffer&
-operator<<(MessageBuffer& msg, Name val);
-
-template<>
-MessageBuffer&
-operator<<(MessageBuffer& msg, uint8_t val)
-{
-  msg.push(val);
-  return msg;
-}
-
-template<typename Uint_t>
-MessageBuffer&
-operator>>(MessageBuffer& msg, Uint_t& val)
-{
-  if (msg.empty()) {
-    throw MessageBuffer::ReadException("Cannot read from empty message buffer");
-  }
-
-  constexpr size_t byte_length = sizeof(Uint_t);
-  if (msg._buffer.size() < byte_length) {
-    throw MessageBuffer::ReadException(
-      "Cannot read mismatched size buffer into size of type: Wanted " +
-      std::to_string(byte_length) + " but buffer only contains " +
-      std::to_string(msg._buffer.size()));
-  }
-
-  auto buffer_front = msg._buffer.begin();
-  auto buffer_byte_end =
-    std::next(buffer_front, std::min(msg._buffer.size(), byte_length));
-
-  std::copy_n(std::make_move_iterator(buffer_front),
-              byte_length,
-              reinterpret_cast<uint8_t*>(&val));
-  msg._buffer.erase(buffer_front, buffer_byte_end);
-  val = swap_bytes(val);
-
-  return msg;
-}
-template MessageBuffer&
-operator>>(MessageBuffer& msg, uint16_t& val);
-template MessageBuffer&
-operator>>(MessageBuffer& msg, uint32_t& val);
-template MessageBuffer&
-operator>>(MessageBuffer& msg, uint64_t& val);
-template MessageBuffer&
-operator>>(MessageBuffer& msg, Name& val);
-
-template<>
-MessageBuffer&
-operator>>(MessageBuffer& msg, uint8_t& val)
-{
-  if (msg.empty()) {
-    throw MessageBuffer::ReadException("Cannot read from empty message buffer");
-  }
-
-  val = msg.front();
-  msg.pop();
-  return msg;
+  _buffer.push_back(value);
+  return *this;
 }
 
 MessageBuffer&
-operator<<(MessageBuffer& msg, const std::vector<uint8_t>& val)
+MessageBuffer::operator>>(uint8_t& value)
 {
-  msg << static_cast<uintVar_t>(val.size());
-  msg.push(val);
-  return msg;
+  value = pop_front();
+  return *this;
 }
 
-MessageBuffer&
-operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val)
+/*===========================================================================*/
+// Helper Methods
+/*===========================================================================*/
+
+void
+MessageBuffer::cleanup(size_t length)
 {
-  msg << static_cast<uintVar_t>(val.size());
-  msg.push(std::move(val));
-  return msg;
+  if (empty())
+    throw EmptyException();
+
+  if (length > size())
+    throw OutOfRangeException(length, size());
+
+  _read_offset += length;
+  if (!empty())
+    return;
+
+  _read_offset = 0;
+  _buffer.clear();
 }
-
-MessageBuffer&
-operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
-{
-  uintVar_t vec_size = 0;
-  msg >> vec_size;
-
-  val = msg.pop_front(vec_size);
-  return msg;
-}
-
-MessageBuffer&
-operator<<(MessageBuffer& msg, const uintVar_t& v)
-{
-  uint64_t val = v;
-
-  if (val < ((uint64_t)1 << 7)) {
-    msg.push(uint8_t(((val >> 0) & 0x7F)) | 0x00);
-    return msg;
-  }
-
-  if (val < ((uint64_t)1 << 14)) {
-    msg.push(uint8_t(((val >> 8) & 0x3F) | 0x80));
-    msg.push(uint8_t((val >> 0) & 0xFF));
-    return msg;
-  }
-
-  if (val < ((uint64_t)1 << 29)) {
-    msg.push(uint8_t(((val >> 24) & 0x1F) | 0x80 | 0x40));
-    msg.push(uint8_t((val >> 16) & 0xFF));
-    msg.push(uint8_t((val >> 8) & 0xFF));
-    msg.push(uint8_t((val >> 0) & 0xFF));
-    return msg;
-  }
-
-  msg.push(uint8_t(((val >> 56) & 0x0F) | 0x80 | 0x40 | 0x20));
-  msg.push(uint8_t((val >> 48) & 0xFF));
-  msg.push(uint8_t((val >> 40) & 0xFF));
-  msg.push(uint8_t((val >> 32) & 0xFF));
-  msg.push(uint8_t((val >> 24) & 0xFF));
-  msg.push(uint8_t((val >> 16) & 0xFF));
-  msg.push(uint8_t((val >> 8) & 0xFF));
-  msg.push(uint8_t((val >> 0) & 0xFF));
-
-  return msg;
-}
-
-MessageBuffer&
-operator>>(MessageBuffer& msg, uintVar_t& v)
-{
-  uint8_t byte[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-  uint8_t first = msg.front();
-
-  if ((first & (0x80)) == 0) {
-    msg >> byte[0];
-    uint8_t val = ((byte[0] & 0x7F) << 0);
-    v = val;
-    return msg;
-  }
-
-  if ((first & (0x80 | 0x40)) == 0x80) {
-    msg >> byte[1];
-    msg >> byte[0];
-    uint16_t val = (((uint16_t)byte[1] & 0x3F) << 8) + ((uint16_t)byte[0] << 0);
-    v = val;
-    return msg;
-  }
-
-  if ((first & (0x80 | 0x40 | 0x20)) == (0x80 | 0x40)) {
-    msg >> byte[3];
-    msg >> byte[2];
-    msg >> byte[1];
-    msg >> byte[0];
-    uint32_t val = ((uint32_t)(byte[3] & 0x1F) << 24) +
-                   ((uint32_t)byte[2] << 16) + ((uint32_t)byte[1] << 8) +
-                   ((uint32_t)byte[0] << 0);
-    v = val;
-    return msg;
-  }
-
-  msg >> byte[7];
-  msg >> byte[6];
-  msg >> byte[5];
-  msg >> byte[4];
-  msg >> byte[3];
-  msg >> byte[2];
-  msg >> byte[1];
-  msg >> byte[0];
-  uint64_t val = ((uint64_t)(byte[7] & 0x0F) << 56) +
-                 ((uint64_t)(byte[6]) << 48) + ((uint64_t)(byte[5]) << 40) +
-                 ((uint64_t)(byte[4]) << 32) + ((uint64_t)(byte[3]) << 24) +
-                 ((uint64_t)(byte[2]) << 16) + ((uint64_t)(byte[1]) << 8) +
-                 ((uint64_t)(byte[0]) << 0);
-  v = val;
-  return msg;
-}
-
 } // namespace quicr::messages

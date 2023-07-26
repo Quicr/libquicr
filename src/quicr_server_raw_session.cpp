@@ -15,16 +15,15 @@
 
 #include "quicr_server_raw_session.h"
 
-#include <quicr/quicr_common.h>
+#include "quicr/encode.h"
+#include "quicr/message_buffer.h"
+#include "quicr/quicr_common.h"
 
 #include <algorithm>
+#include <arpa/inet.h>
 #include <iostream>
-#include <quicr/encode.h>
-#include <quicr/message_buffer.h>
 #include <sstream>
 #include <thread>
-
-#include <arpa/inet.h>
 
 namespace quicr {
 /*
@@ -418,7 +417,7 @@ QuicRServerRawSession::TransportDelegate::on_connection_status(
 
     std::vector<quicr::Namespace> pub_names_to_remove;
     for (auto & [ns, context]: server.publish_namespaces) {
-      if (context.transport_context_id = context_id) {
+      if (context.transport_context_id == context_id) {
         pub_names_to_remove.push_back(ns);
         server.delegate.onPublishIntentEnd(ns, {}, {});
       }
