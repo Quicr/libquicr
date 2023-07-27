@@ -99,8 +99,10 @@ QuicRClientRawSession::QuicRClientRawSession(
 }
 
 QuicRClientRawSession::QuicRClientRawSession(
-  std::shared_ptr<qtransport::ITransport> transport_in)
-  : transport(transport_in)
+  std::shared_ptr<qtransport::ITransport> transport_in,
+  qtransport::LogHandler& logger)
+  : log_handler(logger)
+  , transport(transport_in)
 {
 }
 

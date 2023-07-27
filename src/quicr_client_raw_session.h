@@ -39,11 +39,12 @@ class QuicRClientRawSession
 {
 public:
   /**
-   * @brief Setup a QUICR Client with publisher and subscriber functionality
+   * @brief Setup a QUICR Client Session with publisher and subscriber
+   *        functionality.
    *
-   * @param relayInfo        : Relay Information to be used by the transport
-   * @param tconfig          : Transport configuration
-   * @param logger           : Log handler, used by transport and API for
+   * @param relayInfo : Relay Information to be used by the transport
+   * @param tconfig   : Transport configuration
+   * @param logger    : Log handler, used by transport and API for
    *                           loggings operations
    */
   QuicRClientRawSession(RelayInfo& relayInfo,
@@ -51,10 +52,15 @@ public:
                         qtransport::LogHandler& logger);
 
   /**
-   * API for usages in Tests. Applications don't need to be bothered
-   * about the transport
+   * @brief Setup a QUICR Client Session with publisher and subscriber
+   *        functionality.
+   *
+   * @param transport : External transport pointer to use.
+   * @param logger    : Log handler, used by transport and API for loggings
+   *                    operations
    */
-  QuicRClientRawSession(std::shared_ptr<qtransport::ITransport> transport);
+  QuicRClientRawSession(std::shared_ptr<qtransport::ITransport> transport,
+                        qtransport::LogHandler& logger);
 
   /**
    * @brief Destructor for the raw client session object

@@ -1,20 +1,20 @@
 #pragma once
 
+#include "quicr/encode.h"
+#include "quicr/message_buffer.h"
+#include "quicr/quicr_client_common.h"
+#include "quicr/quicr_client_delegate.h"
+#include "quicr/quicr_client_session.h"
+#include "quicr/quicr_common.h"
+
+#include <quicr_name>
+#include <transport/transport.h>
+
 #include <map>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
-
-#include "quicr/encode.h"
-#include "quicr/message_buffer.h"
-#include "quicr/quicr_common.h"
-#include "quicr/quicr_client_delegate.h"
-#include "quicr/quicr_client_common.h"
-#include "quicr/quicr_client_session.h"
-
-#include <transport/transport.h>
-#include <quicr_name>
 
 namespace quicr {
 
@@ -30,24 +30,28 @@ class QuicRClientException : public std::runtime_error
 class QuicRClient
 {
 public:
-
   /**
    * @brief Setup a QUICR Client with publisher and subscriber functionality
    *
    * @param relayInfo        : Relay Information to be used by the transport
    * @param tconfig          : Transport configuration
-   * @param logger           : Log handler, used by transport and API for loggings
-   * operations
+   * @param logger           : Log handler, used by transport and API for
+   * loggings operations
    */
   QuicRClient(RelayInfo& relayInfo,
               qtransport::TransportConfig tconfig,
               qtransport::LogHandler& logger);
 
   /**
-   * API for usages in Tests. Applications don't need to be bothered
-   * about the transport
+   * @brief Setup a QUICR Client Session with publisher and subscriber
+   *        functionality.
+   *
+   * @param transport : External transport pointer to use.
+   * @param logger    : Log handler, used by transport and API for loggings
+   *                    operations
    */
-  QuicRClient(std::shared_ptr<qtransport::ITransport> transport);
+  QuicRClient(std::shared_ptr<qtransport::ITransport> transport,
+              qtransport::LogHandler& logger);
 
   /**
    * @brief Destructor for the client
@@ -177,7 +181,6 @@ public:
                                   bytes&& data);
 
 protected:
-
   std::unique_ptr<QuicRClientSession> client_session;
 };
 

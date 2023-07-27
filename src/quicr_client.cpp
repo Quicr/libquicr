@@ -14,13 +14,12 @@ QuicRClient::QuicRClient(RelayInfo& relay_info,
                          qtransport::TransportConfig tconfig,
                          qtransport::LogHandler& logger)
 {
-  switch(relay_info.proto)
-  {
+  switch (relay_info.proto) {
     case RelayInfo::Protocol::UDP:
       [[fallthrough]];
     case RelayInfo::Protocol::QUIC:
-    client_session =
-      std::make_unique<QuicRClientRawSession>(relay_info, tconfig, logger);
+      client_session =
+        std::make_unique<QuicRClientRawSession>(relay_info, tconfig, logger);
       break;
     default:
       throw QuicRClientException("Unsupported relay protocol");
@@ -28,10 +27,11 @@ QuicRClient::QuicRClient(RelayInfo& relay_info,
   }
 }
 
-QuicRClient::QuicRClient(std::shared_ptr<qtransport::ITransport> transport_in)
+QuicRClient::QuicRClient(std::shared_ptr<qtransport::ITransport> transport_in,
+                         qtransport::LogHandler& logger)
 {
   client_session =
-    std::make_unique<QuicRClientRawSession>(transport_in);
+    std::make_unique<QuicRClientRawSession>(transport_in, logger);
 }
 
 bool

@@ -58,9 +58,10 @@ TEST_CASE("Subscribe encode, send and receive")
   std::shared_ptr<TestSubscriberDelegate> sub_delegate{};
   std::shared_ptr<TestPublisherDelegate> pub_delegate{};
   FakeTransportDelegate transport_delegate;
+  LogHandler logger;
 
   auto transport = std::make_shared<FakeTransport>();
-  auto qclient = std::make_unique<QuicRClient>(transport);
+  auto qclient = std::make_unique<QuicRClient>(transport, logger);
 
   qclient->subscribe(sub_delegate,
                      { 0x10000000000000002000_name, 125 },
@@ -85,12 +86,14 @@ TEST_CASE("Publish encode, send and receive")
   std::shared_ptr<TestSubscriberDelegate> sub_delegate{};
   std::shared_ptr<TestPublisherDelegate> pub_delegate{};
   FakeTransportDelegate transport_delegate;
+  LogHandler logger;
 
   auto transport = std::make_shared<FakeTransport>();
 
-  auto qclient = std::make_unique<QuicRClient>(transport);
+  auto qclient = std::make_unique<QuicRClient>(transport, logger);
   std::vector<uint8_t> say_hello = { 'H', 'E', 'L', 'L', '0' };
-  qclient->publishIntent(pub_delegate, {0x10000000000000002000_name, 80}, "", "", {});
+  qclient->publishIntent(
+    pub_delegate, { 0x10000000000000002000_name, 80 }, "", "", {});
   qclient->publishNamedObject(
     0x10000000000000002000_name, 0, 0, false, std::move(say_hello));
 
