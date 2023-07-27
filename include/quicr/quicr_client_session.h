@@ -17,14 +17,15 @@
 
 #pragma once
 
-#include <cstdint>
-#include <string>
-
-#include "quicr/quicr_common.h"
 #include "quicr/quicr_client_common.h"
 #include "quicr/quicr_client_delegate.h"
+#include "quicr/quicr_common.h"
 
 #include <quicr/namespace.h>
+
+#include <cstdint>
+#include <memory>
+#include <string>
 
 /*
  * QUICR Client Session Interface
@@ -34,7 +35,6 @@ namespace quicr {
 class QuicRClientSession
 {
 public:
-
   // Default constructor and virtual destructor
   QuicRClientSession() = default;
   virtual ~QuicRClientSession() = default;
