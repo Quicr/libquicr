@@ -13,6 +13,14 @@
  *      None.
  */
 
+#include "quicr_client_raw_session.h"
+
+#include "quicr/encode.h"
+#include "quicr/message_buffer.h"
+#include "quicr/quicr_client.h"
+#include "quicr/quicr_client_delegate.h"
+#include "quicr/quicr_common.h"
+
 #include <chrono>
 #include <iomanip>
 #include <iostream>
@@ -20,15 +28,9 @@
 #include <string>
 #include <thread>
 
-#include "quicr/encode.h"
-#include "quicr/message_buffer.h"
-#include "quicr/quicr_client.h"
-#include "quicr/quicr_client_delegate.h"
-#include "quicr/quicr_common.h"
-#include "quicr_client_raw_session.h"
-
 namespace quicr {
 
+namespace {
 /*
  * Nested map to reassemble message fragments
  *
@@ -37,155 +39,38 @@ namespace quicr {
  *
  *    Circular index is a small int value that increments from 1 to max. It
  *    wraps to 1 after reaching max size.  In this sense, it's a circular
- * buffer. Upon moving to a new index the new index data will be purged (if any
- * exists).
+ *    buffer. Upon moving to a new index the new index data will be purged (if
+ *    any exists).
  *
  *    Fragment reassembly avoids timers and time interval based checks. It
  *    instead is based on received data. Every message quicr_name is checked to
  *    see if it's complete. If so, the published object callback will be
- * executed. If not, it'll only update the map with the new offset value.
- * Incomplete messages can exist in the cache for as long as the circular index
- * hasn't wrapped to the same point in cache.  Under high load/volume, this can
- * wrap within a minute or two.  Under very little load, this could linger for
- * hours. This is okay considering the only harm is a little extra memory being
- * used. Extra memory is a trade-off for being event/message driven instead of
- * timer based with threading/locking/...
+ *    executed. If not, it'll only update the map with the new offset value.
+ *    Incomplete messages can exist in the cache for as long as the circular
+ *    index hasn't wrapped to the same point in cache.  Under high load/volume,
+ *    this can wrap within a minute or two.  Under very little load, this could
+ *    linger for hours. This is okay considering the only harm is a little extra
+ *    memory being used. Extra memory is a trade-off for being event/message
+ *    driven instead of timer based with threading/locking/...
  */
-static std::map<int, std::map<quicr::Name, std::map<int, bytes>>> fragments;
+std::map<int, std::map<quicr::Name, std::map<int, bytes>>> fragments;
 
-///
-/// Transport Delegate Implementation
-///
-class QuicRTransportDelegate : public qtransport::ITransport::TransportDelegate
+qtransport::TransportRemote
+to_TransportRemote(const RelayInfo& info) noexcept
 {
-public:
-  QuicRTransportDelegate(QuicRClientRawSession& client_in)
-    : client(client_in)
-  {
-  }
-
-  virtual ~QuicRTransportDelegate() = default;
-
-  virtual void on_connection_status(
-    const qtransport::TransportContextId& context_id,
-    const qtransport::TransportStatus status)
-  {
-    std::stringstream log_msg;
-    log_msg << "connection_status: cid: " << context_id
-            << " status: " << int(status);
-    client.log_handler.log(qtransport::LogLevel::debug, log_msg.str());
-
-    if (status == qtransport::TransportStatus::Disconnected) {
-      log_msg.str("");
-      log_msg << "Removing state for context_id: " << context_id;
-      client.log_handler.log(qtransport::LogLevel::info, log_msg.str());
-
-      client.removeSubscribeState(
-        true, {}, SubscribeResult::SubscribeStatus::ConnectionClosed);
-
-      // TODO: Need to reconnect or inform app that client is no longer
-      // connected
-    }
-  }
-
-  virtual void on_new_connection(
-    const qtransport::TransportContextId& /* context_id */,
-    const qtransport::TransportRemote& /* remote */)
-  {
-  }
-
-  virtual void on_new_stream(
-    const qtransport::TransportContextId& /* context_id */,
-    const qtransport::StreamId& /* mStreamId */)
-  {
-  }
-
-  virtual void on_recv_notify(const qtransport::TransportContextId& context_id,
-                              const qtransport::StreamId& streamId)
-  {
-    for (int i = 0; i < 150; i++) {
-      auto data = client.transport->dequeue(context_id, streamId);
-
-      if (!data.has_value()) {
-        return;
-      }
-
-      //      std::cout << "on_recv_notify: context_id: " << context_id
-      //                << " stream_id: " << streamId
-      //                << " data sz: " << data.value().size() << std::endl;
-
-      messages::MessageBuffer msg_buffer{ data.value() };
-
-      try {
-        client.handle(std::move(msg_buffer));
-      } catch (const messages::MessageBuffer::ReadException& e) {
-        client.log_handler.log(qtransport::LogLevel::info,
-                               "Dropping malformed message: " +
-                                 std::string(e.what()));
-        return;
-      } catch (const std::exception& e) {
-        client.log_handler.log(qtransport::LogLevel::info,
-                               "Dropping malformed message: " +
-                                 std::string(e.what()));
-        return;
-      } catch (...) {
-        client.log_handler.log(
-          qtransport::LogLevel::fatal,
-          "Received malformed message with unknown fatal error");
-        throw;
-      }
-    }
-  }
-
-private:
-  QuicRClientRawSession& client;
-};
-
-void
-QuicRClientRawSession::make_transport(RelayInfo& relay_info,
-                                      qtransport::TransportConfig tconfig,
-                                      qtransport::LogHandler& logger)
-{
-  qtransport::TransportRemote server = {
-    .host_or_ip = relay_info.hostname,
-    .port = relay_info.port,
-    .proto = relay_info.proto == RelayInfo::Protocol::UDP
+  return {
+    .host_or_ip = info.hostname,
+    .port = info.port,
+    .proto = info.proto == RelayInfo::Protocol::UDP
                ? qtransport::TransportProtocol::UDP
                : qtransport::TransportProtocol::QUIC,
   };
-  transport_delegate = std::make_unique<QuicRTransportDelegate>(*this);
-
-  transport = qtransport::ITransport::make_client_transport(
-    server, std::move(tconfig), *transport_delegate, logger);
-
-  transport_context_id = transport->start();
-
-  client_status = ClientStatus::CONNECTING;
-
-  while (transport->status() == qtransport::TransportStatus::Connecting) {
-    std::ostringstream log_msg;
-    log_msg << "Waiting for client to be ready, got: "
-            << int(transport->status());
-    logger.log(qtransport::LogLevel::info, log_msg.str());
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  }
-
-  client_status = ClientStatus::READY;
-
-  if (transport->status() != qtransport::TransportStatus::Ready) {
-    std::ostringstream log_msg;
-    log_msg << "Transport failed to connect to server, got: "
-            << int(transport->status());
-    logger.log(qtransport::LogLevel::fatal, log_msg.str());
-    throw std::runtime_error(log_msg.str());
-  }
-
-  transport_stream_id = transport->createStream(transport_context_id, false);
+}
 }
 
-///
-/// QuicRClientRawSession
-///
+/*===========================================================================*/
+// QuicRClientRawSession
+/*===========================================================================*/
 
 QuicRClientRawSession::QuicRClientRawSession(
   RelayInfo& relay_info,
@@ -196,25 +81,122 @@ QuicRClientRawSession::QuicRClientRawSession(
   log_handler.log(qtransport::LogLevel::info, "Initialize QuicRClient");
 
   if (relay_info.proto == RelayInfo::Protocol::UDP) {
-    // For plain UDP, pacing is needed. Wtih QUIC it's not needed
+    // For plain UDP, pacing is needed. For QUIC it's not needed.
     need_pacing = true;
   }
 
-  make_transport(relay_info, std::move(tconfig), logger);
+  qtransport::TransportRemote server = to_TransportRemote(relay_info);
+  transport = qtransport::ITransport::make_client_transport(
+    server, std::move(tconfig), *this, logger);
+
+  transport_context_id = transport->start();
+  client_status = ClientStatus::CONNECTING;
+
+  std::ostringstream log_msg;
+  log_msg << "Waiting for client to be ready, got: "
+          << int(transport->status());
+  log_handler.log(qtransport::LogLevel::info, log_msg.str());
 }
 
 QuicRClientRawSession::QuicRClientRawSession(
   std::shared_ptr<qtransport::ITransport> transport_in)
   : transport(transport_in)
-  , log_handler(def_log_handler)
 {
 }
 
-QuicRClientRawSession::~QuicRClientRawSession()
+void
+QuicRClientRawSession::on_connection_status(
+  const qtransport::TransportContextId& context_id,
+  const qtransport::TransportStatus status)
 {
-  removeSubscribeState(
-    true, {}, SubscribeResult::SubscribeStatus::ConnectionClosed);
-  transport.reset(); // wait for transport close
+  {
+    std::ostringstream log_msg;
+    log_msg << "connection_status: cid: " << context_id
+            << " status: " << int(status);
+    log_handler.log(qtransport::LogLevel::debug, log_msg.str());
+  }
+
+  switch (status) {
+    case qtransport::TransportStatus::Ready:
+      client_status = ClientStatus::READY;
+      transport_stream_id =
+        transport->createStream(transport_context_id, false);
+      break;
+
+    case qtransport::TransportStatus::Disconnected: {
+      std::ostringstream log_msg;
+
+      if (client_status == ClientStatus::CONNECTING) {
+        log_msg << "Transport failed to connect to server, got: "
+                << int(transport->status());
+        log_handler.log(qtransport::LogLevel::fatal, log_msg.str());
+        throw std::runtime_error(log_msg.str());
+      }
+
+      log_msg << "Removing state for context_id: " << context_id;
+      log_handler.log(qtransport::LogLevel::info, log_msg.str());
+
+      // TODO: Need to reconnect or inform app that client is no longer
+      // connected
+
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+void
+QuicRClientRawSession::on_new_connection(
+  const qtransport::TransportContextId& /* context_id */,
+  const qtransport::TransportRemote& /* remote */)
+{
+}
+
+void
+QuicRClientRawSession::on_new_stream(
+  const qtransport::TransportContextId& /* context_id */,
+  const qtransport::StreamId& /* mStreamId */)
+{
+}
+
+void
+QuicRClientRawSession::on_recv_notify(
+  const qtransport::TransportContextId& context_id,
+  const qtransport::StreamId& streamId)
+{
+  if (!transport)
+    return;
+
+  for (int i = 0; i < 150; i++) {
+    auto data = transport->dequeue(context_id, streamId);
+
+    if (!data.has_value()) {
+      return;
+    }
+
+    //      std::cout << "on_recv_notify: context_id: " << context_id
+    //                << " stream_id: " << streamId
+    //                << " data sz: " << data.value().size() << std::endl;
+
+    messages::MessageBuffer msg_buffer{ data.value() };
+
+    try {
+      handle(std::move(msg_buffer));
+    } catch (const messages::MessageBuffer::ReadException& e) {
+      log_handler.log(qtransport::LogLevel::info,
+                      "Dropping malformed message: " + std::string(e.what()));
+      return;
+    } catch (const std::exception& e) {
+      log_handler.log(qtransport::LogLevel::info,
+                      "Dropping malformed message: " + std::string(e.what()));
+      return;
+    } catch (...) {
+      log_handler.log(qtransport::LogLevel::fatal,
+                      "Received malformed message with unknown fatal error");
+      throw;
+    }
+  }
 }
 
 bool
@@ -310,37 +292,20 @@ QuicRClientRawSession::subscribe(
 
 void
 QuicRClientRawSession::removeSubscribeState(
-  bool all,
   const quicr::Namespace& quicr_namespace,
   const SubscribeResult::SubscribeStatus& reason)
 {
+  std::lock_guard<std::mutex> _(session_mutex);
 
-  std::unique_lock<std::mutex> lock(session_mutex);
+  if (!!subscribe_state.count(quicr_namespace)) {
+    subscribe_state.erase(quicr_namespace);
+  }
 
-  if (all) { // Remove all states
-    std::vector<quicr::Namespace> namespaces_to_remove;
-    for (const auto& ns : subscribe_state) {
-      namespaces_to_remove.push_back(ns.first);
-    }
+  if (!!sub_delegates.count(quicr_namespace)) {
+    if (auto sub_delegate = sub_delegates[quicr_namespace].lock())
+      sub_delegate->onSubscriptionEnded(quicr_namespace, reason);
 
-    lock.unlock(); // Unlock before calling self
-
-    for (const auto& ns : namespaces_to_remove) {
-      removeSubscribeState(false, ns, reason);
-    }
-  } else {
-
-    if (subscribe_state.count(quicr_namespace)) {
-      subscribe_state.erase(quicr_namespace);
-    }
-
-    if (sub_delegates.count(quicr_namespace)) {
-      if (auto sub_delegate = sub_delegates[quicr_namespace].lock())
-        sub_delegate->onSubscriptionEnded(quicr_namespace, reason);
-
-      // clean up the delegate memory
-      sub_delegates.erase(quicr_namespace);
-    }
+    sub_delegates.erase(quicr_namespace);
   }
 }
 
@@ -356,10 +321,8 @@ QuicRClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
   messages::Unsubscribe unsub{ 0x1, quicr_namespace };
   msg << unsub;
 
-  if (subscribe_state.count(quicr_namespace)) {
-    subscribe_state.erase(quicr_namespace);
-  }
-
+  removeSubscribeState(quicr_namespace,
+                       SubscribeResult::SubscribeStatus::ConnectionClosed);
   transport->enqueue(transport_context_id, transport_stream_id, msg.take());
 }
 
@@ -539,35 +502,30 @@ bool
 QuicRClientRawSession::notify_pub_fragment(
   const messages::PublishDatagram& datagram,
   const std::weak_ptr<SubscriberDelegate>& delegate,
-  const std::map<int, bytes>& frag_map)
+  const std::map<int, bytes>& buffer)
 {
-  if ((frag_map.rbegin()->first & 0x1) != 0x1) {
+  if ((buffer.rbegin()->first & 0x1) != 0x1) {
     return false; // Not complete, return false that this can NOT be deleted
   }
 
   bytes reassembled;
-
   int seq_bytes = 0;
-  for (const auto& item : frag_map) {
-    if ((item.first >> 1) - seq_bytes != 0) {
+  for (const auto& [sequence_num, data] : buffer) {
+    if ((sequence_num >> 1) - seq_bytes != 0) {
       // Gap in offsets, missing data, return false that this can NOT be deleted
       return false;
     }
 
-    reassembled.insert(
-      reassembled.end(), item.second.begin(), item.second.end());
-    seq_bytes += item.second.size();
+    reassembled.insert(reassembled.end(),
+                       std::make_move_iterator(data.begin()),
+                       std::make_move_iterator(data.end()));
+
+    seq_bytes += data.size();
   }
 
-  for (const auto& entry : sub_delegates) {
-    quicr::bytes copy = reassembled;
-
-    if (entry.first.contains(datagram.header.name)) {
-      if (auto sub_delegate = sub_delegates[entry.first].lock())
-        sub_delegate->onSubscribedObject(
-          datagram.header.name, 0x0, 0x0, false, std::move(copy));
-    }
-  }
+  if (auto sub_delegate = delegate.lock())
+    sub_delegate->onSubscribedObject(
+      datagram.header.name, 0x0, 0x0, false, std::move(reassembled));
 
   return true;
 }
@@ -583,32 +541,30 @@ QuicRClientRawSession::handle_pub_fragment(
   const auto& msg_iter = fragments[cindex].find(datagram.header.name);
   if (msg_iter != fragments[cindex].end()) {
     // Found
-    msg_iter->second.emplace(datagram.header.offset_and_fin,
-                             std::move(datagram.media_data));
-    if (notify_pub_fragment(datagram, delegate, msg_iter->second))
+    auto& [_, buffer] = *msg_iter;
+    buffer.emplace(datagram.header.offset_and_fin,
+                   std::move(datagram.media_data));
+    if (notify_pub_fragment(datagram, delegate, buffer))
       fragments[cindex].erase(msg_iter);
 
   } else {
     // Not in current buffer, search all buffers
-    bool found = false;
     for (auto& buf : fragments) {
       const auto& msg_iter = buf.second.find(datagram.header.name);
-      if (msg_iter != buf.second.end()) {
-        // Found
-        msg_iter->second.emplace(datagram.header.offset_and_fin,
-                                 std::move(datagram.media_data));
-        if (notify_pub_fragment(datagram, delegate, msg_iter->second)) {
-          buf.second.erase(msg_iter);
-        }
-        found = true;
-        break;
+      if (msg_iter == buf.second.end()) {
+        // If not found in any buffer, then add to current buffer
+        fragments[cindex][datagram.header.name].emplace(
+          datagram.header.offset_and_fin, std::move(datagram.media_data));
+        continue;
       }
-    }
 
-    if (!found) {
-      // If not found in any buffer, then add to current buffer
-      fragments[cindex][datagram.header.name].emplace(
-        datagram.header.offset_and_fin, std::move(datagram.media_data));
+      // Found
+      msg_iter->second.emplace(datagram.header.offset_and_fin,
+                               std::move(datagram.media_data));
+      if (notify_pub_fragment(datagram, delegate, msg_iter->second)) {
+        buf.second.erase(msg_iter);
+      }
+      break;
     }
   }
 
@@ -657,8 +613,7 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
       messages::SubscribeEnd subEnd;
       msg >> subEnd;
 
-      removeSubscribeState(false, subEnd.quicr_namespace, subEnd.reason);
-
+      removeSubscribeState(subEnd.quicr_namespace, subEnd.reason);
       break;
     }
 
