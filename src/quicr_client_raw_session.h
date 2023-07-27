@@ -24,6 +24,7 @@
 #include <quicr_name>
 #include <transport/transport.h>
 
+#include <atomic>
 #include <map>
 #include <memory>
 #include <string>
