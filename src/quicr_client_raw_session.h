@@ -46,6 +46,8 @@ public:
    * @param tconfig   : Transport configuration
    * @param logger    : Log handler, used by transport and API for
    *                           loggings operations
+   *
+   * @throws std::runtime_error : If transport fails to connect.
    */
   QuicRClientRawSession(RelayInfo& relayInfo,
                         qtransport::TransportConfig tconfig,
@@ -65,7 +67,15 @@ public:
   /**
    * @brief Destructor for the raw client session object
    */
-  virtual ~QuicRClientRawSession() = default;
+  virtual ~QuicRClientRawSession();
+
+  /**
+   * @brief Connects the session using the info provided on construction.
+   * @returns True if connected, false otherwise.
+   *
+   * TODO: This should likely be a virtual method in QuicRClientSession.
+   */
+  bool connect();
 
   /**
    * @brief Get the client status
@@ -257,6 +267,7 @@ protected:
   };
 
   bool need_pacing{ false };
+  std::atomic_bool stopping{ false };
   qtransport::StreamId transport_stream_id{ 0 };
   qtransport::TransportContextId transport_context_id;
   ClientStatus client_status{ ClientStatus::TERMINATED };

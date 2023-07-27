@@ -89,13 +89,12 @@ QuicRClientRawSession::QuicRClientRawSession(
   transport = qtransport::ITransport::make_client_transport(
     server, std::move(tconfig), *this, logger);
 
-  transport_context_id = transport->start();
-  client_status = ClientStatus::CONNECTING;
-
-  std::ostringstream log_msg;
-  log_msg << "Waiting for client to be ready, got: "
-          << int(transport->status());
-  log_handler.log(qtransport::LogLevel::info, log_msg.str());
+  // TODO: Maybe this should be called outside.
+  if (!connect())
+    throw std::runtime_error((std::ostringstream()
+                              << "Failed to connect to the server: Status("
+                              << int(transport->status()) << ")")
+                               .str());
 }
 
 QuicRClientRawSession::QuicRClientRawSession(
@@ -104,6 +103,42 @@ QuicRClientRawSession::QuicRClientRawSession(
   : log_handler(logger)
   , transport(transport_in)
 {
+}
+
+QuicRClientRawSession::~QuicRClientRawSession()
+{
+  transport->close(transport_context_id);
+}
+
+bool
+QuicRClientRawSession::connect()
+{
+  transport_context_id = transport->start();
+
+  log_handler.log(
+    qtransport::LogLevel::info,
+    (std::ostringstream() << "Waiting for client to be ready...").str());
+
+  client_status = ClientStatus::CONNECTING;
+  while (client_status == ClientStatus::CONNECTING) {
+    if (stopping)
+      return false;
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+
+  if (client_status != ClientStatus::READY) {
+    log_handler.log(qtransport::LogLevel::fatal,
+                    (std::ostringstream()
+                     << "Transport failed to connect to server, got: "
+                     << int(transport->status()))
+                      .str());
+    return false;
+  }
+
+  transport_stream_id = transport->createStream(transport_context_id, false);
+
+  return true;
 }
 
 void
@@ -119,31 +154,29 @@ QuicRClientRawSession::on_connection_status(
   }
 
   switch (status) {
+    case qtransport::TransportStatus::Connecting:
+      client_status = ClientStatus::CONNECTING;
+      stopping = false;
+      break;
     case qtransport::TransportStatus::Ready:
       client_status = ClientStatus::READY;
-      transport_stream_id =
-        transport->createStream(transport_context_id, false);
+      stopping = false;
       break;
-
     case qtransport::TransportStatus::Disconnected: {
-      std::ostringstream log_msg;
+      client_status = ClientStatus::RELAY_NOT_CONNECTED;
+      stopping = true;
 
-      if (client_status == ClientStatus::CONNECTING) {
-        log_msg << "Transport failed to connect to server, got: "
-                << int(transport->status());
-        log_handler.log(qtransport::LogLevel::fatal, log_msg.str());
-        throw std::runtime_error(log_msg.str());
-      }
-
-      log_msg << "Removing state for context_id: " << context_id;
-      log_handler.log(qtransport::LogLevel::info, log_msg.str());
-
-      // TODO: Need to reconnect or inform app that client is no longer
-      // connected
-
+      log_handler.log(qtransport::LogLevel::info,
+                      (std::ostringstream()
+                       << "Removing state for context_id: " << context_id)
+                        .str());
       break;
     }
-    default:
+    case qtransport::TransportStatus::Shutdown:
+      [[fallthrough]];
+    case qtransport::TransportStatus::RemoteRequestClose:
+      client_status = ClientStatus::TERMINATED;
+      stopping = true;
       break;
   }
 }
