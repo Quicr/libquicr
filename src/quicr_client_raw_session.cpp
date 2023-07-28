@@ -89,55 +89,96 @@ QuicRClientRawSession::QuicRClientRawSession(
   transport = qtransport::ITransport::make_client_transport(
     server, std::move(tconfig), *this, logger);
 
-  // TODO: Maybe this should be called outside.
-  if (!connect())
-    throw std::runtime_error((std::ostringstream()
-                              << "Failed to connect to the server: Status("
-                              << int(transport->status()) << ")")
-                               .str());
+  connect();
 }
 
 QuicRClientRawSession::QuicRClientRawSession(
   std::shared_ptr<qtransport::ITransport> transport_in,
   qtransport::LogHandler& logger)
-  : log_handler(logger)
+  : has_shared_transport{ true }
+  , log_handler(logger)
   , transport(transport_in)
 {
 }
 
 QuicRClientRawSession::~QuicRClientRawSession()
 {
-  transport->close(transport_context_id);
+  if (!has_shared_transport &&
+      transport->status() != qtransport::TransportStatus::Disconnected) {
+    disconnect();
+  }
 }
 
 bool
 QuicRClientRawSession::connect()
 {
   transport_context_id = transport->start();
-
-  log_handler.log(
-    qtransport::LogLevel::info,
-    (std::ostringstream() << "Waiting for client to be ready...").str());
+  log_handler.log(qtransport::LogLevel::info,
+                  (std::ostringstream()
+                   << "Connecting session " << transport_context_id << "...")
+                    .str());
 
   client_status = ClientStatus::CONNECTING;
-  while (client_status == ClientStatus::CONNECTING) {
-    if (stopping)
-      return false;
-
+  while (!stopping && client_status == ClientStatus::CONNECTING) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
-  if (client_status != ClientStatus::READY) {
-    log_handler.log(qtransport::LogLevel::fatal,
-                    (std::ostringstream()
-                     << "Transport failed to connect to server, got: "
-                     << int(transport->status()))
+  if (stopping) {
+    log_handler.log(qtransport::LogLevel::info,
+                    (std::ostringstream() << "Cancelling connecting session "
+                                          << transport_context_id)
                       .str());
     return false;
   }
 
+  if (client_status != ClientStatus::READY) {
+    std::ostringstream msg;
+    msg << "Session " << transport_context_id
+        << " failed to connect to server, transport status: "
+        << int(transport->status());
+    log_handler.log(qtransport::LogLevel::fatal, msg.str());
+
+    throw std::runtime_error(msg.str());
+  }
+
   transport_stream_id = transport->createStream(transport_context_id, false);
 
+  return true;
+}
+
+bool
+QuicRClientRawSession::disconnect()
+{
+  log_handler.log(qtransport::LogLevel::debug,
+                  (std::ostringstream()
+                   << "Disconnecting session " << transport_context_id << "...")
+                    .str());
+
+  stopping = true;
+  try {
+    transport->close(transport_context_id);
+  } catch (const std::exception& e) {
+    log_handler.log(qtransport::LogLevel::error,
+                    (std::ostringstream()
+                     << "Error disconnecting session " << transport_context_id
+                     << ": " << e.what())
+                      .str());
+    return false;
+  } catch (...) {
+    log_handler.log(qtransport::LogLevel::error,
+                    (std::ostringstream()
+                     << "Unknown error disconnecting session "
+                     << transport_context_id)
+                      .str());
+    return false;
+  }
+
+  log_handler.log(qtransport::LogLevel::info,
+                  (std::ostringstream() << "Successfully disconnected session: "
+                                        << transport_context_id)
+                    .str());
+
+  client_status = ClientStatus::TERMINATED;
   return true;
 }
 

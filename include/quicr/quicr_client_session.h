@@ -35,9 +35,20 @@ namespace quicr {
 class QuicRClientSession
 {
 public:
-  // Default constructor and virtual destructor
   QuicRClientSession() = default;
   virtual ~QuicRClientSession() = default;
+
+  /**
+   * @brief Connects the session using the info provided on construction.
+   * @returns True if connected, false otherwise.
+   */
+  virtual bool connect() = 0;
+
+  /**
+   * @brief Disconnects the session from the relay.
+   * @returns True if successful, false if some error occurred.
+   */
+  virtual bool disconnect() = 0;
 
   /**
    * @brief Get the client status

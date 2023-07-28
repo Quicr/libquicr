@@ -34,6 +34,16 @@ QuicRClient::QuicRClient(std::shared_ptr<qtransport::ITransport> transport_in,
     std::make_unique<QuicRClientRawSession>(transport_in, logger);
 }
 
+bool QuicRClient::connect()
+{
+  return client_session->connect();
+}
+
+bool QuicRClient::disconnect()
+{
+  return client_session->disconnect();
+}
+
 bool
 QuicRClient::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                            const quicr::Namespace& quicr_namespace,

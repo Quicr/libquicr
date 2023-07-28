@@ -70,6 +70,18 @@ public:
   ClientStatus status() const { return client_session->status(); }
 
   /**
+   * @brief Connects the session using the info provided on construction.
+   * @returns True if connected, false otherwise.
+   */
+  bool connect();
+
+  /**
+   * @brief Disconnects the session from the relay.
+   * @returns True if successful, false if some error occurred.
+   */
+  bool disconnect();
+
+  /**
    * @brief Publish intent to publish on a QUICR Namespace
    *
    * @param pub_delegate          : Publisher delegate reference

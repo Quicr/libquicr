@@ -73,10 +73,14 @@ public:
   /**
    * @brief Connects the session using the info provided on construction.
    * @returns True if connected, false otherwise.
-   *
-   * TODO: This should likely be a virtual method in QuicRClientSession.
    */
-  bool connect();
+  virtual bool connect() override;
+
+  /**
+   * @brief Disconnects the session from the relay.
+   * @returns True if successful, false if some error occurred.
+   */
+  virtual bool disconnect() override;
 
   /**
    * @brief Get the client status
@@ -268,12 +272,13 @@ protected:
   };
 
   bool need_pacing{ false };
+  bool has_shared_transport{ false };
   std::atomic_bool stopping{ false };
   qtransport::StreamId transport_stream_id{ 0 };
   qtransport::TransportContextId transport_context_id;
   ClientStatus client_status{ ClientStatus::TERMINATED };
 
-  qtransport::LogHandler log_handler;
+  qtransport::LogHandler& log_handler;
 
   namespace_map<std::weak_ptr<PublisherDelegate>> pub_delegates;
   namespace_map<PublishContext> publish_state{};
