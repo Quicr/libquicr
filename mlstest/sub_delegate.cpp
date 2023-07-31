@@ -43,6 +43,7 @@ void SubDelegate::onSubscribedObject([[maybe_unused]] const quicr::Name& quicr_n
     log_msg << " data: " << data.data();
 
   logger.log(qtransport::LogLevel::info, log_msg.str());
+  client_helper->handle(quicr_name, std::move(data));
 }
 
 void SubDelegate::onSubscribedObjectFragment(

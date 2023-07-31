@@ -33,8 +33,15 @@
     keypackage = KeyPackage{ suite, init_key.public_key, leaf_node, {}, signing_key };
   }
 
-  State MlsUserSession::make_state() {
+  void MlsUserSession::make_state() {
     //auto [init_priv, leaf_priv, identity_priv, key_package] = make_client(user_id, suite);
     //create mls state
-    //return State{ group_id, suite, leaf_priv, identity_priv,key_package.leaf_node, {} };
+    mls_state = std::make_unique<State>(group_id, suite, leaf_key, signing_key,keypackage.leaf_node, {});
+  }
+
+  void MlsUserSession::process_key_package(std::vector<uint8_t>&& data)
+  {
+    auto kp = tls::get<KeyPackage>(data);
+    mls_state->add_proposal(kp);
+
   }

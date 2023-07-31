@@ -4,8 +4,10 @@
 #include "pub_delegate.h"
 #include "quicr_client_helper.h"
 #include "sub_delegate.h"
+#include "fake_config.h"
 
-QuicrClientHelper::QuicrClientHelper(std::string user, testLogger& logger_in) : logger(logger_in)
+QuicrClientHelper::QuicrClientHelper(std::string user, testLogger& logger_in, bool is_creator) : logger(logger_in),
+  session(MlsUserSession(from_ascii("1234"), from_ascii(user)))
 {
   char* relayName = getenv("MLS_RELAY");
   if (!relayName) {
@@ -18,9 +20,6 @@ QuicrClientHelper::QuicrClientHelper(std::string user, testLogger& logger_in) : 
   if (portVar) {
     port = atoi(portVar);
   }
-  /*int is_creator = atoi(argv[1]);
-  auto user = std::string(argv[2]);
-  auto name = quicr::Name(std::string(argv[1]));*/
 
   std::stringstream log_msg;
 
@@ -37,6 +36,10 @@ QuicrClientHelper::QuicrClientHelper(std::string user, testLogger& logger_in) : 
   qtransport::TransportConfig tcfg{ .tls_cert_filename = NULL,
                                     .tls_key_filename = NULL };
   client = new quicr::QuicRClient{ relay, tcfg, logger };
+
+  if (is_creator) {
+    session.make_state();
+  }
 }
 
 void
@@ -47,7 +50,7 @@ QuicrClientHelper::subscribe(quicr::Namespace nspace, testLogger& logger)
   }
 
   if(!sub_delegates.count(nspace)) {
-    sub_delegates[nspace] = std::make_shared<SubDelegate>(logger);
+    sub_delegates[nspace] = std::make_shared<SubDelegate>(this, logger);
   }
 
   logger.log(qtransport::LogLevel::info, "Subscribe");
@@ -74,7 +77,7 @@ QuicrClientHelper::unsubscribe(quicr::Namespace nspace)
 }
 
 void
-QuicrClientHelper::publishJoin(quicr::Name& name, MlsUserSession& session)
+QuicrClientHelper::publishJoin(quicr::Name& name)
 {
   
   auto nspace = quicr::Namespace(name, 96);
@@ -89,4 +92,13 @@ QuicrClientHelper::publishJoin(quicr::Name& name, MlsUserSession& session)
   logger.log(qtransport::LogLevel::info, "Publish, name=" + name.to_hex());
   auto kp_data = tls::marshal(session.get_key_package());
   client->publishNamedObject(name, 0, 10000, false, std::move(kp_data));
+}
+
+void QuicrClientHelper::handle(const quicr::Name& name, quicr::bytes&& data){
+    auto namspace = quicr::Namespace(name,96);
+    switch (subscribe_op_map[namspace]) {
+    case SUBSCRIBE_OP_TYPE::KeyPackage:
+
+
+    }
 }
