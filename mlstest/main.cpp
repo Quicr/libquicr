@@ -36,8 +36,11 @@ int main(int argc, char* argv[])
 
   testLogger logger;
   std::stringstream log_msg;
+  namespaceConfig nspace_config;
 
-  int is_creator = atoi(argv[1]);
+  bool is_creator;
+  std::istringstream(argv[1]) >> is_creator;
+  //int is_creator = atoi(argv[1]);
   auto user_string = std::string(argv[2]);
   auto name = quicr::Name(std::string(argv[1]));
   log_msg << "Name = " << name.to_hex();
@@ -47,11 +50,8 @@ int main(int argc, char* argv[])
   //MlsUserSession session = MlsUserSession(from_ascii("1234"), from_ascii(user_string));
   //auto state = session.make_state();
 
-
-  if (is_creator) {
-    //subscribe to namespace in fake_config
-
-    for (auto const& [nspace, op] : subscribe_op_map) {
+  for (auto const& [nspace, op] : nspace_config.subscribe_op_map) {
+    if (is_creator) {
       quicrclienthelper.subscribe(nspace, logger);
       logger.log(qtransport::LogLevel::info,
                  "Subscribing to namespace "+ nspace.to_hex());
@@ -59,11 +59,7 @@ int main(int argc, char* argv[])
 
       logger.log(qtransport::LogLevel::info,
                  "Sleeping for 30 seconds before unsubscribing");
-
-    }
-  } else {
-    //publish to namespace in fake_config
-    for (auto const& [nspace, op] : subscribe_op_map) {
+    } else {
       switch (op) {
         case SUBSCRIBE_OP_TYPE::KeyPackage: {
           auto name = nspace.name();
@@ -77,42 +73,6 @@ int main(int argc, char* argv[])
       }
     }
   }
-
-
-
-
-
-  //name = quicr::Name("0x0011223344556600000100000000ABCD");
- // if(is_creator) {
-    // subscribe to namespace for processing user join/leave requests
-
-   /* auto nspace = subscribe_op_map;//quicr::Namespace(name, 96);
-    logger.log(qtransport::LogLevel::info,
-               "Subscribing to namespace "+ nspace.to_hex());
-
-    quicrclienthelper.subscribe(nspace, logger);
-
-   logger.log(qtransport::LogLevel::info,
-              "Sleeping for 30 seconds before unsubscribing");
-   std::this_thread::sleep_for(std::chrono::seconds(30));
-
-   quicrclienthelper.unsubscribe(nspace);
-
-   logger.log(qtransport::LogLevel::info,
-              "Sleeping for 15 seconds before exiting");
-   std::this_thread::sleep_for(std::chrono::seconds(15));*/
-    // subscribe to commits
- /* } else {
-    // subscribe to namespace for processing user join/leave requests
-    // subscribe to commits
-    // subscribe to welcome
-    // publish join_request with key package
-    // todo: use numero-uno library to convert from uri to hex representation
-    logger.log(qtransport::LogLevel::info,
-               "Publishing to " + name.to_hex());
-
-    quicrclienthelper.publishJoin(name, session);
-  }*/
 
   std::this_thread::sleep_for(std::chrono::seconds(5));
 

@@ -96,9 +96,16 @@ QuicrClientHelper::publishJoin(quicr::Name& name)
 
 void QuicrClientHelper::handle(const quicr::Name& name, quicr::bytes&& data){
     auto namspace = quicr::Namespace(name,96);
-    switch (subscribe_op_map[namspace]) {
-    case SUBSCRIBE_OP_TYPE::KeyPackage:
+    namespaceConfig nspace_config;
 
-
+    switch (nspace_config.subscribe_op_map[namspace]) {
+      case SUBSCRIBE_OP_TYPE::KeyPackage: {
+        logger.log(qtransport::LogLevel::info, "Received KeyPackage from participant.Add to MLS session ");
+        session.process_key_package(std::move(data));
+        break;
+      }
+      default:{
+        break;
+      }
     }
 }
