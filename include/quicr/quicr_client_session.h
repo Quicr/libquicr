@@ -17,14 +17,15 @@
 
 #pragma once
 
-#include <cstdint>
-#include <string>
-
-#include "quicr/quicr_common.h"
 #include "quicr/quicr_client_common.h"
 #include "quicr/quicr_client_delegate.h"
+#include "quicr/quicr_common.h"
 
 #include <quicr/namespace.h>
+
+#include <cstdint>
+#include <memory>
+#include <string>
 
 /*
  * QUICR Client Session Interface
@@ -34,10 +35,20 @@ namespace quicr {
 class QuicRClientSession
 {
 public:
-
-  // Default constructor and virtual destructor
   QuicRClientSession() = default;
   virtual ~QuicRClientSession() = default;
+
+  /**
+   * @brief Connects the session using the info provided on construction.
+   * @returns True if connected, false otherwise.
+   */
+  virtual bool connect() = 0;
+
+  /**
+   * @brief Disconnects the session from the relay.
+   * @returns True if successful, false if some error occurred.
+   */
+  virtual bool disconnect() = 0;
 
   /**
    * @brief Get the client status

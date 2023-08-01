@@ -24,6 +24,7 @@
 #include <quicr_name>
 #include <transport/transport.h>
 
+#include <atomic>
 #include <map>
 #include <memory>
 #include <string>
@@ -33,31 +34,53 @@ namespace quicr {
 /**
  *   Client Raw Session Interface
  */
-class QuicRClientRawSession : public QuicRClientSession
+class QuicRClientRawSession
+  : public QuicRClientSession
+  , public qtransport::ITransport::TransportDelegate
 {
 public:
   /**
-   * @brief Setup a QUICR Client with publisher and subscriber functionality
+   * @brief Setup a QUICR Client Session with publisher and subscriber
+   *        functionality.
    *
-   * @param relayInfo        : Relay Information to be used by the transport
-   * @param tconfig          : Transport configuration
-   * @param logger           : Log handler, used by transport and API for
+   * @param relayInfo : Relay Information to be used by the transport
+   * @param tconfig   : Transport configuration
+   * @param logger    : Log handler, used by transport and API for
    *                           loggings operations
+   *
+   * @throws std::runtime_error : If transport fails to connect.
    */
   QuicRClientRawSession(RelayInfo& relayInfo,
                         qtransport::TransportConfig tconfig,
                         qtransport::LogHandler& logger);
 
   /**
-   * API for usages in Tests. Applications don't need to be bothered
-   * about the transport
+   * @brief Setup a QUICR Client Session with publisher and subscriber
+   *        functionality.
+   *
+   * @param transport : External transport pointer to use.
+   * @param logger    : Log handler, used by transport and API for loggings
+   *                    operations
    */
-  QuicRClientRawSession(std::shared_ptr<qtransport::ITransport> transport);
+  QuicRClientRawSession(std::shared_ptr<qtransport::ITransport> transport,
+                        qtransport::LogHandler& logger);
 
   /**
    * @brief Destructor for the raw client session object
    */
-  ~QuicRClientRawSession();
+  virtual ~QuicRClientRawSession();
+
+  /**
+   * @brief Connects the session using the info provided on construction.
+   * @returns True if connected, false otherwise.
+   */
+  virtual bool connect() override;
+
+  /**
+   * @brief Disconnects the session from the relay.
+   * @returns True if successful, false if some error occurred.
+   */
+  virtual bool disconnect() override;
 
   /**
    * @brief Get the client status
@@ -181,16 +204,18 @@ public:
                                   bool is_last_fragment,
                                   bytes&& data) override;
 
-  void handle(messages::MessageBuffer&& msg);
-  void removeSubscribeState(bool all,
-                            const quicr::Namespace& quicr_namespace,
-                            const SubscribeResult::SubscribeStatus& reason);
-
-  std::shared_ptr<qtransport::ITransport> transport;
-  qtransport::LogHandler& log_handler;
-
 protected:
-  std::mutex session_mutex;
+  void on_connection_status(const qtransport::TransportContextId& context_id,
+                            const qtransport::TransportStatus status) override;
+
+  void on_new_connection(const qtransport::TransportContextId& context_id,
+                         const qtransport::TransportRemote& remote) override;
+
+  void on_new_stream(const qtransport::TransportContextId& context_id,
+                     const qtransport::StreamId& mStreamId) override;
+
+  void on_recv_notify(const qtransport::TransportContextId& context_id,
+                      const qtransport::StreamId& streamId) override;
 
   bool notify_pub_fragment(const messages::PublishDatagram& datagram,
                            const std::weak_ptr<SubscriberDelegate>& delegate,
@@ -198,11 +223,13 @@ protected:
   void handle_pub_fragment(messages::PublishDatagram&& datagram,
                            const std::weak_ptr<SubscriberDelegate>& delegate);
 
-  qtransport::LogHandler def_log_handler;
+  void handle(messages::MessageBuffer&& msg);
 
-  void make_transport(RelayInfo& relay_info,
-                      qtransport::TransportConfig tconfig,
-                      qtransport::LogHandler& logger);
+  void removeSubscribeState(const quicr::Namespace& quicr_namespace,
+                            const SubscribeResult::SubscribeStatus& reason);
+
+protected:
+  std::mutex session_mutex;
 
   // State to store per-subscribe context
   struct SubscribeContext
@@ -245,14 +272,21 @@ protected:
   };
 
   bool need_pacing{ false };
-  ClientStatus client_status{ ClientStatus::TERMINATED };
+  bool has_shared_transport{ false };
+  std::atomic_bool stopping{ false };
+  qtransport::StreamId transport_stream_id{ 0 };
   qtransport::TransportContextId transport_context_id;
-  namespace_map<std::weak_ptr<SubscriberDelegate>> sub_delegates;
+  ClientStatus client_status{ ClientStatus::TERMINATED };
+
+  qtransport::LogHandler& log_handler;
+
   namespace_map<std::weak_ptr<PublisherDelegate>> pub_delegates;
-  namespace_map<SubscribeContext> subscribe_state{};
   namespace_map<PublishContext> publish_state{};
-  std::unique_ptr<qtransport::ITransport::TransportDelegate> transport_delegate;
-  uint64_t transport_stream_id{ 0 };
+
+  namespace_map<std::weak_ptr<SubscriberDelegate>> sub_delegates;
+  namespace_map<SubscribeContext> subscribe_state{};
+
+  std::shared_ptr<qtransport::ITransport> transport;
 };
 
 }
