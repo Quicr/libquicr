@@ -15,14 +15,14 @@
 
 #pragma once
 
-#include <cstdint>
-#include <string>
-
 #include "quicr/encode.h"
 #include "quicr/message_buffer.h"
 #include "quicr/quicr_common.h"
 
 #include <transport/transport.h>
+
+#include <cstdint>
+#include <string>
 
 namespace quicr {
 
@@ -37,17 +37,16 @@ public:
   virtual ~ServerDelegate() = default;
 
   /**
-   * @brief  Reports interest to publish under given
-   * quicr::Name.
+   * @brief Reports intent to publish under given quicr::Name.
    *
    * @param
-   * @param namespace             : Identifies QUICR namespace
-   * @param origin_url            : Origin serving the QUICR Session
-   * @param use_reliable_transport: Reliable or Unreliable transport
-   * @param auth_token            : Auth Token to validate the Subscribe Request
-   * @parm e2e_token              : Opaque token to be forwarded to the Origin
+   * @param namespace               : Identifies QUICR namespace
+   * @param origin_url              : Origin serving the QUICR Session
+   * @param use_reliable_transport  : Reliable or Unreliable transport
+   * @param auth_token              : Auth Token to validate subscribe requests
+   * @param e2e_token               : Opaque token to be forwarded to the Origin
    *
-   *  @details Entities processing the Publish Intent MUST validate the request
+   * @details Entities processing the Publish Intent MUST validate the request
    *           against the auth_token, verify if the Origin specified
    *           in the origin_url is trusted and forward the request to the
    *           next hop Relay for that
@@ -62,7 +61,13 @@ public:
                                const std::string& auth_token,
                                bytes&& e2e_token) = 0;
 
-  // TODO:Document this
+  /**
+   * @brief Reports intent to publish for name is ended.
+   *
+   * @param quicr_namespace : The namespace which we want to end intent for.
+   * @param auth_token      : Auth token to validate request.
+   * @param e2e_token       : Opaque token to be forwarded to the Origin
+   */
   virtual void onPublishIntentEnd(const quicr::Namespace& quicr_namespace,
                                   const std::string& auth_token,
                                   bytes&& e2e_token) = 0;

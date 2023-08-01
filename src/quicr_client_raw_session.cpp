@@ -300,7 +300,7 @@ QuicRClientRawSession::publishIntent(
                                   1 };
 
   messages::MessageBuffer msg{ sizeof(messages::PublishIntent) +
-                               payload.size() };
+                               intent.payload.size() };
   msg << intent;
 
   auto error =
@@ -314,12 +314,12 @@ QuicRClientRawSession::publishIntentEnd(
   const quicr::Namespace& quicr_namespace,
   [[maybe_unused]] const std::string& auth_token)
 {
+  // TODO: Authenticate token.
+
   if (!pub_delegates.count(quicr_namespace)) {
     return;
   }
   pub_delegates.erase(quicr_namespace);
-
-  // TODO: Authenticate token.
 
   messages::PublishIntentEnd intent_end{
     messages::MessageType::PublishIntentEnd,

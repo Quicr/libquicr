@@ -62,9 +62,10 @@ TEST_CASE("Object Lifetime")
                           .port = 1234,
                           .proto = RelayInfo::Protocol::UDP };
   qtransport::LogHandler logger;
-  qtransport::TransportConfig tcfg { .tls_cert_filename = NULL, .tls_key_filename = NULL};
-  CHECK_NOTHROW(std::make_unique<QuicRServer>(relayInfo, tcfg,
-                                              delegate, logger));
+  qtransport::TransportConfig tcfg{ .tls_cert_filename = NULL,
+                                    .tls_key_filename = NULL };
+  CHECK_NOTHROW(
+    std::make_unique<QuicRServer>(relayInfo, tcfg, delegate, logger));
 }
 
 #if 0

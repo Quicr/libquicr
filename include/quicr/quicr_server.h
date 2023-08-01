@@ -1,14 +1,14 @@
 #pragma once
+#include "encode.h"
+#include "message_buffer.h"
+#include "quicr_common.h"
+#include "quicr_server_delegate.h"
+#include "quicr_server_session.h"
 
-#include <stdexcept>
-#include <memory>
-
-#include <quicr/encode.h>
-#include <quicr/message_buffer.h>
-#include <quicr/quicr_common.h>
-#include <quicr/quicr_server_delegate.h>
-#include <quicr/quicr_server_session.h>
 #include <transport/transport.h>
+
+#include <memory>
+#include <stdexcept>
 
 /*
  * API for implementing server side of the QUICR protocol
@@ -123,9 +123,7 @@ public:
                        const messages::PublishDatagram& datagram);
 
 protected:
-
   std::unique_ptr<QuicRServerSession> server_session;
-
 };
 
 } // namespace quicr

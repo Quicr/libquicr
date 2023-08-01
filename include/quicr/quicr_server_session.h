@@ -17,8 +17,7 @@
 
 #pragma once
 
-#include "quicr/quicr_server_delegate.h"
-#include "transport/transport.h"
+#include "quicr_server_delegate.h"
 
 /*
  * QUICR Server Session Interface
@@ -28,7 +27,6 @@ namespace quicr {
 class QuicRServerSession
 {
 public:
-
   // Default constructor and virtual destructor
   QuicRServerSession() = default;
   virtual ~QuicRServerSession() = default;

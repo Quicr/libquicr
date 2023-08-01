@@ -1,5 +1,6 @@
-#include <quicr/quicr_server.h>
 #include "quicr_server_raw_session.h"
+
+#include <quicr/quicr_server.h>
 
 namespace quicr {
 /*
@@ -11,8 +12,7 @@ QuicRServer::QuicRServer(RelayInfo& relayInfo,
                          ServerDelegate& delegate_in,
                          qtransport::LogHandler& logger)
 {
-  switch(relayInfo.proto)
-  {
+  switch (relayInfo.proto) {
     case RelayInfo::Protocol::UDP:
       [[fallthrough]];
     case RelayInfo::Protocol::QUIC:
@@ -84,11 +84,8 @@ QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
                              uint16_t expiry_age_ms,
                              const messages::PublishDatagram& datagram)
 {
-  server_session->sendNamedObject(subscriber_id,
-                                  use_reliable_transport,
-                                  priority,
-                                  expiry_age_ms,
-                                  datagram);
+  server_session->sendNamedObject(
+    subscriber_id, use_reliable_transport, priority, expiry_age_ms, datagram);
 }
 
 } /* namespace end */

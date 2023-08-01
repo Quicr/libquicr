@@ -1,8 +1,10 @@
+#include "quicr_client_raw_session.h"
+
+#include <quicr/quicr_client.h>
+#include <transport/transport.h>
+
 #include <memory>
 #include <utility>
-
-#include "quicr/quicr_client.h"
-#include "quicr_client_raw_session.h"
 
 namespace quicr {
 
@@ -34,12 +36,14 @@ QuicRClient::QuicRClient(std::shared_ptr<qtransport::ITransport> transport_in,
     std::make_unique<QuicRClientRawSession>(transport_in, logger);
 }
 
-bool QuicRClient::connect()
+bool
+QuicRClient::connect()
 {
   return client_session->connect();
 }
 
-bool QuicRClient::disconnect()
+bool
+QuicRClient::disconnect()
 {
   return client_session->disconnect();
 }

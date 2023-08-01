@@ -1,9 +1,12 @@
 #pragma once
+
+#include <mach/vm_statistics.h>
+#include <quicr_name>
+
+#include <array>
 #include <optional>
 #include <string>
 #include <vector>
-
-#include <quicr_name>
 
 namespace quicr {
 
@@ -16,8 +19,40 @@ namespace quicr {
  */
 constexpr uint16_t MAX_TRANSPORT_DATA_SIZE = 1200;
 
-// TODO: Do we need a different structure or the name
-using bytes = std::vector<uint8_t>;
+// clang-format off
+/**
+ * @brief Concrete representation of a dynamic byte array.
+ */
+class bytes : public std::vector<uint8_t>
+{
+  using super = std::vector<uint8_t>;
+
+public:
+  using super::vector;
+
+  bytes(const super& v) : super(v) {}
+  bytes(super&& v) : super(std::move(v)) {}
+  bytes& operator=(const super& v) {super::operator=(v);return *this;}
+  bytes& operator=(super&& v){super::operator=(std::move(v));return *this;}
+};
+
+/**
+ * @brief Concrete representation of a fixed size byte array.
+ */
+template<size_t N>
+class fixed_bytes : public std::array<uint8_t, N>
+{
+  using super = std::array<uint8_t, N>;
+
+public:
+  using super::array;
+
+  fixed_bytes(const super& v) : super(v) {}
+  fixed_bytes(super&& v) : super(std::move(v)) {}
+  fixed_bytes& operator=(const super& v){super::operator=(v);return *this;}
+  fixed_bytes& operator=(super&& v) {super::operator=(std::move(v));return *this;}
+};
+// clang-format on
 
 /**
  * Context information managed by the underlying QUICR Stack
@@ -81,7 +116,6 @@ struct RelayInfo
  */
 struct SubscribeResult
 {
-  // TODO: Should be replaced with messages::Response
   enum class SubscribeStatus
   {
     Ok = 0,  // Success
