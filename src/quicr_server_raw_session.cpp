@@ -225,8 +225,6 @@ QuicRServerRawSession::handle_subscribe(
   std::lock_guard<std::mutex> lock(session_mutex);
 
   if (subscribe_state[subscribe.quicr_namespace].count(context_id) == 0) {
-    log_handler.log(qtransport::LogLevel::info,
-                    "New subscriber_id: " + std::to_string(subscriber_id));
     SubscribeContext context;
     context.transport_context_id = context_id;
     context.transport_stream_id = streamId;
@@ -291,10 +289,13 @@ QuicRServerRawSession::handle_publish(
   auto publish_namespace = publish_namespaces.find(datagram.header.name);
 
   if (publish_namespace == publish_namespaces.end()) {
+    // TODO: Add metrics for tracking dropped messages
+    /*
     std::ostringstream log_msg;
     log_msg << "Dropping published object, no namespace for "
             << datagram.header.name;
     log_handler.log(qtransport::LogLevel::info, log_msg.str());
+    */
     return;
   }
 
@@ -414,7 +415,19 @@ QuicRServerRawSession::TransportDelegate::on_connection_status(
 
     std::lock_guard<std::mutex> lock(server.session_mutex);
 
-    std::vector<quicr::Namespace> namespaces_to_remove;
+    std::vector<quicr::Namespace> pub_names_to_remove;
+    for (auto & [ns, context]: server.publish_namespaces) {
+      if (context.transport_context_id == context_id) {
+        pub_names_to_remove.push_back(ns);
+        server.delegate.onPublishIntentEnd(ns, {}, {});
+      }
+    }
+
+    for (auto &ns: pub_names_to_remove) {
+      server.publish_namespaces.erase(ns);
+    }
+
+    std::vector<quicr::Namespace> sub_names_to_remove;
     for (auto& sub : server.subscribe_state) {
       if (sub.second.count(context_id) != 0) {
 
@@ -427,13 +440,13 @@ QuicRServerRawSession::TransportDelegate::on_connection_status(
         sub.second.erase(context_id);
 
         if (sub.second.empty()) {
-          namespaces_to_remove.push_back(sub.first);
+          sub_names_to_remove.push_back(sub.first);
         }
 
         break;
       }
 
-      for (const auto& ns : namespaces_to_remove) {
+      for (const auto& ns : sub_names_to_remove) {
         server.subscribe_state.erase(ns);
       }
     }

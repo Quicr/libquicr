@@ -27,7 +27,6 @@ using bytes = std::vector<uint8_t>;
 using QUICRContext = uint64_t;
 
 namespace messages {
-
 /**
  * Indicates the type of media being sent.
  */
