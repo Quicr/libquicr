@@ -259,10 +259,6 @@ QuicRClientRawSession::on_recv_notify(
 
     try {
       handle(std::move(msg_buffer));
-    } catch (const messages::MessageBuffer::ReadException& e) {
-      log_handler.log(qtransport::LogLevel::info,
-                      "Dropping malformed message: " + std::string(e.what()));
-      return;
     } catch (const std::exception& e) {
       log_handler.log(qtransport::LogLevel::info,
                       "Dropping malformed message: " + std::string(e.what()));
@@ -504,11 +500,11 @@ QuicRClientRawSession::publishNamedObject(
         datagram.header.offset_and_fin = offset << 1;
       }
 
-      bytes frag_data(data.begin() + offset,
+      unowned_bytes frag_data(data.begin() + offset,
                       data.begin() + offset + quicr::MAX_TRANSPORT_DATA_SIZE);
 
       datagram.media_data_length = frag_data.size();
-      datagram.media_data = std::move(frag_data);
+      datagram.media_data = frag_data;
 
       msg << datagram;
 
@@ -540,9 +536,9 @@ QuicRClientRawSession::publishNamedObject(
       messages::MessageBuffer msg;
       datagram.header.offset_and_fin = uintVar_t((offset << 1) + 1);
 
-      bytes frag_data(data.begin() + offset, data.end());
+      unowned_bytes frag_data(data.begin() + offset, data.end());
       datagram.media_data_length = static_cast<uintVar_t>(frag_data.size());
-      datagram.media_data = std::move(frag_data);
+      datagram.media_data = frag_data;
 
       msg << datagram;
 
@@ -601,7 +597,7 @@ QuicRClientRawSession::notify_pub_fragment(
 
   if (auto sub_delegate = delegate.lock())
     sub_delegate->onSubscribedObject(
-      datagram.header.name, 0x0, 0x0, false, reassembled);
+      datagram.header.name, 0x0, 0x0, false, std::span{reassembled});
 
   return true;
 }
@@ -736,7 +732,7 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
               0x0,
               0x0,
               false,
-              std::get<unowned_bytes>(datagram.media_data));
+              std::get<bytes>(datagram.media_data));
           }
         } else { // is a fragment
           handle_pub_fragment(std::move(datagram), delegate);

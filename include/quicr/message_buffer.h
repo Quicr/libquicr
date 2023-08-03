@@ -162,6 +162,8 @@ public:
    */
   buffer_type&& take();
 
+  buffer_type& get() { return _buffer; }
+
   /**
    * @brief Prints out the message buffer in hexadecimal bytes.
    * @returns The message buffer bytes as a hexadecimal string.

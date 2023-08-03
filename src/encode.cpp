@@ -444,10 +444,13 @@ operator>>(MessageBuffer& buffer, PublishDatagram& msg)
   msg.media_type = static_cast<MediaType>(media_type);
 
   buffer >> msg.media_data_length;
-  buffer >> std::get<bytes>(msg.media_data);
 
-  if (std::get<bytes>(msg.media_data).size() != static_cast<size_t>(msg.media_data_length)) {
-    throw MessageBuffer::LengthException(std::get<bytes>(msg.media_data).size(),
+  bytes media;
+  buffer >> media;
+  msg.media_data = media;
+
+  if (media.size() != static_cast<size_t>(msg.media_data_length)) {
+    throw MessageBuffer::LengthException(media.size(),
                                          msg.media_data_length);
   }
 
