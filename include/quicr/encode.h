@@ -28,14 +28,14 @@ struct MessageTypeException : public MessageBuffer::ReadException
 };
 
 MessageBuffer&
-operator<<(MessageBuffer& msg, quicr::Namespace value);
+operator<<(MessageBuffer& msg, const Namespace& value);
 MessageBuffer&
-operator>>(MessageBuffer& msg, quicr::Namespace& value);
+operator>>(MessageBuffer& msg, Namespace& value);
 
 MessageBuffer&
-operator<<(MessageBuffer& msg, const quicr::uintVar_t& val);
+operator<<(MessageBuffer& msg, const uintVar_t& val);
 MessageBuffer&
-operator>>(MessageBuffer& msg, quicr::uintVar_t& val);
+operator>>(MessageBuffer& msg, uintVar_t& val);
 
 MessageBuffer&
 operator<<(MessageBuffer& msg, std::span<const uint8_t> val);

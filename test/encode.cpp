@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 
+#include <ios>
 #include <quicr/encode.h>
 #include <quicr/message_buffer.h>
 #include <quicr/quicr_common.h>
@@ -12,6 +13,19 @@
 
 using namespace quicr;
 using namespace quicr::messages;
+
+TEST_CASE("MessageBuffer Swap Bytes")
+{
+  uint16_t u16 = 0x1234u;
+  uint32_t u32 = 0x12345678u;
+  uint64_t u64 = 0x123456789ABCDEF0u;
+  Name u128 = 0x123456789ABCDEF0123456789ABCDEF0_name;
+
+  CHECK_NE(u16, swap_bytes(u16));
+  CHECK_NE(u32, swap_bytes(u32));
+  CHECK_NE(u64, swap_bytes(u64));
+  CHECK_NE(u128, swap_bytes(u128));
+}
 
 TEST_CASE("MessageBuffer Decode Exception")
 {
@@ -182,15 +196,25 @@ TEST_CASE("PublishIntentEnd Message encode/decode")
 
 TEST_CASE("VarInt Encode/Decode")
 {
-  MessageBuffer buffer;
-  std::vector<uintVar_t> values = { 128_uV, 16384_uV, 536870912_uV };
-  for (const auto& value : values) {
-    buffer << value;
-    uintVar_t out;
-    buffer >> out;
+  constexpr uintVar_t in{56u};
+  (void)in;
+  std::vector<uintVar_t> values = { 56_uV, 127_uV, 128_uV, 16384_uV, 536870912_uV };
+  std::vector<uintVar_t> out_values(values.size());
+  std::vector<size_t> sizes = {1, 1, 2, 4, 8};
 
-    CHECK_EQ(out, value);
+  int i = 0;
+  for (const auto& value : values) {
+    MessageBuffer buffer;
+    CHECK_NOTHROW(buffer << value);
+    REQUIRE_EQ(buffer.size(), sizes[i]);
+    CHECK_NOTHROW(buffer >> out_values[i++]);
   }
+
+  CHECK_EQ(out_values[0], values[0]);
+  CHECK_EQ(out_values[1], values[1]);
+  CHECK_EQ(out_values[2], values[2]);
+  CHECK_EQ(out_values[3], values[3]);
+  CHECK_EQ(out_values[4], values[4]);
 }
 
 /*===========================================================================*/

@@ -50,7 +50,7 @@ MessageBuffer::MessageBuffer(buffer_type&& buffer)
 }
 
 void
-MessageBuffer::push(const_span_type data)
+MessageBuffer::push(span_type data)
 {
   const auto length = _buffer.size();
   _buffer.resize(length + data.size());
@@ -83,7 +83,7 @@ MessageBuffer::front() const
   return *begin();
 }
 
-MessageBuffer::const_span_type
+MessageBuffer::span_type
 MessageBuffer::front(uint16_t length) const
 {
   if (length == 0)

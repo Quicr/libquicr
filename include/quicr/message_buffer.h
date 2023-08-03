@@ -110,7 +110,7 @@ private:
 public:
   using value_type = std::uint8_t;
   using buffer_type = std::vector<value_type>;
-  using const_span_type = std::span<const value_type>;
+  using span_type = std::span<const value_type>;
 
   using iterator = buffer_type::iterator;
   using const_iterator = buffer_type::const_iterator;
@@ -144,14 +144,14 @@ public:
   const_pointer data() const noexcept { return _buffer.data() + _read_offset; }
 
   void push(const value_type& value) { _buffer.push_back(value); }
-  void push(const_span_type data);
+  void push(span_type data);
   void push(buffer_type&& data);
 
   void pop() { cleanup(); }
   void pop(uint16_t length);
 
   const value_type& front() const;
-  const_span_type front(uint16_t length) const;
+  span_type front(uint16_t length) const;
 
   value_type pop_front();
   buffer_type pop_front(uint16_t length);
