@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include "quicr/quicr_client_common.h"
-#include "quicr/quicr_client_delegate.h"
-#include "quicr/quicr_common.h"
+#include "quicr_client_common.h"
+#include "quicr_client_delegate.h"
+#include "quicr_common.h"
 
 #include <quicr/namespace.h>
 

@@ -1,20 +1,27 @@
 #pragma once
 
-#include "quicr/encode.h"
-#include "quicr/message_buffer.h"
-#include "quicr/quicr_client_common.h"
-#include "quicr/quicr_client_delegate.h"
-#include "quicr/quicr_client_session.h"
-#include "quicr/quicr_common.h"
+#include "encode.h"
+#include "message_buffer.h"
+#include "quicr_client_common.h"
+#include "quicr_client_delegate.h"
+#include "quicr_client_session.h"
+#include "quicr_common.h"
 
 #include <quicr_name>
-#include <transport/transport.h>
 
 #include <map>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
+
+/**
+ * Forward declarations
+ */
+namespace qtransport {
+class ITransport;
+class LogHandler;
+struct TransportConfig;
+}
 
 namespace quicr {
 

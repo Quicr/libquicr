@@ -1,9 +1,11 @@
 #pragma once
+
+#include <quicr_name>
+
+#include <array>
 #include <optional>
 #include <string>
 #include <vector>
-
-#include <quicr_name>
 
 namespace quicr {
 
@@ -16,7 +18,6 @@ namespace quicr {
  */
 constexpr uint16_t MAX_TRANSPORT_DATA_SIZE = 1200;
 
-// TODO: Do we need a different structure or the name
 using bytes = std::vector<uint8_t>;
 
 /**
@@ -80,7 +81,6 @@ struct RelayInfo
  */
 struct SubscribeResult
 {
-  // TODO: Should be replaced with messages::Response
   enum class SubscribeStatus
   {
     Ok = 0,  // Success

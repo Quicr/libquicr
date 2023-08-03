@@ -51,19 +51,17 @@ struct Unsubscribe
   quicr::Namespace quicr_namespace;
 };
 
+// TODO: Add missing fields:
 struct SubscribeResponse
 {
   quicr::Namespace quicr_namespace;
   SubscribeResult::SubscribeStatus response;
   uint64_t transaction_id;
-  /* TODO:
-   *
-   * signature(32)
-   * [Reason Phrase Length (i)],
-   * [Reason Phrase (..)],
-   * [redirect_relay_url_length(i)],
-   * [redirect_relay_url(…)..]
-   */
+  // * - signature(32)
+  // * - [Reason Phrase Length (i)],
+  // * - [Reason Phrase (..)],
+  // * - [redirect_relay_url_length(i)],
+  // * - [redirect_relay_url(…)..]
 };
 
 struct SubscribeEnd
@@ -76,15 +74,16 @@ struct SubscribeEnd
 // Publish Message Types
 /*===========================================================================*/
 
+// TODO: Add missing fields:
 struct PublishIntent
 {
   MessageType message_type;
-  //  *     origin_url_length(i),
-  //  *     origin_url(…)…,
+  // * origin_url_length(i),
+  // * origin_url(…)…,
   uint64_t transaction_id;
   quicr::Namespace quicr_namespace;
-  //  *     relay_auth_token_length(i),
-  //  *     relay_token(…),
+  // * relay_auth_token_length(i),
+  // * relay_token(…),
   std::vector<uint8_t> payload;
   uintVar_t media_id;
   uintVar_t datagram_capable;
@@ -96,9 +95,9 @@ struct PublishIntentResponse
   quicr::Namespace quicr_namespace;
   Response response;
   uint64_t transaction_id;
-  // *  signature(32)
-  // *  [Reason Phrase Length (i),
-  // *  [Reason Phrase (..)],
+  // * signature(32)
+  // * [Reason Phrase Length (i),
+  // * [Reason Phrase (..)],
 };
 
 struct Header
@@ -125,12 +124,13 @@ struct PublishStream
   std::vector<uint8_t> media_data;
 };
 
+// TODO: Add missing fields:
 struct PublishIntentEnd
 {
   MessageType message_type;
   quicr::Namespace quicr_namespace;
-  //  * relay_auth_token_length(i),
-  //  * relay_token(…),
+  // * relay_auth_token_length(i),
+  // * relay_token(…),
   std::vector<uint8_t> payload;
 };
 
@@ -141,7 +141,7 @@ struct PublishIntentEnd
 struct Fetch
 {
   uint64_t transaction_id;
-  quicr::Name name; // resource to retrieve
+  quicr::Name name;
   // TODO - Add authz
 };
 }

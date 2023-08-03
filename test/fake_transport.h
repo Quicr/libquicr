@@ -18,7 +18,7 @@ struct FakeTransportDelegate : public ITransport::TransportDelegate
   }
 
   virtual void on_new_stream(const TransportContextId& /* context_id */,
-                                   const StreamId& /* streamId */) override
+                             const StreamId& /* streamId */) override
   {
   }
 
@@ -46,7 +46,7 @@ struct FakeTransport : public ITransport
   void close(const TransportContextId& /* context_id */){};
 
   void closeStream(const TransportContextId& /* context_id */,
-                        StreamId /* streamId */){};
+                   StreamId /* streamId */){};
   void close() {}
 
   TransportError enqueue(const TransportContextId& /* tcid */,
@@ -59,8 +59,9 @@ struct FakeTransport : public ITransport
     return TransportError::None;
   }
 
-  std::optional<std::vector<uint8_t>> dequeue(const TransportContextId& /* tcid */,
-                                              const StreamId& /* sid */)
+  std::optional<std::vector<uint8_t>> dequeue(
+    const TransportContextId& /* tcid */,
+    const StreamId& /* sid */)
   {
     return std::nullopt;
   }

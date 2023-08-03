@@ -10,28 +10,29 @@ using quicr::bytes;
 
 namespace quicr::messages {
 
-// clang-format off
 namespace {
-#define STRINGIFY(n) #n
-#define ENUM_MAPPING_ENTRY(n) { n, STRINGIFY(n) }
-std::map<MessageType, std::string> message_type_name = {
-  ENUM_MAPPING_ENTRY(MessageType::Unknown),
-  ENUM_MAPPING_ENTRY(MessageType::Subscribe),
-  ENUM_MAPPING_ENTRY(MessageType::SubscribeResponse),
-  ENUM_MAPPING_ENTRY(MessageType::SubscribeEnd),
-  ENUM_MAPPING_ENTRY(MessageType::Unsubscribe),
-  ENUM_MAPPING_ENTRY(MessageType::Publish),
-  ENUM_MAPPING_ENTRY(MessageType::PublishIntent),
-  ENUM_MAPPING_ENTRY(MessageType::PublishIntentResponse),
-  ENUM_MAPPING_ENTRY(MessageType::PublishIntentEnd),
-  ENUM_MAPPING_ENTRY(MessageType::Fetch),
-};
-#undef ENUM_MAPPING_ENTRY
-#undef ENUM_STRINGIFY
-
-std::string to_string(MessageType type) { return message_type_name[type]; }
+std::string
+to_string(MessageType type)
+{
+// clang-format off
+#define ENUM_MAP_ENTRY(n) { n, #n }
+  // clang-format on
+  static std::map<MessageType, std::string> message_type_name = {
+    ENUM_MAP_ENTRY(MessageType::Unknown),
+    ENUM_MAP_ENTRY(MessageType::Subscribe),
+    ENUM_MAP_ENTRY(MessageType::SubscribeResponse),
+    ENUM_MAP_ENTRY(MessageType::SubscribeEnd),
+    ENUM_MAP_ENTRY(MessageType::Unsubscribe),
+    ENUM_MAP_ENTRY(MessageType::Publish),
+    ENUM_MAP_ENTRY(MessageType::PublishIntent),
+    ENUM_MAP_ENTRY(MessageType::PublishIntentResponse),
+    ENUM_MAP_ENTRY(MessageType::PublishIntentEnd),
+    ENUM_MAP_ENTRY(MessageType::Fetch),
+  };
+#undef ENUM_MAP_ENTRY
+  return message_type_name[type];
 }
-// clang-format on
+}
 
 MessageTypeException::MessageTypeException(MessageType type,
                                            MessageType expected_type)
@@ -60,16 +61,18 @@ create_transaction_id()
 /*===========================================================================*/
 
 MessageBuffer&
-operator<<(MessageBuffer& msg, quicr::Namespace value)
+operator<<(MessageBuffer& msg, const Namespace& value)
 {
+  // TODO: These should be swapped around.
   return msg << value.name() << value.length();
 }
 
 MessageBuffer&
-operator>>(MessageBuffer& msg, quicr::Namespace& value)
+operator>>(MessageBuffer& msg, Namespace& value)
 {
-  quicr::Name name;
+  Name name;
   uint8_t length;
+  // TODO: These should be swapped around.
   msg >> name >> length;
 
   value = { name, length };
@@ -77,7 +80,7 @@ operator>>(MessageBuffer& msg, quicr::Namespace& value)
 }
 
 MessageBuffer&
-operator<<(MessageBuffer& msg, const quicr::uintVar_t& v)
+operator<<(MessageBuffer& msg, const uintVar_t& v)
 {
   uint64_t val = v;
 
@@ -113,7 +116,7 @@ operator<<(MessageBuffer& msg, const quicr::uintVar_t& v)
 }
 
 MessageBuffer&
-operator>>(MessageBuffer& msg, quicr::uintVar_t& v)
+operator>>(MessageBuffer& msg, uintVar_t& v)
 {
   uint8_t byte[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
   uint8_t first = msg.front();
