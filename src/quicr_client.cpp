@@ -53,7 +53,7 @@ QuicRClient::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                            const quicr::Namespace& quicr_namespace,
                            const std::string& origin_url,
                            const std::string& auth_token,
-                           bytes&& payload)
+                           unowned_bytes payload)
 {
   return client_session->publishIntent(
     pub_delegate, quicr_namespace, origin_url, auth_token, std::move(payload));
@@ -73,7 +73,7 @@ QuicRClient::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
                        const std::string& origin_url,
                        bool use_reliable_transport,
                        const std::string& auth_token,
-                       bytes&& e2e_token)
+                       unowned_bytes e2e_token)
 {
   client_session->subscribe(subscriber_delegate,
                             quicr_namespace,
@@ -97,7 +97,7 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
                                 uint8_t priority,
                                 uint16_t expiry_age_ms,
                                 bool use_reliable_transport,
-                                bytes&& data)
+                                unowned_bytes data)
 {
   client_session->publishNamedObject(quicr_name,
                                      priority,
@@ -113,7 +113,7 @@ QuicRClient::publishNamedObjectFragment(const quicr::Name& quicr_name,
                                         bool use_reliable_transport,
                                         const uint64_t& offset,
                                         bool is_last_fragment,
-                                        bytes&& data)
+                                        unowned_bytes data)
 {
   client_session->publishNamedObjectFragment(quicr_name,
                                              priority,

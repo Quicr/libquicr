@@ -28,7 +28,7 @@ struct TestSubscriberDelegate : public SubscriberDelegate
                           uint8_t /* priority */,
                           uint16_t /* expiry_age_ms */,
                           bool /* use_reliable_transport */,
-                          bytes&& /* data */)
+                          unowned_bytes /* data */)
   {
   }
 
@@ -38,7 +38,7 @@ struct TestSubscriberDelegate : public SubscriberDelegate
                                   bool /* use_reliable_transport */,
                                   const uint64_t& /* offset */,
                                   bool /* is_last_fragment */,
-                                  bytes&& /* data */)
+                                  unowned_bytes /* data */)
   {
   }
 };
@@ -95,12 +95,12 @@ TEST_CASE("Publish encode, send and receive")
   qclient->publishIntent(
     pub_delegate, { 0x10000000000000002000_name, 80 }, "", "", {});
   qclient->publishNamedObject(
-    0x10000000000000002000_name, 0, 0, false, std::move(say_hello));
+    0x10000000000000002000_name, 0, 0, false, say_hello);
 
   auto fake_transport = std::reinterpret_pointer_cast<FakeTransport>(transport);
   messages::PublishDatagram d;
   messages::MessageBuffer msg{ fake_transport->stored_data };
   msg >> d;
   say_hello = { 'H', 'E', 'L', 'L', '0' };
-  CHECK_EQ(d.media_data, say_hello);
+  CHECK_EQ(std::get<bytes>(d.media_data), say_hello);
 }

@@ -315,7 +315,7 @@ operator<<(MessageBuffer& buffer, const PublishIntent& msg)
   buffer << static_cast<uint8_t>(msg.message_type);
   buffer << msg.transaction_id;
   buffer << msg.quicr_namespace;
-  buffer << msg.payload;
+  buffer << std::get<unowned_bytes>(msg.payload);
   buffer << msg.media_id;
   buffer << msg.datagram_capable;
   return buffer;
@@ -327,7 +327,7 @@ operator<<(MessageBuffer& buffer, PublishIntent&& msg)
   buffer << static_cast<uint8_t>(msg.message_type);
   buffer << msg.transaction_id;
   buffer << msg.quicr_namespace;
-  buffer << std::move(msg.payload);
+  buffer << std::get<unowned_bytes>(msg.payload);
   buffer << msg.media_id;
   buffer << msg.datagram_capable;
   return buffer;
@@ -342,7 +342,7 @@ operator>>(MessageBuffer& buffer, PublishIntent& msg)
 
   buffer >> msg.transaction_id;
   buffer >> msg.quicr_namespace;
-  buffer >> msg.payload;
+  buffer >> std::get<bytes>(msg.payload);
   buffer >> msg.media_id;
   buffer >> msg.datagram_capable;
 
@@ -411,7 +411,7 @@ operator<<(MessageBuffer& buffer, const PublishDatagram& msg)
   buffer << msg.header;
   buffer << static_cast<uint8_t>(msg.media_type);
   buffer << msg.media_data_length;
-  buffer << msg.media_data;
+  buffer << std::get<unowned_bytes>(msg.media_data);
 
   return buffer;
 }
@@ -423,7 +423,7 @@ operator<<(MessageBuffer& buffer, PublishDatagram&& msg)
   buffer << std::move(msg.header);
   buffer << static_cast<uint8_t>(msg.media_type);
   buffer << msg.media_data_length;
-  buffer << std::move(msg.media_data);
+  buffer << std::get<unowned_bytes>(msg.media_data);
 
   return buffer;
 }
@@ -444,10 +444,10 @@ operator>>(MessageBuffer& buffer, PublishDatagram& msg)
   msg.media_type = static_cast<MediaType>(media_type);
 
   buffer >> msg.media_data_length;
-  buffer >> msg.media_data;
+  buffer >> std::get<bytes>(msg.media_data);
 
-  if (msg.media_data.size() != static_cast<size_t>(msg.media_data_length)) {
-    throw MessageBuffer::LengthException(msg.media_data.size(),
+  if (std::get<bytes>(msg.media_data).size() != static_cast<size_t>(msg.media_data_length)) {
+    throw MessageBuffer::LengthException(std::get<bytes>(msg.media_data).size(),
                                          msg.media_data_length);
   }
 
@@ -458,7 +458,7 @@ MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishStream& msg)
 {
   buffer << msg.media_data_length;
-  buffer << msg.media_data;
+  buffer << std::get<unowned_bytes>(msg.media_data);
   return buffer;
 }
 
@@ -466,7 +466,7 @@ MessageBuffer&
 operator<<(MessageBuffer& buffer, PublishStream&& msg)
 {
   buffer << msg.media_data_length;
-  buffer << std::move(msg.media_data);
+  buffer << std::get<unowned_bytes>(msg.media_data);
   return buffer;
 }
 
@@ -474,9 +474,9 @@ MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishStream& msg)
 {
   buffer >> msg.media_data_length;
-  buffer >> msg.media_data;
-  if (msg.media_data.size() != static_cast<size_t>(msg.media_data_length)) {
-    throw MessageBuffer::LengthException(msg.media_data.size(),
+  buffer >> std::get<bytes>(msg.media_data);
+  if (std::get<bytes>(msg.media_data).size() != static_cast<size_t>(msg.media_data_length)) {
+    throw MessageBuffer::LengthException(std::get<bytes>(msg.media_data).size(),
                                          msg.media_data_length);
   }
 
@@ -488,7 +488,7 @@ operator<<(MessageBuffer& buffer, const PublishIntentEnd& msg)
 {
   buffer << static_cast<uint8_t>(msg.message_type);
   buffer << msg.quicr_namespace;
-  buffer << msg.payload;
+  buffer << std::get<unowned_bytes>(msg.payload);
 
   return buffer;
 }
@@ -498,7 +498,7 @@ operator<<(MessageBuffer& buffer, PublishIntentEnd&& msg)
 {
   buffer << static_cast<uint8_t>(msg.message_type);
   buffer << msg.quicr_namespace;
-  buffer << std::move(msg.payload);
+  buffer << std::get<unowned_bytes>(msg.payload);
 
   return buffer;
 }
@@ -511,7 +511,7 @@ operator>>(MessageBuffer& buffer, PublishIntentEnd& msg)
   msg.message_type = static_cast<MessageType>(msg_type);
 
   buffer >> msg.quicr_namespace;
-  buffer >> msg.payload;
+  buffer >> std::get<bytes>(msg.payload);
 
   return buffer;
 }

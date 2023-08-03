@@ -4,6 +4,7 @@
 
 #include <array>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -19,6 +20,7 @@ namespace quicr {
 constexpr uint16_t MAX_TRANSPORT_DATA_SIZE = 1200;
 
 using bytes = std::vector<uint8_t>;
+using unowned_bytes = std::span<uint8_t>;
 
 /**
  * Context information managed by the underlying QUICR Stack

@@ -48,7 +48,7 @@ public:
                           [[maybe_unused]] uint8_t priority,
                           [[maybe_unused]] uint16_t expiry_age_ms,
                           [[maybe_unused]] bool use_reliable_transport,
-                          [[maybe_unused]] quicr::bytes&& data) override
+                          [[maybe_unused]] quicr::unowned_bytes data) override
   {
     std::stringstream log_msg;
 
@@ -68,7 +68,7 @@ public:
     [[maybe_unused]] bool use_reliable_transport,
     [[maybe_unused]] const uint64_t& offset,
     [[maybe_unused]] bool is_last_fragment,
-    [[maybe_unused]] quicr::bytes&& data) override
+    [[maybe_unused]] quicr::unowned_bytes data) override
   {
   }
 
@@ -150,7 +150,7 @@ main(int argc, char* argv[])
 
     // do publish
     logger.log(qtransport::LogLevel::info, "Publish");
-    client.publishNamedObject(name, 0, 10000, false, std::move(data));
+    client.publishNamedObject(name, 0, 10000, false, data);
 
   } else {
     // do subscribe
@@ -167,7 +167,7 @@ main(int argc, char* argv[])
     quicr::SubscribeIntent intent = quicr::SubscribeIntent::immediate;
     quicr::bytes empty;
     client.subscribe(
-      sd, nspace, intent, "origin_url", false, "auth_token", std::move(empty));
+      sd, nspace, intent, "origin_url", false, "auth_token", empty);
 
     logger.log(qtransport::LogLevel::info,
                "Sleeping for 20 seconds before unsubscribing");

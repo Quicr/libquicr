@@ -86,7 +86,7 @@ public:
                                   uint8_t priority,
                                   uint16_t expiry_age_ms,
                                   bool use_reliable_transport,
-                                  bytes&& data) = 0;
+                                  unowned_bytes data) = 0;
 
   /**
    * @brief Report arrival of subscribed QUICR object fragment under a Name
@@ -115,7 +115,7 @@ public:
                                           bool use_reliable_transport,
                                           const uint64_t& offset,
                                           bool is_last_fragment,
-                                          bytes&& data) = 0;
+                                          unowned_bytes data) = 0;
 };
 
 /**

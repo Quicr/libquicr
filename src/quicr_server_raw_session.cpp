@@ -363,7 +363,7 @@ QuicRServerRawSession::handle_publish_intent(
                            "" /* intent.origin_url */,
                            false,
                            "" /* intent.relay_token */,
-                           std::move(intent.payload));
+                           std::get<unowned_bytes>(intent.payload));
 }
 
 void
@@ -385,7 +385,7 @@ QuicRServerRawSession::handle_publish_intent_end(
 
   delegate.onPublishIntentEnd(intent_end.quicr_namespace,
                               "" /* intent_end.relay_token */,
-                              std::move(intent_end.payload));
+                              std::get<unowned_bytes>(intent_end.payload));
 }
 
 /*===========================================================================*/

@@ -144,7 +144,7 @@ public:
                                const std::string& /* origin_url */,
                                bool /* use_reliable_transport */,
                                const std::string& /* auth_token */,
-                               quicr::bytes&& /* e2e_token */)
+                               quicr::unowned_bytes /* e2e_token */)
   {
     // TODO: Authenticate token
     logger.log(qtransport::LogLevel::info,
@@ -155,7 +155,7 @@ public:
 
   virtual void onPublishIntentEnd(const quicr::Namespace& /* quicr_namespace */,
                                   const std::string& /* auth_token */,
-                                  quicr::bytes&& /* e2e_token */)
+                                  quicr::unowned_bytes /* e2e_token */)
   {
   }
 
@@ -209,7 +209,7 @@ public:
     [[maybe_unused]] const std::string& origin_url,
     [[maybe_unused]] bool use_reliable_transport,
     [[maybe_unused]] const std::string& auth_token,
-    [[maybe_unused]] quicr::bytes&& data)
+    [[maybe_unused]] quicr::unowned_bytes data)
   {
     std::ostringstream log_msg;
     log_msg << "onSubscribe: Namespace " << quicr_namespace << "/"

@@ -16,13 +16,13 @@ class TestServerDelegate : public ServerDelegate
                                const std::string& /* origin_url */,
                                bool /* use_reliable_transport */,
                                const std::string& /* auth_token */,
-                               bytes&& /* e2e_token */) override
+                               unowned_bytes /* e2e_token */) override
   {
   }
 
   virtual void onPublishIntentEnd(const quicr::Namespace&,
                                   const std::string&,
-                                  bytes&&) override
+                                  unowned_bytes) override
   {
   }
 
@@ -43,7 +43,7 @@ class TestServerDelegate : public ServerDelegate
     const std::string& /* origin_url */,
     bool /* use_reliable_transport */,
     const std::string& /* auth_token */,
-    bytes&& /* data */) override
+    unowned_bytes /* data */) override
   {
   }
 

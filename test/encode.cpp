@@ -107,18 +107,20 @@ TEST_CASE("Unsubscribe Message encode/decode")
 TEST_CASE("PublishIntent Message encode/decode")
 {
   quicr::Namespace qnamespace{ 0x10000000000000002000_name, 125 };
-  PublishIntent pi{ MessageType::Publish, 0x1000,
-                    qnamespace,           { 0, 1, 2, 3, 4 },
-                    uintVar_t{ 0x0100 },  uintVar_t{ 0x0000 } };
+  quicr::bytes payload = { 0, 1, 2, 3, 4 };
+  PublishIntent pi{
+    MessageType::Publish, 0x1000, qnamespace, std::span{payload}, uintVar_t{ 0x0100 },
+    uintVar_t{ 0x0000 },
+  };
   MessageBuffer buffer;
-  buffer << pi;
+  CHECK_NOTHROW(buffer << pi);
   PublishIntent pi_out;
   CHECK_NOTHROW((buffer >> pi_out));
 
   CHECK_EQ(pi_out.message_type, pi.message_type);
   CHECK_EQ(pi_out.transaction_id, pi.transaction_id);
   CHECK_EQ(pi_out.quicr_namespace, pi.quicr_namespace);
-  CHECK_EQ(pi_out.payload, pi.payload);
+  CHECK_NOTHROW(CHECK_EQ(std::get<bytes>(pi_out.payload), payload));
   CHECK_EQ(pi_out.media_id, pi.media_id);
   CHECK_EQ(pi_out.datagram_capable, pi.datagram_capable);
 }
@@ -148,7 +150,7 @@ TEST_CASE("Publish Message encode/decode")
   for (int i = 0; i < 256; ++i)
     data[i] = i;
 
-  PublishDatagram p{ d, MediaType::Text, uintVar_t{ 256 }, data };
+  PublishDatagram p{ d, MediaType::Text, uintVar_t{ 256 }, std::span{data} };
   MessageBuffer buffer;
   buffer << p;
   PublishDatagram p_out;
@@ -162,27 +164,26 @@ TEST_CASE("Publish Message encode/decode")
   CHECK_EQ(p_out.header.flags, p.header.flags);
   CHECK_EQ(p_out.media_type, p.media_type);
   CHECK_EQ(p_out.media_data_length, p.media_data_length);
-  CHECK_EQ(p_out.media_data, p.media_data);
-  CHECK_EQ(p_out.media_data, data);
+  CHECK_EQ(std::get<bytes>(p_out.media_data), data);
 }
 
 TEST_CASE("PublishStream Message encode/decode")
 {
-  PublishStream ps{ uintVar_t{ 5 }, { 0, 1, 2, 3, 4 } };
+  quicr::bytes payload = { 0, 1, 2, 3, 4 };
+  PublishStream ps{ uintVar_t{ 5 }, std::span{payload} };
   MessageBuffer buffer;
   buffer << ps;
   PublishStream ps_out;
   CHECK_NOTHROW((buffer >> ps_out));
 
   CHECK_EQ(ps_out.media_data_length, ps.media_data_length);
-  CHECK_EQ(ps_out.media_data, ps.media_data);
+  CHECK_EQ(std::get<bytes>(ps_out.media_data), payload);
 }
 
 TEST_CASE("PublishIntentEnd Message encode/decode")
 {
-  PublishIntentEnd pie{ MessageType::Publish,
-                        { 12345_name, 0u },
-                        { 0, 1, 2, 3, 4 } };
+  quicr::bytes payload = { 0, 1, 2, 3, 4 };
+  PublishIntentEnd pie{ MessageType::Publish, { 12345_name, 0u }, std::span{payload} };
   MessageBuffer buffer;
   buffer << pie;
   PublishIntentEnd pie_out;
@@ -190,7 +191,7 @@ TEST_CASE("PublishIntentEnd Message encode/decode")
 
   CHECK_EQ(pie_out.message_type, pie.message_type);
   CHECK_EQ(pie_out.quicr_namespace, pie.quicr_namespace);
-  CHECK_EQ(pie_out.payload, pie.payload);
+  CHECK_EQ(std::get<bytes>(pie_out.payload), payload);
 }
 
 TEST_CASE("VarInt Encode/Decode")

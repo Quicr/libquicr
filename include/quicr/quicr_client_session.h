@@ -74,7 +74,7 @@ public:
                              const quicr::Namespace& quicr_namespace,
                              const std::string& origin_url,
                              const std::string& auth_token,
-                             bytes&& payload) = 0;
+                             unowned_bytes payload) = 0;
 
   /**
    * @brief Stop publishing on the given QUICR namespace
@@ -118,7 +118,7 @@ public:
     const std::string& origin_url,
     bool use_reliable_transport,
     const std::string& auth_token,
-    bytes&& e2e_token) = 0;
+    unowned_bytes e2e_token) = 0;
 
   /**
    * @brief Stop subscription on the given QUICR namespace
@@ -149,7 +149,7 @@ public:
                                   uint8_t priority,
                                   uint16_t expiry_age_ms,
                                   bool use_reliable_transport,
-                                  bytes&& data) = 0;
+                                  unowned_bytes data) = 0;
 
   /**
    * @brief Publish Named object
@@ -171,7 +171,7 @@ public:
                                           bool use_reliable_transport,
                                           const uint64_t& offset,
                                           bool is_last_fragment,
-                                          bytes&& data) = 0;
+                                          unowned_bytes data) = 0;
 };
 
 } // namespace quicr

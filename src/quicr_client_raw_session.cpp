@@ -281,7 +281,7 @@ QuicRClientRawSession::publishIntent(
   const quicr::Namespace& quicr_namespace,
   const std::string& /* origin_url */,
   const std::string& /* auth_token */,
-  bytes&& payload)
+  unowned_bytes payload)
 {
   if (!pub_delegates.count(quicr_namespace)) {
     pub_delegates[quicr_namespace] = pub_delegate;
@@ -295,12 +295,12 @@ QuicRClientRawSession::publishIntent(
   messages::PublishIntent intent{ messages::MessageType::PublishIntent,
                                   messages::create_transaction_id(),
                                   quicr_namespace,
-                                  std::move(payload),
+                                  payload,
                                   transport_stream_id,
                                   1 };
 
   messages::MessageBuffer msg{ sizeof(messages::PublishIntent) +
-                               intent.payload.size() };
+                               std::get<unowned_bytes>(intent.payload).size() };
   msg << intent;
 
   auto error =
@@ -341,7 +341,7 @@ QuicRClientRawSession::subscribe(
   [[maybe_unused]] const std::string& origin_url,
   [[maybe_unused]] bool use_reliable_transport,
   [[maybe_unused]] const std::string& auth_token,
-  [[maybe_unused]] bytes&& e2e_token)
+  [[maybe_unused]] unowned_bytes e2e_token)
 {
 
   std::lock_guard<std::mutex> lock(session_mutex);
@@ -408,7 +408,7 @@ QuicRClientRawSession::publishNamedObject(
   uint8_t priority,
   uint16_t expiry_age_ms,
   [[maybe_unused]] bool use_reliable_transport,
-  bytes&& data)
+  unowned_bytes data)
 {
   // start populating message to encode
   messages::PublishDatagram datagram;
@@ -477,7 +477,7 @@ QuicRClientRawSession::publishNamedObject(
     messages::MessageBuffer msg;
 
     datagram.media_data_length = static_cast<uintVar_t>(data.size());
-    datagram.media_data = std::move(data);
+    datagram.media_data = data;
 
     msg << datagram;
 
@@ -569,7 +569,7 @@ QuicRClientRawSession::publishNamedObjectFragment(
   bool /* use_reliable_transport */,
   const uint64_t& /* offset */,
   bool /* is_last_fragment */,
-  bytes&& /* data */)
+  unowned_bytes /* data */)
 {
   throw std::runtime_error("UnImplemented");
 }
@@ -601,7 +601,7 @@ QuicRClientRawSession::notify_pub_fragment(
 
   if (auto sub_delegate = delegate.lock())
     sub_delegate->onSubscribedObject(
-      datagram.header.name, 0x0, 0x0, false, std::move(reassembled));
+      datagram.header.name, 0x0, 0x0, false, reassembled);
 
   return true;
 }
@@ -619,7 +619,7 @@ QuicRClientRawSession::handle_pub_fragment(
     // Found
     auto& [_, buffer] = *msg_iter;
     buffer.emplace(datagram.header.offset_and_fin,
-                   std::move(datagram.media_data));
+                   std::get<bytes>(datagram.media_data));
     if (notify_pub_fragment(datagram, delegate, buffer))
       fragments[cindex].erase(msg_iter);
 
@@ -630,13 +630,14 @@ QuicRClientRawSession::handle_pub_fragment(
       if (msg_iter == buf.second.end()) {
         // If not found in any buffer, then add to current buffer
         fragments[cindex][datagram.header.name].emplace(
-          datagram.header.offset_and_fin, std::move(datagram.media_data));
+          datagram.header.offset_and_fin,
+          std::get<bytes>(datagram.media_data));
         continue;
       }
 
       // Found
       msg_iter->second.emplace(datagram.header.offset_and_fin,
-                               std::move(datagram.media_data));
+                   std::get<bytes>(datagram.media_data));
       if (notify_pub_fragment(datagram, delegate, msg_iter->second)) {
         buf.second.erase(msg_iter);
       }
@@ -730,11 +731,12 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
           // No-fragment, process as single object
 
           if (auto sub_delegate = delegate.lock()) {
-            sub_delegate->onSubscribedObject(datagram.header.name,
-                                             0x0,
-                                             0x0,
-                                             false,
-                                             std::move(datagram.media_data));
+            sub_delegate->onSubscribedObject(
+              datagram.header.name,
+              0x0,
+              0x0,
+              false,
+              std::get<unowned_bytes>(datagram.media_data));
           }
         } else { // is a fragment
           handle_pub_fragment(std::move(datagram), delegate);

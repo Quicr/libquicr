@@ -59,7 +59,7 @@ public:
                                const std::string& origin_url,
                                bool use_reliable_transport,
                                const std::string& auth_token,
-                               bytes&& e2e_token) = 0;
+                               unowned_bytes e2e_token) = 0;
 
   /**
    * @brief Reports intent to publish for name is ended.
@@ -70,7 +70,7 @@ public:
    */
   virtual void onPublishIntentEnd(const quicr::Namespace& quicr_namespace,
                                   const std::string& auth_token,
-                                  bytes&& e2e_token) = 0;
+                                  unowned_bytes e2e_token) = 0;
 
   /**
    * @brief Reports arrival of fully assembled QUICR object under the name
@@ -131,7 +131,7 @@ public:
                            const std::string& origin_url,
                            bool use_reliable_transport,
                            const std::string& auth_token,
-                           bytes&& data) = 0;
+                           unowned_bytes data) = 0;
 
   /**
    * @brief Unsubscribe callback method
