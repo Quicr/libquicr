@@ -16,7 +16,7 @@ to_string(MessageType type)
 {
 // clang-format off
 #define ENUM_MAP_ENTRY(n) { n, #n }
-// clang-format on
+  // clang-format on
   static std::map<MessageType, std::string> message_type_name = {
     ENUM_MAP_ENTRY(MessageType::Unknown),
     ENUM_MAP_ENTRY(MessageType::Subscribe),

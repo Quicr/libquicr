@@ -196,11 +196,13 @@ TEST_CASE("PublishIntentEnd Message encode/decode")
 
 TEST_CASE("VarInt Encode/Decode")
 {
-  constexpr uintVar_t in{56u};
+  constexpr uintVar_t in{ 56u };
   (void)in;
-  std::vector<uintVar_t> values = { 56_uV, 127_uV, 128_uV, 16384_uV, 536870912_uV };
+  std::vector<uintVar_t> values = {
+    56_uV, 127_uV, 128_uV, 16384_uV, 536870912_uV
+  };
   std::vector<uintVar_t> out_values(values.size());
-  std::vector<size_t> sizes = {1, 1, 2, 4, 8};
+  std::vector<size_t> sizes = { 1, 1, 2, 4, 8 };
 
   int i = 0;
   for (const auto& value : values) {
