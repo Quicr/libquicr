@@ -1,6 +1,5 @@
 #include <doctest/doctest.h>
 
-#include <ios>
 #include <quicr/encode.h>
 #include <quicr/message_buffer.h>
 #include <quicr/quicr_common.h>
