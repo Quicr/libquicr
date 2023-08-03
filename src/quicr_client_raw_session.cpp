@@ -88,8 +88,6 @@ QuicRClientRawSession::QuicRClientRawSession(
   qtransport::TransportRemote server = to_TransportRemote(relay_info);
   transport = qtransport::ITransport::make_client_transport(
     server, std::move(tconfig), *this, logger);
-
-  connect();
 }
 
 QuicRClientRawSession::QuicRClientRawSession(
