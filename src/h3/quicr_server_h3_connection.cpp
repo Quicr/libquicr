@@ -534,7 +534,7 @@ H3ServerConnection::SendNamedObject(const PubSubRecord& subscriber,
 
     // If told to use a reliable transport or if the peer does not support
     // datagrams, the message will be sent reliably
-    if (true || use_reliable_transport || !using_datagrams) {
+    if (use_reliable_transport || !using_datagrams) {
       quicr::messages::MessageBuffer message_buffer(sizeof(std::uint64_t) +
                                                     msg.size());
 
