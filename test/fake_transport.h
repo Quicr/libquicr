@@ -65,9 +65,9 @@ struct FakeTransport : public ITransport
     return TransportError::None;
   }
 
-  std::optional<std::vector<uint8_t>> dequeue(
+  std::optional<std::vector<uint8_t>> dequeue (
     const TransportContextId& /* tcid */,
-    const StreamId& /* sid */)
+    const StreamId& /* sid */) override
   {
     return std::nullopt;
   }

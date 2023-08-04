@@ -64,6 +64,7 @@ QuicRClientH3Session::QuicRClientH3Session(
   , logger{ nullptr }
   , timer_manager{ nullptr }
   , async_requests{ nullptr }
+  , relay_info{ relay_info }
   , transport{ nullptr }
   , transport_context{ 0 }
   , transport_delegate{ this }
@@ -142,20 +143,13 @@ QuicRClientH3Session::QuicRClientH3Session(
   transport = qtransport::ITransport::make_client_transport(
     transport_remote, transport_config, transport_delegate, transport_logger);
 
-  transport_context = transport->start();
-
   // Resolve the remote address
-  auto remote_address = cantina::FindIPv4Address(
+  remote_address = cantina::FindIPv4Address(
     relay_info.hostname, std::to_string(relay_info.port));
 
   // If unable to resolve the address, throw an exception
   if (!remote_address) {
     throw QuicRClientH3SessionException("Unable to resolve remote address");
-  }
-
-  // Initiate remote connection
-  if (!CreateNewConnection(relay_info.hostname, remote_address).first) {
-    throw QuicRClientH3SessionException("Unable to initiate remote connection");
   }
 
   logger->info << "QuicRClientH3Session started" << std::flush;
@@ -821,6 +815,83 @@ QuicRClientH3Session::GetRandomOctet()
 ////////////////////////////////////////////////////////////////////////////
 // Functions to satisfy the QuicRClient interface
 ////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @brief Connects the session using the info provided on construction.
+ * @returns True if connected, false otherwise.
+ */
+bool
+QuicRClientH3Session::connect()
+{
+  transport_context = transport->start();
+
+  // Initiate remote connection
+  if (!CreateNewConnection(relay_info.hostname, remote_address).first) {
+    logger->error << "Unable to initiate remote connection" << std::flush;
+    return false;
+  }
+
+  // Wait for the connection to be established
+  while (!terminate && (status() == ClientStatus::CONNECTING)) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+
+  // If the connection terminated, report false
+  if (status() == ClientStatus::TERMINATED)
+  {
+    logger->error << "Failed to establish a connection" << std::endl;
+    return false;
+  }
+
+  // If the client is not connected, destroy it
+  if (status() != ClientStatus::READY)
+  {
+    logger->error << "Connection attempt timed out" << std::endl;
+    disconnect();
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * @brief Disconnects the session from the relay.
+ * @returns True if successful, false if some error occurred.
+ */
+bool
+QuicRClientH3Session::disconnect()
+{
+  ConnectionMap connection_list;
+
+  // Lock the client mutex
+  std::unique_lock<std::mutex> lock(client_lock);
+
+  // Swap the active connections list
+  std::swap(connection_list, connections);
+
+  // Unlock the mutex
+  lock.unlock();
+
+  try
+  {
+    // Empty the local list (destroying active connections)
+    connection_list.clear();
+  }
+  catch (const std::exception &e)
+  {
+    logger->critical << "Exception caught cleaning up connections: " << e.what()
+                     << std::flush;
+    return false;
+  }
+  catch (...)
+  {
+    logger->critical << "Unknown exception caught will cleaning up connections"
+                     << std::flush;
+    return false;
+  }
+
+  return true;
+}
 
 /**
  * @brief Get the client status

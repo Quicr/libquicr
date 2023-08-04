@@ -140,6 +140,9 @@ main(int argc, char* argv[])
                                     .tls_key_filename = NULL };
   quicr::QuicRClient client(relay, tcfg, logger);
 
+  // Instruct the client to connect
+  client.connect();
+
   // Wait until the connection is established
   while(client.status() != quicr::ClientStatus::READY)
   {
@@ -191,6 +194,9 @@ main(int argc, char* argv[])
     logger.log(qtransport::LogLevel::info,
                "Sleeping for 15 seconds before exiting");
     std::this_thread::sleep_for(std::chrono::seconds(15));
+
+    // Instruct the client to disconnect
+    client.disconnect();
   }
   std::this_thread::sleep_for(std::chrono::seconds(5));
 

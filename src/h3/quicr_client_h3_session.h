@@ -70,6 +70,8 @@ public:
   // Functions to satisfy the QuicRClient interface
   ////////////////////////////////////////////////////////////////////////////
 
+  virtual bool connect() override;
+  virtual bool disconnect() override;
   virtual ClientStatus status() override;
   virtual bool publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                              const quicr::Namespace& quicr_namespace,
@@ -153,12 +155,14 @@ protected:
   cantina::LoggerPointer logger;                // Logger object
   cantina::TimerManagerPointer timer_manager;   // Timer manager
   cantina::AsyncRequestsPointer async_requests; // Asynchronous requests
+  RelayInfo relay_info;                         // Relay information
   TransportPointer transport;                   // Transport object
   qtransport::TransportContextId transport_context;
                                                 // Transport connection ID
   TransportDelegate<QuicRClientH3Session> transport_delegate;
                                                 // Transport delegate
   cantina::NetworkAddress local_address;        // Local client address
+  cantina::NetworkAddress remote_address;       // Remote server address
   std::string certificate;                      // Certificate file
   std::string certificate_key;                  // Certificate Key file
   bool verify_certificate;                      // Verify remote certificate?
