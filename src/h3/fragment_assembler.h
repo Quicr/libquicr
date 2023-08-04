@@ -25,7 +25,7 @@
 #include "quicr/name.h"
 #include "quicr/quicr_common.h"
 
-namespace quicr {
+namespace quicr::h3 {
 
 class FragmentAssembler
 {
@@ -37,14 +37,15 @@ public:
   FragmentAssembler();
   ~FragmentAssembler() = default;
 
-  bytes ConsumeFragment(messages::PublishDatagram& datagram);
+  quicr::bytes ConsumeFragment(messages::PublishDatagram& datagram);
 
 protected:
-  bytes CheckCompleteDatagram(const std::map<std::size_t, bytes>& frag_map);
+  quicr::bytes CheckCompleteDatagram(
+    const std::map<std::size_t, quicr::bytes>& frag_map);
 
   std::size_t cindex;
-  std::map<std::size_t, std::map<quicr::Name, std::map<std::size_t, bytes>>>
+  std::map<std::size_t, std::map<quicr::Name, std::map<std::size_t, quicr::bytes>>>
     fragments;
 };
 
-} // namespace quicr
+} // namespace quicr::h3

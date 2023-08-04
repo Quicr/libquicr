@@ -13,6 +13,7 @@ add_library(quicr
             h3/quicr_server_h3_session.cpp
             h3/quicr_server_h3_connection.cpp
             h3/quiche_api_lock.cpp
+            h3/transport_api_lock.cpp
             h3/quiche_types.cpp)
 
 # Suppress external lib warnings

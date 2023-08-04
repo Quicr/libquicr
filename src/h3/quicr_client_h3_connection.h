@@ -27,24 +27,21 @@
 #include <stdexcept>
 #include <utility>
 #include <vector>
-#include "cantina/async_requests.h"
-#include "cantina/data_packet.h"
-#include "cantina/logger.h"
-#include "cantina/network.h"
-#include "cantina/network_types.h"
-#include "cantina/registration_id.h"
-#include "cantina/timer_manager.h"
-#include "h3_connection_base.h"
-#include "pub_sub_registry.h"
-#include "quic_identifier.h"
-#include "quiche.h"
-#include "quiche_types.h"
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_common.h"
 #include "quicr/name.h"
 #include "quicr/namespace.h"
+#include "cantina/async_requests.h"
+#include "cantina/logger.h"
+#include "cantina/timer_manager.h"
+#include "pub_sub_registry.h"
+#include "quic_identifier.h"
+#include "quiche.h"
+#include "quiche_types.h"
+#include "h3_connection_base.h"
+#include "h3_common.h"
 
-namespace quicr {
+namespace quicr::h3 {
 
 // H3ClientConnection connection object
 class H3ClientConnection : public H3ConnectionBase
@@ -53,14 +50,15 @@ public:
   H3ClientConnection(const cantina::LoggerPointer& parent_logger,
                      const cantina::TimerManagerPointer& timer_manager,
                      const cantina::AsyncRequestsPointer& async_requests,
-                     const cantina::NetworkPointer& network,
+                     const TransportPointer& transport,
+                     const StreamContext& stream_context,
                      const PubSubRegistryPointer& pub_sub_registry,
-                     socket_t data_socket,
                      std::size_t max_send_size,
                      std::size_t max_recv_size,
                      bool use_datagrams,
                      const QUICConnectionID& local_cid,
                      const cantina::NetworkAddress& local_address,
+                     const cantina::NetworkAddress& remote_address,
                      quiche_conn* quiche_connection,
                      std::uint64_t heartbeat_interval,
                      const ClosureCallback closure_callback,
@@ -75,7 +73,7 @@ public:
                      const quicr::Namespace& quicr_namespace,
                      const std::string& origin_url,
                      const std::string& auth_token,
-                     bytes&& payload);
+                     quicr::bytes&& payload);
   void PublishIntentEnd(const quicr::Namespace& quicr_namespace,
                         const std::string& auth_token);
   void Subscribe(std::shared_ptr<SubscriberDelegate>& subscriber_delegate,
@@ -84,7 +82,7 @@ public:
                  const std::string& origin_url,
                  bool use_reliable_transport,
                  const std::string& auth_token,
-                 bytes&& e2e_token);
+                 quicr::bytes&& e2e_token);
   void Unsubscribe(const quicr::Namespace& quicr_namespace,
                    const std::string& origin_url,
                    const std::string& auth_token);
@@ -92,14 +90,14 @@ public:
                           uint8_t priority,
                           uint16_t expiry_age_ms,
                           bool use_reliable_transport,
-                          bytes&& data);
+                          quicr::bytes&& data);
   void PublishNamedObjectFragment(const quicr::Name& quicr_name,
                                   uint8_t priority,
                                   uint16_t expiry_age_ms,
                                   bool use_reliable_transport,
                                   const uint64_t& offset,
                                   bool is_last_fragment,
-                                  bytes&& data);
+                                  quicr::bytes&& data);
 
   ////////////////////////////////////////////////////////////////////////////
   // End of functions to satisfy the QuicRClient interface
@@ -122,7 +120,6 @@ protected:
     const std::string path,
     std::vector<std::uint8_t>&& request_body);
 
-  void HandleSubscriberData(QUICStreamID stream_id, RequestData* request);
   void HandleSubscribeResponse(QUICStreamID stream_id,
                                std::vector<std::uint8_t>& response);
   void HandleSubscribedObject(QUICStreamID stream_id,
@@ -138,7 +135,7 @@ protected:
   void PublishNamedObjectFragmented(std::unique_lock<std::mutex>& lock,
                                     const PubSubRecord& publisher,
                                     const quicr::Name& quicr_name,
-                                    bytes&& data);
+                                    quicr::bytes&& data);
 
   // Return true if the HTTP status code indicates success
   constexpr bool IsSuccess(unsigned status_code)
@@ -152,4 +149,4 @@ protected:
 
 typedef std::shared_ptr<H3ClientConnection> H3ClientConnectionPointer;
 
-} // namespace quicr
+} // namespace quicr::h3

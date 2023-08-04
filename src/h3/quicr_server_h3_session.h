@@ -27,23 +27,23 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <deque>
 #include "cantina/async_requests.h"
 #include "cantina/logger.h"
-#include "cantina/network.h"
 #include "cantina/timer_manager.h"
+#include "cantina/network_types.h"
+#include "cantina/network_utilities.h"
 #include "pub_sub_registry.h"
 #include "quic_identifier.h"
+#include "transport_delegate.h"
+#include "h3_common.h"
 
-/*
- * QUICR Server H3 Session Interface
- */
-namespace quicr {
+namespace quicr::h3 {
 
-// Define an exception class for QuicRServerH3SessionException-related
-// exceptions
-class QuicRServerH3SessionException : public std::runtime_error
+// Define a class for H3 server-related exceptions
+class QuicRServerH3SessionException : public QuicRH3Exception
 {
-  using std::runtime_error::runtime_error;
+  using QuicRH3Exception::QuicRH3Exception;
 };
 
 // Define the QuicRServerH3Session object
@@ -53,10 +53,9 @@ protected:
   static constexpr std::size_t Connection_ID_Len{ 20 };
   static constexpr std::uint64_t Connection_Timeout{ 5'000 }; // ms
   static constexpr std::uint64_t Heartbeat_Interval{ Connection_Timeout / 3 };
-  static constexpr std::uint64_t Max_Recv_Size{1500};
-  static constexpr std::size_t Max_Send_Size{
-    std::min(std::size_t(1350), std::size_t(MAX_TRANSPORT_DATA_SIZE))
-  };
+  static constexpr std::uint64_t Max_Recv_Size{ 1500 };
+  static constexpr std::size_t Max_Send_Size{ 1500 };
+  static constexpr std::size_t Max_Stream_Reads_Per_Notification{ 300 };
 
 public:
   QuicRServerH3Session(RelayInfo& relay_info,
@@ -99,28 +98,36 @@ protected:
     auto h3_server = reinterpret_cast<QuicRServerH3Session*>(argp);
     h3_server->logger->info << line << std::flush;
   }
-  void PacketHandler(const cantina::RegistrationID&,
-                     cantina::DataPacket& data_packet);
-  H3ServerConnectionPointer ProcessQUICHeader(cantina::DataPacket& data_packet);
+  friend class TransportDelegate<QuicRServerH3Session>;
+  void IncomingPacketNotification(
+    const qtransport::TransportContextId& context_id,
+    const qtransport::StreamId& stream_id);
+  void ProcessPackets(std::unique_lock<std::mutex> &lock);
+  void PacketHandler(const StreamContext& stream_context, quicr::bytes& packet);
+  H3ServerConnectionPointer ProcessQUICHeader(
+    const StreamContext& stream_context,
+    quicr::bytes& packet);
   H3ServerConnectionPointer HandleNewConnection(
     std::uint32_t version,
     const QUICConnectionID& scid,
     const QUICConnectionID& dcid,
     const QUICToken& token,
-    const cantina::NetworkAddress& client);
+    const StreamContext& stream_context);
   void ConnectionClosed(const QUICConnectionID& connection_id);
-  void ConnectionCleanup();
+  void CloseNetworkStream(const StreamContext& stream_context);
+  void WorkerIdleLoop();
+  void ConnectionCleanup(std::unique_lock<std::mutex> &lock);
   void NegotiateVersion(const QUICConnectionID& scid,
                         const QUICConnectionID& dcid,
-                        const cantina::NetworkAddress& client);
+                        const StreamContext& stream_context);
   void RequestRetry(std::uint32_t version,
                     const QUICConnectionID& scid,
                     const QUICConnectionID& dcid,
-                    const cantina::NetworkAddress& client);
+                    const StreamContext& stream_context);
   QUICToken NewToken(const QUICConnectionID& dcid,
-                     const cantina::NetworkAddress& client);
+                     const StreamContext& stream_context);
   bool ValidateToken(const QUICToken& token,
-                     const cantina::NetworkAddress& client,
+                     const StreamContext& stream_context,
                      QUICConnectionID& dcid);
   QUICConnectionID CreateConnectionID();
   std::uint8_t GetRandomOctet();
@@ -129,7 +136,11 @@ protected:
   cantina::LoggerPointer logger;                // Logger object
   cantina::TimerManagerPointer timer_manager;   // Timer manager
   cantina::AsyncRequestsPointer async_requests; // Asynchronous requests
-  cantina::NetworkPointer network;              // Network object
+  TransportPointer transport;                   // Transport object
+  qtransport::TransportContextId transport_context;
+                                                // Transport connection ID
+  TransportDelegate<QuicRServerH3Session> transport_delegate;
+                                                // Transport delegate
   ServerDelegate& server_delegate;              // Server delegate
   std::string certificate;                      // Certificate file
   std::string certificate_key;                  // Certificate Key file
@@ -138,16 +149,16 @@ protected:
   socket_t data_socket;                         // Socket for communication
   cantina::NetworkAddress local_address;        // Local server address
   std::mt19937 generator;                       // PRNG
-  cantina::RegistrationID network_registration; // Registration with Network
   PubSubRegistryPointer pub_sub_registry;       // Pub/Sub Registry
   std::vector<std::uint8_t> token_prefix;       // Prefix to server token
   std::map<QUICConnectionID, H3ServerConnectionPointer> connections;
                                                 // Map of client connections
+  std::deque<StreamContext> packet_queue;       // Incoming packet queue
   std::vector<H3ServerConnectionPointer> closed_connections;
                                                 // List of closed connections
   std::mutex server_lock;                       // Thread syncronization
-  std::thread cleanup_thread;                   // Connection cleanup thread
-  std::condition_variable cleanup_signal;       // Controls connection cleanup
+  std::thread worker_thread;                    // Handles packets and cleanup
+  std::condition_variable cv;                   // Worker thread CV
 };
 
-} // namespace quicr
+} // namespace quicr::h3

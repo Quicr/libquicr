@@ -21,7 +21,7 @@ QuicRServer::QuicRServer(RelayInfo& relayInfo,
         relayInfo, tconfig, delegate_in, logger);
       break;
     case RelayInfo::Protocol::H3:
-      server_session = std::make_unique<QuicRServerH3Session>(
+      server_session = std::make_unique<h3::QuicRServerH3Session>(
         relayInfo, tconfig, delegate_in, logger);
       break;
     default:

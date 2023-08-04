@@ -16,7 +16,7 @@
 
 #include "pub_sub_registry.h"
 
-namespace quicr {
+namespace quicr::h3 {
 
 /*
  *  PubSubRegistry::PubSubRegistry()
@@ -650,4 +650,4 @@ PubSubRegistry::GetNextID()
   return last_identifier;
 }
 
-} // namespace quicr
+} // namespace quicr::h3

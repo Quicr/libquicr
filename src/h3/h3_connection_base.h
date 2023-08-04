@@ -25,21 +25,19 @@
 #include <mutex>
 #include <stdexcept>
 #include <utility>
+#include "transport/transport.h"
 #include "cantina/async_requests.h"
-#include "cantina/data_packet.h"
 #include "cantina/logger.h"
-#include "cantina/network.h"
-#include "cantina/network_types.h"
-#include "cantina/octet_string.h"
-#include "cantina/registration_id.h"
 #include "cantina/timer_manager.h"
+#include "cantina/network_types.h"
 #include "pub_sub_registry.h"
 #include "quic_identifier.h"
 #include "quiche.h"
 #include "quiche_types.h"
 #include "quicr/quicr_common.h"
+#include "h3_common.h"
 
-namespace quicr {
+namespace quicr::h3 {
 
 // Define function for reporting connection closure
 typedef std::function<void()> ClosureCallback;
@@ -100,14 +98,15 @@ public:
   H3ConnectionBase(const cantina::LoggerPointer& parent_logger,
                    const cantina::TimerManagerPointer& timer_manager,
                    const cantina::AsyncRequestsPointer& async_requests,
-                   const cantina::NetworkPointer& network,
+                   const TransportPointer& transport,
+                   const StreamContext& stream_context,
                    const PubSubRegistryPointer& pub_sub_registry,
-                   socket_t data_socket,
                    std::size_t max_send_size,
                    std::size_t max_recv_size,
                    bool use_datagrams,
                    const QUICConnectionID& local_cid,
                    const cantina::NetworkAddress& local_address,
+                   const cantina::NetworkAddress& remote_address,
                    quiche_conn* quiche_connection,
                    std::uint64_t heartbeat_interval,
                    const ClosureCallback closure_callback);
@@ -120,7 +119,7 @@ public:
   bool IsConnectionEstablished();
   QUICConnectionID GetConnectionID();
 
-  void ProcessPacket(cantina::DataPacket& data_packet);
+  void ProcessPacket(quicr::bytes& packet);
 
 protected:
   virtual void HandleIncrementalRequestData(QUICStreamID stream_id,
@@ -130,8 +129,8 @@ protected:
   virtual void HandleReceivedDatagram(QUICStreamID stream_id,
                                       std::vector<std::uint8_t> &datagram) = 0;
 
-  void ConsumePacket(cantina::DataPacket& data_packet);
-  bool QuicheConsumeData(cantina::DataPacket& data_packet);
+  void ConsumePacket(quicr::bytes& data_packet);
+  bool QuicheConsumeData(quicr::bytes& data_packet);
   void DispatchMessages(std::unique_lock<std::mutex>& lock,
                         cantina::TimerID timer_id = {});
   void SendMessageBody(QUICStreamID stream_id,
@@ -195,15 +194,16 @@ protected:
   cantina::LoggerPointer logger;                // Logger object
   cantina::TimerManagerPointer timer_manager;   // Timer manager
   cantina::AsyncRequestsPointer async_requests; // Async requests object
-  cantina::NetworkPointer network;              // Network object
+  TransportPointer transport;                   // Transport object
+  const StreamContext stream_context;           // Transport context / stream
   PubSubRegistryPointer pub_sub_registry;       // Pub/Sub Registry
-  const socket_t data_socket;                   // Socket for communication
   std::size_t max_send_size;                    // Max sending packet size
   std::size_t max_recv_size;                    // Max receiving packet size
   bool use_datagrams;                           // Use datagrams if supported?
   bool using_datagrams;                         // Connection using datagrams?
   const QUICConnectionID local_cid;             // Local connection ID
   cantina::NetworkAddress local_address;        // Local address
+  cantina::NetworkAddress remote_address;       // Remote address
   quiche_conn* quiche_connection;               // Quiche Connection
   H3ConnectionState connection_state;           // Current connection state
   ClosureCallback closure_callback;             // Used to notify of closure
@@ -213,8 +213,7 @@ protected:
   bool settings_received;                       // Settings received
   bool timer_create_pending;                    // Is timer creation pending?
   cantina::TimerID heartbeat_timer;             // Heartbeat (keepalive) timer
-  std::deque<cantina::DataPacket> incoming_packets;
-                                                // Incoming packets to process
+  std::deque<quicr::bytes> incoming_packets;    // Incoming packets to process
   std::deque<cantina::TimerID> timeout_timers;  // Timeout timer IDs
   std::map<QUICStreamID, RequestData> requests; // Request information
   std::map<std::uint64_t, std::uint64_t> connection_settings;
@@ -223,4 +222,4 @@ protected:
   std::mutex connection_lock;                   // Connection syncronization
 };
 
-} // namespace quicr
+} // namespace quicr::h3

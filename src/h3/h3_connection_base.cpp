@@ -19,11 +19,12 @@
 #include <chrono>
 #include <utility>
 #include "h3_connection_base.h"
-#include "cantina/data_buffer.h"
 #include "cantina/logger_macros.h"
 #include "quiche_api_lock.h"
+#include "transport_api_lock.h"
+#include "h3_common.h"
 
-namespace quicr
+namespace quicr::h3
 {
 
 /*
@@ -39,8 +40,11 @@ namespace quicr
  *      timer_manager [in]
  *          A pointer to the TimerManager object.
  *
- *      network [in]
- *          Network object used to send data.
+ *      transport [in]
+ *          Transport object used to send data.
+ *
+ *      stream_context [in]
+ *          Transport context and stream identifier.
  *
  *      pub_sub_registry [in]
  *          A pointer to the Pub/Sub registry to record publications and
@@ -60,6 +64,9 @@ namespace quicr
  *
  *      local_address [in]
  *          Local address.
+ *
+ *      remote_address [in]
+ *          Remote server address.
  *
  *      quiche_connection [in]
  *          Quiche connection data; this object will take ownership of this
@@ -82,14 +89,15 @@ H3ConnectionBase::H3ConnectionBase(
   const cantina::LoggerPointer& parent_logger,
   const cantina::TimerManagerPointer& timer_manager,
   const cantina::AsyncRequestsPointer& async_requests,
-  const cantina::NetworkPointer& network,
+  const TransportPointer& transport,
+  const StreamContext& stream_context,
   const PubSubRegistryPointer& pub_sub_registry,
-  socket_t data_socket,
   std::size_t max_send_size,
   std::size_t max_recv_size,
   bool use_datagrams,
   const QUICConnectionID& local_cid,
   const cantina::NetworkAddress& local_address,
+  const cantina::NetworkAddress& remote_address,
   quiche_conn* quiche_connection,
   std::uint64_t heartbeat_interval,
   const ClosureCallback closure_callback)
@@ -99,15 +107,16 @@ H3ConnectionBase::H3ConnectionBase(
                                               parent_logger) }
   , timer_manager{ timer_manager }
   , async_requests{ async_requests }
-  , network{ network }
+  , transport{ transport }
+  , stream_context{ stream_context }
   , pub_sub_registry{ pub_sub_registry }
-  , data_socket{ data_socket }
   , max_send_size{ max_send_size }
   , max_recv_size{ max_recv_size }
   , use_datagrams { use_datagrams }
   , using_datagrams{ false }
   , local_cid{ local_cid }
   , local_address{ local_address }
+  , remote_address{ remote_address }
   , quiche_connection{ quiche_connection }
   , connection_state{ H3ConnectionState::ConnectPending }
   , closure_callback{ closure_callback }
@@ -172,6 +181,9 @@ H3ConnectionBase::~H3ConnectionBase()
   if (!IsConnectionClosed()) {
     QuicheCall(quiche_conn_close, quiche_connection, false, 0x01, nullptr, 0);
   }
+
+  // Perform any closure cleanup steps (sometimes redundant, but safe)
+  closure_callback();
 
   // Free the HTTP3 connection structure
   if (http3_connection) QuicheCall(quiche_h3_conn_free, http3_connection);
@@ -279,11 +291,11 @@ H3ConnectionBase::GetConnectionID()
  *  H3ConnectionBase::ProcessPacket()
  *
  *  Description:
- *      Process an incoming data packet.
+ *      Process an incoming packet of data.
  *
  *  Parameters:
- *      data_packet [in]
- *          Data packet received for this connection.
+ *      packet [in]
+ *          Packet received for this connection.
  *
  *  Returns:
  *      Nothing.
@@ -292,7 +304,7 @@ H3ConnectionBase::GetConnectionID()
  *      None.
  */
 void
-H3ConnectionBase::ProcessPacket(cantina::DataPacket& data_packet)
+H3ConnectionBase::ProcessPacket(quicr::bytes& packet)
 {
   static bool processing = false;
 
@@ -300,7 +312,7 @@ H3ConnectionBase::ProcessPacket(cantina::DataPacket& data_packet)
   std::unique_lock<std::mutex> lock(connection_lock);
 
   // Place the packet on the incoming packet deque
-  incoming_packets.emplace_back(std::move(data_packet));
+  incoming_packets.emplace_back(std::move(packet));
 
   // Just return if there is a worker thread here
   if (processing == true) return;
@@ -311,7 +323,7 @@ H3ConnectionBase::ProcessPacket(cantina::DataPacket& data_packet)
   // Loop until the deque is exhausted
   while (!incoming_packets.empty()) {
     // Move the packet contents into a new DataPacket object
-    cantina::DataPacket current_packet(std::move(incoming_packets.front()));
+    quicr::bytes current_packet(std::move(incoming_packets.front()));
 
     // Pop the DataPacket from the deque
     incoming_packets.pop_front();
@@ -344,8 +356,8 @@ H3ConnectionBase::ProcessPacket(cantina::DataPacket& data_packet)
  *      Consume the next incoming data packet.
  *
  *  Parameters:
- *      data_packet [in]
- *          Data packet received for this connection.
+ *      packet [in]
+ *          Packet of data received for this connection.
  *
  *  Returns:
  *      Nothing.
@@ -355,10 +367,10 @@ H3ConnectionBase::ProcessPacket(cantina::DataPacket& data_packet)
  *      feeding new incoming packets while also processing packets.
  */
 void
-H3ConnectionBase::ConsumePacket(cantina::DataPacket& data_packet)
+H3ConnectionBase::ConsumePacket(quicr::bytes& packet)
 {
   // Have Quiche consume the data packet
-  if (!QuicheConsumeData(data_packet)) return;
+  if (!QuicheConsumeData(packet)) return;
 
   // Grab the connection lock
   std::unique_lock<std::mutex> lock(connection_lock);
@@ -401,7 +413,8 @@ H3ConnectionBase::ConsumePacket(cantina::DataPacket& data_packet)
  *      This function will feed the data packet to the Quiche library.
  *
  *  Parameters:
- *      data_packet [in]
+ *      packet [in]
+ *          Packet received from the remote entity.
  *
  *  Returns:
  *      True if the data packet was properly consumed, false if not.
@@ -410,14 +423,14 @@ H3ConnectionBase::ConsumePacket(cantina::DataPacket& data_packet)
  *      The connection mutex must be locked by the caller.
  */
 bool
-H3ConnectionBase::QuicheConsumeData(cantina::DataPacket& data_packet)
+H3ConnectionBase::QuicheConsumeData(quicr::bytes& packet)
 {
   ssize_t quiche_result;
 
   quiche_recv_info recv_info = {
     const_cast<sockaddr*>(reinterpret_cast<const sockaddr*>(
-      data_packet.GetAddress().GetAddressStorage())),
-    data_packet.GetAddress().GetAddressStorageSize(),
+      remote_address.GetAddressStorage())),
+    remote_address.GetAddressStorageSize(),
     const_cast<sockaddr*>(
       reinterpret_cast<const sockaddr*>(local_address.GetAddressStorage())),
     local_address.GetAddressStorageSize()
@@ -426,8 +439,8 @@ H3ConnectionBase::QuicheConsumeData(cantina::DataPacket& data_packet)
   // Process the data packet
   quiche_result = QuicheCall(quiche_conn_recv,
                              quiche_connection,
-                             data_packet.GetBufferPointer(),
-                             data_packet.GetDataLength(),
+                             packet.data(),
+                             packet.size(),
                              &recv_info);
   if (quiche_result < 0) {
     if (quiche_result == QUICHE_ERR_TLS_FAIL) {
@@ -694,7 +707,7 @@ void
 H3ConnectionBase::QuicheEmitQUICMessages(std::unique_lock<std::mutex>& lock)
 {
   // Create the data packet for sending messages
-  cantina::DataPacket data_packet(max_recv_size);
+  quicr::bytes packet(max_recv_size);
 
   // Unlock the mutex
   lock.unlock();
@@ -705,8 +718,8 @@ H3ConnectionBase::QuicheEmitQUICMessages(std::unique_lock<std::mutex>& lock)
 
     auto size = QuicheCall(quiche_conn_send,
                            quiche_connection,
-                           data_packet.GetBufferPointer(),
-                           data_packet.GetBufferSize(),
+                           packet.data(),
+                           packet.size(),
                            &send_info);
 
     // Exit if done sending packets
@@ -719,17 +732,13 @@ H3ConnectionBase::QuicheEmitQUICMessages(std::unique_lock<std::mutex>& lock)
     }
 
     // Set the packet length
-    data_packet.SetDataLength(size);
+    packet.resize(size);
 
-    // Set the destination address
-    cantina::NetworkAddress destination(&send_info.to, send_info.to_len);
-    data_packet.SetAddress(destination);
-
-    // Transmit the data packet
-    if (network->SendData(data_socket, data_packet) ==
-        cantina::Network::Socket_Error) {
-      logger->error << "Failed to send data packet" << std::flush;
-    }
+    // Enqueue the packet
+    TransportCall([&]() {
+      transport->enqueue(
+        stream_context.first, stream_context.second, std::move(packet));
+    });
   }
 
   // Re-lock the mutex
@@ -1088,7 +1097,7 @@ void
 H3ConnectionBase::HandleH3DataEvent(QUICStreamID stream_id,
                                     [[maybe_unused]] quiche_h3_event* event)
 {
-  std::vector<std::uint8_t> buffer(max_recv_size);
+  quicr::bytes buffer(max_recv_size);
 
   LOGGER_DEBUG(logger, "[stream " << stream_id << "] H3 - data event");
 
@@ -1109,7 +1118,7 @@ H3ConnectionBase::HandleH3DataEvent(QUICStreamID stream_id,
                                 quiche_connection,
                                 stream_id,
                                 buffer.data(),
-                                max_recv_size);
+                                buffer.size());
 
     if (length <= 0) break;
 
@@ -1257,7 +1266,7 @@ H3ConnectionBase::HandleH3DatagramEvent(
   // It's important to exhaust the queue when this event is triggered; see
   // https://docs.quic.tech/quiche/h3/enum.Event.html#variant.Datagram
   while (true) {
-    cantina::DataBuffer buffer(max_recv_size);
+    quicr::bytes buffer(max_recv_size);
 
     // Attempt to read the datagrams
     auto octets_received = QuicheCall(quiche_h3_recv_dgram,
@@ -1265,8 +1274,8 @@ H3ConnectionBase::HandleH3DatagramEvent(
                                       quiche_connection,
                                       &flow_id,
                                       &flow_id_length,
-                                      buffer.GetBufferPointer(),
-                                      buffer.GetBufferSize());
+                                      buffer.data(),
+                                      buffer.size());
 
     // Break out of the loop once done processing the queue
     if (octets_received == QUICHE_ERR_DONE) break;
@@ -1278,11 +1287,11 @@ H3ConnectionBase::HandleH3DatagramEvent(
       continue;
     }
 
-    // Set the DataBuffer length
-    buffer.SetDataLength(octets_received);
+    // Set the buffer length to the actual size of the data received
+    buffer.resize(octets_received);
 
     // Ensure there is some actual data to consider
-    if (flow_id_length >= buffer.GetDataLength()) {
+    if (flow_id_length >= buffer.size()) {
       logger->warning << "Received empty or malformed datagram on stream "
                       << stream_id << " having flow ID " << flow_id
                       << std::flush;
@@ -1291,8 +1300,8 @@ H3ConnectionBase::HandleH3DatagramEvent(
 
     // Create an vector to contain the message without the leading length
     std::vector<std::uint8_t> message(
-      buffer.GetBufferPointer() + flow_id_length,
-      buffer.GetBufferPointer() + buffer.GetDataLength());
+      buffer.data() + flow_id_length,
+      buffer.data() + buffer.size());
 
     // Call function to handle the datagram
     HandleReceivedDatagram(flow_id, message);
@@ -1485,4 +1494,4 @@ H3ConnectionBase::ExpungeRequest(QUICStreamID stream_id)
   requests.erase(iter);
 }
 
-} // namespace quicr
+} // namespace quicr::h3

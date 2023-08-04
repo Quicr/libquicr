@@ -33,7 +33,7 @@
 #include <string>
 #include <vector>
 
-namespace quicr {
+namespace quicr::h3 {
 
 // Template class to hold a QUIC identifier type
 template<std::size_t L>
@@ -235,4 +235,4 @@ typedef class QUICIdentifier<20> QUICConnectionID;
 // Define the QUIC token type
 typedef class QUICIdentifier<256> QUICToken;
 
-}
+} // namespace quicr::h3

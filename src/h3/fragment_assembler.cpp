@@ -37,7 +37,7 @@
 
 #include "fragment_assembler.h"
 
-namespace quicr {
+namespace quicr::h3 {
 
 /*
  *  FragmentAssembler::FragmentAssembler()
@@ -79,10 +79,10 @@ FragmentAssembler::FragmentAssembler()
  *  Comments:
  *      None.
  */
-bytes
+quicr::bytes
 FragmentAssembler::ConsumeFragment(messages::PublishDatagram& datagram)
 {
-  bytes completed_datagram;
+  quicr::bytes completed_datagram;
 
   // Check the current index first considering it's likely in the current buffer
   auto msg_iter = fragments[cindex].find(datagram.header.name);
@@ -146,14 +146,14 @@ FragmentAssembler::ConsumeFragment(messages::PublishDatagram& datagram)
  *  Comments:
  *      None.
  */
-bytes
+quicr::bytes
 FragmentAssembler::CheckCompleteDatagram(
-  const std::map<std::size_t, bytes>& frag_map)
+  const std::map<std::size_t, quicr::bytes>& frag_map)
 {
   // Just return if the final fragment has not been received
   if ((frag_map.rbegin()->first & 0x1) != 0x1) return {};
 
-  bytes reassembled;
+  quicr::bytes reassembled;
 
   std::size_t seq_bytes = 0;
   for (const auto& item : frag_map) {
@@ -168,4 +168,4 @@ FragmentAssembler::CheckCompleteDatagram(
   return reassembled;
 }
 
-} // namespace quicr
+} // namespace quicr::h3

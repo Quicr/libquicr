@@ -24,13 +24,13 @@
 #include <new>
 #include <string_view>
 #include "quicr_client_h3_connection.h"
-#include "cantina/data_buffer.h"
 #include "cantina/logger_macros.h"
 #include "quiche_api_lock.h"
 #include "quicr/encode.h"
 #include "quicr/message_buffer.h"
+#include "h3_common.h"
 
-namespace quicr {
+namespace quicr::h3 {
 
 /*
  *  H3ClientConnection::H3ClientConnection()
@@ -45,15 +45,15 @@ namespace quicr {
  *      timer_manager [in]
  *          A pointer to the TimerManager object.
  *
- *      network [in]
- *          Network object used to send data.
+ *      transport [in]
+ *          Transport object used to send data.
+ *
+ *      stream_context [in]
+ *          Transport context and stream identifier.
  *
  *      pub_sub_registry [in]
  *          A pointer to the Pub/Sub registry to record publications and
  *          subscription data.
- *
- *      data_socket [in]
- *          Socket over which communication exchanges occur.
  *
  *      max_send_size [in]
  *          Maximum size of data packets to transmit.
@@ -69,6 +69,9 @@ namespace quicr {
  *
  *      local_address [in]
  *          Local client address.
+ *
+ *      remote_address [in]
+ *          Remote client address.
  *
  *      quiche_connection [in]
  *          Quiche connection data; this object will take ownership of this
@@ -94,14 +97,15 @@ H3ClientConnection::H3ClientConnection(
   const cantina::LoggerPointer& parent_logger,
   const cantina::TimerManagerPointer& timer_manager,
   const cantina::AsyncRequestsPointer& async_requests,
-  const cantina::NetworkPointer& network,
+  const TransportPointer& transport,
+  const StreamContext& stream_context,
   const PubSubRegistryPointer& pub_sub_registry,
-  socket_t data_socket,
   std::size_t max_send_size,
   std::size_t max_recv_size,
   bool use_datagrams,
   const QUICConnectionID& local_cid,
   const cantina::NetworkAddress& local_address,
+  const cantina::NetworkAddress& remote_address,
   quiche_conn* quiche_connection,
   std::uint64_t heartbeat_interval,
   const ClosureCallback closure_callback,
@@ -109,14 +113,15 @@ H3ClientConnection::H3ClientConnection(
   : H3ConnectionBase(parent_logger,
                      timer_manager,
                      async_requests,
-                     network,
+                     transport,
+                     stream_context,
                      pub_sub_registry,
-                     data_socket,
                      max_send_size,
                      max_recv_size,
                      use_datagrams,
                      local_cid,
                      local_address,
+                     remote_address,
                      quiche_connection,
                      heartbeat_interval,
                      closure_callback)
@@ -182,7 +187,7 @@ H3ClientConnection::PublishIntent(
   const quicr::Namespace& quicr_namespace,
   [[maybe_unused]] const std::string& origin_url,
   [[maybe_unused]] const std::string& auth_token,
-  bytes&& payload)
+  quicr::bytes&& payload)
 {
   // Lock the client mutex
   std::unique_lock<std::mutex> lock(connection_lock);
@@ -334,7 +339,7 @@ H3ClientConnection::Subscribe(
   [[maybe_unused]] const std::string& origin_url,
   [[maybe_unused]] bool use_reliable_transport,
   [[maybe_unused]] const std::string& auth_token,
-  [[maybe_unused]] bytes&& e2e_token)
+  [[maybe_unused]] quicr::bytes&& e2e_token)
 {
   RegistryID subscriber_id = 0; // Subscriber Identifier
 
@@ -477,7 +482,7 @@ H3ClientConnection::PublishNamedObject(const quicr::Name& quicr_name,
                                        [[maybe_unused]] uint8_t priority,
                                        [[maybe_unused]] uint16_t expiry_age_ms,
                                        bool use_reliable_transport,
-                                       bytes&& data)
+                                       quicr::bytes&& data)
 {
   messages::MessageBuffer msg;
 
@@ -593,7 +598,7 @@ H3ClientConnection::PublishNamedObject(const quicr::Name& quicr_name,
  *      quicr_name [in]
  *          The QUICR name for the published object.
  *
- *      bytes [in]
+ *      data [in]
  *          The data to be published.
  *
  *  Returns:
@@ -607,7 +612,7 @@ H3ClientConnection::PublishNamedObjectFragmented(
   std::unique_lock<std::mutex>& lock,
   const PubSubRecord& publisher,
   const quicr::Name& quicr_name,
-  bytes&& data)
+  quicr::bytes&& data)
 {
   try {
     // Construct the datagram
@@ -635,8 +640,8 @@ H3ClientConnection::PublishNamedObjectFragmented(
         datagram.header.offset_and_fin = offset << 1;
       }
 
-      bytes frag_data(data.begin() + offset,
-                      data.begin() + offset + max_send_size);
+      quicr::bytes frag_data(data.begin() + offset,
+                             data.begin() + offset + max_send_size);
 
       datagram.media_data_length = frag_data.size();
       datagram.media_data = std::move(frag_data);
@@ -670,7 +675,7 @@ H3ClientConnection::PublishNamedObjectFragmented(
       messages::MessageBuffer msg;
       datagram.header.offset_and_fin = uintVar_t((offset << 1) + 1);
 
-      bytes frag_data(data.begin() + offset, data.end());
+      quicr::bytes frag_data(data.begin() + offset, data.end());
       datagram.media_data_length = static_cast<uintVar_t>(frag_data.size());
       datagram.media_data = std::move(frag_data);
 
@@ -728,7 +733,7 @@ H3ClientConnection::PublishNamedObjectFragment(
   [[maybe_unused]] bool use_reliable_transport,
   [[maybe_unused]] const uint64_t& offset,
   [[maybe_unused]] bool is_last_fragment,
-  [[maybe_unused]] bytes&& data)
+  [[maybe_unused]] quicr::bytes&& data)
 {
   // Lock the client mutex
   std::unique_lock<std::mutex> lock(connection_lock);
@@ -869,18 +874,15 @@ H3ClientConnection::HandleIncrementalRequestData(QUICStreamID stream_id,
 
   // Process message(s)
   while (request_body.size() >= sizeof(std::uint64_t)) {
-    std::uint64_t message_length;
-    cantina::DataBuffer data_buffer(
-      request_body.data(), request_body.size(), request_body.size());
-    data_buffer.ReadValue(message_length);
+    std::uint64_t message_length = messages::swap_bytes(
+      *reinterpret_cast<std::uint64_t*>(request_body.data()));
 
-    if ((data_buffer.GetDataLength() - sizeof(std::uint64_t)) >=
-        message_length) {
+    if ((request_body.size() - sizeof(std::uint64_t)) >= message_length) {
 
-      // Copy the full message into the buffer
+      // Copy the full message into "message"
       std::vector<std::uint8_t> message(
-        data_buffer.GetBufferPointer() + sizeof(std::uint64_t),
-        data_buffer.GetBufferPointer() + sizeof(std::uint64_t) +
+        request_body.data() + sizeof(std::uint64_t),
+        request_body.data() + sizeof(std::uint64_t) +
           message_length);
 
       // Now remove the length + message from the respose_body
@@ -1424,4 +1426,4 @@ H3ClientConnection::InitiateConnectionClosure()
     QuicheCall(quiche_conn_close, quiche_connection, true, 0, nullptr, 0) == 0);
 }
 
-} // namespace quicr
+} // namespace quicr::h3

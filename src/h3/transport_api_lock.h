@@ -1,5 +1,5 @@
 /*
- *  quiche_api_lock.h
+ *  transport_api_lock.h
  *
  *  Copyright (C) 2023
  *  Cisco Systems, Inc.
@@ -7,7 +7,7 @@
  *
  *  Description:
  *      This file defines a class that can be used to control a mutex protecting
- *      the Quiche C API since it is not thread-safe.  It implements the
+ *      the QUICR Transport API since it is not thread-safe.  It implements the
  *      Lockable interface and is intended to be used with std::lock_guard
  *      or std::unique_lock.
  *
@@ -22,26 +22,27 @@
 namespace quicr::h3 {
 
 // Class that implements a Lockable interface
-class QuicheAPILock
+class TransportAPILock
 {
 public:
-  QuicheAPILock() = default;
-  ~QuicheAPILock() = default;
+  TransportAPILock() = default;
+  ~TransportAPILock() = default;
   void lock();
   void unlock();
   bool try_lock();
 };
 
-// Function to wrap Quiche C API calls that will lock a mutex while invoking
-template<typename T, typename... Args>
+// Function to wrap Transport API calls that will lock a mutex while invoking;
+// expected to be called with a lambda or std::function parameter
+template<typename T>
 auto
-QuicheCall(T func, Args... args)
+TransportCall(T func)
 {
-  QuicheAPILock quiche_lock;
+  TransportAPILock transport_lock;
 
-  std::lock_guard<QuicheAPILock> lock(quiche_lock);
+  std::lock_guard<TransportAPILock> lock(transport_lock);
 
-  return func(std::forward<Args>(args)...);
+  return func();
 }
 
 } // namespace quicr::h3

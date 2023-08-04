@@ -15,8 +15,7 @@
 
 #include "quiche_types.h"
 
-namespace quicr
-{
+namespace quicr::h3 {
 
 std::string QuicheQUICMsgTypeString(int type)
 {
@@ -56,4 +55,4 @@ std::string QuicheQUICMsgTypeString(int type)
     return type_string;
 }
 
-} // namespace quicr
+} // namespace quicr::h3

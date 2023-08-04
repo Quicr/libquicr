@@ -26,7 +26,7 @@
 #include "quicr/namespace.h"
 #include "quicr/quicr_client_delegate.h"
 
-namespace quicr {
+namespace quicr::h3 {
 
 // Define an identifier to use with the registry
 typedef std::uint64_t RegistryID;
@@ -99,4 +99,4 @@ protected:
 // Define a shared pointer type for convenience
 typedef std::shared_ptr<PubSubRegistry> PubSubRegistryPointer;
 
-}
+} // namespace quicr::h3

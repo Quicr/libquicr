@@ -26,7 +26,7 @@ QuicRClient::QuicRClient(RelayInfo& relay_info,
       break;
     case RelayInfo::Protocol::H3:
       client_session =
-        std::make_unique<QuicRClientH3Session>(relay_info, tconfig, logger);
+        std::make_unique<h3::QuicRClientH3Session>(relay_info, tconfig, logger);
       break;
     default:
       throw QuicRClientException("Unsupported relay protocol");

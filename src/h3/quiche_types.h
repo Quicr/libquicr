@@ -19,7 +19,7 @@
 #include <cstdint>
 #include <limits>
 
-namespace quicr {
+namespace quicr::h3 {
 
 enum QuicheQUICMsgTypes
 {
@@ -41,4 +41,4 @@ typedef std::uint64_t QUICStreamID;
 constexpr std::uint64_t Invalid_QUIC_Stream_ID =
   std::numeric_limits<std::uint64_t>::max();
 
-} // namespace quicr
+} // namespace quicr::h3

@@ -33,24 +33,24 @@ struct FakeTransport : public ITransport
 
   TransportStatus status() { return TransportStatus::Ready; }
 
-  TransportContextId start() { return 0x1000; }
+  TransportContextId start() override { return 0x1000; }
 
-  TransportStatus status() const { return TransportStatus::Ready; }
+  TransportStatus status() const override { return TransportStatus::Ready; }
 
   StreamId createStream(const TransportContextId& /* tcid */,
-                        bool /* use_reliable_transport */)
+                        bool /* use_reliable_transport */) override
   {
     return 0x2000;
   }
 
-  void close(const TransportContextId& /* context_id */){};
+  void close(const TransportContextId& /* context_id */) override{};
 
   void closeStream(const TransportContextId& /* context_id */,
-                   StreamId /* streamId */){};
+                   StreamId /* streamId */) override {};
   void close() {}
 
-  bool getPeerAddrInfo(const TransportContextId& /*context_id*/,
-                       sockaddr_storage* /*addr*/)
+  virtual bool getPeerAddrInfo(const TransportContextId& /* context_id */,
+                               sockaddr_storage* /* addr */) override
   {
     return false;
   }
@@ -59,7 +59,7 @@ struct FakeTransport : public ITransport
                          const StreamId& /* sid */,
                          std::vector<uint8_t>&& bytes,
                          const uint8_t,
-                         const uint32_t)
+                         const uint32_t) override
   {
     stored_data = std::move(bytes);
     return TransportError::None;

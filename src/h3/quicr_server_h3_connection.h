@@ -26,11 +26,7 @@
 #include <stdexcept>
 #include <utility>
 #include "cantina/async_requests.h"
-#include "cantina/data_packet.h"
 #include "cantina/logger.h"
-#include "cantina/network.h"
-#include "cantina/network_types.h"
-#include "cantina/octet_string.h"
 #include "cantina/registration_id.h"
 #include "cantina/timer_manager.h"
 #include "h3_connection_base.h"
@@ -40,8 +36,9 @@
 #include "quiche_types.h"
 #include "quicr/quicr_common.h"
 #include "quicr/quicr_server_delegate.h"
+#include "h3_common.h"
 
-namespace quicr {
+namespace quicr::h3 {
 
 // QUICR H3 Server Connection object
 class H3ServerConnection : public H3ConnectionBase
@@ -50,14 +47,15 @@ public:
   H3ServerConnection(const cantina::LoggerPointer& parent_logger,
                      const cantina::TimerManagerPointer& timer_manager,
                      const cantina::AsyncRequestsPointer& async_requests,
-                     const cantina::NetworkPointer& network,
+                     const TransportPointer& transport,
+                     const StreamContext& stream_context,
                      const PubSubRegistryPointer& pub_sub_registry,
-                     socket_t data_socket,
                      std::size_t max_send_size,
                      std::size_t max_recv_size,
                      bool use_datagrams,
                      const QUICConnectionID& local_cid,
                      const cantina::NetworkAddress& local_address,
+                     const cantina::NetworkAddress& remote_address,
                      quiche_conn* quiche_connection,
                      std::uint64_t heartbeat_interval,
                      const ClosureCallback closure_callback,
@@ -120,4 +118,4 @@ protected:
 // Define a shared pointer type for the H3ServerConnection
 typedef std::shared_ptr<H3ServerConnection> H3ServerConnectionPointer;
 
-} // namespace quicr
+} // namespace quicr::h3

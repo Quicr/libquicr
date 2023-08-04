@@ -52,8 +52,9 @@
 #include "quicr/encode.h"
 #include "quicr/quicr_common.h"
 #include "quicr/name.h"
+#include "h3_common.h"
 
-namespace quicr {
+namespace quicr::h3 {
 
 /*
  *  H3ServerConnection::H3ServerConnection()
@@ -68,8 +69,11 @@ namespace quicr {
  *      timer_manager [in]
  *          A pointer to the TimerManager object.
  *
- *      network [in]
- *          Network object used to send data.
+ *      transport [in]
+ *          Transport object used to send data.
+ *
+ *      stream_context [in]
+ *          Transport context and stream identifier.
  *
  *      pub_sub_registry [in]
  *          A pointer to the Pub/Sub registry to record publications and
@@ -89,6 +93,9 @@ namespace quicr {
  *
  *      local_address [in]
  *          Local server address.
+ *
+ *      remote_address [in]
+ *          Remote client address.
  *
  *      quiche_connection [in]
  *          Quiche connection data; this object will take ownership of this
@@ -114,14 +121,15 @@ H3ServerConnection::H3ServerConnection(
   const cantina::LoggerPointer& parent_logger,
   const cantina::TimerManagerPointer& timer_manager,
   const cantina::AsyncRequestsPointer& async_requests,
-  const cantina::NetworkPointer& network,
+  const TransportPointer& transport,
+  const StreamContext& stream_context,
   const PubSubRegistryPointer& pub_sub_registry,
-  socket_t data_socket,
   std::size_t max_send_size,
   std::size_t max_recv_size,
   bool use_datagrams,
   const QUICConnectionID& local_cid,
   const cantina::NetworkAddress& local_address,
+  const cantina::NetworkAddress& remote_address,
   quiche_conn* quiche_connection,
   std::uint64_t heartbeat_interval,
   const ClosureCallback closure_callback,
@@ -129,14 +137,15 @@ H3ServerConnection::H3ServerConnection(
   : H3ConnectionBase(parent_logger,
                      timer_manager,
                      async_requests,
-                     network,
+                     transport,
+                     stream_context,
                      pub_sub_registry,
-                     data_socket,
                      max_send_size,
                      max_recv_size,
                      use_datagrams,
                      local_cid,
                      local_address,
+                     remote_address,
                      quiche_connection,
                      heartbeat_interval,
                      closure_callback)
@@ -265,7 +274,7 @@ H3ServerConnection::PublishIntentResponse(const PubSubRecord& publisher,
     }
 
     // Send the response to the client
-    std::vector<std::uint8_t> payload = msg.take();
+    std::vector<std::uint8_t> payload(msg.take());
     SendHTTPResponse(publisher.stream_id, status_code, {}, payload, false);
 
     // This request is now complete, so remove it
@@ -374,7 +383,7 @@ H3ServerConnection::SubscribeResponse(const PubSubRecord& subscriber,
     }
 
     // Send the response to the client, keeping this stream open if subscribing
-    std::vector<std::uint8_t> payload = msg.take();
+    std::vector<std::uint8_t> payload(msg.take());
     SendHTTPResponse(subscriber.stream_id,
                      status_code,
                      {},
@@ -458,18 +467,14 @@ H3ServerConnection::SubscriptionEnded(
     msg << subEnd;
 
     // Create a buffer to hold prefixed length
-    std::vector<std::uint8_t> message_buffer = msg.take();
-    std::vector<std::uint8_t> payload(sizeof(std::uint64_t) +
-                                      message_buffer.size());
-
-    // Create a view of payload
-    cantina::DataBuffer buffer_view(payload.data(), payload.size(), 0);
+    quicr::messages::MessageBuffer message_buffer;
 
     // Insert the message length and message into payload
-    buffer_view.AppendValue(static_cast<std::uint64_t>(message_buffer.size()));
-    buffer_view.AppendValue(message_buffer);
+    message_buffer << static_cast<std::uint64_t>(msg.size());
+    message_buffer.push(msg);
 
     // Send the message
+    std::vector<std::uint8_t> payload(message_buffer.take());
     SendMessageBody(subscriber.stream_id, payload, true);
 
     // Remove the subscription request
@@ -523,24 +528,22 @@ H3ServerConnection::SendNamedObject(const PubSubRecord& subscriber,
   try {
     messages::MessageBuffer msg;
     msg << datagram;
-    std::vector<std::uint8_t> message = msg.take();
 
     // Lock the connection object
     std::unique_lock<std::mutex> lock(connection_lock);
 
     // If told to use a reliable transport or if the peer does not support
     // datagrams, the message will be sent reliably
-    if (use_reliable_transport || !using_datagrams) {
-      std::vector<std::uint8_t> payload(sizeof(std::uint64_t) + message.size());
-
-      // Create a view over payload
-      cantina::DataBuffer buffer_view(payload.data(), payload.size(), 0);
+    if (true || use_reliable_transport || !using_datagrams) {
+      quicr::messages::MessageBuffer message_buffer(sizeof(std::uint64_t) +
+                                                    msg.size());
 
       // Insert the message length and message into data_buffer
-      buffer_view.AppendValue(static_cast<std::uint64_t>(message.size()));
-      buffer_view.AppendValue(message);
+      message_buffer << static_cast<std::uint64_t>(msg.size());
+      message_buffer.push(msg);
 
       // Send the message
+      std::vector<std::uint8_t> payload(message_buffer.take());
       SendMessageBody(subscriber.stream_id, payload, true);
     } else {
       // Sending a datagram that should be sized appropriately by the caller
@@ -548,8 +551,8 @@ H3ServerConnection::SendNamedObject(const PubSubRecord& subscriber,
                                http3_connection,
                                quiche_connection,
                                subscriber.stream_id,
-                               const_cast<std::uint8_t*>(message.data()),
-                               message.size());
+                               msg.data(),
+                               msg.size());
 
       if (result < 0) {
         logger->warning << "Failed to send datagram" << std::flush;
@@ -938,17 +941,15 @@ H3ServerConnection::SendHTTPResponse(
   if (!response_body.empty()) {
     if (prefix_length) {
       // Create a buffer to send
-      std::vector<std::uint8_t> payload(sizeof(std::uint64_t) +
-                                        response_body.size());
-
-      // Create a view of payload
-      cantina::DataBuffer buffer_view(payload.data(), payload.size(), 0);
+      quicr::messages::MessageBuffer message_buffer(sizeof(std::uint64_t) +
+                                                    response_body.size());
 
       // Insert the message length and message into payload
-      buffer_view.AppendValue(static_cast<std::uint64_t>(response_body.size()));
-      buffer_view.AppendValue(response_body);
+      message_buffer << static_cast<std::uint64_t>(response_body.size());
+      message_buffer.push(response_body);
 
       // Send the message
+      std::vector<std::uint8_t> payload(message_buffer.take());
       SendMessageBody(stream_id, payload, close_stream);
     } else {
       // Send the message
@@ -1310,4 +1311,4 @@ H3ServerConnection::HandleUnsubscribe(RequestData* request)
   return true;
 }
 
-} // namespace quicr
+} // namespace quicr::h3

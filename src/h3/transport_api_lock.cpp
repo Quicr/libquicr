@@ -1,5 +1,5 @@
 /*
- *  quiche_api_lock.cpp
+ *  transport_api_lock.cpp
  *
  *  Copyright (C) 2023
  *  Cisco Systems, Inc.
@@ -7,25 +7,25 @@
  *
  *  Description:
  *      This file implements the class used to control a mutex protecting
- *      the Quiche C API since it is not thread-safe.
+ *      the QUICR Transport API since it is not thread-safe.
  *
  *  Portability Issues:
  *      None.
  */
 
 #include <mutex>
-#include "quiche_api_lock.h"
+#include "transport_api_lock.h"
 
 namespace quicr::h3 {
 
-// Mutex used to protect access to the Quiche C API
-static std::mutex quiche_lock;
+// Mutex used to protect access to the QUICR Transport API
+static std::mutex transport_lock;
 
 /*
- *  QuicheAPILock::Lock()
+ *  TransportAPILock::Lock()
  *
  *  Description:
- *      Locks the mutex protecting the Quiche C API.
+ *      Locks the mutex protecting the Transport API.
  *
  *  Parameters:
  *      None.
@@ -37,16 +37,16 @@ static std::mutex quiche_lock;
  *      None.
  */
 void
-QuicheAPILock::lock()
+TransportAPILock::lock()
 {
-  quiche_lock.lock();
+  transport_lock.lock();
 }
 
 /*
- *  QuicheAPILock::unlock()
+ *  TransportAPILock::unlock()
  *
  *  Description:
- *      Unlocks the mutex protecting the Quiche C API.
+ *      Unlocks the mutex protecting the QUICR Transport API.
  *
  *  Parameters:
  *      None.
@@ -58,16 +58,16 @@ QuicheAPILock::lock()
  *      None.
  */
 void
-QuicheAPILock::unlock()
+TransportAPILock::unlock()
 {
-  quiche_lock.unlock();
+  transport_lock.unlock();
 }
 
 /*
- *  QuicheAPILock::try_lock()
+ *  TransportAPILock::try_lock()
  *
  *  Description:
- *      Unlocks the mutex protecting the Quiche C API.
+ *      Unlocks the mutex protecting the QUICR Transport API.
  *
  *  Parameters:
  *      None.
@@ -79,9 +79,9 @@ QuicheAPILock::unlock()
  *      None.
  */
 bool
-QuicheAPILock::try_lock()
+TransportAPILock::try_lock()
 {
-  return quiche_lock.try_lock();
+  return transport_lock.try_lock();
 }
 
 } // namespace quicr::h3

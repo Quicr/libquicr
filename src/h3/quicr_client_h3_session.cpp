@@ -28,9 +28,11 @@
 #include "cantina/memory_manager.h"
 #include "quic_identifier.h"
 #include "quiche_api_lock.h"
+#include "transport_api_lock.h"
 #include "quiche_types.h"
+#include "h3_common.h"
 
-namespace quicr {
+namespace quicr::h3 {
 
 /*
  *  QuicRClientH3Session::QuicRClientH3Session()
@@ -62,7 +64,9 @@ QuicRClientH3Session::QuicRClientH3Session(
   , logger{ nullptr }
   , timer_manager{ nullptr }
   , async_requests{ nullptr }
-  , network{ nullptr }
+  , transport{ nullptr }
+  , transport_context{ 0 }
+  , transport_delegate{ this }
   , local_address{ "0.0.0.0" } // TODO: This should be provided not assumed
   , certificate{ (transport_config.tls_cert_filename
                     ? transport_config.tls_cert_filename
@@ -109,7 +113,15 @@ QuicRClientH3Session::QuicRClientH3Session(
 
   logger->info << "QuicRClientH3Session starting" << std::flush;
 
-  // Create a thread pool for use by the Network and TimerManager
+  // Configure Quiche
+  try {
+    ConfigureQuiche();
+  } catch (...) {
+    if (client_config) quiche_config_free(client_config);
+    throw;
+  }
+
+  // Create a thread pool for use by the TimerManager
   auto thread_pool = std::make_shared<cantina::ThreadPool>(logger, 5, 10);
 
   // Create the TimerManager object
@@ -118,42 +130,26 @@ QuicRClientH3Session::QuicRClientH3Session(
   // Create an AsyncRequests object to facilitate asynchronous callbacks
   async_requests = std::make_shared<cantina::AsyncRequests>(thread_pool);
 
-  // Create a MemoryManager for use by Network
-  auto memory_manager = std::make_shared<cantina::MemoryManager>(
-    cantina::MemoryPoolConfig{
-      { 256, 0 },
-      { Max_Recv_Size, 5 },
-      { 65536, 0 },
-    },
-    logger,
-    false,
-    true,
-    true);
-  MemoryAllocatorInitialize(memory_manager);
+  // Create the worker thread to handle packets and connection cleanup
+  worker_thread = std::thread([&]() { WorkerIdleLoop(); });
 
-  // Create the network object to manage network traffic
-  network = std::make_shared<cantina::Network>(logger,
-                                               thread_pool,
-                                               memory_manager,
-                                               nullptr,
-                                               Max_Recv_Size,
-                                               2,
-                                               5,
-                                               2,
-                                               local_address);
+  // Set up remote transport info
+  qtransport::TransportRemote transport_remote;
+  transport_remote.host_or_ip = relay_info.hostname;
+  transport_remote.port = relay_info.port;
+  transport_remote.proto = qtransport::TransportProtocol::UDP;
 
-  // Configure Quiche
-  ConfigureQuiche();
+  transport = qtransport::ITransport::make_client_transport(
+    transport_remote, transport_config, transport_delegate, transport_logger);
 
-  // Create the thread to perform connection cleanup
-  cleanup_thread = std::thread([&]() { ConnectionCleanup(); });
+  transport_context = transport->start();
 
   // Resolve the remote address
-  auto remote_address =
-    FindIPv4Address(relay_info.hostname, std::to_string(relay_info.port));
+  auto remote_address = cantina::FindIPv4Address(
+    relay_info.hostname, std::to_string(relay_info.port));
 
   // If unable to resolve the address, throw an exception
-  if (remote_address == cantina::NetworkAddress()) {
+  if (!remote_address) {
     throw QuicRClientH3SessionException("Unable to resolve remote address");
   }
 
@@ -184,49 +180,33 @@ QuicRClientH3Session::~QuicRClientH3Session()
 {
   logger->info << "QuicRClientH3Session terminating" << std::flush;
 
-  // Lock the client mutex
+  // Lock the mutex, set terminate to true, and unlock
   std::unique_lock<std::mutex> lock(client_lock);
-
-  // Set the terminate flag to true
   terminate = true;
-
-  // Unlock the mutex so threads can exit
   lock.unlock();
 
-  // Stop the thread closing connections
-  cleanup_signal.notify_one();
-  cleanup_thread.join();
-
-  // Unregister from the network (ensuring no threads running here)
-  for (auto& cx : connections) network->UnregisterCallback(cx.first);
-  for (auto& cx : closed_connections) network->UnregisterCallback(cx.first);
-
-  // Close the network data socket
-  for (auto& cx : connections) network->CloseSocket(cx.second.socket);
-  for (auto& cx : closed_connections) network->CloseSocket(cx.second.socket);
-
-  // At this point, there should be no other threads running in this object
+  // Stop the worker thread
+  cv.notify_one();
+  worker_thread.join();
 
   // Destroy all connection objects
-  closed_connections.clear();
   connections.clear();
+  closed_connections.clear();
 
-  // Release the configuration
-  quiche_config_free(client_config);
+  // Terminate the transport context
+  TransportCall([&]() { transport->close(transport_context); });
 
-  // Destroy objects created
-  // TODO: This is required only because the qtransport logger is provided
-  //       as a reference and then that reference is access when the
-  //       MemoryManager terminates.  Resetting these objects forces
-  //       destruction.
-  network.reset();
-  cantina::MemoryAllocatorInitialize(
-    std::make_shared<cantina::MemoryManager>(cantina::MemoryPoolConfig{}),
-    true);
-  timer_manager.reset();
+  // Destroy the transport (preventing further callbacks)
+  transport.reset();
 
   // Wait for asynchronous requests to complete
   async_requests.reset();
+
+  // Destroy the timer manager
+  timer_manager.reset();
+
+  // Release the configuration
+  quiche_config_free(client_config);
 
   logger->info << "QuicRClientH3Session terminated" << std::flush;
 }
@@ -339,37 +319,37 @@ QuicRClientH3Session::ConfigureQuiche()
  *
  *  Returns:
  *      A pair indicating success or failure and, in the case of success (true),
- *      a registration identifier associated with this connection.
- *      Success does not indicate establishment, but merely that the request is
- *      now being served.  If false is returned, the registration identifier
- *      has no valid value.
+ *      the session context for this connection.  Success does not indicate
+ *      establishment, but merely that the request is now being served.  If
+ *      false is returned, the session context value has no meaning.
  *
  *  Comments:
- *      TODO: Open the socket in the QuicRClientH3SessionConnection object and
- *      allow the Network object to call directly into it instead of this
- *      object.  That would be more efficient.
+ *      None.
  */
-std::pair<bool, cantina::RegistrationID>
+std::pair<bool, StreamContext>
 QuicRClientH3Session::CreateNewConnection(
   const std::string& hostname,
   const cantina::NetworkAddress& remote_address)
 {
-  ConnectionData connection_data{};
+  // Get the session ID associated with this connection
+  // NOTE: there is only one connection possible with qtransport, but this
+  //       we should really have the ability to specify multiple context
+  //       if we want to have a plurality of clients.  For now, there is just
+  //       a single client connection object associated with a single session.
+  auto stream_id = TransportCall(
+    [&]() { return transport->createStream(transport_context, false); });
 
-  // Open a socket for this connection
-  connection_data.socket = network->OpenUDPSocket(local_address, 0);
-  if (connection_data.socket == cantina::Network::Socket_Error) {
-    logger->error << "Failed to open UDP port on " << local_address
-                  << std::flush;
-    return { false, {} };
-  }
+  // Form the StreamContext info that gets passed throughout
+  auto stream_context = std::make_pair(transport_context, stream_id);
+
+  // Create the connection data object
+  ConnectionData connection_data{};
 
   // Set the remote address
   connection_data.remote_address = remote_address;
 
   // Set the connection address based on the successfully opened port
-  connection_data.local_address =
-    network->GetSocketAddress(connection_data.socket);
+  connection_data.local_address = local_address;
 
   // Create the QUIC connection ID for this connection
   connection_data.id = CreateConnectionID();
@@ -378,14 +358,6 @@ QuicRClientH3Session::CreateNewConnection(
 
   // Lock the client mutex
   std::unique_lock<std::mutex> lock(client_lock);
-
-  // Register to receive datagrams
-  cantina::RegistrationID network_registration = network->RegisterCallback(
-    connection_data.socket,
-    [&](const cantina::RegistrationID& registration_id,
-        cantina::DataPacket& data_packet) {
-      PacketHandler(registration_id, data_packet);
-    });
 
   // Create the Quiche connection
   quiche_conn* quiche_connection =
@@ -405,8 +377,8 @@ QuicRClientH3Session::CreateNewConnection(
     // Unlock the mutex
     lock.unlock();
 
-    // Unregister from Network and close the socket
-    NetworkConnectionCleanup(network_registration, connection_data.socket);
+    // Close the stream since there was a failure
+    CloseNetworkStream(stream_context);
 
     logger->error << "Unable to create Quiche connection" << std::flush;
 
@@ -418,17 +390,21 @@ QuicRClientH3Session::CreateNewConnection(
       logger,
       timer_manager,
       async_requests,
-      network,
+      transport,
+      stream_context,
       pub_sub_registry,
-      connection_data.socket,
       Max_Send_Size,
       Max_Recv_Size,
       use_datagrams,
       connection_data.id,
       connection_data.local_address,
+      connection_data.remote_address,
       quiche_connection,
       Heartbeat_Interval,
-      [&, network_registration]() { ConnectionClosed(network_registration); },
+      [&, stream_context]() {
+        CloseNetworkStream(stream_context);
+        ConnectionClosed(stream_context);
+      },
       hostname);
   } catch (const H3ConnectionException& e) {
     logger->error << "Failed to create a QUIC Connection: " << e.what()
@@ -443,16 +419,141 @@ QuicRClientH3Session::CreateNewConnection(
     // Free the connection structure
     QuicheCall(quiche_conn_free, quiche_connection);
 
-    // Unregister from Network and close the socket
-    NetworkConnectionCleanup(network_registration, connection_data.socket);
+    // Clean up the closed connection
+    CloseNetworkStream(stream_context);
 
     return { false, {} };
   }
 
   // Store this connection in the map
-  connections[network_registration] = connection_data;
+  connections[stream_context] = connection_data;
 
-  return { true, network_registration };
+  return { true, stream_context };
+}
+
+/*
+ *  QuicRClientH3Session::IncomingPacketNotification()
+ *
+ *  Description:
+ *      This function is called by the transport to notify us about the fact
+ *      a new packet has arrived for the specified context and streamId.
+ *      It should be noted that, since this is a UDP transport, these
+ *      are not QUIC identifiers.  They're used only by the underlying
+ *      transport library.
+ *
+ *  Parameters:
+ *      context_id [in]
+ *          The transport's context ID for this packet notification.
+ *
+ *      stream_id [in]
+ *          The stream identifier associated with this packet.
+ *
+ *  Returns:
+ *      Nothing.
+ *
+ *  Comments:
+ *      None.
+ */
+void QuicRClientH3Session::IncomingPacketNotification(
+    const qtransport::TransportContextId& context_id,
+    const qtransport::StreamId& stream_id)
+{
+  // Protect the shared server data
+  std::lock_guard<std::mutex> server_protect(client_lock);
+
+  // Notify the worker thread of new packet notifications
+  packet_queue.emplace_back(context_id, stream_id);
+
+  // Notify the worker thread of the new packet
+  cv.notify_one();
+}
+
+/*
+ *  QuicRClientH3Session::ProcessPackets()
+ *
+ *  Description:
+ *      This function is called by the worker thread to pull packets from the
+ *      packet notification deque, call the transport to retrieve packets,
+ *      and then finally feed those packets to Quiche.
+ *
+ *  Parameters:
+ *      lock [in]
+ *          The server lock that should be in a locked state.  It will be
+ *          unlocked while it is processing the packet queue, then locked
+ *          again before returning.
+ *
+ *  Returns:
+ *      Nothing.
+ *
+ *  Comments:
+ *      None.
+ */
+void
+QuicRClientH3Session::ProcessPackets(std::unique_lock<std::mutex> &lock)
+{
+  std::deque<StreamContext> new_packet_queue;
+
+  // Swap the notification deques so as to have a local copy to operate on
+  std::swap(new_packet_queue, packet_queue);
+
+  // Unlock the mutex while processing the deque
+  lock.unlock();
+
+  try
+  {
+    for (auto &stream_context : new_packet_queue)
+    {
+      std::vector<std::vector<std::uint8_t>> packets_to_process;
+      bool item_exhausted = false;
+
+      // Pull all of the available packets off the queue
+      while(!item_exhausted)
+      {
+        auto data = TransportCall([&]() {
+          return transport->dequeue(stream_context.first,
+                                    stream_context.second);
+        });
+
+        if (data.has_value()) {
+          packets_to_process.push_back(std::move(*data));
+        }
+        else
+        {
+          item_exhausted = true;
+        }
+
+        // If there are an excessive number of packets, schedule this
+        // stream to be serviced again
+        if (packets_to_process.size() >= Max_Stream_Reads_Per_Notification)
+        {
+          lock.lock();
+          packet_queue.push_back(stream_context);
+          lock.unlock();
+          break;
+        }
+      }
+
+      // Process the packets in turn
+      for (auto& packet : packets_to_process)
+      {
+        PacketHandler(stream_context, packet);
+      }
+    }
+  }
+  catch (const std::exception &e)
+  {
+    logger->critical << "Exception caught cleaning up connections: " << e.what()
+                     << std::flush;
+  }
+  catch (...)
+  {
+    logger->critical << "Unknown exception caught will cleaning up connections"
+                     << std::flush;
+  }
+
+  // Re-lock the mutex
+  lock.lock();
+
 }
 
 /*
@@ -462,11 +563,11 @@ QuicRClientH3Session::CreateNewConnection(
  *      This function handles packets received by the network.
  *
  *  Parameters:
- *      registration_id [in]
- *          Registration ID associated with this callback.
+ *      stream_context [in]
+ *          The transport context and stream identifier.
  *
- *      data_packet [in]
- *          The data packet received from the network.
+ *      packet [in]
+ *          The packet received from the network.
  *
  *  Returns:
  *      Nothing.
@@ -475,14 +576,12 @@ QuicRClientH3Session::CreateNewConnection(
  *      None.
  */
 void
-QuicRClientH3Session::PacketHandler(
-  const cantina::RegistrationID& registration_id,
-  cantina::DataPacket& data_packet)
+QuicRClientH3Session::PacketHandler(const StreamContext& stream_context,
+                                    quicr::bytes& packet)
 {
   LOGGER_DEBUG(logger,
                "Received datagram of size " << data_packet.GetDataLength()
-                                            << " octets from "
-                                            << data_packet.GetAddress());
+                                            << " octets");
 
   // Lock the client mutex
   std::unique_lock<std::mutex> lock(client_lock);
@@ -492,7 +591,7 @@ QuicRClientH3Session::PacketHandler(
 
   // Locate the connection given the registration ID, but just return if
   // it is not found (likely because the connection is closing)
-  auto it = connections.find(registration_id);
+  auto it = connections.find(stream_context);
   if (it == connections.end()) return;
 
   // Get a pointer to the connection
@@ -503,10 +602,10 @@ QuicRClientH3Session::PacketHandler(
 
   // If we have a connection, the process the packet
   if (connection) {
-    connection->ProcessPacket(data_packet);
+    connection->ProcessPacket(packet);
 
     // If the QUIC connection closed, remove this connection
-    if (connection->IsConnectionClosed()) ConnectionClosed(registration_id);
+    if (connection->IsConnectionClosed()) ConnectionClosed(stream_context);
   }
 }
 
@@ -521,8 +620,8 @@ QuicRClientH3Session::PacketHandler(
  *      a list for later disposal.
  *
  *  Parameters:
- *      registration_id [in]
- *          The network registration ID associated with this connection.
+ *      stream_context [in]
+ *          The transport context and stream identifier that was closed.
  *
  *  Returns:
  *      Nothing
@@ -531,8 +630,7 @@ QuicRClientH3Session::PacketHandler(
  *      None.
  */
 void
-QuicRClientH3Session::ConnectionClosed(
-  const cantina::RegistrationID registration_id)
+QuicRClientH3Session::ConnectionClosed(const StreamContext& stream_context)
 {
   // Lock the client mutex
   std::lock_guard<std::mutex> lock(client_lock);
@@ -541,14 +639,82 @@ QuicRClientH3Session::ConnectionClosed(
   if (terminate) return;
 
   // Locate the connection given the registration ID
-  auto item = connections.find(registration_id);
+  auto item = connections.find(stream_context);
 
   // If found, we move that to a separate vector
   if (item != connections.end()) {
-    closed_connections[registration_id] = item->second;
+    closed_connections[stream_context] = item->second;
     connections.erase(item);
-    cleanup_signal.notify_one();
+    cv.notify_one();
   }
+}
+
+/*
+ *  QuicRClientH3Session::CloseNetworkStream()
+ *
+ *  Description:
+ *      Close the given stream under the associated transport context.
+ *
+ *  Parameters:
+ *      stream_context [in]
+ *          The transport context Id / stream ID to clean up.
+ *
+ *  Returns:
+ *      Nothing.
+ *
+ *  Comments:
+ *      The client mutex should be locked when calling this function.
+ */
+void
+QuicRClientH3Session::CloseNetworkStream(
+  const StreamContext& stream_context)
+{
+  TransportCall([&]() {
+    transport->closeStream(stream_context.first, stream_context.second);
+  });
+}
+
+/*
+ *  QuicRClientH3Session::WorkerIdleLoop()
+ *
+ *  Description:
+ *      This function is called by a worker thread.  It sits here until notified
+ *      of an incoming packet or request to clean up stale connections.
+ *
+ *  Parameters:
+ *      None.
+ *
+ *  Returns:
+ *      Nothing.
+ *
+ *  Comments:
+ *      None.
+ */
+void
+QuicRClientH3Session::WorkerIdleLoop()
+{
+  std::unique_lock<std::mutex> lock(client_lock);
+
+  logger->info << "Starting worker thread" << std::flush;
+
+  while (true) {
+    // Wait for new packets, connection closure, or termination
+    cv.wait(lock, [&]() {
+      return (terminate == true) || (!closed_connections.empty()) ||
+             (!packet_queue.empty());
+    });
+
+    // Stop if terminating
+    if (terminate) break;
+
+    // Are there packets to handle
+    if (!packet_queue.empty()) ProcessPackets(lock);
+
+    // Are there connections to close?
+    if (!closed_connections.empty()) ConnectionCleanup(lock);
+  }
+
+  logger->info << "Worker thread exiting" << std::flush;
 }
 
 /*
@@ -560,8 +726,8 @@ QuicRClientH3Session::ConnectionClosed(
  *      connections list.
  *
  *  Parameters:
- *      timer_id [in]
- *          The timer ID associated with this callback.
+ *      lock [in]
+ *          The client mutex lock in a locked state.
  *
  *  Returns:
  *      Nothing.
@@ -570,73 +736,35 @@ QuicRClientH3Session::ConnectionClosed(
  *      None.
  */
 void
-QuicRClientH3Session::ConnectionCleanup()
+QuicRClientH3Session::ConnectionCleanup(std::unique_lock<std::mutex> &lock)
 {
-  std::map<cantina::RegistrationID, ConnectionData> connection_list;
-  std::unique_lock<std::mutex> lock(client_lock);
+  ConnectionMap connection_list;
 
-  logger->info << "Starting connection cleanup thread" << std::flush;
+  // Swap the closed connections list so they can be removed
+  std::swap(connection_list, closed_connections);
 
-  while (true) {
-    // Wait for a connection closure or object termination
-    cleanup_signal.wait(lock, [&]() {
-      return (terminate == true) || (closed_connections.size() > 0);
-    });
+  // Unlock the mutex, just in case the connection object has a thread extended
+  // into this object while it is destroyed in the next line of code.
+  lock.unlock();
 
-    // Stop if terminating
-    if (terminate) break;
-
-    // Swap the closed connections list so they can be removed
-    std::swap(connection_list, closed_connections);
-
-    // Unlock the mutex
-    lock.unlock();
-
-    // Ensure registrations are cancelled and sockets are closed
-    for (auto& item : connection_list) {
-      NetworkConnectionCleanup(item.first, item.second.socket);
-    }
-
+  try
+  {
     // Empty the local list (destroying connections)
     connection_list.clear();
-
-    // Re-lock the mutex
-    lock.lock();
+  }
+  catch (const std::exception &e)
+  {
+    logger->critical << "Exception caught cleaning up connections: " << e.what()
+                     << std::flush;
+  }
+  catch (...)
+  {
+    logger->critical << "Unknown exception caught will cleaning up connections"
+                     << std::flush;
   }
 
-  logger->info << "Cleanup thread exiting" << std::flush;
-}
-
-/*
- *  QuicRClientH3Session::NetworkConnectionCleanup()
- *
- *  Description:
- *      For a given registration ID and socket, this function will
- *      unregister from the Network object and close the socket.
- *
- *  Parameters:
- *      registration_id [in]
- *          Network registration ID associated with this connection.
- *
- *      socket [in]
- *          Socket used for communicating by this connection.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *      The client mutex should be locked when calling this function.
- */
-void
-QuicRClientH3Session::NetworkConnectionCleanup(
-  cantina::RegistrationID registration_id,
-  socket_t socket)
-{
-  // Unregister so as to no receive more callbacks
-  network->UnregisterCallback(registration_id);
-
-  // Close the connection socket
-  network->CloseSocket(socket);
+  // Re-lock the mutex
+  lock.lock();
 }
 
 /*
@@ -688,46 +816,6 @@ QuicRClientH3Session::GetRandomOctet()
   std::uniform_int_distribution<int> random_octet(0, 255);
 
   return random_octet(generator);
-}
-
-/*
- *  FindIPv4Address
- *
- *  Description:
- *      This function will accept a host and service/port pair and returns
- *      the first IPv4 address in the set of addresses returned by
- *      the Network object's GetHostAddresses() routine.
- *
- *  Parameters:
- *      hostname [in]
- *          A string containing either a host name or IP address.
- *
- *      service [in]
- *          A string containing the service name (e.g., "http") or port number.
- *
- *  Returns:
- *      A NetworkAddress object containing an IPv4 address or one of type
- *      NetworkAddressType::None if an address could not be found.
- *
- *  Comments:
- *      None.
- */
-cantina::NetworkAddress
-QuicRClientH3Session::FindIPv4Address(const std::string hostname,
-                                      const std::string& service)
-{
-  // Determine the remote server address
-  std::set<cantina::NetworkAddress> addresses =
-    network->GetHostAddresses(hostname, service);
-
-  // Look for only IPv4 addresses, if any
-  for (const auto& address : addresses) {
-    if (address.GetAddressType() == cantina::NetworkAddressType::IPv4) {
-      return address;
-    }
-  }
-
-  return {};
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -795,7 +883,7 @@ QuicRClientH3Session::publishIntent(
   const quicr::Namespace& quicr_namespace,
   const std::string& origin_url,
   const std::string& auth_token,
-  bytes&& payload)
+  quicr::bytes&& payload)
 {
   // Get the connection
   H3ClientConnectionPointer connection = GetConnection();
@@ -869,7 +957,7 @@ QuicRClientH3Session::subscribe(
   const std::string& origin_url,
   bool use_reliable_transport,
   const std::string& auth_token,
-  bytes&& e2e_token)
+  quicr::bytes&& e2e_token)
 {
   // Get the connection
   H3ClientConnectionPointer connection = GetConnection();
@@ -935,7 +1023,7 @@ QuicRClientH3Session::publishNamedObject(const quicr::Name& quicr_name,
                                          uint8_t priority,
                                          uint16_t expiry_age_ms,
                                          bool use_reliable_transport,
-                                         bytes&& data)
+                                         quicr::bytes&& data)
 {
   // Get the connection
   H3ClientConnectionPointer connection = GetConnection();
@@ -976,7 +1064,7 @@ QuicRClientH3Session::publishNamedObjectFragment(
   [[maybe_unused]] bool use_reliable_transport,
   [[maybe_unused]] const uint64_t& offset,
   [[maybe_unused]] bool is_last_fragment,
-  [[maybe_unused]] bytes&& data)
+  [[maybe_unused]] quicr::bytes&& data)
 {
   // Get the connection
   H3ClientConnectionPointer connection = GetConnection();
@@ -999,4 +1087,4 @@ QuicRClientH3Session::publishNamedObjectFragment(
 // End of functions to satisfy the QuicRClient interface
 ////////////////////////////////////////////////////////////////////////////
 
-} // namespace quicr
+} // namespace quicr::h3
