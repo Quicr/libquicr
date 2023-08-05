@@ -188,7 +188,10 @@ QuicRClientH3Session::~QuicRClientH3Session()
   closed_connections.clear();
 
   // Terminate the transport context
-  TransportCall([&]() { transport->close(transport_context); });
+  if (transport_context > 0)
+  {
+    TransportCall([&]() { transport->close(transport_context); });
+  }
 
   // Destroy the transport (preventing further callbacks)
   transport.reset();
@@ -889,6 +892,13 @@ QuicRClientH3Session::disconnect()
                      << std::flush;
     return false;
   }
+
+  // Re-lock the mutex
+  lock.unlock();
+
+  // Terminate the transport
+  transport->close(transport_context);
+  transport_context = 0;
 
   return true;
 }
