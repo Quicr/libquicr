@@ -811,7 +811,8 @@ H3ServerConnection::ProcessRequest(QUICStreamID stream_id, RequestData* request)
   }
 
   if (request->method == "PUT") {
-    logger->info << "Received PUT to " << request->path << std::flush;
+    // The following is a debug log, as it can be verbose with media flowing
+    LOGGER_DEBUG(logger, "Received PUT to " << request->path);
 
     // Since a PUT is a "publish named object", process it accordingly
     if (request->request_body.empty()) return { true, 400 };
