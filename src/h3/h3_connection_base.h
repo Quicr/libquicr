@@ -18,13 +18,14 @@
 
 #include <chrono>
 #include <cstdint>
-#include <cstdlib>
+#include <cstddef>
 #include <deque>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
 #include <utility>
+#include <functional>
 #include "transport/transport.h"
 #include "cantina/async_requests.h"
 #include "cantina/logger.h"
@@ -35,6 +36,7 @@
 #include "quiche.h"
 #include "quiche_types.h"
 #include "quicr/quicr_common.h"
+#include "quicr/message_buffer.h"
 #include "h3_common.h"
 
 namespace quicr::h3 {
@@ -88,7 +90,7 @@ protected:
   struct MessageQueue
   {
     // Octets sent + actual vector of octets to send
-    std::deque<std::pair<std::size_t, std::vector<std::uint8_t>>> messages;
+    std::deque<std::pair<std::size_t, quicr::messages::MessageBuffer>> messages;
 
     // Set the final flag when last buffer is sent?
     bool final;
@@ -126,15 +128,16 @@ protected:
                                             RequestData* request) = 0;
   virtual bool HandleCompletedRequest(QUICStreamID stream_id,
                                       RequestData* request) = 0;
-  virtual void HandleReceivedDatagram(QUICStreamID stream_id,
-                                      std::vector<std::uint8_t> &datagram) = 0;
+  virtual void HandleReceivedDatagram(
+    QUICStreamID stream_id,
+    quicr::messages::MessageBuffer& datagram) = 0;
 
   void ConsumePacket(quicr::bytes& data_packet);
   bool QuicheConsumeData(quicr::bytes& data_packet);
   void DispatchMessages(std::unique_lock<std::mutex>& lock,
                         cantina::TimerID timer_id = {});
   void SendMessageBody(QUICStreamID stream_id,
-                       std::vector<std::uint8_t>& message,
+                       quicr::messages::MessageBuffer& message,
                        bool final);
   void SendQueuedMessages();
   void QuicheEmitQUICMessages(std::unique_lock<std::mutex>& lock);

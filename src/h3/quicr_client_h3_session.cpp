@@ -22,6 +22,8 @@
 #include <chrono>
 #include <functional>
 #include <sstream>
+#include <vector>
+#include <cstdint>
 #include "quicr_client_h3_session.h"
 #include "cantina/logger_macros.h"
 #include "cantina/memory_allocator.h"
@@ -512,7 +514,7 @@ QuicRClientH3Session::ProcessPackets(std::unique_lock<std::mutex> &lock)
         });
 
         if (data.has_value()) {
-          packets_to_process.push_back(std::move(*data));
+          packets_to_process.emplace_back(std::move(*data));
         }
         else
         {
@@ -638,7 +640,7 @@ QuicRClientH3Session::ConnectionClosed(const StreamContext& stream_context)
   // Locate the connection given the registration ID
   auto item = connections.find(stream_context);
 
-  // If found, we move that to a separate vector
+  // If found, we move that to a separate map of closed connections
   if (item != connections.end()) {
     closed_connections[stream_context] = item->second;
     connections.erase(item);

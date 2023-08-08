@@ -19,15 +19,15 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
-#include <cstdlib>
+#include <cstddef>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <set>
 #include <stdexcept>
 #include <utility>
-#include <vector>
 #include "quicr/quicr_client_delegate.h"
+#include "quicr/message_buffer.h"
 #include "quicr/quicr_common.h"
 #include "quicr/name.h"
 #include "quicr/namespace.h"
@@ -113,18 +113,18 @@ protected:
                                       RequestData* request) override;
   virtual void HandleReceivedDatagram(
     QUICStreamID stream_id,
-    std::vector<std::uint8_t>& datagram) override;
+    quicr::messages::MessageBuffer& datagram) override;
 
   std::pair<bool, QUICStreamID> InitiateRequest(
     const std::string& method,
     const std::string path,
-    std::vector<std::uint8_t>&& request_body);
+    quicr::messages::MessageBuffer& request_body);
 
   void HandleSubscribeResponse(QUICStreamID stream_id,
-                               std::vector<std::uint8_t>& response);
+                               quicr::messages::MessageBuffer& message);
   void HandleSubscribedObject(QUICStreamID stream_id,
                               bool reliable_transport,
-                              std::vector<std::uint8_t>& object);
+                              quicr::messages::MessageBuffer& object);
   void HandleSubscribeEnded(QUICStreamID stream_id,
                             SubscribeResult::SubscribeStatus reason);
   void HandlePublishIntentResponse(QUICStreamID stream_id,

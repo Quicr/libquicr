@@ -716,7 +716,7 @@ QuicRServerH3Session::ConnectionClosed(const QUICConnectionID& connection_id)
   // Locate the connection given the connection ID
   auto item = connections.find(connection_id);
 
-  // If found, we move that to a separate vector
+  // If found, we move that to a separate vector of closed connections
   if (item != connections.end()) {
     closed_connections.push_back(item->second);
     connections.erase(item);

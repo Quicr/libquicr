@@ -50,7 +50,6 @@
 #include "cantina/logger_macros.h"
 #include "quiche_api_lock.h"
 #include "quicr/encode.h"
-#include "quicr/quicr_common.h"
 #include "quicr/name.h"
 #include "h3_common.h"
 
@@ -274,8 +273,7 @@ H3ServerConnection::PublishIntentResponse(const PubSubRecord& publisher,
     }
 
     // Send the response to the client
-    std::vector<std::uint8_t> payload(msg.take());
-    SendHTTPResponse(publisher.stream_id, status_code, {}, payload, false);
+    SendHTTPResponse(publisher.stream_id, status_code, {}, msg, false);
 
     // This request is now complete, so remove it
     ExpungeRequest(publisher.stream_id);
@@ -383,11 +381,10 @@ H3ServerConnection::SubscribeResponse(const PubSubRecord& subscriber,
     }
 
     // Send the response to the client, keeping this stream open if subscribing
-    std::vector<std::uint8_t> payload(msg.take());
     SendHTTPResponse(subscriber.stream_id,
                      status_code,
                      {},
-                     payload,
+                     msg,
                      true,
                      (result.status != SubscribeResult::SubscribeStatus::Ok));
 
@@ -472,10 +469,11 @@ H3ServerConnection::SubscriptionEnded(
     // Insert the message length and message into payload
     message_buffer << static_cast<std::uint64_t>(msg.size());
     message_buffer.push(msg);
+    //! PEJ - We could avoid a copy here by sending two messages, but which
+    //!       is more expensive?
 
     // Send the message
-    std::vector<std::uint8_t> payload(message_buffer.take());
-    SendMessageBody(subscriber.stream_id, payload, true);
+    SendMessageBody(subscriber.stream_id, message_buffer, true);
 
     // Remove the subscription request
     ExpungeRequest(subscriber.stream_id);
@@ -541,10 +539,11 @@ H3ServerConnection::SendNamedObject(const PubSubRecord& subscriber,
       // Insert the message length and message into data_buffer
       message_buffer << static_cast<std::uint64_t>(msg.size());
       message_buffer.push(msg);
+      //! PEJ - We could avoid a copy here by sending two messages, but which
+      //!       is more expensive?
 
       // Send the message
-      std::vector<std::uint8_t> payload(message_buffer.take());
-      SendMessageBody(subscriber.stream_id, payload, true);
+      SendMessageBody(subscriber.stream_id, message_buffer, true);
     } else {
       // Sending a datagram that should be sized appropriately by the caller
       auto result = QuicheCall(quiche_h3_send_dgram,
@@ -688,7 +687,7 @@ H3ServerConnection::HandleCompletedRequest(QUICStreamID stream_id,
   if (status == 100) return false;
 
   // Send a response back to the client
-  std::vector<std::uint8_t> empty;
+  quicr::messages::MessageBuffer empty;
   SendHTTPResponse(stream_id, status, {}, empty, false, final_response);
 
   // Indicate whether the server is finished serving the request
@@ -716,22 +715,20 @@ H3ServerConnection::HandleCompletedRequest(QUICStreamID stream_id,
  *      The connection mutex must be locked by the caller.
  */
 void
-H3ServerConnection::HandleReceivedDatagram(QUICStreamID stream_id,
-                                           std::vector<std::uint8_t>& datagram)
+H3ServerConnection::HandleReceivedDatagram(
+  QUICStreamID stream_id,
+  quicr::messages::MessageBuffer& datagram)
 {
   try {
-    // Move the vector data into a MessageBuffer
-    messages::MessageBuffer msg(std::move(datagram));
-
     // Deserialize the message
-    messages::PublishDatagram datagram;
-    msg >> datagram;
+    messages::PublishDatagram object;
+    datagram >> object;
 
     // Try to find the publisher
-    auto publisher = pub_sub_registry->FindPublisher(datagram.header.name);
+    auto publisher = pub_sub_registry->FindPublisher(object.header.name);
     if (!publisher.has_value()) {
       logger->warning << "Unable to find publisher for name "
-                      << datagram.header.name << std::flush;
+                      << object.header.name << std::flush;
       return;
     }
 
@@ -739,9 +736,9 @@ H3ServerConnection::HandleReceivedDatagram(QUICStreamID stream_id,
     async_requests->Perform([server_delegate = &server_delegate,
                               stream_id,
                               identifier = publisher->identifier,
-                              datagram = std::move(datagram)]() mutable {
+                              object = std::move(object)]() mutable {
       server_delegate->onPublisherObject(
-        identifier, stream_id, false, std::move(datagram));
+        identifier, stream_id, false, std::move(object));
     });
   } catch (const std::exception& e) {
     logger->error << "Error processing datagram: " << e.what() << std::flush;
@@ -887,7 +884,7 @@ H3ServerConnection::SendHTTPResponse(
   QUICStreamID stream_id,
   unsigned status_code,
   const HTTPHeaders& response_headers,
-  std::vector<std::uint8_t>& response_body,
+  quicr::messages::MessageBuffer& response_body,
   bool prefix_length,
   bool close_stream)
 {
@@ -950,8 +947,7 @@ H3ServerConnection::SendHTTPResponse(
       message_buffer.push(response_body);
 
       // Send the message
-      std::vector<std::uint8_t> payload(message_buffer.take());
-      SendMessageBody(stream_id, payload, close_stream);
+      SendMessageBody(stream_id, message_buffer, close_stream);
     } else {
       // Send the message
       SendMessageBody(stream_id, response_body, close_stream);
@@ -1300,7 +1296,7 @@ H3ServerConnection::HandleUnsubscribe(RequestData* request)
     pub_sub_registry->Expunge(subscriber.identifier);
 
     // Terminate the QUIC stream associated with this subscription
-    std::vector<std::uint8_t> empty;
+    quicr::messages::MessageBuffer empty; //! PEJ - Better way to do this?
     SendMessageBody(subscriber.stream_id, empty, true);
   } catch (const std::exception& e) {
     logger->error << "Failed to handle unsubscribe: " << e.what() << std::flush;

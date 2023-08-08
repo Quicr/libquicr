@@ -28,6 +28,8 @@
 #include <thread>
 #include <vector>
 #include <deque>
+#include <cstdint>
+#include <cstddef>
 #include "cantina/async_requests.h"
 #include "cantina/logger.h"
 #include "cantina/timer_manager.h"

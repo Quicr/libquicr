@@ -18,7 +18,7 @@
 
 #include <chrono>
 #include <cstdint>
-#include <cstdlib>
+#include <cstddef>
 #include <deque>
 #include <map>
 #include <memory>
@@ -35,6 +35,7 @@
 #include "quiche.h"
 #include "quiche_types.h"
 #include "quicr/quicr_common.h"
+#include "quicr/message_buffer.h"
 #include "quicr/quicr_server_delegate.h"
 #include "h3_common.h"
 
@@ -95,14 +96,14 @@ protected:
                                       RequestData* request) override;
   virtual void HandleReceivedDatagram(
     QUICStreamID stream_id,
-    std::vector<std::uint8_t>& datagram) override;
+    quicr::messages::MessageBuffer& datagram) override;
 
   std::pair<bool, unsigned> ProcessRequest(QUICStreamID stream_id,
                                            RequestData* request);
   void SendHTTPResponse(QUICStreamID stream_id,
                         unsigned status_code,
                         const HTTPHeaders& response_headers,
-                        std::vector<std::uint8_t>& response_body,
+                        quicr::messages::MessageBuffer& response_body,
                         bool prefix_length,
                         bool close_stream = true);
   bool HandlePublishIntent(QUICStreamID stream_id, RequestData* request);

@@ -219,7 +219,7 @@ H3ClientConnection::PublishIntent(
 
     // Submit the HTTP request
     auto [result, stream_id] = InitiateRequest(
-      "POST", std::string("/pub/") + std::string(quicr_namespace), msg.take());
+      "POST", std::string("/pub/") + std::string(quicr_namespace), msg);
 
     // If successful, record this publisher
     if (result) {
@@ -288,9 +288,8 @@ H3ClientConnection::PublishIntentEnd(
     msg << intent_end;
 
     // Submit the HTTP request
-    InitiateRequest("DELETE",
-                    std::string("/pub/") + std::string(quicr_namespace),
-                    msg.take());
+    InitiateRequest(
+      "DELETE", std::string("/pub/") + std::string(quicr_namespace), msg);
 
     // Remove the publisher record
     pub_sub_registry->Expunge(publisher->identifier);
@@ -383,7 +382,7 @@ H3ClientConnection::Subscribe(
 
     // Submit the HTTP request
     auto [result, stream_id] = InitiateRequest(
-      "GET", std::string("/sub/") + std::string(quicr_namespace), msg.take());
+      "GET", std::string("/sub/") + std::string(quicr_namespace), msg);
 
     // If successful, record this publisher
     if (result) {
@@ -444,9 +443,8 @@ H3ClientConnection::Unsubscribe(const quicr::Namespace& quicr_namespace,
     msg << unsub;
 
     // Submit the HTTP request
-    InitiateRequest("DELETE",
-                    std::string("/sub/") + std::string(quicr_namespace),
-                    msg.take());
+    InitiateRequest(
+      "DELETE", std::string("/sub/") + std::string(quicr_namespace), msg);
 
     // Remove the subscriber record
     pub_sub_registry->Expunge(subscriber->identifier);
@@ -543,17 +541,14 @@ H3ClientConnection::PublishNamedObject(const quicr::Name& quicr_name,
     return;
   }
 
-  // Move the buffer from the message
-  std::vector<std::uint8_t> buffer = msg.take();
-
   // Send as a datagram?
   if (!use_reliable_transport && using_datagrams) {
     auto result = QuicheCall(quiche_h3_send_dgram,
                              http3_connection,
                              quiche_connection,
                              publisher->stream_id,
-                             buffer.data(),
-                             buffer.size());
+                             msg.data(),
+                             msg.size());
 
     if (result < 0) {
       logger->warning << "Failed to send datagram" << std::flush;
@@ -570,7 +565,7 @@ H3ClientConnection::PublishNamedObject(const quicr::Name& quicr_name,
 
   // Submit the HTTP PUT request
   auto [result, stream_id] = InitiateRequest(
-    "PUT", std::string("/pub/") + std::string(quicr_name), std::move(buffer));
+    "PUT", std::string("/pub/") + std::string(quicr_name), msg);
 
   if (result) {
     // Dispatch Quiche messages
@@ -650,16 +645,13 @@ H3ClientConnection::PublishNamedObjectFragmented(
 
       offset += max_send_size;
 
-      // Move the buffer from the message
-      std::vector<std::uint8_t> buffer = msg.take();
-
       // Send the packet to quiche
       auto result = QuicheCall(quiche_h3_send_dgram,
                                http3_connection,
                                quiche_connection,
                                publisher.stream_id,
-                               buffer.data(),
-                               buffer.size());
+                               msg.data(),
+                               msg.size());
 
       if (result < 0) {
         logger->warning << "Failed to send datagram for fragment" << std::flush;
@@ -681,16 +673,13 @@ H3ClientConnection::PublishNamedObjectFragmented(
 
       msg << datagram;
 
-      // Move the buffer from the message
-      std::vector<std::uint8_t> buffer = msg.take();
-
       // Send the packet to quiche
       auto result = QuicheCall(quiche_h3_send_dgram,
                                http3_connection,
                                quiche_connection,
                                publisher.stream_id,
-                               buffer.data(),
-                               buffer.size());
+                               msg.data(),
+                               msg.size());
 
       if (result < 0) {
         logger->warning << "Failed to send datagram for fragment" << std::flush;
@@ -880,15 +869,14 @@ H3ClientConnection::HandleIncrementalRequestData(QUICStreamID stream_id,
     if ((request_body.size() - sizeof(std::uint64_t)) >= message_length) {
 
       // Copy the full message into "message"
-      std::vector<std::uint8_t> message(
-        request_body.data() + sizeof(std::uint64_t),
-        request_body.data() + sizeof(std::uint64_t) +
-          message_length);
+      quicr::messages::MessageBuffer message;
+      message.push(
+        { request_body.data() + sizeof(std::uint64_t), message_length });
 
       // Now remove the length + message from the respose_body
       request_body.erase(request_body.begin(),
-                          request_body.begin() + sizeof(std::uint64_t) +
-                            message_length);
+                         request_body.begin() + sizeof(std::uint64_t) +
+                           message_length);
 
       // Is this the first message for this subscription?
       if (request->state == H3RequestState::Initiated) {
@@ -936,7 +924,8 @@ H3ClientConnection::HandleCompletedRequest(QUICStreamID stream_id,
   } else if (request->method == "GET") {
     // If the subscribe response returned an error, notify the application
     if (!IsSuccess(request->status_code)) {
-      HandleSubscribeResponse(stream_id, request->request_body);
+      quicr::messages::MessageBuffer message(std::move(request->request_body));
+      HandleSubscribeResponse(stream_id, message);
     } else {
       // This was a good subscription that has now ended
       HandleSubscribeEnded(stream_id, SubscribeResult::SubscribeStatus::Ok);
@@ -967,8 +956,9 @@ H3ClientConnection::HandleCompletedRequest(QUICStreamID stream_id,
  *      The connection mutex must be locked by the caller.
  */
 void
-H3ClientConnection::HandleReceivedDatagram(QUICStreamID stream_id,
-                                           std::vector<std::uint8_t>& datagram)
+H3ClientConnection::HandleReceivedDatagram(
+  QUICStreamID stream_id,
+  quicr::messages::MessageBuffer& datagram)
 {
   // This datagram should correspond to an existing GET request
   auto request = FindRequest(stream_id);
@@ -1014,7 +1004,7 @@ std::pair<bool, QUICStreamID>
 H3ClientConnection::InitiateRequest(
   const std::string& method,
   const std::string path,
-  std::vector<std::uint8_t>&& request_body)
+  quicr::messages::MessageBuffer& request_body)
 {
   // Headers to send back in the reply
   HTTPHeaders header_map = { { ":method", method },
@@ -1092,8 +1082,8 @@ H3ClientConnection::InitiateRequest(
  *      stream_id [in]
  *          The QUIC stream ID associated with this response.
  *
- *      response [in]
- *          This is a vector containing the subscribe response message.
+ *      message [in]
+ *          This is a buffer containing the subscribe response message.
  *
  *  Returns:
  *      Nothing.
@@ -1102,16 +1092,13 @@ H3ClientConnection::InitiateRequest(
  *      The connection mutex must be locked by the caller.
  */
 void
-H3ClientConnection::HandleSubscribeResponse(QUICStreamID stream_id,
-                                            std::vector<std::uint8_t>& response)
+H3ClientConnection::HandleSubscribeResponse(
+  QUICStreamID stream_id,
+  quicr::messages::MessageBuffer& message)
 {
   try {
-    // Move the message body into msg
-    messages::MessageBuffer msg(std::move(response));
-
-    // Formulate a response back to the client
     messages::SubscribeResponse response;
-    msg >> response;
+    message >> response;
 
     SubscribeResult result{ .status = response.response };
 
@@ -1179,7 +1166,7 @@ H3ClientConnection::HandleSubscribeResponse(QUICStreamID stream_id,
  *          Did this object arrive over a reliable transport?
  *
  *      object [in]
- *          This is a vector containing the published object.
+ *          This is a message buffer containing the published object.
  *
  *  Returns:
  *      Nothing.
@@ -1188,9 +1175,10 @@ H3ClientConnection::HandleSubscribeResponse(QUICStreamID stream_id,
  *      The connection mutex must be locked by the caller.
  */
 void
-H3ClientConnection::HandleSubscribedObject(QUICStreamID stream_id,
-                                           bool reliable_transport,
-                                           std::vector<std::uint8_t>& object)
+H3ClientConnection::HandleSubscribedObject(
+  QUICStreamID stream_id,
+  bool reliable_transport,
+  quicr::messages::MessageBuffer& object)
 {
   try {
     // Locate the subscriber record
@@ -1212,12 +1200,9 @@ H3ClientConnection::HandleSubscribedObject(QUICStreamID stream_id,
       return;
     }
 
-    // Move the message body into msg
-    messages::MessageBuffer msg(std::move(object));
-
     // Process the received message
     messages::PublishDatagram datagram;
-    msg >> datagram;
+    object >> datagram;
 
     // Ensure there is some data
     if (datagram.media_data.empty()) {

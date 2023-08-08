@@ -526,7 +526,7 @@ H3ConnectionBase::DispatchMessages(std::unique_lock<std::mutex>& lock,
  */
 void
 H3ConnectionBase::SendMessageBody(QUICStreamID stream_id,
-                                  std::vector<std::uint8_t>& message,
+                                  quicr::messages::MessageBuffer& message,
                                   bool final)
 {
   // Ensure the message is not empty unless final is true
@@ -1298,10 +1298,10 @@ H3ConnectionBase::HandleH3DatagramEvent(
       continue;
     }
 
-    // Create an vector to contain the message without the leading length
-    std::vector<std::uint8_t> message(
-      buffer.data() + flow_id_length,
-      buffer.data() + buffer.size());
+    // Create a message buffer to contain the message without the leading length
+    quicr::messages::MessageBuffer message;
+    message.push(
+      { buffer.data() + flow_id_length, buffer.size() - flow_id_length });
 
     // Call function to handle the datagram
     HandleReceivedDatagram(flow_id, message);

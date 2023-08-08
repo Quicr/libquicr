@@ -23,7 +23,8 @@
 #include <random>
 #include <string>
 #include <thread>
-#include <vector>
+#include <cstdint>
+#include <cstddef>
 #include <algorithm>
 #include "cantina/async_requests.h"
 #include "cantina/logger.h"
