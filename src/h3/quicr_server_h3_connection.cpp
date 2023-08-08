@@ -1296,7 +1296,7 @@ H3ServerConnection::HandleUnsubscribe(RequestData* request)
     pub_sub_registry->Expunge(subscriber.identifier);
 
     // Terminate the QUIC stream associated with this subscription
-    quicr::messages::MessageBuffer empty; //! PEJ - Better way to do this?
+    quicr::messages::MessageBuffer empty;
     SendMessageBody(subscriber.stream_id, empty, true);
   } catch (const std::exception& e) {
     logger->error << "Failed to handle unsubscribe: " << e.what() << std::flush;
