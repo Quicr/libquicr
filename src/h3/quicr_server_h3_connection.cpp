@@ -472,8 +472,8 @@ H3ServerConnection::SubscriptionEnded(
     //! PEJ - We could avoid a copy here by sending two messages, but which
     //!       is more expensive?
 
-    // Send the message
-    SendMessageBody(subscriber.stream_id, message_buffer, true);
+    // Send the message and do not close subscription stream
+    SendMessageBody(subscriber.stream_id, message_buffer, false);
 
     // Remove the subscription request
     ExpungeRequest(subscriber.stream_id);
