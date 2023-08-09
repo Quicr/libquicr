@@ -473,7 +473,7 @@ H3ServerConnection::SubscriptionEnded(
     //!       is more expensive?
 
     // Send the message and do not close subscription stream
-    SendMessageBody(subscriber.stream_id, message_buffer, false);
+    SendMessageBody(subscriber.stream_id, message_buffer, true);
 
     // Remove the subscription request
     ExpungeRequest(subscriber.stream_id);
@@ -543,7 +543,7 @@ H3ServerConnection::SendNamedObject(const PubSubRecord& subscriber,
       //!       is more expensive?
 
       // Send the message
-      SendMessageBody(subscriber.stream_id, message_buffer, true);
+      SendMessageBody(subscriber.stream_id, message_buffer, false);
     } else {
       // Sending a datagram that should be sized appropriately by the caller
       auto result = QuicheCall(quiche_h3_send_dgram,
