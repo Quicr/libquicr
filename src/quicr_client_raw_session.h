@@ -96,17 +96,19 @@ public:
   /**
    * @brief Publish intent to publish on a QUICR Namespace
    *
-   * @param pub_delegate          : Publisher delegate reference
-   * @param quicr_namespace       : Identifies QUICR namespace
-   * @param origin_url            : Origin serving the QUICR Session
-   * @param auth_token            : Auth Token to validate the Subscribe Request
-   * @param payload               : Opaque payload to be forwarded to the Origin
+   * @param pub_delegate            : Publisher delegate reference
+   * @param quicr_namespace         : Identifies QUICR namespace
+   * @param origin_url              : Origin serving the QUICR Session
+   * @param auth_token              : Auth Token to validate the Subscribe Request
+   * @param payload                 : Opaque payload to be forwarded to the Origin
+   * @param use_reliable_transport  : Indicates to use reliable for matching published objects
    */
   bool publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                      const quicr::Namespace& quicr_namespace,
                      const std::string& origin_url,
                      const std::string& auth_token,
-                     bytes&& payload) override;
+                     bytes&& payload,
+                     bool use_reliable_transport=false) override;
 
   /**
    * @brief Stop publishing on the given QUICR namespace

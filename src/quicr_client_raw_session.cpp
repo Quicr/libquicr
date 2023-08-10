@@ -279,15 +279,24 @@ QuicRClientRawSession::publishIntent(
   const quicr::Namespace& quicr_namespace,
   const std::string& /* origin_url */,
   const std::string& /* auth_token */,
-  bytes&& payload)
+  bytes&& payload,
+  bool use_reliable_transport)
 {
   if (!pub_delegates.count(quicr_namespace)) {
     pub_delegates[quicr_namespace] = pub_delegate;
+
+    qtransport::StreamId  sid = transport_stream_id;
+
+    if (use_reliable_transport) {
+      sid = transport->createStream(transport_context_id, true);
+
+    }
     publish_state[quicr_namespace] = { .state = PublishContext::State::Pending,
                                        .transport_context_id =
                                          transport_context_id,
-                                       .transport_stream_id =
-                                         transport_stream_id };
+                                       .transport_stream_id = sid};
+
+
   }
 
   messages::PublishIntent intent{ messages::MessageType::PublishIntent,
@@ -337,7 +346,7 @@ QuicRClientRawSession::subscribe(
   const quicr::Namespace& quicr_namespace,
   const SubscribeIntent& intent,
   [[maybe_unused]] const std::string& origin_url,
-  [[maybe_unused]] bool use_reliable_transport,
+  bool use_reliable_transport,
   [[maybe_unused]] const std::string& auth_token,
   [[maybe_unused]] bytes&& e2e_token)
 {
@@ -349,10 +358,16 @@ QuicRClientRawSession::subscribe(
   if (!sub_delegates.count(quicr_namespace)) {
     sub_delegates[quicr_namespace] = subscriber_delegate;
 
+    qtransport::StreamId sid = transport_stream_id;
+
+    if (use_reliable_transport) {
+      sid = transport->createStream(transport_context_id, true);
+    }
+
     subscribe_state[quicr_namespace] =
       SubscribeContext{ SubscribeContext::State::Pending,
                         transport_context_id,
-                        transport_stream_id,
+                        sid,
                         transaction_id };
   }
 
@@ -370,6 +385,15 @@ QuicRClientRawSession::removeSubscribeState(
   const SubscribeResult::SubscribeStatus& reason)
 {
   std::lock_guard<std::mutex> _(session_mutex);
+
+  auto state_it = subscribe_state.find(quicr_namespace);
+  if (state_it != subscribe_state.end()) {
+    if (state_it->second.transport_stream_id > 1) {
+      transport->closeStream(transport_context_id, state_it->second.transport_stream_id);
+    }
+
+    subscribe_state.erase(state_it);
+  }
 
   if (!!subscribe_state.count(quicr_namespace)) {
     subscribe_state.erase(quicr_namespace);
@@ -428,7 +452,6 @@ QuicRClientRawSession::publishNamedObject(
 
   if (context.state != PublishContext::State::Ready) {
     context.transport_context_id = transport_context_id;
-    context.transport_stream_id = transport_stream_id;
     context.state = PublishContext::State::Ready;
 
     context.prev_group_id = context.group_id;
@@ -470,8 +493,10 @@ QuicRClientRawSession::publishNamedObject(
   datagram.header.offset_and_fin = static_cast<uintVar_t>(1);
   datagram.media_type = messages::MediaType::RealtimeMedia;
 
+  qtransport::StreamId sid = use_reliable_transport ? context.transport_stream_id : transport_stream_id;
+
   // Fragment the payload if needed
-  if (data.size() <= quicr::MAX_TRANSPORT_DATA_SIZE) {
+  if (data.size() <= quicr::MAX_TRANSPORT_DATA_SIZE || sid > 1) {
     messages::MessageBuffer msg;
 
     datagram.media_data_length = static_cast<uintVar_t>(data.size());
@@ -481,7 +506,7 @@ QuicRClientRawSession::publishNamedObject(
 
     // No fragmenting needed
     transport->enqueue(transport_context_id,
-                       context.transport_stream_id,
+                       sid,
                        msg.take(),
                        priority,
                        expiry_age_ms);
@@ -522,7 +547,7 @@ QuicRClientRawSession::publishNamedObject(
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
       if (transport->enqueue(transport_context_id,
-                             context.transport_stream_id,
+                             sid,
                              msg.take(),
                              priority,
                              expiry_age_ms) !=
@@ -545,7 +570,7 @@ QuicRClientRawSession::publishNamedObject(
       msg << datagram;
 
       if (auto err = transport->enqueue(transport_context_id,
-                                        context.transport_stream_id,
+                                        sid,
                                         msg.take(),
                                         priority,
                                         expiry_age_ms);
