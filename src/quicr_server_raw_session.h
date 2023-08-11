@@ -222,11 +222,9 @@ private:
 
   struct PublishIntentContext : public Context
   {
-    uint64_t transaction_id{ 0 };
-    uint64_t group_id{ 0 };
-    uint64_t object_id{ 0 };
-    uint64_t prev_group_id{ 0 };
-    uint64_t prev_object_id{ 0 };
+    uint64_t transaction_id {0};
+    uint64_t last_group_id {0};
+    uint64_t last_object_id {0};
   };
 
   ServerDelegate& delegate;

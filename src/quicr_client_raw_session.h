@@ -246,11 +246,9 @@ protected:
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
     qtransport::StreamId transport_stream_id{ 0 };
-    uint64_t transaction_id{ 0 };
-    uint64_t prev_group_id{ 0 };
-    uint64_t prev_object_id{ 0 };
-    uint64_t group_id{ 0 };
-    uint64_t object_id{ 0 };
+    uint64_t transaction_id {0};
+    uint64_t last_group_id {0};
+    uint64_t last_object_id {0};
   };
 
   // State per publish_intent and related publish
@@ -266,10 +264,8 @@ protected:
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
     qtransport::StreamId transport_stream_id{ 0 };
-    uint64_t prev_group_id{ 0 };
-    uint64_t prev_object_id{ 0 };
-    uint64_t group_id{ 0 };
-    uint64_t object_id{ 0 };
+    uint64_t last_group_id {0};
+    uint64_t last_object_id {0};
     uint64_t offset{ 0 };
   };
 

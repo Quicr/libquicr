@@ -18,6 +18,7 @@
 #include "quicr/encode.h"
 #include "quicr/message_buffer.h"
 #include "quicr/quicr_common.h"
+#include "quicr/gap_check.h"
 
 #include <algorithm>
 #include <arpa/inet.h>
@@ -301,28 +302,12 @@ QuicRServerRawSession::handle_publish(
 
   auto& [ns, context] = *publish_namespace;
 
-  context.group_id = datagram.header.name.bits<uint64_t>(16, 32);
-  context.object_id = datagram.header.name.bits<uint64_t>(0, 16);
+  auto gap_log = gap_check(false, datagram.header.name,
+                           context.last_group_id, context.last_object_id);
 
-  if (context.group_id - context.prev_group_id > 1) {
-    std::ostringstream log_msg;
-    log_msg << "RX Group jump for ns: " << ns << " " << context.group_id
-            << " - " << context.prev_group_id << " = "
-            << context.group_id - context.prev_group_id - 1;
-    log_handler.log(qtransport::LogLevel::info, log_msg.str());
+  if (!gap_log.empty()) {
+    log_handler.log(qtransport::LogLevel::info, gap_log);
   }
-
-  if (context.group_id == context.prev_group_id &&
-      context.object_id - context.prev_object_id > 1) {
-    std::ostringstream log_msg;
-    log_msg << "RX Object jump for ns: " << ns << " " << context.object_id
-            << " - " << context.prev_object_id << " = "
-            << context.object_id - context.prev_object_id - 1;
-    log_handler.log(qtransport::LogLevel::info, log_msg.str());
-  }
-
-  context.prev_group_id = context.group_id;
-  context.prev_object_id = context.object_id;
 
   delegate.onPublisherObject(context_id, streamId, false, std::move(datagram));
 }
