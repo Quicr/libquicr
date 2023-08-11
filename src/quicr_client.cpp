@@ -53,10 +53,11 @@ QuicRClient::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                            const quicr::Namespace& quicr_namespace,
                            const std::string& origin_url,
                            const std::string& auth_token,
-                           bytes&& payload)
+                           bytes&& payload,
+                           bool use_reliable_transport)
 {
   return client_session->publishIntent(
-    pub_delegate, quicr_namespace, origin_url, auth_token, std::move(payload));
+    pub_delegate, quicr_namespace, origin_url, auth_token, std::move(payload), use_reliable_transport);
 }
 
 void
