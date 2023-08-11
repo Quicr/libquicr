@@ -37,13 +37,13 @@ namespace quicr {
                 log_s << (is_tx ? "TX " : "RX ")
                       << "Group gap for name: " << name << " " << group_id
                       << " - " << last_group_id << " = "
-                      << group_id - last_group_id;
+                      << (group_id - last_group_id) - 1;
 
             } else if (group_id == last_group_id && object_id - last_object_id > 1) {
                 log_s << (is_tx ? "TX " : "RX ")
                       << "Object gap for name: " << name << " "
                       << object_id << " - " << last_object_id
-                      << " = " << object_id - last_object_id;
+                      << " = " << (object_id - last_object_id) - 1;
             }
         }
 
