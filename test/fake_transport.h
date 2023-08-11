@@ -49,6 +49,12 @@ struct FakeTransport : public ITransport
                    StreamId /* streamId */){};
   void close() {}
 
+  bool getPeerAddrInfo(const TransportContextId& /*context_id*/,
+                       sockaddr_storage* /*addr*/)
+  {
+    return false;
+  }
+
   TransportError enqueue(const TransportContextId& /* tcid */,
                          const StreamId& /* sid */,
                          std::vector<uint8_t>&& bytes,
