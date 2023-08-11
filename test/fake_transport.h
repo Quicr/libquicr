@@ -26,6 +26,11 @@ struct FakeTransportDelegate : public ITransport::TransportDelegate
                       const StreamId& /* streamId */) override
   {
   }
+
+  bool getPeerAddrInfo(const TransportContextId& /*context_id*/,
+                       sockaddr_storage* /*addr*/)
+  {
+  }
 };
 
 struct FakeTransport : public ITransport
