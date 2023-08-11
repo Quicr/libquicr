@@ -26,12 +26,6 @@ struct FakeTransportDelegate : public ITransport::TransportDelegate
                       const StreamId& /* streamId */) override
   {
   }
-
-  bool getPeerAddrInfo(const TransportContextId& /*context_id*/,
-                       sockaddr_storage* /*addr*/)
-  {
-    return false;
-  }
 };
 
 struct FakeTransport : public ITransport
@@ -54,6 +48,12 @@ struct FakeTransport : public ITransport
   void closeStream(const TransportContextId& /* context_id */,
                    StreamId /* streamId */){};
   void close() {}
+
+  bool getPeerAddrInfo(const TransportContextId& /*context_id*/,
+                       sockaddr_storage* /*addr*/)
+  {
+    return false;
+  }
 
   TransportError enqueue(const TransportContextId& /* tcid */,
                          const StreamId& /* sid */,
