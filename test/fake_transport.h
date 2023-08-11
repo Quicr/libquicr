@@ -30,6 +30,7 @@ struct FakeTransportDelegate : public ITransport::TransportDelegate
   bool getPeerAddrInfo(const TransportContextId& /*context_id*/,
                        sockaddr_storage* /*addr*/)
   {
+    return false;
   }
 };
 
