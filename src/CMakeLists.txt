@@ -41,6 +41,7 @@ target_link_libraries(quicr
         qname
         cantina::logger
         cantina::networking
+        cantina::threading
         quiche_library)
 if(APPLE)
     # For various security functions used by Quiche + BoringSSL
