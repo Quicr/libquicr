@@ -108,7 +108,7 @@ public:
                      const std::string& origin_url,
                      const std::string& auth_token,
                      bytes&& payload,
-                     bool use_reliable_transport=false) override;
+                     bool use_reliable_transport) override;
 
   /**
    * @brief Stop publishing on the given QUICR namespace

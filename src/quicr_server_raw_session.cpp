@@ -413,27 +413,22 @@ QuicRServerRawSession::TransportDelegate::on_connection_status(
     }
 
     std::vector<quicr::Namespace> sub_names_to_remove;
-    for (auto& sub : server.subscribe_state) {
-      if (sub.second.count(context_id) != 0) {
+    for (auto& [ns, sub_map]: server.subscribe_state) {
 
-        const auto& stream_id = sub.second[context_id].subscriber_id;
-
-        // Before removing, exec callback
-        server.delegate.onUnsubscribe(sub.first, stream_id, {});
-
-        server.subscribe_id_state.erase(stream_id);
-        sub.second.erase(context_id);
-
-        if (sub.second.empty()) {
-          sub_names_to_remove.push_back(sub.first);
-        }
-
-        break;
+      auto sub_it = sub_map.find(context_id);
+      if (sub_it != sub_map.end()) {
+        server.delegate.onUnsubscribe(ns, sub_it->second.subscriber_id, {});
+        server.subscribe_id_state.erase(sub_it->second.subscriber_id);
+        sub_map.erase(sub_it);
       }
 
-      for (const auto& ns : sub_names_to_remove) {
-        server.subscribe_state.erase(ns);
+      if (sub_map.empty()) {
+        sub_names_to_remove.push_back(ns);
       }
+    }
+
+    for (const auto& ns : sub_names_to_remove) {
+      server.subscribe_state.erase(ns);
     }
   }
 }
@@ -509,10 +504,10 @@ QuicRServerRawSession::TransportDelegate::on_recv_notify(
                                    "Invalid Message Type");
             break;
         }
-      } catch (const messages::MessageBuffer::ReadException& /* ex */) {
+      } catch (const messages::MessageBuffer::ReadException&  ex) {
         server.log_handler.log(
           qtransport::LogLevel::fatal,
-          "Received read exception error while reading from message buffer.");
+          "Received read exception error while reading from message buffer: " + std::string(ex.std::runtime_error::what()));
         continue;
 
       } catch (const std::exception& /* ex */) {
