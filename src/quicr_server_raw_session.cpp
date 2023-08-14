@@ -504,9 +504,11 @@ QuicRServerRawSession::TransportDelegate::on_recv_notify(
             break;
         }
       } catch (const messages::MessageBuffer::ReadException&  ex) {
+
+        // TODO: When reliable, we really should reset the stream if this happens (at least more than once)
         server.log_handler.log(
           qtransport::LogLevel::fatal,
-          "Received read exception error while reading from message buffer: " + std::string(ex.std::runtime_error::what()));
+          "Received read exception error while reading from message buffer: " + std::string(ex.what()));
         continue;
 
       } catch (const std::exception& /* ex */) {

@@ -272,7 +272,7 @@ protected:
   bool need_pacing{ false };
   bool has_shared_transport{ false };
   std::atomic_bool stopping{ false };
-  qtransport::StreamId transport_stream_id{ 0 };
+  qtransport::StreamId transport_dgram_stream_id{ 0 };
   qtransport::TransportContextId transport_context_id;
   ClientStatus client_status{ ClientStatus::TERMINATED };
 
