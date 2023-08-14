@@ -22,7 +22,6 @@
 
 #include <algorithm>
 #include <arpa/inet.h>
-#include <iostream>
 #include <sstream>
 #include <thread>
 

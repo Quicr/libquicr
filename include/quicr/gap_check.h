@@ -21,7 +21,7 @@ namespace quicr {
      *
      * @returns string messages if there is a gap. Empty message indicates no gap
      */
-    std::string gap_check(bool is_tx,
+    static std::string gap_check(bool is_tx,
                           const Name& name,
                           uint64_t& last_group_id,
                           uint64_t& last_object_id) {
