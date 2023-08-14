@@ -1,19 +1,19 @@
 #pragma once
 
-#include "per_category_session.h"
+#include "stream_session_base.h"
 
 namespace quicr {
-class ClientRawSession_PerObject : public ClientRawSession_PerCategory
+class ClientPerObjectRawSession : public ClientStreamRawSessionBase
 {
 public:
-  using ClientRawSession_PerCategory::ClientRawSession_PerCategory;
+  using ClientStreamRawSessionBase::ClientStreamRawSessionBase;
 
 protected:
   virtual std::optional<std::pair<Namespace, PublishContext&>>
   findPublishStream(Name name)
   {
     if (auto found = publish_state.find(name); found != publish_state.end()) {
-      return *found;
+      return { {found->first, (*found).second} };
     }
 
     return std::nullopt;

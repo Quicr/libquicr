@@ -1,12 +1,12 @@
 #pragma once
 
-#include "per_category_session.h"
+#include "stream_session_base.h"
 
 namespace quicr {
-class ClientRawSession_PerGroup : public ClientRawSession_PerCategory
+class ClientPerGroupRawSession : public ClientStreamRawSessionBase
 {
 public:
-  using ClientRawSession_PerCategory::ClientRawSession_PerCategory;
+  using ClientStreamRawSessionBase::ClientStreamRawSessionBase;
 
 protected:
   virtual std::optional<std::pair<Namespace, PublishContext&>>
@@ -14,7 +14,7 @@ protected:
   {
     if (auto found = publish_state.find(name & ~0x0_name << 16u);
         found != publish_state.end()) {
-      return *found;
+      return { {found->first, (*found).second} };
     }
     return std::nullopt;
   }
@@ -27,8 +27,7 @@ protected:
         context.stream_id == 0)
       return;
 
-    uint64_t diff = uint32_t((context.name - context.prev_name) >> 16);
-    if (!diff)
+    if (!uint32_t((context.name - context.prev_name) >> 16))
       return;
 
     transport->closeStream(transport_context_id, context.stream_id);

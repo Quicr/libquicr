@@ -25,10 +25,10 @@ make_client_session(RelayInfo& relay_info,
     case RelayInfo::Protocol::QUIC:
       switch (stream_mode) {
         case StreamMode::PerGroup:
-          return std::make_unique<ClientRawSession_PerGroup>(
+          return std::make_unique<ClientPerGroupRawSession>(
             relay_info, tconfig, logger);
         case StreamMode::PerObject:
-          return std::make_unique<ClientRawSession_PerObject>(
+          return std::make_unique<ClientPerObjectRawSession>(
             relay_info, tconfig, logger);
         case StreamMode::Datagram:
           [[fallthrough]];

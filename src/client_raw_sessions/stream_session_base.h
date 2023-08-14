@@ -1,48 +1,16 @@
 #pragma once
 
-#include "../quicr_client_raw_session.h"
-
 #include "../helpers.h"
-#include "quicr/quicr_common.h"
-
-#include <chrono>
-#include <stdint.h>
-#include <thread>
+#include "../quicr_client_raw_session.h"
 
 namespace quicr {
 
-class ClientRawSession_Datagram : public QuicRClientRawSession
+class ClientStreamRawSessionBase : public QuicRClientRawSession
 {
 public:
   using QuicRClientRawSession::QuicRClientRawSession;
 
 protected:
-  virtual std::optional<std::pair<Namespace, PublishContext&>>
-  findPublishStream(Name name)
-  {
-    if (auto found = publish_state.find(name); found != publish_state.end()) {
-      return { {found->first, (*found).second} };
-    }
-    return std::nullopt;
-  }
-
-  virtual void createPublishStream(PublishContext& context, bool)
-  {
-    if (context.state == PublishContext::State::Ready)
-      return;
-
-    context.state = PublishContext::State::Ready;
-  }
-
-  virtual bool detectJump(Name a, Name b) const
-  {
-    const uint32_t group_id_jump =
-      a.bits<uint32_t>(16, 32) - b.bits<uint32_t>(16, 32);
-    const uint16_t object_id_jump =
-      a.bits<uint16_t>(0, 16) - b.bits<uint16_t>(0, 16);
-    return group_id_jump > 1u || (group_id_jump == 0 && object_id_jump > 1u);
-  }
-
   virtual void sendPublishData(const quicr::Name& name,
                                const PublishContext& context,
                                uint8_t priority,
@@ -77,6 +45,8 @@ protected:
                          expiry_age_ms);
       return;
     }
+
+    // TODO: Remove the following fragmentation code.
 
     // Fragments required. At this point this only counts whole blocks
     int frag_num = data.size() / quicr::MAX_TRANSPORT_DATA_SIZE;
