@@ -369,8 +369,6 @@ QuicRClientRawSession::removeSubscribeState(
   const quicr::Namespace& quicr_namespace,
   const SubscribeResult::SubscribeStatus& reason)
 {
-  std::lock_guard<std::mutex> _(session_mutex);
-
   if (!!subscribe_state.count(quicr_namespace)) {
     subscribe_state.erase(quicr_namespace);
   }
@@ -687,6 +685,7 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
       messages::SubscribeEnd subEnd;
       msg >> subEnd;
 
+      std::lock_guard<std::mutex> _(session_mutex);
       removeSubscribeState(subEnd.quicr_namespace, subEnd.reason);
       break;
     }
