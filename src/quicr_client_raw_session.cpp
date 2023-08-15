@@ -180,6 +180,10 @@ QuicRClientRawSession::disconnect()
   return true;
 }
 
+/*===========================================================================*/
+// Transport Delegate Events
+/*===========================================================================*/
+
 void
 QuicRClientRawSession::on_connection_status(
   const qtransport::TransportContextId& context_id,
@@ -273,6 +277,10 @@ QuicRClientRawSession::on_recv_notify(
   }
 }
 
+/*===========================================================================*/
+// QuicrClientSession API Methods
+/*===========================================================================*/
+
 bool
 QuicRClientRawSession::publishIntent(
   std::shared_ptr<PublisherDelegate> pub_delegate,
@@ -341,8 +349,7 @@ QuicRClientRawSession::subscribe(
   [[maybe_unused]] const std::string& auth_token,
   [[maybe_unused]] bytes&& e2e_token)
 {
-
-  std::lock_guard<std::mutex> lock(session_mutex);
+  std::lock_guard<std::mutex> _(session_mutex);
 
   auto transaction_id = messages::create_transaction_id();
 
@@ -365,36 +372,17 @@ QuicRClientRawSession::subscribe(
 }
 
 void
-QuicRClientRawSession::removeSubscribeState(
-  const quicr::Namespace& quicr_namespace,
-  const SubscribeResult::SubscribeStatus& reason)
-{
-  if (!!subscribe_state.count(quicr_namespace)) {
-    subscribe_state.erase(quicr_namespace);
-  }
-
-  if (!!sub_delegates.count(quicr_namespace)) {
-    if (auto sub_delegate = sub_delegates[quicr_namespace].lock())
-      sub_delegate->onSubscriptionEnded(quicr_namespace, reason);
-
-    sub_delegates.erase(quicr_namespace);
-  }
-}
-
-void
 QuicRClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
                                    const std::string& /* origin_url */,
                                    const std::string& /* auth_token */)
 {
-  // The removal of the delegate is done on receive of subscription ended
-  std::lock_guard<std::mutex> lock(session_mutex);
-
   messages::MessageBuffer msg{};
   messages::Unsubscribe unsub{ 0x1, quicr_namespace };
   msg << unsub;
 
-  removeSubscribeState(quicr_namespace,
-                       SubscribeResult::SubscribeStatus::ConnectionClosed);
+  std::lock_guard<std::mutex> _(session_mutex);
+  removeSubscription(quicr_namespace,
+                     SubscribeResult::SubscribeStatus::ConnectionClosed);
   transport->enqueue(transport_context_id, transport_stream_id, msg.take());
 }
 
@@ -570,6 +558,26 @@ QuicRClientRawSession::publishNamedObjectFragment(
   throw std::runtime_error("UnImplemented");
 }
 
+/*===========================================================================*/
+// Internal Helper Methods
+/*===========================================================================*/
+
+void
+QuicRClientRawSession::removeSubscription(
+  const quicr::Namespace& quicr_namespace,
+  const SubscribeResult::SubscribeStatus& reason)
+{
+  if (!!sub_delegates.count(quicr_namespace)) {
+    if (auto sub_delegate = sub_delegates[quicr_namespace].lock())
+      sub_delegate->onSubscriptionEnded(quicr_namespace, reason);
+
+    sub_delegates.erase(quicr_namespace);
+  }
+
+  if (!!subscribe_state.count(quicr_namespace))
+    subscribe_state.erase(quicr_namespace);
+}
+
 bool
 QuicRClientRawSession::notify_pub_fragment(
   const messages::PublishDatagram& datagram,
@@ -686,7 +694,7 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
       msg >> subEnd;
 
       std::lock_guard<std::mutex> _(session_mutex);
-      removeSubscribeState(subEnd.quicr_namespace, subEnd.reason);
+      removeSubscription(subEnd.quicr_namespace, subEnd.reason);
       break;
     }
 
