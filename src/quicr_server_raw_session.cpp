@@ -115,6 +115,7 @@ QuicRServerRawSession::publishIntentResponse(
   if (!publish_namespaces.count(quicr_namespace))
     return;
 
+  // TODO: Need to update publish_namespaces and intent methods to support multi origin
   auto& context = publish_namespaces[quicr_namespace];
   messages::PublishIntentResponse response{
     messages::MessageType::PublishIntentResponse,
