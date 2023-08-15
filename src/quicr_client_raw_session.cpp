@@ -111,14 +111,21 @@ QuicRClientRawSession::~QuicRClientRawSession()
 bool
 QuicRClientRawSession::connect()
 {
+  client_status = ClientStatus::CONNECTING;
+
   transport_context_id = transport->start();
+
   log_handler.log(qtransport::LogLevel::info,
                   (std::ostringstream()
                    << "Connecting session " << transport_context_id << "...")
                     .str());
 
-  client_status = ClientStatus::CONNECTING;
   while (!stopping && client_status == ClientStatus::CONNECTING) {
+    log_handler.log(qtransport::LogLevel::info,
+                    (std::ostringstream() << " ... connecting:  "
+                                          << static_cast<uint32_t>(client_status))
+                      .str());
+
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 

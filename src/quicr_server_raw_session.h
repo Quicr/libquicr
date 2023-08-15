@@ -237,7 +237,7 @@ private:
     subscribe_state{};
   std::map<uint64_t, SubscribeContext> subscribe_id_state{};
 
-  // TODO: publish_namespaces should support multi-origin (more than one publisher per ns)
+   // TODO: publish_namespaces should support multi-origin (more than one publisher per ns)
   namespace_map<PublishIntentContext> publish_namespaces{};
 
   bool running{ false };

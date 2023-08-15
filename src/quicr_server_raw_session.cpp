@@ -460,7 +460,6 @@ QuicRServerRawSession::TransportDelegate::on_recv_notify(
   const qtransport::TransportContextId& context_id,
   const qtransport::StreamId& streamId)
 {
-
   // don't starve other queues, read some number of messages at a time
   for (int i = 0; i < 150; i++) {
     auto data = server.transport->dequeue(context_id, streamId);
