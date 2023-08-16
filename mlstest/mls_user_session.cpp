@@ -13,6 +13,8 @@
     return keypackage;
   }
 
+  bytes MlsUserSession::fresh_secret() const { return random_bytes(suite.secret_size()); }
+
   void MlsUserSession::setup_user(const bytes& user_id, CipherSuite suite)
   {
     auto ext_list = ExtensionList{};
@@ -39,9 +41,9 @@
 
   }
 
-  void MlsUserSession::process_key_package(std::vector<uint8_t>&& data)
+  std::tuple<MLSMessage, Welcome, State> MlsUserSession::process_key_package(std::vector<uint8_t>&& data)
   {
     auto kp = tls::get<KeyPackage>(data);
-    mls_state->add_proposal(kp);
-
+    auto add_proposal = mls_state->add_proposal(kp);
+    return mls_state->commit(fresh_secret(), CommitOpts{ { add_proposal }, true, false, {} }, {});
   }

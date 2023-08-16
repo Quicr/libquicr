@@ -31,7 +31,7 @@ private:
 
   // create from welcome
   State make_state(bytes&& welcome_data);
-
+  bytes fresh_secret() const ;
 
 public:
 
@@ -39,5 +39,5 @@ public:
   const KeyPackage& get_key_package() const ;
   // group creator
   void make_state();
-  void process_key_package(std::vector<uint8_t>&& data);
+  std::tuple<MLSMessage, Welcome, State> process_key_package(std::vector<uint8_t>&& data);
 };

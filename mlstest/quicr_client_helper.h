@@ -24,11 +24,12 @@ public:
   // proxy handlers for quicr messages
   void handle(const quicr::Name& name, quicr::bytes&& data) override;
   MlsUserSession& getSession();
+  bool isUserCreator();
 private:
   std::map<quicr::Namespace, std::shared_ptr<SubDelegate>> sub_delegates { };
   quicr::QuicRClient* client;
   testLogger& logger;
   MlsUserSession session;
-
+  bool is_user_creator;
 
 };

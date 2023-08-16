@@ -37,6 +37,7 @@ QuicrClientHelper::QuicrClientHelper(std::string user, testLogger& logger_in, bo
                                     .tls_key_filename = NULL };
   client = new quicr::QuicRClient{ relay, tcfg, logger };
 
+  is_user_creator = is_creator;
   if (is_creator) {
     session.make_state();
   }
@@ -109,3 +110,7 @@ void QuicrClientHelper::handle(const quicr::Name& name, quicr::bytes&& data){
       }
     }
 }
+
+bool QuicrClientHelper::isUserCreator() {
+  return is_user_creator;
+};
