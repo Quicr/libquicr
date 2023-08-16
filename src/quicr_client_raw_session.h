@@ -227,8 +227,8 @@ protected:
 
   void handle(messages::MessageBuffer&& msg);
 
-  void removeSubscribeState(const quicr::Namespace& quicr_namespace,
-                            const SubscribeResult::SubscribeStatus& reason);
+  void removeSubscription(const quicr::Namespace& quicr_namespace,
+                          const SubscribeResult::SubscribeStatus& reason);
 
 protected:
   std::mutex session_mutex;
