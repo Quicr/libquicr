@@ -96,17 +96,19 @@ public:
   /**
    * @brief Publish intent to publish on a QUICR Namespace
    *
-   * @param pub_delegate          : Publisher delegate reference
-   * @param quicr_namespace       : Identifies QUICR namespace
-   * @param origin_url            : Origin serving the QUICR Session
-   * @param auth_token            : Auth Token to validate the Subscribe Request
-   * @param payload               : Opaque payload to be forwarded to the Origin
+   * @param pub_delegate            : Publisher delegate reference
+   * @param quicr_namespace         : Identifies QUICR namespace
+   * @param origin_url              : Origin serving the QUICR Session
+   * @param auth_token              : Auth Token to validate the Subscribe Request
+   * @param payload                 : Opaque payload to be forwarded to the Origin
+   * @param use_reliable_transport  : Indicates to use reliable for matching published objects
    */
   bool publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                      const quicr::Namespace& quicr_namespace,
                      const std::string& origin_url,
                      const std::string& auth_token,
-                     bytes&& payload) override;
+                     bytes&& payload,
+                     bool use_reliable_transport) override;
 
   /**
    * @brief Stop publishing on the given QUICR namespace
@@ -244,11 +246,9 @@ protected:
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
     qtransport::StreamId transport_stream_id{ 0 };
-    uint64_t transaction_id{ 0 };
-    uint64_t prev_group_id{ 0 };
-    uint64_t prev_object_id{ 0 };
-    uint64_t group_id{ 0 };
-    uint64_t object_id{ 0 };
+    uint64_t transaction_id {0};
+    uint64_t last_group_id {0};
+    uint64_t last_object_id {0};
   };
 
   // State per publish_intent and related publish
@@ -264,17 +264,15 @@ protected:
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
     qtransport::StreamId transport_stream_id{ 0 };
-    uint64_t prev_group_id{ 0 };
-    uint64_t prev_object_id{ 0 };
-    uint64_t group_id{ 0 };
-    uint64_t object_id{ 0 };
+    uint64_t last_group_id {0};
+    uint64_t last_object_id {0};
     uint64_t offset{ 0 };
   };
 
   bool need_pacing{ false };
   bool has_shared_transport{ false };
   std::atomic_bool stopping{ false };
-  qtransport::StreamId transport_stream_id{ 0 };
+  qtransport::StreamId transport_dgram_stream_id{ 0 };
   qtransport::TransportContextId transport_context_id;
   ClientStatus client_status{ ClientStatus::TERMINATED };
 

@@ -222,11 +222,9 @@ private:
 
   struct PublishIntentContext : public Context
   {
-    uint64_t transaction_id{ 0 };
-    uint64_t group_id{ 0 };
-    uint64_t object_id{ 0 };
-    uint64_t prev_group_id{ 0 };
-    uint64_t prev_object_id{ 0 };
+    uint64_t transaction_id {0};
+    uint64_t last_group_id {0};
+    uint64_t last_object_id {0};
   };
 
   ServerDelegate& delegate;
@@ -238,7 +236,10 @@ private:
            std::map<qtransport::TransportContextId, SubscribeContext>>
     subscribe_state{};
   std::map<uint64_t, SubscribeContext> subscribe_id_state{};
+
+   // TODO: publish_namespaces should support multi-origin (more than one publisher per ns)
   namespace_map<PublishIntentContext> publish_namespaces{};
+
   bool running{ false };
   uint64_t subscriber_id{ 0 };
 };

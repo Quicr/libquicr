@@ -20,6 +20,7 @@
 #include "quicr/quicr_client.h"
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_common.h"
+#include "quicr/gap_check.h"
 
 #include <chrono>
 #include <iomanip>
@@ -110,14 +111,21 @@ QuicRClientRawSession::~QuicRClientRawSession()
 bool
 QuicRClientRawSession::connect()
 {
+  client_status = ClientStatus::CONNECTING;
+
   transport_context_id = transport->start();
+
   log_handler.log(qtransport::LogLevel::info,
                   (std::ostringstream()
                    << "Connecting session " << transport_context_id << "...")
                     .str());
 
-  client_status = ClientStatus::CONNECTING;
   while (!stopping && client_status == ClientStatus::CONNECTING) {
+    log_handler.log(qtransport::LogLevel::info,
+                    (std::ostringstream() << " ... connecting:  "
+                                          << static_cast<uint32_t>(client_status))
+                      .str());
+
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
@@ -139,7 +147,7 @@ QuicRClientRawSession::connect()
     throw std::runtime_error(msg.str());
   }
 
-  transport_stream_id = transport->createStream(transport_context_id, false);
+  transport_dgram_stream_id = transport->createStream(transport_context_id, false);
 
   return true;
 }
@@ -287,30 +295,39 @@ QuicRClientRawSession::publishIntent(
   const quicr::Namespace& quicr_namespace,
   const std::string& /* origin_url */,
   const std::string& /* auth_token */,
-  bytes&& payload)
+  bytes&& payload,
+  bool use_reliable_transport)
 {
-  if (!pub_delegates.count(quicr_namespace)) {
-    pub_delegates[quicr_namespace] = pub_delegate;
-    publish_state[quicr_namespace] = { .state = PublishContext::State::Pending,
-                                       .transport_context_id =
-                                         transport_context_id,
-                                       .transport_stream_id =
-                                         transport_stream_id };
+
+  if (pub_delegates.count(quicr_namespace)) {
+    return true;
   }
 
-  messages::PublishIntent intent{ messages::MessageType::PublishIntent,
-                                  messages::create_transaction_id(),
-                                  quicr_namespace,
-                                  std::move(payload),
-                                  transport_stream_id,
-                                  1 };
+  pub_delegates[quicr_namespace] = pub_delegate;
 
-  messages::MessageBuffer msg{ sizeof(messages::PublishIntent) +
-                               intent.payload.size() };
+  qtransport::StreamId stream_id = transport_dgram_stream_id;
+
+  if (use_reliable_transport) {
+      stream_id = transport->createStream(transport_context_id, true);
+
+  }
+  publish_state[quicr_namespace] = {.state = PublishContext::State::Pending,
+          .transport_context_id = transport_context_id,
+          .transport_stream_id = stream_id};
+
+  messages::PublishIntent intent{messages::MessageType::PublishIntent,
+                                 messages::create_transaction_id(),
+                                 quicr_namespace,
+                                 std::move(payload),
+                                 stream_id,
+                                 1};
+
+  messages::MessageBuffer msg{sizeof(messages::PublishIntent) +
+                              intent.payload.size()};
   msg << intent;
 
   auto error =
-    transport->enqueue(transport_context_id, transport_stream_id, msg.take());
+          transport->enqueue(transport_context_id, stream_id, msg.take());
 
   return error == qtransport::TransportError::None;
 }
@@ -325,18 +342,24 @@ QuicRClientRawSession::publishIntentEnd(
   if (!pub_delegates.count(quicr_namespace)) {
     return;
   }
+
   pub_delegates.erase(quicr_namespace);
 
-  messages::PublishIntentEnd intent_end{
-    messages::MessageType::PublishIntentEnd,
-    quicr_namespace,
-    {} // TODO: Figure out payload.
-  };
+  auto ps_it = publish_state.find(quicr_namespace);
+  if (ps_it != publish_state.end()) {
+      messages::PublishIntentEnd intent_end{
+              messages::MessageType::PublishIntentEnd,
+              quicr_namespace,
+              {} // TODO: Figure out payload.
+      };
 
-  messages::MessageBuffer msg;
-  msg << intent_end;
+      messages::MessageBuffer msg;
+      msg << intent_end;
 
-  transport->enqueue(transport_context_id, transport_stream_id, msg.take());
+      transport->enqueue(transport_context_id, ps_it->second.transport_stream_id, msg.take());
+
+      publish_state.erase(ps_it);
+  }
 }
 
 void
@@ -345,10 +368,11 @@ QuicRClientRawSession::subscribe(
   const quicr::Namespace& quicr_namespace,
   const SubscribeIntent& intent,
   [[maybe_unused]] const std::string& origin_url,
-  [[maybe_unused]] bool use_reliable_transport,
+  bool use_reliable_transport,
   [[maybe_unused]] const std::string& auth_token,
   [[maybe_unused]] bytes&& e2e_token)
 {
+
   std::lock_guard<std::mutex> _(session_mutex);
 
   auto transaction_id = messages::create_transaction_id();
@@ -356,19 +380,30 @@ QuicRClientRawSession::subscribe(
   if (!sub_delegates.count(quicr_namespace)) {
     sub_delegates[quicr_namespace] = subscriber_delegate;
 
+    qtransport::StreamId stream_id = transport_dgram_stream_id;
+
+    if (use_reliable_transport) {
+      stream_id = transport->createStream(transport_context_id, true);
+    }
+
     subscribe_state[quicr_namespace] =
-      SubscribeContext{ SubscribeContext::State::Pending,
-                        transport_context_id,
-                        transport_stream_id,
-                        transaction_id };
+      SubscribeContext{ .state =SubscribeContext::State::Pending,
+                        .transport_context_id = transport_context_id,
+                        .transport_stream_id = stream_id,
+                        .transaction_id = transaction_id};
   }
 
-  // encode subscribe
-  messages::MessageBuffer msg{};
-  messages::Subscribe subscribe{ 0x1, transaction_id, quicr_namespace, intent };
-  msg << subscribe;
+  // We allow duplicate subscriptions, so we always send it even if it exists already
+  auto sub_it = subscribe_state.find(quicr_namespace);
+  if (sub_it != subscribe_state.end()) {
 
-  transport->enqueue(transport_context_id, transport_stream_id, msg.take());
+      // encode subscribe
+      messages::MessageBuffer msg{};
+      messages::Subscribe subscribe{0x1, transaction_id, quicr_namespace, intent};
+      msg << subscribe;
+
+      transport->enqueue(transport_context_id, sub_it->second.transport_stream_id, msg.take());
+  }
 }
 
 void
@@ -376,14 +411,20 @@ QuicRClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
                                    const std::string& /* origin_url */,
                                    const std::string& /* auth_token */)
 {
+  // The removal of the delegate is done on receive of subscription ended
   messages::MessageBuffer msg{};
   messages::Unsubscribe unsub{ 0x1, quicr_namespace };
   msg << unsub;
 
-  std::lock_guard<std::mutex> _(session_mutex);
+  auto state_it = subscribe_state.find(quicr_namespace);
+  if (state_it != subscribe_state.end()) {
+      transport->enqueue(transport_context_id,
+                         state_it->second.transport_stream_id, msg.take());
+  }
+
+   std::lock_guard<std::mutex> _(session_mutex);
   removeSubscription(quicr_namespace,
                      SubscribeResult::SubscribeStatus::ConnectionClosed);
-  transport->enqueue(transport_context_id, transport_stream_id, msg.take());
 }
 
 void
@@ -391,7 +432,7 @@ QuicRClientRawSession::publishNamedObject(
   const quicr::Name& quicr_name,
   uint8_t priority,
   uint16_t expiry_age_ms,
-  [[maybe_unused]] bool use_reliable_transport,
+  bool use_reliable_transport,
   bytes&& data)
 {
   // start populating message to encode
@@ -409,65 +450,48 @@ QuicRClientRawSession::publishNamedObject(
 
   auto& [ns, context] = *found;
 
-  context.group_id = quicr_name.bits<uint32_t>(16, 32);
-  context.object_id = quicr_name.bits<uint16_t>(0, 16);
+  if (context.transport_stream_id == transport_dgram_stream_id)
+    use_reliable_transport = false;
 
   if (context.state != PublishContext::State::Ready) {
     context.transport_context_id = transport_context_id;
-    context.transport_stream_id = transport_stream_id;
     context.state = PublishContext::State::Ready;
 
-    context.prev_group_id = context.group_id;
-    context.prev_object_id = context.object_id;
-
     std::ostringstream log_msg;
-    log_msg << "Adding new context for published ns: " << ns << " "
-            << context.group_id << " - " << context.prev_group_id;
+    log_msg << "Adding new context for published ns: " << ns;
     log_handler.log(qtransport::LogLevel::info, log_msg.str());
 
   } else {
-    if (context.group_id - context.prev_group_id > 1) {
-      std::ostringstream log_msg;
-      log_msg << "TX Group jump for ns: " << ns << " " << context.group_id
-              << " - " << context.prev_group_id << " = "
-              << context.group_id - context.prev_group_id;
-      log_handler.log(qtransport::LogLevel::info, log_msg.str());
-    }
+    auto gap_log = gap_check(true, quicr_name,
+                             context.last_group_id, context.last_object_id);
 
-    if (context.group_id == context.prev_group_id &&
-        context.object_id - context.prev_object_id > 1) {
-      std::ostringstream log_msg;
-      log_msg << "TX Object jump for ns: " << ns << " " << context.object_id
-              << " - " << context.prev_object_id << " = "
-              << context.object_id - context.prev_object_id;
-      log_handler.log(qtransport::LogLevel::info, log_msg.str());
+    if (!gap_log.empty()) {
+        log_handler.log(qtransport::LogLevel::info, gap_log);
     }
-
-    context.prev_group_id = context.group_id;
-    context.prev_object_id = context.object_id;
   }
 
   datagram.header.name = quicr_name;
-  datagram.header.media_id =
-    static_cast<uintVar_t>(context.transport_stream_id);
-  datagram.header.group_id = static_cast<uintVar_t>(context.group_id);
-  datagram.header.object_id = static_cast<uintVar_t>(context.object_id);
+  datagram.header.media_id =context.transport_stream_id;
+  datagram.header.group_id = context.last_group_id;
+  datagram.header.object_id = context.last_object_id;
   datagram.header.flags = 0x0;
-  datagram.header.offset_and_fin = static_cast<uintVar_t>(1);
+  datagram.header.offset_and_fin = 1ULL;
   datagram.media_type = messages::MediaType::RealtimeMedia;
 
+  qtransport::StreamId stream_id = use_reliable_transport ? context.transport_stream_id : transport_dgram_stream_id;
+
   // Fragment the payload if needed
-  if (data.size() <= quicr::MAX_TRANSPORT_DATA_SIZE) {
+  if (data.size() <= quicr::MAX_TRANSPORT_DATA_SIZE || use_reliable_transport ) {
     messages::MessageBuffer msg;
 
-    datagram.media_data_length = static_cast<uintVar_t>(data.size());
+    datagram.media_data_length = data.size();
     datagram.media_data = std::move(data);
 
     msg << datagram;
 
     // No fragmenting needed
     transport->enqueue(transport_context_id,
-                       context.transport_stream_id,
+                       stream_id,
                        msg.take(),
                        priority,
                        expiry_age_ms);
@@ -508,7 +532,7 @@ QuicRClientRawSession::publishNamedObject(
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
       if (transport->enqueue(transport_context_id,
-                             context.transport_stream_id,
+                             stream_id,
                              msg.take(),
                              priority,
                              expiry_age_ms) !=
@@ -531,7 +555,7 @@ QuicRClientRawSession::publishNamedObject(
       msg << datagram;
 
       if (auto err = transport->enqueue(transport_context_id,
-                                        context.transport_stream_id,
+                                        stream_id,
                                         msg.take(),
                                         priority,
                                         expiry_age_ms);
@@ -567,15 +591,21 @@ QuicRClientRawSession::removeSubscription(
   const quicr::Namespace& quicr_namespace,
   const SubscribeResult::SubscribeStatus& reason)
 {
+  auto state_it = subscribe_state.find(quicr_namespace);
+  if (state_it != subscribe_state.end()) {
+    if (state_it->second.transport_stream_id > 1) {
+      transport->closeStream(transport_context_id, state_it->second.transport_stream_id);
+    }
+
+    subscribe_state.erase(state_it);
+  }
+
   if (!!sub_delegates.count(quicr_namespace)) {
     if (auto sub_delegate = sub_delegates[quicr_namespace].lock())
       sub_delegate->onSubscriptionEnded(quicr_namespace, reason);
 
     sub_delegates.erase(quicr_namespace);
   }
-
-  if (!!subscribe_state.count(quicr_namespace))
-    subscribe_state.erase(quicr_namespace);
 }
 
 bool
@@ -708,28 +738,12 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
 
         auto& context = subscribe_state[ns];
 
-        context.group_id = datagram.header.name.bits<uint32_t>(16, 32);
-        context.object_id = datagram.header.name.bits<uint16_t>(0, 16);
+        auto gap_log = gap_check(false, datagram.header.name,
+                                 context.last_group_id, context.last_object_id);
 
-        if (context.group_id - context.prev_group_id > 1) {
-          std::ostringstream log_msg;
-          log_msg << "RX Group jump for ns: " << ns << " " << context.group_id
-                  << " - " << context.prev_group_id << " = "
-                  << context.group_id - context.prev_group_id - 1;
-          log_handler.log(qtransport::LogLevel::info, log_msg.str());
+        if (!gap_log.empty()) {
+          log_handler.log(qtransport::LogLevel::info, gap_log);
         }
-
-        if (context.group_id == context.prev_group_id &&
-            context.object_id - context.prev_object_id > 1) {
-          std::ostringstream log_msg;
-          log_msg << "RX Object jump for ns: " << ns << " " << context.object_id
-                  << " - " << context.prev_object_id << " = "
-                  << context.object_id - context.prev_object_id - 1;
-          log_handler.log(qtransport::LogLevel::info, log_msg.str());
-        }
-
-        context.prev_group_id = context.group_id;
-        context.prev_object_id = context.object_id;
 
         if (datagram.header.offset_and_fin == uintVar_t(0x1)) {
           // No-fragment, process as single object

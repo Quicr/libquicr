@@ -18,10 +18,10 @@
 #include "quicr/encode.h"
 #include "quicr/message_buffer.h"
 #include "quicr/quicr_common.h"
+#include "quicr/gap_check.h"
 
 #include <algorithm>
 #include <arpa/inet.h>
-#include <iostream>
 #include <sstream>
 #include <thread>
 
@@ -115,6 +115,7 @@ QuicRServerRawSession::publishIntentResponse(
   if (!publish_namespaces.count(quicr_namespace))
     return;
 
+  // TODO: Need to update publish_namespaces and intent methods to support multi origin
   auto& context = publish_namespaces[quicr_namespace];
   messages::PublishIntentResponse response{
     messages::MessageType::PublishIntentResponse,
@@ -301,28 +302,12 @@ QuicRServerRawSession::handle_publish(
 
   auto& [ns, context] = *publish_namespace;
 
-  context.group_id = datagram.header.name.bits<uint64_t>(16, 32);
-  context.object_id = datagram.header.name.bits<uint64_t>(0, 16);
+  auto gap_log = gap_check(false, datagram.header.name,
+                           context.last_group_id, context.last_object_id);
 
-  if (context.group_id - context.prev_group_id > 1) {
-    std::ostringstream log_msg;
-    log_msg << "RX Group jump for ns: " << ns << " " << context.group_id
-            << " - " << context.prev_group_id << " = "
-            << context.group_id - context.prev_group_id - 1;
-    log_handler.log(qtransport::LogLevel::info, log_msg.str());
+  if (!gap_log.empty()) {
+    log_handler.log(qtransport::LogLevel::info, gap_log);
   }
-
-  if (context.group_id == context.prev_group_id &&
-      context.object_id - context.prev_object_id > 1) {
-    std::ostringstream log_msg;
-    log_msg << "RX Object jump for ns: " << ns << " " << context.object_id
-            << " - " << context.prev_object_id << " = "
-            << context.object_id - context.prev_object_id - 1;
-    log_handler.log(qtransport::LogLevel::info, log_msg.str());
-  }
-
-  context.prev_group_id = context.group_id;
-  context.prev_object_id = context.object_id;
 
   delegate.onPublisherObject(context_id, streamId, false, std::move(datagram));
 }
@@ -428,27 +413,22 @@ QuicRServerRawSession::TransportDelegate::on_connection_status(
     }
 
     std::vector<quicr::Namespace> sub_names_to_remove;
-    for (auto& sub : server.subscribe_state) {
-      if (sub.second.count(context_id) != 0) {
+    for (auto& [ns, sub_map]: server.subscribe_state) {
 
-        const auto& stream_id = sub.second[context_id].subscriber_id;
-
-        // Before removing, exec callback
-        server.delegate.onUnsubscribe(sub.first, stream_id, {});
-
-        server.subscribe_id_state.erase(stream_id);
-        sub.second.erase(context_id);
-
-        if (sub.second.empty()) {
-          sub_names_to_remove.push_back(sub.first);
-        }
-
-        break;
+      auto sub_it = sub_map.find(context_id);
+      if (sub_it != sub_map.end()) {
+        server.delegate.onUnsubscribe(ns, sub_it->second.subscriber_id, {});
+        server.subscribe_id_state.erase(sub_it->second.subscriber_id);
+        sub_map.erase(sub_it);
       }
 
-      for (const auto& ns : sub_names_to_remove) {
-        server.subscribe_state.erase(ns);
+      if (sub_map.empty()) {
+        sub_names_to_remove.push_back(ns);
       }
+    }
+
+    for (const auto& ns : sub_names_to_remove) {
+      server.subscribe_state.erase(ns);
     }
   }
 }
@@ -480,7 +460,6 @@ QuicRServerRawSession::TransportDelegate::on_recv_notify(
   const qtransport::TransportContextId& context_id,
   const qtransport::StreamId& streamId)
 {
-
   // don't starve other queues, read some number of messages at a time
   for (int i = 0; i < 150; i++) {
     auto data = server.transport->dequeue(context_id, streamId);
@@ -524,10 +503,12 @@ QuicRServerRawSession::TransportDelegate::on_recv_notify(
                                    "Invalid Message Type");
             break;
         }
-      } catch (const messages::MessageBuffer::ReadException& /* ex */) {
+      } catch (const messages::MessageBuffer::ReadException&  ex) {
+
+        // TODO: When reliable, we really should reset the stream if this happens (at least more than once)
         server.log_handler.log(
           qtransport::LogLevel::fatal,
-          "Received read exception error while reading from message buffer.");
+          "Received read exception error while reading from message buffer: " + std::string(ex.what()));
         continue;
 
       } catch (const std::exception& /* ex */) {
