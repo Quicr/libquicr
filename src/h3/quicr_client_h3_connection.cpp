@@ -187,7 +187,8 @@ H3ClientConnection::PublishIntent(
   const quicr::Namespace& quicr_namespace,
   [[maybe_unused]] const std::string& origin_url,
   [[maybe_unused]] const std::string& auth_token,
-  quicr::bytes&& payload)
+  quicr::bytes&& payload,
+  bool use_reliable_transport)
 {
   // Lock the client mutex
   std::unique_lock<std::mutex> lock(connection_lock);
@@ -224,8 +225,12 @@ H3ClientConnection::PublishIntent(
     // If successful, record this publisher
     if (result) {
       // Record the publisher
-      pub_sub_registry->Publish(
-        local_cid, stream_id, quicr_namespace, stream_id, pub_delegate);
+      pub_sub_registry->Publish(local_cid,
+                                stream_id,
+                                use_reliable_transport,
+                                quicr_namespace,
+                                stream_id,
+                                pub_delegate);
 
       // Emit Quiche messages
       DispatchMessages(lock);
@@ -507,6 +512,10 @@ H3ClientConnection::PublishNamedObject(const quicr::Name& quicr_name,
                     << quicr_name << std::flush;
     return;
   }
+
+  // If the publisher record demands an unreliable transport, enforce that
+  // by overriding the parameter given in this API call
+  if (publisher->reliable == false) use_reliable_transport = false;
 
   // If using datagrams and the message is large, send it in pieces
   if (!use_reliable_transport && using_datagrams &&

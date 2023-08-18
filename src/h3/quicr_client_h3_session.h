@@ -78,7 +78,8 @@ public:
                              const quicr::Namespace& quicr_namespace,
                              const std::string& origin_url,
                              const std::string& auth_token,
-                             quicr::bytes&& payload) override;
+                             quicr::bytes&& payload,
+                             bool use_reliable_transport) override;
   virtual void publishIntentEnd(const quicr::Namespace& quicr_namespace,
                                 const std::string& auth_token) override;
   virtual void subscribe(

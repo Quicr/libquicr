@@ -52,6 +52,10 @@ PubSubRegistry::PubSubRegistry()
  *      stream_id [id]
  *          The QUIC stream ID associated with this publisher.
  *
+ *      use_reliable_transport [in]
+ *          Indicates that data published to this namespace should be sent
+ *          reliably.
+ *
  *      quicr_namespace [in]
  *          The QUICR namespace associated with this publisher.
  *
@@ -73,6 +77,7 @@ PubSubRegistry::PubSubRegistry()
 RegistryID
 PubSubRegistry::Publish(const QUICConnectionID& connection_id,
                         QUICStreamID stream_id,
+                        bool use_reliable_transport,
                         const Namespace& quicr_namespace,
                         std::uint64_t client_transaction_id,
                         const std::shared_ptr<PublisherDelegate> pub_delegate)
@@ -95,6 +100,7 @@ PubSubRegistry::Publish(const QUICConnectionID& connection_id,
                                  .publisher = true,
                                  .connection_id = connection_id,
                                  .stream_id = stream_id,
+                                 .reliable = use_reliable_transport,
                                  .quicr_namespace = quicr_namespace,
                                  .transaction_id = client_transaction_id,
                                  .pub_delegate = pub_delegate,
@@ -155,11 +161,13 @@ PubSubRegistry::Subscribe(
   // Get the next record identifier
   auto record_id = GetNextID();
 
-  // Insert the subscriber record
+  // Insert the subscriber record; note the reliable flag is set to true,
+  // but behavior is dictated by the server and client's support for datagrams
   pub_sub_records[record_id] = { .identifier = record_id,
                                  .publisher = false,
                                  .connection_id = connection_id,
                                  .stream_id = stream_id,
+                                 .reliable = true,
                                  .quicr_namespace = quicr_namespace,
                                  .transaction_id = client_transaction_id,
                                  .pub_delegate =

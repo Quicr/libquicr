@@ -73,7 +73,8 @@ public:
                      const quicr::Namespace& quicr_namespace,
                      const std::string& origin_url,
                      const std::string& auth_token,
-                     quicr::bytes&& payload);
+                     quicr::bytes&& payload,
+                     bool use_reliable_transport);
   void PublishIntentEnd(const quicr::Namespace& quicr_namespace,
                         const std::string& auth_token);
   void Subscribe(std::shared_ptr<SubscriberDelegate>& subscriber_delegate,

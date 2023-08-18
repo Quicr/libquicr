@@ -989,9 +989,13 @@ H3ServerConnection::HandlePublishIntent(QUICStreamID stream_id,
     messages::PublishIntent publish_intent;
     msg >> publish_intent;
 
-    // Record the publish intent
+    // Record the publish intent; note the reliable flag is set to true,
+    // but server behavior is dictated by the use_reliable_transport parameter
+    // in the SendNamedObject() call and the peer's ability to support
+    // datagrams
     publisher_id = pub_sub_registry->Publish(local_cid,
                                              stream_id,
+                                             true,
                                              publish_intent.quicr_namespace,
                                              publish_intent.transaction_id);
 

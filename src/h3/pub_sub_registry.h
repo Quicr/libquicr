@@ -38,6 +38,7 @@ struct PubSubRecord
   bool publisher;                                 // Publisher?
   QUICConnectionID connection_id;                 // QUIC connection ID
   QUICStreamID stream_id;                         // QUIC stream ID
+  bool reliable;                                  // Publish reliably?
   Namespace quicr_namespace;                      // QUICR Namespace
   std::uint64_t transaction_id;                   // Client's transaction ID
   std::weak_ptr<PublisherDelegate> pub_delegate;  // Publisher delegate
@@ -54,6 +55,7 @@ public:
   RegistryID Publish(
     const QUICConnectionID& connection_id,
     QUICStreamID stream_id,
+    bool use_reliable_transport,
     const Namespace& quicr_namespace,
     std::uint64_t client_transaction_id,
     const std::shared_ptr<PublisherDelegate> pub_delegate = nullptr);
