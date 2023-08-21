@@ -8,10 +8,9 @@ class SubDelegate : public quicr::SubscriberDelegate
 {
 public:
   SubDelegate(QuicrMessageProxy* qclientProxy, testLogger& logger)
-    : client_helper(qclientProxy),
-      logger(logger)
-  {
-  }
+    : logger(logger),
+     client_helper(qclientProxy)
+  {}
 
   void onSubscribeResponse(
     [[maybe_unused]] const quicr::Namespace& quicr_namespace,

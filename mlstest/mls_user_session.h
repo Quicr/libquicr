@@ -8,36 +8,44 @@
 
 using namespace mls;
 
-class MlsUserSession
-{
-protected:
-  const CipherSuite suite{ CipherSuite::ID::P256_AES128GCM_SHA256_P256 };
 
-private:
-  bytes group_id;
-  bytes user_id;
-  // Leaf Information
+// Information needed per user to populate MLS state
+struct MLsUserInfo {
+  std::string user;
+  std::string group;
+  CipherSuite suite;
   KeyPackage keypackage;
   HPKEPrivateKey init_key;
   HPKEPrivateKey leaf_key;
   SignaturePrivateKey signing_key;
   Credential credential;
+};
 
-  std::unique_ptr<State> mls_state = nullptr;
 
+class MlsUserSession
+{
+public:
+  // create key-package
+  static MLsUserInfo setup_mls_userinfo(const std::string& user, const std::string& group, CipherSuite suite);
+
+  // setup mls state for the creator
+  static std::unique_ptr<MlsUserSession> create(const MLsUserInfo& info);
+  // setup mls state for the joiners
+  static std::unique_ptr<MlsUserSession> create_for_welcome(const MLsUserInfo& info, bytes&& welcome_data);
+
+  MlsUserSession(mls::State&& state, const MLsUserInfo& user_info);
+  const KeyPackage& get_key_package() const;
+  // group creator
+  std::tuple<bytes, bytes> process_key_package(std::vector<uint8_t>&& data);
+  State& get_state();
+
+private:
 
   void setup_user(const bytes& user_id, CipherSuite suite);
-
-
-  // create from welcome
   State make_state(bytes&& welcome_data);
   bytes fresh_secret() const ;
 
-public:
+  MLsUserInfo user_info{};
+  State mls_state;
 
-  MlsUserSession(const bytes& group_id, const bytes& user);
-  const KeyPackage& get_key_package() const ;
-  // group creator
-  void make_state();
-  std::tuple<MLSMessage, Welcome, State> process_key_package(std::vector<uint8_t>&& data);
 };

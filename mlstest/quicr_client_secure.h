@@ -28,7 +28,7 @@ struct common_utils
   testLogger logger;
   std::stringstream log_msg;
   namespaceConfig nspace_config;
-  QuicrClientHelper creator{ std::string("FFFOOO"), logger, true };
+  QuicrClientHelper creator { std::string("FFFOOO"), logger, true };
   std::array<QuicrClientHelper, 1> participants = { QuicrClientHelper(std::string("FFFOO1"), logger, false)};
 };
 

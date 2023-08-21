@@ -4,10 +4,10 @@ find_package(OpenSSL 1.1 REQUIRED)
 set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
 find_package(MLSPP REQUIRED)
 
-add_executable(quicr_mlstest main.cpp mls_user_session.cpp testLogger.cpp sub_delegate.cpp pub_delegate.cpp quicr_client_helper.cpp)
+add_executable(quicr_mlstest main.cpp mls_user_session.cpp testLogger.cpp sub_delegate.cpp pub_delegate.cpp quicr_client_helper.cpp quicr_client_secure.cpp)
 
 target_link_libraries( quicr_mlstest LINK_PUBLIC
-                            quicr picotls-core picotls-openssl MLSPP::mlspp  MLSPP::tls_syntax)
+                            quicr picotls-core picotls-openssl MLSPP::mlspp  MLSPP::tls_syntax doctest::doctest)
 
 target_compile_options(quicr_mlstest
         PRIVATE
@@ -19,3 +19,6 @@ set_target_properties(quicr_mlstest
         CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS OFF)
+
+include(${CMAKE_SOURCE_DIR}/dependencies/doctest/scripts/cmake/doctest.cmake)
+doctest_discover_tests(quicr_mlstest)

@@ -16,8 +16,16 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/Users/chaya/Github/libquicr/mlstest/testLogger.cpp" "mlstest/CMakeFiles/quicr_mlstest.dir/testLogger.cpp.o" "gcc" "mlstest/CMakeFiles/quicr_mlstest.dir/testLogger.cpp.o.d"
   )
 
-# Targets to which this target links which contain Fortran sources.
-set(CMAKE_Fortran_TARGET_LINKED_INFO_FILES
+# Targets to which this target links.
+set(CMAKE_TARGET_LINKED_INFO_FILES
+  "/Users/chaya/Github/libquicr/src/CMakeFiles/quicr.dir/DependInfo.cmake"
+  "/Users/chaya/Github/libquicr/dependencies/transport/dependencies/picotls/CMakeFiles/picotls-core.dir/DependInfo.cmake"
+  "/Users/chaya/Github/libquicr/dependencies/transport/dependencies/picotls/CMakeFiles/picotls-openssl.dir/DependInfo.cmake"
+  "/Users/chaya/Github/libquicr/dependencies/transport/CMakeFiles/quicr-transport.dir/DependInfo.cmake"
+  "/Users/chaya/Github/libquicr/dependencies/transport/dependencies/picoquic/CMakeFiles/picoquic-core.dir/DependInfo.cmake"
+  "/Users/chaya/Github/libquicr/dependencies/transport/dependencies/boringssl/decrepit/CMakeFiles/decrepit.dir/DependInfo.cmake"
+  "/Users/chaya/Github/libquicr/dependencies/transport/dependencies/boringssl/ssl/CMakeFiles/ssl.dir/DependInfo.cmake"
+  "/Users/chaya/Github/libquicr/dependencies/transport/dependencies/boringssl/crypto/CMakeFiles/crypto.dir/DependInfo.cmake"
   )
 
 # Fortran module output directory.
