@@ -1,10 +1,10 @@
+#include <quicr/encode.h>
+
 #include <array>
 #include <ctime>
 #include <map>
 #include <random>
 #include <string>
-
-#include <quicr/encode.h>
 
 using quicr::bytes;
 
@@ -379,7 +379,7 @@ operator>>(MessageBuffer& buffer, PublishIntentResponse& msg)
 }
 
 MessageBuffer&
-operator<<(MessageBuffer& buffer, const Header& msg)
+operator<<(MessageBuffer& buffer, const PublishDatagram::Header& msg)
 {
   buffer << msg.name;
   buffer << msg.media_id;
@@ -392,7 +392,7 @@ operator<<(MessageBuffer& buffer, const Header& msg)
 }
 
 MessageBuffer&
-operator>>(MessageBuffer& buffer, Header& msg)
+operator>>(MessageBuffer& buffer, PublishDatagram::Header& msg)
 {
   buffer >> msg.name;
   buffer >> msg.media_id;

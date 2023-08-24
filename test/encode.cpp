@@ -1,8 +1,8 @@
 #include <doctest/doctest.h>
 
+#include <quicr/common.h>
 #include <quicr/encode.h>
 #include <quicr/message_buffer.h>
-#include <quicr/quicr_common.h>
 #include <quicr_name>
 
 #include <memory>
@@ -43,7 +43,7 @@ TEST_CASE("Subscribe Message encode/decode")
 {
   quicr::Namespace qnamespace{ 0x10000000000000002000_name, 128 };
 
-  Subscribe s{ 1, 0x1000, qnamespace, SubscribeIntent::immediate };
+  Subscribe s{ {}, 0x1000, qnamespace, SubscribeIntent::immediate };
   MessageBuffer buffer;
   buffer << s;
   Subscribe s_out;
@@ -58,9 +58,9 @@ TEST_CASE("SubscribeResponse Message encode/decode")
 {
   quicr::Namespace qnamespace{ 0x10000000000000002000_name, 125 };
 
-  SubscribeResponse s{ qnamespace,
-                       SubscribeResult::SubscribeStatus::Ok,
-                       0x1000 };
+  SubscribeResponse s{
+    {}, qnamespace, SubscribeResult::SubscribeStatus::Ok, 0x1000
+  };
   MessageBuffer buffer;
   buffer << s;
   SubscribeResponse s_out;
@@ -107,9 +107,13 @@ TEST_CASE("Unsubscribe Message encode/decode")
 TEST_CASE("PublishIntent Message encode/decode")
 {
   quicr::Namespace qnamespace{ 0x10000000000000002000_name, 125 };
-  PublishIntent pi{ MessageType::Publish, 0x1000,
-                    qnamespace,           { 0, 1, 2, 3, 4 },
-                    uintVar_t{ 0x0100 },  uintVar_t{ 0x0000 } };
+  PublishIntent pi{ {},
+                    MessageType::Publish,
+                    0x1000,
+                    qnamespace,
+                    { 0, 1, 2, 3, 4 },
+                    uintVar_t{ 0x0100 },
+                    uintVar_t{ 0x0000 } };
   MessageBuffer buffer;
   buffer << pi;
   PublishIntent pi_out;
@@ -125,7 +129,9 @@ TEST_CASE("PublishIntent Message encode/decode")
 
 TEST_CASE("PublishIntentResponse Message encode/decode")
 {
-  PublishIntentResponse pir{ MessageType::Publish, {}, Response::Ok, 0x1000 };
+  PublishIntentResponse pir{
+    {}, MessageType::Publish, {}, Response::Ok, 0x1000
+  };
   MessageBuffer buffer;
   buffer << pir;
   PublishIntentResponse pir_out;
@@ -140,15 +146,16 @@ TEST_CASE("PublishIntentResponse Message encode/decode")
 TEST_CASE("Publish Message encode/decode")
 {
   quicr::Name qn = 0x10000000000000002000_name;
-  Header d{ uintVar_t{ 0x1000 }, qn,
-            uintVar_t{ 0x0100 }, uintVar_t{ 0x0010 },
-            uintVar_t{ 0x0001 }, 0x0000 };
+  PublishDatagram::Header d{
+    uintVar_t{ 0x1000 }, qn,     uintVar_t{ 0x0100 }, uintVar_t{ 0x0010 },
+    uintVar_t{ 0x0001 }, 0x0000,
+  };
 
   std::vector<uint8_t> data(256);
   for (int i = 0; i < 256; ++i)
     data[i] = i;
 
-  PublishDatagram p{ d, MediaType::Text, uintVar_t{ 256 }, data };
+  PublishDatagram p{ {}, d, MediaType::Text, uintVar_t{ 256 }, data };
   MessageBuffer buffer;
   buffer << p;
   PublishDatagram p_out;
@@ -168,7 +175,7 @@ TEST_CASE("Publish Message encode/decode")
 
 TEST_CASE("PublishStream Message encode/decode")
 {
-  PublishStream ps{ uintVar_t{ 5 }, { 0, 1, 2, 3, 4 } };
+  PublishStream ps{ {}, uintVar_t{ 5 }, { 0, 1, 2, 3, 4 } };
   MessageBuffer buffer;
   buffer << ps;
   PublishStream ps_out;
@@ -180,9 +187,9 @@ TEST_CASE("PublishStream Message encode/decode")
 
 TEST_CASE("PublishIntentEnd Message encode/decode")
 {
-  PublishIntentEnd pie{ MessageType::Publish,
-                        { 12345_name, 0u },
-                        { 0, 1, 2, 3, 4 } };
+  PublishIntentEnd pie{
+    {}, MessageType::Publish, { 12345_name, 0u }, { 0, 1, 2, 3, 4 }
+  };
   MessageBuffer buffer;
   buffer << pie;
   PublishIntentEnd pie_out;
@@ -224,7 +231,7 @@ TEST_CASE("VarInt Encode/Decode")
 
 TEST_CASE("Fetch Message encode/decode")
 {
-  Fetch f{ 0x1000, 0x10000000000000002000_name };
+  Fetch f{ {}, 0x1000, 0x10000000000000002000_name };
   MessageBuffer buffer;
   buffer << f;
   Fetch fout;

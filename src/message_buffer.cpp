@@ -6,7 +6,6 @@
 #include <array>
 #include <iomanip>
 #include <sstream>
-#include <vector>
 
 namespace quicr::messages {
 
@@ -74,7 +73,7 @@ MessageBuffer::pop(uint16_t length)
   cleanup(length);
 };
 
-const uint8_t&
+const byte&
 MessageBuffer::front() const
 {
   if (empty())
@@ -101,13 +100,13 @@ MessageBuffer::front(uint16_t length) const
   return { data(), length };
 }
 
-uint8_t
+byte
 MessageBuffer::pop_front()
 {
   if (empty())
     throw EmptyException();
 
-  uint8_t value = *std::make_move_iterator(begin());
+  byte value = *std::make_move_iterator(begin());
   cleanup();
 
   return value;
@@ -158,14 +157,14 @@ MessageBuffer::to_hex() const
 /*===========================================================================*/
 
 MessageBuffer&
-MessageBuffer::operator<<(const uint8_t& value)
+MessageBuffer::operator<<(const byte& value)
 {
   _buffer.push_back(value);
   return *this;
 }
 
 MessageBuffer&
-MessageBuffer::operator>>(uint8_t& value)
+MessageBuffer::operator>>(byte& value)
 {
   value = pop_front();
   return *this;

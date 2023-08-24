@@ -1,5 +1,6 @@
 #pragma once
 
+#include <quicr/common.h>
 #include <quicr/name.h>
 
 #include <bit>
@@ -108,8 +109,8 @@ private:
   };
 
 public:
-  using value_type = std::uint8_t;
-  using buffer_type = std::vector<value_type>;
+  using value_type = byte;
+  using buffer_type = bytes;
   using span_type = std::span<const value_type>;
 
   using iterator = buffer_type::iterator;

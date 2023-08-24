@@ -1,8 +1,8 @@
 #pragma once
 
+#include <quicr/common.h>
 #include <quicr/name.h>
 #include <quicr/namespace.h>
-#include <quicr/quicr_common.h>
 #include <quicr/uvarint.h>
 
 #include <string>
@@ -29,30 +29,32 @@ enum class MessageType : uint8_t
   PublishIntentEnd,
   Fetch,
 
-  PeerMsg=128
+  PeerMsg = 128
+};
 
+struct Message
+{
+  const uint8_t version = 1;
 };
 
 /*===========================================================================*/
 // Subscribe Message Types
 /*===========================================================================*/
 
-struct Subscribe
+struct Subscribe : public Message
 {
-  uint8_t version;
   uint64_t transaction_id;
   quicr::Namespace quicr_namespace;
   SubscribeIntent intent;
 };
 
-struct Unsubscribe
+struct Unsubscribe : public Message
 {
-  uint8_t version;
   quicr::Namespace quicr_namespace;
 };
 
 // TODO: Add missing fields:
-struct SubscribeResponse
+struct SubscribeResponse : public Message
 {
   quicr::Namespace quicr_namespace;
   SubscribeResult::SubscribeStatus response;
@@ -64,7 +66,7 @@ struct SubscribeResponse
   // * - [redirect_relay_url(…)..]
 };
 
-struct SubscribeEnd
+struct SubscribeEnd : public Message
 {
   quicr::Namespace quicr_namespace;
   SubscribeResult::SubscribeStatus reason;
@@ -75,7 +77,7 @@ struct SubscribeEnd
 /*===========================================================================*/
 
 // TODO: Add missing fields:
-struct PublishIntent
+struct PublishIntent : public Message
 {
   MessageType message_type;
   // * origin_url_length(i),
@@ -89,7 +91,8 @@ struct PublishIntent
   uintVar_t datagram_capable;
 };
 
-struct PublishIntentResponse
+// TODO: Add missing fields:
+struct PublishIntentResponse : public Message
 {
   MessageType message_type;
   quicr::Namespace quicr_namespace;
@@ -100,32 +103,30 @@ struct PublishIntentResponse
   // * [Reason Phrase (..)],
 };
 
-struct Header
+struct PublishDatagram : public Message
 {
-  uintVar_t media_id;
-  quicr::Name name;
-  uintVar_t group_id;
-  uintVar_t object_id;
-  uintVar_t offset_and_fin;
-  uint8_t flags;
-};
-
-struct PublishDatagram
-{
-  Header header;
+  struct Header
+  {
+    uintVar_t media_id;
+    quicr::Name name;
+    uintVar_t group_id;
+    uintVar_t object_id;
+    uintVar_t offset_and_fin;
+    uint8_t flags;
+  } header;
   MediaType media_type;
   uintVar_t media_data_length;
   std::vector<uint8_t> media_data;
 };
 
-struct PublishStream
+struct PublishStream : public Message
 {
   uintVar_t media_data_length;
   std::vector<uint8_t> media_data;
 };
 
 // TODO: Add missing fields:
-struct PublishIntentEnd
+struct PublishIntentEnd : public Message
 {
   MessageType message_type;
   quicr::Namespace quicr_namespace;
@@ -138,10 +139,11 @@ struct PublishIntentEnd
 // Fetch Message Types
 /*===========================================================================*/
 
-struct Fetch
+// TODO: Add missing fields:
+struct Fetch : public Message
 {
   uint64_t transaction_id;
   quicr::Name name;
-  // TODO - Add authz
+  // * authz
 };
 }

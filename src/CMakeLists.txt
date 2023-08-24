@@ -1,17 +1,6 @@
 add_library(quicr
             message_buffer.cpp
-            encode.cpp
-            quicr_client.cpp
-            quicr_client_raw_session.cpp
-            quicr_server.cpp
-            quicr_server_raw_session.cpp)
-
-# Suppress external lib warnings
-set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)
-target_compile_options(picotls-core PRIVATE -w)     # TODO Should move to qtransport
-target_compile_options(picotls-openssl PRIVATE -w)  # TODO Should move to qtransport
-target_compile_options(picoquic-core PRIVATE -w)    # TODO Should move to qtransport
-target_compile_options(quicr-transport PRIVATE -w)
+            encode.cpp)
 
 target_compile_options(quicr
     PRIVATE
@@ -25,9 +14,6 @@ set_target_properties(quicr
 if(MSVC)
     target_compile_definitions(quicr _CRT_SECURE_NO_WARNINGS)
 endif()
-target_link_libraries(quicr
-    PUBLIC
-        quicr-transport
-        qname)
+target_link_libraries(quicr PUBLIC qname)
 target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include)
 

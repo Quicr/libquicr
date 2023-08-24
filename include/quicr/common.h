@@ -7,27 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace quicr {
-
-/**
- * Max transport data size, not counting IP + UDP + QUIC + QUICR headers.
- *    This is the maximum size of the payload data. IPv4 + UDP is 28 bytes,
- *    QUIC adds around 25 bytes and QUICR adds 66 bytes. Assuming a 1400 MTU
- *    end-to-end, 1400 - 119 = 1281.  A max data size of 1280 should be good
- *    end-to-end for all paths.
- */
-constexpr uint16_t MAX_TRANSPORT_DATA_SIZE = 1200;
-
-using bytes = std::vector<uint8_t>;
-
-/**
- * Context information managed by the underlying QUICR Stack
- * Applications get the QUICRContextId and pass same for
- * as part of the API operations.
- */
-using QUICRContext = uint64_t;
-
-namespace messages {
+namespace quicr::messages {
 /**
  * Indicates the type of media being sent.
  */
@@ -47,6 +27,21 @@ enum class Response : uint8_t
   Redirect
 };
 }
+
+namespace quicr {
+
+using byte = std::uint8_t;
+using bytes = std::vector<byte>;
+
+/**
+ * Context information managed by the underlying QUICR Stack
+ * Applications get the ContextId and pass same for
+ * as part of the API operations.
+ */
+using Context = uint64_t;
+using QUICRContext
+  [[deprecated("quicr::QUICRContext stutters, use quicr::Context instead")]] =
+    Context;
 
 /**
  * Hint providing the start point to serve a subscrption request.
