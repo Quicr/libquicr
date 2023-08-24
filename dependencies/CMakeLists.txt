@@ -1,4 +1,4 @@
-if(BUILD_TESTING AND QUICR_BUILD_TESTS)
+if(BUILD_TESTING AND quicr_BUILD_TESTS)
     add_subdirectory( doctest )
 endif()
 
