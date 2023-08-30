@@ -38,7 +38,8 @@ struct FakeTransport : public ITransport
   TransportStatus status() const { return TransportStatus::Ready; }
 
   StreamId createStream(const TransportContextId& /* tcid */,
-                        bool /* use_reliable_transport */)
+                        bool /* use_reliable_transport */,
+                        uint8_t /* priority */)
   {
     return 0x2000;
   }
