@@ -134,11 +134,16 @@ main(int argc, char* argv[])
 
   quicr::RelayInfo relay{ .hostname = relayName,
                           .port = uint16_t(port),
-                          .proto = quicr::RelayInfo::Protocol::QUIC };
+                          .proto = quicr::RelayInfo::Protocol::QUIC};
 
   qtransport::TransportConfig tcfg{ .tls_cert_filename = NULL,
                                     .tls_key_filename = NULL };
   quicr::QuicRClient client(relay, tcfg, logger);
+  if (!client.connect()) {
+      logger.log(qtransport::LogLevel::fatal, "Transport connect failed");
+      return 0;
+  }
+
 
   if (data.size() > 0) {
     auto nspace = quicr::Namespace(name, 96);
