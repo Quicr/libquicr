@@ -61,7 +61,7 @@ TEST_CASE("Object Lifetime")
   RelayInfo relayInfo = { .hostname = "127.0.0.1",
                           .port = 1234,
                           .proto = RelayInfo::Protocol::UDP };
-  qtransport::LogHandler logger;
+  cantina::LoggerPointer logger = std::make_shared<cantina::Logger>("TEST");
   qtransport::TransportConfig tcfg{ .tls_cert_filename = NULL,
                                     .tls_key_filename = NULL };
   CHECK_NOTHROW(

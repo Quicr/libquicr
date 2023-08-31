@@ -34,9 +34,9 @@ QuicRServerRawSession::QuicRServerRawSession(
   RelayInfo& relayInfo,
   qtransport::TransportConfig tconfig,
   ServerDelegate& delegate_in,
-  qtransport::LogHandler& logger)
+  const cantina::LoggerPointer& logger)
   : delegate(delegate_in)
-  , log_handler(logger)
+  , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport_delegate(*this)
 {
   t_relay.host_or_ip = relayInfo.hostname;
@@ -57,9 +57,9 @@ QuicRServerRawSession::QuicRServerRawSession(
 QuicRServerRawSession::QuicRServerRawSession(
   std::shared_ptr<qtransport::ITransport> transport_in,
   ServerDelegate& delegate_in,
-  qtransport::LogHandler& logger)
+  const cantina::LoggerPointer& logger)
   : delegate(delegate_in)
-  , log_handler(logger)
+  , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport_delegate(*this)
   , transport(transport_in)
 {
@@ -71,7 +71,7 @@ QuicRServerRawSession::setupTransport([[maybe_unused]] RelayInfo& relayInfo,
 {
 
   return qtransport::ITransport::make_server_transport(
-    t_relay, cfg, transport_delegate, log_handler);
+    t_relay, cfg, transport_delegate, logger);
 }
 
 // Transport APIs
@@ -98,8 +98,7 @@ QuicRServerRawSession::run()
   running = true;
 
   while (transport->status() == qtransport::TransportStatus::Connecting) {
-    log_handler.log(qtransport::LogLevel::info,
-                    "Waiting for server to be ready");
+    logger->Log("Waiting for server to be ready");
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
@@ -192,9 +191,8 @@ QuicRServerRawSession::sendNamedObject(
 {
   // start populating message to encode
   if (subscribe_id_state.count(subscriber_id) == 0) {
-    log_handler.log(qtransport::LogLevel::info,
-                    "Send Object, missing subscriber_id: " +
-                      std::to_string(subscriber_id));
+    logger->info << "Send Object, missing subscriber_id: " << subscriber_id
+                 << std::flush;
     return;
   }
 
@@ -292,10 +290,8 @@ QuicRServerRawSession::handle_publish(
   if (publish_namespace == publish_namespaces.end()) {
     // TODO: Add metrics for tracking dropped messages
     /*
-    std::ostringstream log_msg;
-    log_msg << "Dropping published object, no namespace for "
-            << datagram.header.name;
-    log_handler.log(qtransport::LogLevel::info, log_msg.str());
+    logger->info << "Dropping published object, no namespace for "
+                 << datagram.header.name << std::flush;
     */
     return;
   }
@@ -306,7 +302,7 @@ QuicRServerRawSession::handle_publish(
                            context.last_group_id, context.last_object_id);
 
   if (!gap_log.empty()) {
-    log_handler.log(qtransport::LogLevel::info, gap_log);
+    logger->Log(gap_log);
   }
 
   delegate.onPublisherObject(context_id, streamId, false, std::move(datagram));
@@ -388,15 +384,12 @@ QuicRServerRawSession::TransportDelegate::on_connection_status(
   const qtransport::TransportContextId& context_id,
   const qtransport::TransportStatus status)
 {
-  std::stringstream log_msg;
-  log_msg << "connection_status: cid: " << context_id
-          << " status: " << int(status);
-  server.log_handler.log(qtransport::LogLevel::debug, log_msg.str());
+  LOGGER_DEBUG(server.logger,
+               "connection_status: cid: " << context_id
+                                          << " status: " << int(status));
 
   if (status == qtransport::TransportStatus::Disconnected) {
-    log_msg.str("");
-    log_msg << "Removing state for context_id: " << context_id;
-    server.log_handler.log(qtransport::LogLevel::info, log_msg.str());
+    server.logger->info << "Removing state for context_id: " << context_id << std::flush;
 
     std::lock_guard<std::mutex> lock(server.session_mutex);
 
@@ -438,10 +431,10 @@ QuicRServerRawSession::TransportDelegate::on_new_connection(
   const qtransport::TransportContextId& context_id,
   const qtransport::TransportRemote& remote)
 {
-  std::stringstream log_msg;
-  log_msg << "new_connection: cid: " << context_id
-          << " remote: " << remote.host_or_ip << " port:" << ntohs(remote.port);
-  server.log_handler.log(qtransport::LogLevel::debug, log_msg.str());
+  LOGGER_DEBUG(server.logger,
+               "new_connection: cid: " << context_id
+                                       << " remote: " << remote.host_or_ip
+                                       << " port:" << ntohs(remote.port));
 }
 
 void
@@ -449,10 +442,8 @@ QuicRServerRawSession::TransportDelegate::on_new_stream(
   const qtransport::TransportContextId& context_id,
   const qtransport::StreamId& streamId)
 {
-  std::stringstream log_msg;
-  log_msg << "new_stream: cid: " << context_id << " msid: " << streamId;
-
-  server.log_handler.log(qtransport::LogLevel::debug, log_msg.str());
+  LOGGER_DEBUG(server.logger,
+               "new_stream: cid: " << context_id << " msid: " << streamId);
 }
 
 void
@@ -499,27 +490,26 @@ QuicRServerRawSession::TransportDelegate::on_recv_notify(
             break;
           }
           default:
-            server.log_handler.log(qtransport::LogLevel::info,
-                                   "Invalid Message Type");
+            server.logger->Log("Invalid Message Type");
             break;
         }
       } catch (const messages::MessageBuffer::ReadException&  ex) {
 
         // TODO: When reliable, we really should reset the stream if this happens (at least more than once)
-        server.log_handler.log(
-          qtransport::LogLevel::fatal,
-          "Received read exception error while reading from message buffer: " + std::string(ex.what()));
+        server.logger->critical
+          << "Received read exception error while reading from message buffer: "
+          << ex.what() << std::flush;
         continue;
 
       } catch (const std::exception& /* ex */) {
-        server.log_handler.log(qtransport::LogLevel::fatal,
-                               "Received standard exception error while "
-                               "reading from message buffer.");
+        server.logger->Log(cantina::LogLevel::Critical,
+                           "Received standard exception error while reading "
+                           "from message buffer");
         continue;
       } catch (...) {
-        server.log_handler.log(
-          qtransport::LogLevel::fatal,
-          "Received unknown error while reading from message buffer.");
+        server.logger->Log(
+          cantina::LogLevel::Critical,
+          "Received unknown error while reading from message buffer");
         continue;
       }
     } else {

@@ -76,10 +76,10 @@ to_TransportRemote(const RelayInfo& info) noexcept
 QuicRClientRawSession::QuicRClientRawSession(
   RelayInfo& relay_info,
   qtransport::TransportConfig tconfig,
-  qtransport::LogHandler& logger)
-  : log_handler(logger)
+  const cantina::LoggerPointer& logger)
+  : logger(std::make_shared<cantina::Logger>("QSES", logger))
 {
-  log_handler.log(qtransport::LogLevel::info, "Initialize QuicRClient");
+  this->logger->Log("Initialize QuicRClient");
 
   if (relay_info.proto == RelayInfo::Protocol::UDP) {
     // For plain UDP, pacing is needed. For QUIC it's not needed.
@@ -88,14 +88,14 @@ QuicRClientRawSession::QuicRClientRawSession(
 
   qtransport::TransportRemote server = to_TransportRemote(relay_info);
   transport = qtransport::ITransport::make_client_transport(
-    server, std::move(tconfig), *this, logger);
+    server, std::move(tconfig), *this, this->logger);
 }
 
 QuicRClientRawSession::QuicRClientRawSession(
   std::shared_ptr<qtransport::ITransport> transport_in,
-  qtransport::LogHandler& logger)
+  const cantina::LoggerPointer& logger)
   : has_shared_transport{ true }
-  , log_handler(logger)
+  , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport(transport_in)
 {
 }
@@ -115,25 +115,19 @@ QuicRClientRawSession::connect()
 
   transport_context_id = transport->start();
 
-  log_handler.log(qtransport::LogLevel::info,
-                  (std::ostringstream()
-                   << "Connecting session " << transport_context_id << "...")
-                    .str());
+  logger->info << "Connecting session " << transport_context_id << "..."
+               << std::flush;
 
   while (!stopping && client_status == ClientStatus::CONNECTING) {
-    log_handler.log(qtransport::LogLevel::info,
-                    (std::ostringstream() << " ... connecting:  "
-                                          << static_cast<uint32_t>(client_status))
-                      .str());
+    logger->info << " ... connecting:  " << static_cast<uint32_t>(client_status)
+                 << std::flush;
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
   if (stopping) {
-    log_handler.log(qtransport::LogLevel::info,
-                    (std::ostringstream() << "Cancelling connecting session "
-                                          << transport_context_id)
-                      .str());
+    logger->info << "Cancelling connecting session " << transport_context_id
+                 << std::flush;
     return false;
   }
 
@@ -142,7 +136,7 @@ QuicRClientRawSession::connect()
     msg << "Session " << transport_context_id
         << " failed to connect to server, transport status: "
         << int(transport->status());
-    log_handler.log(qtransport::LogLevel::fatal, msg.str());
+    logger->Log(cantina::LogLevel::Critical, msg.str());
 
     throw std::runtime_error(msg.str());
   }
@@ -155,34 +149,24 @@ QuicRClientRawSession::connect()
 bool
 QuicRClientRawSession::disconnect()
 {
-  log_handler.log(qtransport::LogLevel::debug,
-                  (std::ostringstream()
-                   << "Disconnecting session " << transport_context_id << "...")
-                    .str());
+  LOGGER_DEBUG(logger,
+               "Disconnecting session " << transport_context_id << "...");
 
   stopping = true;
   try {
     transport->close(transport_context_id);
   } catch (const std::exception& e) {
-    log_handler.log(qtransport::LogLevel::error,
-                    (std::ostringstream()
-                     << "Error disconnecting session " << transport_context_id
-                     << ": " << e.what())
-                      .str());
+    logger->error << "Error disconnecting session " << transport_context_id
+                  << ": " << e.what() << std::flush;
     return false;
   } catch (...) {
-    log_handler.log(qtransport::LogLevel::error,
-                    (std::ostringstream()
-                     << "Unknown error disconnecting session "
-                     << transport_context_id)
-                      .str());
+    logger->error << "Unknown error disconnecting session "
+                  << transport_context_id << std::flush;
     return false;
   }
 
-  log_handler.log(qtransport::LogLevel::info,
-                  (std::ostringstream() << "Successfully disconnected session: "
-                                        << transport_context_id)
-                    .str());
+  logger->info << "Successfully disconnected session: " << transport_context_id
+               << std::flush;
 
   client_status = ClientStatus::TERMINATED;
   return true;
@@ -198,10 +182,9 @@ QuicRClientRawSession::on_connection_status(
   const qtransport::TransportStatus status)
 {
   {
-    std::ostringstream log_msg;
-    log_msg << "connection_status: cid: " << context_id
-            << " status: " << int(status);
-    log_handler.log(qtransport::LogLevel::debug, log_msg.str());
+    LOGGER_DEBUG(logger,
+                 "connection_status: cid: " << context_id
+                                            << " status: " << int(status));
   }
 
   switch (status) {
@@ -217,10 +200,8 @@ QuicRClientRawSession::on_connection_status(
       client_status = ClientStatus::RELAY_NOT_CONNECTED;
       stopping = true;
 
-      log_handler.log(qtransport::LogLevel::info,
-                      (std::ostringstream()
-                       << "Removing state for context_id: " << context_id)
-                        .str());
+      logger->info << "Removing state for context_id: " << context_id
+                   << std::flush;
       break;
     }
     case qtransport::TransportStatus::Shutdown:
@@ -270,16 +251,14 @@ QuicRClientRawSession::on_recv_notify(
     try {
       handle(std::move(msg_buffer));
     } catch (const messages::MessageBuffer::ReadException& e) {
-      log_handler.log(qtransport::LogLevel::info,
-                      "Dropping malformed message: " + std::string(e.what()));
+      logger->info << "Dropping malformed message: " << e.what() << std::flush;
       return;
     } catch (const std::exception& e) {
-      log_handler.log(qtransport::LogLevel::info,
-                      "Dropping malformed message: " + std::string(e.what()));
+      logger->info << "Dropping malformed message: " << e.what() << std::flush;
       return;
     } catch (...) {
-      log_handler.log(qtransport::LogLevel::fatal,
-                      "Received malformed message with unknown fatal error");
+      logger->Log(cantina::LogLevel::Critical,
+                  "Received malformed message with unknown fatal error");
       throw;
     }
   }
@@ -441,11 +420,10 @@ QuicRClientRawSession::publishNamedObject(
   auto found = publish_state.find(quicr_name);
 
   if (found == publish_state.end()) {
-    std::ostringstream log_msg;
-    log_msg << "No publish intent for '" << quicr_name << "' missing, dropping";
+      logger->info << "No publish intent for '" << quicr_name
+                   << "' missing, dropping" << std::flush;
 
-    log_handler.log(qtransport::LogLevel::info, log_msg.str());
-    return;
+      return;
   }
 
   auto& [ns, context] = *found;
@@ -457,16 +435,14 @@ QuicRClientRawSession::publishNamedObject(
     context.transport_context_id = transport_context_id;
     context.state = PublishContext::State::Ready;
 
-    std::ostringstream log_msg;
-    log_msg << "Adding new context for published ns: " << ns;
-    log_handler.log(qtransport::LogLevel::info, log_msg.str());
+    logger->info << "Adding new context for published ns: " << ns << std::flush;
 
   } else {
     auto gap_log = gap_check(true, quicr_name,
                              context.last_group_id, context.last_object_id);
 
     if (!gap_log.empty()) {
-        log_handler.log(qtransport::LogLevel::info, gap_log);
+        logger->Log(gap_log);
     }
   }
 
@@ -560,9 +536,8 @@ QuicRClientRawSession::publishNamedObject(
                                         priority,
                                         expiry_age_ms);
           err != qtransport::TransportError::None) {
-        log_handler.log(qtransport::LogLevel::warn,
-                        "Published object delayed due to enqueue error " +
-                          std::to_string((int)err));
+        logger->warning << "Published object delayed due to enqueue error "
+                        << static_cast<unsigned>(err) << std::flush;
         std::this_thread::sleep_for(std::chrono::microseconds(100));
       }
     }
@@ -742,7 +717,7 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
                                  context.last_group_id, context.last_object_id);
 
         if (!gap_log.empty()) {
-          log_handler.log(qtransport::LogLevel::info, gap_log);
+          logger->Log(gap_log);
         }
 
         if (datagram.header.offset_and_fin == uintVar_t(0x1)) {
