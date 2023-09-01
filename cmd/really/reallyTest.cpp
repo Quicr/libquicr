@@ -1,6 +1,7 @@
 #include <quicr/quicr_client.h>
 #include <quicr/quicr_common.h>
 #include <transport/transport.h>
+#include <cantina/logger.h>
 
 #include <chrono>
 #include <cstring>
@@ -8,13 +9,11 @@
 #include <sstream>
 #include <thread>
 
-#include "testLogger.h"
-
 class subDelegate : public quicr::SubscriberDelegate
 {
 public:
-  subDelegate(testLogger& logger)
-    : logger(logger)
+  subDelegate(cantina::LoggerPointer& logger)
+    : logger(std::make_shared<cantina::Logger>("SDEL", logger))
   {
   }
 
@@ -22,13 +21,10 @@ public:
     [[maybe_unused]] const quicr::Namespace& quicr_namespace,
     [[maybe_unused]] const quicr::SubscribeResult& result) override
   {
-
-    std::stringstream log_msg;
-    log_msg << "onSubscriptionResponse: name: " << quicr_namespace << "/"
-            << int(quicr_namespace.length())
-            << " status: " << int(static_cast<uint8_t>(result.status));
-
-    logger.log(qtransport::LogLevel::info, log_msg.str());
+    logger->info << "onSubscriptionResponse: name: " << quicr_namespace << "/"
+                 << int(quicr_namespace.length()) << " status: "
+                 << static_cast<unsigned>(result.status)
+                 << std::flush;
   }
 
   void onSubscriptionEnded(
@@ -36,12 +32,9 @@ public:
     [[maybe_unused]] const quicr::SubscribeResult::SubscribeStatus& reason)
     override
   {
-
-    std::stringstream log_msg;
-    log_msg << "onSubscriptionEnded: name: " << quicr_namespace << "/"
-            << int(quicr_namespace.length());
-
-    logger.log(qtransport::LogLevel::info, log_msg.str());
+    logger->info << "onSubscriptionEnded: name: " << quicr_namespace << "/"
+                 << static_cast<unsigned>(quicr_namespace.length())
+                 << std::flush;
   }
 
   void onSubscribedObject([[maybe_unused]] const quicr::Name& quicr_name,
@@ -52,13 +45,13 @@ public:
   {
     std::stringstream log_msg;
 
-    log_msg << "recv object: name: " << quicr_name
-            << " data sz: " << data.size();
+    logger->info << "recv object: name: " << quicr_name
+                 << " data sz: " << data.size();
 
     if (data.size())
-      log_msg << " data: " << data.data();
+      logger->info << " data: " << data.data();
 
-    logger.log(qtransport::LogLevel::info, log_msg.str());
+    logger->info << std::flush;
   }
 
   void onSubscribedObjectFragment(
@@ -73,7 +66,7 @@ public:
   }
 
 private:
-  testLogger& logger;
+  cantina::LoggerPointer logger;
 };
 
 class pubDelegate : public quicr::PublisherDelegate
@@ -101,7 +94,8 @@ main(int argc, char* argv[])
     exit(-1);
   }
 
-  testLogger logger;
+  cantina::LoggerPointer logger =
+    std::make_shared<cantina::Logger>("reallyTest");
 
   char* relayName = getenv("REALLY_RELAY");
   if (!relayName) {
@@ -117,10 +111,7 @@ main(int argc, char* argv[])
 
   auto name = quicr::Name(std::string(argv[1]));
 
-  std::stringstream log_msg;
-
-  log_msg << "Name = " << name;
-  logger.log(qtransport::LogLevel::info, log_msg.str());
+  logger->info << "Name = " << name << std::flush;
 
   std::vector<uint8_t> data;
   if (argc == 3) {
@@ -128,9 +119,7 @@ main(int argc, char* argv[])
       data.end(), (uint8_t*)(argv[2]), ((uint8_t*)(argv[2])) + strlen(argv[2]));
   }
 
-  log_msg.str("");
-  log_msg << "Connecting to " << relayName << ":" << port;
-  logger.log(qtransport::LogLevel::info, log_msg.str());
+  logger->info << "Connecting to " << relayName << ":" << port << std::flush;
 
   quicr::RelayInfo relay{ .hostname = relayName,
                           .port = uint16_t(port),
@@ -140,49 +129,42 @@ main(int argc, char* argv[])
                                     .tls_key_filename = NULL };
   quicr::QuicRClient client(relay, tcfg, logger);
   if (!client.connect()) {
-      logger.log(qtransport::LogLevel::fatal, "Transport connect failed");
+      logger->Log(cantina::LogLevel::Critical, "Transport connect failed");
       return 0;
   }
 
 
   if (data.size() > 0) {
     auto nspace = quicr::Namespace(name, 96);
-    logger.log(qtransport::LogLevel::info,
-               "Publish Intent for name: " + std::string(name) +
-                 " == namespace: " + std::string(nspace));
+    logger->info << "Publish Intent for name: " << name
+                 << " == namespace: " << nspace << std::flush;
     client.publishIntent(pd, nspace, {}, {}, {});
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
     // do publish
-    logger.log(qtransport::LogLevel::info, "Publish");
-    client.publishNamedObject(name, 0, 10000, false, std::move(data));
+    logger->Log("Publish");
+    client.publishNamedObject(name, 0, 1000, false, std::move(data));
 
   } else {
     // do subscribe
-    logger.log(qtransport::LogLevel::info, "Subscribe");
+    logger->Log("Subscribe");
     auto sd = std::make_shared<subDelegate>(logger);
     auto nspace = quicr::Namespace(name, 96);
 
-    log_msg.str(std::string());
-    log_msg.clear();
-
-    log_msg << "Subscribe to " << name << "/" << 96;
-    logger.log(qtransport::LogLevel::info, log_msg.str());
+    logger->info << "Subscribe to " << name << "/" << 96 << std::flush;
 
     quicr::SubscribeIntent intent = quicr::SubscribeIntent::immediate;
     quicr::bytes empty;
     client.subscribe(
       sd, nspace, intent, "origin_url", false, "auth_token", std::move(empty));
 
-    logger.log(qtransport::LogLevel::info,
-               "Sleeping for 20 seconds before unsubscribing");
+    logger->Log("Sleeping for 20 seconds before unsubscribing");
     std::this_thread::sleep_for(std::chrono::seconds(20));
 
-    logger.log(qtransport::LogLevel::info, "Now unsubscribing");
+    logger->Log("Now unsubscribing");
     client.unsubscribe(nspace, {}, {});
 
-    logger.log(qtransport::LogLevel::info,
-               "Sleeping for 15 seconds before exiting");
+    logger->Log("Sleeping for 15 seconds before exiting");
     std::this_thread::sleep_for(std::chrono::seconds(15));
   }
   std::this_thread::sleep_for(std::chrono::seconds(5));

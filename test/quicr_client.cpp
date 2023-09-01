@@ -2,6 +2,8 @@
 #include <string>
 #include <vector>
 
+#include <cantina/logger.h>
+
 #include "fake_transport.h"
 #include <doctest/doctest.h>
 #include <quicr/encode.h>
@@ -58,7 +60,7 @@ TEST_CASE("Subscribe encode, send and receive")
   std::shared_ptr<TestSubscriberDelegate> sub_delegate{};
   std::shared_ptr<TestPublisherDelegate> pub_delegate{};
   FakeTransportDelegate transport_delegate;
-  LogHandler logger;
+  cantina::LoggerPointer logger = std::make_shared<cantina::Logger>("TEST");
 
   auto transport = std::make_shared<FakeTransport>();
   auto qclient = std::make_unique<QuicRClient>(transport, logger);
@@ -86,7 +88,7 @@ TEST_CASE("Publish encode, send and receive")
   std::shared_ptr<TestSubscriberDelegate> sub_delegate{};
   std::shared_ptr<TestPublisherDelegate> pub_delegate{};
   FakeTransportDelegate transport_delegate;
-  LogHandler logger;
+  cantina::LoggerPointer logger = std::make_shared<cantina::Logger>("TEST");
 
   auto transport = std::make_shared<FakeTransport>();
 

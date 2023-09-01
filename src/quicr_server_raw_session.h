@@ -21,6 +21,7 @@
 #include "quicr/quicr_server_session.h"
 
 #include <transport/transport.h>
+#include <cantina/logger.h>
 
 #include <map>
 #include <mutex>
@@ -45,7 +46,7 @@ public:
   QuicRServerRawSession(RelayInfo& relayInfo,
                         qtransport::TransportConfig tconfig,
                         ServerDelegate& delegate,
-                        qtransport::LogHandler& logger);
+                        const cantina::LoggerPointer& logger);
 
   /**
    * API for unit test cases.
@@ -53,7 +54,7 @@ public:
   QuicRServerRawSession(
     std::shared_ptr<qtransport::ITransport> transport,
     ServerDelegate& delegate /* TODO: Considering shared or weak pointer */,
-    qtransport::LogHandler& logger);
+    const cantina::LoggerPointer& logger);
 
   ~QuicRServerRawSession() = default;
 
@@ -228,7 +229,7 @@ private:
   };
 
   ServerDelegate& delegate;
-  qtransport::LogHandler& log_handler;
+  cantina::LoggerPointer logger;
   TransportDelegate transport_delegate;
   std::shared_ptr<qtransport::ITransport> transport;
   qtransport::TransportRemote t_relay;

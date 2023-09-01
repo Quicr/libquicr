@@ -8,6 +8,7 @@
 #include "quicr_common.h"
 
 #include <quicr_name>
+#include <cantina/logger.h>
 
 #include <map>
 #include <memory>
@@ -19,7 +20,6 @@
  */
 namespace qtransport {
 class ITransport;
-class LogHandler;
 struct TransportConfig;
 }
 
@@ -42,23 +42,22 @@ public:
    *
    * @param relayInfo        : Relay Information to be used by the transport
    * @param tconfig          : Transport configuration
-   * @param logger           : Log handler, used by transport and API for
+   * @param logger           : Shared pointer to cantina::Logger object
    * loggings operations
    */
   QuicRClient(RelayInfo& relayInfo,
               qtransport::TransportConfig tconfig,
-              qtransport::LogHandler& logger);
+              const cantina::LoggerPointer& logger);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber
    *        functionality.
    *
    * @param transport : External transport pointer to use.
-   * @param logger    : Log handler, used by transport and API for loggings
-   *                    operations
+   * @param logger    : Shared pointer to cantina::Logger object
    */
   QuicRClient(std::shared_ptr<qtransport::ITransport> transport,
-              qtransport::LogHandler& logger);
+              const cantina::LoggerPointer& logger);
 
   /**
    * @brief Destructor for the client

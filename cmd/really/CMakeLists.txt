@@ -1,7 +1,6 @@
 add_executable(really
         really.cpp
-        subscription.cpp
-        testLogger.cpp)
+        subscription.cpp)
 target_link_libraries(really PRIVATE quicr  picotls-core picotls-openssl)
 
 target_compile_options(really
@@ -19,7 +18,7 @@ set_target_properties(really
 # --------------------------------
 # Really test
 # --------------------------------
-add_executable( reallyTest reallyTest.cpp testLogger.cpp)
+add_executable( reallyTest reallyTest.cpp )
 
 target_link_libraries( reallyTest LINK_PUBLIC quicr  picotls-core picotls-openssl)
 

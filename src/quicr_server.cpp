@@ -10,7 +10,7 @@ namespace quicr {
 QuicRServer::QuicRServer(RelayInfo& relayInfo,
                          qtransport::TransportConfig tconfig,
                          ServerDelegate& delegate_in,
-                         qtransport::LogHandler& logger)
+                         const cantina::LoggerPointer& logger)
 {
   switch (relayInfo.proto) {
     case RelayInfo::Protocol::UDP:
@@ -27,7 +27,7 @@ QuicRServer::QuicRServer(RelayInfo& relayInfo,
 
 QuicRServer::QuicRServer(std::shared_ptr<qtransport::ITransport> transport_in,
                          ServerDelegate& delegate_in,
-                         qtransport::LogHandler& logger)
+                         const cantina::LoggerPointer& logger)
 {
   server_session =
     std::make_unique<QuicRServerRawSession>(transport_in, delegate_in, logger);

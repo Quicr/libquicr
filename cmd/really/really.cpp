@@ -5,7 +5,7 @@
 #include <transport/transport.h>
 
 #include "subscription.h"
-#include "testLogger.h"
+#include <cantina/logger.h>
 
 #include <condition_variable>
 #include <csignal>
@@ -129,6 +129,8 @@ class ReallyServer : public quicr::ServerDelegate
 public:
   ReallyServer()
   {
+    logger = std::make_shared<cantina::Logger>("really");
+
     quicr::RelayInfo relayInfo = { .hostname = "127.0.0.1",
                                    .port = 1234,
                                    .proto = quicr::RelayInfo::Protocol::QUIC };
@@ -147,8 +149,8 @@ public:
                                quicr::bytes&& /* e2e_token */)
   {
     // TODO: Authenticate token
-    logger.log(qtransport::LogLevel::info,
-               "Publish intent namespace: " + std::string(quicr_namespace));
+    logger->info << "Publish intent namespace: " << quicr_namespace
+                 << std::flush;
     quicr::PublishIntentResult result{ quicr::messages::Response::Ok, {}, {} };
     server->publishIntentResponse(quicr_namespace, result);
   };
@@ -185,11 +187,8 @@ public:
                              const std::string& /* auth_token */)
   {
 
-    std::ostringstream log_msg;
-    log_msg << "onUnsubscribe: Namespace " << quicr_namespace
-            << " subscribe_id: " << subscriber_id;
-
-    logger.log(qtransport::LogLevel::info, log_msg.str());
+    logger->info << "onUnsubscribe: Namespace " << quicr_namespace
+                 << " subscribe_id: " << subscriber_id << std::flush;
 
     server->subscriptionEnded(subscriber_id,
                               quicr_namespace,
@@ -211,12 +210,9 @@ public:
     [[maybe_unused]] const std::string& auth_token,
     [[maybe_unused]] quicr::bytes&& data)
   {
-    std::ostringstream log_msg;
-    log_msg << "onSubscribe: Namespace " << quicr_namespace << "/"
-            << int(quicr_namespace.length())
-            << " subscribe_id: " << subscriber_id;
-
-    logger.log(qtransport::LogLevel::info, log_msg.str());
+    logger->info << "onSubscribe: Namespace " << quicr_namespace << "/"
+                 << static_cast<unsigned>(quicr_namespace.length())
+                 << " subscribe_id: " << subscriber_id << std::flush;
 
     Subscriptions::Remote remote = { .subscribe_id = subscriber_id,
                                      .context_id = context_id };
@@ -235,7 +231,7 @@ public:
 
 private:
   Subscriptions subscribeList;
-  testLogger logger;
+  cantina::LoggerPointer logger;
 };
 
 int
