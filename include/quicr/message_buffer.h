@@ -148,13 +148,13 @@ public:
   void push(buffer_type&& data);
 
   void pop() { cleanup(); }
-  void pop(uint16_t length);
+  void pop(size_t length);
 
   const value_type& front() const;
-  span_type front(uint16_t length) const;
+  span_type front(size_t length) const;
 
   value_type pop_front();
-  buffer_type pop_front(uint16_t length);
+  buffer_type pop_front(size_t length);
 
   /**
    * @brief Moves the whole buffer, leaving MessageBuffer empty.

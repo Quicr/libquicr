@@ -66,7 +66,7 @@ MessageBuffer::push(buffer_type&& data)
 }
 
 void
-MessageBuffer::pop(uint16_t length)
+MessageBuffer::pop(size_t length)
 {
   if (length == 0)
     return;
@@ -84,7 +84,7 @@ MessageBuffer::front() const
 }
 
 MessageBuffer::span_type
-MessageBuffer::front(uint16_t length) const
+MessageBuffer::front(size_t length) const
 {
   if (length == 0)
     return {};
@@ -114,7 +114,7 @@ MessageBuffer::pop_front()
 }
 
 MessageBuffer::buffer_type
-MessageBuffer::pop_front(uint16_t length)
+MessageBuffer::pop_front(size_t length)
 {
   if (length == 0)
     return {};
