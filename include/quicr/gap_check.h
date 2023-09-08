@@ -32,18 +32,25 @@ namespace quicr {
         std::ostringstream log_s;
 
         if (last_group_id != 0 && last_object_id != 0) {
+            int64_t grp_delta = (group_id - last_group_id);
+            if (grp_delta) grp_delta = grp_delta > 0 ? grp_delta - 1 : grp_delta + 1;
 
-            if (group_id - last_group_id > 1) {
-                log_s << (is_tx ? "TX " : "RX ")
-                      << "Group gap for name: " << name << " " << group_id
-                      << " - " << last_group_id << " = "
-                      << (group_id - last_group_id) - 1;
+            int64_t obj_delta = (object_id - last_object_id);
+            if (obj_delta) obj_delta = obj_delta > 0 ? obj_delta - 1 : obj_delta + 1;
 
-            } else if (group_id == last_group_id && object_id - last_object_id > 1) {
+            if (grp_delta) {
                 log_s << (is_tx ? "TX " : "RX ")
-                      << "Object gap for name: " << name << " "
-                      << object_id << " - " << last_object_id
-                      << " = " << (object_id - last_object_id) - 1;
+                      << "Group gap for name: " << name
+                      << " recv: " << group_id
+                      << " prev: " << last_group_id
+                      << " delta: " << grp_delta;
+
+            } else if (group_id == last_group_id && obj_delta) {
+                log_s << (is_tx ? "TX " : "RX ")
+                      << "Object gap for name: " << name
+                      << " recv: " << object_id
+                      << " prev: " << last_object_id
+                      << " delta: " << obj_delta;
             }
         }
 
