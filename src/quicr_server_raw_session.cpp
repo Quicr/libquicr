@@ -302,7 +302,7 @@ QuicRServerRawSession::handle_publish(
                            context.last_group_id, context.last_object_id);
 
   if (!gap_log.empty()) {
-    logger->Log(gap_log);
+    logger->info << "context_id: " << context_id << " stream_id: " << streamId << " " << gap_log << std::flush;
   }
 
   delegate.onPublisherObject(context_id, streamId, false, std::move(datagram));
