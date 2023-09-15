@@ -30,11 +30,10 @@ namespace quicr {
  * Initialize the QUICR server session at the port specified.
  *  @param delegate_in: Callback handlers for QUICR operations
  */
-ServerRawSession::ServerRawSession(
-  const RelayInfo& relayInfo,
-  const qtransport::TransportConfig& tconfig,
-  std::shared_ptr<ServerDelegate> delegate_in,
-  const cantina::LoggerPointer& logger)
+ServerRawSession::ServerRawSession(const RelayInfo& relayInfo,
+                                   const qtransport::TransportConfig& tconfig,
+                                   std::shared_ptr<ServerDelegate> delegate_in,
+                                   const cantina::LoggerPointer& logger)
   : delegate(std::move(delegate_in))
   , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport_delegate(*this)
@@ -106,9 +105,8 @@ ServerRawSession::run()
 }
 
 void
-ServerRawSession::publishIntentResponse(
-  const quicr::Namespace& quicr_namespace,
-  const PublishIntentResult& result)
+ServerRawSession::publishIntentResponse(const quicr::Namespace& quicr_namespace,
+                                        const PublishIntentResult& result)
 {
   if (!publish_namespaces.count(quicr_namespace))
     return;
@@ -132,10 +130,9 @@ ServerRawSession::publishIntentResponse(
 }
 
 void
-ServerRawSession::subscribeResponse(
-  const uint64_t& subscriber_id,
-  const quicr::Namespace& quicr_namespace,
-  const SubscribeResult& result)
+ServerRawSession::subscribeResponse(const uint64_t& subscriber_id,
+                                    const quicr::Namespace& quicr_namespace,
+                                    const SubscribeResult& result)
 {
   // start populating message to encode
   if (subscribe_id_state.count(subscriber_id) == 0) {
@@ -181,12 +178,11 @@ ServerRawSession::subscriptionEnded(
 }
 
 void
-ServerRawSession::sendNamedObject(
-  const uint64_t& subscriber_id,
-  [[maybe_unused]] bool use_reliable_transport,
-  uint8_t priority,
-  uint16_t expiry_age_ms,
-  const messages::PublishDatagram& datagram)
+ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
+                                  [[maybe_unused]] bool use_reliable_transport,
+                                  uint8_t priority,
+                                  uint16_t expiry_age_ms,
+                                  const messages::PublishDatagram& datagram)
 {
   // start populating message to encode
   if (subscribe_id_state.count(subscriber_id) == 0) {

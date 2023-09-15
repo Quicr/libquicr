@@ -44,16 +44,16 @@ public:
    *                           quicr api
    */
   ServerRawSession(const RelayInfo& relayInfo,
-                        const qtransport::TransportConfig& tconfig,
-                        std::shared_ptr<ServerDelegate> delegate,
-                        const cantina::LoggerPointer& logger);
+                   const qtransport::TransportConfig& tconfig,
+                   std::shared_ptr<ServerDelegate> delegate,
+                   const cantina::LoggerPointer& logger);
 
   /**
    * API for unit test cases.
    */
   ServerRawSession(std::shared_ptr<qtransport::ITransport> transport,
-                        std::shared_ptr<ServerDelegate> delegate,
-                        const cantina::LoggerPointer& logger);
+                   std::shared_ptr<ServerDelegate> delegate,
+                   const cantina::LoggerPointer& logger);
 
   ~ServerRawSession() = default;
 

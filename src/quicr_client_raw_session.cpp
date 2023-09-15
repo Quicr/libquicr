@@ -73,10 +73,9 @@ to_TransportRemote(const RelayInfo& info) noexcept
 // ClientRawSession
 /*===========================================================================*/
 
-ClientRawSession::ClientRawSession(
-  const RelayInfo& relay_info,
-  const qtransport::TransportConfig& tconfig,
-  const cantina::LoggerPointer& logger)
+ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
+                                   const qtransport::TransportConfig& tconfig,
+                                   const cantina::LoggerPointer& logger)
   : logger(std::make_shared<cantina::Logger>("QSES", logger))
 {
   this->logger->Log("Initialize Client");
@@ -264,13 +263,12 @@ ClientRawSession::on_recv_notify(
 /*===========================================================================*/
 
 bool
-ClientRawSession::publishIntent(
-  std::shared_ptr<PublisherDelegate> pub_delegate,
-  const quicr::Namespace& quicr_namespace,
-  const std::string& /* origin_url */,
-  const std::string& /* auth_token */,
-  bytes&& payload,
-  bool use_reliable_transport)
+ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
+                                const quicr::Namespace& quicr_namespace,
+                                const std::string& /* origin_url */,
+                                const std::string& /* auth_token */,
+                                bytes&& payload,
+                                bool use_reliable_transport)
 {
 
   if (pub_delegates.count(quicr_namespace)) {
@@ -384,8 +382,8 @@ ClientRawSession::subscribe(
 
 void
 ClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
-                                   const std::string& /* origin_url */,
-                                   const std::string& /* auth_token */)
+                              const std::string& /* origin_url */,
+                              const std::string& /* auth_token */)
 {
   // The removal of the delegate is done on receive of subscription ended
   messages::MessageBuffer msg{};
@@ -405,10 +403,10 @@ ClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
 
 void
 ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
-                                          uint8_t priority,
-                                          uint16_t expiry_age_ms,
-                                          bool use_reliable_transport,
-                                          bytes&& data)
+                                     uint8_t priority,
+                                     uint16_t expiry_age_ms,
+                                     bool use_reliable_transport,
+                                     bytes&& data)
 {
   // start populating message to encode
   messages::PublishDatagram datagram;

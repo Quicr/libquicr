@@ -109,6 +109,8 @@ public:
                                const messages::PublishDatagram& datagram) = 0;
 };
 
-using QuicRServerSession [[deprecated("quicr::QuicRServerSession stutters, use quicr::ServerSession")]] = quicr::ServerSession;
+using QuicRServerSession [[deprecated(
+  "quicr::QuicRServerSession stutters, use quicr::ServerSession")]] =
+  quicr::ServerSession;
 
 } // namespace quicr

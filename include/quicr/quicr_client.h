@@ -46,8 +46,8 @@ public:
    *                    loggings operations
    */
   Client(const RelayInfo& relayInfo,
-              const qtransport::TransportConfig& tconfig,
-              const cantina::LoggerPointer& logger);
+         const qtransport::TransportConfig& tconfig,
+         const cantina::LoggerPointer& logger);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber
@@ -57,7 +57,7 @@ public:
    * @param logger    : Shared pointer to cantina::Logger object
    */
   Client(std::shared_ptr<qtransport::ITransport> transport,
-              const cantina::LoggerPointer& logger);
+         const cantina::LoggerPointer& logger);
 
   /**
    * @brief Destructor for the client
@@ -205,5 +205,7 @@ protected:
   std::unique_ptr<ClientSession> client_session;
 };
 
-using QuicRClient [[deprecated("quicr::QuicRClient stutters, use quicr::Client")]] = quicr::Client;
+using QuicRClient
+  [[deprecated("quicr::QuicRClient stutters, use quicr::Client")]] =
+    quicr::Client;
 }

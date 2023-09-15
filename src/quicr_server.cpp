@@ -8,9 +8,9 @@ namespace quicr {
  *  @param delegate_in: Callback handlers for QUICR operations
  */
 Server::Server(const RelayInfo& relayInfo,
-                         const qtransport::TransportConfig& tconfig,
-                         std::shared_ptr<ServerDelegate> delegate_in,
-                         const cantina::LoggerPointer& logger)
+               const qtransport::TransportConfig& tconfig,
+               std::shared_ptr<ServerDelegate> delegate_in,
+               const cantina::LoggerPointer& logger)
 {
   switch (relayInfo.proto) {
     case RelayInfo::Protocol::UDP:
@@ -26,8 +26,8 @@ Server::Server(const RelayInfo& relayInfo,
 }
 
 Server::Server(std::shared_ptr<qtransport::ITransport> transport_in,
-                         std::shared_ptr<ServerDelegate> delegate_in,
-                         const cantina::LoggerPointer& logger)
+               std::shared_ptr<ServerDelegate> delegate_in,
+               const cantina::LoggerPointer& logger)
 {
   server_session = std::make_unique<ServerRawSession>(
     std::move(transport_in), std::move(delegate_in), logger);
@@ -56,33 +56,33 @@ Server::run()
 
 void
 Server::publishIntentResponse(const quicr::Namespace& quicr_namespace,
-                                   const PublishIntentResult& result)
+                              const PublishIntentResult& result)
 {
   server_session->publishIntentResponse(quicr_namespace, result);
 }
 
 void
 Server::subscribeResponse(const uint64_t& subscriber_id,
-                               const quicr::Namespace& quicr_namespace,
-                               const SubscribeResult& result)
+                          const quicr::Namespace& quicr_namespace,
+                          const SubscribeResult& result)
 {
   server_session->subscribeResponse(subscriber_id, quicr_namespace, result);
 }
 
 void
 Server::subscriptionEnded(const uint64_t& subscriber_id,
-                               const quicr::Namespace& quicr_namespace,
-                               const SubscribeResult::SubscribeStatus& reason)
+                          const quicr::Namespace& quicr_namespace,
+                          const SubscribeResult::SubscribeStatus& reason)
 {
   server_session->subscriptionEnded(subscriber_id, quicr_namespace, reason);
 }
 
 void
 Server::sendNamedObject(const uint64_t& subscriber_id,
-                             bool use_reliable_transport,
-                             uint8_t priority,
-                             uint16_t expiry_age_ms,
-                             const messages::PublishDatagram& datagram)
+                        bool use_reliable_transport,
+                        uint8_t priority,
+                        uint16_t expiry_age_ms,
+                        const messages::PublishDatagram& datagram)
 {
   server_session->sendNamedObject(
     subscriber_id, use_reliable_transport, priority, expiry_age_ms, datagram);

@@ -67,9 +67,12 @@ public:
    * @param pub_delegate            : Publisher delegate reference
    * @param quicr_namespace         : Identifies QUICR namespace
    * @param origin_url              : Origin serving the QUICR Session
-   * @param auth_token              : Auth Token to validate the Subscribe Request
-   * @param payload                 : Opaque payload to be forwarded to the Origin
-   * @param use_reliable_transport  : Indicates to use reliable for matching published objects
+   * @param auth_token              : Auth Token to validate the Subscribe
+   * Request
+   * @param payload                 : Opaque payload to be forwarded to the
+   * Origin
+   * @param use_reliable_transport  : Indicates to use reliable for matching
+   * published objects
    */
   virtual bool publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                              const quicr::Namespace& quicr_namespace,
@@ -176,6 +179,8 @@ public:
                                           bytes&& data) = 0;
 };
 
-using QuicRClientSession [[deprecated("quicr::QuicRClientSession stutters, use quicr::ClientSession")]] = quicr::ClientSession;
+using QuicRClientSession [[deprecated(
+  "quicr::QuicRClientSession stutters, use quicr::ClientSession")]] =
+  quicr::ClientSession;
 
 } // namespace quicr

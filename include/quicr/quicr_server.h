@@ -35,16 +35,16 @@ public:
    * @param logger           : Shared pointer to cantina::Logger object
    */
   Server(const RelayInfo& relayInfo,
-              const qtransport::TransportConfig& tconfig,
-              std::shared_ptr<ServerDelegate> delegate_in,
-              const cantina::LoggerPointer& logger);
+         const qtransport::TransportConfig& tconfig,
+         std::shared_ptr<ServerDelegate> delegate_in,
+         const cantina::LoggerPointer& logger);
 
   /**
    * API for unit test cases .
    */
   Server(std::shared_ptr<qtransport::ITransport> transport,
-              std::shared_ptr<ServerDelegate> delegate_in,
-              const cantina::LoggerPointer& logger);
+         std::shared_ptr<ServerDelegate> delegate_in,
+         const cantina::LoggerPointer& logger);
 
   // Transport APIs
   bool is_transport_ready();
@@ -126,6 +126,8 @@ protected:
   std::unique_ptr<ServerSession> server_session;
 };
 
-using QuicRServer [[deprecated("quicr::QuicRServer stutters, use quicr::Server")]] = quicr::Server;
+using QuicRServer
+  [[deprecated("quicr::QuicRServer stutters, use quicr::Server")]] =
+    quicr::Server;
 
 } // namespace quicr

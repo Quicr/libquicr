@@ -50,8 +50,8 @@ public:
    * @throws std::runtime_error : If transport fails to connect.
    */
   ClientRawSession(const RelayInfo& relayInfo,
-                        const qtransport::TransportConfig& tconfig,
-                        const cantina::LoggerPointer& logger);
+                   const qtransport::TransportConfig& tconfig,
+                   const cantina::LoggerPointer& logger);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber
@@ -61,7 +61,7 @@ public:
    * @param logger    : Shared pointer to a cantina::Logger object
    */
   ClientRawSession(std::shared_ptr<qtransport::ITransport> transport,
-                        const cantina::LoggerPointer& logger);
+                   const cantina::LoggerPointer& logger);
 
   /**
    * @brief Destructor for the raw client session object
@@ -97,9 +97,12 @@ public:
    * @param pub_delegate            : Publisher delegate reference
    * @param quicr_namespace         : Identifies QUICR namespace
    * @param origin_url              : Origin serving the QUICR Session
-   * @param auth_token              : Auth Token to validate the Subscribe Request
-   * @param payload                 : Opaque payload to be forwarded to the Origin
-   * @param use_reliable_transport  : Indicates to use reliable for matching published objects
+   * @param auth_token              : Auth Token to validate the Subscribe
+   * Request
+   * @param payload                 : Opaque payload to be forwarded to the
+   * Origin
+   * @param use_reliable_transport  : Indicates to use reliable for matching
+   * published objects
    */
   bool publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                      const quicr::Namespace& quicr_namespace,
@@ -244,9 +247,9 @@ protected:
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
     qtransport::StreamId transport_stream_id{ 0 };
-    uint64_t transaction_id {0};
-    uint64_t last_group_id {0};
-    uint64_t last_object_id {0};
+    uint64_t transaction_id{ 0 };
+    uint64_t last_group_id{ 0 };
+    uint64_t last_object_id{ 0 };
   };
 
   // State per publish_intent and related publish
@@ -262,8 +265,8 @@ protected:
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
     qtransport::StreamId transport_stream_id{ 0 };
-    uint64_t last_group_id {0};
-    uint64_t last_object_id {0};
+    uint64_t last_group_id{ 0 };
+    uint64_t last_object_id{ 0 };
     uint64_t offset{ 0 };
   };
 
