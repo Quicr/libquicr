@@ -1,6 +1,6 @@
 #pragma once
 
-#include <quicr_name>
+#include <qname>
 
 #include <array>
 #include <optional>

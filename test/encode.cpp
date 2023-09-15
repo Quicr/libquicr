@@ -3,7 +3,7 @@
 #include <quicr/encode.h>
 #include <quicr/message_buffer.h>
 #include <quicr/quicr_common.h>
-#include <quicr_name>
+#include <qname>
 
 #include <memory>
 #include <random>

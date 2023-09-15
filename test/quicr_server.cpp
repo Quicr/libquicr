@@ -1,13 +1,51 @@
+#include "fake_transport.h"
+
+#include <doctest/doctest.h>
+#include <quicr/encode.h>
+#include <quicr/quicr_client.h>
+#include <quicr/quicr_server.h>
+
 #include <memory>
 #include <vector>
 
-#include <doctest/doctest.h>
-#include <quicr/quicr_server.h>
-
-#include "fake_transport.h"
-#include "quicr/encode.h"
-
 using namespace quicr;
+
+static auto logger =
+  std::make_shared<cantina::Logger>("Server Test", "SRV_TEST");
+
+struct TestSubscriberDelegate : public SubscriberDelegate
+{
+  TestSubscriberDelegate() = default;
+  ~TestSubscriberDelegate() = default;
+
+  void onSubscribeResponse(const quicr::Namespace& /* quicr_namespace */,
+                           const SubscribeResult& /* result */)
+  {
+  }
+
+  void onSubscriptionEnded(const quicr::Namespace& /* quicr_namespace */,
+                           const SubscribeResult::SubscribeStatus& /* result */)
+  {
+  }
+
+  void onSubscribedObject(const quicr::Name& /* quicr_name */,
+                          uint8_t /* priority */,
+                          uint16_t /* expiry_age_ms */,
+                          bool /* use_reliable_transport */,
+                          bytes&& /* data */)
+  {
+  }
+
+  void onSubscribedObjectFragment(const quicr::Name& /* quicr_name */,
+                                  uint8_t /* priority */,
+                                  uint16_t /* expiry_age_ms */,
+                                  bool /* use_reliable_transport */,
+                                  const uint64_t& /* offset */,
+                                  bool /* is_last_fragment */,
+                                  bytes&& /* data */)
+  {
+  }
+};
 
 class TestServerDelegate : public ServerDelegate
 {
@@ -56,7 +94,7 @@ class TestServerDelegate : public ServerDelegate
 
 TEST_CASE("Object Lifetime")
 {
-  TestServerDelegate delegate{};
+  auto delegate = std::make_shared<TestServerDelegate>();
   FakeTransport fake_transport;
   RelayInfo relayInfo = { .hostname = "127.0.0.1",
                           .port = 1234,
@@ -67,52 +105,3 @@ TEST_CASE("Object Lifetime")
   CHECK_NOTHROW(
     std::make_unique<QuicRServer>(relayInfo, tcfg, delegate, logger));
 }
-
-#if 0
-TEST_CASE("SubscribeResponse encode, send and receive")
-{
-  TestServerDelegate delegate{};
-  FakeTransportDelegate transport_delegate;
-
-  auto transport = std::make_shared<FakeTransport>();
-
-  auto qserver = std::make_unique<QuicRServer>(transport, delegate);
-
-  qserver->subscribeResponse(
-    { 0x1000, 0x2000, 3 },
-    0x5555,
-    SubscribeResult{ SubscribeResult::SubscribeStatus::Ok });
-  auto fake_transport = std::reinterpret_pointer_cast<FakeTransport>(transport);
-  messages::MessageBuffer msg{ fake_transport->stored_data };
-  messages::SubscribeResponse resp;
-  msg >> resp;
-
-  CHECK_EQ(resp.transaction_id, 0x5555);
-  CHECK_EQ(resp.quicr_namespace.low, 0x2000);
-  CHECK_EQ(resp.quicr_namespace.hi, 0x1000);
-  CHECK_EQ(resp.quicr_namespace.mask, 3);
-  CHECK_EQ(resp.response, SubscribeResult::SubscribeStatus::Ok);
-}
-
-TEST_CASE("Send Object Message Encode, send and receive")
-{
-
-  TestServerDelegate delegate{};
-  FakeTransportDelegate transport_delegate;
-
-  auto transport = std::make_shared<FakeTransport>();
-
-  auto qserver = std::make_unique<QuicRServer>(transport, delegate);
-
-  std::vector<uint8_t> say_hello = { 'H', 'E', 'L', 'L', '0' };
-  qserver->sendNamedObject(
-    0x1, { 0x1000, 0x2000 }, 0, 0, false, std::move(say_hello));
-
-  auto fake_transport = std::reinterpret_pointer_cast<FakeTransport>(transport);
-  messages::PublishDatagram d;
-  messages::MessageBuffer msg{ fake_transport->stored_data };
-  msg >> d;
-  say_hello = { 'H', 'E', 'L', 'L', '0' };
-  CHECK_EQ(d.media_data, say_hello);
-}
-#endif

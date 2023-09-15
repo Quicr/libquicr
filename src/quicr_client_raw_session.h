@@ -21,7 +21,7 @@
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_common.h"
 
-#include <quicr_name>
+#include <qname>
 #include <transport/transport.h>
 
 #include <atomic>
@@ -34,8 +34,8 @@ namespace quicr {
 /**
  *   Client Raw Session Interface
  */
-class QuicRClientRawSession
-  : public QuicRClientSession
+class ClientRawSession
+  : public ClientSession
   , public qtransport::ITransport::TransportDelegate
 {
 public:
@@ -49,8 +49,8 @@ public:
    *
    * @throws std::runtime_error : If transport fails to connect.
    */
-  QuicRClientRawSession(RelayInfo& relayInfo,
-                        qtransport::TransportConfig tconfig,
+  ClientRawSession(const RelayInfo& relayInfo,
+                        const qtransport::TransportConfig& tconfig,
                         const cantina::LoggerPointer& logger);
 
   /**
@@ -60,13 +60,13 @@ public:
    * @param transport : External transport pointer to use.
    * @param logger    : Shared pointer to a cantina::Logger object
    */
-  QuicRClientRawSession(std::shared_ptr<qtransport::ITransport> transport,
+  ClientRawSession(std::shared_ptr<qtransport::ITransport> transport,
                         const cantina::LoggerPointer& logger);
 
   /**
    * @brief Destructor for the raw client session object
    */
-  virtual ~QuicRClientRawSession();
+  virtual ~ClientRawSession();
 
   /**
    * @brief Connects the session using the info provided on construction.
@@ -133,7 +133,7 @@ public:
    * @param origin_url            : Origin serving the QUICR Session
    * @param use_reliable_transport: Reliable or Unreliable transport
    * @param auth_token            : Auth Token to validate the Subscribe Request
-   * @parm e2e_token              : Opaque token to be forwarded to the Origin
+   * @param e2e_token              : Opaque token to be forwarded to the Origin
    *
    * @details Entities processing the Subscribe Request MUST validate the
    * request against the token, verify if the Origin specified in the origin_url

@@ -17,7 +17,7 @@
 
 #include "quicr/quicr_common.h"
 
-#include <quicr_name>
+#include <qname>
 
 #include <cstdint>
 
@@ -39,7 +39,7 @@ public:
    *                         Subscribe Request
    * @param result         : Result for the subscription
    *
-   *  @details This callback will be called when a subscription response
+   * @details This callback will be called when a subscription response
    *          is received, on error, or timeout.
    */
   virtual void onSubscribeResponse(const quicr::Namespace& quicr_namespace,
@@ -73,14 +73,14 @@ public:
    * @param data                     : Opaque payload of the fragment
    *
    *
-   *  @note: It is important that the implementations not perform
-   *         compute intensive tasks in this callback, but rather
-   *         copy/move the needed information and hand back the control
-   *         to the stack
+   * @note: It is important that the implementations not perform
+   *        compute intensive tasks in this callback, but rather
+   *        copy/move the needed information and hand back the control
+   *        to the stack
    *
-   *  @note: Both the on_publish_object and on_publish_object_fragment
-   *         callbacks will be called. The delegate implementation
-   *         shall decide the right callback for their usage.
+   * @note: Both the on_publish_object and on_publish_object_fragment
+   *        callbacks will be called. The delegate implementation
+   *        shall decide the right callback for their usage.
    */
   virtual void onSubscribedObject(const quicr::Name& quicr_name,
                                   uint8_t priority,
@@ -93,9 +93,9 @@ public:
    *
    * @param quicr_name               : Identifies the QUICR Name for the object
    * @param priority                 : Identifies the relative priority of the
-   * current object
+   *                                   current object
    * @param best_before              : TTL for the object to be useful for the
-   * application
+   *                                   application
    * @param use_reliable_transport   : Indicates the preference for the object's
    *                                   transport, if forwarded.
    * @param offset                   : Current fragment offset
@@ -103,11 +103,10 @@ public:
    *                                   last fragment
    * @param data                     : Opaque payload of the fragment
    *
-   *
-   *  @note: It is important that the implementations not perform
-   *         compute intensive tasks in this callback, but rather
-   *         copy/move the needed information and hand back the control
-   *         to the stack
+   * @note: It is important that the implementations not perform
+   *        compute intensive tasks in this callback, but rather
+   *        copy/move the needed information and hand back the control
+   *        to the stack
    */
   virtual void onSubscribedObjectFragment(const quicr::Name& quicr_name,
                                           uint8_t priority,
@@ -127,15 +126,16 @@ public:
   PublisherDelegate() = default;
   virtual ~PublisherDelegate() = default;
 
-  /*
+  /**
    * @brief Callback on the response to the  publish intent
    *
    * @param quicr_namespace       : Identifies QUICR namespace
-   * @param result                : Status of Publish Intetn
+   * @param result                : Status of Publish Intent
    *
    * @details Entities processing the Subscribe Request MUST validate the
-   * request
-   * @todo: Add payload with origin signed blob
+   *          request
+   *
+   * TODO: Add payload with origin signed blob
    */
   virtual void onPublishIntentResponse(const quicr::Namespace& quicr_namespace,
                                        const PublishIntentResult& result) = 0;

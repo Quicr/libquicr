@@ -16,9 +16,9 @@
 #include "quicr_server_raw_session.h"
 
 #include "quicr/encode.h"
+#include "quicr/gap_check.h"
 #include "quicr/message_buffer.h"
 #include "quicr/quicr_common.h"
-#include "quicr/gap_check.h"
 
 #include <algorithm>
 #include <arpa/inet.h>
@@ -30,12 +30,12 @@ namespace quicr {
  * Initialize the QUICR server session at the port specified.
  *  @param delegate_in: Callback handlers for QUICR operations
  */
-QuicRServerRawSession::QuicRServerRawSession(
-  RelayInfo& relayInfo,
-  qtransport::TransportConfig tconfig,
-  ServerDelegate& delegate_in,
+ServerRawSession::ServerRawSession(
+  const RelayInfo& relayInfo,
+  const qtransport::TransportConfig& tconfig,
+  std::shared_ptr<ServerDelegate> delegate_in,
   const cantina::LoggerPointer& logger)
-  : delegate(delegate_in)
+  : delegate(std::move(delegate_in))
   , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport_delegate(*this)
 {
@@ -50,15 +50,15 @@ QuicRServerRawSession::QuicRServerRawSession(
       break;
   }
 
-  transport = setupTransport(relayInfo, std::move(tconfig));
+  transport = setupTransport(std::move(tconfig));
   transport->start();
 }
 
-QuicRServerRawSession::QuicRServerRawSession(
+ServerRawSession::ServerRawSession(
   std::shared_ptr<qtransport::ITransport> transport_in,
-  ServerDelegate& delegate_in,
+  std::shared_ptr<ServerDelegate> delegate_in,
   const cantina::LoggerPointer& logger)
-  : delegate(delegate_in)
+  : delegate(std::move(delegate_in))
   , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport_delegate(*this)
   , transport(transport_in)
@@ -66,8 +66,7 @@ QuicRServerRawSession::QuicRServerRawSession(
 }
 
 std::shared_ptr<qtransport::ITransport>
-QuicRServerRawSession::setupTransport([[maybe_unused]] RelayInfo& relayInfo,
-                                      qtransport::TransportConfig cfg)
+ServerRawSession::setupTransport(const qtransport::TransportConfig& cfg)
 {
 
   return qtransport::ITransport::make_server_transport(
@@ -76,7 +75,7 @@ QuicRServerRawSession::setupTransport([[maybe_unused]] RelayInfo& relayInfo,
 
 // Transport APIs
 bool
-QuicRServerRawSession::is_transport_ready()
+ServerRawSession::is_transport_ready()
 {
   if (transport->status() == qtransport::TransportStatus::Ready)
     return true;
@@ -93,7 +92,7 @@ QuicRServerRawSession::is_transport_ready()
  * @returns true if error, false if no error
  */
 bool
-QuicRServerRawSession::run()
+ServerRawSession::run()
 {
   running = true;
 
@@ -107,14 +106,14 @@ QuicRServerRawSession::run()
 }
 
 void
-QuicRServerRawSession::publishIntentResponse(
+ServerRawSession::publishIntentResponse(
   const quicr::Namespace& quicr_namespace,
   const PublishIntentResult& result)
 {
   if (!publish_namespaces.count(quicr_namespace))
     return;
 
-  // TODO: Need to update publish_namespaces and intent methods to support multi origin
+  // TODO: Support more than one publisher per ns
   auto& context = publish_namespaces[quicr_namespace];
   messages::PublishIntentResponse response{
     messages::MessageType::PublishIntentResponse,
@@ -133,7 +132,7 @@ QuicRServerRawSession::publishIntentResponse(
 }
 
 void
-QuicRServerRawSession::subscribeResponse(
+ServerRawSession::subscribeResponse(
   const uint64_t& subscriber_id,
   const quicr::Namespace& quicr_namespace,
   const SubscribeResult& result)
@@ -158,7 +157,7 @@ QuicRServerRawSession::subscribeResponse(
 }
 
 void
-QuicRServerRawSession::subscriptionEnded(
+ServerRawSession::subscriptionEnded(
   const uint64_t& subscriber_id,
   const quicr::Namespace& quicr_namespace,
   const SubscribeResult::SubscribeStatus& reason)
@@ -182,7 +181,7 @@ QuicRServerRawSession::subscriptionEnded(
 }
 
 void
-QuicRServerRawSession::sendNamedObject(
+ServerRawSession::sendNamedObject(
   const uint64_t& subscriber_id,
   [[maybe_unused]] bool use_reliable_transport,
   uint8_t priority,
@@ -213,7 +212,7 @@ QuicRServerRawSession::sendNamedObject(
 ///
 
 void
-QuicRServerRawSession::handle_subscribe(
+ServerRawSession::handle_subscribe(
   const qtransport::TransportContextId& context_id,
   const qtransport::StreamId& streamId,
   messages::MessageBuffer&& msg)
@@ -237,19 +236,19 @@ QuicRServerRawSession::handle_subscribe(
 
   auto& context = subscribe_state[subscribe.quicr_namespace][context_id];
 
-  delegate.onSubscribe(subscribe.quicr_namespace,
-                       context.subscriber_id,
-                       context_id,
-                       streamId,
-                       subscribe.intent,
-                       "",
-                       false,
-                       "",
-                       {});
+  delegate->onSubscribe(subscribe.quicr_namespace,
+                        context.subscriber_id,
+                        context_id,
+                        streamId,
+                        subscribe.intent,
+                        "",
+                        false,
+                        "",
+                        {});
 }
 
 void
-QuicRServerRawSession::handle_unsubscribe(
+ServerRawSession::handle_unsubscribe(
   const qtransport::TransportContextId& context_id,
   const qtransport::StreamId& /* streamId */,
   messages::MessageBuffer&& msg)
@@ -265,7 +264,7 @@ QuicRServerRawSession::handle_unsubscribe(
     auto& context = subscribe_state[unsub.quicr_namespace][context_id];
 
     // Before removing, exec callback
-    delegate.onUnsubscribe(unsub.quicr_namespace, context.subscriber_id, {});
+    delegate->onUnsubscribe(unsub.quicr_namespace, context.subscriber_id, {});
 
     subscribe_id_state.erase(context.subscriber_id);
     subscribe_state[unsub.quicr_namespace].erase(context_id);
@@ -277,7 +276,7 @@ QuicRServerRawSession::handle_unsubscribe(
 }
 
 void
-QuicRServerRawSession::handle_publish(
+ServerRawSession::handle_publish(
   const qtransport::TransportContextId& context_id,
   const qtransport::StreamId& streamId,
   messages::MessageBuffer&& msg)
@@ -298,18 +297,19 @@ QuicRServerRawSession::handle_publish(
 
   auto& [ns, context] = *publish_namespace;
 
-  auto gap_log = gap_check(false, datagram.header.name,
-                           context.last_group_id, context.last_object_id);
+  auto gap_log = gap_check(
+    false, datagram.header.name, context.last_group_id, context.last_object_id);
 
   if (!gap_log.empty()) {
-    logger->info << "context_id: " << context_id << " stream_id: " << streamId << " " << gap_log << std::flush;
+    logger->info << "context_id: " << context_id << " stream_id: " << streamId
+                 << " " << gap_log << std::flush;
   }
 
-  delegate.onPublisherObject(context_id, streamId, false, std::move(datagram));
+  delegate->onPublisherObject(context_id, streamId, false, std::move(datagram));
 }
 
 void
-QuicRServerRawSession::handle_publish_intent(
+ServerRawSession::handle_publish_intent(
   const qtransport::TransportContextId& context_id,
   const qtransport::StreamId& streamId,
   messages::MessageBuffer&& msg)
@@ -325,30 +325,30 @@ QuicRServerRawSession::handle_publish_intent(
     context.transaction_id = intent.transaction_id;
 
     publish_namespaces[intent.quicr_namespace] = context;
-
-  } else {
-    auto state = publish_namespaces[intent.quicr_namespace].state;
-    switch (state) {
-      case PublishIntentContext::State::Pending:
-        // TODO: Resend response?
-        break;
-      case PublishIntentContext::State::Ready:
-        // TODO: Already registered this namespace successfully, do nothing?
-        break;
-      default:
-        break;
-    }
+    return;
   }
 
-  delegate.onPublishIntent(intent.quicr_namespace,
-                           "" /* intent.origin_url */,
-                           false,
-                           "" /* intent.relay_token */,
-                           std::move(intent.payload));
+  auto state = publish_namespaces[intent.quicr_namespace].state;
+  switch (state) {
+    case PublishIntentContext::State::Pending:
+      // TODO: Resend response?
+      break;
+    case PublishIntentContext::State::Ready:
+      // TODO: Already registered this namespace successfully, do nothing?
+      break;
+    default:
+      break;
+  }
+
+  delegate->onPublishIntent(intent.quicr_namespace,
+                            "" /* intent.origin_url */,
+                            false,
+                            "" /* intent.relay_token */,
+                            std::move(intent.payload));
 }
 
 void
-QuicRServerRawSession::handle_publish_intent_end(
+ServerRawSession::handle_publish_intent_end(
   [[maybe_unused]] const qtransport::TransportContextId& context_id,
   [[maybe_unused]] const qtransport::StreamId& streamId,
   messages::MessageBuffer&& msg)
@@ -364,23 +364,23 @@ QuicRServerRawSession::handle_publish_intent_end(
 
   publish_namespaces.erase(name);
 
-  delegate.onPublishIntentEnd(intent_end.quicr_namespace,
-                              "" /* intent_end.relay_token */,
-                              std::move(intent_end.payload));
+  delegate->onPublishIntentEnd(intent_end.quicr_namespace,
+                               "" /* intent_end.relay_token */,
+                               std::move(intent_end.payload));
 }
 
 /*===========================================================================*/
 // Transport Delegate Implementation
 /*===========================================================================*/
 
-QuicRServerRawSession::TransportDelegate::TransportDelegate(
-  quicr::QuicRServerRawSession& server)
+ServerRawSession::TransportDelegate::TransportDelegate(
+  quicr::ServerRawSession& server)
   : server(server)
 {
 }
 
 void
-QuicRServerRawSession::TransportDelegate::on_connection_status(
+ServerRawSession::TransportDelegate::on_connection_status(
   const qtransport::TransportContextId& context_id,
   const qtransport::TransportStatus status)
 {
@@ -389,28 +389,29 @@ QuicRServerRawSession::TransportDelegate::on_connection_status(
                                           << " status: " << int(status));
 
   if (status == qtransport::TransportStatus::Disconnected) {
-    server.logger->info << "Removing state for context_id: " << context_id << std::flush;
+    server.logger->info << "Removing state for context_id: " << context_id
+                        << std::flush;
 
     std::lock_guard<std::mutex> lock(server.session_mutex);
 
     std::vector<quicr::Namespace> pub_names_to_remove;
-    for (auto & [ns, context]: server.publish_namespaces) {
+    for (auto& [ns, context] : server.publish_namespaces) {
       if (context.transport_context_id == context_id) {
         pub_names_to_remove.push_back(ns);
-        server.delegate.onPublishIntentEnd(ns, {}, {});
+        server.delegate->onPublishIntentEnd(ns, {}, {});
       }
     }
 
-    for (auto &ns: pub_names_to_remove) {
+    for (auto& ns : pub_names_to_remove) {
       server.publish_namespaces.erase(ns);
     }
 
     std::vector<quicr::Namespace> sub_names_to_remove;
-    for (auto& [ns, sub_map]: server.subscribe_state) {
+    for (auto& [ns, sub_map] : server.subscribe_state) {
 
       auto sub_it = sub_map.find(context_id);
       if (sub_it != sub_map.end()) {
-        server.delegate.onUnsubscribe(ns, sub_it->second.subscriber_id, {});
+        server.delegate->onUnsubscribe(ns, sub_it->second.subscriber_id, {});
         server.subscribe_id_state.erase(sub_it->second.subscriber_id);
         sub_map.erase(sub_it);
       }
@@ -427,7 +428,7 @@ QuicRServerRawSession::TransportDelegate::on_connection_status(
 }
 
 void
-QuicRServerRawSession::TransportDelegate::on_new_connection(
+ServerRawSession::TransportDelegate::on_new_connection(
   const qtransport::TransportContextId& context_id,
   const qtransport::TransportRemote& remote)
 {
@@ -438,7 +439,7 @@ QuicRServerRawSession::TransportDelegate::on_new_connection(
 }
 
 void
-QuicRServerRawSession::TransportDelegate::on_new_stream(
+ServerRawSession::TransportDelegate::on_new_stream(
   const qtransport::TransportContextId& context_id,
   const qtransport::StreamId& streamId)
 {
@@ -447,7 +448,7 @@ QuicRServerRawSession::TransportDelegate::on_new_stream(
 }
 
 void
-QuicRServerRawSession::TransportDelegate::on_recv_notify(
+ServerRawSession::TransportDelegate::on_recv_notify(
   const qtransport::TransportContextId& context_id,
   const qtransport::StreamId& streamId)
 {
@@ -458,8 +459,6 @@ QuicRServerRawSession::TransportDelegate::on_recv_notify(
     if (data.has_value()) {
       server.recv_data_count++;
       try {
-        // TODO: Extracting type will change when the message is encoded
-        // correctly
         auto msg_type = static_cast<messages::MessageType>(data->front());
         messages::MessageBuffer msg_buffer{ data.value() };
 
@@ -493,9 +492,10 @@ QuicRServerRawSession::TransportDelegate::on_recv_notify(
             server.logger->Log("Invalid Message Type");
             break;
         }
-      } catch (const messages::MessageBuffer::ReadException&  ex) {
+      } catch (const messages::MessageBuffer::ReadException& ex) {
 
-        // TODO: When reliable, we really should reset the stream if this happens (at least more than once)
+        // TODO: When reliable, we really should reset the stream if this
+        // happens (at least more than once)
         server.logger->critical
           << "Received read exception error while reading from message buffer: "
           << ex.what() << std::flush;

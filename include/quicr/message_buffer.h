@@ -178,11 +178,11 @@ public:
 
   /**
    * @brief Writes QUICR integral types to the buffer in NBO.
-   * @tparam T A type satisfying quicr::is_integral.
+   * @tparam T An unsigned integral or a quicr::Name.
    * @param value The message to be written.
    * @returns The MessageBuffer that was written to.
    */
-  template<typename T, typename = std::enable_if_t<quicr::is_integral_v<T>, T>>
+  template<UnsignedOrName T>
   inline MessageBuffer& operator<<(T value)
   {
     value = swap_bytes(value);
@@ -208,7 +208,7 @@ public:
    * @param value The value to read into.
    * @returns The MessageBuffer that was read from.
    */
-  template<typename T, typename = std::enable_if_t<quicr::is_integral_v<T>, T>>
+  template<UnsignedOrName T>
   inline MessageBuffer& operator>>(T& value)
   {
     if (empty())

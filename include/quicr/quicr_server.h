@@ -6,8 +6,8 @@
 #include "quicr_server_delegate.h"
 #include "quicr_server_session.h"
 
-#include <transport/transport.h>
 #include <cantina/logger.h>
+#include <transport/transport.h>
 
 #include <memory>
 #include <stdexcept>
@@ -18,12 +18,12 @@
 namespace quicr {
 
 // Exception that may be thrown if there is a critical error
-class QuicRServerException : public std::runtime_error
+class ServerException : public std::runtime_error
 {
   using std::runtime_error::runtime_error;
 };
 
-class QuicRServer
+class Server
 {
 public:
   /**
@@ -34,18 +34,17 @@ public:
    * @param delegate         : Server delegate
    * @param logger           : Shared pointer to cantina::Logger object
    */
-  QuicRServer(RelayInfo& relayInfo,
-              qtransport::TransportConfig tconfig,
-              ServerDelegate& delegate,
+  Server(const RelayInfo& relayInfo,
+              const qtransport::TransportConfig& tconfig,
+              std::shared_ptr<ServerDelegate> delegate_in,
               const cantina::LoggerPointer& logger);
 
   /**
    * API for unit test cases .
    */
-  QuicRServer(
-    std::shared_ptr<qtransport::ITransport> transport,
-    ServerDelegate& delegate /* TODO: Considering shared or weak pointer */,
-    const cantina::LoggerPointer& logger);
+  Server(std::shared_ptr<qtransport::ITransport> transport,
+              std::shared_ptr<ServerDelegate> delegate_in,
+              const cantina::LoggerPointer& logger);
 
   // Transport APIs
   bool is_transport_ready();
@@ -124,7 +123,9 @@ public:
                        const messages::PublishDatagram& datagram);
 
 protected:
-  std::unique_ptr<QuicRServerSession> server_session;
+  std::unique_ptr<ServerSession> server_session;
 };
+
+using QuicRServer [[deprecated("quicr::QuicRServer stutters, use quicr::Server")]] = quicr::Server;
 
 } // namespace quicr

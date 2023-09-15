@@ -124,9 +124,10 @@ installSignalHandlers()
 #endif
 }
 
-class ReallyServer : public quicr::ServerDelegate
+class ReallyServer
+  : public quicr::ServerDelegate
+  , std::enable_shared_from_this<ReallyServer>
 {
-public:
   ReallyServer()
   {
     logger = std::make_shared<cantina::Logger>("really");
@@ -137,9 +138,16 @@ public:
 
     qtransport::TransportConfig tcfg{ .tls_cert_filename = "./server-cert.pem",
                                       .tls_key_filename = "./server-key.pem" };
-    server =
-      std::make_unique<quicr::QuicRServer>(relayInfo, tcfg, *this, logger);
+    server = std::make_unique<quicr::QuicRServer>(
+      relayInfo, tcfg, shared_from_this(), logger);
   }
+
+public:
+  static std::shared_ptr<ReallyServer> create()
+  {
+    return std::shared_ptr<ReallyServer>(new ReallyServer());
+  }
+
   ~ReallyServer() { server.reset(); };
 
   virtual void onPublishIntent(const quicr::Namespace& quicr_namespace,
@@ -246,8 +254,7 @@ main()
   std::unique_lock<std::mutex> lock(really::main_mutex);
 
   try {
-    std::unique_ptr<ReallyServer> really_server =
-      std::make_unique<ReallyServer>();
+    auto really_server = ReallyServer::create();
     really_server->server->run();
 
     // Wait until told to terminate
