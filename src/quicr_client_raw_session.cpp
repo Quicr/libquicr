@@ -282,10 +282,12 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
   if (use_reliable_transport) {
     stream_id = transport->createStream(transport_context_id, true);
   }
-  publish_state[quicr_namespace] = { .state = PublishContext::State::Pending,
-                                     .transport_context_id =
-                                       transport_context_id,
-                                     .transport_stream_id = stream_id };
+
+  publish_state[quicr_namespace] = {
+    .state = PublishContext::State::Pending,
+    .transport_context_id = transport_context_id,
+    .transport_stream_id = stream_id,
+  };
 
   messages::PublishIntent intent{
     messages::MessageType::PublishIntent,
@@ -453,7 +455,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
                                      : transport_dgram_stream_id;
 
   // Fragment the payload if needed
-  if (data.size() <= quicr::MAX_TRANSPORT_DATA_SIZE || use_reliable_transport) {
+  if (data.size() <= quicr::MaxTransportDataSize || use_reliable_transport) {
     messages::MessageBuffer msg;
 
     datagram.media_data_length = data.size();
@@ -467,8 +469,8 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
   } else {
     // Fragments required. At this point this only counts whole blocks
-    int frag_num = data.size() / quicr::MAX_TRANSPORT_DATA_SIZE;
-    int frag_remaining_bytes = data.size() % quicr::MAX_TRANSPORT_DATA_SIZE;
+    int frag_num = data.size() / quicr::MaxTransportDataSize;
+    int frag_remaining_bytes = data.size() % quicr::MaxTransportDataSize;
 
     int offset = 0;
 
@@ -482,14 +484,14 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       }
 
       bytes frag_data(data.begin() + offset,
-                      data.begin() + offset + quicr::MAX_TRANSPORT_DATA_SIZE);
+                      data.begin() + offset + quicr::MaxTransportDataSize);
 
       datagram.media_data_length = frag_data.size();
       datagram.media_data = std::move(frag_data);
 
       msg << datagram;
 
-      offset += quicr::MAX_TRANSPORT_DATA_SIZE;
+      offset += quicr::MaxTransportDataSize;
 
       /*
        * For UDP based transports, some level of pacing is required to prevent
@@ -512,7 +514,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       }
     }
 
-    // Send last fragment, which will be less than MAX_TRANSPORT_DATA_SIZE
+    // Send last fragment, which will be less than MaxTransportDataSize
     if (frag_remaining_bytes) {
       messages::MessageBuffer msg;
       datagram.header.offset_and_fin = uintVar_t((offset << 1) + 1);
@@ -571,7 +573,7 @@ ClientRawSession::removeSubscription(
   }
 
   if (!!sub_delegates.count(quicr_namespace)) {
-    if (auto sub_delegate = sub_delegates[quicr_namespace].lock())
+    if (const auto& sub_delegate = sub_delegates[quicr_namespace])
       sub_delegate->onSubscriptionEnded(quicr_namespace, reason);
 
     sub_delegates.erase(quicr_namespace);
@@ -581,7 +583,7 @@ ClientRawSession::removeSubscription(
 bool
 ClientRawSession::notify_pub_fragment(
   const messages::PublishDatagram& datagram,
-  const std::weak_ptr<SubscriberDelegate>& delegate,
+  const std::shared_ptr<SubscriberDelegate>& delegate,
   const std::map<int, bytes>& buffer)
 {
   if ((buffer.rbegin()->first & 0x1) != 0x1) {
@@ -603,9 +605,8 @@ ClientRawSession::notify_pub_fragment(
     seq_bytes += data.size();
   }
 
-  if (auto sub_delegate = delegate.lock())
-    sub_delegate->onSubscribedObject(
-      datagram.header.name, 0x0, 0x0, false, std::move(reassembled));
+  delegate->onSubscribedObject(
+    datagram.header.name, 0x0, 0x0, false, std::move(reassembled));
 
   return true;
 }
@@ -613,7 +614,7 @@ ClientRawSession::notify_pub_fragment(
 void
 ClientRawSession::handle_pub_fragment(
   messages::PublishDatagram&& datagram,
-  const std::weak_ptr<SubscriberDelegate>& delegate)
+  const std::shared_ptr<SubscriberDelegate>& delegate)
 {
   static unsigned int cindex = 1;
 
@@ -679,7 +680,7 @@ ClientRawSession::handle(messages::MessageBuffer&& msg)
         auto& context = subscribe_state[response.quicr_namespace];
         context.state = SubscribeContext::State::Ready;
 
-        if (auto sub_delegate = sub_delegates[response.quicr_namespace].lock())
+        if (const auto& sub_delegate = sub_delegates[response.quicr_namespace])
           sub_delegate->onSubscribeResponse(response.quicr_namespace, result);
       } else {
         std::cout << "Got SubscribeResponse: No delegate found for namespace"
@@ -717,19 +718,17 @@ ClientRawSession::handle(messages::MessageBuffer&& msg)
           logger->Log(gap_log);
         }
 
-        if (datagram.header.offset_and_fin == uintVar_t(0x1)) {
-          // No-fragment, process as single object
-
-          if (auto sub_delegate = delegate.lock()) {
-            sub_delegate->onSubscribedObject(datagram.header.name,
-                                             0x0,
-                                             0x0,
-                                             false,
-                                             std::move(datagram.media_data));
-          }
-        } else { // is a fragment
+        if (datagram.header.offset_and_fin != uintVar_t(0x1)) {
           handle_pub_fragment(std::move(datagram), delegate);
+          break;
         }
+
+        // No-fragment, process as single object
+        delegate->onSubscribedObject(datagram.header.name,
+                                     0x0,
+                                     0x0,
+                                     false,
+                                     std::move(datagram.media_data));
       }
       break;
     }
@@ -745,7 +744,7 @@ ClientRawSession::handle(messages::MessageBuffer&& msg)
         return;
       }
 
-      if (auto delegate = pub_delegates[response.quicr_namespace].lock()) {
+      if (const auto& delegate = pub_delegates[response.quicr_namespace]) {
         PublishIntentResult result{ .status = response.response };
         delegate->onPublishIntentResponse(response.quicr_namespace, result);
       }

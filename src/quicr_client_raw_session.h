@@ -221,10 +221,11 @@ protected:
                       const qtransport::StreamId& streamId) override;
 
   bool notify_pub_fragment(const messages::PublishDatagram& datagram,
-                           const std::weak_ptr<SubscriberDelegate>& delegate,
+                           const std::shared_ptr<SubscriberDelegate>& delegate,
                            const std::map<int, bytes>& frag_map);
+
   void handle_pub_fragment(messages::PublishDatagram&& datagram,
-                           const std::weak_ptr<SubscriberDelegate>& delegate);
+                           const std::shared_ptr<SubscriberDelegate>& delegate);
 
   void handle(messages::MessageBuffer&& msg);
 
@@ -279,10 +280,10 @@ protected:
 
   cantina::LoggerPointer logger;
 
-  namespace_map<std::weak_ptr<PublisherDelegate>> pub_delegates;
+  namespace_map<std::shared_ptr<PublisherDelegate>> pub_delegates;
   namespace_map<PublishContext> publish_state{};
 
-  namespace_map<std::weak_ptr<SubscriberDelegate>> sub_delegates;
+  namespace_map<std::shared_ptr<SubscriberDelegate>> sub_delegates;
   namespace_map<SubscribeContext> subscribe_state{};
 
   std::shared_ptr<qtransport::ITransport> transport;
