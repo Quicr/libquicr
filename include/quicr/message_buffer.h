@@ -186,11 +186,10 @@ public:
   inline MessageBuffer& operator<<(T value)
   {
     value = swap_bytes(value);
-    value_type* val_ptr = reinterpret_cast<value_type*>(&value);
 
     const auto length = _buffer.size();
     _buffer.resize(length + sizeof(T));
-    std::memcpy(_buffer.data() + length, val_ptr, sizeof(T));
+    std::memcpy(_buffer.data() + length, &value, sizeof(T));
 
     return *this;
   }
@@ -217,8 +216,7 @@ public:
     if (size() < sizeof(T))
       throw TypeReadException_Internal<T>(size());
 
-    auto val_ptr = reinterpret_cast<value_type*>(&value);
-    std::memcpy(val_ptr, data(), sizeof(T));
+    std::memcpy(&value, data(), sizeof(T));
     cleanup(sizeof(T));
 
     value = swap_bytes(value);

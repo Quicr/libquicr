@@ -127,7 +127,7 @@ main(int argc, char* argv[])
 
   qtransport::TransportConfig tcfg{ .tls_cert_filename = NULL,
                                     .tls_key_filename = NULL };
-  quicr::QuicRClient client(relay, tcfg, logger);
+  quicr::Client client(relay, tcfg, logger);
   if (!client.connect()) {
       logger->Log(cantina::LogLevel::Critical, "Transport connect failed");
       return 0;

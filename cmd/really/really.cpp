@@ -138,7 +138,7 @@ class ReallyServer
 
     qtransport::TransportConfig tcfg{ .tls_cert_filename = "./server-cert.pem",
                                       .tls_key_filename = "./server-key.pem" };
-    server = std::make_unique<quicr::QuicRServer>(
+    server = std::make_unique<quicr::Server>(
       relayInfo, tcfg, shared_from_this(), logger);
   }
 
@@ -233,7 +233,7 @@ public:
     server->subscribeResponse(subscriber_id, quicr_namespace, result);
   }
 
-  std::unique_ptr<quicr::QuicRServer> server;
+  std::unique_ptr<quicr::Server> server;
   std::shared_ptr<qtransport::ITransport> transport;
   std::set<uint64_t> subscribers = {};
 
