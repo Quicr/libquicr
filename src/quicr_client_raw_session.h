@@ -274,6 +274,30 @@ protected:
   qtransport::TransportContextId transport_context_id;
   ClientStatus client_status{ ClientStatus::TERMINATED };
 
+  /*
+   * Nested map to reassemble message fragments
+   *
+   *    Structure:
+   *       fragments[<circular index>] = map[quicr_name] = map[offset] = data
+   *
+   *    Circular index is a small int value that increments from 1 to max. It
+   *    wraps to 1 after reaching max size.  In this sense, it's a circular
+   *    buffer. Upon moving to a new index the new index data will be purged (if
+   *    any exists).
+   *
+   *    Fragment reassembly avoids timers and time interval based checks. It
+   *    instead is based on received data. Every message quicr_name is checked to
+   *    see if it's complete. If so, the published object callback will be
+   *    executed. If not, it'll only update the map with the new offset value.
+   *    Incomplete messages can exist in the cache for as long as the circular
+   *    index hasn't wrapped to the same point in cache.  Under high load/volume,
+   *    this can wrap within a minute or two.  Under very little load, this could
+   *    linger for hours. This is okay considering the only harm is a little extra
+   *    memory being used. Extra memory is a trade-off for being event/message
+   *    driven instead of timer based with threading/locking/...
+   */
+  std::map<int, std::map<quicr::Name, std::map<int, bytes>>> fragments;
+
   cantina::LoggerPointer logger;
 
   namespace_map<std::weak_ptr<PublisherDelegate>> pub_delegates;

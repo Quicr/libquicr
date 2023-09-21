@@ -32,29 +32,6 @@
 namespace quicr {
 
 namespace {
-/*
- * Nested map to reassemble message fragments
- *
- *    Structure:
- *       fragments[<circular index>] = map[quicr_name] = map[offset] = data
- *
- *    Circular index is a small int value that increments from 1 to max. It
- *    wraps to 1 after reaching max size.  In this sense, it's a circular
- *    buffer. Upon moving to a new index the new index data will be purged (if
- *    any exists).
- *
- *    Fragment reassembly avoids timers and time interval based checks. It
- *    instead is based on received data. Every message quicr_name is checked to
- *    see if it's complete. If so, the published object callback will be
- *    executed. If not, it'll only update the map with the new offset value.
- *    Incomplete messages can exist in the cache for as long as the circular
- *    index hasn't wrapped to the same point in cache.  Under high load/volume,
- *    this can wrap within a minute or two.  Under very little load, this could
- *    linger for hours. This is okay considering the only harm is a little extra
- *    memory being used. Extra memory is a trade-off for being event/message
- *    driven instead of timer based with threading/locking/...
- */
-std::map<int, std::map<quicr::Name, std::map<int, bytes>>> fragments;
 
 qtransport::TransportRemote
 to_TransportRemote(const RelayInfo& info) noexcept
@@ -623,14 +600,16 @@ QuicRClientRawSession::handle_pub_fragment(
   static unsigned int cindex = 1;
 
   // Check the current index first considering it's likely in the current buffer
-  const auto& msg_iter = fragments[cindex].find(datagram.header.name);
-  if (msg_iter != fragments[cindex].end()) {
+  auto& curr_fragments = fragments[cindex];
+  const auto& msg_iter = curr_fragments.find(datagram.header.name);
+  if (msg_iter != curr_fragments.end()) {
     // Found
     auto& [_, buffer] = *msg_iter;
     buffer.emplace(datagram.header.offset_and_fin,
                    std::move(datagram.media_data));
-    if (notify_pub_fragment(datagram, delegate, buffer))
-      fragments[cindex].erase(msg_iter);
+    if (notify_pub_fragment(datagram, delegate, buffer)) {
+      curr_fragments.erase(msg_iter);
+    }
 
   } else {
     // Not in current buffer, search all buffers
@@ -638,7 +617,7 @@ QuicRClientRawSession::handle_pub_fragment(
       const auto& msg_iter = buf.second.find(datagram.header.name);
       if (msg_iter == buf.second.end()) {
         // If not found in any buffer, then add to current buffer
-        fragments[cindex][datagram.header.name].emplace(
+        curr_fragments[datagram.header.name].emplace(
           datagram.header.offset_and_fin, std::move(datagram.media_data));
         continue;
       }
@@ -654,7 +633,7 @@ QuicRClientRawSession::handle_pub_fragment(
   }
 
   // Move to next buffer if reached max
-  if (fragments[cindex].size() >= MAX_FRAGMENT_NAMES_PENDING_PER_BUFFER) {
+  if (curr_fragments.size() >= MAX_FRAGMENT_NAMES_PENDING_PER_BUFFER) {
     if (cindex < MAX_FRAGMENT_BUFFERS)
       ++cindex;
     else
