@@ -1,9 +1,9 @@
 #include <doctest/doctest.h>
 
+#include <qname>
 #include <quicr/encode.h>
 #include <quicr/message_buffer.h>
 #include <quicr/quicr_common.h>
-#include <quicr_name>
 
 #include <memory>
 #include <random>

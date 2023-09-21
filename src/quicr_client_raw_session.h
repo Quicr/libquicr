@@ -21,7 +21,7 @@
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_common.h"
 
-#include <quicr_name>
+#include <qname>
 #include <transport/transport.h>
 
 #include <atomic>
@@ -34,8 +34,8 @@ namespace quicr {
 /**
  *   Client Raw Session Interface
  */
-class QuicRClientRawSession
-  : public QuicRClientSession
+class ClientRawSession
+  : public ClientSession
   , public qtransport::ITransport::TransportDelegate
 {
 public:
@@ -49,9 +49,9 @@ public:
    *
    * @throws std::runtime_error : If transport fails to connect.
    */
-  QuicRClientRawSession(RelayInfo& relayInfo,
-                        qtransport::TransportConfig tconfig,
-                        const cantina::LoggerPointer& logger);
+  ClientRawSession(const RelayInfo& relayInfo,
+                   const qtransport::TransportConfig& tconfig,
+                   const cantina::LoggerPointer& logger);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber
@@ -60,13 +60,13 @@ public:
    * @param transport : External transport pointer to use.
    * @param logger    : Shared pointer to a cantina::Logger object
    */
-  QuicRClientRawSession(std::shared_ptr<qtransport::ITransport> transport,
-                        const cantina::LoggerPointer& logger);
+  ClientRawSession(std::shared_ptr<qtransport::ITransport> transport,
+                   const cantina::LoggerPointer& logger);
 
   /**
    * @brief Destructor for the raw client session object
    */
-  virtual ~QuicRClientRawSession();
+  virtual ~ClientRawSession();
 
   /**
    * @brief Connects the session using the info provided on construction.
@@ -97,9 +97,12 @@ public:
    * @param pub_delegate            : Publisher delegate reference
    * @param quicr_namespace         : Identifies QUICR namespace
    * @param origin_url              : Origin serving the QUICR Session
-   * @param auth_token              : Auth Token to validate the Subscribe Request
-   * @param payload                 : Opaque payload to be forwarded to the Origin
-   * @param use_reliable_transport  : Indicates to use reliable for matching published objects
+   * @param auth_token              : Auth Token to validate the Subscribe
+   * Request
+   * @param payload                 : Opaque payload to be forwarded to the
+   * Origin
+   * @param use_reliable_transport  : Indicates to use reliable for matching
+   * published objects
    */
   bool publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                      const quicr::Namespace& quicr_namespace,
@@ -133,7 +136,7 @@ public:
    * @param origin_url            : Origin serving the QUICR Session
    * @param use_reliable_transport: Reliable or Unreliable transport
    * @param auth_token            : Auth Token to validate the Subscribe Request
-   * @parm e2e_token              : Opaque token to be forwarded to the Origin
+   * @param e2e_token              : Opaque token to be forwarded to the Origin
    *
    * @details Entities processing the Subscribe Request MUST validate the
    * request against the token, verify if the Origin specified in the origin_url
@@ -218,10 +221,11 @@ protected:
                       const qtransport::StreamId& streamId) override;
 
   bool notify_pub_fragment(const messages::PublishDatagram& datagram,
-                           const std::weak_ptr<SubscriberDelegate>& delegate,
+                           const std::shared_ptr<SubscriberDelegate>& delegate,
                            const std::map<int, bytes>& frag_map);
+
   void handle_pub_fragment(messages::PublishDatagram&& datagram,
-                           const std::weak_ptr<SubscriberDelegate>& delegate);
+                           const std::shared_ptr<SubscriberDelegate>& delegate);
 
   void handle(messages::MessageBuffer&& msg);
 
@@ -244,9 +248,9 @@ protected:
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
     qtransport::StreamId transport_stream_id{ 0 };
-    uint64_t transaction_id {0};
-    uint64_t last_group_id {0};
-    uint64_t last_object_id {0};
+    uint64_t transaction_id{ 0 };
+    uint64_t last_group_id{ 0 };
+    uint64_t last_object_id{ 0 };
   };
 
   // State per publish_intent and related publish
@@ -262,8 +266,8 @@ protected:
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
     qtransport::StreamId transport_stream_id{ 0 };
-    uint64_t last_group_id {0};
-    uint64_t last_object_id {0};
+    uint64_t last_group_id{ 0 };
+    uint64_t last_object_id{ 0 };
     uint64_t offset{ 0 };
   };
 
@@ -300,10 +304,10 @@ protected:
 
   cantina::LoggerPointer logger;
 
-  namespace_map<std::weak_ptr<PublisherDelegate>> pub_delegates;
+  namespace_map<std::shared_ptr<PublisherDelegate>> pub_delegates;
   namespace_map<PublishContext> publish_state{};
 
-  namespace_map<std::weak_ptr<SubscriberDelegate>> sub_delegates;
+  namespace_map<std::shared_ptr<SubscriberDelegate>> sub_delegates;
   namespace_map<SubscribeContext> subscribe_state{};
 
   std::shared_ptr<qtransport::ITransport> transport;

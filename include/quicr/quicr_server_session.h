@@ -9,7 +9,7 @@
  *      This is an interface specification for the session layer sitting at the
  *      next level of the server library.  The topology looks like this:
  *
- *          QuicRServer => QuicRServerSession => Transport
+ *          QuicRServer => ServerSession => Transport
  *
  *  Portability Issues:
  *      None.
@@ -24,12 +24,12 @@
  */
 namespace quicr {
 
-class QuicRServerSession
+class ServerSession
 {
 public:
   // Default constructor and virtual destructor
-  QuicRServerSession() = default;
-  virtual ~QuicRServerSession() = default;
+  ServerSession() = default;
+  virtual ~ServerSession() = default;
 
   // Transport APIs
   virtual bool is_transport_ready() = 0;
@@ -108,5 +108,9 @@ public:
                                uint16_t expiry_age_ms,
                                const messages::PublishDatagram& datagram) = 0;
 };
+
+using QuicRServerSession [[deprecated(
+  "quicr::QuicRServerSession stutters, use quicr::ServerSession")]] =
+  quicr::ServerSession;
 
 } // namespace quicr

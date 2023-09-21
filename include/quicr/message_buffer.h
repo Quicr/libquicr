@@ -178,19 +178,18 @@ public:
 
   /**
    * @brief Writes QUICR integral types to the buffer in NBO.
-   * @tparam T A type satisfying quicr::is_integral.
+   * @tparam T An unsigned integral type or a quicr::Name.
    * @param value The message to be written.
    * @returns The MessageBuffer that was written to.
    */
-  template<typename T, typename = std::enable_if_t<quicr::is_integral_v<T>, T>>
+  template<UnsignedOrName T>
   inline MessageBuffer& operator<<(T value)
   {
     value = swap_bytes(value);
-    value_type* val_ptr = reinterpret_cast<value_type*>(&value);
 
     const auto length = _buffer.size();
     _buffer.resize(length + sizeof(T));
-    std::memcpy(_buffer.data() + length, val_ptr, sizeof(T));
+    std::memcpy(_buffer.data() + length, &value, sizeof(T));
 
     return *this;
   }
@@ -208,7 +207,7 @@ public:
    * @param value The value to read into.
    * @returns The MessageBuffer that was read from.
    */
-  template<typename T, typename = std::enable_if_t<quicr::is_integral_v<T>, T>>
+  template<UnsignedOrName T>
   inline MessageBuffer& operator>>(T& value)
   {
     if (empty())
@@ -217,8 +216,7 @@ public:
     if (size() < sizeof(T))
       throw TypeReadException_Internal<T>(size());
 
-    auto val_ptr = reinterpret_cast<value_type*>(&value);
-    std::memcpy(val_ptr, data(), sizeof(T));
+    std::memcpy(&value, data(), sizeof(T));
     cleanup(sizeof(T));
 
     value = swap_bytes(value);

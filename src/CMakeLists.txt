@@ -8,9 +8,9 @@ add_library(quicr
 
 # Suppress external lib warnings
 set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)
-target_compile_options(picotls-core PRIVATE -w)     # TODO Should move to qtransport
-target_compile_options(picotls-openssl PRIVATE -w)  # TODO Should move to qtransport
-target_compile_options(picoquic-core PRIVATE -w)    # TODO Should move to qtransport
+target_compile_options(picotls-core PRIVATE -w)
+target_compile_options(picotls-openssl PRIVATE -w)
+target_compile_options(picoquic-core PRIVATE -w)
 target_compile_options(quicr-transport PRIVATE -w)
 
 target_compile_options(quicr

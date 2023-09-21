@@ -7,35 +7,35 @@ namespace quicr {
  * Start the  QUICR server at the port specified.
  *  @param delegate_in: Callback handlers for QUICR operations
  */
-QuicRServer::QuicRServer(RelayInfo& relayInfo,
-                         qtransport::TransportConfig tconfig,
-                         ServerDelegate& delegate_in,
-                         const cantina::LoggerPointer& logger)
+Server::Server(const RelayInfo& relayInfo,
+               const qtransport::TransportConfig& tconfig,
+               std::shared_ptr<ServerDelegate> delegate_in,
+               const cantina::LoggerPointer& logger)
 {
   switch (relayInfo.proto) {
     case RelayInfo::Protocol::UDP:
       [[fallthrough]];
     case RelayInfo::Protocol::QUIC:
-      server_session = std::make_unique<QuicRServerRawSession>(
-        relayInfo, tconfig, delegate_in, logger);
+      server_session = std::make_unique<ServerRawSession>(
+        relayInfo, tconfig, std::move(delegate_in), logger);
       break;
     default:
-      throw QuicRServerException("Unsupported relay protocol");
+      throw ServerException("Unsupported relay protocol");
       break;
   }
 }
 
-QuicRServer::QuicRServer(std::shared_ptr<qtransport::ITransport> transport_in,
-                         ServerDelegate& delegate_in,
-                         const cantina::LoggerPointer& logger)
+Server::Server(std::shared_ptr<qtransport::ITransport> transport_in,
+               std::shared_ptr<ServerDelegate> delegate_in,
+               const cantina::LoggerPointer& logger)
 {
-  server_session =
-    std::make_unique<QuicRServerRawSession>(transport_in, delegate_in, logger);
+  server_session = std::make_unique<ServerRawSession>(
+    std::move(transport_in), std::move(delegate_in), logger);
 }
 
 // Transport APIs
 bool
-QuicRServer::is_transport_ready()
+Server::is_transport_ready()
 {
   return server_session->is_transport_ready();
 }
@@ -49,40 +49,40 @@ QuicRServer::is_transport_ready()
  * @returns true if error, false if no error
  */
 bool
-QuicRServer::run()
+Server::run()
 {
   return server_session->run();
 }
 
 void
-QuicRServer::publishIntentResponse(const quicr::Namespace& quicr_namespace,
-                                   const PublishIntentResult& result)
+Server::publishIntentResponse(const quicr::Namespace& quicr_namespace,
+                              const PublishIntentResult& result)
 {
   server_session->publishIntentResponse(quicr_namespace, result);
 }
 
 void
-QuicRServer::subscribeResponse(const uint64_t& subscriber_id,
-                               const quicr::Namespace& quicr_namespace,
-                               const SubscribeResult& result)
+Server::subscribeResponse(const uint64_t& subscriber_id,
+                          const quicr::Namespace& quicr_namespace,
+                          const SubscribeResult& result)
 {
   server_session->subscribeResponse(subscriber_id, quicr_namespace, result);
 }
 
 void
-QuicRServer::subscriptionEnded(const uint64_t& subscriber_id,
-                               const quicr::Namespace& quicr_namespace,
-                               const SubscribeResult::SubscribeStatus& reason)
+Server::subscriptionEnded(const uint64_t& subscriber_id,
+                          const quicr::Namespace& quicr_namespace,
+                          const SubscribeResult::SubscribeStatus& reason)
 {
   server_session->subscriptionEnded(subscriber_id, quicr_namespace, reason);
 }
 
 void
-QuicRServer::sendNamedObject(const uint64_t& subscriber_id,
-                             bool use_reliable_transport,
-                             uint8_t priority,
-                             uint16_t expiry_age_ms,
-                             const messages::PublishDatagram& datagram)
+Server::sendNamedObject(const uint64_t& subscriber_id,
+                        bool use_reliable_transport,
+                        uint8_t priority,
+                        uint16_t expiry_age_ms,
+                        const messages::PublishDatagram& datagram)
 {
   server_session->sendNamedObject(
     subscriber_id, use_reliable_transport, priority, expiry_age_ms, datagram);

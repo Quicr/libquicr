@@ -5,7 +5,7 @@
 #include <optional>
 
 #include <transport/transport.h>
-#include <quicr_name>
+#include <qname>
 
 class Subscriptions {
 public:

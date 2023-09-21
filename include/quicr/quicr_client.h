@@ -7,8 +7,8 @@
 #include "quicr_client_session.h"
 #include "quicr_common.h"
 
-#include <quicr_name>
 #include <cantina/logger.h>
+#include <qname>
 
 #include <map>
 #include <memory>
@@ -26,7 +26,7 @@ struct TransportConfig;
 namespace quicr {
 
 // Exception that may be thrown if there is a critical error
-class QuicRClientException : public std::runtime_error
+class ClientException : public std::runtime_error
 {
   using std::runtime_error::runtime_error;
 };
@@ -34,20 +34,20 @@ class QuicRClientException : public std::runtime_error
 /**
  *   Client API for using QUICR Protocol
  */
-class QuicRClient
+class Client
 {
 public:
   /**
    * @brief Setup a QUICR Client with publisher and subscriber functionality
    *
-   * @param relayInfo        : Relay Information to be used by the transport
-   * @param tconfig          : Transport configuration
-   * @param logger           : Shared pointer to cantina::Logger object
-   * loggings operations
+   * @param relayInfo : Relay Information to be used by the transport
+   * @param tconfig   : Transport configuration
+   * @param logger    : Shared pointer to cantina::Logger object
+   *                    loggings operations
    */
-  QuicRClient(RelayInfo& relayInfo,
-              qtransport::TransportConfig tconfig,
-              const cantina::LoggerPointer& logger);
+  Client(const RelayInfo& relayInfo,
+         const qtransport::TransportConfig& tconfig,
+         const cantina::LoggerPointer& logger);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber
@@ -56,13 +56,13 @@ public:
    * @param transport : External transport pointer to use.
    * @param logger    : Shared pointer to cantina::Logger object
    */
-  QuicRClient(std::shared_ptr<qtransport::ITransport> transport,
-              const cantina::LoggerPointer& logger);
+  Client(std::shared_ptr<qtransport::ITransport> transport,
+         const cantina::LoggerPointer& logger);
 
   /**
    * @brief Destructor for the client
    */
-  ~QuicRClient() = default;
+  ~Client() = default;
 
   /**
    * @brief Get the client status
@@ -93,24 +93,24 @@ public:
    * @param pub_delegate            : Publisher delegate reference
    * @param quicr_namespace         : Identifies QUICR namespace
    * @param origin_url              : Origin serving the QUICR Session
-   * @param auth_token              : Auth Token to validate the Subscribe Request
-   * @param payload                 : Opaque payload to be forwarded to the Origin
-   * @param use_reliable_transport  : Indicates to use reliable for matching published objects
+   * @param auth_token              : Auth Token to validate Subscribe Requests
+   * @param payload                 : Opaque payload to be forwarded to Origin
+   * @param use_reliable_transport  : Indicates to use reliable for matching
+   *                                  published objects
    */
   bool publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                      const quicr::Namespace& quicr_namespace,
                      const std::string& origin_url,
                      const std::string& auth_token,
                      bytes&& payload,
-                     bool use_reliable_transport=false);
+                     bool use_reliable_transport = false);
 
   /**
    * @brief Stop publishing on the given QUICR namespace
    *
    * @param quicr_namespace        : Identifies QUICR namespace
    * @param origin_url             : Origin serving the QUICR Session
-   * @param auth_token             : Auth Token to valiadate the Subscribe
-   * Request
+   * @param auth_token             : Auth Token to validate Subscribe Requests
    * @param payload                : Opaque payload to be forwarded to the
    * Origin
    */
@@ -120,24 +120,25 @@ public:
   /**
    * @brief Perform subscription operation a given QUICR namespace
    *
-   * @param subscriber_delegate   : Reference to receive callback for subscriber
-   *                                ooperations
-   * @param quicr_namespace       : Identifies QUICR namespace
-   * @param subscribe_intent      : Subscribe intent to determine the start
-   * point for serving the matched objects. The application may choose a
-   * different intent mode, but must be aware of the effects.
-   * @param origin_url            : Origin serving the QUICR Session
-   * @param use_reliable_transport: Reliable or Unreliable transport
-   * @param auth_token            : Auth Token to validate the Subscribe Request
-   * @parm e2e_token              : Opaque token to be forwarded to the Origin
+   * @param subscriber_delegate     : Reference to receive callback for
+   *                                  subscriber operations
+   * @param quicr_namespace         : Identifies QUICR namespace
+   * @param subscribe_intent        : Subscribe intent to determine the start
+   *                                  point for serving the matched objects. The
+   *                                  application may choose a different intent
+   *                                  mode, but must be aware of the effects.
+   * @param origin_url              : Origin serving the QUICR Session
+   * @param use_reliable_transport  : Reliable or Unreliable transport
+   * @param auth_token              : Auth Token to validate Subscribe Requests
+   * @param e2e_token               : Opaque token to be forwarded to the Origin
    *
    * @details Entities processing the Subscribe Request MUST validate the
-   * request against the token, verify if the Origin specified in the origin_url
-   *          is trusted and forward the request to the next hop Relay for that
-   *          Origin or to the Origin (if it is the next hop) unless the entity
-   *          itself the Origin server.
-   *          It is expected for the Relays to store the subscriber state
-   * mapping the subscribe context, namespaces and other relation information.
+   *          request against the token, verify if the Origin specified in the
+   *          origin_url is trusted and forward the request to the next hop
+   *          Relay for that Origin or to the Origin (if it is the next hop)
+   *          unless the entity itself the Origin server. It is expected for the
+   *          Relays to store the subscriber state mapping the subscribe
+   *          context, namespaces and other relation information.
    */
   void subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
                  const quicr::Namespace& quicr_namespace,
@@ -166,7 +167,7 @@ public:
    * @param priority                 : Identifies the relative priority of the
    *                                   current object
    * @param expiry_age_ms            : Time hint for the object to be in cache
-   *                                      before being purged after reception
+   *                                   before being purged after reception
    * @param use_reliable_transport   : Indicates the preference for the object's
    *                                   transport, if forwarded.
    * @param data                     : Opaque payload
@@ -201,7 +202,10 @@ public:
                                   bytes&& data);
 
 protected:
-  std::unique_ptr<QuicRClientSession> client_session;
+  std::unique_ptr<ClientSession> client_session;
 };
 
+using QuicRClient
+  [[deprecated("quicr::QuicRClient stutters, use quicr::Client")]] =
+    quicr::Client;
 }
