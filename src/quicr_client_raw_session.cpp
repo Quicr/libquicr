@@ -455,7 +455,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
                                      : transport_dgram_stream_id;
 
   // Fragment the payload if needed
-  if (data.size() <= quicr::MaxTransportDataSize || use_reliable_transport) {
+  if (data.size() <= quicr::max_transport_data_size || use_reliable_transport) {
     messages::MessageBuffer msg;
 
     datagram.media_data_length = data.size();
@@ -469,8 +469,8 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
   } else {
     // Fragments required. At this point this only counts whole blocks
-    int frag_num = data.size() / quicr::MaxTransportDataSize;
-    int frag_remaining_bytes = data.size() % quicr::MaxTransportDataSize;
+    int frag_num = data.size() / quicr::max_transport_data_size;
+    int frag_remaining_bytes = data.size() % quicr::max_transport_data_size;
 
     int offset = 0;
 
@@ -484,14 +484,14 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       }
 
       bytes frag_data(data.begin() + offset,
-                      data.begin() + offset + quicr::MaxTransportDataSize);
+                      data.begin() + offset + quicr::max_transport_data_size);
 
       datagram.media_data_length = frag_data.size();
       datagram.media_data = std::move(frag_data);
 
       msg << datagram;
 
-      offset += quicr::MaxTransportDataSize;
+      offset += quicr::max_transport_data_size;
 
       /*
        * For UDP based transports, some level of pacing is required to prevent
@@ -514,7 +514,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       }
     }
 
-    // Send last fragment, which will be less than MaxTransportDataSize
+    // Send last fragment, which will be less than max_transport_data_size
     if (frag_remaining_bytes) {
       messages::MessageBuffer msg;
       datagram.header.offset_and_fin = uintVar_t((offset << 1) + 1);

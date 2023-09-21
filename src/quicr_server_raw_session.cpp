@@ -403,7 +403,6 @@ ServerRawSession::TransportDelegate::on_connection_status(
 
     std::vector<quicr::Namespace> sub_names_to_remove;
     for (auto& [ns, sub_map] : server.subscribe_state) {
-
       auto sub_it = sub_map.find(context_id);
       if (sub_it != sub_map.end()) {
         server.delegate->onUnsubscribe(ns, sub_it->second.subscriber_id, {});

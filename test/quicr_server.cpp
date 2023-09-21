@@ -103,5 +103,5 @@ TEST_CASE("Object Lifetime")
   qtransport::TransportConfig tcfg{ .tls_cert_filename = NULL,
                                     .tls_key_filename = NULL };
   CHECK_NOTHROW(
-    std::make_unique<QuicRServer>(relayInfo, tcfg, delegate, logger));
+    std::make_unique<Server>(relayInfo, tcfg, delegate, logger));
 }

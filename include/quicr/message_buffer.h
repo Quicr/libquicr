@@ -178,7 +178,7 @@ public:
 
   /**
    * @brief Writes QUICR integral types to the buffer in NBO.
-   * @tparam T An unsigned integral or a quicr::Name.
+   * @tparam T An unsigned integral type or a quicr::Name.
    * @param value The message to be written.
    * @returns The MessageBuffer that was written to.
    */

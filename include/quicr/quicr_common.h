@@ -16,7 +16,7 @@ namespace quicr {
  *    end-to-end, 1400 - 119 = 1281.  A max data size of 1280 should be good
  *    end-to-end for all paths.
  */
-constexpr uint16_t MaxTransportDataSize = 1200;
+constexpr uint16_t max_transport_data_size = 1200;
 
 using bytes = std::vector<uint8_t>;
 
