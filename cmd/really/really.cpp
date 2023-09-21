@@ -126,7 +126,7 @@ installSignalHandlers()
 
 class ReallyServer
   : public quicr::ServerDelegate
-  , std::enable_shared_from_this<ReallyServer>
+  , public std::enable_shared_from_this<ReallyServer>
 {
   ReallyServer()
   {
