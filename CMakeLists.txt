@@ -17,18 +17,6 @@ project(quicr
 option(CLANG_TIDY "Perform linting with clang-tidy" OFF)
 
 ###
-### Global Config
-###
-if(CLANG_TIDY)
-    find_program(CLANG_TIDY_EXE NAMES "clang-tidy")
-    if(CLANG_TIDY_EXE)
-        set(CMAKE_CXX_CLANG_TIDY  ${CLANG_TIDY_EXE})
-    else()
-        message(WARNING "clang-tidy requested, but not found")
-    endif()
-endif()
-
-###
 ### Include Ctest to ensure BUILD_TESTING is set
 ###
 include(CTest)
@@ -37,6 +25,31 @@ include(CTest)
 ### Dependencies
 ###
 add_subdirectory(dependencies)
+
+###
+### Global Config
+###
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+  add_compile_options(-Wall -pedantic -Wextra -Werror -Wmissing-declarations)
+elseif(MSVC)
+  add_compile_options(/W4 /WX)
+
+  # MSVC helpfully recommends safer equivalents for things like
+  # getenv, but they are not portable.
+  add_definitions(-D_CRT_SECURE_NO_WARNINGS)  
+endif()
+
+if(CLANG_TIDY)
+    find_program(CLANG_TIDY_EXE NAMES "clang-tidy")
+    if(CLANG_TIDY_EXE)
+        message(STATUS "Found clang-tidy: ${CLANG_TIDY_EXE}")
+        set(CMAKE_CXX_CLANG_TIDY  ${CLANG_TIDY_EXE})
+    else()
+        message(WARNING "clang-tidy requested, but not found")
+    endif()
+endif()
 
 ###
 ### Build the quicr library
