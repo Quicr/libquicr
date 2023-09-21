@@ -321,19 +321,18 @@ ServerRawSession::handle_publish_intent(
     context.transaction_id = intent.transaction_id;
 
     publish_namespaces[intent.quicr_namespace] = context;
-    return;
-  }
-
-  auto state = publish_namespaces[intent.quicr_namespace].state;
-  switch (state) {
-    case PublishIntentContext::State::Pending:
-      // TODO: Resend response?
-      break;
-    case PublishIntentContext::State::Ready:
-      // TODO: Already registered this namespace successfully, do nothing?
-      break;
-    default:
-      break;
+  } else {
+    auto state = publish_namespaces[intent.quicr_namespace].state;
+    switch (state) {
+      case PublishIntentContext::State::Pending:
+        // TODO: Resend response?
+        break;
+      case PublishIntentContext::State::Ready:
+        // TODO: Already registered this namespace successfully, do nothing?
+        break;
+      default:
+        break;
+    }
   }
 
   delegate->onPublishIntent(intent.quicr_namespace,

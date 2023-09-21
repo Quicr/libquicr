@@ -1,7 +1,7 @@
+#include <cantina/logger.h>
 #include <quicr/quicr_client.h>
 #include <quicr/quicr_common.h>
 #include <transport/transport.h>
-#include <cantina/logger.h>
 
 #include <chrono>
 #include <cstring>
@@ -22,8 +22,8 @@ public:
     [[maybe_unused]] const quicr::SubscribeResult& result) override
   {
     logger->info << "onSubscriptionResponse: name: " << quicr_namespace << "/"
-                 << int(quicr_namespace.length()) << " status: "
-                 << static_cast<unsigned>(result.status)
+                 << int(quicr_namespace.length())
+                 << " status: " << static_cast<unsigned>(result.status)
                  << std::flush;
   }
 
@@ -72,20 +72,34 @@ private:
 class pubDelegate : public quicr::PublisherDelegate
 {
 public:
-  void onPublishIntentResponse(
-    [[maybe_unused]] const quicr::Namespace& quicr_namespace,
-    [[maybe_unused]] const quicr::PublishIntentResult& result) override
+  pubDelegate(cantina::LoggerPointer& logger)
+    : logger(std::make_shared<cantina::Logger>("PDEL", logger))
   {
   }
+
+  void onPublishIntentResponse(
+    const quicr::Namespace& quicr_namespace,
+    const quicr::PublishIntentResult& result) override
+  {
+    LOGGER_INFO(logger,
+                "Received PublishIntentResponse for "
+                  << quicr_namespace << ": "
+                  << static_cast<int>(result.status));
+  }
+
+private:
+  cantina::LoggerPointer logger;
 };
 
 int
 main(int argc, char* argv[])
 {
-  auto pd = std::make_shared<pubDelegate>();
+  cantina::LoggerPointer logger =
+    std::make_shared<cantina::Logger>("reallyTest");
+
   if ((argc != 2) && (argc != 3)) {
     std::cerr
-      << "Relay address and port set in RELAY_RELAY and REALLY_PORT env "
+      << "Relay address and port set in REALLY_RELAY and REALLY_PORT env "
          "variables."
       << std::endl;
     std::cerr << std::endl;
@@ -93,9 +107,6 @@ main(int argc, char* argv[])
     std::cerr << "Usage SUB: reallyTest FF0000" << std::endl;
     exit(-1);
   }
-
-  cantina::LoggerPointer logger =
-    std::make_shared<cantina::Logger>("reallyTest");
 
   char* relayName = getenv("REALLY_RELAY");
   if (!relayName) {
@@ -123,16 +134,20 @@ main(int argc, char* argv[])
 
   quicr::RelayInfo relay{ .hostname = relayName,
                           .port = uint16_t(port),
-                          .proto = quicr::RelayInfo::Protocol::QUIC};
+                          .proto = quicr::RelayInfo::Protocol::QUIC };
 
-  qtransport::TransportConfig tcfg{ .tls_cert_filename = NULL,
-                                    .tls_key_filename = NULL };
+  qtransport::TransportConfig tcfg{
+    .tls_cert_filename = NULL,
+    .tls_key_filename = NULL,
+  };
+
   quicr::Client client(relay, tcfg, logger);
-  if (!client.connect()) {
-      logger->Log(cantina::LogLevel::Critical, "Transport connect failed");
-      return 0;
-  }
+  auto pd = std::make_shared<pubDelegate>(logger);
 
+  if (!client.connect()) {
+    logger->Log(cantina::LogLevel::Critical, "Transport connect failed");
+    return 0;
+  }
 
   if (data.size() > 0) {
     auto nspace = quicr::Namespace(name, 96);

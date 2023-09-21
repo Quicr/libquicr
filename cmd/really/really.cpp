@@ -124,31 +124,22 @@ installSignalHandlers()
 #endif
 }
 
-class ReallyServer
-  : public quicr::ServerDelegate
-  , public std::enable_shared_from_this<ReallyServer>
+class ReallyServerDelegate : public quicr::ServerDelegate
 {
-  ReallyServer()
-  {
-    logger = std::make_shared<cantina::Logger>("really");
-
-    quicr::RelayInfo relayInfo = { .hostname = "127.0.0.1",
-                                   .port = 1234,
-                                   .proto = quicr::RelayInfo::Protocol::QUIC };
-
-    qtransport::TransportConfig tcfg{ .tls_cert_filename = "./server-cert.pem",
-                                      .tls_key_filename = "./server-key.pem" };
-    server = std::make_unique<quicr::Server>(
-      relayInfo, tcfg, shared_from_this(), logger);
-  }
-
 public:
-  static std::shared_ptr<ReallyServer> create()
+  ReallyServerDelegate(const cantina::LoggerPointer& parent_logger)
+    : logger{ std::make_shared<cantina::Logger>("SDEL", parent_logger) }
   {
-    return std::shared_ptr<ReallyServer>(new ReallyServer());
   }
 
-  ~ReallyServer() { server.reset(); };
+  /**
+   * Hacky dependency injection.
+   * TODO(trigaux): Remove this once delegate no longer depends on server.
+   */
+  void setServer(std::shared_ptr<quicr::Server> server_in)
+  {
+    server = std::move(server_in);
+  }
 
   virtual void onPublishIntent(const quicr::Namespace& quicr_namespace,
                                const std::string& /* origin_url */,
@@ -159,6 +150,8 @@ public:
     // TODO: Authenticate token
     logger->info << "Publish intent namespace: " << quicr_namespace
                  << std::flush;
+
+    // TODO(trigaux): Move logic into quicr::Server
     quicr::PublishIntentResult result{ quicr::messages::Response::Ok, {}, {} };
     server->publishIntentResponse(quicr_namespace, result);
   };
@@ -186,6 +179,7 @@ public:
         continue;
       }
 
+      // TODO(trigaux): Move logic into quicr::Server
       server->sendNamedObject(dest.subscribe_id, false, 1, 200, datagram);
     }
   }
@@ -198,6 +192,7 @@ public:
     logger->info << "onUnsubscribe: Namespace " << quicr_namespace
                  << " subscribe_id: " << subscriber_id << std::flush;
 
+    // TODO(trigaux): Move logic into quicr::Server
     server->subscriptionEnded(subscriber_id,
                               quicr_namespace,
                               quicr::SubscribeResult::SubscribeStatus::Ok);
@@ -226,20 +221,23 @@ public:
                                      .context_id = context_id };
     subscribeList.add(quicr_namespace.name(), quicr_namespace.length(), remote);
 
-    // respond with response
+    // TODO(trigaux): Move logic into quicr::Server
     auto result = quicr::SubscribeResult{
       quicr::SubscribeResult::SubscribeStatus::Ok, "", {}, {}
     };
     server->subscribeResponse(subscriber_id, quicr_namespace, result);
   }
 
-  std::unique_ptr<quicr::Server> server;
-  std::shared_ptr<qtransport::ITransport> transport;
-  std::set<uint64_t> subscribers = {};
-
 private:
-  Subscriptions subscribeList;
   cantina::LoggerPointer logger;
+
+  // TODO(trigaux): Remove this once all above server logic is moved
+  std::shared_ptr<quicr::Server> server;
+
+  std::shared_ptr<qtransport::ITransport> transport;
+
+  std::set<uint64_t> subscribers = {};
+  Subscriptions subscribeList;
 };
 
 int
@@ -254,17 +252,32 @@ main()
   std::unique_lock<std::mutex> lock(really::main_mutex);
 
   try {
-    auto really_server = ReallyServer::create();
-    really_server->server->run();
+    quicr::RelayInfo relayInfo = {
+      .hostname = "127.0.0.1",
+      .port = 1234,
+      .proto = quicr::RelayInfo::Protocol::QUIC,
+    };
+
+    qtransport::TransportConfig tcfg{
+      .tls_cert_filename = "./server-cert.pem",
+      .tls_key_filename = "./server-key.pem",
+    };
+
+    auto logger = std::make_shared<cantina::Logger>("really");
+    auto delegate = std::make_shared<ReallyServerDelegate>(logger);
+    auto server =
+      std::make_shared<quicr::Server>(relayInfo, tcfg, delegate, logger);
+
+    // TODO(trigaux): Remove this once delegate no longer depends on server.
+    delegate->setServer(server);
+
+    server->run();
 
     // Wait until told to terminate
     really::cv.wait(lock, [&]() { return really::terminate == true; });
 
     // Unlock the mutex
     lock.unlock();
-
-    // Terminate the server object
-    really_server.reset();
   } catch (const std::invalid_argument& e) {
     std::cerr << "Invalid argument: " << e.what() << std::endl;
     result_code = EXIT_FAILURE;
