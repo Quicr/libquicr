@@ -607,8 +607,9 @@ QuicRClientRawSession::handle_pub_fragment(
     auto& [_, buffer] = *msg_iter;
     buffer.emplace(datagram.header.offset_and_fin,
                    std::move(datagram.media_data));
-    if (notify_pub_fragment(datagram, delegate, buffer))
+    if (notify_pub_fragment(datagram, delegate, buffer)) {
       curr_fragments.erase(msg_iter);
+    }
 
   } else {
     // Not in current buffer, search all buffers
