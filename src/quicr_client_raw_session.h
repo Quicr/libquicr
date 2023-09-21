@@ -182,7 +182,13 @@ public:
                           bool use_reliable_transport,
                           bytes&& data) override;
 
-  /**
+  void publishNamedObject(const quicr::Name& quicr_name,
+                          uint8_t priority,
+                          uint16_t expiry_age_ms,
+                          ObjectDeliveryMode delivery_mode,
+                          bytes&& data) override;
+
+    /**
    * @brief Publish Named object
    *
    * @param quicr_name               : Identifies the QUICR Name for the object
@@ -244,6 +250,7 @@ protected:
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
     qtransport::StreamId transport_stream_id{ 0 };
+    qtransport::StreamId control_stream_id{ 0 };
     uint64_t transaction_id {0};
     uint64_t last_group_id {0};
     uint64_t last_object_id {0};
@@ -261,6 +268,7 @@ protected:
 
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
+    qtransport::StreamId control_stream_id { 0 }; // there is one control stream per connection
     qtransport::StreamId transport_stream_id{ 0 };
     uint64_t last_group_id {0};
     uint64_t last_object_id {0};
@@ -271,15 +279,16 @@ protected:
   bool has_shared_transport{ false };
   std::atomic_bool stopping{ false };
   qtransport::StreamId transport_dgram_stream_id{ 0 };
+  qtransport::StreamId control_stream_id { 0 }; // Control Messages are sent over this stream
   qtransport::TransportContextId transport_context_id;
   ClientStatus client_status{ ClientStatus::TERMINATED };
 
   cantina::LoggerPointer logger;
 
-  namespace_map<std::weak_ptr<PublisherDelegate>> pub_delegates;
+  namespace_map<std::shared_ptr<PublisherDelegate>> pub_delegates;
   namespace_map<PublishContext> publish_state{};
 
-  namespace_map<std::weak_ptr<SubscriberDelegate>> sub_delegates;
+  namespace_map<std::shared_ptr<SubscriberDelegate>> sub_delegates;
   namespace_map<SubscribeContext> subscribe_state{};
 
   std::shared_ptr<qtransport::ITransport> transport;

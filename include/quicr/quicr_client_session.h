@@ -153,7 +153,13 @@ public:
                                   bool use_reliable_transport,
                                   bytes&& data) = 0;
 
-  /**
+  virtual void publishNamedObject(const quicr::Name& quicr_name,
+                                  uint8_t priority,
+                                  uint16_t expiry_age_ms,
+                                  ObjectDeliveryMode delivery_mode,
+                                  bytes&& data) = 0;
+
+    /**
    * @brief Publish Named object
    *
    * @param quicr_name               : Identifies the QUICR Name for the object

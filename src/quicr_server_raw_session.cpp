@@ -314,6 +314,9 @@ QuicRServerRawSession::handle_publish_intent(
   const qtransport::StreamId& streamId,
   messages::MessageBuffer&& msg)
 {
+  logger->info << "handle_publish_intent: context_id: " << context_id
+               << " stream_id: " << streamId << std::flush;
+
   messages::PublishIntent intent;
   msg >> intent;
 

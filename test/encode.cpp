@@ -109,7 +109,7 @@ TEST_CASE("PublishIntent Message encode/decode")
   quicr::Namespace qnamespace{ 0x10000000000000002000_name, 125 };
   PublishIntent pi{ MessageType::Publish, 0x1000,
                     qnamespace,           { 0, 1, 2, 3, 4 },
-                    uintVar_t{ 0x0100 },  uintVar_t{ 0x0000 } };
+                     };
   MessageBuffer buffer;
   buffer << pi;
   PublishIntent pi_out;
@@ -119,8 +119,6 @@ TEST_CASE("PublishIntent Message encode/decode")
   CHECK_EQ(pi_out.transaction_id, pi.transaction_id);
   CHECK_EQ(pi_out.quicr_namespace, pi.quicr_namespace);
   CHECK_EQ(pi_out.payload, pi.payload);
-  CHECK_EQ(pi_out.media_id, pi.media_id);
-  CHECK_EQ(pi_out.datagram_capable, pi.datagram_capable);
 }
 
 TEST_CASE("PublishIntentResponse Message encode/decode")

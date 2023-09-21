@@ -78,15 +78,9 @@ struct SubscribeEnd
 struct PublishIntent
 {
   MessageType message_type;
-  // * origin_url_length(i),
-  // * origin_url(…)…,
   uint64_t transaction_id;
   quicr::Namespace quicr_namespace;
-  // * relay_auth_token_length(i),
-  // * relay_token(…),
   std::vector<uint8_t> payload;
-  uintVar_t media_id;
-  uintVar_t datagram_capable;
 };
 
 struct PublishIntentResponse

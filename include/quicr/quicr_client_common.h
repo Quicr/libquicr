@@ -20,6 +20,13 @@ constexpr int MAX_FRAGMENT_BUFFERS = 20;
 
 namespace quicr {
 
+enum class ObjectDeliveryMode: uint8_t {
+    Group,
+    Object,
+    Priority,
+    Track
+};
+
 enum class ClientStatus
 {
   READY = 0,

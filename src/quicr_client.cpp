@@ -107,6 +107,21 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
                                      std::move(data));
 }
 
+
+void
+QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
+                                uint8_t priority,
+                                uint16_t expiry_age_ms,
+                                ObjectDeliveryMode delivery_mode,
+                                bytes&& data)
+{
+    client_session->publishNamedObject(quicr_name,
+                                       priority,
+                                       expiry_age_ms,
+                                       delivery_mode,
+                                       std::move(data));
+}
+
 void
 QuicRClient::publishNamedObjectFragment(const quicr::Name& quicr_name,
                                         uint8_t priority,

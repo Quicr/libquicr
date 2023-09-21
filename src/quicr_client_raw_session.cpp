@@ -142,6 +142,14 @@ QuicRClientRawSession::connect()
   }
 
   transport_dgram_stream_id = transport->createStream(transport_context_id, false);
+  // setup control stream for control messages as a reliable stream
+  control_stream_id = transport->createStream(transport_context_id, true);
+
+  std::ostringstream msg;
+  msg << "Created Transport Session " << transport_context_id
+      << " Datagram Stream Id: " << transport_dgram_stream_id
+      << " Control Stream Id:" << control_stream_id;
+  logger->Log(cantina::LogLevel::Info, msg.str());
 
   return true;
 }
@@ -232,10 +240,13 @@ QuicRClientRawSession::on_recv_notify(
   const qtransport::TransportContextId& context_id,
   const qtransport::StreamId& streamId)
 {
-  if (!transport)
-    return;
+  if (!transport) {
+      return;
+  }
 
-  for (int i = 0; i < 150; i++) {
+    logger->info << "on_recv_notify, StreamId: " << streamId << std::flush;
+
+    for (int i = 0; i < 150; i++) {
     auto data = transport->dequeue(context_id, streamId);
 
     if (!data.has_value()) {
@@ -284,29 +295,22 @@ QuicRClientRawSession::publishIntent(
 
   pub_delegates[quicr_namespace] = pub_delegate;
 
-  qtransport::StreamId stream_id = transport_dgram_stream_id;
-
-  if (use_reliable_transport) {
-      stream_id = transport->createStream(transport_context_id, true);
-
-  }
   publish_state[quicr_namespace] = {.state = PublishContext::State::Pending,
           .transport_context_id = transport_context_id,
-          .transport_stream_id = stream_id};
+          .control_stream_id = control_stream_id,
+          .transport_stream_id = 0};
 
   messages::PublishIntent intent{messages::MessageType::PublishIntent,
                                  messages::create_transaction_id(),
                                  quicr_namespace,
-                                 std::move(payload),
-                                 stream_id,
-                                 1};
+                                 std::move(payload)};
 
   messages::MessageBuffer msg{sizeof(messages::PublishIntent) +
                               intent.payload.size()};
   msg << intent;
 
   auto error =
-          transport->enqueue(transport_context_id, stream_id, msg.take());
+          transport->enqueue(transport_context_id, control_stream_id, msg.take());
 
   return error == qtransport::TransportError::None;
 }
@@ -335,7 +339,7 @@ QuicRClientRawSession::publishIntentEnd(
       messages::MessageBuffer msg;
       msg << intent_end;
 
-      transport->enqueue(transport_context_id, ps_it->second.transport_stream_id, msg.take());
+      transport->enqueue(transport_context_id, ps_it->second.control_stream_id, msg.take());
 
       publish_state.erase(ps_it);
   }
@@ -369,6 +373,7 @@ QuicRClientRawSession::subscribe(
       SubscribeContext{ .state =SubscribeContext::State::Pending,
                         .transport_context_id = transport_context_id,
                         .transport_stream_id = stream_id,
+                        .control_stream_id = control_stream_id,
                         .transaction_id = transaction_id};
   }
 
@@ -381,7 +386,7 @@ QuicRClientRawSession::subscribe(
       messages::Subscribe subscribe{0x1, transaction_id, quicr_namespace, intent};
       msg << subscribe;
 
-      transport->enqueue(transport_context_id, sub_it->second.transport_stream_id, msg.take());
+      transport->enqueue(transport_context_id, sub_it->second.control_stream_id, msg.take());
   }
 }
 
@@ -398,13 +403,14 @@ QuicRClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
   auto state_it = subscribe_state.find(quicr_namespace);
   if (state_it != subscribe_state.end()) {
       transport->enqueue(transport_context_id,
-                         state_it->second.transport_stream_id, msg.take());
+                         state_it->second.control_stream_id, msg.take());
   }
 
    std::lock_guard<std::mutex> _(session_mutex);
   removeSubscription(quicr_namespace,
                      SubscribeResult::SubscribeStatus::ConnectionClosed);
 }
+
 
 void
 QuicRClientRawSession::publishNamedObject(
@@ -544,6 +550,19 @@ QuicRClientRawSession::publishNamedObject(
   }
 }
 
+
+void
+QuicRClientRawSession::publishNamedObject(
+        const quicr::Name& quicr_name,
+        uint8_t priority,
+        uint16_t expiry_age_ms,
+        ObjectDeliveryMode delivery_mode,
+        bytes&& data)
+{
+
+}
+
+
 void
 QuicRClientRawSession::publishNamedObjectFragment(
   const quicr::Name& /* quicr_name */,
@@ -576,7 +595,7 @@ QuicRClientRawSession::removeSubscription(
   }
 
   if (!!sub_delegates.count(quicr_namespace)) {
-    if (auto sub_delegate = sub_delegates[quicr_namespace].lock())
+    if (auto sub_delegate = sub_delegates[quicr_namespace])
       sub_delegate->onSubscriptionEnded(quicr_namespace, reason);
 
     sub_delegates.erase(quicr_namespace);
@@ -631,7 +650,6 @@ QuicRClientRawSession::handle_pub_fragment(
                    std::move(datagram.media_data));
     if (notify_pub_fragment(datagram, delegate, buffer))
       fragments[cindex].erase(msg_iter);
-
   } else {
     // Not in current buffer, search all buffers
     for (auto& buf : fragments) {
@@ -684,7 +702,7 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
         auto& context = subscribe_state[response.quicr_namespace];
         context.state = SubscribeContext::State::Ready;
 
-        if (auto sub_delegate = sub_delegates[response.quicr_namespace].lock())
+        if (auto sub_delegate = sub_delegates[response.quicr_namespace])
           sub_delegate->onSubscribeResponse(response.quicr_namespace, result);
       } else {
         std::cout << "Got SubscribeResponse: No delegate found for namespace"
@@ -723,7 +741,7 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
         if (datagram.header.offset_and_fin == uintVar_t(0x1)) {
           // No-fragment, process as single object
 
-          if (auto sub_delegate = delegate.lock()) {
+          if (auto sub_delegate = delegate) {
             sub_delegate->onSubscribedObject(datagram.header.name,
                                              0x0,
                                              0x0,
@@ -747,10 +765,11 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
           << response.quicr_namespace << std::endl;
         return;
       }
-
-      if (auto delegate = pub_delegates[response.quicr_namespace].lock()) {
+      std::cout << "onPublishIntentResponse" << std::endl;
+      if (auto delegate = pub_delegates[response.quicr_namespace]) {
         PublishIntentResult result{ .status = response.response };
-        delegate->onPublishIntentResponse(response.quicr_namespace, result);
+          std::cout << "onPublishIntentResponse: Status " <<  (int) result.status << std::endl;
+          delegate->onPublishIntentResponse(response.quicr_namespace, result);
       }
 
       break;

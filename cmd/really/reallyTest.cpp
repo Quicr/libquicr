@@ -76,6 +76,7 @@ public:
     [[maybe_unused]] const quicr::Namespace& quicr_namespace,
     [[maybe_unused]] const quicr::PublishIntentResult& result) override
   {
+      std::cout << "reallyTest: onPublishIntentResponse" << std::endl;
   }
 };
 
@@ -139,10 +140,9 @@ main(int argc, char* argv[])
     logger->info << "Publish Intent for name: " << name
                  << " == namespace: " << nspace << std::flush;
     client.publishIntent(pd, nspace, {}, {}, {});
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::this_thread::sleep_for(std::chrono::seconds(5));
 
     // do publish
-    logger->Log("Publish");
     client.publishNamedObject(name, 0, 1000, false, std::move(data));
 
   } else {

@@ -316,8 +316,6 @@ operator<<(MessageBuffer& buffer, const PublishIntent& msg)
   buffer << msg.transaction_id;
   buffer << msg.quicr_namespace;
   buffer << msg.payload;
-  buffer << msg.media_id;
-  buffer << msg.datagram_capable;
   return buffer;
 }
 
@@ -328,8 +326,6 @@ operator<<(MessageBuffer& buffer, PublishIntent&& msg)
   buffer << msg.transaction_id;
   buffer << msg.quicr_namespace;
   buffer << std::move(msg.payload);
-  buffer << msg.media_id;
-  buffer << msg.datagram_capable;
   return buffer;
 }
 
@@ -343,8 +339,6 @@ operator>>(MessageBuffer& buffer, PublishIntent& msg)
   buffer >> msg.transaction_id;
   buffer >> msg.quicr_namespace;
   buffer >> msg.payload;
-  buffer >> msg.media_id;
-  buffer >> msg.datagram_capable;
 
   return buffer;
 }
