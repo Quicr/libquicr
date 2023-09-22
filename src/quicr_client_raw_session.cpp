@@ -92,14 +92,14 @@ ClientRawSession::connect()
 {
   client_status = ClientStatus::CONNECTING;
 
-  transport_context_id = transport->start();
+  const auto context_id = transport->start();
 
-  LOGGER_INFO(logger, "Connecting session " << transport_context_id << "...");
+  LOGGER_INFO(logger, "Connecting session " << context_id << "...");
 
   while (client_status == ClientStatus::CONNECTING) {
     if (stopping) {
       LOGGER_INFO(logger,
-                  "Cancelling connecting session " << transport_context_id);
+                  "Cancelling connecting session " << context_id);
 
       return false;
     }
@@ -109,7 +109,7 @@ ClientRawSession::connect()
 
   if (client_status != ClientStatus::READY) {
     std::ostringstream msg;
-    msg << "Session " << transport_context_id
+    msg << "Session " << context_id
         << " failed to connect to server, transport status: "
         << int(transport->status());
     logger->Log(cantina::LogLevel::Critical, msg.str());
@@ -117,8 +117,9 @@ ClientRawSession::connect()
     throw std::runtime_error(msg.str());
   }
 
+  transport_context_id = context_id;
   transport_dgram_stream_id =
-    transport->createStream(transport_context_id, false);
+    transport->createStream(context_id, false);
 
   return true;
 }
@@ -126,26 +127,35 @@ ClientRawSession::connect()
 bool
 ClientRawSession::disconnect()
 {
+  if (client_status != ClientStatus::READY) {
+    // Not connected
+    return true;
+  }
+
+  const auto& context_id = transport_context_id.value();
   LOGGER_DEBUG(logger,
-               "Disconnecting session " << transport_context_id << "...");
+               "Disconnecting session " << context_id << "...");
 
   stopping = true;
   try {
-    transport->close(transport_context_id);
+    transport->close(context_id);
   } catch (const std::exception& e) {
     LOGGER_ERROR(logger,
-                 "Error disconnecting session " << transport_context_id << ": "
+                 "Error disconnecting session " << context_id << ": "
                                                 << e.what());
     return false;
   } catch (...) {
     LOGGER_ERROR(
-      logger, "Unknown error disconnecting session " << transport_context_id);
+      logger, "Unknown error disconnecting session " << context_id);
     return false;
   }
 
-  LOGGER_INFO(logger, "Disconnected session " << transport_context_id << "!");
+  LOGGER_INFO(logger, "Disconnected session " << context_id << "!");
 
   client_status = ClientStatus::TERMINATED;
+  transport_dgram_stream_id = std::nullopt;
+  transport_context_id = std::nullopt;
+
   return true;
 }
 
@@ -257,14 +267,15 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
 
   pub_delegates[quicr_namespace] = std::move(pub_delegate);
 
-  auto stream_id = qtransport::StreamId{ transport_dgram_stream_id };
+  const auto& context_id = transport_context_id.value();
+  auto stream_id = transport_dgram_stream_id.value();
   if (use_reliable_transport) {
-    stream_id = transport->createStream(transport_context_id, true);
+    stream_id = transport->createStream(context_id, true);
   }
 
   publish_state[quicr_namespace] = {
     .state = PublishContext::State::Pending,
-    .transport_context_id = transport_context_id,
+    .transport_context_id = context_id,
     .transport_stream_id = stream_id,
   };
 
@@ -281,7 +292,7 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                                intent.payload.size() };
   msg << intent;
 
-  auto error = transport->enqueue(transport_context_id, stream_id, msg.take());
+  auto error = transport->enqueue(context_id, stream_id, msg.take());
 
   return error == qtransport::TransportError::None;
 }
@@ -311,7 +322,7 @@ ClientRawSession::publishIntentEnd(
     msg << intent_end;
 
     transport->enqueue(
-      transport_context_id, ps_it->second.transport_stream_id, msg.take());
+      transport_context_id.value(), ps_it->second.transport_stream_id, msg.take());
 
     publish_state.erase(ps_it);
   }
@@ -329,20 +340,20 @@ ClientRawSession::subscribe(
 {
   const auto _ = std::lock_guard<std::mutex>(session_mutex);
 
+  const auto& context_id = transport_context_id.value();
   auto transaction_id = messages::create_transaction_id();
 
   if (!sub_delegates.contains(quicr_namespace)) {
     sub_delegates[quicr_namespace] = std::move(subscriber_delegate);
 
-    qtransport::StreamId stream_id = transport_dgram_stream_id;
-
+    auto stream_id = transport_dgram_stream_id.value();
     if (use_reliable_transport) {
-      stream_id = transport->createStream(transport_context_id, true);
+      stream_id = transport->createStream(context_id, true);
     }
 
     subscribe_state[quicr_namespace] = SubscribeContext{
       .state = SubscribeContext::State::Pending,
-      .transport_context_id = transport_context_id,
+      .transport_context_id = context_id,
       .transport_stream_id = stream_id,
       .transaction_id = transaction_id,
     };
@@ -360,7 +371,7 @@ ClientRawSession::subscribe(
   msg << subscribe;
 
   transport->enqueue(
-    transport_context_id, sub_it->second.transport_stream_id, msg.take());
+    context_id, sub_it->second.transport_stream_id, msg.take());
 }
 
 void
@@ -373,10 +384,11 @@ ClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
   const auto unsub = messages::Unsubscribe{ 0x1, quicr_namespace };
   msg << unsub;
 
+  const auto& context_id = transport_context_id.value();
   const auto state_it = subscribe_state.find(quicr_namespace);
   if (state_it != subscribe_state.end()) {
     transport->enqueue(
-      transport_context_id, state_it->second.transport_stream_id, msg.take());
+      context_id, state_it->second.transport_stream_id, msg.take());
   }
 
   const auto _ = std::lock_guard<std::mutex>(session_mutex);
@@ -405,12 +417,13 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
   auto& [ns, context] = *found;
 
-  if (context.transport_stream_id == transport_dgram_stream_id) {
+  const auto& context_id = transport_context_id.value();
+  if (context.transport_stream_id == transport_dgram_stream_id.value()) {
     use_reliable_transport = false;
   }
 
   if (context.state != PublishContext::State::Ready) {
-    context.transport_context_id = transport_context_id;
+    context.transport_context_id = context_id;
     context.state = PublishContext::State::Ready;
 
     LOGGER_INFO(logger, "Adding new context for published ns: " << ns);
@@ -433,7 +446,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
   datagram.media_type = messages::MediaType::RealtimeMedia;
 
   const auto stream_id = use_reliable_transport ? context.transport_stream_id
-                                                : transport_dgram_stream_id;
+                                                : transport_dgram_stream_id.value();
 
   // Fragment the payload if needed
   if (data.size() <= quicr::max_transport_data_size || use_reliable_transport) {
@@ -446,7 +459,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
     // No fragmenting needed
     transport->enqueue(
-      transport_context_id, stream_id, msg.take(), priority, expiry_age_ms);
+      context_id, stream_id, msg.take(), priority, expiry_age_ms);
 
   } else {
     // Fragments required. At this point this only counts whole blocks
@@ -489,7 +502,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }
 
-      if (transport->enqueue(transport_context_id,
+      if (transport->enqueue(context_id,
                              stream_id,
                              msg.take(),
                              priority,
@@ -504,8 +517,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
     // Send last fragment, which will be less than max_transport_data_size
     if (frag_remaining_bytes > 0) {
       messages::MessageBuffer msg;
-      // NOLINTNEXTLINE(hicpp-signed-bitwise)
-      datagram.header.offset_and_fin = uintVar_t((offset << 1) + 1);
+      datagram.header.offset_and_fin = uintVar_t((offset << 1U) + 1U);
 
       const auto ptr_offset = static_cast<ptrdiff_t>(offset);
       bytes frag_data(data.begin() + ptr_offset, data.end());
@@ -514,7 +526,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
       msg << datagram;
 
-      if (auto err = transport->enqueue(transport_context_id,
+      if (auto err = transport->enqueue(context_id,
                                         stream_id,
                                         msg.take(),
                                         priority,
@@ -551,10 +563,11 @@ ClientRawSession::removeSubscription(
   const quicr::Namespace& quicr_namespace,
   const SubscribeResult::SubscribeStatus& reason)
 {
+  const auto& context_id = transport_context_id.value();
   auto state_it = subscribe_state.find(quicr_namespace);
   if (state_it != subscribe_state.end()) {
     if (state_it->second.transport_stream_id > 1) {
-      transport->closeStream(transport_context_id,
+      transport->closeStream(context_id,
                              state_it->second.transport_stream_id);
     }
 

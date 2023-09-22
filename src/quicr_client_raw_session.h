@@ -275,12 +275,12 @@ protected:
   bool need_pacing{ false };
   bool has_shared_transport{ false };
   std::atomic_bool stopping{ false };
-  qtransport::StreamId transport_dgram_stream_id{ 0 };
-  // XXX(richbarn): I added an initializer for this variable for this member
-  // that's of the same form as the ones above.  But it's not clear to me that
-  // this is actually the right answer.
-  qtransport::TransportContextId transport_context_id{ 0 };
+
+  // These parameters are updated on connect() / disconnect().  The optional
+  // parameters should be non-null if and only iff client_status == READY.
   ClientStatus client_status{ ClientStatus::TERMINATED };
+  std::optional<qtransport::StreamId> transport_dgram_stream_id;
+  std::optional<qtransport::TransportContextId> transport_context_id;
 
   /*
    * Nested map to reassemble message fragments

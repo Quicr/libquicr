@@ -319,15 +319,16 @@ ServerRawSession::handle_publish_intent(
     publish_namespaces[intent.quicr_namespace] = context;
   } else {
     auto state = publish_namespaces[intent.quicr_namespace].state;
+    // NOLINTBEGIN(bugprone-branch-clone)
     switch (state) {
-      // TODO(trigaux): Resend response?
       case PublishIntentContext::State::Pending:
-      // TODO(trigaux): Already registered this namespace successfully, do
-      // nothing?
+        [[fallthrough]]; // TODO(trigaux): Resend response?
       case PublishIntentContext::State::Ready:
+        [[fallthrough]]; // TODO(trigaux): Already registered this namespace successfully, do nothing?
       default:
         break;
     }
+    // NOLINTEND(bugprone-branch-clone)
   }
 
   delegate->onPublishIntent(intent.quicr_namespace,

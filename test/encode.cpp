@@ -20,12 +20,26 @@ TEST_CASE("MessageBuffer Swap Bytes")
   const auto u64 = uint64_t(0x123456789ABCDEF0U);
   const auto u128 = 0x123456789ABCDEF0123456789ABCDEF0_name;
 
-  // XXX(richbarn): This test will return incorrect results on a big-endian
-  // system, since swap_bytes actually converts to big-endian.
-  CHECK(u16 != swap_bytes(u16));
-  CHECK(u32 != swap_bytes(u32));
-  CHECK(u64 != swap_bytes(u64));
-  CHECK(u128 != swap_bytes(u128));
+  auto u16_be = uint16_t(0);
+  auto u32_be = uint32_t(0);
+  auto u64_be = uint64_t(0);
+  auto u128_be = Name{};
+  if constexpr (std::endian::native == std::endian::little) {
+    u16_be = uint16_t(0x3412U);
+    u32_be = uint32_t(0x78563412U);
+    u64_be = uint64_t(0xF0DEBC9A78563412);
+    u128_be = 0xF0DEBC9A78563412F0DEBC9A78563412_name;
+  } else {
+    u16_be = u16;
+    u32_be = u32;
+    u64_be = u64;
+    u128_be = u128;
+  }
+
+  CHECK(swap_bytes(u16) == u16_be);
+  CHECK(swap_bytes(u32) == u32_be);
+  CHECK(swap_bytes(u64) == u64_be);
+  CHECK(swap_bytes(u128) == u128_be);
 }
 
 TEST_CASE("MessageBuffer Decode Exception")
