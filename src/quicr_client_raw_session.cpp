@@ -593,10 +593,8 @@ ClientRawSession::handle_pub_fragment(
   messages::PublishDatagram&& datagram,
   const std::shared_ptr<SubscriberDelegate>& delegate)
 {
-  static unsigned int cindex = 1;
-
   // Check the current index first considering it's likely in the current buffer
-  auto& curr_fragments = fragments[cindex];
+  auto& curr_fragments = fragments[circular_index];
   const auto& msg_iter = curr_fragments.find(datagram.header.name);
   if (msg_iter != curr_fragments.end()) {
     // Found
@@ -629,13 +627,14 @@ ClientRawSession::handle_pub_fragment(
   }
 
   // Move to next buffer if reached max
-  if (curr_fragments.size() >= MAX_FRAGMENT_NAMES_PENDING_PER_BUFFER) {
-    if (cindex < MAX_FRAGMENT_BUFFERS)
-      ++cindex;
-    else
-      cindex = 1;
+  if (curr_fragments.size() >= max_fragments_pending_per_buffer) {
+    if (circular_index < max_fragment_buffers) {
+      circular_index += 1;
+    } else {
+      circular_index = 0;
+    }
 
-    fragments.erase(cindex);
+    fragments.erase(circular_index);
   }
 }
 

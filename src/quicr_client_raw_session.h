@@ -300,7 +300,11 @@ protected:
    *    memory being used. Extra memory is a trade-off for being event/message
    *    driven instead of timer based with threading/locking/...
    */
-  std::map<int, std::map<quicr::Name, std::map<int, bytes>>> fragments;
+  uint32_t circular_index{ 0 };
+  static constexpr size_t max_fragments_pending_per_buffer = 5000;
+  static constexpr size_t max_fragment_buffers = 20;
+  std::map<int, std::map<quicr::Name, std::map<int, bytes>>>
+    fragments;
 
   cantina::LoggerPointer logger;
 
