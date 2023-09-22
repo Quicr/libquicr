@@ -18,6 +18,7 @@ set_target_properties(quicr_test
     PROPERTIES
         CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES
+        CXX_CLANG_TIDY "${CLANG_TIDY_EXE}"
         CXX_EXTENSIONS ON)
 if(MSVC)
     target_compile_definitions(quicr_test _CRT_SECURE_NO_WARNINGS)
