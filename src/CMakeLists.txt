@@ -21,11 +21,16 @@ set_target_properties(quicr
     PROPERTIES
         CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES
-        CXX_CLANG_TIDY "${CLANG_TIDY_EXE}"
         CXX_EXTENSIONS OFF)
+
+if(CLANG_TIDY_EXE)
+  set_target_properties(quicr PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
+endif()
+
 if(MSVC)
     target_compile_definitions(quicr _CRT_SECURE_NO_WARNINGS)
 endif()
+
 target_link_libraries(quicr
     PUBLIC
         quicr-transport
