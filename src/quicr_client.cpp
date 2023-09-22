@@ -49,6 +49,12 @@ Client::disconnect()
 }
 
 bool
+Client::connected() const
+{
+  return client_session->connected();
+}
+
+bool
 Client::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                       const quicr::Namespace& quicr_namespace,
                       const std::string& origin_url,
