@@ -87,13 +87,11 @@ ClientRawSession::~ClientRawSession()
 bool
 ClientRawSession::connect()
 {
-  client_status = ClientStatus::CONNECTING;
-
   transport_context_id = transport->start();
 
   LOGGER_INFO(logger, "Connecting session " << transport_context_id << "...");
 
-  while (client_status == ClientStatus::CONNECTING) {
+  while (transport->status() == qtransport::TransportStatus::Connecting) {
     if (stopping) {
       LOGGER_INFO(logger,
                   "Cancelling connecting session " << transport_context_id);
@@ -104,7 +102,7 @@ ClientRawSession::connect()
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
-  if (client_status != ClientStatus::READY) {
+  if (!connected()) {
     std::ostringstream msg;
     msg << "Session " << transport_context_id
         << " failed to connect to server, transport status: "
@@ -142,8 +140,13 @@ ClientRawSession::disconnect()
 
   LOGGER_INFO(logger, "Disconnected session " << transport_context_id << "!");
 
-  client_status = ClientStatus::TERMINATED;
   return true;
+}
+
+bool
+ClientRawSession::connected() const
+{
+  return transport->status() == qtransport::TransportStatus::Ready;
 }
 
 /*===========================================================================*/
@@ -163,25 +166,17 @@ ClientRawSession::on_connection_status(
 
   switch (status) {
     case qtransport::TransportStatus::Connecting:
-      client_status = ClientStatus::CONNECTING;
-      stopping = false;
-      break;
+      [[fallthrough]];
     case qtransport::TransportStatus::Ready:
-      client_status = ClientStatus::READY;
       stopping = false;
       break;
-    case qtransport::TransportStatus::Disconnected: {
-      client_status = ClientStatus::RELAY_NOT_CONNECTED;
-      stopping = true;
-
-      LOGGER_INFO(logger, "Removing state for context_id: " << context_id);
-
-      break;
-    }
+    case qtransport::TransportStatus::Disconnected:
+      LOGGER_INFO(logger,
+                  "Received disconnect from transport for" << context_id);
+      [[fallthrough]];
     case qtransport::TransportStatus::Shutdown:
       [[fallthrough]];
     case qtransport::TransportStatus::RemoteRequestClose:
-      client_status = ClientStatus::TERMINATED;
       stopping = true;
       break;
   }

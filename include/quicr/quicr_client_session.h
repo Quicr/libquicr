@@ -51,15 +51,11 @@ public:
   virtual bool disconnect() = 0;
 
   /**
-   * @brief Get the client status
-   *
-   * @details This method should be used to determine if the client is
-   *   connected and ready for publishing and subscribing to messages.
-   *   Status will indicate the type of error if not ready.
-   *
-   * @returns client status
+   * @brief Checks if the session is connected.
+   * @returns True if transport has started and connection has been made. False
+   *          otherwise.
    */
-  virtual ClientStatus status() const = 0;
+  virtual bool connected() const = 0;
 
   /**
    * @brief Publish intent to publish on a QUICR Namespace
