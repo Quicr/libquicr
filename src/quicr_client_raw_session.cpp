@@ -618,7 +618,7 @@ ClientRawSession::handle_pub_fragment(
         circular_index = 0;
       }
 
-      fragments.at(circular_index) = {};
+      fragments.at(circular_index).clear();
       curr_index = circular_index;
     }
 
