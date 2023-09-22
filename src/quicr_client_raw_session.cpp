@@ -96,8 +96,7 @@ ClientRawSession::connect()
 
   while (transport->status() == qtransport::TransportStatus::Connecting) {
     if (stopping) {
-      LOGGER_INFO(logger,
-                  "Cancelling connecting session " << context_id);
+      LOGGER_INFO(logger, "Cancelling connecting session " << context_id);
 
       return false;
     }
@@ -116,8 +115,7 @@ ClientRawSession::connect()
   }
 
   transport_context_id = context_id;
-  transport_dgram_stream_id =
-    transport->createStream(context_id, false);
+  transport_dgram_stream_id = transport->createStream(context_id, false);
 
   return true;
 }
@@ -132,20 +130,17 @@ ClientRawSession::disconnect()
   }
 
   const auto& context_id = transport_context_id.value();
-  LOGGER_DEBUG(logger,
-               "Disconnecting session " << context_id << "...");
+  LOGGER_DEBUG(logger, "Disconnecting session " << context_id << "...");
 
   stopping = true;
   try {
     transport->close(context_id);
   } catch (const std::exception& e) {
-    LOGGER_ERROR(logger,
-                 "Error disconnecting session " << context_id << ": "
-                                                << e.what());
+    LOGGER_ERROR(
+      logger, "Error disconnecting session " << context_id << ": " << e.what());
     return false;
   } catch (...) {
-    LOGGER_ERROR(
-      logger, "Unknown error disconnecting session " << context_id);
+    LOGGER_ERROR(logger, "Unknown error disconnecting session " << context_id);
     return false;
   }
 
@@ -317,8 +312,9 @@ ClientRawSession::publishIntentEnd(
     messages::MessageBuffer msg;
     msg << intent_end;
 
-    transport->enqueue(
-      transport_context_id.value(), ps_it->second.transport_stream_id, msg.take());
+    transport->enqueue(transport_context_id.value(),
+                       ps_it->second.transport_stream_id,
+                       msg.take());
 
     publish_state.erase(ps_it);
   }
@@ -441,8 +437,9 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
   datagram.header.offset_and_fin = 1ULL;
   datagram.media_type = messages::MediaType::RealtimeMedia;
 
-  const auto stream_id = use_reliable_transport ? context.transport_stream_id
-                                                : transport_dgram_stream_id.value();
+  const auto stream_id = use_reliable_transport
+                           ? context.transport_stream_id
+                           : transport_dgram_stream_id.value();
 
   // Fragment the payload if needed
   if (data.size() <= quicr::max_transport_data_size || use_reliable_transport) {
@@ -496,11 +493,8 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }
 
-      if (transport->enqueue(context_id,
-                             stream_id,
-                             msg.take(),
-                             priority,
-                             expiry_age_ms) !=
+      if (transport->enqueue(
+            context_id, stream_id, msg.take(), priority, expiry_age_ms) !=
           qtransport::TransportError::None) {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
         // No point in finishing fragment if one is dropped
@@ -520,11 +514,8 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
       msg << datagram;
 
-      if (auto err = transport->enqueue(context_id,
-                                        stream_id,
-                                        msg.take(),
-                                        priority,
-                                        expiry_age_ms);
+      if (auto err = transport->enqueue(
+            context_id, stream_id, msg.take(), priority, expiry_age_ms);
           err != qtransport::TransportError::None) {
         LOGGER_WARNING(logger,
                        "Published object delayed due to enqueue error "
@@ -561,8 +552,7 @@ ClientRawSession::removeSubscription(
   auto state_it = subscribe_state.find(quicr_namespace);
   if (state_it != subscribe_state.end()) {
     if (state_it->second.transport_stream_id > 1) {
-      transport->closeStream(context_id,
-                             state_it->second.transport_stream_id);
+      transport->closeStream(context_id, state_it->second.transport_stream_id);
     }
 
     subscribe_state.erase(state_it);

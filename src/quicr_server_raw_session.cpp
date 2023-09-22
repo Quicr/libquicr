@@ -324,7 +324,8 @@ ServerRawSession::handle_publish_intent(
       case PublishIntentContext::State::Pending:
         [[fallthrough]]; // TODO(trigaux): Resend response?
       case PublishIntentContext::State::Ready:
-        [[fallthrough]]; // TODO(trigaux): Already registered this namespace successfully, do nothing?
+        [[fallthrough]]; // TODO(trigaux): Already registered this namespace
+                         // successfully, do nothing?
       default:
         break;
     }
