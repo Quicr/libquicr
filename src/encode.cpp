@@ -378,7 +378,7 @@ operator>>(MessageBuffer& buffer, PublishIntentResponse& msg)
   return buffer;
 }
 
-MessageBuffer&
+static MessageBuffer&
 operator<<(MessageBuffer& buffer, const Header& msg)
 {
   buffer << msg.name;
@@ -391,7 +391,7 @@ operator<<(MessageBuffer& buffer, const Header& msg)
   return buffer;
 }
 
-MessageBuffer&
+static MessageBuffer&
 operator>>(MessageBuffer& buffer, Header& msg)
 {
   buffer >> msg.name;

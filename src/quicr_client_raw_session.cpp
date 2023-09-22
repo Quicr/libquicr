@@ -469,11 +469,9 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       auto msg = messages::MessageBuffer{};
 
       if (frag_num == 0 && frag_remaining_bytes == 0) {
-        datagram.header.offset_and_fin =
-          (offset << 1) + 1; // NOLINT(hicpp-signed-bitwise)
+        datagram.header.offset_and_fin = (offset << 1U) + 1U;
       } else {
-        datagram.header.offset_and_fin = offset
-                                         << 1; // NOLINT(hicpp-signed-bitwise)
+        datagram.header.offset_and_fin = offset << 1U;
       }
 
       const auto ptr_offset = static_cast<ptrdiff_t>(offset);
