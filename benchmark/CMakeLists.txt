@@ -14,7 +14,16 @@ set_target_properties(quicr_benchmark
         CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS ON)
-if(MSVC)
-    target_compile_definitions(quicr_benchmark _CRT_SECURE_NO_WARNINGS)
+
+if(CLANG_TIDY_EXE)
+    set_target_properties(quicr_benchmark PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
 endif()
 
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    target_compile_options(quicr_benchmark PRIVATE -Wall -pedantic -Wextra -Werror -Wmissing-declarations)
+endif()
+
+if(MSVC)
+    target_compile_options(quicr_benchmark PRIVATE /W4 /WX)
+    target_compile_definitions(quicr_benchmark _CRT_SECURE_NO_WARNINGS)
+endif()

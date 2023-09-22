@@ -17,30 +17,8 @@ project(quicr
 option(CLANG_TIDY "Perform linting with clang-tidy" OFF)
 
 ###
-### Include Ctest to ensure BUILD_TESTING is set
-###
-include(CTest)
-
-###
-### Dependencies
-###
-add_subdirectory(dependencies)
-
-###
 ### Global Config
 ###
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-  add_compile_options(-Wall -pedantic -Wextra -Werror -Wmissing-declarations)
-elseif(MSVC)
-  add_compile_options(/W4 /WX)
-
-  # MSVC helpfully recommends safer equivalents for things like
-  # getenv, but they are not portable.
-  add_definitions(-D_CRT_SECURE_NO_WARNINGS)  
-endif()
-
 if(CLANG_TIDY)
     find_program(CLANG_TIDY_EXE NAMES "clang-tidy")
     if(CLANG_TIDY_EXE)
@@ -49,6 +27,16 @@ if(CLANG_TIDY)
         message(WARNING "clang-tidy requested, but not found")
     endif()
 endif()
+
+###
+### Include Ctest to ensure BUILD_TESTING is set
+###
+include(CTest)
+
+###
+### Dependencies
+###
+add_subdirectory(dependencies)
 
 ###
 ### Build the quicr library
