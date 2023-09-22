@@ -599,7 +599,7 @@ ClientRawSession::handle_pub_fragment(
   auto curr_index = circular_index;
   auto not_found = false;
   while (!fragments.at(circular_index).contains(name)) {
-    curr_index = (curr_index > 0)? curr_index - 1 : fragments.size() - 1;
+    curr_index = (curr_index > 0) ? curr_index - 1 : fragments.size() - 1;
     if (curr_index == circular_index) {
       // We have completed a cycle without finding our name
       not_found = true;
@@ -629,8 +629,8 @@ ClientRawSession::handle_pub_fragment(
   // datagram
   auto& buffer = fragments.at(curr_index);
   auto& msg_fragments = buffer.at(name);
-  msg_fragments.emplace(
-          datagram.header.offset_and_fin, std::move(datagram.media_data));
+  msg_fragments.emplace(datagram.header.offset_and_fin,
+                        std::move(datagram.media_data));
   if (notify_pub_fragment(datagram, delegate, msg_fragments)) {
     buffer.erase(name);
   }
