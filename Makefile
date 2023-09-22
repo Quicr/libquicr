@@ -18,6 +18,9 @@ ${BUILD_DIR}: CMakeLists.txt cmd/CMakeLists.txt
 tidy: CMakeLists.txt cmd/CMakeLists.txt
 	cmake -B${BUILD_DIR} -DBUILD_TESTING=TRUE -DQUICR_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DCLANG_TIDY=ON .
 
+ci: CMakeLists.txt cmd/CMakeLists.txt
+	cmake -B${BUILD_DIR} -DCLANG_TIDY=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DBUILD_BENCHMARKING=ON
+
 clean:
 	cmake --build ${BUILD_DIR} --target clean
 

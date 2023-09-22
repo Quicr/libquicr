@@ -72,6 +72,7 @@ endif()
 
 if (BUILD_BENCHMARKING AND quicr_BUILD_BENCHMARKS)
     include(FetchContent)
+    set(CMAKE_CXX_CLANG_TIDY "")
     set(BENCHMARK_USE_BUNDLED_GTEST OFF)
     set(BENCHMARK_ENABLE_TESTING OFF)
     FetchContent_Declare(
