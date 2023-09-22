@@ -88,4 +88,4 @@ Server::sendNamedObject(const uint64_t& subscriber_id,
     subscriber_id, use_reliable_transport, priority, expiry_age_ms, datagram);
 }
 
-} /* namespace end */
+} // namespace quicr

@@ -45,7 +45,7 @@ public:
    * @param logger    : Shared pointer to cantina::Logger object
    *                    loggings operations
    */
-  Client(const RelayInfo& relayInfo,
+  Client(const RelayInfo& relay_info,
          const qtransport::TransportConfig& tconfig,
          const cantina::LoggerPointer& logger);
 

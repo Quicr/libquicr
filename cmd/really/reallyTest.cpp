@@ -12,7 +12,7 @@
 class subDelegate : public quicr::SubscriberDelegate
 {
 public:
-  subDelegate(cantina::LoggerPointer& logger)
+  explicit subDelegate(cantina::LoggerPointer& logger)
     : logger(std::make_shared<cantina::Logger>("SDEL", logger))
   {
   }
@@ -43,13 +43,12 @@ public:
                           [[maybe_unused]] bool use_reliable_transport,
                           [[maybe_unused]] quicr::bytes&& data) override
   {
-    std::stringstream log_msg;
-
     logger->info << "recv object: name: " << quicr_name
                  << " data sz: " << data.size();
 
-    if (data.size())
+    if (!data.empty()) {
       logger->info << " data: " << data.data();
+    }
 
     logger->info << std::flush;
   }
@@ -72,7 +71,7 @@ private:
 class pubDelegate : public quicr::PublisherDelegate
 {
 public:
-  pubDelegate(cantina::LoggerPointer& logger)
+  explicit pubDelegate(cantina::LoggerPointer& logger)
     : logger(std::make_shared<cantina::Logger>("PDEL", logger))
   {
   }
@@ -105,40 +104,44 @@ main(int argc, char* argv[])
     std::cerr << std::endl;
     std::cerr << "Usage PUB: reallyTest FF0001 pubData" << std::endl;
     std::cerr << "Usage SUB: reallyTest FF0000" << std::endl;
-    exit(-1);
+    exit(-1); // NOLINT(concurrency-mt-unsafe)
   }
 
-  char* relayName = getenv("REALLY_RELAY");
-  if (!relayName) {
-    static char defaultRelay[] = "127.0.0.1";
-    relayName = defaultRelay;
+  // NOLINTNEXTLINE(concurrency-mt-unsafe)
+  const auto* relayName = getenv("REALLY_RELAY");
+  if (relayName != nullptr) {
+    relayName = "127.0.0.1";
   }
 
+  // NOLINTNEXTLINE(concurrency-mt-unsafe)
+  const auto* portVar = getenv("REALLY_PORT");
   int port = 1234;
-  char* portVar = getenv("REALLY_PORT");
-  if (portVar) {
-    port = atoi(portVar);
+  if (portVar != nullptr) {
+    port = atoi(portVar); // NOLINT(cert-err34-c)
   }
 
-  auto name = quicr::Name(std::string(argv[1]));
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  const auto name = quicr::Name(std::string(argv[1]));
 
   logger->info << "Name = " << name << std::flush;
 
-  std::vector<uint8_t> data;
+  auto data = std::vector<uint8_t>{};
   if (argc == 3) {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const auto data_str = std::string(argv[2]);
     data.insert(
-      data.end(), (uint8_t*)(argv[2]), ((uint8_t*)(argv[2])) + strlen(argv[2]));
+      data.end(), data_str.begin(), data_str.end());
   }
 
   logger->info << "Connecting to " << relayName << ":" << port << std::flush;
 
-  quicr::RelayInfo relay{ .hostname = relayName,
+  const auto relay = quicr::RelayInfo{ .hostname = relayName,
                           .port = uint16_t(port),
                           .proto = quicr::RelayInfo::Protocol::QUIC };
 
-  qtransport::TransportConfig tcfg{
-    .tls_cert_filename = NULL,
-    .tls_key_filename = NULL,
+  const auto tcfg = qtransport::TransportConfig{
+    .tls_cert_filename = nullptr,
+    .tls_key_filename = nullptr,
   };
 
   quicr::Client client(relay, tcfg, logger);
@@ -149,7 +152,7 @@ main(int argc, char* argv[])
     return 0;
   }
 
-  if (data.size() > 0) {
+  if (!data.empty()) {
     auto nspace = quicr::Namespace(name, 96);
     logger->info << "Publish Intent for name: " << name
                  << " == namespace: " << nspace << std::flush;
@@ -168,10 +171,8 @@ main(int argc, char* argv[])
 
     logger->info << "Subscribe to " << name << "/" << 96 << std::flush;
 
-    quicr::SubscribeIntent intent = quicr::SubscribeIntent::immediate;
-    quicr::bytes empty;
     client.subscribe(
-      sd, nspace, intent, "origin_url", false, "auth_token", std::move(empty));
+      sd, nspace, quicr::SubscribeIntent::immediate, "origin_url", false, "auth_token", quicr::bytes{});
 
     logger->Log("Sleeping for 20 seconds before unsubscribing");
     std::this_thread::sleep_for(std::chrono::seconds(20));

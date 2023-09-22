@@ -31,9 +31,9 @@ public:
 
   void get_masked_quicRName(const quicr::Name &src, quicr::Name &dst, const int len);
 
-  void add(const quicr::Name& name, const int len, const Remote& remote );
+  void add(const quicr::Name& name, uint8_t len, const Remote& remote );
 
-  void remove(const quicr::Name& name, const int len, const Remote& remote );
+  void remove(const quicr::Name& name, uint8_t len, const Remote& remote );
 
   std::list<Remote> find(  const quicr::Name& name  ) ;
 

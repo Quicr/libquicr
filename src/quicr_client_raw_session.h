@@ -49,7 +49,7 @@ public:
    *
    * @throws std::runtime_error : If transport fails to connect.
    */
-  ClientRawSession(const RelayInfo& relayInfo,
+  ClientRawSession(const RelayInfo& relay_info,
                    const qtransport::TransportConfig& tconfig,
                    const cantina::LoggerPointer& logger);
 
@@ -220,9 +220,9 @@ protected:
   void on_recv_notify(const qtransport::TransportContextId& context_id,
                       const qtransport::StreamId& streamId) override;
 
-  bool notify_pub_fragment(const messages::PublishDatagram& datagram,
+  static bool notify_pub_fragment(const messages::PublishDatagram& datagram,
                            const std::shared_ptr<SubscriberDelegate>& delegate,
-                           const std::map<int, bytes>& frag_map);
+                           const std::map<uint32_t, bytes>& frag_map);
 
   void handle_pub_fragment(messages::PublishDatagram&& datagram,
                            const std::shared_ptr<SubscriberDelegate>& delegate);
@@ -275,7 +275,10 @@ protected:
   bool has_shared_transport{ false };
   std::atomic_bool stopping{ false };
   qtransport::StreamId transport_dgram_stream_id{ 0 };
-  qtransport::TransportContextId transport_context_id;
+  // XXX(richbarn): I added an initializer for this variable for this member
+  // that's of the same form as the ones above.  But it's not clear to me that
+  // this is actually the right answer.
+  qtransport::TransportContextId transport_context_id{ 0 };
   ClientStatus client_status{ ClientStatus::TERMINATED };
 
   /*
@@ -300,7 +303,7 @@ protected:
    *    memory being used. Extra memory is a trade-off for being event/message
    *    driven instead of timer based with threading/locking/...
    */
-  std::map<int, std::map<quicr::Name, std::map<int, bytes>>> fragments;
+  std::map<uint32_t, std::map<quicr::Name, std::map<uint32_t, bytes>>> fragments;
 
   cantina::LoggerPointer logger;
 

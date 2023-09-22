@@ -49,7 +49,7 @@ ServerRawSession::ServerRawSession(const RelayInfo& relayInfo,
       break;
   }
 
-  transport = setupTransport(std::move(tconfig));
+  transport = setupTransport(tconfig);
   transport->start();
 }
 
@@ -60,7 +60,7 @@ ServerRawSession::ServerRawSession(
   : delegate(std::move(delegate_in))
   , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport_delegate(*this)
-  , transport(transport_in)
+  , transport(std::move(transport_in))
 {
 }
 
@@ -76,10 +76,7 @@ ServerRawSession::setupTransport(const qtransport::TransportConfig& cfg)
 bool
 ServerRawSession::is_transport_ready()
 {
-  if (transport->status() == qtransport::TransportStatus::Ready)
-    return true;
-  else
-    return false;
+  return transport->status() == qtransport::TransportStatus::Ready;
 }
 
 /**
@@ -100,20 +97,20 @@ ServerRawSession::run()
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
-  return transport->status() == qtransport::TransportStatus::Ready ? true
-                                                                   : false;
+  return transport->status() == qtransport::TransportStatus::Ready;
 }
 
 void
 ServerRawSession::publishIntentResponse(const quicr::Namespace& quicr_namespace,
                                         const PublishIntentResult& result)
 {
-  if (!publish_namespaces.count(quicr_namespace))
+  if (!publish_namespaces.contains(quicr_namespace)) {
     return;
+  }
 
-  // TODO: Support more than one publisher per ns
+  // TODO(trigaux): Support more than one publisher per ns
   auto& context = publish_namespaces[quicr_namespace];
-  messages::PublishIntentResponse response{
+  const auto response = messages::PublishIntentResponse{
     messages::MessageType::PublishIntentResponse,
     quicr_namespace,
     result.status,
@@ -135,16 +132,17 @@ ServerRawSession::subscribeResponse(const uint64_t& subscriber_id,
                                     const SubscribeResult& result)
 {
   // start populating message to encode
-  if (subscribe_id_state.count(subscriber_id) == 0) {
+  if (!subscribe_id_state.contains(subscriber_id)) {
     return;
   }
 
-  auto& context = subscribe_id_state[subscriber_id];
+  const auto& context = subscribe_id_state[subscriber_id];
 
-  messages::SubscribeResponse response;
-  response.transaction_id = subscriber_id;
-  response.quicr_namespace = quicr_namespace;
-  response.response = result.status;
+  const auto response = messages::SubscribeResponse{
+    .quicr_namespace = quicr_namespace,
+    .response = result.status,
+    .transaction_id = subscriber_id,
+  };
 
   messages::MessageBuffer msg;
   msg << response;
@@ -160,15 +158,16 @@ ServerRawSession::subscriptionEnded(
   const SubscribeResult::SubscribeStatus& reason)
 {
   // start populating message to encode
-  if (subscribe_id_state.count(subscriber_id) == 0) {
+  if (!subscribe_id_state.contains(subscriber_id)) {
     return;
   }
 
-  auto& context = subscribe_id_state[subscriber_id];
+  const auto& context = subscribe_id_state[subscriber_id];
 
-  messages::SubscribeEnd subEnd;
-  subEnd.quicr_namespace = quicr_namespace;
-  subEnd.reason = reason;
+  const auto subEnd = messages::SubscribeEnd{
+    .quicr_namespace = quicr_namespace,
+    .reason = reason,
+  };
 
   messages::MessageBuffer msg;
   msg << subEnd;
@@ -185,15 +184,15 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
                                   const messages::PublishDatagram& datagram)
 {
   // start populating message to encode
-  if (subscribe_id_state.count(subscriber_id) == 0) {
+  if (!subscribe_id_state.contains(subscriber_id)) {
     logger->info << "Send Object, missing subscriber_id: " << subscriber_id
                  << std::flush;
     return;
   }
 
-  auto& context = subscribe_id_state[subscriber_id];
-  messages::MessageBuffer msg;
+  const auto& context = subscribe_id_state[subscriber_id];
 
+  messages::MessageBuffer msg;
   msg << datagram;
 
   transport->enqueue(context.transport_context_id,
@@ -213,13 +212,13 @@ ServerRawSession::handle_subscribe(
   const qtransport::StreamId& streamId,
   messages::MessageBuffer&& msg)
 {
-  messages::Subscribe subscribe;
+  auto subscribe = messages::Subscribe{};
   msg >> subscribe;
 
-  std::lock_guard<std::mutex> lock(session_mutex);
+  const auto lock = std::lock_guard<std::mutex>(session_mutex);
 
-  if (subscribe_state[subscribe.quicr_namespace].count(context_id) == 0) {
-    SubscribeContext context;
+  if (!subscribe_state[subscribe.quicr_namespace].contains(context_id)) {
+    auto context = SubscribeContext{};
     context.transport_context_id = context_id;
     context.transport_stream_id = streamId;
     context.subscriber_id = subscriber_id;
@@ -230,7 +229,7 @@ ServerRawSession::handle_subscribe(
     subscribe_id_state[context.subscriber_id] = context;
   }
 
-  auto& context = subscribe_state[subscribe.quicr_namespace][context_id];
+  const auto& context = subscribe_state[subscribe.quicr_namespace][context_id];
 
   delegate->onSubscribe(subscribe.quicr_namespace,
                         context.subscriber_id,
@@ -249,13 +248,12 @@ ServerRawSession::handle_unsubscribe(
   const qtransport::StreamId& /* streamId */,
   messages::MessageBuffer&& msg)
 {
-  messages::Unsubscribe unsub;
+  auto unsub = messages::Unsubscribe{};
   msg >> unsub;
 
   // Remove states if state exists
-  if (subscribe_state[unsub.quicr_namespace].count(context_id) != 0) {
-
-    std::lock_guard<std::mutex> lock(session_mutex);
+  if (subscribe_state[unsub.quicr_namespace].contains(context_id)) {
+    const auto lock = std::lock_guard<std::mutex>(session_mutex);
 
     auto& context = subscribe_state[unsub.quicr_namespace][context_id];
 
@@ -283,17 +281,15 @@ ServerRawSession::handle_publish(
   auto publish_namespace = publish_namespaces.find(datagram.header.name);
 
   if (publish_namespace == publish_namespaces.end()) {
-    // TODO: Add metrics for tracking dropped messages
-    /*
+    // TODO(trigaux): Add metrics for tracking dropped messages
     logger->info << "Dropping published object, no namespace for "
                  << datagram.header.name << std::flush;
-    */
     return;
   }
 
   auto& [ns, context] = *publish_namespace;
 
-  auto gap_log = gap_check(
+  const auto gap_log = gap_check(
     false, datagram.header.name, context.last_group_id, context.last_object_id);
 
   if (!gap_log.empty()) {
@@ -313,7 +309,7 @@ ServerRawSession::handle_publish_intent(
   messages::PublishIntent intent;
   msg >> intent;
 
-  if (!publish_namespaces.count(intent.quicr_namespace)) {
+  if (publish_namespaces.contains(intent.quicr_namespace)) {
     PublishIntentContext context;
     context.state = PublishIntentContext::State::Pending;
     context.transport_context_id = context_id;
@@ -324,12 +320,10 @@ ServerRawSession::handle_publish_intent(
   } else {
     auto state = publish_namespaces[intent.quicr_namespace].state;
     switch (state) {
+      // TODO(trigaux): Resend response?
       case PublishIntentContext::State::Pending:
-        // TODO: Resend response?
-        break;
+      // TODO(trigaux): Already registered this namespace successfully, do nothing?
       case PublishIntentContext::State::Ready:
-        // TODO: Already registered this namespace successfully, do nothing?
-        break;
       default:
         break;
     }
@@ -351,15 +345,15 @@ ServerRawSession::handle_publish_intent_end(
   messages::PublishIntentEnd intent_end;
   msg >> intent_end;
 
-  const auto& name = intent_end.quicr_namespace;
+  const auto& ns = intent_end.quicr_namespace;
 
-  if (!publish_namespaces.count(intent_end.quicr_namespace)) {
+  if (publish_namespaces.contains(ns)) {
     return;
   }
 
-  publish_namespaces.erase(name);
+  publish_namespaces.erase(ns);
 
-  delegate->onPublishIntentEnd(intent_end.quicr_namespace,
+  delegate->onPublishIntentEnd(ns,
                                "" /* intent_end.relay_token */,
                                std::move(intent_end.payload));
 }
@@ -387,9 +381,9 @@ ServerRawSession::TransportDelegate::on_connection_status(
     server.logger->info << "Removing state for context_id: " << context_id
                         << std::flush;
 
-    std::lock_guard<std::mutex> lock(server.session_mutex);
+    const auto lock = std::lock_guard<std::mutex>(server.session_mutex);
 
-    std::vector<quicr::Namespace> pub_names_to_remove;
+    auto pub_names_to_remove = std::vector<quicr::Namespace>{};
     for (auto& [ns, context] : server.publish_namespaces) {
       if (context.transport_context_id == context_id) {
         pub_names_to_remove.push_back(ns);
@@ -401,7 +395,7 @@ ServerRawSession::TransportDelegate::on_connection_status(
       server.publish_namespaces.erase(ns);
     }
 
-    std::vector<quicr::Namespace> sub_names_to_remove;
+    auto sub_names_to_remove = std::vector<quicr::Namespace>{};
     for (auto& [ns, sub_map] : server.subscribe_state) {
       auto sub_it = sub_map.find(context_id);
       if (sub_it != sub_map.end()) {
@@ -488,7 +482,7 @@ ServerRawSession::TransportDelegate::on_recv_notify(
         }
       } catch (const messages::MessageBuffer::ReadException& ex) {
 
-        // TODO: When reliable, we really should reset the stream if this
+        // TODO(trigaux): When reliable, we really should reset the stream if this
         // happens (at least more than once)
         server.logger->critical
           << "Received read exception error while reading from message buffer: "
@@ -512,4 +506,4 @@ ServerRawSession::TransportDelegate::on_recv_notify(
   }
 }
 
-} /* namespace end */
+} // namespace quicr
