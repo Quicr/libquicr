@@ -615,55 +615,46 @@ ClientRawSession::handle_pub_fragment(
   messages::PublishDatagram&& datagram,
   const std::shared_ptr<SubscriberDelegate>& delegate)
 {
-  // TODO(richbarn): This is dangerous shared mutable state.  `cindex` is shared
-  // across instances of ClientRawSessions, so when it is modified by one
-  // instance, others will be affected.  Amazingly, this is true even if the
-  // method is `const`!  This should be converted to a member variable on
-  // ClientRawSession.
-  static uint32_t cindex = 1;
-
-  // Check the current index first considering it's likely in the current buffer
-  auto& curr_fragments = fragments[cindex];
-  const auto& msg_iter = curr_fragments.find(datagram.header.name);
-  if (msg_iter != curr_fragments.end()) {
-    // Found
-    auto& [_, buffer] = *msg_iter;
-    buffer.emplace(datagram.header.offset_and_fin,
-                   std::move(datagram.media_data));
-    if (notify_pub_fragment(datagram, delegate, buffer)) {
-      curr_fragments.erase(msg_iter);
-    }
-
-  } else {
-    // Not in current buffer, search all buffers
-    for (auto& buf : fragments) {
-      const auto& msg_iter = buf.second.find(datagram.header.name);
-      if (msg_iter == buf.second.end()) {
-        // If not found in any buffer, then add to current buffer
-        curr_fragments[datagram.header.name].emplace(
-          datagram.header.offset_and_fin, std::move(datagram.media_data));
-        continue;
-      }
-
-      // Found
-      msg_iter->second.emplace(datagram.header.offset_and_fin,
-                               std::move(datagram.media_data));
-      if (notify_pub_fragment(datagram, delegate, msg_iter->second)) {
-        buf.second.erase(msg_iter);
-      }
+  // Search from the current `circular_index` backwards to find a buffer that
+  // knows about this datagram's name
+  const auto name = datagram.header.name;
+  auto curr_index = circular_index;
+  auto not_found = false;
+  while (!fragments.at(circular_index).contains(name)) {
+    curr_index = (curr_index > 0) ? curr_index - 1 : fragments.size() - 1;
+    if (curr_index == circular_index) {
+      // We have completed a cycle without finding our name
+      not_found = true;
       break;
     }
   }
 
-  // Move to next buffer if reached max
-  if (curr_fragments.size() >= MAX_FRAGMENT_NAMES_PENDING_PER_BUFFER) {
-    if (cindex < MAX_FRAGMENT_BUFFERS) {
-      ++cindex;
-    } else {
-      cindex = 1;
+  // If we looped back to `circular_index`, then there is no current entry for
+  // this name, so we should insert in the current buffer.  If inserting here
+  // would cause overflow, we proactively move to the next buffer.
+  if (not_found) {
+    auto curr_buffer_size = fragments.at(curr_index).size();
+    if (curr_buffer_size >= max_pending_per_buffer - 1) {
+      circular_index += 1;
+      if (circular_index >= fragments.size()) {
+        circular_index = 0;
+      }
+
+      fragments.at(circular_index).clear();
+      curr_index = circular_index;
     }
 
-    fragments.erase(cindex);
+    fragments.at(curr_index).insert({ name, {} });
+  }
+
+  // Insert into the appropriate buffer and see whether we have a complete
+  // datagram
+  auto& buffer = fragments.at(curr_index);
+  auto& msg_fragments = buffer.at(name);
+  msg_fragments.emplace(datagram.header.offset_and_fin,
+                        std::move(datagram.media_data));
+  if (notify_pub_fragment(datagram, delegate, msg_fragments)) {
+    buffer.erase(name);
   }
 }
 

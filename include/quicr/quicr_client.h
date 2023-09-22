@@ -2,7 +2,6 @@
 
 #include "encode.h"
 #include "message_buffer.h"
-#include "quicr_client_common.h"
 #include "quicr_client_delegate.h"
 #include "quicr_client_session.h"
 #include "quicr_common.h"
