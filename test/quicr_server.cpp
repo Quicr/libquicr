@@ -102,6 +102,5 @@ TEST_CASE("Object Lifetime")
   cantina::LoggerPointer logger = std::make_shared<cantina::Logger>("TEST");
   qtransport::TransportConfig tcfg{ .tls_cert_filename = NULL,
                                     .tls_key_filename = NULL };
-  CHECK_NOTHROW(
-    std::make_unique<Server>(relayInfo, tcfg, delegate, logger));
+  CHECK_NOTHROW(std::make_unique<Server>(relayInfo, tcfg, delegate, logger));
 }

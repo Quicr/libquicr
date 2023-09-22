@@ -284,27 +284,28 @@ protected:
    *    Structure:
    *       fragments[<circular index>] = map[quicr_name] = map[offset] = data
    *
-   *    Circular index is a small int value that increments from 1 to max. It
-   *    wraps to 1 after reaching max size.  In this sense, it's a circular
+   *    Circular index is a small int value that increments from 0 to max. It
+   *    wraps to 0 after reaching max size.  In this sense, it's a circular
    *    buffer. Upon moving to a new index the new index data will be purged (if
    *    any exists).
    *
    *    Fragment reassembly avoids timers and time interval based checks. It
-   *    instead is based on received data. Every message quicr_name is checked to
-   *    see if it's complete. If so, the published object callback will be
+   *    instead is based on received data. Every message quicr_name is checked
+   *    to see if it's complete. If so, the published object callback will be
    *    executed. If not, it'll only update the map with the new offset value.
    *    Incomplete messages can exist in the cache for as long as the circular
-   *    index hasn't wrapped to the same point in cache.  Under high load/volume,
-   *    this can wrap within a minute or two.  Under very little load, this could
-   *    linger for hours. This is okay considering the only harm is a little extra
-   *    memory being used. Extra memory is a trade-off for being event/message
-   *    driven instead of timer based with threading/locking/...
+   *    index hasn't wrapped to the same point in cache.  Under high
+   *    load/volume, this can wrap within a minute or two.  Under very little load,
+   *    this could linger for hours. This is okay considering the only harm is a
+   *    little extra memory being used. Extra memory is a trade-off for being
+   *    event/message driven instead of timer based with threading/locking/...
    */
   uint32_t circular_index{ 0 };
-  static constexpr size_t max_fragments_pending_per_buffer = 5000;
+  static constexpr size_t max_pending_per_buffer = 5000;
   static constexpr size_t max_fragment_buffers = 20;
-  std::map<int, std::map<quicr::Name, std::map<int, bytes>>>
-    fragments;
+
+  using FragmentBuffer = std::map<quicr::Name, std::map<int, bytes>>;
+  std::array<FragmentBuffer, max_fragment_buffers> fragments;
 
   cantina::LoggerPointer logger;
 
