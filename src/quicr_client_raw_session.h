@@ -72,24 +72,20 @@ public:
    * @brief Connects the session using the info provided on construction.
    * @returns True if connected, false otherwise.
    */
-  virtual bool connect() override;
+  bool connect() override;
 
   /**
    * @brief Disconnects the session from the relay.
    * @returns True if successful, false if some error occurred.
    */
-  virtual bool disconnect() override;
+  bool disconnect() override;
 
   /**
-   * @brief Get the client status
-   *
-   * @details This method should be used to determine if the client is
-   *   connected and ready for publishing and subscribing to messages.
-   *   Status will indicate the type of error if not ready.
-   *
-   * @returns client status
+   * @brief Checks if the session is connected.
+   * @returns True if transport has started and connection has been made. False
+   *          otherwise.
    */
-  ClientStatus status() const override { return client_status; }
+  bool connected() const override;
 
   /**
    * @brief Publish intent to publish on a QUICR Namespace
@@ -277,8 +273,7 @@ protected:
   std::atomic_bool stopping{ false };
 
   // These parameters are updated on connect() / disconnect().  The optional
-  // parameters should be non-null if and only iff client_status == READY.
-  ClientStatus client_status{ ClientStatus::TERMINATED };
+  // parameters should be non-null if and only if connected().
   std::optional<qtransport::StreamId> transport_dgram_stream_id;
   std::optional<qtransport::TransportContextId> transport_context_id;
 

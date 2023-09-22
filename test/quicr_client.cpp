@@ -82,6 +82,7 @@ TEST_CASE("Publish encode, send and receive")
 {
   auto transport = std::make_shared<FakeTransport>();
   auto qclient = std::make_unique<quicr::Client>(transport, logger);
+  qclient->connect();
 
   const auto expected_name = 0x10000000000000002000_name;
   const auto expected_ns = quicr::Namespace{ expected_name, 80 };

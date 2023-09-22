@@ -65,17 +65,6 @@ public:
   ~Client() = default;
 
   /**
-   * @brief Get the client status
-   *
-   * @details This method should be used to determine if the client is
-   *   connected and ready for publishing and subscribing to messages.
-   *   Status will indicate the type of error if not ready.
-   *
-   * @returns client status
-   */
-  ClientStatus status() const { return client_session->status(); }
-
-  /**
    * @brief Connects the session using the info provided on construction.
    * @returns True if connected, false otherwise.
    */
@@ -86,6 +75,13 @@ public:
    * @returns True if successful, false if some error occurred.
    */
   bool disconnect();
+
+  /**
+   * @brief Checks if the session is connected.
+   * @returns True if transport has started and connection has been made. False
+   *          otherwise.
+   */
+  bool connected() const;
 
   /**
    * @brief Publish intent to publish on a QUICR Namespace
