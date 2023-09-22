@@ -62,8 +62,8 @@ TEST_CASE("SubscribeResponse Message encode/decode")
 {
   const auto qnamespace = quicr::Namespace{ 0x10000000000000002000_name, 125 };
   const auto s = SubscribeResponse{ qnamespace,
-                       SubscribeResult::SubscribeStatus::Ok,
-                       0x1000 };
+                                    SubscribeResult::SubscribeStatus::Ok,
+                                    0x1000 };
 
   MessageBuffer buffer;
   buffer << s;
@@ -80,7 +80,7 @@ TEST_CASE("SubscribeEnd Message encode/decode")
 {
   const auto qnamespace = quicr::Namespace{ 0x10000000000000002000_name, 125 };
   const auto s = SubscribeEnd{ .quicr_namespace = qnamespace,
-                  .reason = SubscribeResult::SubscribeStatus::Ok };
+                               .reason = SubscribeResult::SubscribeStatus::Ok };
 
   MessageBuffer buffer;
   buffer << s;
@@ -114,8 +114,8 @@ TEST_CASE("PublishIntent Message encode/decode")
 {
   const auto qnamespace = quicr::Namespace{ 0x10000000000000002000_name, 125 };
   const auto pi = PublishIntent{ MessageType::Publish, 0x1000,
-                    qnamespace,           { 0, 1, 2, 3, 4 },
-                    uintVar_t{ 0x0100 },  uintVar_t{ 0x0000 } };
+                                 qnamespace,           { 0, 1, 2, 3, 4 },
+                                 uintVar_t{ 0x0100 },  uintVar_t{ 0x0000 } };
 
   MessageBuffer buffer;
   buffer << pi;
@@ -133,7 +133,8 @@ TEST_CASE("PublishIntent Message encode/decode")
 
 TEST_CASE("PublishIntentResponse Message encode/decode")
 {
-  const auto pir = PublishIntentResponse{ MessageType::Publish, {}, Response::Ok, 0x1000 };
+  const auto pir =
+    PublishIntentResponse{ MessageType::Publish, {}, Response::Ok, 0x1000 };
 
   MessageBuffer buffer;
   buffer << pir;
@@ -151,8 +152,8 @@ TEST_CASE("Publish Message encode/decode")
 {
   const auto qn = 0x10000000000000002000_name;
   const auto d = Header{ uintVar_t{ 0x1000 }, qn,
-            uintVar_t{ 0x0100 }, uintVar_t{ 0x0010 },
-            uintVar_t{ 0x0001 }, 0x0000 };
+                         uintVar_t{ 0x0100 }, uintVar_t{ 0x0010 },
+                         uintVar_t{ 0x0001 }, 0x0000 };
 
   auto data = std::vector<uint8_t>(256);
   for (int i = 0; i < 256; ++i) {
@@ -196,8 +197,8 @@ TEST_CASE("PublishStream Message encode/decode")
 TEST_CASE("PublishIntentEnd Message encode/decode")
 {
   const auto pie = PublishIntentEnd{ MessageType::Publish,
-                        { 12345_name, 0U },
-                        { 0, 1, 2, 3, 4 } };
+                                     { 12345_name, 0U },
+                                     { 0, 1, 2, 3, 4 } };
 
   MessageBuffer buffer;
   buffer << pie;
@@ -212,9 +213,8 @@ TEST_CASE("PublishIntentEnd Message encode/decode")
 
 TEST_CASE("VarInt Encode/Decode")
 {
-  const auto values = std::vector<uintVar_t>{
-    56_uV, 127_uV, 128_uV, 16384_uV, 536870912_uV
-  };
+  const auto values =
+    std::vector<uintVar_t>{ 56_uV, 127_uV, 128_uV, 16384_uV, 536870912_uV };
   const auto sizes = std::vector<size_t>{ 1, 1, 2, 4, 8 };
   auto out_values = std::vector<uintVar_t>(values.size());
 

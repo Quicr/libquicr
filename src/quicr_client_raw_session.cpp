@@ -63,7 +63,8 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
     need_pacing = true;
   }
 
-  const auto server = qtransport::TransportRemote{ to_TransportRemote(relay_info) };
+  const auto server =
+    qtransport::TransportRemote{ to_TransportRemote(relay_info) };
   transport = qtransport::ITransport::make_client_transport(
     server, tconfig, *this, this->logger);
 }
@@ -354,7 +355,8 @@ ClientRawSession::subscribe(
   }
 
   auto msg = messages::MessageBuffer{ sizeof(messages::Subscribe) };
-  const auto subscribe = messages::Subscribe{ 0x1, transaction_id, quicr_namespace, intent };
+  const auto subscribe =
+    messages::Subscribe{ 0x1, transaction_id, quicr_namespace, intent };
   msg << subscribe;
 
   transport->enqueue(
@@ -368,7 +370,7 @@ ClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
 {
   // The removal of the delegate is done on receive of subscription ended
   auto msg = messages::MessageBuffer{};
-  const auto unsub= messages::Unsubscribe{ 0x1, quicr_namespace };
+  const auto unsub = messages::Unsubscribe{ 0x1, quicr_namespace };
   msg << unsub;
 
   const auto state_it = subscribe_state.find(quicr_namespace);
@@ -430,9 +432,8 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
   datagram.header.offset_and_fin = 1ULL;
   datagram.media_type = messages::MediaType::RealtimeMedia;
 
-  const auto stream_id = use_reliable_transport
-                                     ? context.transport_stream_id
-                                     : transport_dgram_stream_id;
+  const auto stream_id = use_reliable_transport ? context.transport_stream_id
+                                                : transport_dgram_stream_id;
 
   // Fragment the payload if needed
   if (data.size() <= quicr::max_transport_data_size || use_reliable_transport) {
@@ -450,7 +451,8 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
   } else {
     // Fragments required. At this point this only counts whole blocks
     auto frag_num = data.size() / quicr::max_transport_data_size;
-    const auto frag_remaining_bytes = data.size() % quicr::max_transport_data_size;
+    const auto frag_remaining_bytes =
+      data.size() % quicr::max_transport_data_size;
 
     auto offset = size_t(0);
 
@@ -458,14 +460,17 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       auto msg = messages::MessageBuffer{};
 
       if (frag_num == 0 && frag_remaining_bytes == 0) {
-        datagram.header.offset_and_fin = (offset << 1) + 1; // NOLINT(hicpp-signed-bitwise)
+        datagram.header.offset_and_fin =
+          (offset << 1) + 1; // NOLINT(hicpp-signed-bitwise)
       } else {
-        datagram.header.offset_and_fin = offset << 1; // NOLINT(hicpp-signed-bitwise)
+        datagram.header.offset_and_fin = offset
+                                         << 1; // NOLINT(hicpp-signed-bitwise)
       }
 
       const auto ptr_offset = static_cast<ptrdiff_t>(offset);
       bytes frag_data(data.begin() + ptr_offset,
-                      data.begin() + ptr_offset + quicr::max_transport_data_size);
+                      data.begin() + ptr_offset +
+                        quicr::max_transport_data_size);
 
       datagram.media_data_length = frag_data.size();
       datagram.media_data = std::move(frag_data);
@@ -477,8 +482,8 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       /*
        * For UDP based transports, some level of pacing is required to prevent
        * buffer overruns throughput the network path and with the remote end.
-       *  TODO(paulej): Fix... This is set a bit high because the server code is running
-       * too slow
+       *  TODO(paulej): Fix... This is set a bit high because the server code is
+       * running too slow
        */
       if (need_pacing && (frag_num % 30) == 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -499,7 +504,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
     // Send last fragment, which will be less than max_transport_data_size
     if (frag_remaining_bytes > 0) {
       messages::MessageBuffer msg;
-       // NOLINTNEXTLINE(hicpp-signed-bitwise)
+      // NOLINTNEXTLINE(hicpp-signed-bitwise)
       datagram.header.offset_and_fin = uintVar_t((offset << 1) + 1);
 
       const auto ptr_offset = static_cast<ptrdiff_t>(offset);
@@ -673,7 +678,8 @@ ClientRawSession::handle(messages::MessageBuffer&& msg)
         auto& context = subscribe_state[response.quicr_namespace];
         context.state = SubscribeContext::State::Ready;
 
-        if (const auto& sub_delegate = sub_delegates[response.quicr_namespace]) {
+        if (const auto& sub_delegate =
+              sub_delegates[response.quicr_namespace]) {
           sub_delegate->onSubscribeResponse(response.quicr_namespace, result);
         }
       } else {

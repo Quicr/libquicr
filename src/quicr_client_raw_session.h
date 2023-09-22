@@ -220,9 +220,10 @@ protected:
   void on_recv_notify(const qtransport::TransportContextId& context_id,
                       const qtransport::StreamId& streamId) override;
 
-  static bool notify_pub_fragment(const messages::PublishDatagram& datagram,
-                           const std::shared_ptr<SubscriberDelegate>& delegate,
-                           const std::map<uint32_t, bytes>& frag_map);
+  static bool notify_pub_fragment(
+    const messages::PublishDatagram& datagram,
+    const std::shared_ptr<SubscriberDelegate>& delegate,
+    const std::map<uint32_t, bytes>& frag_map);
 
   void handle_pub_fragment(messages::PublishDatagram&& datagram,
                            const std::shared_ptr<SubscriberDelegate>& delegate);
@@ -293,17 +294,18 @@ protected:
    *    any exists).
    *
    *    Fragment reassembly avoids timers and time interval based checks. It
-   *    instead is based on received data. Every message quicr_name is checked to
-   *    see if it's complete. If so, the published object callback will be
+   *    instead is based on received data. Every message quicr_name is checked
+   * to see if it's complete. If so, the published object callback will be
    *    executed. If not, it'll only update the map with the new offset value.
    *    Incomplete messages can exist in the cache for as long as the circular
-   *    index hasn't wrapped to the same point in cache.  Under high load/volume,
-   *    this can wrap within a minute or two.  Under very little load, this could
-   *    linger for hours. This is okay considering the only harm is a little extra
-   *    memory being used. Extra memory is a trade-off for being event/message
-   *    driven instead of timer based with threading/locking/...
+   *    index hasn't wrapped to the same point in cache.  Under high
+   * load/volume, this can wrap within a minute or two.  Under very little load,
+   * this could linger for hours. This is okay considering the only harm is a
+   * little extra memory being used. Extra memory is a trade-off for being
+   * event/message driven instead of timer based with threading/locking/...
    */
-  std::map<uint32_t, std::map<quicr::Name, std::map<uint32_t, bytes>>> fragments;
+  std::map<uint32_t, std::map<quicr::Name, std::map<uint32_t, bytes>>>
+    fragments;
 
   cantina::LoggerPointer logger;
 

@@ -129,15 +129,15 @@ main(int argc, char* argv[])
   if (argc == 3) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     const auto data_str = std::string(argv[2]);
-    data.insert(
-      data.end(), data_str.begin(), data_str.end());
+    data.insert(data.end(), data_str.begin(), data_str.end());
   }
 
   logger->info << "Connecting to " << relayName << ":" << port << std::flush;
 
-  const auto relay = quicr::RelayInfo{ .hostname = relayName,
-                          .port = uint16_t(port),
-                          .proto = quicr::RelayInfo::Protocol::QUIC };
+  const auto relay =
+    quicr::RelayInfo{ .hostname = relayName,
+                      .port = uint16_t(port),
+                      .proto = quicr::RelayInfo::Protocol::QUIC };
 
   const auto tcfg = qtransport::TransportConfig{
     .tls_cert_filename = nullptr,
@@ -171,8 +171,13 @@ main(int argc, char* argv[])
 
     logger->info << "Subscribe to " << name << "/" << 96 << std::flush;
 
-    client.subscribe(
-      sd, nspace, quicr::SubscribeIntent::immediate, "origin_url", false, "auth_token", quicr::bytes{});
+    client.subscribe(sd,
+                     nspace,
+                     quicr::SubscribeIntent::immediate,
+                     "origin_url",
+                     false,
+                     "auth_token",
+                     quicr::bytes{});
 
     logger->Log("Sleeping for 20 seconds before unsubscribing");
     std::this_thread::sleep_for(std::chrono::seconds(20));

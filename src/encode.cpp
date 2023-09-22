@@ -144,9 +144,8 @@ operator>>(MessageBuffer& msg, uintVar_t& v)
     msg >> byte[2];
     msg >> byte[1];
     msg >> byte[0];
-    v = ((uint32_t)(byte[3] & 0x1F) << 24) +
-                   ((uint32_t)byte[2] << 16) + ((uint32_t)byte[1] << 8) +
-                   ((uint32_t)byte[0] << 0);
+    v = ((uint32_t)(byte[3] & 0x1F) << 24) + ((uint32_t)byte[2] << 16) +
+        ((uint32_t)byte[1] << 8) + ((uint32_t)byte[0] << 0);
     return msg;
   }
 
@@ -158,11 +157,10 @@ operator>>(MessageBuffer& msg, uintVar_t& v)
   msg >> byte[2];
   msg >> byte[1];
   msg >> byte[0];
-  v = ((uint64_t)(byte[7] & 0x0F) << 56) +
-      ((uint64_t)(byte[6]) << 48) + ((uint64_t)(byte[5]) << 40) +
-      ((uint64_t)(byte[4]) << 32) + ((uint64_t)(byte[3]) << 24) +
-      ((uint64_t)(byte[2]) << 16) + ((uint64_t)(byte[1]) << 8) +
-      ((uint64_t)(byte[0]) << 0);
+  v = ((uint64_t)(byte[7] & 0x0F) << 56) + ((uint64_t)(byte[6]) << 48) +
+      ((uint64_t)(byte[5]) << 40) + ((uint64_t)(byte[4]) << 32) +
+      ((uint64_t)(byte[3]) << 24) + ((uint64_t)(byte[2]) << 16) +
+      ((uint64_t)(byte[1]) << 8) + ((uint64_t)(byte[0]) << 0);
   return msg;
   // NOLINTEND(hicpp-signed-bitwise)
 }
@@ -184,7 +182,8 @@ operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val)
 }
 
 MessageBuffer&
-operator>>(MessageBuffer& msg, std::vector<uint8_t>& val){
+operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
+{
   auto vec_size = uintVar_t(0);
   msg >> vec_size;
 

@@ -143,31 +143,31 @@ public:
   }
 
   void onPublishIntent(const quicr::Namespace& quicr_namespace,
-                               const std::string& /* origin_url */,
-                               bool /* use_reliable_transport */,
-                               const std::string& /* auth_token */,
-                               quicr::bytes&& /* e2e_token */) override
+                       const std::string& /* origin_url */,
+                       bool /* use_reliable_transport */,
+                       const std::string& /* auth_token */,
+                       quicr::bytes&& /* e2e_token */) override
   {
     // TODO(trigaux): Authenticate token
     logger->info << "Publish intent namespace: " << quicr_namespace
                  << std::flush;
 
     // TODO(trigaux): Move logic into quicr::Server
-    const auto result = quicr::PublishIntentResult{ quicr::messages::Response::Ok, {}, {} };
+    const auto result =
+      quicr::PublishIntentResult{ quicr::messages::Response::Ok, {}, {} };
     server->publishIntentResponse(quicr_namespace, result);
   };
 
   void onPublishIntentEnd(const quicr::Namespace& /* quicr_namespace */,
-                                  const std::string& /* auth_token */,
-                                  quicr::bytes&& /* e2e_token */)  override
+                          const std::string& /* auth_token */,
+                          quicr::bytes&& /* e2e_token */) override
   {
   }
 
-  void onPublisherObject(
-    const qtransport::TransportContextId& context_id,
-    [[maybe_unused]] const qtransport::StreamId& stream_id,
-    [[maybe_unused]] bool use_reliable_transport,
-    quicr::messages::PublishDatagram&& datagram) override
+  void onPublisherObject(const qtransport::TransportContextId& context_id,
+                         [[maybe_unused]] const qtransport::StreamId& stream_id,
+                         [[maybe_unused]] bool use_reliable_transport,
+                         quicr::messages::PublishDatagram&& datagram) override
   {
     const auto list = subscribeList.find(datagram.header.name);
 
@@ -184,8 +184,8 @@ public:
   }
 
   void onUnsubscribe(const quicr::Namespace& quicr_namespace,
-                             const uint64_t& subscriber_id,
-                             const std::string& /* auth_token */) override
+                     const uint64_t& subscriber_id,
+                     const std::string& /* auth_token */) override
   {
 
     logger->info << "onUnsubscribe: Namespace " << quicr_namespace
@@ -217,7 +217,7 @@ public:
                  << " subscribe_id: " << subscriber_id << std::flush;
 
     const auto remote = Subscriptions::Remote{ .subscribe_id = subscriber_id,
-                                     .context_id = context_id };
+                                               .context_id = context_id };
     subscribeList.add(quicr_namespace.name(), quicr_namespace.length(), remote);
 
     // TODO(trigaux): Move logic into quicr::Server

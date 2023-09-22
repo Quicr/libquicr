@@ -23,8 +23,9 @@ struct TestSubscriberDelegate : public SubscriberDelegate
   {
   }
 
-  void onSubscriptionEnded(const quicr::Namespace& /* quicr_namespace */,
-                           const SubscribeResult::SubscribeStatus& /* result */) override
+  void onSubscriptionEnded(
+    const quicr::Namespace& /* quicr_namespace */,
+    const SubscribeResult::SubscribeStatus& /* result */) override
   {
   }
 
@@ -65,7 +66,7 @@ TEST_CASE("Subscribe encode, send and receive")
   const auto expected_ns = quicr::Namespace{ 0x10000000000000002000_name, 125 };
 
   qclient->subscribe(
-      {}, expected_ns, SubscribeIntent::wait_up, "", false, "", {});
+    {}, expected_ns, SubscribeIntent::wait_up, "", false, "", {});
 
   auto s = messages::Subscribe{};
   messages::MessageBuffer msg{ transport->stored_data };

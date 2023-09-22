@@ -322,7 +322,8 @@ ServerRawSession::handle_publish_intent(
     switch (state) {
       // TODO(trigaux): Resend response?
       case PublishIntentContext::State::Pending:
-      // TODO(trigaux): Already registered this namespace successfully, do nothing?
+      // TODO(trigaux): Already registered this namespace successfully, do
+      // nothing?
       case PublishIntentContext::State::Ready:
       default:
         break;
@@ -353,9 +354,8 @@ ServerRawSession::handle_publish_intent_end(
 
   publish_namespaces.erase(ns);
 
-  delegate->onPublishIntentEnd(ns,
-                               "" /* intent_end.relay_token */,
-                               std::move(intent_end.payload));
+  delegate->onPublishIntentEnd(
+    ns, "" /* intent_end.relay_token */, std::move(intent_end.payload));
 }
 
 /*===========================================================================*/
@@ -482,8 +482,8 @@ ServerRawSession::TransportDelegate::on_recv_notify(
         }
       } catch (const messages::MessageBuffer::ReadException& ex) {
 
-        // TODO(trigaux): When reliable, we really should reset the stream if this
-        // happens (at least more than once)
+        // TODO(trigaux): When reliable, we really should reset the stream if
+        // this happens (at least more than once)
         server.logger->critical
           << "Received read exception error while reading from message buffer: "
           << ex.what() << std::flush;
