@@ -101,7 +101,7 @@ struct Header
   uintVar_t group_id;
   uintVar_t object_id;
   uintVar_t offset_and_fin;
-  uint8_t flags;
+  uint8_t forwarding_preference;
 };
 
 struct PublishDatagram

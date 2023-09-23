@@ -197,7 +197,16 @@ private:
     const qtransport::StreamId& mStreamId,
     messages::MessageBuffer&& msg);
 
-  struct Context
+  // TODO (Suhas): Can the common state be moved to quicr_common.h
+  struct DeliveryContext {
+    qtransport::StreamId control_stream_id {0}; // there is one control stream per connection
+    std::map<uint64_t, qtransport::StreamId> stream_id_per_object{};
+    std::map<uint64_t, qtransport::StreamId> stream_id_per_group{};
+    std::map<uint32_t , qtransport::StreamId> stream_id_per_priority{};
+    std::map<quicr::Name, qtransport::StreamId> stream_id_per_name{};
+  };
+
+    struct Context
   {
     enum struct State
     {
@@ -209,9 +218,11 @@ private:
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
     qtransport::StreamId transport_stream_id{ 0 };
+    DeliveryContext delivery_context {};
   };
 
-  struct SubscribeContext : public Context
+
+    struct SubscribeContext : public Context
   {
     uint64_t transaction_id{ 0 };
     uint64_t subscriber_id{ 0 };
@@ -234,8 +245,9 @@ private:
   std::shared_ptr<qtransport::ITransport> transport;
   qtransport::TransportRemote t_relay;
   std::map<quicr::Namespace,
-           std::map<qtransport::TransportContextId, SubscribeContext>>
-    subscribe_state{};
+           std::map<qtransport::TransportContextId, SubscribeContext>> subscribe_state{};
+
+
   std::map<uint64_t, SubscribeContext> subscribe_id_state{};
 
    // TODO: publish_namespaces should support multi-origin (more than one publisher per ns)

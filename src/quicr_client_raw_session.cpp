@@ -460,7 +460,7 @@ QuicRClientRawSession::publishNamedObject(
   datagram.header.media_id =context.transport_stream_id;
   datagram.header.group_id = context.last_group_id;
   datagram.header.object_id = context.last_object_id;
-  datagram.header.flags = 0x0;
+  datagram.header.forwarding_preference = 0x0;
   datagram.header.offset_and_fin = 1ULL;
   datagram.media_type = messages::MediaType::RealtimeMedia;
 
@@ -633,7 +633,7 @@ QuicRClientRawSession::publishNamedObject(
 
     messages::PublishDatagram datagram;
     datagram.header.name = quicr_name;
-    datagram.header.flags = 0x0;
+    datagram.header.forwarding_preference = (uint8_t )delivery_mode;
     datagram.header.offset_and_fin = 1ULL;
 
     if (data.size() <= quicr::MAX_TRANSPORT_DATA_SIZE || reliable_transport) {
@@ -642,6 +642,7 @@ QuicRClientRawSession::publishNamedObject(
         datagram.media_data_length = data.size();
         datagram.media_data = std::move(data);
         msg << datagram;
+        logger->info << "Sending data over stream_id " << stream_id << std::flush;
         transport->enqueue(transport_context_id,
                            stream_id,
                            msg.take(),

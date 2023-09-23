@@ -46,7 +46,7 @@ enum class Response : uint8_t
   Fail,
   Redirect
 };
-}
+} // namespace messages
 
 /**
  * Hint providing the start point to serve a subscrption request.
@@ -58,6 +58,18 @@ enum class SubscribeIntent
   immediate = 0, // Start from the most recent object
   wait_up = 1,   // Start from the following group
   sync_up = 2,   // Start from the request position
+};
+
+/**
+ * ObjectDeliveryMode
+ */
+enum class ObjectDeliveryMode: uint8_t {
+    None = 0,
+    Group,
+    Object,
+    Priority,
+    Track,
+    Datagram,
 };
 
 /**

@@ -49,9 +49,13 @@ public:
                           [[maybe_unused]] quicr::bytes&& data) override
   {
     std::stringstream log_msg;
+    auto group = quicr_name.bits<uint16_t>(16, 48);
+    auto object = quicr_name.bits<uint16_t>(0, 16);
 
-    logger->info << "recv object: name: " << quicr_name
-                 << " data sz: " << data.size();
+      logger->info << "recv object: name: " << quicr_name
+                 << " data sz: " << data.size()
+                 << " group " << group
+                 << " object " << object << std::flush;
 
     if (data.size())
       logger->info << " data: " << data.data();
@@ -141,6 +145,7 @@ main(int argc, char* argv[])
 
 
   if (data.size() > 0) {
+    data = {0xC, 0xA, 0xF, 0xE, 0xE};
     auto group_id = 0;
     auto object_id = 0;
     auto nspace = quicr::Namespace(name, 80);

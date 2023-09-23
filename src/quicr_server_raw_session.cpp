@@ -36,7 +36,7 @@ QuicRServerRawSession::QuicRServerRawSession(
   ServerDelegate& delegate_in,
   const cantina::LoggerPointer& logger)
   : delegate(delegate_in)
-  , logger(std::make_shared<cantina::Logger>("QSES", logger))
+  , logger(std::make_shared<cantina::Logger>("QSERV", logger))
   , transport_delegate(*this)
 {
   t_relay.host_or_ip = relayInfo.hostname;
@@ -198,11 +198,58 @@ QuicRServerRawSession::sendNamedObject(
 
   auto& context = subscribe_id_state[subscriber_id];
   messages::MessageBuffer msg;
+  auto& quicr_name = datagram.header.name;
+  auto group = quicr_name.bits<uint16_t>(16, 48);
+  auto object = quicr_name.bits<uint16_t>(0, 16);
+  auto stream_id = qtransport::StreamId{0};
+  logger->info << "sendNamedObject: group:" << group << ",object:" << object << ",name:" << quicr_name << std::flush;
+  auto &delivery_context = context.delivery_context;
+
+
+  // TODO(Suhas): Forwarding preference may be overwritten by relay's
+  // local policies. For now, we carry it forward from the original
+  // publisher
+  auto forwarding_pref = (ObjectDeliveryMode) datagram.header.forwarding_preference;
+    switch (forwarding_pref) {
+        case ObjectDeliveryMode::Group:
+            if(!delivery_context.stream_id_per_group.contains(group)) {
+                // create a new stream for the group
+                logger->info << "Adding delivery context for new group " << quicr_name
+                             << ", " << group << std::flush;
+
+                stream_id = transport->createStream(context.transport_context_id, true);
+                delivery_context.stream_id_per_group[group] = stream_id;
+            }
+            break;
+        case ObjectDeliveryMode::Object:
+            if (delivery_context.stream_id_per_object.contains(object)) {
+                logger->warning << "Not publishing object, already in map" << quicr_name
+                                << std::flush;
+                return;
+            }
+            stream_id = transport->createStream(context.transport_context_id, true);
+            delivery_context.stream_id_per_object.insert({object, stream_id});
+            break;
+        case ObjectDeliveryMode::Track:
+            if (!delivery_context.stream_id_per_name.contains(quicr_name)) {
+                logger->info << "Adding delivery context for new Name " << quicr_name
+                             << std::flush;
+                stream_id = transport->createStream(context.transport_context_id, true);
+                delivery_context.stream_id_per_name[quicr_name] = stream_id;
+            }
+            stream_id = delivery_context.stream_id_per_name[quicr_name];
+            break;
+        case ObjectDeliveryMode::Priority:
+        case ObjectDeliveryMode::Datagram:
+        default:
+            logger->info << "Unsupported delivery mode, not publishing" << std::flush;
+            break;
+    }
 
   msg << datagram;
 
   transport->enqueue(context.transport_context_id,
-                     context.transport_stream_id,
+                     stream_id,
                      msg.take(),
                      priority,
                      expiry_age_ms);
@@ -289,13 +336,14 @@ QuicRServerRawSession::handle_publish(
 
   if (publish_namespace == publish_namespaces.end()) {
     // TODO: Add metrics for tracking dropped messages
-    /*
+
     logger->info << "Dropping published object, no namespace for "
                  << datagram.header.name << std::flush;
-    */
+
     return;
   }
 
+  logger->info << "handle_publish: StreamId: " << streamId << std::flush;
   auto& [ns, context] = *publish_namespace;
 
   auto gap_log = gap_check(false, datagram.header.name,
