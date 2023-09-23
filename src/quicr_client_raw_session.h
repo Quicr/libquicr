@@ -235,6 +235,7 @@ protected:
                           const SubscribeResult::SubscribeStatus& reason);
 
 protected:
+
   std::mutex session_mutex;
 
   // State to store per-subscribe context
@@ -256,7 +257,16 @@ protected:
     uint64_t last_object_id {0};
   };
 
-  // State per publish_intent and related publish
+  // State per publish_intent and related publish associated per quicr Namespace
+  struct TransportDeliveryContext {
+      ObjectDeliveryMode object_delivery_mode {ObjectDeliveryMode::None};
+      qtransport::StreamId control_stream_id {0}; // there is one control stream per connection
+      std::map<uint64_t, qtransport::StreamId> stream_id_per_object{};
+      std::map<uint64_t, qtransport::StreamId> stream_id_per_group{};
+      std::map<uint32_t , qtransport::StreamId> stream_id_per_priority{};
+      std::map<quicr::Name, qtransport::StreamId> stream_id_per_name{};
+  };
+
   struct PublishContext
   {
     enum struct State
@@ -268,8 +278,10 @@ protected:
 
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
+    TransportDeliveryContext delivery_context {};
     qtransport::StreamId control_stream_id { 0 }; // there is one control stream per connection
     qtransport::StreamId transport_stream_id{ 0 };
+    std::map<uint64_t, qtransport::StreamId> stream_ids_per_group{};
     uint64_t last_group_id {0};
     uint64_t last_object_id {0};
     uint64_t offset{ 0 };

@@ -1,5 +1,6 @@
 #include <quicr/quicr_client.h>
 #include <quicr/quicr_common.h>
+#include <quicr/quicr_client_common.h>
 #include <transport/transport.h>
 #include <cantina/logger.h>
 
@@ -8,6 +9,10 @@
 #include <iostream>
 #include <sstream>
 #include <thread>
+
+
+const quicr::Name group_id_mask = ~(~0x0_name << 32) << 16;
+const quicr::Name object_id_mask = ~(~0x0_name << 16);
 
 class subDelegate : public quicr::SubscriberDelegate
 {
@@ -136,22 +141,44 @@ main(int argc, char* argv[])
 
 
   if (data.size() > 0) {
-    auto nspace = quicr::Namespace(name, 96);
+    auto group_id = 0;
+    auto object_id = 0;
+    auto nspace = quicr::Namespace(name, 80);
     logger->info << "Publish Intent for name: " << name
                  << " == namespace: " << nspace << std::flush;
     client.publishIntent(pd, nspace, {}, {}, {});
     std::this_thread::sleep_for(std::chrono::seconds(5));
+    for (int i = 0; i < 10; i++) {
+        // do publish
+        name = (0x0_name | group_id++) << 16 | (name & ~group_id_mask);
+        name &= ~object_id_mask;
+        auto object_id = 0;
+        for (int j= 0; j < 5; j++) {
+            if(j == 0) {
+                auto pub_data = data;
+                pub_data.push_back(j);
+                client.publishNamedObject(name, 0, 1000, quicr::ObjectDeliveryMode::Group, std::move(data));
+                continue;
+            }
+            name = (0x0_name | group_id) << 16 | (name & ~group_id_mask);
+            name = (0x0_name | ++object_id) | (name & ~object_id_mask);
+            logger->info << "Publishing group:" << group_id << ", object:" << object_id << ", name:" << name << std::flush;
+            auto pub_data = data;
+            pub_data.push_back(j);
+            client.publishNamedObject(name, 0, 1000, quicr::ObjectDeliveryMode::Group, std::move(pub_data));
+        }
 
-    // do publish
-    client.publishNamedObject(name, 0, 1000, false, std::move(data));
+
+    }
+
 
   } else {
     // do subscribe
     logger->Log("Subscribe");
     auto sd = std::make_shared<subDelegate>(logger);
-    auto nspace = quicr::Namespace(name, 96);
+    auto nspace = quicr::Namespace(name, 80);
 
-    logger->info << "Subscribe to " << name << "/" << 96 << std::flush;
+    logger->info << "Subscribe to " << name << std::flush;
 
     quicr::SubscribeIntent intent = quicr::SubscribeIntent::immediate;
     quicr::bytes empty;

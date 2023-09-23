@@ -294,9 +294,13 @@ QuicRClientRawSession::publishIntent(
   }
 
   pub_delegates[quicr_namespace] = pub_delegate;
+  auto delivery_context = TransportDeliveryContext {
+      .control_stream_id = control_stream_id,
+  };
 
   publish_state[quicr_namespace] = {.state = PublishContext::State::Pending,
           .transport_context_id = transport_context_id,
+          .delivery_context = delivery_context,
           .control_stream_id = control_stream_id,
           .transport_stream_id = 0};
 
@@ -547,6 +551,7 @@ QuicRClientRawSession::publishNamedObject(
         std::this_thread::sleep_for(std::chrono::microseconds(100));
       }
     }
+
   }
 }
 
@@ -557,8 +562,161 @@ QuicRClientRawSession::publishNamedObject(
         uint8_t priority,
         uint16_t expiry_age_ms,
         ObjectDeliveryMode delivery_mode,
-        bytes&& data)
-{
+        bytes&& data) {
+    // Warning: This is assuming the name always has groupId and objectId and they are
+    // awlays at a specific location. All this needs to configurable or hidden inside
+    // the name library driven by the application.
+
+    // retrieve the publisher context
+    auto found = publish_state.find(quicr_name);
+
+    if (found == publish_state.end()) {
+        logger->info << "No publish intent for '" << quicr_name
+                     << "' missing, dropping" << std::flush;
+        return;
+    }
+
+    auto &[ns, context] = *found;
+    if (context.state != PublishContext::State::Ready) {
+        context.transport_context_id = transport_context_id;
+        context.state = PublishContext::State::Ready;
+        logger->info << "Adding new context for published ns: " << ns << std::flush;
+    } else {
+        auto gap_log = gap_check(true, quicr_name,
+                                 context.last_group_id, context.last_object_id);
+
+        if (!gap_log.empty()) {
+            logger->Log(gap_log);
+        }
+    }
+
+    auto group = quicr_name.bits<uint16_t>(16, 48);
+    auto object = quicr_name.bits<uint16_t>(0, 16);
+    auto stream_id = qtransport::StreamId{0};
+    auto &delivery_context = context.delivery_context;
+    bool reliable_transport = true;
+
+    if (delivery_mode == ObjectDeliveryMode::Object) {
+        if (delivery_context.stream_id_per_object.contains(object)) {
+            logger->warning << "Not publishing object, already in map" << quicr_name
+                            << std::flush;
+            return;
+        }
+        stream_id = transport->createStream(transport_context_id, true);
+        delivery_context.stream_id_per_object.insert({object, stream_id});
+    } else if (delivery_mode == ObjectDeliveryMode::Group) {
+        if (!delivery_context.stream_id_per_group.contains(group)) {
+            logger->info << "Adding delivery context for new group " << quicr_name
+                         << ", " << group << std::flush;
+
+            stream_id = transport->createStream(transport_context_id, true);
+            delivery_context.stream_id_per_group[group] = stream_id;
+        }
+        stream_id = delivery_context.stream_id_per_group[group];
+    } else if (delivery_mode == ObjectDeliveryMode::Track) {
+        if (!delivery_context.stream_id_per_name.contains(quicr_name)) {
+            logger->info << "Adding delivery context for new Name " << quicr_name
+                         << std::flush;
+            stream_id = transport->createStream(transport_context_id, true);
+            delivery_context.stream_id_per_name[quicr_name] = stream_id;
+        }
+        stream_id = delivery_context.stream_id_per_name[quicr_name];
+    } else if (delivery_mode == ObjectDeliveryMode::Datagram) {
+        stream_id = transport_dgram_stream_id;
+        reliable_transport = false;
+    } else {
+        logger->warning << "Unsupported delivery mode " << (int) delivery_mode << ", for name "
+                        << quicr_name << std::flush;
+        return;
+    }
+
+
+    messages::PublishDatagram datagram;
+    datagram.header.name = quicr_name;
+    datagram.header.flags = 0x0;
+    datagram.header.offset_and_fin = 1ULL;
+
+    if (data.size() <= quicr::MAX_TRANSPORT_DATA_SIZE || reliable_transport) {
+        // no fragmentation
+        messages::MessageBuffer msg;
+        datagram.media_data_length = data.size();
+        datagram.media_data = std::move(data);
+        msg << datagram;
+        transport->enqueue(transport_context_id,
+                           stream_id,
+                           msg.take(),
+                           priority,
+                           expiry_age_ms);
+        return;
+    }
+
+    // Fragments required. At this point this only counts whole blocks
+    int frag_num = data.size() / quicr::MAX_TRANSPORT_DATA_SIZE;
+    int frag_remaining_bytes = data.size() % quicr::MAX_TRANSPORT_DATA_SIZE;
+
+    int offset = 0;
+
+    while (frag_num-- > 0) {
+        messages::MessageBuffer msg;
+
+        if (frag_num == 0 && !frag_remaining_bytes) {
+            datagram.header.offset_and_fin = (offset << 1) + 1;
+        } else {
+            datagram.header.offset_and_fin = offset << 1;
+        }
+
+        bytes frag_data(data.begin() + offset,
+                        data.begin() + offset + quicr::MAX_TRANSPORT_DATA_SIZE);
+
+        datagram.media_data_length = frag_data.size();
+        datagram.media_data = std::move(frag_data);
+
+        msg << datagram;
+
+        offset += quicr::MAX_TRANSPORT_DATA_SIZE;
+
+        /*
+         * For UDP based transports, some level of pacing is required to prevent
+         * buffer overruns throughput the network path and with the remote end.
+         *  TODO: Fix... This is set a bit high because the server code is running
+         * too slow
+         */
+
+        if (transport->enqueue(transport_context_id,
+                               stream_id,
+                               msg.take(),
+                               priority,
+                               expiry_age_ms) !=
+            qtransport::TransportError::None) {
+            std::this_thread::sleep_for(std::chrono::microseconds(100));
+            // No point in finishing fragment if one is dropped
+            return;
+        }
+    }
+
+    // Send last fragment, which will be less than MAX_TRANSPORT_DATA_SIZE
+    if (frag_remaining_bytes) {
+        messages::MessageBuffer msg;
+        datagram.header.offset_and_fin = uintVar_t((offset << 1) + 1);
+
+        bytes frag_data(data.begin() + offset, data.end());
+        datagram.media_data_length = static_cast<uintVar_t>(frag_data.size());
+        datagram.media_data = std::move(frag_data);
+
+        msg << datagram;
+
+        if (auto err = transport->enqueue(transport_context_id,
+                                          stream_id,
+                                          msg.take(),
+                                          priority,
+                                          expiry_age_ms);
+                err != qtransport::TransportError::None) {
+            logger->warning << "Published object delayed due to enqueue error "
+                            << static_cast<unsigned>(err) << std::flush;
+            std::this_thread::sleep_for(std::chrono::microseconds(100));
+        }
+    }
+
 
 }
 
@@ -779,4 +937,6 @@ QuicRClientRawSession::handle(messages::MessageBuffer&& msg)
       break;
   }
 }
+
+
 } // namespace quicr
