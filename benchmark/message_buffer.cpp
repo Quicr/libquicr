@@ -3,6 +3,9 @@
 #include <quicr/encode.h>
 #include <quicr/message_buffer.h>
 
+// The unused variables here are intentional, and we don't care about the
+// quality of the randomness.
+// NOLINTBEGIN(clang-analyzer-deadcode.DeadStores,cert-msc30-c,cert-msc50-cpp,concurrency-mt-unsafe)
 void
 MessageBuffer_Construct(benchmark::State& state)
 {
@@ -10,7 +13,7 @@ MessageBuffer_Construct(benchmark::State& state)
   std::generate(buffer.begin(), buffer.end(), std::rand);
 
   for (auto _ : state) {
-    quicr::messages::MessageBuffer __(buffer);
+    const auto _buffer = quicr::messages::MessageBuffer(buffer);
   }
 }
 
@@ -93,7 +96,11 @@ MessageBuffer_PushBackVector_Reserved(benchmark::State& state)
     buffer.push(buf);
   }
 }
+// NOLINTEND(clang-analyzer-deadcode.DeadStores,cert-msc30-c,cert-msc50-cpp,concurrency-mt-unsafe)
 
+// This lint is hitting on something internal to the benchmarking system, which
+// we are not responsible for.
+// NOLINTBEGIN(cppcoreguidelines-owning-memory)
 BENCHMARK(MessageBuffer_Construct);
 BENCHMARK(MessageBuffer_PushBack);
 BENCHMARK(MessageBuffer_PushBack16);
@@ -103,3 +110,4 @@ BENCHMARK(MessageBuffer_PushBackName);
 BENCHMARK(MessageBuffer_PushBackNamespace);
 BENCHMARK(MessageBuffer_PushBackVector_Copy);
 BENCHMARK(MessageBuffer_PushBackVector_Reserved);
+// NOLINTEND(cppcoreguidelines-owning-memory)

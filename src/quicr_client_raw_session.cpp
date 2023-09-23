@@ -733,7 +733,11 @@ ClientRawSession::handle(messages::MessageBuffer&& msg)
       }
 
       if (const auto& delegate = pub_delegates[response.quicr_namespace]) {
-        const auto result = PublishIntentResult{ .status = response.response };
+        const auto result = PublishIntentResult{
+          .status = response.response,
+          .redirectInfo = {},
+          .reassignedName = {},
+        };
         delegate->onPublishIntentResponse(response.quicr_namespace, result);
       }
 
