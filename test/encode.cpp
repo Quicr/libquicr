@@ -108,8 +108,12 @@ TEST_CASE("SubscribeEnd Message encode/decode")
 
 TEST_CASE("Unsubscribe Message encode/decode")
 {
+  const auto version = uint8_t(0xa0);
   const auto qnamespace = quicr::Namespace{ 0x10000000000000002000_name, 125 };
-  const auto us = Unsubscribe{ .quicr_namespace = qnamespace };
+  const auto us = Unsubscribe{
+    .version = version,
+    .quicr_namespace = qnamespace,
+  };
 
   MessageBuffer buffer;
   buffer << us;
