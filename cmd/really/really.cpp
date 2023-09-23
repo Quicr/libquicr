@@ -196,7 +196,11 @@ public:
                               quicr_namespace,
                               quicr::SubscribeResult::SubscribeStatus::Ok);
 
-    const auto remote = Subscriptions::Remote{ .subscribe_id = subscriber_id };
+    const auto remote = Subscriptions::Remote{
+      .subscribe_id = subscriber_id,
+      .context_id = 0, // XXX(richbarn) What should this be?
+      .stream_id = 0,  // XXX(richbarn) What should this be?
+    };
     subscribeList.remove(
       quicr_namespace.name(), quicr_namespace.length(), remote);
   }
@@ -216,8 +220,11 @@ public:
                  << static_cast<unsigned>(quicr_namespace.length())
                  << " subscribe_id: " << subscriber_id << std::flush;
 
-    const auto remote = Subscriptions::Remote{ .subscribe_id = subscriber_id,
-                                               .context_id = context_id };
+    const auto remote = Subscriptions::Remote{
+      .subscribe_id = subscriber_id,
+      .context_id = context_id,
+      .stream_id = 0, // XXX(richbarn) What should this be?
+    };
     subscribeList.add(quicr_namespace.name(), quicr_namespace.length(), remote);
 
     // TODO(trigaux): Move logic into quicr::Server
