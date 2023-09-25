@@ -1,59 +1,63 @@
 #include "subscription.h"
 
-
-Subscriptions::Subscriptions() {
+Subscriptions::Subscriptions()
+{
   subscriptions.resize(129 /* 128 + 1 to handle zero and 128 */);
 }
 
-void Subscriptions::add(const quicr::Name& name, const int len, const Remote& remote ) {
+void
+Subscriptions::add(const quicr::Name& name, uint8_t len, const Remote& remote)
+{
 
-  quicr::Namespace prefix (name, len);
+  const auto prefix = quicr::Namespace{ name, len };
 
-  auto mapPtr =  subscriptions[len].find(prefix.name());
-  if ( mapPtr == subscriptions[len].end() ) {
+  auto mapPtr = subscriptions[len].find(prefix.name());
+  if (mapPtr == subscriptions[len].end()) {
     std::set<Remote> list;
-    list.insert( remote );
-    std::pair<quicr::Name,std::set<Remote>> pair;
-    pair = make_pair( prefix.name() , list );
-    subscriptions[len].insert(pair );
-  }
-  else {
-    std::set<Remote>& list = mapPtr->second;
-    if ( list.find( remote ) == list.end() ) {
-      list.insert( remote ); // TODO - rethink if list is right thing here 
+    list.insert(remote);
+    std::pair<quicr::Name, std::set<Remote>> pair;
+    pair = make_pair(prefix.name(), list);
+    subscriptions[len].insert(pair);
+  } else {
+    auto& list = mapPtr->second;
+    if (list.find(remote) == list.end()) {
+      list.insert(
+        remote); // TODO(trigaux) - rethink if list is right thing here
     }
   }
 }
-  
-void Subscriptions::remove(const quicr::Name& name, const int len, const Remote& remote ) {
-  quicr::Namespace prefix (name, len);
 
-  auto mapPtr = subscriptions[len].find(prefix.name() );
-  if ( mapPtr != subscriptions[len].end() ) {
-    std::set<Remote>& list = mapPtr->second;
-    if ( list.find( remote ) == list.end() ) {
-      list.erase( remote ); 
+void
+Subscriptions::remove(const quicr::Name& name,
+                      uint8_t len,
+                      const Remote& remote)
+{
+  const auto prefix = quicr::Namespace{ name, len };
+
+  auto mapPtr = subscriptions[len].find(prefix.name());
+  if (mapPtr != subscriptions[len].end()) {
+    auto& list = mapPtr->second;
+    if (list.find(remote) == list.end()) {
+      list.erase(remote);
     }
   }
 }
-  
-std::list<Subscriptions::Remote> Subscriptions::find(  const quicr::Name& name  ) {
-  std::list<Remote> ret;
 
+std::list<Subscriptions::Remote>
+Subscriptions::find(const quicr::Name& name)
+{
+  std::list<Remote> all_remotes;
 
-  // TODO: Fix this to not have to iterate for each mask bit
-  for ( int len=0; len <= 128 ; len++ ) {
-    quicr::Namespace prefix (name, len);
+  // TODO(trigaux): Fix this to not have to iterate for each mask bit
+  for (uint8_t len = 0; len <= 128; len++) {
+    const auto prefix = quicr::Namespace{ name, len };
 
-    auto mapPtr = subscriptions[len].find( prefix.name() );
-    if ( mapPtr != subscriptions[len].end() ) {
-      std::set<Remote>& list = mapPtr->second;
-      for( const Remote& remote : list ) {
-        Remote dest = remote;
-        ret.push_back( dest );
-      }
+    auto mapPtr = subscriptions[len].find(prefix.name());
+    if (mapPtr != subscriptions[len].end()) {
+      const auto& list = mapPtr->second;
+      all_remotes.insert(all_remotes.end(), list.begin(), list.end());
     }
   }
 
-  return ret;
+  return all_remotes;
 }

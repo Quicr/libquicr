@@ -11,10 +11,12 @@ using quicr::bytes;
 namespace quicr::messages {
 
 namespace {
+
 std::string
 to_string(MessageType type)
 {
 // clang-format off
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define ENUM_MAP_ENTRY(n) { n, #n }
   // clang-format on
   static std::map<MessageType, std::string> message_type_name = {
@@ -32,7 +34,8 @@ to_string(MessageType type)
 #undef ENUM_MAP_ENTRY
   return message_type_name[type];
 }
-}
+
+} // namespace
 
 MessageTypeException::MessageTypeException(MessageType type,
                                            MessageType expected_type)
@@ -51,7 +54,8 @@ MessageTypeException::MessageTypeException(uint8_t type,
 uint64_t
 create_transaction_id()
 {
-  std::default_random_engine engine(time(0));
+  // NOLINTNEXTLINE(cert-msc32-c,cert-msc51-cpp)
+  std::default_random_engine engine(time(nullptr));
   std::uniform_int_distribution distribution(1, 9);
   return distribution(engine);
 }
@@ -63,16 +67,14 @@ create_transaction_id()
 MessageBuffer&
 operator<<(MessageBuffer& msg, const Namespace& value)
 {
-  // TODO: These should be swapped around.
   return msg << value.name() << value.length();
 }
 
 MessageBuffer&
 operator>>(MessageBuffer& msg, Namespace& value)
 {
-  Name name;
-  uint8_t length;
-  // TODO: These should be swapped around.
+  auto name = Name{};
+  auto length = uint8_t(0);
   msg >> name >> length;
 
   value = { name, length };
@@ -82,7 +84,8 @@ operator>>(MessageBuffer& msg, Namespace& value)
 MessageBuffer&
 operator<<(MessageBuffer& msg, const uintVar_t& v)
 {
-  uint64_t val = v;
+  // NOLINTBEGIN(hicpp-signed-bitwise)
+  const auto val = uint64_t(v);
 
   if (val < ((uint64_t)1 << 7)) {
     msg.push(uint8_t(((val >> 0) & 0x7F)) | 0x00);
@@ -113,26 +116,26 @@ operator<<(MessageBuffer& msg, const uintVar_t& v)
   msg.push(uint8_t((val >> 0) & 0xFF));
 
   return msg;
+  // NOLINTEND(hicpp-signed-bitwise)
 }
 
 MessageBuffer&
 operator>>(MessageBuffer& msg, uintVar_t& v)
 {
-  uint8_t byte[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-  uint8_t first = msg.front();
+  // NOLINTBEGIN(hicpp-signed-bitwise)
+  auto byte = std::array<uint8_t, 8>{ 0, 0, 0, 0, 0, 0, 0, 0 };
+  const auto first = msg.front();
 
   if ((first & (0x80)) == 0) {
     msg >> byte[0];
-    uint8_t val = ((byte[0] & 0x7F) << 0);
-    v = val;
+    v = ((byte[0] & 0x7F) << 0);
     return msg;
   }
 
   if ((first & (0x80 | 0x40)) == 0x80) {
     msg >> byte[1];
     msg >> byte[0];
-    uint16_t val = ((uint16_t(byte[1]) & 0x3F) << 8) + (uint16_t(byte[0]) << 0);
-    v = val;
+    v = ((uint16_t(byte[1]) & 0x3F) << 8) + (uint16_t(byte[0]) << 0);
     return msg;
   }
 
@@ -141,10 +144,8 @@ operator>>(MessageBuffer& msg, uintVar_t& v)
     msg >> byte[2];
     msg >> byte[1];
     msg >> byte[0];
-    uint32_t val = ((uint32_t)(byte[3] & 0x1F) << 24) +
-                   ((uint32_t)byte[2] << 16) + ((uint32_t)byte[1] << 8) +
-                   ((uint32_t)byte[0] << 0);
-    v = val;
+    v = ((uint32_t)(byte[3] & 0x1F) << 24) + ((uint32_t)byte[2] << 16) +
+        ((uint32_t)byte[1] << 8) + ((uint32_t)byte[0] << 0);
     return msg;
   }
 
@@ -156,13 +157,12 @@ operator>>(MessageBuffer& msg, uintVar_t& v)
   msg >> byte[2];
   msg >> byte[1];
   msg >> byte[0];
-  uint64_t val = ((uint64_t)(byte[7] & 0x0F) << 56) +
-                 ((uint64_t)(byte[6]) << 48) + ((uint64_t)(byte[5]) << 40) +
-                 ((uint64_t)(byte[4]) << 32) + ((uint64_t)(byte[3]) << 24) +
-                 ((uint64_t)(byte[2]) << 16) + ((uint64_t)(byte[1]) << 8) +
-                 ((uint64_t)(byte[0]) << 0);
-  v = val;
+  v = ((uint64_t)(byte[7] & 0x0F) << 56) + ((uint64_t)(byte[6]) << 48) +
+      ((uint64_t)(byte[5]) << 40) + ((uint64_t)(byte[4]) << 32) +
+      ((uint64_t)(byte[3]) << 24) + ((uint64_t)(byte[2]) << 16) +
+      ((uint64_t)(byte[1]) << 8) + ((uint64_t)(byte[0]) << 0);
   return msg;
+  // NOLINTEND(hicpp-signed-bitwise)
 }
 
 MessageBuffer&
@@ -184,7 +184,7 @@ operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val)
 MessageBuffer&
 operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
 {
-  uintVar_t vec_size = 0;
+  auto vec_size = uintVar_t(0);
   msg >> vec_size;
 
   val = msg.pop_front(vec_size);
@@ -209,7 +209,7 @@ operator<<(MessageBuffer& buffer, const Subscribe& msg)
 MessageBuffer&
 operator>>(MessageBuffer& buffer, Subscribe& msg)
 {
-  uint8_t msg_type;
+  auto msg_type = uint8_t(0);
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Subscribe)) {
     throw MessageTypeException(msg_type, MessageType::Subscribe);
@@ -236,7 +236,7 @@ operator<<(MessageBuffer& buffer, const Unsubscribe& msg)
 MessageBuffer&
 operator>>(MessageBuffer& buffer, Unsubscribe& msg)
 {
-  uint8_t msg_type;
+  auto msg_type = uint8_t(0);
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Unsubscribe)) {
     throw MessageTypeException(msg_type, MessageType::Unsubscribe);
@@ -261,13 +261,13 @@ operator<<(MessageBuffer& buffer, const SubscribeResponse& msg)
 MessageBuffer&
 operator>>(MessageBuffer& buffer, SubscribeResponse& msg)
 {
-  uint8_t msg_type;
+  auto msg_type = uint8_t(0);
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::SubscribeResponse)) {
     throw MessageTypeException(msg_type, MessageType::SubscribeResponse);
   }
 
-  uint8_t response;
+  auto response = uint8_t(0);
   buffer >> response;
   msg.response = static_cast<SubscribeResult::SubscribeStatus>(response);
 
@@ -290,13 +290,13 @@ operator<<(MessageBuffer& buffer, const SubscribeEnd& msg)
 MessageBuffer&
 operator>>(MessageBuffer& buffer, SubscribeEnd& msg)
 {
-  uint8_t msg_type;
+  auto msg_type = uint8_t(0);
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::SubscribeEnd)) {
     throw MessageTypeException(msg_type, MessageType::SubscribeEnd);
   }
 
-  uint8_t reason;
+  auto reason = uint8_t(0);
   buffer >> reason;
   msg.reason = static_cast<SubscribeResult::SubscribeStatus>(reason);
 
@@ -336,7 +336,7 @@ operator<<(MessageBuffer& buffer, PublishIntent&& msg)
 MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishIntent& msg)
 {
-  uint8_t msg_type;
+  auto msg_type = uint8_t(0);
   buffer >> msg_type;
   msg.message_type = static_cast<MessageType>(msg_type);
 
@@ -363,13 +363,13 @@ operator<<(MessageBuffer& buffer, const PublishIntentResponse& msg)
 MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishIntentResponse& msg)
 {
-  uint8_t msg_type;
+  auto msg_type = uint8_t(0);
   buffer >> msg_type;
   msg.message_type = static_cast<MessageType>(msg_type);
 
   buffer >> msg.quicr_namespace;
 
-  uint8_t response;
+  auto response = uint8_t(0);
   buffer >> response;
   msg.response = static_cast<Response>(response);
 
@@ -378,7 +378,7 @@ operator>>(MessageBuffer& buffer, PublishIntentResponse& msg)
   return buffer;
 }
 
-MessageBuffer&
+static MessageBuffer&
 operator<<(MessageBuffer& buffer, const Header& msg)
 {
   buffer << msg.name;
@@ -391,7 +391,7 @@ operator<<(MessageBuffer& buffer, const Header& msg)
   return buffer;
 }
 
-MessageBuffer&
+static MessageBuffer&
 operator>>(MessageBuffer& buffer, Header& msg)
 {
   buffer >> msg.name;
@@ -420,7 +420,7 @@ MessageBuffer&
 operator<<(MessageBuffer& buffer, PublishDatagram&& msg)
 {
   buffer << static_cast<uint8_t>(MessageType::Publish);
-  buffer << std::move(msg.header);
+  buffer << msg.header;
   buffer << static_cast<uint8_t>(msg.media_type);
   buffer << msg.media_data_length;
   buffer << std::move(msg.media_data);
@@ -431,7 +431,7 @@ operator<<(MessageBuffer& buffer, PublishDatagram&& msg)
 MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishDatagram& msg)
 {
-  uint8_t msg_type;
+  auto msg_type = uint8_t(0);
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Publish)) {
     throw MessageTypeException(msg_type, MessageType::Publish);
@@ -439,7 +439,7 @@ operator>>(MessageBuffer& buffer, PublishDatagram& msg)
 
   buffer >> msg.header;
 
-  uint8_t media_type;
+  auto media_type = uint8_t(0);
   buffer >> media_type;
   msg.media_type = static_cast<MediaType>(media_type);
 
@@ -506,7 +506,7 @@ operator<<(MessageBuffer& buffer, PublishIntentEnd&& msg)
 MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishIntentEnd& msg)
 {
-  uint8_t msg_type;
+  auto msg_type = uint8_t(0);
   buffer >> msg_type;
   msg.message_type = static_cast<MessageType>(msg_type);
 
@@ -532,7 +532,7 @@ operator<<(MessageBuffer& buffer, const Fetch& msg)
 MessageBuffer&
 operator>>(MessageBuffer& buffer, Fetch& msg)
 {
-  uint8_t msg_type;
+  auto msg_type = uint8_t(0);
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Fetch)) {
     throw MessageTypeException(msg_type, MessageType::Fetch);
@@ -543,4 +543,4 @@ operator>>(MessageBuffer& buffer, Fetch& msg)
   return buffer;
 }
 
-}
+} // namespace quicr::messages

@@ -49,7 +49,7 @@ public:
    *
    * @throws std::runtime_error : If transport fails to connect.
    */
-  ClientRawSession(const RelayInfo& relayInfo,
+  ClientRawSession(const RelayInfo& relay_info,
                    const qtransport::TransportConfig& tconfig,
                    const cantina::LoggerPointer& logger);
 
@@ -216,9 +216,10 @@ protected:
   void on_recv_notify(const qtransport::TransportContextId& context_id,
                       const qtransport::StreamId& streamId) override;
 
-  bool notify_pub_fragment(const messages::PublishDatagram& datagram,
-                           const std::shared_ptr<SubscriberDelegate>& delegate,
-                           const std::map<int, bytes>& frag_map);
+  static bool notify_pub_fragment(
+    const messages::PublishDatagram& datagram,
+    const std::shared_ptr<SubscriberDelegate>& delegate,
+    const std::map<uint32_t, bytes>& frag_map);
 
   void handle_pub_fragment(messages::PublishDatagram&& datagram,
                            const std::shared_ptr<SubscriberDelegate>& delegate);
@@ -270,8 +271,11 @@ protected:
   bool need_pacing{ false };
   bool has_shared_transport{ false };
   std::atomic_bool stopping{ false };
-  qtransport::StreamId transport_dgram_stream_id{ 0 };
-  qtransport::TransportContextId transport_context_id;
+
+  // These parameters are updated on connect() / disconnect().  The optional
+  // parameters should be non-null if and only if connected().
+  std::optional<qtransport::StreamId> transport_dgram_stream_id;
+  std::optional<qtransport::TransportContextId> transport_context_id;
 
   // Nested map to reassemble message fragments
   //
@@ -297,7 +301,7 @@ protected:
   static constexpr size_t max_pending_per_buffer = 5000;
   static constexpr size_t max_fragment_buffers = 20;
 
-  using FragmentBuffer = std::map<quicr::Name, std::map<int, bytes>>;
+  using FragmentBuffer = std::map<quicr::Name, std::map<uint32_t, bytes>>;
   std::array<FragmentBuffer, max_fragment_buffers> fragments;
 
   cantina::LoggerPointer logger;

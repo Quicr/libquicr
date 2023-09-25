@@ -1,7 +1,7 @@
 add_executable(really
         really.cpp
         subscription.cpp)
-target_link_libraries(really PRIVATE quicr  picotls-core picotls-openssl)
+target_link_libraries(really PRIVATE quicr)
 
 target_compile_options(really
         PRIVATE
@@ -14,13 +14,17 @@ set_target_properties(really
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS ON)
 
+if(CLANG_TIDY_EXE)
+  set_target_properties(quicr PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
+endif()
+
 
 # --------------------------------
 # Really test
 # --------------------------------
 add_executable( reallyTest reallyTest.cpp )
 
-target_link_libraries( reallyTest LINK_PUBLIC quicr  picotls-core picotls-openssl)
+target_link_libraries( reallyTest LINK_PUBLIC quicr)
 
 target_compile_options(reallyTest
         PRIVATE
