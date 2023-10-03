@@ -29,7 +29,7 @@ enum class MessageType : uint8_t
   PublishIntentEnd,
   Fetch,
 
-  PeerMsg=128
+  PeerMsg = 128
 
 };
 

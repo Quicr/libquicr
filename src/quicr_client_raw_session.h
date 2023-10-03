@@ -21,7 +21,7 @@
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_common.h"
 
-#include <quicr_name>
+#include <qname>
 #include <transport/transport.h>
 
 #include <atomic>
@@ -34,8 +34,8 @@ namespace quicr {
 /**
  *   Client Raw Session Interface
  */
-class QuicRClientRawSession
-  : public QuicRClientSession
+class ClientRawSession
+  : public ClientSession
   , public qtransport::ITransport::TransportDelegate
 {
 public:
@@ -49,9 +49,9 @@ public:
    *
    * @throws std::runtime_error : If transport fails to connect.
    */
-  QuicRClientRawSession(RelayInfo& relayInfo,
-                        qtransport::TransportConfig tconfig,
-                        const cantina::LoggerPointer& logger);
+  ClientRawSession(const RelayInfo& relay_info,
+                   const qtransport::TransportConfig& tconfig,
+                   const cantina::LoggerPointer& logger);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber
@@ -60,36 +60,32 @@ public:
    * @param transport : External transport pointer to use.
    * @param logger    : Shared pointer to a cantina::Logger object
    */
-  QuicRClientRawSession(std::shared_ptr<qtransport::ITransport> transport,
-                        const cantina::LoggerPointer& logger);
+  ClientRawSession(std::shared_ptr<qtransport::ITransport> transport,
+                   const cantina::LoggerPointer& logger);
 
   /**
    * @brief Destructor for the raw client session object
    */
-  virtual ~QuicRClientRawSession();
+  virtual ~ClientRawSession();
 
   /**
    * @brief Connects the session using the info provided on construction.
    * @returns True if connected, false otherwise.
    */
-  virtual bool connect() override;
+  bool connect() override;
 
   /**
    * @brief Disconnects the session from the relay.
    * @returns True if successful, false if some error occurred.
    */
-  virtual bool disconnect() override;
+  bool disconnect() override;
 
   /**
-   * @brief Get the client status
-   *
-   * @details This method should be used to determine if the client is
-   *   connected and ready for publishing and subscribing to messages.
-   *   Status will indicate the type of error if not ready.
-   *
-   * @returns client status
+   * @brief Checks if the session is connected.
+   * @returns True if transport has started and connection has been made. False
+   *          otherwise.
    */
-  ClientStatus status() const override { return client_status; }
+  bool connected() const override;
 
   /**
    * @brief Publish intent to publish on a QUICR Namespace
@@ -97,9 +93,12 @@ public:
    * @param pub_delegate            : Publisher delegate reference
    * @param quicr_namespace         : Identifies QUICR namespace
    * @param origin_url              : Origin serving the QUICR Session
-   * @param auth_token              : Auth Token to validate the Subscribe Request
-   * @param payload                 : Opaque payload to be forwarded to the Origin
-   * @param use_reliable_transport  : Indicates to use reliable for matching published objects
+   * @param auth_token              : Auth Token to validate the Subscribe
+   * Request
+   * @param payload                 : Opaque payload to be forwarded to the
+   * Origin
+   * @param use_reliable_transport  : Indicates to use reliable for matching
+   * published objects
    */
   bool publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                      const quicr::Namespace& quicr_namespace,
@@ -133,7 +132,7 @@ public:
    * @param origin_url            : Origin serving the QUICR Session
    * @param use_reliable_transport: Reliable or Unreliable transport
    * @param auth_token            : Auth Token to validate the Subscribe Request
-   * @parm e2e_token              : Opaque token to be forwarded to the Origin
+   * @param e2e_token              : Opaque token to be forwarded to the Origin
    *
    * @details Entities processing the Subscribe Request MUST validate the
    * request against the token, verify if the Origin specified in the origin_url
@@ -217,11 +216,13 @@ protected:
   void on_recv_notify(const qtransport::TransportContextId& context_id,
                       const qtransport::StreamId& streamId) override;
 
-  bool notify_pub_fragment(const messages::PublishDatagram& datagram,
-                           const std::weak_ptr<SubscriberDelegate>& delegate,
-                           const std::map<int, bytes>& frag_map);
+  static bool notify_pub_fragment(
+    const messages::PublishDatagram& datagram,
+    const std::shared_ptr<SubscriberDelegate>& delegate,
+    const std::map<uint32_t, bytes>& frag_map);
+
   void handle_pub_fragment(messages::PublishDatagram&& datagram,
-                           const std::weak_ptr<SubscriberDelegate>& delegate);
+                           const std::shared_ptr<SubscriberDelegate>& delegate);
 
   void handle(messages::MessageBuffer&& msg);
 
@@ -244,9 +245,9 @@ protected:
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
     qtransport::StreamId transport_stream_id{ 0 };
-    uint64_t transaction_id {0};
-    uint64_t last_group_id {0};
-    uint64_t last_object_id {0};
+    uint64_t transaction_id{ 0 };
+    uint64_t last_group_id{ 0 };
+    uint64_t last_object_id{ 0 };
   };
 
   // State per publish_intent and related publish
@@ -262,24 +263,53 @@ protected:
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
     qtransport::StreamId transport_stream_id{ 0 };
-    uint64_t last_group_id {0};
-    uint64_t last_object_id {0};
+    uint64_t last_group_id{ 0 };
+    uint64_t last_object_id{ 0 };
     uint64_t offset{ 0 };
   };
 
   bool need_pacing{ false };
   bool has_shared_transport{ false };
   std::atomic_bool stopping{ false };
-  qtransport::StreamId transport_dgram_stream_id{ 0 };
-  qtransport::TransportContextId transport_context_id;
-  ClientStatus client_status{ ClientStatus::TERMINATED };
+
+  // These parameters are updated on connect() / disconnect().  The optional
+  // parameters should be non-null if and only if connected().
+  std::optional<qtransport::StreamId> transport_dgram_stream_id;
+  std::optional<qtransport::TransportContextId> transport_context_id;
+
+  // Nested map to reassemble message fragments
+  //
+  // Structure:
+  //    fragments[<circular index>] = map[quicr_name] = map[offset] = data
+  //
+  // Circular index is a small int value that increments from 0 to max. It
+  // wraps to 0 after reaching max size.  In this sense, it's a circular
+  // buffer. Upon moving to a new index the new index data will be purged (if
+  // any exists).
+  //
+  // Fragment reassembly avoids timers and time interval based checks. It
+  // instead is based on received data. Every message quicr_name is checked
+  // to see if it's complete. If so, the published object callback will be
+  // executed. If not, it'll only update the map with the new offset value.
+  // Incomplete messages can exist in the cache for as long as the circular
+  // index hasn't wrapped to the same point in cache.  Under high
+  // load/volume, this can wrap within a minute or two.  Under very little
+  // load, this could linger for hours. This is okay considering the only harm
+  // is a little extra memory being used. Extra memory is a trade-off for being
+  // event/message driven instead of timer based with threading/locking/...
+  uint32_t circular_index{ 0 };
+  static constexpr size_t max_pending_per_buffer = 5000;
+  static constexpr size_t max_fragment_buffers = 20;
+
+  using FragmentBuffer = std::map<quicr::Name, std::map<uint32_t, bytes>>;
+  std::array<FragmentBuffer, max_fragment_buffers> fragments;
 
   cantina::LoggerPointer logger;
 
-  namespace_map<std::weak_ptr<PublisherDelegate>> pub_delegates;
+  namespace_map<std::shared_ptr<PublisherDelegate>> pub_delegates;
   namespace_map<PublishContext> publish_state{};
 
-  namespace_map<std::weak_ptr<SubscriberDelegate>> sub_delegates;
+  namespace_map<std::shared_ptr<SubscriberDelegate>> sub_delegates;
   namespace_map<SubscribeContext> subscribe_state{};
 
   std::shared_ptr<qtransport::ITransport> transport;

@@ -52,9 +52,7 @@ MessageBuffer::MessageBuffer(buffer_type&& buffer)
 void
 MessageBuffer::push(span_type data)
 {
-  const auto length = _buffer.size();
-  _buffer.resize(length + data.size());
-  std::memcpy(_buffer.data() + length, data.data(), data.size());
+  _buffer.insert(_buffer.end(), data.begin(), data.end());
 }
 
 void
@@ -68,8 +66,9 @@ MessageBuffer::push(buffer_type&& data)
 void
 MessageBuffer::pop(size_t length)
 {
-  if (length == 0)
+  if (length == 0) {
     return;
+  }
 
   cleanup(length);
 };
@@ -77,8 +76,9 @@ MessageBuffer::pop(size_t length)
 const uint8_t&
 MessageBuffer::front() const
 {
-  if (empty())
+  if (empty()) {
     throw EmptyException();
+  }
 
   return *begin();
 }
@@ -86,17 +86,21 @@ MessageBuffer::front() const
 MessageBuffer::span_type
 MessageBuffer::front(size_t length) const
 {
-  if (length == 0)
+  if (length == 0) {
     return {};
+  }
 
-  if (empty())
+  if (empty()) {
     throw EmptyException();
+  }
 
-  if (length > size())
+  if (length > size()) {
     throw OutOfRangeException(length, size());
+  }
 
-  if (length == size())
+  if (length == size()) {
     return _buffer;
+  }
 
   return { data(), length };
 }
@@ -104,10 +108,11 @@ MessageBuffer::front(size_t length) const
 uint8_t
 MessageBuffer::pop_front()
 {
-  if (empty())
+  if (empty()) {
     throw EmptyException();
+  }
 
-  uint8_t value = *std::make_move_iterator(begin());
+  const auto value = *std::make_move_iterator(begin());
   cleanup();
 
   return value;
@@ -116,17 +121,21 @@ MessageBuffer::pop_front()
 MessageBuffer::buffer_type
 MessageBuffer::pop_front(size_t length)
 {
-  if (length == 0)
+  if (length == 0) {
     return {};
+  }
 
-  if (empty())
+  if (empty()) {
     throw EmptyException();
+  }
 
-  if (length > size())
+  if (length > size()) {
     throw OutOfRangeException(length, size());
+  }
 
-  if (length == size())
+  if (length == size()) {
     return take();
+  }
 
   buffer_type result(length);
   std::copy_n(std::make_move_iterator(begin()), length, result.begin());
@@ -148,8 +157,9 @@ MessageBuffer::to_hex() const
 {
   std::ostringstream hex;
   hex << std::hex << std::setfill('0') << std::uppercase;
-  for (const auto& byte : *this)
+  for (const auto& byte : *this) {
     hex << std::setw(2) << int(byte);
+  }
   return hex.str();
 }
 
@@ -178,15 +188,18 @@ MessageBuffer::operator>>(uint8_t& value)
 void
 MessageBuffer::cleanup(size_t length)
 {
-  if (empty())
+  if (empty()) {
     throw EmptyException();
+  }
 
-  if (length > size())
+  if (length > size()) {
     throw OutOfRangeException(length, size());
+  }
 
   _read_offset += length;
-  if (!empty())
+  if (!empty()) {
     return;
+  }
 
   _read_offset = 0;
   _buffer.clear();

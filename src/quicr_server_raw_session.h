@@ -20,8 +20,8 @@
 #include "quicr/quicr_server_delegate.h"
 #include "quicr/quicr_server_session.h"
 
-#include <transport/transport.h>
 #include <cantina/logger.h>
+#include <transport/transport.h>
 
 #include <map>
 #include <mutex>
@@ -31,7 +31,7 @@
  */
 namespace quicr {
 
-class QuicRServerRawSession : public QuicRServerSession
+class ServerRawSession : public ServerSession
 {
 public:
   /**
@@ -43,20 +43,19 @@ public:
    * @param logger           : Log handler instance. Will be used by transport
    *                           quicr api
    */
-  QuicRServerRawSession(RelayInfo& relayInfo,
-                        qtransport::TransportConfig tconfig,
-                        ServerDelegate& delegate,
-                        const cantina::LoggerPointer& logger);
+  ServerRawSession(const RelayInfo& relayInfo,
+                   const qtransport::TransportConfig& tconfig,
+                   std::shared_ptr<ServerDelegate> delegate,
+                   const cantina::LoggerPointer& logger);
 
   /**
    * API for unit test cases.
    */
-  QuicRServerRawSession(
-    std::shared_ptr<qtransport::ITransport> transport,
-    ServerDelegate& delegate /* TODO: Considering shared or weak pointer */,
-    const cantina::LoggerPointer& logger);
+  ServerRawSession(std::shared_ptr<qtransport::ITransport> transport,
+                   std::shared_ptr<ServerDelegate> delegate,
+                   const cantina::LoggerPointer& logger);
 
-  ~QuicRServerRawSession() = default;
+  ~ServerRawSession() = default;
 
   // Transport APIs
   bool is_transport_ready() override;
@@ -126,7 +125,7 @@ public:
    *                                   current object
    * @param expiry_age_ms            : Time hint for the object to be in cache
    *                                   before being purged after reception
-   * @param datagram                 : QuicR Publish Datagram to send
+   * @param datagram                 :  Publish Datagram to send
    *
    */
   void sendNamedObject(const uint64_t& subscriber_id,
@@ -142,7 +141,7 @@ private:
   class TransportDelegate : public qtransport::ITransport::TransportDelegate
   {
   public:
-    TransportDelegate(QuicRServerRawSession& server);
+    TransportDelegate(ServerRawSession& server);
 
     void on_connection_status(
       const qtransport::TransportContextId& context_id,
@@ -155,7 +154,7 @@ private:
                         const qtransport::StreamId& streamId) override;
 
   private:
-    QuicRServerRawSession& server;
+    ServerRawSession& server;
   };
 
 public:
@@ -173,8 +172,7 @@ public:
 
 private:
   std::shared_ptr<qtransport::ITransport> setupTransport(
-    RelayInfo& relayInfo,
-    qtransport::TransportConfig cfg);
+    const qtransport::TransportConfig& cfg);
 
   void handle_subscribe(const qtransport::TransportContextId& context_id,
                         const qtransport::StreamId& streamId,
@@ -223,22 +221,23 @@ private:
 
   struct PublishIntentContext : public Context
   {
-    uint64_t transaction_id {0};
-    uint64_t last_group_id {0};
-    uint64_t last_object_id {0};
+    uint64_t transaction_id{ 0 };
+    uint64_t last_group_id{ 0 };
+    uint64_t last_object_id{ 0 };
   };
 
-  ServerDelegate& delegate;
+  std::shared_ptr<ServerDelegate> delegate;
   cantina::LoggerPointer logger;
   TransportDelegate transport_delegate;
   std::shared_ptr<qtransport::ITransport> transport;
   qtransport::TransportRemote t_relay;
-  std::map<quicr::Namespace,
-           std::map<qtransport::TransportContextId, SubscribeContext>>
-    subscribe_state{};
+
+  using SubscriptionContextMap =
+    std::map<qtransport::TransportContextId, SubscribeContext>;
+  namespace_map<SubscriptionContextMap> subscribe_state{};
   std::map<uint64_t, SubscribeContext> subscribe_id_state{};
 
-   // TODO: publish_namespaces should support multi-origin (more than one publisher per ns)
+  // TODO: Support more than one publisher per ns
   namespace_map<PublishIntentContext> publish_namespaces{};
 
   bool running{ false };

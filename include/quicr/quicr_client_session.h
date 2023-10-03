@@ -9,7 +9,7 @@
  *      This is an interface specification for the session layer sitting at the
  *      next level of the client library.  The topology looks like this:
  *
- *          QuicRClient => QuicRClientSession => Transport
+ *          QuicRClient => ClientSession => Transport
  *
  *  Portability Issues:
  *      None.
@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include "quicr_client_common.h"
 #include "quicr_client_delegate.h"
 #include "quicr_common.h"
 
@@ -32,11 +31,11 @@
  */
 namespace quicr {
 
-class QuicRClientSession
+class ClientSession
 {
 public:
-  QuicRClientSession() = default;
-  virtual ~QuicRClientSession() = default;
+  ClientSession() = default;
+  virtual ~ClientSession() = default;
 
   /**
    * @brief Connects the session using the info provided on construction.
@@ -51,15 +50,11 @@ public:
   virtual bool disconnect() = 0;
 
   /**
-   * @brief Get the client status
-   *
-   * @details This method should be used to determine if the client is
-   *   connected and ready for publishing and subscribing to messages.
-   *   Status will indicate the type of error if not ready.
-   *
-   * @returns client status
+   * @brief Checks if the session is connected.
+   * @returns True if transport has started and connection has been made. False
+   *          otherwise.
    */
-  virtual ClientStatus status() const = 0;
+  virtual bool connected() const = 0;
 
   /**
    * @brief Publish intent to publish on a QUICR Namespace
@@ -67,9 +62,12 @@ public:
    * @param pub_delegate            : Publisher delegate reference
    * @param quicr_namespace         : Identifies QUICR namespace
    * @param origin_url              : Origin serving the QUICR Session
-   * @param auth_token              : Auth Token to validate the Subscribe Request
-   * @param payload                 : Opaque payload to be forwarded to the Origin
-   * @param use_reliable_transport  : Indicates to use reliable for matching published objects
+   * @param auth_token              : Auth Token to validate the Subscribe
+   * Request
+   * @param payload                 : Opaque payload to be forwarded to the
+   * Origin
+   * @param use_reliable_transport  : Indicates to use reliable for matching
+   * published objects
    */
   virtual bool publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                              const quicr::Namespace& quicr_namespace,
@@ -103,7 +101,7 @@ public:
    * @param origin_url            : Origin serving the QUICR Session
    * @param use_reliable_transport: Reliable or Unreliable transport
    * @param auth_token            : Auth Token to validate the Subscribe Request
-   * @parm e2e_token              : Opaque token to be forwarded to the Origin
+   * @param e2e_token              : Opaque token to be forwarded to the Origin
    *
    * @details Entities processing the Subscribe Request MUST validate the
    * request against the token, verify if the Origin specified in the origin_url
@@ -175,5 +173,9 @@ public:
                                           bool is_last_fragment,
                                           bytes&& data) = 0;
 };
+
+using QuicRClientSession [[deprecated(
+  "quicr::QuicRClientSession stutters, use quicr::ClientSession")]] =
+  quicr::ClientSession;
 
 } // namespace quicr

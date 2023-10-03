@@ -1,9 +1,9 @@
 #include <doctest/doctest.h>
 
+#include <qname>
 #include <quicr/encode.h>
 #include <quicr/message_buffer.h>
 #include <quicr/quicr_common.h>
-#include <quicr_name>
 
 #include <memory>
 #include <random>
@@ -15,23 +15,40 @@ using namespace quicr::messages;
 
 TEST_CASE("MessageBuffer Swap Bytes")
 {
-  uint16_t u16 = 0x1234u;
-  uint32_t u32 = 0x12345678u;
-  uint64_t u64 = 0x123456789ABCDEF0u;
-  Name u128 = 0x123456789ABCDEF0123456789ABCDEF0_name;
+  const auto u16 = uint16_t(0x1234U);
+  const auto u32 = uint32_t(0x12345678U);
+  const auto u64 = uint64_t(0x123456789ABCDEF0U);
+  const auto u128 = 0x123456789ABCDEF0123456789ABCDEF0_name;
 
-  CHECK_NE(u16, swap_bytes(u16));
-  CHECK_NE(u32, swap_bytes(u32));
-  CHECK_NE(u64, swap_bytes(u64));
-  CHECK_NE(u128, swap_bytes(u128));
+  auto u16_be = uint16_t(0);
+  auto u32_be = uint32_t(0);
+  auto u64_be = uint64_t(0);
+  auto u128_be = Name{};
+  if constexpr (std::endian::native == std::endian::little) {
+    u16_be = uint16_t(0x3412U);
+    u32_be = uint32_t(0x78563412U);
+    u64_be = uint64_t(0xF0DEBC9A78563412);
+    u128_be = 0xF0DEBC9A78563412F0DEBC9A78563412_name;
+  } else {
+    u16_be = u16;
+    u32_be = u32;
+    u64_be = u64;
+    u128_be = u128;
+  }
+
+  CHECK(swap_bytes(u16) == u16_be);
+  CHECK(swap_bytes(u32) == u32_be);
+  CHECK(swap_bytes(u64) == u64_be);
+  CHECK(swap_bytes(u128) == u128_be);
 }
 
 TEST_CASE("MessageBuffer Decode Exception")
 {
-  uint8_t max = std::numeric_limits<uint8_t>::max();
+  const auto max = std::numeric_limits<uint8_t>::max();
   MessageBuffer buffer;
   buffer << max;
-  uint64_t out;
+
+  auto out = uint64_t(0);
   CHECK_THROWS((buffer >> out));
 }
 
@@ -41,12 +58,13 @@ TEST_CASE("MessageBuffer Decode Exception")
 
 TEST_CASE("Subscribe Message encode/decode")
 {
-  quicr::Namespace qnamespace{ 0x10000000000000002000_name, 128 };
+  const auto qnamespace = quicr::Namespace{ 0x10000000000000002000_name, 128 };
+  const auto s = Subscribe{ 1, 0x1000, qnamespace, SubscribeIntent::immediate };
 
-  Subscribe s{ 1, 0x1000, qnamespace, SubscribeIntent::immediate };
   MessageBuffer buffer;
   buffer << s;
-  Subscribe s_out;
+
+  auto s_out = Subscribe{};
   CHECK_NOTHROW((buffer >> s_out));
 
   CHECK_EQ(s_out.transaction_id, s.transaction_id);
@@ -56,15 +74,17 @@ TEST_CASE("Subscribe Message encode/decode")
 
 TEST_CASE("SubscribeResponse Message encode/decode")
 {
-  quicr::Namespace qnamespace{ 0x10000000000000002000_name, 125 };
+  const auto qnamespace = quicr::Namespace{ 0x10000000000000002000_name, 125 };
+  const auto s = SubscribeResponse{ qnamespace,
+                                    SubscribeResult::SubscribeStatus::Ok,
+                                    0x1000 };
 
-  SubscribeResponse s{ qnamespace,
-                       SubscribeResult::SubscribeStatus::Ok,
-                       0x1000 };
   MessageBuffer buffer;
   buffer << s;
-  SubscribeResponse s_out;
+
+  auto s_out = SubscribeResponse{};
   CHECK_NOTHROW((buffer >> s_out));
+
   CHECK_EQ(s_out.quicr_namespace, s.quicr_namespace);
   CHECK_EQ(s_out.response, s.response);
   CHECK_EQ(s_out.transaction_id, s.transaction_id);
@@ -72,14 +92,14 @@ TEST_CASE("SubscribeResponse Message encode/decode")
 
 TEST_CASE("SubscribeEnd Message encode/decode")
 {
-  quicr::Namespace qnamespace{ 0x10000000000000002000_name, 125 };
-
-  SubscribeEnd s{ .quicr_namespace = qnamespace,
-                  .reason = SubscribeResult::SubscribeStatus::Ok };
+  const auto qnamespace = quicr::Namespace{ 0x10000000000000002000_name, 125 };
+  const auto s = SubscribeEnd{ .quicr_namespace = qnamespace,
+                               .reason = SubscribeResult::SubscribeStatus::Ok };
 
   MessageBuffer buffer;
   buffer << s;
-  SubscribeEnd s_out;
+
+  auto s_out = SubscribeEnd{};
   CHECK_NOTHROW((buffer >> s_out));
 
   CHECK_EQ(s_out.quicr_namespace, s.quicr_namespace);
@@ -88,13 +108,17 @@ TEST_CASE("SubscribeEnd Message encode/decode")
 
 TEST_CASE("Unsubscribe Message encode/decode")
 {
-  quicr::Namespace qnamespace{ 0x10000000000000002000_name, 125 };
-
-  Unsubscribe us{ .quicr_namespace = qnamespace };
+  const auto version = uint8_t(0xa0);
+  const auto qnamespace = quicr::Namespace{ 0x10000000000000002000_name, 125 };
+  const auto us = Unsubscribe{
+    .version = version,
+    .quicr_namespace = qnamespace,
+  };
 
   MessageBuffer buffer;
   buffer << us;
-  Unsubscribe us_out;
+
+  auto us_out = Unsubscribe{};
   CHECK_NOTHROW((buffer >> us_out));
 
   CHECK_EQ(us_out.quicr_namespace, us.quicr_namespace);
@@ -106,13 +130,15 @@ TEST_CASE("Unsubscribe Message encode/decode")
 
 TEST_CASE("PublishIntent Message encode/decode")
 {
-  quicr::Namespace qnamespace{ 0x10000000000000002000_name, 125 };
-  PublishIntent pi{ MessageType::Publish, 0x1000,
-                    qnamespace,           { 0, 1, 2, 3, 4 },
-                    uintVar_t{ 0x0100 },  uintVar_t{ 0x0000 } };
+  const auto qnamespace = quicr::Namespace{ 0x10000000000000002000_name, 125 };
+  const auto pi = PublishIntent{ MessageType::Publish, 0x1000,
+                                 qnamespace,           { 0, 1, 2, 3, 4 },
+                                 uintVar_t{ 0x0100 },  uintVar_t{ 0x0000 } };
+
   MessageBuffer buffer;
   buffer << pi;
-  PublishIntent pi_out;
+
+  auto pi_out = PublishIntent{};
   CHECK_NOTHROW((buffer >> pi_out));
 
   CHECK_EQ(pi_out.message_type, pi.message_type);
@@ -125,10 +151,13 @@ TEST_CASE("PublishIntent Message encode/decode")
 
 TEST_CASE("PublishIntentResponse Message encode/decode")
 {
-  PublishIntentResponse pir{ MessageType::Publish, {}, Response::Ok, 0x1000 };
+  const auto pir =
+    PublishIntentResponse{ MessageType::Publish, {}, Response::Ok, 0x1000 };
+
   MessageBuffer buffer;
   buffer << pir;
-  PublishIntentResponse pir_out;
+
+  auto pir_out = PublishIntentResponse{};
   CHECK_NOTHROW((buffer >> pir_out));
 
   CHECK_EQ(pir_out.message_type, pir.message_type);
@@ -139,19 +168,22 @@ TEST_CASE("PublishIntentResponse Message encode/decode")
 
 TEST_CASE("Publish Message encode/decode")
 {
-  quicr::Name qn = 0x10000000000000002000_name;
-  Header d{ uintVar_t{ 0x1000 }, qn,
-            uintVar_t{ 0x0100 }, uintVar_t{ 0x0010 },
-            uintVar_t{ 0x0001 }, 0x0000 };
+  const auto qn = 0x10000000000000002000_name;
+  const auto d = Header{ uintVar_t{ 0x1000 }, qn,
+                         uintVar_t{ 0x0100 }, uintVar_t{ 0x0010 },
+                         uintVar_t{ 0x0001 }, 0x0000 };
 
-  std::vector<uint8_t> data(256);
-  for (int i = 0; i < 256; ++i)
+  auto data = std::vector<uint8_t>(256);
+  for (int i = 0; i < 256; ++i) {
     data[i] = i;
+  }
 
-  PublishDatagram p{ d, MediaType::Text, uintVar_t{ 256 }, data };
+  const auto p = PublishDatagram{ d, MediaType::Text, uintVar_t{ 256 }, data };
+
   MessageBuffer buffer;
   buffer << p;
-  PublishDatagram p_out;
+
+  auto p_out = PublishDatagram{};
   CHECK_NOTHROW((buffer >> p_out));
 
   CHECK_EQ(p_out.header.media_id, p.header.media_id);
@@ -168,10 +200,12 @@ TEST_CASE("Publish Message encode/decode")
 
 TEST_CASE("PublishStream Message encode/decode")
 {
-  PublishStream ps{ uintVar_t{ 5 }, { 0, 1, 2, 3, 4 } };
+  const auto ps = PublishStream{ uintVar_t{ 5 }, { 0, 1, 2, 3, 4 } };
+
   MessageBuffer buffer;
   buffer << ps;
-  PublishStream ps_out;
+
+  auto ps_out = PublishStream{};
   CHECK_NOTHROW((buffer >> ps_out));
 
   CHECK_EQ(ps_out.media_data_length, ps.media_data_length);
@@ -180,12 +214,14 @@ TEST_CASE("PublishStream Message encode/decode")
 
 TEST_CASE("PublishIntentEnd Message encode/decode")
 {
-  PublishIntentEnd pie{ MessageType::Publish,
-                        { 12345_name, 0u },
-                        { 0, 1, 2, 3, 4 } };
+  const auto pie = PublishIntentEnd{ MessageType::Publish,
+                                     { 12345_name, 0U },
+                                     { 0, 1, 2, 3, 4 } };
+
   MessageBuffer buffer;
   buffer << pie;
-  PublishIntentEnd pie_out;
+
+  auto pie_out = PublishIntentEnd{};
   CHECK_NOTHROW((buffer >> pie_out));
 
   CHECK_EQ(pie_out.message_type, pie.message_type);
@@ -195,20 +231,18 @@ TEST_CASE("PublishIntentEnd Message encode/decode")
 
 TEST_CASE("VarInt Encode/Decode")
 {
-  constexpr uintVar_t in{ 56u };
-  (void)in;
-  std::vector<uintVar_t> values = {
-    56_uV, 127_uV, 128_uV, 16384_uV, 536870912_uV
-  };
-  std::vector<uintVar_t> out_values(values.size());
-  std::vector<size_t> sizes = { 1, 1, 2, 4, 8 };
+  const auto values =
+    std::vector<uintVar_t>{ 56_uV, 127_uV, 128_uV, 16384_uV, 536870912_uV };
+  const auto sizes = std::vector<size_t>{ 1, 1, 2, 4, 8 };
+  auto out_values = std::vector<uintVar_t>(values.size());
 
-  int i = 0;
+  auto i = size_t(0);
   for (const auto& value : values) {
     MessageBuffer buffer;
     CHECK_NOTHROW(buffer << value);
     REQUIRE_EQ(buffer.size(), sizes[i]);
-    CHECK_NOTHROW(buffer >> out_values[i++]);
+    CHECK_NOTHROW(buffer >> out_values[i]);
+    i += 1;
   }
 
   CHECK_EQ(out_values[0], values[0]);
@@ -224,12 +258,14 @@ TEST_CASE("VarInt Encode/Decode")
 
 TEST_CASE("Fetch Message encode/decode")
 {
-  Fetch f{ 0x1000, 0x10000000000000002000_name };
+  const auto f = Fetch{ 0x1000, 0x10000000000000002000_name };
+
   MessageBuffer buffer;
   buffer << f;
-  Fetch fout;
-  CHECK_NOTHROW((buffer >> fout));
 
-  CHECK_EQ(fout.transaction_id, f.transaction_id);
-  CHECK_EQ(fout.name, f.name);
+  auto f_out = Fetch{};
+  CHECK_NOTHROW((buffer >> f_out));
+
+  CHECK_EQ(f_out.transaction_id, f.transaction_id);
+  CHECK_EQ(f_out.name, f.name);
 }

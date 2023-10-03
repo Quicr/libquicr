@@ -3,18 +3,21 @@
 #include <quicr/encode.h>
 #include <quicr/message_buffer.h>
 
-void
+// The unused variables here are intentional, and we don't care about the
+// quality of the randomness.
+// NOLINTBEGIN(clang-analyzer-deadcode.DeadStores,cert-msc30-c,cert-msc50-cpp,concurrency-mt-unsafe)
+static void
 MessageBuffer_Construct(benchmark::State& state)
 {
   std::vector<uint8_t> buffer(1280);
   std::generate(buffer.begin(), buffer.end(), std::rand);
 
   for (auto _ : state) {
-    quicr::messages::MessageBuffer __(buffer);
+    const auto _buffer = quicr::messages::MessageBuffer(buffer);
   }
 }
 
-void
+static void
 MessageBuffer_PushBack(benchmark::State& state)
 {
   quicr::messages::MessageBuffer buffer;
@@ -23,7 +26,7 @@ MessageBuffer_PushBack(benchmark::State& state)
   }
 }
 
-void
+static void
 MessageBuffer_PushBack16(benchmark::State& state)
 {
   quicr::messages::MessageBuffer buffer;
@@ -32,7 +35,7 @@ MessageBuffer_PushBack16(benchmark::State& state)
   }
 }
 
-void
+static void
 MessageBuffer_PushBack32(benchmark::State& state)
 {
   quicr::messages::MessageBuffer buffer;
@@ -41,7 +44,7 @@ MessageBuffer_PushBack32(benchmark::State& state)
   }
 }
 
-void
+static void
 MessageBuffer_PushBack64(benchmark::State& state)
 {
   quicr::messages::MessageBuffer buffer;
@@ -50,7 +53,7 @@ MessageBuffer_PushBack64(benchmark::State& state)
   }
 }
 
-void
+static void
 MessageBuffer_PushBackName(benchmark::State& state)
 {
   quicr::messages::MessageBuffer buffer;
@@ -60,7 +63,7 @@ MessageBuffer_PushBackName(benchmark::State& state)
   }
 }
 
-void
+static void
 MessageBuffer_PushBackNamespace(benchmark::State& state)
 {
   quicr::messages::MessageBuffer buffer;
@@ -70,7 +73,7 @@ MessageBuffer_PushBackNamespace(benchmark::State& state)
   }
 }
 
-void
+static void
 MessageBuffer_PushBackVector_Copy(benchmark::State& state)
 {
   std::vector<uint8_t> buf(1280);
@@ -82,7 +85,7 @@ MessageBuffer_PushBackVector_Copy(benchmark::State& state)
   }
 }
 
-void
+static void
 MessageBuffer_PushBackVector_Reserved(benchmark::State& state)
 {
   std::vector<uint8_t> buf(1280);
@@ -93,7 +96,11 @@ MessageBuffer_PushBackVector_Reserved(benchmark::State& state)
     buffer.push(buf);
   }
 }
+// NOLINTEND(clang-analyzer-deadcode.DeadStores,cert-msc30-c,cert-msc50-cpp,concurrency-mt-unsafe)
 
+// This lint is hitting on something internal to the benchmarking system, which
+// we are not responsible for.
+// NOLINTBEGIN(cppcoreguidelines-owning-memory)
 BENCHMARK(MessageBuffer_Construct);
 BENCHMARK(MessageBuffer_PushBack);
 BENCHMARK(MessageBuffer_PushBack16);
@@ -103,3 +110,4 @@ BENCHMARK(MessageBuffer_PushBackName);
 BENCHMARK(MessageBuffer_PushBackNamespace);
 BENCHMARK(MessageBuffer_PushBackVector_Copy);
 BENCHMARK(MessageBuffer_PushBackVector_Reserved);
+// NOLINTEND(cppcoreguidelines-owning-memory)
