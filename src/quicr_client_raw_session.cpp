@@ -124,12 +124,12 @@ bool
 ClientRawSession::disconnect()
 {
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
-  if (!connected()) {
-    // Not connected
+  if (!connected() || stopping) {
+    // Not connected or already stopping/stopped
     return true;
   }
 
-  const auto& context_id = transport_context_id.value();
+  const auto& context_id = transport_context_id ? transport_context_id.value() : 0;
   LOGGER_DEBUG(logger, "Disconnecting session " << context_id << "...");
 
   stopping = true;
