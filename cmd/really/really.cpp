@@ -133,15 +133,6 @@ public:
   {
   }
 
-  /**
-   * Hacky dependency injection.
-   * TODO(trigaux): Remove this once delegate no longer depends on server.
-   */
-  void setServer(std::shared_ptr<quicr::Server> server_in)
-  {
-    server = std::move(server_in);
-  }
-
   quicr::PublishIntentResult onPublishIntent(
     const quicr::Namespace& quicr_namespace,
     const std::string& /* origin_url */,
@@ -168,8 +159,6 @@ public:
     quicr::messages::PublishDatagram&& datagram) override
   {
     auto list = subscribeList.find(datagram.header.name);
-    std::erase_if(list,
-                  [&](const auto& s) { return s.context_id == context_id; });
 
     std::vector<quicr::PublishResult> matching_subscriptions;
     for (const auto remote : list) {
@@ -230,9 +219,6 @@ public:
 private:
   cantina::LoggerPointer logger;
 
-  // TODO(trigaux): Remove this once all above server logic is moved
-  std::shared_ptr<quicr::Server> server;
-
   std::shared_ptr<qtransport::ITransport> transport;
 
   std::set<uint64_t> subscribers = {};
@@ -266,9 +252,6 @@ main()
     auto delegate = std::make_shared<ReallyServerDelegate>(logger);
     auto server =
       std::make_shared<quicr::Server>(relayInfo, tcfg, delegate, logger);
-
-    // TODO(trigaux): Remove this once delegate no longer depends on server.
-    delegate->setServer(server);
 
     server->run();
 
