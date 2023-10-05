@@ -309,7 +309,7 @@ ServerRawSession::handle_publish_intent(
   messages::PublishIntent intent;
   msg >> intent;
 
-  if (publish_namespaces.contains(intent.quicr_namespace)) {
+  if (!publish_namespaces.contains(intent.quicr_namespace)) {
     PublishIntentContext context;
     context.state = PublishIntentContext::State::Pending;
     context.transport_context_id = context_id;
