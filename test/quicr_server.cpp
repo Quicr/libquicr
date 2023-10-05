@@ -69,7 +69,7 @@ class TestServerDelegate : public ServerDelegate
     [[maybe_unused]] const qtransport::TransportContextId& context_id,
     [[maybe_unused]] const qtransport::StreamId& stream_id,
     [[maybe_unused]] bool use_reliable_transport,
-    [[maybe_unused]] messages::PublishDatagram&& datagram) override
+    [[maybe_unused]] const messages::PublishDatagram& datagram) override
   {
     return {};
   }

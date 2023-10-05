@@ -250,10 +250,10 @@ ServerRawSession::handle_unsubscribe(
   const qtransport::StreamId& /* streamId */,
   messages::MessageBuffer&& msg)
 {
-  messages::Unsubscribe unsub;
+  messages::Unsubscribe unsub{};
   msg >> unsub;
 
-  std::lock_guard<std::mutex> _(session_mutex);
+  const std::lock_guard<std::mutex> _(session_mutex);
 
   // TODO(trigaux): Add authentication
 
@@ -306,7 +306,7 @@ ServerRawSession::handle_publish(
   }
 
   const auto& results = delegate->onPublisherObject(
-    context_id, streamId, false, std::move(datagram));
+    context_id, streamId, false, datagram);
 
   for (const auto& publish_result : results) {
     sendNamedObject(publish_result.subscription_id,
@@ -337,15 +337,16 @@ ServerRawSession::handle_publish_intent(
 
     publish_namespaces[intent.quicr_namespace] = context;
   } else {
-    auto state = publish_namespaces[intent.quicr_namespace].state;
-    switch (state) {
-      case PublishIntentContext::State::Pending:
-        [[fallthrough]];
-      case PublishIntentContext::State::Ready:
-        [[fallthrough]];
-      default:
-        break;
-    }
+    // TODO(trigaux): Figure out if we want to do something on these states.
+    // auto state = publish_namespaces[intent.quicr_namespace].state;
+    // switch (state) {
+    //   case PublishIntentContext::State::Pending:
+    //     [[fallthrough]];
+    //   case PublishIntentContext::State::Ready:
+    //     [[fallthrough]];
+    //   default:
+    //     break;
+    // }
   }
 
   auto result = delegate->onPublishIntent(intent.quicr_namespace,

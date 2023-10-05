@@ -95,7 +95,7 @@ public:
     const qtransport::TransportContextId& context_id,
     const qtransport::StreamId& stream_id,
     bool use_reliable_transport,
-    messages::PublishDatagram&& datagram) = 0;
+    const messages::PublishDatagram& datagram) = 0;
 
   /**
    * @brief Report arrival of subscribe request for a QUICR Namespace

@@ -156,7 +156,7 @@ public:
     const qtransport::TransportContextId& context_id,
     [[maybe_unused]] const qtransport::StreamId& stream_id,
     [[maybe_unused]] bool use_reliable_transport,
-    quicr::messages::PublishDatagram&& datagram) override
+    const quicr::messages::PublishDatagram& datagram) override
   {
     auto list = subscribeList.find(datagram.header.name);
 
