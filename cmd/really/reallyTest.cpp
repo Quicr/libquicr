@@ -21,8 +21,7 @@ public:
     [[maybe_unused]] const quicr::Namespace& quicr_namespace,
     [[maybe_unused]] const quicr::SubscribeResult& result) override
   {
-    logger->info << "onSubscriptionResponse: name: " << quicr_namespace << "/"
-                 << int(quicr_namespace.length())
+    logger->info << "onSubscriptionResponse: name: " << quicr_namespace
                  << " status: " << static_cast<unsigned>(result.status)
                  << std::flush;
   }
@@ -32,8 +31,7 @@ public:
     [[maybe_unused]] const quicr::SubscribeResult::SubscribeStatus& reason)
     override
   {
-    logger->info << "onSubscriptionEnded: name: " << quicr_namespace << "/"
-                 << static_cast<unsigned>(quicr_namespace.length())
+    logger->info << "onSubscriptionEnded: name: " << quicr_namespace
                  << std::flush;
   }
 
@@ -104,28 +102,27 @@ main(int argc, char* argv[])
     std::cerr << std::endl;
     std::cerr << "Usage PUB: reallyTest FF0001 pubData" << std::endl;
     std::cerr << "Usage SUB: reallyTest FF0000" << std::endl;
-    exit(-1); // NOLINT(concurrency-mt-unsafe)
   }
 
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
-  const auto* relayName = getenv("REALLY_RELAY");
-  if (relayName != nullptr) {
+  const char* relayName = getenv("REALLY_RELAY");
+  if (!relayName) {
     relayName = "127.0.0.1";
   }
 
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
-  const auto* portVar = getenv("REALLY_PORT");
+  const char* portVar = getenv("REALLY_PORT");
   int port = 1234;
-  if (portVar != nullptr) {
+  if (portVar) {
     port = atoi(portVar); // NOLINT(cert-err34-c)
   }
 
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  const auto name = quicr::Name(std::string(argv[1]));
+  const auto name = quicr::Name(std::string(relayName));
 
   logger->info << "Name = " << name << std::flush;
 
-  auto data = std::vector<uint8_t>{};
+  std::vector<uint8_t> data;
   if (argc == 3) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     const auto data_str = std::string(argv[2]);
@@ -134,12 +131,13 @@ main(int argc, char* argv[])
 
   logger->info << "Connecting to " << relayName << ":" << port << std::flush;
 
-  const auto relay =
-    quicr::RelayInfo{ .hostname = relayName,
-                      .port = uint16_t(port),
-                      .proto = quicr::RelayInfo::Protocol::QUIC };
+  quicr::RelayInfo relay{
+    .hostname = relayName,
+    .port = uint16_t(port),
+    .proto = quicr::RelayInfo::Protocol::QUIC,
+  };
 
-  const auto tcfg = qtransport::TransportConfig{
+  qtransport::TransportConfig tcfg{
     .tls_cert_filename = nullptr,
     .tls_key_filename = nullptr,
   };

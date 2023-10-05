@@ -76,6 +76,13 @@ struct RelayInfo
   Protocol proto;       // Transport protocol to use
 };
 
+struct PublishResult
+{
+  std::uint64_t subscription_id;
+  std::uint8_t priority;
+  std::uint16_t expiry_ms;
+};
+
 /**
  * SubscribeResult defines the result of a subscription request
  */

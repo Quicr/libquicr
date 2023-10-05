@@ -142,20 +142,17 @@ public:
     server = std::move(server_in);
   }
 
-  void onPublishIntent(const quicr::Namespace& quicr_namespace,
-                       const std::string& /* origin_url */,
-                       bool /* use_reliable_transport */,
-                       const std::string& /* auth_token */,
-                       quicr::bytes&& /* e2e_token */) override
+  quicr::PublishIntentResult onPublishIntent(
+    const quicr::Namespace& quicr_namespace,
+    const std::string& /* origin_url */,
+    bool /* use_reliable_transport */,
+    const std::string& /* auth_token */,
+    quicr::bytes&& /* e2e_token */) override
   {
-    // TODO(trigaux): Authenticate token
     logger->info << "Publish intent namespace: " << quicr_namespace
                  << std::flush;
 
-    // TODO(trigaux): Move logic into quicr::Server
-    const auto result =
-      quicr::PublishIntentResult{ quicr::messages::Response::Ok, {}, {} };
-    server->publishIntentResponse(quicr_namespace, result);
+    return quicr::PublishIntentResult{ quicr::messages::Response::Ok, {}, {} };
   };
 
   void onPublishIntentEnd(const quicr::Namespace& /* quicr_namespace */,
@@ -164,23 +161,26 @@ public:
   {
   }
 
-  void onPublisherObject(const qtransport::TransportContextId& context_id,
-                         [[maybe_unused]] const qtransport::StreamId& stream_id,
-                         [[maybe_unused]] bool use_reliable_transport,
-                         quicr::messages::PublishDatagram&& datagram) override
+  std::vector<quicr::PublishResult> onPublisherObject(
+    const qtransport::TransportContextId& context_id,
+    [[maybe_unused]] const qtransport::StreamId& stream_id,
+    [[maybe_unused]] bool use_reliable_transport,
+    quicr::messages::PublishDatagram&& datagram) override
   {
-    const auto list = subscribeList.find(datagram.header.name);
+    auto list = subscribeList.find(datagram.header.name);
+    std::erase_if(list,
+                  [&](const auto& s) { return s.context_id == context_id; });
 
-    for (auto dest : list) {
-      if (dest.context_id == context_id) {
-        // split horizon - drop packets back to the source that originated the
-        // published object
-        continue;
-      }
-
-      // TODO(trigaux): Move logic into quicr::Server
-      server->sendNamedObject(dest.subscribe_id, false, 1, 200, datagram);
+    std::vector<quicr::PublishResult> matching_subscriptions;
+    for (const auto remote : list) {
+      matching_subscriptions.push_back({
+        .subscription_id = remote.subscribe_id,
+        .priority = 1u,
+        .expiry_ms = 200u,
+      });
     }
+
+    return matching_subscriptions;
   }
 
   void onUnsubscribe(const quicr::Namespace& quicr_namespace,
@@ -191,25 +191,20 @@ public:
     logger->info << "onUnsubscribe: Namespace " << quicr_namespace
                  << " subscribe_id: " << subscriber_id << std::flush;
 
-    // TODO(trigaux): Move logic into quicr::Server
-    server->subscriptionEnded(subscriber_id,
-                              quicr_namespace,
-                              quicr::SubscribeResult::SubscribeStatus::Ok);
-
     const auto remote = Subscriptions::Remote{
       .subscribe_id = subscriber_id,
-      .context_id = 0, // XXX(richbarn) What should this be?
-      .stream_id = 0,  // XXX(richbarn) What should this be?
+      .context_id = 0,
+      .stream_id = 0,
     };
     subscribeList.remove(
       quicr_namespace.name(), quicr_namespace.length(), remote);
   }
 
-  void onSubscribe(
+  quicr::SubscribeResult onSubscribe(
     const quicr::Namespace& quicr_namespace,
     const uint64_t& subscriber_id,
-    [[maybe_unused]] const qtransport::TransportContextId& context_id,
-    [[maybe_unused]] const qtransport::StreamId& stream_id,
+    const qtransport::TransportContextId& context_id,
+    const qtransport::StreamId& stream_id,
     [[maybe_unused]] const quicr::SubscribeIntent subscribe_intent,
     [[maybe_unused]] const std::string& origin_url,
     [[maybe_unused]] bool use_reliable_transport,
@@ -223,15 +218,13 @@ public:
     const auto remote = Subscriptions::Remote{
       .subscribe_id = subscriber_id,
       .context_id = context_id,
-      .stream_id = 0, // XXX(richbarn) What should this be?
+      .stream_id = stream_id,
     };
     subscribeList.add(quicr_namespace.name(), quicr_namespace.length(), remote);
 
-    // TODO(trigaux): Move logic into quicr::Server
-    auto result = quicr::SubscribeResult{
+    return quicr::SubscribeResult{
       quicr::SubscribeResult::SubscribeStatus::Ok, "", {}, {}
     };
-    server->subscribeResponse(subscriber_id, quicr_namespace, result);
   }
 
 private:

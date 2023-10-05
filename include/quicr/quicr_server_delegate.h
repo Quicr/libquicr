@@ -55,11 +55,12 @@ public:
    *           It is expected for the Relays to store the publisher state
    * mapping the namespaces and other relation information.
    */
-  virtual void onPublishIntent(const quicr::Namespace& quicr_name,
-                               const std::string& origin_url,
-                               bool use_reliable_transport,
-                               const std::string& auth_token,
-                               bytes&& e2e_token) = 0;
+  virtual PublishIntentResult onPublishIntent(
+    const quicr::Namespace& quicr_name,
+    const std::string& origin_url,
+    bool use_reliable_transport,
+    const std::string& auth_token,
+    bytes&& e2e_token) = 0;
 
   /**
    * @brief Reports intent to publish for name is ended.
@@ -90,7 +91,7 @@ public:
    *         callbacks will be called. The delegate implementation
    *         shall decide the right callback for their usage.
    */
-  virtual void onPublisherObject(
+  virtual std::vector<PublishResult> onPublisherObject(
     const qtransport::TransportContextId& context_id,
     const qtransport::StreamId& stream_id,
     bool use_reliable_transport,
@@ -123,15 +124,16 @@ public:
    * @param payload               : Opaque payload to be forwarded to the Origin
    *
    */
-  virtual void onSubscribe(const quicr::Namespace& quicr_namespace,
-                           const uint64_t& subscriber_id,
-                           const qtransport::TransportContextId& context_id,
-                           const qtransport::StreamId& stream_id,
-                           const SubscribeIntent subscribe_intent,
-                           const std::string& origin_url,
-                           bool use_reliable_transport,
-                           const std::string& auth_token,
-                           bytes&& data) = 0;
+  virtual SubscribeResult onSubscribe(
+    const quicr::Namespace& quicr_namespace,
+    const uint64_t& subscriber_id,
+    const qtransport::TransportContextId& context_id,
+    const qtransport::StreamId& stream_id,
+    const SubscribeIntent subscribe_intent,
+    const std::string& origin_url,
+    bool use_reliable_transport,
+    const std::string& auth_token,
+    bytes&& data) = 0;
 
   /**
    * @brief Unsubscribe callback method

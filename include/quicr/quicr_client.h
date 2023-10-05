@@ -103,11 +103,8 @@ public:
   /**
    * @brief Stop publishing on the given QUICR namespace
    *
-   * @param quicr_namespace        : Identifies QUICR namespace
-   * @param origin_url             : Origin serving the QUICR Session
-   * @param auth_token             : Auth Token to validate Subscribe Requests
-   * @param payload                : Opaque payload to be forwarded to the
-   * Origin
+   * @param quicr_namespace : Identifies QUICR namespace
+   * @param auth_token      : Auth Token to validate Subscribe Request
    */
   void publishIntentEnd(const quicr::Namespace& quicr_namespace,
                         const std::string& auth_token);
@@ -118,7 +115,7 @@ public:
    * @param subscriber_delegate     : Reference to receive callback for
    *                                  subscriber operations
    * @param quicr_namespace         : Identifies QUICR namespace
-   * @param subscribe_intent        : Subscribe intent to determine the start
+   * @param intent                  : Subscribe intent to determine the start
    *                                  point for serving the matched objects. The
    *                                  application may choose a different intent
    *                                  mode, but must be aware of the effects.
@@ -146,10 +143,9 @@ public:
   /**
    * @brief Stop subscription on the given QUICR namespace
    *
-   * @param quicr_namespace       : Identifies QUICR namespace
-   * @param origin_url            : Origin serving the QUICR Session
-   * @param auth_token            : Auth Token to validate the Subscribe
-   *                                Request
+   * @param quicr_namespace : Identifies QUICR namespace
+   * @param origin_url      : Origin serving the QUICR Session
+   * @param auth_token      : Auth Token to validate the Subscribe Request
    */
   void unsubscribe(const quicr::Namespace& quicr_namespace,
                    const std::string& origin_url,

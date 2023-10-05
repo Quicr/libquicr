@@ -49,12 +49,14 @@ struct TestSubscriberDelegate : public SubscriberDelegate
 class TestServerDelegate : public ServerDelegate
 {
 
-  void onPublishIntent(const quicr::Namespace& /* quicr_name */,
-                       const std::string& /* origin_url */,
-                       bool /* use_reliable_transport */,
-                       const std::string& /* auth_token */,
-                       bytes&& /* e2e_token */) override
+  quicr::PublishIntentResult onPublishIntent(
+    const quicr::Namespace& /* quicr_name */,
+    const std::string& /* origin_url */,
+    bool /* use_reliable_transport */,
+    const std::string& /* auth_token */,
+    bytes&& /* e2e_token */) override
   {
+    return {};
   }
 
   void onPublishIntentEnd(const quicr::Namespace& /* quicr_namespace */,
@@ -63,24 +65,27 @@ class TestServerDelegate : public ServerDelegate
   {
   }
 
-  void onPublisherObject(
+  std::vector<quicr::PublishResult> onPublisherObject(
     [[maybe_unused]] const qtransport::TransportContextId& context_id,
     [[maybe_unused]] const qtransport::StreamId& stream_id,
     [[maybe_unused]] bool use_reliable_transport,
     [[maybe_unused]] messages::PublishDatagram&& datagram) override
   {
+    return {};
   }
 
-  void onSubscribe(const quicr::Namespace& /* quicr_namespace */,
-                   const uint64_t& /* subscriber_id */,
-                   const qtransport::TransportContextId& /* context_id */,
-                   const qtransport::TransportContextId& /*stream_id */,
-                   const SubscribeIntent /* subscribe_intent */,
-                   const std::string& /* origin_url */,
-                   bool /* use_reliable_transport */,
-                   const std::string& /* auth_token */,
-                   bytes&& /* data */) override
+  SubscribeResult onSubscribe(
+    const quicr::Namespace& /* quicr_namespace */,
+    const uint64_t& /* subscriber_id */,
+    const qtransport::TransportContextId& /* context_id */,
+    const qtransport::TransportContextId& /*stream_id */,
+    const SubscribeIntent /* subscribe_intent */,
+    const std::string& /* origin_url */,
+    bool /* use_reliable_transport */,
+    const std::string& /* auth_token */,
+    bytes&& /* data */) override
   {
+    return {};
   }
 
   void onUnsubscribe(const quicr::Namespace& /* quicr_namespace */,

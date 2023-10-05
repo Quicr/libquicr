@@ -231,15 +231,17 @@ ServerRawSession::handle_subscribe(
 
   const auto& context = subscribe_state[subscribe.quicr_namespace][context_id];
 
-  delegate->onSubscribe(subscribe.quicr_namespace,
-                        context.subscriber_id,
-                        context_id,
-                        streamId,
-                        subscribe.intent,
-                        "",
-                        false,
-                        "",
-                        {});
+  auto result = delegate->onSubscribe(subscribe.quicr_namespace,
+                                      context.subscriber_id,
+                                      context_id,
+                                      streamId,
+                                      subscribe.intent,
+                                      "",
+                                      false,
+                                      "",
+                                      {});
+
+  subscribeResponse(context.subscriber_id, subscribe.quicr_namespace, result);
 }
 
 void
@@ -248,24 +250,30 @@ ServerRawSession::handle_unsubscribe(
   const qtransport::StreamId& /* streamId */,
   messages::MessageBuffer&& msg)
 {
-  auto unsub = messages::Unsubscribe{};
+  messages::Unsubscribe unsub;
   msg >> unsub;
 
-  // Remove states if state exists
-  if (subscribe_state[unsub.quicr_namespace].contains(context_id)) {
-    const auto lock = std::lock_guard<std::mutex>(session_mutex);
+  std::lock_guard<std::mutex> _(session_mutex);
 
-    auto& context = subscribe_state[unsub.quicr_namespace][context_id];
+  // TODO(trigaux): Add authentication
 
-    // Before removing, exec callback
-    delegate->onUnsubscribe(unsub.quicr_namespace, context.subscriber_id, {});
+  if (!subscribe_state[unsub.quicr_namespace].contains(context_id)) {
+    subscriptionEnded(subscriber_id,
+                      unsub.quicr_namespace,
+                      quicr::SubscribeResult::SubscribeStatus::FailedError);
+  }
 
-    subscribe_id_state.erase(context.subscriber_id);
-    subscribe_state[unsub.quicr_namespace].erase(context_id);
+  auto& context = subscribe_state[unsub.quicr_namespace][context_id];
 
-    if (subscribe_state[unsub.quicr_namespace].empty()) {
-      subscribe_state.erase(unsub.quicr_namespace);
-    }
+  delegate->onUnsubscribe(unsub.quicr_namespace, context.subscriber_id, {});
+
+  subscriptionEnded(subscriber_id,
+                    unsub.quicr_namespace,
+                    quicr::SubscribeResult::SubscribeStatus::Ok);
+
+  subscribe_id_state.erase(context.subscriber_id);
+  if (subscribe_state[unsub.quicr_namespace].erase(context_id) == 0) {
+    subscribe_state.erase(unsub.quicr_namespace);
   }
 }
 
@@ -297,7 +305,16 @@ ServerRawSession::handle_publish(
                  << " " << gap_log << std::flush;
   }
 
-  delegate->onPublisherObject(context_id, streamId, false, std::move(datagram));
+  const auto& results = delegate->onPublisherObject(
+    context_id, streamId, false, std::move(datagram));
+
+  for (const auto& publish_result : results) {
+    sendNamedObject(publish_result.subscription_id,
+                    false,
+                    publish_result.priority,
+                    publish_result.expiry_ms,
+                    datagram);
+  }
 }
 
 void
@@ -309,6 +326,8 @@ ServerRawSession::handle_publish_intent(
   messages::PublishIntent intent;
   msg >> intent;
 
+  // TODO(trigaux): Authenticate token
+
   if (!publish_namespaces.contains(intent.quicr_namespace)) {
     PublishIntentContext context;
     context.state = PublishIntentContext::State::Pending;
@@ -319,24 +338,23 @@ ServerRawSession::handle_publish_intent(
     publish_namespaces[intent.quicr_namespace] = context;
   } else {
     auto state = publish_namespaces[intent.quicr_namespace].state;
-    // NOLINTBEGIN(bugprone-branch-clone)
     switch (state) {
       case PublishIntentContext::State::Pending:
-        [[fallthrough]]; // TODO(trigaux): Resend response?
+        [[fallthrough]];
       case PublishIntentContext::State::Ready:
-        [[fallthrough]]; // TODO(trigaux): Already registered this namespace
-                         // successfully, do nothing?
+        [[fallthrough]];
       default:
         break;
     }
-    // NOLINTEND(bugprone-branch-clone)
   }
 
-  delegate->onPublishIntent(intent.quicr_namespace,
-                            "" /* intent.origin_url */,
-                            false,
-                            "" /* intent.relay_token */,
-                            std::move(intent.payload));
+  auto result = delegate->onPublishIntent(intent.quicr_namespace,
+                                          "" /* intent.origin_url */,
+                                          false,
+                                          "" /* intent.relay_token */,
+                                          std::move(intent.payload));
+
+  publishIntentResponse(intent.quicr_namespace, result);
 }
 
 void
