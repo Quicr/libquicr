@@ -255,6 +255,7 @@ private:
 
   bool running{ false };
   uint64_t subscriber_id{ 0 };
+  bool enable_moq { false };
 };
 
 } // namespace quicr

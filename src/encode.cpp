@@ -48,6 +48,10 @@ MessageTypeException::MessageTypeException(uint8_t type,
 {
 }
 
+MessageTypeException::MessageTypeException(uint64_t message_type)
+    : MessageBuffer::ReadException("exception while parsing message type: " + message_type)
+{}
+
 uint64_t
 create_transaction_id()
 {

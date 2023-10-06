@@ -50,7 +50,7 @@ QuicRClient::disconnect()
 
 bool
 QuicRClient::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
-                           const quicr::Namespace& quicr_namespace,
+                           const quicr::Namespace & quicr_namespace,
                            const std::string& origin_url,
                            const std::string& auth_token,
                            bytes&& payload,
@@ -122,22 +122,5 @@ QuicRClient::publishNamedObject(const quicr::Name& quicr_name,
                                        std::move(data));
 }
 
-void
-QuicRClient::publishNamedObjectFragment(const quicr::Name& quicr_name,
-                                        uint8_t priority,
-                                        uint16_t expiry_age_ms,
-                                        bool use_reliable_transport,
-                                        const uint64_t& offset,
-                                        bool is_last_fragment,
-                                        bytes&& data)
-{
-  client_session->publishNamedObjectFragment(quicr_name,
-                                             priority,
-                                             expiry_age_ms,
-                                             use_reliable_transport,
-                                             offset,
-                                             is_last_fragment,
-                                             std::move(data));
-}
 
 } // namespace quicr

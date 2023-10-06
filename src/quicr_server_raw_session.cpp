@@ -19,10 +19,12 @@
 #include "quicr/message_buffer.h"
 #include "quicr/quicr_common.h"
 #include "quicr/gap_check.h"
+#include "quicr/moq_message_types.h"
 
 #include <algorithm>
 #include <arpa/inet.h>
 #include <sstream>
+#include <iostream>
 #include <thread>
 
 namespace quicr {
@@ -52,6 +54,7 @@ QuicRServerRawSession::QuicRServerRawSession(
 
   transport = setupTransport(relayInfo, std::move(tconfig));
   transport->start();
+  enable_moq = true;
 }
 
 QuicRServerRawSession::QuicRServerRawSession(
@@ -145,16 +148,32 @@ QuicRServerRawSession::subscribeResponse(
 
   auto& context = subscribe_id_state[subscriber_id];
 
-  messages::SubscribeResponse response;
-  response.transaction_id = subscriber_id;
-  response.quicr_namespace = quicr_namespace;
-  response.response = result.status;
+  auto msg = messages::MessageBuffer{};
+  if (enable_moq && result.status == SubscribeResult::SubscribeStatus::Ok) {
 
-  messages::MessageBuffer msg;
-  msg << response;
+      auto qn = quicr_namespace.name();
+      std::stringstream ss;
+      ss << "moq://" << qn;
+      auto moq_sub_ok = messages::MoqSubscribeOk {
+        .track =  ss.str(),
+        .track_id = subscriber_id,
+      };
+      std::cout << "Sending MOQ SubscribeOK for " << ss.str() << std::endl;
+      msg << moq_sub_ok;
+  } else {
+      messages::SubscribeResponse response;
+      response.transaction_id = subscriber_id;
+      response.quicr_namespace = quicr_namespace;
+      response.response = result.status;
+      msg << response;
+  }
 
-  transport->enqueue(
-    context.transport_context_id, context.transport_stream_id, msg.take());
+
+  logger->info << "Sending subscribeResponse: subscribe_id " << subscriber_id
+                << ",  streamId " << context.transport_stream_id
+                << ", Message Size " << msg.size() << std::flush;
+
+  transport->enqueue(context.transport_context_id, context.transport_stream_id, msg.take());
 }
 
 void
@@ -265,30 +284,43 @@ QuicRServerRawSession::handle_subscribe(
   const qtransport::StreamId& streamId,
   messages::MessageBuffer&& msg)
 {
-  messages::Subscribe subscribe;
-  msg >> subscribe;
+  auto ns = quicr::Namespace{};
+
+  if(enable_moq) {
+      auto moq_subscribe = messages::MoqSubscribe {};
+      msg >> moq_subscribe;
+      // remove moq://
+      std::string val = moq_subscribe.track.substr(6, moq_subscribe.track.length());
+      auto qns = quicr::Namespace{quicr::Name(val), 80};
+      ns = qns;
+      std::cout << ns << std::endl;
+
+  }  else {
+      messages::Subscribe subscribe;
+      msg >> subscribe;
+      ns = subscribe.quicr_namespace;
+  }
 
   std::lock_guard<std::mutex> lock(session_mutex);
 
-  if (subscribe_state[subscribe.quicr_namespace].count(context_id) == 0) {
+  if (subscribe_state[ns].count(context_id) == 0) {
     SubscribeContext context;
     context.transport_context_id = context_id;
     context.transport_stream_id = streamId;
     context.subscriber_id = subscriber_id;
-
+    logger->info << "onSubscribe: subscriber_id " << subscriber_id << ", stream_id " << streamId << std::flush;
     subscriber_id++;
-
-    subscribe_state[subscribe.quicr_namespace][context_id] = context;
+    subscribe_state[ns][context_id] = context;
     subscribe_id_state[context.subscriber_id] = context;
   }
 
-  auto& context = subscribe_state[subscribe.quicr_namespace][context_id];
+  auto& context = subscribe_state[ns][context_id];
 
-  delegate.onSubscribe(subscribe.quicr_namespace,
+  delegate.onSubscribe(ns,
                        context.subscriber_id,
                        context_id,
                        streamId,
-                       subscribe.intent,
+                       {},
                        "",
                        false,
                        "",
@@ -509,6 +541,22 @@ QuicRServerRawSession::TransportDelegate::on_recv_notify(
     if (data.has_value()) {
       server.recv_data_count++;
       try {
+        if (server.enable_moq) {
+            auto msg_type = data->front();
+            messages::MessageBuffer msg_buffer{ data.value() };
+            switch (msg_type) {
+                case messages::MESSAGE_TYPE_SUBSCRIBE:
+                    server.recv_subscribes++;
+                    server.handle_subscribe(
+                            context_id, streamId, std::move(msg_buffer));
+                    break;
+                default:
+                    break;
+
+
+            }
+            continue;
+        }
         // TODO: Extracting type will change when the message is encoded
         // correctly
         auto msg_type = static_cast<messages::MessageType>(data->front());

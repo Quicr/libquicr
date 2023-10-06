@@ -22,6 +22,7 @@
 #include "quicr_common.h"
 
 #include <quicr/namespace.h>
+#include "bridge.h"
 
 #include <cstdint>
 #include <memory>
@@ -115,7 +116,7 @@ public:
    */
   virtual void subscribe(
     std::shared_ptr<SubscriberDelegate> subscriber_delegate,
-    const quicr::Namespace& quicr_namespace,
+    const quicr::Namespace & quicr_namespace,
     const SubscribeIntent& intent,
     const std::string& origin_url,
     bool use_reliable_transport,
@@ -130,7 +131,7 @@ public:
    * @param auth_token            : Auth Token to validate the Subscribe
    *                                Request
    */
-  virtual void unsubscribe(const quicr::Namespace& quicr_namespace,
+  virtual void unsubscribe(const quicr::Namespace & quicr_namespace,
                            const std::string& origin_url,
                            const std::string& auth_token) = 0;
 
@@ -147,39 +148,18 @@ public:
    * @param data                     : Opaque payload
    *
    */
-  virtual void publishNamedObject(const quicr::Name& quicr_name,
+  virtual void publishNamedObject(const quicr::Name & quicr_name,
                                   uint8_t priority,
                                   uint16_t expiry_age_ms,
                                   bool use_reliable_transport,
                                   bytes&& data) = 0;
 
-  virtual void publishNamedObject(const quicr::Name& quicr_name,
+  virtual void publishNamedObject(const quicr::Name & quicr_name,
                                   uint8_t priority,
                                   uint16_t expiry_age_ms,
                                   ObjectDeliveryMode delivery_mode,
                                   bytes&& data) = 0;
 
-    /**
-   * @brief Publish Named object
-   *
-   * @param quicr_name               : Identifies the QUICR Name for the object
-   * @param priority                 : Identifies the relative priority of the
-   *                                   current object
-   * @param expiry_age_ms            : Time hint for the object to be in cache
-                                       before being purged after reception
-   * @param use_reliable_transport   : Indicates the preference for the object's
-   *                                   transport, if forwarded.
-   * @param offset                   : Current fragment offset
-   * @param is_last_fragment         : Indicates if the current fragment is the
-   * @param data                     : Opaque payload of the fragment
-   */
-  virtual void publishNamedObjectFragment(const quicr::Name& quicr_name,
-                                          uint8_t priority,
-                                          uint16_t expiry_age_ms,
-                                          bool use_reliable_transport,
-                                          const uint64_t& offset,
-                                          bool is_last_fragment,
-                                          bytes&& data) = 0;
 };
 
 } // namespace quicr

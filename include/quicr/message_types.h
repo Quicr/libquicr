@@ -57,11 +57,6 @@ struct SubscribeResponse
   quicr::Namespace quicr_namespace;
   SubscribeResult::SubscribeStatus response;
   uint64_t transaction_id;
-  // * - signature(32)
-  // * - [Reason Phrase Length (i)],
-  // * - [Reason Phrase (..)],
-  // * - [redirect_relay_url_length(i)],
-  // * - [redirect_relay_url(…)..]
 };
 
 struct SubscribeEnd

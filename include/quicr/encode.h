@@ -25,6 +25,7 @@ struct MessageTypeException : public MessageBuffer::ReadException
 {
   MessageTypeException(MessageType type, MessageType expected_type);
   MessageTypeException(uint8_t type, MessageType expected_type);
+  MessageTypeException(uint64_t message_type);
 };
 
 MessageBuffer&
@@ -74,6 +75,7 @@ operator>>(MessageBuffer& buffer, SubscribeEnd& msg);
 
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishIntent& msg);
+
 MessageBuffer&
 operator<<(MessageBuffer& buffer, PublishIntent&& msg);
 MessageBuffer&

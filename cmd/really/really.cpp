@@ -177,7 +177,7 @@ public:
         // published object
         continue;
       }
-      logger->info << "onPublisherObject: on stream " << stream_id << std::flush;
+      logger->info << "onPublisherObject: on stream " << stream_id << ", data=" << datagram.media_data.data() << std::flush;
       server->sendNamedObject(dest.subscribe_id, false, 1, 200, datagram);
     }
   }

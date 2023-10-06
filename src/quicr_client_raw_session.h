@@ -20,6 +20,7 @@
 #include "quicr/quicr_client.h"
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_common.h"
+#include "quicr/moq_message_types.h"
 
 #include <quicr_name>
 #include <transport/transport.h>
@@ -102,7 +103,7 @@ public:
    * @param use_reliable_transport  : Indicates to use reliable for matching published objects
    */
   bool publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
-                     const quicr::Namespace& quicr_namespace,
+                     const Namespace & quicr_namespace,
                      const std::string& origin_url,
                      const std::string& auth_token,
                      bytes&& payload,
@@ -188,27 +189,6 @@ public:
                           ObjectDeliveryMode delivery_mode,
                           bytes&& data) override;
 
-    /**
-   * @brief Publish Named object
-   *
-   * @param quicr_name               : Identifies the QUICR Name for the object
-   * @param priority                 : Identifies the relative priority of the
-   *                                   current object
-   * @param expiry_age_ms            : Time hint for the object to be in cache
-                                       before being purged after reception
-   * @param use_reliable_transport   : Indicates the preference for the object's
-   *                                   transport, if forwarded.
-   * @param offset                   : Current fragment offset
-   * @param is_last_fragment         : Indicates if the current fragment is the
-   * @param data                     : Opaque payload of the fragment
-   */
-  void publishNamedObjectFragment(const quicr::Name& quicr_name,
-                                  uint8_t priority,
-                                  uint16_t expiry_age_ms,
-                                  bool use_reliable_transport,
-                                  const uint64_t& offset,
-                                  bool is_last_fragment,
-                                  bytes&& data) override;
 
 protected:
   void on_connection_status(const qtransport::TransportContextId& context_id,
@@ -230,6 +210,8 @@ protected:
                            const std::weak_ptr<SubscriberDelegate>& delegate);
 
   void handle(messages::MessageBuffer&& msg);
+
+  void handle_moq(messages::MessageBuffer&& msg);
 
   void removeSubscription(const quicr::Namespace& quicr_namespace,
                           const SubscribeResult::SubscribeStatus& reason);
@@ -298,12 +280,22 @@ protected:
   cantina::LoggerPointer logger;
 
   namespace_map<std::shared_ptr<PublisherDelegate>> pub_delegates;
+
   namespace_map<PublishContext> publish_state{};
 
   namespace_map<std::shared_ptr<SubscriberDelegate>> sub_delegates;
+
   namespace_map<SubscribeContext> subscribe_state{};
 
   std::shared_ptr<qtransport::ITransport> transport;
+
+  // moq types
+  std::map<quicr::Name, quicr::Namespace> name_to_ns {};
+  std::map<messages::FullTrackName, messages::TrackId> ftn_tid_map{};
+
+  std::map<messages::TrackId, messages::FullTrackName> tid_ftn_map{};
+  // hack
+  bool enable_moq = {false};
 };
 
 }

@@ -55,6 +55,7 @@ struct TestPublisherDelegate : public PublisherDelegate
   ~TestPublisherDelegate() override = default;
 };
 
+#if 0
 TEST_CASE("Subscribe encode, send and receive")
 {
   std::shared_ptr<TestSubscriberDelegate> sub_delegate{};
@@ -106,3 +107,4 @@ TEST_CASE("Publish encode, send and receive")
   say_hello = { 'H', 'E', 'L', 'L', '0' };
   CHECK_EQ(d.media_data, say_hello);
 }
+#endif

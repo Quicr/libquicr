@@ -145,7 +145,6 @@ main(int argc, char* argv[])
 
 
   if (data.size() > 0) {
-    data = {0xC, 0xA, 0xF, 0xE, 0xE};
     auto group_id = 0;
     auto object_id = 0;
     auto nspace = quicr::Namespace(name, 80);
@@ -153,23 +152,22 @@ main(int argc, char* argv[])
                  << " == namespace: " << nspace << std::flush;
     client.publishIntent(pd, nspace, {}, {}, {});
     std::this_thread::sleep_for(std::chrono::seconds(5));
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 1; i++) {
         // do publish
-        name = (0x0_name | group_id++) << 16 | (name & ~group_id_mask);
+        name = (0x0_name | group_id) << 16 | (name & ~group_id_mask);
         name &= ~object_id_mask;
         auto object_id = 0;
-        for (int j= 0; j < 5; j++) {
+        for (int j = 0; j < 10; j++) {
             if(j == 0) {
                 auto pub_data = data;
-                pub_data.push_back(j);
-                client.publishNamedObject(name, 0, 1000, quicr::ObjectDeliveryMode::Group, std::move(data));
+                logger->info << "Publishing group:" << group_id << ", object:" << object_id << ", name:" << name << std::flush;
+                client.publishNamedObject(name, 0, 1000, quicr::ObjectDeliveryMode::Group, std::move(pub_data));
                 continue;
             }
             name = (0x0_name | group_id) << 16 | (name & ~group_id_mask);
             name = (0x0_name | ++object_id) | (name & ~object_id_mask);
             logger->info << "Publishing group:" << group_id << ", object:" << object_id << ", name:" << name << std::flush;
             auto pub_data = data;
-            pub_data.push_back(j);
             client.publishNamedObject(name, 0, 1000, quicr::ObjectDeliveryMode::Group, std::move(pub_data));
         }
 

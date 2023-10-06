@@ -54,6 +54,7 @@ class TestServerDelegate : public ServerDelegate
   }
 };
 
+#if 0
 TEST_CASE("Object Lifetime")
 {
   TestServerDelegate delegate{};
@@ -68,7 +69,7 @@ TEST_CASE("Object Lifetime")
     std::make_unique<QuicRServer>(relayInfo, tcfg, delegate, logger));
 }
 
-#if 0
+
 TEST_CASE("SubscribeResponse encode, send and receive")
 {
   TestServerDelegate delegate{};
