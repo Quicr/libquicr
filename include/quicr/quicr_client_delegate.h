@@ -35,9 +35,9 @@ public:
   /**
    * @brief Callback for subscription response
    *
-   * @param quicr_namespace: QUICR Namespace associated with the
-   *                         Subscribe Request
-   * @param result         : Result for the subscription
+   * @param quicr_namespace : QUICR Namespace associated with the
+   *                          Subscribe Request
+   * @param result          : Result for the subscription
    *
    * @details This callback will be called when a subscription response
    *          is received, on error, or timeout.
@@ -94,7 +94,7 @@ public:
    * @param quicr_name               : Identifies the QUICR Name for the object
    * @param priority                 : Identifies the relative priority of the
    *                                   current object
-   * @param best_before              : TTL for the object to be useful for the
+   * @param expiry_age_ms            : TTL for the object to be useful for the
    *                                   application
    * @param use_reliable_transport   : Indicates the preference for the object's
    *                                   transport, if forwarded.

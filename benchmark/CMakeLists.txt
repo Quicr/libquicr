@@ -1,3 +1,17 @@
+find_package(benchmark)
+if (NOT benchmark_FOUND)
+    set(BENCHMARK_USE_BUNDLED_GTEST OFF)
+    set(BENCHMARK_ENABLE_TESTING OFF)
+
+    include(FetchContent)
+    FetchContent_Declare(
+        benchmark
+        GIT_REPOSITORY https://github.com/google/benchmark.git
+        GIT_TAG main
+    )
+    FetchContent_MakeAvailable(benchmark)
+endif()
+
 add_executable(quicr_benchmark
                 message_buffer.cpp)
 
