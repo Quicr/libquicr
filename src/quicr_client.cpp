@@ -60,14 +60,16 @@ Client::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                       const std::string& origin_url,
                       const std::string& auth_token,
                       bytes&& payload,
-                      bool use_reliable_transport)
+                      bool use_reliable_transport,
+                      uint8_t priority)
 {
   return client_session->publishIntent(std::move(pub_delegate),
                                        quicr_namespace,
                                        origin_url,
                                        auth_token,
                                        std::move(payload),
-                                       use_reliable_transport);
+                                       use_reliable_transport,
+                                       priority);
 }
 
 void

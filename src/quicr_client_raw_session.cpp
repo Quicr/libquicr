@@ -250,7 +250,8 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                                 const std::string& /* origin_url */,
                                 const std::string& /* auth_token */,
                                 bytes&& payload,
-                                bool use_reliable_transport)
+                                bool use_reliable_transport,
+                                uint8_t priority)
 {
   if (pub_delegates.contains(quicr_namespace)) {
     return true;
@@ -261,7 +262,8 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
   const auto& context_id = transport_context_id.value();
   auto stream_id = transport_dgram_stream_id.value();
   if (use_reliable_transport) {
-    stream_id = transport->createStream(context_id, true);
+    stream_id = transport->createStream(context_id, true, priority);
+    logger->debug << "Set stream: " << stream_id << " to priority: " << static_cast<int>(priority) << std::flush;
   }
 
   publish_state[quicr_namespace] = {
