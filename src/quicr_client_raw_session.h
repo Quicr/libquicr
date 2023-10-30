@@ -98,14 +98,16 @@ public:
    * @param payload                 : Opaque payload to be forwarded to the
    * Origin
    * @param use_reliable_transport  : Indicates to use reliable for matching
-   * published objects
+   *                                  published objects
+   * @param priority                : Identifies the relative priority for the stream if reliable
    */
   bool publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                      const quicr::Namespace& quicr_namespace,
                      const std::string& origin_url,
                      const std::string& auth_token,
                      bytes&& payload,
-                     bool use_reliable_transport) override;
+                     bool use_reliable_transport,
+                     uint8_t priority) override;
 
   /**
    * @brief Stop publishing on the given QUICR namespace
