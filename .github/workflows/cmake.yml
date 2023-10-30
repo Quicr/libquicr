@@ -36,7 +36,8 @@ jobs:
 
     - name: Install Packages (Ubuntu)
       run: |
-        sudo apt-get install clang-15 lld-15 -y clang-tidy clang-15
+        sudo apt-get remove gcc g++
+        sudo apt-get install clang-15 lld-15 -y clang-tidy
         sudo apt-get autoremove
       if: matrix.os == 'ubuntu-latest'
 
