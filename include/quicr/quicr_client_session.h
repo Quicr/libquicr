@@ -170,7 +170,13 @@ public:
                                           const uint64_t& offset,
                                           bool is_last_fragment,
                                           bytes&& data) = 0;
+
+
+
+  virtual void set_numero_uri_convertor(std::shared_ptr<NumeroUriConvertor> numero_uri_convertor) = 0;
 };
+
+
 
 using QuicRClientSession [[deprecated(
   "quicr::QuicRClientSession stutters, use quicr::ClientSession")]] =

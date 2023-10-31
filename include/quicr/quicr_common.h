@@ -114,4 +114,10 @@ struct PublishIntentResult
   quicr::Name reassignedName; // Set only if status is ReAssigned
 };
 
+struct NumeroUriConvertor {
+  virtual std::string to_namespace_uri(quicr::Namespace ns) = 0;
+  virtual std::string to_name_uri(quicr::Namespace n) = 0;
+};
+
+
 }

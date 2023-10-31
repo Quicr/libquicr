@@ -24,6 +24,7 @@ struct TransportConfig;
 
 namespace quicr {
 
+
 // Exception that may be thrown if there is a critical error
 class ClientException : public std::runtime_error
 {
@@ -193,8 +194,14 @@ public:
                                   bool is_last_fragment,
                                   bytes&& data);
 
+
+  void set_numero_uri_convertor(std::shared_ptr<NumeroUriConvertor> numero_uri_convertor) {
+    uri_convertor = numero_uri_convertor;
+  }
+
 protected:
   std::unique_ptr<ClientSession> client_session;
+  std::shared_ptr<NumeroUriConvertor> uri_convertor;
 };
 
 using QuicRClient

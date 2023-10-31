@@ -34,6 +34,7 @@ Client::Client(std::shared_ptr<qtransport::ITransport> transport_in,
 {
   client_session =
     std::make_unique<ClientRawSession>(std::move(transport_in), logger);
+  client_session->set_numero_uri_convertor(uri_convertor);
 }
 
 bool
@@ -86,6 +87,7 @@ Client::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
                   const std::string& auth_token,
                   bytes&& e2e_token)
 {
+
   client_session->subscribe(std::move(subscriber_delegate),
                             quicr_namespace,
                             intent,

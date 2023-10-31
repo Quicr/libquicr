@@ -8,3 +8,6 @@
 [submodule "dependencies/qname"]
 	path = dependencies/qname
 	url = https://github.com/quicr/qname
+[submodule "dependencies/numero-uri"]
+	path = dependencies/numero-uri
+	url = git@github.com:Quicr/numero-uri.git

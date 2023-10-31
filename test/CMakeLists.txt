@@ -6,10 +6,10 @@ add_executable(quicr_test
                 quicr_server.cpp
                 encode.cpp
                 moq-codec.cpp
-        moq-codec.cpp)
-target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
+                moq-codec.cpp)
+target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src )
 
-target_link_libraries(quicr_test PRIVATE quicr doctest::doctest)
+target_link_libraries(quicr_test PRIVATE quicr doctest::doctest numero_uri_lib)
 
 target_compile_options(quicr_test
     PRIVATE

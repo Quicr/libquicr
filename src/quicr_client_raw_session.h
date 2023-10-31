@@ -203,6 +203,13 @@ public:
                                   bool is_last_fragment,
                                   bytes&& data) override;
 
+
+  void set_numero_uri_convertor(std::shared_ptr<NumeroUriConvertor> numero_uri_convertor) override {
+    uri_convertor = numero_uri_convertor;
+  }
+
+
+
 protected:
   void on_connection_status(const qtransport::TransportContextId& context_id,
                             const qtransport::TransportStatus status) override;
@@ -313,6 +320,8 @@ protected:
   namespace_map<SubscribeContext> subscribe_state{};
 
   std::shared_ptr<qtransport::ITransport> transport;
+
+  std::shared_ptr<NumeroUriConvertor> uri_convertor = nullptr;
 };
 
 }
