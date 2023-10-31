@@ -50,7 +50,17 @@ struct FakeTransport : public ITransport
                    StreamId /* streamId */){};
   void close() {}
 
-  bool getPeerAddrInfo(const TransportContextId& /*context_id*/,
+  StreamId create_unidirectional_stream(const TransportContextId& /* context_id */,
+                                                  uint8_t /* priority */) {
+      return 0x1000;
+  }
+
+  void close_unidirectional_stream(const TransportContextId& /* context_id */,
+                                   uint64_t /* stream_id*/, bool /*is_sender*/) {
+
+  }
+
+    bool getPeerAddrInfo(const TransportContextId& /*context_id*/,
                        sockaddr_storage* /*addr*/)
   {
     return false;

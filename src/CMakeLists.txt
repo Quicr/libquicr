@@ -4,7 +4,8 @@ add_library(quicr
             quicr_client.cpp
             quicr_client_raw_session.cpp
             quicr_server.cpp
-            quicr_server_raw_session.cpp)
+            quicr_server_raw_session.cpp
+            moq_messages.cpp)
 
 # Suppress external lib warnings
 set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)
