@@ -77,7 +77,7 @@ namespace quicr::messages {
 
 
     struct ClientSetup {
-        std::vector<Version> supported_versions;
+        std::vector<uintVar_t> supported_versions;
         std::vector<Parameter> parameters;
     };
     MessageBuffer& operator<<(MessageBuffer &buffer, const ClientSetup &msg);
@@ -232,5 +232,10 @@ namespace quicr::messages {
         ObjectPriority priority;
         quicr::bytes payload;
     };
+
+    // generic
+    MessageBuffer& operator<<(MessageBuffer& msg, std::vector<uintVar_t>& val);
+    MessageBuffer& operator>>(MessageBuffer &buffer, ClientSetup &msg);
+
 
 }

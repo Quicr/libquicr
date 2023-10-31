@@ -20,7 +20,6 @@ namespace quicr::messages {
     }
 
 
-
     // FullTrackName encode and decode
     MessageBuffer&
     operator<<(MessageBuffer &buffer, const FullTrackName &value) {
@@ -59,8 +58,6 @@ namespace quicr::messages {
         location.value = value;
         return buffer;
     }
-
-
 
 
 
@@ -205,9 +202,7 @@ namespace quicr::messages {
 
 
 
-/*===========================================================================*/
-// Annoucne Encode & Decode
-/*===========================================================================*/
+// Announce Encode & Decode
 
     MessageBuffer&operator<<(MessageBuffer &buffer, const MoqAnnounce &msg) {
         buffer << static_cast<uint8_t>(MESSAGE_TYPE_ANNOUNCE);
@@ -324,4 +319,60 @@ namespace quicr::messages {
         }
         return buffer;
     }
+
+    // Setup Encode and Decode
+
+    // vector<varint> encode/decode
+    MessageBuffer&
+    operator<<(MessageBuffer& buffer, const std::vector<uintVar_t>& val)
+    {
+        buffer << static_cast<uintVar_t>(val.size());
+        // TODO (Suhas): This needs revisiting
+        for(uint64_t i = 0; i < val.size(); i++) {
+            buffer << val[i];
+        }
+
+        return buffer;
+    }
+
+    MessageBuffer&
+    operator>>(MessageBuffer& msg, std::vector<uintVar_t>& val)
+    {
+        auto vec_size = uintVar_t(0);
+        msg >> vec_size;
+        auto version = std::vector<uintVar_t>();
+        version.resize((uint64_t) vec_size);
+        val.resize((uint64_t) vec_size);
+
+        // TODO (Suhas): This needs revisiting
+        for(uint64_t i = 0; i < version.size(); i++) {
+            msg >> version[i];
+        }
+        val = std::move(version);
+        return msg;
+    }
+
+    MessageBuffer&
+    operator<<(MessageBuffer &buffer, const ClientSetup &msg){
+        buffer << msg.supported_versions;
+        return buffer;
+    }
+
+    MessageBuffer& operator>>(MessageBuffer &buffer, ClientSetup &msg){
+      buffer >> msg.supported_versions;
+      return buffer;
+    }
+
+    MessageBuffer&
+    operator<<(MessageBuffer &buffer, const ServerSetup &msg){
+      buffer << msg.selected_version;
+      return buffer;
+    }
+
+    MessageBuffer& operator>>(MessageBuffer &buffer, ServerSetup &msg){
+      buffer >> msg.selected_version;
+      return buffer;
+    }
 }
+
+

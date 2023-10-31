@@ -192,7 +192,7 @@ TEST_CASE("MoqUnnnounce encode/decode") {
   CHECK_EQ(out.track_namespace, in.track_namespace);
 }
 
-#if 0
+
 TEST_CASE("Client Setup encode/decode") {
   ClientSetup in = {
     .supported_versions = {Version(0x0001), Version(0x002)},
@@ -208,6 +208,6 @@ TEST_CASE("Client Setup encode/decode") {
   CHECK_EQ(out.supported_versions, in.supported_versions);
   CHECK_EQ(out.parameters.size(), in.parameters.size());
 }
-#endif
+
 
 
