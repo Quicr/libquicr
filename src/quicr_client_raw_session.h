@@ -204,10 +204,9 @@ public:
                                   bytes&& data) override;
 
 
-  void set_numero_uri_convertor(std::shared_ptr<NumeroUriConvertor> numero_uri_convertor) override {
+  void set_numero_uri_convertor(std::shared_ptr<UriConvertor> numero_uri_convertor) override {
     uri_convertor = numero_uri_convertor;
   }
-
 
 
 protected:
@@ -257,6 +256,16 @@ protected:
     uint64_t last_object_id{ 0 };
   };
 
+  struct TransportDeliveryContext {
+    ObjectDeliveryMode object_delivery_mode {ObjectDeliveryMode::None};
+    qtransport::StreamId control_stream_id {0}; // there is one control stream per connection
+    //std::map<uint64_t, qtransport::StreamId> stream_id_per_object{};
+    //std::map<uint64_t, qtransport::StreamId> stream_id_per_group{};
+    //std::map<uint32_t , qtransport::StreamId> stream_id_per_priority{};
+    std::map<quicr::Name, qtransport::StreamId> stream_id_per_track{};
+  };
+
+
   // State per publish_intent and related publish
   struct PublishContext
   {
@@ -268,6 +277,7 @@ protected:
     };
 
     State state{ State::Unknown };
+    TransportDeliveryContext delivery_context {};
     qtransport::TransportContextId transport_context_id{ 0 };
     qtransport::StreamId transport_stream_id{ 0 };
     uint64_t last_group_id{ 0 };
@@ -321,7 +331,11 @@ protected:
 
   std::shared_ptr<qtransport::ITransport> transport;
 
-  std::shared_ptr<NumeroUriConvertor> uri_convertor = nullptr;
+  std::shared_ptr<UriConvertor> uri_convertor = nullptr;
+
+  bool enable_moq = false;
+  // TODO: Make it part of API
+  ObjectDeliveryMode default_delivery_mode = ObjectDeliveryMode::Track;
 };
 
 }

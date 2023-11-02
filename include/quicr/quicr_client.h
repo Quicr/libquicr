@@ -47,7 +47,8 @@ public:
    */
   Client(const RelayInfo& relay_info,
          const qtransport::TransportConfig& tconfig,
-         const cantina::LoggerPointer& logger);
+         const cantina::LoggerPointer& logger,
+         std::shared_ptr<UriConvertor> numero_uri_convertor = nullptr);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber
@@ -57,7 +58,8 @@ public:
    * @param logger    : Shared pointer to cantina::Logger object
    */
   Client(std::shared_ptr<qtransport::ITransport> transport,
-         const cantina::LoggerPointer& logger);
+         const cantina::LoggerPointer& logger,
+         std::shared_ptr<UriConvertor> numero_uri_convertor = nullptr);
 
   /**
    * @brief Destructor for the client
@@ -195,13 +197,9 @@ public:
                                   bytes&& data);
 
 
-  void set_numero_uri_convertor(std::shared_ptr<NumeroUriConvertor> numero_uri_convertor) {
-    uri_convertor = numero_uri_convertor;
-  }
-
 protected:
   std::unique_ptr<ClientSession> client_session;
-  std::shared_ptr<NumeroUriConvertor> uri_convertor;
+  std::shared_ptr<UriConvertor> uri_convertor;
 };
 
 using QuicRClient

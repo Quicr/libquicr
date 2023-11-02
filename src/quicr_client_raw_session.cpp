@@ -21,6 +21,7 @@
 #include "quicr/quicr_client.h"
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_common.h"
+#include "quicr/moq_message_types.h"
 
 #include <chrono>
 #include <iomanip>
@@ -67,6 +68,8 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
     qtransport::TransportRemote{ to_TransportRemote(relay_info) };
   transport = qtransport::ITransport::make_client_transport(
     server, tconfig, *this, this->logger);
+
+  enable_moq = true;
 }
 
 ClientRawSession::ClientRawSession(
@@ -76,6 +79,7 @@ ClientRawSession::ClientRawSession(
   , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport(std::move(transport_in))
 {
+  enable_moq = true;
 }
 
 ClientRawSession::~ClientRawSession()
@@ -270,21 +274,30 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
     .transport_stream_id = stream_id,
   };
 
-  const auto intent = messages::PublishIntent{
-    messages::MessageType::PublishIntent,
-    messages::create_transaction_id(),
-    quicr_namespace,
-    std::move(payload),
-    stream_id,
-    1,
-  };
-
-  messages::MessageBuffer msg{ sizeof(messages::PublishIntent) +
-                               intent.payload.size() };
-  msg << intent;
-
-  auto error = transport->enqueue(context_id, stream_id, msg.take());
-
+  auto error = qtransport::TransportError::None;
+  if (enable_moq) {
+    auto uri = uri_convertor->to_namespace_uri(quicr_namespace);
+    const auto announce = messages::MoqAnnounce {
+      .track_namespace = uri
+    };
+    LOGGER_INFO(logger, "Announcing on" << announce.track_namespace);
+    messages::MessageBuffer msg{};
+    msg << announce;
+    error = transport->enqueue(context_id, stream_id, msg.take());
+  } else {
+    const auto intent = messages::PublishIntent{
+      messages::MessageType::PublishIntent,
+      messages::create_transaction_id(),
+      quicr_namespace,
+      std::move(payload),
+      stream_id,
+      1,
+    };
+    messages::MessageBuffer msg{ sizeof(messages::PublishIntent) +
+                                 intent.payload.size() };
+    msg << intent;
+    error = transport->enqueue(context_id, stream_id, msg.take());
+  }
   return error == qtransport::TransportError::None;
 }
 
@@ -303,21 +316,31 @@ ClientRawSession::publishIntentEnd(
 
   const auto ps_it = publish_state.find(quicr_namespace);
   if (ps_it != publish_state.end()) {
-    const auto intent_end = messages::PublishIntentEnd{
-      messages::MessageType::PublishIntentEnd,
-      quicr_namespace,
-      {} // TODO(trigaux): Figure out payload.
-    };
+    if (enable_moq) {
+      auto uri = uri_convertor->to_namespace_uri(quicr_namespace);
+      const auto unannounce = messages::MoqUnannounce {
+        .track_namespace = uri
+      };
+      LOGGER_INFO(logger, "UnAnnouncing on" << unannounce.track_namespace);
+      messages::MessageBuffer msg{};
+      msg << unannounce;
+      transport->enqueue(transport_context_id.value(), ps_it->second.transport_stream_id, msg.take());
+    } else {
+      const auto intent_end = messages::PublishIntentEnd{
+        messages::MessageType::PublishIntentEnd,
+        quicr_namespace,
+        {} // TODO(trigaux): Figure out payload.
+      };
 
-    messages::MessageBuffer msg;
-    msg << intent_end;
+      messages::MessageBuffer msg;
+      msg << intent_end;
 
-    transport->enqueue(transport_context_id.value(),
-                       ps_it->second.transport_stream_id,
-                       msg.take());
-
+      transport->enqueue(transport_context_id.value(),
+                         ps_it->second.transport_stream_id,
+                         msg.take());
+    }
     publish_state.erase(ps_it);
-  }
+  } // ps found
 }
 
 void
@@ -357,6 +380,25 @@ ClientRawSession::subscribe(
     return;
   }
 
+  if (enable_moq) {
+    auto uri = uri_convertor->to_namespace_uri(quicr_namespace);
+    // Note: we are not setting track name in the FTN.
+    // TODO:Suhas: Revisit this
+    auto subscribe = messages::MoqSubscribe {
+      .track = {.track_namespace = uri },
+      .start_group = {.mode = messages::LocationMode::RelativeNext, .value = 0},
+      .start_object = {.mode = messages::LocationMode::Absolute, .value = 0},
+      .end_group = {.mode = messages::LocationMode::None},
+      .end_object = {.mode = messages::LocationMode::None}
+    };
+
+    auto msg = messages::MessageBuffer{};
+    msg << subscribe;
+    transport->enqueue(
+      context_id, sub_it->second.transport_stream_id, msg.take());
+    return;
+  }
+  // quicr
   auto msg = messages::MessageBuffer{ sizeof(messages::Subscribe) };
   const auto subscribe =
     messages::Subscribe{ 0x1, transaction_id, quicr_namespace, intent };
@@ -372,9 +414,18 @@ ClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
                               const std::string& /* auth_token */)
 {
   // The removal of the delegate is done on receive of subscription ended
+
   auto msg = messages::MessageBuffer{};
-  const auto unsub = messages::Unsubscribe{ 0x1, quicr_namespace };
-  msg << unsub;
+  if (enable_moq) {
+    auto uri = uri_convertor->to_namespace_uri(quicr_namespace);
+    auto unsubscribe = messages::MoqUnsubscribe {
+      .track = {.track_namespace = uri,}
+    };
+    msg << unsubscribe;
+  }  else {
+    const auto unsub = messages::Unsubscribe{ 0x1, quicr_namespace };
+    msg << unsub;
+  }
 
   const auto& context_id = transport_context_id.value();
   const auto state_it = subscribe_state.find(quicr_namespace);
@@ -396,19 +447,14 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
                                      bytes&& data)
 {
   // start populating message to encode
-  auto datagram = messages::PublishDatagram{};
-
   auto found = publish_state.find(quicr_name);
-
   if (found == publish_state.end()) {
     LOGGER_INFO(
       logger, "No publish intent for '" << quicr_name << "' missing, dropping");
-
     return;
   }
 
   auto& [ns, context] = *found;
-
   const auto& context_id = transport_context_id.value();
   if (context.transport_stream_id == transport_dgram_stream_id.value()) {
     use_reliable_transport = false;
@@ -417,18 +463,59 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
   if (context.state != PublishContext::State::Ready) {
     context.transport_context_id = context_id;
     context.state = PublishContext::State::Ready;
-
     LOGGER_INFO(logger, "Adding new context for published ns: " << ns);
-
   } else {
     auto gap_log = gap_check(
       true, quicr_name, context.last_group_id, context.last_object_id);
-
     if (!gap_log.empty()) {
       logger->Log(gap_log);
     }
   }
 
+  auto group_id = quicr_name.bits<uint16_t>(16, 48);
+  auto object_id = quicr_name.bits<uint16_t>(0, 16);
+  auto& delivery_context = context.delivery_context;
+
+  LOGGER_INFO(logger, "Publish: GroupId " << group_id << " ObjectId," << group_id );
+
+  auto stream_id = qtransport::StreamId{0};
+
+  if (enable_moq) {
+    use_reliable_transport = true;
+    if (default_delivery_mode == ObjectDeliveryMode::Track) {
+      if (!delivery_context.stream_id_per_track.contains(quicr_name)) {
+        stream_id = transport->createStream(context.transport_context_id, true);
+        delivery_context.stream_id_per_track[quicr_name] = stream_id;
+        logger->info << "New delivery context for  Name " << quicr_name
+                     << ", TransportContext: " << context.transport_context_id
+                     << ", StreamId:" << stream_id << std::flush;
+      }
+      stream_id = delivery_context.stream_id_per_track[quicr_name];
+      messages::MessageBuffer msg;
+      auto moq_object = messages::MoqObject {
+        .track_id = 1,
+        .group_sequence = group_id,
+        .object_sequence = object_id,
+        .priority = 1,
+        .payload = std::move(data)
+      };
+      msg << moq_object;
+
+      // No fragmenting needed
+      transport->enqueue(
+        context_id, stream_id, msg.take(), priority, expiry_age_ms);
+      return;
+    } else {
+      throw std::runtime_error("Delivery mode unsupported");
+    }
+  } else {
+    stream_id = use_reliable_transport
+                  ? context.transport_stream_id
+                  : transport_dgram_stream_id.value();
+  }
+
+
+  auto datagram = messages::PublishDatagram{};
   datagram.header.name = quicr_name;
   datagram.header.media_id = context.transport_stream_id;
   datagram.header.group_id = context.last_group_id;
@@ -437,19 +524,12 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
   datagram.header.offset_and_fin = 1ULL;
   datagram.media_type = messages::MediaType::RealtimeMedia;
 
-  const auto stream_id = use_reliable_transport
-                           ? context.transport_stream_id
-                           : transport_dgram_stream_id.value();
-
   // Fragment the payload if needed
   if (data.size() <= quicr::max_transport_data_size || use_reliable_transport) {
     messages::MessageBuffer msg;
-
     datagram.media_data_length = data.size();
     datagram.media_data = std::move(data);
-
     msg << datagram;
-
     // No fragmenting needed
     transport->enqueue(
       context_id, stream_id, msg.take(), priority, expiry_age_ms);
@@ -459,9 +539,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
     auto frag_num = data.size() / quicr::max_transport_data_size;
     const auto frag_remaining_bytes =
       data.size() % quicr::max_transport_data_size;
-
     auto offset = size_t(0);
-
     while (frag_num-- > 0) {
       auto msg = messages::MessageBuffer{};
 
@@ -478,9 +556,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
       datagram.media_data_length = frag_data.size();
       datagram.media_data = std::move(frag_data);
-
       msg << datagram;
-
       offset += quicr::max_transport_data_size;
 
       /*

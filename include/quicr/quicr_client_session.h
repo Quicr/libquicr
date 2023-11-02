@@ -173,7 +173,7 @@ public:
 
 
 
-  virtual void set_numero_uri_convertor(std::shared_ptr<NumeroUriConvertor> numero_uri_convertor) = 0;
+  virtual void set_numero_uri_convertor(std::shared_ptr<UriConvertor> numero_uri_convertor) = 0;
 };
 
 

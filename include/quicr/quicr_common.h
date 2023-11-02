@@ -105,6 +105,18 @@ struct SubscribeResult
 };
 
 /**
+ * ObjectDeliveryMode
+ */
+enum class ObjectDeliveryMode: uint8_t {
+  None = 0,
+  Group,
+  Object,
+  Priority,
+  Track,
+  Datagram,
+};
+
+/**
  * PublishIntentResult defines the result of a publish intent
  */
 struct PublishIntentResult
@@ -114,8 +126,10 @@ struct PublishIntentResult
   quicr::Name reassignedName; // Set only if status is ReAssigned
 };
 
-struct NumeroUriConvertor {
+struct UriConvertor
+{
   virtual std::string to_namespace_uri(quicr::Namespace ns) = 0;
+  virtual quicr::Namespace to_quicr_namespace(const std::string&) = 0;
   virtual std::string to_name_uri(quicr::Namespace n) = 0;
 };
 

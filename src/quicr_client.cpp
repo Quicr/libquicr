@@ -14,24 +14,29 @@ namespace quicr {
 
 Client::Client(const RelayInfo& relay_info,
                const qtransport::TransportConfig& tconfig,
-               const cantina::LoggerPointer& logger)
+               const cantina::LoggerPointer& logger,
+               std::shared_ptr<UriConvertor> numero_uri_convertor)
 {
+  uri_convertor = numero_uri_convertor;
   switch (relay_info.proto) {
     case RelayInfo::Protocol::UDP:
       [[fallthrough]];
     case RelayInfo::Protocol::QUIC:
       client_session =
         std::make_unique<ClientRawSession>(relay_info, tconfig, logger);
+      client_session->set_numero_uri_convertor(uri_convertor);
       break;
     default:
       throw ClientException("Unsupported relay protocol");
-      break;
   }
+
 }
 
 Client::Client(std::shared_ptr<qtransport::ITransport> transport_in,
-               const cantina::LoggerPointer& logger)
+               const cantina::LoggerPointer& logger,
+               std::shared_ptr<UriConvertor> convertor)
 {
+  uri_convertor = convertor;
   client_session =
     std::make_unique<ClientRawSession>(std::move(transport_in), logger);
   client_session->set_numero_uri_convertor(uri_convertor);

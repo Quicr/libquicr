@@ -215,7 +215,6 @@ namespace quicr::messages {
     struct MoqGoaway {
         std::string new_session_uri;
     };
-
     MessageBuffer &operator<<(MessageBuffer &buffer, const MoqGoaway &msg);
     MessageBuffer &operator>>(MessageBuffer &buffer, MoqGoaway &msg);
 
@@ -223,8 +222,6 @@ namespace quicr::messages {
     ///
     /// Object
     /// Note: By default, all our objects are length delimited
-
-
     struct MoqObject {
         TrackId track_id;
         GroupSequence group_sequence;
@@ -232,6 +229,9 @@ namespace quicr::messages {
         ObjectPriority priority;
         quicr::bytes payload;
     };
+    MessageBuffer &operator<<(MessageBuffer &buffer, const MoqObject &msg);
+    MessageBuffer &operator>>(MessageBuffer &buffer, MoqObject &msg);
+
 
     // generic
     MessageBuffer& operator<<(MessageBuffer& msg, std::vector<uintVar_t>& val);

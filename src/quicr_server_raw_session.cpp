@@ -19,6 +19,7 @@
 #include "quicr/gap_check.h"
 #include "quicr/message_buffer.h"
 #include "quicr/quicr_common.h"
+#include "quicr/moq_message_types.h"
 
 #include <algorithm>
 #include <arpa/inet.h>
@@ -51,6 +52,7 @@ ServerRawSession::ServerRawSession(const RelayInfo& relayInfo,
 
   transport = setupTransport(tconfig);
   transport->start();
+  enable_moq = true;
 }
 
 ServerRawSession::ServerRawSession(
@@ -62,6 +64,7 @@ ServerRawSession::ServerRawSession(
   , transport_delegate(*this)
   , transport(std::move(transport_in))
 {
+  enable_moq = true;
 }
 
 std::shared_ptr<qtransport::ITransport>
@@ -138,14 +141,23 @@ ServerRawSession::subscribeResponse(const uint64_t& subscriber_id,
 
   const auto& context = subscribe_id_state[subscriber_id];
 
-  const auto response = messages::SubscribeResponse{
-    .quicr_namespace = quicr_namespace,
-    .response = result.status,
-    .transaction_id = subscriber_id,
-  };
-
   messages::MessageBuffer msg;
-  msg << response;
+
+  if (enable_moq) {
+    auto uri = uri_convertor->to_namespace_uri(quicr_namespace);
+    auto sub_ok = messages::MoqSubscribeOk {
+      .track = {.track_namespace = uri},
+      .track_id = 1, // create a trackId
+    };
+    msg << sub_ok;
+  } else {
+    const auto response = messages::SubscribeResponse{
+      .quicr_namespace = quicr_namespace,
+      .response = result.status,
+      .transaction_id = subscriber_id,
+    };
+    msg << response;
+  }
 
   transport->enqueue(
     context.transport_context_id, context.transport_stream_id, msg.take());
@@ -212,12 +224,23 @@ ServerRawSession::handle_subscribe(
   const qtransport::StreamId& streamId,
   messages::MessageBuffer&& msg)
 {
-  auto subscribe = messages::Subscribe{};
-  msg >> subscribe;
+  quicr::Namespace ns{};
+  SubscribeIntent intent = SubscribeIntent::immediate;
+  if(enable_moq) {
+    auto moq_subscribe = messages::MoqSubscribe {};
+    msg >> moq_subscribe;
+    ns = uri_convertor->to_quicr_namespace(moq_subscribe.track.track_namespace);
+  } else {
+    auto subscribe = messages::Subscribe{};
+    msg >> subscribe;
+    ns = subscribe.quicr_namespace;
+    intent = subscribe.intent;
+  }
+
 
   const auto lock = std::lock_guard<std::mutex>(session_mutex);
 
-  if (!subscribe_state[subscribe.quicr_namespace].contains(context_id)) {
+  if (!subscribe_state[ns].contains(context_id)) {
     auto context = SubscribeContext{};
     context.transport_context_id = context_id;
     context.transport_stream_id = streamId;
@@ -225,17 +248,17 @@ ServerRawSession::handle_subscribe(
 
     subscriber_id++;
 
-    subscribe_state[subscribe.quicr_namespace][context_id] = context;
+    subscribe_state[ns][context_id] = context;
     subscribe_id_state[context.subscriber_id] = context;
   }
 
-  const auto& context = subscribe_state[subscribe.quicr_namespace][context_id];
+  const auto& context = subscribe_state[ns][context_id];
 
-  delegate->onSubscribe(subscribe.quicr_namespace,
+  delegate->onSubscribe(ns,
                         context.subscriber_id,
                         context_id,
                         streamId,
-                        subscribe.intent,
+                        intent,
                         "",
                         false,
                         "",
@@ -438,6 +461,25 @@ ServerRawSession::TransportDelegate::on_new_stream(
 }
 
 void
+ServerRawSession::handle_moq_message(const qtransport::TransportContextId& context_id,
+                                     const qtransport::StreamId& streamId,
+                                     std::vector<uint8_t>&& data)
+{
+
+  auto msg_type = data.front();
+  messages::MessageBuffer msg_buffer{ data };
+  switch (msg_type) {
+    case messages::MESSAGE_TYPE_SUBSCRIBE:
+      recv_subscribes++;
+      handle_subscribe(
+        context_id, streamId, std::move(msg_buffer));
+      break;
+    default:
+      throw std::runtime_error("Unknown MoqMessage");
+  }
+}
+
+void
 ServerRawSession::TransportDelegate::on_recv_notify(
   const qtransport::TransportContextId& context_id,
   const qtransport::StreamId& streamId)
@@ -448,6 +490,11 @@ ServerRawSession::TransportDelegate::on_recv_notify(
 
     if (data.has_value()) {
       server.recv_data_count++;
+      if (server.enable_moq) {
+        server.handle_moq_message(context_id, streamId, std::move(data.value()));
+        continue;
+      }
+
       try {
         auto msg_type = static_cast<messages::MessageType>(data->front());
         messages::MessageBuffer msg_buffer{ data.value() };

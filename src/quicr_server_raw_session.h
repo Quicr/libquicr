@@ -134,6 +134,11 @@ public:
                        uint16_t expiry_age_ms,
                        const messages::PublishDatagram& datagram) override;
 
+
+  void set_numero_uri_convertor(std::shared_ptr<UriConvertor> numero_uri_convertor) override {
+    uri_convertor = numero_uri_convertor;
+  }
+
 private:
   /*
    * Implementation of the transport delegate
@@ -195,6 +200,24 @@ private:
     const qtransport::StreamId& mStreamId,
     messages::MessageBuffer&& msg);
 
+  void handle_moq_message(const qtransport::TransportContextId& context_id,
+                          const qtransport::StreamId& streamId,
+                          std::vector<uint8_t>&& data);
+  void handle_quicr_message(const qtransport::TransportContextId& context_id,
+                            const qtransport::StreamId& streamId,
+                            std::vector<uint8_t>&& data);
+
+
+
+  // TODO (Suhas): Can the common state be moved to quicr_common.h
+  struct DeliveryContext {
+    qtransport::StreamId control_stream_id {0}; // there is one control stream per connection
+    //std::map<uint64_t, qtransport::StreamId> stream_id_per_object{};
+    //std::map<uint64_t, qtransport::StreamId> stream_id_per_group{};
+    //std::map<uint32_t , qtransport::StreamId> stream_id_per_priority{};
+    std::map<quicr::Name, qtransport::StreamId> stream_id_per_track{};
+  };
+
   struct Context
   {
     enum struct State
@@ -207,6 +230,7 @@ private:
     State state{ State::Unknown };
     qtransport::TransportContextId transport_context_id{ 0 };
     qtransport::StreamId transport_stream_id{ 0 };
+    DeliveryContext delivery_context {};
   };
 
   struct SubscribeContext : public Context
@@ -232,6 +256,7 @@ private:
   std::shared_ptr<qtransport::ITransport> transport;
   qtransport::TransportRemote t_relay;
 
+
   using SubscriptionContextMap =
     std::map<qtransport::TransportContextId, SubscribeContext>;
   namespace_map<SubscriptionContextMap> subscribe_state{};
@@ -242,6 +267,9 @@ private:
 
   bool running{ false };
   uint64_t subscriber_id{ 0 };
+  bool enable_moq { false };
+  std::shared_ptr<UriConvertor> uri_convertor = nullptr;
+
 };
 
 } // namespace quicr
