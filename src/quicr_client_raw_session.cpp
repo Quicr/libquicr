@@ -210,6 +210,45 @@ ClientRawSession::on_new_stream(
 }
 
 void
+ClientRawSession::handle_moq(messages::MessageBuffer&& msg)
+{
+  if (msg.empty()) {
+    std::cout << "Transport Reported Empty Data" << std::endl;
+    return;
+  }
+
+  auto msg_type = msg.front();
+  switch (msg_type) {
+    case messages::MESSAGE_TYPE_SUBSCRIBE_OK: {
+      messages::MoqSubscribeOk sub_ok;
+      msg >> sub_ok;
+      if (track_id_namespace_map.contains(sub_ok.track_id) > 0) {
+        LOGGER_INFO(logger, "SubscribeOk: TrackId:" << sub_ok.track_id << " Exists");
+        break;
+      }
+
+      auto sub_ns = uri_convertor->to_quicr_namespace(sub_ok.track.track_namespace);
+      track_id_namespace_map[sub_ok.track_id] = sub_ns;
+      namespace_track_id_map[sub_ns] = sub_ok.track_id;
+
+      if (sub_delegates.count(sub_ns)) {
+        auto &context = subscribe_state[sub_ns];
+        context.state = SubscribeContext::State::Ready;
+        if (auto sub_delegate = sub_delegates[sub_ns]) {
+          sub_delegate->onSubscribeResponse(sub_ns, {});
+        }
+      } else {
+        LOGGER_INFO(logger, "SubscribeOk: No delegate found for namespace" << sub_ns);
+      }
+      break;
+    }
+    default:
+      break;
+  }
+
+}
+
+void
 ClientRawSession::on_recv_notify(
   const qtransport::TransportContextId& context_id,
   const qtransport::StreamId& streamId)
@@ -232,7 +271,11 @@ ClientRawSession::on_recv_notify(
     messages::MessageBuffer msg_buffer{ data.value() };
 
     try {
-      handle(std::move(msg_buffer));
+      if (enable_moq) {
+        handle_moq(std::move(msg_buffer));
+      } else {
+        handle(std::move(msg_buffer));
+      }
     } catch (const std::exception& e) {
       LOGGER_DEBUG(logger, "Dropping malformed message: " << e.what());
       return;

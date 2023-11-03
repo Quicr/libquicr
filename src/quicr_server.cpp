@@ -10,14 +10,18 @@ namespace quicr {
 Server::Server(const RelayInfo& relayInfo,
                const qtransport::TransportConfig& tconfig,
                std::shared_ptr<ServerDelegate> delegate_in,
-               const cantina::LoggerPointer& logger)
+               const cantina::LoggerPointer& logger,
+               std::shared_ptr<UriConvertor> converter_in)
 {
+  uri_convertor = converter_in;
+
   switch (relayInfo.proto) {
     case RelayInfo::Protocol::UDP:
       [[fallthrough]];
     case RelayInfo::Protocol::QUIC:
       server_session = std::make_unique<ServerRawSession>(
         relayInfo, tconfig, std::move(delegate_in), logger);
+      server_session->set_uri_convertor(uri_convertor);
       break;
     default:
       throw ServerException("Unsupported relay protocol");
@@ -27,10 +31,13 @@ Server::Server(const RelayInfo& relayInfo,
 
 Server::Server(std::shared_ptr<qtransport::ITransport> transport_in,
                std::shared_ptr<ServerDelegate> delegate_in,
-               const cantina::LoggerPointer& logger)
+               const cantina::LoggerPointer& logger,
+               std::shared_ptr<UriConvertor> convertor_in)
 {
   server_session = std::make_unique<ServerRawSession>(
     std::move(transport_in), std::move(delegate_in), logger);
+  uri_convertor = convertor_in;
+  server_session->set_uri_convertor(uri_convertor);
 }
 
 // Transport APIs

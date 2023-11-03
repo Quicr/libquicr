@@ -20,6 +20,7 @@
 #include "quicr/quicr_client.h"
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_common.h"
+#include "quicr/moq_message_types.h"
 
 #include <qname>
 #include <transport/transport.h>
@@ -231,6 +232,8 @@ protected:
                            const std::shared_ptr<SubscriberDelegate>& delegate);
 
   void handle(messages::MessageBuffer&& msg);
+  void handle_moq(messages::MessageBuffer&& msg);
+
 
   void removeSubscription(const quicr::Namespace& quicr_namespace,
                           const SubscribeResult::SubscribeStatus& reason);
@@ -328,11 +331,13 @@ protected:
 
   namespace_map<std::shared_ptr<SubscriberDelegate>> sub_delegates;
   namespace_map<SubscribeContext> subscribe_state{};
-
   std::shared_ptr<qtransport::ITransport> transport;
-
   std::shared_ptr<UriConvertor> uri_convertor = nullptr;
 
+  // namespace to track id
+  std::map<quicr::Namespace, messages::TrackId> namespace_track_id_map{};
+  // track-id to namespace
+  std::map<messages::TrackId, quicr::Namespace> track_id_namespace_map{};
   bool enable_moq = false;
   // TODO: Make it part of API
   ObjectDeliveryMode default_delivery_mode = ObjectDeliveryMode::Track;

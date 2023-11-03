@@ -108,7 +108,7 @@ public:
                                uint16_t expiry_age_ms,
                                const messages::PublishDatagram& datagram) = 0;
 
-  virtual void set_numero_uri_convertor(std::shared_ptr<UriConvertor> numero_uri_convertor) = 0;
+  virtual void set_uri_convertor(std::shared_ptr<UriConvertor> numero_uri_convertor) = 0;
 };
 
 using QuicRServerSession [[deprecated(

@@ -135,7 +135,7 @@ public:
                        const messages::PublishDatagram& datagram) override;
 
 
-  void set_numero_uri_convertor(std::shared_ptr<UriConvertor> numero_uri_convertor) override {
+  void set_uri_convertor(std::shared_ptr<UriConvertor> numero_uri_convertor) override {
     uri_convertor = numero_uri_convertor;
   }
 

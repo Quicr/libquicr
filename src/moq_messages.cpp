@@ -45,7 +45,9 @@ namespace quicr::messages {
         if (location.value.has_value()) {
             buffer << location.value.value();
         } else {
-            throw std::runtime_error("Malformed location: Missing Value");
+            if(location.mode != LocationMode::None) {
+              throw std::runtime_error("Malformed location: Missing Value");
+            }
         }
         return buffer;
     }
@@ -53,6 +55,9 @@ namespace quicr::messages {
     MessageBuffer&
     operator>>(MessageBuffer &buffer, Location& location) {
         buffer >> location.mode;
+        if (location.mode == (uintVar_t) 0) {
+            return buffer;
+        }
         uintVar_t value {0};
         buffer >> value;
         location.value = value;
