@@ -113,15 +113,23 @@ ServerRawSession::publishIntentResponse(const quicr::Namespace& quicr_namespace,
 
   // TODO(trigaux): Support more than one publisher per ns
   auto& context = publish_namespaces[quicr_namespace];
-  const auto response = messages::PublishIntentResponse{
-    messages::MessageType::PublishIntentResponse,
-    quicr_namespace,
-    result.status,
-    context.transaction_id
-  };
+  auto msg = messages::MessageBuffer{};
 
-  messages::MessageBuffer msg(sizeof(response));
-  msg << response;
+  if (enable_moq) {
+    auto uri = uri_convertor->to_namespace_uri(quicr_namespace);
+    auto announce_ok = messages::MoqAnnounceOk {
+      .track_namespace = uri,
+    };
+    msg << announce_ok;
+  } else {
+    const auto response = messages::PublishIntentResponse{
+      messages::MessageType::PublishIntentResponse,
+      quicr_namespace,
+      result.status,
+      context.transaction_id
+    };
+    msg << response;
+  }
 
   context.state = PublishIntentContext::State::Ready;
 
@@ -329,19 +337,32 @@ ServerRawSession::handle_publish_intent(
   const qtransport::StreamId& streamId,
   messages::MessageBuffer&& msg)
 {
-  messages::PublishIntent intent;
-  msg >> intent;
+  quicr::Namespace ns {};
+  uint64_t tx_id = 0;
+  bytes payload = {};
 
-  if (!publish_namespaces.contains(intent.quicr_namespace)) {
+  if (enable_moq) {
+    messages::MoqAnnounce announce;
+    msg >> announce;
+    ns = uri_convertor->to_quicr_namespace(announce.track_namespace);
+  } else {
+    messages::PublishIntent intent;
+    msg >> intent;
+    tx_id = intent.transaction_id;
+    ns = intent.quicr_namespace;
+    payload = std::move(intent.payload);
+  }
+
+  if (!publish_namespaces.contains(ns)) {
     PublishIntentContext context;
     context.state = PublishIntentContext::State::Pending;
     context.transport_context_id = context_id;
     context.transport_stream_id = streamId;
-    context.transaction_id = intent.transaction_id;
+    context.transaction_id = tx_id;
 
-    publish_namespaces[intent.quicr_namespace] = context;
+    publish_namespaces[ns] = context;
   } else {
-    auto state = publish_namespaces[intent.quicr_namespace].state;
+    auto state = publish_namespaces[ns].state;
     // NOLINTBEGIN(bugprone-branch-clone)
     switch (state) {
       case PublishIntentContext::State::Pending:
@@ -355,11 +376,11 @@ ServerRawSession::handle_publish_intent(
     // NOLINTEND(bugprone-branch-clone)
   }
 
-  delegate->onPublishIntent(intent.quicr_namespace,
+  delegate->onPublishIntent(ns,
                             "" /* intent.origin_url */,
                             false,
                             "" /* intent.relay_token */,
-                            std::move(intent.payload));
+                            std::move(payload));
 }
 
 void
@@ -473,6 +494,9 @@ ServerRawSession::handle_moq_message(const qtransport::TransportContextId& conte
       recv_subscribes++;
       handle_subscribe(
         context_id, streamId, std::move(msg_buffer));
+      break;
+    case messages::MESSAGE_TYPE_ANNOUNCE:
+      handle_publish_intent(context_id, streamId, std::move(msg_buffer));
       break;
     default:
       throw std::runtime_error("Unknown MoqMessage");

@@ -242,6 +242,24 @@ ClientRawSession::handle_moq(messages::MessageBuffer&& msg)
       }
       break;
     }
+    case messages::MESSAGE_TYPE_ANNOUNCE_OK:
+    {
+        auto announce_ok = messages::MoqAnnounceOk{};
+        msg >> announce_ok;
+        auto ns = uri_convertor->to_quicr_namespace(announce_ok.track_namespace);
+        if (!pub_delegates.count(ns)) {
+        std::cout
+          << "Got PublishIntentResponse: No delegate found for namespace "
+          << ns << std::endl;
+        return;
+        }
+        std::cout << "onPublishIntentResponse" << std::endl;
+        if (auto delegate = pub_delegates[ns]) {
+        PublishIntentResult result{ .status = messages::Response::Ok };
+        delegate->onPublishIntentResponse(ns, result);
+        }
+        break;
+    }
     default:
       break;
   }
