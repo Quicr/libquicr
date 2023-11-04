@@ -155,7 +155,6 @@ ServerRawSession::subscribeResponse(const uint64_t& subscriber_id,
     auto uri = uri_convertor->to_namespace_uri(quicr_namespace);
     auto sub_ok = messages::MoqSubscribeOk {
       .track = {.track_namespace = uri},
-      .track_id = 1, // create a trackId
     };
     msg << sub_ok;
   } else {
@@ -306,22 +305,33 @@ ServerRawSession::handle_publish(
   const qtransport::StreamId& streamId,
   messages::MessageBuffer&& msg)
 {
+  quicr::Name name {};
   messages::PublishDatagram datagram;
-  msg >> datagram;
 
-  auto publish_namespace = publish_namespaces.find(datagram.header.name);
+  if (enable_moq) {
+    auto object = messages::MoqObject{};
+    msg >> object;
+    // construct  a quicr name from the info
+    // group sequence, object sequence,
+    // we need namespace somewhere
+  } else {
+    msg >> datagram;
+    name = datagram.header.name;
+  }
+
+  auto publish_namespace = publish_namespaces.find(name);
 
   if (publish_namespace == publish_namespaces.end()) {
     // TODO(trigaux): Add metrics for tracking dropped messages
     logger->info << "Dropping published object, no namespace for "
-                 << datagram.header.name << std::flush;
+                 << name << std::flush;
     return;
   }
 
   auto& [ns, context] = *publish_namespace;
 
   const auto gap_log = gap_check(
-    false, datagram.header.name, context.last_group_id, context.last_object_id);
+    false, name, context.last_group_id, context.last_object_id);
 
   if (!gap_log.empty()) {
     logger->info << "context_id: " << context_id << " stream_id: " << streamId
@@ -497,6 +507,9 @@ ServerRawSession::handle_moq_message(const qtransport::TransportContextId& conte
       break;
     case messages::MESSAGE_TYPE_ANNOUNCE:
       handle_publish_intent(context_id, streamId, std::move(msg_buffer));
+      break;
+    case messages::MESSAGE_TYPE_OBJECT_WITH_LEN:
+      handle_publish(context_id, streamId, std::move(msg_buffer));
       break;
     default:
       throw std::runtime_error("Unknown MoqMessage");

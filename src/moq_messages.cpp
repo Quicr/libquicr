@@ -71,6 +71,7 @@ namespace quicr::messages {
     operator<<(MessageBuffer &buffer, const MoqSubscribe& msg) {
         buffer << static_cast<uint8_t>(MESSAGE_TYPE_SUBSCRIBE);
         buffer << msg.track;
+        buffer << msg.track_id;
         buffer << msg.start_group;
         buffer << msg.start_object;
         buffer << msg.end_group;
@@ -87,6 +88,7 @@ namespace quicr::messages {
             throw MessageTypeException(msg_type, MessageType::Subscribe);
         }
         buffer >> msg.track;
+        buffer >> msg.track_id;
         buffer >> msg.start_group;
         buffer >> msg.start_object;
         buffer >> msg.end_group;
@@ -117,7 +119,6 @@ namespace quicr::messages {
     operator<<(MessageBuffer &buffer, const MoqSubscribeOk &msg) {
         buffer << static_cast<uint8_t>(MESSAGE_TYPE_SUBSCRIBE_OK);
         buffer << msg.track;
-        buffer << msg.track_id;
         buffer << msg.expires;
         return buffer;
     }
@@ -130,7 +131,6 @@ namespace quicr::messages {
             throw std::runtime_error("MoqSubscribeOk");
         }
         buffer >> msg.track;
-        buffer >> msg.track_id;
         buffer >> msg.expires;
         return buffer;
     }

@@ -120,6 +120,7 @@ namespace quicr::messages {
 
     struct MoqSubscribe {
         FullTrackName track;
+        TrackId  track_id;
         Location start_group;
         Location start_object;
         Location end_group;
@@ -132,7 +133,6 @@ namespace quicr::messages {
 
     struct MoqSubscribeOk {
         FullTrackName track;
-        TrackId track_id;
         uintVar_t expires;
     };
     MessageBuffer& operator<<(MessageBuffer &buffer, const MoqSubscribeOk &msg);

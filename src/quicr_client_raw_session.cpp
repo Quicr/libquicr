@@ -222,14 +222,14 @@ ClientRawSession::handle_moq(messages::MessageBuffer&& msg)
     case messages::MESSAGE_TYPE_SUBSCRIBE_OK: {
       messages::MoqSubscribeOk sub_ok;
       msg >> sub_ok;
-      if (track_id_namespace_map.contains(sub_ok.track_id) > 0) {
-        LOGGER_INFO(logger, "SubscribeOk: TrackId:" << sub_ok.track_id << " Exists");
-        break;
-      }
+      //if (track_id_namespace_map.contains(sub_ok.track_id) > 0) {
+      //  LOGGER_INFO(logger, "SubscribeOk: TrackId:" << sub_ok.track_id << " Exists");
+      //  break;
+      //}
 
       auto sub_ns = uri_convertor->to_quicr_namespace(sub_ok.track.track_namespace);
-      track_id_namespace_map[sub_ok.track_id] = sub_ns;
-      namespace_track_id_map[sub_ns] = sub_ok.track_id;
+      //track_id_namespace_map[sub_ok.track_id] = sub_ns;
+      //namespace_track_id_map[sub_ns] = sub_ok.track_id;
 
       if (sub_delegates.count(sub_ns)) {
         auto &context = subscribe_state[sub_ns];
@@ -554,12 +554,13 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       stream_id = delivery_context.stream_id_per_track[quicr_name];
       messages::MessageBuffer msg;
       auto moq_object = messages::MoqObject {
-        .track_id = 1,
+        .track_id = 1, // fix this
         .group_sequence = group_id,
         .object_sequence = object_id,
         .priority = 1,
         .payload = std::move(data)
       };
+
       msg << moq_object;
 
       // No fragmenting needed
