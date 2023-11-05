@@ -569,6 +569,20 @@ ServerRawSession::handle_moq_message(const qtransport::TransportContextId& conte
   auto msg_type = data.front();
   messages::MessageBuffer msg_buffer{ data };
   switch (msg_type) {
+    case messages::MESSAGE_TYPE_CLIENT_SETUP: {
+      logger->info << "Server received client setup " << std::flush;
+      // send server setup
+      auto setup = messages::ServerSetup{
+        .selected_version = 0x1,
+        .parameters = {
+          messages::Parameter{.key = 0x0, .value = 0x03}
+        }
+      };
+      messages::MessageBuffer msg;
+      msg << setup;
+      transport->enqueue(context_id, streamId, std::move(msg.take()));
+    }
+      break;
     case messages::MESSAGE_TYPE_SUBSCRIBE:
       recv_subscribes++;
       handle_subscribe(

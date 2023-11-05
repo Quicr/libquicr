@@ -3,6 +3,7 @@
 #include <quicr/quicr_common.h>
 #include <quicr/quicr_server.h>
 #include <transport/transport.h>
+#include <quicr/moq_message_types.h>
 
 #include "subscription.h"
 #include <cantina/logger.h>
@@ -182,6 +183,13 @@ public:
       server->sendNamedObject(dest.subscribe_id, false, 1, 200, datagram);
     }
   }
+
+  void onPublishedObject(
+    [[maybe_unused]] const qtransport::TransportContextId& context_id,
+    [[maybe_unused]] const qtransport::StreamId& stream_id,
+    [[maybe_unused]] bool use_reliable_transport,
+    [[maybe_unused]] quicr::messages::MoqObject&& datagram) override
+  {}
 
   void onUnsubscribe(const quicr::Namespace& quicr_namespace,
                      const uint64_t& subscriber_id,

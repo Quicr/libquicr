@@ -133,7 +133,6 @@ ClientRawSession::connect()
   while (transport->status() == qtransport::TransportStatus::Connecting) {
     if (stopping) {
       LOGGER_INFO(logger, "Cancelling connecting session " << context_id);
-
       return false;
     }
 
@@ -152,6 +151,38 @@ ClientRawSession::connect()
 
   transport_context_id = context_id;
   transport_dgram_stream_id = transport->createStream(context_id, false);
+
+  // setup control stream for control messages as a reliable stream
+  control_stream_id = transport->createStream(transport_context_id.value(), true);
+
+  logger->info << "Created Transport Session " << transport_context_id.value()
+      << " Datagram Stream Id: " << transport_dgram_stream_id.value()
+      << " Control Stream Id:" << control_stream_id.value() << std::flush;
+
+
+  // send a setup message
+  auto setup = messages::ClientSetup {
+    .supported_versions = {0x1},
+    .parameters = {
+      messages::Parameter {.key = 0x00, .value = 0x03},
+    }
+  };
+  logger->info << "Client: SendingSetup " << std::flush;
+  messages::MessageBuffer msg{};
+  msg << setup;
+  transport->enqueue(context_id, control_stream_id.value(), msg.take());
+
+  while(setup_complete != true) {
+    if (stopping) {
+      logger->info << "Cancelling awaiting setup complete " << std::flush;
+
+      return false;
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+
+  logger->info << "Client: Setup Complete " << std::flush;
 
   return true;
 }
@@ -252,6 +283,18 @@ ClientRawSession::handle_moq(messages::MessageBuffer&& msg)
 
   auto msg_type = msg.front();
   switch (msg_type) {
+    case messages::MESSAGE_TYPE_SERVER_SETUP:
+    {
+      messages::ServerSetup setup;
+      msg >> setup;
+      if (static_cast<uint32_t>(setup.selected_version) != 0x1) {
+        throw std::runtime_error("Server Selection Version Error");
+      }
+      logger->info << "Client: Server Setup Recevied " << std::flush;
+
+      setup_complete = true;
+    }
+    break;
     case messages::MESSAGE_TYPE_SUBSCRIBE: {
       messages::MoqSubscribe sub;
       msg >> sub;
@@ -316,7 +359,7 @@ ClientRawSession::handle_moq(messages::MessageBuffer&& msg)
         if (auto found = sub_delegates.find(name);
             found != sub_delegates.end()) {
         const auto& [ns, delegate] = *found;
-        
+
         // No-fragment, process as single object
         delegate->onSubscribedObject(name,
                                      0x0,

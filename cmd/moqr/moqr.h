@@ -1,8 +1,15 @@
-//
-// Created by Suhas Nandakumar on 11/5/23.
-//
+#pragma once
+#include <optional>
+#include "qsession.h"
 
-#ifndef QUICR_MOQR_H
-#define QUICR_MOQR_H
+struct MoqRelay {
+  MoqRelay();
+  ~MoqRelay() = default;
+  void HandleQSessionMessages(QuicrObject&& obj);
+private:
+  std::optional<std::thread> handler_thread;
+  static constexpr auto inbound_object_timeout = std::chrono::milliseconds(100);
+  std::shared_ptr<AsyncQueue<QuicrObject>> inbound_objects;
+  std::shared_ptr<QSession> quicr_session = nullptr;
+};
 
-#endif //QUICR_MOQR_H

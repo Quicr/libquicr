@@ -295,6 +295,7 @@ protected:
   // These parameters are updated on connect() / disconnect().  The optional
   // parameters should be non-null if and only if connected().
   std::optional<qtransport::StreamId> transport_dgram_stream_id;
+  std::optional<qtransport::StreamId> control_stream_id; // Control Messages are sent over this stream
   std::optional<qtransport::TransportContextId> transport_context_id;
 
   // Nested map to reassemble message fragments
@@ -339,6 +340,7 @@ protected:
   // track-id to namespace
   std::map<messages::TrackId, quicr::Namespace> track_id_namespace_map{};
   bool enable_moq = false;
+  std::atomic<bool> setup_complete = false;
   // TODO: Make it part of API
   ObjectDeliveryMode default_delivery_mode = ObjectDeliveryMode::Track;
 };

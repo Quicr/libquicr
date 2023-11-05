@@ -68,9 +68,8 @@ namespace quicr::messages {
     // Setup types
     //
     struct Parameter {
-        uintVar_t param_type;
-        uintVar_t length;
-        bytes     value;
+        uintVar_t key;
+        uintVar_t value;
     };
     MessageBuffer& operator<<(MessageBuffer &buffer, const Parameter &msg);
     MessageBuffer& operator>>(MessageBuffer &buffer, Parameter &msg);
@@ -234,8 +233,9 @@ namespace quicr::messages {
 
 
     // generic
-    MessageBuffer& operator<<(MessageBuffer& msg, std::vector<uintVar_t>& val);
-    MessageBuffer& operator>>(MessageBuffer &buffer, ClientSetup &msg);
+    template<class T>
+    MessageBuffer& operator<<(MessageBuffer& msg,  const std::vector<uintVar_t>& val);
+    MessageBuffer& operator>>(MessageBuffer &buffer, std::vector<uintVar_t> &msg);
 
 
 }

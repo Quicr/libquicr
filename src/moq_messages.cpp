@@ -325,6 +325,21 @@ namespace quicr::messages {
 
     // Setup Encode and Decode
 
+    MessageBuffer&
+    operator<<(MessageBuffer &buffer, const Parameter &param) {
+        buffer << param.key;
+        buffer << param.value;
+        return buffer;
+    }
+
+    MessageBuffer&
+    operator>>(MessageBuffer &buffer, Parameter &param) {
+      buffer >> param.key;
+      buffer >> param.value;
+      return buffer;
+    }
+
+
     // vector<varint> encode/decode
     MessageBuffer&
     operator<<(MessageBuffer& buffer, const std::vector<uintVar_t>& val)
@@ -357,23 +372,59 @@ namespace quicr::messages {
 
     MessageBuffer&
     operator<<(MessageBuffer &buffer, const ClientSetup &msg){
+        buffer << MESSAGE_TYPE_CLIENT_SETUP;
         buffer << msg.supported_versions;
+        buffer << static_cast<uintVar_t>(msg.parameters.size());
+        for (const auto& param : msg.parameters) {
+            buffer << param;
+        }
         return buffer;
     }
 
     MessageBuffer& operator>>(MessageBuffer &buffer, ClientSetup &msg){
+      uint8_t msg_type;
+      buffer >> msg_type;
+      if (msg_type != MESSAGE_TYPE_CLIENT_SETUP) {
+          throw std::runtime_error("ClientSetup");
+      }
       buffer >> msg.supported_versions;
+      uintVar_t num_params = 0;
+      buffer >> num_params;
+      auto params = std::vector<Parameter> {};
+      params.reserve(num_params);
+      for (size_t i = 0; i <  (num_params); i++) {
+        buffer >> params[i];
+      }
+      msg.parameters = std::move(params);
       return buffer;
     }
 
     MessageBuffer&
     operator<<(MessageBuffer &buffer, const ServerSetup &msg){
+      buffer << MESSAGE_TYPE_SERVER_SETUP;
       buffer << msg.selected_version;
+      buffer << static_cast<uintVar_t>(msg.parameters.size());
+      for (const auto& param : msg.parameters) {
+        buffer << param;
+      }
       return buffer;
     }
 
     MessageBuffer& operator>>(MessageBuffer &buffer, ServerSetup &msg){
+      uint8_t msg_type;
+      buffer >> msg_type;
+      if (msg_type != MESSAGE_TYPE_SERVER_SETUP) {
+        throw std::runtime_error("MoqServerSetup");
+      }
       buffer >> msg.selected_version;
+      uintVar_t num_params = 0;
+      buffer >> num_params;
+      auto params = std::vector<Parameter> {};
+      params.reserve(num_params);
+      for (size_t i = 0; i <  (num_params); i++) {
+        buffer >> params[i];
+      }
+      msg.parameters = std::move(params);
       return buffer;
     }
 
