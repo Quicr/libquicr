@@ -6,16 +6,16 @@ Subscriptions::Subscriptions()
 }
 
 void
-Subscriptions::add(const quicr::Name& name, uint8_t len, const Remote& remote)
+Subscriptions::add(const quicr::Name& name, uint8_t len, const SubscriberInfo& remote)
 {
 
   const auto prefix = quicr::Namespace{ name, len };
 
   auto mapPtr = subscriptions[len].find(prefix.name());
   if (mapPtr == subscriptions[len].end()) {
-    std::set<Remote> list;
+    std::set<SubscriberInfo> list;
     list.insert(remote);
-    std::pair<quicr::Name, std::set<Remote>> pair;
+    std::pair<quicr::Name, std::set<SubscriberInfo>> pair;
     pair = make_pair(prefix.name(), list);
     subscriptions[len].insert(pair);
   } else {
@@ -30,7 +30,7 @@ Subscriptions::add(const quicr::Name& name, uint8_t len, const Remote& remote)
 void
 Subscriptions::remove(const quicr::Name& name,
                       uint8_t len,
-                      const Remote& remote)
+                      const SubscriberInfo& remote)
 {
   const auto prefix = quicr::Namespace{ name, len };
 
@@ -43,10 +43,10 @@ Subscriptions::remove(const quicr::Name& name,
   }
 }
 
-std::list<Subscriptions::Remote>
+std::list<Subscriptions::SubscriberInfo>
 Subscriptions::find(const quicr::Name& name)
 {
-  std::list<Remote> all_remotes;
+  std::list<SubscriberInfo> all_remotes;
 
   // TODO(trigaux): Fix this to not have to iterate for each mask bit
   for (uint8_t len = 0; len <= 128; len++) {

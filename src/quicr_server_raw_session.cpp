@@ -27,6 +27,36 @@
 #include <thread>
 
 namespace quicr {
+
+
+static std::tuple<std::string, std::string> split_track_name(std::string track) {
+
+  std::string namespace_part;
+  std::string track_name_part;
+  const std::string t = "track/";
+  auto it =
+    std::search(track.begin(), track.end(), t.begin(), t.end());
+  assert(it != track.end());
+
+  namespace_part.reserve(distance(track.begin(), it));
+  namespace_part.assign(track.begin(), it);
+  // move to end form track/
+  std::advance(it, t.length());
+
+  do {
+    auto slash = std::find(it, track.end(), '/');
+    if (slash == track.end()) {
+      track_name_part.reserve(distance(it, slash));
+      track_name_part.assign(it, slash);
+      break;
+    }
+    it++;
+
+  } while (it != track.end());
+
+  return std::make_tuple(namespace_part, track_name_part);
+}
+
 /*
  * Initialize the QUICR server session at the port specified.
  *  @param delegate_in: Callback handlers for QUICR operations
@@ -135,6 +165,7 @@ ServerRawSession::publishIntentResponse(const quicr::Namespace& quicr_namespace,
 
   transport->enqueue(
     context.transport_context_id, context.transport_stream_id, msg.take());
+
 }
 
 void
@@ -147,14 +178,18 @@ ServerRawSession::subscribeResponse(const uint64_t& subscriber_id,
     return;
   }
 
-  const auto& context = subscribe_id_state[subscriber_id];
+  if (result.status != SubscribeResult::SubscribeStatus::Ok) {
+    throw std::runtime_error("Subscribe Result Not OK");
+  }
 
+  const auto& context = subscribe_id_state[subscriber_id];
   messages::MessageBuffer msg;
 
   if (enable_moq) {
     auto uri = uri_convertor->to_namespace_uri(quicr_namespace);
+    auto [ns_uri, name_uri] = split_track_name(uri);
     auto sub_ok = messages::MoqSubscribeOk {
-      .track = {.track_namespace = uri},
+      .track = {.track_namespace = ns_uri, .track_name = name_uri},
     };
     msg << sub_ok;
   } else {
@@ -166,8 +201,11 @@ ServerRawSession::subscribeResponse(const uint64_t& subscriber_id,
     msg << response;
   }
 
+  logger->Log("Sending MoQSubscribe OK");
+
   transport->enqueue(
     context.transport_context_id, context.transport_stream_id, msg.take());
+
 }
 
 void
@@ -197,6 +235,32 @@ ServerRawSession::subscriptionEnded(
 
 void
 ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
+                                  const messages::MoqObject& object) {
+
+  // start populating message to encode
+  if (!subscribe_id_state.contains(subscriber_id)) {
+    logger->info << "Send Object, missing subscriber_id: " << subscriber_id
+                 << std::flush;
+    return;
+  }
+
+  const auto& context = subscribe_id_state[subscriber_id];
+  logger->info << "SendNamedObject(MOQ): Subscriber TrackId:"
+               << context.moq_subscribe.track_id << std::flush;
+
+  messages::MessageBuffer msg;
+  msg << object;
+
+  transport->enqueue(context.transport_context_id,
+                     context.transport_stream_id,
+                     msg.take(),
+                     object.priority,
+                     1000); // revisit
+}
+
+
+void
+ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
                                   [[maybe_unused]] bool use_reliable_transport,
                                   uint8_t priority,
                                   uint16_t expiry_age_ms,
@@ -210,6 +274,8 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
   }
 
   const auto& context = subscribe_id_state[subscriber_id];
+  logger->info << "SendNamedObject: Subscriber TrackId:"
+               << context.moq_subscribe.track_id << std::flush;
 
   messages::MessageBuffer msg;
   msg << datagram;
@@ -232,18 +298,22 @@ ServerRawSession::handle_subscribe(
   messages::MessageBuffer&& msg)
 {
   quicr::Namespace ns{};
+  messages::MoqSubscribe moq_subscribe;
   SubscribeIntent intent = SubscribeIntent::immediate;
+  uintVar_t track_id;
   if(enable_moq) {
-    auto moq_subscribe = messages::MoqSubscribe {};
+    moq_subscribe = messages::MoqSubscribe {};
     msg >> moq_subscribe;
-    ns = uri_convertor->to_quicr_namespace(moq_subscribe.track.track_namespace);
+    track_id = moq_subscribe.track_id;
+    auto full_track_name = moq_subscribe.track.track_namespace  + "track/" + moq_subscribe.track.track_name;
+    ns = uri_convertor->to_quicr_namespace(full_track_name);
+    track_id_quicr_namespace_map[track_id] = ns;
   } else {
     auto subscribe = messages::Subscribe{};
     msg >> subscribe;
     ns = subscribe.quicr_namespace;
     intent = subscribe.intent;
   }
-
 
   const auto lock = std::lock_guard<std::mutex>(session_mutex);
 
@@ -252,7 +322,9 @@ ServerRawSession::handle_subscribe(
     context.transport_context_id = context_id;
     context.transport_stream_id = streamId;
     context.subscriber_id = subscriber_id;
-
+    context.moq_subscribe = moq_subscribe;
+    logger->info << "HandleSubscribe: saving subscription state for track:"
+                 << moq_subscribe.track_id << std::flush;
     subscriber_id++;
 
     subscribe_state[ns][context_id] = context;
@@ -300,20 +372,17 @@ ServerRawSession::handle_unsubscribe(
 }
 
 void
-ServerRawSession::handle_publish(
+ServerRawSession::handle_publish (
   const qtransport::TransportContextId& context_id,
   const qtransport::StreamId& streamId,
   messages::MessageBuffer&& msg)
 {
   quicr::Name name {};
   messages::PublishDatagram datagram;
-
+  messages::MoqObject object {};
   if (enable_moq) {
-    auto object = messages::MoqObject{};
+    object = messages::MoqObject{};
     msg >> object;
-    // construct  a quicr name from the info
-    // group sequence, object sequence,
-    // we need namespace somewhere
   } else {
     msg >> datagram;
     name = datagram.header.name;
@@ -321,24 +390,25 @@ ServerRawSession::handle_publish(
 
   auto publish_namespace = publish_namespaces.find(name);
 
-  if (publish_namespace == publish_namespaces.end()) {
-    // TODO(trigaux): Add metrics for tracking dropped messages
-    logger->info << "Dropping published object, no namespace for "
-                 << name << std::flush;
-    return;
+  if (publish_namespace != publish_namespaces.end()) {
+    auto& [ns, context] = *publish_namespace;
+    const auto gap_log =
+      gap_check(false, name, context.last_group_id, context.last_object_id);
+
+    if (!gap_log.empty()) {
+      logger->info << "context_id: " << context_id << " stream_id: " << streamId
+                   << " " << gap_log << std::flush;
+    }
   }
 
-  auto& [ns, context] = *publish_namespace;
-
-  const auto gap_log = gap_check(
-    false, name, context.last_group_id, context.last_object_id);
-
-  if (!gap_log.empty()) {
-    logger->info << "context_id: " << context_id << " stream_id: " << streamId
-                 << " " << gap_log << std::flush;
+  if(enable_moq) {
+    delegate->onPublishedObject(
+      context_id, streamId, false, std::move(object));
+  } else {
+    delegate->onPublisherObject(
+      context_id, streamId, false, std::move(datagram));
   }
 
-  delegate->onPublisherObject(context_id, streamId, false, std::move(datagram));
 }
 
 void
@@ -369,7 +439,6 @@ ServerRawSession::handle_publish_intent(
     context.transport_context_id = context_id;
     context.transport_stream_id = streamId;
     context.transaction_id = tx_id;
-
     publish_namespaces[ns] = context;
   } else {
     auto state = publish_namespaces[ns].state;

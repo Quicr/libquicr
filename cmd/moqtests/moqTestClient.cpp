@@ -99,7 +99,7 @@ main(int argc, char* argv[])
     std::make_shared<cantina::Logger>("moqclient");
 
   auto uri_templates = std::vector<std::string> {
-    "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int24>/mediatype/<int8>/endpoint/<int16>"
+    "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int8>/mediatype/<int4>/endpoint/<int8>/track/<int8>"
   };
 
   std::shared_ptr<NumeroURIConvertor> uri_convertor = std::make_shared<NumeroURIConvertor>();
@@ -166,11 +166,16 @@ main(int argc, char* argv[])
     logger->info << "Publish Intent for name: " << name
                  << " == namespace: " << nspace << std::flush;
     client.publishIntent(pd, nspace, {}, {}, {});
+
+    auto sd = std::make_shared<subDelegate>(logger);
+    logger->info << "Announcer registering for subscribes " << nspace << std::flush;
+
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
+
     // do publish
-    //logger->Log("Publish");
-    //client.publishNamedObject(name, 0, 1000, false, std::move(data));
+    logger->Log("Publish");
+    client.publishNamedObject(name, 0, 1000, false, std::move(data));
 
   } else {
     // do subscribe
@@ -187,7 +192,7 @@ main(int argc, char* argv[])
                      quicr::bytes{});
 
     logger->Log("Sleeping for 20 seconds before unsubscribing");
-    std::this_thread::sleep_for(std::chrono::seconds(20));
+    std::this_thread::sleep_for(std::chrono::seconds(200));
 
     logger->Log("Now unsubscribing");
     client.unsubscribe(ns, {}, {});

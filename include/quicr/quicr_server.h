@@ -124,6 +124,9 @@ public:
                        uint16_t expiry_age_ms,
                        const messages::PublishDatagram& datagram);
 
+  void sendNamedObject(const uint64_t& subscriber_id,
+                       const messages::MoqObject& object);
+
 protected:
   std::unique_ptr<ServerSession> server_session;
   std::shared_ptr<UriConvertor> uri_convertor = nullptr;

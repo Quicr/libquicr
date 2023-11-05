@@ -52,6 +52,7 @@ TEST_CASE("Location encode/decode") {
 TEST_CASE("MoqSubscribe encode/decode") {
   MoqSubscribe in = {
     .track = ftn_alice_audio,
+    .track_id = 0x1,
     .start_group = Location { LocationMode::Absolute, 0x1000},
     .start_object = Location {LocationMode::RelativeNext, 0},
     .end_group = Location {LocationMode::Absolute, 0x2000},
@@ -62,6 +63,7 @@ TEST_CASE("MoqSubscribe encode/decode") {
   MoqSubscribe out;
   buffer >> out;
   CHECK_EQ(out.track, in.track);
+  CHECK_EQ(out.track_id, in.track_id);
   CHECK_EQ(out.start_group, in.start_group);
   CHECK_EQ(out.start_object, in.start_object);
   CHECK_EQ(out.end_group, in.end_group);
@@ -71,7 +73,6 @@ TEST_CASE("MoqSubscribe encode/decode") {
 TEST_CASE("MoqSubscribeOk encode/decode") {
   MoqSubscribeOk in = {
     .track = ftn_alice_audio,
-    .track_id = 0x1000,
     .expires = 0
   };
 
@@ -80,7 +81,6 @@ TEST_CASE("MoqSubscribeOk encode/decode") {
   MoqSubscribeOk out;
   buffer >> out;
   CHECK_EQ(out.track, in.track);
-  CHECK_EQ(out.track_id, in.track_id);
   CHECK_EQ(out.expires, in.expires);
 }
 

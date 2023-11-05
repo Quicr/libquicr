@@ -19,6 +19,7 @@
 #include "quicr/message_buffer.h"
 #include "quicr/quicr_server_delegate.h"
 #include "quicr/quicr_server_session.h"
+#include "quicr/moq_message_types.h"
 
 #include <cantina/logger.h>
 #include <transport/transport.h>
@@ -134,6 +135,8 @@ public:
                        uint16_t expiry_age_ms,
                        const messages::PublishDatagram& datagram) override;
 
+  void sendNamedObject(const uint64_t& subscribe_id,
+                       const messages::MoqObject& object) override;
 
   void set_uri_convertor(std::shared_ptr<UriConvertor> numero_uri_convertor) override {
     uri_convertor = numero_uri_convertor;
@@ -236,6 +239,8 @@ private:
   struct SubscribeContext : public Context
   {
     uint64_t transaction_id{ 0 };
+    messages::MoqSubscribe moq_subscribe;
+    quicr::Namespace publish_namespace;
     uint64_t subscriber_id{ 0 };
     uint64_t group_id{ 0 };
     uint64_t object_id{ 0 };
@@ -270,6 +275,7 @@ private:
   bool enable_moq { false };
   std::shared_ptr<UriConvertor> uri_convertor = nullptr;
 
+  std::map<messages::TrackId, quicr::Namespace> track_id_quicr_namespace_map {};
 };
 
 } // namespace quicr

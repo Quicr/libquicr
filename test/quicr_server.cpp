@@ -71,6 +71,14 @@ class TestServerDelegate : public ServerDelegate
   {
   }
 
+  void onPublishedObject(
+    [[maybe_unused]] const qtransport::TransportContextId& context_id,
+    [[maybe_unused]] const qtransport::StreamId& stream_id,
+    [[maybe_unused]] bool use_reliable_transport,
+    [[maybe_unused]] messages::MoqObject&& datagram) override
+  {}
+
+
   void onSubscribe(const quicr::Namespace& /* quicr_namespace */,
                    const uint64_t& /* subscriber_id */,
                    const qtransport::TransportContextId& /* context_id */,

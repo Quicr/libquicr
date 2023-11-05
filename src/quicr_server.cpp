@@ -95,4 +95,10 @@ Server::sendNamedObject(const uint64_t& subscriber_id,
     subscriber_id, use_reliable_transport, priority, expiry_age_ms, datagram);
 }
 
+void
+Server::sendNamedObject(const uint64_t& subscriber_id,
+                  const messages::MoqObject& object) {
+  server_session->sendNamedObject(subscriber_id, object);
+}
+
 } // namespace quicr

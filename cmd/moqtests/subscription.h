@@ -6,23 +6,25 @@
 
 #include <qname>
 #include <transport/transport.h>
+#include "quicr/moq_message_types.h"
 
 class Subscriptions
 {
 public:
-  struct Remote
+  struct SubscriberInfo
   {
     uint64_t subscribe_id;
     uint64_t context_id;
     uint64_t stream_id;
+    quicr::messages::TrackId track_id;
 
-    bool operator==(const Remote& o) const
+    bool operator==(const SubscriberInfo& o) const
     {
       return subscribe_id == o.subscribe_id && context_id == o.context_id &&
              stream_id == o.stream_id;
     }
 
-    bool operator<(const Remote& o) const
+    bool operator<(const SubscriberInfo& o) const
     {
       return std::tie(subscribe_id, context_id, stream_id) <
              std::tie(o.subscribe_id, o.context_id, o.stream_id);
@@ -35,12 +37,13 @@ public:
                             quicr::Name& dst,
                             const int len);
 
-  void add(const quicr::Name& name, uint8_t len, const Remote& remote);
+  void add(const quicr::Name& name, uint8_t len, const SubscriberInfo& remote);
 
-  void remove(const quicr::Name& name, uint8_t len, const Remote& remote);
+  void remove(const quicr::Name& name, uint8_t len, const SubscriberInfo& remote);
 
-  std::list<Remote> find(const quicr::Name& name);
+  std::list<SubscriberInfo> find(const quicr::Name& name);
 
 private:
-  std::vector<std::map<quicr::Name, std::set<Remote>>> subscriptions;
+  // [ {name, subscriber_info}, ... ]
+  std::vector<std::map<quicr::Name, std::set<SubscriberInfo>>> subscriptions;
 };

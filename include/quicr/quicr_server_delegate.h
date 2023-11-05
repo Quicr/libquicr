@@ -18,6 +18,7 @@
 #include "quicr/encode.h"
 #include "quicr/message_buffer.h"
 #include "quicr/quicr_common.h"
+#include "quicr/moq_message_types.h"
 
 #include <transport/transport.h>
 
@@ -95,6 +96,12 @@ public:
     const qtransport::StreamId& stream_id,
     bool use_reliable_transport,
     messages::PublishDatagram&& datagram) = 0;
+
+  virtual void onPublishedObject(
+    const qtransport::TransportContextId& context_id,
+    const qtransport::StreamId& stream_id,
+    bool use_reliable_transport,
+    messages::MoqObject&& datagram) = 0;
 
   /**
    * @brief Report arrival of subscribe request for a QUICR Namespace

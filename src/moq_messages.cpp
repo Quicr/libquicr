@@ -291,7 +291,7 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator<<(MessageBuffer &buffer, const MoqObject &msg) {
-        buffer << MESSAGE_TYPE_OBJECT;
+        buffer << MESSAGE_TYPE_OBJECT_WITH_LEN;
         buffer << msg.track_id;
         buffer << msg.group_sequence;
         buffer << msg.object_sequence;
@@ -306,15 +306,13 @@ namespace quicr::messages {
     operator>>(MessageBuffer &buffer, MoqObject &msg) {
         uint8_t msg_type;
         buffer >> msg_type;
-        if (msg_type != MESSAGE_TYPE_OBJECT) {
+        if (msg_type != MESSAGE_TYPE_OBJECT_WITH_LEN) {
             throw std::runtime_error("MoqObject");
         }
         buffer >> msg.track_id;
         buffer >> msg.group_sequence;
         buffer >> msg.object_sequence;
         buffer >> msg.priority;
-        uint8_t forwarding_pref;
-        buffer >> forwarding_pref;
         uintVar_t data_len{0};
         buffer >> data_len;
         buffer >> msg.payload;

@@ -34,6 +34,38 @@ namespace quicr {
 
 namespace {
 
+// constants for moq, the mask length should be configured
+static constexpr quicr::Name track_id_mask = ~(~0x0_name >> 60);
+
+
+static std::tuple<std::string, std::string> split_track_name(std::string track) {
+
+  std::string namespace_part;
+  std::string track_name_part;
+  const std::string t = "track/";
+  auto it =
+    std::search(track.begin(), track.end(), t.begin(), t.end());
+  assert(it != track.end());
+
+  namespace_part.reserve(distance(track.begin(), it));
+  namespace_part.assign(track.begin(), it);
+  // move to end form track/
+  std::advance(it, t.length());
+
+  do {
+    auto slash = std::find(it, track.end(), '/');
+    if (slash == track.end()) {
+      track_name_part.reserve(distance(it, slash));
+      track_name_part.assign(it, slash);
+      break;
+    }
+    it++;
+
+  } while (it != track.end());
+
+  return std::make_tuple(namespace_part, track_name_part);
+}
+
 qtransport::TransportRemote
 to_TransportRemote(const RelayInfo& info) noexcept
 {
@@ -209,6 +241,7 @@ ClientRawSession::on_new_stream(
 {
 }
 
+
 void
 ClientRawSession::handle_moq(messages::MessageBuffer&& msg)
 {
@@ -219,6 +252,14 @@ ClientRawSession::handle_moq(messages::MessageBuffer&& msg)
 
   auto msg_type = msg.front();
   switch (msg_type) {
+    case messages::MESSAGE_TYPE_SUBSCRIBE: {
+      messages::MoqSubscribe sub;
+      msg >> sub;
+
+      LOGGER_INFO(logger, "Got Subscribe: Track NS:" << sub.track.track_namespace
+                                                        << ", Track Name:" << sub.track.track_name);
+      break;
+    }
     case messages::MESSAGE_TYPE_SUBSCRIBE_OK: {
       messages::MoqSubscribeOk sub_ok;
       msg >> sub_ok;
@@ -226,10 +267,17 @@ ClientRawSession::handle_moq(messages::MessageBuffer&& msg)
       //  LOGGER_INFO(logger, "SubscribeOk: TrackId:" << sub_ok.track_id << " Exists");
       //  break;
       //}
+      LOGGER_INFO(logger, "Got Subscribe OK: Track NS:" << sub_ok.track.track_namespace
+                  << ", Track Name:" << sub_ok.track.track_name);
 
-      auto sub_ns = uri_convertor->to_quicr_namespace(sub_ok.track.track_namespace);
-      //track_id_namespace_map[sub_ok.track_id] = sub_ns;
-      //namespace_track_id_map[sub_ns] = sub_ok.track_id;
+      auto full_track_name = sub_ok.track.track_namespace + "track/" + sub_ok.track.track_name;
+      quicr::Namespace sub_ns = {};
+      try {
+        sub_ns = uri_convertor->to_quicr_namespace(full_track_name);
+        LOGGER_INFO(logger, "Got Subscribe OK: QuicR NS:" << sub_ns << sub_ok.track.track_name);
+      } catch (std::exception& e) {
+        throw std::runtime_error(e.what());
+      }
 
       if (sub_delegates.count(sub_ns)) {
         auto &context = subscribe_state[sub_ns];
@@ -260,6 +308,26 @@ ClientRawSession::handle_moq(messages::MessageBuffer&& msg)
         }
         break;
     }
+    case messages::MESSAGE_TYPE_OBJECT_WITH_LEN:
+    {
+        auto object = messages::MoqObject{};
+        msg >> object;
+        auto name = quicr::Name{object.track_id, 0};
+        if (auto found = sub_delegates.find(name);
+            found != sub_delegates.end()) {
+        const auto& [ns, delegate] = *found;
+        
+        // No-fragment, process as single object
+        delegate->onSubscribedObject(name,
+                                     0x0,
+                                     0x0,
+                                     false,
+                                     std::move(object.payload));
+        }
+    }
+
+    break;
+
     default:
       break;
   }
@@ -445,8 +513,14 @@ ClientRawSession::subscribe(
     auto uri = uri_convertor->to_namespace_uri(quicr_namespace);
     // Note: we are not setting track name in the FTN.
     // TODO:Suhas: Revisit this
+    auto [ns_uri, name_uri]  = split_track_name(uri);
+    // extract track_id
+    auto name = quicr_namespace.name();
+    auto track_id_qname = name & track_id_mask;
+    auto track_id = track_id_qname.hi();
     auto subscribe = messages::MoqSubscribe {
-      .track = {.track_namespace = uri },
+      .track = {.track_namespace = ns_uri, .track_name = name_uri},
+      .track_id = {(uintVar_t) track_id},
       .start_group = {.mode = messages::LocationMode::RelativeNext, .value = 0},
       .start_object = {.mode = messages::LocationMode::Absolute, .value = 0},
       .end_group = {.mode = messages::LocationMode::None},
@@ -533,6 +607,9 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
     }
   }
 
+
+  auto track_id_qname = quicr_name & track_id_mask;
+  auto track_id = track_id_qname.hi();
   auto group_id = quicr_name.bits<uint16_t>(16, 48);
   auto object_id = quicr_name.bits<uint16_t>(0, 16);
   auto& delivery_context = context.delivery_context;
@@ -554,7 +631,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       stream_id = delivery_context.stream_id_per_track[quicr_name];
       messages::MessageBuffer msg;
       auto moq_object = messages::MoqObject {
-        .track_id = 1, // fix this
+        .track_id = track_id, // fix this
         .group_sequence = group_id,
         .object_sequence = object_id,
         .priority = 1,
@@ -562,11 +639,10 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       };
 
       msg << moq_object;
-
-      // No fragmenting needed
       transport->enqueue(
         context_id, stream_id, msg.take(), priority, expiry_age_ms);
       return;
+
     } else {
       throw std::runtime_error("Delivery mode unsupported");
     }

@@ -3,6 +3,7 @@
 #include <quicr/quicr_common.h>
 #include <quicr/quicr_server.h>
 #include <transport/transport.h>
+#include <quicr/moq_message_types.h>
 
 #include "subscription.h"
 #include "uri_convertor.h"
@@ -129,6 +130,8 @@ installSignalHandlers()
 class ReallyServerDelegate : public quicr::ServerDelegate
 {
 public:
+  static constexpr quicr::Name track_id_mask = ~(~0x0_name >> 60);
+
   explicit ReallyServerDelegate(const cantina::LoggerPointer& parent_logger)
     : logger{ std::make_shared<cantina::Logger>("SDEL", parent_logger) }
   {
@@ -149,14 +152,20 @@ public:
                        const std::string& /* auth_token */,
                        quicr::bytes&& /* e2e_token */) override
   {
-    // TODO(trigaux): Authenticate token
     logger->info << "Publish intent namespace: " << quicr_namespace
                  << std::flush;
 
-    // TODO(trigaux): Move logic into quicr::Server
     const auto result =
       quicr::PublishIntentResult{ quicr::messages::Response::Ok, {}, {} };
     server->publishIntentResponse(quicr_namespace, result);
+    // save the publisher context
+    if (announced_namespaces.contains(quicr_namespace)) {
+      throw std::runtime_error("Announced Namespace exists already");
+    }
+
+    // TODO: verify if there are already active subscribers to
+    // decide trackId value
+    announced_namespaces[quicr_namespace] = std::nullopt;
   };
 
   void onPublishIntentEnd(const quicr::Namespace& /* quicr_namespace */,
@@ -164,6 +173,26 @@ public:
                           quicr::bytes&& /* e2e_token */) override
   {
   }
+
+  void onPublishedObject(
+    const qtransport::TransportContextId& context_id,
+    const qtransport::StreamId& stream_id,
+    bool use_reliable_transport,
+    quicr::messages::MoqObject&& object) {
+
+    auto track_name = quicr::Name{object.track_id, 0};
+    const auto list = subscribeList.find(track_name);
+    for (auto dest : list) {
+      if (dest.context_id == context_id) {
+        // split horizon - drop packets back to the source that originated the
+        // published object
+        continue;
+      }
+      server->sendNamedObject(dest.subscribe_id,  object);
+    }
+
+  }
+
 
   void onPublisherObject(const qtransport::TransportContextId& context_id,
                          [[maybe_unused]] const qtransport::StreamId& stream_id,
@@ -197,7 +226,7 @@ public:
                               quicr_namespace,
                               quicr::SubscribeResult::SubscribeStatus::Ok);
 
-    const auto remote = Subscriptions::Remote{
+    const auto remote = Subscriptions::SubscriberInfo{
       .subscribe_id = subscriber_id,
       .context_id = 0, // XXX(richbarn) What should this be?
       .stream_id = 0,  // XXX(richbarn) What should this be?
@@ -221,17 +250,24 @@ public:
                  << static_cast<unsigned>(quicr_namespace.length())
                  << " subscribe_id: " << subscriber_id << std::flush;
 
-    const auto remote = Subscriptions::Remote{
+    auto name = quicr_namespace.name();
+    auto track_id_qname = name & track_id_mask;
+    auto track_id = track_id_qname.hi();
+
+    const auto remote = Subscriptions::SubscriberInfo{
+      .track_id = track_id,
       .subscribe_id = subscriber_id,
       .context_id = context_id,
       .stream_id = 0, // XXX(richbarn) What should this be?
     };
+
     subscribeList.add(quicr_namespace.name(), quicr_namespace.length(), remote);
 
     // TODO(trigaux): Move logic into quicr::Server
-    auto result = quicr::SubscribeResult{
+    auto result = quicr::SubscribeResult {
       quicr::SubscribeResult::SubscribeStatus::Ok, "", {}, {}
     };
+
     server->subscribeResponse(subscriber_id, quicr_namespace, result);
   }
 
@@ -245,6 +281,10 @@ private:
 
   std::set<uint64_t> subscribers = {};
   Subscriptions subscribeList;
+
+  quicr::messages::TrackId next_track_id = 0;
+  // namespace available for publishing
+  std::map<quicr::Namespace, std::optional<quicr::messages::TrackId>> announced_namespaces {};
 };
 
 int
@@ -253,7 +293,7 @@ main()
   int result_code = EXIT_SUCCESS;
 
   auto uri_templates = std::vector<std::string> {
-    "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int24>/mediatype/<int8>/endpoint/<int16>"
+    "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int8>/mediatype/<int4>/endpoint/<int8>/track/<int8>"
   };
 
   std::shared_ptr<NumeroURIConvertor> uri_convertor = std::make_shared<NumeroURIConvertor>();
