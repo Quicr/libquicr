@@ -571,6 +571,23 @@ ServerRawSession::handle_moq_message(const qtransport::TransportContextId& conte
   switch (msg_type) {
     case messages::MESSAGE_TYPE_CLIENT_SETUP: {
       logger->info << "Server received client setup " << std::flush;
+      messages::ClientSetup client_setup {};
+      msg_buffer >> client_setup;
+      if (client_setup.supported_versions.empty()) {
+        throw std::runtime_error("Client Setup Versions Malformed !!");
+      }
+
+      bool found = false;
+      for(const auto& version: client_setup.supported_versions) {
+        if (version == 0x1) {
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        throw std::runtime_error("Client Setup Invalid Version !!");
+      }
       // send server setup
       auto setup = messages::ServerSetup{
         .selected_version = 0x1,
