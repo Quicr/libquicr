@@ -63,7 +63,6 @@ namespace quicr::messages {
     MessageBuffer& operator<<(MessageBuffer &buffer, const FullTrackName &msg);
     MessageBuffer& operator>>(MessageBuffer &buffer, FullTrackName &msg);
 
-
     //
     // Setup types
     //

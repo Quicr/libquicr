@@ -265,7 +265,7 @@ protected:
     //std::map<uint64_t, qtransport::StreamId> stream_id_per_object{};
     //std::map<uint64_t, qtransport::StreamId> stream_id_per_group{};
     //std::map<uint32_t , qtransport::StreamId> stream_id_per_priority{};
-    std::map<quicr::Name, qtransport::StreamId> stream_id_per_track{};
+    std::map<quicr::Namespace, qtransport::StreamId> stream_id_per_track{};
   };
 
 

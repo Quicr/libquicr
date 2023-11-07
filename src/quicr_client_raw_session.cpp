@@ -36,6 +36,8 @@ namespace {
 
 // constants for moq, the mask length should be configured
 static constexpr quicr::Name track_id_mask = ~(~0x0_name >> 60);
+constexpr quicr::Name Group_ID_Mask = ~(~0x0_name << 32) << 16;
+constexpr quicr::Name Object_ID_Mask = ~(~0x0_name << 16);
 
 
 static std::tuple<std::string, std::string> split_track_name(std::string track) {
@@ -127,9 +129,7 @@ bool
 ClientRawSession::connect()
 {
   const auto context_id = transport->start();
-
   LOGGER_INFO(logger, "Connecting session " << context_id << "...");
-
   while (transport->status() == qtransport::TransportStatus::Connecting) {
     if (stopping) {
       LOGGER_INFO(logger, "Cancelling connecting session " << context_id);
@@ -355,7 +355,13 @@ ClientRawSession::handle_moq(messages::MessageBuffer&& msg)
     {
         auto object = messages::MoqObject{};
         msg >> object;
-        auto name = quicr::Name{object.track_id, 0};
+        quicr::Name synth_name = (0x0_name | object.group_sequence) << 16 | (synth_name & ~Group_ID_Mask);
+        synth_name = (0x0_name | object.object_sequence) | (synth_name & ~Object_ID_Mask);
+        auto name = quicr::Name{object.track_id, uint64_t(synth_name)};
+        std::cout << "MoqClient: Got Object: Len:"  << object.payload.size()
+                  << " Name: " << name
+        << " TrackId: " << object.track_id << std::endl;
+
         if (auto found = sub_delegates.find(name);
             found != sub_delegates.end()) {
         const auto& [ns, delegate] = *found;
@@ -372,6 +378,7 @@ ClientRawSession::handle_moq(messages::MessageBuffer&& msg)
     break;
 
     default:
+        std::cout << "Unknown Message " << msg_type << std::flush;
       break;
   }
 
@@ -569,7 +576,7 @@ ClientRawSession::subscribe(
       .end_group = {.mode = messages::LocationMode::None},
       .end_object = {.mode = messages::LocationMode::None}
     };
-
+    LOGGER_INFO(logger, "MOQSubscribe: uri: " << uri << ", Namespace: " << quicr_namespace << ", TrackId: " << track_id);
     auto msg = messages::MessageBuffer{};
     msg << subscribe;
     transport->enqueue(
@@ -653,30 +660,35 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
   auto track_id_qname = quicr_name & track_id_mask;
   auto track_id = track_id_qname.hi();
-  auto group_id = quicr_name.bits<uint16_t>(16, 48);
-  auto object_id = quicr_name.bits<uint16_t>(0, 16);
+  const auto groupId = quicr_name.bits<std::uint32_t>(16, 32);
+  const auto objectId = quicr_name.bits<std::uint16_t>(0, 16);
   auto& delivery_context = context.delivery_context;
-
-  LOGGER_INFO(logger, "Publish: GroupId " << group_id << " ObjectId," << group_id );
 
   auto stream_id = qtransport::StreamId{0};
 
   if (enable_moq) {
     use_reliable_transport = true;
+    auto qns = quicr::Namespace{quicr_name, 60};
+
     if (default_delivery_mode == ObjectDeliveryMode::Track) {
-      if (!delivery_context.stream_id_per_track.contains(quicr_name)) {
+      if (!delivery_context.stream_id_per_track.contains(qns)) {
         stream_id = transport->createStream(context.transport_context_id, true);
-        delivery_context.stream_id_per_track[quicr_name] = stream_id;
-        logger->info << "New delivery context for  Name " << quicr_name
+        delivery_context.stream_id_per_track[qns] = stream_id;
+        logger->info << "New delivery context for Namespace " << quicr_name
                      << ", TransportContext: " << context.transport_context_id
                      << ", StreamId:" << stream_id << std::flush;
       }
-      stream_id = delivery_context.stream_id_per_track[quicr_name];
+      stream_id = delivery_context.stream_id_per_track[qns];
+      LOGGER_INFO(logger, "Publish: Namespace: " << qns << " Name:" << quicr_name
+                                                 << " TrackId " << track_id
+                                                 << " GroupId " << groupId
+                                                 << " ObjectId," << objectId );
+
       messages::MessageBuffer msg;
       auto moq_object = messages::MoqObject {
         .track_id = track_id, // fix this
-        .group_sequence = group_id,
-        .object_sequence = object_id,
+        .group_sequence = groupId,
+        .object_sequence = objectId,
         .priority = 1,
         .payload = std::move(data)
       };
