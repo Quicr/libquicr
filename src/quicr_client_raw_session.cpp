@@ -116,6 +116,14 @@ ClientRawSession::connect()
 
   transport_context_id = context_id;
   transport_dgram_stream_id = transport->createStream(context_id, false);
+  // setup control stream for control messages as a reliable stream
+  control_stream_id = transport->createStream(transport_context_id.value(), true);
+
+  std::ostringstream msg;
+  msg << "Created Transport Session " << transport_context_id.value()
+      << " Datagram Stream Id: " << transport_dgram_stream_id.value()
+      << " Control Stream Id:" << control_stream_id.value();
+  logger->Log(cantina::LogLevel::Info, msg.str());
 
   return true;
 }
@@ -228,7 +236,7 @@ ClientRawSession::on_recv_notify(
     messages::MessageBuffer msg_buffer{ data.value() };
 
     try {
-      handle(std::move(msg_buffer));
+      handle(std::move(msg_buffer), context_id, streamId);
     } catch (const std::exception& e) {
       LOGGER_DEBUG(logger, "Dropping malformed message: " << e.what());
       return;
@@ -254,22 +262,22 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                                 uint8_t priority)
 {
   if (pub_delegates.contains(quicr_namespace)) {
+    logger->info << "publishIntent: Delegate is already in the context ??" << std::flush;
     return true;
   }
 
   pub_delegates[quicr_namespace] = std::move(pub_delegate);
+  auto delivery_context = TransportDeliveryContext {
+    .control_stream_id = control_stream_id.value(),
+  };
 
   const auto& context_id = transport_context_id.value();
-  auto stream_id = transport_dgram_stream_id.value();
-  if (use_reliable_transport) {
-    stream_id = transport->createStream(context_id, true, priority);
-    logger->debug << "Set stream: " << stream_id << " to priority: " << static_cast<int>(priority) << std::flush;
-  }
-
   publish_state[quicr_namespace] = {
     .state = PublishContext::State::Pending,
+    .delivery_context = delivery_context,
     .transport_context_id = context_id,
-    .transport_stream_id = stream_id,
+    .is_reliable = use_reliable_transport,
+    .stream_priority = priority,
   };
 
   const auto intent = messages::PublishIntent{
@@ -277,7 +285,7 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
     messages::create_transaction_id(),
     quicr_namespace,
     std::move(payload),
-    stream_id,
+    0, // TODO (Suhas): revisit this
     1,
   };
 
@@ -285,8 +293,7 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                                intent.payload.size() };
   msg << intent;
 
-  auto error = transport->enqueue(context_id, stream_id, msg.take());
-
+  auto error = transport->enqueue(context_id, control_stream_id.value(), msg.take());
   return error == qtransport::TransportError::None;
 }
 
@@ -298,6 +305,7 @@ ClientRawSession::publishIntentEnd(
   // TODO(trigaux): Authenticate token.
 
   if (!pub_delegates.contains(quicr_namespace)) {
+    logger->debug << "publishIntentEnd: Namespace error " << quicr_namespace << std::flush;
     return;
   }
 
@@ -315,9 +323,11 @@ ClientRawSession::publishIntentEnd(
     msg << intent_end;
 
     transport->enqueue(transport_context_id.value(),
-                       ps_it->second.transport_stream_id,
+                       control_stream_id.value(),
                        msg.take());
 
+    logger->info << "publishIntentEnd: closing stream:" << ps_it->second.transport_stream_id.value() << std::flush;
+    transport->closeStream(transport_context_id.value(), ps_it->second.transport_stream_id.value());
     publish_state.erase(ps_it);
   }
 }
@@ -328,7 +338,7 @@ ClientRawSession::subscribe(
   const quicr::Namespace& quicr_namespace,
   const SubscribeIntent& intent,
   [[maybe_unused]] const std::string& origin_url,
-  bool use_reliable_transport,
+  bool /*use_reliable_transport*/,
   [[maybe_unused]] const std::string& auth_token,
   [[maybe_unused]] bytes&& e2e_token)
 {
@@ -339,16 +349,9 @@ ClientRawSession::subscribe(
 
   if (!sub_delegates.contains(quicr_namespace)) {
     sub_delegates[quicr_namespace] = std::move(subscriber_delegate);
-
-    auto stream_id = transport_dgram_stream_id.value();
-    if (use_reliable_transport) {
-      stream_id = transport->createStream(context_id, true);
-    }
-
     subscribe_state[quicr_namespace] = SubscribeContext{
       .state = SubscribeContext::State::Pending,
       .transport_context_id = context_id,
-      .transport_stream_id = stream_id,
       .transaction_id = transaction_id,
     };
   }
@@ -365,7 +368,7 @@ ClientRawSession::subscribe(
   msg << subscribe;
 
   transport->enqueue(
-    context_id, sub_it->second.transport_stream_id, msg.take());
+    context_id, control_stream_id.value(), msg.take());
 }
 
 void
@@ -382,7 +385,7 @@ ClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
   const auto state_it = subscribe_state.find(quicr_namespace);
   if (state_it != subscribe_state.end()) {
     transport->enqueue(
-      context_id, state_it->second.transport_stream_id, msg.take());
+      context_id, control_stream_id.value(), msg.take());
   }
 
   const auto _ = std::lock_guard<std::mutex>(session_mutex);
@@ -397,51 +400,48 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
                                      bool use_reliable_transport,
                                      bytes&& data)
 {
+
   // start populating message to encode
   auto datagram = messages::PublishDatagram{};
-
   auto found = publish_state.find(quicr_name);
-
   if (found == publish_state.end()) {
     LOGGER_INFO(
       logger, "No publish intent for '" << quicr_name << "' missing, dropping");
-
     return;
   }
 
   auto& [ns, context] = *found;
+  if (context.state != PublishContext::State::Ready) {
+    LOGGER_INFO(
+      logger, "PublishState is not ready missing, dropping for name:" << quicr_name);
+    return;
+  }
 
   const auto& context_id = transport_context_id.value();
-  if (context.transport_stream_id == transport_dgram_stream_id.value()) {
-    use_reliable_transport = false;
-  }
 
   if (context.state != PublishContext::State::Ready) {
-    context.transport_context_id = context_id;
-    context.state = PublishContext::State::Ready;
-
-    LOGGER_INFO(logger, "Adding new context for published ns: " << ns);
-
-  } else {
-    auto gap_log = gap_check(
-      true, quicr_name, context.last_group_id, context.last_object_id);
-
-    if (!gap_log.empty()) {
-      logger->Log(gap_log);
-    }
+    LOGGER_INFO(
+      logger, "Publish State is not ready, dropping the object");
+    return;
   }
 
+  auto gap_log = gap_check(true,
+                           quicr_name,
+                           context.last_group_id,
+                           context.last_object_id);
+
+  if (!gap_log.empty()) {
+    logger->Log(gap_log);
+  }
+
+
   datagram.header.name = quicr_name;
-  datagram.header.media_id = context.transport_stream_id;
+  datagram.header.media_id = context.transport_stream_id.value();
   datagram.header.group_id = context.last_group_id;
   datagram.header.object_id = context.last_object_id;
   datagram.header.flags = 0x0;
   datagram.header.offset_and_fin = 1ULL;
   datagram.media_type = messages::MediaType::RealtimeMedia;
-
-  const auto stream_id = use_reliable_transport
-                           ? context.transport_stream_id
-                           : transport_dgram_stream_id.value();
 
   // Fragment the payload if needed
   if (data.size() <= quicr::max_transport_data_size || use_reliable_transport) {
@@ -451,10 +451,10 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
     datagram.media_data = std::move(data);
 
     msg << datagram;
-
+    logger->info << "PublishNamedObject: Stream:" << context.transport_stream_id.value() << std::flush;
     // No fragmenting needed
     transport->enqueue(
-      context_id, stream_id, msg.take(), priority, expiry_age_ms);
+      context_id, context.transport_stream_id.value(), msg.take(), priority, expiry_age_ms);
 
   } else {
     // Fragments required. At this point this only counts whole blocks
@@ -496,7 +496,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       }
 
       if (transport->enqueue(
-            context_id, stream_id, msg.take(), priority, expiry_age_ms) !=
+            context_id, context.transport_stream_id.value(), msg.take(), priority, expiry_age_ms) !=
           qtransport::TransportError::None) {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
         // No point in finishing fragment if one is dropped
@@ -517,7 +517,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       msg << datagram;
 
       if (auto err = transport->enqueue(
-            context_id, stream_id, msg.take(), priority, expiry_age_ms);
+            context_id, context.transport_stream_id.value(), msg.take(), priority, expiry_age_ms);
           err != qtransport::TransportError::None) {
         LOGGER_WARNING(logger,
                        "Published object delayed due to enqueue error "
@@ -554,9 +554,9 @@ ClientRawSession::removeSubscription(
   auto state_it = subscribe_state.find(quicr_namespace);
   if (state_it != subscribe_state.end()) {
     if (state_it->second.transport_stream_id > 1) {
+      logger->debug << "Closing Stream:" << state_it->second.transport_stream_id << std::flush;
       transport->closeStream(context_id, state_it->second.transport_stream_id);
     }
-
     subscribe_state.erase(state_it);
   }
 
@@ -567,6 +567,7 @@ ClientRawSession::removeSubscription(
 
     sub_delegates.erase(quicr_namespace);
   }
+
 }
 
 bool
@@ -649,7 +650,9 @@ ClientRawSession::handle_pub_fragment(
 }
 
 void
-ClientRawSession::handle(messages::MessageBuffer&& msg)
+ClientRawSession::handle(messages::MessageBuffer&& msg,
+                         const qtransport::TransportContextId& context_id,
+                         const qtransport::StreamId& streamId)
 {
   if (msg.empty()) {
     std::cout << "Transport Reported Empty Data" << std::endl;
@@ -659,6 +662,7 @@ ClientRawSession::handle(messages::MessageBuffer&& msg)
   auto msg_type = static_cast<messages::MessageType>(msg.front());
   switch (msg_type) {
     case messages::MessageType::SubscribeResponse: {
+      logger->info <<"Client:SubscribeResponse: Stream:" << streamId << std::flush;
       auto response = messages::SubscribeResponse{};
       msg >> response;
 
@@ -667,7 +671,6 @@ ClientRawSession::handle(messages::MessageBuffer&& msg)
       if (sub_delegates.contains(response.quicr_namespace)) {
         auto& context = subscribe_state[response.quicr_namespace];
         context.state = SubscribeContext::State::Ready;
-
         if (const auto& sub_delegate =
               sub_delegates[response.quicr_namespace]) {
           sub_delegate->onSubscribeResponse(response.quicr_namespace, result);
@@ -724,14 +727,49 @@ ClientRawSession::handle(messages::MessageBuffer&& msg)
     }
 
     case messages::MessageType::PublishIntentResponse: {
+      if (streamId != control_stream_id.value()) {
+        logger->info << "PublishIntentResponse: Arrived on non control stream, ignoring" << std::flush;
+        return;
+      }
+
       auto response = messages::PublishIntentResponse{};
       msg >> response;
 
       if (!pub_delegates.contains(response.quicr_namespace)) {
         std::cout
-          << "Got PublishIntentResponse: No delegate found for namespace "
+          << "PublishIntentResponse: No delegate found for namespace "
           << response.quicr_namespace << std::endl;
         return;
+      }
+
+      auto found = publish_state.find(response.quicr_namespace);
+      if (found == publish_state.end()) {
+        logger->info
+          << "PublishIntentResponse: No publish state found for "
+          << response.quicr_namespace;
+        return;
+      }
+
+      auto& [ns, context] = *found;
+      if (context.state == PublishContext::State::Ready) {
+        logger->info << "PublishIntentResponse: State is Ready, ignoring" << std::flush;
+        return;
+      }
+
+      // save the state
+      logger->info << "PublishIntentResponse: Adding new context for published ns: " << ns << std::flush;
+      context.transport_context_id = context_id;
+      context.state = PublishContext::State::Ready;
+      if (context.is_reliable) {
+        context.transport_stream_id =
+          transport->createStream(context_id,
+                                  context.is_reliable,
+                                  context.stream_priority);
+        logger->info <<"PublishIntentResponse: Created Stream:"
+                     << context.transport_stream_id.value() << std::flush;
+
+      } else {
+        context.transport_stream_id = transport_dgram_stream_id;
       }
 
       if (const auto& delegate = pub_delegates[response.quicr_namespace]) {
@@ -740,9 +778,9 @@ ClientRawSession::handle(messages::MessageBuffer&& msg)
           .redirectInfo = {},
           .reassignedName = {},
         };
+
         delegate->onPublishIntentResponse(response.quicr_namespace, result);
       }
-
       break;
     }
 

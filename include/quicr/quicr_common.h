@@ -114,4 +114,11 @@ struct PublishIntentResult
   quicr::Name reassignedName; // Set only if status is ReAssigned
 };
 
+// Experimental
+enum struct TransportDeliveryPreference : uint8_t {
+  StreamPerGroup = 0,
+  StreamPerTrack = 1,
+  StreamPerObject = 2
+};
+
 }

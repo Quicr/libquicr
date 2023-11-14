@@ -226,7 +226,9 @@ protected:
   void handle_pub_fragment(messages::PublishDatagram&& datagram,
                            const std::shared_ptr<SubscriberDelegate>& delegate);
 
-  void handle(messages::MessageBuffer&& msg);
+  void handle(messages::MessageBuffer&& msg,
+              const qtransport::TransportContextId& context_id,
+              const qtransport::StreamId& streamId);
 
   void removeSubscription(const quicr::Namespace& quicr_namespace,
                           const SubscribeResult::SubscribeStatus& reason);
@@ -252,6 +254,13 @@ protected:
     uint64_t last_object_id{ 0 };
   };
 
+  struct TransportDeliveryContext {
+    TransportDeliveryPreference object_delivery_mode {TransportDeliveryPreference::StreamPerTrack};
+    qtransport::StreamId control_stream_id {0}; // there is one control stream per connection
+    std::map<uint64_t, qtransport::StreamId> stream_id_per_group{};
+    std::map<quicr::Namespace, qtransport::StreamId> stream_id_per_track{};
+  };
+
   // State per publish_intent and related publish
   struct PublishContext
   {
@@ -263,8 +272,11 @@ protected:
     };
 
     State state{ State::Unknown };
+    TransportDeliveryContext delivery_context {};
     qtransport::TransportContextId transport_context_id{ 0 };
-    qtransport::StreamId transport_stream_id{ 0 };
+    std::optional<qtransport::StreamId> transport_stream_id;
+    bool is_reliable {true};
+    uint8_t stream_priority { 1 };
     uint64_t last_group_id{ 0 };
     uint64_t last_object_id{ 0 };
     uint64_t offset{ 0 };
@@ -277,6 +289,8 @@ protected:
   // These parameters are updated on connect() / disconnect().  The optional
   // parameters should be non-null if and only if connected().
   std::optional<qtransport::StreamId> transport_dgram_stream_id;
+  // Control Messages are sent over this stream
+  std::optional<qtransport::StreamId> control_stream_id;
   std::optional<qtransport::TransportContextId> transport_context_id;
 
   // Nested map to reassemble message fragments
