@@ -446,7 +446,7 @@ ServerRawSession::TransportDelegate::on_recv_notify(
   for (int i = 0; i < 150; i++) {
     auto data = server.transport->dequeue(context_id, streamId);
 
-    if (data.has_value()) {
+    if (data.has_value() && data.value().size() > 0) {
       server.recv_data_count++;
       try {
         auto msg_type = static_cast<messages::MessageType>(data->front());
