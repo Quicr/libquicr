@@ -274,13 +274,14 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
   const auto& context_id = transport_context_id.value();
   publish_state[quicr_namespace] = {
     .state = PublishContext::State::Pending,
+    .ns = quicr_namespace,
     .delivery_context = delivery_context,
     .transport_context_id = context_id,
     .is_reliable = use_reliable_transport,
     .stream_priority = priority,
   };
 
-  const auto intent = messages::PublishIntent{
+  const auto intent = messages::PublishIntent {
     messages::MessageType::PublishIntent,
     messages::create_transaction_id(),
     quicr_namespace,
@@ -417,14 +418,42 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
     return;
   }
 
-  const auto& context_id = transport_context_id.value();
+  auto group = quicr_name.bits<uint16_t>(16, 48);
+  auto stream_id = transport_dgram_stream_id.value();
 
-  if (context.state != PublishContext::State::Ready) {
-    LOGGER_INFO(
-      logger, "Publish State is not ready, dropping the object");
-    return;
+  if (context.is_reliable) {
+    auto delivery_preference = context.delivery_context.object_delivery_mode;
+    switch (delivery_preference) {
+      case TransportDeliveryPreference::StreamPerTrack: {
+        auto& stream_id_per_track =
+          context.delivery_context.stream_id_per_track;
+        if (!stream_id_per_track.contains(context.ns)) {
+          stream_id_per_track[context.ns] = transport->createStream(
+            context.transport_context_id, true, context.stream_priority);
+          logger->info << "PublishNamedObject: Created Stream:"
+                       << stream_id_per_track[context.ns] << std::flush;
+        }
+        stream_id = stream_id_per_track[context.ns];
+      } break;
+      case TransportDeliveryPreference::StreamPerGroup: {
+        // extract group
+        auto& stream_id_per_group =
+          context.delivery_context.stream_id_per_group;
+        if (!stream_id_per_group.contains(group)) {
+          stream_id_per_group[group] = transport->createStream(
+            context.transport_context_id, true, context.stream_priority);
+          logger->info << "PublishNamedObject: Created Stream:"
+                       << stream_id_per_group[group] << std::flush;
+        }
+        stream_id = stream_id_per_group[group];
+      } break;
+      case TransportDeliveryPreference::StreamPerObject:
+      default:
+        throw std::runtime_error("Delivery Preference not supported");
+    }
   }
 
+  const auto& context_id = transport_context_id.value();
   auto gap_log = gap_check(true,
                            quicr_name,
                            context.last_group_id,
@@ -436,7 +465,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
 
   datagram.header.name = quicr_name;
-  datagram.header.media_id = context.transport_stream_id.value();
+  datagram.header.media_id = stream_id;
   datagram.header.group_id = context.last_group_id;
   datagram.header.object_id = context.last_object_id;
   datagram.header.flags = 0x0;
@@ -451,10 +480,9 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
     datagram.media_data = std::move(data);
 
     msg << datagram;
-    logger->info << "PublishNamedObject: Stream:" << context.transport_stream_id.value() << std::flush;
+    logger->info << "PublishNamedObject: Stream:" << stream_id << std::flush;
     // No fragmenting needed
-    transport->enqueue(
-      context_id, context.transport_stream_id.value(), msg.take(), priority, expiry_age_ms);
+    transport->enqueue(context_id, stream_id, msg.take(), priority, expiry_age_ms);
 
   } else {
     // Fragments required. At this point this only counts whole blocks
@@ -716,6 +744,7 @@ ClientRawSession::handle(messages::MessageBuffer&& msg,
           break;
         }
 
+        logger->info << "GotObject: Stream:" << streamId << std::flush;
         // No-fragment, process as single object
         delegate->onSubscribedObject(datagram.header.name,
                                      0x0,
@@ -760,18 +789,6 @@ ClientRawSession::handle(messages::MessageBuffer&& msg,
       logger->info << "PublishIntentResponse: Adding new context for published ns: " << ns << std::flush;
       context.transport_context_id = context_id;
       context.state = PublishContext::State::Ready;
-      if (context.is_reliable) {
-        context.transport_stream_id =
-          transport->createStream(context_id,
-                                  context.is_reliable,
-                                  context.stream_priority);
-        logger->info <<"PublishIntentResponse: Created Stream:"
-                     << context.transport_stream_id.value() << std::flush;
-
-      } else {
-        context.transport_stream_id = transport_dgram_stream_id;
-      }
-
       if (const auto& delegate = pub_delegates[response.quicr_namespace]) {
         const auto result = PublishIntentResult{
           .status = response.response,

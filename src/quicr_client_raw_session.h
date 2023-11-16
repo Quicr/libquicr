@@ -255,7 +255,7 @@ protected:
   };
 
   struct TransportDeliveryContext {
-    TransportDeliveryPreference object_delivery_mode {TransportDeliveryPreference::StreamPerTrack};
+    TransportDeliveryPreference object_delivery_mode {TransportDeliveryPreference::StreamPerGroup};
     qtransport::StreamId control_stream_id {0}; // there is one control stream per connection
     std::map<uint64_t, qtransport::StreamId> stream_id_per_group{};
     std::map<quicr::Namespace, qtransport::StreamId> stream_id_per_track{};
@@ -272,6 +272,7 @@ protected:
     };
 
     State state{ State::Unknown };
+    quicr::Namespace ns;
     TransportDeliveryContext delivery_context {};
     qtransport::TransportContextId transport_context_id{ 0 };
     std::optional<qtransport::StreamId> transport_stream_id;
