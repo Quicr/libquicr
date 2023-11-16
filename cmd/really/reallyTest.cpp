@@ -82,6 +82,9 @@ public:
     const quicr::Namespace& quicr_namespace,
     const quicr::PublishIntentResult& result) override
   {
+    const quicr::Name group_id_mask = ~(~0x0_name << 32) << 16;
+    const quicr::Name object_id_mask = ~(~0x0_name << 16);
+
     LOGGER_INFO(logger,
                 "Received PublishIntentResponse for "
                   << quicr_namespace << ": "
@@ -91,7 +94,38 @@ public:
     logger->Log("Publish");
     auto name = quicr_namespace.name();
     auto data = quicr::bytes {0xA, 0xB, 0xC, 0XD, 0xE};
-    client->publishNamedObject(name, 0, 1000, false, std::move(data));
+
+    auto group_id = 0;
+    auto object_id = 0;
+    auto nspace = quicr::Namespace(name, 80);
+    logger->info << "Publish Intent for name: " << name
+                 << " == namespace: " << nspace << std::flush;
+    for (int i = 0; i < 1; i++) {
+      // do publish
+      name = (0x0_name | group_id) << 16 | (name & ~group_id_mask);
+      name &= ~object_id_mask;
+      auto object_id = 0;
+      for (int j = 0; j < 10; j++) {
+        if(j == 0) {
+          auto pub_data = data;
+          logger->info << "Publishing group:" << group_id << ", object:" << object_id << ", name:" << name << std::flush;
+          client->publishNamedObject(name, 0, 1000, true, std::move(pub_data));
+          continue;
+        }
+        if (j == 5) {
+          ++group_id;
+          name = (0x0_name | group_id) << 16 | (name & ~group_id_mask);
+        }
+
+        name = (0x0_name | ++object_id) | (name & ~object_id_mask);
+        logger->info << "Publishing group:" << group_id << ", object:" << object_id << ", name:" << name << std::flush;
+        auto pub_data = data;
+        client->publishNamedObject(name, 0, 1000, true, std::move(pub_data));
+      }
+
+
+    }
+
 
     std::this_thread::sleep_for(std::chrono::seconds(5));
 
