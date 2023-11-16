@@ -191,7 +191,7 @@ TEST_CASE("Publish Message encode/decode")
   CHECK_EQ(p_out.header.group_id, p.header.group_id);
   CHECK_EQ(p_out.header.object_id, p.header.object_id);
   CHECK_EQ(p_out.header.offset_and_fin, p.header.offset_and_fin);
-  CHECK_EQ(p_out.header.flags, p.header.flags);
+  CHECK_EQ(p_out.header.priority, p.header.priority);
   CHECK_EQ(p_out.media_type, p.media_type);
   CHECK_EQ(p_out.media_data_length, p.media_data_length);
   CHECK_EQ(p_out.media_data, p.media_data);
