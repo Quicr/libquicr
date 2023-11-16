@@ -435,7 +435,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
   datagram.header.media_id = context.transport_stream_id;
   datagram.header.group_id = context.last_group_id;
   datagram.header.object_id = context.last_object_id;
-  datagram.header.flags = 0x0;
+  datagram.header.priority = priority;
   datagram.header.offset_and_fin = 1ULL;
   datagram.media_type = messages::MediaType::RealtimeMedia;
 

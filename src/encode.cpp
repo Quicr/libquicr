@@ -386,7 +386,7 @@ operator<<(MessageBuffer& buffer, const Header& msg)
   buffer << msg.group_id;
   buffer << msg.object_id;
   buffer << msg.offset_and_fin;
-  buffer << msg.flags;
+  buffer << msg.priority;
 
   return buffer;
 }
@@ -399,7 +399,7 @@ operator>>(MessageBuffer& buffer, Header& msg)
   buffer >> msg.group_id;
   buffer >> msg.object_id;
   buffer >> msg.offset_and_fin;
-  buffer >> msg.flags;
+  buffer >> msg.priority;
 
   return buffer;
 }
