@@ -8,6 +8,7 @@
 #include <iostream>
 #include <sstream>
 #include <thread>
+#include <memory>
 
 class subDelegate : public quicr::SubscriberDelegate
 {
@@ -71,8 +72,9 @@ private:
 class pubDelegate : public quicr::PublisherDelegate
 {
 public:
-  explicit pubDelegate(cantina::LoggerPointer& logger)
-    : logger(std::make_shared<cantina::Logger>("PDEL", logger))
+  explicit pubDelegate(cantina::LoggerPointer& logger, std::shared_ptr<quicr::Client> client_in)
+    : logger(std::make_shared<cantina::Logger>("PDEL", logger)),
+      client(client_in)
   {
   }
 
@@ -80,14 +82,61 @@ public:
     const quicr::Namespace& quicr_namespace,
     const quicr::PublishIntentResult& result) override
   {
+    const quicr::Name group_id_mask = ~(~0x0_name << 32) << 16;
+    const quicr::Name object_id_mask = ~(~0x0_name << 16);
+
     LOGGER_INFO(logger,
                 "Received PublishIntentResponse for "
                   << quicr_namespace << ": "
                   << static_cast<int>(result.status));
+
+    // do publish
+    logger->Log("Publish");
+    auto name = quicr_namespace.name();
+    auto data = quicr::bytes {0xA, 0xB, 0xC, 0XD, 0xE};
+
+    auto group_id = 0;
+    auto object_id = 0;
+    auto nspace = quicr::Namespace(name, 80);
+    logger->info << "Publish Intent for name: " << name
+                 << " == namespace: " << nspace << std::flush;
+    for (int i = 0; i < 1; i++) {
+      // do publish
+      name = (0x0_name | group_id) << 16 | (name & ~group_id_mask);
+      name &= ~object_id_mask;
+      auto object_id = 0;
+      for (int j = 0; j < 10; j++) {
+        if(j == 0) {
+          auto pub_data = data;
+          logger->info << "Publishing group:" << group_id << ", object:" << object_id << ", name:" << name << std::flush;
+          client->publishNamedObject(name, 0, 1000, true, std::move(pub_data));
+          continue;
+        }
+        if (j == 5) {
+          ++group_id;
+          name = (0x0_name | group_id) << 16 | (name & ~group_id_mask);
+        }
+
+        name = (0x0_name | ++object_id) | (name & ~object_id_mask);
+        logger->info << "Publishing group:" << group_id << ", object:" << object_id << ", name:" << name << std::flush;
+        auto pub_data = data;
+        client->publishNamedObject(name, 0, 1000, true, std::move(pub_data));
+      }
+
+
+    }
+
+
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+
+    logger->info << "Ending Publish Intent for name: " << name
+                 << " == namespace: " << quicr_namespace << std::flush;
+    client->publishIntentEnd(quicr_namespace, {});
   }
 
 private:
   cantina::LoggerPointer logger;
+  std::shared_ptr<quicr::Client> client;
 };
 
 int
@@ -109,7 +158,7 @@ main(int argc, char* argv[])
 
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
   const auto* relayName = getenv("REALLY_RELAY");
-  if (relayName != nullptr) {
+  if (relayName == nullptr) {
     relayName = "127.0.0.1";
   }
 
@@ -144,10 +193,10 @@ main(int argc, char* argv[])
     .tls_key_filename = nullptr,
   };
 
-  quicr::Client client(relay, tcfg, logger);
-  auto pd = std::make_shared<pubDelegate>(logger);
+  auto client = std::make_shared<quicr::Client>(relay, tcfg, logger);
+  auto pd = std::make_shared<pubDelegate>(logger, client);
 
-  if (!client.connect()) {
+  if (!client->connect()) {
     logger->Log(cantina::LogLevel::Critical, "Transport connect failed");
     return 0;
   }
@@ -156,12 +205,8 @@ main(int argc, char* argv[])
     auto nspace = quicr::Namespace(name, 96);
     logger->info << "Publish Intent for name: " << name
                  << " == namespace: " << nspace << std::flush;
-    client.publishIntent(pd, nspace, {}, {}, {});
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-
-    // do publish
-    logger->Log("Publish");
-    client.publishNamedObject(name, 0, 1000, false, std::move(data));
+    client->publishIntent(pd, nspace, {}, {}, {}, true, 1);
+    std::this_thread::sleep_for(std::chrono::seconds(20));
 
   } else {
     // do subscribe
@@ -171,7 +216,7 @@ main(int argc, char* argv[])
 
     logger->info << "Subscribe to " << name << "/" << 96 << std::flush;
 
-    client.subscribe(sd,
+    client->subscribe(sd,
                      nspace,
                      quicr::SubscribeIntent::immediate,
                      "origin_url",
@@ -183,7 +228,7 @@ main(int argc, char* argv[])
     std::this_thread::sleep_for(std::chrono::seconds(20));
 
     logger->Log("Now unsubscribing");
-    client.unsubscribe(nspace, {}, {});
+    client->unsubscribe(nspace, {}, {});
 
     logger->Log("Sleeping for 15 seconds before exiting");
     std::this_thread::sleep_for(std::chrono::seconds(15));

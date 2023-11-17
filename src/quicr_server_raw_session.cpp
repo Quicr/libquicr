@@ -212,6 +212,7 @@ ServerRawSession::handle_subscribe(
   const qtransport::StreamId& streamId,
   messages::MessageBuffer&& msg)
 {
+  logger->info <<"Server:handle_subscribe: Stream: " << streamId << std::flush;
   auto subscribe = messages::Subscribe{};
   msg >> subscribe;
 
@@ -275,6 +276,7 @@ ServerRawSession::handle_publish(
   const qtransport::StreamId& streamId,
   messages::MessageBuffer&& msg)
 {
+  logger->info <<"Server:handle_publish: Stream:" << streamId << std::flush;
   messages::PublishDatagram datagram;
   msg >> datagram;
 
