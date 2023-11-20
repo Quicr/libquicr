@@ -63,8 +63,7 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
     need_pacing = true;
   }
 
-  const auto server =
-    qtransport::TransportRemote{ to_TransportRemote(relay_info) };
+  const auto server = to_TransportRemote(relay_info);
   transport = qtransport::ITransport::make_client_transport(
     server, tconfig, *this, this->logger);
 }
@@ -80,6 +79,9 @@ ClientRawSession::ClientRawSession(
 
 ClientRawSession::~ClientRawSession()
 {
+  if (!transport)
+    return;
+
   if (!has_shared_transport &&
       transport->status() != qtransport::TransportStatus::Disconnected) {
     // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
@@ -90,18 +92,25 @@ ClientRawSession::~ClientRawSession()
 bool
 ClientRawSession::connect()
 {
+  if (!transport) {
+    throw std::runtime_error(
+      "Transport has been destroyed, create a new session object!");
+    return false;
+  }
+
   const auto context_id = transport->start();
 
   LOGGER_INFO(logger, "Connecting session " << context_id << "...");
 
-  while (transport->status() == qtransport::TransportStatus::Connecting) {
-    if (stopping) {
-      LOGGER_INFO(logger, "Cancelling connecting session " << context_id);
-
-      return false;
-    }
-
+  while (!stopping &&
+         transport->status() == qtransport::TransportStatus::Connecting) {
+    LOGGER_DEBUG(logger, "Connecting... " << int(stopping.load()));
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+
+  if (stopping || !transport) {
+    LOGGER_INFO(logger, "Cancelling connecting session " << context_id);
+    return false;
   }
 
   if (!connected()) {
@@ -124,12 +133,13 @@ bool
 ClientRawSession::disconnect()
 {
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
-  if (!connected() || stopping) {
+  if (stopping || !(connected() || connecting())) {
     // Not connected or already stopping/stopped
     return true;
   }
 
-  const auto& context_id = transport_context_id ? transport_context_id.value() : 0;
+  const auto& context_id =
+    transport_context_id ? transport_context_id.value() : 0;
   LOGGER_DEBUG(logger, "Disconnecting session " << context_id << "...");
 
   stopping = true;
@@ -155,7 +165,13 @@ ClientRawSession::disconnect()
 bool
 ClientRawSession::connected() const
 {
-  return transport->status() == qtransport::TransportStatus::Ready;
+  return transport && transport->status() == qtransport::TransportStatus::Ready;
+}
+
+bool
+ClientRawSession::connecting() const
+{
+  return transport && transport->status() == qtransport::TransportStatus::Connecting;
 }
 
 /*===========================================================================*/
@@ -181,11 +197,13 @@ ClientRawSession::on_connection_status(
       break;
     case qtransport::TransportStatus::Disconnected:
       LOGGER_INFO(logger,
-                  "Received disconnect from transport for" << context_id);
+                  "Received disconnect from transport for context: "
+                    << context_id);
       [[fallthrough]];
     case qtransport::TransportStatus::Shutdown:
       [[fallthrough]];
     case qtransport::TransportStatus::RemoteRequestClose:
+      LOGGER_INFO(logger, "Shutting down context: " << context_id);
       stopping = true;
       break;
   }
@@ -263,7 +281,9 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
   auto stream_id = transport_dgram_stream_id.value();
   if (use_reliable_transport) {
     stream_id = transport->createStream(context_id, true, priority);
-    logger->debug << "Set stream: " << stream_id << " to priority: " << static_cast<int>(priority) << std::flush;
+    logger->debug << "Set stream: " << stream_id
+                  << " to priority: " << static_cast<int>(priority)
+                  << std::flush;
   }
 
   publish_state[quicr_namespace] = {
