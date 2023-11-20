@@ -95,7 +95,6 @@ ClientRawSession::connect()
   if (!transport) {
     throw std::runtime_error(
       "Transport has been destroyed, create a new session object!");
-    return false;
   }
 
   const auto context_id = transport->start();
