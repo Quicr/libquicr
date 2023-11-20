@@ -231,6 +231,9 @@ protected:
   void removeSubscription(const quicr::Namespace& quicr_namespace,
                           const SubscribeResult::SubscribeStatus& reason);
 
+
+  bool connecting() const;
+
 protected:
   std::mutex session_mutex;
 
