@@ -43,6 +43,7 @@ struct Subscribe
   uint64_t transaction_id;
   quicr::Namespace quicr_namespace;
   SubscribeIntent intent;
+  TransportMode transport_mode;
 };
 
 struct Unsubscribe
@@ -87,6 +88,7 @@ struct PublishIntent
   std::vector<uint8_t> payload;
   uintVar_t media_id;
   uintVar_t datagram_capable;
+  TransportMode transport_mode;
 };
 
 struct PublishIntentResponse

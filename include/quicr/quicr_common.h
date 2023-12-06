@@ -49,6 +49,18 @@ enum class Response : uint8_t
 }
 
 /**
+ * @brief Transport Mode
+ * @details Defines how the transport should be used for publish intent and subscribe
+ */
+ enum class TransportMode : uint8_t {
+   ReliablePerTrack = 0,      /// Reliable transport using per track (namespace) streams
+   ReliablePerGroup,          /// Reliable transport using per group streams
+   ReliablePerObject,         /// Reliable transport using per object streams
+   Unreliable,                /// Unreliable transport (datagram)
+   UsePublisher,              /// Only for subscribe transport mode, follow the mode the publisher is using
+ };
+
+/**
  * Hint providing the start point to serve a subscrption request.
  * Relays use this information to determine the start-point and
  * serve the objects in the time-order from the cache.

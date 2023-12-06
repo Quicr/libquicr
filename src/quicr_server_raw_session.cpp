@@ -90,7 +90,7 @@ ServerRawSession::is_transport_ready()
 bool
 ServerRawSession::run()
 {
-  running = true;
+  _running = true;
 
   while (transport->status() == qtransport::TransportStatus::Connecting) {
     logger->Log("Waiting for server to be ready");
@@ -122,8 +122,9 @@ ServerRawSession::publishIntentResponse(const quicr::Namespace& quicr_namespace,
 
   context.state = PublishIntentContext::State::Ready;
 
-  transport->enqueue(
-    context.transport_context_id, context.transport_stream_id, msg.take());
+  const auto& conn_ctx = _connections[context.transport_conn_id];
+
+  transport->enqueue(context.transport_conn_id, conn_ctx.ctrl_data_ctx_id, msg.take());
 }
 
 void
@@ -147,8 +148,9 @@ ServerRawSession::subscribeResponse(const uint64_t& subscriber_id,
   messages::MessageBuffer msg;
   msg << response;
 
-  transport->enqueue(
-    context.transport_context_id, context.transport_stream_id, msg.take());
+  const auto& conn_ctx = _connections[context->transport_conn_id];
+
+  transport->enqueue(context->transport_conn_id, conn_ctx.ctrl_data_ctx_id, msg.take());
 }
 
 void
@@ -172,13 +174,13 @@ ServerRawSession::subscriptionEnded(
   messages::MessageBuffer msg;
   msg << subEnd;
 
-  transport->enqueue(
-    context.transport_context_id, context.transport_stream_id, msg.take());
+  const auto& conn_ctx = _connections[context->transport_conn_id];
+
+  transport->enqueue(context->transport_conn_id, conn_ctx.ctrl_data_ctx_id, msg.take());
 }
 
 void
 ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
-                                  [[maybe_unused]] bool use_reliable_transport,
                                   uint8_t priority,
                                   uint16_t expiry_age_ms,
                                   const messages::PublishDatagram& datagram)
@@ -190,16 +192,58 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
     return;
   }
 
-  const auto& context = subscribe_id_state[subscriber_id];
+  // TODO(tievens): Might need to `std::lock_guard<std::mutex> _(session_mutex);`
+
+  auto& context = subscribe_id_state[subscriber_id];
 
   messages::MessageBuffer msg;
   msg << datagram;
 
-  transport->enqueue(context.transport_context_id,
-                     context.transport_stream_id,
+
+  if (context->pending_reliable_data_ctx) {
+    context->priority = priority;
+    context->pending_reliable_data_ctx = false;
+    context->data_ctx_id = transport->createDataContext(context->transport_conn_id, true, priority, false);
+  }
+
+  if (context->priority != priority) {
+    context->priority = priority;
+  }
+
+  qtransport::ITransport::EnqueueFlags eflags;
+
+  switch (context->transport_mode) {
+    case TransportMode::ReliablePerGroup: {
+      uint64_t group_id = datagram.header.name.bits<uint64_t>(16, 32);
+
+      if (context->group_id && context->group_id != group_id) {
+        eflags.new_stream = true;
+        eflags.use_reset = true;
+        eflags.clear_tx_queue = true;
+      }
+
+      context->group_id = group_id;
+      break;
+    }
+
+    case TransportMode::ReliablePerObject: {
+      eflags.new_stream = true;
+    }
+
+    case TransportMode::ReliablePerTrack:
+      [[fallthrough]];
+    case TransportMode::Unreliable:
+      [[fallthrough]];
+    default:
+      break;
+  }
+
+  transport->enqueue(context->transport_conn_id,
+                     context->data_ctx_id,
                      msg.take(),
                      priority,
-                     expiry_age_ms);
+                     expiry_age_ms,
+                     eflags);
 }
 
 ///
@@ -208,72 +252,101 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
 
 void
 ServerRawSession::handle_subscribe(
-  const qtransport::TransportContextId& context_id,
-  const qtransport::StreamId& streamId,
+  const qtransport::TransportConnId& conn_id,
+  const qtransport::DataContextId& data_ctx_id,
   messages::MessageBuffer&& msg)
 {
   auto subscribe = messages::Subscribe{};
   msg >> subscribe;
 
-  const auto lock = std::lock_guard<std::mutex>(session_mutex);
+  std::lock_guard<std::mutex> _(session_mutex);
 
-  if (!subscribe_state[subscribe.quicr_namespace].contains(context_id)) {
-    auto context = SubscribeContext{};
-    context.transport_context_id = context_id;
-    context.transport_stream_id = streamId;
-    context.subscriber_id = subscriber_id;
-
-    subscriber_id++;
-
-    subscribe_state[subscribe.quicr_namespace][context_id] = context;
-    subscribe_id_state[context.subscriber_id] = context;
+  bool is_new = false;
+  if (!_subscribe_state[subscribe.quicr_namespace].count(conn_id)) {
+    is_new = true;
   }
 
-  const auto& context = subscribe_state[subscribe.quicr_namespace][context_id];
+  _subscribe_state[subscribe.quicr_namespace][conn_id] = std::make_shared<SubscribeContext>();
+
+  auto& context = _subscribe_state[subscribe.quicr_namespace][conn_id];
+
+
+ if (is_new) {
+    context->transport_mode = subscribe.transport_mode;
+    context->transport_conn_id = conn_id;
+    context->subscriber_id = ++_subscriber_id;
+
+    subscribe_id_state[context->subscriber_id] = context;
+
+    switch (context->transport_mode) {
+      case TransportMode::ReliablePerTrack:
+        [[fallthrough]];
+      case TransportMode::ReliablePerGroup:
+        [[fallthrough]];
+      case TransportMode::ReliablePerObject: {
+        context->pending_reliable_data_ctx = true;
+        break;
+      }
+
+      case TransportMode::Unreliable: {
+        context->data_ctx_id = transport->createDataContext(conn_id, false, context->priority, false);
+        break;
+      }
+
+      case TransportMode::UsePublisher: {
+        context->transport_mode_follow_publisher = true;
+        context->data_ctx_id = transport->createDataContext(conn_id, false, context->priority, false);
+      }
+    }
+  }
+
+   logger->debug << "New subscribe conn_id: " << conn_id
+                 << " transport_mode: " << static_cast<int>(context->transport_mode)
+                 << " subscriber_id: " << context->subscriber_id
+                 << " pending_data_ctx: " << context->pending_reliable_data_ctx
+                 << std::flush;
 
   delegate->onSubscribe(subscribe.quicr_namespace,
-                        context.subscriber_id,
-                        context_id,
-                        streamId,
+                        context->subscriber_id,
+                        conn_id,
+                        data_ctx_id,
                         subscribe.intent,
                         "",
-                        false,
                         "",
                         {});
 }
 
 void
 ServerRawSession::handle_unsubscribe(
-  const qtransport::TransportContextId& context_id,
-  const qtransport::StreamId& /* streamId */,
+  const qtransport::TransportConnId& conn_id,
+  const qtransport::DataContextId& /* streamId */,
   messages::MessageBuffer&& msg)
 {
   auto unsub = messages::Unsubscribe{};
   msg >> unsub;
 
   // Remove states if state exists
-  if (subscribe_state[unsub.quicr_namespace].contains(context_id)) {
+  if (_subscribe_state[unsub.quicr_namespace].contains(conn_id)) {
     const auto lock = std::lock_guard<std::mutex>(session_mutex);
 
-    auto& context = subscribe_state[unsub.quicr_namespace][context_id];
+    auto& context = _subscribe_state[unsub.quicr_namespace][conn_id];
 
     // Before removing, exec callback
-    delegate->onUnsubscribe(unsub.quicr_namespace, context.subscriber_id, {});
+    delegate->onUnsubscribe(unsub.quicr_namespace, context->subscriber_id, {});
 
-    subscribe_id_state.erase(context.subscriber_id);
-    subscribe_state[unsub.quicr_namespace].erase(context_id);
+    subscribe_id_state.erase(context->subscriber_id);
+    _subscribe_state[unsub.quicr_namespace].erase(conn_id);
 
-    if (subscribe_state[unsub.quicr_namespace].empty()) {
-      subscribe_state.erase(unsub.quicr_namespace);
+    if (_subscribe_state[unsub.quicr_namespace].empty()) {
+      _subscribe_state.erase(unsub.quicr_namespace);
     }
   }
 }
 
 void
-ServerRawSession::handle_publish(
-  const qtransport::TransportContextId& context_id,
-  const qtransport::StreamId& streamId,
-  messages::MessageBuffer&& msg)
+ServerRawSession::handle_publish(const qtransport::TransportConnId& conn_id,
+                                 const qtransport::DataContextId& data_ctx_id,
+                                 messages::MessageBuffer&& msg)
 {
   messages::PublishDatagram datagram;
   msg >> datagram;
@@ -290,20 +363,20 @@ ServerRawSession::handle_publish(
   auto& [ns, context] = *publish_namespace;
 
   const auto gap_log = gap_check(
-    false, datagram.header.name, context.last_group_id, context.last_object_id);
+    false, datagram.header.name, context.prev_group_id, context.prev_object_id);
 
   if (!gap_log.empty()) {
-    logger->info << "context_id: " << context_id << " stream_id: " << streamId
+    logger->info << "context_id: " << conn_id << " stream_id: " << data_ctx_id
                  << " " << gap_log << std::flush;
   }
 
-  delegate->onPublisherObject(context_id, streamId, false, std::move(datagram));
+  delegate->onPublisherObject(conn_id, data_ctx_id, std::move(datagram));
 }
 
 void
 ServerRawSession::handle_publish_intent(
-  const qtransport::TransportContextId& context_id,
-  const qtransport::StreamId& streamId,
+  const qtransport::TransportConnId& conn_id,
+  [[maybe_unused]] const qtransport::DataContextId& data_ctx_id,
   messages::MessageBuffer&& msg)
 {
   messages::PublishIntent intent;
@@ -312,8 +385,8 @@ ServerRawSession::handle_publish_intent(
   if (!publish_namespaces.contains(intent.quicr_namespace)) {
     PublishIntentContext context;
     context.state = PublishIntentContext::State::Pending;
-    context.transport_context_id = context_id;
-    context.transport_stream_id = streamId;
+    context.transport_conn_id = conn_id;
+    context.transport_mode = intent.transport_mode;
     context.transaction_id = intent.transaction_id;
 
     publish_namespaces[intent.quicr_namespace] = context;
@@ -334,15 +407,14 @@ ServerRawSession::handle_publish_intent(
 
   delegate->onPublishIntent(intent.quicr_namespace,
                             "" /* intent.origin_url */,
-                            false,
                             "" /* intent.relay_token */,
                             std::move(intent.payload));
 }
 
 void
 ServerRawSession::handle_publish_intent_end(
-  [[maybe_unused]] const qtransport::TransportContextId& context_id,
-  [[maybe_unused]] const qtransport::StreamId& streamId,
+  [[maybe_unused]] const qtransport::TransportConnId& conn_id,
+  [[maybe_unused]] const qtransport::DataContextId& data_ctx_id,
   messages::MessageBuffer&& msg)
 {
   messages::PublishIntentEnd intent_end;
@@ -372,22 +444,25 @@ ServerRawSession::TransportDelegate::TransportDelegate(
 
 void
 ServerRawSession::TransportDelegate::on_connection_status(
-  const qtransport::TransportContextId& context_id,
+  const qtransport::TransportConnId& conn_id,
   const qtransport::TransportStatus status)
 {
   LOGGER_DEBUG(server.logger,
-               "connection_status: cid: " << context_id
-                                          << " status: " << int(status));
+               "connection_status: conn_id: " << conn_id
+                                              << " status: " << int(status));
 
   if (status == qtransport::TransportStatus::Disconnected) {
-    server.logger->info << "Removing state for context_id: " << context_id
+    server.logger->info << "Removing state for context_id: " << conn_id
                         << std::flush;
 
-    const auto lock = std::lock_guard<std::mutex>(server.session_mutex);
+
+
+    std::lock_guard<std::mutex> _(server.session_mutex);
+    server._connections.erase(conn_id);
 
     auto pub_names_to_remove = std::vector<quicr::Namespace>{};
     for (auto& [ns, context] : server.publish_namespaces) {
-      if (context.transport_context_id == context_id) {
+      if (context.transport_conn_id == conn_id) {
         pub_names_to_remove.push_back(ns);
         server.delegate->onPublishIntentEnd(ns, {}, {});
       }
@@ -398,11 +473,11 @@ ServerRawSession::TransportDelegate::on_connection_status(
     }
 
     auto sub_names_to_remove = std::vector<quicr::Namespace>{};
-    for (auto& [ns, sub_map] : server.subscribe_state) {
-      auto sub_it = sub_map.find(context_id);
+    for (auto& [ns, sub_map] : server._subscribe_state) {
+      auto sub_it = sub_map.find(conn_id);
       if (sub_it != sub_map.end()) {
-        server.delegate->onUnsubscribe(ns, sub_it->second.subscriber_id, {});
-        server.subscribe_id_state.erase(sub_it->second.subscriber_id);
+        server.delegate->onUnsubscribe(ns, sub_it->second->subscriber_id, {});
+        server.subscribe_id_state.erase(sub_it->second->subscriber_id);
         sub_map.erase(sub_it);
       }
 
@@ -412,39 +487,42 @@ ServerRawSession::TransportDelegate::on_connection_status(
     }
 
     for (const auto& ns : sub_names_to_remove) {
-      server.subscribe_state.erase(ns);
+      server._subscribe_state.erase(ns);
     }
   }
 }
 
 void
 ServerRawSession::TransportDelegate::on_new_connection(
-  const qtransport::TransportContextId& context_id,
+  const qtransport::TransportConnId& conn_id,
   const qtransport::TransportRemote& remote)
 {
   LOGGER_DEBUG(server.logger,
-               "new_connection: cid: " << context_id
-                                       << " remote: " << remote.host_or_ip
-                                       << " port:" << ntohs(remote.port));
+               "new_connection: conn_id: " << conn_id
+                                           << " remote: " << remote.host_or_ip
+                                           << " port:" << ntohs(remote.port));
+
+
+  auto& conn_ctx = server._connections[conn_id];
+  conn_ctx.conn_id = conn_id;
+  conn_ctx.ctrl_data_ctx_id = server.transport->createDataContext(conn_id, false, 0);
+  conn_ctx.remote = remote;
 }
 
-void
-ServerRawSession::TransportDelegate::on_new_stream(
-  const qtransport::TransportContextId& context_id,
-  const qtransport::StreamId& streamId)
+void ServerRawSession::TransportDelegate::on_new_data_context(const qtransport::TransportConnId &conn_id,
+                                                              const qtransport::DataContextId &data_ctx_id)
 {
-  LOGGER_DEBUG(server.logger,
-               "new_stream: cid: " << context_id << " msid: " << streamId);
+  LOGGER_DEBUG(server.logger, "New BiDir data context conn_id: " << conn_id << " data_ctx_id: " << data_ctx_id);
 }
 
 void
-ServerRawSession::TransportDelegate::on_recv_notify(
-  const qtransport::TransportContextId& context_id,
-  const qtransport::StreamId& streamId)
+ServerRawSession::TransportDelegate::on_recv_notify(const qtransport::TransportConnId& conn_id,
+                                                    const qtransport::DataContextId& data_ctx_id,
+                                                    const bool is_bidir)
 {
   // don't starve other queues, read some number of messages at a time
   for (int i = 0; i < 150; i++) {
-    auto data = server.transport->dequeue(context_id, streamId);
+    auto data = server.transport->dequeue(conn_id, data_ctx_id);
 
     if (data.has_value() && data.value().size() > 0) {
       server.recv_data_count++;
@@ -453,29 +531,45 @@ ServerRawSession::TransportDelegate::on_recv_notify(
         messages::MessageBuffer msg_buffer{ data.value() };
 
         switch (msg_type) {
-          case messages::MessageType::Subscribe:
-            server.recv_subscribes++;
-            server.handle_subscribe(
-              context_id, streamId, std::move(msg_buffer));
-            break;
-          case messages::MessageType::Publish:
+          case messages::MessageType::Subscribe: {
+              if (is_bidir) {
+                auto& conn_ctx = server._connections[conn_id];
+                conn_ctx.ctrl_data_ctx_id = data_ctx_id;
+              }
+
+              server.recv_subscribes++;
+              server.handle_subscribe(
+                conn_id, data_ctx_id, std::move(msg_buffer));
+              break;
+          }
+          case messages::MessageType::Publish: {
+              if (is_bidir) {
+                auto& conn_ctx = server._connections[conn_id];
+                conn_ctx.ctrl_data_ctx_id = data_ctx_id;
+              }
             server.recv_publish++;
-            server.handle_publish(context_id, streamId, std::move(msg_buffer));
+            server.handle_publish(conn_id, data_ctx_id, std::move(msg_buffer));
             break;
-          case messages::MessageType::Unsubscribe:
+          }
+          case messages::MessageType::Unsubscribe: {
             server.recv_unsubscribes++;
             server.handle_unsubscribe(
-              context_id, streamId, std::move(msg_buffer));
+              conn_id, data_ctx_id, std::move(msg_buffer));
             break;
+          }
           case messages::MessageType::PublishIntent: {
+              if (is_bidir) {
+                auto& conn_ctx = server._connections[conn_id];
+                conn_ctx.ctrl_data_ctx_id = data_ctx_id;
+              }
             server.recv_pub_intents++;
             server.handle_publish_intent(
-              context_id, streamId, std::move(msg_buffer));
+              conn_id, data_ctx_id, std::move(msg_buffer));
             break;
           }
           case messages::MessageType::PublishIntentEnd: {
             server.handle_publish_intent_end(
-              context_id, streamId, std::move(msg_buffer));
+              conn_id, data_ctx_id, std::move(msg_buffer));
             break;
           }
           default:

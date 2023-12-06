@@ -93,8 +93,6 @@ public:
    * @brief Send a named QUICR media object
    *
    * @param subscriber_id            : Subscriber ID to send the message to
-   * @param use_reliable_transport   : Indicates the preference for the object's
-   *                                   transport, if forwarded.
    * @param priority                 : Identifies the relative priority of the
    *                                   current object
    * @param expiry_age_ms            : Time hint for the object to be in cache
@@ -103,7 +101,6 @@ public:
    *
    */
   virtual void sendNamedObject(const uint64_t& subscriber_id,
-                               bool use_reliable_transport,
                                uint8_t priority,
                                uint16_t expiry_age_ms,
                                const messages::PublishDatagram& datagram) = 0;

@@ -66,10 +66,6 @@ public:
    * @param quicr_name               : Identifies the QUICR Name for the object
    * @param priority                 : Identifies the relative priority of the
    *                                   current object
-   * @param expiry_age_ms            : Time hint for the object to be in cache
-   *                                      before being purged after reception
-   * @param use_reliable_transport   : Indicates the preference for the object's
-   *                                   transport, if forwarded.
    * @param data                     : Opaque payload of the fragment
    *
    *
@@ -84,8 +80,6 @@ public:
    */
   virtual void onSubscribedObject(const quicr::Name& quicr_name,
                                   uint8_t priority,
-                                  uint16_t expiry_age_ms,
-                                  bool use_reliable_transport,
                                   bytes&& data) = 0;
 
   /**
@@ -94,10 +88,6 @@ public:
    * @param quicr_name               : Identifies the QUICR Name for the object
    * @param priority                 : Identifies the relative priority of the
    *                                   current object
-   * @param expiry_age_ms            : TTL for the object to be useful for the
-   *                                   application
-   * @param use_reliable_transport   : Indicates the preference for the object's
-   *                                   transport, if forwarded.
    * @param offset                   : Current fragment offset
    * @param is_last_fragment         : Indicates if the current fragment is the
    *                                   last fragment
@@ -110,8 +100,6 @@ public:
    */
   virtual void onSubscribedObjectFragment(const quicr::Name& quicr_name,
                                           uint8_t priority,
-                                          uint16_t expiry_age_ms,
-                                          bool use_reliable_transport,
                                           const uint64_t& offset,
                                           bool is_last_fragment,
                                           bytes&& data) = 0;

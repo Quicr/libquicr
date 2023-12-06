@@ -39,10 +39,8 @@ public:
   /**
    * @brief Reports intent to publish under given quicr::Name.
    *
-   * @param
    * @param namespace               : Identifies QUICR namespace
    * @param origin_url              : Origin serving the QUICR Session
-   * @param use_reliable_transport  : Reliable or Unreliable transport
    * @param auth_token              : Auth Token to validate subscribe requests
    * @param e2e_token               : Opaque token to be forwarded to the Origin
    *
@@ -57,7 +55,6 @@ public:
    */
   virtual void onPublishIntent(const quicr::Namespace& quicr_name,
                                const std::string& origin_url,
-                               bool use_reliable_transport,
                                const std::string& auth_token,
                                bytes&& e2e_token) = 0;
 
@@ -75,11 +72,9 @@ public:
   /**
    * @brief Reports arrival of fully assembled QUICR object under the name
    *
-   * @param context_id               : Context id the message was received on
-   * @param stream_id                : Stream ID the message was received on
-   * @param use_reliable_transport   : Indicates the preference for the object's
-   *                                   transport, if forwarded.
-   * @param datagram                 : QuicR Published Message Datagram
+   * @param conn_id               : Context id the message was received on
+   * @param data_ctx_id           : Stream ID the message was received on
+   * @param datagram              : QuicR Published Message Datagram
    *
    * @note: It is important that the implementations not perform
    *         compute intensive tasks in this callback, but rather
@@ -90,11 +85,9 @@ public:
    *         callbacks will be called. The delegate implementation
    *         shall decide the right callback for their usage.
    */
-  virtual void onPublisherObject(
-    const qtransport::TransportContextId& context_id,
-    const qtransport::StreamId& stream_id,
-    bool use_reliable_transport,
-    messages::PublishDatagram&& datagram) = 0;
+  virtual void onPublisherObject(const qtransport::TransportConnId& conn_id,
+                                 const qtransport::DataContextId& data_ctx_id,
+                                 messages::PublishDatagram&& datagram) = 0;
 
   /**
    * @brief Report arrival of subscribe request for a QUICR Namespace
@@ -109,15 +102,15 @@ public:
    * information.
    *
    * @param namespace             : Identifies QUICR namespace
-   * @param subscriber_id            Subscriber ID connection/transport that
-   *                                 sent the message
-   * @param context_id               : Context id the message was received on
-   * @param stream_id                : Stream ID the message was received on
+   * @param subscriber_id           Subscriber ID connection/transport that
+   *                                sent the message
+   * @param conn_id               : Context id the message was received on
+   * @param data_ctx_id           : Stream ID the message was received on
    * @param subscribe_intent      : Subscribe intent to determine the start
-   * point for serving the mactched objects. The application may choose a
-   * different intent mode, but must be aware of the effects.
+   *                                point for serving the matched objects.
+   *                                The application may choose a different intent
+   *                                mode, but must be aware of the effects.
    * @param origin_url            : Origin serving the QUICR Session
-   * @param use_reliable_transport: Reliable or Unreliable transport
    * @param auth_token            : Auth Token to valiadate the Subscribe
    * Request
    * @param payload               : Opaque payload to be forwarded to the Origin
@@ -125,11 +118,10 @@ public:
    */
   virtual void onSubscribe(const quicr::Namespace& quicr_namespace,
                            const uint64_t& subscriber_id,
-                           const qtransport::TransportContextId& context_id,
-                           const qtransport::StreamId& stream_id,
+                           const qtransport::TransportConnId& conn_id,
+                           const qtransport::DataContextId& data_ctx_id,
                            const SubscribeIntent subscribe_intent,
                            const std::string& origin_url,
-                           bool use_reliable_transport,
                            const std::string& auth_token,
                            bytes&& data) = 0;
 

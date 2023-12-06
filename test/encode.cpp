@@ -59,7 +59,7 @@ TEST_CASE("MessageBuffer Decode Exception")
 TEST_CASE("Subscribe Message encode/decode")
 {
   const auto qnamespace = quicr::Namespace{ 0x10000000000000002000_name, 128 };
-  const auto s = Subscribe{ 1, 0x1000, qnamespace, SubscribeIntent::immediate };
+  const auto s = Subscribe{ 1, 0x1000, qnamespace, SubscribeIntent::immediate, {} };
 
   MessageBuffer buffer;
   buffer << s;
@@ -133,7 +133,7 @@ TEST_CASE("PublishIntent Message encode/decode")
   const auto qnamespace = quicr::Namespace{ 0x10000000000000002000_name, 125 };
   const auto pi = PublishIntent{ MessageType::Publish, 0x1000,
                                  qnamespace,           { 0, 1, 2, 3, 4 },
-                                 uintVar_t{ 0x0100 },  uintVar_t{ 0x0000 } };
+                                 uintVar_t{ 0x0100 },  uintVar_t{ 0x0000 }, {} };
 
   MessageBuffer buffer;
   buffer << pi;

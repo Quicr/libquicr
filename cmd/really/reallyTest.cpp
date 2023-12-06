@@ -39,8 +39,6 @@ public:
 
   void onSubscribedObject([[maybe_unused]] const quicr::Name& quicr_name,
                           [[maybe_unused]] uint8_t priority,
-                          [[maybe_unused]] uint16_t expiry_age_ms,
-                          [[maybe_unused]] bool use_reliable_transport,
                           [[maybe_unused]] quicr::bytes&& data) override
   {
     logger->info << "recv object: name: " << quicr_name
@@ -56,8 +54,6 @@ public:
   void onSubscribedObjectFragment(
     [[maybe_unused]] const quicr::Name& quicr_name,
     [[maybe_unused]] uint8_t priority,
-    [[maybe_unused]] uint16_t expiry_age_ms,
-    [[maybe_unused]] bool use_reliable_transport,
     [[maybe_unused]] const uint64_t& offset,
     [[maybe_unused]] bool is_last_fragment,
     [[maybe_unused]] quicr::bytes&& data) override
@@ -71,6 +67,8 @@ private:
 class pubDelegate : public quicr::PublisherDelegate
 {
 public:
+  std::atomic<bool> got_intent_response { false };
+
   explicit pubDelegate(cantina::LoggerPointer& logger)
     : logger(std::make_shared<cantina::Logger>("PDEL", logger))
   {
@@ -84,17 +82,97 @@ public:
                 "Received PublishIntentResponse for "
                   << quicr_namespace << ": "
                   << static_cast<int>(result.status));
+    got_intent_response = true;
   }
 
 private:
   cantina::LoggerPointer logger;
 };
 
+int do_publisher(cantina::LoggerPointer logger,
+                 quicr::Client& client,
+                 std::shared_ptr<pubDelegate> pd,
+                 quicr::Name name) {
+
+    auto nspace = quicr::Namespace(name, 96);
+    logger->info << "Publish Intent for name: " << name
+                 << " == namespace: " << nspace << std::flush;
+
+    client.publishIntent(pd, nspace, {}, {}, {}, quicr::TransportMode::ReliablePerGroup, 2);
+    logger->info << "Waiting for intent respponse, up to 2.5 seconds" << std::flush;
+
+    for (int c=0; c < 50; c++) {
+      if (pd->got_intent_response) {
+        break;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds (50));
+    }
+
+    if (!pd->got_intent_response) {
+      logger->info << "Did not receive publish intent, cannot proceed. Exit" << std::flush;
+      return -1;
+    }
+
+    logger->info << "Received intent response. Type message and press ENTER to publish. Type exit to end program." << std::flush;
+
+    while (true) {
+      std::string msg;
+      getline(std::cin, msg);
+      if (!msg.compare("exit")) {
+        logger->info << "Exit" << std::flush;
+        break;
+      }
+
+      logger->info << "Publish: " << msg << std::flush;
+      std::vector<uint8_t> m_data(msg.begin(), msg.end());
+      client.publishNamedObject(name++, 0, 1000, std::move(m_data));
+    }
+
+    return 0;
+}
+
+int do_subscribe(cantina::LoggerPointer logger,
+                 quicr::Client& client,
+                 quicr::Name name) {
+
+    auto sd = std::make_shared<subDelegate>(logger);
+    auto nspace = quicr::Namespace(name, 96);
+
+    logger->info << "Subscribe to " << name << "/" << 96 << std::flush;
+
+    client.subscribe(sd,
+                     nspace,
+                     quicr::SubscribeIntent::immediate,
+                     quicr::TransportMode::ReliablePerGroup,
+                     "origin_url",
+                     "auth_token",
+                     quicr::bytes{});
+
+    logger->info << "Type exit to end program" << std::flush;
+    while (true) {
+      std::string msg;
+      getline(std::cin, msg);
+      if (!msg.compare("exit")) {
+        logger->info << "Exit" << std::flush;
+        break;
+      }
+    }
+
+
+    logger->Log("Now unsubscribing");
+    client.unsubscribe(nspace, {}, {});
+
+    logger->Log("Sleeping for 5 seconds before exiting");
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+
+    return 0;
+}
+
 int
 main(int argc, char* argv[])
 {
   cantina::LoggerPointer logger =
-    std::make_shared<cantina::Logger>("reallyTest");
+  std::make_shared<cantina::Logger>("reallyTest");
 
   if ((argc != 2) && (argc != 3)) {
     std::cerr
@@ -102,14 +180,14 @@ main(int argc, char* argv[])
          "variables."
       << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Usage PUB: reallyTest FF0001 pubData" << std::endl;
+    std::cerr << "Usage PUB: reallyTest FF0001 pub" << std::endl;
     std::cerr << "Usage SUB: reallyTest FF0000" << std::endl;
     exit(-1); // NOLINT(concurrency-mt-unsafe)
   }
 
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
   const auto* relayName = getenv("REALLY_RELAY");
-  if (relayName != nullptr) {
+  if (relayName == nullptr) {
     relayName = "127.0.0.1";
   }
 
@@ -121,7 +199,7 @@ main(int argc, char* argv[])
   }
 
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  const auto name = quicr::Name(std::string(argv[1]));
+  auto name = quicr::Name(std::string(argv[1]));
 
   logger->info << "Name = " << name << std::flush;
 
@@ -153,42 +231,13 @@ main(int argc, char* argv[])
   }
 
   if (!data.empty()) {
-    auto nspace = quicr::Namespace(name, 96);
-    logger->info << "Publish Intent for name: " << name
-                 << " == namespace: " << nspace << std::flush;
-    client.publishIntent(pd, nspace, {}, {}, {});
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-
-    // do publish
-    logger->Log("Publish");
-    client.publishNamedObject(name, 0, 1000, false, std::move(data));
+    if (do_publisher(logger, client, pd, name))
+      return -1;
 
   } else {
-    // do subscribe
-    logger->Log("Subscribe");
-    auto sd = std::make_shared<subDelegate>(logger);
-    auto nspace = quicr::Namespace(name, 96);
-
-    logger->info << "Subscribe to " << name << "/" << 96 << std::flush;
-
-    client.subscribe(sd,
-                     nspace,
-                     quicr::SubscribeIntent::immediate,
-                     "origin_url",
-                     false,
-                     "auth_token",
-                     quicr::bytes{});
-
-    logger->Log("Sleeping for 20 seconds before unsubscribing");
-    std::this_thread::sleep_for(std::chrono::seconds(20));
-
-    logger->Log("Now unsubscribing");
-    client.unsubscribe(nspace, {}, {});
-
-    logger->Log("Sleeping for 15 seconds before exiting");
-    std::this_thread::sleep_for(std::chrono::seconds(15));
+    if (do_subscribe(logger, client, name))
+      return -1;
   }
-  std::this_thread::sleep_for(std::chrono::seconds(5));
 
   return 0;
 }

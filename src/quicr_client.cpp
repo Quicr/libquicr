@@ -60,7 +60,7 @@ Client::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                       const std::string& origin_url,
                       const std::string& auth_token,
                       bytes&& payload,
-                      bool use_reliable_transport,
+                      const TransportMode transportMode,
                       uint8_t priority)
 {
   return client_session->publishIntent(std::move(pub_delegate),
@@ -68,7 +68,7 @@ Client::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                                        origin_url,
                                        auth_token,
                                        std::move(payload),
-                                       use_reliable_transport,
+                                       transportMode,
                                        priority);
 }
 
@@ -83,18 +83,20 @@ void
 Client::subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
                   const quicr::Namespace& quicr_namespace,
                   const SubscribeIntent& intent,
+                  const TransportMode transport_mode,
                   const std::string& origin_url,
-                  bool use_reliable_transport,
                   const std::string& auth_token,
-                  bytes&& e2e_token)
+                  bytes&& e2e_token,
+                  const uint8_t priority)
 {
   client_session->subscribe(std::move(subscriber_delegate),
                             quicr_namespace,
                             intent,
+                            transport_mode,
                             origin_url,
-                            use_reliable_transport,
                             auth_token,
-                            std::move(e2e_token));
+                            std::move(e2e_token),
+                            priority);
 }
 
 void
@@ -109,13 +111,11 @@ void
 Client::publishNamedObject(const quicr::Name& quicr_name,
                            uint8_t priority,
                            uint16_t expiry_age_ms,
-                           bool use_reliable_transport,
                            bytes&& data)
 {
   client_session->publishNamedObject(quicr_name,
                                      priority,
                                      expiry_age_ms,
-                                     use_reliable_transport,
                                      std::move(data));
 }
 
@@ -123,7 +123,6 @@ void
 Client::publishNamedObjectFragment(const quicr::Name& quicr_name,
                                    uint8_t priority,
                                    uint16_t expiry_age_ms,
-                                   bool use_reliable_transport,
                                    const uint64_t& offset,
                                    bool is_last_fragment,
                                    bytes&& data)
@@ -131,7 +130,6 @@ Client::publishNamedObjectFragment(const quicr::Name& quicr_name,
   client_session->publishNamedObjectFragment(quicr_name,
                                              priority,
                                              expiry_age_ms,
-                                             use_reliable_transport,
                                              offset,
                                              is_last_fragment,
                                              std::move(data));

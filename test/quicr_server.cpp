@@ -27,21 +27,17 @@ struct TestSubscriberDelegate : public SubscriberDelegate
   {
   }
 
-  void onSubscribedObject(const quicr::Name& /* quicr_name */,
-                          uint8_t /* priority */,
-                          uint16_t /* expiry_age_ms */,
-                          bool /* use_reliable_transport */,
-                          bytes&& /* data */) override
+  void onSubscribedObject([[maybe_unused]] const quicr::Name& quicr_name,
+                          [[maybe_unused]] uint8_t priority,
+                          [[maybe_unused]] bytes&& data) override
   {
   }
 
-  void onSubscribedObjectFragment(const quicr::Name& /* quicr_name */,
-                                  uint8_t /* priority */,
-                                  uint16_t /* expiry_age_ms */,
-                                  bool /* use_reliable_transport */,
-                                  const uint64_t& /* offset */,
-                                  bool /* is_last_fragment */,
-                                  bytes&& /* data */) override
+  void onSubscribedObjectFragment([[maybe_unused]] const quicr::Name& quicr_name,
+                                  [[maybe_unused]] uint8_t priority,
+                                  [[maybe_unused]] const uint64_t& offset,
+                                  [[maybe_unused]] bool is_last_fragment,
+                                  [[maybe_unused]] bytes&& data) override
   {
   }
 };
@@ -49,11 +45,10 @@ struct TestSubscriberDelegate : public SubscriberDelegate
 class TestServerDelegate : public ServerDelegate
 {
 
-  void onPublishIntent(const quicr::Namespace& /* quicr_name */,
-                       const std::string& /* origin_url */,
-                       bool /* use_reliable_transport */,
-                       const std::string& /* auth_token */,
-                       bytes&& /* e2e_token */) override
+  void onPublishIntent([[maybe_unused]] const quicr::Namespace& quicr_name,
+                       [[maybe_unused]] const std::string& origin_url,
+                       [[maybe_unused]] const std::string& auth_token,
+                       [[maybe_unused]] bytes&& e2e_token) override
   {
   }
 
@@ -63,23 +58,20 @@ class TestServerDelegate : public ServerDelegate
   {
   }
 
-  void onPublisherObject(
-    [[maybe_unused]] const qtransport::TransportContextId& context_id,
-    [[maybe_unused]] const qtransport::StreamId& stream_id,
-    [[maybe_unused]] bool use_reliable_transport,
-    [[maybe_unused]] messages::PublishDatagram&& datagram) override
+  void onPublisherObject([[maybe_unused]] const qtransport::TransportConnId& conn_id,
+                         [[maybe_unused]] const qtransport::DataContextId& data_ctx_id,
+                         [[maybe_unused]] messages::PublishDatagram&& datagram) override
   {
   }
 
-  void onSubscribe(const quicr::Namespace& /* quicr_namespace */,
-                   const uint64_t& /* subscriber_id */,
-                   const qtransport::TransportContextId& /* context_id */,
-                   const qtransport::TransportContextId& /*stream_id */,
-                   const SubscribeIntent /* subscribe_intent */,
-                   const std::string& /* origin_url */,
-                   bool /* use_reliable_transport */,
-                   const std::string& /* auth_token */,
-                   bytes&& /* data */) override
+  void onSubscribe([[maybe_unused]] const quicr::Namespace& quicr_namespace,
+                   [[maybe_unused]] const uint64_t& subscriber_id,
+                   [[maybe_unused]] const qtransport::TransportConnId& conn_id,
+                   [[maybe_unused]] const qtransport::DataContextId& data_ctx_id,
+                   [[maybe_unused]] const SubscribeIntent subscribe_intent,
+                   [[maybe_unused]] const std::string& origin_url,
+                   [[maybe_unused]] const std::string& auth_token,
+                   [[maybe_unused]] bytes&& data) override
   {
   }
 

@@ -95,9 +95,8 @@ public:
    * @param origin_url              : Origin serving the QUICR Session
    * @param auth_token              : Auth Token to validate the Subscribe
    * Request
-   * @param payload                 : Opaque payload to be forwarded to the
-   * Origin
-   * @param use_reliable_transport  : Indicates to use reliable for matching
+   * @param payload                 : Opaque payload to be forwarded to the Origin
+   * @param transport_mode          : Transport mode to use for publishing objects
    *                                  published objects
    * @param priority                : Identifies the relative priority for the stream if reliable
    */
@@ -106,7 +105,7 @@ public:
                      const std::string& origin_url,
                      const std::string& auth_token,
                      bytes&& payload,
-                     bool use_reliable_transport,
+                     const TransportMode transport_mode,
                      uint8_t priority) override;
 
   /**
@@ -129,12 +128,13 @@ public:
    *                                ooperations
    * @param quicr_namespace       : Identifies QUICR namespace
    * @param subscribe_intent      : Subscribe intent to determine the start
-   * point for serving the matched objects. The application may choose a
-   * different intent mode, but must be aware of the effects.
+   *                                point for serving the matched objects. The application may choose a
+   *                                different intent mode, but must be aware of the effects.
+   * @param transport_mode        : Transport mode to use for received subscribed objects
    * @param origin_url            : Origin serving the QUICR Session
-   * @param use_reliable_transport: Reliable or Unreliable transport
    * @param auth_token            : Auth Token to validate the Subscribe Request
-   * @param e2e_token              : Opaque token to be forwarded to the Origin
+   * @param e2e_token             : Opaque token to be forwarded to the Origin
+   * @param priority                : Identifies the relative priority for the data flow when reliable
    *
    * @details Entities processing the Subscribe Request MUST validate the
    * request against the token, verify if the Origin specified in the origin_url
@@ -147,10 +147,11 @@ public:
   void subscribe(std::shared_ptr<SubscriberDelegate> subscriber_delegate,
                  const quicr::Namespace& quicr_namespace,
                  const SubscribeIntent& intent,
+                 const TransportMode transport_mode,
                  const std::string& origin_url,
-                 bool use_reliable_transport,
                  const std::string& auth_token,
-                 bytes&& e2e_token) override;
+                 bytes&& e2e_token,
+                 const uint8_t priority) override;
 
   /**
    * @brief Stop subscription on the given QUICR namespace
@@ -172,15 +173,12 @@ public:
    *                                   current object
    * @param expiry_age_ms            : Time hint for the object to be in cache
    *                                      before being purged after reception
-   * @param use_reliable_transport   : Indicates the preference for the object's
-   *                                   transport, if forwarded.
    * @param data                     : Opaque payload
    *
    */
   void publishNamedObject(const quicr::Name& quicr_name,
                           uint8_t priority,
                           uint16_t expiry_age_ms,
-                          bool use_reliable_transport,
                           bytes&& data) override;
 
   /**
@@ -191,8 +189,6 @@ public:
    *                                   current object
    * @param expiry_age_ms            : Time hint for the object to be in cache
                                        before being purged after reception
-   * @param use_reliable_transport   : Indicates the preference for the object's
-   *                                   transport, if forwarded.
    * @param offset                   : Current fragment offset
    * @param is_last_fragment         : Indicates if the current fragment is the
    * @param data                     : Opaque payload of the fragment
@@ -200,23 +196,24 @@ public:
   void publishNamedObjectFragment(const quicr::Name& quicr_name,
                                   uint8_t priority,
                                   uint16_t expiry_age_ms,
-                                  bool use_reliable_transport,
                                   const uint64_t& offset,
                                   bool is_last_fragment,
                                   bytes&& data) override;
 
 protected:
-  void on_connection_status(const qtransport::TransportContextId& context_id,
+  void on_connection_status(const qtransport::TransportConnId& conn_id,
                             const qtransport::TransportStatus status) override;
 
-  void on_new_connection(const qtransport::TransportContextId& context_id,
+  void on_new_connection(const qtransport::TransportConnId& conn_id,
                          const qtransport::TransportRemote& remote) override;
 
-  void on_new_stream(const qtransport::TransportContextId& context_id,
-                     const qtransport::StreamId& mStreamId) override;
 
-  void on_recv_notify(const qtransport::TransportContextId& context_id,
-                      const qtransport::StreamId& streamId) override;
+  void on_new_data_context(const qtransport::TransportConnId& conn_id,
+                           const qtransport::DataContextId& data_ctx_id) override;
+
+  void on_recv_notify(const qtransport::TransportConnId& conn_id,
+                      const qtransport::DataContextId& data_ctx_id,
+                      const bool is_bidir) override;
 
   static bool notify_pub_fragment(
     const messages::PublishDatagram& datagram,
@@ -230,6 +227,9 @@ protected:
 
   void removeSubscription(const quicr::Namespace& quicr_namespace,
                           const SubscribeResult::SubscribeStatus& reason);
+
+  qtransport::DataContextId get_data_ctx_id(const qtransport::TransportConnId conn_id,
+                                            const TransportMode transport_mode, const uint8_t priority);
 
 
   bool connecting() const;
@@ -248,11 +248,13 @@ protected:
     };
 
     State state{ State::Unknown };
-    qtransport::TransportContextId transport_context_id{ 0 };
-    qtransport::StreamId transport_stream_id{ 0 };
+    qtransport::TransportConnId transport_conn_id{ 0 };
+    qtransport::DataContextId transport_data_ctx_id{ 0 };
+    TransportMode transport_mode { TransportMode::Unreliable };
+
     uint64_t transaction_id{ 0 };
-    uint64_t last_group_id{ 0 };
-    uint64_t last_object_id{ 0 };
+    uint64_t group_id{ 0 };
+    uint64_t object_id{ 0 };
   };
 
   // State per publish_intent and related publish
@@ -266,10 +268,12 @@ protected:
     };
 
     State state{ State::Unknown };
-    qtransport::TransportContextId transport_context_id{ 0 };
-    qtransport::StreamId transport_stream_id{ 0 };
-    uint64_t last_group_id{ 0 };
-    uint64_t last_object_id{ 0 };
+    qtransport::TransportConnId transport_conn_id{ 0 };
+    qtransport::DataContextId transport_data_ctx_id{ 0 };
+    TransportMode transport_mode { TransportMode::Unreliable };
+
+    uint64_t group_id{ 0 };
+    uint64_t object_id{ 0 };
     uint64_t offset{ 0 };
   };
 
@@ -279,8 +283,8 @@ protected:
 
   // These parameters are updated on connect() / disconnect().  The optional
   // parameters should be non-null if and only if connected().
-  std::optional<qtransport::StreamId> transport_dgram_stream_id;
-  std::optional<qtransport::TransportContextId> transport_context_id;
+  std::optional<qtransport::DataContextId> transport_ctrl_data_ctx_id;      /// Control data context id
+  std::optional<qtransport::TransportConnId> transport_conn_id;             /// Transport connection context id
 
   // Nested map to reassemble message fragments
   //
