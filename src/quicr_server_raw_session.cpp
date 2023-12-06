@@ -383,27 +383,24 @@ ServerRawSession::handle_publish_intent(
   messages::PublishIntent intent;
   msg >> intent;
 
-  if (!publish_namespaces.contains(intent.quicr_namespace)) {
-    PublishIntentContext context;
-    context.state = PublishIntentContext::State::Pending;
-    context.transport_conn_id = conn_id;
-    context.transport_mode = intent.transport_mode;
-    context.transaction_id = intent.transaction_id;
+  // Always update/replace the old intent with the latest
+  auto [ps_it, _] = publish_namespaces.insert_or_assign(intent.quicr_namespace, PublishIntentContext{});
+  ps_it->second.state = PublishIntentContext::State::Pending;
+  ps_it->second.transport_conn_id = conn_id;
+  ps_it->second.transport_mode = intent.transport_mode;
+  ps_it->second.transaction_id = intent.transaction_id;
 
-    publish_namespaces[intent.quicr_namespace] = context;
-  } else {
-    auto state = publish_namespaces[intent.quicr_namespace].state;
-    // NOLINTBEGIN(bugprone-branch-clone)
-    switch (state) {
-      case PublishIntentContext::State::Pending:
-        [[fallthrough]]; // TODO(trigaux): Resend response?
-      case PublishIntentContext::State::Ready:
-        [[fallthrough]]; // TODO(trigaux): Already registered this namespace
-                         // successfully, do nothing?
-      default:
-        break;
-    }
-    // NOLINTEND(bugprone-branch-clone)
+  auto state = ps_it->second.state;
+
+  // NOLINTBEGIN(bugprone-branch-clone)
+  switch (state) {
+    case PublishIntentContext::State::Pending:
+      [[fallthrough]]; // TODO(trigaux): Resend response?
+    case PublishIntentContext::State::Ready:
+      [[fallthrough]]; // TODO(trigaux): Already registered this namespace
+                       // successfully, do nothing?
+    default:
+      break;
   }
 
   delegate->onPublishIntent(intent.quicr_namespace,

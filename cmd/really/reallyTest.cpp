@@ -99,7 +99,7 @@ int do_publisher(cantina::LoggerPointer logger,
                  << " == namespace: " << nspace << std::flush;
 
     client.publishIntent(pd, nspace, {}, {}, {}, quicr::TransportMode::ReliablePerGroup, 2);
-    logger->info << "Waiting for intent respponse, up to 2.5 seconds" << std::flush;
+    logger->info << "Waiting for intent response, up to 2.5 seconds" << std::flush;
 
     for (int c=0; c < 50; c++) {
       if (pd->got_intent_response) {
