@@ -475,6 +475,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
     case TransportMode::ReliablePerObject: {
       eflags.new_stream = true;
+      break;
     }
 
     case TransportMode::ReliablePerTrack:

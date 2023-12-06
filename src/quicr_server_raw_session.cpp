@@ -228,6 +228,7 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
 
     case TransportMode::ReliablePerObject: {
       eflags.new_stream = true;
+      break;
     }
 
     case TransportMode::ReliablePerTrack:
