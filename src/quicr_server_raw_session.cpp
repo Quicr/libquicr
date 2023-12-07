@@ -262,46 +262,42 @@ ServerRawSession::handle_subscribe(
 
   std::lock_guard<std::mutex> _(session_mutex);
 
-  bool is_new = false;
-  if (!_subscribe_state[subscribe.quicr_namespace].count(conn_id)) {
-    is_new = true;
+  if (_subscribe_state[subscribe.quicr_namespace].count(conn_id)) {
+    // Duplicate
+    return;
   }
 
   _subscribe_state[subscribe.quicr_namespace][conn_id] = std::make_shared<SubscribeContext>();
 
-  auto& context = _subscribe_state[subscribe.quicr_namespace][conn_id];
+  auto &context = _subscribe_state[subscribe.quicr_namespace][conn_id];
 
+  context->transport_conn_id = conn_id;
+  context->subscriber_id = ++_subscriber_id;
 
- if (is_new) {
-    context->transport_mode = subscribe.transport_mode;
-    context->transport_conn_id = conn_id;
-    context->subscriber_id = ++_subscriber_id;
+  subscribe_id_state[context->subscriber_id] = context;
 
-    subscribe_id_state[context->subscriber_id] = context;
+  switch (context->transport_mode) {
+    case TransportMode::ReliablePerTrack:
+      [[fallthrough]];
+    case TransportMode::ReliablePerGroup:
+      [[fallthrough]];
+    case TransportMode::ReliablePerObject: {
+      context->pending_reliable_data_ctx = true;
+      break;
+    }
 
-    switch (context->transport_mode) {
-      case TransportMode::ReliablePerTrack:
-        [[fallthrough]];
-      case TransportMode::ReliablePerGroup:
-        [[fallthrough]];
-      case TransportMode::ReliablePerObject: {
-        context->pending_reliable_data_ctx = true;
-        break;
-      }
+    case TransportMode::Unreliable: {
+      context->data_ctx_id = transport->createDataContext(conn_id, false, context->priority, false);
+      break;
+    }
 
-      case TransportMode::Unreliable: {
-        context->data_ctx_id = transport->createDataContext(conn_id, false, context->priority, false);
-        break;
-      }
-
-      case TransportMode::UsePublisher: {
-        context->transport_mode_follow_publisher = true;
-        context->data_ctx_id = transport->createDataContext(conn_id, false, context->priority, false);
-      }
+    case TransportMode::UsePublisher: {
+      context->transport_mode_follow_publisher = true;
+      context->data_ctx_id = transport->createDataContext(conn_id, false, context->priority, false);
     }
   }
 
-   logger->debug << "New subscribe conn_id: " << conn_id
+   logger->debug << "New Subscribe conn_id: " << conn_id
                  << " transport_mode: " << static_cast<int>(context->transport_mode)
                  << " subscriber_id: " << context->subscriber_id
                  << " pending_data_ctx: " << context->pending_reliable_data_ctx
