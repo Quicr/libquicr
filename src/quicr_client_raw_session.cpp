@@ -461,10 +461,6 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
   switch (context.transport_mode) {
     case TransportMode::ReliablePerGroup: {
-      logger->info << " name: " << quicr_name
-                   << "prev_group_id: " << prev_group_id
-                   << " group_id: " << context.group_id
-                   << std::flush;
       if (context.group_id && context.group_id != prev_group_id) {
         eflags.new_stream = true;
         eflags.use_reset = true;
