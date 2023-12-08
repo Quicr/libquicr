@@ -12,20 +12,18 @@ class Subscriptions
 public:
   struct Remote
   {
-    uint64_t subscribe_id;
-    uint64_t context_id;
-    uint64_t stream_id;
+    uint64_t subscribe_id {0};
+    uint64_t conn_id {0};           /// Connection ID is used only for detecting if subscription is to the same connection
 
     bool operator==(const Remote& o) const
     {
-      return subscribe_id == o.subscribe_id && context_id == o.context_id &&
-             stream_id == o.stream_id;
+      return subscribe_id == o.subscribe_id;
     }
 
     bool operator<(const Remote& o) const
     {
-      return std::tie(subscribe_id, context_id, stream_id) <
-             std::tie(o.subscribe_id, o.context_id, o.stream_id);
+      return std::tie(subscribe_id) <
+             std::tie(o.subscribe_id);
     }
   };
 

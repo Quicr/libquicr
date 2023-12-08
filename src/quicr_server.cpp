@@ -79,13 +79,12 @@ Server::subscriptionEnded(const uint64_t& subscriber_id,
 
 void
 Server::sendNamedObject(const uint64_t& subscriber_id,
-                        bool use_reliable_transport,
                         uint8_t priority,
                         uint16_t expiry_age_ms,
                         const messages::PublishDatagram& datagram)
 {
   server_session->sendNamedObject(
-    subscriber_id, use_reliable_transport, priority, expiry_age_ms, datagram);
+    subscriber_id, priority, expiry_age_ms, datagram);
 }
 
 } // namespace quicr

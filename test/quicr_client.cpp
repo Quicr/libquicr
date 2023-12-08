@@ -31,16 +31,12 @@ struct TestSubscriberDelegate : public SubscriberDelegate
 
   void onSubscribedObject(const quicr::Name& /* quicr_name */,
                           uint8_t /* priority */,
-                          uint16_t /* expiry_age_ms */,
-                          bool /* use_reliable_transport */,
                           bytes&& /* data */) override
   {
   }
 
   void onSubscribedObjectFragment(const quicr::Name& /* quicr_name */,
                                   uint8_t /* priority */,
-                                  uint16_t /* expiry_age_ms */,
-                                  bool /* use_reliable_transport */,
                                   const uint64_t& /* offset */,
                                   bool /* is_last_fragment */,
                                   bytes&& /* data */) override
@@ -67,7 +63,7 @@ TEST_CASE("Subscribe encode, send and receive")
   const auto expected_ns = quicr::Namespace{ 0x10000000000000002000_name, 125 };
 
   qclient->subscribe(
-    {}, expected_ns, SubscribeIntent::wait_up, "", false, "", {});
+    {}, expected_ns, SubscribeIntent::wait_up, {}, "", "", {});
 
   auto s = messages::Subscribe{};
   messages::MessageBuffer msg{ transport->stored_data };
@@ -89,11 +85,11 @@ TEST_CASE("Publish encode, send and receive")
   const auto say_hello = std::vector<uint8_t>{ 'H', 'E', 'L', 'L', '0' };
 
   {
-    qclient->publishIntent({}, expected_ns, "", "", {});
+    qclient->publishIntent({}, expected_ns, "", "", {}, {});
 
     auto say_hello_copy = say_hello;
     qclient->publishNamedObject(
-      expected_name, 0, 0, false, std::move(say_hello_copy));
+      expected_name, 0, 0, std::move(say_hello_copy));
   }
 
   auto d = messages::PublishDatagram{};

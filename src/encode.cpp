@@ -202,6 +202,7 @@ operator<<(MessageBuffer& buffer, const Subscribe& msg)
   buffer << msg.transaction_id;
   buffer << msg.quicr_namespace;
   buffer << static_cast<uint8_t>(msg.intent);
+  buffer << static_cast<uint8_t>(msg.transport_mode);
 
   return buffer;
 }
@@ -220,6 +221,10 @@ operator>>(MessageBuffer& buffer, Subscribe& msg)
   uint8_t intent = 0;
   buffer >> intent;
   msg.intent = static_cast<SubscribeIntent>(intent);
+
+  uint8_t transport_mode = 0;
+  buffer >> transport_mode;
+  msg.transport_mode = static_cast<TransportMode>(transport_mode);
 
   return buffer;
 }
@@ -318,6 +323,8 @@ operator<<(MessageBuffer& buffer, const PublishIntent& msg)
   buffer << msg.payload;
   buffer << msg.media_id;
   buffer << msg.datagram_capable;
+  buffer << static_cast<uint8_t>(msg.transport_mode);
+
   return buffer;
 }
 
@@ -330,6 +337,7 @@ operator<<(MessageBuffer& buffer, PublishIntent&& msg)
   buffer << std::move(msg.payload);
   buffer << msg.media_id;
   buffer << msg.datagram_capable;
+  buffer << static_cast<uint8_t>(msg.transport_mode);
   return buffer;
 }
 
@@ -345,6 +353,10 @@ operator>>(MessageBuffer& buffer, PublishIntent& msg)
   buffer >> msg.payload;
   buffer >> msg.media_id;
   buffer >> msg.datagram_capable;
+
+  uint8_t transport_mode = 0;
+  buffer >> transport_mode;
+  msg.transport_mode = static_cast<TransportMode>(transport_mode);
 
   return buffer;
 }

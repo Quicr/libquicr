@@ -144,7 +144,6 @@ public:
 
   void onPublishIntent(const quicr::Namespace& quicr_namespace,
                        const std::string& /* origin_url */,
-                       bool /* use_reliable_transport */,
                        const std::string& /* auth_token */,
                        quicr::bytes&& /* e2e_token */) override
   {
@@ -164,22 +163,21 @@ public:
   {
   }
 
-  void onPublisherObject(const qtransport::TransportContextId& context_id,
-                         [[maybe_unused]] const qtransport::StreamId& stream_id,
-                         [[maybe_unused]] bool use_reliable_transport,
+  void onPublisherObject(const qtransport::TransportConnId& conn_id,
+                         [[maybe_unused]] const qtransport::DataContextId& data_ctx_id,
                          quicr::messages::PublishDatagram&& datagram) override
   {
     const auto list = subscribeList.find(datagram.header.name);
 
     for (auto dest : list) {
-      if (dest.context_id == context_id) {
+      if (dest.conn_id == conn_id) {
         // split horizon - drop packets back to the source that originated the
         // published object
         continue;
       }
 
       // TODO(trigaux): Move logic into quicr::Server
-      server->sendNamedObject(dest.subscribe_id, false, 1, 200, datagram);
+      server->sendNamedObject(dest.subscribe_id, 1, 200, datagram);
     }
   }
 
@@ -198,8 +196,6 @@ public:
 
     const auto remote = Subscriptions::Remote{
       .subscribe_id = subscriber_id,
-      .context_id = 0, // XXX(richbarn) What should this be?
-      .stream_id = 0,  // XXX(richbarn) What should this be?
     };
     subscribeList.remove(
       quicr_namespace.name(), quicr_namespace.length(), remote);
@@ -208,11 +204,10 @@ public:
   void onSubscribe(
     const quicr::Namespace& quicr_namespace,
     const uint64_t& subscriber_id,
-    [[maybe_unused]] const qtransport::TransportContextId& context_id,
-    [[maybe_unused]] const qtransport::StreamId& stream_id,
+    [[maybe_unused]] const qtransport::TransportConnId& conn_id,
+    [[maybe_unused]] const qtransport::DataContextId& data_ctx_id,
     [[maybe_unused]] const quicr::SubscribeIntent subscribe_intent,
     [[maybe_unused]] const std::string& origin_url,
-    [[maybe_unused]] bool use_reliable_transport,
     [[maybe_unused]] const std::string& auth_token,
     [[maybe_unused]] quicr::bytes&& data) override
   {
@@ -222,8 +217,6 @@ public:
 
     const auto remote = Subscriptions::Remote{
       .subscribe_id = subscriber_id,
-      .context_id = context_id,
-      .stream_id = 0, // XXX(richbarn) What should this be?
     };
     subscribeList.add(quicr_namespace.name(), quicr_namespace.length(), remote);
 
