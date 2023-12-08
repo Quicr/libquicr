@@ -276,6 +276,7 @@ ServerRawSession::handle_subscribe(
 
   context->transport_conn_id = conn_id;
   context->subscriber_id = ++_subscriber_id;
+  context->transport_mode = subscribe.transport_mode;
 
   subscribe_id_state[context->subscriber_id] = context;
 
