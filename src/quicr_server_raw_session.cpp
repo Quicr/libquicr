@@ -296,7 +296,7 @@ ServerRawSession::handle_subscribe(
 
     case TransportMode::UsePublisher: {
       context->transport_mode_follow_publisher = true;
-      context->data_ctx_id = transport->createDataContext(conn_id, false, context->priority, false);
+      context->data_ctx_id = transport->createDataContext(conn_id, true, context->priority, false);
     }
   }
 
