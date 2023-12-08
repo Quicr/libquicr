@@ -196,8 +196,6 @@ public:
 
     const auto remote = Subscriptions::Remote{
       .subscribe_id = subscriber_id,
-      .conn_id = 0, // XXX(richbarn) What should this be?
-      .data_ctx_id = 0,  // XXX(richbarn) What should this be?
     };
     subscribeList.remove(
       quicr_namespace.name(), quicr_namespace.length(), remote);
@@ -219,8 +217,6 @@ public:
 
     const auto remote = Subscriptions::Remote{
       .subscribe_id = subscriber_id,
-      .conn_id = conn_id,
-      .data_ctx_id = 0, // XXX(richbarn) What should this be?
     };
     subscribeList.add(quicr_namespace.name(), quicr_namespace.length(), remote);
 
