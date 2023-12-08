@@ -201,6 +201,9 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
 
 
   if (context->pending_reliable_data_ctx) {
+    logger->info << "Starting new data context for subscriber_id: " << subscriber_id
+                 << " replacing data_ctx_id: " << context->data_ctx_id << std::flush;
+
     context->priority = priority;
     context->pending_reliable_data_ctx = false;
     context->data_ctx_id = transport->createDataContext(context->transport_conn_id, true, priority, false);
