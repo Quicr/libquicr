@@ -367,7 +367,7 @@ ServerRawSession::handle_publish(const qtransport::TransportConnId& conn_id,
     false, datagram.header.name, context.prev_group_id, context.prev_object_id);
 
   if (!gap_log.empty()) {
-    logger->info << "context_id: " << conn_id << " stream_id: " << data_ctx_id
+    logger->info << "conn_id: " << conn_id << " data_ctx_id: " << data_ctx_id
                  << " " << gap_log << std::flush;
   }
 

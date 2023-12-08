@@ -765,7 +765,9 @@ ClientRawSession::handle(messages::MessageBuffer&& msg)
                                  context.object_id);
 
         if (!gap_log.empty()) {
-          logger->Log(gap_log);
+          logger->info << "conn_id: " << context.transport_conn_id
+                       << " data_ctx_id: " << context.transport_data_ctx_id
+                       << " " << gap_log << std::flush;
         }
 
         if (datagram.header.offset_and_fin != uintVar_t(0x1)) {
