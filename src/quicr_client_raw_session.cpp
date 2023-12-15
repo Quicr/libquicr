@@ -285,7 +285,7 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
 
   logger->info << "Publish Intent ns: " << quicr_namespace
                << " data_ctx_id: " << data_ctx_id
-               << " priority: " << static_cast<uint8_t>(priority)
+               << " priority: " << static_cast<int>(priority)
                << " mode: " << static_cast<int>(transport_mode)
                << std::flush;
 
@@ -368,17 +368,15 @@ ClientRawSession::subscribe(
   if (!sub_delegates.contains(quicr_namespace)) {
     sub_delegates[quicr_namespace] = std::move(subscriber_delegate);
 
-    auto data_ctx_id = get_data_ctx_id(conn_id, transport_mode, priority);
     logger->info << "Subscribe ns: " << quicr_namespace
-           << " data_ctx_id: " << data_ctx_id
-           << " priority: " << static_cast<uint8_t>(priority)
+           << " priority: " << static_cast<int>(priority)
            << " mode: " << static_cast<int>(transport_mode)
            << std::flush;
 
     subscribe_state[quicr_namespace] = SubscribeContext{
       .state = SubscribeContext::State::Pending,
       .transport_conn_id = conn_id,
-      .transport_data_ctx_id = data_ctx_id,
+      .transport_data_ctx_id = 0,
       .transport_mode = transport_mode,
       .transaction_id = transaction_id,
     };
