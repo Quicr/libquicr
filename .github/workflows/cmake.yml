@@ -39,16 +39,6 @@ jobs:
         sudo apt-get install -y clang-tidy 
       if: matrix.os == 'ubuntu-latest'
 
-      # Work around https://github.com/actions/runner-images/issues/8659
-    - name: "[Ubuntu] Remove GCC 13 from runner image"
-      if: matrix.os == 'ubuntu-latest'
-      shell: bash
-      run: |
-        echo "TEMPORARY WORKAROUND FOR GITHUB RUNNER BUG #8659\n\nRemoving GCC 13 as it breaks Clang14"
-        sudo rm -f /etc/apt/sources.list.d/ubuntu-toolchain-r-ubuntu-test-jammy.list
-        sudo apt-get update
-        sudo apt-get install -y --allow-downgrades libc6=2.35-0ubuntu3.4 libc6-dev=2.35-0ubuntu3.4 libstdc++6=12.3.0-1ubuntu1~22.04 libgcc-s1=12.3.0-1ubuntu1~22.04
-
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
