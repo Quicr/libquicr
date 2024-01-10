@@ -320,7 +320,7 @@ ServerRawSession::handle_subscribe(
 void
 ServerRawSession::handle_unsubscribe(
   const qtransport::TransportConnId& conn_id,
-  const qtransport::DataContextId& /* streamId */,
+  const qtransport::DataContextId& /* data_ctx_id */,
   messages::MessageBuffer&& msg)
 {
   auto unsub = messages::Unsubscribe{};

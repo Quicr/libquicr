@@ -522,16 +522,6 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
       offset += quicr::max_transport_data_size;
 
-      /*
-       * For UDP based transports, some level of pacing is required to prevent
-       * buffer overruns throughput the network path and with the remote end.
-       *
-       * @TODO: Add pacing/CC/shaping to UDP transport instead of this hack
-       */
-      if (need_pacing && (frag_num % 30) == 0) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-      }
-
       if (transport->enqueue(context.transport_conn_id, context.transport_data_ctx_id, msg.take(),
                              priority, expiry_age_ms, eflags) !=
           qtransport::TransportError::None) {
