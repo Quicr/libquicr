@@ -483,9 +483,6 @@ QuicRClientRawSession::publishNamedObject(
 
   auto& [ns, context] = *found;
 
-  if (context.transport_stream_id == transport_dgram_stream_id)
-    use_reliable_transport = false;
-
   if (context.state != PublishContext::State::Ready) {
     context.transport_context_id = transport_context_id;
     context.state = PublishContext::State::Ready;

@@ -22,15 +22,15 @@ namespace quicr::messages {
     using ObjectSequence = uintVar_t;
     using ObjectPriority = uintVar_t;
 
-    constexpr u_int8_t MESSAGE_TYPE_SUBSCRIBE       = 0x06;
-    constexpr u_int8_t MESSAGE_TYPE_SUBSCRIBE_OK    = 0x07;
-    constexpr u_int8_t MESSAGE_TYPE_SUBSCRIBE_ERROR = 0x08;
-    constexpr u_int8_t MESSAGE_TYPE_UNSUBSCRIBE     = 0x09;
-    constexpr u_int8_t MESSAGE_TYPE_ANNOUNCE        = 0x10;
-    constexpr u_int8_t MESSAGE_TYPE_ANNOUNCE_OK     = 0x06;
-    constexpr u_int8_t MESSAGE_TYPE_ANNOUNCE_ERROR  = 0x06;
-    constexpr u_int8_t MESSAGE_TYPE_UNANNOUNCE      = 0x06;
-    constexpr u_int8_t MESSAGE_TYPE_OBJECT          = 0x06;
+    constexpr u_int8_t MESSAGE_TYPE_SUBSCRIBE       = 0x6;
+    constexpr u_int8_t MESSAGE_TYPE_SUBSCRIBE_OK    = 0x7;
+    constexpr u_int8_t MESSAGE_TYPE_SUBSCRIBE_ERROR = 0x8;
+    constexpr u_int8_t MESSAGE_TYPE_UNSUBSCRIBE     = 0x9;
+    constexpr u_int8_t MESSAGE_TYPE_ANNOUNCE        = 0xA;
+    constexpr u_int8_t MESSAGE_TYPE_ANNOUNCE_OK     = 0xB;
+    constexpr u_int8_t MESSAGE_TYPE_ANNOUNCE_ERROR  = 0xC;
+    constexpr u_int8_t MESSAGE_TYPE_UNANNOUNCE      = 0xD;
+    constexpr u_int8_t MESSAGE_TYPE_OBJECT          = 0xF;
 
 
 
