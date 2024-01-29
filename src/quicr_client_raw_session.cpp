@@ -58,11 +58,6 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
 {
   this->logger->Log("Initialize Client");
 
-  if (relay_info.proto == RelayInfo::Protocol::UDP) {
-    // For plain UDP, pacing is needed. For QUIC it's not needed.
-    need_pacing = true;
-  }
-
   const auto server = to_TransportRemote(relay_info);
   transport = qtransport::ITransport::make_client_transport(
     server, tconfig, *this, this->logger);
@@ -134,7 +129,7 @@ ClientRawSession::disconnect()
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   if (stopping || !(connected() || connecting())) {
     // Not connected or already stopping/stopped
-    return true;
+      return true;
   }
 
   const auto& conn_id =
