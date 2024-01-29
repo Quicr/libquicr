@@ -450,10 +450,8 @@ ServerRawSession::TransportDelegate::on_connection_status(
                                               << " status: " << int(status));
 
   if (status == qtransport::TransportStatus::Disconnected) {
-    server.logger->info << "Removing state for context_id: " << conn_id
+    server.logger->info << "Removing state for conn_id: " << conn_id
                         << std::flush;
-
-
 
     std::lock_guard<std::mutex> _(server.session_mutex);
     server._connections.erase(conn_id);
