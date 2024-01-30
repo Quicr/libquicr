@@ -1,5 +1,6 @@
 add_library(quicr
             message_buffer.cpp
+            moq_message.cpp
             encode.cpp
             quicr_client.cpp
             quicr_client_raw_session.cpp

@@ -2,6 +2,7 @@
 
 add_executable(quicr_test
                 main.cpp
+                moq_messages.cpp
                 quicr_client.cpp
                 quicr_server.cpp
                 encode.cpp)
