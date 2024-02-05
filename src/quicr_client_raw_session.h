@@ -277,7 +277,6 @@ protected:
     uint64_t offset{ 0 };
   };
 
-  bool need_pacing{ false };
   bool has_shared_transport{ false };
   std::atomic_bool stopping{ false };
 
