@@ -403,12 +403,13 @@ ClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
 
   const auto state_it = subscribe_state.find(quicr_namespace);
   if (state_it != subscribe_state.end()) {
+
     transport->enqueue(state_it->second.transport_conn_id, *transport_ctrl_data_ctx_id, msg.take());
   }
 
     std::lock_guard<std::mutex> _(session_mutex);
     removeSubscription(quicr_namespace,
-                     SubscribeResult::SubscribeStatus::ConnectionClosed);
+                     SubscribeResult::SubscribeStatus::UnSubscribed);
 }
 
 void

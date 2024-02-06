@@ -106,7 +106,8 @@ struct SubscribeResult
              // with the relay
              //   Auth failures are timed out because providing status of failed
              //   auth can be exploited
-    ConnectionClosed
+    ConnectionClosed,
+    UnSubscribed
 
   };
 
