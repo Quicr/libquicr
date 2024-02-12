@@ -58,6 +58,10 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
 {
   this->logger->Log("Initialize Client");
 
+  if (relay_info.proto == RelayInfo::Protocol::UDP) {
+      transport_needs_fragmentation = true;
+  }
+
   const auto server = to_TransportRemote(relay_info);
   transport = qtransport::ITransport::make_client_transport(
     server, tconfig, *this, this->logger);
@@ -477,7 +481,8 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
   }
 
   // Fragment the payload if needed
-  if (data.size() <= quicr::max_transport_data_size || context.transport_mode != TransportMode::Unreliable) {
+  if (data.size() <= quicr::max_transport_data_size ||
+          (! transport_needs_fragmentation && context.transport_mode != TransportMode::Unreliable)) {
     messages::MessageBuffer msg;
 
     datagram.media_data_length = data.size();
@@ -521,7 +526,6 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       if (transport->enqueue(context.transport_conn_id, context.transport_data_ctx_id, msg.take(),
                              priority, expiry_age_ms, eflags) !=
           qtransport::TransportError::None) {
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
         // No point in finishing fragment if one is dropped
         return;
       }

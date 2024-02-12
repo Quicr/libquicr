@@ -320,6 +320,7 @@ protected:
   namespace_map<std::shared_ptr<SubscriberDelegate>> sub_delegates;
   namespace_map<SubscribeContext> subscribe_state{};
 
+  bool transport_needs_fragmentation { false };             // Indicates if transport requires fragmentation
   std::shared_ptr<qtransport::ITransport> transport;
 };
 
