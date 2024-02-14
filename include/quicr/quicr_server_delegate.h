@@ -125,7 +125,28 @@ public:
                            const std::string& auth_token,
                            bytes&& data) = 0;
 
-  /**
+    /**
+   * @brief Subscribe Pause/Resume notification
+   *
+   * @details Subscribe pause/resume notification is only valid
+   *    for an active/existing subscription.
+   *
+   * @param namespace             : Identifies QUICR namespace
+   * @param subscriber_id           Subscriber ID connection/transport that
+   *                                sent the message
+   * @param conn_id               : Context id the message was received on
+   * @param data_ctx_id           : Stream ID the message was received on
+   * @param pause                 : True to pause, False to resume
+   *
+   */
+    virtual void onSubscribePause(const quicr::Namespace& quicr_namespace,
+                                  const uint64_t subscriber_id,
+                                  const qtransport::TransportConnId conn_id,
+                                  const qtransport::DataContextId data_ctx_id,
+                                  const bool pause) = 0;
+
+
+    /**
    * @brief Unsubscribe callback method
    *
    * @details Called for each unsubscribe message

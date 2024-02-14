@@ -299,6 +299,13 @@ ServerRawSession::handle_subscribe(
       context->transport_mode_follow_publisher = true;
       context->data_ctx_id = transport->createDataContext(conn_id, true, context->priority, false);
     }
+
+    case TransportMode::Pause:
+      delegate->onSubscribePause(subscribe.quicr_namespace, context->subscriber_id, conn_id, data_ctx_id, true);
+      return;
+    case TransportMode::Resume:
+      delegate->onSubscribePause(subscribe.quicr_namespace, context->subscriber_id, conn_id, data_ctx_id, false);
+      return;
   }
 
    logger->debug << "New Subscribe conn_id: " << conn_id
