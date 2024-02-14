@@ -58,6 +58,8 @@ enum class Response : uint8_t
    ReliablePerObject,         /// Reliable transport using per object streams
    Unreliable,                /// Unreliable transport (datagram)
    UsePublisher,              /// Only for subscribe transport mode, follow the mode the publisher is using
+   Pause,                     /// Instruct relay to pause sending objects for the subscription
+   Resume,                   /// Instruct relay to resume/clear pause state and to start sending objects for subscription
  };
 
 /**
