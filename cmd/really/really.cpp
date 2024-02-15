@@ -205,7 +205,7 @@ public:
                         [[maybe_unused]] const uint64_t subscriber_id,
                         [[maybe_unused]] const qtransport::TransportConnId conn_id,
                         [[maybe_unused]] const qtransport::DataContextId data_ctx_id,
-                        [[maybe_unused]] const bool pause) {}
+                        [[maybe_unused]] const bool pause) override {}
 
   void onSubscribe(
     const quicr::Namespace& quicr_namespace,

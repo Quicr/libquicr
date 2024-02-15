@@ -85,7 +85,7 @@ class TestServerDelegate : public ServerDelegate
                         [[maybe_unused]] const uint64_t subscriber_id,
                         [[maybe_unused]] const qtransport::TransportConnId conn_id,
                         [[maybe_unused]] const qtransport::DataContextId data_ctx_id,
-                        [[maybe_unused]] const bool pause) {}
+                        [[maybe_unused]] const bool pause) override {}
 };
 
 TEST_CASE("Object Lifetime")
