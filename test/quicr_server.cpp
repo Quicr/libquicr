@@ -81,11 +81,11 @@ class TestServerDelegate : public ServerDelegate
   {
   }
 
-  void onSubscribePause(const quicr::Namespace& quicr_namespace,
-                        const uint64_t subscriber_id,
-                        const qtransport::TransportConnId conn_id,
-                        const qtransport::DataContextId data_ctx_id,
-                        const bool pause) {}
+  void onSubscribePause([[maybe_unused]] const quicr::Namespace& quicr_namespace,
+                        [[maybe_unused]] const uint64_t subscriber_id,
+                        [[maybe_unused]] const qtransport::TransportConnId conn_id,
+                        [[maybe_unused]] const qtransport::DataContextId data_ctx_id,
+                        [[maybe_unused]] const bool pause) {}
 };
 
 TEST_CASE("Object Lifetime")

@@ -201,6 +201,12 @@ public:
       quicr_namespace.name(), quicr_namespace.length(), remote);
   }
 
+  void onSubscribePause([[maybe_unused]] const quicr::Namespace& quicr_namespace,
+                        [[maybe_unused]] const uint64_t subscriber_id,
+                        [[maybe_unused]] const qtransport::TransportConnId conn_id,
+                        [[maybe_unused]] const qtransport::DataContextId data_ctx_id,
+                        [[maybe_unused]] const bool pause) {}
+
   void onSubscribe(
     const quicr::Namespace& quicr_namespace,
     const uint64_t& subscriber_id,
