@@ -217,6 +217,8 @@ private:
     qtransport::DataContextId data_ctx_id {0};          /// Data context ID used for sending objects based on subscribe
     uint8_t priority { 126 };                           /// Priority used for sending subscribed objects
 
+    bool paused { false };                              /// Indicates if objects should not be sent (e.g., paused)
+
     uint64_t transaction_id{ 0 };
     uint64_t subscriber_id{ 0 };
     uint64_t group_id{ 0 };

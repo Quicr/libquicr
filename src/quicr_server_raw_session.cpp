@@ -196,6 +196,10 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
 
   auto& context = subscribe_id_state[subscriber_id];
 
+  if (context->paused) {
+      return;
+  }
+
   messages::MessageBuffer msg;
   msg << datagram;
 
@@ -301,9 +305,11 @@ ServerRawSession::handle_subscribe(
     }
 
     case TransportMode::Pause:
+      context->paused = true;
       delegate->onSubscribePause(subscribe.quicr_namespace, context->subscriber_id, conn_id, data_ctx_id, true);
       return;
     case TransportMode::Resume:
+      context->paused = false;
       delegate->onSubscribePause(subscribe.quicr_namespace, context->subscriber_id, conn_id, data_ctx_id, false);
       return;
   }
