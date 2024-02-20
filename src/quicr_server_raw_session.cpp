@@ -196,6 +196,10 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
 
   auto& context = subscribe_id_state[subscriber_id];
 
+  if (context->paused) {
+      return;
+  }
+
   messages::MessageBuffer msg;
   msg << datagram;
 
@@ -245,6 +249,7 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
   transport->enqueue(context->transport_conn_id,
                      context->data_ctx_id,
                      msg.take(),
+                     { qtransport::MethodTraceItem{} },
                      priority,
                      expiry_age_ms,
                      eflags);
@@ -298,7 +303,17 @@ ServerRawSession::handle_subscribe(
     case TransportMode::UsePublisher: {
       context->transport_mode_follow_publisher = true;
       context->data_ctx_id = transport->createDataContext(conn_id, true, context->priority, false);
+      break;
     }
+
+    case TransportMode::Pause:
+      context->paused = true;
+      delegate->onSubscribePause(subscribe.quicr_namespace, context->subscriber_id, conn_id, data_ctx_id, true);
+      return;
+    case TransportMode::Resume:
+      context->paused = false;
+      delegate->onSubscribePause(subscribe.quicr_namespace, context->subscriber_id, conn_id, data_ctx_id, false);
+      return;
   }
 
    logger->debug << "New Subscribe conn_id: " << conn_id

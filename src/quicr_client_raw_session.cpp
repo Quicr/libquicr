@@ -373,7 +373,7 @@ ClientRawSession::subscribe(
            << std::flush;
 
     subscribe_state[quicr_namespace] = SubscribeContext{
-      .state = SubscribeContext::State::Pending,
+      .state = SubscriptionState::Pending,
       .transport_conn_id = conn_id,
       .transport_data_ctx_id = 0,
       .transport_mode = transport_mode,
@@ -385,6 +385,23 @@ ClientRawSession::subscribe(
   const auto sub_it = subscribe_state.find(quicr_namespace);
   if (sub_it == subscribe_state.end()) {
     return;
+  }
+
+  sub_it->second.transport_mode = transport_mode;
+
+  if (transport_mode == TransportMode::Pause) {
+      if (sub_it->second.state != SubscriptionState::Ready) {
+          logger->error << "Failed to pause ns: " << quicr_namespace << " due to state not being ready" << std::flush;
+          return;
+      }
+      sub_it->second.state = SubscriptionState::Paused;
+  }
+  else if (transport_mode == TransportMode::Resume) {
+      if (sub_it->second.state != SubscriptionState::Paused) {
+          logger->info << "Ignoring Resume ns: " << quicr_namespace << " due to state not being Paused" << std::flush;
+          return;
+      }
+      sub_it->second.state = SubscriptionState::Ready;
   }
 
   auto msg = messages::MessageBuffer{ sizeof(messages::Subscribe) };
@@ -416,12 +433,26 @@ ClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
                      SubscribeResult::SubscribeStatus::UnSubscribed);
 }
 
+SubscriptionState ClientRawSession::getSubscriptionState(const quicr::Namespace &quicr_namespace)
+{
+    const auto state_it = subscribe_state.find(quicr_namespace);
+    if (state_it != subscribe_state.end()) {
+        return state_it->second.state;
+    }
+
+    return SubscriptionState::Unknown;
+}
+
 void
 ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
                                      uint8_t priority,
                                      uint16_t expiry_age_ms,
-                                     bytes&& data)
+                                     bytes&& data,
+                                     std::vector<qtransport::MethodTraceItem> &&trace)
 {
+  const auto trace_start_time = trace.front().start_time;
+  trace.push_back({"libquicr:publishNamedObject:begin", trace_start_time});
+
   // start populating message to encode
   auto datagram = messages::PublishDatagram{};
 
@@ -436,9 +467,11 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
   auto& [ns, context] = *ps_it;
 
+/*
   if (context.state != PublishContext::State::Ready) {
     LOGGER_INFO(logger, "Publish intent NOT READY for ns: " << ns << " got state: " << static_cast<int>(context.state));
   }
+*/
 
   // IMPORTANT - Gap check updates the last_group_id and last_object_id to be current group/object
   const auto prev_group_id = context.group_id;
@@ -490,9 +523,14 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
     msg << datagram;
 
+    trace.push_back({"libquicr:publishNamedObject:afterEnqueue:NoFrags", trace_start_time});
+
     // No fragmenting needed
-    transport->enqueue(context.transport_conn_id, context.transport_data_ctx_id, msg.take(),
+    transport->enqueue(context.transport_conn_id, context.transport_data_ctx_id, msg.take(), std::move(trace),
                        priority, expiry_age_ms, eflags);
+
+
+
 
   } else {
     // Fragments required. At this point this only counts whole blocks
@@ -502,7 +540,10 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
     auto offset = size_t(0);
 
+    trace.push_back({"libquicr:publishNamedObject:afterEnqueue:Frags", trace_start_time});
+
     while (frag_num-- > 0) {
+      auto trace_copy = trace;
       auto msg = messages::MessageBuffer{};
 
       if (frag_num == 0 && frag_remaining_bytes == 0) {
@@ -523,7 +564,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
       offset += quicr::max_transport_data_size;
 
-      if (transport->enqueue(context.transport_conn_id, context.transport_data_ctx_id, msg.take(),
+      if (transport->enqueue(context.transport_conn_id, context.transport_data_ctx_id, msg.take(), std::move(trace_copy),
                              priority, expiry_age_ms, eflags) !=
           qtransport::TransportError::None) {
         // No point in finishing fragment if one is dropped
@@ -544,12 +585,11 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       msg << datagram;
 
       if (auto err = transport->enqueue(
-            context.transport_conn_id, context.transport_data_ctx_id, msg.take(), priority, expiry_age_ms);
+            context.transport_conn_id, context.transport_data_ctx_id, msg.take(), std::move(trace), priority, expiry_age_ms);
           err != qtransport::TransportError::None) {
         LOGGER_WARNING(logger,
                        "Published object delayed due to enqueue error "
                          << static_cast<unsigned>(err));
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
       }
     }
   }
@@ -714,7 +754,7 @@ ClientRawSession::handle(messages::MessageBuffer&& msg)
 
       if (sub_delegates.contains(response.quicr_namespace)) {
         auto& context = subscribe_state[response.quicr_namespace];
-        context.state = SubscribeContext::State::Ready;
+        context.state = SubscriptionState::Ready;
 
         if (const auto& sub_delegate =
               sub_delegates[response.quicr_namespace]) {

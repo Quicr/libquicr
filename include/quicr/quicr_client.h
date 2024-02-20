@@ -6,6 +6,7 @@
 #include "quicr_client_session.h"
 #include "quicr_common.h"
 
+#include <transport/transport.h>
 #include <cantina/logger.h>
 #include <qname>
 
@@ -158,6 +159,11 @@ public:
                    const std::string& auth_token);
 
   /**
+   * @brief Get subscription state
+   */
+  SubscriptionState getSubscriptionState(const quicr::Namespace& quicr_namespace);
+
+  /**
    * @brief Publish Named object
    *
    * @param quicr_name               : Identifies the QUICR Name for the object
@@ -166,12 +172,14 @@ public:
    * @param expiry_age_ms            : Time hint for the object to be in cache
    *                                   before being purged after reception
    * @param data                     : Opaque payload
+   * @param trace                    : Method trace vector
    *
    */
   void publishNamedObject(const quicr::Name& quicr_name,
                           uint8_t priority,
                           uint16_t expiry_age_ms,
-                          bytes&& data);
+                          bytes&& data,
+                          std::vector<qtransport::MethodTraceItem> &&trace);
 
   /**
    * @brief Publish Named object

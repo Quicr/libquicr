@@ -107,16 +107,21 @@ Client::unsubscribe(const quicr::Namespace& quicr_namespace,
   client_session->unsubscribe(quicr_namespace, origin_url, auth_token);
 }
 
+SubscriptionState Client::getSubscriptionState(const quicr::Namespace &quicr_namespace) {
+    return client_session->getSubscriptionState(quicr_namespace);
+}
+
 void
 Client::publishNamedObject(const quicr::Name& quicr_name,
                            uint8_t priority,
                            uint16_t expiry_age_ms,
-                           bytes&& data)
+                           bytes&& data,
+                           std::vector<qtransport::MethodTraceItem> &&trace)
 {
   client_session->publishNamedObject(quicr_name,
                                      priority,
                                      expiry_age_ms,
-                                     std::move(data));
+                                     std::move(data), std::move(trace));
 }
 
 void

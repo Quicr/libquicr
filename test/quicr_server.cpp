@@ -80,6 +80,12 @@ class TestServerDelegate : public ServerDelegate
                      const std::string& /* auth_token */) override
   {
   }
+
+  void onSubscribePause([[maybe_unused]] const quicr::Namespace& quicr_namespace,
+                        [[maybe_unused]] const uint64_t subscriber_id,
+                        [[maybe_unused]] const qtransport::TransportConnId conn_id,
+                        [[maybe_unused]] const qtransport::DataContextId data_ctx_id,
+                        [[maybe_unused]] const bool pause) override {}
 };
 
 TEST_CASE("Object Lifetime")
