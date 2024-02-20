@@ -120,6 +120,22 @@ struct SubscribeResult
 };
 
 /**
+ * @brief State of the subscription
+ *
+ * @details Subscription state indicates the state of the subscription. Ready indicates it is
+ *    active and ready for use. Pending indicates that the subscription has not been
+ *    acknowledged yet. Paused indicates that the client set the subscription to be paused.
+ *    Paused can only be set when the state is Ready.  Resume will put the state back to Ready.
+ */
+enum struct SubscriptionState
+{
+    Unknown = 0,
+    Pending,
+    Ready,
+    Paused                /// Pause implies the state was ready before pause
+};
+
+/**
  * PublishIntentResult defines the result of a publish intent
  */
 struct PublishIntentResult

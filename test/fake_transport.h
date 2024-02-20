@@ -63,6 +63,7 @@ struct FakeTransport : public ITransport
   TransportError enqueue(const TransportConnId& /* tcid */,
                          const DataContextId& /* sid */,
                          std::vector<uint8_t>&& bytes,
+                         std::vector<MethodTraceItem>&&,
                          const uint8_t,
                          const uint32_t,
                          const EnqueueFlags) override

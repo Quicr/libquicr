@@ -125,7 +125,13 @@ int do_publisher(cantina::LoggerPointer logger,
 
       logger->info << "Publish: " << msg << std::flush;
       std::vector<uint8_t> m_data(msg.begin(), msg.end());
-      client.publishNamedObject(name++, 0, 1000, std::move(m_data));
+
+      std::vector<qtransport::MethodTraceItem> trace;
+      const auto start_time = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::system_clock::now());
+
+      trace.push_back({"client:publish", start_time});
+
+      client.publishNamedObject(name++, 0, 1000, std::move(m_data), std::move(trace));
     }
 
     return 0;

@@ -165,6 +165,12 @@ public:
                    const std::string& origin_url,
                    const std::string& auth_token) override;
 
+
+  /**
+   * @brief Get subscription state
+   */
+  SubscriptionState getSubscriptionState(const quicr::Namespace& quicr_namespace) override;
+
   /**
    * @brief Publish Named object
    *
@@ -174,12 +180,14 @@ public:
    * @param expiry_age_ms            : Time hint for the object to be in cache
    *                                      before being purged after reception
    * @param data                     : Opaque payload
+   * @param trace                    : Method trace vector
    *
    */
   void publishNamedObject(const quicr::Name& quicr_name,
                           uint8_t priority,
                           uint16_t expiry_age_ms,
-                          bytes&& data) override;
+                          bytes&& data,
+                          std::vector<qtransport::MethodTraceItem> &&trace) override;
 
   /**
    * @brief Publish Named object
@@ -240,14 +248,7 @@ protected:
   // State to store per-subscribe context
   struct SubscribeContext
   {
-    enum struct State
-    {
-      Unknown = 0,
-      Pending,
-      Ready
-    };
-
-    State state{ State::Unknown };
+    SubscriptionState state{ SubscriptionState::Unknown };
     qtransport::TransportConnId transport_conn_id{ 0 };
     qtransport::DataContextId transport_data_ctx_id{ 0 };
     TransportMode transport_mode { TransportMode::Unreliable };

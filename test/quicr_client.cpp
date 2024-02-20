@@ -89,7 +89,7 @@ TEST_CASE("Publish encode, send and receive")
 
     auto say_hello_copy = say_hello;
     qclient->publishNamedObject(
-      expected_name, 0, 0, std::move(say_hello_copy));
+      expected_name, 0, 0, std::move(say_hello_copy), {});
   }
 
   auto d = messages::PublishDatagram{};
