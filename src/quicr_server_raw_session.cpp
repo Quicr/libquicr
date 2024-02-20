@@ -249,7 +249,7 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
   transport->enqueue(context->transport_conn_id,
                      context->data_ctx_id,
                      msg.take(),
-                     {},
+                     { qtransport::MethodTraceItem{} },
                      priority,
                      expiry_age_ms,
                      eflags);
