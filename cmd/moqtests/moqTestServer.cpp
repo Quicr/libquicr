@@ -3,8 +3,10 @@
 #include <quicr/quicr_common.h>
 #include <quicr/quicr_server.h>
 #include <transport/transport.h>
+#include <quicr/moq_message_types.h>
 
 #include "subscription.h"
+#include "uri_convertor.h"
 #include <cantina/logger.h>
 
 #include <condition_variable>
@@ -128,6 +130,8 @@ installSignalHandlers()
 class ReallyServerDelegate : public quicr::ServerDelegate
 {
 public:
+  static constexpr quicr::Name track_id_mask = ~(~0x0_name >> 60);
+
   explicit ReallyServerDelegate(const cantina::LoggerPointer& parent_logger)
     : logger{ std::make_shared<cantina::Logger>("SDEL", parent_logger) }
   {
@@ -147,14 +151,20 @@ public:
                        const std::string& /* auth_token */,
                        quicr::bytes&& /* e2e_token */) override
   {
-    // TODO(trigaux): Authenticate token
     logger->info << "Publish intent namespace: " << quicr_namespace
                  << std::flush;
 
-    // TODO(trigaux): Move logic into quicr::Server
     const auto result =
       quicr::PublishIntentResult{ quicr::messages::Response::Ok, {}, {} };
     server->publishIntentResponse(quicr_namespace, result);
+    // save the publisher context
+    if (announced_namespaces.contains(quicr_namespace)) {
+      throw std::runtime_error("Announced Namespace exists already");
+    }
+
+    // TODO: verify if there are already active subscribers to
+    // decide trackId value
+    announced_namespaces[quicr_namespace] = std::nullopt;
   };
 
   void onPublishIntentEnd(const quicr::Namespace& /* quicr_namespace */,
@@ -163,22 +173,23 @@ public:
   {
   }
 
-  void onPublisherObject(const qtransport::TransportConnId& conn_id,
-                         [[maybe_unused]] const qtransport::DataContextId& data_ctx_id,
-                         quicr::messages::PublishDatagram&& datagram) override
+    void onPublisherObject(const qtransport::TransportConnId& conn_id,
+                           const qtransport::DataContextId& data_ctx_id,
+                           quicr::messages::PublishDatagram&& datagram) override
   {
     const auto list = subscribeList.find(datagram.header.name);
 
-    for (auto dest : list) {
-      if (dest.conn_id == conn_id) {
-        // split horizon - drop packets back to the source that originated the
-        // published object
-        continue;
+      for (auto dest : list) {
+          if (dest.conn_id == conn_id) {
+              // split horizon - drop packets back to the source that originated the
+              // published object
+              continue;
+          }
+
+          // TODO(trigaux): Move logic into quicr::Server
+          server->sendNamedObject(dest.subscribe_id, 1, 200, datagram);
       }
 
-      // TODO(trigaux): Move logic into quicr::Server
-      server->sendNamedObject(dest.subscribe_id, 1, 200, datagram);
-    }
   }
 
   void onUnsubscribe(const quicr::Namespace& quicr_namespace,
@@ -188,44 +199,33 @@ public:
 
     logger->info << "onUnsubscribe: Namespace " << quicr_namespace
                  << " subscribe_id: " << subscriber_id << std::flush;
-
-    // TODO(trigaux): Move logic into quicr::Server
-    server->subscriptionEnded(subscriber_id,
-                              quicr_namespace,
-                              quicr::SubscribeResult::SubscribeStatus::Ok);
-
-    const auto remote = Subscriptions::Remote{
-      .subscribe_id = subscriber_id,
-    };
-    subscribeList.remove(
-      quicr_namespace.name(), quicr_namespace.length(), remote);
   }
 
-  void onSubscribe(
-    const quicr::Namespace& quicr_namespace,
-    const uint64_t& subscriber_id,
-    [[maybe_unused]] const qtransport::TransportConnId& conn_id,
-    [[maybe_unused]] const qtransport::DataContextId& data_ctx_id,
-    [[maybe_unused]] const quicr::SubscribeIntent subscribe_intent,
-    [[maybe_unused]] const std::string& origin_url,
-    [[maybe_unused]] const std::string& auth_token,
-    [[maybe_unused]] quicr::bytes&& data) override
-  {
-    logger->info << "onSubscribe: Namespace " << quicr_namespace << "/"
-                 << static_cast<unsigned>(quicr_namespace.length())
-                 << " subscribe_id: " << subscriber_id << std::flush;
+    void onSubscribe(
+            const quicr::Namespace& quicr_namespace,
+            const uint64_t& subscriber_id,
+            [[maybe_unused]] const qtransport::TransportConnId& conn_id,
+            [[maybe_unused]] const qtransport::DataContextId& data_ctx_id,
+            [[maybe_unused]] const quicr::SubscribeIntent subscribe_intent,
+            [[maybe_unused]] const std::string& origin_url,
+            [[maybe_unused]] const std::string& auth_token,
+            [[maybe_unused]] quicr::bytes&& data) override
+    {
+        logger->info << "onSubscribe: Namespace " << quicr_namespace << "/"
+                     << static_cast<unsigned>(quicr_namespace.length())
+                     << " subscribe_id: " << subscriber_id << std::flush;
 
-    const auto remote = Subscriptions::Remote{
-      .subscribe_id = subscriber_id,
-    };
-    subscribeList.add(quicr_namespace.name(), quicr_namespace.length(), remote);
+        const auto remote = Subscriptions::SubscriberInfo{
+                .subscribe_id = subscriber_id,
+        };
+        subscribeList.add(quicr_namespace.name(), quicr_namespace.length(), remote);
 
-    // TODO(trigaux): Move logic into quicr::Server
-    auto result = quicr::SubscribeResult{
-      quicr::SubscribeResult::SubscribeStatus::Ok, "", {}, {}
-    };
-    server->subscribeResponse(subscriber_id, quicr_namespace, result);
-  }
+        // TODO(trigaux): Move logic into quicr::Server
+        auto result = quicr::SubscribeResult{
+                quicr::SubscribeResult::SubscribeStatus::Ok, "", {}, {}
+        };
+        server->subscribeResponse(subscriber_id, quicr_namespace, result);
+    }
 
 private:
   cantina::LoggerPointer logger;
@@ -237,12 +237,24 @@ private:
 
   std::set<uint64_t> subscribers = {};
   Subscriptions subscribeList;
+
+  quicr::messages::TrackAlias next_track_id = 0;
+  // namespace available for publishing
+  std::map<quicr::Namespace, std::optional<quicr::messages::TrackAlias>> announced_namespaces {};
 };
 
 int
 main()
 {
   int result_code = EXIT_SUCCESS;
+
+  auto uri_templates = std::vector<std::string> {
+      "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int12>/mediatype/<int6>/endpoint/<int10>",
+      "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int12>" // track_namespace = 44 bits
+  };
+
+  std::shared_ptr<NumeroURIConvertor> uri_convertor = std::make_shared<NumeroURIConvertor>();
+  uri_convertor->add_uri_templates(uri_templates);
 
   // Install a signal handlers to catch operating system signals
   installSignalHandlers();
@@ -254,18 +266,19 @@ main()
     const auto relayInfo = quicr::RelayInfo{
       .hostname = "127.0.0.1",
       .port = 1234,
-      .proto = quicr::RelayInfo::Protocol::UDP,
+      .proto = quicr::RelayInfo::Protocol::QUIC,
     };
 
     const auto tcfg = qtransport::TransportConfig{
-      .tls_cert_filename = "./server-cert.pem",
-      .tls_key_filename = "./server-key.pem",
+      .tls_cert_filename = "./cert.pem",
+      .tls_key_filename = "./key.pem",
+      .enable_moq = true
     };
 
     auto logger = std::make_shared<cantina::Logger>("really");
     auto delegate = std::make_shared<ReallyServerDelegate>(logger);
     auto server =
-      std::make_shared<quicr::Server>(relayInfo, tcfg, delegate, logger);
+      std::make_shared<quicr::Server>(relayInfo, tcfg, delegate, logger, uri_convertor);
 
     // TODO(trigaux): Remove this once delegate no longer depends on server.
     delegate->setServer(server);

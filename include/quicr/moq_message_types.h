@@ -262,5 +262,7 @@ namespace quicr::messages {
   MessageBuffer& operator<<(MessageBuffer& buffer, const MoqStreamGroupObject& msg);
   MessageBuffer& operator>>(MessageBuffer &buffer, MoqStreamGroupObject &msg);
 
+  // utility
+  std::tuple<Location, Location, Location, Location>  to_locations(const SubscribeIntent& intent);
 
 }

@@ -19,6 +19,7 @@
 #include "quicr/message_buffer.h"
 #include "quicr/quicr_server_delegate.h"
 #include "quicr/quicr_server_session.h"
+#include "quicr/moq_message_types.h"
 
 #include <cantina/logger.h>
 #include <transport/transport.h>
@@ -46,7 +47,8 @@ public:
   ServerRawSession(const RelayInfo& relayInfo,
                    const qtransport::TransportConfig& tconfig,
                    std::shared_ptr<ServerDelegate> delegate,
-                   const cantina::LoggerPointer& logger);
+                   const cantina::LoggerPointer& logger,
+                   std::shared_ptr<UriConvertor> uri_convertor = nullptr);
 
   /**
    * API for unit test cases.
@@ -166,6 +168,10 @@ public:
   uint64_t recv_unsubscribes{ 0 };
   uint64_t recv_pub_intents{ 0 };
 
+  bool is_moq_enabled() const {
+      return  enable_moq;
+  }
+
 private:
   std::shared_ptr<qtransport::ITransport> setupTransport(
     const qtransport::TransportConfig& cfg);
@@ -188,6 +194,12 @@ private:
   void handle_publish_intent_end(const qtransport::TransportConnId& conn_id,
                                  const qtransport::DataContextId& data_ctx_id,
                                  messages::MessageBuffer&& msg);
+
+  void handle_moq(const qtransport::TransportConnId& conn_id,
+                  const qtransport::DataContextId& data_ctx_id,
+                  bool is_bidir,
+                  std::vector<uint8_t>&& data);
+
 
   struct ConnectionContext {
     qtransport::TransportConnId conn_id {0};
@@ -237,8 +249,11 @@ private:
   qtransport::TransportRemote t_relay;
 
   using SubscriptionContextMap = std::map<qtransport::TransportConnId, std::shared_ptr<SubscribeContext>>;
+  // namespace -> [connId -> SubscribeContext ]
   namespace_map<SubscriptionContextMap> _subscribe_state{};
   std::map<uint64_t, std::shared_ptr<SubscribeContext>> subscribe_id_state{};
+
+  // Active Connections
   std::map<qtransport::TransportConnId, ConnectionContext> _connections;
 
   // TODO: Support more than one publisher per ns
@@ -246,6 +261,36 @@ private:
 
   bool _running{ false };
   uint64_t _subscriber_id{ 0 };
+
+  // Moq Stuff
+  std::shared_ptr<UriConvertor> uri_convertor {nullptr};
+  bool enable_moq {false};
+
+  struct TransportContext {
+    qtransport::TransportConnId transport_conn_id { 0 };
+    qtransport::DataContextId transport_data_ctx_id { 0 };
+  };
+
+  struct Subscription {
+    enum struct State{
+        pending = 0,
+        ready
+    };
+
+    State state;
+    messages::SubscribeId subscribe_id;
+    messages::TrackAlias track_alias;
+    quicr::Namespace quicr_namespace;
+    std::string uri;
+
+    TransportContext transport_context {};
+  };
+
+  // Active subscription keyed by quicr::namespace
+  namespace_map<Subscription> subscriptions;
+  // Mapping from quicr namespace to track alias
+  std::map<quicr::Namespace, messages::TrackAlias> namespace_track_map;
+  std::map<messages::SubscribeId, quicr::Namespace> subscribe_id_namespace {};
 };
 
 } // namespace quicr

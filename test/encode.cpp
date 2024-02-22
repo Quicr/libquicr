@@ -59,7 +59,9 @@ TEST_CASE("MessageBuffer Decode Exception")
 TEST_CASE("Subscribe Message encode/decode")
 {
   const auto qnamespace = quicr::Namespace{ 0x10000000000000002000_name, 128 };
-  const auto s = Subscribe{ 1, 0x1000, qnamespace, SubscribeIntent::immediate, {} };
+    auto subscribe_intent = SubscribeIntent{.mode = SubscribeIntent::Mode::immediate};
+
+    const auto s = Subscribe{ 1, 0x1000, qnamespace, subscribe_intent, {} };
 
   MessageBuffer buffer;
   buffer << s;
@@ -69,7 +71,7 @@ TEST_CASE("Subscribe Message encode/decode")
 
   CHECK_EQ(s_out.transaction_id, s.transaction_id);
   CHECK_EQ(s_out.quicr_namespace, s.quicr_namespace);
-  CHECK_EQ(s_out.intent, s.intent);
+  CHECK_EQ(s_out.intent.mode, s.intent.mode);
 }
 
 TEST_CASE("SubscribeResponse Message encode/decode")

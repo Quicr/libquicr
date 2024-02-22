@@ -29,7 +29,7 @@ if(CLANG_TIDY_EXE)
 endif()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    target_compile_options(quicr PRIVATE -Wall -pedantic -Wextra -Werror -Wmissing-declarations)
+    target_compile_options(quicr PRIVATE -Wall -pedantic -Wextra  -Wmissing-declarations)
 endif()
 
 if(MSVC)

@@ -65,12 +65,21 @@ enum class Response : uint8_t
  * Relays use this information to determine the start-point and
  * serve the objects in the time-order from the cache.
  */
-enum class SubscribeIntent
+struct SubscribeIntent
 {
-  immediate = 0, // Start from the most recent object
-  wait_up = 1,   // Start from the following group
-  sync_up = 2,   // Start from the request position
+ enum class Mode {
+     immediate = 0, // Start from the most recent object
+     wait_up = 1,   // Start from the follwup
+     sync_up = 2,   // Start from the request position
+ };
+
+  Mode mode;
+  std::optional<uint64_t>  group_id;
+  std::optional<uint64_t> object_id;
+
 };
+
+
 
 /**
  * RelayInfo defines the connection information for relays
@@ -125,5 +134,14 @@ struct PublishIntentResult
   RelayInfo redirectInfo;     // Set only if status is redirect
   quicr::Name reassignedName; // Set only if status is ReAssigned
 };
+
+// Abstract interface for transforming between Integer and URI namespaces
+struct UriConvertor
+{
+    virtual std::string to_namespace_uri(quicr::Namespace ns) = 0;
+    virtual quicr::Namespace to_quicr_namespace(const std::string&) = 0;
+    virtual std::string to_name_uri(quicr::Namespace n) = 0;
+};
+
 
 }

@@ -43,10 +43,12 @@ public:
    * @param tconfig     : Transport configuration
    * @param logger      : Shared pointer to cantina::Logger object
    *                      loggings operations
+   * @param uri_convertor : Shared pointer to uri transformation api
    */
   Client(const RelayInfo& relay_info,
          const qtransport::TransportConfig& tconfig,
-         const cantina::LoggerPointer& logger);
+         const cantina::LoggerPointer& logger,
+         std::shared_ptr<UriConvertor> uri_convertor = nullptr);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber
@@ -56,7 +58,8 @@ public:
    * @param logger    : Shared pointer to cantina::Logger object
    */
   Client(std::shared_ptr<qtransport::ITransport> transport,
-         const cantina::LoggerPointer& logger);
+         const cantina::LoggerPointer& logger,
+         std::shared_ptr<UriConvertor> uri_convertor = nullptr);
 
   /**
    * @brief Destructor for the client

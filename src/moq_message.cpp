@@ -26,7 +26,7 @@ namespace quicr::messages {
 
 
     MessageBuffer& operator<<(MessageBuffer &buffer, const Location &msg) {
-        if (msg.mode != LocationMode::Absolute) {
+        if (msg.mode == LocationMode::None) {
             buffer << static_cast<uint8_t >(msg.mode);
             return buffer;
         }
@@ -433,5 +433,30 @@ namespace quicr::messages {
         buffer >> msg.payload;
         return buffer;
     }
+
+    std::tuple<Location, Location, Location, Location> to_locations(const SubscribeIntent& intent) {
+        auto none_location = Location {.mode = LocationMode::None};
+
+        /*
+         * Sequence:                0    1    2    3    4   [5]  [6] ...
+                                                      ^
+                                                 Largest Sequence
+         RelativePrevious Value:  4    3    2    1    0
+         RelativeNext Value:                               0    1  ...
+       */
+        switch (intent.mode) {
+
+            case SubscribeIntent::Mode::immediate:
+                return std::make_tuple(Location{.mode=LocationMode::RelativePrevious, .value=0}, //StartGroup
+                                       none_location, // EndGroup
+                                       Location{.mode=LocationMode::RelativePrevious, .value=0}, //StartObject
+                                       none_location); // EndObject
+            case SubscribeIntent::Mode::sync_up:
+                throw std::runtime_error("Intent Unsupported for Subscribe");
+            case SubscribeIntent::Mode::wait_up:
+                throw std::runtime_error("Intent Unsupported for Subscribe");
+        }
+    }
+
 
 }

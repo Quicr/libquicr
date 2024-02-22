@@ -19,6 +19,7 @@
 #include "quicr/gap_check.h"
 #include "quicr/message_buffer.h"
 #include "quicr/quicr_common.h"
+#include "quicr/moq_message_types.h"
 
 #include <algorithm>
 #include <arpa/inet.h>
@@ -33,7 +34,8 @@ namespace quicr {
 ServerRawSession::ServerRawSession(const RelayInfo& relayInfo,
                                    const qtransport::TransportConfig& tconfig,
                                    std::shared_ptr<ServerDelegate> delegate_in,
-                                   const cantina::LoggerPointer& logger)
+                                   const cantina::LoggerPointer& logger,
+                                   std::shared_ptr<UriConvertor> uri_convertor_in)
   : delegate(std::move(delegate_in))
   , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport_delegate(*this)
@@ -51,6 +53,8 @@ ServerRawSession::ServerRawSession(const RelayInfo& relayInfo,
 
   transport = setupTransport(tconfig);
   transport->start();
+  uri_convertor = uri_convertor_in;
+  enable_moq = tconfig.enable_moq;
 }
 
 ServerRawSession::ServerRawSession(
@@ -110,20 +114,25 @@ ServerRawSession::publishIntentResponse(const quicr::Namespace& quicr_namespace,
 
   // TODO(trigaux): Support more than one publisher per ns
   auto& context = publish_namespaces[quicr_namespace];
-  const auto response = messages::PublishIntentResponse{
-    messages::MessageType::PublishIntentResponse,
-    quicr_namespace,
-    result.status,
-    context.transaction_id
-  };
-
-  messages::MessageBuffer msg(sizeof(response));
-  msg << response;
+  messages::MessageBuffer msg{};
+  if (enable_moq) {
+      auto announce_ok = messages::MoqAnnounceOk {
+        .track_namespace = uri_convertor->to_namespace_uri(quicr_namespace)
+      };
+      logger->info << "MoQAnnounceOk: track namespace:" <<   announce_ok.track_namespace << std::flush;
+      msg << announce_ok;
+  } else {
+      const auto response = messages::PublishIntentResponse{
+              messages::MessageType::PublishIntentResponse,
+              quicr_namespace,
+              result.status,
+              context.transaction_id
+      };
+      msg << response;
+  }
 
   context.state = PublishIntentContext::State::Ready;
-
   const auto& conn_ctx = _connections[context.transport_conn_id];
-
   transport->enqueue(context.transport_conn_id, conn_ctx.ctrl_data_ctx_id, msg.take());
 }
 
@@ -132,25 +141,23 @@ ServerRawSession::subscribeResponse(const uint64_t& subscriber_id,
                                     const quicr::Namespace& quicr_namespace,
                                     const SubscribeResult& result)
 {
-  // start populating message to encode
-  if (!subscribe_id_state.contains(subscriber_id)) {
-    return;
-  }
+   if(!subscriptions.contains(quicr_namespace))  {
+     logger->info << "SubscribeResponse: Namespace not found" << std::flush;
+     return;
+   }
 
-  const auto& context = subscribe_id_state[subscriber_id];
+   const auto& subscription = subscriptions.at(quicr_namespace);
 
-  const auto response = messages::SubscribeResponse{
-    .quicr_namespace = quicr_namespace,
-    .response = result.status,
-    .transaction_id = subscriber_id,
-  };
+   messages::MessageBuffer msg;
+   auto subscribe_ok = messages::MoqSubscribeOk {
+    .subscribe_id = subscription.subscribe_id,
+    .expires = 0 // TODO: revisit
+   };
+   msg << subscribe_ok;
 
-  messages::MessageBuffer msg;
-  msg << response;
+  const auto& conn_ctx = _connections[subscription.transport_context.transport_conn_id];
+  transport->enqueue(subscription.transport_context.transport_conn_id, conn_ctx.ctrl_data_ctx_id, msg.take());
 
-  const auto& conn_ctx = _connections[context->transport_conn_id];
-
-  transport->enqueue(context->transport_conn_id, conn_ctx.ctrl_data_ctx_id, msg.take());
 }
 
 void
@@ -265,6 +272,7 @@ ServerRawSession::handle_subscribe(
 
   std::lock_guard<std::mutex> _(session_mutex);
 
+  // there exists a
   if (_subscribe_state[subscribe.quicr_namespace].count(conn_id)) {
     // Duplicate
     return;
@@ -514,6 +522,90 @@ void ServerRawSession::TransportDelegate::on_new_data_context(const qtransport::
 }
 
 void
+ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
+                             const qtransport::DataContextId& data_ctx_id,
+                             bool is_bidir,
+                             std::vector<uint8_t>&& data) {
+
+    auto msg_type = static_cast<uint8_t>(data.front());
+    logger->info << "HandleMoq: MessageType: " << msg_type << std::flush;
+    messages::MessageBuffer msg{ data };
+    switch (msg_type) {
+        case messages::MESSAGE_TYPE_SUBSCRIBE: {
+            if (is_bidir) {
+                auto& conn_ctx = _connections[conn_id];
+                conn_ctx.ctrl_data_ctx_id = data_ctx_id;
+            }
+            recv_subscribes++;
+            auto subscribe = messages::MoqSubscribe{};
+            msg >> subscribe;
+            // track uri to quicr::namespace
+            auto quicr_namespace = uri_convertor->to_quicr_namespace(subscribe.track);
+            {
+                std::lock_guard<std::mutex> _(session_mutex);
+                if (!subscriptions.contains(quicr_namespace)) {
+                    // new subscription request
+                    auto subscription = Subscription{};
+                    subscription.quicr_namespace = quicr_namespace;
+                    subscription.track_alias = subscribe.track_alias;
+                    subscription.subscribe_id = subscribe.subscribe_id;
+                    subscription.uri = std::move(subscribe.track);
+                    subscription.state = Subscription::State::pending;
+                    subscription.transport_context.transport_conn_id = conn_id;
+                    subscription.transport_context.transport_data_ctx_id = data_ctx_id;
+
+                    // save the state
+                    subscribe_id_namespace[subscribe.subscribe_id] = quicr_namespace;
+                    namespace_track_map[subscription.quicr_namespace] = subscription.track_alias;
+                    subscriptions[quicr_namespace] = std::move(subscription);
+                }
+            }
+
+            const auto& subscription = subscriptions.at(quicr_namespace);
+            logger->info << "MOQSubscribe conn_id: " << conn_id
+                          << ", Track: " << subscription.uri
+                          << ", Track Alias: " << subscription.track_alias
+                          << ", Quicr Namespace: " << subscription.quicr_namespace
+                          << " subscriber_id: " << subscription.subscribe_id
+                          << std::flush;
+
+            // inform the delegate
+            delegate->onSubscribe(subscription.quicr_namespace,
+                                  subscription.subscribe_id,
+                                  conn_id,
+                                  data_ctx_id,
+                                  SubscribeIntent{},
+                                  "",
+                                  "",
+                                  {});
+
+        }
+        break;
+        case messages::MESSAGE_TYPE_ANNOUNCE: {
+            messages::MoqAnnounce announce;
+            msg >> announce;
+            auto qns = uri_convertor->to_quicr_namespace(announce.track_namespace);
+            auto [ps_it, _] = publish_namespaces.insert_or_assign(qns, PublishIntentContext{});
+            ps_it->second.state = PublishIntentContext::State::Pending;
+            ps_it->second.transport_conn_id = conn_id;
+            //ps_it->second.transport_mode = intent.transport_mode;
+            //ps_it->second.transaction_id = intent.transaction_id;
+
+            auto state = ps_it->second.state;
+            delegate->onPublishIntent(qns,
+                                      "" /* intent.origin_url */,
+                                      "" /* intent.relay_token */,
+                                      {});
+        }
+        break;
+        default:
+            break;
+
+    }
+}
+
+
+void
 ServerRawSession::TransportDelegate::on_recv_notify(const qtransport::TransportConnId& conn_id,
                                                     const qtransport::DataContextId& data_ctx_id,
                                                     const bool is_bidir)
@@ -525,6 +617,10 @@ ServerRawSession::TransportDelegate::on_recv_notify(const qtransport::TransportC
     if (data.has_value() && data.value().size() > 0) {
       server.recv_data_count++;
       try {
+        if(server.is_moq_enabled()) {
+          return server.handle_moq(conn_id, data_ctx_id, is_bidir, std::move(data.value()));
+        }
+
         auto msg_type = static_cast<messages::MessageType>(data->front());
         messages::MessageBuffer msg_buffer{ data.value() };
 

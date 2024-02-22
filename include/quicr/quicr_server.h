@@ -37,7 +37,8 @@ public:
   Server(const RelayInfo& relayInfo,
          const qtransport::TransportConfig& tconfig,
          std::shared_ptr<ServerDelegate> delegate_in,
-         const cantina::LoggerPointer& logger);
+         const cantina::LoggerPointer& logger,
+         std::shared_ptr<UriConvertor> uri_convertor = nullptr);
 
   /**
    * API for unit test cases .

@@ -20,6 +20,7 @@
 #include "quicr/quicr_client.h"
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_common.h"
+#include "quicr/moq_message_types.h"
 
 #include <qname>
 #include <transport/transport.h>
@@ -51,7 +52,8 @@ public:
    */
   ClientRawSession(const RelayInfo& relay_info,
                    const qtransport::TransportConfig& tconfig,
-                   const cantina::LoggerPointer& logger);
+                   const cantina::LoggerPointer& logger,
+                   std::shared_ptr<UriConvertor> uri_convertor = nullptr);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber
@@ -61,7 +63,8 @@ public:
    * @param logger    : Shared pointer to a cantina::Logger object
    */
   ClientRawSession(std::shared_ptr<qtransport::ITransport> transport,
-                   const cantina::LoggerPointer& logger);
+                   const cantina::LoggerPointer& logger,
+                   std::shared_ptr<UriConvertor> uri_convertor = nullptr);
 
   /**
    * @brief Destructor for the raw client session object
@@ -225,6 +228,8 @@ protected:
 
   void handle(messages::MessageBuffer&& msg);
 
+  void handle_moq(messages::MessageBuffer&& msg);
+
   void removeSubscription(const quicr::Namespace& quicr_namespace,
                           const SubscribeResult::SubscribeStatus& reason);
 
@@ -322,6 +327,39 @@ protected:
   namespace_map<SubscribeContext> subscribe_state{};
 
   std::shared_ptr<qtransport::ITransport> transport;
+
+  // Todo(suhas): a temporary feature flag. This needs to be removed once
+  // we fully support MOQ protocol.
+  bool enable_moq {false};
+  std::shared_ptr<UriConvertor> uri_convertor {nullptr};
+
+  struct TransportContext {
+    qtransport::TransportConnId transport_conn_id { 0 };
+    qtransport::DataContextId transport_data_ctx_id { 0 };
+  };
+
+  struct Subscription {
+    enum struct State{
+      pending = 0,
+      ready
+    };
+
+    State state;
+    messages::SubscribeId subscribe_id;
+    messages::TrackAlias track_alias;
+    quicr::Namespace quicr_namespace;
+    std::string uri;
+
+    TransportContext transport_context {};
+    // TODO: Add Delegate Info
+
+  };
+
+  // Active subscription keyed by quicr::namespace
+  namespace_map<Subscription> subscriptions;
+  std::map<quicr::Namespace, messages::TrackAlias> namespace_track_map {};
+  std::map<messages::SubscribeId, quicr::Namespace> subscribe_id_namespace {};
+
 };
 
 }

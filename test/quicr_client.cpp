@@ -61,9 +61,9 @@ TEST_CASE("Subscribe encode, send and receive")
   qclient->connect();
 
   const auto expected_ns = quicr::Namespace{ 0x10000000000000002000_name, 125 };
-
+  auto subscribe_intent = SubscribeIntent{.mode = SubscribeIntent::Mode::wait_up};
   qclient->subscribe(
-    {}, expected_ns, SubscribeIntent::wait_up, {}, "", "", {});
+    {}, expected_ns, subscribe_intent, {}, "", "", {});
 
   auto s = messages::Subscribe{};
   messages::MessageBuffer msg{ transport->stored_data };
@@ -71,7 +71,7 @@ TEST_CASE("Subscribe encode, send and receive")
 
   CHECK_EQ(s.transaction_id, s.transaction_id);
   CHECK_EQ(s.quicr_namespace, expected_ns);
-  CHECK_EQ(s.intent, SubscribeIntent::wait_up);
+  CHECK_EQ(s.intent.mode, SubscribeIntent::Mode::wait_up);
 }
 
 TEST_CASE("Publish encode, send and receive")

@@ -8,6 +8,8 @@
 #include <iostream>
 #include <sstream>
 #include <thread>
+#include "uri_convertor.h"
+
 
 class subDelegate : public quicr::SubscriberDelegate
 {
@@ -51,6 +53,7 @@ public:
     logger->info << std::flush;
   }
 
+
   void onSubscribedObjectFragment(
     [[maybe_unused]] const quicr::Name& quicr_name,
     [[maybe_unused]] uint8_t priority,
@@ -67,8 +70,6 @@ private:
 class pubDelegate : public quicr::PublisherDelegate
 {
 public:
-  std::atomic<bool> got_intent_response { false };
-
   explicit pubDelegate(cantina::LoggerPointer& logger)
     : logger(std::make_shared<cantina::Logger>("PDEL", logger))
   {
@@ -82,108 +83,40 @@ public:
                 "Received PublishIntentResponse for "
                   << quicr_namespace << ": "
                   << static_cast<int>(result.status));
-    got_intent_response = true;
   }
 
 private:
   cantina::LoggerPointer logger;
 };
 
-int do_publisher(cantina::LoggerPointer logger,
-                 quicr::Client& client,
-                 std::shared_ptr<pubDelegate> pd,
-                 quicr::Name name) {
-
-    auto nspace = quicr::Namespace(name, 96);
-    logger->info << "Publish Intent for name: " << name
-                 << " == namespace: " << nspace << std::flush;
-
-    client.publishIntent(pd, nspace, {}, {}, {}, quicr::TransportMode::ReliablePerGroup, 2);
-    logger->info << "Waiting for intent response, up to 2.5 seconds" << std::flush;
-
-    for (int c=0; c < 50; c++) {
-      if (pd->got_intent_response) {
-        break;
-      }
-      std::this_thread::sleep_for(std::chrono::milliseconds (50));
-    }
-
-    if (!pd->got_intent_response) {
-      logger->info << "Did not receive publish intent, cannot proceed. Exit" << std::flush;
-      return -1;
-    }
-
-    logger->info << "Received intent response. Type message and press ENTER to publish. Type exit to end program." << std::flush;
-
-    while (true) {
-      std::string msg;
-      getline(std::cin, msg);
-      if (!msg.compare("exit")) {
-        logger->info << "Exit" << std::flush;
-        break;
-      }
-
-      logger->info << "Publish: " << msg << std::flush;
-      std::vector<uint8_t> m_data(msg.begin(), msg.end());
-      client.publishNamedObject(name++, 0, 1000, std::move(m_data));
-    }
-
-    return 0;
-}
-
-int do_subscribe(cantina::LoggerPointer logger,
-                 quicr::Client& client,
-                 quicr::Name name) {
-
-    auto sd = std::make_shared<subDelegate>(logger);
-    auto nspace = quicr::Namespace(name, 96);
-
-    logger->info << "Subscribe to " << name << "/" << 96 << std::flush;
-    auto subscribe_intent = quicr::SubscribeIntent{.mode = quicr::SubscribeIntent::Mode::immediate};
-    client.subscribe(sd,
-                     nspace,
-                     subscribe_intent,
-                     quicr::TransportMode::ReliablePerGroup,
-                     "origin_url",
-                     "auth_token",
-                     quicr::bytes{});
-
-    logger->info << "Type exit to end program" << std::flush;
-    while (true) {
-      std::string msg;
-      getline(std::cin, msg);
-      if (!msg.compare("exit")) {
-        logger->info << "Exit" << std::flush;
-        break;
-      }
-    }
-
-
-    logger->Log("Now unsubscribing");
-    client.unsubscribe(nspace, {}, {});
-
-    logger->Log("Sleeping for 5 seconds before exiting");
-    std::this_thread::sleep_for(std::chrono::seconds(5));
-
-    return 0;
-}
-
+/*
+ * Notes:
+ * FullTrackName is 60 bits of quicr namespace
+ * TrackNamespace is 52 bits
+ * GroupId and ObjectId take 48 bits (
+ */
 int
 main(int argc, char* argv[])
 {
   cantina::LoggerPointer logger =
-  std::make_shared<cantina::Logger>("reallyTest");
+    std::make_shared<cantina::Logger>("moqclient");
 
-  if ((argc != 2) && (argc != 3)) {
-    std::cerr
-      << "Relay address and port set in REALLY_RELAY and REALLY_PORT env "
-         "variables."
-      << std::endl;
-    std::cerr << std::endl;
-    std::cerr << "Usage PUB: reallyTest FF0001 pub" << std::endl;
-    std::cerr << "Usage SUB: reallyTest FF0000" << std::endl;
-    exit(-1); // NOLINT(concurrency-mt-unsafe)
-  }
+  /*
+   * Idea
+   * TrackName is 32 + 12 + 6 + 10  = 60 bits
+   * This would give 4096 meetings with 64 media qualities and 1024 participants in a given meeting.
+   * This breakup would be fine for a 1000 person meeting. but If one needs a larger scale one
+   * add a different sub-pen for larger meeting with bit split as shown
+   *
+   * TrackName is 32 + 10 + 6 + 16  = 64 bits that would allow 65000 participants.
+   */
+  auto uri_templates = std::vector<std::string> {
+    "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int12>/mediatype/<int6>/endpoint/<int10>",
+    "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int12>" // track_namespace = 44 bits
+  };
+
+  std::shared_ptr<NumeroURIConvertor> uri_convertor = std::make_shared<NumeroURIConvertor>();
+  uri_convertor->add_uri_templates(uri_templates);
 
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
   const auto* relayName = getenv("REALLY_RELAY");
@@ -199,8 +132,9 @@ main(int argc, char* argv[])
   }
 
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  auto name = quicr::Name(std::string(argv[1]));
-
+  auto ns = uri_convertor->to_quicr_namespace(std::string(argv[1]));
+  std::cout << "Namespace for uri:" << ns << std::endl;
+  const auto name = ns.name();
   logger->info << "Name = " << name << std::flush;
 
   auto data = std::vector<uint8_t>{};
@@ -220,9 +154,10 @@ main(int argc, char* argv[])
   const auto tcfg = qtransport::TransportConfig{
     .tls_cert_filename = nullptr,
     .tls_key_filename = nullptr,
+    .enable_moq = true
   };
 
-  quicr::Client client(relay, tcfg, logger);
+  quicr::Client client(relay, tcfg, logger, uri_convertor);
   auto pd = std::make_shared<pubDelegate>(logger);
 
   if (!client.connect()) {
@@ -231,13 +166,47 @@ main(int argc, char* argv[])
   }
 
   if (!data.empty()) {
-    if (do_publisher(logger, client, pd, name))
-      return -1;
+    auto nspace = quicr::Namespace(name, 96);
+    logger->info << "Publish Intent for name: " << name
+                 << " == namespace: " << nspace << std::flush;
+
+      client.publishIntent(pd, nspace, {}, {}, {}, quicr::TransportMode::ReliablePerObject);
+
+    auto sd = std::make_shared<subDelegate>(logger);
+    logger->info << "Announcer registering for subscribes " << nspace << std::flush;
+
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+
+    // do publish
+    logger->Log("Publish");
+    client.publishNamedObject(name, 0, 1000,std::move(data));
 
   } else {
-    if (do_subscribe(logger, client, name))
-      return -1;
+    // do subscribe
+    logger->Log("Subscribe");
+    auto sd = std::make_shared<subDelegate>(logger);
+    logger->info << "Subscribe to " << name << std::flush;
+    auto intent = quicr::SubscribeIntent{.mode = quicr::SubscribeIntent::Mode::immediate};
+
+    client.subscribe(sd,
+                     ns,
+                     intent,
+                     quicr::TransportMode::ReliablePerObject,
+                     "origin_url",
+                     "auth_token",
+                     quicr::bytes{});
+
+    logger->Log("Sleeping for 20 seconds before unsubscribing");
+    std::this_thread::sleep_for(std::chrono::seconds(200));
+
+    logger->Log("Now unsubscribing");
+    client.unsubscribe(ns, {}, {});
+
+    logger->Log("Sleeping for 15 seconds before exiting");
+    std::this_thread::sleep_for(std::chrono::seconds(15));
   }
+  std::this_thread::sleep_for(std::chrono::seconds(5));
 
   return 0;
 }

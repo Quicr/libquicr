@@ -16,6 +16,7 @@
 #include "quicr_client_raw_session.h"
 
 #include "quicr/encode.h"
+#include "quicr/moq_message_types.h"
 #include "quicr/gap_check.h"
 #include "quicr/message_buffer.h"
 #include "quicr/quicr_client.h"
@@ -47,14 +48,53 @@ to_TransportRemote(const RelayInfo& info) noexcept
 
 } // namespace
 
+
+// MOQ Related Constants
+static constexpr quicr::Name track_id_mask = ~(~0x0_name >> 60);
+//constexpr quicr::Name Group_ID_Mask = ~(~0x0_name << 32) << 16;
+//constexpr quicr::Name Object_ID_Mask = ~(~0x0_name << 16);
+
+
+static std::tuple<std::string, std::string> split_track_name(std::string track) {
+    std::string namespace_part;
+    std::string track_name_part;
+    const std::string t = "track/";
+    auto it =
+            std::search(track.begin(), track.end(), t.begin(), t.end());
+    if(it == track.end()) {
+        throw std::runtime_error("Invalid Track: " + track);
+    }
+
+    namespace_part.reserve(distance(track.begin(), it));
+    namespace_part.assign(track.begin(), it);
+    // move to end form track/
+    std::advance(it, t.length());
+
+    do {
+        auto slash = std::find(it, track.end(), '/');
+        if (slash == track.end()) {
+            track_name_part.reserve(distance(it, slash));
+            track_name_part.assign(it, slash);
+            break;
+        }
+        it++;
+
+    } while (it != track.end());
+
+    return std::make_tuple(namespace_part, track_name_part);
+}
+
 /*===========================================================================*/
 // ClientRawSession
 /*===========================================================================*/
 
 ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
                                    const qtransport::TransportConfig& tconfig,
-                                   const cantina::LoggerPointer& logger)
+                                   const cantina::LoggerPointer& logger,
+                                   std::shared_ptr<UriConvertor> uri_convertor_in)
   : logger(std::make_shared<cantina::Logger>("QSES", logger))
+    , enable_moq(tconfig.enable_moq)
+    , uri_convertor(uri_convertor_in)
 {
   this->logger->Log("Initialize Client");
 
@@ -70,10 +110,12 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
 
 ClientRawSession::ClientRawSession(
   std::shared_ptr<qtransport::ITransport> transport_in,
-  const cantina::LoggerPointer& logger)
+  const cantina::LoggerPointer& logger,
+  std::shared_ptr<UriConvertor> uri_convertor_in)
   : has_shared_transport{ true }
   , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport(std::move(transport_in))
+  , uri_convertor(uri_convertor_in)
 {
 }
 
@@ -296,7 +338,19 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
     .transport_mode = transport_mode,
   };
 
-  const auto intent = messages::PublishIntent{
+  if (enable_moq) {
+      auto track_uri = uri_convertor->to_namespace_uri(quicr_namespace);
+      auto announce = messages::MoqAnnounce {
+          .track_namespace = track_uri
+      };
+      logger->info << "MoQAnnounce: uri:" << track_uri << std::flush;
+      messages::MessageBuffer msg;
+      msg << announce;
+      auto error = transport->enqueue(conn_id, *transport_ctrl_data_ctx_id, msg.take());
+      return error == qtransport::TransportError::None;
+  }
+
+  const auto intent = messages::PublishIntent {
     messages::MessageType::PublishIntent,
     messages::create_transaction_id(),
     quicr_namespace,
@@ -361,39 +415,66 @@ ClientRawSession::subscribe(
   const uint8_t priority)
 {
   std::lock_guard<std::mutex> _(session_mutex);
-
   const auto& conn_id = transport_conn_id.value();
-  auto transaction_id = messages::create_transaction_id();
-
   if (!sub_delegates.contains(quicr_namespace)) {
-    sub_delegates[quicr_namespace] = std::move(subscriber_delegate);
-
-    logger->info << "Subscribe ns: " << quicr_namespace
-           << " priority: " << static_cast<int>(priority)
-           << " mode: " << static_cast<int>(transport_mode)
-           << std::flush;
-
-    subscribe_state[quicr_namespace] = SubscribeContext{
-      .state = SubscribeContext::State::Pending,
-      .transport_conn_id = conn_id,
-      .transport_data_ctx_id = 0,
-      .transport_mode = transport_mode,
-      .transaction_id = transaction_id,
-    };
+      sub_delegates[quicr_namespace] = std::move(subscriber_delegate);
+      logger->info << "(New) Subscribe ns: " << quicr_namespace
+                   << " priority: " << static_cast<int>(priority)
+                   << " mode: " << static_cast<int>(transport_mode)
+                   << std::flush;
   }
 
-  // We allow duplicate subscriptions, so we always send
-  const auto sub_it = subscribe_state.find(quicr_namespace);
-  if (sub_it == subscribe_state.end()) {
-    return;
+  auto moq_uri = uri_convertor->to_namespace_uri(quicr_namespace);
+  auto name = quicr_namespace.name();
+  auto track_id_qname = name & track_id_mask;
+  auto track_alias = track_id_qname.hi();
+
+  if (subscriptions.count(quicr_namespace) != 0) {
+      logger->info << "MOQSubscribe: Subscription Exists: URI:" << moq_uri << std::flush;
+      return;
   }
 
-  auto msg = messages::MessageBuffer{ sizeof(messages::Subscribe) };
-  const auto subscribe =
-    messages::Subscribe{ 0x1, transaction_id, quicr_namespace, intent, transport_mode };
+  // create new subscrption context
+  auto subscription = Subscription{};
+  subscription.quicr_namespace = quicr_namespace;
+  subscription.uri = std::move(moq_uri);
+  subscription.state = Subscription::State::pending;
+  subscription.subscribe_id  = messages::create_transaction_id();
+  subscription.track_alias = track_alias;
+  // setup transport info
+  subscription.transport_context.transport_conn_id = conn_id;
+  subscription.transport_context.transport_data_ctx_id = 0;
+
+  auto [start_group, end_group, start_object, end_object] = messages::to_locations(intent);
+  auto subscribe = messages::MoqSubscribe {
+          .subscribe_id = subscription.subscribe_id,
+          .track_alias = subscription.track_alias,
+          .track = subscription.uri,
+          .start_group = start_group,
+          .start_object = start_object,
+          .end_group = end_group,
+          .end_object = end_object,
+          .track_params = {}
+  };
+
+  logger->info << "MOQSubscribe: Uri: " << moq_uri
+                << ", Namespace: " << subscription.quicr_namespace
+                << ", Track-Alias: " << subscription.track_alias
+                << ", SubscribeId: " << subscription.subscribe_id << std::flush;
+
+  auto msg = messages::MessageBuffer{};
   msg << subscribe;
-
   transport->enqueue(conn_id, *transport_ctrl_data_ctx_id, msg.take());
+
+  logger->info << "MOQSubscribe: Save Subscription for ID:" << subscription.subscribe_id << std::flush;
+
+  // save the state
+  subscribe_id_namespace[subscription.subscribe_id] = quicr_namespace;
+  namespace_track_map[subscription.quicr_namespace] = track_alias;
+  subscriptions[subscription.quicr_namespace] = std::move(subscription);
+
+  return;
+
 }
 
 void
@@ -402,18 +483,30 @@ ClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
                               const std::string& /* auth_token */)
 {
   // The removal of the delegate is done on receive of subscription ended
-  auto msg = messages::MessageBuffer{};
-  const auto unsub = messages::Unsubscribe{ 0x1, quicr_namespace };
-  msg << unsub;
+    const auto state_it = subscribe_state.find(quicr_namespace);
+    if (state_it == subscribe_state.end()) {
+        // log error
+        return;
+    }
 
-  const auto state_it = subscribe_state.find(quicr_namespace);
-  if (state_it != subscribe_state.end()) {
-    transport->enqueue(state_it->second.transport_conn_id, *transport_ctrl_data_ctx_id, msg.take());
+    auto msg = messages::MessageBuffer{};
+    if (enable_moq) {
+      auto unsubscribe = messages::MoqUnsubscribe {
+          .subscribe_id = state_it->second.transaction_id
+      };
+
+      msg << unsubscribe;
+      transport->enqueue(state_it->second.transport_conn_id, *transport_ctrl_data_ctx_id, msg.take());
+        return;
   }
 
-    std::lock_guard<std::mutex> _(session_mutex);
-    removeSubscription(quicr_namespace,
-                     SubscribeResult::SubscribeStatus::ConnectionClosed);
+  const auto unsub = messages::Unsubscribe{ 0x1, quicr_namespace };
+  msg << unsub;
+  transport->enqueue(state_it->second.transport_conn_id, *transport_ctrl_data_ctx_id, msg.take());
+
+ std::lock_guard<std::mutex> _(session_mutex);
+ removeSubscription(quicr_namespace,
+                 SubscribeResult::SubscribeStatus::ConnectionClosed);
 }
 
 void
@@ -422,11 +515,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
                                      uint16_t expiry_age_ms,
                                      bytes&& data)
 {
-  // start populating message to encode
-  auto datagram = messages::PublishDatagram{};
-
   auto ps_it = publish_state.find(quicr_name);
-
   if (ps_it == publish_state.end()) {
     LOGGER_INFO(
       logger, "No publish intent for '" << quicr_name << "' missing, dropping");
@@ -435,7 +524,6 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
   }
 
   auto& [ns, context] = *ps_it;
-
   if (context.state != PublishContext::State::Ready) {
     LOGGER_INFO(logger, "Publish intent NOT READY for ns: " << ns << " got state: " << static_cast<int>(context.state));
   }
@@ -447,6 +535,8 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
     logger->Log(gap_log);
   }
 
+    // start populating message to encode
+  auto datagram = messages::PublishDatagram{};
   datagram.header.name = quicr_name;
   datagram.header.media_id = context.transport_data_ctx_id;
   datagram.header.group_id = context.group_id;
@@ -455,8 +545,8 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
   datagram.header.offset_and_fin = 1ULL;
   datagram.media_type = messages::MediaType::RealtimeMedia;
 
-  qtransport::ITransport::EnqueueFlags eflags;
 
+  qtransport::ITransport::EnqueueFlags eflags;
   switch (context.transport_mode) {
     case TransportMode::ReliablePerGroup: {
       if (context.group_id && context.group_id != prev_group_id) {
@@ -469,6 +559,29 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
     case TransportMode::ReliablePerObject: {
       eflags.new_stream = true;
+      if (enable_moq) {
+          auto track_id_qname = quicr_name & track_id_mask;
+          auto track_id = track_id_qname.hi();
+          const auto groupId = quicr_name.bits<std::uint32_t>(16, 32);
+          const auto objectId = quicr_name.bits<std::uint16_t>(0, 16);
+          auto object_msg = messages::MoqObjectStream {
+                  .subscribe_id = 0xABCED, //TODO fix this
+                  .track_alias = track_id,
+                  .group_id =  groupId,
+                  .object_id = objectId,
+                  .priority = priority,
+                  .payload = std::move(data)
+          };
+          logger->info << "MoqObjectStream: qname: " << quicr_name << ", track_alias:" << track_id << ", Group:" << groupId
+                 << ", Object:" << objectId << std::flush;
+          messages::MessageBuffer msg;
+          msg << object_msg;
+          transport->enqueue(context.transport_conn_id, context.transport_data_ctx_id, msg.take(),
+                             priority, expiry_age_ms, eflags);
+          return;
+
+      }
+
       break;
     }
 
@@ -572,7 +685,9 @@ ClientRawSession::publishNamedObjectFragment(
 /*===========================================================================*/
 
 qtransport::DataContextId ClientRawSession::get_data_ctx_id(
-  const qtransport::TransportConnId conn_id, const TransportMode transport_mode, const uint8_t priority) {
+  const qtransport::TransportConnId conn_id,
+  const TransportMode transport_mode,
+  const uint8_t priority) {
 
   switch (transport_mode) {
     case TransportMode::ReliablePerTrack: {
@@ -697,11 +812,85 @@ ClientRawSession::handle_pub_fragment(
 }
 
 void
+ClientRawSession::handle_moq(messages::MessageBuffer &&msg) {
+    auto msg_type = static_cast<uint8_t>(msg.front());
+    logger->info << "HandleMoQ: Got Message:" << msg_type << std::flush;
+    switch (msg_type) {
+        case messages::MESSAGE_TYPE_SUBSCRIBE_OK: {
+            auto subscribe_ok = messages::MoqSubscribeOk{};
+            msg >> subscribe_ok;
+            logger ->info << "Handle:MESSAGE_TYPE_SUBSCRIBE_OK:" << subscribe_ok.subscribe_id
+                          << ", " << subscribe_ok.expires << std::flush;
+            const auto result = SubscribeResult{ .status = SubscribeResult::SubscribeStatus::Ok,
+                                                 .subscriber_expiry_interval = subscribe_ok.expires};
+            if(subscribe_id_namespace.count(subscribe_ok.subscribe_id) == 0) {
+                logger->info << "Handle: MoqSubscribeOk " << subscribe_ok.subscribe_id << ", Not Found" << std::flush;
+                return;
+            }
+
+            const auto& quicr_namespace = subscribe_id_namespace.at(subscribe_ok.subscribe_id);
+
+            auto& subscription = subscriptions.at(quicr_namespace);
+            if (sub_delegates.contains(quicr_namespace)) {
+                subscription.state = Subscription::State::ready;
+                sub_delegates.at(quicr_namespace)->onSubscribeResponse(quicr_namespace, result);
+            } else {
+                logger->error << "Got MoQSubscribeOk: No delegate found for namespace"
+                          << subscription.uri << std::flush;
+            }
+            break;
+        }
+
+        case messages::MESSAGE_TYPE_ANNOUNCE_OK: {
+            auto announce_ok = messages::MoqAnnounceOk{};
+            msg >> announce_ok;
+            auto qns = uri_convertor->to_quicr_namespace(announce_ok.track_namespace);
+            if (!pub_delegates.contains(qns)) {
+                std::cout
+                << "Got AnnounceOk: No delegate found for namespace "
+                        << announce_ok.track_namespace << std::endl;
+                return;
+            }
+
+            auto ps_it = publish_state.find(qns);
+
+            if (ps_it == publish_state.end()) {
+                LOGGER_ERROR(logger, "No pending announce for '" << qns << "' missing, dropping");
+                break;
+            }
+
+
+            if (ps_it->second.state != PublishContext::State::Ready) {
+                logger->info << "Announce ready for ns: " << qns << std::flush;
+                ps_it->second.state = PublishContext::State::Ready;
+            }
+
+            if (const auto& delegate = pub_delegates[qns]) {
+                const auto result = PublishIntentResult{
+                        .status = messages::Response::Ok,
+                };
+                delegate->onPublishIntentResponse(qns, result);
+            }
+            break;
+        }
+
+        default:
+            logger->info << "HandleMoQ: Default Caase" <<  std::flush;
+            break;
+    }
+}
+
+void
 ClientRawSession::handle(messages::MessageBuffer&& msg)
 {
   if (msg.empty()) {
     std::cout << "Transport Reported Empty Data" << std::endl;
     return;
+  }
+
+  if (enable_moq) {
+      handle_moq(std::move(msg));
+      return;
   }
 
   auto msg_type = static_cast<messages::MessageType>(msg.front());

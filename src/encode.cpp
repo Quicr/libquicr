@@ -201,7 +201,7 @@ operator<<(MessageBuffer& buffer, const Subscribe& msg)
   buffer << static_cast<uint8_t>(MessageType::Subscribe);
   buffer << msg.transaction_id;
   buffer << msg.quicr_namespace;
-  buffer << static_cast<uint8_t>(msg.intent);
+  buffer << static_cast<uint8_t>(msg.intent.mode);
   buffer << static_cast<uint8_t>(msg.transport_mode);
 
   return buffer;
@@ -220,7 +220,7 @@ operator>>(MessageBuffer& buffer, Subscribe& msg)
   buffer >> msg.quicr_namespace;
   uint8_t intent = 0;
   buffer >> intent;
-  msg.intent = static_cast<SubscribeIntent>(intent);
+  msg.intent.mode = static_cast<SubscribeIntent::Mode>(intent);
 
   uint8_t transport_mode = 0;
   buffer >> transport_mode;
