@@ -272,8 +272,8 @@ ServerRawSession::handle_subscribe(
 
   // Is this a new or existing subscriber?
   auto& connections = _subscribe_state.try_emplace(subscribe.quicr_namespace, SubscriptionContextMap()).first->second;
-  const auto [it, newSubscription] = connections.try_emplace(conn_id, std::make_shared<SubscribeContext>());
-  auto& context = it->second;
+  const auto& [it, newSubscription] = connections.try_emplace(conn_id, std::make_shared<SubscribeContext>());
+  const auto& context = it->second;
   if (!newSubscription)
   {
     // The following are allowable update operations on existing subscribes.
