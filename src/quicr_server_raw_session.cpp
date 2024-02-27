@@ -271,33 +271,24 @@ ServerRawSession::handle_subscribe(
   std::lock_guard<std::mutex> _(session_mutex);
 
   // Is this a new or existing subscriber?
-  auto& connections = _subscribe_state.try_emplace(subscribe.quicr_namespace, SubscriptionContextMap()).first->second;
-  const auto& [it, newSubscription] = connections.try_emplace(conn_id, std::make_shared<SubscribeContext>());
+  const auto& [it, newSubscription] = _subscribe_state[subscribe.quicr_namespace].try_emplace(conn_id, std::make_shared<SubscribeContext>());
   const auto& context = it->second;
-  if (!newSubscription)
-  {
-    // The following are allowable update operations on existing subscribes.
-    switch (subscribe.transport_mode) {
-      case TransportMode::Pause:
-        context->transport_mode = subscribe.transport_mode;
-        context->paused = true;
-        subscribe_id_state[context->subscriber_id] = context;
-        delegate->onSubscribePause(subscribe.quicr_namespace, context->subscriber_id, conn_id, data_ctx_id, true);
-        break;
-      case TransportMode::Resume:
-        context->transport_mode = subscribe.transport_mode;
-        context->paused = false;
-        subscribe_id_state[context->subscriber_id] = context;
-        delegate->onSubscribePause(subscribe.quicr_namespace, context->subscriber_id, conn_id, data_ctx_id, false);
-        break;
-      default:
-        logger->warning << "Subscription " << subscribe.quicr_namespace << " update to " << static_cast<int>(subscribe.transport_mode) << " not supported" << std::flush;
-        break;
-    }
-    return;
+
+  if (!newSubscription) {
+      if (subscribe.transport_mode == TransportMode::Pause || subscribe.transport_mode == TransportMode::Resume) {
+          context->paused = subscribe.transport_mode == TransportMode::Pause ? true : false;
+          delegate->onSubscribePause(subscribe.quicr_namespace, context->subscriber_id, conn_id, data_ctx_id,
+                                     context->paused);
+      } else {
+          logger->warning << "Existing subscription is not allowed to be modified "
+                          << " subscriber_id: " << context->subscriber_id
+                          << std::flush;
+      }
+
+      return;
   }
 
-  // Otherwise, this is a new subscriber.
+  // New subscription
   context->transport_conn_id = conn_id;
   context->subscriber_id = ++_subscriber_id;
   context->transport_mode = subscribe.transport_mode;
@@ -326,11 +317,9 @@ ServerRawSession::handle_subscribe(
     }
 
     case TransportMode::Pause:
-      logger->warning << "Subscription " << subscribe.quicr_namespace << " should not be paused at creation" << std::flush;
-      return;
-
+      [[fallthrough]];
     case TransportMode::Resume:
-      logger->warning << "Subscription " << subscribe.quicr_namespace << " should not be resumed at creation" << std::flush;
+      // Handled previously
       return;
   }
 
