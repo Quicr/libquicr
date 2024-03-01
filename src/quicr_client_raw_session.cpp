@@ -527,7 +527,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
     // No fragmenting needed
     transport->enqueue(context.transport_conn_id, context.transport_data_ctx_id, msg.take(), std::move(trace),
-                       priority, expiry_age_ms, eflags);
+                       priority, expiry_age_ms, 0, eflags);
 
 
 
@@ -539,6 +539,16 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       data.size() % quicr::max_transport_data_size;
 
     auto offset = size_t(0);
+
+    const auto objs_per_ms = frag_num / 30 + 1;
+    uint32_t objs_per_ms_sent = 0;
+    uint32_t pop_delay_ms = 0;
+
+    // logger->info << "Frags: " << frag_num
+    //              << " size: " << data.size()
+    //              << " objs_per_ms: " << objs_per_ms
+    //              << std::flush;
+
 
     trace.push_back({"libquicr:publishNamedObject:afterEnqueue:Frags", trace_start_time});
 
@@ -564,8 +574,14 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
       offset += quicr::max_transport_data_size;
 
+      if (objs_per_ms_sent == objs_per_ms) {
+        pop_delay_ms++;
+        objs_per_ms_sent = 0;
+      }
+      objs_per_ms_sent++;
+
       if (transport->enqueue(context.transport_conn_id, context.transport_data_ctx_id, msg.take(), std::move(trace_copy),
-                             priority, expiry_age_ms, eflags) !=
+                             priority, expiry_age_ms, pop_delay_ms, eflags) !=
           qtransport::TransportError::None) {
         // No point in finishing fragment if one is dropped
         return;

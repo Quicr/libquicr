@@ -252,6 +252,7 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
                      { qtransport::MethodTraceItem{} },
                      priority,
                      expiry_age_ms,
+                     0,
                      eflags);
 }
 
