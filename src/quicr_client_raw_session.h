@@ -209,6 +209,11 @@ public:
                                   bytes&& data) override;
 
 protected:
+    struct MsgFragment {
+        std::map<uint32_t, bytes> data;
+        const std::chrono::time_point<std::chrono::steady_clock> start_time { std::chrono::steady_clock::now() };
+    };
+
   void on_connection_status(const qtransport::TransportConnId& conn_id,
                             const qtransport::TransportStatus status) override;
 
@@ -223,10 +228,10 @@ protected:
                       const qtransport::DataContextId& data_ctx_id,
                       const bool is_bidir) override;
 
-  static bool notify_pub_fragment(
+  bool notify_pub_fragment(
     const messages::PublishDatagram& datagram,
     const std::shared_ptr<SubscriberDelegate>& delegate,
-    const std::map<uint32_t, bytes>& frag_map);
+    const MsgFragment& fragment);
 
   void handle_pub_fragment(messages::PublishDatagram&& datagram,
                            const std::shared_ptr<SubscriberDelegate>& delegate);
@@ -310,7 +315,8 @@ protected:
   static constexpr size_t max_pending_per_buffer = 5000;
   static constexpr size_t max_fragment_buffers = 20;
 
-  using FragmentBuffer = std::map<quicr::Name, std::map<uint32_t, bytes>>;
+
+  using FragmentBuffer = std::map<quicr::Name, MsgFragment>;
   std::array<FragmentBuffer, max_fragment_buffers> fragments;
 
   cantina::LoggerPointer logger;
