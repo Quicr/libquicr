@@ -701,9 +701,9 @@ ClientRawSession::notify_pub_fragment(
 
   const auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - fragment.start_time).count();
   if (duration_ms > 2) {
-      logger->info << "Fragment complete name: " << datagram.header.name
-                   << " duration_ms: " << duration_ms
-                   << std::flush;
+      logger->debug << "Fragment complete name: " << datagram.header.name
+                    << " duration_ms: " << duration_ms
+                    << std::flush;
   }
 
   delegate->onSubscribedObject(
