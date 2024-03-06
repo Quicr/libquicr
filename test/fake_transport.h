@@ -66,6 +66,7 @@ struct FakeTransport : public ITransport
                          std::vector<MethodTraceItem>&&,
                          const uint8_t,
                          const uint32_t,
+                         const uint32_t,
                          const EnqueueFlags) override
   {
     stored_data = std::move(bytes);

@@ -23,6 +23,7 @@
 #include "quicr/quicr_common.h"
 
 #include <chrono>
+#include <iterator>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -236,11 +237,7 @@ ClientRawSession::on_recv_notify(
       return;
     }
 
-    //      std::cout << "on_recv_notify: conn_id: " << conn_id
-    //                << " data_ctx_id: " << data_ctx_id
-    //                << " data sz: " << data.value().size() << std::endl;
-
-    messages::MessageBuffer msg_buffer{ data.value() };
+    messages::MessageBuffer msg_buffer{ *data };
 
     try {
       handle(std::move(msg_buffer));
@@ -527,7 +524,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
     // No fragmenting needed
     transport->enqueue(context.transport_conn_id, context.transport_data_ctx_id, msg.take(), std::move(trace),
-                       priority, expiry_age_ms, eflags);
+                       priority, expiry_age_ms, 0, eflags);
 
 
 
@@ -539,6 +536,16 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       data.size() % quicr::max_transport_data_size;
 
     auto offset = size_t(0);
+
+    const auto objs_per_ms = frag_num / 30 + 1;
+    uint32_t objs_per_ms_sent = 0;
+    uint32_t pop_delay_ms = 0;
+
+    // logger->info << "Frags: " << frag_num
+    //              << " size: " << data.size()
+    //              << " objs_per_ms: " << objs_per_ms
+    //              << std::flush;
+
 
     trace.push_back({"libquicr:publishNamedObject:afterEnqueue:Frags", trace_start_time});
 
@@ -564,8 +571,14 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
       offset += quicr::max_transport_data_size;
 
+      if (objs_per_ms_sent == objs_per_ms) {
+        pop_delay_ms++;
+        objs_per_ms_sent = 0;
+      }
+      objs_per_ms_sent++;
+
       if (transport->enqueue(context.transport_conn_id, context.transport_data_ctx_id, msg.take(), std::move(trace_copy),
-                             priority, expiry_age_ms, eflags) !=
+                             priority, expiry_age_ms, pop_delay_ms, eflags) !=
           qtransport::TransportError::None) {
         // No point in finishing fragment if one is dropped
         return;
@@ -584,8 +597,11 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
       msg << datagram;
 
+      trace.push_back({"libquicr:publishNamedObject:afterEnqueue:LasgFrag", trace_start_time});
+
       if (auto err = transport->enqueue(
-            context.transport_conn_id, context.transport_data_ctx_id, msg.take(), std::move(trace), priority, expiry_age_ms);
+            context.transport_conn_id, context.transport_data_ctx_id, msg.take(), std::move(trace), priority,
+            expiry_age_ms, pop_delay_ms, eflags);
           err != qtransport::TransportError::None) {
         LOGGER_WARNING(logger,
                        "Published object delayed due to enqueue error "
@@ -661,16 +677,17 @@ bool
 ClientRawSession::notify_pub_fragment(
   const messages::PublishDatagram& datagram,
   const std::shared_ptr<SubscriberDelegate>& delegate,
-  const std::map<uint32_t, bytes>& frag_map)
+  const MsgFragment& fragment)
 {
-  if ((frag_map.rbegin()->first & 1U) != 0x1) {
+  if ((fragment.data.rbegin()->first & 1U) != 0x1) {
     return false; // Not complete, return false that this can NOT be deleted
   }
 
   auto reassembled = bytes{};
   auto seq_bytes = size_t(0);
-  for (const auto& [sequence_num, data] : frag_map) {
-    if ((sequence_num >> 1U) - seq_bytes != 0) {
+  for (const auto& [sequence_num, data] : fragment.data) {
+    const auto offset = sequence_num >> 1U;
+    if (offset - seq_bytes != 0) {
       // Gap in offsets, missing data, return false that this can NOT be deleted
       return false;
     }
@@ -680,6 +697,13 @@ ClientRawSession::notify_pub_fragment(
                        std::make_move_iterator(data.end()));
 
     seq_bytes += data.size();
+  }
+
+  const auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - fragment.start_time).count();
+  if (duration_ms > 22) {
+      logger->debug << "Fragment complete name: " << datagram.header.name
+                    << " duration_ms: " << duration_ms
+                    << std::flush;
   }
 
   delegate->onSubscribedObject(
@@ -729,11 +753,15 @@ ClientRawSession::handle_pub_fragment(
   // datagram
   auto& buffer = fragments.at(curr_index);
   auto& msg_fragments = buffer.at(name);
-  msg_fragments.emplace(datagram.header.offset_and_fin,
-                        std::move(datagram.media_data));
+  msg_fragments.data.emplace(datagram.header.offset_and_fin,
+                             std::move(datagram.media_data));
   if (notify_pub_fragment(datagram, delegate, msg_fragments)) {
     buffer.erase(name);
-  }
+  } /*else {
+      logger->info << "Fragments name: " << datagram.header.name
+                   << " offset: " << (datagram.header.offset_and_fin >> 1U)
+                   << std::flush;
+  }*/
 }
 
 void
