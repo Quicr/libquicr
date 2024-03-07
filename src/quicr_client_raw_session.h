@@ -338,27 +338,25 @@ protected:
     qtransport::DataContextId transport_data_ctx_id { 0 };
   };
 
-  struct Subscription {
-    enum struct State{
-      pending = 0,
-      ready
+    // Subscribers interested in a given track
+    using SubscriberId = uint64_t;
+
+    struct SubscriptionInfo {
+        enum struct State{
+            pending = 0,
+            ready
+        };
+
+        State state;
+
+        messages::FullTrackName  fulltrackname;
+        messages::TrackAlias  track_alias;
+        messages::SubscribeId  subscription_id;
+        quicr::Namespace quicr_namespace;
+        TransportContext transport_context;
     };
 
-    State state;
-    messages::SubscribeId subscribe_id;
-    messages::TrackAlias track_alias;
-    quicr::Namespace quicr_namespace;
-    std::string uri;
-
-    TransportContext transport_context {};
-    // TODO: Add Delegate Info
-
-  };
-
-  // Active subscription keyed by quicr::namespace
-  namespace_map<Subscription> subscriptions;
-  std::map<quicr::Namespace, messages::TrackAlias> namespace_track_map {};
-  std::map<messages::SubscribeId, quicr::Namespace> subscribe_id_namespace {};
+    std::map<messages::SubscribeId, SubscriptionInfo> subscriptions{};
 
 };
 

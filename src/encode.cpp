@@ -56,7 +56,7 @@ create_transaction_id()
 {
   // NOLINTNEXTLINE(cert-msc32-c,cert-msc51-cpp)
   std::default_random_engine engine(time(nullptr));
-  std::uniform_int_distribution distribution(1, 9);
+  std::uniform_int_distribution distribution(1, 100207);
   return distribution(engine);
 }
 

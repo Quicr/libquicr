@@ -141,23 +141,36 @@ ServerRawSession::subscribeResponse(const uint64_t& subscriber_id,
                                     const quicr::Namespace& quicr_namespace,
                                     const SubscribeResult& result)
 {
-   if(!subscriptions.contains(quicr_namespace))  {
-     logger->info << "SubscribeResponse: Namespace not found" << std::flush;
+   if(!subscriber_namespace_map.contains(quicr_namespace))  {
+     logger->info << "SubscribeResponse: Namespace not found:" << quicr_namespace
+     << " for subscriber:" << subscriber_id << std::flush;
      return;
    }
 
-   const auto& subscription = subscriptions.at(quicr_namespace);
+   // access track_alias for the subscribed track
+   const auto& track_alias = subscriber_namespace_map.at(quicr_namespace);
+
+   // retrieve conn and subscription info matching the subscriber
+   const auto& subscription_conn_info = track_subscribers.at(track_alias);
+   const auto& subscription = subscription_conn_info.at(subscriber_id);
 
    messages::MessageBuffer msg;
    auto subscribe_ok = messages::MoqSubscribeOk {
-    .subscribe_id = subscription.subscribe_id,
+    .subscribe_id = subscription.subscription_id,
     .expires = 0 // TODO: revisit
    };
+
+   // Todo: we need a way to return Subscribe Error
+   logger->info << "moqt:subscribe_ok: track:" << subscription.fulltrackname
+                << ", quicr_namespace: " << subscription.quicr_namespace
+                << ", Subscriber:" << subscriber_id
+                << ", SubscriptionId:" << subscription.subscription_id
+                << std::flush;
+
    msg << subscribe_ok;
 
-  const auto& conn_ctx = _connections[subscription.transport_context.transport_conn_id];
-  transport->enqueue(subscription.transport_context.transport_conn_id, conn_ctx.ctrl_data_ctx_id, msg.take());
-
+  const auto& conn_ctx = subscription.transport_context;
+  transport->enqueue(conn_ctx.transport_conn_id, conn_ctx.transport_data_ctx_id, msg.take());
 }
 
 void
@@ -541,39 +554,47 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
             msg >> subscribe;
             // track uri to quicr::namespace
             auto quicr_namespace = uri_convertor->to_quicr_namespace(subscribe.track);
+
+            auto subscription = SubscriptionInfo{};
+            subscription.transport_context.transport_data_ctx_id = data_ctx_id;
+            subscription.transport_context.transport_conn_id = conn_id;
+            subscription.quicr_namespace = quicr_namespace;
+            subscription.fulltrackname = subscribe.track;
+            subscription.track_alias  = subscribe.track_alias;
+            subscription.subscription_id = subscribe.subscribe_id;
+
+            logger->info << "MOQSubscribe conn_id: " << conn_id
+                         << ", Track: " << subscription.fulltrackname
+                         << ", Track Alias: " << subscription.track_alias
+                         << ", Quicr Namespace: " << subscription.quicr_namespace
+                         << " subscriber_id: " << subscription.subscription_id
+                         << std::flush;
+
             {
                 std::lock_guard<std::mutex> _(session_mutex);
-                if (!subscriptions.contains(quicr_namespace)) {
-                    // new subscription request
-                    auto subscription = Subscription{};
-                    subscription.quicr_namespace = quicr_namespace;
-                    subscription.track_alias = subscribe.track_alias;
-                    subscription.subscribe_id = subscribe.subscribe_id;
-                    subscription.uri = std::move(subscribe.track);
-                    subscription.state = Subscription::State::pending;
-                    subscription.transport_context.transport_conn_id = conn_id;
-                    subscription.transport_context.transport_data_ctx_id = data_ctx_id;
-
-                    // save the state
-                    subscribe_id_namespace[subscribe.subscribe_id] = quicr_namespace;
-                    namespace_track_map[subscription.quicr_namespace] = subscription.track_alias;
-                    subscriptions[quicr_namespace] = std::move(subscription);
+                if(!track_subscribers.count(subscribe.track_alias)) {
+                    // seeing this track for the first time
+                    track_subscribers.emplace(subscribe.track_alias, std::map<qtransport::TransportConnId, SubscriptionInfo>());
+                    track_subscribers[subscribe.track_alias].insert(std::make_pair(conn_id, subscription));
+                } else {
+                    if(!track_subscribers[subscribe.track_alias].contains(conn_id)) {
+                        track_subscribers[subscribe.track_alias].emplace(conn_id, std::move(subscription));
+                    } else {
+                        // subscription update, not supported yet
+                        logger->info << "moqt:subscribe: Ignoring Subscription Update:"
+                        << subscribe.track_alias << ",conn:" << conn_id << std::flush;
+                        return;
+                    }
                 }
             }
 
-            const auto& subscription = subscriptions.at(quicr_namespace);
-            logger->info << "MOQSubscribe conn_id: " << conn_id
-                          << ", Track: " << subscription.uri
-                          << ", Track Alias: " << subscription.track_alias
-                          << ", Quicr Namespace: " << subscription.quicr_namespace
-                          << " subscriber_id: " << subscription.subscribe_id
-                          << std::flush;
+            subscriber_namespace_map[quicr_namespace] = subscribe.track_alias;
 
             // inform the delegate
             delegate->onSubscribe(subscription.quicr_namespace,
-                                  subscription.subscribe_id,
-                                  conn_id,
-                                  data_ctx_id,
+                                  subscription.transport_context.transport_conn_id,
+                                  conn_id, // do we need this ?
+                                  data_ctx_id, // do we need this ?
                                   SubscribeIntent{},
                                   "",
                                   "",

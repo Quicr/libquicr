@@ -26,7 +26,8 @@
 
 #include <map>
 #include <mutex>
-
+#include <list>
+#include <set>
 /*
  * QUICR Server Raw Session Interface
  */
@@ -286,11 +287,35 @@ private:
     TransportContext transport_context {};
   };
 
-  // Active subscription keyed by quicr::namespace
-  namespace_map<Subscription> subscriptions;
-  // Mapping from quicr namespace to track alias
-  std::map<quicr::Namespace, messages::TrackAlias> namespace_track_map;
+  // Active subscription keyed by quicr::namespace and per connection
+  namespace_map<std::list<std::shared_ptr<Subscription>>> active_subscriptions{};
   std::map<messages::SubscribeId, quicr::Namespace> subscribe_id_namespace {};
+  using PublisherId = uint64_t;
+
+  struct TrackInfo {
+    messages::TrackNamespace trackname;
+    messages::TrackAlias track_alias;
+    quicr::Namespace quicr_namespace; // 1:1 mapped to tracknamespace
+    // TODO: Add Stream mapping
+  };
+
+  // Publisher owns the track info
+  std::map<messages::TrackAlias, TrackInfo> track_info_map {};
+
+
+  // Subscribers interested in a given track
+  using SubscriberId = uint64_t;
+
+  struct SubscriptionInfo {
+    messages::FullTrackName  fulltrackname;
+    messages::TrackAlias  track_alias;
+    messages::SubscribeId  subscription_id;
+    quicr::Namespace quicr_namespace;
+    TransportContext transport_context;
+  };
+
+  std::map<quicr::Namespace, messages::TrackAlias> subscriber_namespace_map {};
+  std::map<messages::TrackAlias, std::map<qtransport::TransportConnId, SubscriptionInfo>> track_subscribers {};
 };
 
 } // namespace quicr
