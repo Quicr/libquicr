@@ -338,25 +338,58 @@ protected:
     qtransport::DataContextId transport_data_ctx_id { 0 };
   };
 
-    // Subscribers interested in a given track
-    using SubscriberId = uint64_t;
-
-    struct SubscriptionInfo {
-        enum struct State{
-            pending = 0,
-            ready
-        };
-
-        State state;
-
-        messages::FullTrackName  fulltrackname;
-        messages::TrackAlias  track_alias;
-        messages::SubscribeId  subscription_id;
-        quicr::Namespace quicr_namespace;
-        TransportContext transport_context;
+  struct TrackInfo {
+    enum class State {
+        Inactive = 0,
+        Ready
     };
 
-    std::map<messages::SubscribeId, SubscriptionInfo> subscriptions{};
+    State state;
+    quicr::Namespace quicr_namespace;
+    messages::FullTrackName  fulltrackname;
+    messages::TrackAlias track_alias{0};
+    uint64_t last_group_id{ 0 };
+    uint64_t last_object_id{ 0 };
+    uint64_t offset{ 0 };
+    TransportMode transport_mode {TransportMode::ReliablePerObject};
+};
+
+  using TrackNamePrefix = uint64_t;
+  struct AnnounceInfo {
+    enum State {
+        Pending = 0,
+        Active,
+        Done
+    };
+
+    State state { Pending };
+    messages::TrackNamespace track_namespace;
+    quicr::Namespace quicr_namespace;
+    TransportMode transport_mode {TransportMode::ReliablePerGroup};
+    uint64_t announce_id {0};
+    TransportContext transport_context;
+    // Active tracks under this announcement
+    std::map<TrackNamePrefix, TrackInfo> tracks {};
+  };
+
+  namespace_map<std::shared_ptr<PublisherDelegate>> announce_delegates;
+  namespace_map<AnnounceInfo> announcements{};
+
+
+  //
+  struct SubscriptionInfo {
+    enum struct State{
+      pending = 0,
+      ready
+    };
+
+    State state;
+    messages::SubscribeId  subscription_id;
+    TrackInfo track_info;
+    TransportContext transport_context;
+ };
+
+  std::map<messages::SubscribeId, SubscriptionInfo> subscriptions{};
 
 };
 

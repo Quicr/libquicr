@@ -46,6 +46,7 @@ class TestServerDelegate : public ServerDelegate
 {
 
   void onPublishIntent([[maybe_unused]] const quicr::Namespace& quicr_name,
+                       [[maybe_unused]] const uint64_t publisher_id,
                        [[maybe_unused]] const std::string& origin_url,
                        [[maybe_unused]] const std::string& auth_token,
                        [[maybe_unused]] bytes&& e2e_token) override

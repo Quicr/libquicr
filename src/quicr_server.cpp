@@ -57,9 +57,10 @@ Server::run()
 
 void
 Server::publishIntentResponse(const quicr::Namespace& quicr_namespace,
+                              const uint64_t publisher_id,
                               const PublishIntentResult& result)
 {
-  server_session->publishIntentResponse(quicr_namespace, result);
+  server_session->publishIntentResponse(quicr_namespace, publisher_id, result);
 }
 
 void

@@ -27,7 +27,13 @@
 #include <thread>
 
 namespace quicr {
-/*
+// constants for moq, the mask length should be configured
+static constexpr quicr::Name track_id_mask = ~(~0x0_name >> 60);
+constexpr quicr::Name Group_ID_Mask = ~(~0x0_name << 32) << 16;
+constexpr quicr::Name Object_ID_Mask = ~(~0x0_name << 16);
+
+
+ /*
  * Initialize the QUICR server session at the port specified.
  *  @param delegate_in: Callback handlers for QUICR operations
  */
@@ -106,34 +112,32 @@ ServerRawSession::run()
 
 void
 ServerRawSession::publishIntentResponse(const quicr::Namespace& quicr_namespace,
+                                        const uint64_t publisher_id,
                                         const PublishIntentResult& result)
 {
-  if (!publish_namespaces.contains(quicr_namespace)) {
+  if (!announcements.contains(quicr_namespace)) {
     return;
   }
 
-  // TODO(trigaux): Support more than one publisher per ns
-  auto& context = publish_namespaces[quicr_namespace];
-  messages::MessageBuffer msg{};
-  if (enable_moq) {
-      auto announce_ok = messages::MoqAnnounceOk {
-        .track_namespace = uri_convertor->to_namespace_uri(quicr_namespace)
-      };
-      logger->info << "MoQAnnounceOk: track namespace:" <<   announce_ok.track_namespace << std::flush;
-      msg << announce_ok;
-  } else {
-      const auto response = messages::PublishIntentResponse{
-              messages::MessageType::PublishIntentResponse,
-              quicr_namespace,
-              result.status,
-              context.transaction_id
-      };
-      msg << response;
+  if(!publisher_connection_map.contains(publisher_id)) {
+    logger->info << "moqt:AnnounceResponse: Invalid publisher Id " << publisher_id << std::flush;
+    return;
   }
 
-  context.state = PublishIntentContext::State::Ready;
-  const auto& conn_ctx = _connections[context.transport_conn_id];
-  transport->enqueue(context.transport_conn_id, conn_ctx.ctrl_data_ctx_id, msg.take());
+  auto& announce_info = announcements[quicr_namespace][publisher_connection_map.at(publisher_id)];
+
+  messages::MessageBuffer msg{};
+  auto announce_ok = messages::MoqAnnounceOk {
+    .track_namespace = announce_info.track_namespace
+  };
+
+  logger->info << "moqt: AnnounceOk: track namespace:" <<   announce_ok.track_namespace << std::flush;
+  msg << announce_ok;
+
+  announce_info.state = AnnounceInfo::State::Active;
+  transport->enqueue(announce_info.transport_context.transport_conn_id,
+                     announce_info.transport_context.transport_data_ctx_id,
+                     msg.take());
 }
 
 void
@@ -151,7 +155,7 @@ ServerRawSession::subscribeResponse(const uint64_t& subscriber_id,
    const auto& track_alias = subscriber_namespace_map.at(quicr_namespace);
 
    // retrieve conn and subscription info matching the subscriber
-   const auto& subscription_conn_info = track_subscribers.at(track_alias);
+   const auto& subscription_conn_info = subscriptions.at(track_alias);
    const auto& subscription = subscription_conn_info.at(subscriber_id);
 
    messages::MessageBuffer msg;
@@ -161,8 +165,8 @@ ServerRawSession::subscribeResponse(const uint64_t& subscriber_id,
    };
 
    // Todo: we need a way to return Subscribe Error
-   logger->info << "moqt:subscribe_ok: track:" << subscription.fulltrackname
-                << ", quicr_namespace: " << subscription.quicr_namespace
+   logger->info << "moqt:subscribe_ok: track:" << subscription.track_info.fulltrackname
+                << ", quicr_namespace: " << subscription.track_info.quicr_namespace
                 << ", Subscriber:" << subscriber_id
                 << ", SubscriptionId:" << subscription.subscription_id
                 << std::flush;
@@ -425,6 +429,7 @@ ServerRawSession::handle_publish_intent(
   }
 
   delegate->onPublishIntent(intent.quicr_namespace,
+                            conn_id,
                             "" /* intent.origin_url */,
                             "" /* intent.relay_token */,
                             std::move(intent.payload));
@@ -541,48 +546,53 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
                              std::vector<uint8_t>&& data) {
 
     auto msg_type = static_cast<uint8_t>(data.front());
-    logger->info << "HandleMoq: MessageType: " << msg_type << std::flush;
+    logger->info << "moqt: MessageType: " << msg_type << std::flush;
     messages::MessageBuffer msg{ data };
     switch (msg_type) {
         case messages::MESSAGE_TYPE_SUBSCRIBE: {
-            if (is_bidir) {
-                auto& conn_ctx = _connections[conn_id];
-                conn_ctx.ctrl_data_ctx_id = data_ctx_id;
+            if (!is_bidir) {
+                logger->error << "moqt:subscribe: Protocol Error, not a bidi stream" << std::flush;
+                // TODO: Report subscribe error (protocol violation)
+                return;
             }
             recv_subscribes++;
+
             auto subscribe = messages::MoqSubscribe{};
             msg >> subscribe;
+
             // track uri to quicr::namespace
             auto quicr_namespace = uri_convertor->to_quicr_namespace(subscribe.track);
 
             auto subscription = SubscriptionInfo{};
             subscription.transport_context.transport_data_ctx_id = data_ctx_id;
             subscription.transport_context.transport_conn_id = conn_id;
-            subscription.quicr_namespace = quicr_namespace;
-            subscription.fulltrackname = subscribe.track;
-            subscription.track_alias  = subscribe.track_alias;
+            subscription.track_info.quicr_namespace = quicr_namespace;
+            subscription.track_info.fulltrackname = subscribe.track;
+            subscription.track_info.track_alias  = subscribe.track_alias;
             subscription.subscription_id = subscribe.subscribe_id;
 
             logger->info << "MOQSubscribe conn_id: " << conn_id
-                         << ", Track: " << subscription.fulltrackname
-                         << ", Track Alias: " << subscription.track_alias
-                         << ", Quicr Namespace: " << subscription.quicr_namespace
+                         << ", Track: " << subscription.track_info.fulltrackname
+                         << ", Track Alias: " << subscription.track_info.track_alias
+                         << ", Quicr Namespace: " << subscription.track_info.quicr_namespace
                          << " subscriber_id: " << subscription.subscription_id
                          << std::flush;
 
             {
                 std::lock_guard<std::mutex> _(session_mutex);
-                if(!track_subscribers.count(subscribe.track_alias)) {
+                if(!subscriptions.contains(subscribe.track_alias)) {
                     // seeing this track for the first time
-                    track_subscribers.emplace(subscribe.track_alias, std::map<qtransport::TransportConnId, SubscriptionInfo>());
-                    track_subscribers[subscribe.track_alias].insert(std::make_pair(conn_id, subscription));
+                    subscriptions.emplace(subscribe.track_alias, std::map<qtransport::TransportConnId, SubscriptionInfo>());
+                    subscriptions[subscribe.track_alias].insert(std::make_pair(conn_id, subscription));
                 } else {
-                    if(!track_subscribers[subscribe.track_alias].contains(conn_id)) {
-                        track_subscribers[subscribe.track_alias].emplace(conn_id, std::move(subscription));
+                    if(!subscriptions[subscribe.track_alias].contains(conn_id)) {
+                        // first time track alias from a new subscriber connection
+                        subscriptions[subscribe.track_alias].emplace(conn_id, std::move(subscription));
                     } else {
-                        // subscription update, not supported yet
+                        // subscription update, from a existing subscriber and track alias
                         logger->info << "moqt:subscribe: Ignoring Subscription Update:"
                         << subscribe.track_alias << ",conn:" << conn_id << std::flush;
+                        // TODO: Report Error
                         return;
                     }
                 }
@@ -591,7 +601,7 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
             subscriber_namespace_map[quicr_namespace] = subscribe.track_alias;
 
             // inform the delegate
-            delegate->onSubscribe(subscription.quicr_namespace,
+            delegate->onSubscribe(quicr_namespace,
                                   subscription.transport_context.transport_conn_id,
                                   conn_id, // do we need this ?
                                   data_ctx_id, // do we need this ?
@@ -606,22 +616,77 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
             messages::MoqAnnounce announce;
             msg >> announce;
             auto qns = uri_convertor->to_quicr_namespace(announce.track_namespace);
-            auto [ps_it, _] = publish_namespaces.insert_or_assign(qns, PublishIntentContext{});
-            ps_it->second.state = PublishIntentContext::State::Pending;
-            ps_it->second.transport_conn_id = conn_id;
-            //ps_it->second.transport_mode = intent.transport_mode;
-            //ps_it->second.transaction_id = intent.transaction_id;
+            logger->info << "moqt:announce: track_namespace "
+                         << announce.track_namespace
+                         << " Quicr Namespace:" << qns << std::flush;
+            auto announce_info = AnnounceInfo{};
+            announce_info.state = AnnounceInfo::Pending;
+            announce_info.track_namespace = std::move(announce.track_namespace);
+            announce_info.quicr_namespace = qns;
+            announce_info.transport_context.transport_conn_id = conn_id;
+            announce_info.transport_context.transport_data_ctx_id = data_ctx_id;
 
-            auto state = ps_it->second.state;
+            {
+                std::lock_guard<std::mutex> _(announce_mutex);
+                if(!announcements.count(qns)) {
+                    publisher_connection_map[publisher_id]  = conn_id;
+                    announce_info.publisher_id = publisher_id++;
+                    announcements.emplace(qns, std::map<qtransport::TransportConnId, AnnounceInfo>());
+                    announcements[qns].insert(std::make_pair(conn_id, announce_info));
+                } else {
+                    // existing publisher, replace
+                    announcements[qns].emplace(conn_id, std::move(announce_info));
+                    logger->info << "moqt:announce: Replacing existing Announce :"
+                                 << qns << ",conn:" << conn_id << std::flush;
+                    return;
+                }
+            } // lock
+
+            const auto& info = announcements[qns][conn_id];
             delegate->onPublishIntent(qns,
+                                      info.publisher_id,
                                       "" /* intent.origin_url */,
                                       "" /* intent.relay_token */,
                                       {});
         }
         break;
-        default:
-            break;
+        case messages::MESSAGE_TYPE_OBJECT_STREAM: {
+            messages::MoqObjectStream object {};
+            msg >> object;
 
+            // check if there is active subscriptions
+            if (!subscriptions.contains(object.track_alias) || !subscriptions[object.track_alias].contains(conn_id)) {
+                logger->info << "moqt:ObjectStream:TrackAlias" << object.track_alias << ", is not subscribed to"
+                             << std::flush;
+                return;
+            }
+
+            auto& track_info = subscriptions[object.track_alias][conn_id].track_info;
+            quicr::Name synth_name = (0x0_name | object.group_id) << 16 | (synth_name & ~Group_ID_Mask);
+            synth_name = (0x0_name | object.object_id) | (synth_name & ~Object_ID_Mask);
+            auto name = quicr::Name{object.track_alias, uint64_t(synth_name)};
+
+            logger->info << "moqt:ObjectStream:TrackAlias: " << object.track_alias
+                         << " Name " << name
+                         << " Group: " << object.group_id
+                         << " Object: " << object.object_id
+                         << " Size: " <<  object.payload.size()
+                         << std::flush;
+
+            const auto gap_log =
+                    gap_check(false, name, track_info.last_group_id, track_info.last_object_id);
+
+            if (!gap_log.empty()) {
+                logger->info << "conn_id: " << conn_id << " data_ctx_id: " << data_ctx_id
+                             << " " << gap_log << std::flush;
+            }
+
+            delegate->onPublishedObject(name, object.priority, 0, std::move(object.payload));
+
+        }
+        default:
+            logger->info << "moqt: unhandled message [remove this logging " << std::flush;
+            break;
     }
 }
 

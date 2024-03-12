@@ -84,6 +84,7 @@ public:
    * @todo: Add payload with origin signed blob
    */
   void publishIntentResponse(const quicr::Namespace& quicr_namespace,
+                             const uint64_t publisher_id,
                              const PublishIntentResult& result) override;
 
   /**
@@ -290,32 +291,65 @@ private:
   // Active subscription keyed by quicr::namespace and per connection
   namespace_map<std::list<std::shared_ptr<Subscription>>> active_subscriptions{};
   std::map<messages::SubscribeId, quicr::Namespace> subscribe_id_namespace {};
-  using PublisherId = uint64_t;
 
   struct TrackInfo {
-    messages::TrackNamespace trackname;
-    messages::TrackAlias track_alias;
-    quicr::Namespace quicr_namespace; // 1:1 mapped to tracknamespace
-    // TODO: Add Stream mapping
+      enum class State {
+          Inactive = 0,
+          Ready
+      };
+
+      State state;
+      quicr::Namespace quicr_namespace;
+      messages::FullTrackName  fulltrackname;
+      messages::TrackAlias track_alias{0};
+      uint64_t last_group_id{ 0 };
+      uint64_t last_object_id{ 0 };
+      uint64_t offset{ 0 };
+      TransportMode transport_mode {TransportMode::ReliablePerObject};
   };
 
-  // Publisher owns the track info
-  std::map<messages::TrackAlias, TrackInfo> track_info_map {};
+  using PublisherId = uint64_t;
+  PublisherId publisher_id {0};
 
+  struct AnnounceInfo {
+    enum State {
+        Pending = 0,
+        Active,
+        Done
+    };
 
-  // Subscribers interested in a given track
-  using SubscriberId = uint64_t;
-
-  struct SubscriptionInfo {
-    messages::FullTrackName  fulltrackname;
-    messages::TrackAlias  track_alias;
-    messages::SubscribeId  subscription_id;
+    State state { Pending };
+    messages::TrackNamespace track_namespace;
     quicr::Namespace quicr_namespace;
+    TransportMode transport_mode {TransportMode::ReliablePerGroup};
+    uint64_t publisher_id {0}; // publisher of the track
+    TransportContext transport_context;
+  };
+
+  std::mutex announce_mutex;
+
+  /*
+   * Note on publisher
+   * - Announcements happen on Track Namespace
+   * - one or more tracks are published under the track namespace
+   * - More than on publisher can announce on the same track namespace
+   */
+  std::map<PublisherId, qtransport::TransportConnId> publisher_connection_map {};
+  namespace_map<std::map<qtransport::TransportConnId, AnnounceInfo>> announcements{};
+
+  // active tracks
+  std::map<messages::TrackAlias, std::map<qtransport::TransportConnId, TrackInfo>> tracks {};
+
+  // Subscriber and Subscription State
+  struct SubscriptionInfo {
+    messages::SubscribeId  subscription_id;
+    TrackInfo track_info;
     TransportContext transport_context;
   };
 
   std::map<quicr::Namespace, messages::TrackAlias> subscriber_namespace_map {};
-  std::map<messages::TrackAlias, std::map<qtransport::TransportConnId, SubscriptionInfo>> track_subscribers {};
+
+  std::map<messages::TrackAlias, std::map<qtransport::TransportConnId, SubscriptionInfo>> subscriptions {};
 };
 
 } // namespace quicr
