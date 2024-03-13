@@ -134,7 +134,12 @@ public:
                            const std::string& origin_url,
                            const std::string& auth_token) = 0;
 
-  /**
+  virtual void subscribeResponse(const uint64_t& subscriber_id,
+                                 const quicr::Namespace& quicr_namespace,
+                                 const SubscribeResult& result) = 0;
+
+
+    /**
    * @brief Publish Named object
    *
    * @param quicr_name               : Identifies the QUICR Name for the object

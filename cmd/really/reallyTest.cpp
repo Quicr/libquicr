@@ -85,6 +85,14 @@ public:
     got_intent_response = true;
   }
 
+  //A publisher gets subscribes once announce is completed
+  void onSubscribe(const quicr::Namespace& quicr_namespace,
+                         const uint64_t& subscription_id,
+                         const qtransport::TransportConnId& conn_id,
+                         const qtransport::DataContextId& data_ctx_id,
+                         const quicr::SubscribeIntent subscribe_intent) {}
+
+
 private:
   cantina::LoggerPointer logger;
 };

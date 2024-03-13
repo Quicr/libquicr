@@ -143,6 +143,7 @@ public:
   }
 
   void onPublishIntent(const quicr::Namespace& quicr_namespace,
+                       const uint64_t publisher_id,
                        const std::string& /* origin_url */,
                        const std::string& /* auth_token */,
                        quicr::bytes&& /* e2e_token */) override
@@ -154,7 +155,7 @@ public:
     // TODO(trigaux): Move logic into quicr::Server
     const auto result =
       quicr::PublishIntentResult{ quicr::messages::Response::Ok, {}, {} };
-    server->publishIntentResponse(quicr_namespace, result);
+    server->publishIntentResponse(quicr_namespace, publisher_id, result);
   };
 
   void onPublishIntentEnd(const quicr::Namespace& /* quicr_namespace */,
@@ -226,6 +227,18 @@ public:
     };
     server->subscribeResponse(subscriber_id, quicr_namespace, result);
   }
+
+  void onPublishedObject(const quicr::Name& name,
+                         const uint8_t priority,
+                         const uint64_t ttl,
+                        quicr::bytes&& data) override {}
+
+  void onSubscribeResponse(const quicr::Namespace& quicr_namespace,
+                           const quicr::SubscribeResult& result) {}
+
+  void onSubscriptionEnded(const quicr::Namespace& quicr_namespace,
+                           const quicr::SubscribeResult::SubscribeStatus& reason) {}
+
 
 private:
   cantina::LoggerPointer logger;

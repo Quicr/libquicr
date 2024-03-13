@@ -54,6 +54,7 @@ public:
    * mapping the namespaces and other relation information.
    */
   virtual void onPublishIntent(const quicr::Namespace& quicr_name,
+                               const uint64_t publisher_id,
                                const std::string& origin_url,
                                const std::string& auth_token,
                                bytes&& e2e_token) = 0;
@@ -138,6 +139,18 @@ public:
   virtual void onUnsubscribe(const quicr::Namespace& quicr_namespace,
                              const uint64_t& subscriber_id,
                              const std::string& auth_token) = 0;
+
+  virtual void onPublishedObject(const quicr::Name& name,
+                                 const uint8_t priority,
+                                 const uint64_t ttl,
+                                 quicr::bytes&& data) = 0;
+
+  virtual void onSubscribeResponse(const quicr::Namespace& quicr_namespace,
+                                   const SubscribeResult& result) = 0;
+
+  virtual void onSubscriptionEnded(const quicr::Namespace& quicr_namespace,
+                                   const SubscribeResult::SubscribeStatus& reason) = 0;
+
 };
 
 } // namespace quicr

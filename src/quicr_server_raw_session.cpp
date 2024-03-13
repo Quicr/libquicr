@@ -110,6 +110,76 @@ ServerRawSession::run()
   return transport->status() == qtransport::TransportStatus::Ready;
 }
 
+void ServerRawSession::subscribe(const quicr::Namespace& quicr_namespace,
+                                 const SubscribeIntent& intent,
+                                 const TransportMode transport_mode) {
+
+  std::lock_guard<std::mutex> _(session_mutex);
+
+  // see if we have any active announcements for this track
+  if (!announcements.contains(quicr_namespace)) {
+    logger->info << "moqt:subscribing to namespace:" << quicr_namespace
+                 << " no active announcements yet" << std::flush;
+    return;
+  }
+
+  if(subscription_exists.contains(quicr_namespace)) {
+      logger->info << "moqt:subscribing exists already" << quicr_namespace << std::flush;
+      return;
+  }
+
+    auto moq_uri = uri_convertor->to_namespace_uri(quicr_namespace);
+    auto name = quicr_namespace.name();
+    auto track_id_qname = name & track_id_mask;
+    auto track_alias = track_id_qname.hi();
+
+    logger->warning << "TrackID Mask is Hardcoded, Make it application configuration" << std::flush;
+
+    // send the subscribe to all the publishers
+  for(auto&[conn_id, info] : announcements[quicr_namespace]) {
+
+      const auto subscription_id = messages::create_transaction_id();;
+      // create new subscription context
+      auto subscription = SubscriptionInfo{};
+      subscription.track_info.quicr_namespace = quicr_namespace;
+      subscription.track_info.fulltrackname = std::move(moq_uri);
+      subscription.track_info.track_alias = track_alias;
+      subscription.track_info.state = TrackInfo::State::Inactive;
+      subscription.subscription_id  = subscription_id;
+      // setup transport info
+      subscription.transport_context.transport_conn_id = conn_id;
+      subscription.transport_context.transport_data_ctx_id = info.transport_context.transport_data_ctx_id;
+
+      auto [start_group, end_group, start_object, end_object] = messages::to_locations(intent);
+      auto subscribe = messages::MoqSubscribe {
+              .subscribe_id = subscription.subscription_id,
+              .track_alias = subscription.track_info.track_alias,
+              .track = subscription.track_info.fulltrackname,
+              .start_group = start_group,
+              .start_object = start_object,
+              .end_group = end_group,
+              .end_object = end_object,
+              .track_params = {}
+      };
+
+      logger->info << "moqt:subscribe(server): Track: " << moq_uri
+                   << ", Namespace: " << subscription.track_info.quicr_namespace
+                   << ", Track-Alias: " << subscription.track_info.track_alias
+                   << ", SubscribeId: " << subscription.subscription_id << std::flush;
+
+      auto msg = messages::MessageBuffer{};
+      msg << subscribe;
+      transport->enqueue(conn_id, info.transport_context.transport_data_ctx_id, msg.take());
+      logger->info << "moqt:subscribe(server): Save Subscription for ID:" << subscription.subscription_id << std::flush;
+      subscriptions[subscription_id][conn_id] = subscription;
+      subscription_exists[quicr_namespace] = true;
+  }
+
+  return;
+
+}
+
+
 void
 ServerRawSession::publishIntentResponse(const quicr::Namespace& quicr_namespace,
                                         const uint64_t publisher_id,
@@ -599,7 +669,6 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
             }
 
             subscriber_namespace_map[quicr_namespace] = subscribe.track_alias;
-
             // inform the delegate
             delegate->onSubscribe(quicr_namespace,
                                   subscription.transport_context.transport_conn_id,
@@ -612,6 +681,25 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
 
         }
         break;
+        case messages::MESSAGE_TYPE_SUBSCRIBE_OK: {
+            auto subscribe_ok = messages::MoqSubscribeOk{};
+            msg >> subscribe_ok;
+            logger ->info << "moqt:subscribe_ok: id:" << subscribe_ok.subscribe_id
+                          << ", expires:" << subscribe_ok.expires << std::flush;
+            const auto result = SubscribeResult{ .status = SubscribeResult::SubscribeStatus::Ok,
+                    .subscriber_expiry_interval = subscribe_ok.expires};
+
+            // check if the subscription exists
+            if (!subscriptions.count(subscribe_ok.subscribe_id)) {
+                logger ->info << "moqt:subscribe_ok: invalid" << std::flush;
+                return;
+            }
+
+            auto subscription  = subscriptions[subscribe_ok.subscribe_id][conn_id];
+            delegate->onSubscribeResponse(subscription.track_info.quicr_namespace, result);
+            break;
+        }
+
         case messages::MESSAGE_TYPE_ANNOUNCE: {
             messages::MoqAnnounce announce;
             msg >> announce;
@@ -656,7 +744,7 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
 
             // check if there is active subscriptions
             if (!subscriptions.contains(object.track_alias) || !subscriptions[object.track_alias].contains(conn_id)) {
-                logger->info << "moqt:ObjectStream:TrackAlias" << object.track_alias << ", is not subscribed to"
+                logger->info << "moqt:ObjectStream:TrackAlias " << object.track_alias << ", is not subscribed to"
                              << std::flush;
                 return;
             }

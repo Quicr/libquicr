@@ -60,7 +60,13 @@ public:
    */
   bool run();
 
-  /**
+  // Server sends subscribes to all publishers sending announces for a namespace
+  void subscribe(const quicr::Namespace& quicr_namespace,
+                 const SubscribeIntent& intent,
+                 const TransportMode transport_mode);
+
+
+    /**
    * @brief Send publish intent response
    *
    * @param quicr_namespace       : Identifies QUICR namespace
@@ -71,6 +77,7 @@ public:
    * @todo: Add payload with origin signed blob
    */
   void publishIntentResponse(const quicr::Namespace& quicr_namespace,
+                             const uint64_t publisher_id,
                              const PublishIntentResult& result);
 
   /**
@@ -119,6 +126,7 @@ public:
                        uint8_t priority,
                        uint16_t expiry_age_ms,
                        const messages::PublishDatagram& datagram);
+
 
 protected:
   std::unique_ptr<ServerSession> server_session;

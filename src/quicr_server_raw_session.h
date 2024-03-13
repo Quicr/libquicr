@@ -87,7 +87,12 @@ public:
                              const uint64_t publisher_id,
                              const PublishIntentResult& result) override;
 
-  /**
+  virtual void subscribe(const quicr::Namespace& quicr_namespace,
+                         const SubscribeIntent& intent,
+                         const TransportMode transport_mode) override;
+
+
+    /**
    * @brief Send subscribe response
    *
    * @details Entities processing the Subscribe Request MUST validate the
@@ -347,9 +352,10 @@ private:
     TransportContext transport_context;
   };
 
-  std::map<quicr::Namespace, messages::TrackAlias> subscriber_namespace_map {};
-
-  std::map<messages::TrackAlias, std::map<qtransport::TransportConnId, SubscriptionInfo>> subscriptions {};
+  namespace_map<bool> subscription_exists {};
+  namespace_map<messages::TrackAlias> subscriber_namespace_map{};
+  std::map<messages::SubscribeId, std::map<qtransport::TransportConnId, SubscriptionInfo>>  subscriptions{};
+  //std::map<messages::TrackAlias, std::map<qtransport::TransportConnId, SubscriptionInfo>> subscriptions {};
 };
 
 } // namespace quicr

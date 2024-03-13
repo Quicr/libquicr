@@ -16,6 +16,7 @@
 #pragma once
 
 #include "quicr/quicr_common.h"
+#include <transport/transport.h>
 
 #include <qname>
 
@@ -127,6 +128,14 @@ public:
    */
   virtual void onPublishIntentResponse(const quicr::Namespace& quicr_namespace,
                                        const PublishIntentResult& result) = 0;
+
+  //A publisher gets subscribes once announce is completed
+  virtual void onSubscribe(const quicr::Namespace& quicr_namespace,
+                           const uint64_t& subscription_id,
+                           const qtransport::TransportConnId& conn_id,
+                           const qtransport::DataContextId& data_ctx_id,
+                           const SubscribeIntent subscribe_intent) = 0;
+
 };
 
 } // namespace quicr

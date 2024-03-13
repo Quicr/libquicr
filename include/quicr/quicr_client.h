@@ -160,7 +160,14 @@ public:
                    const std::string& origin_url,
                    const std::string& auth_token);
 
-  /**
+
+  void subscribeResponse(const uint64_t& subscriber_id,
+                         const quicr::Namespace& quicr_namespace,
+                         const SubscribeResult& result);
+
+
+
+    /**
    * @brief Publish Named object
    *
    * @param quicr_name               : Identifies the QUICR Name for the object

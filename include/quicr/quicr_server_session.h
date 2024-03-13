@@ -55,9 +55,15 @@ public:
    * @todo: Add payload with origin signed blob
    */
   virtual void publishIntentResponse(const quicr::Namespace& quicr_namespace,
+                                     const uint64_t publisher_id,
                                      const PublishIntentResult& result) = 0;
 
-  /**
+  virtual void subscribe(const quicr::Namespace& quicr_namespace,
+                 const SubscribeIntent& intent,
+                 const TransportMode transport_mode) = 0;
+
+
+    /**
    * @brief Send subscribe response
    *
    * @details Entities processing the Subscribe Request MUST validate the

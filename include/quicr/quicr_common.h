@@ -134,7 +134,6 @@ struct PublishIntentResult
   RelayInfo redirectInfo;     // Set only if status is redirect
   quicr::Name reassignedName; // Set only if status is ReAssigned
 };
-
 // Abstract interface for transforming between Integer and URI namespaces
 struct UriConvertor
 {

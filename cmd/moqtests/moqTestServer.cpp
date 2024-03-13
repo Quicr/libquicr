@@ -147,6 +147,7 @@ public:
   }
 
   void onPublishIntent(const quicr::Namespace& quicr_namespace,
+                       const uint64_t publisher_id,
                        const std::string& /* origin_url */,
                        const std::string& /* auth_token */,
                        quicr::bytes&& /* e2e_token */) override
@@ -156,7 +157,7 @@ public:
 
     const auto result =
       quicr::PublishIntentResult{ quicr::messages::Response::Ok, {}, {} };
-    server->publishIntentResponse(quicr_namespace, result);
+    server->publishIntentResponse(quicr_namespace, publisher_id, result);
     // save the publisher context
     if (announced_namespaces.contains(quicr_namespace)) {
       throw std::runtime_error("Announced Namespace exists already");
@@ -225,7 +226,30 @@ public:
                 quicr::SubscribeResult::SubscribeStatus::Ok, "", {}, {}
         };
         server->subscribeResponse(subscriber_id, quicr_namespace, result);
+
+        // request upstream for the data by subscribing to it
+        auto intent = quicr::SubscribeIntent{.mode = quicr::SubscribeIntent::Mode::immediate};
+        if(announced_namespaces.contains(quicr_namespace)) {
+          server->subscribe(quicr_namespace, intent, quicr::TransportMode::ReliablePerObject);
+        }
+
     }
+
+  void onPublishedObject(const quicr::Name& name,
+                         const uint8_t priority,
+                         const uint64_t ttl,
+                         quicr::bytes&& data) override {
+    logger->info << "ServerDelegate:onPublishedObject: name " << name << std::flush;
+  }
+
+  void onSubscribeResponse(const quicr::Namespace& quicr_namespace,
+                           const quicr::SubscribeResult& result) {
+    logger->info << "ServerDelegate:onSubscribeResponse: namespace " << quicr_namespace << std::flush;
+
+  }
+
+  void onSubscriptionEnded(const quicr::Namespace& quicr_namespace,
+                           const quicr::SubscribeResult::SubscribeStatus& reason) {}
 
 private:
   cantina::LoggerPointer logger;

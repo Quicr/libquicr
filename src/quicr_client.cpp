@@ -110,6 +110,11 @@ Client::unsubscribe(const quicr::Namespace& quicr_namespace,
 }
 
 void
+Client::subscribeResponse(const uint64_t &subscriber_id, const quicr::Namespace &quicr_namespace,
+                          const quicr::SubscribeResult &result) {
+  client_session->subscribeResponse(subscriber_id, quicr_namespace, result);
+}
+void
 Client::publishNamedObject(const quicr::Name& quicr_name,
                            uint8_t priority,
                            uint16_t expiry_age_ms,

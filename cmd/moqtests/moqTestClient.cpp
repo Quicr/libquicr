@@ -70,8 +70,9 @@ private:
 class pubDelegate : public quicr::PublisherDelegate
 {
 public:
-  explicit pubDelegate(cantina::LoggerPointer& logger)
-    : logger(std::make_shared<cantina::Logger>("PDEL", logger))
+  explicit pubDelegate(cantina::LoggerPointer& logger, quicr::Client& client_in)
+    : logger(std::make_shared<cantina::Logger>("PDEL", logger)),
+      client(client_in)
   {
   }
 
@@ -80,13 +81,30 @@ public:
     const quicr::PublishIntentResult& result) override
   {
     LOGGER_INFO(logger,
-                "Received PublishIntentResponse for "
+                "PubDelegate:Received PublishIntentResponse for "
                   << quicr_namespace << ": "
                   << static_cast<int>(result.status));
   }
 
+    //A publisher gets subscribes once announce is completed
+  void onSubscribe(const quicr::Namespace& quicr_namespace,
+                   const uint64_t& subscriber_id,
+                   const qtransport::TransportConnId& conn_id,
+                   const qtransport::DataContextId& data_ctx_id,
+                   const quicr::SubscribeIntent subscribe_intent) {
+    logger->info << "PubDelegate: Received Subscribe for Namespace " << quicr_namespace << std::flush;
+    auto result = quicr::SubscribeResult{
+            quicr::SubscribeResult::SubscribeStatus::Ok, "", {}, {}
+    };
+
+    client.subscribeResponse(subscriber_id, quicr_namespace, result);
+  }
+
+
+
 private:
   cantina::LoggerPointer logger;
+  quicr::Client& client;
 };
 
 /*
@@ -158,7 +176,7 @@ main(int argc, char* argv[])
   };
 
   quicr::Client client(relay, tcfg, logger, uri_convertor);
-  auto pd = std::make_shared<pubDelegate>(logger);
+  auto pd = std::make_shared<pubDelegate>(logger, client);
 
   if (!client.connect()) {
     logger->Log(cantina::LogLevel::Critical, "Transport connect failed");
@@ -170,17 +188,17 @@ main(int argc, char* argv[])
     logger->info << "Publish Intent for name: " << name
                  << " == namespace: " << nspace << std::flush;
 
-      client.publishIntent(pd, nspace, {}, {}, {}, quicr::TransportMode::ReliablePerObject);
+    client.publishIntent(pd, nspace, {}, {}, {}, quicr::TransportMode::ReliablePerObject);
 
     auto sd = std::make_shared<subDelegate>(logger);
     logger->info << "Announcer registering for subscribes " << nspace << std::flush;
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::this_thread::sleep_for(std::chrono::seconds(100));
 
 
     // do publish
-    logger->Log("Publish");
-    client.publishNamedObject(name, 0, 1000,std::move(data));
+    //logger->Log("Publish");
+    //client.publishNamedObject(name, 0, 1000,std::move(data));
 
   } else {
     // do subscribe

@@ -168,7 +168,11 @@ public:
                    const std::string& origin_url,
                    const std::string& auth_token) override;
 
-  /**
+  void subscribeResponse(const uint64_t& subscriber_id,
+                         const quicr::Namespace& quicr_namespace,
+                         const SubscribeResult& result);
+
+    /**
    * @brief Publish Named object
    *
    * @param quicr_name               : Identifies the QUICR Name for the object
@@ -388,8 +392,8 @@ protected:
     TrackInfo track_info;
     TransportContext transport_context;
  };
-
-  std::map<messages::SubscribeId, SubscriptionInfo> subscriptions{};
+    namespace_map<messages::TrackAlias> qnamespace_track_map{};
+    std::map<messages::TrackAlias, SubscriptionInfo> subscriptions{};
 
 };
 

@@ -89,4 +89,11 @@ Server::sendNamedObject(const uint64_t& subscriber_id,
     subscriber_id, priority, expiry_age_ms, datagram);
 }
 
+void
+Server::subscribe(const quicr::Namespace &quicr_namespace,
+                  const quicr::SubscribeIntent &intent,
+                  const quicr::TransportMode transport_mode) {
+  server_session->subscribe(quicr_namespace, intent, transport_mode);
+}
+
 } // namespace quicr

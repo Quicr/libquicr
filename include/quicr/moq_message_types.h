@@ -39,6 +39,9 @@ namespace quicr::messages {
   constexpr u_int8_t MESSAGE_TYPE_STREAM_HEADER_TRACK      = 0x50;
   constexpr u_int8_t MESSAGE_TYPE_STREAM_HEADER_GROUP      = 0x51;
 
+  enum AnnounceErrorCode {
+
+  };
 
   enum ForwardingPreference : uint8_t {
     StreamPerGroup = 0,
