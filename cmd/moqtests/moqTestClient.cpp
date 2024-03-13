@@ -8,6 +8,9 @@
 #include <iostream>
 #include <sstream>
 #include <thread>
+#include <condition_variable>
+#include <future>
+
 #include "uri_convertor.h"
 
 
@@ -70,9 +73,10 @@ private:
 class pubDelegate : public quicr::PublisherDelegate
 {
 public:
-  explicit pubDelegate(cantina::LoggerPointer& logger, quicr::Client& client_in)
+  explicit pubDelegate(cantina::LoggerPointer& logger, quicr::Client& client_in, std::promise<bool> on_response_in)
     : logger(std::make_shared<cantina::Logger>("PDEL", logger)),
-      client(client_in)
+      client(client_in),
+      on_response(std::move(on_response_in))
   {
   }
 
@@ -98,6 +102,12 @@ public:
     };
 
     client.subscribeResponse(subscriber_id, quicr_namespace, result);
+
+    // reset the promise enabling publish sends
+    if (on_response) {
+      on_response->set_value(true);
+      on_response.reset();
+    }
   }
 
 
@@ -105,6 +115,7 @@ public:
 private:
   cantina::LoggerPointer logger;
   quicr::Client& client;
+  std::optional<std::promise<bool>> on_response;
 };
 
 /*
@@ -176,7 +187,6 @@ main(int argc, char* argv[])
   };
 
   quicr::Client client(relay, tcfg, logger, uri_convertor);
-  auto pd = std::make_shared<pubDelegate>(logger, client);
 
   if (!client.connect()) {
     logger->Log(cantina::LogLevel::Critical, "Transport connect failed");
@@ -188,17 +198,25 @@ main(int argc, char* argv[])
     logger->info << "Publish Intent for name: " << name
                  << " == namespace: " << nspace << std::flush;
 
+    auto promise = std::promise<bool>();
+    auto future = promise.get_future();
+
+    auto pd = std::make_shared<pubDelegate>(logger, client, std::move(promise));
     client.publishIntent(pd, nspace, {}, {}, {}, quicr::TransportMode::ReliablePerObject);
 
     auto sd = std::make_shared<subDelegate>(logger);
-    logger->info << "Announcer registering for subscribes " << nspace << std::flush;
+
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    const auto success = future.get();
+    if (success) {
+      logger->info << "App: Publishing Data now" << std::flush;
+      auto data = quicr::bytes{1, 2, 3, 4, 5};
+      client.publishNamedObject(name, 0, 1000,std::move(data));
+    }
+
 
     std::this_thread::sleep_for(std::chrono::seconds(100));
 
-
-    // do publish
-    //logger->Log("Publish");
-    //client.publishNamedObject(name, 0, 1000,std::move(data));
 
   } else {
     // do subscribe

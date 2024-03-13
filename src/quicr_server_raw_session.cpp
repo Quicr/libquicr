@@ -32,7 +32,16 @@ static constexpr quicr::Name track_id_mask = ~(~0x0_name >> 60);
 constexpr quicr::Name Group_ID_Mask = ~(~0x0_name << 32) << 16;
 constexpr quicr::Name Object_ID_Mask = ~(~0x0_name << 16);
 
-
+static std::string
+to_hex(const quicr::bytes& data)
+{
+    std::stringstream hex(std::ios_base::out);
+    hex.flags(std::ios::hex);
+    for (const auto& byte : data) {
+        hex << std::setw(2) << std::setfill('0') << int(byte);
+    }
+    return hex.str();
+}
  /*
  * Initialize the QUICR server session at the port specified.
  *  @param delegate_in: Callback handlers for QUICR operations
@@ -211,13 +220,14 @@ ServerRawSession::publishIntentResponse(const quicr::Namespace& quicr_namespace,
 }
 
 void
-ServerRawSession::subscribeResponse(const uint64_t& subscriber_id,
+ServerRawSession::subscribeResponse(const uint64_t& subscription_id,
+                                    const uint64_t& subscriber_id,
                                     const quicr::Namespace& quicr_namespace,
                                     const SubscribeResult& result)
 {
    if(!subscriber_namespace_map.contains(quicr_namespace))  {
      logger->info << "SubscribeResponse: Namespace not found:" << quicr_namespace
-     << " for subscriber:" << subscriber_id << std::flush;
+     << " for subscription:" << subscription_id << std::flush;
      return;
    }
 
@@ -225,7 +235,8 @@ ServerRawSession::subscribeResponse(const uint64_t& subscriber_id,
    const auto& track_alias = subscriber_namespace_map.at(quicr_namespace);
 
    // retrieve conn and subscription info matching the subscriber
-   const auto& subscription_conn_info = subscriptions.at(track_alias);
+   const auto& subscription_conn_info = subscriptions.at(subscription_id);
+   // todo: add a mapping from subsciber_id to connection_id
    const auto& subscription = subscription_conn_info.at(subscriber_id);
 
    messages::MessageBuffer msg;
@@ -237,7 +248,6 @@ ServerRawSession::subscribeResponse(const uint64_t& subscriber_id,
    // Todo: we need a way to return Subscribe Error
    logger->info << "moqt:subscribe_ok: track:" << subscription.track_info.fulltrackname
                 << ", quicr_namespace: " << subscription.track_info.quicr_namespace
-                << ", Subscriber:" << subscriber_id
                 << ", SubscriptionId:" << subscription.subscription_id
                 << std::flush;
 
@@ -271,6 +281,35 @@ ServerRawSession::subscriptionEnded(
   const auto& conn_ctx = _connections[context->transport_conn_id];
 
   transport->enqueue(context->transport_conn_id, conn_ctx.ctrl_data_ctx_id, msg.take());
+}
+
+void
+ServerRawSession::sendNamedObject(const uint64_t &subscribe_id,
+                                  const uint64_t& subscriber_id,
+                                  const messages::MoqObjectStream &&object) {
+
+    // start populating message to encode
+
+    if (!subscriptions.contains(object.subscribe_id)) {
+        logger->info << "moqt:Send Object, missing subscriber_id: " << subscriber_id
+                     << std::flush;
+        return;
+    }
+
+    const auto& info = subscriptions[subscribe_id][subscriber_id];
+    logger->info << "SendNamedObject(MOQ): Subscriber SubscriptionId:"
+                 << subscribe_id << ", TrackAlias " << object.track_alias
+                 << " FullTrackName " <<info.track_info.fulltrackname << std::flush;
+
+    messages::MessageBuffer msg;
+    msg << object;
+
+    transport->enqueue(info.transport_context.transport_conn_id,
+                       info.transport_context.transport_data_ctx_id,
+                       msg.take(),
+                       object.priority,
+                       1000); // revisit
+
 }
 
 void
@@ -616,7 +655,7 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
                              std::vector<uint8_t>&& data) {
 
     auto msg_type = static_cast<uint8_t>(data.front());
-    logger->info << "moqt: MessageType: " << msg_type << std::flush;
+    logger->info << "moqt: MessageType: " << (uint8_t) msg_type << std::flush;
     messages::MessageBuffer msg{ data };
     switch (msg_type) {
         case messages::MESSAGE_TYPE_SUBSCRIBE: {
@@ -641,6 +680,7 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
             subscription.track_info.track_alias  = subscribe.track_alias;
             subscription.subscription_id = subscribe.subscribe_id;
 
+            auto& subscription_id = subscription.subscription_id;
             logger->info << "MOQSubscribe conn_id: " << conn_id
                          << ", Track: " << subscription.track_info.fulltrackname
                          << ", Track Alias: " << subscription.track_info.track_alias
@@ -652,12 +692,12 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
                 std::lock_guard<std::mutex> _(session_mutex);
                 if(!subscriptions.contains(subscribe.track_alias)) {
                     // seeing this track for the first time
-                    subscriptions.emplace(subscribe.track_alias, std::map<qtransport::TransportConnId, SubscriptionInfo>());
-                    subscriptions[subscribe.track_alias].insert(std::make_pair(conn_id, subscription));
+                    subscriptions.emplace(subscription_id, std::map<qtransport::TransportConnId, SubscriptionInfo>());
+                    subscriptions[subscription_id].insert(std::make_pair(conn_id, subscription));
                 } else {
-                    if(!subscriptions[subscribe.track_alias].contains(conn_id)) {
+                    if(!subscriptions[subscription_id].contains(conn_id)) {
                         // first time track alias from a new subscriber connection
-                        subscriptions[subscribe.track_alias].emplace(conn_id, std::move(subscription));
+                        subscriptions[subscription_id].emplace(conn_id, std::move(subscription));
                     } else {
                         // subscription update, from a existing subscriber and track alias
                         logger->info << "moqt:subscribe: Ignoring Subscription Update:"
@@ -671,7 +711,7 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
             subscriber_namespace_map[quicr_namespace] = subscribe.track_alias;
             // inform the delegate
             delegate->onSubscribe(quicr_namespace,
-                                  subscription.transport_context.transport_conn_id,
+                                  subscription_id,
                                   conn_id, // do we need this ?
                                   data_ctx_id, // do we need this ?
                                   SubscribeIntent{},
@@ -699,7 +739,6 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
             delegate->onSubscribeResponse(subscription.track_info.quicr_namespace, result);
             break;
         }
-
         case messages::MESSAGE_TYPE_ANNOUNCE: {
             messages::MoqAnnounce announce;
             msg >> announce;
@@ -741,15 +780,15 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
         case messages::MESSAGE_TYPE_OBJECT_STREAM: {
             messages::MoqObjectStream object {};
             msg >> object;
-
+            logger->info << "moqt:objectStream: SubscribeId" << object.subscribe_id << std::flush;
             // check if there is active subscriptions
-            if (!subscriptions.contains(object.track_alias) || !subscriptions[object.track_alias].contains(conn_id)) {
-                logger->info << "moqt:ObjectStream:TrackAlias " << object.track_alias << ", is not subscribed to"
+            if (!subscriptions.contains(object.subscribe_id) || !subscriptions[object.subscribe_id].contains(conn_id)) {
+                logger->info << "moqt:ObjectStream:TrackAlias " << object.subscribe_id << ", is not subscribed to"
                              << std::flush;
                 return;
             }
 
-            auto& track_info = subscriptions[object.track_alias][conn_id].track_info;
+            auto& track_info = subscriptions[object.subscribe_id][conn_id].track_info;
             quicr::Name synth_name = (0x0_name | object.group_id) << 16 | (synth_name & ~Group_ID_Mask);
             synth_name = (0x0_name | object.object_id) | (synth_name & ~Object_ID_Mask);
             auto name = quicr::Name{object.track_alias, uint64_t(synth_name)};
@@ -769,9 +808,10 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
                              << " " << gap_log << std::flush;
             }
 
-            delegate->onPublishedObject(name, object.priority, 0, std::move(object.payload));
+            delegate->onPublishedObject(name, object.priority, 0, std::move(object));
 
         }
+            break;
         default:
             logger->info << "moqt: unhandled message [remove this logging " << std::flush;
             break;

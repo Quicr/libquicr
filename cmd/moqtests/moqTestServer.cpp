@@ -1,5 +1,6 @@
 #include <quicr/encode.h>
 #include <quicr/message_buffer.h>
+#include <quicr/moq_message_types.h>
 #include <quicr/quicr_common.h>
 #include <quicr/quicr_server.h>
 #include <transport/transport.h>
@@ -204,7 +205,7 @@ public:
 
     void onSubscribe(
             const quicr::Namespace& quicr_namespace,
-            const uint64_t& subscriber_id,
+            const uint64_t& subscription_id,
             [[maybe_unused]] const qtransport::TransportConnId& conn_id,
             [[maybe_unused]] const qtransport::DataContextId& data_ctx_id,
             [[maybe_unused]] const quicr::SubscribeIntent subscribe_intent,
@@ -214,10 +215,11 @@ public:
     {
         logger->info << "onSubscribe: Namespace " << quicr_namespace << "/"
                      << static_cast<unsigned>(quicr_namespace.length())
-                     << " subscribe_id: " << subscriber_id << std::flush;
+                     << " subscribe_id: " << subscription_id << std::flush;
 
         const auto remote = Subscriptions::SubscriberInfo{
-                .subscribe_id = subscriber_id,
+                .subscribe_id = subscription_id,
+                .conn_id = conn_id,
         };
         subscribeList.add(quicr_namespace.name(), quicr_namespace.length(), remote);
 
@@ -225,21 +227,27 @@ public:
         auto result = quicr::SubscribeResult{
                 quicr::SubscribeResult::SubscribeStatus::Ok, "", {}, {}
         };
-        server->subscribeResponse(subscriber_id, quicr_namespace, result);
+        server->subscribeResponse(subscription_id, conn_id, quicr_namespace, result);
 
         // request upstream for the data by subscribing to it
         auto intent = quicr::SubscribeIntent{.mode = quicr::SubscribeIntent::Mode::immediate};
         if(announced_namespaces.contains(quicr_namespace)) {
           server->subscribe(quicr_namespace, intent, quicr::TransportMode::ReliablePerObject);
         }
-
     }
 
   void onPublishedObject(const quicr::Name& name,
                          const uint8_t priority,
                          const uint64_t ttl,
-                         quicr::bytes&& data) override {
+                         quicr::messages::MoqObjectStream&& object) override {
     logger->info << "ServerDelegate:onPublishedObject: name " << name << std::flush;
+    const auto list = subscribeList.find(name);
+
+    for (auto dest : list) {
+
+      server->sendNamedObject(dest.subscribe_id, dest.conn_id, std::move(object));
+    }
+
   }
 
   void onSubscribeResponse(const quicr::Namespace& quicr_namespace,

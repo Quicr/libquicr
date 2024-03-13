@@ -349,6 +349,7 @@ protected:
     };
 
     State state;
+    uint64_t subscription_id {0};
     quicr::Namespace quicr_namespace;
     messages::FullTrackName  fulltrackname;
     messages::TrackAlias track_alias{0};

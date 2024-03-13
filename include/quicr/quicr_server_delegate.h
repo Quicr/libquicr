@@ -17,6 +17,7 @@
 
 #include "quicr/encode.h"
 #include "quicr/message_buffer.h"
+#include "quicr/moq_message_types.h"
 #include "quicr/quicr_common.h"
 
 #include <transport/transport.h>
@@ -143,7 +144,7 @@ public:
   virtual void onPublishedObject(const quicr::Name& name,
                                  const uint8_t priority,
                                  const uint64_t ttl,
-                                 quicr::bytes&& data) = 0;
+                                 messages::MoqObjectStream&& object) = 0;
 
   virtual void onSubscribeResponse(const quicr::Namespace& quicr_namespace,
                                    const SubscribeResult& result) = 0;

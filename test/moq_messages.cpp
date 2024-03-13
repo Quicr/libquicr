@@ -79,3 +79,26 @@ TEST_CASE("Subscribe Message encode/decode")
     CHECK_EQ(subscribe.end_group.value, subscribe_out.end_group.value);
     CHECK_EQ(subscribe.end_object.value, subscribe_out.end_object.value);
 }
+
+TEST_CASE("ObjectStream Message encode/decode")
+{
+    quicr::Namespace qnamespace{0x10000000000000002000_name, 125};
+    std::stringstream ss;
+    ss << qnamespace;
+    auto ns = "moq://" + ss.str();
+    auto object = MoqObjectStream{};
+    object.track_alias = 109955458826288;
+    object.priority = 1;
+    object.object_id = 0;
+    object.group_id = 0;
+    object.subscribe_id = 0xABCD;
+    object.payload = quicr::bytes{1, 2, 3, 4, 5};
+
+    MessageBuffer buffer;
+    buffer << object;
+    MoqObjectStream object_out;
+    buffer >> object_out;
+    CHECK_EQ(object.track_alias, object_out.track_alias);
+    CHECK_EQ(object.payload.size(), object_out.payload.size());
+}
+

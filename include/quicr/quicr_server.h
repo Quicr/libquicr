@@ -2,6 +2,7 @@
 
 #include "encode.h"
 #include "message_buffer.h"
+#include "moq_message_types.h"
 #include "quicr_common.h"
 #include "quicr_server_delegate.h"
 #include "quicr_server_session.h"
@@ -91,7 +92,8 @@ public:
    * @param result                : Status of Subscribe operation
    *
    */
-  void subscribeResponse(const uint64_t& subscriber_id,
+  void subscribeResponse(const uint64_t& subscription_id,
+                         const uint64_t& subscriber_id,
                          const quicr::Namespace& quicr_namespace,
                          const SubscribeResult& result);
 
@@ -126,6 +128,10 @@ public:
                        uint8_t priority,
                        uint16_t expiry_age_ms,
                        const messages::PublishDatagram& datagram);
+
+  void sendNamedObject(const uint64_t& subscribe_id,
+                       const uint64_t& subscriber_id,
+                         const messages::MoqObjectStream&& object);
 
 
 protected:

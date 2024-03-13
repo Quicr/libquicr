@@ -225,13 +225,13 @@ public:
     auto result = quicr::SubscribeResult{
       quicr::SubscribeResult::SubscribeStatus::Ok, "", {}, {}
     };
-    server->subscribeResponse(subscriber_id, quicr_namespace, result);
+    server->subscribeResponse(subscriber_id, conn_id, quicr_namespace, result);
   }
 
   void onPublishedObject(const quicr::Name& name,
                          const uint8_t priority,
                          const uint64_t ttl,
-                        quicr::bytes&& data) override {}
+                        quicr::messages::MoqObjectStream&& data) override {}
 
   void onSubscribeResponse(const quicr::Namespace& quicr_namespace,
                            const quicr::SubscribeResult& result) {}

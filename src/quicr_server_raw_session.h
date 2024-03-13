@@ -103,7 +103,8 @@ public:
    * @param result                : Status of Subscribe operation
    *
    */
-  void subscribeResponse(const uint64_t& subscriber_id,
+  void subscribeResponse(const uint64_t& subscription_id,
+                         const uint64_t& subscriber_id,
                          const quicr::Namespace& quicr_namespace,
                          const SubscribeResult& result) override;
 
@@ -139,6 +140,11 @@ public:
                        uint8_t priority,
                        uint16_t expiry_age_ms,
                        const messages::PublishDatagram& datagram) override;
+
+  void sendNamedObject(const uint64_t& subscribe_id,
+                       const uint64_t& subscriber_id,
+                       const messages::MoqObjectStream&& object) override;
+
 
 private:
   /*
@@ -333,6 +339,7 @@ private:
 
   std::mutex announce_mutex;
 
+  uint64_t track_alias_counter {0};
   /*
    * Note on publisher
    * - Announcements happen on Track Namespace
@@ -352,10 +359,11 @@ private:
     TransportContext transport_context;
   };
 
+  // subscriber info
+  using SubscriberId = uint64_t;
   namespace_map<bool> subscription_exists {};
   namespace_map<messages::TrackAlias> subscriber_namespace_map{};
   std::map<messages::SubscribeId, std::map<qtransport::TransportConnId, SubscriptionInfo>>  subscriptions{};
-  //std::map<messages::TrackAlias, std::map<qtransport::TransportConnId, SubscriptionInfo>> subscriptions {};
 };
 
 } // namespace quicr

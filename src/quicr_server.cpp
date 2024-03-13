@@ -64,11 +64,12 @@ Server::publishIntentResponse(const quicr::Namespace& quicr_namespace,
 }
 
 void
-Server::subscribeResponse(const uint64_t& subscriber_id,
+Server::subscribeResponse(const uint64_t& subscription_id,
+                          const uint64_t& subscriber_id,
                           const quicr::Namespace& quicr_namespace,
                           const SubscribeResult& result)
 {
-  server_session->subscribeResponse(subscriber_id, quicr_namespace, result);
+  server_session->subscribeResponse(subscription_id,subscriber_id, quicr_namespace, result);
 }
 
 void
@@ -96,4 +97,9 @@ Server::subscribe(const quicr::Namespace &quicr_namespace,
   server_session->subscribe(quicr_namespace, intent, transport_mode);
 }
 
+void Server::sendNamedObject(const uint64_t &subscribe_id,
+                             const uint64_t& subscriber_id,
+                             const messages::MoqObjectStream&&object) {
+  server_session->sendNamedObject(subscribe_id, subscriber_id, std::move(object));
+}
 } // namespace quicr

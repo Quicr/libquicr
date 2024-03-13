@@ -33,7 +33,6 @@
 namespace quicr {
 
 namespace {
-
 qtransport::TransportRemote
 to_TransportRemote(const RelayInfo& info) noexcept
 {
@@ -51,8 +50,8 @@ to_TransportRemote(const RelayInfo& info) noexcept
 
 // MOQ Related Constants
 static constexpr quicr::Name track_id_mask = ~(~0x0_name >> 60);
-//constexpr quicr::Name Group_ID_Mask = ~(~0x0_name << 32) << 16;
-//constexpr quicr::Name Object_ID_Mask = ~(~0x0_name << 16);
+constexpr quicr::Name Group_ID_Mask = ~(~0x0_name << 32) << 16;
+constexpr quicr::Name Object_ID_Mask = ~(~0x0_name << 16);
 
 
 static std::tuple<std::string, std::string> split_track_name(std::string track) {
@@ -84,6 +83,16 @@ static std::tuple<std::string, std::string> split_track_name(std::string track) 
     return std::make_tuple(namespace_part, track_name_part);
 }
 
+static std::string
+to_hex(const quicr::bytes& data)
+{
+  std::stringstream hex(std::ios_base::out);
+  hex.flags(std::ios::hex);
+  for (const auto& byte : data) {
+    hex << std::setw(2) << std::setfill('0') << int(byte);
+  }
+  return hex.str();
+}
 /*===========================================================================*/
 // ClientRawSession
 /*===========================================================================*/
@@ -485,7 +494,6 @@ void
 ClientRawSession::subscribeResponse(const uint64_t &subscriber_id, const quicr::Namespace &quicr_namespace,
                                     const quicr::SubscribeResult &result) {
 
-  auto response = messages::MoqSubscribeOk{};
   if(!qnamespace_track_map.contains(quicr_namespace)) {
     logger->info << "moqt:subscribeResponse: No mapping for namespace found " << quicr_namespace << std::flush;
     return;
@@ -493,6 +501,29 @@ ClientRawSession::subscribeResponse(const uint64_t &subscriber_id, const quicr::
 
   auto& track_alias = qnamespace_track_map[quicr_namespace];
   auto& subscription = subscriptions[track_alias];
+
+  auto it = announcements.find(quicr_namespace.name());
+  if (it == announcements.end()) {
+    logger->info << "moqt:subscribeResponse: No matching announcement for " << quicr_namespace << " dropping" << std::flush;
+    return;
+  }
+
+  auto& [ns, announce_info] = *it;
+  if(!announce_info.tracks.contains(track_alias)) {
+    // add the track info
+    logger->info << "moqt:susbcribeResponse: adding new track" << std::flush;
+    // first object on this track
+    auto track_info = TrackInfo {
+       .quicr_namespace = quicr_namespace,
+       .subscription_id = subscription.subscription_id,
+       .track_alias = track_alias,
+       .state = TrackInfo::State::Ready,
+       .last_group_id = 0,
+       .last_object_id = 0
+    };
+
+    announce_info.tracks.emplace(track_alias, track_info);
+  }
 
   messages::MessageBuffer msg;
   auto subscribe_ok = messages::MoqSubscribeOk {
@@ -511,6 +542,9 @@ ClientRawSession::subscribeResponse(const uint64_t &subscriber_id, const quicr::
   transport->enqueue(subscription.transport_context.transport_conn_id,
                      subscription.transport_context.transport_data_ctx_id,
                      msg.take());
+
+  // add the track info to announcements
+
 }
 void
 ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
@@ -529,29 +563,18 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
   auto& [ns, announce_info] = *it;
   if (announce_info.state != AnnounceInfo::State::Active) {
     logger->info << "moqt:publish:: Publish intent NOT READY for ns: " << ns << std::flush;
-    //return;
+    return;
   }
 
-  TrackNamePrefix track_id_qname = static_cast<TrackNamePrefix>(quicr_name & track_id_mask);
+  auto qns = quicr::Namespace(quicr_name, 60);
+  auto& track_alias = qnamespace_track_map[qns];
   uint64_t group_id = quicr_name.bits<uint64_t>(16, 32);
   uint64_t object_id = quicr_name.bits<uint64_t>(0, 16);
 
-  // get the track under this announce
-  if (!announce_info.tracks.count(track_id_qname)) {
-    logger->info << "moqt:object: adding new track, FIX THIS TO HAPPEN VIA SUBSCRIBE" << std::flush;
-    // first object on this track
-    auto track_info = TrackInfo {
-      .quicr_namespace = quicr::Namespace(quicr_name, 60),
-      .state = TrackInfo::State::Ready, // TODO: Set it based on subscribe for the track
-      .last_group_id = group_id,
-      .last_object_id = object_id
-    };
+  logger->info <<"moqt:publish: Qname: " << quicr_name
+               << " Track Alias: " << track_alias << std::flush;
 
-    announce_info.tracks.emplace(track_id_qname, track_info);
-  }
-
-
-  auto& track = announce_info.tracks[track_id_qname];
+  auto& track = announce_info.tracks[track_alias];
   logger->info << "moqt:object(before gapcheck): groupId: " << track.last_group_id
                << ", objectId:" << track.last_object_id
                << std::flush;
@@ -585,24 +608,28 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       // one stream per object
       eflags.new_stream = true;
       auto object_msg = messages::MoqObjectStream {
-        .subscribe_id = 0xABCD, // TODO: this needs to be fixed
+        .subscribe_id = track.subscription_id,
         .group_id = track.last_group_id,
         .object_id = track.last_object_id,
-        .track_alias = track_id_qname,
+        .track_alias = track.track_alias,
         .priority = priority,
         .payload = std::move(data)
       };
 
+
       logger->info << "moqt:ObjectStream: qname: " << quicr_name
-                  << ", track_alias:" << track_id_qname
+                  << ", track_alias:" << track_alias
                   << ", Group:" << track.last_group_id
                   << ", Object:" << track.last_object_id << std::flush;
 
       messages::MessageBuffer msg;
+
       msg << object_msg;
+      auto msg_bytes = msg.take();
+      logger->info << "moqt:object: msg bytes " << to_hex(msg_bytes) << std::flush;
       transport->enqueue(announce_info.transport_context.transport_conn_id,
                          announce_info.transport_context.transport_data_ctx_id,
-                         msg.take(), priority, expiry_age_ms, eflags);
+                         std::move(msg_bytes), priority, expiry_age_ms, eflags);
       return;
     }
 
@@ -871,7 +898,7 @@ ClientRawSession::handle_moq(messages::MessageBuffer &&msg) {
                      << ", Track: " << subscription.track_info.fulltrackname
                      << ", Track Alias: " << subscription.track_info.track_alias
                      << ", Quicr Namespace: " << subscription.track_info.quicr_namespace
-                     << " subscriber_id: " << subscription.subscription_id
+                     << " subscribe_id: " << subscription.subscription_id
                      << std::flush;
 
         {
@@ -964,9 +991,30 @@ ClientRawSession::handle_moq(messages::MessageBuffer &&msg) {
           break;
       }
 
-        default:
-            logger->info << "HandleMoQ: Default Case" <<  std::flush;
-            break;
+      case messages::MESSAGE_TYPE_OBJECT_STREAM: {
+          auto object = messages::MoqObjectStream{};
+          msg >> object;
+          logger->info <<"moqt:objectstream" << std::flush;
+          quicr::Name synth_name = (0x0_name | object.group_id) << 16 | (synth_name & ~Group_ID_Mask);
+          synth_name = (0x0_name | object.object_id) | (synth_name & ~Object_ID_Mask);
+          auto name = quicr::Name{object.track_alias, uint64_t(synth_name)};
+          std::cout << "MoqClient: Got ObjectStream:"  << object.payload.size()
+                    << " Name: " << name
+                    << " Size: " << object.payload.size()
+                    << " TrackId: " << object.track_alias << std::endl;
+
+          if (auto found = sub_delegates.find(name); found != sub_delegates.end()) {
+              const auto& [ns, delegate] = *found;
+              // No-fragment, process as single object
+              delegate->onSubscribedObject(name,
+                                           object.priority,
+                                           std::move(object.payload));
+          }
+      }
+      break;
+      default:
+       logger->info << "HandleMoQ: Default Case" <<  std::flush;
+       break;
     }
 }
 
