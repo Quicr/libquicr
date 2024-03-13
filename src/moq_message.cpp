@@ -459,4 +459,93 @@ namespace quicr::messages {
     }
 
 
+    // Setup common
+    // vector<varint> encode/decode
+    MessageBuffer&
+    operator<<(MessageBuffer& buffer, const std::vector<uintVar_t>& val)
+    {
+        buffer << static_cast<uintVar_t>(val.size());
+        // TODO (Suhas): This needs revisiting
+        for(uint64_t i = 0; i < val.size(); i++) {
+            buffer << val[i];
+        }
+
+        return buffer;
+    }
+
+    MessageBuffer&
+    operator>>(MessageBuffer& msg, std::vector<uintVar_t>& val)
+    {
+        auto vec_size = uintVar_t(0);
+        msg >> vec_size;
+        auto version = std::vector<uintVar_t>();
+        version.resize((uint64_t) vec_size);
+        val.resize((uint64_t) vec_size);
+
+        // TODO (Suhas): This needs revisiting
+        for(uint64_t i = 0; i < version.size(); i++) {
+            msg >> version[i];
+        }
+        val = std::move(version);
+        return msg;
+    }
+
+
+    MessageBuffer&
+    operator<<(MessageBuffer &buffer, const MoqParameter &param) {
+        buffer << (uint8_t) param.key;
+        buffer << static_cast<std::vector<uint8_t>>(param.value);
+        return buffer;
+    }
+
+    MessageBuffer&
+    operator>>(MessageBuffer &buffer, MoqParameter &param) {
+        uint8_t  key = 0;
+        buffer >> key;
+        param.key = (ParameterType) key;
+        buffer >> param.value;
+        return buffer;
+    }
+
+
+    // Client Setup message
+    MessageBuffer &
+    operator<<(MessageBuffer &buffer, const MoqClientSetup &msg) {
+        buffer << static_cast<uint8_t>(MESSAGE_TYPE_CLIENT_SETUP);
+        buffer << msg.supported_versions;
+        return buffer;
+    }
+
+    MessageBuffer &
+    operator>>(MessageBuffer &buffer, MoqClientSetup &msg) {
+        uint8_t msg_type;
+        buffer >> msg_type;
+        if (msg_type != MESSAGE_TYPE_CLIENT_SETUP) {
+            throw MessageBuffer::ReadException("MoqClientSetup");
+        }
+        buffer >> msg.supported_versions;
+        //auto params = std::vector<uint8_t>{};
+        //buffer >> params;
+        //msg.setup_parameters = std::move(static_cast<std::vector<uint8_t>>(params));
+        return buffer;
+    }
+
+    // Server Setup message
+    MessageBuffer&
+    operator<<(MessageBuffer &buffer, const MoqServerSetup &msg) {
+        buffer << static_cast<uint8_t>(MESSAGE_TYPE_SERVER_SETUP);
+        buffer << msg.supported_version;
+        return buffer;
+    }
+
+    MessageBuffer &
+    operator>>(MessageBuffer &buffer, MoqServerSetup &msg) {
+        uint8_t msg_type;
+        buffer >> msg_type;
+        if (msg_type != MESSAGE_TYPE_SERVER_SETUP) {
+            throw MessageBuffer::ReadException("MoqServerSetup");
+        }
+        buffer >> msg.supported_version;
+        return buffer;
+    }
 }

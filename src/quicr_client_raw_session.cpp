@@ -176,6 +176,20 @@ ClientRawSession::connect()
   // Create reliable bidirectional control stream
   transport_ctrl_data_ctx_id = transport->createDataContext(*transport_conn_id, true, 0, true);
 
+  auto setup = messages::MoqClientSetup {
+     .supported_versions = {0x1},
+  };
+
+  messages::MessageBuffer msg{};
+  msg << setup;
+  transport->enqueue(transport_conn_id.value(), transport_ctrl_data_ctx_id.value(), msg.take());
+
+  auto future = setup_complete.get_future();
+  const auto success = future.get();
+  if (success) {
+      logger->info << "moqt: client setup complete" << std::flush;
+  }
+
   return true;
 }
 
@@ -552,6 +566,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
                                      uint16_t expiry_age_ms,
                                      bytes&& data)
 {
+
   // is the track in the scope of announcement
   auto it = announcements.find(quicr_name);
   if (it == announcements.end()) {
@@ -857,6 +872,19 @@ ClientRawSession::handle_moq(messages::MessageBuffer &&msg) {
     logger->info << "HandleMoQ: Got Message:" << (uint8_t ) msg_type << std::flush;
 
     switch (msg_type) {
+        case messages::MESSAGE_TYPE_SERVER_SETUP:
+        {
+            auto setup = messages::MoqServerSetup{};
+            msg >> setup;
+            if (static_cast<uint32_t>(setup.supported_version) != 0x1) {
+                throw std::runtime_error("Server Selection Version Error");
+            }
+
+            logger->info << "moqt:server_setup: Supported Version " << setup.supported_version << std::flush;
+            logger->warning << "moqt: No version/role specific checks are done, this is bad" << std::flush;
+            setup_complete.set_value(true);
+        }
+        break;
       case messages::MESSAGE_TYPE_SUBSCRIBE: {
         auto subscribe = messages::MoqSubscribe{};
         msg >> subscribe;

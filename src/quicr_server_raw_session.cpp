@@ -662,6 +662,37 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
     logger->info << "moqt: MessageType: " << (uint8_t) msg_type << std::flush;
     messages::MessageBuffer msg{ data };
     switch (msg_type) {
+        case messages::MESSAGE_TYPE_CLIENT_SETUP: {
+            logger->info << "moqt:client setup " << std::flush;
+            auto setup = messages::MoqClientSetup{};
+            msg >> setup;
+            if (setup.supported_versions.empty()) {
+                throw std::runtime_error("Client Setup Versions Malformed !!");
+            }
+
+            bool found = false;
+            for(const auto& version: setup.supported_versions) {
+                if (version == 0x1) {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                throw std::runtime_error("Client Setup Invalid Version !!");
+            }
+
+            // send server setup
+            auto server_setup = messages::MoqServerSetup{
+               .supported_version = 0x1,
+               .setup_parameters = {}
+            };
+            logger->info << "moqt:sending server setup on " << conn_id << std::flush;
+            messages::MessageBuffer msg;
+            msg << server_setup;
+            transport->enqueue(conn_id, data_ctx_id, std::move(msg.take()));
+        }
+        break;
         case messages::MESSAGE_TYPE_SUBSCRIBE: {
             if (!is_bidir) {
                 logger->error << "moqt:subscribe: Protocol Error, not a bidi stream" << std::flush;

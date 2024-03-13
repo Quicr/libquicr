@@ -75,7 +75,7 @@ namespace quicr::messages {
   };
 
   struct MoqServerSetup {
-    Version supported_versions;
+    Version supported_version;
     std::vector<MoqParameter> setup_parameters;
   };
 

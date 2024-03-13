@@ -29,6 +29,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <future>
 
 namespace quicr {
 
@@ -396,6 +397,7 @@ protected:
     namespace_map<messages::TrackAlias> qnamespace_track_map{};
     std::map<messages::TrackAlias, SubscriptionInfo> subscriptions{};
 
+    std::promise<bool> setup_complete {};
 };
 
 }
