@@ -210,13 +210,14 @@ main(int argc, char* argv[])
     const auto success = future.get();
     if (success) {
       logger->info << "App: Publishing Data now" << std::flush;
-      auto data = quicr::bytes{1, 2, 3, 4, 5};
-      client.publishNamedObject(name, 0, 1000,std::move(data));
+      for (int i =0; i < 10; i++) {
+        auto data = quicr::bytes{1, 2, 3, 4, 5};
+        client.publishNamedObject(name, 0, 1000, std::move(data));
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+      }
     }
 
-
     std::this_thread::sleep_for(std::chrono::seconds(100));
-
 
   } else {
     // do subscribe

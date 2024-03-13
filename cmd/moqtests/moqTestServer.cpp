@@ -166,7 +166,13 @@ public:
 
     // TODO: verify if there are already active subscribers to
     // decide trackId value
-    announced_namespaces[quicr_namespace] = std::nullopt;
+    announced_namespaces[quicr_namespace] = publisher_id;
+    for(auto& sub_ns: subscribed_namespaces) {
+        if(quicr_namespace.contains(sub_ns)) {
+            auto intent = quicr::SubscribeIntent{.mode = quicr::SubscribeIntent::Mode::immediate};
+            server->subscribe(quicr_namespace, intent, quicr::TransportMode::ReliablePerObject);
+        }
+    }
   };
 
   void onPublishIntentEnd(const quicr::Namespace& /* quicr_namespace */,
@@ -221,13 +227,14 @@ public:
                 .subscribe_id = subscription_id,
                 .conn_id = conn_id,
         };
-        subscribeList.add(quicr_namespace.name(), quicr_namespace.length(), remote);
+        subscribeList.add(quicr_namespace, quicr_namespace.length(), remote);
 
         // TODO(trigaux): Move logic into quicr::Server
         auto result = quicr::SubscribeResult{
                 quicr::SubscribeResult::SubscribeStatus::Ok, "", {}, {}
         };
         server->subscribeResponse(subscription_id, conn_id, quicr_namespace, result);
+        subscribed_namespaces.push_back(quicr_namespace);
 
         // request upstream for the data by subscribing to it
         auto intent = quicr::SubscribeIntent{.mode = quicr::SubscribeIntent::Mode::immediate};
@@ -244,7 +251,6 @@ public:
     const auto list = subscribeList.find(name);
 
     for (auto dest : list) {
-
       server->sendNamedObject(dest.subscribe_id, dest.conn_id, std::move(object));
     }
 
@@ -268,11 +274,12 @@ private:
   std::shared_ptr<qtransport::ITransport> transport;
 
   std::set<uint64_t> subscribers = {};
+  std::list<quicr::Namespace> subscribed_namespaces {};
   Subscriptions subscribeList;
 
   quicr::messages::TrackAlias next_track_id = 0;
   // namespace available for publishing
-  std::map<quicr::Namespace, std::optional<quicr::messages::TrackAlias>> announced_namespaces {};
+  std::map<quicr::Namespace, std::optional<uint64_t>> announced_namespaces {};
 };
 
 int

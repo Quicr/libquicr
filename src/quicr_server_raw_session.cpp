@@ -217,6 +217,10 @@ ServerRawSession::publishIntentResponse(const quicr::Namespace& quicr_namespace,
   transport->enqueue(announce_info.transport_context.transport_conn_id,
                      announce_info.transport_context.transport_data_ctx_id,
                      msg.take());
+
+  // trigger subscriptions for this announce
+
+
 }
 
 void
