@@ -194,26 +194,34 @@ main(int argc, char* argv[])
   }
 
   if (!data.empty()) {
-    auto nspace = quicr::Namespace(name, 96);
-    logger->info << "Publish Intent for name: " << name
-                 << " == namespace: " << nspace << std::flush;
 
     auto promise = std::promise<bool>();
     auto future = promise.get_future();
 
     auto pd = std::make_shared<pubDelegate>(logger, client, std::move(promise));
-    client.publishIntent(pd, nspace, {}, {}, {}, quicr::TransportMode::ReliablePerObject);
+    client.publishIntent(pd, ns, {}, {}, {}, quicr::TransportMode::ReliablePerObject);
 
     auto sd = std::make_shared<subDelegate>(logger);
 
     std::this_thread::sleep_for(std::chrono::seconds(1));
     const auto success = future.get();
     if (success) {
+      constexpr quicr::Name Group_ID_Mask = ~(~0x0_name << 32) << 16;
+      constexpr quicr::Name Object_ID_Mask = ~(~0x0_name << 16);
+      uint64_t  group_id = 0xABCD;
+      uint64_t object_id = 0;
+
+
+      auto object_name = (0x0_name | group_id) << 16 | (name & ~Group_ID_Mask);
+      object_name &= ~Object_ID_Mask;
+
       logger->info << "App: Publishing Data now" << std::flush;
-      for (int i =0; i < 10; i++) {
+      for (int i =0; i < 1000; i++) {
+        object_name = (0x0_name | ++object_id) | (object_name & ~Object_ID_Mask);
         auto data = quicr::bytes{1, 2, 3, 4, 5};
-        client.publishNamedObject(name, 0, 1000, std::move(data));
-        std::this_thread::sleep_for(std::chrono::seconds(10));
+        client.publishNamedObject(object_name, 0, 1000, std::move(data));
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        object_id++;
       }
     }
 
