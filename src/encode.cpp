@@ -203,6 +203,7 @@ operator<<(MessageBuffer& buffer, const Subscribe& msg)
   buffer << msg.quicr_namespace;
   buffer << static_cast<uint8_t>(msg.intent);
   buffer << static_cast<uint8_t>(msg.transport_mode);
+  buffer << msg.remote_data_ctx_id;
 
   return buffer;
 }
@@ -225,6 +226,7 @@ operator>>(MessageBuffer& buffer, Subscribe& msg)
   uint8_t transport_mode = 0;
   buffer >> transport_mode;
   msg.transport_mode = static_cast<TransportMode>(transport_mode);
+  buffer >> msg.remote_data_ctx_id;
 
   return buffer;
 }
@@ -368,6 +370,7 @@ operator<<(MessageBuffer& buffer, const PublishIntentResponse& msg)
   buffer << msg.quicr_namespace;
   buffer << static_cast<uint8_t>(msg.response);
   buffer << msg.transaction_id;
+  buffer << msg.remote_data_ctx_id;
 
   return buffer;
 }
@@ -386,6 +389,7 @@ operator>>(MessageBuffer& buffer, PublishIntentResponse& msg)
   msg.response = static_cast<Response>(response);
 
   buffer >> msg.transaction_id;
+  buffer >> msg.remote_data_ctx_id;
 
   return buffer;
 }

@@ -215,6 +215,7 @@ private:
                                                         ///    first object using the object's priority
     bool transport_mode_follow_publisher {false};       /// Indicates if transport mode should be updated based on pub
     qtransport::DataContextId data_ctx_id {0};          /// Data context ID used for sending objects based on subscribe
+    qtransport::DataContextId remote_data_ctx_id {0};   /// Remote data context ID to add to data header
     uint8_t priority { 126 };                           /// Priority used for sending subscribed objects
 
     bool paused { false };                              /// Indicates if objects should not be sent (e.g., paused)
@@ -230,6 +231,8 @@ private:
     uint64_t transaction_id{ 0 };
     uint64_t prev_group_id{ 0 };
     uint64_t prev_object_id{ 0 };
+
+    qtransport::DataContextId data_ctx_id {0};
   };
 
   std::shared_ptr<ServerDelegate> delegate;

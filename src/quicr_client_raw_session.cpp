@@ -277,7 +277,7 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
   pub_delegates[quicr_namespace] = std::move(pub_delegate);
 
   const auto& conn_id = transport_conn_id.value();
-  auto data_ctx_id = get_data_ctx_id(conn_id, transport_mode, priority);
+  auto data_ctx_id = get_or_create_data_ctx_id(conn_id, transport_mode, priority);
 
   logger->info << "Publish Intent ns: " << quicr_namespace
                << " data_ctx_id: " << data_ctx_id
@@ -372,7 +372,7 @@ ClientRawSession::subscribe(
     subscribe_state[quicr_namespace] = SubscribeContext{
       .state = SubscriptionState::Pending,
       .transport_conn_id = conn_id,
-      .transport_data_ctx_id = 0,
+      .transport_data_ctx_id = get_or_create_data_ctx_id(conn_id, transport_mode, priority),
       .transport_mode = transport_mode,
       .transaction_id = transaction_id,
     };
@@ -381,6 +381,7 @@ ClientRawSession::subscribe(
   // We allow duplicate subscriptions, so we always send
   const auto sub_it = subscribe_state.find(quicr_namespace);
   if (sub_it == subscribe_state.end()) {
+    // TODO(tievens): Should never hit this, but probably should erase sub_delegate if we do hit this
     return;
   }
 
@@ -403,7 +404,8 @@ ClientRawSession::subscribe(
 
   auto msg = messages::MessageBuffer{ sizeof(messages::Subscribe) };
   const auto subscribe =
-    messages::Subscribe{ 0x1, transaction_id, quicr_namespace, intent, transport_mode };
+    messages::Subscribe{ 0x1, transaction_id, quicr_namespace, intent,
+                         transport_mode, sub_it->second.transport_data_ctx_id };
   msg << subscribe;
 
   transport->enqueue(conn_id, *transport_ctrl_data_ctx_id, msg.take());
@@ -489,6 +491,8 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
   switch (context.transport_mode) {
     case TransportMode::ReliablePerGroup: {
+      eflags.use_reliable = true;
+
       if (context.group_id && context.group_id != prev_group_id) {
         eflags.new_stream = true;
         eflags.use_reset = true;
@@ -498,14 +502,18 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
     }
 
     case TransportMode::ReliablePerObject: {
+      eflags.use_reliable = true;
       eflags.new_stream = true;
       break;
     }
 
     case TransportMode::ReliablePerTrack:
-      [[fallthrough]];
+      eflags.use_reliable = true;
+      break;
+
     case TransportMode::Unreliable:
-      [[fallthrough]];
+      break;
+
     default:
       break;
   }
@@ -525,10 +533,6 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
     // No fragmenting needed
     transport->enqueue(context.transport_conn_id, context.transport_data_ctx_id, msg.take(), std::move(trace),
                        priority, expiry_age_ms, 0, eflags);
-
-
-
-
   } else {
     // Fragments required. At this point this only counts whole blocks
     auto frag_num = data.size() / quicr::max_transport_data_size;
@@ -537,15 +541,9 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
     auto offset = size_t(0);
 
-    const auto objs_per_ms = frag_num / 30 + 1;
+    const auto objs_per_ms = frag_num / 20 + 1;
     uint32_t objs_per_ms_sent = 0;
     uint32_t pop_delay_ms = 0;
-
-    // logger->info << "Frags: " << frag_num
-    //              << " size: " << data.size()
-    //              << " objs_per_ms: " << objs_per_ms
-    //              << std::flush;
-
 
     trace.push_back({"libquicr:publishNamedObject:afterEnqueue:Frags", trace_start_time});
 
@@ -627,7 +625,7 @@ ClientRawSession::publishNamedObjectFragment(
 // Internal Helper Methods
 /*===========================================================================*/
 
-qtransport::DataContextId ClientRawSession::get_data_ctx_id(
+qtransport::DataContextId ClientRawSession::get_or_create_data_ctx_id(
   const qtransport::TransportConnId conn_id, const TransportMode transport_mode, const uint8_t priority) {
 
   switch (transport_mode) {
@@ -857,11 +855,19 @@ ClientRawSession::handle(messages::MessageBuffer&& msg)
         break;
       }
 
+    // Update/set the remote data context ID
+    ps_it->second.remote_data_ctx_id = response.remote_data_ctx_id;
+    transport->setRemoteDataCtxId(ps_it->second.transport_conn_id, ps_it->second.transport_data_ctx_id,
+                                  response.remote_data_ctx_id);
 
       if (ps_it->second.state != PublishContext::State::Ready) {
-        logger->info << "Publish intent ready for ns: " << response.quicr_namespace << std::flush;
+        logger->info << "Publish intent ready for ns: " << response.quicr_namespace
+                     << " data_ctx_id: " << ps_it->second.transport_data_ctx_id
+                     << " remote_data_ctx_id: " << ps_it->second.remote_data_ctx_id
+                     << std::flush;
         ps_it->second.state = PublishContext::State::Ready;
       }
+
 
       if (const auto& delegate = pub_delegates[response.quicr_namespace]) {
         const auto result = PublishIntentResult{

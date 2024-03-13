@@ -110,11 +110,14 @@ ServerRawSession::publishIntentResponse(const quicr::Namespace& quicr_namespace,
 
   // TODO(trigaux): Support more than one publisher per ns
   auto& context = publish_namespaces[quicr_namespace];
+
+
   const auto response = messages::PublishIntentResponse{
     messages::MessageType::PublishIntentResponse,
     quicr_namespace,
     result.status,
-    context.transaction_id
+    context.transaction_id,
+    context.data_ctx_id
   };
 
   messages::MessageBuffer msg(sizeof(response));
@@ -124,6 +127,10 @@ ServerRawSession::publishIntentResponse(const quicr::Namespace& quicr_namespace,
 
   const auto& conn_ctx = _connections[context.transport_conn_id];
 
+  logger->info << "Sending publish intent response ns: " << quicr_namespace
+               << " conn_id: " << context.transport_conn_id
+               << " data_ctx_id: " << context.data_ctx_id
+               << std::flush;
   transport->enqueue(context.transport_conn_id, conn_ctx.ctrl_data_ctx_id, msg.take());
 }
 
@@ -205,12 +212,16 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
 
 
   if (context->pending_reliable_data_ctx) {
-    logger->info << "Starting new data context for subscriber_id: " << subscriber_id
-                 << " replacing data_ctx_id: " << context->data_ctx_id << std::flush;
 
     context->priority = priority;
     context->pending_reliable_data_ctx = false;
     context->data_ctx_id = transport->createDataContext(context->transport_conn_id, true, priority, false);
+    transport->setRemoteDataCtxId(context->transport_conn_id, context->data_ctx_id, context->remote_data_ctx_id);
+
+    logger->info << "Starting new data context for subscriber_id: " << subscriber_id
+                 << " remote_data_ctx_id: " << context->remote_data_ctx_id
+                 << " new data_ctx_id: " << context->data_ctx_id << std::flush;
+
   }
 
   if (context->priority != priority) {
@@ -223,6 +234,8 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
     case TransportMode::ReliablePerGroup: {
       uint64_t group_id = datagram.header.name.bits<uint64_t>(16, 32);
 
+      eflags.use_reliable = true;
+
       if (context->group_id && context->group_id != group_id) {
         eflags.new_stream = true;
         eflags.use_reset = true;
@@ -234,14 +247,18 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
     }
 
     case TransportMode::ReliablePerObject: {
+      eflags.use_reliable = true;
       eflags.new_stream = true;
       break;
     }
 
     case TransportMode::ReliablePerTrack:
-      [[fallthrough]];
+      eflags.use_reliable = true;
+      break;
+
     case TransportMode::Unreliable:
-      [[fallthrough]];
+      break;
+
     default:
       break;
   }
@@ -293,6 +310,7 @@ ServerRawSession::handle_subscribe(
   context->transport_conn_id = conn_id;
   context->subscriber_id = ++_subscriber_id;
   context->transport_mode = subscribe.transport_mode;
+  context->remote_data_ctx_id = subscribe.remote_data_ctx_id;
 
   subscribe_id_state[context->subscriber_id] = context;
 
@@ -308,12 +326,14 @@ ServerRawSession::handle_subscribe(
 
     case TransportMode::Unreliable: {
       context->data_ctx_id = transport->createDataContext(conn_id, false, context->priority, false);
+      transport->setRemoteDataCtxId(conn_id, context->data_ctx_id, context->remote_data_ctx_id);
       break;
     }
 
     case TransportMode::UsePublisher: {
       context->transport_mode_follow_publisher = true;
       context->data_ctx_id = transport->createDataContext(conn_id, true, context->priority, false);
+      transport->setRemoteDataCtxId(conn_id, context->data_ctx_id, context->remote_data_ctx_id);
       break;
     }
 
@@ -324,11 +344,11 @@ ServerRawSession::handle_subscribe(
       return;
   }
 
-   logger->debug << "New Subscribe conn_id: " << conn_id
-                 << " transport_mode: " << static_cast<int>(context->transport_mode)
-                 << " subscriber_id: " << context->subscriber_id
-                 << " pending_data_ctx: " << context->pending_reliable_data_ctx
-                 << std::flush;
+  logger->debug << "New Subscribe conn_id: " << conn_id
+                << " transport_mode: " << static_cast<int>(context->transport_mode)
+                << " subscriber_id: " << context->subscriber_id
+                << " pending_data_ctx: " << context->pending_reliable_data_ctx
+                << std::flush;
 
   delegate->onSubscribe(subscribe.quicr_namespace,
                         context->subscriber_id,
@@ -412,6 +432,9 @@ ServerRawSession::handle_publish_intent(
   ps_it->second.transport_conn_id = conn_id;
   ps_it->second.transport_mode = intent.transport_mode;
   ps_it->second.transaction_id = intent.transaction_id;
+  ps_it->second.data_ctx_id = transport->createDataContext(conn_id, false,
+                                                           2 /* TODO: Receive priority */, false);
+
 
   auto state = ps_it->second.state;
 
@@ -434,7 +457,7 @@ ServerRawSession::handle_publish_intent(
 
 void
 ServerRawSession::handle_publish_intent_end(
-  [[maybe_unused]] const qtransport::TransportConnId& conn_id,
+  const qtransport::TransportConnId& conn_id,
   [[maybe_unused]] const qtransport::DataContextId& data_ctx_id,
   messages::MessageBuffer&& msg)
 {
@@ -443,11 +466,15 @@ ServerRawSession::handle_publish_intent_end(
 
   const auto& ns = intent_end.quicr_namespace;
 
-  if (publish_namespaces.contains(ns)) {
+  const auto pub_it = publish_namespaces.find(intent_end.quicr_namespace);
+
+  if (pub_it == publish_namespaces.end()) {
     return;
   }
 
-  publish_namespaces.erase(ns);
+  transport->deleteDataContext(conn_id, pub_it->second.data_ctx_id);
+
+  publish_namespaces.erase(pub_it);
 
   delegate->onPublishIntentEnd(
     ns, "" /* intent_end.relay_token */, std::move(intent_end.payload));
@@ -524,7 +551,6 @@ ServerRawSession::TransportDelegate::on_new_connection(
 
   auto& conn_ctx = server._connections[conn_id];
   conn_ctx.conn_id = conn_id;
-  conn_ctx.ctrl_data_ctx_id = server.transport->createDataContext(conn_id, false, 0);
   conn_ctx.remote = remote;
 }
 

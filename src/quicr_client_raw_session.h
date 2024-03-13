@@ -241,8 +241,8 @@ protected:
   void removeSubscription(const quicr::Namespace& quicr_namespace,
                           const SubscribeResult::SubscribeStatus& reason);
 
-  qtransport::DataContextId get_data_ctx_id(const qtransport::TransportConnId conn_id,
-                                            const TransportMode transport_mode, const uint8_t priority);
+  qtransport::DataContextId get_or_create_data_ctx_id(const qtransport::TransportConnId conn_id,
+                                                      const TransportMode transport_mode, const uint8_t priority);
 
 
   bool connecting() const;
@@ -281,6 +281,7 @@ protected:
     uint64_t group_id{ 0 };
     uint64_t object_id{ 0 };
     uint64_t offset{ 0 };
+    qtransport::DataContextId remote_data_ctx_id {0};
   };
 
   bool has_shared_transport{ false };
