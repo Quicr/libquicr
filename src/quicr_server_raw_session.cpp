@@ -218,10 +218,11 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
     context->data_ctx_id = transport->createDataContext(context->transport_conn_id, true, priority, false);
     transport->setRemoteDataCtxId(context->transport_conn_id, context->data_ctx_id, context->remote_data_ctx_id);
 
-    logger->info << "Starting new data context for subscriber_id: " << subscriber_id
+    logger->info << "Creating new data context for subscriber_id: " << subscriber_id
+                 << " conn_id: " << context->transport_conn_id
                  << " remote_data_ctx_id: " << context->remote_data_ctx_id
-                 << " new data_ctx_id: " << context->data_ctx_id << std::flush;
-
+                 << " new data_ctx_id: " << context->data_ctx_id
+                 << std::flush;
   }
 
   if (context->priority != priority) {
