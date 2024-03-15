@@ -40,5 +40,11 @@ target_link_libraries(quicr
     PUBLIC
         quicr-transport
         qname)
+
+if(NOT LIBQUICR_WITHOUT_INFLUXDB)
+    target_link_libraries(quicr
+            PUBLIC
+            influxdb-cxx)
+endif()
 target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include)
 

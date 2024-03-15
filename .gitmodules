@@ -8,3 +8,9 @@
 [submodule "dependencies/qname"]
 	path = dependencies/qname
 	url = https://github.com/quicr/qname
+[submodule "dependencies/influxdb-cxx"]
+	path = dependencies/influxdb-cxx
+	url = https://github.com/offa/influxdb-cxx
+[submodule "dependencies/cpr"]
+	path = dependencies/cpr
+	url = https://github.com/libcpr/cpr
