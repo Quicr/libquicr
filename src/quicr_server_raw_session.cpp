@@ -69,7 +69,7 @@ ServerRawSession::ServerRawSession(const RelayInfo& relayInfo,
   transport = setupTransport(tconfig);
   transport->start();
   uri_convertor = uri_convertor_in;
-  enable_moq = tconfig.enable_moq;
+  enable_moq = true;
 }
 
 ServerRawSession::ServerRawSession(
@@ -310,9 +310,7 @@ ServerRawSession::sendNamedObject(const uint64_t &subscribe_id,
 
     transport->enqueue(info.transport_context.transport_conn_id,
                        info.transport_context.transport_data_ctx_id,
-                       msg.take(),
-                       object.priority,
-                       1000); // revisit
+                       msg.take()); // revisit
 
 }
 
@@ -382,8 +380,10 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
   transport->enqueue(context->transport_conn_id,
                      context->data_ctx_id,
                      msg.take(),
+                     {},
                      priority,
                      expiry_age_ms,
+                     0,
                      eflags);
 }
 
@@ -672,7 +672,7 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
 
             bool found = false;
             for(const auto& version: setup.supported_versions) {
-                if (version == 0x1) {
+                if (version == 0xff000003) {
                     found = true;
                     break;
                 }

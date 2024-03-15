@@ -102,7 +102,7 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
                                    const cantina::LoggerPointer& logger,
                                    std::shared_ptr<UriConvertor> uri_convertor_in)
   : logger(std::make_shared<cantina::Logger>("QSES", logger))
-    , enable_moq(tconfig.enable_moq)
+    , enable_moq(true)
     , uri_convertor(uri_convertor_in)
 {
   this->logger->Log("Initialize Client");
@@ -176,8 +176,8 @@ ClientRawSession::connect()
   // Create reliable bidirectional control stream
   transport_ctrl_data_ctx_id = transport->createDataContext(*transport_conn_id, true, 0, true);
 
-  auto setup = messages::MoqClientSetup {
-     .supported_versions = {0x1},
+    auto setup = messages::MoqClientSetup {
+     .supported_versions = {0xff000003},
   };
 
   messages::MessageBuffer msg{};
@@ -296,12 +296,20 @@ ClientRawSession::on_recv_notify(
     return;
   }
 
+  /*
+   * transport->readVarint(conn_id, data_ctx_id)
+   */
+
   for (int i = 0; i < 150; i++) {
     auto data = transport->dequeue(conn_id, data_ctx_id);
 
     if (!data.has_value()) {
       return;
     }
+
+    // got some bytes from the network
+    // get the StreamReader interface
+
 
     //      std::cout << "on_recv_notify: conn_id: " << conn_id
     //                << " data_ctx_id: " << data_ctx_id
@@ -643,9 +651,9 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       msg << object_msg;
       auto msg_bytes = msg.take();
       logger->info << "moqt:object: msg bytes " << to_hex(msg_bytes) << std::flush;
-      transport->enqueue(announce_info.transport_context.transport_conn_id,
+        transport->enqueue(announce_info.transport_context.transport_conn_id,
                          announce_info.transport_context.transport_data_ctx_id,
-                         std::move(msg_bytes), priority, expiry_age_ms, eflags);
+                         std::move(msg_bytes), {}, priority, expiry_age_ms, 0, eflags);
       return;
     }
 

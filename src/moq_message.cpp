@@ -47,7 +47,7 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator<<(MessageBuffer &buffer, const MoqSubscribe &msg) {
-        buffer << static_cast<uint8_t>(MESSAGE_TYPE_SUBSCRIBE);
+        buffer << static_cast<uintVar_t>(MESSAGE_TYPE_SUBSCRIBE);
         buffer << msg.subscribe_id;
         buffer << msg.track_alias;
         buffer << msg.track;
@@ -61,9 +61,9 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqSubscribe &msg) {
-        uint8_t msg_type;
+        uintVar_t msg_type {0};
         buffer >> msg_type;
-        if (msg_type != static_cast<uint8_t>(MESSAGE_TYPE_SUBSCRIBE)) {
+        if (msg_type != static_cast<uintVar_t>(MESSAGE_TYPE_SUBSCRIBE)) {
             throw MessageTypeException(msg_type, MessageType::Subscribe);
         }
         buffer >> msg.subscribe_id;
@@ -535,7 +535,7 @@ namespace quicr::messages {
         uintVar_t num_versions {0};
         buffer >> num_versions;
         msg.supported_versions.resize(num_versions);
-        for(int i = 0; i < num_versions; i++) {
+        for(size_t i = 0; i < num_versions; i++) {
             uintVar_t version{0};
             buffer >> version;
             msg.supported_versions.push_back(version);
@@ -543,7 +543,7 @@ namespace quicr::messages {
 
         uintVar_t num_params {0};
         buffer >> num_params;
-        for(int i = 0; i < num_params; i++) {
+        for(size_t i = 0; i < num_params; i++) {
             MoqParameter parameter;
             buffer >> parameter;
             msg.setup_parameters.push_back(parameter);

@@ -183,7 +183,6 @@ main(int argc, char* argv[])
   const auto tcfg = qtransport::TransportConfig{
     .tls_cert_filename = nullptr,
     .tls_key_filename = nullptr,
-    .enable_moq = true
   };
 
   quicr::Client client(relay, tcfg, logger, uri_convertor);

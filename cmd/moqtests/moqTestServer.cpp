@@ -311,7 +311,6 @@ main()
     const auto tcfg = qtransport::TransportConfig{
       .tls_cert_filename = "./cert.pem",
       .tls_key_filename = "./key.pem",
-      .enable_moq = true
     };
 
     auto logger = std::make_shared<cantina::Logger>("really");
