@@ -182,6 +182,7 @@ ClientRawSession::connect()
 
   messages::MessageBuffer msg{};
   msg << setup;
+  logger->info << "Client Setup: " << msg.to_hex() << std::flush;
   transport->enqueue(transport_conn_id.value(), transport_ctrl_data_ctx_id.value(), msg.take());
 
   auto future = setup_complete.get_future();

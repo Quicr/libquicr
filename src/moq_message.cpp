@@ -512,22 +512,43 @@ namespace quicr::messages {
     // Client Setup message
     MessageBuffer &
     operator<<(MessageBuffer &buffer, const MoqClientSetup &msg) {
-        buffer << static_cast<uint8_t>(MESSAGE_TYPE_CLIENT_SETUP);
-        buffer << msg.supported_versions;
+        buffer << static_cast<uintVar_t>(MESSAGE_TYPE_CLIENT_SETUP);
+        // versions
+        buffer << static_cast<uintVar_t>(msg.supported_versions.size());
+        for (const auto& ver: msg.supported_versions) {
+            buffer << static_cast<uintVar_t>(ver);
+        }
+
+        // parameters (0)
+        uintVar_t num_params {0};
+        buffer << num_params;
         return buffer;
     }
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqClientSetup &msg) {
-        uint8_t msg_type;
+        uintVar_t msg_type;
         buffer >> msg_type;
-        if (msg_type != MESSAGE_TYPE_CLIENT_SETUP) {
+        if (msg_type != (uintVar_t) MESSAGE_TYPE_CLIENT_SETUP) {
             throw MessageBuffer::ReadException("MoqClientSetup");
         }
-        buffer >> msg.supported_versions;
-        //auto params = std::vector<uint8_t>{};
-        //buffer >> params;
-        //msg.setup_parameters = std::move(static_cast<std::vector<uint8_t>>(params));
+        uintVar_t num_versions {0};
+        buffer >> num_versions;
+        msg.supported_versions.resize(num_versions);
+        for(int i = 0; i < num_versions; i++) {
+            uintVar_t version{0};
+            buffer >> version;
+            msg.supported_versions.push_back(version);
+        }
+
+        uintVar_t num_params {0};
+        buffer >> num_params;
+        for(int i = 0; i < num_params; i++) {
+            MoqParameter parameter;
+            buffer >> parameter;
+            msg.setup_parameters.push_back(parameter);
+        }
+
         return buffer;
     }
 
