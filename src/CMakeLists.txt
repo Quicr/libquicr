@@ -1,10 +1,18 @@
-add_library(quicr
-            message_buffer.cpp
-            encode.cpp
-            quicr_client.cpp
-            quicr_client_raw_session.cpp
-            quicr_server.cpp
-            quicr_server_raw_session.cpp)
+
+add_library(quicr)
+
+target_sources(quicr PRIVATE
+        message_buffer.cpp
+        encode.cpp
+        quicr_client.cpp
+        quicr_client_raw_session.cpp
+        quicr_server.cpp
+        quicr_server_raw_session.cpp
+)
+
+if(NOT LIBQUICR_WITHOUT_INFLUXDB)
+    target_sources(quicr PRIVATE metrics_exporter.cpp)
+endif()
 
 # Suppress external lib warnings
 set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)
@@ -43,8 +51,7 @@ target_link_libraries(quicr
 
 if(NOT LIBQUICR_WITHOUT_INFLUXDB)
     target_link_libraries(quicr
-            PUBLIC
-            influxdb-cxx)
+            PRIVATE InfluxData::InfluxDB)
 endif()
 target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include)
 

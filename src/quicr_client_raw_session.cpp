@@ -21,6 +21,7 @@
 #include "quicr/quicr_client.h"
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_common.h"
+#include "metrics_exporter.h"
 
 #include <chrono>
 #include <iterator>
@@ -66,6 +67,11 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
   const auto server = to_TransportRemote(relay_info);
   transport = qtransport::ITransport::make_client_transport(
     server, tconfig, *this, this->logger);
+
+  logger->info << "Starting metrics exporter" << std::flush;
+
+  MetricsExporter mexport(logger);
+  mexport.init("http://metrics.m10x.ctgpoc.com:8086", "cisco-cto-media10x");
 }
 
 ClientRawSession::ClientRawSession(
