@@ -3,10 +3,13 @@
 #include <quicr/moq_message_types.h>
 #include <quicr/message_buffer.h>
 #include <quicr/quicr_common.h>
+#include <quicr/uvarint.h>
+#include <quicr/encode.h>
 
 #include <memory>
 #include <sstream>
 #include <string>
+#include <iostream>
 
 using namespace quicr;
 using namespace quicr::messages;
@@ -59,7 +62,7 @@ TEST_CASE("Subscribe Message encode/decode")
     auto ns = "moq://" + ss.str();
     auto subscribe  = MoqSubscribe {
         .subscribe_id = 2,
-        .track_alias = 1,
+        .track_alias = 0x9d7f3e7d,
         .track = qnamespace.name(),
         .start_group = Location { .mode = LocationMode::Absolute, .value = 100},
         .start_object = Location {.mode = LocationMode::Absolute, .value = 0},
@@ -102,3 +105,44 @@ TEST_CASE("ObjectStream Message encode/decode")
     CHECK_EQ(object.payload.size(), object_out.payload.size());
 }
 
+
+struct A {
+  quicr::uintVar_t val;
+};
+
+MessageBuffer &
+operator<<(MessageBuffer &msg, const struct A &value) {
+    msg << value.val;
+    return msg;
+}
+
+MessageBuffer &
+operator>>(MessageBuffer &msg, struct A &value) {
+    struct A a {};
+    msg >> a.val;
+    value.val = a.val;
+    return msg;
+}
+
+TEST_CASE("QUIC Varint") {
+    A a;
+    a.val = 15293;
+
+    MessageBuffer buffer;
+    buffer << a;
+    A a_out;
+    buffer >> a_out;
+    CHECK_EQ(a.val, a_out.val);
+
+    //.start_group = Location { .mode = LocationMode::Absolute, .value = 100},
+    Location l_in = {
+       .mode = LocationMode::Absolute,
+       .value = 100,
+    };
+
+    buffer << l_in;
+    Location l_out;
+    buffer >> l_out;
+    CHECK_EQ(l_in.mode, l_out.mode);
+
+}

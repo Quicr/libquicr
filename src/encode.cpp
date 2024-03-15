@@ -4,6 +4,10 @@
 #include <random>
 #include <string>
 
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+
 #include <quicr/encode.h>
 
 using quicr::bytes;
@@ -81,86 +85,96 @@ operator>>(MessageBuffer& msg, Namespace& value)
   return msg;
 }
 
+// Adding it for MoQ support ( from picoquic)
+/*
+ * Summary of Integer Encodings
+ * 2Bit 	Length 	Usable Bits 	Range
+ * 00       1        6       0-63
+ * 01       2       14       0-16383
+ * 10       4       30       0-1073741823
+ * 11       8       62       0-4611686018427387903
+ */
+size_t picoquic_encode_varint_length(uint64_t n64)
+{
+  if (n64 < 16384) {
+    if (n64 < 64) {
+      return 1u;
+    } else {
+      return 2u;
+    }
+  } else {
+    if (n64 < 1073741824) {
+      return 4u;
+    } else {
+      return 8u;
+    }
+  }
+}
+
+static std::string
+to_hex(const std::vector<uint8_t> data)
+{
+  std::stringstream hex(std::ios_base::out);
+  hex.flags(std::ios::hex);
+  for (const auto& byte : data) {
+    hex << std::setw(2) << std::setfill('0') << int(byte);
+  }
+  return hex.str();
+}
+
 MessageBuffer&
 operator<<(MessageBuffer& msg, const uintVar_t& v)
 {
   // NOLINTBEGIN(hicpp-signed-bitwise)
-  const auto val = uint64_t(v);
+  const auto n64 = uint64_t(v);
 
-  if (val < ((uint64_t)1 << 7)) {
-    msg.push(uint8_t(((val >> 0) & 0x7F)) | 0x00);
+  if (n64 < 16384) {
+    if (n64 < 64) {
+      msg.push(n64);
+      return msg;
+    } else {
+      msg.push((uint8_t)((n64 >> 8) | 0x40));
+      msg.push((uint8_t) n64);
+      return msg;
+    }
+  } else if (n64 < 1073741824) {
+    msg.push((uint8_t)((n64 >> 24) | 0x80));
+    msg.push((uint8_t)(n64 >> 16));
+    msg.push((uint8_t)(n64 >> 8));
+    msg.push((uint8_t)(n64));
+    return msg;
+  } else {
+    msg.push((uint8_t)((n64 >> 56) | 0xC0));
+    msg.push((uint8_t)(n64 >> 48));
+    msg.push((uint8_t)(n64 >> 40));
+    msg.push((uint8_t)(n64 >> 32));
+    msg.push((uint8_t)(n64 >> 24));
+    msg.push((uint8_t)(n64 >> 16));
+    msg.push((uint8_t)(n64 >> 8));
+    msg.push((uint8_t)(n64));
+    std::cout << msg.to_hex() << std::flush;
     return msg;
   }
-
-  if (val < ((uint64_t)1 << 14)) {
-    msg.push(uint8_t(((val >> 8) & 0x3F) | 0x80));
-    msg.push(uint8_t((val >> 0) & 0xFF));
-    return msg;
-  }
-
-  if (val < ((uint64_t)1 << 29)) {
-    msg.push(uint8_t(((val >> 24) & 0x1F) | 0x80 | 0x40));
-    msg.push(uint8_t((val >> 16) & 0xFF));
-    msg.push(uint8_t((val >> 8) & 0xFF));
-    msg.push(uint8_t((val >> 0) & 0xFF));
-    return msg;
-  }
-
-  msg.push(uint8_t(((val >> 56) & 0x0F) | 0x80 | 0x40 | 0x20));
-  msg.push(uint8_t((val >> 48) & 0xFF));
-  msg.push(uint8_t((val >> 40) & 0xFF));
-  msg.push(uint8_t((val >> 32) & 0xFF));
-  msg.push(uint8_t((val >> 24) & 0xFF));
-  msg.push(uint8_t((val >> 16) & 0xFF));
-  msg.push(uint8_t((val >> 8) & 0xFF));
-  msg.push(uint8_t((val >> 0) & 0xFF));
-
-  return msg;
   // NOLINTEND(hicpp-signed-bitwise)
 }
 
 MessageBuffer&
-operator>>(MessageBuffer& msg, uintVar_t& v)
-{
+operator>>(MessageBuffer& msg, uintVar_t& v){
+
+  size_t length = 0;
   // NOLINTBEGIN(hicpp-signed-bitwise)
-  auto byte = std::array<uint8_t, 8>{ 0, 0, 0, 0, 0, 0, 0, 0 };
-  const auto first = msg.front();
-
-  if ((first & (0x80)) == 0) {
-    msg >> byte[0];
-    v = ((byte[0] & 0x7F) << 0);
-    return msg;
+  uint8_t byte = 0;
+  msg >> byte;
+  length = ((size_t)1) << ((byte & 0xC0) >> 6);
+  uint64_t val = byte & 0x3F;
+  for (size_t i = 1; i < length; i++) {
+    msg >> byte;
+    val <<= 8;
+    val += byte;
   }
 
-  if ((first & (0x80 | 0x40)) == 0x80) {
-    msg >> byte[1];
-    msg >> byte[0];
-    v = ((uint16_t(byte[1]) & 0x3F) << 8) + (uint16_t(byte[0]) << 0);
-    return msg;
-  }
+  v = uintVar_t(val);
 
-  if ((first & (0x80 | 0x40 | 0x20)) == (0x80 | 0x40)) {
-    msg >> byte[3];
-    msg >> byte[2];
-    msg >> byte[1];
-    msg >> byte[0];
-    v = ((uint32_t)(byte[3] & 0x1F) << 24) + ((uint32_t)byte[2] << 16) +
-        ((uint32_t)byte[1] << 8) + ((uint32_t)byte[0] << 0);
-    return msg;
-  }
-
-  msg >> byte[7];
-  msg >> byte[6];
-  msg >> byte[5];
-  msg >> byte[4];
-  msg >> byte[3];
-  msg >> byte[2];
-  msg >> byte[1];
-  msg >> byte[0];
-  v = ((uint64_t)(byte[7] & 0x0F) << 56) + ((uint64_t)(byte[6]) << 48) +
-      ((uint64_t)(byte[5]) << 40) + ((uint64_t)(byte[4]) << 32) +
-      ((uint64_t)(byte[3]) << 24) + ((uint64_t)(byte[2]) << 16) +
-      ((uint64_t)(byte[1]) << 8) + ((uint64_t)(byte[0]) << 0);
   return msg;
   // NOLINTEND(hicpp-signed-bitwise)
 }

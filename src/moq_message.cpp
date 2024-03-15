@@ -38,6 +38,7 @@ namespace quicr::messages {
     MessageBuffer& operator>>(MessageBuffer &buffer, Location &msg) {
         uint8_t mode {0};
         buffer >> mode;
+        msg.mode = static_cast<LocationMode>(mode);
         if (static_cast<LocationMode>(mode) != LocationMode::None) {
             buffer >> msg.value;
         }
