@@ -656,16 +656,21 @@ void
 ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
                              const qtransport::DataContextId& data_ctx_id,
                              bool is_bidir,
-                             std::vector<uint8_t>&& data) {
+                             messages::MessageBuffer& buffer) {
 
-    auto msg_type = static_cast<uint8_t>(data.front());
-    logger->info << "moqt: MessageType: " << (uint8_t) msg_type << std::flush;
-    messages::MessageBuffer msg{ data };
+    logger->info << "HandleMoQ: Got Message: Hex" << buffer.to_hex() << std::flush;
+    uintVar_t msg_type {0};
+    buffer >> msg_type;
+    logger->info << "moqt:Handle: Conn: " << conn_id
+                 << ", data_ctx: " << data_ctx_id
+                 << " MessageType: " << msg_type
+                 << std::flush;
+
     switch (msg_type) {
         case messages::MESSAGE_TYPE_CLIENT_SETUP: {
             logger->info << "moqt:client setup " << std::flush;
             auto setup = messages::MoqClientSetup{};
-            msg >> setup;
+            buffer >> setup;
             if (setup.supported_versions.empty()) {
                 throw std::runtime_error("Client Setup Versions Malformed !!");
             }
@@ -684,13 +689,14 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
 
             // send server setup
             auto server_setup = messages::MoqServerSetup{
-               .supported_version = 0x1,
+               .supported_version = 0xff000003,
                .setup_parameters = {}
             };
             logger->info << "moqt:sending server setup on " << conn_id << std::flush;
-            messages::MessageBuffer msg;
-            msg << server_setup;
-            transport->enqueue(conn_id, data_ctx_id, std::move(msg.take()));
+            messages::MessageBuffer server_msg;
+            server_msg << server_setup;
+            logger->info << "moqt:server_setup hex:" << server_msg.to_hex() << std::flush;
+            transport->enqueue(conn_id, data_ctx_id, std::move(server_msg.take()));
         }
         break;
         case messages::MESSAGE_TYPE_SUBSCRIBE: {
@@ -702,7 +708,7 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
             recv_subscribes++;
 
             auto subscribe = messages::MoqSubscribe{};
-            msg >> subscribe;
+            buffer >> subscribe;
 
             // track uri to quicr::namespace
             auto quicr_namespace = uri_convertor->to_quicr_namespace(subscribe.track);
@@ -758,7 +764,7 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
         break;
         case messages::MESSAGE_TYPE_SUBSCRIBE_OK: {
             auto subscribe_ok = messages::MoqSubscribeOk{};
-            msg >> subscribe_ok;
+            buffer >> subscribe_ok;
             logger ->info << "moqt:subscribe_ok: id:" << subscribe_ok.subscribe_id
                           << ", expires:" << subscribe_ok.expires << std::flush;
             const auto result = SubscribeResult{ .status = SubscribeResult::SubscribeStatus::Ok,
@@ -776,7 +782,7 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
         }
         case messages::MESSAGE_TYPE_ANNOUNCE: {
             messages::MoqAnnounce announce;
-            msg >> announce;
+            buffer >> announce;
             auto qns = uri_convertor->to_quicr_namespace(announce.track_namespace);
             logger->info << "moqt:announce: track_namespace "
                          << announce.track_namespace
@@ -814,7 +820,7 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
         break;
         case messages::MESSAGE_TYPE_OBJECT_STREAM: {
             messages::MoqObjectStream object {};
-            msg >> object;
+            buffer >> object;
             logger->info << "moqt:objectStream: SubscribeId" << object.subscribe_id << std::flush;
             // check if there is active subscriptions
             if (!subscriptions.contains(object.subscribe_id) || !subscriptions[object.subscribe_id].contains(conn_id)) {
@@ -863,85 +869,96 @@ ServerRawSession::TransportDelegate::on_recv_notify(const qtransport::TransportC
   for (int i = 0; i < 150; i++) {
     auto data = server.transport->dequeue(conn_id, data_ctx_id);
 
-    if (data.has_value() && data.value().size() > 0) {
-      server.recv_data_count++;
-      try {
-        if(server.is_moq_enabled()) {
-          return server.handle_moq(conn_id, data_ctx_id, is_bidir, std::move(data.value()));
-        }
 
-        auto msg_type = static_cast<messages::MessageType>(data->front());
-        messages::MessageBuffer msg_buffer{ data.value() };
-
-        switch (msg_type) {
-          case messages::MessageType::Subscribe: {
-              if (is_bidir) {
-                auto& conn_ctx = server._connections[conn_id];
-                conn_ctx.ctrl_data_ctx_id = data_ctx_id;
-              }
-
-              server.recv_subscribes++;
-              server.handle_subscribe(
-                conn_id, data_ctx_id, std::move(msg_buffer));
-              break;
-          }
-          case messages::MessageType::Publish: {
-              if (is_bidir) {
-                auto& conn_ctx = server._connections[conn_id];
-                conn_ctx.ctrl_data_ctx_id = data_ctx_id;
-              }
-            server.recv_publish++;
-            server.handle_publish(conn_id, data_ctx_id, std::move(msg_buffer));
-            break;
-          }
-          case messages::MessageType::Unsubscribe: {
-            server.recv_unsubscribes++;
-            server.handle_unsubscribe(
-              conn_id, data_ctx_id, std::move(msg_buffer));
-            break;
-          }
-          case messages::MessageType::PublishIntent: {
-              if (is_bidir) {
-                auto& conn_ctx = server._connections[conn_id];
-                conn_ctx.ctrl_data_ctx_id = data_ctx_id;
-              }
-            server.recv_pub_intents++;
-            server.handle_publish_intent(
-              conn_id, data_ctx_id, std::move(msg_buffer));
-            break;
-          }
-          case messages::MessageType::PublishIntentEnd: {
-            server.handle_publish_intent_end(
-              conn_id, data_ctx_id, std::move(msg_buffer));
-            break;
-          }
-          default:
-            server.logger->Log("Invalid Message Type");
-            break;
-        }
-      } catch (const messages::MessageBuffer::ReadException& ex) {
-
-        // TODO(trigaux): When reliable, we really should reset the stream if
-        // this happens (at least more than once)
-        server.logger->critical
-          << "Received read exception error while reading from message buffer: "
-          << ex.what() << std::flush;
-        continue;
-
-      } catch (const std::exception& /* ex */) {
-        server.logger->Log(cantina::LogLevel::Critical,
-                           "Received standard exception error while reading "
-                           "from message buffer");
-        continue;
-      } catch (...) {
-        server.logger->Log(
-          cantina::LogLevel::Critical,
-          "Received unknown error while reading from message buffer");
-        continue;
-      }
-    } else {
-      break;
+    if (!data.has_value() || data.value().size() == 0) {
+        break;
     }
+
+    if (!server.data_stream.contains(data_ctx_id)) {
+      // seeing data on this namespace first time
+      server.data_stream.emplace(data_ctx_id, messages::MessageBuffer{});
+    }
+
+    auto msg_buffer = server.data_stream.at(data_ctx_id);
+    msg_buffer.push(data.value());
+
+    server.recv_data_count++;
+
+    try {
+      if(server.is_moq_enabled()) {
+        return server.handle_moq(conn_id, data_ctx_id, is_bidir, msg_buffer);
+      }
+
+    auto msg_type = static_cast<messages::MessageType>(data->front());
+    messages::MessageBuffer msg_buffer{ data.value() };
+
+    switch (msg_type) {
+      case messages::MessageType::Subscribe: {
+          if (is_bidir) {
+            auto& conn_ctx = server._connections[conn_id];
+            conn_ctx.ctrl_data_ctx_id = data_ctx_id;
+          }
+
+          server.recv_subscribes++;
+          server.handle_subscribe(
+            conn_id, data_ctx_id, std::move(msg_buffer));
+          break;
+      }
+      case messages::MessageType::Publish: {
+          if (is_bidir) {
+            auto& conn_ctx = server._connections[conn_id];
+            conn_ctx.ctrl_data_ctx_id = data_ctx_id;
+          }
+        server.recv_publish++;
+        server.handle_publish(conn_id, data_ctx_id, std::move(msg_buffer));
+        break;
+      }
+      case messages::MessageType::Unsubscribe: {
+        server.recv_unsubscribes++;
+        server.handle_unsubscribe(
+          conn_id, data_ctx_id, std::move(msg_buffer));
+        break;
+      }
+      case messages::MessageType::PublishIntent: {
+          if (is_bidir) {
+            auto& conn_ctx = server._connections[conn_id];
+            conn_ctx.ctrl_data_ctx_id = data_ctx_id;
+          }
+        server.recv_pub_intents++;
+        server.handle_publish_intent(
+          conn_id, data_ctx_id, std::move(msg_buffer));
+        break;
+      }
+      case messages::MessageType::PublishIntentEnd: {
+        server.handle_publish_intent_end(
+          conn_id, data_ctx_id, std::move(msg_buffer));
+        break;
+      }
+      default:
+        server.logger->Log("Invalid Message Type");
+        break;
+    }
+  } catch (const messages::MessageBuffer::ReadException& ex) {
+
+    // TODO(trigaux): When reliable, we really should reset the stream if
+    // this happens (at least more than once)
+    server.logger->critical
+      << "Received read exception error while reading from message buffer: "
+      << ex.what() << std::flush;
+    continue;
+
+  } catch (const std::exception& /* ex */) {
+    server.logger->Log(cantina::LogLevel::Critical,
+                       "Received standard exception error while reading "
+                       "from message buffer");
+    continue;
+  } catch (...) {
+    server.logger->Log(
+      cantina::LogLevel::Critical,
+      "Received unknown error while reading from message buffer");
+    continue;
+  }
+
   }
 }
 

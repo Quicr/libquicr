@@ -307,6 +307,19 @@ ClientRawSession::on_recv_notify(
       return;
     }
 
+
+    if (!data_stream.contains(data_ctx_id)) {
+      // seeing data on this namespace first time
+      data_stream.emplace(data_ctx_id, messages::MessageBuffer{});
+    }
+
+    auto& msg_buffer = data_stream.at(data_ctx_id);
+    logger->info << "moqt:on_recv_notify: data_ctx: " << data_ctx_id
+                 << ", bytes in buffer(before):" << msg_buffer.size() << std::flush;
+    msg_buffer.push(data.value());
+    logger->info << "moqt:on_recv_notify: data_ctx: " << data_ctx_id
+                 << ", bytes in buffer(after):" << msg_buffer.size() << std::flush;
+
     // got some bytes from the network
     // get the StreamReader interface
 
@@ -315,10 +328,9 @@ ClientRawSession::on_recv_notify(
     //                << " data_ctx_id: " << data_ctx_id
     //                << " data sz: " << data.value().size() << std::endl;
 
-    messages::MessageBuffer msg_buffer{ data.value() };
 
     try {
-      handle(std::move(msg_buffer));
+      handle(msg_buffer);
     } catch (const std::exception& e) {
       LOGGER_DEBUG(logger, "Dropping malformed message: " << e.what());
       return;
@@ -876,16 +888,18 @@ ClientRawSession::handle_pub_fragment(
 }
 
 void
-ClientRawSession::handle_moq(messages::MessageBuffer &&msg) {
-    auto msg_type = static_cast<uint8_t>(msg.front());
-    logger->info << "HandleMoQ: Got Message:" << (uint8_t ) msg_type << std::flush;
+ClientRawSession::handle_moq(messages::MessageBuffer &buffer) {
+    logger->info << "HandleMoQ: Got Message:" << buffer.to_hex() << std::flush;
+    uintVar_t msg_type {0};
+    buffer >> msg_type;
+    logger->info << "HandleMoQ: Got Message:" << msg_type << std::flush;
 
     switch (msg_type) {
         case messages::MESSAGE_TYPE_SERVER_SETUP:
         {
             auto setup = messages::MoqServerSetup{};
-            msg >> setup;
-            if (static_cast<uint32_t>(setup.supported_version) != 0x1) {
+            buffer >> setup;
+            if (static_cast<uint32_t>(setup.supported_version) != 0xff000003) {
                 throw std::runtime_error("Server Selection Version Error");
             }
 
@@ -896,7 +910,7 @@ ClientRawSession::handle_moq(messages::MessageBuffer &&msg) {
         break;
       case messages::MESSAGE_TYPE_SUBSCRIBE: {
         auto subscribe = messages::MoqSubscribe{};
-        msg >> subscribe;
+        buffer >> subscribe;
         // track uri to quicr::namespace
         auto quicr_namespace = uri_convertor->to_quicr_namespace(subscribe.track);
 
@@ -970,7 +984,7 @@ ClientRawSession::handle_moq(messages::MessageBuffer &&msg) {
 
       case messages::MESSAGE_TYPE_SUBSCRIBE_OK: {
           auto subscribe_ok = messages::MoqSubscribeOk{};
-          msg >> subscribe_ok;
+          buffer >> subscribe_ok;
           logger ->info << "moqt:subscribe_ok: id:" << subscribe_ok.subscribe_id
                         << ", expires:" << subscribe_ok.expires << std::flush;
           const auto result = SubscribeResult{ .status = SubscribeResult::SubscribeStatus::Ok,
@@ -997,7 +1011,7 @@ ClientRawSession::handle_moq(messages::MessageBuffer &&msg) {
 
       case messages::MESSAGE_TYPE_ANNOUNCE_OK: {
           auto announce_ok = messages::MoqAnnounceOk{};
-          msg >> announce_ok;
+          buffer >> announce_ok;
           auto qns = uri_convertor->to_quicr_namespace(announce_ok.track_namespace);
           if (!announce_delegates.contains(qns)) {
               std::cout
@@ -1030,7 +1044,7 @@ ClientRawSession::handle_moq(messages::MessageBuffer &&msg) {
 
       case messages::MESSAGE_TYPE_OBJECT_STREAM: {
           auto object = messages::MoqObjectStream{};
-          msg >> object;
+          buffer >> object;
           logger->info <<"moqt:objectstream" << std::flush;
           quicr::Name synth_name = (0x0_name | object.group_id) << 16 | (synth_name & ~Group_ID_Mask);
           synth_name = (0x0_name | object.object_id) | (synth_name & ~Object_ID_Mask);
@@ -1056,15 +1070,14 @@ ClientRawSession::handle_moq(messages::MessageBuffer &&msg) {
 }
 
 void
-ClientRawSession::handle(messages::MessageBuffer&& msg)
+ClientRawSession::handle(messages::MessageBuffer& msg)
 {
   if (msg.empty()) {
     std::cout << "Transport Reported Empty Data" << std::endl;
     return;
   }
-
   if (enable_moq) {
-      handle_moq(std::move(msg));
+      handle_moq(msg);
       return;
   }
 

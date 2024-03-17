@@ -231,9 +231,9 @@ protected:
   void handle_pub_fragment(messages::PublishDatagram&& datagram,
                            const std::shared_ptr<SubscriberDelegate>& delegate);
 
-  void handle(messages::MessageBuffer&& msg);
+  void handle(messages::MessageBuffer& msg);
 
-  void handle_moq(messages::MessageBuffer&& msg);
+  void handle_moq(messages::MessageBuffer& msg);
 
   void removeSubscription(const quicr::Namespace& quicr_namespace,
                           const SubscribeResult::SubscribeStatus& reason);
@@ -398,6 +398,9 @@ protected:
     std::map<messages::TrackAlias, SubscriptionInfo> subscriptions{};
 
     std::promise<bool> setup_complete {};
+
+    // stream of network bytes for a given data context
+    std::map<uint64_t, messages::MessageBuffer> data_stream {};
 };
 
 }

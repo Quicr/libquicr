@@ -146,3 +146,23 @@ TEST_CASE("QUIC Varint") {
     CHECK_EQ(l_in.mode, l_out.mode);
 
 }
+
+
+TEST_CASE("Server Setup encode/decode") {
+    auto msg_in = messages::MoqServerSetup{
+            .supported_version = 0xff000003,
+            .setup_parameters = {}
+    };
+
+    messages::MessageBuffer buffer;
+    buffer << msg_in;
+    messages::MoqServerSetup msg_out{};
+    buffer >> msg_out;
+
+    buffer << msg_in;
+    uintVar_t val;
+    buffer >> val;
+
+    CHECK_EQ(val, MESSAGE_TYPE_SERVER_SETUP);
+
+}

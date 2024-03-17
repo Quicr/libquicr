@@ -61,11 +61,6 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqSubscribe &msg) {
-        uintVar_t msg_type {0};
-        buffer >> msg_type;
-        if (msg_type != static_cast<uintVar_t>(MESSAGE_TYPE_SUBSCRIBE)) {
-            throw MessageTypeException(msg_type, MessageType::Subscribe);
-        }
         buffer >> msg.subscribe_id;
         buffer >> msg.track_alias;
         buffer >> msg.track;
@@ -86,11 +81,6 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqUnsubscribe &msg) {
-        uint8_t msg_type;
-        buffer >> msg_type;
-        if (msg_type != static_cast<uint8_t>(MESSAGE_TYPE_UNSUBSCRIBE)) {
-            throw MessageBuffer::ReadException("MoqUnsubscribe");
-        }
         buffer >> msg.subscribe_id;
         return buffer;
     }
@@ -105,12 +95,6 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqSubscribeOk &msg) {
-        uint8_t msg_type;
-        // type
-        buffer >> msg_type;
-        if (msg_type != static_cast<uint8_t>(MESSAGE_TYPE_SUBSCRIBE_OK)) {
-            throw MessageBuffer::ReadException("MoqSubscribeOk");
-        }
         buffer >> msg.subscribe_id;
         buffer >> msg.expires;
         return buffer;
@@ -128,11 +112,6 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqSubscribeError &msg) {
-        uint8_t msg_type;
-        buffer >> msg_type;
-        if (msg_type != static_cast<uint8_t>(MESSAGE_TYPE_SUBSCRIBE_ERROR)) {
-            throw MessageBuffer::ReadException("MoqSubscribeError");
-        }
         buffer >> msg.subscribe_id;
         buffer >> msg.track_alias;
         buffer >> msg.err_code;
@@ -152,11 +131,6 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqSubscribeFin &msg) {
-        uint8_t msg_type;
-        buffer >> msg_type;
-        if (msg_type != static_cast<uint8_t>(MESSAGE_TYPE_SUBSCRIBE_FIN)) {
-            throw MessageBuffer::ReadException("MoqSubscribeFin");
-        }
         buffer >> msg.subscribe_id;
         buffer >> msg.final_group_id;
         buffer >> msg.final_object_id;
@@ -176,11 +150,6 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqSubscribeRst &msg) {
-        uint8_t msg_type;
-        buffer >> msg_type;
-        if (msg_type != static_cast<uint8_t>(MESSAGE_TYPE_SUBSCRIBE_RST)) {
-            throw MessageBuffer::ReadException("MoqSubscribeRst");
-        }
         buffer >> msg.subscribe_id;
         buffer >> msg.err_code;
         buffer >> msg.reason_phrase;
@@ -201,12 +170,6 @@ namespace quicr::messages {
     }
 
     MessageBuffer& operator>>(MessageBuffer &buffer, MoqAnnounce &msg) {
-        uint8_t msg_type;
-        buffer >> msg_type;
-        if (msg_type != MESSAGE_TYPE_ANNOUNCE) {
-            throw MessageBuffer::ReadException("MoqAnnounce");
-        }
-
         buffer >> msg.track_namespace;
         return buffer;
     }
@@ -221,11 +184,6 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqAnnounceOk &msg) {
-        uint8_t msg_type;
-        buffer >> msg_type;
-        if (msg_type != MESSAGE_TYPE_ANNOUNCE_OK) {
-            throw MessageBuffer::ReadException("MoqAnnounceOk");
-        }
         buffer >> msg.track_namespace;
         return buffer;
     }
@@ -241,12 +199,6 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqAnnounceError &msg) {
-        uint8_t msg_type;
-        buffer >> msg_type;
-        if (msg_type != MESSAGE_TYPE_ANNOUNCE_ERROR) {
-            throw MessageBuffer::ReadException("MoqAnnounceError");
-        }
-
         buffer >> msg.track_namespace;
         buffer >> msg.err_code;
         buffer >> msg.reason_phrase;
@@ -263,11 +215,6 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqUnannounce &msg) {
-        uint8_t msg_type;
-        buffer >> msg_type;
-        if (msg_type != MESSAGE_TYPE_UNANNOUNCE) {
-            throw MessageBuffer::ReadException("MoqUnannounce");
-        }
         buffer >> msg.track_namespace;
         return buffer;
     }
@@ -286,11 +233,6 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqGoaway &msg) {
-        uint8_t msg_type;
-        buffer >> msg_type;
-        if (msg_type != MESSAGE_TYPE_GOAWAY) {
-            throw MessageBuffer::ReadException("MoqGoaway");
-        }
         buffer >> msg.new_session_uri;
         return buffer;
     }
@@ -314,11 +256,6 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqObjectStream &msg) {
-        uint8_t msg_type;
-        buffer >> msg_type;
-        if (msg_type != MESSAGE_TYPE_OBJECT_STREAM) {
-            throw MessageBuffer::ReadException("MoqObjectStream");
-        }
         buffer >> msg.subscribe_id;
         buffer >> msg.track_alias;
         buffer >> msg.group_id;
@@ -342,11 +279,6 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqObjectDatagram &msg) {
-        uint8_t msg_type;
-        buffer >> msg_type;
-        if (msg_type != MESSAGE_TYPE_OBJECT_PREFER_DATAGRAM) {
-            throw MessageBuffer::ReadException("MoqObjectDatagram");
-        }
         buffer >> msg.subscribe_id;
         buffer >> msg.track_alias;
         buffer >> msg.group_id;
@@ -383,11 +315,6 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqStreamHeaderTrack &msg) {
-        uint8_t msg_type;
-        buffer >> msg_type;
-        if (msg_type != MESSAGE_TYPE_STREAM_HEADER_TRACK) {
-            throw MessageBuffer::ReadException("MoqStreamHeaderTrack");
-        }
         buffer >> msg.subscribe_id;
         buffer >> msg.track_alias;
         buffer >> msg.priority;
@@ -408,11 +335,6 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqStreamHeaderGroup &msg) {
-        uint8_t msg_type;
-        buffer >> msg_type;
-        if (msg_type != MESSAGE_TYPE_STREAM_HEADER_GROUP) {
-            throw MessageBuffer::ReadException("MoqStreamHeaderGroup");
-        }
         buffer >> msg.subscribe_id;
         buffer >> msg.track_alias;
         buffer >> msg.group_id;
@@ -527,11 +449,6 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqClientSetup &msg) {
-        uintVar_t msg_type;
-        buffer >> msg_type;
-        if (msg_type != (uintVar_t) MESSAGE_TYPE_CLIENT_SETUP) {
-            throw MessageBuffer::ReadException("MoqClientSetup");
-        }
         uintVar_t num_versions {0};
         buffer >> num_versions;
         msg.supported_versions.resize(num_versions);
@@ -555,18 +472,13 @@ namespace quicr::messages {
     // Server Setup message
     MessageBuffer&
     operator<<(MessageBuffer &buffer, const MoqServerSetup &msg) {
-        buffer << static_cast<uint8_t>(MESSAGE_TYPE_SERVER_SETUP);
+        buffer << static_cast<uintVar_t>(MESSAGE_TYPE_SERVER_SETUP);
         buffer << msg.supported_version;
         return buffer;
     }
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqServerSetup &msg) {
-        uint8_t msg_type;
-        buffer >> msg_type;
-        if (msg_type != MESSAGE_TYPE_SERVER_SETUP) {
-            throw MessageBuffer::ReadException("MoqServerSetup");
-        }
         buffer >> msg.supported_version;
         return buffer;
     }

@@ -211,7 +211,7 @@ private:
   void handle_moq(const qtransport::TransportConnId& conn_id,
                   const qtransport::DataContextId& data_ctx_id,
                   bool is_bidir,
-                  std::vector<uint8_t>&& data);
+                  messages::MessageBuffer& buffer);
 
 
   struct ConnectionContext {
@@ -364,6 +364,9 @@ private:
   namespace_map<bool> subscription_exists {};
   namespace_map<messages::TrackAlias> subscriber_namespace_map{};
   std::map<messages::SubscribeId, std::map<qtransport::TransportConnId, SubscriptionInfo>>  subscriptions{};
+
+  // stream of network bytes for a given data context
+  std::map<uint64_t, messages::MessageBuffer> data_stream {};
 };
 
 } // namespace quicr
