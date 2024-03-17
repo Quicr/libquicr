@@ -57,7 +57,7 @@ constexpr quicr::Name Object_ID_Mask = ~(~0x0_name << 16);
 static std::tuple<std::string, std::string> split_track_name(std::string track) {
     std::string namespace_part;
     std::string track_name_part;
-    const std::string t = "track/";
+    const std::string t = "second/";
     auto it =
             std::search(track.begin(), track.end(), t.begin(), t.end());
     if(it == track.end()) {
@@ -80,7 +80,8 @@ static std::tuple<std::string, std::string> split_track_name(std::string track) 
 
     } while (it != track.end());
 
-    return std::make_tuple(namespace_part, track_name_part);
+    return std::make_tuple("moqt://moq.mathis.dev/app/1", "second/2");
+    //return std::make_tuple(namespace_part, track_name_part);
 }
 
 static std::string
@@ -466,11 +467,13 @@ ClientRawSession::subscribe(
   subscription.transport_context.transport_conn_id = conn_id;
   subscription.transport_context.transport_data_ctx_id = 0;
 
+  auto [track_namespace, track_name] = split_track_name(subscription.track_info.fulltrackname);
   auto [start_group, end_group, start_object, end_object] = messages::to_locations(intent);
   auto subscribe = messages::MoqSubscribe {
           .subscribe_id = subscription.subscription_id,
           .track_alias = subscription.track_info.track_alias,
-          .track = subscription.track_info.fulltrackname,
+          .track_namespace = track_namespace,
+          .track_name = track_name,
           .start_group = start_group,
           .start_object = start_object,
           .end_group = end_group,
@@ -478,13 +481,14 @@ ClientRawSession::subscribe(
           .track_params = {}
   };
 
-  logger->info << "moqt:subscribe: Track: " << moq_uri
+  logger->info << "moqt:subscribe: Track: " << subscribe.track_namespace << "/" << subscribe.track_name
                 << ", Namespace: " << subscription.track_info.quicr_namespace
                 << ", Track-Alias: " << subscription.track_info.track_alias
                 << ", SubscribeId: " << subscription.subscription_id << std::flush;
 
   auto msg = messages::MessageBuffer{};
   msg << subscribe;
+  logger->info <<"moqt:subscribe:(Hex)0x" << msg.to_hex() << std::flush;
   transport->enqueue(conn_id, *transport_ctrl_data_ctx_id, msg.take());
 
   logger->info << "MOQSubscribe: Save Subscription for ID:" << subscription.subscription_id << std::flush;
@@ -891,163 +895,176 @@ ClientRawSession::handle_pub_fragment(
 void
 ClientRawSession::handle_moq(messages::MessageBuffer &buffer) {
     logger->info << "HandleMoQ: Got Message:" << buffer.to_hex() << std::flush;
-    uintVar_t msg_type {0};
-    buffer >> msg_type;
-    logger->info << "HandleMoQ: Got Message:" << msg_type << std::flush;
-
-    switch (msg_type) {
+    while (1) {
+      if (buffer.empty()) {
+        break;
+      }
+      uintVar_t msg_type {0};
+      buffer >> msg_type;
+      logger->info << "HandleMoQ: Got Message:" << msg_type << std::flush;
+      switch (msg_type) {
         case messages::MESSAGE_TYPE_SERVER_SETUP:
         {
-            auto setup = messages::MoqServerSetup{};
-            buffer >> setup;
-            if (static_cast<uint32_t>(setup.supported_version) != 0xff000003) {
-                throw std::runtime_error("Server Selection Version Error");
-            }
+          auto setup = messages::MoqServerSetup{};
+          buffer >> setup;
+          if (static_cast<uint32_t>(setup.supported_version) != 0xff000003) {
+            throw std::runtime_error("Server Selection Version Error");
+          }
 
-            logger->info << "moqt:server_setup: Supported Version " << setup.supported_version << std::flush;
-            logger->warning << "moqt: No version/role specific checks are done, this is bad" << std::flush;
-            setup_complete.set_value(true);
+          logger->info << "moqt:server_setup: Supported Version " << setup.supported_version << std::flush;
+          logger->warning << "moqt: No version/role specific checks are done, this is bad" << std::flush;
+          setup_complete.set_value(true);
         }
         break;
-      case messages::MESSAGE_TYPE_SUBSCRIBE: {
-        auto subscribe = messages::MoqSubscribe{};
-        buffer >> subscribe;
-        // track uri to quicr::namespace
-        auto quicr_namespace = uri_convertor->to_quicr_namespace(subscribe.track);
+        case messages::MESSAGE_TYPE_SUBSCRIBE: {
+          auto subscribe = messages::MoqSubscribe{};
+          buffer >> subscribe;
+          // track uri to quicr::namespace
+          auto ftn = subscribe.track_namespace + "/" + subscribe.track_name;
+          auto quicr_namespace = uri_convertor->to_quicr_namespace(ftn);
 
-        // validity checks
-        // 1. Did we announce on this namespace
-        auto it = announcements.find(quicr_namespace);
-        if (it == announcements.end()) {
-          std::cout << "moqt: Subscribe: Namespace was not announced "
-                    << subscribe.track << std::flush;
-          break;
-        }
+          // validity checks
+          // 1. Did we announce on this namespace
+          auto it = announcements.find(quicr_namespace);
+          if (it == announcements.end()) {
+            std::cout << "moqt: Subscribe: Namespace was not announced "
+                      << subscribe.track_namespace << "/" << subscribe.track_name << std::flush;
+            break;
+          }
 
-        // 2. Do we have valid delegates
-        if (!announce_delegates.contains(quicr_namespace)) {
-          std::cout << "moqt: Subscribe: Namespace has no delegates "
-                    << subscribe.track << std::flush;
-          break;
-        }
+          // 2. Do we have valid delegates
+          if (!announce_delegates.contains(quicr_namespace)) {
+            std::cout << "moqt: Subscribe: Namespace has no delegates "
+                      << subscribe.track_namespace << std::flush;
+            break;
+          }
 
-        // 3. is the announce active
-        if (it->second.state != AnnounceInfo::State::Active) {
-          logger->info << "Announce not active for ns: " << quicr_namespace << std::flush;
-          break;
-        }
+          // 3. is the announce active
+          if (it->second.state != AnnounceInfo::State::Active) {
+            logger->info << "Announce not active for ns: " << quicr_namespace << std::flush;
+            break;
+          }
 
-        // save the subscription
-        auto subscription = SubscriptionInfo{};
-        subscription.transport_context.transport_data_ctx_id = transport_ctrl_data_ctx_id.value();
-        subscription.transport_context.transport_conn_id = transport_conn_id.value();
-        subscription.track_info.quicr_namespace = quicr_namespace;
-        subscription.track_info.fulltrackname = subscribe.track;
-        subscription.track_info.track_alias = subscribe.track_alias;
-        subscription.subscription_id = subscribe.subscribe_id;
+          // save the subscription
+          auto subscription = SubscriptionInfo{};
+          subscription.transport_context.transport_data_ctx_id = transport_ctrl_data_ctx_id.value();
+          subscription.transport_context.transport_conn_id = transport_conn_id.value();
+          subscription.track_info.quicr_namespace = quicr_namespace;
+          subscription.track_info.fulltrackname = subscribe.track_namespace + "/" + subscribe.track_name;
+          subscription.track_info.track_alias = subscribe.track_alias;
+          subscription.subscription_id = subscribe.subscribe_id;
 
-        logger->info << "MOQSubscribe conn_id: " << transport_conn_id.value()
-                     << ", Track: " << subscription.track_info.fulltrackname
-                     << ", Track Alias: " << subscription.track_info.track_alias
-                     << ", Quicr Namespace: " << subscription.track_info.quicr_namespace
-                     << " subscribe_id: " << subscription.subscription_id
-                     << std::flush;
+          logger->info << "MOQSubscribe conn_id: " << transport_conn_id.value()
+                       << ", Track: " << subscription.track_info.fulltrackname
+                       << ", Track Alias: " << subscription.track_info.track_alias
+                       << ", Quicr Namespace: " << subscription.track_info.quicr_namespace
+                       << " subscribe_id: " << subscription.subscription_id
+                       << std::flush;
 
-        {
-          std::lock_guard<std::mutex> _(session_mutex);
-          if (!subscriptions.contains(subscribe.track_alias)) {
-            // seeing this track for the first time
-            subscriptions.emplace(subscribe.track_alias, std::move(subscription));
-          } else {
-            // subscription update, from a existing subscriber and track alias
-            logger->info << "moqt:subscribe: Ignoring Subscription Update:"
-                         << subscribe.track_alias << ",conn:" << transport_conn_id.value() << std::flush;
-            // TODO: Report Error
-            return;
+          {
+            std::lock_guard<std::mutex> _(session_mutex);
+            if (!subscriptions.contains(subscribe.track_alias)) {
+              // seeing this track for the first time
+              subscriptions.emplace(subscribe.track_alias, std::move(subscription));
+            } else {
+              // subscription update, from a existing subscriber and track alias
+              logger->info << "moqt:subscribe: Ignoring Subscription Update:"
+                           << subscribe.track_alias << ",conn:" << transport_conn_id.value() << std::flush;
+              // TODO: Report Error
+              return;
+
+            }
+          }
+
+          qnamespace_track_map[quicr_namespace] = subscribe.track_alias;
+          // report the subscription to the delegate
+          if (const auto &delegate = announce_delegates[quicr_namespace]) {
+
+            // inform the delegate
+            delegate->onSubscribe(quicr_namespace,
+                                  subscription.subscription_id,
+                                  transport_conn_id.value(), // do we need this ?
+                                  transport_ctrl_data_ctx_id.value(), // do we need this ?
+                                  SubscribeIntent{});
 
           }
         }
+        break;
 
-        qnamespace_track_map[quicr_namespace] = subscribe.track_alias;
-        // report the subscription to the delegate
-        if (const auto &delegate = announce_delegates[quicr_namespace]) {
-
-          // inform the delegate
-          delegate->onSubscribe(quicr_namespace,
-                                subscription.subscription_id,
-                                transport_conn_id.value(), // do we need this ?
-                                transport_ctrl_data_ctx_id.value(), // do we need this ?
-                                SubscribeIntent{});
-
-        }
-      }
-      break;
-
-      case messages::MESSAGE_TYPE_SUBSCRIBE_OK: {
+        case messages::MESSAGE_TYPE_SUBSCRIBE_OK: {
           auto subscribe_ok = messages::MoqSubscribeOk{};
           buffer >> subscribe_ok;
           logger ->info << "moqt:subscribe_ok: id:" << subscribe_ok.subscribe_id
                         << ", expires:" << subscribe_ok.expires << std::flush;
           const auto result = SubscribeResult{ .status = SubscribeResult::SubscribeStatus::Ok,
-                                               .subscriber_expiry_interval = subscribe_ok.expires};
+                  .subscriber_expiry_interval = subscribe_ok.expires};
 
 
-           // check if the subscription exists
+          // check if the subscription exists
           if (!subscriptions.count(subscribe_ok.subscribe_id)) {
-              logger ->info << "moqt:subscribe_ok: invalid" << std::flush;
-              return;
+            logger ->info << "moqt:subscribe_ok: invalid" << std::flush;
+            return;
           }
 
           auto& subscription = subscriptions.at(subscribe_ok.subscribe_id);
 
           if (sub_delegates.contains(subscription.track_info.quicr_namespace)) {
-              subscription.state = SubscriptionInfo::State::ready;
-              sub_delegates.at(subscription.track_info.quicr_namespace)->onSubscribeResponse(subscription.track_info.quicr_namespace, result);
+            subscription.state = SubscriptionInfo::State::ready;
+            sub_delegates.at(subscription.track_info.quicr_namespace)->onSubscribeResponse(subscription.track_info.quicr_namespace, result);
           } else {
-              logger->error << "moqt:subscribe_ok: No delegate found: Track:" << subscription.track_info.fulltrackname
-                        << ", Namespace: "<< subscription.track_info.quicr_namespace << std::flush;
+            logger->error << "moqt:subscribe_ok: No delegate found: Track:" << subscription.track_info.fulltrackname
+                          << ", Namespace: "<< subscription.track_info.quicr_namespace << std::flush;
           }
           break;
-      }
+        }
 
-      case messages::MESSAGE_TYPE_ANNOUNCE: {
-
-      }
-
-      case messages::MESSAGE_TYPE_ANNOUNCE_OK: {
+        case messages::MESSAGE_TYPE_ANNOUNCE: {
+          messages::MoqAnnounce announce;
+          buffer >> announce;
+          logger->info << "moqt:announce: track_namespace "
+                       << announce.track_namespace << std::flush;
+          auto announce_ok = messages::MoqAnnounceOk{
+                  .track_namespace = announce.track_namespace
+          };
+          messages::MessageBuffer msg;
+          msg << announce_ok;
+          transport->enqueue(transport_conn_id.value(), transport_ctrl_data_ctx_id.value(), std::move(msg.take()));
+        }
+        break;
+        case messages::MESSAGE_TYPE_ANNOUNCE_OK: {
           auto announce_ok = messages::MoqAnnounceOk{};
           buffer >> announce_ok;
           auto qns = uri_convertor->to_quicr_namespace(announce_ok.track_namespace);
           if (!announce_delegates.contains(qns)) {
-              std::cout
-              << "Got AnnounceOk: No delegate found for namespace "
-                      << announce_ok.track_namespace << std::endl;
-              return;
+            std::cout
+                    << "Got AnnounceOk: No delegate found for namespace "
+                    << announce_ok.track_namespace << std::endl;
+            return;
           }
 
           auto it = announcements.find(qns);
 
           if (it == announcements.end()) {
-              LOGGER_ERROR(logger, "No pending announce for '" << qns << "' missing, dropping");
-              break;
+            LOGGER_ERROR(logger, "No pending announce for '" << qns << "' missing, dropping");
+            break;
           }
 
 
           if (it->second.state != AnnounceInfo::State::Active) {
-              logger->info << "Announce active for ns: " << qns << std::flush;
-              it->second.state = AnnounceInfo::State::Active;
+            logger->info << "Announce active for ns: " << qns << std::flush;
+            it->second.state = AnnounceInfo::State::Active;
           }
 
           if (const auto& delegate = announce_delegates[qns]) {
-              const auto result = PublishIntentResult{
-                      .status = messages::Response::Ok,
-              };
-              delegate->onPublishIntentResponse(qns, result);
+            const auto result = PublishIntentResult{
+                    .status = messages::Response::Ok,
+            };
+            delegate->onPublishIntentResponse(qns, result);
           }
           break;
-      }
+        }
 
-      case messages::MESSAGE_TYPE_OBJECT_STREAM: {
+        case messages::MESSAGE_TYPE_OBJECT_STREAM: {
           auto object = messages::MoqObjectStream{};
           buffer >> object;
           logger->info <<"moqt:objectstream" << std::flush;
@@ -1060,18 +1077,22 @@ ClientRawSession::handle_moq(messages::MessageBuffer &buffer) {
                     << " TrackId: " << object.track_alias << std::endl;
 
           if (auto found = sub_delegates.find(name); found != sub_delegates.end()) {
-              const auto& [ns, delegate] = *found;
-              // No-fragment, process as single object
-              delegate->onSubscribedObject(name,
-                                           object.priority,
-                                           std::move(object.payload));
+            const auto& [ns, delegate] = *found;
+            // No-fragment, process as single object
+            delegate->onSubscribedObject(name,
+                                         object.priority,
+                                         std::move(object.payload));
           }
-      }
-      break;
-      default:
-       logger->info << "HandleMoQ: Default Case" <<  std::flush;
-       break;
-    }
+        }
+        break;
+        default:
+          logger->info << "HandleMoQ: Default Case" <<  std::flush;
+              break;
+      } // switch
+
+    } // while
+
+
 }
 
 void

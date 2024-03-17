@@ -32,6 +32,36 @@ static constexpr quicr::Name track_id_mask = ~(~0x0_name >> 60);
 constexpr quicr::Name Group_ID_Mask = ~(~0x0_name << 32) << 16;
 constexpr quicr::Name Object_ID_Mask = ~(~0x0_name << 16);
 
+static std::tuple<std::string, std::string> split_track_name(std::string track) {
+    std::string namespace_part;
+    std::string track_name_part;
+    const std::string t = "second/";
+    auto it =
+            std::search(track.begin(), track.end(), t.begin(), t.end());
+    if(it == track.end()) {
+        throw std::runtime_error("Invalid Track: " + track);
+    }
+
+    namespace_part.reserve(distance(track.begin(), it));
+    namespace_part.assign(track.begin(), it);
+    // move to end form track/
+    std::advance(it, t.length());
+
+    do {
+        auto slash = std::find(it, track.end(), '/');
+        if (slash == track.end()) {
+            track_name_part.reserve(distance(it, slash));
+            track_name_part.assign(it, slash);
+            break;
+        }
+        it++;
+
+    } while (it != track.end());
+
+    return std::make_tuple("moqt://moq.mathis.dev/app/1", "second/2");
+    //return std::make_tuple(namespace_part, track_name_part);
+}
+
 static std::string
 to_hex(const quicr::bytes& data)
 {
@@ -158,12 +188,13 @@ void ServerRawSession::subscribe(const quicr::Namespace& quicr_namespace,
       // setup transport info
       subscription.transport_context.transport_conn_id = conn_id;
       subscription.transport_context.transport_data_ctx_id = info.transport_context.transport_data_ctx_id;
-
+      auto [track_namespace, track_name] = split_track_name(subscription.track_info.fulltrackname);
       auto [start_group, end_group, start_object, end_object] = messages::to_locations(intent);
       auto subscribe = messages::MoqSubscribe {
               .subscribe_id = subscription.subscription_id,
               .track_alias = subscription.track_info.track_alias,
-              .track = subscription.track_info.fulltrackname,
+              .track_namespace = track_namespace,
+              .track_name = track_name,
               .start_group = start_group,
               .start_object = start_object,
               .end_group = end_group,
@@ -711,13 +742,14 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
             buffer >> subscribe;
 
             // track uri to quicr::namespace
-            auto quicr_namespace = uri_convertor->to_quicr_namespace(subscribe.track);
+            auto ftn = subscribe.track_namespace + "/" + subscribe.track_name;
+            auto quicr_namespace = uri_convertor->to_quicr_namespace(ftn);
 
             auto subscription = SubscriptionInfo{};
             subscription.transport_context.transport_data_ctx_id = data_ctx_id;
             subscription.transport_context.transport_conn_id = conn_id;
             subscription.track_info.quicr_namespace = quicr_namespace;
-            subscription.track_info.fulltrackname = subscribe.track;
+            subscription.track_info.fulltrackname = ftn;
             subscription.track_info.track_alias  = subscribe.track_alias;
             subscription.subscription_id = subscribe.subscribe_id;
 

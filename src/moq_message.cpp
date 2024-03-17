@@ -50,7 +50,8 @@ namespace quicr::messages {
         buffer << static_cast<uintVar_t>(MESSAGE_TYPE_SUBSCRIBE);
         buffer << msg.subscribe_id;
         buffer << msg.track_alias;
-        buffer << msg.track;
+        buffer << msg.track_namespace;
+        buffer << msg.track_name;
         buffer << msg.start_group;
         buffer << msg.start_object;
         buffer << msg.end_group;
@@ -63,7 +64,8 @@ namespace quicr::messages {
     operator>>(MessageBuffer &buffer, MoqSubscribe &msg) {
         buffer >> msg.subscribe_id;
         buffer >> msg.track_alias;
-        buffer >> msg.track;
+        buffer >> msg.track_namespace;
+        buffer >> msg.track_name;
         buffer >> msg.start_group;
         buffer >> msg.start_object;
         buffer >> msg.end_group;

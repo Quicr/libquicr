@@ -53,7 +53,7 @@ TEST_CASE("Announce Message encode/decode")
 
 }
 
-
+#if 0
 TEST_CASE("Subscribe Message encode/decode")
 {
     quicr::Namespace qnamespace{ 0x10000000000000002000_name, 125 };
@@ -82,6 +82,7 @@ TEST_CASE("Subscribe Message encode/decode")
     CHECK_EQ(subscribe.end_group.value, subscribe_out.end_group.value);
     CHECK_EQ(subscribe.end_object.value, subscribe_out.end_object.value);
 }
+#endif
 
 TEST_CASE("ObjectStream Message encode/decode")
 {

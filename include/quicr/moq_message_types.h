@@ -12,6 +12,7 @@
 namespace quicr::messages {
   using Version = uintVar_t;
   using TrackNamespace = std::string;
+  using TrackName = std::string;
   using FullTrackName = std::string;
   using ErrorCode = uintVar_t;
   using ReasonPhrase = std::string;
@@ -104,7 +105,8 @@ namespace quicr::messages {
   struct MoqSubscribe {
     SubscribeId subscribe_id;
     TrackAlias track_alias;
-    FullTrackName track;
+    TrackNamespace track_namespace;
+    TrackName track_name;
     Location start_group;
     Location start_object;
     Location end_group;

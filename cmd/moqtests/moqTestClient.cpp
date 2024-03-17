@@ -139,19 +139,19 @@ main(int argc, char* argv[])
    *
    * TrackName is 32 + 10 + 6 + 16  = 64 bits that would allow 65000 participants.
    */
-  auto uri_templates = std::vector<std::string> {
-    "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int12>/mediatype/<int6>/endpoint/<int10>",
-    "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int12>/mediatype/<int6>" // track_namespace = 44 bits
-  };
+  //auto uri_templates = std::vector<std::string> {
+  //  "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int12>/mediatype/<int6>/endpoint/<int10>",
+  //  "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int12>/mediatype/<int6>" // track_namespace = 44 bits
+  //};
 
   auto uri_templates_date_server = std::vector<std::string> {
-          "moqt://moq.mathis.dev<pen=100><sub_pen=1>/moq/<int12>/clock/<int6>",
-          "moqt://moq.mathis.dev<pen=100><sub_pen=1>/moq/<int12>" // track_namespace = 44 bits
+    "moqt://moq.mathis.dev<pen=100><sub_pen=1>/app/<int12>/second/<int6>",
+    "moqt://moq.mathis.dev<pen=100><sub_pen=1>/app/<int12>" // track_namespace = 44 bits
   };
 
 
   std::shared_ptr<NumeroURIConvertor> uri_convertor = std::make_shared<NumeroURIConvertor>();
-  uri_convertor->add_uri_templates(uri_templates);
+  uri_convertor->add_uri_templates(uri_templates_date_server);
 
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
   const auto* relayName = getenv("REALLY_RELAY");
@@ -161,7 +161,7 @@ main(int argc, char* argv[])
 
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
   const auto* portVar = getenv("REALLY_PORT");
-  int port = 1234;
+  int port = 9999;
   if (portVar != nullptr) {
     port = atoi(portVar); // NOLINT(cert-err34-c)
   }
@@ -237,6 +237,7 @@ main(int argc, char* argv[])
 
   } else {
     // do subscribe
+    std::this_thread::sleep_for(std::chrono::seconds(2));
     logger->Log("Subscribe");
     auto sd = std::make_shared<subDelegate>(logger);
     logger->info << "Subscribe to " << name << std::flush;
