@@ -387,6 +387,7 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
 
   messages::MessageBuffer msg;
   msg << announce;
+  logger->error << "moqt:Annouce:Hex: 0x"<< msg.to_hex() << std::flush;
   auto error = transport->enqueue(conn_id, *transport_ctrl_data_ctx_id, msg.take());
   return error == qtransport::TransportError::None;
 }
@@ -1007,6 +1008,10 @@ ClientRawSession::handle_moq(messages::MessageBuffer &buffer) {
                         << ", Namespace: "<< subscription.track_info.quicr_namespace << std::flush;
           }
           break;
+      }
+
+      case messages::MESSAGE_TYPE_ANNOUNCE: {
+
       }
 
       case messages::MESSAGE_TYPE_ANNOUNCE_OK: {

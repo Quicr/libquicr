@@ -238,8 +238,16 @@ public:
 
         // request upstream for the data by subscribing to it
         auto intent = quicr::SubscribeIntent{.mode = quicr::SubscribeIntent::Mode::immediate};
+        for(auto& [ans, val]: announced_namespaces) {
+            logger->info << "Announced Namespaces:" << ans << std::flush;
+        }
+        logger->info << "Subscribed Namespaces:" << quicr_namespace << std::flush;
+
         if(announced_namespaces.contains(quicr_namespace)) {
           server->subscribe(quicr_namespace, intent, quicr::TransportMode::ReliablePerObject);
+        } else {
+            logger->info << "Subscribed Namespaces:" << quicr_namespace <<  "no match" << std::flush;
+
         }
     }
 
@@ -279,7 +287,7 @@ private:
 
   quicr::messages::TrackAlias next_track_id = 0;
   // namespace available for publishing
-  std::map<quicr::Namespace, std::optional<uint64_t>> announced_namespaces {};
+  quicr::namespace_map<std::optional<uint64_t>> announced_namespaces {};
 };
 
 int
@@ -287,9 +295,10 @@ main()
 {
   int result_code = EXIT_SUCCESS;
 
+
   auto uri_templates = std::vector<std::string> {
-      "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int12>/mediatype/<int6>/endpoint/<int10>",
-      "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int12>" // track_namespace = 44 bits
+        "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int12>/mediatype/<int6>/endpoint/<int10>",
+        "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int12>/mediatype/<int6>" // track_namespace = 44 bits
   };
 
   std::shared_ptr<NumeroURIConvertor> uri_convertor = std::make_shared<NumeroURIConvertor>();

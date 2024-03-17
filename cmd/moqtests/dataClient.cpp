@@ -141,14 +141,8 @@ main(int argc, char* argv[])
    */
   auto uri_templates = std::vector<std::string> {
     "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int12>/mediatype/<int6>/endpoint/<int10>",
-    "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int12>/mediatype/<int6>" // track_namespace = 44 bits
+    "moqt://conference.example.com<pen=100><sub_pen=1>/conferences/<int12>" // track_namespace = 44 bits
   };
-
-  auto uri_templates_date_server = std::vector<std::string> {
-          "moqt://moq.mathis.dev<pen=100><sub_pen=1>/moq/<int12>/clock/<int6>",
-          "moqt://moq.mathis.dev<pen=100><sub_pen=1>/moq/<int12>" // track_namespace = 44 bits
-  };
-
 
   std::shared_ptr<NumeroURIConvertor> uri_convertor = std::make_shared<NumeroURIConvertor>();
   uri_convertor->add_uri_templates(uri_templates);
@@ -161,17 +155,14 @@ main(int argc, char* argv[])
 
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
   const auto* portVar = getenv("REALLY_PORT");
-  int port = 1234;
+  int port = 9999;
   if (portVar != nullptr) {
     port = atoi(portVar); // NOLINT(cert-err34-c)
   }
 
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  auto uri_in = std::string(argv[1]);
-  std::cout << "Input Uri:" << uri_in << std::endl;
-  auto ns = uri_convertor->to_quicr_namespace(uri_in);
+  auto ns = uri_convertor->to_quicr_namespace(std::string(argv[1]));
   std::cout << "Namespace for uri:" << ns << std::endl;
-  auto converted_uri = uri_convertor->to_namespace_uri(ns);
   const auto name = ns.name();
   logger->info << "Name = " << name << std::flush;
 

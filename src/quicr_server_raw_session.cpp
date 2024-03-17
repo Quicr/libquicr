@@ -658,7 +658,7 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
                              bool is_bidir,
                              messages::MessageBuffer& buffer) {
 
-    logger->info << "HandleMoQ: Got Message: Hex" << buffer.to_hex() << std::flush;
+    logger->info << "HandleMoQ: Got Message: Hex(0x)" << buffer.to_hex() << std::flush;
     uintVar_t msg_type {0};
     buffer >> msg_type;
     logger->info << "moqt:Handle: Conn: " << conn_id
@@ -783,6 +783,9 @@ ServerRawSession::handle_moq(const qtransport::TransportConnId& conn_id,
         case messages::MESSAGE_TYPE_ANNOUNCE: {
             messages::MoqAnnounce announce;
             buffer >> announce;
+            logger->info << "moqt:announce: track_namespace "
+                         << announce.track_namespace << std::flush;
+
             auto qns = uri_convertor->to_quicr_namespace(announce.track_namespace);
             logger->info << "moqt:announce: track_namespace "
                          << announce.track_namespace
