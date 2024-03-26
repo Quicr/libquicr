@@ -71,7 +71,12 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
   logger->info << "Starting metrics exporter" << std::flush;
 
   MetricsExporter mexport(logger);
-  mexport.init("http://metrics.m10x.ctgpoc.com:8086", "cisco-cto-media10x");
+  if (mexport.init("http://metrics.m10x.ctgpoc.com:8086",
+                   "Media10x",
+                   "cisco-cto-media10x") !=
+      MetricsExporter::MetricsExporterError::NoError) {
+    throw std::runtime_error("Failed to connect to InfluxDB");
+  }
 }
 
 ClientRawSession::ClientRawSession(

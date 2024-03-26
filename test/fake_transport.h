@@ -44,6 +44,11 @@ struct FakeTransport : public ITransport
     return 0x2000;
   }
 
+  void setRemoteDataCtxId([[maybe_unused]] const TransportConnId conn_id,
+                          [[maybe_unused]] const DataContextId data_ctx_id,
+                          [[maybe_unused]] const DataContextId remote_data_ctx_id) override
+  {}
+
   void close(const TransportConnId& /* conn_id */) override {};
 
   void deleteDataContext([[maybe_unused]] const TransportConnId& conn_id,

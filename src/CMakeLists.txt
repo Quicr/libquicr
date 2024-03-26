@@ -12,13 +12,12 @@ target_sources(quicr PRIVATE
 
 if(NOT LIBQUICR_WITHOUT_INFLUXDB)
     target_sources(quicr PRIVATE metrics_exporter.cpp)
+else ()
+    add_definitions("-DLIBQUICR_WITHOUT_INFLUXDB")
 endif()
 
 # Suppress external lib warnings
 set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)
-target_compile_options(picotls-core PRIVATE -w)
-target_compile_options(picotls-openssl PRIVATE -w)
-target_compile_options(picoquic-core PRIVATE -w)
 target_compile_options(quicr-transport PRIVATE -w)
 
 target_compile_options(quicr

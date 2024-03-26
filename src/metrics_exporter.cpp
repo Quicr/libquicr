@@ -22,24 +22,34 @@ namespace quicr {
     MetricsExporter::MetricsExporter(const cantina::LoggerPointer& logger) :
         logger(std::make_shared<cantina::Logger>("MExport", logger)) {}
 
-    MetricsExporter::MetricsExporterError MetricsExporter::init(const std::string& url, const std::string& auth_token) {
+    MetricsExporter::MetricsExporterError MetricsExporter::init(const std::string& url,
+                                                                const std::string& bucket,
+                                                                const std::string& auth_token) {
         logger->info << "Initializing metrics exporter" << std::flush;
 
-        _influxDb = influxdb::InfluxDBBuilder::http(url)
+      try {
+        _influxDb = influxdb::InfluxDBBuilder::http(url + "?db=" + bucket)
                 .setTimeout(std::chrono::seconds{5})
                 .setAuthToken(auth_token)
                 .connect();
 
-//        // Write batches of 100 points
-//        influxDb->batchOf(100);
-//
-//        for (;;) {
-//            influxDb->write(influxdb::Point{"test"}.addField("value", 10));
-//        }
+        if (_influxDb == nullptr) {
+          logger->error << "Unable to connect to influxDb" << std::flush;
+          return MetricsExporterError::FailedConnect;
+        }
 
-        logger->info << "Done init metrics exporter" << std::flush;
-        abort();
+        // Write batches of 100 points
+        // _influxDb->batchOf(100);
+        // _influxDb->write(influxdb::Point{"test"}.addField("value", 10));
+        // _influxDb->flushBatch();
+
+        logger->info << "metrics exporter connected to influxDb" << std::flush;
         return MetricsExporterError::NoError;
+
+      } catch (influxdb::InfluxDBException &e) {
+        logger->error << "InfluxDB exception: " << e.what() << std::flush;
+        return MetricsExporterError::FailedConnect;
+      }
     }
 };
 
