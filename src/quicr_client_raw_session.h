@@ -20,6 +20,7 @@
 #include "quicr/quicr_client.h"
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_common.h"
+#include "metrics_exporter.h"
 
 #include <qname>
 #include <transport/transport.h>
@@ -325,11 +326,17 @@ protected:
   namespace_map<std::shared_ptr<PublisherDelegate>> pub_delegates;
   namespace_map<PublishContext> publish_state{};
 
+
+
   namespace_map<std::shared_ptr<SubscriberDelegate>> sub_delegates;
   namespace_map<SubscribeContext> subscribe_state{};
 
   bool transport_needs_fragmentation { false };             // Indicates if transport requires fragmentation
   std::shared_ptr<qtransport::ITransport> transport;
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  MetricsExporter _mexport;
+#endif
 };
 
 }

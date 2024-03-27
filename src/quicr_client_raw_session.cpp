@@ -57,6 +57,9 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
                                    const qtransport::TransportConfig& tconfig,
                                    const cantina::LoggerPointer& logger)
   : logger(std::make_shared<cantina::Logger>("QSES", logger))
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  , _mexport(logger)
+#endif
 {
   this->logger->Log("Initialize Client");
 
@@ -70,13 +73,17 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
 
   logger->info << "Starting metrics exporter" << std::flush;
 
-  MetricsExporter mexport(logger);
-  if (mexport.init("http://metrics.m10x.ctgpoc.com:8086",
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  if (_mexport.init("http://metrics.m10x.ctgpoc.com:8086",
                    "Media10x",
                    "cisco-cto-media10x") !=
       MetricsExporter::MetricsExporterError::NoError) {
     throw std::runtime_error("Failed to connect to InfluxDB");
   }
+
+  _mexport.run(transport->metrics_conn_samples, transport->metrics_data_samples);
+#endif
+
 }
 
 ClientRawSession::ClientRawSession(
@@ -85,6 +92,9 @@ ClientRawSession::ClientRawSession(
   : has_shared_transport{ true }
   , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport(std::move(transport_in))
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  , _mexport(logger)
+#endif
 {
 }
 
@@ -290,6 +300,8 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
   const auto& conn_id = transport_conn_id.value();
   auto data_ctx_id = get_or_create_data_ctx_id(conn_id, transport_mode, priority);
 
+  _mexport.set_data_ctx_info(conn_id, data_ctx_id, {false, quicr_namespace});
+
   logger->info << "Publish Intent ns: " << quicr_namespace
                << " data_ctx_id: " << data_ctx_id
                << " priority: " << static_cast<int>(priority)
@@ -335,6 +347,7 @@ ClientRawSession::publishIntentEnd(
 
   pub_delegates.erase(quicr_namespace);
 
+
   const auto ps_it = publish_state.find(quicr_namespace);
   if (ps_it != publish_state.end()) {
     const auto intent_end = messages::PublishIntentEnd{
@@ -352,6 +365,7 @@ ClientRawSession::publishIntentEnd(
       transport->deleteDataContext(ps_it->second.transport_conn_id, ps_it->second.transport_data_ctx_id);
     }
 
+    _mexport.del_data_ctx_info(ps_it->second.transport_conn_id, ps_it->second.transport_data_ctx_id);
     publish_state.erase(ps_it);
   }
 }
@@ -380,14 +394,18 @@ ClientRawSession::subscribe(
            << " mode: " << static_cast<int>(transport_mode)
            << std::flush;
 
+    const auto data_ctx_id = get_or_create_data_ctx_id(conn_id, transport_mode, priority);
     subscribe_state[quicr_namespace] = SubscribeContext{
       .state = SubscriptionState::Pending,
       .transport_conn_id = conn_id,
-      .transport_data_ctx_id = get_or_create_data_ctx_id(conn_id, transport_mode, priority),
+      .transport_data_ctx_id = data_ctx_id,
       .transport_mode = transport_mode,
       .transaction_id = transaction_id,
     };
+
+    _mexport.set_data_ctx_info(conn_id, data_ctx_id, { true, quicr_namespace});
   }
+
 
   // We allow duplicate subscriptions, so we always send
   const auto sub_it = subscribe_state.find(quicr_namespace);
@@ -669,6 +687,8 @@ ClientRawSession::removeSubscription(
     if (state_it->second.transport_mode != TransportMode::Unreliable) {
       transport->deleteDataContext(state_it->second.transport_conn_id, state_it->second.transport_data_ctx_id);
     }
+
+    _mexport.del_data_ctx_info(state_it->second.transport_conn_id, state_it->second.transport_data_ctx_id);
 
     subscribe_state.erase(state_it);
   }
