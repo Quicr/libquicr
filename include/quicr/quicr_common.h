@@ -88,6 +88,7 @@ struct RelayInfo
   std::string hostname; // Relay IP or FQDN
   uint16_t port;        // Relay port to connect to
   Protocol proto;       // Transport protocol to use
+  std::string relay_id; // ID for the relay
 };
 
 /**
