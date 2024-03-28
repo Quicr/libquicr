@@ -606,6 +606,11 @@ ServerRawSession::TransportDelegate::on_recv_notify(const qtransport::TransportC
 
         switch (msg_type) {
           case messages::MessageType::Connect: {
+            if (is_bidir) {
+              auto& conn_ctx = server._connections[conn_id];
+              conn_ctx.ctrl_data_ctx_id = data_ctx_id;
+            }
+
             server.handle_connect(conn_id, std::move(msg_buffer));
             break;
           }
