@@ -44,13 +44,15 @@ public:
    * @brief Setup a QUICR Client Session with publisher and subscriber
    *        functionality.
    *
-   * @param relayInfo : Relay Information to be used by the transport
-   * @param tconfig   : Transport configuration
-   * @param logger    : Shared pointer to a cantina::Logger object
+   * @param relayInfo   : Relay Information to be used by the transport
+   * @param endpoint_id : Client endpoint ID (e.g., email)
+   * @param tconfig     : Transport configuration
+   * @param logger      : Shared pointer to a cantina::Logger object
    *
    * @throws std::runtime_error : If transport fails to connect.
    */
   ClientRawSession(const RelayInfo& relay_info,
+                   const std::string& endpoint_id,
                    const qtransport::TransportConfig& tconfig,
                    const cantina::LoggerPointer& logger);
 
@@ -322,6 +324,9 @@ protected:
   std::array<FragmentBuffer, max_fragment_buffers> fragments;
 
   cantina::LoggerPointer logger;
+
+  const std::string _endpoint_id;           /// Client Endpoint ID
+  std::string _relay_id;                    /// Relay Id
 
   namespace_map<std::shared_ptr<PublisherDelegate>> pub_delegates;
   namespace_map<PublishContext> publish_state{};

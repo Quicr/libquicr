@@ -170,6 +170,8 @@ private:
   std::shared_ptr<qtransport::ITransport> setupTransport(
     const qtransport::TransportConfig& cfg);
 
+  void handle_connect(const qtransport::TransportConnId& conn_id,
+                      messages::MessageBuffer&& msg);
   void handle_subscribe(const qtransport::TransportConnId& conn_id,
                         const qtransport::DataContextId& data_ctx_id,
                         messages::MessageBuffer&& msg);
@@ -193,6 +195,7 @@ private:
     qtransport::TransportConnId conn_id {0};
     qtransport::DataContextId ctrl_data_ctx_id {0};
     qtransport::TransportRemote remote;
+    std::string endpoint_id;
   };
 
   struct DataContext

@@ -29,9 +29,25 @@ enum class MessageType : uint8_t
   PublishIntentResponse,
   PublishIntentEnd,
   Fetch,
+  Connect,
+  ConnectResponse,
 
   PeerMsg = 128
 
+};
+
+/*===========================================================================*/
+// Connect Message Types
+/*===========================================================================*/
+struct Connect
+{
+  uint8_t version;
+  std::string endpoint_id;
+};
+
+struct ConnectResponse
+{
+  std::string relay_id;
 };
 
 /*===========================================================================*/

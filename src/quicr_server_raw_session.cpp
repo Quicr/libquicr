@@ -277,6 +277,34 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
 ///
 /// Private
 ///
+void
+ServerRawSession::handle_connect(
+  const qtransport::TransportConnId& conn_id,
+  messages::MessageBuffer&& msg)
+{
+  auto connect = messages::Connect{};
+  msg >> connect;
+
+  std::lock_guard<std::mutex> _(session_mutex);
+
+  const auto conn_it = _connections.find(conn_id);
+  if (conn_it != _connections.end()) {
+    conn_it->second.endpoint_id = connect.endpoint_id;
+    logger->info << "conn_id: " << conn_id
+                 << " Connect from endpoint_id: " << connect.endpoint_id
+                 << std::flush;
+  }
+
+  const auto response = messages::ConnectResponse{
+    .relay_id = t_relay.host_or_ip,
+  };
+
+  messages::MessageBuffer r_msg;
+  r_msg << response;
+
+  transport->enqueue(conn_id, conn_it->second.ctrl_data_ctx_id, r_msg.take());
+}
+
 
 void
 ServerRawSession::handle_subscribe(
@@ -577,6 +605,9 @@ ServerRawSession::TransportDelegate::on_recv_notify(const qtransport::TransportC
         messages::MessageBuffer msg_buffer{ data.value() };
 
         switch (msg_type) {
+          case messages::MessageType::Connect: {
+
+          }
           case messages::MessageType::Subscribe: {
               if (is_bidir) {
                 auto& conn_ctx = server._connections[conn_id];

@@ -81,6 +81,12 @@ namespace quicr {
         void set_data_ctx_info(const TransportConnId conn_id, const DataContextId data_id, const DataContextInfo info);
         void del_data_ctx_info(const TransportConnId conn_id, const DataContextId data_id);
 
+        void set_endpoint_id(const std::string& endpoint_id)
+        {
+            _endpoint_id = endpoint_id;
+        }
+
+
     private:
         void writer();
 
@@ -90,6 +96,8 @@ namespace quicr {
         std::mutex _state_mutex;
         std::thread _writer_thread;                    /// export writer thread
         bool _stop { false };                          /// Flag to indicate if threads shoudl stop
+
+        std::string _endpoint_id;                      /// Endpoint ID to send with metrics
 
         std::shared_ptr<safe_queue<MetricsConnSample>> _metrics_conn_samples;
         std::shared_ptr<safe_queue<MetricsDataSample>> _metrics_data_samples;

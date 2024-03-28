@@ -54,9 +54,11 @@ to_TransportRemote(const RelayInfo& info) noexcept
 /*===========================================================================*/
 
 ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
+                                   const std::string& endpoint_id,
                                    const qtransport::TransportConfig& tconfig,
                                    const cantina::LoggerPointer& logger)
   : logger(std::make_shared<cantina::Logger>("QSES", logger))
+  , _endpoint_id(endpoint_id)
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
   , _mexport(logger)
 #endif
@@ -81,6 +83,7 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
     throw std::runtime_error("Failed to connect to InfluxDB");
   }
 
+  _mexport.set_endpoint_id(_endpoint_id);
   _mexport.run(transport->metrics_conn_samples, transport->metrics_data_samples);
 #endif
 
@@ -145,6 +148,12 @@ ClientRawSession::connect()
 
   // Create reliable bidirectional control stream
   transport_ctrl_data_ctx_id = transport->createDataContext(*transport_conn_id, true, 0, true);
+
+  // Send connect message
+  auto msg = messages::MessageBuffer{ sizeof(messages::Subscribe) + _endpoint_id.size() };
+  const auto connect = messages::Connect{ 0x1, _endpoint_id };
+  msg << connect;
+  transport->enqueue(*transport_conn_id, *transport_ctrl_data_ctx_id, msg.take());
 
   return true;
 }
@@ -803,6 +812,17 @@ ClientRawSession::handle(messages::MessageBuffer&& msg)
 
   auto msg_type = static_cast<messages::MessageType>(msg.front());
   switch (msg_type) {
+    case messages::MessageType::ConnectResponse: {
+      auto response = messages::ConnectResponse{};
+      msg >> response;
+
+      _relay_id = response.relay_id;
+
+      logger->info << "Received connection response with "
+                   << " relay_id: " << response.relay_id
+                   << std::flush;
+      break;
+    }
     case messages::MessageType::SubscribeResponse: {
       auto response = messages::SubscribeResponse{};
       msg >> response;

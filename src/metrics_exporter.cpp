@@ -86,7 +86,8 @@ namespace quicr {
             const auto info = get_data_ctx_info(data_sample->conn_ctx_id, data_sample->data_ctx_id);
 
             if (data_sample->quic_sample) {
-              logger->info << "conn_id: " << data_sample->conn_ctx_id
+              logger->info << "endpoint_id: " << _endpoint_id
+                           << " conn_id: " << data_sample->conn_ctx_id
                            << " data_id: " << data_sample->data_ctx_id
                            << (info.subscribe ? " SUBSCRIBE" : " PUBLISH")
                            << " nspace: " << info.nspace

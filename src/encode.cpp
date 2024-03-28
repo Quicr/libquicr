@@ -30,6 +30,8 @@ to_string(MessageType type)
     ENUM_MAP_ENTRY(MessageType::PublishIntentResponse),
     ENUM_MAP_ENTRY(MessageType::PublishIntentEnd),
     ENUM_MAP_ENTRY(MessageType::Fetch),
+    ENUM_MAP_ENTRY(MessageType::Connect),
+    ENUM_MAP_ENTRY(MessageType::ConnectResponse),
   };
 #undef ENUM_MAP_ENTRY
   return message_type_name[type];
@@ -189,6 +191,76 @@ operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
 
   val = msg.pop_front(vec_size);
   return msg;
+}
+
+MessageBuffer&
+operator<<(MessageBuffer& msg, const std::string& val)
+{
+  msg << static_cast<uintVar_t>(val.size());
+  std::vector<uint8_t> v(val.begin(), val.end());
+  msg.push(std::move(v));
+  return msg;
+}
+
+MessageBuffer&
+operator>>(MessageBuffer& msg, std::string& val)
+{
+  auto vec_size = uintVar_t(0);
+  msg >> vec_size;
+
+  const auto val_vec = msg.pop_front(vec_size);
+  val.assign(val_vec.begin(), val_vec.end());
+
+  return msg;
+}
+
+/*===========================================================================*/
+// Connect Encode & Decode
+/*===========================================================================*/
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const Connect& msg)
+{
+  buffer << static_cast<uint8_t>(MessageType::Connect);
+  buffer << msg.endpoint_id;
+
+  return buffer;
+}
+
+MessageBuffer&
+operator>>(MessageBuffer& buffer, Connect& msg)
+{
+  auto msg_type = uint8_t(0);
+  buffer >> msg_type;
+  if (msg_type != static_cast<uint8_t>(MessageType::Connect)) {
+    throw MessageTypeException(msg_type, MessageType::Connect);
+  }
+
+  buffer >> msg.endpoint_id;
+
+  return buffer;
+}
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const ConnectResponse& msg)
+{
+  buffer << static_cast<uint8_t>(MessageType::ConnectResponse);
+  buffer << msg.relay_id;
+
+  return buffer;
+}
+
+MessageBuffer&
+operator>>(MessageBuffer& buffer, ConnectResponse& msg)
+{
+  auto msg_type = uint8_t(0);
+  buffer >> msg_type;
+  if (msg_type != static_cast<uint8_t>(MessageType::ConnectResponse)) {
+    throw MessageTypeException(msg_type, MessageType::ConnectResponse);
+  }
+
+  buffer >> msg.relay_id;
+
+  return buffer;
 }
 
 /*===========================================================================*/
