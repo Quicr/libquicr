@@ -49,6 +49,7 @@ ServerRawSession::ServerRawSession(const RelayInfo& relayInfo,
       break;
   }
 
+  relay_id = relayInfo.relay_id;
   transport = setupTransport(tconfig);
   transport->start();
 }
@@ -296,7 +297,7 @@ ServerRawSession::handle_connect(
   }
 
   const auto response = messages::ConnectResponse{
-    .relay_id = t_relay.host_or_ip,
+    .relay_id = relay_id,
   };
 
   messages::MessageBuffer r_msg;

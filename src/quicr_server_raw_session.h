@@ -243,6 +243,7 @@ private:
   TransportDelegate transport_delegate;
   std::shared_ptr<qtransport::ITransport> transport;
   qtransport::TransportRemote t_relay;
+  std::string relay_id;
 
   using SubscriptionContextMap = std::map<qtransport::TransportConnId, std::shared_ptr<SubscribeContext>>;
   namespace_map<SubscriptionContextMap> _subscribe_state{};
