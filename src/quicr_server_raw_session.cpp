@@ -606,7 +606,8 @@ ServerRawSession::TransportDelegate::on_recv_notify(const qtransport::TransportC
 
         switch (msg_type) {
           case messages::MessageType::Connect: {
-
+            server.handle_connect(conn_id, std::move(msg_buffer));
+            break;
           }
           case messages::MessageType::Subscribe: {
               if (is_bidir) {
