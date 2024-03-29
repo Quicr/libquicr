@@ -4,7 +4,8 @@
  *  All Rights Reserved
  *
  *  Description:
- *      InfluxDB metrics exporter class. Libquicr uses this to export metrics to InfluxDB.
+ *      InfluxDB metrics exporter class. Libquicr uses this to export metrics to
+ * InfluxDB.
  *
  *  Portability Issues:
  *      None.
@@ -73,62 +74,122 @@ namespace quicr {
 
     }
 
+    void MetricsExporter::write_conn_metrics(const MetricsConnSample& sample)
+    {
+      if (const auto info = get_conn_ctx_info(sample.conn_ctx_id)) {
+        if (sample.quic_sample) {
+          // Write batches of 100 points
+          // _influxDb->write(influxdb::Point{"test"}.addField("value", 10));
+
+          logger->info << "endpoint_id: " << info->endpoint_id
+                       << " => relay_id: " << _relay_id
+                       << " retransmits: " << sample.quic_sample->tx_retransmits
+                       << " tx_dgrams_lost: " << sample.quic_sample->tx_dgram_lost
+                       << " cwin_congested: " << sample.quic_sample->cwin_congested
+                       << std::flush;
+        }
+      }
+    }
+
+    void MetricsExporter::write_data_metrics(const MetricsDataSample& sample)
+    {
+      if (const auto info = get_data_ctx_info(sample.conn_ctx_id, sample.data_ctx_id)) {
+        if (sample.quic_sample) {
+          logger->info << "endpoint_id: " << info->c_info.endpoint_id
+                       << " => relay_id: " << _relay_id
+                       << " conn_id: " << sample.conn_ctx_id
+                       << " data_id: " << sample.data_ctx_id
+                       << (info->d_info.subscribe ? " SUBSCRIBE" : " PUBLISH")
+                       << " nspace: " << info->d_info.nspace
+                       << " enqueued_objs: " << sample.quic_sample->enqueued_objs
+                       << " tx_dgrams: " << sample.quic_sample->tx_dgrams
+                       << " tx_stream_objs: " << sample.quic_sample->tx_stream_objects
+                       << " rx_dgrams: " << sample.quic_sample->rx_dgrams
+                       << " rx_stream_objs: " << sample.quic_sample->rx_stream_objects
+                       << std::flush;
+        }
+      }
+    }
+
     void MetricsExporter::writer()
     {
       logger->info << "Starting metrics writer thread" << std::flush;
 
+      _influxDb->batchOf(100);
+
       while (not _stop) {
         const auto conn_sample = _metrics_conn_samples->block_pop();
+
         if (conn_sample) {
-          // TODO(tievens): write connection metrics when client ID is added
+          write_conn_metrics(*conn_sample);
 
-          while (const auto data_sample = _metrics_data_samples->pop()) {
-            const auto info = get_data_ctx_info(data_sample->conn_ctx_id, data_sample->data_ctx_id);
-
-            if (data_sample->quic_sample) {
-              logger->info << "endpoint_id: " << _endpoint_id
-                           << " conn_id: " << data_sample->conn_ctx_id
-                           << " data_id: " << data_sample->data_ctx_id
-                           << (info.subscribe ? " SUBSCRIBE" : " PUBLISH")
-                           << " nspace: " << info.nspace
-                           << " enqueued_objs: " << data_sample->quic_sample->enqueued_objs
-                           << " tx_dgrams: " << data_sample->quic_sample->tx_dgrams
-                           << " tx_stream_objs: " << data_sample->quic_sample->tx_stream_objects
-                           << " rx_dgrams: " << data_sample->quic_sample->rx_dgrams
-                           << " rx_stream_objs: " << data_sample->quic_sample->rx_stream_objects
-                           << std::flush;
+            while (const auto data_sample = _metrics_data_samples->pop()) {
+              write_data_metrics(*data_sample);
             }
-
           }
 
-          // Write batches of 100 points
-          // _influxDb->batchOf(100);
-          // _influxDb->write(influxdb::Point{"test"}.addField("value", 10));
-        }
-
-        // _influxDb->flushBatch();
+        _influxDb->flushBatch();
       }
 
       logger->Log("metrics writer thread done");
 
     }
 
-    MetricsExporter::DataContextInfo MetricsExporter::get_data_ctx_info(const TransportConnId conn_id,
+    std::optional<MetricsExporter::ConnContextInfo>
+    MetricsExporter::get_conn_ctx_info(const TransportConnId conn_id)
+    {
+      std::lock_guard<std::mutex> _(_state_mutex);
+
+      const auto c_it = _info.find(conn_id);
+      if (c_it != _info.end()) {
+        return c_it->second;
+      }
+
+      return std::nullopt;
+    }
+
+    void MetricsExporter::set_conn_ctx_info(const TransportConnId conn_id,
+                                            const ConnContextInfo info)
+    {
+      std::lock_guard<std::mutex> _(_state_mutex);
+
+      const auto c_it = _info.find(conn_id);
+      if (c_it == _info.end()) {
+        _info.emplace(conn_id, info);
+      }
+
+      else {
+        c_it->second.endpoint_id = info.endpoint_id;
+      }
+    }
+
+    void MetricsExporter::del_conn_ctx_info(const TransportConnId conn_id)
+    {
+      std::lock_guard<std::mutex> _(_state_mutex);
+
+      const auto c_it = _info.find(conn_id);
+      if (c_it != _info.end()) {
+        _info.erase(c_it);
+      }
+    }
+
+    std::optional<MetricsExporter::ContextInfo>
+    MetricsExporter::get_data_ctx_info(const TransportConnId conn_id,
                                        const DataContextId data_id)
     {
       std::lock_guard<std::mutex> _(_state_mutex);
 
-      const auto c_it = _data_ctx_info.find(conn_id);
-      if (c_it == _data_ctx_info.end()) {
-        return {};
+      const auto c_it = _info.find(conn_id);
+      if (c_it == _info.end()) {
+        return std::nullopt;
       }
 
-      const auto d_it = c_it->second.find(data_id);
-      if (d_it == c_it->second.end()) {
-        return {};
+      const auto d_it = c_it->second.data_ctx_info.find(data_id);
+      if (d_it == c_it->second.data_ctx_info.end()) {
+        return std::nullopt;
       }
 
-      return d_it->second;
+      return ContextInfo{ c_it->second, d_it->second };
     }
 
     void MetricsExporter::set_data_ctx_info(const TransportConnId conn_id,
@@ -136,7 +197,7 @@ namespace quicr {
                                        const DataContextInfo info)
     {
       std::lock_guard<std::mutex> _(_state_mutex);
-      _data_ctx_info[conn_id][data_id] = info;
+      _info[conn_id].data_ctx_info[data_id] = info;
     }
 
     void MetricsExporter::del_data_ctx_info(const TransportConnId conn_id,
@@ -144,17 +205,17 @@ namespace quicr {
     {
       std::lock_guard<std::mutex> _(_state_mutex);
 
-      const auto c_it = _data_ctx_info.find(conn_id);
-      if (c_it == _data_ctx_info.end()) {
+      const auto c_it = _info.find(conn_id);
+      if (c_it == _info.end()) {
         return;
       }
 
-      const auto d_it = c_it->second.find(data_id);
-      if (d_it == c_it->second.end()) {
+      const auto d_it = c_it->second.data_ctx_info.find(data_id);
+      if (d_it == c_it->second.data_ctx_info.end()) {
         return;
       }
 
-      c_it->second.erase(d_it);
+      c_it->second.data_ctx_info.erase(d_it);
     }
 
 };

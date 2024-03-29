@@ -16,6 +16,7 @@
 
 #include <string>
 #include <map>
+#include <optional>
 #include <mutex>
 #include <InfluxDB.h>
 #include <transport/transport.h>
@@ -29,8 +30,26 @@ namespace quicr {
     using namespace qtransport;
 
     class MetricsExporter {
-
     public:
+        struct DataContextInfo
+        {
+            bool subscribe {false};             /// True indicates context was created for subscribe, otherwise it's publish
+            Namespace nspace;                   /// Namespace the data context applies to
+
+        };
+
+        struct ConnContextInfo
+        {
+            std::string endpoint_id;
+            std::map<DataContextId, DataContextInfo> data_ctx_info;
+        };
+
+        struct ContextInfo
+        {
+            ConnContextInfo c_info;
+            DataContextInfo d_info;
+        };
+
         enum class MetricsExporterError : uint8_t {
             NoError=0,
             InvalidUrl,
@@ -41,13 +60,6 @@ namespace quicr {
             NotConnected=0,
             Connected,
             Connecting
-        };
-
-        struct DataContextInfo
-        {
-            bool subscribe {false};             /// True indicates context was created for subscribe, otherwise it's publish
-            Namespace nspace;                   /// Namespace the data context applies to
-
         };
 
         MetricsExporter(const cantina::LoggerPointer& logger);
@@ -77,17 +89,23 @@ namespace quicr {
         void run(std::shared_ptr<safe_queue<MetricsConnSample>>& metrics_conn_samples,
                  std::shared_ptr<safe_queue<MetricsDataSample>>& metrics_data_samples);
 
-        DataContextInfo get_data_ctx_info(const TransportConnId conn_id, const DataContextId data_id);
+        void set_conn_ctx_info(const TransportConnId conn_id, const ConnContextInfo info);
+        void del_conn_ctx_info(const TransportConnId conn_id);
         void set_data_ctx_info(const TransportConnId conn_id, const DataContextId data_id, const DataContextInfo info);
         void del_data_ctx_info(const TransportConnId conn_id, const DataContextId data_id);
 
-        void set_endpoint_id(const std::string& endpoint_id)
+        void set_relay_id(const std::string relay_id)
         {
-            _endpoint_id = endpoint_id;
+            _relay_id = relay_id;
         }
 
-
     private:
+        std::optional<ConnContextInfo> get_conn_ctx_info(const TransportConnId conn_id);
+        std::optional<ContextInfo> get_data_ctx_info(const TransportConnId conn_id, const DataContextId data_id);
+
+        void write_conn_metrics(const MetricsConnSample& sample);
+        void write_data_metrics(const MetricsDataSample& sample);
+
         void writer();
 
         cantina::LoggerPointer logger;
@@ -97,12 +115,11 @@ namespace quicr {
         std::thread _writer_thread;                    /// export writer thread
         bool _stop { false };                          /// Flag to indicate if threads shoudl stop
 
-        std::string _endpoint_id;                      /// Endpoint ID to send with metrics
-
         std::shared_ptr<safe_queue<MetricsConnSample>> _metrics_conn_samples;
         std::shared_ptr<safe_queue<MetricsDataSample>> _metrics_data_samples;
 
-        std::map<TransportConnId, std::map<DataContextId, DataContextInfo>> _data_ctx_info;
+        std::map<TransportConnId, ConnContextInfo> _info;
+        std::string _relay_id;
     };
 
 } // End namespace quicr

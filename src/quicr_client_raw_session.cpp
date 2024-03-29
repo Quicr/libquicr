@@ -83,7 +83,6 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
     throw std::runtime_error("Failed to connect to InfluxDB");
   }
 
-  _mexport.set_endpoint_id(_endpoint_id);
   _mexport.run(transport->metrics_conn_samples, transport->metrics_data_samples);
 #endif
 
@@ -146,8 +145,16 @@ ClientRawSession::connect()
     throw std::runtime_error(msg.str());
   }
 
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  _mexport.set_conn_ctx_info(*transport_conn_id, {.endpoint_id = _endpoint_id});
+#endif
+
   // Create reliable bidirectional control stream
   transport_ctrl_data_ctx_id = transport->createDataContext(*transport_conn_id, true, 0, true);
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  _mexport.set_data_ctx_info(*transport_conn_id, *transport_ctrl_data_ctx_id, {.subscribe = false, {}});
+#endif
 
   // Send connect message
   auto msg = messages::MessageBuffer{ sizeof(messages::Subscribe) + _endpoint_id.size() };
@@ -309,7 +316,9 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
   const auto& conn_id = transport_conn_id.value();
   auto data_ctx_id = get_or_create_data_ctx_id(conn_id, transport_mode, priority);
 
-  _mexport.set_data_ctx_info(conn_id, data_ctx_id, {false, quicr_namespace});
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  _mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, quicr_namespace});
+#endif
 
   logger->info << "Publish Intent ns: " << quicr_namespace
                << " data_ctx_id: " << data_ctx_id
@@ -374,7 +383,10 @@ ClientRawSession::publishIntentEnd(
       transport->deleteDataContext(ps_it->second.transport_conn_id, ps_it->second.transport_data_ctx_id);
     }
 
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
     _mexport.del_data_ctx_info(ps_it->second.transport_conn_id, ps_it->second.transport_data_ctx_id);
+#endif
+
     publish_state.erase(ps_it);
   }
 }
@@ -412,9 +424,10 @@ ClientRawSession::subscribe(
       .transaction_id = transaction_id,
     };
 
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
     _mexport.set_data_ctx_info(conn_id, data_ctx_id, { true, quicr_namespace});
+#endif
   }
-
 
   // We allow duplicate subscriptions, so we always send
   const auto sub_it = subscribe_state.find(quicr_namespace);
@@ -461,12 +474,16 @@ ClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
 
   const auto state_it = subscribe_state.find(quicr_namespace);
   if (state_it != subscribe_state.end()) {
-
     transport->enqueue(state_it->second.transport_conn_id, *transport_ctrl_data_ctx_id, msg.take());
   }
 
-    std::lock_guard<std::mutex> _(session_mutex);
-    removeSubscription(quicr_namespace,
+  std::lock_guard<std::mutex> _(session_mutex);
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  _mexport.del_data_ctx_info(state_it->second.transport_conn_id, state_it->second.transport_data_ctx_id);
+#endif
+
+  removeSubscription(quicr_namespace,
                      SubscribeResult::SubscribeStatus::UnSubscribed);
 }
 
@@ -817,8 +834,11 @@ ClientRawSession::handle(messages::MessageBuffer&& msg)
       msg >> response;
 
       _relay_id = response.relay_id;
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+      _mexport.set_relay_id(_relay_id);
+#endif
 
-      logger->info << "Received connection response with "
+      logger->info << "Received connection response with"
                    << " relay_id: " << response.relay_id
                    << std::flush;
       break;
