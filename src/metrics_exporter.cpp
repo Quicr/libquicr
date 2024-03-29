@@ -12,12 +12,15 @@
  */
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
 
+#include <chrono>
+#include <ctime>
 #include "metrics_exporter.h"
 #include "InfluxDBBuilder.h"
 
 /*
  * InfluxDB Exporter of metrics
  */
+using namespace std::chrono;
 namespace quicr {
 
     MetricsExporter::MetricsExporter(const cantina::LoggerPointer& logger) :
@@ -52,8 +55,6 @@ namespace quicr {
           return MetricsExporterError::FailedConnect;
         }
 
-
-
         logger->info << "metrics exporter connected to influxDb" << std::flush;
         return MetricsExporterError::NoError;
 
@@ -78,15 +79,33 @@ namespace quicr {
     {
       if (const auto info = get_conn_ctx_info(sample.conn_ctx_id)) {
         if (sample.quic_sample) {
-          // Write batches of 100 points
-          // _influxDb->write(influxdb::Point{"test"}.addField("value", 10));
+          auto tp = system_clock::now()
+                      + duration_cast<system_clock::duration>(sample.sample_time - steady_clock::now());
 
-          logger->info << "endpoint_id: " << info->endpoint_id
+          _influxDb->write(influxdb::Point{METRICS_MEASUREMENT_NAME_CONNECTION}
+                  .setTimestamp(tp)
+                  .addTag("endpoint_id", info->endpoint_id)
+                  .addTag("relay_id", _relay_id)
+                  .addField("tx_retransmits", sample.quic_sample->tx_retransmits)
+                  .addField("tx_dgram_lost", sample.quic_sample->tx_dgram_lost)
+                  .addField("tx_dgram_ack", sample.quic_sample->tx_dgram_ack)
+                  .addField("tx_dgram_cb", sample.quic_sample->tx_dgram_cb)
+                  .addField("tx_dgram_spurious", sample.quic_sample->tx_dgram_spurious)
+                  .addField("dgram_invalid_ctx_id", sample.quic_sample->dgram_invalid_ctx_id)
+                  .addField("cwin_congested", sample.quic_sample->cwin_congested)
+                  );
+
+          /*
+          auto tt = system_clock::to_time_t(tp);
+          logger->info << "sample_time: " << std::put_time( std::gmtime(&tt), "%FT%T")
+                       << "." << tp.time_since_epoch().count() % 1000000
+                       << " endpoint_id: " << info->endpoint_id
                        << " => relay_id: " << _relay_id
                        << " retransmits: " << sample.quic_sample->tx_retransmits
                        << " tx_dgrams_lost: " << sample.quic_sample->tx_dgram_lost
                        << " cwin_congested: " << sample.quic_sample->cwin_congested
                        << std::flush;
+          */
         }
       } else {
         logger->warning << "Connection info not found for "
@@ -98,6 +117,34 @@ namespace quicr {
     {
       if (const auto info = get_data_ctx_info(sample.conn_ctx_id, sample.data_ctx_id)) {
         if (sample.quic_sample) {
+          auto tp = system_clock::now()
+                      + duration_cast<system_clock::duration>(sample.sample_time - steady_clock::now());
+
+          _influxDb->write(influxdb::Point{METRICS_MEASUREMENT_NAME_DATA_FLOW}
+                           .setTimestamp(tp)
+                           .addTag("endpoint_id", info->c_info.endpoint_id)
+                           .addTag("relay_id", _relay_id)
+                           .addTag("type", info->d_info.subscribe ? "subscribe" : "publish")
+                           .addTag("namespace", std::string(info->d_info.nspace))
+                           .addField("enqueued_objs", sample.quic_sample->enqueued_objs)
+                           .addField("rx_buffer_drops", sample.quic_sample->rx_buffer_drops)
+                           .addField("rx_dgrams", sample.quic_sample->rx_dgrams)
+                           .addField("rx_stream_objs", sample.quic_sample->rx_stream_objects)
+                           .addField("rx_invalid_drops", sample.quic_sample->rx_invalid_drops)
+                           .addField("rx_stream_bytes", sample.quic_sample->rx_stream_bytes)
+                           .addField("rx_stream_cb", sample.quic_sample->rx_stream_cb)
+                           .addField("tx_dgrams", sample.quic_sample->tx_dgrams)
+                           .addField("tx_stream_objs", sample.quic_sample->tx_stream_objects)
+                           .addField("tx_stream_bytes", sample.quic_sample->tx_stream_bytes)
+                           .addField("tx_buffer_drops", sample.quic_sample->tx_buffer_drops)
+                           .addField("tx_delayed_callback", sample.quic_sample->tx_delayed_callback)
+                           .addField("tx_queue_discards", sample.quic_sample->tx_queue_discards)
+                           .addField("tx_queue_expired", sample.quic_sample->tx_queue_expired)
+                           .addField("tx_reset_wait", sample.quic_sample->tx_reset_wait)
+                           .addField("tx_stream_cb", sample.quic_sample->tx_stream_cb)
+                        );
+
+/*
           logger->info << "endpoint_id: " << info->c_info.endpoint_id
                        << " => relay_id: " << _relay_id
                        << " conn_id: " << sample.conn_ctx_id
@@ -110,6 +157,7 @@ namespace quicr {
                        << " rx_dgrams: " << sample.quic_sample->rx_dgrams
                        << " rx_stream_objs: " << sample.quic_sample->rx_stream_objects
                        << std::flush;
+*/
         }
       } else {
         logger->warning << "Data info not found for "

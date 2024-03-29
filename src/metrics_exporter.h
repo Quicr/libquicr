@@ -31,6 +31,9 @@ namespace quicr {
 
     class MetricsExporter {
     public:
+        const std::string METRICS_MEASUREMENT_NAME_CONNECTION { "quicr-connection" };
+        const std::string METRICS_MEASUREMENT_NAME_DATA_FLOW { "quicr-dataFlow" };
+
         struct DataContextInfo
         {
             bool subscribe {false};             /// True indicates context was created for subscribe, otherwise it's publish
