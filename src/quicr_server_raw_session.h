@@ -19,6 +19,7 @@
 #include "quicr/message_buffer.h"
 #include "quicr/quicr_server_delegate.h"
 #include "quicr/quicr_server_session.h"
+#include "metrics_exporter.h"
 
 #include <cantina/logger.h>
 #include <transport/transport.h>
@@ -223,6 +224,7 @@ private:
 
     bool paused { false };                              /// Indicates if objects should not be sent (e.g., paused)
 
+    quicr::Namespace nspace;                            /// Subscribed namespace
     uint64_t transaction_id{ 0 };
     uint64_t subscriber_id{ 0 };
     uint64_t group_id{ 0 };
@@ -255,6 +257,10 @@ private:
 
   bool _running{ false };
   uint64_t _subscriber_id{ 0 };
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  MetricsExporter _mexport;
+#endif
 };
 
 } // namespace quicr

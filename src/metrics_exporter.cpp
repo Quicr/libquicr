@@ -88,6 +88,9 @@ namespace quicr {
                        << " cwin_congested: " << sample.quic_sample->cwin_congested
                        << std::flush;
         }
+      } else {
+        logger->warning << "Connection info not found for "
+                        << " conn_id: " << sample.conn_ctx_id << std::flush;
       }
     }
 
@@ -108,6 +111,12 @@ namespace quicr {
                        << " rx_stream_objs: " << sample.quic_sample->rx_stream_objects
                        << std::flush;
         }
+      } else {
+        logger->warning << "Data info not found for "
+                        << " conn_id: " << sample.conn_ctx_id
+                        << " data_id: " << sample.data_ctx_id
+                        << std::flush;
+
       }
     }
 

@@ -37,6 +37,9 @@ ServerRawSession::ServerRawSession(const RelayInfo& relayInfo,
   : delegate(std::move(delegate_in))
   , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport_delegate(*this)
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  , _mexport(logger)
+#endif
 {
   t_relay.host_or_ip = relayInfo.hostname;
   t_relay.port = relayInfo.port;
@@ -62,6 +65,9 @@ ServerRawSession::ServerRawSession(
   , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport_delegate(*this)
   , transport(std::move(transport_in))
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  , _mexport(logger)
+#endif
 {
 }
 
@@ -97,6 +103,22 @@ ServerRawSession::run()
     logger->Log("Waiting for server to be ready");
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
+
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  if (_mexport.init("http://metrics.m10x.ctgpoc.com:8086",
+                   "Media10x",
+                   "cisco-cto-media10x") !=
+      MetricsExporter::MetricsExporterError::NoError) {
+    throw std::runtime_error("Failed to connect to InfluxDB");
+      }
+
+  _mexport.set_relay_id(relay_id);
+  if (!transport->metrics_conn_samples) {
+    logger->error << "ERROR metrics conn samples null" << std::flush;
+  }
+  _mexport.run(transport->metrics_conn_samples, transport->metrics_data_samples);
+#endif
 
   return transport->status() == qtransport::TransportStatus::Ready;
 }
@@ -219,6 +241,10 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
     context->data_ctx_id = transport->createDataContext(context->transport_conn_id, true, priority, false);
     transport->setRemoteDataCtxId(context->transport_conn_id, context->data_ctx_id, context->remote_data_ctx_id);
 
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+    _mexport.set_data_ctx_info(context->transport_conn_id, context->data_ctx_id, {.subscribe = true, context->nspace});
+#endif
+
     logger->info << "Creating new data context for subscriber_id: " << subscriber_id
                  << " conn_id: " << context->transport_conn_id
                  << " remote_data_ctx_id: " << context->remote_data_ctx_id
@@ -303,6 +329,10 @@ ServerRawSession::handle_connect(
   messages::MessageBuffer r_msg;
   r_msg << response;
 
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  _mexport.set_conn_ctx_info(conn_id, {.endpoint_id = connect.endpoint_id});
+#endif
+
   transport->enqueue(conn_id, conn_it->second.ctrl_data_ctx_id, r_msg.take());
 }
 
@@ -341,6 +371,7 @@ ServerRawSession::handle_subscribe(
   context->subscriber_id = ++_subscriber_id;
   context->transport_mode = subscribe.transport_mode;
   context->remote_data_ctx_id = subscribe.remote_data_ctx_id;
+  context->nspace = subscribe.quicr_namespace;
 
   subscribe_id_state[context->subscriber_id] = context;
 
@@ -357,6 +388,9 @@ ServerRawSession::handle_subscribe(
     case TransportMode::Unreliable: {
       context->data_ctx_id = transport->createDataContext(conn_id, false, context->priority, false);
       transport->setRemoteDataCtxId(conn_id, context->data_ctx_id, context->remote_data_ctx_id);
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+      _mexport.set_data_ctx_info(conn_id, context->data_ctx_id, {.subscribe = true, subscribe.quicr_namespace});
+#endif
       break;
     }
 
@@ -364,6 +398,10 @@ ServerRawSession::handle_subscribe(
       context->transport_mode_follow_publisher = true;
       context->data_ctx_id = transport->createDataContext(conn_id, true, context->priority, false);
       transport->setRemoteDataCtxId(conn_id, context->data_ctx_id, context->remote_data_ctx_id);
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+      _mexport.set_data_ctx_info(conn_id, context->data_ctx_id, {.subscribe = true, subscribe.quicr_namespace});
+#endif
       break;
     }
 
@@ -375,6 +413,7 @@ ServerRawSession::handle_subscribe(
   }
 
   logger->debug << "New Subscribe conn_id: " << conn_id
+                << " ns: " << subscribe.quicr_namespace
                 << " transport_mode: " << static_cast<int>(context->transport_mode)
                 << " subscriber_id: " << context->subscriber_id
                 << " pending_data_ctx: " << context->pending_reliable_data_ctx
@@ -393,7 +432,7 @@ ServerRawSession::handle_subscribe(
 void
 ServerRawSession::handle_unsubscribe(
   const qtransport::TransportConnId& conn_id,
-  const qtransport::DataContextId& /* data_ctx_id */,
+  [[maybe_unused]] const qtransport::DataContextId& data_ctx_id,
   messages::MessageBuffer&& msg)
 {
   auto unsub = messages::Unsubscribe{};
@@ -404,6 +443,10 @@ ServerRawSession::handle_unsubscribe(
     const auto lock = std::lock_guard<std::mutex>(session_mutex);
 
     auto& context = _subscribe_state[unsub.quicr_namespace][conn_id];
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+    _mexport.del_data_ctx_info(conn_id, context->data_ctx_id);
+#endif
 
     // Before removing, exec callback
     delegate->onUnsubscribe(unsub.quicr_namespace, context->subscriber_id, {});
@@ -479,6 +522,10 @@ ServerRawSession::handle_publish_intent(
       break;
   }
 
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  _mexport.set_data_ctx_info(conn_id, ps_it->second.data_ctx_id, {.subscribe = false, intent.quicr_namespace});
+#endif
+
   delegate->onPublishIntent(intent.quicr_namespace,
                             "" /* intent.origin_url */,
                             "" /* intent.relay_token */,
@@ -503,6 +550,11 @@ ServerRawSession::handle_publish_intent_end(
   }
 
   transport->deleteDataContext(conn_id, pub_it->second.data_ctx_id);
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  _mexport.del_data_ctx_info(conn_id, pub_it->second.data_ctx_id);
+#endif
+
 
   publish_namespaces.erase(pub_it);
 
@@ -532,6 +584,10 @@ ServerRawSession::TransportDelegate::on_connection_status(
   if (status == qtransport::TransportStatus::Disconnected) {
     server.logger->info << "Removing state for conn_id: " << conn_id
                         << std::flush;
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+    server._mexport.del_conn_ctx_info(conn_id);
+#endif
 
     std::lock_guard<std::mutex> _(server.session_mutex);
     server._connections.erase(conn_id);
@@ -607,9 +663,13 @@ ServerRawSession::TransportDelegate::on_recv_notify(const qtransport::TransportC
 
         switch (msg_type) {
           case messages::MessageType::Connect: {
+            // TODO(tievens): Enforce that connect is the first message
             if (is_bidir) {
               auto& conn_ctx = server._connections[conn_id];
               conn_ctx.ctrl_data_ctx_id = data_ctx_id;
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+              server._mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, {}});
+#endif
             }
 
             server.handle_connect(conn_id, std::move(msg_buffer));
@@ -619,6 +679,9 @@ ServerRawSession::TransportDelegate::on_recv_notify(const qtransport::TransportC
               if (is_bidir) {
                 auto& conn_ctx = server._connections[conn_id];
                 conn_ctx.ctrl_data_ctx_id = data_ctx_id;
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+                server._mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, {}});
+#endif
               }
 
               server.recv_subscribes++;
@@ -630,14 +693,17 @@ ServerRawSession::TransportDelegate::on_recv_notify(const qtransport::TransportC
               if (is_bidir) {
                 auto& conn_ctx = server._connections[conn_id];
                 conn_ctx.ctrl_data_ctx_id = data_ctx_id;
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+                server._mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, {}});
+#endif
               }
-            server.recv_publish++;
-            server.handle_publish(conn_id, data_ctx_id, std::move(msg_buffer));
-            break;
+              server.recv_publish++;
+              server.handle_publish(conn_id, data_ctx_id, std::move(msg_buffer));
+              break;
           }
           case messages::MessageType::Unsubscribe: {
-            server.recv_unsubscribes++;
-            server.handle_unsubscribe(
+              server.recv_unsubscribes++;
+              server.handle_unsubscribe(
               conn_id, data_ctx_id, std::move(msg_buffer));
             break;
           }
@@ -645,9 +711,12 @@ ServerRawSession::TransportDelegate::on_recv_notify(const qtransport::TransportC
               if (is_bidir) {
                 auto& conn_ctx = server._connections[conn_id];
                 conn_ctx.ctrl_data_ctx_id = data_ctx_id;
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+                server._mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, {}});
+#endif
               }
-            server.recv_pub_intents++;
-            server.handle_publish_intent(
+              server.recv_pub_intents++;
+              server.handle_publish_intent(
               conn_id, data_ctx_id, std::move(msg_buffer));
             break;
           }
