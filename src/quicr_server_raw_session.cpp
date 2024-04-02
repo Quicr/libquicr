@@ -38,7 +38,7 @@ ServerRawSession::ServerRawSession(const RelayInfo& relayInfo,
   , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport_delegate(*this)
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-  , _mexport(logger)
+  , _mexport(logger, false)
 #endif
 {
   t_relay.host_or_ip = relayInfo.hostname;
@@ -66,7 +66,7 @@ ServerRawSession::ServerRawSession(
   , transport_delegate(*this)
   , transport(std::move(transport_in))
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-  , _mexport(logger)
+  , _mexport(logger, false)
 #endif
 {
 }

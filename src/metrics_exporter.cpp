@@ -23,8 +23,12 @@
 using namespace std::chrono;
 namespace quicr {
 
-    MetricsExporter::MetricsExporter(const cantina::LoggerPointer& logger) :
-        logger(std::make_shared<cantina::Logger>("MExport", logger)) {}
+    MetricsExporter::MetricsExporter(const cantina::LoggerPointer& logger,
+                                     const bool is_client) :
+        _src_text(is_client ? METRICS_SOURCE_CLIENT : METRICS_SOURCE_SERVER)
+        , logger(std::make_shared<cantina::Logger>("MExport", logger))
+    {
+    }
 
     MetricsExporter::~MetricsExporter() {
       _stop = true;
@@ -86,26 +90,33 @@ namespace quicr {
                   .setTimestamp(tp)
                   .addTag("endpoint_id", info->endpoint_id)
                   .addTag("relay_id", _relay_id)
+                  .addTag("source", _src_text)
                   .addField("tx_retransmits", sample.quic_sample->tx_retransmits)
+                  .addField("tx_congested", sample.quic_sample->tx_congested)
+                  .addField("tx_lost_pkts", sample.quic_sample->tx_lost_pkts)
                   .addField("tx_dgram_lost", sample.quic_sample->tx_dgram_lost)
                   .addField("tx_dgram_ack", sample.quic_sample->tx_dgram_ack)
                   .addField("tx_dgram_cb", sample.quic_sample->tx_dgram_cb)
                   .addField("tx_dgram_spurious", sample.quic_sample->tx_dgram_spurious)
                   .addField("dgram_invalid_ctx_id", sample.quic_sample->dgram_invalid_ctx_id)
                   .addField("cwin_congested", sample.quic_sample->cwin_congested)
+                  .addField("tx_rate_bps_min", sample.quic_sample->tx_rate_bps.min)
+                  .addField("tx_rate_bps_max", sample.quic_sample->tx_rate_bps.max)
+                  .addField("tx_rate_bps_avg", sample.quic_sample->tx_rate_bps.avg)
+                  .addField("rx_rate_bps_min", sample.quic_sample->rx_rate_bps.min)
+                  .addField("rx_rate_bps_max", sample.quic_sample->rx_rate_bps.max)
+                  .addField("rx_rate_bps_avg", sample.quic_sample->rx_rate_bps.avg)
+                  .addField("tx_cwin_bytes_min", sample.quic_sample->tx_cwin_bytes.min)
+                  .addField("tx_cwin_bytes_max", sample.quic_sample->tx_cwin_bytes.max)
+                  .addField("tx_cwin_bytes_avg", sample.quic_sample->tx_cwin_bytes.avg)
+                  .addField("rtt_us_min", sample.quic_sample->rtt_us.min)
+                  .addField("rtt_us_max", sample.quic_sample->rtt_us.max)
+                  .addField("rtt_us_avg", sample.quic_sample->rtt_us.avg)
+                  .addField("srtt_us_min", sample.quic_sample->srtt_us.min)
+                  .addField("srtt_us_max", sample.quic_sample->srtt_us.max)
+                  .addField("srtt_us_avg", sample.quic_sample->srtt_us.avg)
                   );
 
-          /*
-          auto tt = system_clock::to_time_t(tp);
-          logger->info << "sample_time: " << std::put_time( std::gmtime(&tt), "%FT%T")
-                       << "." << tp.time_since_epoch().count() % 1000000
-                       << " endpoint_id: " << info->endpoint_id
-                       << " => relay_id: " << _relay_id
-                       << " retransmits: " << sample.quic_sample->tx_retransmits
-                       << " tx_dgrams_lost: " << sample.quic_sample->tx_dgram_lost
-                       << " cwin_congested: " << sample.quic_sample->cwin_congested
-                       << std::flush;
-          */
         }
       } else {
         logger->warning << "Connection info not found for "
@@ -124,16 +135,22 @@ namespace quicr {
                            .setTimestamp(tp)
                            .addTag("endpoint_id", info->c_info.endpoint_id)
                            .addTag("relay_id", _relay_id)
+                           .addTag("source", _src_text)
                            .addTag("type", info->d_info.subscribe ? "subscribe" : "publish")
                            .addTag("namespace", std::string(info->d_info.nspace))
                            .addField("enqueued_objs", sample.quic_sample->enqueued_objs)
+                           .addField("tx_queue_size_min", sample.quic_sample->tx_queue_size.min)
+                           .addField("tx_queue_size_max", sample.quic_sample->tx_queue_size.max)
+                           .addField("tx_queue_size_avg", sample.quic_sample->tx_queue_size.avg)
                            .addField("rx_buffer_drops", sample.quic_sample->rx_buffer_drops)
                            .addField("rx_dgrams", sample.quic_sample->rx_dgrams)
+                           .addField("rx_dgrams_bytes", sample.quic_sample->rx_dgrams_bytes)
                            .addField("rx_stream_objs", sample.quic_sample->rx_stream_objects)
                            .addField("rx_invalid_drops", sample.quic_sample->rx_invalid_drops)
                            .addField("rx_stream_bytes", sample.quic_sample->rx_stream_bytes)
                            .addField("rx_stream_cb", sample.quic_sample->rx_stream_cb)
                            .addField("tx_dgrams", sample.quic_sample->tx_dgrams)
+                           .addField("tx_dgrams_bytes", sample.quic_sample->tx_dgrams_bytes)
                            .addField("tx_stream_objs", sample.quic_sample->tx_stream_objects)
                            .addField("tx_stream_bytes", sample.quic_sample->tx_stream_bytes)
                            .addField("tx_buffer_drops", sample.quic_sample->tx_buffer_drops)
@@ -144,20 +161,6 @@ namespace quicr {
                            .addField("tx_stream_cb", sample.quic_sample->tx_stream_cb)
                         );
 
-/*
-          logger->info << "endpoint_id: " << info->c_info.endpoint_id
-                       << " => relay_id: " << _relay_id
-                       << " conn_id: " << sample.conn_ctx_id
-                       << " data_id: " << sample.data_ctx_id
-                       << (info->d_info.subscribe ? " SUBSCRIBE" : " PUBLISH")
-                       << " nspace: " << info->d_info.nspace
-                       << " enqueued_objs: " << sample.quic_sample->enqueued_objs
-                       << " tx_dgrams: " << sample.quic_sample->tx_dgrams
-                       << " tx_stream_objs: " << sample.quic_sample->tx_stream_objects
-                       << " rx_dgrams: " << sample.quic_sample->rx_dgrams
-                       << " rx_stream_objs: " << sample.quic_sample->rx_stream_objects
-                       << std::flush;
-*/
         }
       } else {
         logger->warning << "Data info not found for "

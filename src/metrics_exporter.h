@@ -33,6 +33,8 @@ namespace quicr {
     public:
         const std::string METRICS_MEASUREMENT_NAME_CONNECTION { "quicr-connection" };
         const std::string METRICS_MEASUREMENT_NAME_DATA_FLOW { "quicr-dataFlow" };
+        const std::string METRICS_SOURCE_CLIENT { "client" };
+        const std::string METRICS_SOURCE_SERVER { "server" };
 
         struct DataContextInfo
         {
@@ -65,7 +67,8 @@ namespace quicr {
             Connecting
         };
 
-        MetricsExporter(const cantina::LoggerPointer& logger);
+        MetricsExporter(const cantina::LoggerPointer& logger,
+                        const bool is_client);
         ~MetricsExporter();
 
         /**
@@ -123,6 +126,7 @@ namespace quicr {
 
         std::map<TransportConnId, ConnContextInfo> _info;
         std::string _relay_id;
+        const std::string _src_text;                        /// Source of metrics is "client" or "srever"
     };
 
 } // End namespace quicr

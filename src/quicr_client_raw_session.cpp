@@ -60,7 +60,7 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
   : logger(std::make_shared<cantina::Logger>("QSES", logger))
   , _endpoint_id(endpoint_id)
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-  , _mexport(logger)
+  , _mexport(logger, true)
 #endif
 {
   this->logger->Log("Initialize Client");
@@ -95,7 +95,7 @@ ClientRawSession::ClientRawSession(
   , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport(std::move(transport_in))
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-  , _mexport(logger)
+  , _mexport(logger, true)
 #endif
 {
 }
