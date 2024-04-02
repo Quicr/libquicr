@@ -25,8 +25,8 @@ namespace quicr {
 
     MetricsExporter::MetricsExporter(const cantina::LoggerPointer& logger,
                                      const bool is_client) :
-        _src_text(is_client ? METRICS_SOURCE_CLIENT : METRICS_SOURCE_SERVER)
-        , logger(std::make_shared<cantina::Logger>("MExport", logger))
+        logger(std::make_shared<cantina::Logger>("MExport", logger))
+        , _src_text(is_client ? METRICS_SOURCE_CLIENT : METRICS_SOURCE_SERVER)
     {
     }
 
