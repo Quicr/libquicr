@@ -61,10 +61,12 @@ if(NOT LIBQUICR_WITHOUT_INFLUXDB)
     set (CPR_BUILD_TESTS OFF)
     set (CPR_ENABLE_CURL_HTTP_ONLY ON)
 
-    # options below are needed for boringSSL support in libcurl
+    # options below are needed for boringSSL support in libcurl with mac os
     add_compile_options(-Wno-gnu-anonymous-struct
                         -Wno-nested-anon-types)
 
+    add_definitions("-DSUPPORT_CURLOPT_SSL_CTX_FUNCTION=0")
+    include_directories(BEFORE ${CMAKE_CURRENT_SOURCE_DIR}/transport/dependencies/boringssl/include)
     add_subdirectory( cpr )
     add_dependencies( cpr OpenSSL::SSL OpenSSL::Crypto)
 

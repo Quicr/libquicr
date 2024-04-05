@@ -146,14 +146,14 @@ ClientRawSession::connect()
   }
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-  _mexport.set_conn_ctx_info(*transport_conn_id, {.endpoint_id = _endpoint_id});
+  _mexport.set_conn_ctx_info(*transport_conn_id, {.endpoint_id = _endpoint_id, .data_ctx_info = {}});
 #endif
 
   // Create reliable bidirectional control stream
   transport_ctrl_data_ctx_id = transport->createDataContext(*transport_conn_id, true, 0, true);
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-  _mexport.set_data_ctx_info(*transport_conn_id, *transport_ctrl_data_ctx_id, {.subscribe = false, {}});
+  _mexport.set_data_ctx_info(*transport_conn_id, *transport_ctrl_data_ctx_id, {.subscribe = false, .nspace = {}});
 #endif
 
   // Send connect message
@@ -317,7 +317,7 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
   auto data_ctx_id = get_or_create_data_ctx_id(conn_id, transport_mode, priority);
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-  _mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, quicr_namespace});
+  _mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, .nspace = quicr_namespace});
 #endif
 
   logger->info << "Publish Intent ns: " << quicr_namespace
@@ -425,7 +425,7 @@ ClientRawSession::subscribe(
     };
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-    _mexport.set_data_ctx_info(conn_id, data_ctx_id, { true, quicr_namespace});
+    _mexport.set_data_ctx_info(conn_id, data_ctx_id, { .subscribe = true, .nspace = quicr_namespace});
 #endif
   }
 

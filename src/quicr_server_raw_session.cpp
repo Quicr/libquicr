@@ -242,7 +242,7 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
     transport->setRemoteDataCtxId(context->transport_conn_id, context->data_ctx_id, context->remote_data_ctx_id);
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-    _mexport.set_data_ctx_info(context->transport_conn_id, context->data_ctx_id, {.subscribe = true, context->nspace});
+    _mexport.set_data_ctx_info(context->transport_conn_id, context->data_ctx_id, {.subscribe = true, .nspace = context->nspace});
 #endif
 
     logger->info << "Creating new data context for subscriber_id: " << subscriber_id
@@ -330,7 +330,7 @@ ServerRawSession::handle_connect(
   r_msg << response;
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-  _mexport.set_conn_ctx_info(conn_id, {.endpoint_id = connect.endpoint_id});
+  _mexport.set_conn_ctx_info(conn_id, {.endpoint_id = connect.endpoint_id, .data_ctx_info = {}});
 #endif
 
   transport->enqueue(conn_id, conn_it->second.ctrl_data_ctx_id, r_msg.take());
@@ -389,7 +389,7 @@ ServerRawSession::handle_subscribe(
       context->data_ctx_id = transport->createDataContext(conn_id, false, context->priority, false);
       transport->setRemoteDataCtxId(conn_id, context->data_ctx_id, context->remote_data_ctx_id);
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-      _mexport.set_data_ctx_info(conn_id, context->data_ctx_id, {.subscribe = true, subscribe.quicr_namespace});
+      _mexport.set_data_ctx_info(conn_id, context->data_ctx_id, {.subscribe = true, .nspace = subscribe.quicr_namespace});
 #endif
       break;
     }
@@ -400,7 +400,7 @@ ServerRawSession::handle_subscribe(
       transport->setRemoteDataCtxId(conn_id, context->data_ctx_id, context->remote_data_ctx_id);
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-      _mexport.set_data_ctx_info(conn_id, context->data_ctx_id, {.subscribe = true, subscribe.quicr_namespace});
+      _mexport.set_data_ctx_info(conn_id, context->data_ctx_id, {.subscribe = true, .nspace = subscribe.quicr_namespace});
 #endif
       break;
     }
@@ -523,7 +523,7 @@ ServerRawSession::handle_publish_intent(
   }
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-  _mexport.set_data_ctx_info(conn_id, ps_it->second.data_ctx_id, {.subscribe = false, intent.quicr_namespace});
+  _mexport.set_data_ctx_info(conn_id, ps_it->second.data_ctx_id, {.subscribe = false, .nspace = intent.quicr_namespace});
 #endif
 
   delegate->onPublishIntent(intent.quicr_namespace,
@@ -668,7 +668,7 @@ ServerRawSession::TransportDelegate::on_recv_notify(const qtransport::TransportC
               auto& conn_ctx = server._connections[conn_id];
               conn_ctx.ctrl_data_ctx_id = data_ctx_id;
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-              server._mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, {}});
+              server._mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, .nspace = {}});
 #endif
             }
 
@@ -680,7 +680,7 @@ ServerRawSession::TransportDelegate::on_recv_notify(const qtransport::TransportC
                 auto& conn_ctx = server._connections[conn_id];
                 conn_ctx.ctrl_data_ctx_id = data_ctx_id;
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-                server._mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, {}});
+                server._mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, .nspace = {}});
 #endif
               }
 
@@ -694,7 +694,7 @@ ServerRawSession::TransportDelegate::on_recv_notify(const qtransport::TransportC
                 auto& conn_ctx = server._connections[conn_id];
                 conn_ctx.ctrl_data_ctx_id = data_ctx_id;
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-                server._mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, {}});
+                server._mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, .nspace = {}});
 #endif
               }
               server.recv_publish++;
@@ -712,7 +712,7 @@ ServerRawSession::TransportDelegate::on_recv_notify(const qtransport::TransportC
                 auto& conn_ctx = server._connections[conn_id];
                 conn_ctx.ctrl_data_ctx_id = data_ctx_id;
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-                server._mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, {}});
+                server._mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, .nspace = {}});
 #endif
               }
               server.recv_pub_intents++;
