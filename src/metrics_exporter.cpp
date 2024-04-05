@@ -86,7 +86,7 @@ namespace quicr {
           auto tp = system_clock::now()
                       + duration_cast<system_clock::duration>(sample.sample_time - steady_clock::now());
 
-          _influxDb->write(influxdb::Point{METRICS_MEASUREMENT_NAME_CONNECTION}
+          _influxDb->write(influxdb::Point{METRICS_MEASUREMENT_NAME_QUIC_CONNECTION}
                   .setTimestamp(tp)
                   .addTag("endpoint_id", info->endpoint_id)
                   .addTag("relay_id", _relay_id)
@@ -131,7 +131,7 @@ namespace quicr {
           auto tp = system_clock::now()
                       + duration_cast<system_clock::duration>(sample.sample_time - steady_clock::now());
 
-          _influxDb->write(influxdb::Point{METRICS_MEASUREMENT_NAME_DATA_FLOW}
+          _influxDb->write(influxdb::Point{METRICS_MEASUREMENT_NAME_QUIC_DATA_FLOW}
                            .setTimestamp(tp)
                            .addTag("endpoint_id", info->c_info.endpoint_id)
                            .addTag("relay_id", _relay_id)

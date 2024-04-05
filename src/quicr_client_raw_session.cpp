@@ -521,11 +521,11 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
   auto& [ns, context] = *ps_it;
 
-/*
-  if (context.state != PublishContext::State::Ready) {
-    LOGGER_INFO(logger, "Publish intent NOT READY for ns: " << ns << " got state: " << static_cast<int>(context.state));
-  }
-*/
+  /*
+    if (context.state != PublishContext::State::Ready) {
+      LOGGER_INFO(logger, "Publish intent NOT READY for ns: " << ns << " got state: " << static_cast<int>(context.state));
+    }
+  */
 
   // IMPORTANT - Gap check updates the last_group_id and last_object_id to be current group/object
   const auto prev_group_id = context.group_id;
@@ -564,7 +564,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
     case TransportMode::ReliablePerTrack:
       eflags.use_reliable = true;
-      break;
+    break;
 
     case TransportMode::Unreliable:
       break;
@@ -574,8 +574,10 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
   }
 
   // Fragment the payload if needed
-  if (data.size() <= quicr::max_transport_data_size ||
-          (! transport_needs_fragmentation && context.transport_mode != TransportMode::Unreliable)) {
+  if (data.size() <= quicr::max_transport_data_size
+      || (! transport_needs_fragmentation
+        && context.transport_mode != TransportMode::Unreliable
+          && data.size() > quicr::max_transport_data_size * 3)) {
     messages::MessageBuffer msg;
 
     datagram.media_data_length = data.size();
@@ -589,8 +591,8 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
     transport->enqueue(context.transport_conn_id, context.transport_data_ctx_id, msg.take(), std::move(trace),
                        priority, expiry_age_ms, 0, eflags);
   } else {
-    // Fragments required. At this point this only counts whole blocks
     auto frag_num = data.size() / quicr::max_transport_data_size;
+    // Fragments required. At this point this only counts whole blocks
     const auto frag_remaining_bytes =
       data.size() % quicr::max_transport_data_size;
 

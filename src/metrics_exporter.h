@@ -31,8 +31,8 @@ namespace quicr {
 
     class MetricsExporter {
     public:
-        const std::string METRICS_MEASUREMENT_NAME_CONNECTION { "quicr-connection" };
-        const std::string METRICS_MEASUREMENT_NAME_DATA_FLOW { "quicr-dataFlow" };
+        const std::string METRICS_MEASUREMENT_NAME_QUIC_CONNECTION { "quic-connection" };
+        const std::string METRICS_MEASUREMENT_NAME_QUIC_DATA_FLOW { "quic-dataFlow" };
         const std::string METRICS_SOURCE_CLIENT { "client" };
         const std::string METRICS_SOURCE_SERVER { "server" };
 
