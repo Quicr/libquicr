@@ -33,8 +33,11 @@ namespace quicr {
     MetricsExporter::~MetricsExporter() {
       _stop = true;
 
-      _metrics_conn_samples->stop_waiting();
-      _metrics_data_samples->stop_waiting();
+      if (_metrics_conn_samples)
+        _metrics_conn_samples->stop_waiting();
+
+      if (_metrics_data_samples)
+        _metrics_data_samples->stop_waiting();
 
       if (_writer_thread.joinable()) {
         logger->info << "Closing metrics writer thread" << std::flush;
