@@ -93,7 +93,8 @@ TEST_CASE("Object Lifetime")
   auto delegate = std::make_shared<TestServerDelegate>();
   const auto relayInfo = RelayInfo{ .hostname = "127.0.0.1",
                                     .port = 1234,
-                                    .proto = RelayInfo::Protocol::UDP };
+                                    .proto = RelayInfo::Protocol::UDP,
+                                    .relay_id = "1" };
   const auto logger = std::make_shared<cantina::Logger>("TEST");
   const auto tcfg = qtransport::TransportConfig{ .tls_cert_filename = nullptr,
                                                  .tls_key_filename = nullptr };

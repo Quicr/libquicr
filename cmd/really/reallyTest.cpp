@@ -221,7 +221,8 @@ main(int argc, char* argv[])
   const auto relay =
     quicr::RelayInfo{ .hostname = relayName,
                       .port = uint16_t(port),
-                      .proto = quicr::RelayInfo::Protocol::QUIC };
+                      .proto = quicr::RelayInfo::Protocol::QUIC,
+                      .relay_id = "1" };
 
   const auto tcfg = qtransport::TransportConfig{
     .tls_cert_filename = nullptr,
