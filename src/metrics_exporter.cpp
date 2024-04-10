@@ -134,6 +134,21 @@ namespace quicr {
           auto tp = system_clock::now()
                       + duration_cast<system_clock::duration>(sample.sample_time - steady_clock::now());
 
+          /* DEBUG ONLY
+          if (info->d_info.nspace == Namespace("0/0")) {
+            auto tt = system_clock::to_time_t(tp);
+            logger->info << "control stream "
+                         << "sample_time: " << std::put_time( std::gmtime(&tt), "%FT%T")
+                         << "." << tp.time_since_epoch().count() % 1000000
+                         << " endpoint: " << info->c_info.endpoint_id
+                         << " type: " << (info->d_info.subscribe ? "subscribe" : "publish")
+                         << " relay_id: " << _relay_id
+                         << " conn_id: " << sample.conn_ctx_id
+                         << " data_ctx_id: " << sample.data_ctx_id
+                         << " ns: " << info->d_info.nspace
+                         << " objs: " << sample.quic_sample->enqueued_objs << std::flush;
+          }
+          */
           _influxDb->write(influxdb::Point{METRICS_MEASUREMENT_NAME_QUIC_DATA_FLOW}
                            .setTimestamp(tp)
                            .addTag("endpoint_id", info->c_info.endpoint_id)
@@ -260,7 +275,8 @@ namespace quicr {
                                        const DataContextInfo info)
     {
       std::lock_guard<std::mutex> _(_state_mutex);
-      _info[conn_id].data_ctx_info[data_id] = info;
+
+      _info[conn_id].data_ctx_info[data_id] = std::move(info);
     }
 
     void MetricsExporter::del_data_ctx_info(const TransportConnId conn_id,
