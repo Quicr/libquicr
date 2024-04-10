@@ -44,6 +44,24 @@ operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val);
 MessageBuffer&
 operator>>(MessageBuffer& msg, std::vector<uint8_t>& val);
 
+MessageBuffer&
+operator<<(MessageBuffer& msg, const std::string& val);
+MessageBuffer&
+operator>>(MessageBuffer& msg, std::string& val);
+
+/*===========================================================================*/
+// Connection message MessageBuffer operator overloads.
+/*===========================================================================*/
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const Connect& msg);
+MessageBuffer&
+operator>>(MessageBuffer& buffer, Connect& msg);
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const ConnectResponse& msg);
+MessageBuffer&
+operator>>(MessageBuffer& buffer, ConnectResponse& msg);
+
 /*===========================================================================*/
 // Subscription message MessageBuffer operator overloads.
 /*===========================================================================*/

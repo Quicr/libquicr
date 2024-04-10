@@ -21,6 +21,7 @@
 #include "quicr/quicr_client.h"
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_common.h"
+#include "metrics_exporter.h"
 
 #include <chrono>
 #include <iterator>
@@ -53,9 +54,14 @@ to_TransportRemote(const RelayInfo& info) noexcept
 /*===========================================================================*/
 
 ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
+                                   const std::string& endpoint_id,
                                    const qtransport::TransportConfig& tconfig,
                                    const cantina::LoggerPointer& logger)
   : logger(std::make_shared<cantina::Logger>("QSES", logger))
+  , _endpoint_id(endpoint_id)
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  , _mexport(logger, true)
+#endif
 {
   this->logger->Log("Initialize Client");
 
@@ -66,6 +72,20 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
   const auto server = to_TransportRemote(relay_info);
   transport = qtransport::ITransport::make_client_transport(
     server, tconfig, *this, this->logger);
+
+  logger->info << "Starting metrics exporter" << std::flush;
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  if (_mexport.init("http://metrics.m10x.ctgpoc.com:8086",
+                   "Media10x",
+                   "cisco-cto-media10x") !=
+      MetricsExporter::MetricsExporterError::NoError) {
+    throw std::runtime_error("Failed to connect to InfluxDB");
+  }
+
+  _mexport.run(transport->metrics_conn_samples, transport->metrics_data_samples);
+#endif
+
 }
 
 ClientRawSession::ClientRawSession(
@@ -74,6 +94,9 @@ ClientRawSession::ClientRawSession(
   : has_shared_transport{ true }
   , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport(std::move(transport_in))
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  , _mexport(logger, true)
+#endif
 {
 }
 
@@ -122,8 +145,22 @@ ClientRawSession::connect()
     throw std::runtime_error(msg.str());
   }
 
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  _mexport.set_conn_ctx_info(*transport_conn_id, {.endpoint_id = _endpoint_id, .data_ctx_info = {}});
+#endif
+
   // Create reliable bidirectional control stream
   transport_ctrl_data_ctx_id = transport->createDataContext(*transport_conn_id, true, 0, true);
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  _mexport.set_data_ctx_info(*transport_conn_id, *transport_ctrl_data_ctx_id, {.subscribe = false, .nspace = {}});
+#endif
+
+  // Send connect message
+  auto msg = messages::MessageBuffer{ sizeof(messages::Subscribe) + _endpoint_id.size() };
+  const auto connect = messages::Connect{ 0x1, _endpoint_id };
+  msg << connect;
+  transport->enqueue(*transport_conn_id, *transport_ctrl_data_ctx_id, msg.take());
 
   return true;
 }
@@ -277,7 +314,11 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
   pub_delegates[quicr_namespace] = std::move(pub_delegate);
 
   const auto& conn_id = transport_conn_id.value();
-  auto data_ctx_id = get_data_ctx_id(conn_id, transport_mode, priority);
+  auto data_ctx_id = get_or_create_data_ctx_id(conn_id, transport_mode, priority);
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  _mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, .nspace = quicr_namespace});
+#endif
 
   logger->info << "Publish Intent ns: " << quicr_namespace
                << " data_ctx_id: " << data_ctx_id
@@ -324,6 +365,7 @@ ClientRawSession::publishIntentEnd(
 
   pub_delegates.erase(quicr_namespace);
 
+
   const auto ps_it = publish_state.find(quicr_namespace);
   if (ps_it != publish_state.end()) {
     const auto intent_end = messages::PublishIntentEnd{
@@ -340,6 +382,10 @@ ClientRawSession::publishIntentEnd(
     if (ps_it->second.transport_mode != TransportMode::Unreliable) {
       transport->deleteDataContext(ps_it->second.transport_conn_id, ps_it->second.transport_data_ctx_id);
     }
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+    _mexport.del_data_ctx_info(ps_it->second.transport_conn_id, ps_it->second.transport_data_ctx_id);
+#endif
 
     publish_state.erase(ps_it);
   }
@@ -369,18 +415,24 @@ ClientRawSession::subscribe(
            << " mode: " << static_cast<int>(transport_mode)
            << std::flush;
 
+    const auto data_ctx_id = get_or_create_data_ctx_id(conn_id, transport_mode, priority);
     subscribe_state[quicr_namespace] = SubscribeContext{
       .state = SubscriptionState::Pending,
       .transport_conn_id = conn_id,
-      .transport_data_ctx_id = 0,
+      .transport_data_ctx_id = data_ctx_id,
       .transport_mode = transport_mode,
       .transaction_id = transaction_id,
     };
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+    _mexport.set_data_ctx_info(conn_id, data_ctx_id, { .subscribe = true, .nspace = quicr_namespace});
+#endif
   }
 
   // We allow duplicate subscriptions, so we always send
   const auto sub_it = subscribe_state.find(quicr_namespace);
   if (sub_it == subscribe_state.end()) {
+    // TODO(tievens): Should never hit this, but probably should erase sub_delegate if we do hit this
     return;
   }
 
@@ -403,7 +455,8 @@ ClientRawSession::subscribe(
 
   auto msg = messages::MessageBuffer{ sizeof(messages::Subscribe) };
   const auto subscribe =
-    messages::Subscribe{ 0x1, transaction_id, quicr_namespace, intent, transport_mode };
+    messages::Subscribe{ 0x1, transaction_id, quicr_namespace, intent,
+                         transport_mode, sub_it->second.transport_data_ctx_id };
   msg << subscribe;
 
   transport->enqueue(conn_id, *transport_ctrl_data_ctx_id, msg.take());
@@ -421,12 +474,16 @@ ClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
 
   const auto state_it = subscribe_state.find(quicr_namespace);
   if (state_it != subscribe_state.end()) {
-
     transport->enqueue(state_it->second.transport_conn_id, *transport_ctrl_data_ctx_id, msg.take());
   }
 
-    std::lock_guard<std::mutex> _(session_mutex);
-    removeSubscription(quicr_namespace,
+  std::lock_guard<std::mutex> _(session_mutex);
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  _mexport.del_data_ctx_info(state_it->second.transport_conn_id, state_it->second.transport_data_ctx_id);
+#endif
+
+  removeSubscription(quicr_namespace,
                      SubscribeResult::SubscribeStatus::UnSubscribed);
 }
 
@@ -464,11 +521,11 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
   auto& [ns, context] = *ps_it;
 
-/*
-  if (context.state != PublishContext::State::Ready) {
-    LOGGER_INFO(logger, "Publish intent NOT READY for ns: " << ns << " got state: " << static_cast<int>(context.state));
-  }
-*/
+  /*
+    if (context.state != PublishContext::State::Ready) {
+      LOGGER_INFO(logger, "Publish intent NOT READY for ns: " << ns << " got state: " << static_cast<int>(context.state));
+    }
+  */
 
   // IMPORTANT - Gap check updates the last_group_id and last_object_id to be current group/object
   const auto prev_group_id = context.group_id;
@@ -489,6 +546,8 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
   switch (context.transport_mode) {
     case TransportMode::ReliablePerGroup: {
+      eflags.use_reliable = true;
+
       if (context.group_id && context.group_id != prev_group_id) {
         eflags.new_stream = true;
         eflags.use_reset = true;
@@ -498,21 +557,27 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
     }
 
     case TransportMode::ReliablePerObject: {
+      eflags.use_reliable = true;
       eflags.new_stream = true;
       break;
     }
 
     case TransportMode::ReliablePerTrack:
-      [[fallthrough]];
+      eflags.use_reliable = true;
+    break;
+
     case TransportMode::Unreliable:
-      [[fallthrough]];
+      break;
+
     default:
       break;
   }
 
   // Fragment the payload if needed
-  if (data.size() <= quicr::max_transport_data_size ||
-          (! transport_needs_fragmentation && context.transport_mode != TransportMode::Unreliable)) {
+  if (data.size() <= quicr::max_transport_data_size
+      || (! transport_needs_fragmentation
+        && context.transport_mode != TransportMode::Unreliable
+          && data.size() > quicr::max_transport_data_size * 3)) {
     messages::MessageBuffer msg;
 
     datagram.media_data_length = data.size();
@@ -525,27 +590,17 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
     // No fragmenting needed
     transport->enqueue(context.transport_conn_id, context.transport_data_ctx_id, msg.take(), std::move(trace),
                        priority, expiry_age_ms, 0, eflags);
-
-
-
-
   } else {
-    // Fragments required. At this point this only counts whole blocks
     auto frag_num = data.size() / quicr::max_transport_data_size;
+    // Fragments required. At this point this only counts whole blocks
     const auto frag_remaining_bytes =
       data.size() % quicr::max_transport_data_size;
 
     auto offset = size_t(0);
 
-    const auto objs_per_ms = frag_num / 30 + 1;
+    const auto objs_per_ms = frag_num / 20 + 1;
     uint32_t objs_per_ms_sent = 0;
     uint32_t pop_delay_ms = 0;
-
-    // logger->info << "Frags: " << frag_num
-    //              << " size: " << data.size()
-    //              << " objs_per_ms: " << objs_per_ms
-    //              << std::flush;
-
 
     trace.push_back({"libquicr:publishNamedObject:afterEnqueue:Frags", trace_start_time});
 
@@ -627,7 +682,7 @@ ClientRawSession::publishNamedObjectFragment(
 // Internal Helper Methods
 /*===========================================================================*/
 
-qtransport::DataContextId ClientRawSession::get_data_ctx_id(
+qtransport::DataContextId ClientRawSession::get_or_create_data_ctx_id(
   const qtransport::TransportConnId conn_id, const TransportMode transport_mode, const uint8_t priority) {
 
   switch (transport_mode) {
@@ -660,6 +715,8 @@ ClientRawSession::removeSubscription(
     if (state_it->second.transport_mode != TransportMode::Unreliable) {
       transport->deleteDataContext(state_it->second.transport_conn_id, state_it->second.transport_data_ctx_id);
     }
+
+    _mexport.del_data_ctx_info(state_it->second.transport_conn_id, state_it->second.transport_data_ctx_id);
 
     subscribe_state.erase(state_it);
   }
@@ -774,6 +831,20 @@ ClientRawSession::handle(messages::MessageBuffer&& msg)
 
   auto msg_type = static_cast<messages::MessageType>(msg.front());
   switch (msg_type) {
+    case messages::MessageType::ConnectResponse: {
+      auto response = messages::ConnectResponse{};
+      msg >> response;
+
+      _relay_id = response.relay_id;
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+      _mexport.set_relay_id(_relay_id);
+#endif
+
+      logger->info << "Received connection response with"
+                   << " relay_id: " << response.relay_id
+                   << std::flush;
+      break;
+    }
     case messages::MessageType::SubscribeResponse: {
       auto response = messages::SubscribeResponse{};
       msg >> response;
@@ -857,11 +928,19 @@ ClientRawSession::handle(messages::MessageBuffer&& msg)
         break;
       }
 
+    // Update/set the remote data context ID
+    ps_it->second.remote_data_ctx_id = response.remote_data_ctx_id;
+    transport->setRemoteDataCtxId(ps_it->second.transport_conn_id, ps_it->second.transport_data_ctx_id,
+                                  response.remote_data_ctx_id);
 
       if (ps_it->second.state != PublishContext::State::Ready) {
-        logger->info << "Publish intent ready for ns: " << response.quicr_namespace << std::flush;
+        logger->info << "Publish intent ready for ns: " << response.quicr_namespace
+                     << " data_ctx_id: " << ps_it->second.transport_data_ctx_id
+                     << " remote_data_ctx_id: " << ps_it->second.remote_data_ctx_id
+                     << std::flush;
         ps_it->second.state = PublishContext::State::Ready;
       }
+
 
       if (const auto& delegate = pub_delegates[response.quicr_namespace]) {
         const auto result = PublishIntentResult{

@@ -41,11 +41,13 @@ public:
    * @brief Setup a QUICR Client with publisher and subscriber functionality
    *
    * @param relay_info  : Relay Information to be used by the transport
+   * @param endpoint_id : Client endpoint ID (e.g., email)
    * @param tconfig     : Transport configuration
    * @param logger      : Shared pointer to cantina::Logger object
    *                      loggings operations
    */
   Client(const RelayInfo& relay_info,
+         const std::string& endpoint_id,
          const qtransport::TransportConfig& tconfig,
          const cantina::LoggerPointer& logger);
 

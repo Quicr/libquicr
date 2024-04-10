@@ -1,16 +1,23 @@
-add_library(quicr
-            message_buffer.cpp
-            encode.cpp
-            quicr_client.cpp
-            quicr_client_raw_session.cpp
-            quicr_server.cpp
-            quicr_server_raw_session.cpp)
+
+add_library(quicr)
+
+target_sources(quicr PRIVATE
+        message_buffer.cpp
+        encode.cpp
+        quicr_client.cpp
+        quicr_client_raw_session.cpp
+        quicr_server.cpp
+        quicr_server_raw_session.cpp
+)
+
+if(NOT LIBQUICR_WITHOUT_INFLUXDB)
+    target_sources(quicr PRIVATE metrics_exporter.cpp)
+else ()
+    add_definitions("-DLIBQUICR_WITHOUT_INFLUXDB")
+endif()
 
 # Suppress external lib warnings
 set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)
-target_compile_options(picotls-core PRIVATE -w)
-target_compile_options(picotls-openssl PRIVATE -w)
-target_compile_options(picoquic-core PRIVATE -w)
 target_compile_options(quicr-transport PRIVATE -w)
 
 target_compile_options(quicr
@@ -40,5 +47,10 @@ target_link_libraries(quicr
     PUBLIC
         quicr-transport
         qname)
+
+if(NOT LIBQUICR_WITHOUT_INFLUXDB)
+    target_link_libraries(quicr
+            PRIVATE InfluxData::InfluxDB)
+endif()
 target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include)
 

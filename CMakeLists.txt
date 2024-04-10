@@ -28,6 +28,10 @@ if(CLANG_TIDY)
     endif()
 endif()
 
+set (BUILD_SHARED_LIBS OFF)
+set (BUILD_STATIC_LIBS ON)
+set (CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
 ###
 ### Include Ctest to ensure BUILD_TESTING is set
 ###

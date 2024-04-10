@@ -20,6 +20,7 @@
 #include "quicr/quicr_client.h"
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_common.h"
+#include "metrics_exporter.h"
 
 #include <qname>
 #include <transport/transport.h>
@@ -43,13 +44,15 @@ public:
    * @brief Setup a QUICR Client Session with publisher and subscriber
    *        functionality.
    *
-   * @param relayInfo : Relay Information to be used by the transport
-   * @param tconfig   : Transport configuration
-   * @param logger    : Shared pointer to a cantina::Logger object
+   * @param relayInfo   : Relay Information to be used by the transport
+   * @param endpoint_id : Client endpoint ID (e.g., email)
+   * @param tconfig     : Transport configuration
+   * @param logger      : Shared pointer to a cantina::Logger object
    *
    * @throws std::runtime_error : If transport fails to connect.
    */
   ClientRawSession(const RelayInfo& relay_info,
+                   const std::string& endpoint_id,
                    const qtransport::TransportConfig& tconfig,
                    const cantina::LoggerPointer& logger);
 
@@ -241,8 +244,8 @@ protected:
   void removeSubscription(const quicr::Namespace& quicr_namespace,
                           const SubscribeResult::SubscribeStatus& reason);
 
-  qtransport::DataContextId get_data_ctx_id(const qtransport::TransportConnId conn_id,
-                                            const TransportMode transport_mode, const uint8_t priority);
+  qtransport::DataContextId get_or_create_data_ctx_id(const qtransport::TransportConnId conn_id,
+                                                      const TransportMode transport_mode, const uint8_t priority);
 
 
   bool connecting() const;
@@ -281,6 +284,7 @@ protected:
     uint64_t group_id{ 0 };
     uint64_t object_id{ 0 };
     uint64_t offset{ 0 };
+    qtransport::DataContextId remote_data_ctx_id {0};
   };
 
   bool has_shared_transport{ false };
@@ -321,14 +325,23 @@ protected:
 
   cantina::LoggerPointer logger;
 
+  const std::string _endpoint_id;           /// Client Endpoint ID
+  std::string _relay_id;                    /// Relay Id
+
   namespace_map<std::shared_ptr<PublisherDelegate>> pub_delegates;
   namespace_map<PublishContext> publish_state{};
+
+
 
   namespace_map<std::shared_ptr<SubscriberDelegate>> sub_delegates;
   namespace_map<SubscribeContext> subscribe_state{};
 
   bool transport_needs_fragmentation { false };             // Indicates if transport requires fragmentation
   std::shared_ptr<qtransport::ITransport> transport;
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  MetricsExporter _mexport;
+#endif
 };
 
 }

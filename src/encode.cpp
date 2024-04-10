@@ -30,6 +30,8 @@ to_string(MessageType type)
     ENUM_MAP_ENTRY(MessageType::PublishIntentResponse),
     ENUM_MAP_ENTRY(MessageType::PublishIntentEnd),
     ENUM_MAP_ENTRY(MessageType::Fetch),
+    ENUM_MAP_ENTRY(MessageType::Connect),
+    ENUM_MAP_ENTRY(MessageType::ConnectResponse),
   };
 #undef ENUM_MAP_ENTRY
   return message_type_name[type];
@@ -191,6 +193,75 @@ operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
   return msg;
 }
 
+MessageBuffer&
+operator<<(MessageBuffer& msg, const std::string& val)
+{
+  std::vector<uint8_t> v(val.begin(), val.end());
+  msg << v;
+  return msg;
+}
+
+MessageBuffer&
+operator>>(MessageBuffer& msg, std::string& val)
+{
+  auto vec_size = uintVar_t(0);
+  msg >> vec_size;
+
+  const auto val_vec = msg.pop_front(vec_size);
+  val.assign(val_vec.begin(), val_vec.end());
+
+  return msg;
+}
+
+/*===========================================================================*/
+// Connect Encode & Decode
+/*===========================================================================*/
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const Connect& msg)
+{
+  buffer << static_cast<uint8_t>(MessageType::Connect);
+  buffer << msg.endpoint_id;
+
+  return buffer;
+}
+
+MessageBuffer&
+operator>>(MessageBuffer& buffer, Connect& msg)
+{
+  auto msg_type = uint8_t(0);
+  buffer >> msg_type;
+  if (msg_type != static_cast<uint8_t>(MessageType::Connect)) {
+    throw MessageTypeException(msg_type, MessageType::Connect);
+  }
+
+  buffer >> msg.endpoint_id;
+
+  return buffer;
+}
+
+MessageBuffer&
+operator<<(MessageBuffer& buffer, const ConnectResponse& msg)
+{
+  buffer << static_cast<uint8_t>(MessageType::ConnectResponse);
+  buffer << msg.relay_id;
+
+  return buffer;
+}
+
+MessageBuffer&
+operator>>(MessageBuffer& buffer, ConnectResponse& msg)
+{
+  auto msg_type = uint8_t(0);
+  buffer >> msg_type;
+  if (msg_type != static_cast<uint8_t>(MessageType::ConnectResponse)) {
+    throw MessageTypeException(msg_type, MessageType::ConnectResponse);
+  }
+
+  buffer >> msg.relay_id;
+
+  return buffer;
+}
+
 /*===========================================================================*/
 // Subscribe Encode & Decode
 /*===========================================================================*/
@@ -203,6 +274,7 @@ operator<<(MessageBuffer& buffer, const Subscribe& msg)
   buffer << msg.quicr_namespace;
   buffer << static_cast<uint8_t>(msg.intent);
   buffer << static_cast<uint8_t>(msg.transport_mode);
+  buffer << msg.remote_data_ctx_id;
 
   return buffer;
 }
@@ -225,6 +297,7 @@ operator>>(MessageBuffer& buffer, Subscribe& msg)
   uint8_t transport_mode = 0;
   buffer >> transport_mode;
   msg.transport_mode = static_cast<TransportMode>(transport_mode);
+  buffer >> msg.remote_data_ctx_id;
 
   return buffer;
 }
@@ -368,6 +441,7 @@ operator<<(MessageBuffer& buffer, const PublishIntentResponse& msg)
   buffer << msg.quicr_namespace;
   buffer << static_cast<uint8_t>(msg.response);
   buffer << msg.transaction_id;
+  buffer << msg.remote_data_ctx_id;
 
   return buffer;
 }
@@ -386,6 +460,7 @@ operator>>(MessageBuffer& buffer, PublishIntentResponse& msg)
   msg.response = static_cast<Response>(response);
 
   buffer >> msg.transaction_id;
+  buffer >> msg.remote_data_ctx_id;
 
   return buffer;
 }

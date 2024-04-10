@@ -19,6 +19,7 @@
 #include "quicr/message_buffer.h"
 #include "quicr/quicr_server_delegate.h"
 #include "quicr/quicr_server_session.h"
+#include "metrics_exporter.h"
 
 #include <cantina/logger.h>
 #include <transport/transport.h>
@@ -170,6 +171,8 @@ private:
   std::shared_ptr<qtransport::ITransport> setupTransport(
     const qtransport::TransportConfig& cfg);
 
+  void handle_connect(const qtransport::TransportConnId& conn_id,
+                      messages::MessageBuffer&& msg);
   void handle_subscribe(const qtransport::TransportConnId& conn_id,
                         const qtransport::DataContextId& data_ctx_id,
                         messages::MessageBuffer&& msg);
@@ -193,6 +196,7 @@ private:
     qtransport::TransportConnId conn_id {0};
     qtransport::DataContextId ctrl_data_ctx_id {0};
     qtransport::TransportRemote remote;
+    std::string endpoint_id;
   };
 
   struct DataContext
@@ -215,10 +219,12 @@ private:
                                                         ///    first object using the object's priority
     bool transport_mode_follow_publisher {false};       /// Indicates if transport mode should be updated based on pub
     qtransport::DataContextId data_ctx_id {0};          /// Data context ID used for sending objects based on subscribe
+    qtransport::DataContextId remote_data_ctx_id {0};   /// Remote data context ID to add to data header
     uint8_t priority { 126 };                           /// Priority used for sending subscribed objects
 
     bool paused { false };                              /// Indicates if objects should not be sent (e.g., paused)
 
+    quicr::Namespace nspace;                            /// Subscribed namespace
     uint64_t transaction_id{ 0 };
     uint64_t subscriber_id{ 0 };
     uint64_t group_id{ 0 };
@@ -230,6 +236,8 @@ private:
     uint64_t transaction_id{ 0 };
     uint64_t prev_group_id{ 0 };
     uint64_t prev_object_id{ 0 };
+
+    qtransport::DataContextId data_ctx_id {0};
   };
 
   std::shared_ptr<ServerDelegate> delegate;
@@ -237,6 +245,7 @@ private:
   TransportDelegate transport_delegate;
   std::shared_ptr<qtransport::ITransport> transport;
   qtransport::TransportRemote t_relay;
+  std::string relay_id;
 
   using SubscriptionContextMap = std::map<qtransport::TransportConnId, std::shared_ptr<SubscribeContext>>;
   namespace_map<SubscriptionContextMap> _subscribe_state{};
@@ -248,6 +257,10 @@ private:
 
   bool _running{ false };
   uint64_t _subscriber_id{ 0 };
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+  MetricsExporter _mexport;
+#endif
 };
 
 } // namespace quicr

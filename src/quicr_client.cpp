@@ -13,6 +13,7 @@ namespace quicr {
 ///
 
 Client::Client(const RelayInfo& relay_info,
+               const std::string& endpoint_id,
                const qtransport::TransportConfig& tconfig,
                const cantina::LoggerPointer& logger)
 {
@@ -21,7 +22,7 @@ Client::Client(const RelayInfo& relay_info,
       [[fallthrough]];
     case RelayInfo::Protocol::QUIC:
       client_session =
-        std::make_unique<ClientRawSession>(relay_info, tconfig, logger);
+        std::make_unique<ClientRawSession>(relay_info, endpoint_id, tconfig, logger);
       break;
     default:
       throw ClientException("Unsupported relay protocol");

@@ -5,6 +5,7 @@
 #include <quicr/quicr_common.h>
 #include <quicr/uvarint.h>
 
+#include <transport/transport.h>
 #include <string>
 #include <vector>
 
@@ -28,9 +29,25 @@ enum class MessageType : uint8_t
   PublishIntentResponse,
   PublishIntentEnd,
   Fetch,
+  Connect,
+  ConnectResponse,
 
   PeerMsg = 128
 
+};
+
+/*===========================================================================*/
+// Connect Message Types
+/*===========================================================================*/
+struct Connect
+{
+  uint8_t version;
+  std::string endpoint_id;
+};
+
+struct ConnectResponse
+{
+  std::string relay_id;
 };
 
 /*===========================================================================*/
@@ -44,6 +61,7 @@ struct Subscribe
   quicr::Namespace quicr_namespace;
   SubscribeIntent intent;
   TransportMode transport_mode;
+  qtransport::DataContextId remote_data_ctx_id;
 };
 
 struct Unsubscribe
@@ -97,6 +115,7 @@ struct PublishIntentResponse
   quicr::Namespace quicr_namespace;
   Response response;
   uint64_t transaction_id;
+  qtransport::DataContextId remote_data_ctx_id;
   // * signature(32)
   // * [Reason Phrase Length (i),
   // * [Reason Phrase (..)],
