@@ -196,9 +196,8 @@ operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
 MessageBuffer&
 operator<<(MessageBuffer& msg, const std::string& val)
 {
-  msg << static_cast<uintVar_t>(val.size());
   std::vector<uint8_t> v(val.begin(), val.end());
-  msg.push(std::move(v));
+  msg << v;
   return msg;
 }
 
