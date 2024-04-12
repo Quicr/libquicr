@@ -205,7 +205,6 @@ ServerRawSession::subscriptionEnded(
   msg << subEnd;
 
   const auto& conn_ctx = _connections[context->transport_conn_id];
-
   transport->enqueue(context->transport_conn_id, conn_ctx.ctrl_data_ctx_id, msg.take());
 }
 
@@ -450,6 +449,8 @@ ServerRawSession::handle_unsubscribe(
 
     // Before removing, exec callback
     delegate->onUnsubscribe(unsub.quicr_namespace, context->subscriber_id, {});
+
+    transport->deleteDataContext(context->transport_conn_id, context->data_ctx_id);
 
     subscribe_id_state.erase(context->subscriber_id);
     _subscribe_state[unsub.quicr_namespace].erase(conn_id);
@@ -726,7 +727,9 @@ ServerRawSession::TransportDelegate::on_recv_notify(const qtransport::TransportC
             break;
           }
           default:
-            server.logger->Log("Invalid Message Type");
+            server.logger->info << "Invalid Message Type "
+                                << static_cast<int>(msg_type)
+                                << std::flush;
             break;
         }
       } catch (const messages::MessageBuffer::ReadException& ex) {

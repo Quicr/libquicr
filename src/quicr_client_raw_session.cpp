@@ -379,9 +379,7 @@ ClientRawSession::publishIntentEnd(
 
     transport->enqueue(ps_it->second.transport_conn_id, *transport_ctrl_data_ctx_id, msg.take());
 
-    if (ps_it->second.transport_mode != TransportMode::Unreliable) {
-      transport->deleteDataContext(ps_it->second.transport_conn_id, ps_it->second.transport_data_ctx_id);
-    }
+    transport->deleteDataContext(ps_it->second.transport_conn_id, ps_it->second.transport_data_ctx_id);
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
     _mexport.del_data_ctx_info(ps_it->second.transport_conn_id, ps_it->second.transport_data_ctx_id);
@@ -712,9 +710,7 @@ ClientRawSession::removeSubscription(
 {
   auto state_it = subscribe_state.find(quicr_namespace);
   if (state_it != subscribe_state.end()) {
-    if (state_it->second.transport_mode != TransportMode::Unreliable) {
-      transport->deleteDataContext(state_it->second.transport_conn_id, state_it->second.transport_data_ctx_id);
-    }
+    transport->deleteDataContext(state_it->second.transport_conn_id, state_it->second.transport_data_ctx_id);
 
     _mexport.del_data_ctx_info(state_it->second.transport_conn_id, state_it->second.transport_data_ctx_id);
 
