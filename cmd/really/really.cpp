@@ -261,6 +261,7 @@ main()
       .hostname = "127.0.0.1",
       .port = 1234,
       .proto = quicr::RelayInfo::Protocol::QUIC,
+      .relay_id = "test-relay-id-server"
     };
 
     const auto tcfg = qtransport::TransportConfig{

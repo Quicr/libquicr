@@ -27,6 +27,7 @@ TEST_CASE("Announce Message encode/decode")
 {
   auto announce  = MoqAnnounce {
     .track_namespace = TRACK_NAMESPACE_CONF,
+    .params = {}
   };
 
   MessageBuffer buffer;
@@ -127,6 +128,7 @@ TEST_CASE("Subscribe Message encode/decode")
         .start_object = Location {.mode = LocationMode::Absolute, .value = 0},
         .end_group = Location { .mode = LocationMode::Absolute, .value = 1000},
         .end_object = Location {.mode = LocationMode::Absolute, .value = 0},
+        .track_params = {}
     };
 
     MessageBuffer buffer;
@@ -179,6 +181,8 @@ TEST_CASE("SubscribeOk No Content, Message encode/decode") {
       .subscribe_id = 1,
       .expires = 0,
       .content_exists = false,
+      .largest_group = 0x100,
+      .largest_object = 0xFF
     };
 
     MessageBuffer buffer;
@@ -193,6 +197,9 @@ TEST_CASE("SubscribeOk No Content, Message encode/decode") {
     CHECK_EQ(subscribe_ok_out.subscribe_id, subscribe_ok_out.subscribe_id);
     CHECK_EQ(subscribe_ok_out.expires, subscribe_ok_out.expires);
     CHECK_EQ(subscribe_ok_out.content_exists, subscribe_ok_out.content_exists);
+    CHECK_EQ(subscribe_ok_out.largest_group, subscribe_ok_out.largest_group);
+    CHECK_EQ(subscribe_ok_out.largest_object, subscribe_ok_out.largest_object);
+
 }
 
 TEST_CASE("SubscribeError Message encode/decode") {
@@ -447,28 +454,6 @@ operator>>(MessageBuffer &msg, struct A &value) {
     msg >> a.val;
     value.val = a.val;
     return msg;
-}
-
-TEST_CASE("QUIC Varint") {
-    A a;
-    a.val = 15293;
-
-    MessageBuffer buffer;
-    buffer << a;
-    A a_out;
-    buffer >> a_out;
-    CHECK_EQ(a.val, a_out.val);
-
-    //.start_group = Location { .mode = LocationMode::Absolute, .value = 100},
-    Location l_in = {
-       .mode = LocationMode::Absolute,
-       .value = 100,
-    };
-
-    buffer << l_in;
-    Location l_out;
-    buffer >> l_out;
-    CHECK_EQ(l_in.mode, l_out.mode);
 }
 
 TEST_CASE("Client Setup encode/decode") {

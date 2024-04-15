@@ -84,6 +84,7 @@ operator>>(MessageBuffer& msg, Namespace& value)
 }
 
 
+// See: https://datatracker.ietf.org/doc/html/rfc9000#section-16
 MessageBuffer&
 operator<<(MessageBuffer& msg, const uintVar_t& v)
 {
@@ -122,7 +123,6 @@ operator<<(MessageBuffer& msg, const uintVar_t& v)
 
 MessageBuffer&
 operator>>(MessageBuffer& msg, uintVar_t& v){
-
   size_t length = 0;
   // NOLINTBEGIN(hicpp-signed-bitwise)
   uint8_t byte = 0;
@@ -135,7 +135,7 @@ operator>>(MessageBuffer& msg, uintVar_t& v){
     val += byte;
   }
 
-  v = uintVar_t(val);
+  v = val;
 
   return msg;
   // NOLINTEND(hicpp-signed-bitwise)

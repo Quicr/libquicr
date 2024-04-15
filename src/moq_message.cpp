@@ -21,7 +21,7 @@ namespace quicr::messages {
     MessageBuffer& operator>>(MessageBuffer &buffer, MoqParameter &param) {
         buffer >> param.param_type;
         buffer >> param.param_length;
-        if (param.param_length) {
+        if (static_cast<uint64_t>(param.param_length) > 0) {
           buffer >> param.param_value;
         }
         return buffer;
@@ -117,7 +117,7 @@ namespace quicr::messages {
         buffer << static_cast<uint8_t>(MESSAGE_TYPE_SUBSCRIBE_OK);
         buffer << msg.subscribe_id;
         buffer << msg.expires;
-        buffer << uint8_t(msg.content_exists);
+        buffer << static_cast<uint8_t>(msg.content_exists);
         if (msg.content_exists) {
             buffer << msg.largest_group;
             buffer << msg.largest_group;
@@ -458,7 +458,6 @@ namespace quicr::messages {
     operator<<(MessageBuffer& buffer, const std::vector<uintVar_t>& val)
     {
         buffer << static_cast<uintVar_t>(val.size());
-        // TODO (Suhas): This needs revisiting
         for(uint64_t i = 0; i < val.size(); i++) {
             buffer << val[i];
         }
