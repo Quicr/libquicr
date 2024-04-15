@@ -5,6 +5,27 @@
 namespace quicr::messages {
 
     //
+    // Optional
+    //
+
+    template <typename T>
+    MessageBuffer& operator<<(MessageBuffer& buffer, const std::optional<T>& val) {
+      if (val.has_value()) {
+       buffer << val.value();
+      }
+      return buffer;
+    }
+
+    template <typename T>
+    MessageBuffer& operator>>(MessageBuffer& buffer, std::optional<T>& val) {
+      T val_in{};
+      buffer >> val_in;
+      val = val_in;
+      return buffer;
+    }
+
+
+    //
     // MoqParameter
     //
 
@@ -120,7 +141,7 @@ namespace quicr::messages {
         buffer << static_cast<uint8_t>(msg.content_exists);
         if (msg.content_exists) {
             buffer << msg.largest_group;
-            buffer << msg.largest_group;
+            buffer << msg.largest_object;
             return buffer;
         }
         return buffer;

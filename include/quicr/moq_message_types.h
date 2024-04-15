@@ -124,8 +124,8 @@ namespace quicr::messages {
     SubscribeId subscribe_id;
     uintVar_t expires;
     bool content_exists;
-    GroupId largest_group;
-    ObjectId largest_object;
+    std::optional<GroupId> largest_group;
+    std::optional<ObjectId> largest_object;
   };
 
 
@@ -280,7 +280,10 @@ namespace quicr::messages {
   std::tuple<Location, Location, Location, Location>  to_locations(const SubscribeIntent& intent);
   MessageBuffer& operator<<(MessageBuffer& buffer, const std::vector<uintVar_t>& val);
   MessageBuffer& operator>>(MessageBuffer& msg, std::vector<uintVar_t>& val);
+  MessageBuffer& operator>>(MessageBuffer& msg, std::vector<uintVar_t>& val);
 
-
-
+  template <typename T>
+  MessageBuffer& operator<<(MessageBuffer& buffer, const std::optional<T>& val);
+  template <typename T>
+  MessageBuffer& operator>>(MessageBuffer& msg, std::optional<T>& val);
 }

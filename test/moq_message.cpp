@@ -156,8 +156,8 @@ TEST_CASE("SubscribeOk Message encode/decode") {
       .subscribe_id = 1,
       .expires = 0,
       .content_exists = true,
-      .largest_group = 0xAAAA,
-      .largest_object = 0xBBBB
+      .largest_group = 0x100,
+      .largest_object = 0x1
     };
 
     MessageBuffer buffer;
@@ -169,11 +169,34 @@ TEST_CASE("SubscribeOk Message encode/decode") {
 
     MoqSubscribeOk subscribe_ok_out;
     buffer >> subscribe_ok_out;
-    CHECK_EQ(subscribe_ok_out.subscribe_id, subscribe_ok_out.subscribe_id);
-    CHECK_EQ(subscribe_ok_out.expires, subscribe_ok_out.expires);
-    CHECK_EQ(subscribe_ok_out.content_exists, subscribe_ok_out.content_exists);
-    CHECK_EQ(subscribe_ok_out.largest_object, subscribe_ok_out.largest_object);
-    CHECK_EQ(subscribe_ok_out.largest_group, subscribe_ok_out.largest_object);
+    CHECK_EQ(subscribe_ok.subscribe_id, subscribe_ok_out.subscribe_id);
+    CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
+    CHECK_EQ(subscribe_ok_out.content_exists, true);
+    CHECK_EQ(subscribe_ok.largest_group.value(), subscribe_ok_out.largest_group.value());
+    CHECK_EQ(subscribe_ok.largest_object.value(), subscribe_ok_out.largest_object.value());
+}
+
+TEST_CASE("SubscribeOk ContentExists is False encode/decode") {
+    auto subscribe_ok = MoqSubscribeOk {
+      .subscribe_id = 1,
+      .expires = 0,
+      .content_exists = false,
+    };
+
+    MessageBuffer buffer;
+    buffer <<  subscribe_ok;
+
+    uint8_t msg_type {0};
+    buffer >> msg_type;
+    CHECK_EQ(msg_type, MESSAGE_TYPE_SUBSCRIBE_OK);
+
+    MoqSubscribeOk subscribe_ok_out;
+    buffer >> subscribe_ok_out;
+    CHECK_EQ(subscribe_ok.subscribe_id, subscribe_ok_out.subscribe_id);
+    CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
+    CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
+    CHECK_EQ(subscribe_ok.largest_object.has_value(), false);
+    CHECK_EQ(subscribe_ok.largest_group.has_value(), false);
 }
 
 TEST_CASE("SubscribeOk No Content, Message encode/decode") {
