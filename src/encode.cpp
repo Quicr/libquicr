@@ -106,17 +106,17 @@ operator<<(MessageBuffer& msg, const uintVar_t& v)
     msg.push((uint8_t)(n64 >> 8));
     msg.push((uint8_t)(n64));
     return msg;
-  } else {
-    msg.push((uint8_t)((n64 >> 56) | 0xC0));
-    msg.push((uint8_t)(n64 >> 48));
-    msg.push((uint8_t)(n64 >> 40));
-    msg.push((uint8_t)(n64 >> 32));
-    msg.push((uint8_t)(n64 >> 24));
-    msg.push((uint8_t)(n64 >> 16));
-    msg.push((uint8_t)(n64 >> 8));
-    msg.push((uint8_t)(n64));
-    return msg;
   }
+
+  msg.push((uint8_t)((n64 >> 56) | 0xC0));
+  msg.push((uint8_t)(n64 >> 48));
+  msg.push((uint8_t)(n64 >> 40));
+  msg.push((uint8_t)(n64 >> 32));
+  msg.push((uint8_t)(n64 >> 24));
+  msg.push((uint8_t)(n64 >> 16));
+  msg.push((uint8_t)(n64 >> 8));
+  msg.push((uint8_t)(n64));
+  return msg;
   // NOLINTEND(hicpp-signed-bitwise)
 }
 
