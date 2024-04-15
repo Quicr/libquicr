@@ -437,31 +437,13 @@ TEST_CASE("MultiObjectStream StreamHeader Group Format encode/decode")
     CHECK_EQ(payload_2, payload);
 }
 
-/// Some trivial encode and decode for QUIC Varint
-struct A {
-  quicr::uintVar_t val;
-};
-
-MessageBuffer &
-operator<<(MessageBuffer &msg, const struct A &value) {
-    msg << value.val;
-    return msg;
-}
-
-MessageBuffer &
-operator>>(MessageBuffer &msg, struct A &value) {
-    struct A a {};
-    msg >> a.val;
-    value.val = a.val;
-    return msg;
-}
-
 TEST_CASE("Client Setup encode/decode") {
     auto msg_in = messages::MoqClientSetup {
         .supported_versions =  { 0x1 },
         .role_parameter { .param_type = static_cast<uint8_t>(ParameterType::Role),
                           .param_length = uintVar_t{1},
                           .param_value = quicr::bytes{0x03}},
+        .path_parameter {}
     };
 
     messages::MessageBuffer buffer;
