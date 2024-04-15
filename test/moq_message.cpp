@@ -181,6 +181,8 @@ TEST_CASE("SubscribeOk ContentExists is False encode/decode") {
       .subscribe_id = 1,
       .expires = 0,
       .content_exists = false,
+      .largest_group = std::nullopt,
+      .largest_object = std::nullopt
     };
 
     MessageBuffer buffer;
