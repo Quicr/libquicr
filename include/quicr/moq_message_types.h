@@ -24,25 +24,26 @@ namespace quicr::messages {
   using TrackAlias = uintVar_t;
   using ParamType = uintVar_t;
 
-  constexpr u_int8_t MESSAGE_TYPE_OBJECT_STREAM            = 0x0;
-  constexpr u_int8_t MESSAGE_TYPE_OBJECT_DATAGRAM          = 0x1;
-  constexpr u_int8_t MESSAGE_TYPE_SUBSCRIBE                = 0x3;
-  constexpr u_int8_t MESSAGE_TYPE_SUBSCRIBE_OK             = 0x4;
-  constexpr u_int8_t MESSAGE_TYPE_SUBSCRIBE_ERROR          = 0x5;
-  constexpr u_int8_t MESSAGE_TYPE_ANNOUNCE                 = 0x6;
-  constexpr u_int8_t MESSAGE_TYPE_ANNOUNCE_OK              = 0x7;
-  constexpr u_int8_t MESSAGE_TYPE_ANNOUNCE_ERROR           = 0x8;
-  constexpr u_int8_t MESSAGE_TYPE_UNANNOUNCE               = 0x9;
-  constexpr u_int8_t MESSAGE_TYPE_UNSUBSCRIBE              = 0xA;
-  constexpr u_int8_t MESSAGE_TYPE_SUBSCRIBE_DONE           = 0xB;
-  constexpr u_int8_t MESSAGE_TYPE_ANNOUNCE_CANCEL          = 0xC;
-  constexpr u_int8_t MESSAGE_TYPE_TRACK_STATUS_REQUEST     = 0xD;
-  constexpr u_int8_t MESSAGE_TYPE_TRACK_STATUS             = 0xE;
-  constexpr u_int8_t MESSAGE_TYPE_GOAWAY                   = 0x10;
-  constexpr u_int8_t MESSAGE_TYPE_CLIENT_SETUP             = 0x40;
-  constexpr u_int8_t MESSAGE_TYPE_SERVER_SETUP             = 0x41;
-  constexpr u_int8_t MESSAGE_TYPE_STREAM_HEADER_TRACK      = 0x50;
-  constexpr u_int8_t MESSAGE_TYPE_STREAM_HEADER_GROUP      = 0x51;
+  // Ref: https://moq-wg.github.io/moq-transport/draft-ietf-moq-transport.html#name-messages
+  constexpr uint8_t MESSAGE_TYPE_OBJECT_STREAM            = 0x0;
+  constexpr uint8_t MESSAGE_TYPE_OBJECT_DATAGRAM          = 0x1;
+  constexpr uint8_t MESSAGE_TYPE_SUBSCRIBE                = 0x3;
+  constexpr uint8_t MESSAGE_TYPE_SUBSCRIBE_OK             = 0x4;
+  constexpr uint8_t MESSAGE_TYPE_SUBSCRIBE_ERROR          = 0x5;
+  constexpr uint8_t MESSAGE_TYPE_ANNOUNCE                 = 0x6;
+  constexpr uint8_t MESSAGE_TYPE_ANNOUNCE_OK              = 0x7;
+  constexpr uint8_t MESSAGE_TYPE_ANNOUNCE_ERROR           = 0x8;
+  constexpr uint8_t MESSAGE_TYPE_UNANNOUNCE               = 0x9;
+  constexpr uint8_t MESSAGE_TYPE_UNSUBSCRIBE              = 0xA;
+  constexpr uint8_t MESSAGE_TYPE_SUBSCRIBE_DONE           = 0xB;
+  constexpr uint8_t MESSAGE_TYPE_ANNOUNCE_CANCEL          = 0xC;
+  constexpr uint8_t MESSAGE_TYPE_TRACK_STATUS_REQUEST     = 0xD;
+  constexpr uint8_t MESSAGE_TYPE_TRACK_STATUS             = 0xE;
+  constexpr uint8_t MESSAGE_TYPE_GOAWAY                   = 0x10;
+  constexpr uint8_t MESSAGE_TYPE_CLIENT_SETUP             = 0x40;
+  constexpr uint8_t MESSAGE_TYPE_SERVER_SETUP             = 0x41;
+  constexpr uint8_t MESSAGE_TYPE_STREAM_HEADER_TRACK      = 0x50;
+  constexpr uint8_t MESSAGE_TYPE_STREAM_HEADER_GROUP      = 0x51;
 
   // TODO (Suhas): rename it to StreamMapping
   enum ForwardingPreference : uint8_t {
