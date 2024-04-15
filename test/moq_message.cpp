@@ -266,27 +266,171 @@ TEST_CASE("SubscribeDone Message encode/decode") {
 
 TEST_CASE("ObjectStream Message encode/decode")
 {
-    quicr::Namespace qnamespace{0x10000000000000002000_name, 125};
-    std::stringstream ss;
-    ss << qnamespace;
-    auto ns = "moq://" + ss.str();
     auto object = MoqObjectStream{};
+    object.subscribe_id = 0xABCD;
     object.track_alias = 109955458826288;
     object.priority = 1;
-    object.object_id = 0;
-    object.group_id = 0;
-    object.subscribe_id = 0xABCD;
+    object.object_id = 0x100;
+    object.group_id = 0x1000;
     object.payload = quicr::bytes{1, 2, 3, 4, 5};
 
     MessageBuffer buffer;
     buffer << object;
+
+    uint8_t msg_type {0};
+    buffer >> msg_type;
+    CHECK_EQ(msg_type, MESSAGE_TYPE_OBJECT_STREAM);
+
     MoqObjectStream object_out;
     buffer >> object_out;
     CHECK_EQ(object.track_alias, object_out.track_alias);
+    CHECK_EQ(object.subscribe_id, object_out.subscribe_id);
+    CHECK_EQ(object.priority, object_out.priority);
+    CHECK_EQ(object.group_id, object_out.group_id);
+    CHECK_EQ(object.object_id, object_out.object_id);
     CHECK_EQ(object.payload.size(), object_out.payload.size());
+    CHECK_EQ(object.payload, object_out.payload);
+}
+
+TEST_CASE("ObjectDatagram Message encode/decode")
+{
+    auto object = MoqObjectDatagram{};
+    object.subscribe_id = 0xABCD;
+    object.track_alias = 109955458826288;
+    object.priority = 1;
+    object.object_id = 0x100;
+    object.group_id = 0x1000;
+    object.payload = quicr::bytes{1, 2, 3, 4, 5};
+
+    MessageBuffer buffer;
+    buffer << object;
+
+    uint8_t msg_type {0};
+    buffer >> msg_type;
+    CHECK_EQ(msg_type, MESSAGE_TYPE_OBJECT_DATAGRAM);
+
+    MoqObjectDatagram object_out;
+    buffer >> object_out;
+    CHECK_EQ(object.track_alias, object_out.track_alias);
+    CHECK_EQ(object.subscribe_id, object_out.subscribe_id);
+    CHECK_EQ(object.priority, object_out.priority);
+    CHECK_EQ(object.group_id, object_out.group_id);
+    CHECK_EQ(object.object_id, object_out.object_id);
+    CHECK_EQ(object.payload.size(), object_out.payload.size());
+    CHECK_EQ(object.payload, object_out.payload);
+}
+
+TEST_CASE("MultiObjectStream StreamHeader Track Format encode/decode")
+{
+    auto sth = MoqStreamHeaderTrack {
+      .subscribe_id = 0xABCD,
+      .track_alias = TRACK_ALIAS_ALICE_VIDEO,
+      .priority = 0xC
+    };
+
+    MessageBuffer buffer;
+    buffer << sth;
+    // add 2 objects
+    buffer << uintVar_t(0x100);
+    buffer << uintVar_t(0x1);
+    quicr::bytes payload_1{1,2,3,4,5};
+    buffer << payload_1;
+
+    buffer << uintVar_t(0x100);
+    buffer << uintVar_t(0x2);
+    quicr::bytes payload_2{9,9,9,9,9};
+    buffer << payload_2;
+
+
+
+    uint8_t msg_type {0};
+    buffer >> msg_type;
+    CHECK_EQ(msg_type, MESSAGE_TYPE_STREAM_HEADER_TRACK);
+
+
+    MoqStreamHeaderTrack sth_out;
+    buffer >> sth_out;
+    CHECK_EQ(sth.track_alias, sth_out.track_alias);
+    CHECK_EQ(sth.subscribe_id, sth_out.subscribe_id);
+    CHECK_EQ(sth.priority, sth_out.priority);
+
+    uintVar_t group_id{0};
+    uintVar_t object_id{0};
+    quicr::bytes payload{};
+
+    // object 1
+    buffer >> group_id;
+    buffer >> object_id;
+    buffer >> payload;
+
+    CHECK_EQ(0x100, group_id);
+    CHECK_EQ(0x1, object_id);
+    CHECK_EQ(payload_1, payload);
+
+
+    // object 2
+    buffer >> group_id;
+    buffer >> object_id;
+    buffer >> payload;
+
+    CHECK_EQ(0x100, group_id);
+    CHECK_EQ(0x2, object_id);
+    CHECK_EQ(payload_2, payload);
 }
 
 
+TEST_CASE("MultiObjectStream StreamHeader Group Format encode/decode")
+{
+    auto stg = MoqStreamHeaderGroup {
+      .subscribe_id = 0xABCD,
+      .track_alias = TRACK_ALIAS_ALICE_VIDEO,
+      .group_id = 0x100,
+      .priority = 0xC
+    };
+
+    MessageBuffer buffer;
+    buffer << stg;
+    // add 2 objects
+    buffer << uintVar_t(0x1);
+    quicr::bytes payload_1{1,2,3,4,5};
+    buffer << payload_1;
+
+    buffer << uintVar_t(0x2);
+    quicr::bytes payload_2{9,9,9,9,9};
+    buffer << payload_2;
+
+
+
+    uint8_t msg_type {0};
+    buffer >> msg_type;
+    CHECK_EQ(msg_type, MESSAGE_TYPE_STREAM_HEADER_GROUP);
+
+
+    MoqStreamHeaderGroup stg_out;
+    buffer >> stg_out;
+    CHECK_EQ(stg.track_alias, stg_out.track_alias);
+    CHECK_EQ(stg.subscribe_id, stg_out.subscribe_id);
+    CHECK_EQ(stg.group_id, stg_out.group_id);
+    CHECK_EQ(stg.priority, stg_out.priority);
+
+    uintVar_t object_id{0};
+    quicr::bytes payload{};
+
+    // object 1
+    buffer >> object_id;
+    buffer >> payload;
+    CHECK_EQ(0x1, object_id);
+    CHECK_EQ(payload_1, payload);
+
+
+    // object 2
+    buffer >> object_id;
+    buffer >> payload;
+    CHECK_EQ(0x2, object_id);
+    CHECK_EQ(payload_2, payload);
+}
+
+/// Some trivial encode and decode for QUIC Varint
 struct A {
   quicr::uintVar_t val;
 };
@@ -325,9 +469,7 @@ TEST_CASE("QUIC Varint") {
     Location l_out;
     buffer >> l_out;
     CHECK_EQ(l_in.mode, l_out.mode);
-
 }
-
 
 TEST_CASE("Client Setup encode/decode") {
     auto msg_in = messages::MoqClientSetup {
@@ -347,6 +489,4 @@ TEST_CASE("Client Setup encode/decode") {
     CHECK_EQ(msg_out.role_parameter.param_type, msg_in.role_parameter.param_type);
     CHECK_EQ(msg_out.role_parameter.param_length, msg_in.role_parameter.param_length);
     CHECK_EQ(msg_out.role_parameter.param_value, msg_in.role_parameter.param_value);
-
-
 }

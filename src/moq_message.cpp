@@ -312,6 +312,7 @@ namespace quicr::messages {
 
     MessageBuffer &
     operator<<(MessageBuffer &buffer, const MoqObjectStream &msg) {
+        buffer << static_cast<uint8_t>(MESSAGE_TYPE_OBJECT_STREAM);
         buffer << msg.subscribe_id;
         buffer << msg.track_alias;
         buffer << msg.group_id;
@@ -320,7 +321,6 @@ namespace quicr::messages {
         buffer << msg.payload;
         return buffer;
     }
-
 
     MessageBuffer &
     operator>>(MessageBuffer &buffer, MoqObjectStream &msg) {
