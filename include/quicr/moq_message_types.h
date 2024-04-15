@@ -278,5 +278,9 @@ namespace quicr::messages {
 
   // utility
   std::tuple<Location, Location, Location, Location>  to_locations(const SubscribeIntent& intent);
+  MessageBuffer& operator<<(MessageBuffer& buffer, const std::vector<uintVar_t>& val);
+  MessageBuffer& operator>>(MessageBuffer& msg, std::vector<uintVar_t>& val);
+
+
 
 }

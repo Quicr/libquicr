@@ -435,7 +435,6 @@ namespace quicr::messages {
          RelativeNext Value:                               0    1  ...
        */
         switch (intent) {
-
             case SubscribeIntent::immediate:
                 return std::make_tuple(Location{.mode=LocationMode::RelativePrevious, .value=0}, //StartGroup
                                        none_location, // EndGroup
@@ -445,7 +444,10 @@ namespace quicr::messages {
                 throw std::runtime_error("Intent Unsupported for Subscribe");
             case SubscribeIntent::wait_up:
                 throw std::runtime_error("Intent Unsupported for Subscribe");
+            default:
+                throw std::runtime_error("Bad Intent  for Subscribe");
         }
+
     }
 
 
