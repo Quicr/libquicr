@@ -177,6 +177,12 @@ namespace quicr {
                            .addField("tx_queue_expired", sample.quic_sample->tx_queue_expired)
                            .addField("tx_reset_wait", sample.quic_sample->tx_reset_wait)
                            .addField("tx_stream_cb", sample.quic_sample->tx_stream_cb)
+                           .addField("tx_callback_ms_min", sample.quic_sample->tx_callback_ms.min)
+                           .addField("tx_callback_ms_max", sample.quic_sample->tx_callback_ms.max)
+                           .addField("tx_callback_ms_avg", sample.quic_sample->tx_callback_ms.avg)
+                           .addField("tx_object_duration_us_min", sample.quic_sample->tx_object_duration_us.min)
+                           .addField("tx_object_duration_us_max", sample.quic_sample->tx_object_duration_us.max)
+                           .addField("tx_object_duration_us_avg", sample.quic_sample->tx_object_duration_us.avg)
                         );
 
         }
