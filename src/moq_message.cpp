@@ -39,7 +39,7 @@ namespace quicr::messages {
             return buffer;
         }
         buffer << static_cast<uint8_t >(msg.mode);
-        buffer << msg.value;
+        buffer << msg.value.value();
         return buffer;
     }
 
@@ -48,7 +48,9 @@ namespace quicr::messages {
         buffer >> mode;
         msg.mode = static_cast<LocationMode>(mode);
         if (static_cast<LocationMode>(mode) != LocationMode::None) {
-            buffer >> msg.value;
+            uintVar_t loc_val{0};
+            buffer >> loc_val;
+            msg.value = loc_val;
         }
         return buffer;
     }
@@ -423,7 +425,7 @@ namespace quicr::messages {
     }
 
     std::tuple<Location, Location, Location, Location> to_locations(const SubscribeIntent& intent) {
-        auto none_location = Location {.mode = LocationMode::None};
+        auto none_location = Location {.mode = LocationMode::None, .value = std::nullopt};
 
         /*
          * Sequence:                0    1    2    3    4   [5]  [6] ...

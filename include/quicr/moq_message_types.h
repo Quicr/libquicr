@@ -104,7 +104,7 @@ namespace quicr::messages {
 
   struct Location {
     LocationMode mode;
-    uintVar_t value;
+    std::optional<uintVar_t> value;
   };
 
   struct MoqSubscribe {

@@ -235,8 +235,8 @@ TEST_CASE("PublishIntentEnd Message encode/decode")
 TEST_CASE("VarInt Encode/Decode")
 {
   const auto values =
-    std::vector<uintVar_t>{ 56_uV, 127_uV, 128_uV, 16384_uV, 536870912_uV };
-  const auto sizes = std::vector<size_t>{ 1, 2, 2, 4, 4 };
+    std::vector<uintVar_t>{ 56_uV, 63_uV, 127_uV, 128_uV, 16384_uV, 536870912_uV };
+  const auto sizes = std::vector<size_t>{ 1, 1, 2, 2, 4, 4 };
   auto out_values = std::vector<uintVar_t>(values.size());
 
   auto i = size_t(0);
