@@ -212,7 +212,13 @@ namespace quicr {
             }
           }
 
-        _influxDb->flushBatch();
+        try {
+          _influxDb->flushBatch();
+        } catch (const std::exception& exception) {
+          logger->error << "Failure flushing metrics batch: " << exception.what() << std::flush;
+        } catch (...) {
+          logger->error << "Unknown failure flushing metrics batch" << std::flush;
+        }
       }
 
       logger->Log("metrics writer thread done");
