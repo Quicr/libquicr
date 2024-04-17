@@ -575,7 +575,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
   if (data.size() <= quicr::max_transport_data_size
       || (! transport_needs_fragmentation
         && context.transport_mode != TransportMode::Unreliable
-          && data.size() > quicr::max_transport_data_size * 3)) {
+          && data.size() < max_transport_data_size * 3)) {
     messages::MessageBuffer msg;
 
     datagram.media_data_length = data.size();
