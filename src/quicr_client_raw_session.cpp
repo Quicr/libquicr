@@ -571,7 +571,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       break;
   }
 
-  const auto fragment_size = transport_needs_fragmentation
+  const size_t fragment_size = transport_needs_fragmentation
       || context.transport_mode == TransportMode::Unreliable ? max_transport_data_size : max_transport_data_size * 3;
 
   // Fragment the payload if needed
