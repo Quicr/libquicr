@@ -571,11 +571,14 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       break;
   }
 
+  const auto fragment_size = transport_needs_fragmentation
+      || context.transport_mode == TransportMode::Unreliable ? max_transport_data_size : max_transport_data_size * 3;
+
   // Fragment the payload if needed
   if (data.size() <= quicr::max_transport_data_size
       || (! transport_needs_fragmentation
         && context.transport_mode != TransportMode::Unreliable
-          && data.size() > quicr::max_transport_data_size * 3)) {
+          && data.size() <= fragment_size)) {
     messages::MessageBuffer msg;
 
     datagram.media_data_length = data.size();
@@ -589,10 +592,9 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
     transport->enqueue(context.transport_conn_id, context.transport_data_ctx_id, msg.take(), std::move(trace),
                        priority, expiry_age_ms, 0, eflags);
   } else {
-    auto frag_num = data.size() / quicr::max_transport_data_size;
+    auto frag_num = data.size() / fragment_size;
     // Fragments required. At this point this only counts whole blocks
-    const auto frag_remaining_bytes =
-      data.size() % quicr::max_transport_data_size;
+    const auto frag_remaining_bytes = data.size() % fragment_size;
 
     auto offset = size_t(0);
 
@@ -615,14 +617,14 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
       const auto ptr_offset = static_cast<ptrdiff_t>(offset);
       bytes frag_data(data.begin() + ptr_offset,
                       data.begin() + ptr_offset +
-                        quicr::max_transport_data_size);
+                        fragment_size);
 
       datagram.media_data_length = frag_data.size();
       datagram.media_data = std::move(frag_data);
 
       msg << datagram;
 
-      offset += quicr::max_transport_data_size;
+      offset += fragment_size;
 
       if (objs_per_ms_sent == objs_per_ms) {
         pop_delay_ms++;
@@ -636,6 +638,10 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
         // No point in finishing fragment if one is dropped
         return;
       }
+      eflags.new_stream = false;
+      eflags.use_reset = false;
+      eflags.clear_tx_queue = false;
+
     }
 
     // Send last fragment, which will be less than max_transport_data_size
