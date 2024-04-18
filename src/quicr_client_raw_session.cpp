@@ -55,10 +55,12 @@ to_TransportRemote(const RelayInfo& info) noexcept
 
 ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
                                    const std::string& endpoint_id,
+                                   size_t chunk_size,
                                    const qtransport::TransportConfig& tconfig,
                                    const cantina::LoggerPointer& logger)
   : logger(std::make_shared<cantina::Logger>("QSES", logger))
   , _endpoint_id(endpoint_id)
+  , _chunk_size(chunk_size)
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
   , _mexport(logger, true)
 #endif
@@ -67,6 +69,10 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
 
   if (relay_info.proto == RelayInfo::Protocol::UDP) {
       transport_needs_fragmentation = true;
+  }
+
+  if (_chunk_size && _chunk_size < max_transport_data_size) {
+    _chunk_size = max_transport_data_size;
   }
 
   const auto server = to_TransportRemote(relay_info);
@@ -572,13 +578,12 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
   }
 
   const size_t fragment_size = transport_needs_fragmentation
-      || context.transport_mode == TransportMode::Unreliable ? max_transport_data_size : max_transport_data_size * 3;
+      || context.transport_mode == TransportMode::Unreliable ? max_transport_data_size : _chunk_size;
 
   // Fragment the payload if needed
   if (data.size() <= quicr::max_transport_data_size
-      || (! transport_needs_fragmentation
-        && context.transport_mode != TransportMode::Unreliable
-          && data.size() <= fragment_size)) {
+      || !fragment_size
+      || data.size() <= fragment_size) {
     messages::MessageBuffer msg;
 
     datagram.media_data_length = data.size();
