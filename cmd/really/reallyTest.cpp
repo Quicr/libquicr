@@ -228,7 +228,7 @@ main(int argc, char* argv[])
     .tls_key_filename = nullptr,
   };
 
-  quicr::Client client(relay, "a@cisco.com", tcfg, logger);
+  quicr::Client client(relay, "a@cisco.com", 0, tcfg, logger);
   auto pd = std::make_shared<pubDelegate>(logger);
 
   if (!client.connect()) {
