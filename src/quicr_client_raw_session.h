@@ -47,6 +47,7 @@ public:
    * @param relayInfo   : Relay Information to be used by the transport
    * @param endpoint_id : Client endpoint ID (e.g., email)
    * @param chunk_size  : Size in bytes to chunk messages if greater than this size
+   *                      Zero disables, value is max(chunk_size, max_transport_data_size)
    * @param tconfig     : Transport configuration
    * @param logger      : Shared pointer to a cantina::Logger object
    *
