@@ -42,12 +42,15 @@ public:
    *
    * @param relay_info  : Relay Information to be used by the transport
    * @param endpoint_id : Client endpoint ID (e.g., email)
+   * @param chunk_size  : Size in bytes to chunk messages if greater than this size
+   *                      Zero disables, value is max(chunk_size, max_transport_data_size)
    * @param tconfig     : Transport configuration
    * @param logger      : Shared pointer to cantina::Logger object
    *                      loggings operations
    */
   Client(const RelayInfo& relay_info,
          const std::string& endpoint_id,
+         size_t chunk_size,
          const qtransport::TransportConfig& tconfig,
          const cantina::LoggerPointer& logger);
 

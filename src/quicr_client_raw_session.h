@@ -46,6 +46,8 @@ public:
    *
    * @param relayInfo   : Relay Information to be used by the transport
    * @param endpoint_id : Client endpoint ID (e.g., email)
+   * @param chunk_size  : Size in bytes to chunk messages if greater than this size
+   *                      Zero disables, value is max(chunk_size, max_transport_data_size)
    * @param tconfig     : Transport configuration
    * @param logger      : Shared pointer to a cantina::Logger object
    *
@@ -53,6 +55,7 @@ public:
    */
   ClientRawSession(const RelayInfo& relay_info,
                    const std::string& endpoint_id,
+                   size_t chunk_size,
                    const qtransport::TransportConfig& tconfig,
                    const cantina::LoggerPointer& logger);
 
@@ -326,6 +329,7 @@ protected:
   cantina::LoggerPointer logger;
 
   const std::string _endpoint_id;           /// Client Endpoint ID
+  size_t _chunk_size {0};                   /// Size in bytes to break up a message
   std::string _relay_id;                    /// Relay Id
 
   namespace_map<std::shared_ptr<PublisherDelegate>> pub_delegates;
