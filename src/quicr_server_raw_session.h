@@ -19,7 +19,7 @@
 #include "quicr/message_buffer.h"
 #include "quicr/quicr_server_delegate.h"
 #include "quicr/quicr_server_session.h"
-#include "metrics_exporter.h"
+#include "quicr/metrics_exporter.h"
 
 #include <cantina/logger.h>
 #include <transport/transport.h>

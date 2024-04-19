@@ -18,12 +18,12 @@
 #include <map>
 #include <optional>
 #include <mutex>
-#include <InfluxDB.h>
 #include <transport/transport.h>
 #include <quicr/namespace.h>
-#include <InfluxDBFactory.h>
 #include <transport/safe_queue.h>
 #include "cantina/logger.h"
+#include <InfluxDBFactory.h>
+#include <InfluxDB.h>
 
 
 namespace quicr {

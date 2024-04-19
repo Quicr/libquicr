@@ -21,7 +21,7 @@
 #include "quicr/quicr_client.h"
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_common.h"
-#include "metrics_exporter.h"
+#include "quicr/metrics_exporter.h"
 
 #include <chrono>
 #include <iterator>
