@@ -3,6 +3,7 @@ add_library(quicr)
 
 target_sources(quicr PRIVATE
         message_buffer.cpp
+        moq_message.cpp
         encode.cpp
         quicr_client.cpp
         quicr_client_raw_session.cpp

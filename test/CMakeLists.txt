@@ -4,6 +4,7 @@ add_executable(quicr_test
                 main.cpp
                 quicr_client.cpp
                 quicr_server.cpp
+                moq_message.cpp
                 encode.cpp)
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
