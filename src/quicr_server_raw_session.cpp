@@ -38,7 +38,7 @@ ServerRawSession::ServerRawSession(const RelayInfo& relayInfo,
   , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport_delegate(*this)
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-  , _mexport(logger, false)
+  , _mexport(logger)
 #endif
 {
   t_relay.host_or_ip = relayInfo.hostname;
@@ -54,7 +54,7 @@ ServerRawSession::ServerRawSession(const RelayInfo& relayInfo,
 
   relay_id = relayInfo.relay_id;
   transport = setupTransport(tconfig);
-  transport->start();
+  transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples);
 }
 
 ServerRawSession::ServerRawSession(
@@ -66,7 +66,7 @@ ServerRawSession::ServerRawSession(
   , transport_delegate(*this)
   , transport(std::move(transport_in))
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-  , _mexport(logger, false)
+  , _mexport(logger)
 #endif
 {
 }
@@ -113,11 +113,10 @@ ServerRawSession::run()
     throw std::runtime_error("Failed to connect to InfluxDB");
       }
 
-  _mexport.set_relay_id(relay_id);
   if (!transport->metrics_conn_samples) {
     logger->error << "ERROR metrics conn samples null" << std::flush;
   }
-  _mexport.run(transport->metrics_conn_samples, transport->metrics_data_samples);
+  _mexport.run();
 #endif
 
   return transport->status() == qtransport::TransportStatus::Ready;
@@ -329,7 +328,9 @@ ServerRawSession::handle_connect(
   r_msg << response;
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-  _mexport.set_conn_ctx_info(conn_id, {.endpoint_id = connect.endpoint_id, .data_ctx_info = {}});
+  _mexport.set_conn_ctx_info(conn_id, {.endpoint_id = connect.endpoint_id,
+                                              .relay_id = relay_id,
+                                              .data_ctx_info = {}}, false);
 #endif
 
   transport->enqueue(conn_id, conn_it->second.ctrl_data_ctx_id, r_msg.take());

@@ -36,6 +36,9 @@ namespace quicr {
         const std::string METRICS_SOURCE_CLIENT { "client" };
         const std::string METRICS_SOURCE_SERVER { "server" };
 
+        std::shared_ptr<safe_queue<MetricsConnSample>> metrics_conn_samples;
+        std::shared_ptr<safe_queue<MetricsDataSample>> metrics_data_samples;
+
         struct DataContextInfo
         {
             bool subscribe {false};             /// True indicates context was created for subscribe, otherwise it's publish
@@ -46,6 +49,8 @@ namespace quicr {
         struct ConnContextInfo
         {
             std::string endpoint_id;
+            std::string relay_id;
+            std::string src_text;                        /// Source of metrics is "client" or "srever"
             std::map<DataContextId, DataContextInfo> data_ctx_info;
         };
 
@@ -67,8 +72,7 @@ namespace quicr {
             Connecting
         };
 
-        MetricsExporter(const cantina::LoggerPointer& logger,
-                        const bool is_client);
+        MetricsExporter(const cantina::LoggerPointer& logger);
         ~MetricsExporter();
 
         /**
@@ -88,22 +92,15 @@ namespace quicr {
 
         /**
          * @brief Run metrics thread to monitor the queues and to write data to influx
-         *
-         * @param metrics_conn_samples      Connection metrics samples
-         * @param metrics_data_samples      Data flow metrics samples
          */
-        void run(std::shared_ptr<safe_queue<MetricsConnSample>>& metrics_conn_samples,
-                 std::shared_ptr<safe_queue<MetricsDataSample>>& metrics_data_samples);
+        void run();
 
-        void set_conn_ctx_info(const TransportConnId conn_id, const ConnContextInfo info);
+        void set_conn_ctx_info(const TransportConnId conn_id,
+                               const ConnContextInfo info,
+                               bool is_client);
         void del_conn_ctx_info(const TransportConnId conn_id);
         void set_data_ctx_info(const TransportConnId conn_id, const DataContextId data_id, const DataContextInfo info);
         void del_data_ctx_info(const TransportConnId conn_id, const DataContextId data_id);
-
-        void set_relay_id(const std::string relay_id)
-        {
-            _relay_id = relay_id;
-        }
 
     private:
         std::optional<ConnContextInfo> get_conn_ctx_info(const TransportConnId conn_id);
@@ -111,6 +108,7 @@ namespace quicr {
 
         void write_conn_metrics(const MetricsConnSample& sample);
         void write_data_metrics(const MetricsDataSample& sample);
+        MetricsExporterError connect();
 
         void writer();
 
@@ -121,12 +119,12 @@ namespace quicr {
         std::thread _writer_thread;                    /// export writer thread
         bool _stop { false };                          /// Flag to indicate if threads shoudl stop
 
-        std::shared_ptr<safe_queue<MetricsConnSample>> _metrics_conn_samples;
-        std::shared_ptr<safe_queue<MetricsDataSample>> _metrics_data_samples;
+        std::string _influx_url;
+        std::string _influx_bucket;
+        std::string _influx_auth_token;
+
 
         std::map<TransportConnId, ConnContextInfo> _info;
-        std::string _relay_id;
-        const std::string _src_text;                        /// Source of metrics is "client" or "srever"
     };
 
 } // End namespace quicr
