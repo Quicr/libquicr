@@ -50,7 +50,7 @@ namespace quicr {
         {
             std::string endpoint_id;
             std::string relay_id;
-            std::string src_text;                        /// Source of metrics is "client" or "srever"
+            std::string src_text { "client" };                        /// Source of metrics is "client" or "srever"
             std::map<DataContextId, DataContextInfo> data_ctx_info;
         };
 
