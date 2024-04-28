@@ -26,8 +26,8 @@ namespace quicr {
     MetricsExporter::MetricsExporter(const cantina::LoggerPointer& logger) :
         logger(std::make_shared<cantina::Logger>("MExport", logger))
     {
-      metrics_conn_samples = std::make_unique<safe_queue<MetricsConnSample>>(MAX_METRICS_SAMPLES_QUEUE);
-      metrics_data_samples = std::make_unique<safe_queue<MetricsDataSample>>(MAX_METRICS_SAMPLES_QUEUE);
+      metrics_conn_samples = std::make_shared<safe_queue<MetricsConnSample>>(MAX_METRICS_SAMPLES_QUEUE);
+      metrics_data_samples = std::make_shared<safe_queue<MetricsDataSample>>(MAX_METRICS_SAMPLES_QUEUE);
     }
 
     MetricsExporter::~MetricsExporter() {
