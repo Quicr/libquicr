@@ -723,7 +723,9 @@ ClientRawSession::removeSubscription(
   if (state_it != subscribe_state.end()) {
     transport->deleteDataContext(state_it->second.transport_conn_id, state_it->second.transport_data_ctx_id);
 
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
     _mexport.del_data_ctx_info(state_it->second.transport_conn_id, state_it->second.transport_data_ctx_id);
+#endif
 
     subscribe_state.erase(state_it);
   }
