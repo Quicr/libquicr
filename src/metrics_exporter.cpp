@@ -14,7 +14,7 @@
 
 #include <chrono>
 #include <ctime>
-#include "metrics_exporter.h"
+#include "quicr/metrics_exporter.h"
 #include "InfluxDBBuilder.h"
 
 /*
@@ -23,21 +23,21 @@
 using namespace std::chrono;
 namespace quicr {
 
-    MetricsExporter::MetricsExporter(const cantina::LoggerPointer& logger,
-                                     const bool is_client) :
+    MetricsExporter::MetricsExporter(const cantina::LoggerPointer& logger) :
         logger(std::make_shared<cantina::Logger>("MExport", logger))
-        , _src_text(is_client ? METRICS_SOURCE_CLIENT : METRICS_SOURCE_SERVER)
     {
+      metrics_conn_samples = std::make_shared<safe_queue<MetricsConnSample>>(MAX_METRICS_SAMPLES_QUEUE);
+      metrics_data_samples = std::make_shared<safe_queue<MetricsDataSample>>(MAX_METRICS_SAMPLES_QUEUE);
     }
 
     MetricsExporter::~MetricsExporter() {
       _stop = true;
 
-      if (_metrics_conn_samples)
-        _metrics_conn_samples->stop_waiting();
+      if (metrics_conn_samples)
+        metrics_conn_samples->stop_waiting();
 
-      if (_metrics_data_samples)
-        _metrics_data_samples->stop_waiting();
+      if (metrics_data_samples)
+        metrics_data_samples->stop_waiting();
 
       if (_writer_thread.joinable()) {
         logger->info << "Closing metrics writer thread" << std::flush;
@@ -50,11 +50,21 @@ namespace quicr {
                                                                 const std::string& bucket,
                                                                 const std::string& auth_token) {
       logger->info << "Initializing metrics exporter" << std::flush;
+      _influx_url = url;
+      _influx_bucket = bucket;
+      _influx_auth_token = auth_token;
+
+      return connect();
+    }
+
+
+    MetricsExporter::MetricsExporterError MetricsExporter::connect() {
+      logger->info << "Connecting to InfluxDb" << std::flush;
 
       try {
-        _influxDb = influxdb::InfluxDBBuilder::http(url + "?db=" + bucket)
+        _influxDb = influxdb::InfluxDBBuilder::http(_influx_url + "?db=" + _influx_bucket)
                 .setTimeout(std::chrono::seconds{5})
-                .setAuthToken(auth_token)
+                .setAuthToken(_influx_auth_token)
                 .connect();
 
         if (_influxDb == nullptr) {
@@ -71,15 +81,9 @@ namespace quicr {
       }
     }
 
-    void MetricsExporter::run(
-              std::shared_ptr<safe_queue<MetricsConnSample>>& metrics_conn_samples,
-              std::shared_ptr<safe_queue<MetricsDataSample>>& metrics_data_samples)
+    void MetricsExporter::run()
     {
-
-      _metrics_conn_samples = metrics_conn_samples;
-      _metrics_data_samples = metrics_data_samples;
       _writer_thread = std::thread(&MetricsExporter::writer, this);
-
     }
 
     void MetricsExporter::write_conn_metrics(const MetricsConnSample& sample)
@@ -92,8 +96,8 @@ namespace quicr {
           _influxDb->write(influxdb::Point{METRICS_MEASUREMENT_NAME_QUIC_CONNECTION}
                   .setTimestamp(tp)
                   .addTag("endpoint_id", info->endpoint_id)
-                  .addTag("relay_id", _relay_id)
-                  .addTag("source", _src_text)
+                  .addTag("relay_id", info->relay_id)
+                  .addTag("source", info->src_text)
                   .addField("tx_retransmits", sample.quic_sample->tx_retransmits)
                   .addField("tx_congested", sample.quic_sample->tx_congested)
                   .addField("tx_lost_pkts", sample.quic_sample->tx_lost_pkts)
@@ -152,8 +156,8 @@ namespace quicr {
           _influxDb->write(influxdb::Point{METRICS_MEASUREMENT_NAME_QUIC_DATA_FLOW}
                            .setTimestamp(tp)
                            .addTag("endpoint_id", info->c_info.endpoint_id)
-                           .addTag("relay_id", _relay_id)
-                           .addTag("source", _src_text)
+                           .addTag("relay_id", info->c_info.relay_id)
+                           .addTag("source", info->c_info.src_text)
                            .addTag("type", info->d_info.subscribe ? "subscribe" : "publish")
                            .addTag("namespace", std::string(info->d_info.nspace))
                            .addField("enqueued_objs", sample.quic_sample->enqueued_objs)
@@ -202,27 +206,31 @@ namespace quicr {
       _influxDb->batchOf(100);
 
       while (not _stop) {
-        const auto conn_sample = _metrics_conn_samples->block_pop();
-
-        if (conn_sample) {
-          write_conn_metrics(*conn_sample);
-
-            while (const auto data_sample = _metrics_data_samples->pop()) {
-              write_data_metrics(*data_sample);
-            }
-          }
-
         try {
+          const auto conn_sample = metrics_conn_samples->block_pop();
+
+          if (conn_sample) {
+            write_conn_metrics(*conn_sample);
+
+              while (const auto data_sample = metrics_data_samples->pop()) {
+                write_data_metrics(*data_sample);
+              }
+            }
+
           _influxDb->flushBatch();
+        } catch (const influxdb::InfluxDBException& exception) {
+          logger->error << "InfluxDb exception: " << exception.what() << std::flush;
+          connect();
         } catch (const std::exception& exception) {
-          logger->error << "Failure flushing metrics batch: " << exception.what() << std::flush;
+          logger->error << "Exception: " << exception.what() << std::flush;
+          connect();
         } catch (...) {
-          logger->error << "Unknown failure flushing metrics batch" << std::flush;
+          logger->error << "Unknown exception" << std::flush;
+          connect();
         }
       }
 
       logger->Log("metrics writer thread done");
-
     }
 
     std::optional<MetricsExporter::ConnContextInfo>
@@ -239,17 +247,22 @@ namespace quicr {
     }
 
     void MetricsExporter::set_conn_ctx_info(const TransportConnId conn_id,
-                                            const ConnContextInfo info)
+                                            const ConnContextInfo info,
+                                            bool is_client)
     {
       std::lock_guard<std::mutex> _(_state_mutex);
 
       const auto c_it = _info.find(conn_id);
       if (c_it == _info.end()) {
-        _info.emplace(conn_id, info);
+        const auto& [it, is_new] = _info.emplace(conn_id, info);
+
+        it->second.src_text = is_client ? METRICS_SOURCE_CLIENT : METRICS_SOURCE_SERVER;
       }
 
       else {
         c_it->second.endpoint_id = info.endpoint_id;
+        c_it->second.relay_id = info.relay_id;
+        c_it->second.src_text = is_client ? METRICS_SOURCE_CLIENT : METRICS_SOURCE_SERVER;
       }
     }
 

@@ -34,7 +34,8 @@ struct FakeTransport : public ITransport
 
   TransportStatus status() const override { return TransportStatus::Ready; }
 
-  TransportConnId start() override { return 0x1000; }
+  TransportConnId start([[maybe_unused]] std::shared_ptr<safe_queue<MetricsConnSample>>& metrics_conn_samples,
+                        [[maybe_unused]] std::shared_ptr<safe_queue<MetricsDataSample>>& metrics_data_samples) override { return 0x1000; }
 
   DataContextId createDataContext([[maybe_unused]] const TransportConnId conn_id,
                                   [[maybe_unused]] bool use_reliable_transport,

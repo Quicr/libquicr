@@ -21,7 +21,7 @@
 #include "quicr/quicr_client.h"
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_common.h"
-#include "metrics_exporter.h"
+#include "quicr/metrics_exporter.h"
 
 #include <chrono>
 #include <iterator>
@@ -62,7 +62,7 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
   , _endpoint_id(endpoint_id)
   , _chunk_size(chunk_size)
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-  , _mexport(logger, true)
+  , _mexport(logger)
 #endif
 {
   this->logger->Log("Initialize Client");
@@ -89,7 +89,7 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
     throw std::runtime_error("Failed to connect to InfluxDB");
   }
 
-  _mexport.run(transport->metrics_conn_samples, transport->metrics_data_samples);
+  _mexport.run();
 #endif
 
 }
@@ -101,7 +101,7 @@ ClientRawSession::ClientRawSession(
   , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport(std::move(transport_in))
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-  , _mexport(logger, true)
+  , _mexport(logger)
 #endif
 {
 }
@@ -126,7 +126,7 @@ ClientRawSession::connect()
       "Transport has been destroyed, create a new session object!");
   }
 
-  transport_conn_id = transport->start();
+  transport_conn_id = transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples);
 
   LOGGER_INFO(logger, "Connecting session " << *transport_conn_id << "...");
 
@@ -152,7 +152,9 @@ ClientRawSession::connect()
   }
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-  _mexport.set_conn_ctx_info(*transport_conn_id, {.endpoint_id = _endpoint_id, .data_ctx_info = {}});
+  _mexport.set_conn_ctx_info(*transport_conn_id, {.endpoint_id = _endpoint_id,
+                             .relay_id = "_connecting_",
+                             .data_ctx_info = {}}, true);
 #endif
 
   // Create reliable bidirectional control stream
@@ -844,7 +846,9 @@ ClientRawSession::handle(messages::MessageBuffer&& msg)
 
       _relay_id = response.relay_id;
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-      _mexport.set_relay_id(_relay_id);
+      _mexport.set_conn_ctx_info(*transport_conn_id, {.endpoint_id = _endpoint_id,
+                                 .relay_id = _relay_id,
+                                 .data_ctx_info = {}}, true);
 #endif
 
       logger->info << "Received connection response with"

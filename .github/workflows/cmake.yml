@@ -29,7 +29,7 @@ jobs:
 
     - name: Install Packages (macOS)
       run: |
-        brew install pkg-config llvm
+        brew install pkg-config llvm go
         ln -s "$(brew --prefix llvm)/bin/clang-tidy" "/usr/local/bin/clang-tidy"
         brew install google-benchmark
       if: matrix.os == 'macos-latest'
