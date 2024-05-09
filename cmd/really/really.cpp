@@ -261,11 +261,13 @@ main()
       .hostname = "127.0.0.1",
       .port = 1234,
       .proto = quicr::RelayInfo::Protocol::QUIC,
+      .relay_id = "really"
     };
 
     const auto tcfg = qtransport::TransportConfig{
       .tls_cert_filename = "./server-cert.pem",
       .tls_key_filename = "./server-key.pem",
+      .debug = true
     };
 
     auto logger = std::make_shared<cantina::Logger>("really");
