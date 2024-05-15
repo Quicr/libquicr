@@ -759,17 +759,10 @@ ClientRawSession::notify_pub_fragment(
     }
 
     reassembled.insert(reassembled.end(),
-                       std::make_move_iterator(data.begin()),
-                       std::make_move_iterator(data.end()));
+                       data.begin(),
+                       data.end());
 
     seq_bytes += data.size();
-  }
-
-  const auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - fragment.start_time).count();
-  if (duration_ms > 22) {
-      logger->debug << "Fragment complete name: " << datagram.header.name
-                    << " duration_ms: " << duration_ms
-                    << std::flush;
   }
 
   delegate->onSubscribedObject(
@@ -823,11 +816,7 @@ ClientRawSession::handle_pub_fragment(
                              std::move(datagram.media_data));
   if (notify_pub_fragment(datagram, delegate, msg_fragments)) {
     buffer.erase(name);
-  } /*else {
-      logger->info << "Fragments name: " << datagram.header.name
-                   << " offset: " << (datagram.header.offset_and_fin >> 1U)
-                   << std::flush;
-  }*/
+  }
 }
 
 void

@@ -217,7 +217,6 @@ public:
 protected:
     struct MsgFragment {
         std::map<uint32_t, bytes> data;
-        const std::chrono::time_point<std::chrono::steady_clock> start_time { std::chrono::steady_clock::now() };
     };
 
   void on_connection_status(const qtransport::TransportConnId& conn_id,
