@@ -3,6 +3,7 @@
 add_executable(quicr_test
                 main.cpp
                 quicr_client.cpp
+                stream_buffer.cpp
                 quicr_server.cpp
                 encode.cpp)
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
