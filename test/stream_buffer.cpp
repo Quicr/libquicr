@@ -4,33 +4,44 @@
 
 #include <random>
 #include <transport/transport.h>
-#include <vector>
+#include <chrono>
 #include <thread>
 
-TEST_CASE("StreamBuffer Load")
+TEST_CASE("StreamBuffer Reader/Writer")
 {
-  qtransport::stream_buffer<uint8_t> buf;
+  using streamBuf_t = qtransport::stream_buffer<uint32_t>;
+  std::shared_ptr<streamBuf_t> buf = std::make_shared<streamBuf_t>();
+  bool stop{ false };
 
-  std::cout << "size: " << buf.size() << std::endl;
-  buf.push(10);
-  std::cout << "size: " << buf.size() << std::endl;
+  std::thread reader([&buf, &stop]() {
+    while (!stop) {
+      if (const auto b = buf->front()) {
+        buf->pop();
+      } else {
+      }
+      std::this_thread::sleep_for(std::chrono::microseconds(100));
+    }
 
-  for (int i=0; i < 10; i++) {
-    buf.push(i);
-  }
+    // Finish reading the last items after stop
+    buf->pop(buf->size());
+  });
 
-  buf.pop();
-  std::cout << "size: " << buf.size() << " asize: " << buf.actual_size() << std::endl;
+  std::thread writer([&buf, &stop]() {
+    int i = 0;
+    while (!stop) {
+      buf->push(i++);
+      std::this_thread::sleep_for(std::chrono::microseconds(100));
+    }
+  });
 
-  buf.pop(5);
-  buf.push(100);
-  std::cout << "size: " << buf.size() << " asize: " << buf.actual_size() << std::endl;
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  stop = true;
 
-  buf.pop(100);
-  std::cout << "size: " << buf.size() << " asize: " << buf.actual_size() << std::endl;
+  writer.join();
+  reader.join();
 
-  buf.push(1);
-  std::cout << "size: " << buf.size() << " asize: " << buf.actual_size() << std::endl;
+  //buf->push(1);
 
+  CHECK_EQ(buf->size(), 1);
 }
 
