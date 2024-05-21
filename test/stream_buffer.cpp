@@ -302,10 +302,13 @@ TEST_CASE("StreamBuffer parse MOQT Subscribe")
     if (r_sub.decode(sbuf)) {
       CHECK_EQ(s_sub.subscribe_id, r_sub.subscribe_id);
       CHECK_EQ(s_sub.track_alias, r_sub.track_alias);
+      CHECK_EQ(s_sub.start_group.value, r_sub.start_group.value);
+      CHECK_EQ(s_sub.start_object.value, r_sub.start_object.value);
+      CHECK_EQ(s_sub.num_params, r_sub.num_params);
 
+      /*
       std::string ns (r_sub.name_space.value.begin(), r_sub.name_space.value.end());
       std::string tn (r_sub.track_name.value.begin(), r_sub.track_name.value.end());
-
       std::cout << "Decoded subscribe, "
                 << " subscribe_id: " << r_sub.subscribe_id
                 << " track_alias: " << r_sub.track_alias
@@ -317,6 +320,7 @@ TEST_CASE("StreamBuffer parse MOQT Subscribe")
                 << " end_object: " << r_sub.end_object.value
                 << " num_params: " << r_sub.num_params
                 << std::endl;
+      */
 
       break;
     }
