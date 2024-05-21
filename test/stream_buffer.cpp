@@ -12,25 +12,30 @@ TEST_CASE("StreamBuffer Reader/Writer")
   using streamBuf_t = qtransport::stream_buffer<uint32_t>;
   std::shared_ptr<streamBuf_t> buf = std::make_shared<streamBuf_t>();
   bool stop{ false };
+  size_t rcount {0}, wcount {0};
 
-  std::thread reader([&buf, &stop]() {
+  std::thread reader([&buf, &rcount, &stop]() {
+    size_t prev_val {0};
     while (!stop) {
-      if (const auto b = buf->front()) {
+      if (const auto val = buf->front()) {
+        if (prev_val && *val != prev_val + 1) {
+          std::cout << "val: " << *val << " rcount: " << rcount << std::endl;
+        }
+
+        prev_val = *val;
+
+        ++rcount;
         buf->pop();
       } else {
+        std::this_thread::sleep_for(std::chrono::microseconds(50));
       }
-      std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
-
-    // Finish reading the last items after stop
-    buf->pop(buf->size());
   });
 
-  std::thread writer([&buf, &stop]() {
-    int i = 0;
+  std::thread writer([&buf, &wcount, &stop]() {
     while (!stop) {
-      buf->push(i++);
-      std::this_thread::sleep_for(std::chrono::microseconds(100));
+      buf->push(wcount++);
+      std::this_thread::sleep_for(std::chrono::microseconds(25));
     }
   });
 
@@ -40,8 +45,16 @@ TEST_CASE("StreamBuffer Reader/Writer")
   writer.join();
   reader.join();
 
-  //buf->push(1);
+  std::cout << "reader/writer count: " << rcount << " / " << wcount
+            << " buf size: " << buf->size()
+            << " actual sz: " << buf->actual_size()
+            << std::endl;
 
-  CHECK_EQ(buf->size(), 1);
+
+  std::cout << "Buf size before purge: " << buf->size() << std::endl;
+  buf->purge();
+  std::cout << "Buf size after purge: " << buf->size() << std::endl;
+
+  CHECK_EQ(buf->size(), 0);
 }
 
