@@ -56,47 +56,12 @@ enum class MOQT_MessageType : uint64_t
   SUBSCRIBE = 0x3,
 };
 
-struct MOQT_Location
+enum class MOQT_FilterType : uint64_t
 {
-  uint64_t         mode {0};
-  uint64_t         value {0};      // Optional
-
-  // ----- Internals -------------
-  int _pos {0};
-
-  bool decode(qtransport::StreamBuffer<uint8_t>& sbuf) {
-    while (true) {
-      switch (_pos) {
-        case 0: // mode
-          if (const auto val = sbuf.decode_uintV()) {
-            mode = *val;
-
-            if (mode == 0) { // No value to follow, indicate we are done
-              _pos = 2;
-              return true;
-            }
-
-            ++_pos;
-            break;
-          }
-          return false;
-
-        case 1: // value
-          if (const auto val = sbuf.decode_uintV()) {
-            value = *val;
-
-            return true;
-          }
-          return false;
-
-        default:
-          return true;
-      }
-    }
-
-    return false;
-  }
-
+  LATEST_GROUP=0x1,     //
+  LATEST_OBJECT=0x2,
+  ABSOLUTE_START=0x3,   // indicates start group/object are present
+  ABSOLUTE_RANGE=0x4    // indicates start and end group/object are present
 };
 
 struct LenValue {
@@ -121,10 +86,13 @@ struct MOQT_Subscribe
   uint64_t              track_alias;
   LenValue              name_space;
   LenValue              track_name;
-  MOQT_Location         start_group;
-  MOQT_Location         start_object;
-  MOQT_Location         end_group;
-  MOQT_Location         end_object;
+  MOQT_FilterType       filter_type;
+
+  uint64_t              start_group {0};   // optional based on filter type
+  uint64_t              start_object {0};  // optional based on filter type
+  uint64_t              end_group {0};     // optional based on filter type
+  uint64_t              end_object {0};    // optional based on filter type
+
   uint64_t              num_params;
   // optional track parameters - Not used for this test
 
@@ -140,82 +108,128 @@ struct MOQT_Subscribe
    *    more data is needed.
    */
   bool decode(qtransport::StreamBuffer<uint8_t>& sbuf) {
-    while (true) {
-      switch (_pos) {
-        case 0: // subscribe_id
-          if (const auto val = sbuf.decode_uintV()) {
-            subscribe_id = *val;
-            ++_pos;
-            break;
-          }
+    switch (_pos) {
+      case 0: { // subscribe_id
+        const auto val = sbuf.decode_uintV();
+        if (!val) {
           return false;
+        }
+        subscribe_id = *val;
+        ++_pos;
 
-        case 1: // track_alias
-          if (const auto val = sbuf.decode_uintV()) {
-            track_alias = *val;
-            ++_pos;
-            break;
-          }
-          return false;
-
-        case 2: // name_space
-          if (const auto val = sbuf.decode_bytes()) {
-            name_space = *val;
-            ++_pos;
-            break;
-          }
-          return false;
-
-        case 3: // track_name
-          if (const auto val = sbuf.decode_bytes()) {
-            track_name = *val;
-            ++_pos;
-            break;
-          }
-          return false;
-
-        case 4: // start_group
-          if (start_group.decode(sbuf)) {
-            ++_pos;
-            break;
-          }
-          return false;
-
-        case 5: // start_object
-          if (start_object.decode(sbuf)) {
-            ++_pos;
-            break;
-          }
-          return false;
-
-        case 6: // end_group
-          if (end_group.decode(sbuf)) {
-            ++_pos;
-            break;
-          }
-          return false;
-
-        case 7: // end_object
-          if (end_object.decode(sbuf)) {
-            ++_pos;
-            break;
-          }
-          return false;
-
-        case 8: // num params
-          if (const auto val = sbuf.decode_uintV()) {
-            num_params = *val;
-            ++_pos;
-            return true;
-          }
-          return false;
-
-        default:
-          return true;
+        [[fallthrough]];
       }
-    }
+      case 1: { // track_alias
+        const auto val = sbuf.decode_uintV();
+        if (!val) {
+          return false;
+        }
+        track_alias = *val;
+        ++_pos;
 
-    return false;
+        [[fallthrough]];
+      }
+      case 2: { // name_space
+        const auto val = sbuf.decode_bytes();
+        if (!val) {
+          return false;
+        }
+        name_space = *val;
+        ++_pos;
+
+        [[fallthrough]];
+      }
+      case 3: { // track_name
+        const auto val = sbuf.decode_bytes();
+        if (!val) {
+          return false;
+        }
+        track_name = *val;
+        ++_pos;
+
+        [[fallthrough]];
+      }
+      case 4: { // filter type
+        const auto val = sbuf.decode_uintV();
+        if (!val) {
+          return false;
+        }
+
+        filter_type = static_cast<MOQT_FilterType>(*val);
+
+        ++_pos;
+
+        [[fallthrough]];
+      }
+      case 5: { // start_group
+        if (filter_type == MOQT_FilterType::ABSOLUTE_START
+            || filter_type == MOQT_FilterType::ABSOLUTE_RANGE) {
+          const auto val = sbuf.decode_uintV();
+          if (!val) {
+            return false;
+          }
+          start_group = *val;
+        }
+
+        ++_pos;
+
+        [[fallthrough]];
+      }
+      case 6: { // start_object
+        if (filter_type == MOQT_FilterType::ABSOLUTE_START
+            || filter_type == MOQT_FilterType::ABSOLUTE_RANGE) {
+          const auto val = sbuf.decode_uintV();
+          if (!val) {
+            return false;
+          }
+          start_object = *val;
+        }
+
+        ++_pos;
+
+        [[fallthrough]];
+      }
+      case 7: { // end_group
+        if (filter_type == MOQT_FilterType::ABSOLUTE_RANGE) {
+          const auto val = sbuf.decode_uintV();
+          if (!val) {
+            return false;
+          }
+          end_group = *val;
+        }
+
+        ++_pos;
+
+        [[fallthrough]];
+      }
+      case 8: { // end_object
+        if (filter_type == MOQT_FilterType::ABSOLUTE_RANGE) {
+          const auto val = sbuf.decode_uintV();
+          if (!val) {
+            return false;
+          }
+          end_object = *val;
+        }
+
+        ++_pos;
+
+        [[fallthrough]];
+      }
+
+      case 9: { // num params
+        const auto val = sbuf.decode_uintV();
+        if (!val) {
+          return false;
+        }
+        num_params = *val;
+        ++_pos;
+
+        [[fallthrough]];
+      }
+
+      default:
+        return true;
+    }
   }
 };
 
@@ -236,27 +250,33 @@ std::vector<std::uint8_t>& operator<<(std::vector<uint8_t>& v, const LenValue& l
 }
 
 
-std::vector<std::uint8_t>& operator<<(std::vector<uint8_t>& v, const MOQT_Location& moqt_loc)
-{
-  v << qtransport::to_uintV(moqt_loc.mode);
-
-  if (moqt_loc.mode) {
-    v << qtransport::to_uintV(moqt_loc.value);
-  }
-
-  return v;
-}
-
 std::vector<std::uint8_t>& operator<<(std::vector<uint8_t>& v, const MOQT_Subscribe& moqt_sub) {
   v << qtransport::to_uintV(static_cast<uint64_t>(MOQT_MessageType::SUBSCRIBE));
   v << qtransport::to_uintV(moqt_sub.subscribe_id);
   v << qtransport::to_uintV(moqt_sub.track_alias);
   v << moqt_sub.name_space;
   v << moqt_sub.track_name;
-  v << moqt_sub.start_group;
-  v << moqt_sub.start_object;
-  v << moqt_sub.end_group;
-  v << moqt_sub.end_object;
+  v << qtransport::to_uintV(static_cast<uint64_t>(moqt_sub.filter_type));
+
+  switch (moqt_sub.filter_type) {
+    case MOQT_FilterType::LATEST_GROUP:
+      [[fallthrough]];
+    case MOQT_FilterType::LATEST_OBJECT:
+      break;
+
+    case MOQT_FilterType::ABSOLUTE_START:
+      v << qtransport::to_uintV(moqt_sub.start_group);
+      v << qtransport::to_uintV(moqt_sub.start_object);
+      break;
+
+    case MOQT_FilterType::ABSOLUTE_RANGE:
+      v << qtransport::to_uintV(moqt_sub.start_group);
+      v << qtransport::to_uintV(moqt_sub.start_object);
+      v << qtransport::to_uintV(moqt_sub.end_group);
+      v << qtransport::to_uintV(moqt_sub.end_object);
+      break;
+  }
+
   v << qtransport::to_uintV(moqt_sub.num_params);
 
   return v;
@@ -269,11 +289,12 @@ TEST_CASE("StreamBuffer parse MOQT Subscribe")
     .track_alias      = 1234567,
     .name_space       = std::string("moq://cisco.com/tim"),
     .track_name       = std::string("video/primary/best"),
-    .start_group      = { 1, 5551212 },
-    .start_object     = { 1,543210 },
-    .end_group        = { 0, 0 },
-    .end_object       = { 0, 0 },
-    .num_params       = 0
+    .filter_type      = MOQT_FilterType::ABSOLUTE_START,
+    .start_group      = 2002,
+    .start_object     = 3003,
+    .end_group        = 4004,
+    .end_object       = 5005,
+    .num_params       = 9001
   };
 
   qtransport::StreamBuffer<uint8_t> sbuf;
@@ -303,8 +324,8 @@ TEST_CASE("StreamBuffer parse MOQT Subscribe")
     if (r_sub.decode(sbuf)) {
       CHECK_EQ(s_sub.subscribe_id, r_sub.subscribe_id);
       CHECK_EQ(s_sub.track_alias, r_sub.track_alias);
-      CHECK_EQ(s_sub.start_group.value, r_sub.start_group.value);
-      CHECK_EQ(s_sub.start_object.value, r_sub.start_object.value);
+      CHECK_EQ(s_sub.start_group, r_sub.start_group);
+      CHECK_EQ(s_sub.start_object, r_sub.start_object);
       CHECK_EQ(s_sub.num_params, r_sub.num_params);
 
       /*
@@ -315,10 +336,11 @@ TEST_CASE("StreamBuffer parse MOQT Subscribe")
                 << " track_alias: " << r_sub.track_alias
                 << " namespace: " << ns
                 << " track name: " << tn
-                << " start_group: " << r_sub.start_group.value
-                << " start_object: " << r_sub.start_object.value
-                << " end_group: " << r_sub.end_group.value
-                << " end_object: " << r_sub.end_object.value
+                << " filter_type: " << static_cast<uint64_t>(r_sub.filter_type)
+                << " start_group: " << r_sub.start_group
+                << " start_object: " << r_sub.start_object
+                << " end_group: " << r_sub.end_group
+                << " end_object: " << r_sub.end_object
                 << " num_params: " << r_sub.num_params
                 << std::endl;
       */
