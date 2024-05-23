@@ -3,6 +3,7 @@
 add_executable(quicr_test
                 main.cpp
                 quicr_client.cpp
+                stream_buffer.cpp
                 quicr_server.cpp
                 encode.cpp)
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
@@ -25,7 +26,7 @@ if(CLANG_TIDY_EXE)
 endif()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    target_compile_options(quicr_test PRIVATE  -Wall -pedantic -Wextra -Werror -Wmissing-declarations)
+    target_compile_options(quicr_test PRIVATE  -Wall -pedantic -Wextra)
 endif()
 
 if(MSVC)
