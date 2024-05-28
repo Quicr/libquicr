@@ -344,14 +344,6 @@ void ServerRawSession::handle(TransportConnId conn_id,
       break;
     }
     case messages::MessageType::Publish: {
-      if (is_bidir) {
-        auto& conn_ctx = _connections[conn_id];
-
-        conn_ctx.ctrl_data_ctx_id = data_ctx_id ? *data_ctx_id : 0;
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-        _mexport.set_data_ctx_info(conn_id, conn_ctx.ctrl_data_ctx_id, {.subscribe = false, .nspace = {}});
-#endif
-      }
       recv_publish++;
       handle_publish(conn_id, stream_id, data_ctx_id, std::move(msg));
       break;
@@ -581,6 +573,10 @@ ServerRawSession::handle_publish(qtransport::TransportConnId conn_id,
   if (!data_ctx_id && stream_id) {
     data_ctx_id = context.data_ctx_id;
     transport->setStreamIdDataCtxId(conn_id, *data_ctx_id, *stream_id);
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+    _mexport.set_data_ctx_info(conn_id, context.data_ctx_id, {.subscribe = false, .nspace = ns});
+#endif
   }
 
   delegate->onPublisherObject(conn_id, *data_ctx_id, std::move(datagram));
