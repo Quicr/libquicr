@@ -168,7 +168,7 @@ ClientRawSession::connect()
   auto msg = messages::MessageBuffer{ sizeof(messages::Subscribe) + _endpoint_id.size() };
   const auto connect = messages::Connect{ 0x1, _endpoint_id };
   msg << connect;
-  transport->enqueue(*transport_conn_id, *transport_ctrl_data_ctx_id, msg.take());
+  enqueue_ctrl_msg(msg.take());
 
   return true;
 }
@@ -265,11 +265,8 @@ ClientRawSession::on_new_data_context(const qtransport::TransportConnId &conn_id
   LOGGER_INFO(logger, "New BiDir data context conn_id: " << conn_id << " data_ctx_id: " << data_ctx_id);
 }
 
-void
-ClientRawSession::on_recv_notify(
-  const qtransport::TransportConnId& conn_id,
-  const qtransport::DataContextId& data_ctx_id,
-  [[maybe_unused]] const bool is_bidir)
+void ClientRawSession::on_recv_dgram(const TransportConnId& conn_id,
+                                     std::optional<DataContextId> data_ctx_id)
 {
   if (!transport) {
     return;
@@ -278,14 +275,14 @@ ClientRawSession::on_recv_notify(
   for (int i = 0; i < 150; i++) {
     auto data = transport->dequeue(conn_id, data_ctx_id);
 
-    if (!data.has_value()) {
+    if (!data) {
       return;
     }
 
     messages::MessageBuffer msg_buffer{ *data };
 
     try {
-      handle(std::move(msg_buffer));
+      handle(std::nullopt, std::nullopt, std::move(msg_buffer));
     } catch (const std::exception& e) {
       LOGGER_DEBUG(logger, "Dropping malformed message: " << e.what());
       return;
@@ -296,6 +293,55 @@ ClientRawSession::on_recv_notify(
     }
   }
 }
+
+void ClientRawSession::on_recv_stream(const TransportConnId& conn_id,
+                                      uint64_t stream_id,
+                                      std::optional<DataContextId> data_ctx_id,
+                                      [[maybe_unused]] const bool is_bidir)
+{
+  if (!transport) {
+    return;
+  }
+
+  auto stream_buf = transport->getStreamBuffer(conn_id, stream_id);
+
+  if (stream_buf == nullptr) {
+    return;
+  }
+
+  while (true) {
+    if (stream_buf->available(4)) {
+      auto msg_len_b = stream_buf->front(4);
+
+      if (!msg_len_b.size())
+        return;
+
+      auto* msg_len = reinterpret_cast<uint32_t*>(msg_len_b.data());
+
+      if (stream_buf->available(*msg_len)) {
+        auto obj = stream_buf->front(*msg_len);
+        stream_buf->pop(*msg_len);
+
+        try {
+          messages::MessageBuffer msg_buffer{ obj };
+          handle(stream_id, data_ctx_id, std::move(msg_buffer));
+        } catch (const std::exception& e) {
+          LOGGER_DEBUG(logger, "Dropping malformed message: " << e.what());
+          return;
+        } catch (...) {
+          LOGGER_CRITICAL(
+            logger, "Received malformed message with unknown fatal error");
+          throw;
+        }
+      } else {
+        break;
+      }
+    } else {
+      break;
+    }
+  }
+}
+
 
 /*===========================================================================*/
 // QuicrClientSession API Methods
@@ -355,7 +401,7 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                                intent.payload.size() };
   msg << intent;
 
-  auto error = transport->enqueue(conn_id, *transport_ctrl_data_ctx_id, msg.take());
+  auto error =   enqueue_ctrl_msg(msg.take());
 
   return error == qtransport::TransportError::None;
 }
@@ -385,7 +431,7 @@ ClientRawSession::publishIntentEnd(
     messages::MessageBuffer msg;
     msg << intent_end;
 
-    transport->enqueue(ps_it->second.transport_conn_id, *transport_ctrl_data_ctx_id, msg.take());
+    enqueue_ctrl_msg(msg.take());
 
     transport->deleteDataContext(ps_it->second.transport_conn_id, ps_it->second.transport_data_ctx_id);
 
@@ -465,7 +511,7 @@ ClientRawSession::subscribe(
                          transport_mode, sub_it->second.transport_data_ctx_id };
   msg << subscribe;
 
-  transport->enqueue(conn_id, *transport_ctrl_data_ctx_id, msg.take());
+  enqueue_ctrl_msg(msg.take());
 }
 
 void
@@ -480,7 +526,7 @@ ClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
 
   const auto state_it = subscribe_state.find(quicr_namespace);
   if (state_it != subscribe_state.end()) {
-    transport->enqueue(state_it->second.transport_conn_id, *transport_ctrl_data_ctx_id, msg.take());
+    enqueue_ctrl_msg(msg.take());
   }
 
   std::lock_guard<std::mutex> _(session_mutex);
@@ -820,14 +866,17 @@ ClientRawSession::handle_pub_fragment(
 }
 
 void
-ClientRawSession::handle(messages::MessageBuffer&& msg)
+ClientRawSession::handle(std::optional<uint64_t> stream_id,
+                         std::optional<qtransport::DataContextId> data_ctx_id,
+                         messages::MessageBuffer&& msg)
 {
   if (msg.empty()) {
     std::cout << "Transport Reported Empty Data" << std::endl;
     return;
   }
 
-  auto msg_type = static_cast<messages::MessageType>(msg.front());
+  auto chdr = msg.front(5); // msg_len + type
+  auto msg_type = static_cast<messages::MessageType>(chdr.back());
   switch (msg_type) {
     case messages::MessageType::ConnectResponse: {
       auto response = messages::ConnectResponse{};
@@ -885,6 +934,12 @@ ClientRawSession::handle(messages::MessageBuffer&& msg)
         const auto& [ns, delegate] = *found;
 
         auto& context = subscribe_state[ns];
+
+        if (!data_ctx_id) {
+          transport->setStreamIdDataCtxId(context.transport_conn_id,
+                                          context.transport_data_ctx_id,
+                                          *stream_id);
+        }
 
         auto gap_log = gap_check(false,
                                  datagram.header.name,

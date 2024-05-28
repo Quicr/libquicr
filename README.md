@@ -95,6 +95,14 @@ openssl req -nodes -x509 -newkey rsa:2048 -days 365 \
     -keyout server-key.pem -out server-cert.pem
 ```
 
+#### MbedTLS cert
+
+```
+openssl req -nodes -x509 -newkey ec:<(openssl ecparam -name secp256r1) -days 365 \
+    -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.quicr.ctgpoc.com" \
+    -keyout server-key.pem -out server-cert.pem
+```
+
 Run:
 
 ```

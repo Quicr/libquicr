@@ -213,14 +213,39 @@ operator>>(MessageBuffer& msg, std::string& val)
   return msg;
 }
 
+MessageBuffer&
+operator<<(MessageBuffer& msg, uint32_t val)
+{
+  uint8_t* ptr = reinterpret_cast<uint8_t*>(&val);
+  for (int i=0; i < 4; i++) {
+    msg.push(ptr[i]);
+  }
+  return msg;
+}
+
+MessageBuffer&
+operator>>(MessageBuffer& msg, uint32_t& val)
+{
+  std::vector<uint8_t> uint32_b = msg.pop_front(4);
+  memcpy(&val, uint32_b.data(), 4);
+
+  return msg;
+}
+
+
 /*===========================================================================*/
 // Connect Encode & Decode
 /*===========================================================================*/
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const Connect& msg)
 {
+  buffer << static_cast<uint32_t>(0); // Length of message
+
   buffer << static_cast<uint8_t>(MessageType::Connect);
   buffer << msg.endpoint_id;
+
+  uint32_t* len = reinterpret_cast<uint32_t*>(buffer.data());
+  *len = buffer.size(); // Update the message length
 
   return buffer;
 }
@@ -228,6 +253,9 @@ operator<<(MessageBuffer& buffer, const Connect& msg)
 MessageBuffer&
 operator>>(MessageBuffer& buffer, Connect& msg)
 {
+  uint32_t len;
+  buffer >> len;
+
   auto msg_type = uint8_t(0);
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Connect)) {
@@ -242,8 +270,13 @@ operator>>(MessageBuffer& buffer, Connect& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const ConnectResponse& msg)
 {
+  buffer << static_cast<uint32_t>(0); // Length of message
+
   buffer << static_cast<uint8_t>(MessageType::ConnectResponse);
   buffer << msg.relay_id;
+
+  uint32_t* len = reinterpret_cast<uint32_t*>(buffer.data());
+  *len = buffer.size(); // Update the message length
 
   return buffer;
 }
@@ -251,6 +284,9 @@ operator<<(MessageBuffer& buffer, const ConnectResponse& msg)
 MessageBuffer&
 operator>>(MessageBuffer& buffer, ConnectResponse& msg)
 {
+  uint32_t len;
+  buffer >> len;
+
   auto msg_type = uint8_t(0);
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::ConnectResponse)) {
@@ -269,6 +305,8 @@ operator>>(MessageBuffer& buffer, ConnectResponse& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const Subscribe& msg)
 {
+  buffer << static_cast<uint32_t>(0); // Length of message
+
   buffer << static_cast<uint8_t>(MessageType::Subscribe);
   buffer << msg.transaction_id;
   buffer << msg.quicr_namespace;
@@ -276,12 +314,18 @@ operator<<(MessageBuffer& buffer, const Subscribe& msg)
   buffer << static_cast<uint8_t>(msg.transport_mode);
   buffer << msg.remote_data_ctx_id;
 
+  uint32_t* len = reinterpret_cast<uint32_t*>(buffer.data());
+  *len = buffer.size();
+
   return buffer;
 }
 
 MessageBuffer&
 operator>>(MessageBuffer& buffer, Subscribe& msg)
 {
+  uint32_t len;
+  buffer >> len;
+
   auto msg_type = uint8_t(0);
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Subscribe)) {
@@ -305,8 +349,13 @@ operator>>(MessageBuffer& buffer, Subscribe& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const Unsubscribe& msg)
 {
+  buffer << static_cast<uint32_t>(0);
+
   buffer << static_cast<uint8_t>(MessageType::Unsubscribe);
   buffer << msg.quicr_namespace;
+
+  uint32_t* len = reinterpret_cast<uint32_t*>(buffer.data());
+  *len = buffer.size(); // Update the message length
 
   return buffer;
 }
@@ -314,6 +363,9 @@ operator<<(MessageBuffer& buffer, const Unsubscribe& msg)
 MessageBuffer&
 operator>>(MessageBuffer& buffer, Unsubscribe& msg)
 {
+  uint32_t len;
+  buffer >> len;
+
   auto msg_type = uint8_t(0);
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Unsubscribe)) {
@@ -328,10 +380,15 @@ operator>>(MessageBuffer& buffer, Unsubscribe& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const SubscribeResponse& msg)
 {
+  buffer << static_cast<uint32_t>(0);
+
   buffer << static_cast<uint8_t>(MessageType::SubscribeResponse);
   buffer << static_cast<uint8_t>(msg.response);
   buffer << msg.transaction_id;
   buffer << msg.quicr_namespace;
+
+  uint32_t* len = reinterpret_cast<uint32_t*>(buffer.data());
+  *len = buffer.size(); // Update the message length
 
   return buffer;
 }
@@ -339,6 +396,9 @@ operator<<(MessageBuffer& buffer, const SubscribeResponse& msg)
 MessageBuffer&
 operator>>(MessageBuffer& buffer, SubscribeResponse& msg)
 {
+  uint32_t len;
+  buffer >> len;
+
   auto msg_type = uint8_t(0);
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::SubscribeResponse)) {
@@ -358,9 +418,13 @@ operator>>(MessageBuffer& buffer, SubscribeResponse& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const SubscribeEnd& msg)
 {
+  buffer << static_cast<uint32_t>(0);
   buffer << static_cast<uint8_t>(MessageType::SubscribeEnd);
   buffer << static_cast<uint8_t>(msg.reason);
   buffer << msg.quicr_namespace;
+
+  uint32_t* len = reinterpret_cast<uint32_t*>(buffer.data());
+  *len = buffer.size(); // Update the message length
 
   return buffer;
 }
@@ -368,6 +432,9 @@ operator<<(MessageBuffer& buffer, const SubscribeEnd& msg)
 MessageBuffer&
 operator>>(MessageBuffer& buffer, SubscribeEnd& msg)
 {
+  uint32_t len;
+  buffer >> len;
+
   auto msg_type = uint8_t(0);
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::SubscribeEnd)) {
@@ -390,6 +457,8 @@ operator>>(MessageBuffer& buffer, SubscribeEnd& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishIntent& msg)
 {
+  buffer << static_cast<uint32_t>(0);
+
   buffer << static_cast<uint8_t>(msg.message_type);
   buffer << msg.transaction_id;
   buffer << msg.quicr_namespace;
@@ -398,12 +467,17 @@ operator<<(MessageBuffer& buffer, const PublishIntent& msg)
   buffer << msg.datagram_capable;
   buffer << static_cast<uint8_t>(msg.transport_mode);
 
+  uint32_t* len = reinterpret_cast<uint32_t*>(buffer.data());
+  *len = buffer.size(); // Update the message length
+
   return buffer;
 }
 
 MessageBuffer&
 operator<<(MessageBuffer& buffer, PublishIntent&& msg)
 {
+  buffer << static_cast<uint32_t>(0);
+
   buffer << static_cast<uint8_t>(msg.message_type);
   buffer << msg.transaction_id;
   buffer << msg.quicr_namespace;
@@ -411,12 +485,19 @@ operator<<(MessageBuffer& buffer, PublishIntent&& msg)
   buffer << msg.media_id;
   buffer << msg.datagram_capable;
   buffer << static_cast<uint8_t>(msg.transport_mode);
+
+  uint32_t* len = reinterpret_cast<uint32_t*>(buffer.data());
+  *len = buffer.size(); // Update the message length
+
   return buffer;
 }
 
 MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishIntent& msg)
 {
+  uint32_t len;
+  buffer >> len;
+
   auto msg_type = uint8_t(0);
   buffer >> msg_type;
   msg.message_type = static_cast<MessageType>(msg_type);
@@ -437,11 +518,16 @@ operator>>(MessageBuffer& buffer, PublishIntent& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishIntentResponse& msg)
 {
+  buffer << static_cast<uint32_t>(0);
+
   buffer << static_cast<uint8_t>(msg.message_type);
   buffer << msg.quicr_namespace;
   buffer << static_cast<uint8_t>(msg.response);
   buffer << msg.transaction_id;
   buffer << msg.remote_data_ctx_id;
+
+  uint32_t* len = reinterpret_cast<uint32_t*>(buffer.data());
+  *len = buffer.size(); // Update the message length
 
   return buffer;
 }
@@ -449,6 +535,9 @@ operator<<(MessageBuffer& buffer, const PublishIntentResponse& msg)
 MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishIntentResponse& msg)
 {
+  uint32_t len;
+  buffer >> len;
+
   auto msg_type = uint8_t(0);
   buffer >> msg_type;
   msg.message_type = static_cast<MessageType>(msg_type);
@@ -494,11 +583,16 @@ operator>>(MessageBuffer& buffer, Header& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishDatagram& msg)
 {
+  buffer << static_cast<uint32_t>(0);
+
   buffer << static_cast<uint8_t>(MessageType::Publish);
   buffer << msg.header;
   buffer << static_cast<uint8_t>(msg.media_type);
   buffer << msg.media_data_length;
   buffer << msg.media_data;
+
+  uint32_t* len = reinterpret_cast<uint32_t*>(buffer.data());
+  *len = buffer.size(); // Update the message length
 
   return buffer;
 }
@@ -506,11 +600,16 @@ operator<<(MessageBuffer& buffer, const PublishDatagram& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, PublishDatagram&& msg)
 {
+  buffer << static_cast<uint32_t>(0);
+
   buffer << static_cast<uint8_t>(MessageType::Publish);
   buffer << msg.header;
   buffer << static_cast<uint8_t>(msg.media_type);
   buffer << msg.media_data_length;
   buffer << std::move(msg.media_data);
+
+  uint32_t* len = reinterpret_cast<uint32_t*>(buffer.data());
+  *len = buffer.size(); // Update the message length
 
   return buffer;
 }
@@ -518,6 +617,9 @@ operator<<(MessageBuffer& buffer, PublishDatagram&& msg)
 MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishDatagram& msg)
 {
+  uint32_t len;
+  buffer >> len;
+
   auto msg_type = uint8_t(0);
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Publish)) {
@@ -542,40 +644,16 @@ operator>>(MessageBuffer& buffer, PublishDatagram& msg)
 }
 
 MessageBuffer&
-operator<<(MessageBuffer& buffer, const PublishStream& msg)
-{
-  buffer << msg.media_data_length;
-  buffer << msg.media_data;
-  return buffer;
-}
-
-MessageBuffer&
-operator<<(MessageBuffer& buffer, PublishStream&& msg)
-{
-  buffer << msg.media_data_length;
-  buffer << std::move(msg.media_data);
-  return buffer;
-}
-
-MessageBuffer&
-operator>>(MessageBuffer& buffer, PublishStream& msg)
-{
-  buffer >> msg.media_data_length;
-  buffer >> msg.media_data;
-  if (msg.media_data.size() != static_cast<size_t>(msg.media_data_length)) {
-    throw MessageBuffer::LengthException(msg.media_data.size(),
-                                         msg.media_data_length);
-  }
-
-  return buffer;
-}
-
-MessageBuffer&
 operator<<(MessageBuffer& buffer, const PublishIntentEnd& msg)
 {
+  buffer << static_cast<uint32_t>(0);
+
   buffer << static_cast<uint8_t>(msg.message_type);
   buffer << msg.quicr_namespace;
   buffer << msg.payload;
+
+  uint32_t* len = reinterpret_cast<uint32_t*>(buffer.data());
+  *len = buffer.size(); // Update the message length
 
   return buffer;
 }
@@ -583,9 +661,14 @@ operator<<(MessageBuffer& buffer, const PublishIntentEnd& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, PublishIntentEnd&& msg)
 {
+  buffer << static_cast<uint32_t>(0);
+
   buffer << static_cast<uint8_t>(msg.message_type);
   buffer << msg.quicr_namespace;
   buffer << std::move(msg.payload);
+
+  uint32_t* len = reinterpret_cast<uint32_t*>(buffer.data());
+  *len = buffer.size(); // Update the message length
 
   return buffer;
 }
@@ -593,6 +676,9 @@ operator<<(MessageBuffer& buffer, PublishIntentEnd&& msg)
 MessageBuffer&
 operator>>(MessageBuffer& buffer, PublishIntentEnd& msg)
 {
+  uint32_t len;
+  buffer >> len;
+
   auto msg_type = uint8_t(0);
   buffer >> msg_type;
   msg.message_type = static_cast<MessageType>(msg_type);
@@ -610,15 +696,24 @@ operator>>(MessageBuffer& buffer, PublishIntentEnd& msg)
 MessageBuffer&
 operator<<(MessageBuffer& buffer, const Fetch& msg)
 {
+  buffer << static_cast<uint32_t>(0);
+
   buffer << static_cast<uint8_t>(MessageType::Fetch);
   buffer << msg.transaction_id;
   buffer << msg.name;
+
+  uint32_t* len = reinterpret_cast<uint32_t*>(buffer.data());
+  *len = buffer.size(); // Update the message length
+
   return buffer;
 }
 
 MessageBuffer&
 operator>>(MessageBuffer& buffer, Fetch& msg)
 {
+  uint32_t len;
+  buffer >> len;
+
   auto msg_type = uint8_t(0);
   buffer >> msg_type;
   if (msg_type != static_cast<uint8_t>(MessageType::Fetch)) {

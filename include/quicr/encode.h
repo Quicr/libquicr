@@ -49,6 +49,12 @@ operator<<(MessageBuffer& msg, const std::string& val);
 MessageBuffer&
 operator>>(MessageBuffer& msg, std::string& val);
 
+MessageBuffer&
+operator<<(MessageBuffer& msg, const uint32_t val);
+
+MessageBuffer&
+operator>>(MessageBuffer& msg, uint32_t& val);
+
 /*===========================================================================*/
 // Connection message MessageBuffer operator overloads.
 /*===========================================================================*/

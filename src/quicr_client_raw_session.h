@@ -215,9 +215,9 @@ public:
                                   bytes&& data) override;
 
 protected:
-    struct MsgFragment {
-        std::map<uint32_t, bytes> data;
-    };
+  struct MsgFragment {
+    std::map<uint32_t, bytes> data;
+  };
 
   void on_connection_status(const qtransport::TransportConnId& conn_id,
                             const qtransport::TransportStatus status) override;
@@ -229,28 +229,45 @@ protected:
   void on_new_data_context(const qtransport::TransportConnId& conn_id,
                            const qtransport::DataContextId& data_ctx_id) override;
 
-  void on_recv_notify(const qtransport::TransportConnId& conn_id,
-                      const qtransport::DataContextId& data_ctx_id,
+  void on_recv_dgram(const TransportConnId& conn_id,
+                std::optional<DataContextId> data_ctx_id) override;
+
+  void on_recv_stream(const TransportConnId& conn_id,
+                      uint64_t stream_id,
+                      std::optional<DataContextId> data_ctx_id,
                       const bool is_bidir) override;
 
-  bool notify_pub_fragment(
-    const messages::PublishDatagram& datagram,
-    const std::shared_ptr<SubscriberDelegate>& delegate,
-    const MsgFragment& fragment);
+  bool notify_pub_fragment(const messages::PublishDatagram& datagram,
+                           const std::shared_ptr<SubscriberDelegate>& delegate,
+                           const MsgFragment& fragment);
 
   void handle_pub_fragment(messages::PublishDatagram&& datagram,
                            const std::shared_ptr<SubscriberDelegate>& delegate);
 
-  void handle(messages::MessageBuffer&& msg);
+  void handle(std::optional<uint64_t> stream_id,
+              std::optional<qtransport::DataContextId> data_ctx_id,
+              messages::MessageBuffer&& msg);
 
   void removeSubscription(const quicr::Namespace& quicr_namespace,
                           const SubscribeResult::SubscribeStatus& reason);
 
-  qtransport::DataContextId get_or_create_data_ctx_id(const qtransport::TransportConnId conn_id,
-                                                      const TransportMode transport_mode, const uint8_t priority);
+  DataContextId get_or_create_data_ctx_id(const TransportConnId conn_id,
+                                          const TransportMode transport_mode, const uint8_t priority);
 
 
   bool connecting() const;
+
+ TransportError enqueue_ctrl_msg(bytes&& msg_data)
+ {
+  return transport->enqueue(*transport_conn_id,
+                    *transport_ctrl_data_ctx_id,
+                    std::move(msg_data),
+                    { MethodTraceItem{}},
+                    0,
+                    1000,
+                    0,
+                    { true, false, false, false });
+ }
 
 protected:
   std::mutex session_mutex;

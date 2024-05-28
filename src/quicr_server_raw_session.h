@@ -147,8 +147,13 @@ private:
                            const qtransport::TransportRemote& remote) override;
     void on_new_data_context(const qtransport::TransportConnId& conn_id,
                              const qtransport::DataContextId& data_ctx_id) override;
-    void on_recv_notify(const qtransport::TransportConnId& conn_id,
-                        const qtransport::DataContextId& data_ctx_id,
+
+    void on_recv_dgram(const TransportConnId& conn_id,
+                       std::optional<DataContextId> data_ctx_id) override;
+
+    void on_recv_stream(const TransportConnId& conn_id,
+                        uint64_t stream_id,
+                        std::optional<DataContextId> data_ctx_id,
                         const bool is_bidir) override;
 
   private:
@@ -171,6 +176,12 @@ private:
   std::shared_ptr<qtransport::ITransport> setupTransport(
     const qtransport::TransportConfig& cfg);
 
+  void handle(TransportConnId conn_id,
+              std::optional<uint64_t> stream_id,
+              std::optional<qtransport::DataContextId> data_ctx_id,
+              messages::MessageBuffer&& msg,
+              bool is_bidir=false);
+
   void handle_connect(const qtransport::TransportConnId& conn_id,
                       messages::MessageBuffer&& msg);
   void handle_subscribe(const qtransport::TransportConnId& conn_id,
@@ -179,8 +190,9 @@ private:
   void handle_unsubscribe(const qtransport::TransportConnId& conn_id,
                           const qtransport::DataContextId& data_ctx_id,
                           messages::MessageBuffer&& msg);
-  void handle_publish(const qtransport::TransportConnId& conn_id,
-                      const qtransport::DataContextId& data_ctx_id,
+  void handle_publish(qtransport::TransportConnId conn_id,
+                      std::optional<uint64_t> stream_id,
+                      std::optional<qtransport::DataContextId> data_ctx_id,
                       messages::MessageBuffer&& msg);
   void handle_publish_intent(const qtransport::TransportConnId& conn_id,
                              const qtransport::DataContextId& data_ctx_id,
@@ -191,6 +203,21 @@ private:
   void handle_publish_intent_end(const qtransport::TransportConnId& conn_id,
                                  const qtransport::DataContextId& data_ctx_id,
                                  messages::MessageBuffer&& msg);
+
+  TransportError enqueue_ctrl_msg(TransportConnId conn_id,
+                                  DataContextId data_ctx_id,
+                                  bytes&& msg_data)
+  {
+    return transport->enqueue(conn_id,
+                              data_ctx_id,
+                              std::move(msg_data),
+                              { MethodTraceItem{} },
+                              0,
+                              1000,
+                              0,
+                              { true, false, false, false });
+
+  }
 
   struct ConnectionContext {
     qtransport::TransportConnId conn_id {0};

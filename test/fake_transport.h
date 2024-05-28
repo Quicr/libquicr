@@ -17,11 +17,13 @@ struct FakeTransportDelegate : public ITransport::TransportDelegate
   {
   }
 
-    void on_recv_notify(const TransportConnId& /* conn_id */,
-                        const DataContextId& /* data_ctx_id */,
-                        const bool /* is_bidir */) override
-  {
-  }
+  void on_recv_dgram(const TransportConnId&,
+                     std::optional<DataContextId>) override;
+
+  void on_recv_stream(const TransportConnId&,
+                      uint64_t,
+                      std::optional<DataContextId>,
+                      const bool) override;
 
   void on_new_data_context(const qtransport::TransportConnId& /* conn_id */,
                            const qtransport::DataContextId& /* data_ctx_id */) override
@@ -49,7 +51,11 @@ struct FakeTransport : public ITransport
                           [[maybe_unused]] const DataContextId data_ctx_id,
                           [[maybe_unused]] const DataContextId remote_data_ctx_id) override
   {}
+  void setStreamIdDataCtxId([[maybe_unused]] const TransportConnId conn_id,
+                          [[maybe_unused]] DataContextId data_ctx_id,
+                          [[maybe_unused]] uint64_t stream_id) override {}
 
+  std::shared_ptr<StreamBuffer<uint8_t>> getStreamBuffer(TransportConnId, uint64_t) override { return nullptr;}
   void close(const TransportConnId& /* conn_id */) override {};
 
   void deleteDataContext([[maybe_unused]] const TransportConnId& conn_id,
@@ -79,9 +85,8 @@ struct FakeTransport : public ITransport
     return TransportError::None;
   }
 
-  std::optional<std::vector<uint8_t>> dequeue(
-    const TransportConnId& /* tcid */,
-    const DataContextId& /* sid */) override
+  std::optional<std::vector<uint8_t>> dequeue(TransportConnId,
+                                              std::optional<DataContextId>) override
   {
     return std::nullopt;
   }
