@@ -213,26 +213,6 @@ operator>>(MessageBuffer& msg, std::string& val)
   return msg;
 }
 
-MessageBuffer&
-operator<<(MessageBuffer& msg, uint32_t val)
-{
-  uint8_t* ptr = reinterpret_cast<uint8_t*>(&val);
-  for (int i=0; i < 4; i++) {
-    msg.push(ptr[i]);
-  }
-  return msg;
-}
-
-MessageBuffer&
-operator>>(MessageBuffer& msg, uint32_t& val)
-{
-  std::vector<uint8_t> uint32_b = msg.pop_front(4);
-  memcpy(&val, uint32_b.data(), 4);
-
-  return msg;
-}
-
-
 /*===========================================================================*/
 // Connect Encode & Decode
 /*===========================================================================*/
