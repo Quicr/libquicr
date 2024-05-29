@@ -201,20 +201,6 @@ TEST_CASE("Publish Message encode/decode")
   CHECK_EQ(p_out.media_data, data);
 }
 
-TEST_CASE("PublishStream Message encode/decode")
-{
-  const auto ps = PublishStream{ uintVar_t{ 5 }, { 0, 1, 2, 3, 4 } };
-
-  MessageBuffer buffer;
-  buffer << ps;
-
-  auto ps_out = PublishStream{};
-  CHECK_NOTHROW((buffer >> ps_out));
-
-  CHECK_EQ(ps_out.media_data_length, ps.media_data_length);
-  CHECK_EQ(ps_out.media_data, ps.media_data);
-}
-
 TEST_CASE("PublishIntentEnd Message encode/decode")
 {
   const auto pie = PublishIntentEnd{ MessageType::Publish,

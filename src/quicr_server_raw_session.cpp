@@ -153,7 +153,7 @@ ServerRawSession::publishIntentResponse(const quicr::Namespace& quicr_namespace,
                << " conn_id: " << context.transport_conn_id
                << " data_ctx_id: " << context.data_ctx_id
                << std::flush;
-  transport->enqueue(context.transport_conn_id, conn_ctx.ctrl_data_ctx_id, msg.take());
+  enqueue_ctrl_msg(context.transport_conn_id, conn_ctx.ctrl_data_ctx_id, msg.take());
 }
 
 void
@@ -179,7 +179,7 @@ ServerRawSession::subscribeResponse(const uint64_t& subscriber_id,
 
   const auto& conn_ctx = _connections[context->transport_conn_id];
 
-  transport->enqueue(context->transport_conn_id, conn_ctx.ctrl_data_ctx_id, msg.take());
+  enqueue_ctrl_msg(context->transport_conn_id, conn_ctx.ctrl_data_ctx_id, msg.take());
 }
 
 void
@@ -204,7 +204,7 @@ ServerRawSession::subscriptionEnded(
   msg << subEnd;
 
   const auto& conn_ctx = _connections[context->transport_conn_id];
-  transport->enqueue(context->transport_conn_id, conn_ctx.ctrl_data_ctx_id, msg.take());
+  enqueue_ctrl_msg(context->transport_conn_id, conn_ctx.ctrl_data_ctx_id, msg.take());
 }
 
 void
@@ -302,6 +302,85 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
 ///
 /// Private
 ///
+
+void ServerRawSession::handle(TransportConnId conn_id,
+                              std::optional<uint64_t> stream_id,
+                              std::optional<qtransport::DataContextId> data_ctx_id,
+                              messages::MessageBuffer&& msg,
+                              bool is_bidir)
+{
+  auto chdr = msg.front(5); // msg_len + type
+  auto msg_type = static_cast<messages::MessageType>(chdr.back());
+
+  switch (msg_type) {
+
+    case messages::MessageType::Connect: {
+      // TODO(tievens): Enforce that connect is the first message
+      if (is_bidir) {
+        auto& conn_ctx = _connections[conn_id];
+        conn_ctx.ctrl_data_ctx_id = data_ctx_id ? *data_ctx_id : 0;
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+        _mexport.set_data_ctx_info(conn_id, conn_ctx.ctrl_data_ctx_id,
+                                   {.subscribe = false, .nspace = {}});
+#endif
+      }
+
+      handle_connect(conn_id, std::move(msg));
+      break;
+    }
+    case messages::MessageType::Subscribe: {
+      if (is_bidir) {
+        auto& conn_ctx = _connections[conn_id];
+        conn_ctx.ctrl_data_ctx_id = data_ctx_id ? *data_ctx_id : 0;
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+        _mexport.set_data_ctx_info(conn_id, conn_ctx.ctrl_data_ctx_id,
+                                   {.subscribe = false, .nspace = {}});
+#endif
+      }
+
+      recv_subscribes++;
+      handle_subscribe(
+        conn_id, data_ctx_id ? *data_ctx_id : 0, std::move(msg));
+      break;
+    }
+    case messages::MessageType::Publish: {
+      recv_publish++;
+      handle_publish(conn_id, stream_id, data_ctx_id, std::move(msg));
+      break;
+    }
+    case messages::MessageType::Unsubscribe: {
+      recv_unsubscribes++;
+      handle_unsubscribe(
+        conn_id, data_ctx_id ? *data_ctx_id : 0, std::move(msg));
+      break;
+    }
+    case messages::MessageType::PublishIntent: {
+      if (is_bidir) {
+        auto& conn_ctx = _connections[conn_id];
+        conn_ctx.ctrl_data_ctx_id = data_ctx_id ? *data_ctx_id : 0;
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+        _mexport.set_data_ctx_info(conn_id, conn_ctx.ctrl_data_ctx_id,
+                                   {.subscribe = false, .nspace = {}});
+#endif
+      }
+      recv_pub_intents++;
+      handle_publish_intent(
+        conn_id, data_ctx_id ? *data_ctx_id : 0, std::move(msg));
+      break;
+    }
+    case messages::MessageType::PublishIntentEnd: {
+      handle_publish_intent_end(
+        conn_id, data_ctx_id ? *data_ctx_id : 0, std::move(msg));
+      break;
+    }
+    default:
+      logger->info << "Invalid Message Type "
+                   << static_cast<int>(msg_type)
+                   << std::flush;
+      break;
+  }
+}
+
 void
 ServerRawSession::handle_connect(
   const qtransport::TransportConnId& conn_id,
@@ -333,7 +412,7 @@ ServerRawSession::handle_connect(
                                               .data_ctx_info = {}}, false);
 #endif
 
-  transport->enqueue(conn_id, conn_it->second.ctrl_data_ctx_id, r_msg.take());
+  enqueue_ctrl_msg(conn_id, conn_it->second.ctrl_data_ctx_id, r_msg.take());
 }
 
 
@@ -463,8 +542,9 @@ ServerRawSession::handle_unsubscribe(
 }
 
 void
-ServerRawSession::handle_publish(const qtransport::TransportConnId& conn_id,
-                                 const qtransport::DataContextId& data_ctx_id,
+ServerRawSession::handle_publish(qtransport::TransportConnId conn_id,
+                                 std::optional<uint64_t> stream_id,
+                                 std::optional<qtransport::DataContextId> data_ctx_id,
                                  messages::MessageBuffer&& msg)
 {
   messages::PublishDatagram datagram;
@@ -485,11 +565,21 @@ ServerRawSession::handle_publish(const qtransport::TransportConnId& conn_id,
     false, datagram.header.name, context.prev_group_id, context.prev_object_id);
 
   if (!gap_log.empty()) {
-    logger->info << "conn_id: " << conn_id << " data_ctx_id: " << data_ctx_id
+    logger->info << "conn_id: " << conn_id
+                 << " data_ctx_id: " << (data_ctx_id ? *data_ctx_id : 0)
                  << " " << gap_log << std::flush;
   }
 
-  delegate->onPublisherObject(conn_id, data_ctx_id, std::move(datagram));
+  if (!data_ctx_id && stream_id) {
+    data_ctx_id = context.data_ctx_id;
+    transport->setStreamIdDataCtxId(conn_id, *data_ctx_id, *stream_id);
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+    _mexport.set_data_ctx_info(conn_id, context.data_ctx_id, {.subscribe = false, .nspace = ns});
+#endif
+  }
+
+  delegate->onPublisherObject(conn_id, *data_ctx_id, std::move(datagram));
 }
 
 void
@@ -649,90 +739,80 @@ void ServerRawSession::TransportDelegate::on_new_data_context(const qtransport::
 }
 
 void
-ServerRawSession::TransportDelegate::on_recv_notify(const qtransport::TransportConnId& conn_id,
-                                                    const qtransport::DataContextId& data_ctx_id,
+ServerRawSession::TransportDelegate::on_recv_stream(const TransportConnId& conn_id,
+                                                    uint64_t stream_id,
+                                                    std::optional<DataContextId> data_ctx_id,
                                                     const bool is_bidir)
 {
+  auto stream_buf = server.transport->getStreamBuffer(conn_id, stream_id);
+
+  if (stream_buf == nullptr) {
+    return;
+  }
+
+  while (true) {
+    if (stream_buf->available(4)) {
+      auto msg_len_b = stream_buf->front(4);
+
+      if (!msg_len_b.size())
+        return;
+
+      auto* msg_len = reinterpret_cast<uint32_t*>(msg_len_b.data());
+
+      if (stream_buf->available(*msg_len)) {
+        auto obj = stream_buf->front(*msg_len);
+        stream_buf->pop(*msg_len);
+
+        try {
+          messages::MessageBuffer msg_buffer{ obj };
+
+          server.handle(conn_id, stream_id, data_ctx_id,
+                        std::move(msg_buffer), is_bidir);
+
+        } catch (const messages::MessageBuffer::ReadException& ex) {
+
+          // TODO(trigaux): When reliable, we really should reset the stream if
+          // this happens (at least more than once)
+          server.logger->critical
+            << "Received read exception error while reading from message buffer: "
+            << ex.what() << std::flush;
+          return;
+
+        } catch (const std::exception& /* ex */) {
+          server.logger->Log(cantina::LogLevel::Critical,
+                             "Received standard exception error while reading "
+                             "from message buffer");
+          return;
+        } catch (...) {
+          server.logger->Log(
+            cantina::LogLevel::Critical,
+            "Received unknown error while reading from message buffer");
+          return;
+        }
+      } else {
+        break;
+      }
+    } else {
+      break;
+    }
+  }
+}
+
+
+void
+ServerRawSession::TransportDelegate::on_recv_dgram(const TransportConnId& conn_id,
+                                                   std::optional<DataContextId> data_ctx_id)
+{
   // don't starve other queues, read some number of messages at a time
-  for (int i = 0; i < 150; i++) {
+  for (int i = 0; i < 100; i++) {
     auto data = server.transport->dequeue(conn_id, data_ctx_id);
 
-    if (data.has_value() && data.value().size() > 0) {
+    if (data && data.value().size() > 0) {
       server.recv_data_count++;
       try {
-        auto msg_type = static_cast<messages::MessageType>(data->front());
         messages::MessageBuffer msg_buffer{ data.value() };
+        server.handle(conn_id, std::nullopt, data_ctx_id, std::move(msg_buffer));
 
-        switch (msg_type) {
-          case messages::MessageType::Connect: {
-            // TODO(tievens): Enforce that connect is the first message
-            if (is_bidir) {
-              auto& conn_ctx = server._connections[conn_id];
-              conn_ctx.ctrl_data_ctx_id = data_ctx_id;
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-              server._mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, .nspace = {}});
-#endif
-            }
-
-            server.handle_connect(conn_id, std::move(msg_buffer));
-            break;
-          }
-          case messages::MessageType::Subscribe: {
-              if (is_bidir) {
-                auto& conn_ctx = server._connections[conn_id];
-                conn_ctx.ctrl_data_ctx_id = data_ctx_id;
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-                server._mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, .nspace = {}});
-#endif
-              }
-
-              server.recv_subscribes++;
-              server.handle_subscribe(
-                conn_id, data_ctx_id, std::move(msg_buffer));
-              break;
-          }
-          case messages::MessageType::Publish: {
-              if (is_bidir) {
-                auto& conn_ctx = server._connections[conn_id];
-                conn_ctx.ctrl_data_ctx_id = data_ctx_id;
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-                server._mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, .nspace = {}});
-#endif
-              }
-              server.recv_publish++;
-              server.handle_publish(conn_id, data_ctx_id, std::move(msg_buffer));
-              break;
-          }
-          case messages::MessageType::Unsubscribe: {
-              server.recv_unsubscribes++;
-              server.handle_unsubscribe(
-              conn_id, data_ctx_id, std::move(msg_buffer));
-            break;
-          }
-          case messages::MessageType::PublishIntent: {
-              if (is_bidir) {
-                auto& conn_ctx = server._connections[conn_id];
-                conn_ctx.ctrl_data_ctx_id = data_ctx_id;
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-                server._mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, .nspace = {}});
-#endif
-              }
-              server.recv_pub_intents++;
-              server.handle_publish_intent(
-              conn_id, data_ctx_id, std::move(msg_buffer));
-            break;
-          }
-          case messages::MessageType::PublishIntentEnd: {
-            server.handle_publish_intent_end(
-              conn_id, data_ctx_id, std::move(msg_buffer));
-            break;
-          }
-          default:
-            server.logger->info << "Invalid Message Type "
-                                << static_cast<int>(msg_type)
-                                << std::flush;
-            break;
-        }
       } catch (const messages::MessageBuffer::ReadException& ex) {
 
         // TODO(trigaux): When reliable, we really should reset the stream if
