@@ -295,7 +295,7 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
 /// Private
 ///
 
-void ServerRawSession::handle(TransportConnId conn_id,
+void ServerRawSession::handle(qtransport::TransportConnId conn_id,
                               std::optional<uint64_t> stream_id,
                               std::optional<qtransport::DataContextId> data_ctx_id,
                               messages::MessageBuffer&& msg,
@@ -495,7 +495,7 @@ ServerRawSession::handle_unsubscribe(
 
     auto& context = _subscribe_state[unsub.quicr_namespace][conn_id];
 
-    data_measurements.erase(context->data_ctx_id);
+    data_measurements.at(conn_id).erase(context->data_ctx_id);
 
     // Before removing, exec callback
     delegate->onUnsubscribe(unsub.quicr_namespace, context->subscriber_id, {});
@@ -546,8 +546,7 @@ ServerRawSession::handle_publish(qtransport::TransportConnId conn_id,
   }
 
   addDataMeasurement(conn_id, data_ctx_id, "publish");
-  // NOTE: if stream_id is nullopt, it means it's not reliable and MUST be datagram
-  delegate->onPublisherObject(conn_id, data_ctx_id, stream_id.has_value(), std::move(datagram));
+  delegate->onPublisherObject(conn_id, data_ctx_id, std::move(datagram));
 }
 
 void
@@ -591,7 +590,7 @@ ServerRawSession::handle_publish_intent(
 void
 ServerRawSession::handle_publish_intent_end(
   const qtransport::TransportConnId& conn_id,
-  [[maybe_unused]] const qtransport::DataContextId& data_ctx_id,
+  const qtransport::DataContextId& data_ctx_id,
   messages::MessageBuffer&& msg)
 {
   messages::PublishIntentEnd intent_end;
@@ -607,7 +606,7 @@ ServerRawSession::handle_publish_intent_end(
 
   transport->deleteDataContext(conn_id, pub_it->second.data_ctx_id);
 
-  data_measurements.erase(pub_it->second.data_ctx_id);
+  data_measurements.at(conn_id).erase(data_ctx_id);
 
   publish_namespaces.erase(pub_it);
 
@@ -696,9 +695,9 @@ void ServerRawSession::TransportDelegate::on_new_data_context(const qtransport::
 }
 
 void
-ServerRawSession::TransportDelegate::on_recv_stream(const TransportConnId& conn_id,
+ServerRawSession::TransportDelegate::on_recv_stream(const qtransport::TransportConnId& conn_id,
                                                     uint64_t stream_id,
-                                                    std::optional<DataContextId> data_ctx_id,
+                                                    std::optional<qtransport::DataContextId> data_ctx_id,
                                                     const bool is_bidir)
 {
   auto stream_buf = server.transport->getStreamBuffer(conn_id, stream_id);
@@ -757,8 +756,8 @@ ServerRawSession::TransportDelegate::on_recv_stream(const TransportConnId& conn_
 
 
 void
-ServerRawSession::TransportDelegate::on_recv_dgram(const TransportConnId& conn_id,
-                                                   std::optional<DataContextId> data_ctx_id)
+ServerRawSession::TransportDelegate::on_recv_dgram(const qtransport::TransportConnId& conn_id,
+                                                   std::optional<qtransport::DataContextId> data_ctx_id)
 {
   // don't starve other queues, read some number of messages at a time
   for (int i = 0; i < 100; i++) {
@@ -848,7 +847,8 @@ ServerRawSession::runPublishMeasurements()
           .SetMetric("tx_dgram_ack", conn_sample->quic_sample->tx_dgram_ack)
           .SetMetric("tx_dgram_cb", conn_sample->quic_sample->tx_dgram_cb)
           .SetMetric("tx_dgram_spurious", conn_sample->quic_sample->tx_dgram_spurious)
-          .SetMetric("dgram_invalid_ctx_id", conn_sample->quic_sample->dgram_invalid_ctx_id)
+          .SetMetric("rx_dgrams", conn_sample->quic_sample->rx_dgrams)
+          .SetMetric("rx_dgrams_bytes", conn_sample->quic_sample->rx_dgrams_bytes)
           .SetMetric("cwin_congested", conn_sample->quic_sample->cwin_congested)
           .SetMetric("tx_rate_bps_min", conn_sample->quic_sample->tx_rate_bps.min)
           .SetMetric("tx_rate_bps_max", conn_sample->quic_sample->tx_rate_bps.max)
@@ -896,11 +896,6 @@ ServerRawSession::runPublishMeasurements()
           .SetMetric("tx_queue_size_min", data_sample->quic_sample->tx_queue_size.min)
           .SetMetric("tx_queue_size_max", data_sample->quic_sample->tx_queue_size.max)
           .SetMetric("tx_queue_size_avg", data_sample->quic_sample->tx_queue_size.avg)
-          .SetMetric("rx_buffer_drops", data_sample->quic_sample->rx_buffer_drops)
-          .SetMetric("rx_dgrams", data_sample->quic_sample->rx_dgrams)
-          .SetMetric("rx_dgrams_bytes", data_sample->quic_sample->rx_dgrams_bytes)
-          .SetMetric("rx_stream_objs", data_sample->quic_sample->rx_stream_objects)
-          .SetMetric("rx_invalid_drops", data_sample->quic_sample->rx_invalid_drops)
           .SetMetric("rx_stream_bytes", data_sample->quic_sample->rx_stream_bytes)
           .SetMetric("rx_stream_cb", data_sample->quic_sample->rx_stream_cb)
           .SetMetric("tx_dgrams", data_sample->quic_sample->tx_dgrams)
@@ -950,7 +945,8 @@ ServerRawSession::addConnMeasurement(const std::string& endpoint_id,
       .AddMetric("tx_dgram_ack", std::uint64_t(0))
       .AddMetric("tx_dgram_cb", std::uint64_t(0))
       .AddMetric("tx_dgram_spurious", std::uint64_t(0))
-      .AddMetric("dgram_invalid_ctx_id", std::uint64_t(0))
+      .AddMetric("rx_dgrams", std::uint64_t(0))
+      .AddMetric("rx_dgrams_bytes", std::uint64_t(0))
       .AddMetric("cwin_congested", std::uint64_t(0))
       .AddMetric("tx_rate_bps_min", std::uint64_t(0))
       .AddMetric("tx_rate_bps_max", std::uint64_t(0))

@@ -274,7 +274,7 @@ main()
     auto logger = std::make_shared<cantina::Logger>("really");
     auto delegate = std::make_shared<ReallyServerDelegate>(logger);
     auto server =
-      std::make_shared<quicr::Server>(relayInfo, tcfg, delegate, logger);
+      std::make_shared<quicr::Server>(relayInfo, tcfg, delegate, logger, quicr::Namespace("0xA11CEB0B000000000000000000000000/80"));
 
     // TODO(trigaux): Remove this once delegate no longer depends on server.
     delegate->setServer(server);
