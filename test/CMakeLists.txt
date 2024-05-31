@@ -5,7 +5,9 @@ add_executable(quicr_test
                 quicr_client.cpp
                 stream_buffer.cpp
                 quicr_server.cpp
-                encode.cpp)
+                moq_messages.cpp
+                encode.cpp
+        moq_messages.cpp)
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
 target_link_libraries(quicr_test PRIVATE quicr doctest::doctest)
