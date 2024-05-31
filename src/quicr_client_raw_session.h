@@ -20,7 +20,7 @@
 #include "quicr/quicr_client.h"
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_common.h"
-#include "quicr/metrics_exporter.h"
+#include "quicr/measurement.h"
 
 #include <qname>
 #include <transport/transport.h>
@@ -57,7 +57,8 @@ public:
                    const std::string& endpoint_id,
                    size_t chunk_size,
                    const qtransport::TransportConfig& tconfig,
-                   const cantina::LoggerPointer& logger);
+                   const cantina::LoggerPointer& logger,
+                   std::optional<quicr::Namespace> metrics_ns = std::nullopt);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber
@@ -214,6 +215,9 @@ public:
                                   bool is_last_fragment,
                                   bytes&& data) override;
 
+
+  void publishMeasurement(const Measurement& measurement) override;
+
 protected:
   struct MsgFragment {
     std::map<uint32_t, bytes> data;
@@ -229,12 +233,12 @@ protected:
   void on_new_data_context(const qtransport::TransportConnId& conn_id,
                            const qtransport::DataContextId& data_ctx_id) override;
 
-  void on_recv_dgram(const TransportConnId& conn_id,
-                std::optional<DataContextId> data_ctx_id) override;
+  void on_recv_dgram(const qtransport::TransportConnId& conn_id,
+                std::optional<qtransport::DataContextId> data_ctx_id) override;
 
-  void on_recv_stream(const TransportConnId& conn_id,
+  void on_recv_stream(const qtransport::TransportConnId& conn_id,
                       uint64_t stream_id,
-                      std::optional<DataContextId> data_ctx_id,
+                      std::optional<qtransport::DataContextId> data_ctx_id,
                       const bool is_bidir) override;
 
   bool notify_pub_fragment(const messages::PublishDatagram& datagram,
@@ -251,23 +255,26 @@ protected:
   void removeSubscription(const quicr::Namespace& quicr_namespace,
                           const SubscribeResult::SubscribeStatus& reason);
 
-  DataContextId get_or_create_data_ctx_id(const TransportConnId conn_id,
+  qtransport::DataContextId get_or_create_data_ctx_id(const qtransport::TransportConnId conn_id,
                                           const TransportMode transport_mode, const uint8_t priority);
-
 
   bool connecting() const;
 
- TransportError enqueue_ctrl_msg(bytes&& msg_data)
- {
-  return transport->enqueue(*transport_conn_id,
-                    *transport_ctrl_data_ctx_id,
-                    std::move(msg_data),
-                    { MethodTraceItem{}},
-                    0,
-                    1000,
-                    0,
-                    { true, false, false, false });
- }
+  qtransport::TransportError enqueue_ctrl_msg(bytes&& msg_data)
+  {
+    return transport->enqueue(*transport_conn_id,
+                              *transport_ctrl_data_ctx_id,
+                              std::move(msg_data),
+                              { qtransport::MethodTraceItem{} },
+                              0,
+                              1000,
+                              0,
+                              { true, false, false, false });
+  }
+
+  void runPublishMeasurements();
+
+  Measurement& addDataMeasurement(const qtransport::DataContextId& id, const std::string& type);
 
 protected:
   std::mutex session_mutex;
@@ -351,17 +358,30 @@ protected:
   namespace_map<std::shared_ptr<PublisherDelegate>> pub_delegates;
   namespace_map<PublishContext> publish_state{};
 
-
-
   namespace_map<std::shared_ptr<SubscriberDelegate>> sub_delegates;
   namespace_map<SubscribeContext> subscribe_state{};
 
   bool transport_needs_fragmentation { false };             // Indicates if transport requires fragmentation
   std::shared_ptr<qtransport::ITransport> transport;
 
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-  MetricsExporter _mexport;
-#endif
+  struct MetricsPublishDelegate : public PublisherDelegate
+  {
+    MetricsPublishDelegate(ClientRawSession& s) : session{s} {}
+    void onPublishIntentResponse(const quicr::Namespace& quicr_namespace,
+                                 const PublishIntentResult& result) override;
+
+    ClientRawSession& session;
+  };
+  friend MetricsPublishDelegate;
+
+  std::thread _metrics_thread;
+  quicr::Namespace metrics_namespace;
+  Measurement connection_measurement;
+  std::map<qtransport::DataContextId, Measurement> data_measurements;
+
+  // TODO(trigaux): Remove when metrics counting moves to libqucir.
+  std::shared_ptr<qtransport::safe_queue<qtransport::MetricsConnSample>> metrics_conn_samples;
+  std::shared_ptr<qtransport::safe_queue<qtransport::MetricsDataSample>> metrics_data_samples;
 };
 
 }

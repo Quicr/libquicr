@@ -15,11 +15,6 @@ Quickstart
 ### Build
 Use `make` to build libquicr.
 
-
-### Build without InfluxDB
-
-To build without InfluxDB, run `cmake` with `-DLIBQUICR_WITHOUT_INFLUXDB=ON` 
-
 ### Cmake FetchContent
 
 All the dependecies are now fetched via cmake and below steps should
