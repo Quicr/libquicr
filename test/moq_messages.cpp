@@ -24,7 +24,7 @@ TEST_CASE("AnnounceOk Message encode/decode")
   auto announce_ok  = MoqAnnounceOk {};
   announce_ok.track_namespace = TRACK_NAMESPACE_CONF;
 
-  buffer <<  announce_ok;
+  buffer << announce_ok;
 
   auto message_type = buffer.decode_uintV();
   CHECK_EQ(*message_type, static_cast<uint64_t>(MESSAGE_TYPE_ANNOUNCE_OK));
@@ -37,19 +37,36 @@ TEST_CASE("AnnounceOk Message encode/decode")
 TEST_CASE("Announce Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
-  std::vector<uint8_t> net_data;
 
   auto announce  = MoqAnnounce {};
   announce.track_namespace = TRACK_NAMESPACE_CONF;
   announce.params = {};
-
   buffer <<  announce;
+  std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
-  auto message_type = buffer.decode_uintV();
-  CHECK_EQ(*message_type, static_cast<uint64_t>(MESSAGE_TYPE_ANNOUNCE));
+  // ingress buffer
+  qtransport::StreamBuffer<uint8_t> in_buffer;
+  std::optional<uint64_t> message_type;
 
   MoqAnnounce announce_out;
-  buffer >> announce_out;
+  for (auto& v: net_data) {
+    in_buffer.push(v);
+    if (!message_type) {
+      message_type = in_buffer.decode_uintV();
+      if(!message_type) {
+        continue;
+      }
+      CHECK_EQ(*message_type, static_cast<uint64_t>(MESSAGE_TYPE_ANNOUNCE));
+      continue;
+    }
+
+    bool got = in_buffer >> announce_out;
+    if (!got) {
+      continue;
+    }
+  }
+
+
   CHECK_EQ(TRACK_NAMESPACE_CONF, announce_out.track_namespace);
   CHECK_EQ(0, announce_out.params.size());
 }

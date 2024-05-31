@@ -12,7 +12,7 @@ namespace quicr::messages {
 using Version = uintVar_t;
 using TrackNamespace = quicr::bytes;
 using TrackName = quicr::bytes;
-using ErrorCode = uintVar_t;
+using ErrorCode = uint64_t;
 using StatusCode = uintVar_t;
 using ReasonPhrase = quicr::bytes;
 using GroupId = uintVar_t;
@@ -188,9 +188,12 @@ struct MoqAnnounceOk {
 };
 
 struct MoqAnnounceError {
-  TrackNamespace track_namespace;
-  ErrorCode err_code;
-  ReasonPhrase reason_phrase;
+  std::optional<TrackNamespace> track_namespace;
+  std::optional<ErrorCode> err_code;
+  std::optional<ReasonPhrase> reason_phrase;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceError &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqAnnounceError* msg);
 };
 
 struct MoqUnannounce {
@@ -202,10 +205,6 @@ struct MoqAnnounceCancel {
 };
 
 
-MessageBuffer& operator<<(MessageBuffer& buffer, const MoqAnnounceOk& msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqAnnounceOk &msg);
-MessageBuffer& operator<<(MessageBuffer& buffer, const MoqAnnounceError& msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqAnnounceError &msg);
 MessageBuffer &operator<<(MessageBuffer &buffer, const MoqUnannounce &msg);
 MessageBuffer &operator>>(MessageBuffer &buffer, MoqUnannounce &msg);
 MessageBuffer &operator<<(MessageBuffer &buffer, const MoqAnnounceCancel &msg);

@@ -293,8 +293,7 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer,
-           MoqAnnounceOk &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceOk &msg) {
 
   // read namespace
   if (msg.track_namespace.empty())
@@ -309,21 +308,44 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer,
 }
 
 
-MessageBuffer &
-operator<<(MessageBuffer &buffer, const MoqAnnounceError &msg) {
-  buffer << static_cast<uint8_t>(MESSAGE_TYPE_ANNOUNCE_ERROR);
-  buffer << msg.track_namespace;
-  buffer << msg.err_code;
-  buffer << msg.reason_phrase;
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+           const MoqAnnounceError& msg){
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_ANNOUNCE_ERROR)));
+  buffer.push_lv(msg.track_namespace.value());
+  buffer.push(qtransport::to_uintV(msg.err_code.value()));
+  buffer.push_lv(msg.reason_phrase.value());
   return buffer;
 }
 
-MessageBuffer &
-operator>>(MessageBuffer &buffer, MoqAnnounceError &msg) {
-  buffer >> msg.track_namespace;
-  buffer >> msg.err_code;
-  buffer >> msg.reason_phrase;
-  return buffer;
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceError &msg) {
+
+  // read namespace
+  if (!msg.track_namespace)
+  {
+    const auto val = buffer.decode_bytes();
+    if (!val) {
+      return false;
+    }
+    msg.track_namespace = *val;
+  }
+
+  if (!msg.err_code) {
+    const auto val = buffer.decode_uintV();
+    if (!val) {
+      return false;
+    }
+
+    msg.err_code = *val;
+  }
+  while (!msg.reason_phrase > 0) {
+    auto reason = buffer.decode_bytes();
+    if (!reason) {
+      return false;
+    }
+    msg.reason_phrase = reason;
+  }
+
+  return true;
 }
 
 
