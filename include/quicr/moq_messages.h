@@ -173,6 +173,8 @@ struct MoqAnnounce {
   TrackNamespace track_namespace;
   std::vector<MoqParameter> params;
   friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounce &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqAnnounce& msg);
 private:
   uint64_t num_params {0};
   MoqParameter current_param{};
@@ -180,6 +182,9 @@ private:
 
 struct MoqAnnounceOk {
   TrackNamespace track_namespace;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceOk &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqAnnounceOk& msg);
 };
 
 struct MoqAnnounceError {
@@ -197,10 +202,6 @@ struct MoqAnnounceCancel {
 };
 
 
-MessageBuffer& operator<<(MessageBuffer& buffer, const MoqAnnounce& msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqAnnounce &msg);
-qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer, const MoqAnnounce& msg);
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounce &msg);
 MessageBuffer& operator<<(MessageBuffer& buffer, const MoqAnnounceOk& msg);
 MessageBuffer& operator>>(MessageBuffer &buffer, MoqAnnounceOk &msg);
 MessageBuffer& operator<<(MessageBuffer& buffer, const MoqAnnounceError& msg);

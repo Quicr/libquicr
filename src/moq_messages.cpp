@@ -285,44 +285,29 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer,
   return true;
 }
 
-MessageBuffer&operator<<(MessageBuffer &buffer, const MoqAnnounce &msg) {
-  buffer << static_cast<uint8_t>(MESSAGE_TYPE_ANNOUNCE);
-  buffer << msg.track_namespace;
-  // TODO(Suhas): Fix this once we have params
-  buffer << uintVar_t{0};
+
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+           const MoqAnnounceOk& msg){
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_ANNOUNCE_OK)));
+  buffer.push_lv(msg.track_namespace);
   return buffer;
 }
 
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer,
+           MoqAnnounceOk &msg) {
 
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqAnnounce &msg) {
-  buffer >> msg.track_namespace;
-  uintVar_t num_params {0};
-  buffer >> num_params;
-  auto track_params = std::vector<MoqParameter>{};
-  while(static_cast<uint64_t>(num_params) > 0) {
-    auto param = MoqParameter{};
-    buffer >> param.param_type;
-    buffer >> param.param_length;
-    buffer >> param.param_value;
-    track_params.push_back(std::move(param));
-    num_params = num_params - 1;
+  // read namespace
+  if (msg.track_namespace.empty())
+  {
+    const auto val = buffer.decode_bytes();
+    if (!val) {
+      return false;
+    }
+    msg.track_namespace = *val;
   }
-  return buffer;
+  return true;
 }
 
-
-MessageBuffer &
-operator<<(MessageBuffer &buffer, const MoqAnnounceOk &msg) {
-  buffer << static_cast<uint8_t>(MESSAGE_TYPE_ANNOUNCE_OK);
-  buffer << msg.track_namespace;
-  return buffer;
-}
-
-MessageBuffer &
-operator>>(MessageBuffer &buffer, MoqAnnounceOk &msg) {
-  buffer >> msg.track_namespace;
-  return buffer;
-}
 
 MessageBuffer &
 operator<<(MessageBuffer &buffer, const MoqAnnounceError &msg) {
