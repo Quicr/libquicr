@@ -244,6 +244,8 @@ ClientRawSession::connecting() const
 void
 ClientRawSession::runPublishMeasurements()
 {
+  if (!metrics_namespace) return;
+
   LOGGER_INFO(logger, "Starting metrics thread");
   _metrics_thread = std::thread([this]{
     while (!stopping)
@@ -338,6 +340,8 @@ ClientRawSession::runPublishMeasurements()
 void
 ClientRawSession::publishMeasurement(const Measurement& measurement)
 {
+  if (!metrics_namespace) return;
+
   const json measurement_json = measurement;
   const std::string measurement_str = measurement_json.dump();
   quicr::bytes measurement_bytes(measurement_str.begin(), measurement_str.end());
@@ -347,7 +351,7 @@ ClientRawSession::publishMeasurement(const Measurement& measurement)
   trace.reserve(10);
   trace.push_back({"libquicr:publishMetrics:begin", start_time});
 
-  publishNamedObject(metrics_namespace, 31, 500, std::move(measurement_bytes), std::move(trace));
+  publishNamedObject(*metrics_namespace, 31, 500, std::move(measurement_bytes), std::move(trace));
 }
 
 /*===========================================================================*/
@@ -1013,7 +1017,15 @@ ClientRawSession::handle(std::optional<uint64_t> stream_id,
                    << " relay_id: " << response.relay_id
                    << std::flush;
 
-      publishIntent(std::make_shared<MetricsPublishDelegate>(*this), metrics_namespace, "", "", {}, TransportMode::ReliablePerTrack, 31);
+      if (metrics_namespace) {
+        publishIntent(std::make_shared<MetricsPublishDelegate>(*this),
+                      *metrics_namespace,
+                      "",
+                      "",
+                      {},
+                      TransportMode::ReliablePerTrack,
+                      31);
+      }
       break;
     }
     case messages::MessageType::SubscribeResponse: {

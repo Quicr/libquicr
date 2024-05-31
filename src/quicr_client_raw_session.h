@@ -375,7 +375,7 @@ protected:
   friend MetricsPublishDelegate;
 
   std::thread _metrics_thread;
-  quicr::Namespace metrics_namespace;
+  std::optional<quicr::Namespace> metrics_namespace;
   Measurement connection_measurement;
   std::map<qtransport::DataContextId, Measurement> data_measurements;
 

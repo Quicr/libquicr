@@ -293,7 +293,7 @@ private:
   uint64_t _subscriber_id{ 0 };
 
   std::thread _metrics_thread;
-  quicr::Namespace metrics_namespace = std::string_view("0xA11CEB0B000000000000000000000000/80");
+  std::optional<quicr::Namespace> metrics_namespace;
   std::map<qtransport::TransportConnId, Measurement> conn_measurements;
   std::map<qtransport::TransportConnId, std::map<qtransport::DataContextId, Measurement>> data_measurements;
 
