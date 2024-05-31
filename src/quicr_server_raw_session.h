@@ -19,7 +19,6 @@
 #include "quicr/message_buffer.h"
 #include "quicr/quicr_server_delegate.h"
 #include "quicr/quicr_server_session.h"
-#include "quicr/metrics_exporter.h"
 
 #include <cantina/logger.h>
 #include <transport/transport.h>
@@ -47,7 +46,8 @@ public:
   ServerRawSession(const RelayInfo& relayInfo,
                    const qtransport::TransportConfig& tconfig,
                    std::shared_ptr<ServerDelegate> delegate,
-                   const cantina::LoggerPointer& logger);
+                   const cantina::LoggerPointer& logger,
+                   std::optional<Namespace> metrics_ns = std::nullopt);
 
   /**
    * API for unit test cases.
@@ -132,6 +132,8 @@ public:
                        uint16_t expiry_age_ms,
                        const messages::PublishDatagram& datagram) override;
 
+  void publishMeasurement(const Measurement& measurement) override;
+
 private:
   /*
    * Implementation of the transport delegate
@@ -148,12 +150,12 @@ private:
     void on_new_data_context(const qtransport::TransportConnId& conn_id,
                              const qtransport::DataContextId& data_ctx_id) override;
 
-    void on_recv_dgram(const TransportConnId& conn_id,
-                       std::optional<DataContextId> data_ctx_id) override;
+    void on_recv_dgram(const qtransport::TransportConnId& conn_id,
+                       std::optional<qtransport::DataContextId> data_ctx_id) override;
 
-    void on_recv_stream(const TransportConnId& conn_id,
+    void on_recv_stream(const qtransport::TransportConnId& conn_id,
                         uint64_t stream_id,
-                        std::optional<DataContextId> data_ctx_id,
+                        std::optional<qtransport::DataContextId> data_ctx_id,
                         const bool is_bidir) override;
 
   private:
@@ -176,7 +178,7 @@ private:
   std::shared_ptr<qtransport::ITransport> setupTransport(
     const qtransport::TransportConfig& cfg);
 
-  void handle(TransportConnId conn_id,
+  void handle(qtransport::TransportConnId conn_id,
               std::optional<uint64_t> stream_id,
               std::optional<qtransport::DataContextId> data_ctx_id,
               messages::MessageBuffer&& msg,
@@ -204,20 +206,25 @@ private:
                                  const qtransport::DataContextId& data_ctx_id,
                                  messages::MessageBuffer&& msg);
 
-  TransportError enqueue_ctrl_msg(TransportConnId conn_id,
-                                  DataContextId data_ctx_id,
-                                  bytes&& msg_data)
+  qtransport::TransportError enqueue_ctrl_msg(
+    qtransport::TransportConnId conn_id,
+    qtransport::DataContextId data_ctx_id,
+    bytes&& msg_data)
   {
     return transport->enqueue(conn_id,
                               data_ctx_id,
                               std::move(msg_data),
-                              { MethodTraceItem{} },
+                              { qtransport::MethodTraceItem{} },
                               0,
                               1000,
                               0,
                               { true, false, false, false });
-
   }
+
+  void runPublishMeasurements();
+
+  Measurement& addConnMeasurement(const std::string& endpoint_id, const qtransport::TransportConnId& id);
+  Measurement& addDataMeasurement(const qtransport::TransportConnId& conn_id, const qtransport::DataContextId& data_ctx_id, const std::string& type);
 
   struct ConnectionContext {
     qtransport::TransportConnId conn_id {0};
@@ -285,9 +292,14 @@ private:
   bool _running{ false };
   uint64_t _subscriber_id{ 0 };
 
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-  MetricsExporter _mexport;
-#endif
+  std::thread _metrics_thread;
+  quicr::Namespace metrics_namespace = std::string_view("0xA11CEB0B000000000000000000000000/80");
+  std::map<qtransport::TransportConnId, Measurement> conn_measurements;
+  std::map<qtransport::TransportConnId, std::map<qtransport::DataContextId, Measurement>> data_measurements;
+
+  // TODO(trigaux): Remove when metrics counting moves to libqucir.
+  std::shared_ptr<qtransport::safe_queue<qtransport::MetricsConnSample>> metrics_conn_samples;
+  std::shared_ptr<qtransport::safe_queue<qtransport::MetricsDataSample>> metrics_data_samples;
 };
 
 } // namespace quicr

@@ -3,13 +3,13 @@ libquicr
 
 [![Build](https://github.com/Quicr/libquicr/actions/workflows/cmake.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/cmake.yml)
 
-An API library that implements publish/subscribe protocol [draft-ietf-moq-transport-04](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-04). 
+An API library that implements publish/subscribe protocol [draft-ietf-moq-transport-04](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-04).
 The API supports both client and server. Server is intended to be implemented as a relay.
 
 ### Build
 Use `make` to build libquicr.
 
-Use `make test` to run tests. 
+Use `make test` to run tests.
 
 Use `make cclean` to clean build files.
 
@@ -21,7 +21,7 @@ To build without InfluxDB, run `cmake` with `-DLIBQUICR_WITHOUT_INFLUXDB=ON`
 ### Self-signed Certificate
 
 Server requires a TLS certificate and key file. For development and testing, use a self-signed certificate. Below
-are the steps to create a self-signed certificate and private ey. 
+are the steps to create a self-signed certificate and private ey.
 
 #### OpenSSL/BorningSSL
 

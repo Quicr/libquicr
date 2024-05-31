@@ -19,6 +19,7 @@
 
 #include "quicr_client_delegate.h"
 #include "quicr_common.h"
+#include "measurement.h"
 
 #include <quicr/namespace.h>
 #include <transport/transport.h>
@@ -176,10 +177,7 @@ public:
                                           const uint64_t& offset,
                                           bool is_last_fragment,
                                           bytes&& data) = 0;
+
+  virtual void publishMeasurement(const Measurement& measurement) = 0;
 };
-
-using QuicRClientSession [[deprecated(
-  "quicr::QuicRClientSession stutters, use quicr::ClientSession")]] =
-  quicr::ClientSession;
-
 } // namespace quicr

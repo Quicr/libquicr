@@ -21,15 +21,19 @@
 #include "quicr/quicr_client.h"
 #include "quicr/quicr_client_delegate.h"
 #include "quicr/quicr_common.h"
-#include "quicr/metrics_exporter.h"
+
+#include <nlohmann/json.hpp>
+#include <transport/transport_metrics.h>
 
 #include <chrono>
-#include <iterator>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <sstream>
 #include <string>
 #include <thread>
+
+using json = nlohmann::json;
 
 namespace quicr {
 
@@ -57,18 +61,16 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
                                    const std::string& endpoint_id,
                                    size_t chunk_size,
                                    const qtransport::TransportConfig& tconfig,
-                                   const cantina::LoggerPointer& logger)
+                                   const cantina::LoggerPointer& logger,
+                                   std::optional<Namespace> metrics_ns)
   : logger(std::make_shared<cantina::Logger>("QSES", logger))
   , _endpoint_id(endpoint_id)
   , _chunk_size(chunk_size)
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-  , _mexport(logger)
-#endif
 {
   this->logger->Log("Initialize Client");
 
   if (relay_info.proto == RelayInfo::Protocol::UDP) {
-      transport_needs_fragmentation = true;
+    transport_needs_fragmentation = true;
   }
 
   if (_chunk_size && _chunk_size < max_transport_data_size) {
@@ -81,17 +83,46 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
 
   logger->info << "Starting metrics exporter" << std::flush;
 
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-  if (_mexport.init("http://metrics.m10x.ctgpoc.com:8086",
-                   "Media10x",
-                   "cisco-cto-media10x") !=
-      MetricsExporter::MetricsExporterError::NoError) {
-    throw std::runtime_error("Failed to connect to InfluxDB");
+  metrics_conn_samples = std::make_shared<qtransport::safe_queue<qtransport::MetricsConnSample>>(qtransport::MAX_METRICS_SAMPLES_QUEUE);
+  metrics_data_samples = std::make_shared<qtransport::safe_queue<qtransport::MetricsDataSample>>(qtransport::MAX_METRICS_SAMPLES_QUEUE);
+
+  if (metrics_ns)
+  {
+    metrics_namespace = *metrics_ns;
   }
 
-  _mexport.run();
-#endif
-
+  connection_measurement =
+    Measurement("quic-connection")
+      .AddAttribute("endpoint_id", endpoint_id)
+      .AddAttribute("relay_id", relay_info.relay_id)
+      .AddAttribute("source", "client")
+      .AddMetric("tx_retransmits", std::uint64_t(0))
+      .AddMetric("tx_congested", std::uint64_t(0))
+      .AddMetric("tx_lost_pkts", std::uint64_t(0))
+      .AddMetric("tx_timer_losses", std::uint64_t(0))
+      .AddMetric("tx_spurious_losses", std::uint64_t(0))
+      .AddMetric("tx_dgram_lost", std::uint64_t(0))
+      .AddMetric("tx_dgram_ack", std::uint64_t(0))
+      .AddMetric("tx_dgram_cb", std::uint64_t(0))
+      .AddMetric("tx_dgram_spurious", std::uint64_t(0))
+      .AddMetric("rx_dgrams", std::uint64_t(0))
+      .AddMetric("rx_dgrams_bytes", std::uint64_t(0))
+      .AddMetric("cwin_congested", std::uint64_t(0))
+      .AddMetric("tx_rate_bps_min", std::uint64_t(0))
+      .AddMetric("tx_rate_bps_max", std::uint64_t(0))
+      .AddMetric("tx_rate_bps_avg", std::uint64_t(0))
+      .AddMetric("tx_in_transit_bytes_min", std::uint64_t(0))
+      .AddMetric("tx_in_transit_bytes_max", std::uint64_t(0))
+      .AddMetric("tx_in_transit_bytes_avg", std::uint64_t(0))
+      .AddMetric("tx_cwin_bytes_min", std::uint64_t(0))
+      .AddMetric("tx_cwin_bytes_max", std::uint64_t(0))
+      .AddMetric("tx_cwin_bytes_avg", std::uint64_t(0))
+      .AddMetric("rtt_us_min", std::uint64_t(0))
+      .AddMetric("rtt_us_max", std::uint64_t(0))
+      .AddMetric("rtt_us_avg", std::uint64_t(0))
+      .AddMetric("srtt_us_min", std::uint64_t(0))
+      .AddMetric("srtt_us_max", std::uint64_t(0))
+      .AddMetric("srtt_us_avg", std::uint64_t(0));
 }
 
 ClientRawSession::ClientRawSession(
@@ -100,9 +131,6 @@ ClientRawSession::ClientRawSession(
   : has_shared_transport{ true }
   , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport(std::move(transport_in))
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-  , _mexport(logger)
-#endif
 {
 }
 
@@ -116,6 +144,8 @@ ClientRawSession::~ClientRawSession()
     // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
     disconnect();
   }
+
+  _metrics_thread.join();
 }
 
 bool
@@ -126,7 +156,8 @@ ClientRawSession::connect()
       "Transport has been destroyed, create a new session object!");
   }
 
-  transport_conn_id = transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples);
+  transport_conn_id =
+    transport->start(metrics_conn_samples, metrics_data_samples);
 
   LOGGER_INFO(logger, "Connecting session " << *transport_conn_id << "...");
 
@@ -151,18 +182,10 @@ ClientRawSession::connect()
     throw std::runtime_error(msg.str());
   }
 
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-  _mexport.set_conn_ctx_info(*transport_conn_id, {.endpoint_id = _endpoint_id,
-                             .relay_id = "_connecting_",
-                             .data_ctx_info = {}}, true);
-#endif
-
   // Create reliable bidirectional control stream
   transport_ctrl_data_ctx_id = transport->createDataContext(*transport_conn_id, true, 0, true);
 
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-  _mexport.set_data_ctx_info(*transport_conn_id, *transport_ctrl_data_ctx_id, {.subscribe = false, .nspace = {}});
-#endif
+  addDataMeasurement(*transport_ctrl_data_ctx_id, "publish");
 
   // Send connect message
   auto msg = messages::MessageBuffer{ sizeof(messages::Subscribe) + _endpoint_id.size() };
@@ -179,7 +202,7 @@ ClientRawSession::disconnect()
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   if (stopping || !(connected() || connecting())) {
     // Not connected or already stopping/stopped
-      return true;
+    return true;
   }
 
   const auto& conn_id =
@@ -216,6 +239,119 @@ bool
 ClientRawSession::connecting() const
 {
   return transport && transport->status() == qtransport::TransportStatus::Connecting;
+}
+
+void
+ClientRawSession::runPublishMeasurements()
+{
+  LOGGER_INFO(logger, "Starting metrics thread");
+  _metrics_thread = std::thread([this]{
+    while (!stopping)
+    {
+      // TODO(trigaux): Currently for adapting previous version of transport metrics, should be removed once new changes for MOQT are in.
+      while (!metrics_conn_samples->empty())
+      {
+        const auto conn_sample = metrics_conn_samples->block_pop();
+        auto tp = std::chrono::system_clock::now()
+                        + std::chrono::duration_cast<std::chrono::system_clock::duration>(conn_sample->sample_time - std::chrono::steady_clock::now());
+        connection_measurement
+          .SetTime(tp)
+          .SetAttribute("relay_id", _relay_id)
+          .SetMetric("tx_retransmits", conn_sample->quic_sample->tx_retransmits)
+          .SetMetric("tx_congested", conn_sample->quic_sample->tx_congested)
+          .SetMetric("tx_lost_pkts", conn_sample->quic_sample->tx_lost_pkts)
+          .SetMetric("tx_timer_losses", conn_sample->quic_sample->tx_timer_losses)
+          .SetMetric("tx_spurious_losses", conn_sample->quic_sample->tx_spurious_losses)
+          .SetMetric("tx_dgram_lost", conn_sample->quic_sample->tx_dgram_lost)
+          .SetMetric("tx_dgram_ack", conn_sample->quic_sample->tx_dgram_ack)
+          .SetMetric("tx_dgram_cb", conn_sample->quic_sample->tx_dgram_cb)
+          .SetMetric("tx_dgram_spurious", conn_sample->quic_sample->tx_dgram_spurious)
+          .SetMetric("dgram_invalid_ctx_id", conn_sample->quic_sample->dgram_invalid_ctx_id)
+          .SetMetric("cwin_congested", conn_sample->quic_sample->cwin_congested)
+          .SetMetric("tx_rate_bps_min", conn_sample->quic_sample->tx_rate_bps.min)
+          .SetMetric("tx_rate_bps_max", conn_sample->quic_sample->tx_rate_bps.max)
+          .SetMetric("tx_rate_bps_avg", conn_sample->quic_sample->tx_rate_bps.avg)
+          .SetMetric("tx_in_transit_bytes_min", conn_sample->quic_sample->tx_in_transit_bytes.min)
+          .SetMetric("tx_in_transit_bytes_max", conn_sample->quic_sample->tx_in_transit_bytes.max)
+          .SetMetric("tx_in_transit_bytes_avg", conn_sample->quic_sample->tx_in_transit_bytes.avg)
+          .SetMetric("tx_cwin_bytes_min", conn_sample->quic_sample->tx_cwin_bytes.min)
+          .SetMetric("tx_cwin_bytes_max", conn_sample->quic_sample->tx_cwin_bytes.max)
+          .SetMetric("tx_cwin_bytes_avg", conn_sample->quic_sample->tx_cwin_bytes.avg)
+          .SetMetric("rtt_us_min", conn_sample->quic_sample->rtt_us.min)
+          .SetMetric("rtt_us_max", conn_sample->quic_sample->rtt_us.max)
+          .SetMetric("rtt_us_avg", conn_sample->quic_sample->rtt_us.avg)
+          .SetMetric("srtt_us_min", conn_sample->quic_sample->srtt_us.min)
+          .SetMetric("srtt_us_max", conn_sample->quic_sample->srtt_us.max)
+          .SetMetric("srtt_us_avg", conn_sample->quic_sample->srtt_us.avg);
+
+        publishMeasurement(connection_measurement);
+      }
+
+      // TODO(trigaux): Currently for adapting previous version of transport metrics, should be removed once new changes for MOQT are in.
+      while (!metrics_data_samples->empty())
+      {
+        const auto data_sample = metrics_data_samples->block_pop();
+        auto data_ns_it = data_measurements.find(data_sample->data_ctx_id);
+        if (data_ns_it == data_measurements.end())
+        {
+          LOGGER_WARNING(logger, "Failed to set metrics for data context '" << data_sample->data_ctx_id << "', skipping sending metrics for this context.");
+          continue;
+        }
+
+        auto tp = std::chrono::system_clock::now()
+                        + std::chrono::duration_cast<std::chrono::system_clock::duration>(data_sample->sample_time - std::chrono::steady_clock::now());
+
+        auto& data_measurement = data_ns_it->second;
+        data_measurement
+          .SetTime(tp)
+          .SetMetric("enqueued_objs", data_sample->quic_sample->enqueued_objs)
+          .SetMetric("tx_queue_size_min", data_sample->quic_sample->tx_queue_size.min)
+          .SetMetric("tx_queue_size_max", data_sample->quic_sample->tx_queue_size.max)
+          .SetMetric("tx_queue_size_avg", data_sample->quic_sample->tx_queue_size.avg)
+          .SetMetric("rx_buffer_drops", data_sample->quic_sample->rx_buffer_drops)
+          .SetMetric("rx_dgrams", data_sample->quic_sample->rx_dgrams)
+          .SetMetric("rx_dgrams_bytes", data_sample->quic_sample->rx_dgrams_bytes)
+          .SetMetric("rx_stream_objs", data_sample->quic_sample->rx_stream_objects)
+          .SetMetric("rx_invalid_drops", data_sample->quic_sample->rx_invalid_drops)
+          .SetMetric("rx_stream_bytes", data_sample->quic_sample->rx_stream_bytes)
+          .SetMetric("rx_stream_cb", data_sample->quic_sample->rx_stream_cb)
+          .SetMetric("tx_dgrams", data_sample->quic_sample->tx_dgrams)
+          .SetMetric("tx_dgrams_bytes", data_sample->quic_sample->tx_dgrams_bytes)
+          .SetMetric("tx_stream_objs", data_sample->quic_sample->tx_stream_objects)
+          .SetMetric("tx_stream_bytes", data_sample->quic_sample->tx_stream_bytes)
+          .SetMetric("tx_buffer_drops", data_sample->quic_sample->tx_buffer_drops)
+          .SetMetric("tx_delayed_callback", data_sample->quic_sample->tx_delayed_callback)
+          .SetMetric("tx_queue_discards", data_sample->quic_sample->tx_queue_discards)
+          .SetMetric("tx_queue_expired", data_sample->quic_sample->tx_queue_expired)
+          .SetMetric("tx_reset_wait", data_sample->quic_sample->tx_reset_wait)
+          .SetMetric("tx_stream_cb", data_sample->quic_sample->tx_stream_cb)
+          .SetMetric("tx_callback_ms_min", data_sample->quic_sample->tx_callback_ms.min)
+          .SetMetric("tx_callback_ms_max", data_sample->quic_sample->tx_callback_ms.max)
+          .SetMetric("tx_callback_ms_avg", data_sample->quic_sample->tx_callback_ms.avg)
+          .SetMetric("tx_object_duration_us_min", data_sample->quic_sample->tx_object_duration_us.min)
+          .SetMetric("tx_object_duration_us_max", data_sample->quic_sample->tx_object_duration_us.max)
+          .SetMetric("tx_object_duration_us_avg", data_sample->quic_sample->tx_object_duration_us.avg);
+
+        publishMeasurement(data_measurement);
+      }
+    }
+    LOGGER_INFO(logger, "Finished metrics thread");
+  });
+}
+
+void
+ClientRawSession::publishMeasurement(const Measurement& measurement)
+{
+  const json measurement_json = measurement;
+  const std::string measurement_str = measurement_json.dump();
+  quicr::bytes measurement_bytes(measurement_str.begin(), measurement_str.end());
+
+  const auto start_time = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::steady_clock::now());
+  std::vector<qtransport::MethodTraceItem> trace;
+  trace.reserve(10);
+  trace.push_back({"libquicr:publishMetrics:begin", start_time});
+
+  publishNamedObject(metrics_namespace, 31, 500, std::move(measurement_bytes), std::move(trace));
 }
 
 /*===========================================================================*/
@@ -265,8 +401,8 @@ ClientRawSession::on_new_data_context(const qtransport::TransportConnId &conn_id
   LOGGER_INFO(logger, "New BiDir data context conn_id: " << conn_id << " data_ctx_id: " << data_ctx_id);
 }
 
-void ClientRawSession::on_recv_dgram(const TransportConnId& conn_id,
-                                     std::optional<DataContextId> data_ctx_id)
+void ClientRawSession::on_recv_dgram(const qtransport::TransportConnId& conn_id,
+                                     std::optional<qtransport::DataContextId> data_ctx_id)
 {
   if (!transport) {
     return;
@@ -294,9 +430,9 @@ void ClientRawSession::on_recv_dgram(const TransportConnId& conn_id,
   }
 }
 
-void ClientRawSession::on_recv_stream(const TransportConnId& conn_id,
+void ClientRawSession::on_recv_stream(const qtransport::TransportConnId& conn_id,
                                       uint64_t stream_id,
-                                      std::optional<DataContextId> data_ctx_id,
+                                      std::optional<qtransport::DataContextId> data_ctx_id,
                                       [[maybe_unused]] const bool is_bidir)
 {
   if (!transport) {
@@ -370,9 +506,8 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
   const auto& conn_id = transport_conn_id.value();
   auto data_ctx_id = get_or_create_data_ctx_id(conn_id, transport_mode, priority);
 
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-  _mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, .nspace = quicr_namespace});
-#endif
+  auto& measurement = addDataMeasurement(data_ctx_id, "publish");
+  measurement.AddAttribute("namespace", std::string(quicr_namespace));
 
   logger->info << "Publish Intent ns: " << quicr_namespace
                << " data_ctx_id: " << data_ctx_id
@@ -419,7 +554,6 @@ ClientRawSession::publishIntentEnd(
 
   pub_delegates.erase(quicr_namespace);
 
-
   const auto ps_it = publish_state.find(quicr_namespace);
   if (ps_it != publish_state.end()) {
     const auto intent_end = messages::PublishIntentEnd{
@@ -435,9 +569,7 @@ ClientRawSession::publishIntentEnd(
 
     transport->deleteDataContext(ps_it->second.transport_conn_id, ps_it->second.transport_data_ctx_id);
 
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-    _mexport.del_data_ctx_info(ps_it->second.transport_conn_id, ps_it->second.transport_data_ctx_id);
-#endif
+    data_measurements.erase(ps_it->second.transport_data_ctx_id);
 
     publish_state.erase(ps_it);
   }
@@ -463,7 +595,7 @@ ClientRawSession::subscribe(
     sub_delegates[quicr_namespace] = std::move(subscriber_delegate);
 
     logger->info << "Subscribe ns: " << quicr_namespace
-           << " priority: " << static_cast<int>(priority)
+                 << " priority: " << static_cast<int>(priority)
            << " mode: " << static_cast<int>(transport_mode)
            << std::flush;
 
@@ -476,9 +608,8 @@ ClientRawSession::subscribe(
       .transaction_id = transaction_id,
     };
 
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-    _mexport.set_data_ctx_info(conn_id, data_ctx_id, { .subscribe = true, .nspace = quicr_namespace});
-#endif
+    auto& measurement = addDataMeasurement(data_ctx_id, "subscribe");
+    measurement.AddAttribute("namespace", std::string(quicr_namespace));
   }
 
   // We allow duplicate subscriptions, so we always send
@@ -491,18 +622,18 @@ ClientRawSession::subscribe(
   sub_it->second.transport_mode = transport_mode;
 
   if (transport_mode == TransportMode::Pause) {
-      if (sub_it->second.state != SubscriptionState::Ready) {
+    if (sub_it->second.state != SubscriptionState::Ready) {
           logger->error << "Failed to pause ns: " << quicr_namespace << " due to state not being ready" << std::flush;
-          return;
-      }
-      sub_it->second.state = SubscriptionState::Paused;
+      return;
+    }
+    sub_it->second.state = SubscriptionState::Paused;
   }
   else if (transport_mode == TransportMode::Resume) {
-      if (sub_it->second.state != SubscriptionState::Paused) {
+    if (sub_it->second.state != SubscriptionState::Paused) {
           logger->info << "Ignoring Resume ns: " << quicr_namespace << " due to state not being Paused" << std::flush;
-          return;
-      }
-      sub_it->second.state = SubscriptionState::Ready;
+      return;
+    }
+    sub_it->second.state = SubscriptionState::Ready;
   }
 
   auto msg = messages::MessageBuffer{ sizeof(messages::Subscribe) };
@@ -531,9 +662,7 @@ ClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
 
   std::lock_guard<std::mutex> _(session_mutex);
 
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-  _mexport.del_data_ctx_info(state_it->second.transport_conn_id, state_it->second.transport_data_ctx_id);
-#endif
+  data_measurements.erase(state_it->second.transport_data_ctx_id);
 
   removeSubscription(quicr_namespace,
                      SubscribeResult::SubscribeStatus::UnSubscribed);
@@ -541,19 +670,19 @@ ClientRawSession::unsubscribe(const quicr::Namespace& quicr_namespace,
 
 SubscriptionState ClientRawSession::getSubscriptionState(const quicr::Namespace &quicr_namespace)
 {
-    const auto state_it = subscribe_state.find(quicr_namespace);
-    if (state_it != subscribe_state.end()) {
-        return state_it->second.state;
-    }
+  const auto state_it = subscribe_state.find(quicr_namespace);
+  if (state_it != subscribe_state.end()) {
+    return state_it->second.state;
+  }
 
-    return SubscriptionState::Unknown;
+  return SubscriptionState::Unknown;
 }
 
 void
 ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
-                                     uint8_t priority,
-                                     uint16_t expiry_age_ms,
-                                     bytes&& data,
+  uint8_t priority,
+  uint16_t expiry_age_ms,
+  bytes&& data,
                                      std::vector<qtransport::MethodTraceItem> &&trace)
 {
   const auto trace_start_time = trace.front().start_time;
@@ -616,7 +745,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
     case TransportMode::ReliablePerTrack:
       eflags.use_reliable = true;
-    break;
+      break;
 
     case TransportMode::Unreliable:
       break;
@@ -761,7 +890,6 @@ qtransport::DataContextId ClientRawSession::get_or_create_data_ctx_id(
   }
 }
 
-
 void
 ClientRawSession::removeSubscription(
   const quicr::Namespace& quicr_namespace,
@@ -771,7 +899,7 @@ ClientRawSession::removeSubscription(
   if (state_it != subscribe_state.end()) {
     transport->deleteDataContext(state_it->second.transport_conn_id, state_it->second.transport_data_ctx_id);
 
-    _mexport.del_data_ctx_info(state_it->second.transport_conn_id, state_it->second.transport_data_ctx_id);
+    data_measurements.erase(state_it->second.transport_data_ctx_id);
 
     subscribe_state.erase(state_it);
   }
@@ -883,15 +1011,13 @@ ClientRawSession::handle(std::optional<uint64_t> stream_id,
       msg >> response;
 
       _relay_id = response.relay_id;
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-      _mexport.set_conn_ctx_info(*transport_conn_id, {.endpoint_id = _endpoint_id,
-                                 .relay_id = _relay_id,
-                                 .data_ctx_info = {}}, true);
-#endif
+      data_measurements.at(1).SetAttribute("relay_id", _relay_id);
 
       logger->info << "Received connection response with"
                    << " relay_id: " << response.relay_id
                    << std::flush;
+
+      publishIntent(std::make_shared<MetricsPublishDelegate>(*this), metrics_namespace, "", "", {}, TransportMode::ReliablePerTrack, 31);
       break;
     }
     case messages::MessageType::SubscribeResponse: {
@@ -987,10 +1113,12 @@ ClientRawSession::handle(std::optional<uint64_t> stream_id,
         break;
       }
 
-    // Update/set the remote data context ID
-    ps_it->second.remote_data_ctx_id = response.remote_data_ctx_id;
+      // Update/set the remote data context ID
+      ps_it->second.remote_data_ctx_id = response.remote_data_ctx_id;
     transport->setRemoteDataCtxId(ps_it->second.transport_conn_id, ps_it->second.transport_data_ctx_id,
-                                  response.remote_data_ctx_id);
+                                    response.remote_data_ctx_id);
+
+      data_measurements[ps_it->second.remote_data_ctx_id].SetAttribute("relay_id", _relay_id);
 
       if (ps_it->second.state != PublishContext::State::Ready) {
         logger->info << "Publish intent ready for ns: " << response.quicr_namespace
@@ -1016,5 +1144,56 @@ ClientRawSession::handle(std::optional<uint64_t> stream_id,
     default:
       break;
   }
+}
+
+Measurement&
+ClientRawSession::addDataMeasurement(const qtransport::DataContextId& id, const std::string& type)
+{
+  data_measurements[id] =
+    Measurement("quic-dataFlow")
+      .AddAttribute("endpoint_id", _endpoint_id)
+      .AddAttribute("relay_id", _relay_id)
+      .AddAttribute("source", "client")
+      .AddAttribute("type", type)
+      .AddMetric("enqueued_objs", std::uint64_t(0))
+      .AddMetric("tx_queue_size_min", std::uint64_t(0))
+      .AddMetric("tx_queue_size_max", std::uint64_t(0))
+      .AddMetric("tx_queue_size_avg", std::uint64_t(0))
+      .AddMetric("rx_buffer_drops", std::uint64_t(0))
+      .AddMetric("rx_dgrams", std::uint64_t(0))
+      .AddMetric("rx_dgrams_bytes", std::uint64_t(0))
+      .AddMetric("rx_stream_objs", std::uint64_t(0))
+      .AddMetric("rx_invalid_drops", std::uint64_t(0))
+      .AddMetric("rx_stream_bytes", std::uint64_t(0))
+      .AddMetric("rx_stream_cb", std::uint64_t(0))
+      .AddMetric("tx_dgrams", std::uint64_t(0))
+      .AddMetric("tx_dgrams_bytes", std::uint64_t(0))
+      .AddMetric("tx_stream_objs", std::uint64_t(0))
+      .AddMetric("tx_stream_bytes", std::uint64_t(0))
+      .AddMetric("tx_buffer_drops", std::uint64_t(0))
+      .AddMetric("tx_delayed_callback", std::uint64_t(0))
+      .AddMetric("tx_queue_discards", std::uint64_t(0))
+      .AddMetric("tx_queue_expired", std::uint64_t(0))
+      .AddMetric("tx_reset_wait", std::uint64_t(0))
+      .AddMetric("tx_stream_cb", std::uint64_t(0))
+      .AddMetric("tx_callback_ms_min", std::uint64_t(0))
+      .AddMetric("tx_callback_ms_max", std::uint64_t(0))
+      .AddMetric("tx_callback_ms_avg", std::uint64_t(0))
+      .AddMetric("tx_object_duration_us_min", std::uint64_t(0))
+      .AddMetric("tx_object_duration_us_max", std::uint64_t(0))
+      .AddMetric("tx_object_duration_us_avg", std::uint64_t(0));
+
+  return data_measurements[id];
+}
+
+void
+ClientRawSession::MetricsPublishDelegate::onPublishIntentResponse(
+  const quicr::Namespace&,
+  const PublishIntentResult& result)
+{
+  if (result.status != messages::Response::Ok)
+    return;
+
+  session.runPublishMeasurements();
 }
 } // namespace quicr

@@ -52,7 +52,8 @@ public:
          const std::string& endpoint_id,
          size_t chunk_size,
          const qtransport::TransportConfig& tconfig,
-         const cantina::LoggerPointer& logger);
+         const cantina::LoggerPointer& logger,
+         std::optional<quicr::Namespace> metrics_ns = std::nullopt);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber
@@ -205,11 +206,9 @@ public:
                                   bool is_last_fragment,
                                   bytes&& data);
 
+  void publishMeasurement(const Measurement& measurement);
+
 protected:
   std::unique_ptr<ClientSession> client_session;
 };
-
-using QuicRClient
-  [[deprecated("quicr::QuicRClient stutters, use quicr::Client")]] =
-    quicr::Client;
 }
