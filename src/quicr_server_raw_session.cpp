@@ -111,7 +111,10 @@ ServerRawSession::run()
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
-  runPublishMeasurements();
+  if (metrics_namespace)
+  {
+    runPublishMeasurements();
+  }
 
   return transport->status() == qtransport::TransportStatus::Ready;
 }
@@ -801,7 +804,7 @@ ServerRawSession::publishMeasurement(const Measurement& measurement)
   quicr::bytes measurement_bytes(measurement_str.begin(), measurement_str.end());
 
   messages::PublishDatagram datagram;
-  datagram.header.name = metrics_namespace;
+  datagram.header.name = *metrics_namespace;
   datagram.header.media_id = 0;
   datagram.header.group_id = 0;
   datagram.header.object_id = 0;
