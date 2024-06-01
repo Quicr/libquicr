@@ -18,7 +18,8 @@ const quicr::bytes TRACK_NAME_ALICE_VIDEO = from_ascii("alice/video");
 const uintVar_t TRACK_ALIAS_ALICE_VIDEO = 0xA11CE;
 
 template<typename T>
-bool verify(std::vector<uint8_t>& net_data, uint64_t message_type, T& message) {
+bool verify(std::vector<uint8_t>& net_data, uint64_t message_type, T& message, size_t slice_depth=1) {
+  // TODO: support size_depth > 1, if needed
   qtransport::StreamBuffer<uint8_t> in_buffer;
   std::optional<uint64_t> msg_type;
   bool done = false;
@@ -69,4 +70,36 @@ TEST_CASE("Announce Message encode/decode")
   CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_ANNOUNCE), announce_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, announce_out.track_namespace);
   CHECK_EQ(0, announce_out.params.size());
+}
+
+TEST_CASE("Unannounce Message encode/decode")
+{
+  qtransport::StreamBuffer<uint8_t> buffer;
+
+  auto unannounce  = MoqUnannounce {};
+  unannounce.track_namespace = TRACK_NAMESPACE_CONF;
+  buffer << unannounce;
+
+  std::vector<uint8_t> net_data = buffer.front(buffer.size());
+  MoqAnnounceOk announce_ok_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_UNANNOUNCE), announce_ok_out));
+  CHECK_EQ(TRACK_NAMESPACE_CONF, announce_ok_out.track_namespace);
+}
+
+TEST_CASE("AnnounceError Message encode/decode")
+{
+  qtransport::StreamBuffer<uint8_t> buffer;
+
+  auto announce_err  = MoqAnnounceError {};
+  announce_err.track_namespace = TRACK_NAMESPACE_CONF;
+  announce_err.err_code = 0x1234;
+  announce_err.reason_phrase = quicr::bytes{0x1,0x2,0x3};
+  buffer << announce_err;
+
+  std::vector<uint8_t> net_data = buffer.front(buffer.size());
+  MoqAnnounceError announce_err_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_ANNOUNCE_ERROR), announce_err_out));
+  CHECK_EQ(TRACK_NAMESPACE_CONF, announce_err_out.track_namespace);
+  CHECK_EQ(announce_err.err_code, announce_err_out.err_code);
+  CHECK_EQ(announce_err.reason_phrase, announce_err_out.reason_phrase);
 }

@@ -191,16 +191,17 @@ struct MoqAnnounceError {
   std::optional<TrackNamespace> track_namespace;
   std::optional<ErrorCode> err_code;
   std::optional<ReasonPhrase> reason_phrase;
+
   friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceError &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqAnnounceError* msg);
+                                                       const MoqAnnounceError& msg);
 };
 
 struct MoqUnannounce {
   TrackNamespace track_namespace;
   friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqUnannounce &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqUnannounce* msg);
+                                                       const MoqUnannounce& msg);
 };
 
 struct MoqAnnounceCancel {
