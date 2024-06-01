@@ -206,11 +206,10 @@ struct MoqUnannounce {
 
 struct MoqAnnounceCancel {
   TrackNamespace track_namespace;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceCancel &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqAnnounceCancel& msg);
 };
-
-
-MessageBuffer &operator<<(MessageBuffer &buffer, const MoqAnnounceCancel &msg);
-MessageBuffer &operator>>(MessageBuffer &buffer, MoqAnnounceCancel &msg);
 
 
 //

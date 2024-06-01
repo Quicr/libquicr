@@ -368,19 +368,26 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqUnannounce &msg) {
   return true;
 }
 
-MessageBuffer &
-operator<<(MessageBuffer &buffer, const MoqAnnounceCancel &msg) {
-  buffer << static_cast<uint8_t>(MESSAGE_TYPE_ANNOUNCE_CANCEL);
-  buffer << msg.track_namespace;
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+           const MoqAnnounceCancel& msg){
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_ANNOUNCE_CANCEL)));
+  buffer.push_lv(msg.track_namespace);
   return buffer;
 }
 
-MessageBuffer &
-operator>>(MessageBuffer &buffer, MoqAnnounceCancel &msg) {
-  buffer >> msg.track_namespace;
-  return buffer;
-}
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceCancel &msg) {
 
+  // read namespace
+  if (msg.track_namespace.empty())
+  {
+    const auto val = buffer.decode_bytes();
+    if (!val) {
+      return false;
+    }
+    msg.track_namespace = *val;
+  }
+  return true;
+}
 
 //
 // Goaway

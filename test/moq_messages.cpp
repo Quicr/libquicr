@@ -103,3 +103,17 @@ TEST_CASE("AnnounceError Message encode/decode")
   CHECK_EQ(announce_err.err_code, announce_err_out.err_code);
   CHECK_EQ(announce_err.reason_phrase, announce_err_out.reason_phrase);
 }
+
+TEST_CASE("AnnounceCancel Message encode/decode")
+{
+  qtransport::StreamBuffer<uint8_t> buffer;
+
+  auto announce_cancel  = MoqAnnounceCancel {};
+  announce_cancel.track_namespace = TRACK_NAMESPACE_CONF;
+  buffer << announce_cancel;
+
+  std::vector<uint8_t> net_data = buffer.front(buffer.size());
+  MoqAnnounceCancel announce_cancel_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_ANNOUNCE_CANCEL), announce_cancel_out));
+  CHECK_EQ(TRACK_NAMESPACE_CONF, announce_cancel_out.track_namespace);
+}
