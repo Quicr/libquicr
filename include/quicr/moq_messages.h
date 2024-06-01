@@ -65,7 +65,7 @@ enum struct ParameterType : uint8_t {
 };
 
 struct MoqParameter{
-  std::optional<ParamType> param_type;
+  std::optional<uint64_t> param_type;
   uintVar_t param_length;
   bytes param_value;
 };
@@ -96,28 +96,31 @@ MessageBuffer& operator>>(MessageBuffer &buffer, MoqServerSetup &msg);
 //
 // Subscribe
 //
-enum struct LocationMode: uint8_t {
+enum struct FilterType: uint64_t {
   None = 0x0,
-  Absolute,
-  RelativePrevious,
-  RelativeNext
-};
-
-struct Location {
-  LocationMode mode;
-  std::optional<uintVar_t> value;
+  LatestGroup,
+  LatestObject,
+  AbsoluteStart,
+  AbsoluteRange
 };
 
 struct MoqSubscribe {
-  SubscribeId subscribe_id;
-  TrackAlias track_alias;
+  std::optional<uint64_t> subscribe_id;
+  std::optional<uint64_t> track_alias;
   TrackNamespace track_namespace;
   TrackName track_name;
-  Location start_group;
-  Location start_object;
-  Location end_group;
-  Location end_object;
+  FilterType filter_type {FilterType::None};
+  std::optional<uintVar_t> start_group;
+  std::optional<uintVar_t> end_group;
+  std::optional<uintVar_t> start_object;
+  std::optional<uintVar_t> end_object;
+  uint64_t num_params {0};
   std::vector<MoqParameter> track_params;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqSubscribe& msg);
+private:
+  MoqParameter current_param{};
 };
 
 struct MoqSubscribeOk {
@@ -150,8 +153,6 @@ struct MoqSubscribeDone
   ObjectId final_object_id;
 };
 
-MessageBuffer& operator<<(MessageBuffer &buffer, const Location &msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, Location &msg);
 MessageBuffer& operator<<(MessageBuffer &buffer, const MoqSubscribe &msg);
 MessageBuffer& operator>>(MessageBuffer &buffer, MoqSubscribe &msg);
 MessageBuffer& operator<<(MessageBuffer &buffer, const MoqUnsubscribe &msg);
@@ -283,8 +284,6 @@ MessageBuffer& operator>>(MessageBuffer &buffer, MoqStreamHeaderGroup &msg);
 MessageBuffer& operator<<(MessageBuffer& buffer, const MoqStreamGroupObject& msg);
 MessageBuffer& operator>>(MessageBuffer &buffer, MoqStreamGroupObject &msg);
 
-// utility
-std::tuple<Location, Location, Location, Location>  to_locations(const SubscribeIntent& intent);
 MessageBuffer& operator<<(MessageBuffer& buffer, const std::vector<uintVar_t>& val);
 MessageBuffer& operator>>(MessageBuffer& msg, std::vector<uintVar_t>& val);
 MessageBuffer& operator>>(MessageBuffer& msg, std::vector<uintVar_t>& val);
