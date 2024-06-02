@@ -18,7 +18,7 @@ using ReasonPhrase = quicr::bytes;
 using GroupId = uintVar_t;
 using ObjectId = uintVar_t;
 using ObjectPriority = uintVar_t;
-using SubscribeId = uintVar_t;
+using SubscribeId = uint64_t;
 using TrackAlias = uintVar_t;
 using ParamType = uintVar_t;
 
@@ -125,10 +125,16 @@ private:
 
 struct MoqSubscribeOk {
   SubscribeId subscribe_id;
-  uintVar_t expires;
+  uint64_t expires;
   bool content_exists;
-  std::optional<GroupId> largest_group;
-  std::optional<ObjectId> largest_object;
+  uint64_t largest_group {0};
+  uint64_t largest_object {0};
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeOk &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqSubscribeOk& msg);
+private:
+  size_t current_pos {0};
+  const size_t MAX_FIELDS = 5;
 };
 
 
@@ -153,17 +159,12 @@ struct MoqSubscribeDone
   ObjectId final_object_id;
 };
 
-MessageBuffer& operator<<(MessageBuffer &buffer, const MoqSubscribe &msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqSubscribe &msg);
 MessageBuffer& operator<<(MessageBuffer &buffer, const MoqUnsubscribe &msg);
 MessageBuffer& operator>>(MessageBuffer &buffer, MoqUnsubscribe &msg);
-MessageBuffer& operator<<(MessageBuffer &buffer, const MoqSubscribeOk &msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqSubscribeOk &msg);
 MessageBuffer& operator<<(MessageBuffer &buffer, const MoqSubscribeError &msg);
 MessageBuffer& operator>>(MessageBuffer &buffer, MoqSubscribeError &msg);
 MessageBuffer& operator<<(MessageBuffer &buffer, const MoqSubscribeDone &msg);
 MessageBuffer& operator>>(MessageBuffer &buffer, MoqSubscribeDone &msg);
-
 
 
 //

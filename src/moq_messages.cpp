@@ -247,39 +247,91 @@ operator>>(MessageBuffer &buffer, MoqUnsubscribe &msg) {
   return buffer;
 }
 
-MessageBuffer &
-operator<<(MessageBuffer &buffer, const MoqSubscribeOk &msg) {
-  buffer << static_cast<uint8_t>(MESSAGE_TYPE_SUBSCRIBE_OK);
-  buffer << msg.subscribe_id;
-  buffer << msg.expires;
-  buffer << static_cast<uint8_t>(msg.content_exists);
-  if (msg.content_exists) {
-    buffer << msg.largest_group;
-    buffer << msg.largest_object;
-    return buffer;
+
+/*
+ * SubscribeId subscribe_id;
+uintVar_t expires;
+bool content_exists;
+std::optional<GroupId> largest_group;
+std::optional<ObjectId> largest_object;
+
+ */
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+           const MoqSubscribeOk& msg){
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE_OK)));
+  buffer.push(qtransport::to_uintV(msg.subscribe_id));
+  buffer.push(qtransport::to_uintV(msg.expires));
+  msg.content_exists ? buffer.push(static_cast<uint8_t>(1)) : buffer.push(static_cast<uint8_t>(0));
+  if(msg.content_exists) {
+    buffer.push(qtransport::to_uintV(msg.largest_group));
+    buffer.push(qtransport::to_uintV(msg.largest_object));
   }
   return buffer;
 }
 
-MessageBuffer &
-operator>>(MessageBuffer &buffer, MoqSubscribeOk &msg) {
-  buffer >> msg.subscribe_id;
-  buffer >> msg.expires;
-  uint8_t content_exists {0};
-  buffer >> content_exists;
-  if(content_exists > 1) {
-    throw std::runtime_error("Invalid Context Exists Value");
+bool parse_uintV_field(qtransport::StreamBuffer<uint8_t> &buffer, uint64_t& field) {
+  auto val = buffer.decode_uintV();
+  if (!val) {
+    return false;
+  }
+  field = val.value();
+  return true;
+}
+
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeOk &msg) {
+
+  switch (msg.current_pos) {
+    case 0:
+    {
+      if(!parse_uintV_field(buffer, msg.subscribe_id)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 1: {
+      if(!parse_uintV_field(buffer, msg.expires)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 2: {
+      const auto val = buffer.front();
+      if (!val) {
+        return false;
+      }
+      buffer.pop();
+      msg.content_exists = (val.value()) == 1;
+      msg.current_pos += 1;
+      if (!msg.content_exists) {
+        // nothing more to process.
+        return true;
+      }
+    }
+    break;
+    case 3: {
+      if(!parse_uintV_field(buffer, msg.largest_group)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 4: {
+      if(!parse_uintV_field(buffer, msg.largest_object)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    default:
+      throw std::runtime_error("Malformed Message (SubscribeOK)");
   }
 
-  if (content_exists == 1) {
-    msg.content_exists = true;
-    buffer >> msg.largest_group;
-    buffer >> msg.largest_object;
-    return buffer;
+  if (msg.current_pos < msg.MAX_FIELDS) {
+    return false;
   }
-
-  msg.content_exists = false;
-  return buffer;
+  return true;
 }
 
 MessageBuffer &

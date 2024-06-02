@@ -267,3 +267,48 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
   CHECK_EQ(subscribe.track_params[0].param_length, subscribe_out.track_params[0].param_length);
   CHECK_EQ(subscribe.track_params[0].param_value, subscribe_out.track_params[0].param_value);
 }
+
+
+TEST_CASE("SubscribeOk Message encode/decode")
+{
+  qtransport::StreamBuffer<uint8_t> buffer;
+
+  auto subscribe_ok  = MoqSubscribeOk {};
+  subscribe_ok.subscribe_id = 0x1;
+  subscribe_ok.expires = 0x100;
+  subscribe_ok.content_exists = false;
+  buffer << subscribe_ok;
+
+  std::vector<uint8_t> net_data = buffer.front(buffer.size());
+
+  MoqSubscribeOk subscribe_ok_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE_OK), subscribe_ok_out));
+  CHECK_EQ(subscribe_ok.subscribe_id, subscribe_ok_out.subscribe_id);
+  CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
+  CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
+}
+
+
+TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
+{
+  qtransport::StreamBuffer<uint8_t> buffer;
+
+  auto subscribe_ok  = MoqSubscribeOk {};
+  subscribe_ok.subscribe_id = 0x1;
+  subscribe_ok.expires = 0x100;
+  subscribe_ok.content_exists = true;
+  subscribe_ok.largest_group = 0x1000;
+  subscribe_ok.largest_object = 0xff;
+  buffer << subscribe_ok;
+
+  std::vector<uint8_t> net_data = buffer.front(buffer.size());
+
+  MoqSubscribeOk subscribe_ok_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE_OK), subscribe_ok_out));
+  CHECK_EQ(subscribe_ok.subscribe_id, subscribe_ok_out.subscribe_id);
+  CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
+  CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
+  CHECK_EQ(subscribe_ok.largest_group, subscribe_ok_out.largest_group);
+  CHECK_EQ(subscribe_ok.largest_object, subscribe_ok_out.largest_object);
+
+}
