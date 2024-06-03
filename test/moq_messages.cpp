@@ -315,6 +315,82 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 }
 
 
+MoqSubscribe generate_subscribe(FilterType filter, size_t  num_params = 0, uint64_t sg = 0, uint64_t so=0,
+                   uint64_t eg=0, uint64_t eo=0) {
+  MoqSubscribe out;
+  out.subscribe_id = 0xABCD;
+  out.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+  out.track_namespace = TRACK_NAMESPACE_CONF;
+  out.track_name = TRACK_NAME_ALICE_VIDEO;
+  out.filter_type = filter;
+  out.num_params = num_params;
+  switch (filter) {
+    case FilterType::LatestObject:
+    case FilterType::LatestGroup:
+      break;
+    case FilterType::AbsoluteStart:
+      out.start_group = sg;
+      out.start_object = so;
+      break;
+    case FilterType::AbsoluteRange:
+      out.start_group = sg;
+      out.start_object = so;
+      out.end_group = eg;
+      out.end_object = eo;
+      break;
+  }
+
+  while(num_params > 0) {
+    MoqParameter param1 {
+      .param_type = static_cast<uint64_t>(ParameterType::AuthorizationInfo),
+      .param_length = 0x2,
+      .param_value = {0x1, 0x2}
+    };
+    out.track_params.push_back(param1);
+    num_params--;
+  }
+  return out;
+}
+
+TEST_CASE("Subscribe (Combo) Message encode/decode")
+{
+  auto subscribes = std::vector<MoqSubscribe> {
+    generate_subscribe(FilterType::LatestObject),
+    generate_subscribe(FilterType::LatestGroup),
+    generate_subscribe(FilterType::LatestObject, 1),
+    generate_subscribe(FilterType::LatestGroup, 2),
+    generate_subscribe(FilterType::AbsoluteStart, 0, 0x100, 0x2),
+    generate_subscribe(FilterType::AbsoluteStart, 2, 0x100, 0x2),
+    generate_subscribe(FilterType::AbsoluteRange, 0, 0x100, 0x2, 0x500, 0x2),
+    generate_subscribe(FilterType::AbsoluteRange, 2, 0x100, 0x2, 0x500, 0x2),
+  };
+
+  for (size_t i = 0; i < subscribes.size(); i++) {
+    qtransport::StreamBuffer<uint8_t> buffer;
+    buffer << subscribes[i];
+    std::vector<uint8_t> net_data = buffer.front(buffer.size());
+    MoqSubscribe subscribe_out;
+    CHECK(verify(
+      net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE), subscribe_out));
+    CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
+    CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
+    CHECK_EQ(subscribes[i].subscribe_id, subscribe_out.subscribe_id);
+    CHECK_EQ(subscribes[i].track_alias, subscribe_out.track_alias);
+    CHECK_EQ(subscribes[i].filter_type, subscribe_out.filter_type);
+    CHECK_EQ(subscribes[i].track_params.size(), subscribe_out.track_params.size());
+    for(size_t j = 0; j < subscribes[i].track_params.size(); j++) {
+      CHECK_EQ(subscribes[i].track_params[j].param_type,
+               subscribe_out.track_params[j].param_type);
+      CHECK_EQ(subscribes[i].track_params[j].param_length,
+               subscribe_out.track_params[j].param_length);
+      CHECK_EQ(subscribes[i].track_params[j].param_value,
+               subscribe_out.track_params[j].param_value);
+
+    }
+  }
+}
+
+
 TEST_CASE("SubscribeOk Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
