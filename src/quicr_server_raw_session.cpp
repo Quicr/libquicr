@@ -472,7 +472,6 @@ ServerRawSession::handle_subscribe(
                 << std::flush;
 
   addDataMeasurement(conn_id, data_ctx_id, "subscribe");
-
   delegate->onSubscribe(subscribe.quicr_namespace,
                         context->subscriber_id,
                         conn_id,
