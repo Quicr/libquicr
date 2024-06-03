@@ -9,6 +9,7 @@ using json = nlohmann::json;
 #include <map>
 #include <memory>
 #include <string>
+#include <variant>
 
 namespace quicr {
 
