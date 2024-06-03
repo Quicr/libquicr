@@ -155,16 +155,25 @@ private:
 
 struct MoqUnsubscribe {
   SubscribeId  subscribe_id;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqUnsubscribe &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqUnsubscribe& msg);
 };
 
 struct MoqSubscribeDone
 {
-  SubscribeId  subscribe_id;
-  StatusCode status_code;
+  uint64_t subscribe_id;
+  uint64_t status_code;
   ReasonPhrase reason_phrase;
   bool content_exists;
-  GroupId final_group_id;
-  ObjectId final_object_id;
+  uint64_t final_group_id;
+  uint64_t final_object_id;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeDone &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqSubscribeDone& msg);
+private:
+  size_t current_pos {0};
+  const size_t MAX_FIELDS = {6};
 };
 
 MessageBuffer& operator<<(MessageBuffer &buffer, const MoqUnsubscribe &msg);

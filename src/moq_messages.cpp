@@ -243,17 +243,99 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg) {
   return true;
 }
 
-MessageBuffer &
-operator<<(MessageBuffer &buffer, const MoqUnsubscribe &msg) {
-  buffer << static_cast<uint8_t>(MESSAGE_TYPE_UNSUBSCRIBE);
-  buffer << msg.subscribe_id;
+
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+           const MoqUnsubscribe& msg){
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_UNSUBSCRIBE)));
+  buffer.push(qtransport::to_uintV(msg.subscribe_id));
   return buffer;
 }
 
-MessageBuffer &
-operator>>(MessageBuffer &buffer, MoqUnsubscribe &msg) {
-  buffer >> msg.subscribe_id;
+
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqUnsubscribe &msg) {
+
+  if(!parse_uintV_field(buffer, msg.subscribe_id)) {
+    return false;
+  }
+  return true;
+}
+
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+           const MoqSubscribeDone& msg){
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE_DONE)));
+  buffer.push(qtransport::to_uintV(msg.subscribe_id));
+  buffer.push(qtransport::to_uintV(msg.status_code));
+  buffer.push_lv(msg.reason_phrase);
+  msg.content_exists ? buffer.push(static_cast<uint8_t>(1)) : buffer.push(static_cast<uint8_t>(0));
+  if(msg.content_exists) {
+    buffer.push(qtransport::to_uintV(msg.final_group_id));
+    buffer.push(qtransport::to_uintV(msg.final_object_id));
+  }
+
   return buffer;
+}
+
+
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeDone &msg) {
+
+  switch (msg.current_pos) {
+    case 0: {
+      if(!parse_uintV_field(buffer, msg.subscribe_id)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 1: {
+      if(!parse_uintV_field(buffer, msg.status_code)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 2: {
+      const auto val = buffer.decode_bytes();
+      if (!val) {
+        return false;
+      }
+      msg.reason_phrase = std::move(val.value());
+      msg.current_pos += 1;
+    }
+    break;
+    case 3: {
+      const auto val = buffer.front();
+      if (!val) {
+        return false;
+      }
+      buffer.pop();
+      msg.content_exists = (val.value()) == 1;
+      msg.current_pos += 1;
+      if (!msg.content_exists) {
+        // nothing more to process.
+        return true;
+      }
+    }
+    break;
+    case 4: {
+      if(!parse_uintV_field(buffer, msg.final_group_id)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 5: {
+      if(!parse_uintV_field(buffer, msg.final_object_id)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+  }
+
+  if (msg.current_pos < msg.MAX_FIELDS) {
+    return false;
+  }
+  return true;
 }
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
@@ -316,8 +398,6 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeOk &msg) 
       msg.current_pos += 1;
     }
     break;
-    default:
-      throw std::runtime_error("Malformed Message (SubscribeOK)");
   }
 
   if (msg.current_pos < msg.MAX_FIELDS) {
@@ -380,60 +460,8 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeError &ms
   return true;
 }
 
-MessageBuffer &
-operator<<(MessageBuffer &buffer, const MoqSubscribeError &msg) {
-  buffer << static_cast<uint8_t>(MESSAGE_TYPE_SUBSCRIBE_ERROR);
-  buffer << msg.subscribe_id;
-  buffer << msg.err_code;
-  buffer << msg.reason_phrase;
-  buffer << msg.track_alias;
-  return buffer;
-}
 
-MessageBuffer &
-operator>>(MessageBuffer &buffer, MoqSubscribeError &msg) {
-  buffer >> msg.subscribe_id;
-  buffer >> msg.err_code;
-  buffer >> msg.reason_phrase;
-  buffer >> msg.track_alias;
-  return buffer;
-}
 
-MessageBuffer &
-operator<<(MessageBuffer &buffer, const MoqSubscribeDone &msg) {
-  buffer << static_cast<uint8_t>(MESSAGE_TYPE_SUBSCRIBE_DONE);
-  buffer << msg.subscribe_id;
-  buffer << msg.status_code;
-  buffer << msg.reason_phrase;
-  buffer << uint8_t(msg.content_exists);
-  if (msg.content_exists) {
-    buffer << msg.final_group_id;
-    buffer << msg.final_object_id;
-  }
-  return buffer;
-}
-
-MessageBuffer &
-operator>>(MessageBuffer &buffer, MoqSubscribeDone&msg) {
-  buffer >> msg.subscribe_id;
-  buffer >> msg.status_code;
-  buffer >> msg.reason_phrase;
-  uint8_t  context_exists {0};
-  buffer >> context_exists;
-  if (context_exists > 1) {
-    throw std::runtime_error("Incorrect Context Exists value");
-  }
-
-  if (context_exists == 1) {
-    msg.content_exists = true;
-    buffer >> msg.final_group_id;
-    buffer >> msg.final_object_id;
-    return buffer;
-  }
-
-  msg.content_exists = false;
-  return buffer;
-}
 
 
 //

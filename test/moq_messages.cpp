@@ -454,3 +454,66 @@ TEST_CASE("SubscribeError  Message encode/decode")
   CHECK_EQ(subscribe_err.reason_phrase, subscribe_err_out.reason_phrase);
   CHECK_EQ(subscribe_err.track_alias, subscribe_err_out.track_alias);
 }
+
+TEST_CASE("Unsubscribe  Message encode/decode")
+{
+  qtransport::StreamBuffer<uint8_t> buffer;
+
+  auto unsubscribe  = MoqUnsubscribe {};
+  unsubscribe.subscribe_id = 0x1;
+  buffer << unsubscribe;
+
+  std::vector<uint8_t> net_data = buffer.front(buffer.size());
+
+  MoqUnsubscribe unsubscribe_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_UNSUBSCRIBE), unsubscribe_out));
+  CHECK_EQ(unsubscribe.subscribe_id, unsubscribe_out.subscribe_id);
+}
+
+TEST_CASE("SubscribeDone  Message encode/decode")
+{
+  qtransport::StreamBuffer<uint8_t> buffer;
+
+  auto subscribe_done  = MoqSubscribeDone {};
+  subscribe_done.subscribe_id = 0x1;
+  subscribe_done.status_code = 0x0;
+  subscribe_done.reason_phrase = quicr::bytes {0x0};
+  subscribe_done.content_exists = false;
+
+  buffer << subscribe_done;
+
+  std::vector<uint8_t> net_data = buffer.front(buffer.size());
+
+  MoqSubscribeDone subscribe_done_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE_DONE), subscribe_done_out));
+  CHECK_EQ(subscribe_done.subscribe_id, subscribe_done_out.subscribe_id);
+  CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
+  CHECK_EQ(subscribe_done.reason_phrase, subscribe_done_out.reason_phrase);
+  CHECK_EQ(subscribe_done.content_exists, subscribe_done_out.content_exists);
+}
+
+TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
+{
+  qtransport::StreamBuffer<uint8_t> buffer;
+
+  auto subscribe_done  = MoqSubscribeDone {};
+  subscribe_done.subscribe_id = 0x1;
+  subscribe_done.status_code = 0x0;
+  subscribe_done.reason_phrase = quicr::bytes {0x0};
+  subscribe_done.content_exists = true;
+  subscribe_done.final_group_id = 0x1111;
+  subscribe_done.final_object_id = 0xff;
+
+  buffer << subscribe_done;
+
+  std::vector<uint8_t> net_data = buffer.front(buffer.size());
+
+  MoqSubscribeDone subscribe_done_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE_DONE), subscribe_done_out));
+  CHECK_EQ(subscribe_done.subscribe_id, subscribe_done_out.subscribe_id);
+  CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
+  CHECK_EQ(subscribe_done.reason_phrase, subscribe_done_out.reason_phrase);
+  CHECK_EQ(subscribe_done.content_exists, subscribe_done_out.content_exists);
+  CHECK_EQ(subscribe_done.final_group_id, subscribe_done_out.final_group_id);
+  CHECK_EQ(subscribe_done.final_object_id, subscribe_done_out.final_object_id);
+}
