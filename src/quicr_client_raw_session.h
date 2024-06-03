@@ -26,6 +26,7 @@
 #include <transport/transport.h>
 
 #include <atomic>
+#include <functional>
 #include <map>
 #include <memory>
 #include <string>
@@ -366,11 +367,11 @@ protected:
 
   struct MetricsPublishDelegate : public PublisherDelegate
   {
-    MetricsPublishDelegate(ClientRawSession& s) : session{s} {}
+    MetricsPublishDelegate(const std::function<void()>& cb) : start_metrics_callback{cb} {}
     void onPublishIntentResponse(const quicr::Namespace& quicr_namespace,
                                  const PublishIntentResult& result) override;
 
-    ClientRawSession& session;
+    std::function<void()> start_metrics_callback;
   };
   friend MetricsPublishDelegate;
 

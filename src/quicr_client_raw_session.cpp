@@ -145,7 +145,9 @@ ClientRawSession::~ClientRawSession()
     disconnect();
   }
 
-  _metrics_thread.join();
+  if (_metrics_thread.joinable()) {
+    _metrics_thread.join();
+  }
 }
 
 bool
@@ -1018,7 +1020,7 @@ ClientRawSession::handle(std::optional<uint64_t> stream_id,
                    << std::flush;
 
       if (metrics_namespace) {
-        publishIntent(std::make_shared<MetricsPublishDelegate>(*this),
+        publishIntent(std::make_shared<MetricsPublishDelegate>([this] { this->runPublishMeasurements(); }),
                       *metrics_namespace,
                       "",
                       "",
@@ -1202,6 +1204,6 @@ ClientRawSession::MetricsPublishDelegate::onPublishIntentResponse(
   if (result.status != messages::Response::Ok)
     return;
 
-  session.runPublishMeasurements();
+  start_metrics_callback();
 }
 } // namespace quicr
