@@ -105,22 +105,24 @@ enum struct FilterType: uint64_t {
 };
 
 struct MoqSubscribe {
-  std::optional<uint64_t> subscribe_id;
-  std::optional<uint64_t> track_alias;
+  uint64_t subscribe_id;
+  uint64_t track_alias;
   TrackNamespace track_namespace;
   TrackName track_name;
   FilterType filter_type {FilterType::None};
-  std::optional<uintVar_t> start_group;
-  std::optional<uintVar_t> end_group;
-  std::optional<uintVar_t> start_object;
-  std::optional<uintVar_t> end_object;
+  uint64_t start_group {0};
+  uint64_t end_group {0};
+  uint64_t start_object {0};
+  uint64_t end_object {0};
   uint64_t num_params {0};
   std::vector<MoqParameter> track_params;
   friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
                                                        const MoqSubscribe& msg);
 private:
-  MoqParameter current_param{};
+  std::optional<MoqParameter> current_param{};
+  size_t current_pos {0};
+  bool parsing_completed { false };
 };
 
 struct MoqSubscribeOk {

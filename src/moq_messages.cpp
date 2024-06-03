@@ -5,6 +5,28 @@
 namespace quicr::messages {
 
 //
+// Utility
+//
+bool parse_uintV_field(qtransport::StreamBuffer<uint8_t> &buffer, uint64_t& field) {
+  auto val = buffer.decode_uintV();
+  if (!val) {
+    return false;
+  }
+  field = val.value();
+  return true;
+}
+
+
+bool parse_bytes_field(qtransport::StreamBuffer<uint8_t> &buffer, quicr::bytes& field) {
+  auto val = buffer.decode_bytes();
+  if (!val) {
+    return false;
+  }
+  field = std::move(val.value());
+  return true;
+}
+
+//
 // Optional
 //
 
@@ -56,8 +78,8 @@ MessageBuffer& operator>>(MessageBuffer &buffer, MoqParameter &param) {
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqSubscribe& msg){
   buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE)));
-  buffer.push(qtransport::to_uintV(msg.subscribe_id.value()));
-  buffer.push(qtransport::to_uintV(msg.track_alias.value()));
+  buffer.push(qtransport::to_uintV(msg.subscribe_id));
+  buffer.push(qtransport::to_uintV(msg.track_alias));
   buffer.push_lv(msg.track_namespace);
   buffer.push_lv(msg.track_name);
   buffer.push(qtransport::to_uintV(static_cast<uint64_t>(msg.filter_type)));
@@ -68,15 +90,15 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
     case FilterType::LatestObject:
       break;
     case FilterType::AbsoluteStart: {
-      buffer.push(qtransport::to_uintV(msg.start_group.value()));
-      buffer.push(qtransport::to_uintV(msg.start_object.value()));
+      buffer.push(qtransport::to_uintV(msg.start_group));
+      buffer.push(qtransport::to_uintV(msg.start_object));
     }
       break;
     case FilterType::AbsoluteRange:
-      buffer.push(qtransport::to_uintV(msg.start_group.value()));
-      buffer.push(qtransport::to_uintV(msg.start_object.value()));
-      buffer.push(qtransport::to_uintV(msg.end_group.value()));
-      buffer.push(qtransport::to_uintV(msg.end_object.value()));
+      buffer.push(qtransport::to_uintV(msg.start_group));
+      buffer.push(qtransport::to_uintV(msg.start_object));
+      buffer.push(qtransport::to_uintV(msg.end_group));
+      buffer.push(qtransport::to_uintV(msg.end_object));
       break;
   }
 
@@ -92,143 +114,130 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
 
 bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg) {
 
-  if (!msg.subscribe_id.has_value()) {
-    auto val = buffer.decode_uintV();
-    if (!val) {
-      return false;
-    }
-    msg.subscribe_id = val.value();
-  }
-
-  if (!msg.track_alias.has_value()) {
-    auto val = buffer.decode_uintV();
-    if (!val) {
-      return false;
-    }
-    msg.track_alias = val.value();
-  }
-
-  if (msg.track_namespace.empty())
-  {
-    const auto val = buffer.decode_bytes();
-    if (!val) {
-      return false;
-    }
-    msg.track_namespace = val.value();
-  }
-
-  if (msg.track_name.empty())
-  {
-    const auto val = buffer.decode_bytes();
-    if (!val) {
-      return false;
-    }
-    msg.track_name = val.value();
-  }
-
-  if (msg.filter_type == FilterType::None)
-  {
-    const auto val = buffer.decode_uintV();
-    if (!val) {
-      return false;
-    }
-
-    auto filter = val.value();
-    msg.filter_type = static_cast<FilterType>(filter);
-  }
-
-  switch (msg.filter_type) {
-    case FilterType::None:
-    throw std::runtime_error("Malformed Filter Type");
-    case FilterType::LatestGroup:
-    case FilterType::LatestObject:
-      break;
-    case FilterType::AbsoluteStart:
-    {
-      if (!msg.start_group.has_value()) {
-        const auto val = buffer.decode_uintV();
-        if (!val) {
-          return false;
-        }
-        msg.start_group = val.value();
+  switch (msg.current_pos) {
+    case 0: {
+      if(!parse_uintV_field(buffer, msg.subscribe_id)) {
+        return false;
       }
-
-      if (!msg.start_object.has_value()) {
-        const auto val = buffer.decode_uintV();
-        if (!val) {
-          return false;
-        }
-        msg.start_object = val.value();
-      }
+      msg.current_pos += 1;
     }
-      break;
-    case FilterType::AbsoluteRange:
-    {
-      if (!msg.start_group.has_value()) {
-        const auto val = buffer.decode_uintV();
-        if (!val) {
-          return false;
-        }
-        msg.start_group = val.value();
+    break;
+    case 1: {
+      if(!parse_uintV_field(buffer, msg.track_alias)) {
+        return false;
       }
-
-      if (!msg.start_object.has_value()) {
-        const auto val = buffer.decode_uintV();
-        if (!val) {
-          return false;
-        }
-        msg.start_object = val.value();
-      }
-
-      if (!msg.end_group.has_value()) {
-        const auto val = buffer.decode_uintV();
-        if (!val) {
-          return false;
-        }
-        msg.end_group = val.value();
-      }
-
-      if (!msg.end_object.has_value()) {
-        const auto val = buffer.decode_uintV();
-        if (!val) {
-          return false;
-        }
-        msg.end_object = val.value();
-      }
+      msg.current_pos += 1;
     }
-      break;
-  }
-
-  if (!msg.num_params) {
-    const auto val = buffer.decode_uintV();
-    if (!val) {
-      return false;
+    break;
+    case 2: {
+      if(!parse_bytes_field(buffer, msg.track_namespace)) {
+        return false;
+      }
+      msg.current_pos += 1;
     }
-    msg.num_params = val.value();
-  }
-
-  // parse each param
-  while (msg.num_params > 0) {
-    if (!msg.current_param.param_type) {
-      auto val = buffer.front();
+    break;
+    case 3: {
+      if(!parse_bytes_field(buffer, msg.track_name)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 4: {
+      const auto val = buffer.decode_uintV();
       if (!val) {
         return false;
       }
-      msg.current_param.param_type = *val;
-      buffer.pop();
+      auto filter = val.value();
+      msg.filter_type = static_cast<FilterType>(filter);
+      if (msg.filter_type == FilterType::LatestGroup
+          || msg.filter_type == FilterType::LatestObject) {
+        // we don't get further fields until parameters
+        msg.current_pos = 9;
+      } else {
+        msg.current_pos += 1;
+      }
     }
-
-    // decode param_len:<bytes>
-    auto param = buffer.decode_bytes();
-    if (!param) {
-      return false;
+    break;
+    case 5: {
+      if (msg.filter_type == FilterType::AbsoluteStart
+          || msg.filter_type == FilterType::AbsoluteRange) {
+        if (!parse_uintV_field(buffer, msg.start_group)) {
+          return false;
+        }
+        msg.current_pos += 1;
+      }
     }
+    break;
+    case 6: {
+      if (msg.filter_type == FilterType::AbsoluteStart
+          || msg.filter_type == FilterType::AbsoluteRange) {
+        if (!parse_uintV_field(buffer, msg.start_object)) {
+          return false;
+        }
 
-    msg.current_param.param_length = param->size();
-    msg.current_param.param_value = param.value();
-    msg.track_params.push_back(msg.current_param);
-    msg.current_param = {};
-    msg.num_params -= 1;
+        if (msg.filter_type == FilterType::AbsoluteStart) {
+          msg.current_pos = 9;
+        } else {
+          msg.current_pos += 1;
+        }
+      }
+    }
+    break;
+    case 7: {
+      if (msg.filter_type == FilterType::AbsoluteRange) {
+        if (!parse_uintV_field(buffer, msg.end_group)) {
+          return false;
+        }
+        msg.current_pos += 1;
+      }
+    }
+    break;
+    case 8: {
+      if (msg.filter_type == FilterType::AbsoluteRange) {
+        if (!parse_uintV_field(buffer, msg.end_object)) {
+          return false;
+        }
+        msg.current_pos += 1;
+      }
+    }
+    break;
+    case 9: {
+      if (!msg.current_param.has_value()) {
+        if (!parse_uintV_field(buffer, msg.num_params)) {
+          return false;
+        }
+        msg.current_param = MoqParameter{};
+      }
+      // parse each param
+      while (msg.num_params > 0) {
+        if (!msg.current_param.value().param_type) {
+          auto val = buffer.front();
+          if (!val) {
+            return false;
+          }
+          msg.current_param.value().param_type = *val;
+          buffer.pop();
+        }
+
+        // decode param_len:<bytes>
+        auto param = buffer.decode_bytes();
+        if (!param) {
+          return false;
+        }
+        msg.current_param.value().param_length = param->size();
+        msg.current_param.value().param_value = param.value();
+        msg.track_params.push_back(msg.current_param.value());
+        msg.current_param = MoqParameter{};
+        msg.num_params -= 1;
+      }
+      msg.parsing_completed = true;
+    }
+    break;
+  }
+
+  if (!msg.parsing_completed ) {
+    return false;
   }
 
   return true;
@@ -247,15 +256,6 @@ operator>>(MessageBuffer &buffer, MoqUnsubscribe &msg) {
   return buffer;
 }
 
-
-/*
- * SubscribeId subscribe_id;
-uintVar_t expires;
-bool content_exists;
-std::optional<GroupId> largest_group;
-std::optional<ObjectId> largest_object;
-
- */
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqSubscribeOk& msg){
   buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE_OK)));
@@ -269,14 +269,6 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
   return buffer;
 }
 
-bool parse_uintV_field(qtransport::StreamBuffer<uint8_t> &buffer, uint64_t& field) {
-  auto val = buffer.decode_uintV();
-  if (!val) {
-    return false;
-  }
-  field = val.value();
-  return true;
-}
 
 bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeOk &msg) {
 

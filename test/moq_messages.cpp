@@ -138,8 +138,8 @@ TEST_CASE("Subscribe (LatestObject) Message encode/decode")
   CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE), subscribe_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
   CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
-  CHECK_EQ(subscribe.subscribe_id.value(), subscribe_out.subscribe_id.value());
-  CHECK_EQ(subscribe.track_alias.value(), subscribe_out.track_alias.value());
+  CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
+  CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
   CHECK_EQ(subscribe.num_params, subscribe_out.num_params);
   CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
 }
@@ -164,8 +164,8 @@ TEST_CASE("Subscribe (LatestGroup) Message encode/decode")
   CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE), subscribe_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
   CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
-  CHECK_EQ(subscribe.subscribe_id.value(), subscribe_out.subscribe_id.value());
-  CHECK_EQ(subscribe.track_alias.value(), subscribe_out.track_alias.value());
+  CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
+  CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
   CHECK_EQ(subscribe.num_params, subscribe_out.num_params);
   CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
 }
@@ -192,8 +192,8 @@ TEST_CASE("Subscribe (AbsoluteStart) Message encode/decode")
   CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE), subscribe_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
   CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
-  CHECK_EQ(subscribe.subscribe_id.value(), subscribe_out.subscribe_id.value());
-  CHECK_EQ(subscribe.track_alias.value(), subscribe_out.track_alias.value());
+  CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
+  CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
   CHECK_EQ(subscribe.num_params, subscribe_out.num_params);
   CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
   CHECK_EQ(subscribe.start_group, subscribe_out.start_group);
@@ -225,8 +225,8 @@ TEST_CASE("Subscribe (AbsoluteRange) Message encode/decode")
   CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE), subscribe_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
   CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
-  CHECK_EQ(subscribe.subscribe_id.value(), subscribe_out.subscribe_id.value());
-  CHECK_EQ(subscribe.track_alias.value(), subscribe_out.track_alias.value());
+  CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
+  CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
   CHECK_EQ(subscribe.num_params, subscribe_out.num_params);
   CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
   CHECK_EQ(subscribe.start_group, subscribe_out.start_group);
@@ -259,13 +259,59 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
   CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE), subscribe_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
   CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
-  CHECK_EQ(subscribe.subscribe_id.value(), subscribe_out.subscribe_id.value());
-  CHECK_EQ(subscribe.track_alias.value(), subscribe_out.track_alias.value());
+  CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
+  CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
   CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
   CHECK_EQ(subscribe.track_params.size(), subscribe_out.track_params.size());
   CHECK_EQ(subscribe.track_params[0].param_type, subscribe_out.track_params[0].param_type);
   CHECK_EQ(subscribe.track_params[0].param_length, subscribe_out.track_params[0].param_length);
   CHECK_EQ(subscribe.track_params[0].param_value, subscribe_out.track_params[0].param_value);
+}
+
+
+TEST_CASE("Subscribe (Params - 2) Message encode/decode")
+{
+  qtransport::StreamBuffer<uint8_t> buffer;
+  MoqParameter param1 {
+    .param_type = static_cast<uint64_t>(ParameterType::AuthorizationInfo),
+    .param_length = 0x2,
+    .param_value = {0x1, 0x2}
+  };
+
+  MoqParameter param2  {
+    .param_type = static_cast<uint64_t>(ParameterType::AuthorizationInfo),
+    .param_length = 0x4,
+    .param_value = {0x1, 0x2, 0x3, 0x4}
+  };
+
+  auto subscribe  = MoqSubscribe {};
+  subscribe.subscribe_id = 0x1;
+  subscribe.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+  subscribe.track_namespace = TRACK_NAMESPACE_CONF;
+  subscribe.track_name = TRACK_NAME_ALICE_VIDEO;
+  subscribe.filter_type = FilterType::LatestObject;
+  subscribe.num_params = 2;
+  subscribe.track_params.push_back(param1);
+  subscribe.track_params.push_back(param2);
+  buffer << subscribe;
+
+  std::vector<uint8_t> net_data = buffer.front(buffer.size());
+
+  MoqSubscribe subscribe_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE), subscribe_out));
+  CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
+  CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
+  CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
+  CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
+  CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
+  CHECK_EQ(subscribe.track_params.size(), subscribe_out.track_params.size());
+  CHECK_EQ(subscribe.track_params[0].param_type, subscribe_out.track_params[0].param_type);
+  CHECK_EQ(subscribe.track_params[0].param_length, subscribe_out.track_params[0].param_length);
+  CHECK_EQ(subscribe.track_params[0].param_value, subscribe_out.track_params[0].param_value);
+
+  CHECK_EQ(subscribe.track_params[1].param_type, subscribe_out.track_params[1].param_type);
+  CHECK_EQ(subscribe.track_params[1].param_length, subscribe_out.track_params[1].param_length);
+  CHECK_EQ(subscribe.track_params[1].param_value, subscribe_out.track_params[1].param_value);
 }
 
 
