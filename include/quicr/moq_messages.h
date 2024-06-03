@@ -136,15 +136,21 @@ struct MoqSubscribeOk {
                                                        const MoqSubscribeOk& msg);
 private:
   size_t current_pos {0};
-  const size_t MAX_FIELDS = 5;
+  const size_t MAX_FIELDS {5};
 };
 
 
 struct MoqSubscribeError {
-  SubscribeId subscribe_id;
+  uint64_t subscribe_id;
   ErrorCode err_code;
   ReasonPhrase reason_phrase;
-  TrackAlias  track_alias;
+  uint64_t track_alias;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeError &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqSubscribeError& msg);
+private:
+  size_t current_pos {0};
+  const size_t MAX_FIELDS {4};
 };
 
 struct MoqUnsubscribe {

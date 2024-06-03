@@ -326,6 +326,60 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeOk &msg) 
   return true;
 }
 
+
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+           const MoqSubscribeError& msg){
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE_ERROR)));
+  buffer.push(qtransport::to_uintV(msg.subscribe_id));
+  buffer.push(qtransport::to_uintV(msg.err_code));
+  buffer.push_lv(msg.reason_phrase);
+  buffer.push(qtransport::to_uintV(msg.track_alias));
+  return buffer;
+}
+
+
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeError &msg) {
+
+  switch (msg.current_pos) {
+    case 0:
+    {
+      if(!parse_uintV_field(buffer, msg.subscribe_id)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 1: {
+      if(!parse_uintV_field(buffer, msg.err_code)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 2: {
+      const auto val = buffer.decode_bytes();
+      if (!val) {
+        return false;
+      }
+      msg.reason_phrase = std::move(val.value());
+      msg.current_pos += 1;
+    }
+    break;
+    case 3: {
+      if(!parse_uintV_field(buffer, msg.track_alias)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+  }
+
+  if (msg.current_pos < msg.MAX_FIELDS) {
+    return false;
+  }
+  return true;
+}
+
 MessageBuffer &
 operator<<(MessageBuffer &buffer, const MoqSubscribeError &msg) {
   buffer << static_cast<uint8_t>(MESSAGE_TYPE_SUBSCRIBE_ERROR);

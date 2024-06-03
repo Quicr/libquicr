@@ -432,5 +432,25 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
   CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
   CHECK_EQ(subscribe_ok.largest_group, subscribe_ok_out.largest_group);
   CHECK_EQ(subscribe_ok.largest_object, subscribe_ok_out.largest_object);
+}
 
+TEST_CASE("SubscribeError  Message encode/decode")
+{
+  qtransport::StreamBuffer<uint8_t> buffer;
+
+  auto subscribe_err  = MoqSubscribeError {};
+  subscribe_err.subscribe_id = 0x1;
+  subscribe_err.err_code = 0;
+  subscribe_err.reason_phrase = quicr::bytes {0x0, 0x1};
+  subscribe_err.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+  buffer << subscribe_err;
+
+  std::vector<uint8_t> net_data = buffer.front(buffer.size());
+
+  MoqSubscribeError subscribe_err_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE_ERROR), subscribe_err_out));
+  CHECK_EQ(subscribe_err.subscribe_id, subscribe_err_out.subscribe_id);
+  CHECK_EQ(subscribe_err.err_code, subscribe_err_out.err_code);
+  CHECK_EQ(subscribe_err.reason_phrase, subscribe_err_out.reason_phrase);
+  CHECK_EQ(subscribe_err.track_alias, subscribe_err_out.track_alias);
 }
