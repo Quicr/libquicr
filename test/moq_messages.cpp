@@ -272,17 +272,16 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
 TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
-  MoqParameter param1 {
-    .param_type = static_cast<uint64_t>(ParameterType::AuthorizationInfo),
-    .param_length = 0x2,
-    .param_value = {0x1, 0x2}
-  };
+  MoqParameter param1;
+  param1.param_type = static_cast<uint64_t>(ParameterType::AuthorizationInfo);
+  param1.param_length = 0x2;
+  param1.param_value = {0x1, 0x2};
 
-  MoqParameter param2  {
-    .param_type = static_cast<uint64_t>(ParameterType::AuthorizationInfo),
-    .param_length = 0x4,
-    .param_value = {0x1, 0x2, 0x3, 0x4}
-  };
+  MoqParameter param2;
+  param2.param_type = static_cast<uint64_t>(ParameterType::AuthorizationInfo);
+  param2.param_length = 0x3;
+  param2.param_value = {0x1, 0x2, 0x3};
+
 
   auto subscribe  = MoqSubscribe {};
   subscribe.subscribe_id = 0x1;
@@ -341,11 +340,10 @@ MoqSubscribe generate_subscribe(FilterType filter, size_t  num_params = 0, uint6
   }
 
   while(num_params > 0) {
-    MoqParameter param1 {
-      .param_type = static_cast<uint64_t>(ParameterType::AuthorizationInfo),
-      .param_length = 0x2,
-      .param_value = {0x1, 0x2}
-    };
+    MoqParameter param1;
+    param1.param_type = static_cast<uint64_t>(ParameterType::AuthorizationInfo);
+    param1.param_length = 0x2;
+    param1.param_value = {0x1, 0x2};
     out.track_params.push_back(param1);
     num_params--;
   }
@@ -516,4 +514,25 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
   CHECK_EQ(subscribe_done.content_exists, subscribe_done_out.content_exists);
   CHECK_EQ(subscribe_done.final_group_id, subscribe_done_out.final_group_id);
   CHECK_EQ(subscribe_done.final_object_id, subscribe_done_out.final_object_id);
+}
+
+
+TEST_CASE("ClientSetup  Message encode/decode")
+{
+  qtransport::StreamBuffer<uint8_t> buffer;
+  auto client_setup = MoqClientSetup {};
+  client_setup.num_versions = 2;
+  client_setup.supported_versions = {0x1000, 0x2000};
+  client_setup.role_parameter.param_type = static_cast<uint64_t>(ParameterType::Role);
+  client_setup.role_parameter.param_length = 0x1;
+  client_setup.role_parameter.param_value = {0xFF};
+
+  buffer << client_setup;
+
+  std::vector<uint8_t> net_data = buffer.front(buffer.size());
+
+  MoqClientSetup client_setup_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_CLIENT_SETUP), client_setup_out));
+  CHECK_EQ(client_setup.supported_versions, client_setup_out.supported_versions);
+  CHECK_EQ(client_setup.role_parameter.param_value, client_setup_out.role_parameter.param_value);
 }

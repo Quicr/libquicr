@@ -51,6 +51,40 @@ MessageBuffer& operator>>(MessageBuffer& buffer, std::optional<T>& val) {
 // MoqParameter
 //
 
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+           const MoqParameter& param){
+
+  buffer.push(qtransport::to_uintV(param.param_type));
+  buffer.push(qtransport::to_uintV(param.param_length));
+  if (param.param_length) {
+    buffer.push_lv(param.param_value);
+  }
+  return buffer;
+}
+
+
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqParameter &param) {
+
+  if(!parse_uintV_field(buffer, param.param_type)) {
+    return false;
+  }
+
+  if(!parse_uintV_field(buffer, param.param_length)) {
+    return false;
+  }
+
+  if(param.param_length) {
+    const auto val = buffer.decode_bytes();
+    if (!val) {
+      return false;
+    }
+    param.param_value = std::move(val.value());
+  }
+
+  return true;
+}
+
+
 MessageBuffer& operator<<(MessageBuffer &buffer, const MoqParameter &param) {
   buffer << param.param_type;
   buffer << param.param_length;
@@ -104,7 +138,7 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
 
   buffer.push(qtransport::to_uintV(msg.num_params));
   for (const auto& param: msg.track_params) {
-    buffer.push(qtransport::to_uintV(static_cast<uint64_t>(param.param_type.value())));
+    buffer.push(qtransport::to_uintV(static_cast<uint64_t>(param.param_type)));
     buffer.push(qtransport::to_uintV(param.param_length));
     buffer.push(param.param_value);
   }
@@ -763,58 +797,85 @@ operator>>(MessageBuffer &buffer, MoqStreamGroupObject &msg) {
 }
 
 
-// Setup
-
-// vector<varint> encode/decode
-MessageBuffer&
-operator<<(MessageBuffer& buffer, const std::vector<uintVar_t>& val)
-{
-  buffer << static_cast<uintVar_t>(val.size());
-  for(uint64_t i = 0; i < val.size(); i++) {
-    buffer << val[i];
-  }
-
-  return buffer;
-}
-
-MessageBuffer&
-operator>>(MessageBuffer& msg, std::vector<uintVar_t>& val)
-{
-  auto vec_size = uintVar_t(0);
-  msg >> vec_size;
-  auto version = std::vector<uintVar_t>();
-  version.resize((uint64_t) vec_size);
-  val.resize((uint64_t) vec_size);
-
-  // TODO (Suhas): This needs revisiting
-  for(uint64_t i = 0; i < version.size(); i++) {
-    msg >> version[i];
-  }
-  val = std::move(version);
-  return msg;
-}
-
-
 // Client Setup message
-MessageBuffer &
-operator<<(MessageBuffer &buffer, const MoqClientSetup &msg) {
-  buffer << static_cast<uintVar_t>(MESSAGE_TYPE_CLIENT_SETUP);
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+           const MoqClientSetup& msg){
+
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_CLIENT_SETUP)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(msg.supported_versions.size())));
   // versions
-  buffer << static_cast<uintVar_t>(msg.supported_versions.size());
   for (const auto& ver: msg.supported_versions) {
-    buffer << static_cast<uintVar_t>(ver);
+    buffer.push(qtransport::to_uintV(ver));
   }
 
-  // TODO (Suhas): Add support for PATH Param
-  // num params
-  buffer << uintVar_t{1};
+  /// num params
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(1)));
   // role param
-  buffer << static_cast<uint8_t>(msg.role_parameter.param_type.value());
-  buffer << uintVar_t(1);
-  buffer << msg.role_parameter.param_value;
-
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(msg.role_parameter.param_type)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(1)));
+  buffer.push_lv(msg.role_parameter.param_value);
   return buffer;
 }
+
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqClientSetup &msg) {
+  switch (msg.current_pos) {
+    case 0: {
+      if(!parse_uintV_field(buffer, msg.num_versions)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    case 1: {
+      while (msg.num_versions > 0) {
+        uint64_t version{ 0 };
+        if (!parse_uintV_field(buffer, version)) {
+          return false;
+        }
+        msg.supported_versions.push_back(version);
+        msg.num_versions -= 1;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 2: {
+      if(!parse_uintV_field(buffer, msg.num_params)) {
+        return false;
+      }
+
+      while (msg.num_params > 0) {
+        if (!msg.current_param.param_type) {
+          auto val = buffer.front();
+          if (!val) {
+            return false;
+          }
+          msg.current_param.param_type = *val;
+          buffer.pop();
+        }
+
+        auto param = buffer.decode_bytes();
+        if (!param) {
+          return false;
+        }
+        msg.current_param.param_length = param->size();
+        msg.current_param.param_value = param.value();
+        static_cast<ParameterType>(msg.current_param.param_type) == ParameterType::Role  ?
+          msg.role_parameter = std::move(msg.current_param) : msg.path_parameter = std::move(msg.current_param);
+        msg.current_param = MoqParameter{};
+        msg.num_params -= 1;
+      }
+
+      msg.parse_completed = true;
+    }
+    break;
+  }
+
+  if (!msg.parse_completed) {
+    return false;
+  }
+
+  return true;
+}
+
 
 MessageBuffer &
 operator>>(MessageBuffer &buffer, MoqClientSetup &msg) {

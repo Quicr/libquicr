@@ -9,7 +9,7 @@
 
 namespace quicr::messages {
 
-using Version = uintVar_t;
+using Version = uint64_t;
 using TrackNamespace = quicr::bytes;
 using TrackName = quicr::bytes;
 using ErrorCode = uint64_t;
@@ -64,10 +64,15 @@ enum struct ParameterType : uint8_t {
   Invalid = 0xFF, // used internally.
 };
 
-struct MoqParameter{
-  std::optional<uint64_t> param_type;
-  uintVar_t param_length;
+struct MoqParameter {
+  uint64_t param_type {0};
+  uint64_t param_length {0};
   bytes param_value;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqParameter &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqParameter& msg);
+private:
+  uint64_t current_pos {0};
 };
 
 //
@@ -75,15 +80,27 @@ struct MoqParameter{
 //
 
 struct MoqClientSetup {
+  uint64_t num_versions {0};
   std::vector<Version> supported_versions;
   MoqParameter role_parameter;
   MoqParameter path_parameter;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqClientSetup &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqClientSetup& msg);
+private:
+  size_t current_pos {0};
+  uint64_t num_params {0};
+  MoqParameter current_param {};
+  bool parse_completed { false };
 };
 
 struct MoqServerSetup {
   Version supported_version;
   MoqParameter role_parameter;
   MoqParameter path_parameter;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqServerSetup &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqServerSetup& msg);
 };
 
 MessageBuffer& operator<<(MessageBuffer &buffer, const MoqParameter &msg);
@@ -175,14 +192,6 @@ private:
   size_t current_pos {0};
   const size_t MAX_FIELDS = {6};
 };
-
-MessageBuffer& operator<<(MessageBuffer &buffer, const MoqUnsubscribe &msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqUnsubscribe &msg);
-MessageBuffer& operator<<(MessageBuffer &buffer, const MoqSubscribeError &msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqSubscribeError &msg);
-MessageBuffer& operator<<(MessageBuffer &buffer, const MoqSubscribeDone &msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqSubscribeDone &msg);
-
 
 //
 // Announce
