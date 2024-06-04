@@ -95,20 +95,22 @@ private:
 };
 
 struct MoqServerSetup {
-  Version supported_version;
+  Version selection_version;
   MoqParameter role_parameter;
   MoqParameter path_parameter;
   friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqServerSetup &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
                                                        const MoqServerSetup& msg);
+private:
+  size_t current_pos {0};
+  std::optional<uint64_t> num_params;
+  bool parse_completed { false };
+  std::optional<MoqParameter> current_param {};
+
 };
 
 MessageBuffer& operator<<(MessageBuffer &buffer, const MoqParameter &msg);
 MessageBuffer& operator>>(MessageBuffer &buffer, MoqParameter &msg);
-MessageBuffer& operator<<(MessageBuffer &buffer, const MoqClientSetup &msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqClientSetup &msg);
-MessageBuffer& operator<<(MessageBuffer &buffer, const MoqServerSetup &msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqServerSetup &msg);
 
 //
 // Subscribe

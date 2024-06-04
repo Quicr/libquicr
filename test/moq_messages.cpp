@@ -536,3 +536,23 @@ TEST_CASE("ClientSetup  Message encode/decode")
   CHECK_EQ(client_setup.supported_versions, client_setup_out.supported_versions);
   CHECK_EQ(client_setup.role_parameter.param_value, client_setup_out.role_parameter.param_value);
 }
+
+
+TEST_CASE("ServertSetup  Message encode/decode")
+{
+  qtransport::StreamBuffer<uint8_t> buffer;
+  auto server_setup = MoqServerSetup {};
+  server_setup.selection_version = {0x1000};
+  server_setup.role_parameter.param_type = static_cast<uint64_t>(ParameterType::Role);
+  server_setup.role_parameter.param_length = 0x1;
+  server_setup.role_parameter.param_value = {0xFF};
+
+  buffer << server_setup;
+
+  std::vector<uint8_t> net_data = buffer.front(buffer.size());
+
+  MoqServerSetup server_setup_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SERVER_SETUP), server_setup_out));
+  CHECK_EQ(server_setup.selection_version, server_setup_out.selection_version);
+  CHECK_EQ(server_setup.role_parameter.param_value, server_setup.role_parameter.param_value);
+}

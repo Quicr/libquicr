@@ -880,61 +880,71 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqClientSetup &msg) 
 }
 
 
-MessageBuffer &
-operator>>(MessageBuffer &buffer, MoqClientSetup &msg) {
-  uintVar_t num_versions {0};
-  buffer >> num_versions;
-  msg.supported_versions.resize(num_versions);
-  for(size_t i = 0; i < num_versions; i++) {
-    uintVar_t version{0};
-    buffer >> version;
-    msg.supported_versions.push_back(version);
-  }
-
-  uintVar_t num_params {0};
-  buffer >> num_params;
-  if (static_cast<uint64_t> (num_params) == 0) {
-    return buffer;
-  }
-
-  while (static_cast<uint64_t>(num_params) > 0) {
-    uint8_t param_type {0};
-    buffer >> param_type;
-    auto param_type_enum = static_cast<ParameterType> (param_type);
-    switch(param_type_enum) {
-      case ParameterType::Role: {
-        msg.role_parameter.param_type = param_type;
-        buffer >> msg.role_parameter.param_length;
-        buffer >> msg.role_parameter.param_value;
-      }
-      break;
-      case ParameterType::Path: {
-        msg.path_parameter.param_type = param_type;
-        buffer >> msg.path_parameter.param_length;
-        buffer >> msg.path_parameter.param_value;
-      }
-      break;
-      default:
-        throw std::runtime_error("Unsupported Parameter Type for ClientSetup");
-    }
-    num_params = num_params - 1;
-  }
-
-
-  return buffer;
-}
 
 // Server Setup message
-MessageBuffer&
-operator<<(MessageBuffer &buffer, const MoqServerSetup &msg) {
-  buffer << static_cast<uintVar_t>(MESSAGE_TYPE_SERVER_SETUP);
-  buffer << msg.supported_version;
+
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+           const MoqServerSetup& msg){
+
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_SERVER_SETUP)));
+  buffer.push(qtransport::to_uintV(msg.selection_version));
+
+  /// num params
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(1)));
+  // role param
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(msg.role_parameter.param_type)));
+  buffer.push_lv(msg.role_parameter.param_value);
   return buffer;
 }
 
-MessageBuffer &
-operator>>(MessageBuffer &buffer, MoqServerSetup &msg) {
-  buffer >> msg.supported_version;
-  return buffer;
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqServerSetup &msg) {
+  switch (msg.current_pos) {
+    case 0: {
+      if(!parse_uintV_field(buffer, msg.selection_version)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    case 1: {
+      if(!msg.num_params.has_value()) {
+        auto params = uint64_t {0};
+        if (!parse_uintV_field(buffer, params)) {
+          return false;
+        }
+        msg.num_params = params;
+      }
+      while (msg.num_params > 0) {
+        if (!msg.current_param.has_value()) {
+          auto val = buffer.front();
+          if (!val) {
+            return false;
+          }
+          msg.current_param = MoqParameter{};
+          msg.current_param->param_type = *val;
+          buffer.pop();
+        }
+
+        auto param = buffer.decode_bytes();
+        if (!param) {
+          return false;
+        }
+        msg.current_param->param_length = param->size();
+        msg.current_param->param_value = param.value();
+        static_cast<ParameterType>(msg.current_param->param_type) == ParameterType::Role  ?
+                                                                                         msg.role_parameter = std::move(msg.current_param.value()) : msg.path_parameter = std::move(msg.current_param.value());
+        msg.current_param = MoqParameter{};
+        msg.num_params.value() -= 1;
+      }
+      msg.parse_completed = true;
+    }
+    break;
+  }
+
+  if (!msg.parse_completed) {
+    return false;
+  }
+
+  return true;
 }
+
 }
