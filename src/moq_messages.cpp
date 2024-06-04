@@ -812,7 +812,6 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
   buffer.push(qtransport::to_uintV(static_cast<uint64_t>(1)));
   // role param
   buffer.push(qtransport::to_uintV(static_cast<uint64_t>(msg.role_parameter.param_type)));
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(1)));
   buffer.push_lv(msg.role_parameter.param_value);
   return buffer;
 }
@@ -838,17 +837,21 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqClientSetup &msg) 
     }
     break;
     case 2: {
-      if(!parse_uintV_field(buffer, msg.num_params)) {
-        return false;
+      if(!msg.num_params.has_value()) {
+        auto params = uint64_t {0};
+        if (!parse_uintV_field(buffer, params)) {
+          return false;
+        }
+        msg.num_params = params;
       }
-
       while (msg.num_params > 0) {
-        if (!msg.current_param.param_type) {
+        if (!msg.current_param.has_value()) {
           auto val = buffer.front();
           if (!val) {
             return false;
           }
-          msg.current_param.param_type = *val;
+          msg.current_param = MoqParameter{};
+          msg.current_param->param_type = *val;
           buffer.pop();
         }
 
@@ -856,12 +859,12 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqClientSetup &msg) 
         if (!param) {
           return false;
         }
-        msg.current_param.param_length = param->size();
-        msg.current_param.param_value = param.value();
-        static_cast<ParameterType>(msg.current_param.param_type) == ParameterType::Role  ?
-          msg.role_parameter = std::move(msg.current_param) : msg.path_parameter = std::move(msg.current_param);
+        msg.current_param->param_length = param->size();
+        msg.current_param->param_value = param.value();
+        static_cast<ParameterType>(msg.current_param->param_type) == ParameterType::Role  ?
+          msg.role_parameter = std::move(msg.current_param.value()) : msg.path_parameter = std::move(msg.current_param.value());
         msg.current_param = MoqParameter{};
-        msg.num_params -= 1;
+        msg.num_params.value() -= 1;
       }
 
       msg.parse_completed = true;

@@ -89,8 +89,8 @@ struct MoqClientSetup {
                                                        const MoqClientSetup& msg);
 private:
   size_t current_pos {0};
-  uint64_t num_params {0};
-  MoqParameter current_param {};
+  std::optional<uint64_t> num_params;
+  std::optional<MoqParameter> current_param {};
   bool parse_completed { false };
 };
 
