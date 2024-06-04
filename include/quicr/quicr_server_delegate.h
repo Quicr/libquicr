@@ -74,6 +74,8 @@ public:
    *
    * @param conn_id               : Context id the message was received on
    * @param data_ctx_id           : Stream ID the message was received on
+   * @param reliable              : Indicates if object was received using
+   *                                reliable transport
    * @param datagram              : QuicR Published Message Datagram
    *
    * @note: It is important that the implementations not perform
@@ -87,6 +89,7 @@ public:
    */
   virtual void onPublisherObject(const qtransport::TransportConnId& conn_id,
                                  const qtransport::DataContextId& data_ctx_id,
+                                 bool reliable,
                                  messages::PublishDatagram&& datagram) = 0;
 
   /**
