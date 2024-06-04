@@ -13,14 +13,14 @@ using Version = uint64_t;
 using TrackNamespace = quicr::bytes;
 using TrackName = quicr::bytes;
 using ErrorCode = uint64_t;
-using StatusCode = uintVar_t;
+using StatusCode = uint64_t;
 using ReasonPhrase = quicr::bytes;
-using GroupId = uintVar_t;
-using ObjectId = uintVar_t;
-using ObjectPriority = uintVar_t;
+using GroupId = uint64_t;
+using ObjectId = uint64_t;
+using ObjectPriority = uint64_t;
 using SubscribeId = uint64_t;
-using TrackAlias = uintVar_t;
-using ParamType = uintVar_t;
+using TrackAlias = uint64_t;
+using ParamType = uint64_t;
 
 // Ref: https://moq-wg.github.io/moq-transport/draft-ietf-moq-transport.html#name-messages
 constexpr uint8_t MESSAGE_TYPE_OBJECT_STREAM            = 0x0;
@@ -263,6 +263,12 @@ struct MoqObjectStream {
   ObjectId object_id;
   ObjectPriority priority;
   quicr::bytes payload;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqObjectStream &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqObjectStream& msg);
+private:
+  uint64_t current_pos {0};
+  bool parse_completed { false };
 };
 
 struct MoqObjectDatagram {

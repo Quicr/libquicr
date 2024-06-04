@@ -538,7 +538,7 @@ TEST_CASE("ClientSetup  Message encode/decode")
 }
 
 
-TEST_CASE("ServertSetup  Message encode/decode")
+TEST_CASE("ServerSetup  Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
   auto server_setup = MoqServerSetup {};
@@ -555,4 +555,29 @@ TEST_CASE("ServertSetup  Message encode/decode")
   CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SERVER_SETUP), server_setup_out));
   CHECK_EQ(server_setup.selection_version, server_setup_out.selection_version);
   CHECK_EQ(server_setup.role_parameter.param_value, server_setup.role_parameter.param_value);
+}
+
+TEST_CASE("ObjectStream  Message encode/decode")
+{
+  qtransport::StreamBuffer<uint8_t> buffer;
+  auto object_stream = MoqObjectStream {};
+  object_stream.subscribe_id = 0x100;
+  object_stream.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+  object_stream.group_id = 0x1000;
+  object_stream.object_id = 0xFF;
+  object_stream.priority =0xA;
+  object_stream.payload = {0x1, 0x2, 0x3, 0x5, 0x6};
+
+  buffer << object_stream;
+
+  std::vector<uint8_t> net_data = buffer.front(buffer.size());
+
+  MoqObjectStream object_stream_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_OBJECT_STREAM), object_stream_out));
+  CHECK_EQ(object_stream.subscribe_id, object_stream_out.subscribe_id);
+  CHECK_EQ(object_stream.track_alias, object_stream_out.track_alias);
+  CHECK_EQ(object_stream.group_id, object_stream_out.group_id);
+  CHECK_EQ(object_stream.object_id, object_stream_out.object_id);
+  CHECK_EQ(object_stream.priority, object_stream_out.priority);
+  CHECK_EQ(object_stream.payload, object_stream_out.payload);
 }

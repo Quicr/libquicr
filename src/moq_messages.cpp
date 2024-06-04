@@ -684,6 +684,75 @@ operator>>(MessageBuffer &buffer, MoqGoaway &msg) {
 // Object
 //
 
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+           const MoqObjectStream& msg){
+
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_OBJECT_STREAM)));
+  buffer.push(qtransport::to_uintV(msg.subscribe_id));
+  buffer.push(qtransport::to_uintV(msg.track_alias));
+  buffer.push(qtransport::to_uintV(msg.group_id));
+  buffer.push(qtransport::to_uintV(msg.object_id));
+  buffer.push(qtransport::to_uintV(msg.priority));
+  buffer.push_lv(msg.payload);
+  return buffer;
+}
+
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqObjectStream &msg) {
+
+  switch (msg.current_pos) {
+    case 0: {
+      if(!parse_uintV_field(buffer, msg.subscribe_id)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 1: {
+      if(!parse_uintV_field(buffer, msg.track_alias)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 2: {
+      if(!parse_uintV_field(buffer, msg.group_id)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 3: {
+      if(!parse_uintV_field(buffer, msg.object_id)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 4: {
+      if(!parse_uintV_field(buffer, msg.priority)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 5: {
+      const auto val = buffer.decode_bytes();
+      if (!val) {
+        return false;
+      }
+      msg.payload = std::move(val.value());
+      msg.parse_completed = true;
+    }
+    break;
+  }
+
+  if(!msg.parse_completed) {
+    return false;
+  }
+
+  return true;
+}
+
 MessageBuffer &
 operator<<(MessageBuffer &buffer, const MoqObjectStream &msg) {
   buffer << static_cast<uint8_t>(MESSAGE_TYPE_OBJECT_STREAM);
