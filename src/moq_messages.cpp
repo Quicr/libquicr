@@ -923,7 +923,6 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
 }
 
 bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamHeaderGroup &msg) {
-
   switch (msg.current_pos) {
     case 0: {
       if(!parse_uintV_field(buffer, msg.subscribe_id)) {
@@ -946,7 +945,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamHeaderGroup 
       msg.current_pos += 1;
     }
     break;
-    case 4: {
+    case 3: {
       if(!parse_uintV_field(buffer, msg.priority)) {
         return false;
       }

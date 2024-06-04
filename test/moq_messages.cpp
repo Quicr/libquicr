@@ -581,3 +581,76 @@ TEST_CASE("ObjectStream  Message encode/decode")
   CHECK_EQ(object_stream.priority, object_stream_out.priority);
   CHECK_EQ(object_stream.payload, object_stream_out.payload);
 }
+
+TEST_CASE("ObjectDatagram  Message encode/decode")
+{
+  qtransport::StreamBuffer<uint8_t> buffer;
+  auto object_datagram = MoqObjectDatagram {};
+  object_datagram.subscribe_id = 0x100;
+  object_datagram.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+  object_datagram.group_id = 0x1000;
+  object_datagram.object_id = 0xFF;
+  object_datagram.priority =0xA;
+  object_datagram.payload = {0x1, 0x2, 0x3, 0x5, 0x6};
+
+  buffer << object_datagram;
+
+  std::vector<uint8_t> net_data = buffer.front(buffer.size());
+
+  MoqObjectStream object_datagram_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_OBJECT_DATAGRAM), object_datagram_out));
+  CHECK_EQ(object_datagram.subscribe_id, object_datagram_out.subscribe_id);
+  CHECK_EQ(object_datagram.track_alias, object_datagram_out.track_alias);
+  CHECK_EQ(object_datagram.group_id, object_datagram_out.group_id);
+  CHECK_EQ(object_datagram.object_id, object_datagram_out.object_id);
+  CHECK_EQ(object_datagram.priority, object_datagram_out.priority);
+  CHECK_EQ(object_datagram.payload, object_datagram_out.payload);
+}
+
+TEST_CASE("StreamPerGroup Object  Message encode/decode")
+{
+  qtransport::StreamBuffer<uint8_t> buffer;
+  auto hdr_grp = MoqStreamHeaderGroup {};
+  hdr_grp.subscribe_id = 0x100;
+  hdr_grp.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+  hdr_grp.group_id = 0x1000;
+  hdr_grp.priority = 0xA;
+
+  buffer << hdr_grp;
+
+  std::vector<uint8_t> net_data = buffer.front(buffer.size());
+  MoqStreamHeaderGroup hdr_group_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_STREAM_HEADER_GROUP), hdr_group_out));
+  CHECK_EQ(hdr_grp.subscribe_id, hdr_group_out.subscribe_id);
+  CHECK_EQ(hdr_grp.track_alias, hdr_group_out.track_alias);
+  CHECK_EQ(hdr_grp.group_id, hdr_group_out.group_id);
+
+  buffer.pop(buffer.size());
+  auto objects = std::vector<MoqStreamGroupObject>{};
+  // send 10 objects
+  for(size_t i = 0; i < 10; i++) {
+    auto obj = MoqStreamGroupObject{};
+    obj.object_id = i;
+    obj.payload = {0x1, 0x2, 0x3, 0x4, 0x5};
+    objects.push_back(obj);
+    buffer << obj;
+  }
+
+  net_data.clear();
+  net_data = buffer.front(buffer.size());
+  size_t object_count = 0;
+  for(const auto v: net_data) {
+    buffer.push(v);
+    bool done = false;
+    auto obj_out = MoqStreamGroupObject{};
+    done = buffer >> obj_out;
+    if (done) {
+      CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
+      CHECK_EQ(obj_out.payload, objects[object_count].payload);
+      // got one object
+      object_count++;
+    }
+  }
+
+  CHECK_EQ(object_count, 10);
+}
