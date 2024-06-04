@@ -278,6 +278,12 @@ struct MoqObjectDatagram {
   ObjectId object_id;
   ObjectPriority priority;
   quicr::bytes payload;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqObjectDatagram &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqObjectDatagram& msg);
+private:
+  uint64_t current_pos {0};
+  bool parse_completed { false };
 };
 
 
@@ -285,12 +291,24 @@ struct MoqStreamHeaderTrack {
   SubscribeId subscribe_id;
   TrackAlias track_alias;
   ObjectPriority priority;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamHeaderTrack &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqStreamHeaderTrack& msg);
+private:
+  uint64_t current_pos {0};
+  bool parse_completed { false };
 };
 
 struct MoqStreamTrackObject {
   GroupId  group_id;
   ObjectId object_id;
   quicr::bytes payload;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamTrackObject &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqStreamTrackObject& msg);
+private:
+  uint64_t current_pos {0};
+  bool parse_completed { false };
 };
 
 
@@ -299,11 +317,23 @@ struct MoqStreamHeaderGroup {
   TrackAlias track_alias;
   GroupId group_id;
   ObjectPriority priority;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamHeaderGroup &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqStreamHeaderGroup& msg);
+private:
+  uint64_t current_pos {0};
+  bool parse_completed { false };
 };
 
 struct MoqStreamGroupObject {
   ObjectId object_id;
   quicr::bytes payload;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamGroupObject &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqStreamGroupObject& msg);
+private:
+  uint64_t current_pos {0};
+  bool parse_completed { false };
 };
 
 MessageBuffer& operator<<(MessageBuffer& buffer, const MoqObjectStream& msg);

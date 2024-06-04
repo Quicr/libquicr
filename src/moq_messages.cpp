@@ -753,118 +753,251 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqObjectStream &msg)
   return true;
 }
 
-MessageBuffer &
-operator<<(MessageBuffer &buffer, const MoqObjectStream &msg) {
-  buffer << static_cast<uint8_t>(MESSAGE_TYPE_OBJECT_STREAM);
-  buffer << msg.subscribe_id;
-  buffer << msg.track_alias;
-  buffer << msg.group_id;
-  buffer << msg.object_id;
-  buffer << msg.priority;
-  buffer << msg.payload;
+
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+           const MoqObjectDatagram& msg){
+
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_OBJECT_DATAGRAM)));
+  buffer.push(qtransport::to_uintV(msg.subscribe_id));
+  buffer.push(qtransport::to_uintV(msg.track_alias));
+  buffer.push(qtransport::to_uintV(msg.group_id));
+  buffer.push(qtransport::to_uintV(msg.object_id));
+  buffer.push(qtransport::to_uintV(msg.priority));
+  buffer.push_lv(msg.payload);
   return buffer;
 }
 
-MessageBuffer &
-operator>>(MessageBuffer &buffer, MoqObjectStream &msg) {
-  buffer >> msg.subscribe_id;
-  buffer >> msg.track_alias;
-  buffer >> msg.group_id;
-  buffer >> msg.object_id;
-  buffer >> msg.priority;
-  buffer >> msg.payload;
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqObjectDatagram &msg) {
+
+  switch (msg.current_pos) {
+    case 0: {
+      if(!parse_uintV_field(buffer, msg.subscribe_id)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 1: {
+      if(!parse_uintV_field(buffer, msg.track_alias)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 2: {
+      if(!parse_uintV_field(buffer, msg.group_id)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 3: {
+      if(!parse_uintV_field(buffer, msg.object_id)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 4: {
+      if(!parse_uintV_field(buffer, msg.priority)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 5: {
+      const auto val = buffer.decode_bytes();
+      if (!val) {
+        return false;
+      }
+      msg.payload = std::move(val.value());
+      msg.parse_completed = true;
+    }
+    break;
+  }
+
+  if(!msg.parse_completed) {
+    return false;
+  }
+
+  return true;
+}
+
+
+
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+           const MoqStreamHeaderTrack& msg){
+
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_STREAM_HEADER_TRACK)));
+  buffer.push(qtransport::to_uintV(msg.subscribe_id));
+  buffer.push(qtransport::to_uintV(msg.track_alias));
+  buffer.push(qtransport::to_uintV(msg.priority));
   return buffer;
 }
 
-MessageBuffer &
-operator<<(MessageBuffer &buffer, const MoqObjectDatagram &msg) {
-  buffer << MESSAGE_TYPE_OBJECT_DATAGRAM;
-  buffer << msg.subscribe_id;
-  buffer << msg.track_alias;
-  buffer << msg.group_id;
-  buffer << msg.object_id;
-  buffer << msg.priority;
-  buffer << msg.payload;
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamHeaderTrack &msg) {
+
+  switch (msg.current_pos) {
+    case 0: {
+      if(!parse_uintV_field(buffer, msg.subscribe_id)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 1: {
+      if(!parse_uintV_field(buffer, msg.track_alias)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 2: {
+      if(!parse_uintV_field(buffer, msg.priority)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+  }
+
+  if(!msg.parse_completed) {
+    return false;
+  }
+  return true;
+}
+
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+           const MoqStreamTrackObject& msg){
+
+  buffer.push(qtransport::to_uintV(msg.group_id));
+  buffer.push(qtransport::to_uintV(msg.object_id));
+  buffer.push_lv(msg.payload);
   return buffer;
 }
 
-MessageBuffer &
-operator>>(MessageBuffer &buffer, MoqObjectDatagram &msg) {
-  buffer >> msg.subscribe_id;
-  buffer >> msg.track_alias;
-  buffer >> msg.group_id;
-  buffer >> msg.object_id;
-  buffer >> msg.priority;
-  buffer >> msg.payload;
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamTrackObject &msg) {
+
+  switch (msg.current_pos) {
+    case 0: {
+      if(!parse_uintV_field(buffer, msg.group_id)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 1: {
+      if(!parse_uintV_field(buffer, msg.object_id)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 2: {
+      const auto val = buffer.decode_bytes();
+      if(!val) {
+        return false;
+      }
+      msg.parse_completed = true;
+    }
+    break;
+  }
+
+  if(!msg.parse_completed) {
+    return false;
+  }
+  return true;
+}
+
+
+
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+           const MoqStreamHeaderGroup& msg){
+
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_STREAM_HEADER_GROUP)));
+  buffer.push(qtransport::to_uintV(msg.subscribe_id));
+  buffer.push(qtransport::to_uintV(msg.track_alias));
+  buffer.push(qtransport::to_uintV(msg.group_id));
+  buffer.push(qtransport::to_uintV(msg.priority));
   return buffer;
 }
 
-MessageBuffer &
-operator<<(MessageBuffer &buffer, const MoqStreamTrackObject &msg) {
-  buffer << msg.group_id;
-  buffer << msg.object_id;
-  buffer << msg.payload;
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamHeaderGroup &msg) {
+
+  switch (msg.current_pos) {
+    case 0: {
+      if(!parse_uintV_field(buffer, msg.subscribe_id)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 1: {
+      if(!parse_uintV_field(buffer, msg.track_alias)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 2: {
+      if(!parse_uintV_field(buffer, msg.group_id)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 4: {
+      if(!parse_uintV_field(buffer, msg.priority)) {
+        return false;
+      }
+      msg.current_pos += 1;
+      msg.parse_completed = true;
+    }
+    break;
+  }
+
+  if(!msg.parse_completed) {
+    return false;
+  }
+
+  return true;
+}
+
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+           const MoqStreamGroupObject& msg){
+
+  buffer.push(qtransport::to_uintV(msg.object_id));
+  buffer.push_lv(msg.payload);
   return buffer;
 }
 
-MessageBuffer&
-operator>>(MessageBuffer &buffer, MoqStreamTrackObject &msg) {
-  buffer >> msg.group_id;
-  buffer >> msg.object_id;
-  buffer >> msg.payload;
-  return buffer;
-}
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamGroupObject &msg) {
 
-MessageBuffer &
-operator<<(MessageBuffer &buffer, const MoqStreamHeaderTrack &msg) {
-  buffer << MESSAGE_TYPE_STREAM_HEADER_TRACK;
-  buffer << msg.subscribe_id;
-  buffer << msg.track_alias;
-  buffer << msg.priority;
-  return buffer;
-}
+  switch (msg.current_pos) {
+    case 0: {
+      if(!parse_uintV_field(buffer, msg.object_id)) {
+        return false;
+      }
+      msg.current_pos += 1;
+    }
+    break;
+    case 1: {
+      const auto val = buffer.decode_bytes();
+      if (!val) {
+        return false;
+      }
+      msg.payload = std::move(val.value());
+      msg.parse_completed = true;
+    }
+    break;
+  }
 
-MessageBuffer &
-operator>>(MessageBuffer &buffer, MoqStreamHeaderTrack &msg) {
-  buffer >> msg.subscribe_id;
-  buffer >> msg.track_alias;
-  buffer >> msg.priority;
-  return buffer;
-}
+  if(!msg.parse_completed) {
+    return false;
+  }
 
-MessageBuffer &
-operator<<(MessageBuffer &buffer, const MoqStreamHeaderGroup &msg) {
-  buffer << MESSAGE_TYPE_STREAM_HEADER_GROUP;
-  buffer << msg.subscribe_id;
-  buffer << msg.track_alias;
-  buffer << msg.group_id;
-  buffer << msg.priority;
-  return buffer;
+  return true;
 }
-
-MessageBuffer &
-operator>>(MessageBuffer &buffer, MoqStreamHeaderGroup &msg) {
-  buffer >> msg.subscribe_id;
-  buffer >> msg.track_alias;
-  buffer >> msg.group_id;
-  buffer >> msg.priority;
-  return buffer;
-}
-
-MessageBuffer &
-operator<<(MessageBuffer &buffer, const MoqStreamGroupObject &msg) {
-  buffer << msg.object_id;
-  buffer << msg.payload;
-  return buffer;
-}
-
-MessageBuffer&
-operator>>(MessageBuffer &buffer, MoqStreamGroupObject &msg) {
-  buffer >> msg.object_id;
-  buffer >> msg.payload;
-  return buffer;
-}
-
 
 // Client Setup message
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
