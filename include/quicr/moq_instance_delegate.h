@@ -16,7 +16,7 @@ namespace quicr {
  *   is a base class implementation and interface for callbacks.
  */
 
-class MOQInstanceDelegate
+class MoQInstanceDelegate
 {
 
 };
