@@ -165,6 +165,7 @@ public:
 
   void onPublisherObject(const qtransport::TransportConnId& conn_id,
                          [[maybe_unused]] const qtransport::DataContextId& data_ctx_id,
+                         [[maybe_unused]] bool reliable,
                          quicr::messages::PublishDatagram&& datagram) override
   {
     const auto list = subscribeList.find(datagram.header.name);
