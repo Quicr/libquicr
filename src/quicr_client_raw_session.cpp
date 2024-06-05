@@ -935,7 +935,11 @@ ClientRawSession::handle(std::optional<uint64_t> stream_id,
 
         auto& context = subscribe_state[ns];
 
-        if (!data_ctx_id) {
+        if (stream_id.has_value() && not data_ctx_id.has_value() ) {
+          /* NOTE:
+           * In picoquic there isn't a data_ctx_id because there isn't a
+           * stream context for datagram.
+           */
           transport->setStreamIdDataCtxId(context.transport_conn_id,
                                           context.transport_data_ctx_id,
                                           *stream_id);

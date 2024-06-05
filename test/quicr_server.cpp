@@ -60,6 +60,7 @@ class TestServerDelegate : public ServerDelegate
 
   void onPublisherObject([[maybe_unused]] const qtransport::TransportConnId& conn_id,
                          [[maybe_unused]] const qtransport::DataContextId& data_ctx_id,
+                         [[maybe_unused]] bool reliable,
                          [[maybe_unused]] messages::PublishDatagram&& datagram) override
   {
   }

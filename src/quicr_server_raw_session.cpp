@@ -579,7 +579,8 @@ ServerRawSession::handle_publish(qtransport::TransportConnId conn_id,
 #endif
   }
 
-  delegate->onPublisherObject(conn_id, *data_ctx_id, std::move(datagram));
+  // NOTE: if stream_id is nullopt, it means it's not reliable and MUST be datagram
+  delegate->onPublisherObject(conn_id, *data_ctx_id, stream_id.has_value(), std::move(datagram));
 }
 
 void
