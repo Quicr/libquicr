@@ -109,9 +109,6 @@ private:
 
 };
 
-MessageBuffer& operator<<(MessageBuffer &buffer, const MoqParameter &msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqParameter &msg);
-
 //
 // Subscribe
 //
@@ -247,6 +244,9 @@ struct MoqAnnounceCancel {
 //
 struct MoqGoaway {
   quicr::bytes new_session_uri;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqGoaway &msg);
+  friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                       const MoqGoaway& msg);
 };
 
 MessageBuffer& operator<<(MessageBuffer& buffer, const MoqGoaway& msg);
@@ -336,25 +336,4 @@ private:
   bool parse_completed { false };
 };
 
-MessageBuffer& operator<<(MessageBuffer& buffer, const MoqObjectStream& msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqObjectStream &msg);
-MessageBuffer& operator<<(MessageBuffer& buffer, const MoqObjectDatagram& msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqObjectDatagram &msg);
-MessageBuffer& operator<<(MessageBuffer& buffer, const MoqStreamHeaderTrack& msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqStreamHeaderTrack &msg);
-MessageBuffer& operator<<(MessageBuffer& buffer, const MoqStreamTrackObject& msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqStreamTrackObject &msg);
-MessageBuffer& operator<<(MessageBuffer& buffer, const MoqStreamHeaderGroup& msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqStreamHeaderGroup &msg);
-MessageBuffer& operator<<(MessageBuffer& buffer, const MoqStreamGroupObject& msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqStreamGroupObject &msg);
-
-MessageBuffer& operator<<(MessageBuffer& buffer, const std::vector<uintVar_t>& val);
-MessageBuffer& operator>>(MessageBuffer& msg, std::vector<uintVar_t>& val);
-MessageBuffer& operator>>(MessageBuffer& msg, std::vector<uintVar_t>& val);
-
-template <typename T>
-MessageBuffer& operator<<(MessageBuffer& buffer, const std::optional<T>& val);
-template <typename T>
-MessageBuffer& operator>>(MessageBuffer& msg, std::optional<T>& val);
 }

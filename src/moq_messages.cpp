@@ -667,6 +667,24 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceCancel &ms
 // Goaway
 //
 
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+           const MoqGoaway& msg){
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_GOAWAY)));
+  buffer.push_lv(msg.new_session_uri);
+  return buffer;
+}
+
+
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqGoaway &msg) {
+
+  const auto val = buffer.decode_bytes();
+  if (!val) {
+    return false;
+  }
+  msg.new_session_uri = std::move(val.value());
+  return true;
+}
+
 MessageBuffer &
 operator<<(MessageBuffer &buffer, const MoqGoaway &msg) {
   buffer << static_cast<uint8_t>(MESSAGE_TYPE_GOAWAY);

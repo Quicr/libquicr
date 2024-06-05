@@ -716,3 +716,18 @@ TEST_CASE("StreamPerTrack Object  Message encode/decode")
 
   CHECK_EQ(object_count, 1000);
 }
+
+
+TEST_CASE("MoqGoaway Message encode/decode")
+{
+  qtransport::StreamBuffer<uint8_t> buffer;
+
+  auto goaway  = MoqGoaway {};
+  goaway.new_session_uri = from_ascii("go.away.now.no.return");
+  buffer << goaway;
+
+  std::vector<uint8_t> net_data = buffer.front(buffer.size());
+  MoqGoaway goaway_out{};
+  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_GOAWAY), goaway_out));
+  CHECK_EQ(from_ascii("go.away.now.no.return"), goaway_out.new_session_uri);
+}
