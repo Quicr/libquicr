@@ -857,6 +857,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamHeaderTrack 
         return false;
       }
       msg.current_pos += 1;
+      msg.parse_completed = true;
     }
     break;
   }
@@ -898,6 +899,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamTrackObject 
       if(!val) {
         return false;
       }
+      msg.payload = std::move(val.value());
       msg.parse_completed = true;
     }
     break;
