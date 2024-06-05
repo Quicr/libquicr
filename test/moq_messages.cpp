@@ -625,6 +625,7 @@ TEST_CASE("StreamPerGroup Object  Message encode/decode")
   CHECK_EQ(hdr_grp.track_alias, hdr_group_out.track_alias);
   CHECK_EQ(hdr_grp.group_id, hdr_group_out.group_id);
 
+  // stream all the objects
   buffer.pop(buffer.size());
   auto objects = std::vector<MoqStreamGroupObject>{};
   // send 10 objects
@@ -638,17 +639,20 @@ TEST_CASE("StreamPerGroup Object  Message encode/decode")
 
   net_data.clear();
   net_data = buffer.front(buffer.size());
+  auto obj_out = MoqStreamGroupObject{};
   size_t object_count = 0;
-  for(const auto v: net_data) {
-    buffer.push(v);
-    bool done = false;
-    auto obj_out = MoqStreamGroupObject{};
-    done = buffer >> obj_out;
+  qtransport::StreamBuffer<uint8_t> in_buffer;
+  for(size_t i =0; i < net_data.size(); i++) {
+    in_buffer.push(net_data.at(i));
+    bool done;
+    done = in_buffer >> obj_out;
     if (done) {
       CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
       CHECK_EQ(obj_out.payload, objects[object_count].payload);
       // got one object
       object_count++;
+      obj_out = MoqStreamGroupObject{};
+      in_buffer.pop(in_buffer.size());
     }
   }
 
