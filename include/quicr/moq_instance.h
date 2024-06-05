@@ -14,216 +14,162 @@
 #include <quicr/moq_track_delegate.h>
 
 namespace quicr {
-using namespace qtransport;
-
-class MoQInstanceConfig
-{
-  RelayInfo relay_info;
-
-  // TODO(tievens): Convert to use URL instead of Relay Info
-
-  std::string instance_id;                    /// Instance ID for the client or server, should be unique
-  TransportConfig transport_config;
-};
-
-class MoQInstance : public ITransport::TransportDelegate
-{
-
-public:
-  /**
-   *
-   * @param cfg     MoQ Instance Configuration
-   * @param logger  MoQ Log pointer to parent logger
-   */
-  MoQInstance(const MoQInstanceConfig& cfg,
-              const cantina::LoggerPointer& logger);
-
-  ~MoQInstance();
-
-  // -------------------------------------------------------------------------------------------------
-  // Public API MoQ Intance API methods
-  // -------------------------------------------------------------------------------------------------
-  /**
-   * @brief Subscribe to a track
-   *
-   * @param track_delegate    Track delegate to use for track related functions and callbacks
-   *
-   * @returns `track_alias` if no error and nullopt on error
-   */
-  std::optional<uint64_t> subscribeTrack(TransportConnId conn_id, std::shared_ptr<MoQTrackDelegate> track_delegate);
+    using namespace qtransport;
 
 
-  /**
-   * @brief Publish to a track
-   *
-   * @param track_delegate    Track delegate to use for track related functions
-   *                          and callbacks
-   *
-   * @returns `track_alias` if no error and nullopt on error
-   */
-  std::optional<uint64_t> publishTrack(TransportConnId conn_id, std::shared_ptr<MoQTrackDelegate> track_delegate);
+
+    class MoQInstanceConfig
+    {
+        std::string instance_id; /// Instance ID for the client or server, should be unique
+        TransportConfig transport_config;
+    };
+
+    class MoQInstanceClientConfig : MoQInstanceConfig
+    {
+        std::string server_host_ip;     /// Relay hostname or IP to connect to
+        uint16_t server__port;          /// Relay port to connect to
+        TransportProtocol server_proto; /// Protocol to use when connecting to relay
+    };
+
+    class MoQInstanceServerConfig : MoQInstanceConfig
+    {
+        std::string server_bind_ip;     /// IP address to bind to, can be 0.0.0.0
+        uint16_t server_port;           /// Listening port for server
+        TransportProtocol server_proto; /// Protocol to use
+    };
+
+    /**
+     * @brief MOQ Instance
+     * @Details MoQ Instance is the handler for either a client or server. It can run
+     *   in only one mode, client or server.
+     */
+    class MoQInstance
+    {
+      public:
+        enum class Status : uint8_t
+        {
+            READY = 0,
+
+            ERROR_NOT_IN_CLIENT_MODE,
+            ERROR_NOT_IN_SERVER_MODE,
+
+            CLIENT_INVALID_PARAMS,
+            CLIENT_NOT_CONNECTED,
+            CLIENT_CONNECTING,
+        };
+
+        /**
+         * @brief Client mode Constructor to create the MOQ instance
+         *
+         * @param cfg     MoQ Instance Client Configuration
+         * @param logger  MoQ Log pointer to parent logger
+         */
+        MoQInstance(const MoQInstanceClientConfig& cfg, const cantina::LoggerPointer& logger);
+
+        /**
+         * @brief Server mode Constructor to create the MOQ instance
+         *
+         * @param cfg     MoQ Instance Server Configuration
+         * @param logger  MoQ Log pointer to parent logger
+         */
+        MoQInstance(const MoQInstanceServerConfig& cfg, const cantina::LoggerPointer& logger);
+
+        ~MoQInstance();
+
+        // -------------------------------------------------------------------------------------------------
+        // Public API MoQ Intance API methods
+        // -------------------------------------------------------------------------------------------------
+        /**
+         * @brief Subscribe to a track
+         *
+         * @param track_delegate    Track delegate to use for track related functions and callbacks
+         *
+         * @returns `track_alias` if no error and nullopt on error
+         */
+        std::optional<uint64_t> subscribeTrack(TransportConnId conn_id,
+                                               std::shared_ptr<MoQTrackDelegate> track_delegate);
+
+        /**
+         * @brief Publish to a track
+         *
+         * @param track_delegate    Track delegate to use for track related functions
+         *                          and callbacks
+         *
+         * @returns `track_alias` if no error and nullopt on error
+         */
+        std::optional<uint64_t> publishTrack(TransportConnId conn_id,
+                                             std::shared_ptr<MoQTrackDelegate> track_delegate);
+
+        /**
+         * @brief Make client connection
+         *
+         * @details Makes a client connection session if instance is in client mode
+         *
+         * @return Status indicating state or error. If succesful, status will be
+         *    CLIENT_CONNECTING.
+         */
+        Status client_connect();
+
+        /**
+         * @brief Get the instance status
+         *
+         * @return Status indicating the state/status of the instance
+         */
+        Status status();
+
+    private:
+        /**
+         * @brief Create a transport session/connection
+         *
+         * @param peer_config           Peer/relay configuration parameters
+         *
+         */
+        void createSession(const TransportRemote& peer_config);
+
+      private:
+        std::mutex _mutex;
+        const bool _client_mode;
+        std::atomic<bool> _stop{ false };
+        const MoQInstanceServerConfig& _server_config;
+        const MoQInstanceClientConfig& _client_config;
 
 
-  // -------------------------------------------------------------------------------------------------
-
-  /*
-   * Transport Delegete/callback functions
-   */
-  void on_new_data_context(const TransportConnId& conn_id,
-                           const DataContextId& data_ctx_id) override
-  {
-  }
-  void on_connection_status(const TransportConnId& conn_id,
-                            const TransportStatus status) override;
-  void on_new_connection(const TransportConnId& conn_id,
-                         const TransportRemote& remote) override;
-  void on_recv_stream(const TransportConnId& conn_id,
-                      uint64_t stream_id,
-                      std::optional<DataContextId> data_ctx_id,
-                      const bool is_bidir = false) override;
-  void on_recv_dgram(const TransportConnId& conn_id,
-                     std::optional<DataContextId> data_ctx_id) override;
-
-private:
-  /**
-   * @brief Client thread to monitor client published messages
-   */
-  void PeerQueueThread();
-
-  /**
-   * @brief Watch Thread to perform reconnects and cleanup
-   * @details Thread will perform various tasks each interval
-   *
-   * @param interval_ms       Interval in milliseconds to sleep before running
-   * check
-   */
-  void watchThread(int interval_ms);
-
-  /**
-   * @brief Create a peering session/connection
-   *
-   * @param peer_config           Peer/relay configuration parameters
-   *
-   */
-  void createPeerSession(const TransportRemote& peer_config);
-
-  /**
-   * @brief Send subscribe to first/best publish intent peers
-   *
-   * @details There is a single best (first in list) publish intent peer to send
-   * matching subscribes to for a given origin. This method will iterate over
-   * each matching publish intent best origin peer and send a subscribe.
-   *
-   * @param ns                    Namespace to subscribe
-   * @param source_peer_id        Source peer that sent (or client manager) the
-   * intent
-   */
-  void subscribePeers(const Namespace& ns, const peer_id_t& source_peer_id);
-
-  /**
-   * @brief Send subscribe to specific peer
-   *
-   * @param ns                    Namespace to subscribe peers to
-   * @param peer_id               Peer ID to send to
-   */
-  void subscribePeer(const Namespace& ns, const peer_id_t& peer_id);
-
-  /**
-   * @brief Send unsubscribe to peers that had previous subscribes for given
-   * namespace
-   *
-   * @param ns                    Namespace to unsubscribe peers to
-   * @param source_peer_id        Source peer that sent (or client manager) the
-   * intent
-   */
-  void unSubscribePeers(const Namespace& ns, const peer_id_t& source_peer_id);
-
-  /**
-   * @brief Send unsubscribe to specific peer
-   *
-   * @param ns                    Namespace to unsubscribe peers to
-   * @param peer_id               Peer ID to send to
-   */
-  void unSubscribePeer(const Namespace& ns, const peer_id_t& peer_id);
-
-  /**
-   * @brief Send publish intent to all peers
-   *
-   * @details Currently publish intents are flooded to all peers
-   *
-   * @param ns                   Namespace for publish intent
-   * @param source_peer_id       Source peer that sent (or client manager) the
-   * intent
-   * @param origin_peer_id       Origin peer/relay that has the publisher
-   * directly connected
-   */
-  void publishIntentPeers(const Namespace& ns,
-                          const peer_id_t& source_peer_id,
-                          const peer_id_t& origin_peer_id);
-
-  /**
-   * @brief Send publish intent done
-   *
-   * @brief Currently publish intents are flooded to all peers, so the done
-   * needs to be flooded as well
-   *
-   * @param ns                    Namespace for publish intent done
-   * @param source_peer_id        Source peer that sent (or client manager) the
-   * intent
-   * @param origin_peer_id        Origin peer/relay that has the publisher
-   * directly connected
-   */
-  void publishIntentDonePeers(const Namespace& ns,
-                              const peer_id_t& source_peer_id,
-                              const peer_id_t& origin_peer_id);
-
-  /**
-   * @brief Get the pointer to the session by peer_id
-   *
-   * @param peer_id               Peer ID to get session
-   *
-   * @return Returns nullptr or peer session if found
-   */
-  PeerSession* getPeerSession(const peer_id_t& peer_id);
-
-  void addSubscribedPeer(const Namespace& ns, const peer_id_t& peer_id);
-
-private:
-  std::mutex _mutex;
-  std::atomic<bool> _stop{ false };
-  const Config& _config;
-
-  peerQueue& _peer_queue;
-  Cache& _cache;
-  ClientSubscriptions& _subscriptions;
-
-  std::shared_ptr<ITransport>
-    _server_transport; /// Server Transport for inbound connections
-
-  std::thread _client_rx_msg_thr; /// Client receive message thread
-  std::thread _watch_thr;         /// Watch/task thread, handles reconnects
-
-  /// Peer sessions that are accepted by the server
-  std::map<TransportConnId, PeerSession> _server_peer_sessions;
-
-  std::vector<PeerSession>
-    _client_peer_sessions; /// Peer sessions that are initiated by the peer
-                           /// manager
-
-  // TODO: Fix to use list for peer sessions subscribed
-  namespace_map<std::set<peer_id_t>>
-    _peer_sess_subscribe_sent; /// Peers that subscribes have been sent
-  namespace_map<std::set<peer_id_t>>
-    _peer_sess_subscribe_recv; /// Peers that subscribes have been received
-  namespace_map<std::map<peer_id_t, std::list<peer_id_t>>>
-    _pub_intent_namespaces; /// Publish intents received from peers
-
-  // Log handler to use
-  cantina::LoggerPointer logger;
+        // Log handler to use
+        cantina::LoggerPointer logger;
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-  std::shared_ptr<MetricsExporter> _mexport;
+        std::shared_ptr<MetricsExporter> _mexport;
 #endif
-};
+    };
+
+    /**
+     * @brief MOQ Instance Transport Delegate
+     * @details MOQ implements the transport delegate, which is shared by all sessions
+     */
+    class MoQInstanceTransportDelegate : public ITransport::TransportDelegate
+    {
+      public:
+        MoQInstanceTransportDelegate(const MoQInstance& moq_instance, const cantina::LoggerPointer& logger) :
+           _moq_instance(moq_instance)
+           , _logger(std::make_shared<cantina::Logger>("MOQ_ITD", logger))
+        {}
+
+        // -------------------------------------------------------------------------------------------------
+        // Transprot Delegate/callback functions
+        // -------------------------------------------------------------------------------------------------
+
+        void on_new_data_context(const TransportConnId& conn_id, const DataContextId& data_ctx_id) override {}
+        void on_connection_status(const TransportConnId& conn_id, const TransportStatus status) override;
+        void on_new_connection(const TransportConnId& conn_id, const TransportRemote& remote) override;
+        void on_recv_stream(const TransportConnId& conn_id,
+                            uint64_t stream_id,
+                            std::optional<DataContextId> data_ctx_id,
+                            const bool is_bidir = false) override;
+        void on_recv_dgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id) override;
+
+      private:
+        cantina::LoggerPointer _logger;
+        const MoQInstance& _moq_instance;
+    };
 
 } // namespace quicr

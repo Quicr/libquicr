@@ -9,8 +9,8 @@ target_sources(quicr PRIVATE
         quicr_client_raw_session.cpp
         quicr_server.cpp
         quicr_server_raw_session.cpp
-        #moq_instance.cpp
-        #moq_session.cpp
+        moq_instance.cpp
+        moq_session.cpp
 )
 
 if(NOT LIBQUICR_WITHOUT_INFLUXDB)
