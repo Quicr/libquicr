@@ -547,8 +547,8 @@ ServerRawSession::handle_publish(qtransport::TransportConnId conn_id,
     transport->setStreamIdDataCtxId(conn_id, *data_ctx_id, *stream_id);
   }
 
-  addDataMeasurement(conn_id, data_ctx_id, "publish");
-  delegate->onPublisherObject(conn_id, data_ctx_id, std::move(datagram));
+  addDataMeasurement(conn_id, *data_ctx_id, "publish");
+  delegate->onPublisherObject(conn_id, *data_ctx_id, stream_id.has_value(), std::move(datagram));
 }
 
 void
@@ -813,7 +813,7 @@ ServerRawSession::publishMeasurement(const Measurement& measurement)
   datagram.media_data_length = measurement_bytes.size();
   datagram.media_data = std::move(measurement_bytes);
 
-  delegate->onPublisherObject(std::numeric_limits<qtransport::TransportConnId>::max(), 0, std::move(datagram));
+  delegate->onPublisherObject(std::numeric_limits<qtransport::TransportConnId>::max(), 0, false, std::move(datagram));
 }
 
 void
