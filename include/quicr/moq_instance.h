@@ -6,14 +6,16 @@
 
 #pragma once
 
+#include <quicr/metrics_exporter.h>
 #include <quicr/quicr_common.h>
 #include <transport/transport.h>
-#include <quicr/metrics_exporter.h>
 
 #include <quicr/moq_instance_delegate.h>
 #include <quicr/moq_track_delegate.h>
 
 namespace quicr {
+    constexpr uint64_t MOQT_VERSION = 0xff000004; /// draft-ietf-moq-transport-04
+
     using namespace qtransport;
 
     struct MoQInstanceConfig
@@ -25,7 +27,7 @@ namespace quicr {
     struct MoQInstanceClientConfig : MoQInstanceConfig
     {
         std::string server_host_ip;     /// Relay hostname or IP to connect to
-        uint16_t server_port;          /// Relay port to connect to
+        uint16_t server_port;           /// Relay port to connect to
         TransportProtocol server_proto; /// Protocol to use when connecting to relay
     };
 
@@ -36,49 +38,12 @@ namespace quicr {
         TransportProtocol server_proto; /// Protocol to use
     };
 
-    class MoQInstance;
-    /**
-     * @brief MOQ Instance Transport Delegate
-     * @details MOQ implements the transport delegate, which is shared by all sessions
-     */
-    class MoQInstanceTransportDelegate : public ITransport::TransportDelegate
-    {
-      public:
-        MoQInstanceTransportDelegate(MoQInstance& moq_instance, const cantina::LoggerPointer& logger)
-          : _moq_instance(moq_instance)
-          , _logger(std::make_shared<cantina::Logger>("MOQ_ITD", logger))
-        {
-        }
-
-        // -------------------------------------------------------------------------------------------------
-        // Transprot Delegate/callback functions
-        // -------------------------------------------------------------------------------------------------
-
-        void on_new_data_context([[maybe_unused]] const TransportConnId& conn_id,
-                                 [[maybe_unused]] const DataContextId& data_ctx_id) override
-        {
-        }
-
-        void on_connection_status(const TransportConnId& conn_id, const TransportStatus status) override;
-        void on_new_connection(const TransportConnId& conn_id, const TransportRemote& remote) override;
-        void on_recv_stream(const TransportConnId& conn_id,
-                            uint64_t stream_id,
-                            std::optional<DataContextId> data_ctx_id,
-                            const bool is_bidir = false) override;
-        void on_recv_dgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id) override;
-
-      private:
-        MoQInstance& _moq_instance;
-        cantina::LoggerPointer _logger;
-    };
-
-
     /**
      * @brief MOQ Instance
      * @Details MoQ Instance is the handler for either a client or server. It can run
      *   in only one mode, client or server.
      */
-    class MoQInstance
+    class MoQInstance : public ITransport::TransportDelegate
     {
       public:
         enum class Status : uint8_t
@@ -117,7 +82,7 @@ namespace quicr {
                     std::shared_ptr<MoQInstanceDelegate> delegate,
                     const cantina::LoggerPointer& logger);
 
-        ~MoQInstance();
+        ~MoQInstance() = default;
 
         // -------------------------------------------------------------------------------------------------
         // Public API MoQ Intance API methods
@@ -140,8 +105,7 @@ namespace quicr {
          *
          * @returns `track_alias` if no error and nullopt on error
          */
-        std::optional<uint64_t> publishTrack(TransportConnId conn_id,
-                                             std::shared_ptr<MoQTrackDelegate> track_delegate);
+        std::optional<uint64_t> publishTrack(TransportConnId conn_id, std::shared_ptr<MoQTrackDelegate> track_delegate);
 
         /**
          * @brief Make client connection and run
@@ -163,7 +127,6 @@ namespace quicr {
          */
         Status run_server();
 
-
         /**
          * @brief Get the instance status
          *
@@ -171,17 +134,57 @@ namespace quicr {
          */
         Status status();
 
-      private:
-        void init();
+        /**
+         * Stop Instance
+         */
+        void stop() { _stop = true; }
+
+        // -------------------------------------------------------------------------------------------------
+        // Transprot Delegate/callback functions
+        // -------------------------------------------------------------------------------------------------
+
+        void on_new_data_context([[maybe_unused]] const TransportConnId& conn_id,
+                                 [[maybe_unused]] const DataContextId& data_ctx_id) override
+        {
+        }
+
+        void on_connection_status(const TransportConnId& conn_id, const TransportStatus status) override;
+        void on_new_connection(const TransportConnId& conn_id, const TransportRemote& remote) override;
+        void on_recv_stream(const TransportConnId& conn_id,
+                            uint64_t stream_id,
+                            std::optional<DataContextId> data_ctx_id,
+                            const bool is_bidir = false) override;
+        void on_recv_dgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id) override;
 
       private:
+        struct ConnectionContext
+        {
+            TransportConnId conn_id;
+            uint64_t ctrl_data_ctx_id;
+            std::optional<messages::MoQMessageType> msg_type_received;  /// Indicates the current message type being read
+        };
+
+        // -------------------------------------------------------------------------------------------------
+        // Private methods
+        // -------------------------------------------------------------------------------------------------
+        void init();
+
+        void send_ctrl_msg(const ConnectionContext& conn_ctx, std::vector<uint8_t>&& data);
+        void send_client_setup();
+
+        // -------------------------------------------------------------------------------------------------
+        // Private member variables
+        // -------------------------------------------------------------------------------------------------
+
+
         std::mutex _mutex;
         const bool _client_mode;
-        std::atomic<bool> _stop{ false };
+        bool _stop { false };
         const MoQInstanceServerConfig _server_config;
         const MoQInstanceClientConfig _client_config;
         std::shared_ptr<MoQInstanceDelegate> _delegate;
-        MoQInstanceTransportDelegate _transport_delegate;
+
+        Status _status{ Status::NOT_READY };
 
         // Log handler to use
         cantina::LoggerPointer _logger;
@@ -192,8 +195,7 @@ namespace quicr {
 
         std::shared_ptr<ITransport> _transport;
 
-        std::vector<TransportConnId> _connections;
+        std::map<TransportConnId, ConnectionContext> _connections;
     };
-
 
 } // namespace quicr

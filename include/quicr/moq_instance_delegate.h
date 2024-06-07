@@ -6,9 +6,11 @@
 
 #pragma once
 
+#include <transport/transport.h>
 #include <quicr/moq_messages.h>
 
 namespace quicr {
+    using namespace qtransport;
 
     /**
      * @brief MOQ/MOQT callbacks

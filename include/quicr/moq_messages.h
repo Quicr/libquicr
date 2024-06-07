@@ -23,25 +23,32 @@ using TrackAlias = uint64_t;
 using ParamType = uint64_t;
 
 // Ref: https://moq-wg.github.io/moq-transport/draft-ietf-moq-transport.html#name-messages
-constexpr uint8_t MESSAGE_TYPE_OBJECT_STREAM            = 0x0;
-constexpr uint8_t MESSAGE_TYPE_OBJECT_DATAGRAM          = 0x1;
-constexpr uint8_t MESSAGE_TYPE_SUBSCRIBE                = 0x3;
-constexpr uint8_t MESSAGE_TYPE_SUBSCRIBE_OK             = 0x4;
-constexpr uint8_t MESSAGE_TYPE_SUBSCRIBE_ERROR          = 0x5;
-constexpr uint8_t MESSAGE_TYPE_ANNOUNCE                 = 0x6;
-constexpr uint8_t MESSAGE_TYPE_ANNOUNCE_OK              = 0x7;
-constexpr uint8_t MESSAGE_TYPE_ANNOUNCE_ERROR           = 0x8;
-constexpr uint8_t MESSAGE_TYPE_UNANNOUNCE               = 0x9;
-constexpr uint8_t MESSAGE_TYPE_UNSUBSCRIBE              = 0xA;
-constexpr uint8_t MESSAGE_TYPE_SUBSCRIBE_DONE           = 0xB;
-constexpr uint8_t MESSAGE_TYPE_ANNOUNCE_CANCEL          = 0xC;
-constexpr uint8_t MESSAGE_TYPE_TRACK_STATUS_REQUEST     = 0xD;
-constexpr uint8_t MESSAGE_TYPE_TRACK_STATUS             = 0xE;
-constexpr uint8_t MESSAGE_TYPE_GOAWAY                   = 0x10;
-constexpr uint8_t MESSAGE_TYPE_CLIENT_SETUP             = 0x40;
-constexpr uint8_t MESSAGE_TYPE_SERVER_SETUP             = 0x41;
-constexpr uint8_t MESSAGE_TYPE_STREAM_HEADER_TRACK      = 0x50;
-constexpr uint8_t MESSAGE_TYPE_STREAM_HEADER_GROUP      = 0x51;
+enum class MoQMessageType : uint64_t
+{
+    OBJECT_STREAM = 0x0,
+    OBJECT_DATAGRAM,
+
+    SUBSCRIBE = 0x03,
+    SUBSCRIBE_OK,
+    SUBSCRIBE_ERROR,
+    ANNOUNCE,
+    ANNOUNCE_OK,
+    ANNOUNCE_ERROR,
+    UNANNOUNCE,
+    UNSUBSCRIBE,
+    SUBSCRIBE_DONE,
+    ANNOUNCE_CANCEL,
+    TRACK_STATUS_REQUEST,
+    TRACK_STATUS,
+
+    GOWAY = 0x10,
+
+    CLIENT_SETUP = 0x40,
+    SERVER_SETUP,
+
+    STREAM_HEADER_TRACK = 0x50,
+    STREAM_HEADER_GROUP,
+};
 
 // TODO (Suhas): rename it to StreamMapping
 enum ForwardingPreference : uint8_t {
@@ -335,5 +342,5 @@ private:
   uint64_t current_pos {0};
   bool parse_completed { false };
 };
-
+  
 }

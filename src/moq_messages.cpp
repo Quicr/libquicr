@@ -111,7 +111,7 @@ MessageBuffer& operator>>(MessageBuffer &buffer, MoqParameter &param) {
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqSubscribe& msg){
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::SUBSCRIBE)));
   buffer.push(qtransport::to_uintV(msg.subscribe_id));
   buffer.push(qtransport::to_uintV(msg.track_alias));
   buffer.push_lv(msg.track_namespace);
@@ -280,7 +280,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg) {
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqUnsubscribe& msg){
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_UNSUBSCRIBE)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::UNSUBSCRIBE)));
   buffer.push(qtransport::to_uintV(msg.subscribe_id));
   return buffer;
 }
@@ -296,7 +296,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqUnsubscribe &msg) 
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqSubscribeDone& msg){
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE_DONE)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::SUBSCRIBE_DONE)));
   buffer.push(qtransport::to_uintV(msg.subscribe_id));
   buffer.push(qtransport::to_uintV(msg.status_code));
   buffer.push_lv(msg.reason_phrase);
@@ -374,7 +374,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeDone &msg
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqSubscribeOk& msg){
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE_OK)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::SUBSCRIBE_OK)));
   buffer.push(qtransport::to_uintV(msg.subscribe_id));
   buffer.push(qtransport::to_uintV(msg.expires));
   msg.content_exists ? buffer.push(static_cast<uint8_t>(1)) : buffer.push(static_cast<uint8_t>(0));
@@ -443,7 +443,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeOk &msg) 
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqSubscribeError& msg){
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE_ERROR)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::SUBSCRIBE_ERROR)));
   buffer.push(qtransport::to_uintV(msg.subscribe_id));
   buffer.push(qtransport::to_uintV(msg.err_code));
   buffer.push_lv(msg.reason_phrase);
@@ -505,7 +505,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeError &ms
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqAnnounce& msg){
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_ANNOUNCE)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::ANNOUNCE)));
   buffer.push_lv(msg.track_namespace);
   buffer.push(qtransport::to_uintV(static_cast<uint64_t>(0)));
   return buffer;
@@ -561,7 +561,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer,
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqAnnounceOk& msg){
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_ANNOUNCE_OK)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::ANNOUNCE_OK)));
   buffer.push_lv(msg.track_namespace);
   return buffer;
 }
@@ -583,7 +583,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceOk &msg) {
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqAnnounceError& msg){
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_ANNOUNCE_ERROR)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::ANNOUNCE_ERROR)));
   buffer.push_lv(msg.track_namespace.value());
   buffer.push(qtransport::to_uintV(msg.err_code.value()));
   buffer.push_lv(msg.reason_phrase.value());
@@ -623,7 +623,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceError &msg
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqUnannounce& msg){
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_UNANNOUNCE)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::UNANNOUNCE)));
   buffer.push_lv(msg.track_namespace);
   return buffer;
 }
@@ -644,7 +644,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqUnannounce &msg) {
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqAnnounceCancel& msg){
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_ANNOUNCE_CANCEL)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::ANNOUNCE_CANCEL)));
   buffer.push_lv(msg.track_namespace);
   return buffer;
 }
@@ -669,7 +669,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceCancel &ms
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqGoaway& msg){
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_GOAWAY)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::GOWAY)));
   buffer.push_lv(msg.new_session_uri);
   return buffer;
 }
@@ -687,7 +687,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqGoaway &msg) {
 
 MessageBuffer &
 operator<<(MessageBuffer &buffer, const MoqGoaway &msg) {
-  buffer << static_cast<uint8_t>(MESSAGE_TYPE_GOAWAY);
+  buffer << static_cast<uint8_t>(MoQMessageType::GOWAY);
   buffer << msg.new_session_uri;
   return buffer;
 }
@@ -705,7 +705,7 @@ operator>>(MessageBuffer &buffer, MoqGoaway &msg) {
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqObjectStream& msg){
 
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_OBJECT_STREAM)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::OBJECT_STREAM)));
   buffer.push(qtransport::to_uintV(msg.subscribe_id));
   buffer.push(qtransport::to_uintV(msg.track_alias));
   buffer.push(qtransport::to_uintV(msg.group_id));
@@ -775,7 +775,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqObjectStream &msg)
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqObjectDatagram& msg){
 
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_OBJECT_DATAGRAM)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::OBJECT_DATAGRAM)));
   buffer.push(qtransport::to_uintV(msg.subscribe_id));
   buffer.push(qtransport::to_uintV(msg.track_alias));
   buffer.push(qtransport::to_uintV(msg.group_id));
@@ -846,7 +846,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqObjectDatagram &ms
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqStreamHeaderTrack& msg){
 
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_STREAM_HEADER_TRACK)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::STREAM_HEADER_TRACK)));
   buffer.push(qtransport::to_uintV(msg.subscribe_id));
   buffer.push(qtransport::to_uintV(msg.track_alias));
   buffer.push(qtransport::to_uintV(msg.priority));
@@ -934,7 +934,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamTrackObject 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqStreamHeaderGroup& msg){
 
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_STREAM_HEADER_GROUP)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::STREAM_HEADER_GROUP)));
   buffer.push(qtransport::to_uintV(msg.subscribe_id));
   buffer.push(qtransport::to_uintV(msg.track_alias));
   buffer.push(qtransport::to_uintV(msg.group_id));
@@ -1022,7 +1022,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamGroupObject 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqClientSetup& msg){
 
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_CLIENT_SETUP)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::CLIENT_SETUP)));
   buffer.push(qtransport::to_uintV(static_cast<uint64_t>(msg.supported_versions.size())));
   // versions
   for (const auto& ver: msg.supported_versions) {
@@ -1107,7 +1107,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqClientSetup &msg) 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqServerSetup& msg){
 
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MESSAGE_TYPE_SERVER_SETUP)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::SERVER_SETUP)));
   buffer.push(qtransport::to_uintV(msg.selection_version));
 
   /// num params
@@ -1151,8 +1151,9 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqServerSetup &msg) 
         }
         msg.current_param->param_length = param->size();
         msg.current_param->param_value = param.value();
-        static_cast<ParameterType>(msg.current_param->param_type) == ParameterType::Role  ?
-                                                                                         msg.role_parameter = std::move(msg.current_param.value()) : msg.path_parameter = std::move(msg.current_param.value());
+        static_cast<ParameterType>(msg.current_param->param_type) == ParameterType::Role
+          ? msg.role_parameter = std::move(msg.current_param.value())
+          : msg.path_parameter = std::move(msg.current_param.value());
         msg.current_param = MoqParameter{};
         msg.num_params.value() -= 1;
       }

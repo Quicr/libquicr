@@ -53,7 +53,7 @@ TEST_CASE("AnnounceOk Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
   MoqAnnounceOk announce_ok_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_ANNOUNCE_OK), announce_ok_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::ANNOUNCE_OK), announce_ok_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, announce_ok_out.track_namespace);
 }
 
@@ -67,7 +67,7 @@ TEST_CASE("Announce Message encode/decode")
   buffer <<  announce;
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
   MoqAnnounce announce_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_ANNOUNCE), announce_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::ANNOUNCE), announce_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, announce_out.track_namespace);
   CHECK_EQ(0, announce_out.params.size());
 }
@@ -82,7 +82,7 @@ TEST_CASE("Unannounce Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
   MoqAnnounceOk announce_ok_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_UNANNOUNCE), announce_ok_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::UNANNOUNCE), announce_ok_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, announce_ok_out.track_namespace);
 }
 
@@ -98,7 +98,7 @@ TEST_CASE("AnnounceError Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
   MoqAnnounceError announce_err_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_ANNOUNCE_ERROR), announce_err_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::ANNOUNCE_ERROR), announce_err_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, announce_err_out.track_namespace);
   CHECK_EQ(announce_err.err_code, announce_err_out.err_code);
   CHECK_EQ(announce_err.reason_phrase, announce_err_out.reason_phrase);
@@ -114,7 +114,7 @@ TEST_CASE("AnnounceCancel Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
   MoqAnnounceCancel announce_cancel_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_ANNOUNCE_CANCEL), announce_cancel_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::ANNOUNCE_CANCEL), announce_cancel_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, announce_cancel_out.track_namespace);
 }
 
@@ -135,7 +135,7 @@ TEST_CASE("Subscribe (LatestObject) Message encode/decode")
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
   MoqSubscribe subscribe_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE), subscribe_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE), subscribe_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
   CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
   CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -161,7 +161,7 @@ TEST_CASE("Subscribe (LatestGroup) Message encode/decode")
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
   MoqSubscribe subscribe_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE), subscribe_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE), subscribe_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
   CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
   CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -189,7 +189,7 @@ TEST_CASE("Subscribe (AbsoluteStart) Message encode/decode")
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
   MoqSubscribe subscribe_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE), subscribe_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE), subscribe_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
   CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
   CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -222,7 +222,7 @@ TEST_CASE("Subscribe (AbsoluteRange) Message encode/decode")
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
   MoqSubscribe subscribe_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE), subscribe_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE), subscribe_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
   CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
   CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -256,7 +256,7 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
   MoqSubscribe subscribe_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE), subscribe_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE), subscribe_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
   CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
   CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -297,7 +297,7 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
   MoqSubscribe subscribe_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE), subscribe_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE), subscribe_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
   CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
   CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -369,7 +369,7 @@ TEST_CASE("Subscribe (Combo) Message encode/decode")
     std::vector<uint8_t> net_data = buffer.front(buffer.size());
     MoqSubscribe subscribe_out;
     CHECK(verify(
-      net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE), subscribe_out));
+      net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE), subscribe_out));
     CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
     CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
     CHECK_EQ(subscribes[i].subscribe_id, subscribe_out.subscribe_id);
@@ -402,7 +402,7 @@ TEST_CASE("SubscribeOk Message encode/decode")
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
   MoqSubscribeOk subscribe_ok_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE_OK), subscribe_ok_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE_OK), subscribe_ok_out));
   CHECK_EQ(subscribe_ok.subscribe_id, subscribe_ok_out.subscribe_id);
   CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
   CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
@@ -424,7 +424,7 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
   MoqSubscribeOk subscribe_ok_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE_OK), subscribe_ok_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE_OK), subscribe_ok_out));
   CHECK_EQ(subscribe_ok.subscribe_id, subscribe_ok_out.subscribe_id);
   CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
   CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
@@ -446,7 +446,7 @@ TEST_CASE("SubscribeError  Message encode/decode")
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
   MoqSubscribeError subscribe_err_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE_ERROR), subscribe_err_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE_ERROR), subscribe_err_out));
   CHECK_EQ(subscribe_err.subscribe_id, subscribe_err_out.subscribe_id);
   CHECK_EQ(subscribe_err.err_code, subscribe_err_out.err_code);
   CHECK_EQ(subscribe_err.reason_phrase, subscribe_err_out.reason_phrase);
@@ -464,7 +464,7 @@ TEST_CASE("Unsubscribe  Message encode/decode")
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
   MoqUnsubscribe unsubscribe_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_UNSUBSCRIBE), unsubscribe_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::UNSUBSCRIBE), unsubscribe_out));
   CHECK_EQ(unsubscribe.subscribe_id, unsubscribe_out.subscribe_id);
 }
 
@@ -483,7 +483,7 @@ TEST_CASE("SubscribeDone  Message encode/decode")
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
   MoqSubscribeDone subscribe_done_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE_DONE), subscribe_done_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE_DONE), subscribe_done_out));
   CHECK_EQ(subscribe_done.subscribe_id, subscribe_done_out.subscribe_id);
   CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
   CHECK_EQ(subscribe_done.reason_phrase, subscribe_done_out.reason_phrase);
@@ -507,7 +507,7 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
   MoqSubscribeDone subscribe_done_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SUBSCRIBE_DONE), subscribe_done_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE_DONE), subscribe_done_out));
   CHECK_EQ(subscribe_done.subscribe_id, subscribe_done_out.subscribe_id);
   CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
   CHECK_EQ(subscribe_done.reason_phrase, subscribe_done_out.reason_phrase);
@@ -532,7 +532,7 @@ TEST_CASE("ClientSetup  Message encode/decode")
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
   MoqClientSetup client_setup_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_CLIENT_SETUP), client_setup_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::CLIENT_SETUP), client_setup_out));
   CHECK_EQ(client_setup.supported_versions, client_setup_out.supported_versions);
   CHECK_EQ(client_setup.role_parameter.param_value, client_setup_out.role_parameter.param_value);
 }
@@ -552,7 +552,7 @@ TEST_CASE("ServerSetup  Message encode/decode")
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
   MoqServerSetup server_setup_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_SERVER_SETUP), server_setup_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SERVER_SETUP), server_setup_out));
   CHECK_EQ(server_setup.selection_version, server_setup_out.selection_version);
   CHECK_EQ(server_setup.role_parameter.param_value, server_setup.role_parameter.param_value);
 }
@@ -573,7 +573,7 @@ TEST_CASE("ObjectStream  Message encode/decode")
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
   MoqObjectStream object_stream_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_OBJECT_STREAM), object_stream_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::OBJECT_STREAM), object_stream_out));
   CHECK_EQ(object_stream.subscribe_id, object_stream_out.subscribe_id);
   CHECK_EQ(object_stream.track_alias, object_stream_out.track_alias);
   CHECK_EQ(object_stream.group_id, object_stream_out.group_id);
@@ -598,7 +598,7 @@ TEST_CASE("ObjectDatagram  Message encode/decode")
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
   MoqObjectStream object_datagram_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_OBJECT_DATAGRAM), object_datagram_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::OBJECT_DATAGRAM), object_datagram_out));
   CHECK_EQ(object_datagram.subscribe_id, object_datagram_out.subscribe_id);
   CHECK_EQ(object_datagram.track_alias, object_datagram_out.track_alias);
   CHECK_EQ(object_datagram.group_id, object_datagram_out.group_id);
@@ -620,7 +620,7 @@ TEST_CASE("StreamPerGroup Object  Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
   MoqStreamHeaderGroup hdr_group_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_STREAM_HEADER_GROUP), hdr_group_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::STREAM_HEADER_GROUP), hdr_group_out));
   CHECK_EQ(hdr_grp.subscribe_id, hdr_group_out.subscribe_id);
   CHECK_EQ(hdr_grp.track_alias, hdr_group_out.track_alias);
   CHECK_EQ(hdr_grp.group_id, hdr_group_out.group_id);
@@ -671,7 +671,7 @@ TEST_CASE("StreamPerTrack Object  Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
   MoqStreamHeaderTrack hdr_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_STREAM_HEADER_TRACK), hdr_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::STREAM_HEADER_TRACK), hdr_out));
   CHECK_EQ(hdr_out.subscribe_id, hdr_out.subscribe_id);
   CHECK_EQ(hdr_out.track_alias, hdr_out.track_alias);
   CHECK_EQ(hdr_out.priority, hdr_out.priority);
@@ -728,6 +728,6 @@ TEST_CASE("MoqGoaway Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
   MoqGoaway goaway_out{};
-  CHECK(verify(net_data, static_cast<uint64_t>(MESSAGE_TYPE_GOAWAY), goaway_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::GOWAY), goaway_out));
   CHECK_EQ(from_ascii("go.away.now.no.return"), goaway_out.new_session_uri);
 }

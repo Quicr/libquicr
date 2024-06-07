@@ -5,8 +5,11 @@
  */
 
 #include <quicr/moq_instance.h>
+#include <quicr/moq_messages.h>
 
 namespace quicr {
+
+    using namespace quicr::messages;
 
     MoQInstance::MoQInstance(const MoQInstanceClientConfig& cfg,
                             std::shared_ptr<MoQInstanceDelegate> delegate,
@@ -15,7 +18,6 @@ namespace quicr {
         , _server_config({})
         , _client_config(cfg)
         , _delegate(std::move(delegate))
-        , _transport_delegate({*this, _logger})
         , _logger(std::make_shared<cantina::Logger>("MOQ_IC", logger))
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
         , _mexport(logger)
@@ -36,7 +38,6 @@ namespace quicr {
       , _server_config(cfg)
       , _client_config({})
       , _delegate(std::move(delegate))
-      , _transport_delegate({*this, _logger})
       , _logger(std::make_shared<cantina::Logger>("MOQ_IS", logger))
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
         , _mexport(logger)
@@ -73,7 +74,7 @@ namespace quicr {
                                  .proto =  _server_config.server_proto };
 
         _transport = ITransport::make_server_transport(server, _server_config.transport_config,
-                                                       _transport_delegate, _logger);
+                                                       *this, _logger);
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
         _transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples);
@@ -96,69 +97,122 @@ namespace quicr {
                                 .proto =  _client_config.server_proto };
 
         _transport = ITransport::make_client_transport(relay, _client_config.transport_config,
-                                                       _transport_delegate, _logger);
+                                                       *this, _logger);
+
+        _status = Status::CLIENT_CONNECTING;
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-        _transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples);
+        auto conn_id = _transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples);
 #else
-        _transport->start(nullptr, nullptr);
+        auto conn_id = _transport->start(nullptr, nullptr);
 #endif
 
-        _connections.push_back(_transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples));
+        LOGGER_INFO(_logger, "Connecting session conn_id: " << conn_id << "...");
+        _connections.try_emplace(conn_id, ConnectionContext{ .conn_id =  conn_id });
 
-        LOGGER_INFO(_logger, "Connecting session conn_id: " << _connections.front() << "...");
-
-        while (!_stop && _transport->status() == TransportStatus::Connecting) {
-            LOGGER_DEBUG(_logger, "Connecting... " << int(_stop.load()));
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        }
-
-        if (_stop || !_transport) {
-            LOGGER_INFO(_logger, "Cancelling connecting session " << _connections.front());
-            return Status::CLIENT_FAILED_TO_CONNECT;
-        }
-
-        if (_transport->status() != TransportStatus::Ready) {
-            _logger->error << "Failed to connect status: " << static_cast<int>(_transport->status()) << std::flush;
-
-            return Status::CLIENT_FAILED_TO_CONNECT;
-        }
-
-        return Status::READY;
+        return _status;
     }
 
-
-    void MoQInstanceTransportDelegate::on_connection_status(const TransportConnId& conn_id, const TransportStatus status)
+    void MoQInstance::send_ctrl_msg(const ConnectionContext& conn_ctx, std::vector<uint8_t>&& data)
     {
-        _logger->info << "Connection status conn_id: " << conn_id
-                      << " status: " << static_cast<int>(status)
-                      << std::flush;
+        _transport->enqueue(conn_ctx.conn_id,
+                            conn_ctx.ctrl_data_ctx_id,
+                            std::move(data),
+                            { MethodTraceItem{} },
+                            0,
+                            2000,
+                            0,
+                            { true, false, false, false });
 
-        _moq_instance.status();
     }
 
-    void MoQInstanceTransportDelegate::on_new_connection(const TransportConnId& conn_id, const TransportRemote& remote)
+    void MoQInstance::send_client_setup()
+    {
+        StreamBuffer<uint8_t> buffer;
+        auto client_setup = MoqClientSetup{};
+
+        client_setup.num_versions = 1;
+        client_setup.supported_versions = { MOQT_VERSION };
+        client_setup.role_parameter.param_type = static_cast<uint64_t>(ParameterType::Role);
+        client_setup.role_parameter.param_length = 0x1; // length of 1 for role value
+        client_setup.role_parameter.param_value = { 0x03 };
+
+        buffer << client_setup;
+
+        auto &conn_ctx = _connections.begin()->second;
+
+        send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+    }
+
+
+    MoQInstance::Status MoQInstance::status()
+    {
+        return _status;
+    }
+
+
+    // ---------------------------------------------------------------------------------------
+    // Transport delegate callbacks
+    // ---------------------------------------------------------------------------------------
+
+    void MoQInstance::on_connection_status(const TransportConnId& conn_id, const TransportStatus status)
+    {
+        _logger->debug << "Connection status conn_id: " << conn_id
+                       << " status: " << static_cast<int>(status)
+                       << std::flush;
+
+        if (_client_mode) {
+            auto& conn_ctx = _connections[conn_id];
+            _logger->info << "Connection established, creating bi-dir stream and sending CLIENT_SETUP" << std::flush;
+
+            conn_ctx.ctrl_data_ctx_id = _transport->createDataContext(conn_id, true, 0, true);
+            send_client_setup();
+        }
+
+        _status = Status::READY;
+    }
+
+    void MoQInstance::on_new_connection(const TransportConnId& conn_id, const TransportRemote& remote)
     {
         _logger->info << "New connection conn_id: " << conn_id
                       << " remote ip: " << remote.host_or_ip
                       << " port: " << remote.port
                       << std::flush;
-
     }
 
-    void MoQInstanceTransportDelegate::on_recv_stream(const TransportConnId& conn_id,
+    void MoQInstance::on_recv_stream(const TransportConnId& conn_id,
                         uint64_t stream_id,
-                        std::optional<DataContextId> data_ctx_id,
-                        const bool is_bidir)
+                        [[maybe_unused]] std::optional<DataContextId> data_ctx_id,
+                        [[maybe_unused]] const bool is_bidir)
     {
-        _logger->info << "stream data conn_id: " << conn_id
-                      << " stream_id: " << stream_id
-                      << " data_ctx_id: " << (data_ctx_id ? *data_ctx_id : 0)
-                      << " is_bidir: " << is_bidir
-                      << std::flush;
+        auto stream_buf = _transport->getStreamBuffer(conn_id, stream_id);
+        auto& conn_ctx = _connections[conn_id];
+
+        if (stream_buf == nullptr) {
+            return;
+        }
+
+        while (true) {
+            if (not conn_ctx.msg_type_received.has_value()) {
+                auto msg_type = stream_buf->decode_uintV();
+
+                if (msg_type) {
+                    conn_ctx.msg_type_received = static_cast<MoQMessageType>(*msg_type);
+                } else {
+                    break;
+                }
+            }
+
+            if (conn_ctx.msg_type_received) {
+
+                // type is known, process data based on the message type
+                _logger->debug << "processing incoming message type: "
+                               << static_cast<int>(*conn_ctx.msg_type_received) << std::flush;
+            }
+        }
     }
 
-    void MoQInstanceTransportDelegate::on_recv_dgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id)
+    void MoQInstance::on_recv_dgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id)
     {
         _logger->info << "datagram data conn_id: " << conn_id
                       << " data_ctx_id: " << (data_ctx_id ? *data_ctx_id : 0)
