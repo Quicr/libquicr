@@ -70,7 +70,7 @@ namespace quicr {
          */
         MoQTrackDelegate(const bytes& track_namespace,
                          const bytes& track_name,
-                         const TrackMode track_mode,
+                         TrackMode track_mode,
                          uint8_t default_priority,
                          uint32_t default_ttl);
 
@@ -211,6 +211,7 @@ namespace quicr {
       private:
         const bytes _track_namespace;
         const bytes _track_name;
+        TrackMode _track_mode;
         std::optional<uint64_t> _track_alias;
     };
 
