@@ -89,6 +89,8 @@ namespace quicr {
          */
         SendError sendObject(const std::span<const uint8_t>& object);
         SendError sendObject(const std::span<const uint8_t>& object, uint32_t ttl);
+        SendError sendObject(const std::span<const uint8_t>& object, uint8_t priority);
+        SendError sendObject(const std::span<const uint8_t>& object, uint8_t priority, uint32_t ttl);
 
         /**
          * @brief Read object from track
