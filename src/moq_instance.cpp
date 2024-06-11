@@ -268,6 +268,7 @@ namespace quicr {
                                   << std::dec << std::flush;
                     stream_buffer->resetAny();
                     conn_ctx.setup_complete = true;
+
                     return true;
                 }
                 break;
@@ -395,8 +396,7 @@ namespace quicr {
         }
         _logger->info << std::flush;
 
-        // TODO(tievens): update transport to allow passing the reason/error code value
-        _transport->close(conn_id);
+        _transport->close(conn_id, static_cast<uint64_t>(reason));
 
         if (_client_mode) {
             _logger->info << "Client connection closed, stopping client" << std::flush;
