@@ -154,29 +154,29 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 1: {
       if(!parse_uintV_field(buffer, msg.track_alias)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 2: {
       if(!parse_bytes_field(buffer, msg.track_namespace)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 3: {
       if(!parse_bytes_field(buffer, msg.track_name)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 4: {
       const auto val = buffer.decode_uintV();
       if (!val) {
@@ -191,8 +191,8 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg) {
       } else {
         msg.current_pos += 1;
       }
+      [[fallthrough]];
     }
-    break;
     case 5: {
       if (msg.filter_type == FilterType::AbsoluteStart
           || msg.filter_type == FilterType::AbsoluteRange) {
@@ -201,8 +201,8 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg) {
         }
         msg.current_pos += 1;
       }
+      [[fallthrough]];
     }
-    break;
     case 6: {
       if (msg.filter_type == FilterType::AbsoluteStart
           || msg.filter_type == FilterType::AbsoluteRange) {
@@ -216,8 +216,8 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg) {
           msg.current_pos += 1;
         }
       }
+      [[fallthrough]];
     }
-    break;
     case 7: {
       if (msg.filter_type == FilterType::AbsoluteRange) {
         if (!parse_uintV_field(buffer, msg.end_group)) {
@@ -225,8 +225,9 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg) {
         }
         msg.current_pos += 1;
       }
+
+      [[fallthrough]];
     }
-    break;
     case 8: {
       if (msg.filter_type == FilterType::AbsoluteRange) {
         if (!parse_uintV_field(buffer, msg.end_object)) {
@@ -234,8 +235,8 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg) {
         }
         msg.current_pos += 1;
       }
+      [[fallthrough]];
     }
-    break;
     case 9: {
       if (!msg.current_param.has_value()) {
         if (!parse_uintV_field(buffer, msg.num_params)) {
@@ -266,8 +267,11 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg) {
         msg.num_params -= 1;
       }
       msg.parsing_completed = true;
+      [[fallthrough]];
     }
-    break;
+
+    default:
+      break;
   }
 
   if (!msg.parsing_completed ) {
@@ -318,15 +322,15 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeDone &msg
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 1: {
       if(!parse_uintV_field(buffer, msg.status_code)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 2: {
       const auto val = buffer.decode_bytes();
       if (!val) {
@@ -334,8 +338,8 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeDone &msg
       }
       msg.reason_phrase = std::move(val.value());
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 3: {
       const auto val = buffer.front();
       if (!val) {
@@ -348,22 +352,24 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeDone &msg
         // nothing more to process.
         return true;
       }
+      [[fallthrough]];
     }
-    break;
     case 4: {
       if(!parse_uintV_field(buffer, msg.final_group_id)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 5: {
       if(!parse_uintV_field(buffer, msg.final_object_id)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
+    default:
+      break;
   }
 
   if (msg.current_pos < msg.MAX_FIELDS) {
@@ -395,15 +401,15 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeOk &msg) 
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 1: {
       if(!parse_uintV_field(buffer, msg.expires)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 2: {
       const auto val = buffer.front();
       if (!val) {
@@ -416,22 +422,24 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeOk &msg) 
         // nothing more to process.
         return true;
       }
+      [[fallthrough]];
     }
-    break;
     case 3: {
       if(!parse_uintV_field(buffer, msg.largest_group)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 4: {
       if(!parse_uintV_field(buffer, msg.largest_object)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
+    default:
+      break;
   }
 
   if (msg.current_pos < msg.MAX_FIELDS) {
@@ -461,15 +469,15 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeError &ms
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 1: {
       if(!parse_uintV_field(buffer, msg.err_code)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 2: {
       const auto val = buffer.decode_bytes();
       if (!val) {
@@ -477,15 +485,17 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeError &ms
       }
       msg.reason_phrase = std::move(val.value());
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 3: {
       if(!parse_uintV_field(buffer, msg.track_alias)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
+    default:
+      break;
   }
 
   if (msg.current_pos < msg.MAX_FIELDS) {
@@ -723,36 +733,36 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqObjectStream &msg)
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 1: {
       if(!parse_uintV_field(buffer, msg.track_alias)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 2: {
       if(!parse_uintV_field(buffer, msg.group_id)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 3: {
       if(!parse_uintV_field(buffer, msg.object_id)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 4: {
       if(!parse_uintV_field(buffer, msg.priority)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 5: {
       const auto val = buffer.decode_bytes();
       if (!val) {
@@ -760,8 +770,10 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqObjectStream &msg)
       }
       msg.payload = std::move(val.value());
       msg.parse_completed = true;
+      [[fallthrough]];
     }
-    break;
+    default:
+      break;
   }
 
   if(!msg.parse_completed) {
@@ -793,36 +805,36 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqObjectDatagram &ms
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 1: {
       if(!parse_uintV_field(buffer, msg.track_alias)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 2: {
       if(!parse_uintV_field(buffer, msg.group_id)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 3: {
       if(!parse_uintV_field(buffer, msg.object_id)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 4: {
       if(!parse_uintV_field(buffer, msg.priority)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 5: {
       const auto val = buffer.decode_bytes();
       if (!val) {
@@ -830,8 +842,10 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqObjectDatagram &ms
       }
       msg.payload = std::move(val.value());
       msg.parse_completed = true;
+      [[fallthrough]];
     }
-    break;
+    default:
+      break;
   }
 
   if(!msg.parse_completed) {
@@ -861,23 +875,25 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamHeaderTrack 
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 1: {
       if(!parse_uintV_field(buffer, msg.track_alias)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 2: {
       if(!parse_uintV_field(buffer, msg.priority)) {
         return false;
       }
       msg.current_pos += 1;
       msg.parse_completed = true;
+      [[fallthrough]];
     }
-    break;
+    default:
+      break;
   }
 
   if(!msg.parse_completed) {
@@ -903,15 +919,15 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamTrackObject 
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 1: {
       if(!parse_uintV_field(buffer, msg.object_id)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 2: {
       const auto val = buffer.decode_bytes();
       if(!val) {
@@ -919,8 +935,10 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamTrackObject 
       }
       msg.payload = std::move(val.value());
       msg.parse_completed = true;
+      [[fallthrough]];
     }
-    break;
+    default:
+      break;
   }
 
   if(!msg.parse_completed) {
@@ -949,30 +967,32 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamHeaderGroup 
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 1: {
       if(!parse_uintV_field(buffer, msg.track_alias)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 2: {
       if(!parse_uintV_field(buffer, msg.group_id)) {
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 3: {
       if(!parse_uintV_field(buffer, msg.priority)) {
         return false;
       }
       msg.current_pos += 1;
       msg.parse_completed = true;
+      [[fallthrough]];
     }
-    break;
+    default:
+      break;
   }
 
   if(!msg.parse_completed) {
@@ -998,8 +1018,8 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamGroupObject 
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 1: {
       const auto val = buffer.decode_bytes();
       if (!val) {
@@ -1007,8 +1027,10 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamGroupObject 
       }
       msg.payload = std::move(val.value());
       msg.parse_completed = true;
+      [[fallthrough]];
     }
-    break;
+    default:
+      break;
   }
 
   if(!msg.parse_completed) {
@@ -1023,7 +1045,7 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
            const MoqClientSetup& msg){
 
   buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::CLIENT_SETUP)));
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(msg.supported_versions.size())));
+  buffer.push(qtransport::to_uintV(msg.supported_versions.size()));
   // versions
   for (const auto& ver: msg.supported_versions) {
     buffer.push(qtransport::to_uintV(ver));
@@ -1044,6 +1066,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqClientSetup &msg) 
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
     case 1: {
       while (msg.num_versions > 0) {
@@ -1055,8 +1078,8 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqClientSetup &msg) 
         msg.num_versions -= 1;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
-    break;
     case 2: {
       if(!msg.num_params.has_value()) {
         auto params = uint64_t {0};
@@ -1089,8 +1112,10 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqClientSetup &msg) 
       }
 
       msg.parse_completed = true;
+      [[fallthrough]];
     }
-    break;
+    default:
+      break;
   }
 
   if (!msg.parse_completed) {
@@ -1125,6 +1150,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqServerSetup &msg) 
         return false;
       }
       msg.current_pos += 1;
+      [[fallthrough]];
     }
     case 1: {
       if(!msg.num_params.has_value()) {
@@ -1158,8 +1184,10 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqServerSetup &msg) 
         msg.num_params.value() -= 1;
       }
       msg.parse_completed = true;
+      [[fallthrough]];
     }
-    break;
+    default:
+      break;
   }
 
   if (!msg.parse_completed) {

@@ -41,6 +41,8 @@ main()
     config.transport_config.debug = true;
     config.transport_config.tls_cert_filename = "./server-cert.pem";
     config.transport_config.tls_key_filename = "./server-key.pem";
+    config.transport_config.use_reset_wait_strategy = false;
+    config.transport_config.time_queue_max_duration = 5000;
 
     auto delegate = std::make_shared<serverDelegate>();
 

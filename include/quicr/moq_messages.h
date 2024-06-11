@@ -22,6 +22,18 @@ using SubscribeId = uint64_t;
 using TrackAlias = uint64_t;
 using ParamType = uint64_t;
 
+enum class MoQTerminationReason : uint64_t
+{
+  NO_ERROR = 0x0,
+  INTERNAL_ERROR,
+  UNAUTHORIZED,
+  PROTOCOL_VIOLATION,
+  DUP_TRACK_ALIAS,
+  PARAM_LEN_MISMATCH,
+
+  GOAWAY_TIMEOUT = 0x10,
+};
+
 // Ref: https://moq-wg.github.io/moq-transport/draft-ietf-moq-transport.html#name-messages
 enum class MoQMessageType : uint64_t
 {
@@ -159,7 +171,7 @@ struct MoqSubscribeOk {
                                                        const MoqSubscribeOk& msg);
 private:
   size_t current_pos {0};
-  const size_t MAX_FIELDS {5};
+  size_t MAX_FIELDS {5};
 };
 
 
@@ -173,7 +185,7 @@ struct MoqSubscribeError {
                                                        const MoqSubscribeError& msg);
 private:
   size_t current_pos {0};
-  const size_t MAX_FIELDS {4};
+  size_t MAX_FIELDS {4};
 };
 
 struct MoqUnsubscribe {
@@ -196,7 +208,7 @@ struct MoqSubscribeDone
                                                        const MoqSubscribeDone& msg);
 private:
   size_t current_pos {0};
-  const size_t MAX_FIELDS = {6};
+  size_t MAX_FIELDS = {6};
 };
 
 //

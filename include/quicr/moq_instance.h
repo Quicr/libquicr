@@ -160,7 +160,9 @@ namespace quicr {
         struct ConnectionContext
         {
             TransportConnId conn_id;
-            uint64_t ctrl_data_ctx_id;
+            std::optional<uint64_t> ctrl_data_ctx_id;
+            bool setup_complete { false };   /// True if both client and server setup messages have completed
+            uint64_t client_version { 0 };
             std::optional<messages::MoQMessageType> msg_type_received;  /// Indicates the current message type being read
         };
 
@@ -171,6 +173,11 @@ namespace quicr {
 
         void send_ctrl_msg(const ConnectionContext& conn_ctx, std::vector<uint8_t>&& data);
         void send_client_setup();
+        void send_server_setup(ConnectionContext& conn_ctx);
+        void close_connection(TransportConnId conn_id, messages::MoQTerminationReason reason,
+                              const std::string& reason_str);
+        bool process_recv_message(ConnectionContext& conn_ctx,
+                                  std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
         // -------------------------------------------------------------------------------------------------
         // Private member variables

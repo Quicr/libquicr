@@ -1,9 +1,10 @@
+#include <any>
 #include <doctest/doctest.h>
+#include <iostream>
 #include <memory>
+#include <quicr/moq_messages.h>
 #include <sstream>
 #include <string>
-#include <iostream>
-#include <quicr/moq_messages.h>
 
 using namespace quicr;
 using namespace quicr::messages;
@@ -21,10 +22,15 @@ template<typename T>
 bool verify(std::vector<uint8_t>& net_data, uint64_t message_type, T& message, size_t slice_depth=1) {
   // TODO: support size_depth > 1, if needed
   qtransport::StreamBuffer<uint8_t> in_buffer;
+  in_buffer.initAny<T>();    // Set parsed data to be of this type using out param
+
   std::optional<uint64_t> msg_type;
   bool done = false;
+
   for (auto& v: net_data) {
+    auto &msg = in_buffer.getAny<T>();
     in_buffer.push(v);
+
     if (!msg_type) {
       msg_type = in_buffer.decode_uintV();
       if (!msg_type) {
@@ -34,8 +40,10 @@ bool verify(std::vector<uint8_t>& net_data, uint64_t message_type, T& message, s
       continue;
     }
 
-    done = in_buffer >> message;
+    done = in_buffer >> msg;
     if (done) {
+      // copy the working parsed data to out param.
+      message = msg;
       break;
     }
   }

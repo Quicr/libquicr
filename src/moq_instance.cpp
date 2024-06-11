@@ -77,7 +77,9 @@ namespace quicr {
                                                        *this, _logger);
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-        _transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples);
+        // TODO(tievens) add back after endpoint_id is added
+        // _transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples);
+        _transport->start(nullptr, nullptr);
 #else
         _transport->start(nullptr, nullptr);
 #endif
@@ -102,7 +104,9 @@ namespace quicr {
         _status = Status::CLIENT_CONNECTING;
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-        auto conn_id = _transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples);
+        // TODO(tievens): Add back after endpoint_id is added
+        //auto conn_id = _transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples);
+        auto conn_id = _transport->start(nullptr, nullptr);
 #else
         auto conn_id = _transport->start(nullptr, nullptr);
 #endif
@@ -115,8 +119,15 @@ namespace quicr {
 
     void MoQInstance::send_ctrl_msg(const ConnectionContext& conn_ctx, std::vector<uint8_t>&& data)
     {
+        if (not conn_ctx.ctrl_data_ctx_id) {
+            close_connection(conn_ctx.conn_id,
+                             MoQTerminationReason::PROTOCOL_VIOLATION,
+                             "Control bidir stream not created");
+            return;
+        }
+
         _transport->enqueue(conn_ctx.conn_id,
-                            conn_ctx.ctrl_data_ctx_id,
+                            *conn_ctx.ctrl_data_ctx_id,
                             std::move(data),
                             { MethodTraceItem{} },
                             0,
@@ -131,15 +142,32 @@ namespace quicr {
         StreamBuffer<uint8_t> buffer;
         auto client_setup = MoqClientSetup{};
 
-        client_setup.num_versions = 1;
+        client_setup.num_versions = 1;      // NOTE: Not used for encode, verison vector size is used
         client_setup.supported_versions = { MOQT_VERSION };
         client_setup.role_parameter.param_type = static_cast<uint64_t>(ParameterType::Role);
-        client_setup.role_parameter.param_length = 0x1; // length of 1 for role value
+        client_setup.role_parameter.param_length = 0x1; // NOTE: not used for encode, size of value is used
         client_setup.role_parameter.param_value = { 0x03 };
 
         buffer << client_setup;
 
         auto &conn_ctx = _connections.begin()->second;
+
+        send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+    }
+
+    void MoQInstance::send_server_setup(ConnectionContext& conn_ctx)
+    {
+        StreamBuffer<uint8_t> buffer;
+        auto server_setup = MoqServerSetup{};
+
+        server_setup.selection_version = { conn_ctx.client_version };
+        server_setup.role_parameter.param_type = static_cast<uint64_t>(ParameterType::Role);
+        server_setup.role_parameter.param_length = 0x1; // NOTE: not used for encode, size of value is used
+        server_setup.role_parameter.param_value = { 0x03 };
+
+        buffer << server_setup;
+
+        _logger->info << "Sending SERVER_SETUP to conn_id: " << conn_ctx.conn_id << std::flush;
 
         send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
     }
@@ -150,6 +178,111 @@ namespace quicr {
         return _status;
     }
 
+    bool MoQInstance::process_recv_message(ConnectionContext& conn_ctx,
+                                           std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer)
+    {
+        if (stream_buffer->size() == 0) { // should never happen
+            close_connection(conn_ctx.conn_id,
+                             MoQTerminationReason::INTERNAL_ERROR,
+                             "Stream buffer cannot be zero when parsing message type");
+        }
+
+        if (not conn_ctx.msg_type_received) { // should never happen
+            close_connection(conn_ctx.conn_id,
+                             MoQTerminationReason::INTERNAL_ERROR,
+                             "Process recv message connection context is missing message type");
+        }
+
+        switch (*conn_ctx.msg_type_received) {
+            case MoQMessageType::OBJECT_STREAM:
+                break;
+            case MoQMessageType::OBJECT_DATAGRAM:
+                break;
+            case MoQMessageType::SUBSCRIBE:
+                break;
+            case MoQMessageType::SUBSCRIBE_OK:
+                break;
+            case MoQMessageType::SUBSCRIBE_ERROR:
+                break;
+            case MoQMessageType::ANNOUNCE:
+                break;
+            case MoQMessageType::ANNOUNCE_OK:
+                break;
+            case MoQMessageType::ANNOUNCE_ERROR:
+                break;
+            case MoQMessageType::UNANNOUNCE:
+                break;
+            case MoQMessageType::UNSUBSCRIBE:
+                break;
+            case MoQMessageType::SUBSCRIBE_DONE:
+                break;
+            case MoQMessageType::ANNOUNCE_CANCEL:
+                break;
+            case MoQMessageType::TRACK_STATUS_REQUEST:
+                break;
+            case MoQMessageType::TRACK_STATUS:
+                break;
+            case MoQMessageType::GOWAY:
+                break;
+            case MoQMessageType::CLIENT_SETUP: {
+                    if (not stream_buffer->anyHasValue()) {
+                        _logger->info << "init stream buffer client setup" << std::flush;
+                        stream_buffer->initAny<MoqClientSetup>();
+                    }
+
+                    auto& msg = stream_buffer->getAny<MoqClientSetup>();
+                    if (*stream_buffer >> msg) {
+                        if (!msg.supported_versions.size()) { // should never happen
+                            close_connection(conn_ctx.conn_id,
+                                             MoQTerminationReason::PROTOCOL_VIOLATION,
+                                             "Client setup contained zero versions");
+
+                        }
+
+                        _logger->info << "Client setup received, "
+                                      << " num_versions: " << msg.num_versions
+                                      << " role: " << static_cast<int>(msg.role_parameter.param_value.front())
+                                      << " version: 0x" << std::hex << msg.supported_versions.front()
+                                      << std::dec << std::flush;
+
+                        conn_ctx.client_version = msg.supported_versions.front();
+                        stream_buffer->resetAny();
+
+                        send_server_setup(conn_ctx);
+                        conn_ctx.setup_complete = true;
+                        return true;
+                    }
+                    break;
+            }
+            case MoQMessageType::SERVER_SETUP: {
+                if (not stream_buffer->anyHasValue()) {
+                    _logger->info << "init stream buffer server setup" << std::flush;
+                    stream_buffer->initAny<MoqServerSetup>();
+                }
+
+                auto& msg = stream_buffer->getAny<MoqServerSetup>();
+                if (*stream_buffer >> msg) {
+                    _logger->info << "Server setup received,"
+                                  << " role: " << static_cast<int>(msg.role_parameter.param_value.front())
+                                  << " selected_version: 0x" << std::hex << msg.selection_version
+                                  << std::dec << std::flush;
+                    stream_buffer->resetAny();
+                    conn_ctx.setup_complete = true;
+                    return true;
+                }
+                break;
+            }
+            case MoQMessageType::STREAM_HEADER_TRACK:
+                break;
+            case MoQMessageType::STREAM_HEADER_GROUP:
+                break;
+        }
+
+        _logger->debug << " type: " << static_cast<int>(*conn_ctx.msg_type_received)
+                      << " sbuf_size: " << stream_buffer->size()
+                      << std::flush;
+        return false;
+    }
 
     // ---------------------------------------------------------------------------------------
     // Transport delegate callbacks
@@ -174,16 +307,20 @@ namespace quicr {
 
     void MoQInstance::on_new_connection(const TransportConnId& conn_id, const TransportRemote& remote)
     {
+        auto [conn_ctx, is_new] = _connections.try_emplace(conn_id, ConnectionContext{});
+
         _logger->info << "New connection conn_id: " << conn_id
                       << " remote ip: " << remote.host_or_ip
                       << " port: " << remote.port
                       << std::flush;
+
+        conn_ctx->second.conn_id = conn_id;
     }
 
     void MoQInstance::on_recv_stream(const TransportConnId& conn_id,
                         uint64_t stream_id,
-                        [[maybe_unused]] std::optional<DataContextId> data_ctx_id,
-                        [[maybe_unused]] const bool is_bidir)
+                        std::optional<DataContextId> data_ctx_id,
+                        const bool is_bidir)
     {
         auto stream_buf = _transport->getStreamBuffer(conn_id, stream_id);
         auto& conn_ctx = _connections[conn_id];
@@ -192,8 +329,18 @@ namespace quicr {
             return;
         }
 
-        while (true) {
-            if (not conn_ctx.msg_type_received.has_value()) {
+        if (is_bidir && not conn_ctx.ctrl_data_ctx_id) {
+            if (not data_ctx_id) {
+                close_connection(conn_id,
+                                 MoQTerminationReason::INTERNAL_ERROR,
+                                 "Received bidir is missing data context");
+                return;
+            }
+            conn_ctx.ctrl_data_ctx_id = data_ctx_id;
+        }
+
+        while (stream_buf->size()) {
+            if (not conn_ctx.msg_type_received) {
                 auto msg_type = stream_buf->decode_uintV();
 
                 if (msg_type) {
@@ -204,10 +351,9 @@ namespace quicr {
             }
 
             if (conn_ctx.msg_type_received) {
-
-                // type is known, process data based on the message type
-                _logger->debug << "processing incoming message type: "
-                               << static_cast<int>(*conn_ctx.msg_type_received) << std::flush;
+                if (process_recv_message(conn_ctx, stream_buf)) {
+                    conn_ctx.msg_type_received = std::nullopt;
+                }
             }
         }
     }
@@ -218,6 +364,44 @@ namespace quicr {
                       << " data_ctx_id: " << (data_ctx_id ? *data_ctx_id : 0)
                       << std::flush;
 
+    }
+
+    void MoQInstance::close_connection(TransportConnId conn_id, messages::MoQTerminationReason reason,
+                                       const std::string& reason_str)
+    {
+        _logger->info << "Closing conn_id: " << conn_id;
+        switch (reason) {
+            case MoQTerminationReason::NO_ERROR:
+                _logger->info << " no error";
+                break;
+            case MoQTerminationReason::INTERNAL_ERROR:
+                _logger->info << " internal error: " << reason_str;
+                break;
+            case MoQTerminationReason::UNAUTHORIZED:
+                _logger->info << " unauthorized: " << reason_str;
+                break;
+            case MoQTerminationReason::PROTOCOL_VIOLATION:
+                _logger->info << " protocol violation: " << reason_str;
+            break;
+            case MoQTerminationReason::DUP_TRACK_ALIAS:
+                _logger->info << " duplicate track alias: " << reason_str;
+                break;
+            case MoQTerminationReason::PARAM_LEN_MISMATCH:
+                _logger->info << " param length mismatch: " << reason_str;
+                break;
+            case MoQTerminationReason::GOAWAY_TIMEOUT:
+                _logger->info << " goaway timeout: " << reason_str;
+                break;
+        }
+        _logger->info << std::flush;
+
+        // TODO(tievens): update transport to allow passing the reason/error code value
+        _transport->close(conn_id);
+
+        if (_client_mode) {
+            _logger->info << "Client connection closed, stopping client" << std::flush;
+            _stop = true;
+        }
     }
 
 
