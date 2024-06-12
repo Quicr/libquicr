@@ -39,6 +39,8 @@ main(int argc, char* argv[])
       ("b,bind_ip", "Bind IP", cxxopts::value<std::string>()->default_value("127.0.0.1"))
       ("p,port", "Listening port", cxxopts::value<uint16_t>()->default_value("1234"))
       ("e,endpoint_id", "This relay/server endpoint ID", cxxopts::value<std::string>()->default_value("moq-server"))
+      ("c,cert", "Certificate file", cxxopts::value<std::string>()->default_value("./server-cert.pem"))
+      ("k,key", "Certificate key file", cxxopts::value<std::string>()->default_value("./server-key.pem"))
       ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
     ; // end of options
 
@@ -72,8 +74,8 @@ main(int argc, char* argv[])
     config.server_port = result["port"].as<uint16_t>();
     config.server_proto = qtransport::TransportProtocol::QUIC;
     config.transport_config.debug = result["debug"].as<bool>();
-    config.transport_config.tls_cert_filename = "./server-cert.pem";
-    config.transport_config.tls_key_filename = "./server-key.pem";
+    config.transport_config.tls_cert_filename = const_cast<char *>(result["cert"].as<std::string>().c_str());
+    config.transport_config.tls_key_filename = const_cast<char *>(result["key"].as<std::string>().c_str());
     config.transport_config.use_reset_wait_strategy = false;
     config.transport_config.time_queue_max_duration = 5000;
     config.transport_config.quic_qlog_path = qlog_path.size() ? const_cast<char *>(qlog_path.c_str()) : nullptr;
