@@ -67,7 +67,7 @@ main(int argc, char* argv[])
 
     bool enable_sub { false };
     if (result.count("sub_namespace") && result.count("sub_name")) {
-        enable_pub = true;
+        enable_sub = true;
         logger->info << "Subscriber enabled using track"
                      << " namespace: " << result["sub_namespace"].as<std::string>()
                      << " name: " << result["sub_name"].as<std::string>()
