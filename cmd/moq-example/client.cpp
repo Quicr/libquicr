@@ -39,13 +39,13 @@ main(int argc, char* argv[])
     ; // end of options
 
     options.add_options("Publisher")
-      ("pn,pub_namespace", "Track namespace", cxxopts::value<std::string>()->default_value("client1"))
-      ("pt,pub_name", "Track name", cxxopts::value<std::vector<std::string>>()->default_value("chat"))
+      ("pub_namespace", "Track namespace", cxxopts::value<std::string>())
+      ("pub_name", "Track name", cxxopts::value<std::string>())
     ;
 
     options.add_options("Subscriber")
-      ("sn,sub_namespace", "Track namespace", cxxopts::value<std::string>()->default_value("client1"))
-      ("st,sub_name", "Track name", cxxopts::value<std::vector<std::string>>()->default_value("chat"))
+      ("sub_namespace", "Track namespace", cxxopts::value<std::string>())
+      ("sub_name", "Track name", cxxopts::value<std::string>())
     ;
 
     auto result = options.parse(argc, argv);
@@ -54,6 +54,24 @@ main(int argc, char* argv[])
     {
         std::cout << options.help({"", "Publisher", "Subscriber"}) << std::endl;
         return true;
+    }
+
+    bool enable_pub { false };
+    if (result.count("pub_namespace") && result.count("pub_name")) {
+        enable_pub = true;
+        logger->info << "Publisher enabled using track"
+                     << " namespace: " << result["pub_namespace"].as<std::string>()
+                     << " name: " << result["pub_name"].as<std::string>()
+                     << std::flush;
+    }
+
+    bool enable_sub { false };
+    if (result.count("sub_namespace") && result.count("sub_name")) {
+        enable_pub = true;
+        logger->info << "Subscriber enabled using track"
+                     << " namespace: " << result["sub_namespace"].as<std::string>()
+                     << " name: " << result["sub_name"].as<std::string>()
+                     << std::flush;
     }
 
     std::string qlog_path;
