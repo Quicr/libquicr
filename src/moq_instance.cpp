@@ -77,9 +77,7 @@ namespace quicr {
                                                        *this, _logger);
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-        // TODO(tievens) add back after endpoint_id is added
-        // _transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples);
-        _transport->start(nullptr, nullptr);
+        _transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples);
 #else
         _transport->start(nullptr, nullptr);
 #endif
@@ -104,9 +102,7 @@ namespace quicr {
         _status = Status::CLIENT_CONNECTING;
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-        // TODO(tievens): Add back after endpoint_id is added
-        //auto conn_id = _transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples);
-        auto conn_id = _transport->start(nullptr, nullptr);
+        auto conn_id = _transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples);
 #else
         auto conn_id = _transport->start(nullptr, nullptr);
 #endif
@@ -147,6 +143,8 @@ namespace quicr {
         client_setup.role_parameter.param_type = static_cast<uint64_t>(ParameterType::Role);
         client_setup.role_parameter.param_length = 0x1; // NOTE: not used for encode, size of value is used
         client_setup.role_parameter.param_value = { 0x03 };
+        client_setup.endpoint_id_parameter.param_value.assign(_client_config.endpoint_id.begin(),
+                                                              _client_config.endpoint_id.end());
 
         buffer << client_setup;
 
@@ -164,6 +162,9 @@ namespace quicr {
         server_setup.role_parameter.param_type = static_cast<uint64_t>(ParameterType::Role);
         server_setup.role_parameter.param_length = 0x1; // NOTE: not used for encode, size of value is used
         server_setup.role_parameter.param_value = { 0x03 };
+        server_setup.endpoint_id_parameter.param_value.assign(_server_config.endpoint_id.begin(),
+                                                              _server_config.endpoint_id.end());
+
 
         buffer << server_setup;
 
@@ -239,7 +240,9 @@ namespace quicr {
 
                         }
 
-                        _logger->info << "Client setup received, "
+                        std::string client_endpoint_id(msg.endpoint_id_parameter.param_value.begin(),
+                                                        msg.endpoint_id_parameter.param_value.end());
+                        _logger->info << "Client setup received from: " << client_endpoint_id
                                       << " num_versions: " << msg.num_versions
                                       << " role: " << static_cast<int>(msg.role_parameter.param_value.front())
                                       << " version: 0x" << std::hex << msg.supported_versions.front()
@@ -247,6 +250,14 @@ namespace quicr {
 
                         conn_ctx.client_version = msg.supported_versions.front();
                         stream_buffer->resetAny();
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+                        _mexport.set_conn_ctx_info(conn_ctx.conn_id, {.endpoint_id = client_endpoint_id,
+                                                                            .relay_id = _server_config.endpoint_id,
+                                                                            .data_ctx_info = {}}, false);
+                        _mexport.set_data_ctx_info(conn_ctx.conn_id, *conn_ctx.ctrl_data_ctx_id,
+                                                   {.subscribe = false, .nspace = {}});
+#endif
 
                         send_server_setup(conn_ctx);
                         conn_ctx.setup_complete = true;
@@ -262,12 +273,29 @@ namespace quicr {
 
                 auto& msg = stream_buffer->getAny<MoqServerSetup>();
                 if (*stream_buffer >> msg) {
-                    _logger->info << "Server setup received,"
+                    std::string server_endpoint_id(msg.endpoint_id_parameter.param_value.begin(),
+                                msg.endpoint_id_parameter.param_value.end());
+
+                    _logger->info << "Server setup received"
+                                  << " from: " << server_endpoint_id
+                                  << std::string(msg.endpoint_id_parameter.param_value.begin(),
+                                                 msg.endpoint_id_parameter.param_value.end())
                                   << " role: " << static_cast<int>(msg.role_parameter.param_value.front())
                                   << " selected_version: 0x" << std::hex << msg.selection_version
                                   << std::dec << std::flush;
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+                    _mexport.set_conn_ctx_info(conn_ctx.conn_id, {.endpoint_id = server_endpoint_id,
+                                                                        .relay_id = _server_config.endpoint_id,
+                                                                        .data_ctx_info = {}}, false);
+
+                    _mexport.set_data_ctx_info(conn_ctx.conn_id, *conn_ctx.ctrl_data_ctx_id,
+                                               {.subscribe = false, .nspace = {}});
+#endif
+
                     stream_buffer->resetAny();
                     conn_ctx.setup_complete = true;
+
 
                     return true;
                 }
@@ -300,6 +328,11 @@ namespace quicr {
             _logger->info << "Connection established, creating bi-dir stream and sending CLIENT_SETUP" << std::flush;
 
             conn_ctx.ctrl_data_ctx_id = _transport->createDataContext(conn_id, true, 0, true);
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+            _mexport.set_data_ctx_info(conn_ctx.conn_id, *conn_ctx.ctrl_data_ctx_id,
+                                       {.subscribe = false, .nspace = {}});
+#endif
+
             send_client_setup();
         }
 

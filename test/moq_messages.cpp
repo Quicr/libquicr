@@ -5,6 +5,7 @@
 #include <quicr/moq_messages.h>
 #include <sstream>
 #include <string>
+#include <sys/socket.h>
 
 using namespace quicr;
 using namespace quicr::messages;
@@ -528,12 +529,14 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
 TEST_CASE("ClientSetup  Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
+  const std::string endpoint_id = "client test";
   auto client_setup = MoqClientSetup {};
   client_setup.num_versions = 2;
   client_setup.supported_versions = {0x1000, 0x2000};
   client_setup.role_parameter.param_type = static_cast<uint64_t>(ParameterType::Role);
   client_setup.role_parameter.param_length = 0x1;
   client_setup.role_parameter.param_value = {0xFF};
+  client_setup.endpoint_id_parameter.param_value.assign(endpoint_id.begin(), endpoint_id.end());
 
   buffer << client_setup;
 
@@ -543,17 +546,20 @@ TEST_CASE("ClientSetup  Message encode/decode")
   CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::CLIENT_SETUP), client_setup_out));
   CHECK_EQ(client_setup.supported_versions, client_setup_out.supported_versions);
   CHECK_EQ(client_setup.role_parameter.param_value, client_setup_out.role_parameter.param_value);
+  CHECK_EQ(client_setup.endpoint_id_parameter.param_value, client_setup_out.endpoint_id_parameter.param_value);
 }
 
 
 TEST_CASE("ServerSetup  Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
+  const std::string endpoint_id = "server_test";
   auto server_setup = MoqServerSetup {};
   server_setup.selection_version = {0x1000};
   server_setup.role_parameter.param_type = static_cast<uint64_t>(ParameterType::Role);
   server_setup.role_parameter.param_length = 0x1;
   server_setup.role_parameter.param_value = {0xFF};
+  server_setup.endpoint_id_parameter.param_value.assign(endpoint_id.begin(), endpoint_id.end());
 
   buffer << server_setup;
 
@@ -563,6 +569,7 @@ TEST_CASE("ServerSetup  Message encode/decode")
   CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SERVER_SETUP), server_setup_out));
   CHECK_EQ(server_setup.selection_version, server_setup_out.selection_version);
   CHECK_EQ(server_setup.role_parameter.param_value, server_setup.role_parameter.param_value);
+  CHECK_EQ(server_setup.endpoint_id_parameter.param_value, server_setup_out.endpoint_id_parameter.param_value);
 }
 
 TEST_CASE("ObjectStream  Message encode/decode")

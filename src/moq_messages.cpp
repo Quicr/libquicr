@@ -136,11 +136,10 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
       break;
   }
 
-  buffer.push(qtransport::to_uintV(msg.num_params));
+  buffer.push(qtransport::to_uintV(msg.track_params.size()));
   for (const auto& param: msg.track_params) {
     buffer.push(qtransport::to_uintV(static_cast<uint64_t>(param.param_type)));
-    buffer.push(qtransport::to_uintV(param.param_length));
-    buffer.push(param.param_value);
+    buffer.push_lv(param.param_value);
   }
 
   return buffer;
@@ -238,21 +237,24 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg) {
       [[fallthrough]];
     }
     case 9: {
-      if (!msg.current_param.has_value()) {
-        if (!parse_uintV_field(buffer, msg.num_params)) {
+      if (!msg.num_params.has_value()) {
+        uint64_t num = 0;
+        if (!parse_uintV_field(buffer, num)) {
           return false;
         }
-        msg.current_param = MoqParameter{};
+
+        msg.num_params = num;
       }
       // parse each param
-      while (msg.num_params > 0) {
-        if (!msg.current_param.value().param_type) {
-          auto val = buffer.front();
-          if (!val) {
+      while (*msg.num_params > 0) {
+        if (!msg.current_param.has_value()) {
+          uint64_t type {0};
+          if (!parse_uintV_field(buffer, type)) {
             return false;
           }
-          msg.current_param.value().param_type = *val;
-          buffer.pop();
+
+          msg.current_param = MoqParameter{};
+          msg.current_param->param_type = type;
         }
 
         // decode param_len:<bytes>
@@ -263,9 +265,10 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg) {
         msg.current_param.value().param_length = param->size();
         msg.current_param.value().param_value = param.value();
         msg.track_params.push_back(msg.current_param.value());
-        msg.current_param = MoqParameter{};
-        msg.num_params -= 1;
+        msg.current_param = std::nullopt;
+        *msg.num_params -= 1;
       }
+
       msg.parsing_completed = true;
       [[fallthrough]];
     }
@@ -545,12 +548,13 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer,
   // parse each param
   while (msg.num_params > 0) {
     if (!msg.current_param.param_type) {
-      auto val = buffer.front();
-      if (!val) {
+      uint64_t type {0};
+      if (!parse_uintV_field(buffer, type)) {
         return false;
       }
-      msg.current_param.param_type = *val;
-      buffer.pop();
+
+      msg.current_param = {};
+      msg.current_param.param_type = type;
     }
 
     // decode param_len:<bytes>
@@ -1052,10 +1056,14 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
   }
 
   /// num params
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(1)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(2)));
   // role param
   buffer.push(qtransport::to_uintV(static_cast<uint64_t>(msg.role_parameter.param_type)));
   buffer.push_lv(msg.role_parameter.param_value);
+  // endpoint_id param
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(ParameterType::EndpointId)));
+  buffer.push_lv(msg.endpoint_id_parameter.param_value);
+
   return buffer;
 }
 
@@ -1089,26 +1097,39 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqClientSetup &msg) 
         msg.num_params = params;
       }
       while (msg.num_params > 0) {
-        if (!msg.current_param.has_value()) {
-          auto val = buffer.front();
-          if (!val) {
-            return false;
-          }
-          msg.current_param = MoqParameter{};
-          msg.current_param->param_type = *val;
-          buffer.pop();
-        }
+          if (!msg.current_param.has_value()) {
+              uint64_t type{ 0 };
+              if (!parse_uintV_field(buffer, type)) {
+                  return false;
+              }
 
-        auto param = buffer.decode_bytes();
-        if (!param) {
-          return false;
-        }
-        msg.current_param->param_length = param->size();
-        msg.current_param->param_value = param.value();
-        static_cast<ParameterType>(msg.current_param->param_type) == ParameterType::Role  ?
-          msg.role_parameter = std::move(msg.current_param.value()) : msg.path_parameter = std::move(msg.current_param.value());
-        msg.current_param = MoqParameter{};
-        msg.num_params.value() -= 1;
+              msg.current_param = MoqParameter{};
+              msg.current_param->param_type = type;
+          }
+
+          auto param = buffer.decode_bytes();
+          if (!param) {
+              return false;
+          }
+          msg.current_param->param_length = param->size();
+          msg.current_param->param_value = param.value();
+
+          switch (static_cast<ParameterType>(msg.current_param->param_type)) {
+              case ParameterType::Role:
+                  msg.role_parameter = std::move(msg.current_param.value());
+                  break;
+              case ParameterType::Path:
+                  msg.path_parameter = std::move(msg.current_param.value());
+                  break;
+              case ParameterType::EndpointId:
+                  msg.endpoint_id_parameter = std::move(msg.current_param.value());
+                  break;
+              default:
+                  break;
+          }
+
+          msg.current_param = std::nullopt;
+          msg.num_params.value() -= 1;
       }
 
       msg.parse_completed = true;
@@ -1136,10 +1157,15 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
   buffer.push(qtransport::to_uintV(msg.selection_version));
 
   /// num params
-  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(1)));
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(2)));
   // role param
   buffer.push(qtransport::to_uintV(static_cast<uint64_t>(msg.role_parameter.param_type)));
   buffer.push_lv(msg.role_parameter.param_value);
+
+  // endpoint_id param
+  buffer.push(qtransport::to_uintV(static_cast<uint64_t>(ParameterType::EndpointId)));
+  buffer.push_lv(msg.endpoint_id_parameter.param_value);
+
   return buffer;
 }
 
@@ -1162,13 +1188,13 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqServerSetup &msg) 
       }
       while (msg.num_params > 0) {
         if (!msg.current_param.has_value()) {
-          auto val = buffer.front();
-          if (!val) {
-            return false;
+          uint64_t type {0};
+          if (!parse_uintV_field(buffer, type)) {
+              return false;
           }
+
           msg.current_param = MoqParameter{};
-          msg.current_param->param_type = *val;
-          buffer.pop();
+          msg.current_param->param_type = type;
         }
 
         auto param = buffer.decode_bytes();
@@ -1177,10 +1203,22 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqServerSetup &msg) 
         }
         msg.current_param->param_length = param->size();
         msg.current_param->param_value = param.value();
-        static_cast<ParameterType>(msg.current_param->param_type) == ParameterType::Role
-          ? msg.role_parameter = std::move(msg.current_param.value())
-          : msg.path_parameter = std::move(msg.current_param.value());
-        msg.current_param = MoqParameter{};
+
+        switch (static_cast<ParameterType>(msg.current_param->param_type)) {
+            case ParameterType::Role:
+                msg.role_parameter = std::move(msg.current_param.value());
+                break;
+            case ParameterType::Path:
+                msg.path_parameter = std::move(msg.current_param.value());
+                break;
+            case ParameterType::EndpointId:
+                msg.endpoint_id_parameter = std::move(msg.current_param.value());
+                break;
+            default:
+                break;
+        }
+
+        msg.current_param = std::nullopt;
         msg.num_params.value() -= 1;
       }
       msg.parse_completed = true;

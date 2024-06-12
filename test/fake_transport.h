@@ -60,7 +60,7 @@ struct FakeTransport : public ITransport
                           [[maybe_unused]] uint8_t priority) override {}
 
   std::shared_ptr<StreamBuffer<uint8_t>> getStreamBuffer(TransportConnId, uint64_t) override { return nullptr;}
-  void close(const TransportConnId& /* conn_id */) override {};
+  void close(const TransportConnId& /* conn_id */, uint64_t) override {};
 
   void deleteDataContext([[maybe_unused]] const TransportConnId& conn_id,
                          [[maybe_unused]] DataContextId data_ctx_id) override

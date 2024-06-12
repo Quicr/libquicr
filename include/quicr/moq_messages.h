@@ -80,6 +80,7 @@ enum struct ParameterType : uint8_t {
   Role = 0x0,
   Path = 0x1,
   AuthorizationInfo = 0x2, // version specific, unused
+  EndpointId = 0xF0, // Endpoint ID, using temp value for now
   Invalid = 0xFF, // used internally.
 };
 
@@ -103,6 +104,7 @@ struct MoqClientSetup {
   std::vector<Version> supported_versions;
   MoqParameter role_parameter;
   MoqParameter path_parameter;
+  MoqParameter endpoint_id_parameter;
   friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqClientSetup &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
                                                        const MoqClientSetup& msg);
@@ -117,6 +119,7 @@ struct MoqServerSetup {
   Version selection_version;
   MoqParameter role_parameter;
   MoqParameter path_parameter;
+  MoqParameter endpoint_id_parameter;
   friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqServerSetup &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
                                                        const MoqServerSetup& msg);
@@ -149,7 +152,7 @@ struct MoqSubscribe {
   uint64_t end_group {0};
   uint64_t start_object {0};
   uint64_t end_object {0};
-  uint64_t num_params {0};
+  std::optional<uint64_t> num_params;
   std::vector<MoqParameter> track_params;
   friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,

@@ -53,7 +53,7 @@ main(int argc, char* argv[])
     std::unique_lock<std::mutex> lock(moq_example::main_mutex);
 
     quicr::MoQInstanceClientConfig config;
-    config.instance_id = "moq_client";
+    config.endpoint_id = "moq_client";
     config.server_host_ip = "127.0.0.1";
     config.server_port = 1234;
     config.server_proto = qtransport::TransportProtocol::QUIC;

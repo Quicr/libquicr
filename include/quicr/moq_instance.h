@@ -20,7 +20,7 @@ namespace quicr {
 
     struct MoQInstanceConfig
     {
-        std::string instance_id; /// Instance ID for the client or server, should be unique
+        std::string endpoint_id; /// Endpoint ID for the client or server, should be unique
         TransportConfig transport_config;
     };
 

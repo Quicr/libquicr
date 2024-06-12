@@ -34,7 +34,7 @@ main()
     std::unique_lock<std::mutex> lock(moq_example::main_mutex);
 
     quicr::MoQInstanceServerConfig config;
-    config.instance_id = "moq_server";
+    config.endpoint_id = "moq_server";
     config.server_bind_ip = "127.0.0.1";
     config.server_port = 1234;
     config.server_proto = qtransport::TransportProtocol::QUIC;
