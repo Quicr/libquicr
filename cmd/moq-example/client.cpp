@@ -3,9 +3,9 @@
 
 #include "signal_handler.h"
 
-#include <chrono>
 #include <iostream>
-#include <thread>
+#include <oss/cxxopts.hpp>
+
 
 class clientDelegate : public quicr::MoQInstanceDelegate
 {
@@ -23,27 +23,47 @@ main(int argc, char* argv[])
     int result_code = EXIT_SUCCESS;
 
     cantina::LoggerPointer logger = std::make_shared<cantina::Logger>("qclient");
-    logger->SetLogLevel("DEBUG");
 
-    if ((argc != 2) && (argc != 3)) {
-        std::cerr << "Relay address and port set in MOQ_RELAY and MOQ_PORT env variables." << std::endl;
-        std::cerr << std::endl;
-        std::cerr << "Usage publisher: qclient pub <track_namespace> <track_name>" << std::endl;
-        std::cerr << "Usage subscriber: qclient <track_namespace> <track_name>" << std::endl;
-        exit(-1); // NOLINT(concurrency-mt-unsafe)
+    cxxopts::Options options("qclient", "MOQ Example Client");
+    options
+      .set_width(75)
+      .set_tab_expansion()
+      .allow_unrecognised_options()
+      .add_options()
+      ("h,help", "Print help")
+      ("d,debug", "Enable debugging") // a bool parameter
+      ("r,host", "Relay host/IP", cxxopts::value<std::string>()->default_value("localhost"))
+      ("p,port", "Relay port", cxxopts::value<uint16_t>()->default_value("1234"))
+      ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))
+      ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
+    ; // end of options
+
+    options.add_options("Publisher")
+      ("pn,pub_namespace", "Track namespace", cxxopts::value<std::string>()->default_value("client1"))
+      ("pt,pub_name", "Track name", cxxopts::value<std::vector<std::string>>()->default_value("chat"))
+    ;
+
+    options.add_options("Subscriber")
+      ("sn,sub_namespace", "Track namespace", cxxopts::value<std::string>()->default_value("client1"))
+      ("st,sub_name", "Track name", cxxopts::value<std::vector<std::string>>()->default_value("chat"))
+    ;
+
+    auto result = options.parse(argc, argv);
+
+    if (result.count("help"))
+    {
+        std::cout << options.help({"", "Publisher", "Subscriber"}) << std::endl;
+        return true;
     }
 
-    // NOLINTNEXTLINE(concurrency-mt-unsafe)
-    const auto* relayName = getenv("MOQ_RELAY");
-    if (relayName == nullptr) {
-        relayName = "127.0.0.1";
+    std::string qlog_path;
+    if (result.count("qlog")) {
+        qlog_path = result["qlog"].as<std::string>();
     }
 
-    // NOLINTNEXTLINE(concurrency-mt-unsafe)
-    const auto* portVar = getenv("MOQ_PORT");
-    int port = 1234;
-    if (portVar != nullptr) {
-        port = atoi(portVar); // NOLINT(cert-err34-c)
+    if (result.count("debug") && result["debug"].as<bool>() == true) {
+        logger->info << "setting debug level" << std::flush;
+        logger->SetLogLevel("DEBUG");
     }
 
     // Install a signal handlers to catch operating system signals
@@ -53,13 +73,16 @@ main(int argc, char* argv[])
     std::unique_lock<std::mutex> lock(moq_example::main_mutex);
 
     quicr::MoQInstanceClientConfig config;
-    config.endpoint_id = "moq_client";
-    config.server_host_ip = "127.0.0.1";
-    config.server_port = 1234;
+    config.endpoint_id = result["endpoint_id"].as<std::string>();
+    config.server_host_ip = result["host"].as<std::string>();
+    config.server_port = result["port"].as<uint16_t>();
     config.server_proto = qtransport::TransportProtocol::QUIC;
-    config.transport_config.debug = true;
+    config.transport_config.debug = result["debug"].as<bool>();;
     config.transport_config.use_reset_wait_strategy = false;
     config.transport_config.time_queue_max_duration = 5000;
+    config.transport_config.tls_cert_filename = nullptr;
+    config.transport_config.tls_key_filename = nullptr;
+    config.transport_config.quic_qlog_path = qlog_path.size() ? const_cast<char *>(qlog_path.c_str()) : nullptr;
 
     auto delegate = std::make_shared<clientDelegate>();
 

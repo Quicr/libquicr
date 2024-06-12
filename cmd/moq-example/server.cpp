@@ -4,6 +4,8 @@
 #include <cantina/logger.h>
 #include <condition_variable>
 #include <csignal>
+#include <oss/cxxopts.hpp>
+
 
 #include "signal_handler.h"
 
@@ -20,12 +22,43 @@ class serverDelegate : public quicr::MoQInstanceDelegate
 };
 
 int
-main()
+main(int argc, char* argv[])
 {
     int result_code = EXIT_SUCCESS;
 
     auto logger = std::make_shared<cantina::Logger>("qserver");
-    logger->SetLogLevel("DEBUG");
+
+    cxxopts::Options options("qclient", "MOQ Example Client");
+    options
+      .set_width(75)
+      .set_tab_expansion()
+      .allow_unrecognised_options()
+      .add_options()
+      ("h,help", "Print help")
+      ("d,debug", "Enable debugging") // a bool parameter
+      ("b,bind_ip", "Bind IP", cxxopts::value<std::string>()->default_value("127.0.0.1"))
+      ("p,port", "Listening port", cxxopts::value<uint16_t>()->default_value("1234"))
+      ("e,endpoint_id", "This relay/server endpoint ID", cxxopts::value<std::string>()->default_value("moq-server"))
+      ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
+    ; // end of options
+
+    auto result = options.parse(argc, argv);
+
+    if (result.count("help"))
+    {
+        std::cout << options.help({""}) << std::endl;
+        return true;
+    }
+
+    std::string qlog_path;
+    if (result.count("qlog")) {
+        qlog_path = result["qlog"].as<std::string>();
+    }
+
+    if (result.count("debug") && result["debug"].as<bool>() == true) {
+        logger->info << "setting debug level" << std::flush;
+        logger->SetLogLevel("DEBUG");
+    }
 
     // Install a signal handlers to catch operating system signals
     installSignalHandlers();
@@ -34,15 +67,16 @@ main()
     std::unique_lock<std::mutex> lock(moq_example::main_mutex);
 
     quicr::MoQInstanceServerConfig config;
-    config.endpoint_id = "moq_server";
-    config.server_bind_ip = "127.0.0.1";
-    config.server_port = 1234;
+    config.endpoint_id = result["endpoint_id"].as<std::string>();
+    config.server_bind_ip = result["bind_ip"].as<std::string>();
+    config.server_port = result["port"].as<uint16_t>();
     config.server_proto = qtransport::TransportProtocol::QUIC;
-    config.transport_config.debug = true;
+    config.transport_config.debug = result["debug"].as<bool>();
     config.transport_config.tls_cert_filename = "./server-cert.pem";
     config.transport_config.tls_key_filename = "./server-key.pem";
     config.transport_config.use_reset_wait_strategy = false;
     config.transport_config.time_queue_max_duration = 5000;
+    config.transport_config.quic_qlog_path = qlog_path.size() ? const_cast<char *>(qlog_path.c_str()) : nullptr;
 
     auto delegate = std::make_shared<serverDelegate>();
 
