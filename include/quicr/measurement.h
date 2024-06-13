@@ -28,6 +28,7 @@ struct Metric
   MetricValueType value;
 };
 void to_json(json& j, const Metric& m);
+void from_json(const json& j, Metric& m);
 
 struct Attribute
 {
@@ -65,6 +66,7 @@ public:
   Measurement& SetMetric(const std::string& name, const T& value);
 
   friend void to_json(json& j, const Measurement& m);
+  friend void from_json(const json& j, Measurement& m);
 
 private:
   std::string _name;
