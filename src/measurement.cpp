@@ -147,6 +147,31 @@ to_json(json& j, const Metric& m)
 }
 
 void
+from_json(const json& j, Metric& m)
+{
+  m.name = j["mn"];
+  if (j.contains("mt"))
+  {
+    m.type = j["mt"];
+  }
+
+  auto& value_json = j["mv"];
+  switch (value_json.type())
+  {
+    case json::value_t::number_unsigned:
+      m.value = value_json.template get<std::uint64_t>();
+      break;
+    case json::value_t::number_float:
+      m.value = value_json.template get<float>();
+      break;
+    case json::value_t::string: [[fallthrough]];
+    default:
+      m.value = value_json.template get<std::string>();
+      break;
+  }
+}
+
+void
 to_json(json& j, const Attribute& a)
 {
   j[a.name] = a.value;
@@ -177,4 +202,24 @@ to_json(json& j, const Measurement& m)
   j["metrics"] = metrics_json;
 }
 
+void
+from_json(const json& j, Measurement& m)
+{
+  m._timestamp = std::chrono::time_point<std::chrono::system_clock>(std::chrono::system_clock::duration(j["ts"].template get<std::int64_t>()));
+
+  for (const auto& [name, attr_json] : j["attrs"].items()) {
+    Attribute attr;
+    attr.name = name;
+    attr.value = name;
+    if (attr_json.at("at"))
+    {
+      attr.type = attr_json.at("at");
+    }
+    m._attributes.emplace(name, std::move(attr));
+  }
+
+  for (const auto& [name, metric] : j["metrics"].items()) {
+    m._metrics.emplace(name, metric);
+  }
+}
 }
