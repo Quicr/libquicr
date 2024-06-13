@@ -16,14 +16,15 @@ Client::Client(const RelayInfo& relay_info,
                const std::string& endpoint_id,
                size_t chunk_size,
                const qtransport::TransportConfig& tconfig,
-               const cantina::LoggerPointer& logger)
+               const cantina::LoggerPointer& logger,
+               std::optional<quicr::Namespace> metrics_ns)
 {
   switch (relay_info.proto) {
     case RelayInfo::Protocol::UDP:
       [[fallthrough]];
     case RelayInfo::Protocol::QUIC:
       client_session =
-        std::make_unique<ClientRawSession>(relay_info, endpoint_id, chunk_size, tconfig, logger);
+        std::make_unique<ClientRawSession>(relay_info, endpoint_id, chunk_size, tconfig, logger, metrics_ns);
       break;
     default:
       throw ClientException("Unsupported relay protocol");
@@ -142,4 +143,9 @@ Client::publishNamedObjectFragment(const quicr::Name& quicr_name,
                                              std::move(data));
 }
 
+void
+Client::publishMeasurement(const Measurement& measurement)
+{
+  client_session->publishMeasurement(measurement);
+}
 } // namespace quicr

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "measurement.h"
 #include "quicr_server_delegate.h"
 
 /*
@@ -104,6 +105,8 @@ public:
                                uint8_t priority,
                                uint16_t expiry_age_ms,
                                const messages::PublishDatagram& datagram) = 0;
+
+  virtual void publishMeasurement(const Measurement& measurement) = 0;
 };
 
 using QuicRServerSession [[deprecated(

@@ -37,7 +37,8 @@ public:
   Server(const RelayInfo& relayInfo,
          const qtransport::TransportConfig& tconfig,
          std::shared_ptr<ServerDelegate> delegate_in,
-         const cantina::LoggerPointer& logger);
+         const cantina::LoggerPointer& logger,
+         std::optional<quicr::Namespace> metrics_ns = std::nullopt);
 
   /**
    * API for unit test cases .
@@ -118,6 +119,8 @@ public:
                        uint8_t priority,
                        uint16_t expiry_age_ms,
                        const messages::PublishDatagram& datagram);
+
+  void publishMeasurement(const Measurement& measurement);
 
 protected:
   std::unique_ptr<ServerSession> server_session;
