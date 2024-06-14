@@ -39,7 +39,8 @@ namespace quicr {
 
         enum class TrackReadStatus : uint8_t
         {
-            NOT_AUTHORIZED = 0,
+            OK = 0,
+            NOT_AUTHORIZED,
             NOT_SUBSCRIBED,
             PENDING_SUBSCRIBE_RESPONSE,
             SUBSCRIBE_NOT_AUTHORIZED
@@ -47,7 +48,8 @@ namespace quicr {
 
         enum class TrackSendStatus : uint8_t
         {
-            NOT_ANNOUNCED = 0,
+            OK = 0,
+            NOT_ANNOUNCED,
             PENDING_ANNOUNCE_RESPONSE,
             ANNOUNCE_NOT_AUTHORIZED,
             NO_SUBSCRIBERS,
@@ -72,7 +74,16 @@ namespace quicr {
                          const bytes& track_name,
                          TrackMode track_mode,
                          uint8_t default_priority,
-                         uint32_t default_ttl);
+                         uint32_t default_ttl,
+                         const cantina::LoggerPointer& logger) :
+              _track_namespace(track_namespace)
+             , _track_name(track_name)
+             , _track_mode(track_mode)
+             , _logger(std::make_shared<cantina::Logger>("MTD", logger))
+        {
+          this->setDefaultPriority(default_priority);
+          this->setDefaultTTL(default_ttl);
+        }
 
         /**
          * @brief Send object to announced track
@@ -119,31 +130,29 @@ namespace quicr {
          *
          * @returns current TrackSendStatus
          */
-        TrackReadStatus statusSend();
+        TrackSendStatus statusSend();
 
         /**
          * @brief set/update the default priority for published objects
          */
-        void setDefaultPriority(uint8_t);
+        void setDefaultPriority(uint8_t priority) { _def_priority = priority; }
 
         /**
          * @brief set/update the default TTL expirty for published objects
          */
-        void setDefaultTTL(uint32_t);
+        void setDefaultTTL(uint32_t ttl) { _def_ttl = ttl; }
 
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods to be overridden
         // --------------------------------------------------------------------------
 
         /**
-         * @brief Notificaiton that data is avaialble to be read.
+         * @brief Notificaiton of received data object
          *
-         * @details Event notification to inform the caller that data can be read. The caller
-         *   should read all data if possible.
+         * @details Event notification to provide the caller the received data object
          *
-         * @param objects_available       Number of objects available to be read at time of notification
+         * @param object    Data object received
          */
-        virtual void cb_objectsAvailable(uint64_t objects_available) = 0;
         virtual void cb_objectReceived(std::vector<uint8_t>&& object) = 0;
 
         /**
@@ -213,8 +222,11 @@ namespace quicr {
       private:
         const bytes _track_namespace;
         const bytes _track_name;
-        TrackMode _track_mode;
+        [[maybe_unused]] TrackMode _track_mode;
+        uint8_t _def_priority;
+        uint32_t _def_ttl;
         std::optional<uint64_t> _track_alias;
+        cantina::LoggerPointer _logger;
     };
 
 } // namespace quicr

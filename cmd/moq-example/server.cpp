@@ -16,7 +16,9 @@ class serverDelegate : public quicr::MoQInstanceDelegate
     void cb_newConnection(qtransport::TransportConnId conn_id,
                           const std::span<uint8_t>& endpoint_id,
                           const qtransport::TransportRemote& remote) override {}
-    void cb_connectionStatus(qtransport::TransportConnId conn_id, qtransport::TransportStatus status) override {}
+    void cb_connectionStatus(qtransport::TransportConnId conn_id,
+                             const std::span<uint8_t>& endpoint_id,
+                             qtransport::TransportStatus status) override {}
     void cb_clientSetup(qtransport::TransportConnId conn_id, quicr::messages::MoqClientSetup client_setup) override {}
     void cb_serverSetup(qtransport::TransportConnId conn_id, quicr::messages::MoqServerSetup server_setup) override {}
 };

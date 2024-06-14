@@ -242,6 +242,11 @@ namespace quicr {
 
                         std::string client_endpoint_id(msg.endpoint_id_parameter.param_value.begin(),
                                                         msg.endpoint_id_parameter.param_value.end());
+
+                        _delegate->cb_connectionStatus(conn_ctx.conn_id,
+                                                       msg.endpoint_id_parameter.param_value,
+                                                       TransportStatus::Ready);
+
                         _logger->info << "Client setup received from: " << client_endpoint_id
                                       << " num_versions: " << msg.num_versions
                                       << " role: " << static_cast<int>(msg.role_parameter.param_value.front())
@@ -276,10 +281,12 @@ namespace quicr {
                     std::string server_endpoint_id(msg.endpoint_id_parameter.param_value.begin(),
                                 msg.endpoint_id_parameter.param_value.end());
 
+                    _delegate->cb_connectionStatus(conn_ctx.conn_id,
+                               msg.endpoint_id_parameter.param_value,
+                               TransportStatus::Ready);
+
                     _logger->info << "Server setup received"
                                   << " from: " << server_endpoint_id
-                                  << std::string(msg.endpoint_id_parameter.param_value.begin(),
-                                                 msg.endpoint_id_parameter.param_value.end())
                                   << " role: " << static_cast<int>(msg.role_parameter.param_value.front())
                                   << " selected_version: 0x" << std::hex << msg.selection_version
                                   << std::dec << std::flush;

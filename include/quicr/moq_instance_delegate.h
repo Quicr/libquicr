@@ -20,6 +20,7 @@ namespace quicr {
      */
     class MoQInstanceDelegate
     {
+    public:
         /**
          * @brief Notification on new connection
          * @details Notification that a new connection has been accepted
@@ -37,9 +38,11 @@ namespace quicr {
          * @details Notification indicates state change of connection, such as disconnected
          *
          * @param conn_id          Transport connection ID
+         * @param endpoint_id      Endpoint ID of remote side
          * @param status           Transport status of connection id
          */
         virtual void cb_connectionStatus(TransportConnId conn_id,
+                                         const std::span<uint8_t>& endpoint_id,
                                          TransportStatus status) = 0;
 
         /**
