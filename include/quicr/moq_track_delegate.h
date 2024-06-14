@@ -76,10 +76,10 @@ namespace quicr {
                          uint8_t default_priority,
                          uint32_t default_ttl,
                          const cantina::LoggerPointer& logger) :
-              _track_namespace(track_namespace)
+              _logger(std::make_shared<cantina::Logger>("MTD", logger))
+             , _track_namespace(track_namespace)
              , _track_name(track_name)
              , _track_mode(track_mode)
-             , _logger(std::make_shared<cantina::Logger>("MTD", logger))
         {
           this->setDefaultPriority(default_priority);
           this->setDefaultTTL(default_ttl);
@@ -121,7 +121,7 @@ namespace quicr {
          *
          * @returns current TrackReadStatus
          */
-        TrackReadStatus statusRead();
+        TrackReadStatus statusRead() { return _read_status; }
 
         /**
          * @brief Current track send status
@@ -130,7 +130,7 @@ namespace quicr {
          *
          * @returns current TrackSendStatus
          */
-        TrackSendStatus statusSend();
+        TrackSendStatus statusSend() { return _send_status; }
 
         /**
          * @brief set/update the default priority for published objects
@@ -216,17 +216,54 @@ namespace quicr {
          */
         std::optional<uint64_t> getTrackAlias() { return _track_alias; }
 
+        /**
+         * @brief Sets the subscribe ID
+         * @details MoQ instance sets the subscribe id based on subscribe track method call. Subscribe
+         *      id is specific to the connection, so it must be set by the moq instance/connection.
+         *
+         * @param subscribe_id          62bit subscribe ID
+         */
+        void setSubscribeId(uint64_t subscribe_id) { _subscribe_id = subscribe_id; }
+
+        /**
+         * @brief Get the subscribe ID
+         *
+         * @return nullopt if not subscribed, otherwise the subscribe ID
+         */
+        std::optional<uint64_t> getSubscribeId() { return _subscribe_id; }
+
+        /**
+         * @brief Get the track namespace
+         * @return span of track namespace
+         */
+        std::span<uint8_t const> getTrackNamespace() { return std::span(_track_namespace); }
+
+        /**
+         * @brief Get the track name
+         * @return span of track name
+         */
+        std::span<uint8_t const> getTrackName() { return std::span(_track_name); }
+
+        /**
+         * @brief Set the send status
+         * @param status                Status of sending (aka publish objects)
+         */
+        void setSendStatus(TrackSendStatus status) { _send_status = status; }
+
         // --------------------------------------------------------------------------
         // --------------------------------------------------------------------------
 
-      private:
+      protected:
+        cantina::LoggerPointer _logger;
         const bytes _track_namespace;
         const bytes _track_name;
         [[maybe_unused]] TrackMode _track_mode;
         uint8_t _def_priority;
         uint32_t _def_ttl;
         std::optional<uint64_t> _track_alias;
-        cantina::LoggerPointer _logger;
+        std::optional<uint64_t> _subscribe_id;
+        TrackSendStatus _send_status { TrackSendStatus::NOT_ANNOUNCED };
+        TrackReadStatus _read_status { TrackReadStatus::NOT_SUBSCRIBED };
     };
 
 } // namespace quicr

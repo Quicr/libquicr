@@ -13,15 +13,71 @@
 
 class serverDelegate : public quicr::MoQInstanceDelegate
 {
+  public:
+    serverDelegate(const cantina::LoggerPointer& logger) :
+      _logger(std::make_shared<cantina::Logger>("MID", logger)) {}
+
     void cb_newConnection(qtransport::TransportConnId conn_id,
                           const std::span<uint8_t>& endpoint_id,
                           const qtransport::TransportRemote& remote) override {}
+
+    bool cb_announce(qtransport::TransportConnId conn_id,
+                     uint64_t track_namespace_hash) override {
+
+        _logger->debug << "Received announce from conn_id: " << conn_id
+                       << "  for namespace_hash: " << track_namespace_hash
+                       << std::flush;
+
+        // Send announce OK
+        return true;
+    }
+
     void cb_connectionStatus(qtransport::TransportConnId conn_id,
                              const std::span<uint8_t>& endpoint_id,
-                             qtransport::TransportStatus status) override {}
+                             qtransport::TransportStatus status) override {
+        auto ep_id = std::string(endpoint_id.begin(), endpoint_id.end());
+
+        if (status == qtransport::TransportStatus::Ready) {
+            _logger->debug << "Connection ready conn_id: " << conn_id
+                           << " endpoint_id: " << ep_id
+                           << std::flush;
+
+        }
+    }
     void cb_clientSetup(qtransport::TransportConnId conn_id, quicr::messages::MoqClientSetup client_setup) override {}
     void cb_serverSetup(qtransport::TransportConnId conn_id, quicr::messages::MoqServerSetup server_setup) override {}
+
+  private:
+    cantina::LoggerPointer _logger;
 };
+
+quicr::MoQInstanceServerConfig init_config(cxxopts::ParseResult& cli_opts, const cantina::LoggerPointer& logger)
+{
+    quicr::MoQInstanceServerConfig config;
+
+    std::string qlog_path;
+    if (cli_opts.count("qlog")) {
+        qlog_path = cli_opts["qlog"].as<std::string>();
+    }
+
+    if (cli_opts.count("debug") && cli_opts["debug"].as<bool>() == true) {
+        logger->info << "setting debug level" << std::flush;
+        logger->SetLogLevel("DEBUG");
+    }
+
+    config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
+    config.server_bind_ip = cli_opts["bind_ip"].as<std::string>();
+    config.server_port = cli_opts["port"].as<uint16_t>();
+    config.server_proto = qtransport::TransportProtocol::QUIC;
+    config.transport_config.debug = cli_opts["debug"].as<bool>();
+    config.transport_config.tls_cert_filename = const_cast<char *>(cli_opts["cert"].as<std::string>().c_str());
+    config.transport_config.tls_key_filename = const_cast<char *>(cli_opts["key"].as<std::string>().c_str());
+    config.transport_config.use_reset_wait_strategy = false;
+    config.transport_config.time_queue_max_duration = 5000;
+    config.transport_config.quic_qlog_path = qlog_path.size() ? const_cast<char *>(qlog_path.c_str()) : nullptr;
+
+    return config;
+}
 
 int
 main(int argc, char* argv[])
@@ -54,35 +110,15 @@ main(int argc, char* argv[])
         return true;
     }
 
-    std::string qlog_path;
-    if (result.count("qlog")) {
-        qlog_path = result["qlog"].as<std::string>();
-    }
-
-    if (result.count("debug") && result["debug"].as<bool>() == true) {
-        logger->info << "setting debug level" << std::flush;
-        logger->SetLogLevel("DEBUG");
-    }
-
     // Install a signal handlers to catch operating system signals
     installSignalHandlers();
 
     // Lock the mutex so that main can then wait on it
     std::unique_lock<std::mutex> lock(moq_example::main_mutex);
 
-    quicr::MoQInstanceServerConfig config;
-    config.endpoint_id = result["endpoint_id"].as<std::string>();
-    config.server_bind_ip = result["bind_ip"].as<std::string>();
-    config.server_port = result["port"].as<uint16_t>();
-    config.server_proto = qtransport::TransportProtocol::QUIC;
-    config.transport_config.debug = result["debug"].as<bool>();
-    config.transport_config.tls_cert_filename = const_cast<char *>(result["cert"].as<std::string>().c_str());
-    config.transport_config.tls_key_filename = const_cast<char *>(result["key"].as<std::string>().c_str());
-    config.transport_config.use_reset_wait_strategy = false;
-    config.transport_config.time_queue_max_duration = 5000;
-    config.transport_config.quic_qlog_path = qlog_path.size() ? const_cast<char *>(qlog_path.c_str()) : nullptr;
+    quicr::MoQInstanceServerConfig config = init_config(result, logger);
 
-    auto delegate = std::make_shared<serverDelegate>();
+    auto delegate = std::make_shared<serverDelegate>(logger);
 
     try {
         auto moqInstance = quicr::MoQInstance{config, delegate, logger};

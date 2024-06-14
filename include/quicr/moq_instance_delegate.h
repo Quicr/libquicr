@@ -22,16 +22,16 @@ namespace quicr {
     {
     public:
         /**
-         * @brief Notification on new connection
+         * @brief Server Mode; Notification on new connection
          * @details Notification that a new connection has been accepted
          *
          * @param conn_id          Transport connection ID
          * @param endpoint_id      Endpoint ID of client connection
          * @param remote           Transport remote connection information
          */
-        virtual void cb_newConnection(TransportConnId conn_id,
-                                      const std::span<uint8_t>& endpoint_id,
-                                      const TransportRemote& remote) = 0;
+        virtual void cb_newConnection([[maybe_unused]] TransportConnId conn_id,
+                                      [[maybe_unused]] const std::span<uint8_t>& endpoint_id,
+                                      [[maybe_unused]] const TransportRemote& remote) {};
 
         /**
          * @brief Notification for connection status/state change
@@ -46,23 +46,38 @@ namespace quicr {
                                          TransportStatus status) = 0;
 
         /**
-         * @brief callback on client setup message
+         * @brief Server Mode; callback on client setup message
          * @detais In server mode, client will send a setup message on new connection.
          *         Server responds with server setup.
          *
          * @param conn_id          Transport connection ID
          * @param client_setup     Decoded client setup message
          */
-        virtual void cb_clientSetup(TransportConnId conn_id, messages::MoqClientSetup client_setup) = 0;
+        virtual void cb_clientSetup([[maybe_unused]] TransportConnId conn_id,
+                                    [[maybe_unused]] messages::MoqClientSetup client_setup) {}
 
         /**
-         * @brief callback on server setup message
+         * @brief Client Mode; callback on server setup message
          * @details In client mode, server will send sever setup in response to client setup message sent.
          *
          * @param conn_id          Transport connection ID
          * @param server_setup     Decoded sever setup message
          */
-        virtual void cb_serverSetup(TransportConnId conn_id, messages::MoqServerSetup server_setup) = 0;
+        virtual void cb_serverSetup([[maybe_unused]] TransportConnId conn_id,
+                                    [[maybe_unused]] messages::MoqServerSetup server_setup) {}
+
+        /**
+         * @brief Server Mode; Callback notification for new announce received
+         *
+         * @param conn_id                   Source connection ID
+         * @param track_namespace_hash      Track namespace hash
+         *
+         * @return True if send announce should be sent, false if not
+         */
+        virtual bool cb_announce([[maybe_unused]] TransportConnId conn_id,
+                                 [[maybe_unused]] uint64_t track_namespace_hash) { return true; }
+
+
     };
 
 } // namespace quicr

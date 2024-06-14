@@ -18,7 +18,7 @@ namespace quicr {
         , _server_config({})
         , _client_config(cfg)
         , _delegate(std::move(delegate))
-        , _logger(std::make_shared<cantina::Logger>("MOQ_IC", logger))
+        , _logger(std::make_shared<cantina::Logger>("MIC", logger))
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
         , _mexport(logger)
 #endif
@@ -38,7 +38,7 @@ namespace quicr {
       , _server_config(cfg)
       , _client_config({})
       , _delegate(std::move(delegate))
-      , _logger(std::make_shared<cantina::Logger>("MOQ_IS", logger))
+      , _logger(std::make_shared<cantina::Logger>("MIS", logger))
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
         , _mexport(logger)
 #endif
@@ -168,7 +168,38 @@ namespace quicr {
 
         buffer << server_setup;
 
-        _logger->info << "Sending SERVER_SETUP to conn_id: " << conn_ctx.conn_id << std::flush;
+        _logger->debug << "Sending SERVER_SETUP to conn_id: " << conn_ctx.conn_id << std::flush;
+
+        send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+    }
+
+    void MoQInstance::send_announce(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace)
+    {
+        StreamBuffer<uint8_t> buffer;
+        auto announce = MoqAnnounce{};
+
+        announce.track_namespace.assign(track_namespace.begin(), track_namespace.end());
+        announce.params = {};
+        buffer <<  announce;
+
+        std::vector<uint8_t> net_data = buffer.front(buffer.size());
+
+        _logger->debug << "Sending ANNOUNCE to conn_id: " << conn_ctx.conn_id << std::flush;
+
+        send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+    }
+
+    void MoQInstance::send_announce_ok(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace)
+    {
+        StreamBuffer<uint8_t> buffer;
+        auto announce_ok = MoqAnnounceOk{};
+
+        announce_ok.track_namespace.assign(track_namespace.begin(), track_namespace.end());
+        buffer <<  announce_ok;
+
+        std::vector<uint8_t> net_data = buffer.front(buffer.size());
+
+        _logger->debug << "Sending ANNOUNCE OK to conn_id: " << conn_ctx.conn_id << std::flush;
 
         send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
     }
@@ -205,10 +236,48 @@ namespace quicr {
                 break;
             case MoQMessageType::SUBSCRIBE_ERROR:
                 break;
-            case MoQMessageType::ANNOUNCE:
+            case MoQMessageType::ANNOUNCE: {
+                if (not stream_buffer->anyHasValue()) {
+                    _logger->debug << "Received announce, init stream buffer" << std::flush;
+                    stream_buffer->initAny<MoqAnnounce>();
+                }
+
+                auto& msg = stream_buffer->getAny<MoqAnnounce>();
+                if (*stream_buffer >> msg) {
+                    auto tfn = TrackFullName{ msg.track_namespace, { } };
+                    auto th = TrackHash(tfn);
+
+                    if (_delegate->cb_announce(conn_ctx.conn_id, th.track_namespace_hash)) {
+                        send_announce_ok(conn_ctx, msg.track_namespace);
+                    }
+
+                    stream_buffer->resetAny();
+                    return true;
+                }
                 break;
-            case MoQMessageType::ANNOUNCE_OK:
+            }
+            case MoQMessageType::ANNOUNCE_OK: {
+                if (not stream_buffer->anyHasValue()) {
+                    _logger->debug << "Received announce ok, init stream buffer" << std::flush;
+                    stream_buffer->initAny<MoqAnnounceOk>();
+                }
+
+                auto& msg = stream_buffer->getAny<MoqAnnounceOk>();
+                if (*stream_buffer >> msg) {
+                    auto tfn = TrackFullName{ msg.track_namespace, { } };
+                    auto th = TrackHash(tfn);
+                    _logger->debug << "Received announce ok, namespace_hash: " << th.track_namespace_hash << std::flush;
+
+                    // Update each track to indicate status is okay to publish
+                    auto pub_it = conn_ctx.pub_tracks_by_name.find(th.track_namespace_hash);
+                    for (const auto& td: pub_it->second) {
+                        td.second.lock().get()->setSendStatus(MoQTrackDelegate::TrackSendStatus::OK);
+                        td.second.lock().get()->cb_sendReady();
+                    }
+
+                }
                 break;
+            }
             case MoQMessageType::ANNOUNCE_ERROR:
                 break;
             case MoQMessageType::UNANNOUNCE:
@@ -227,7 +296,7 @@ namespace quicr {
                 break;
             case MoQMessageType::CLIENT_SETUP: {
                     if (not stream_buffer->anyHasValue()) {
-                        _logger->info << "init stream buffer client setup" << std::flush;
+                        _logger->debug << "Received client setup, init stream buffer" << std::flush;
                         stream_buffer->initAny<MoqClientSetup>();
                     }
 
@@ -272,7 +341,7 @@ namespace quicr {
             }
             case MoQMessageType::SERVER_SETUP: {
                 if (not stream_buffer->anyHasValue()) {
-                    _logger->info << "init stream buffer server setup" << std::flush;
+                    _logger->debug << "Received server setup, init stream buffer" << std::flush;
                     stream_buffer->initAny<MoqServerSetup>();
                 }
 
@@ -318,6 +387,47 @@ namespace quicr {
                       << " sbuf_size: " << stream_buffer->size()
                       << std::flush;
         return false;
+    }
+
+    std::optional<uint64_t> MoQInstance::publishTrack(TransportConnId conn_id,
+                                         std::shared_ptr<MoQTrackDelegate> track_delegate) {
+
+        // Generate track alias
+        auto tfn = TrackFullName{ track_delegate->getTrackNamespace(), track_delegate->getTrackName() };
+
+        // Track hash is the track alias for now.
+        // TODO(tievens): Evaluate; change hash to be more than 62 bits to avoid collisions
+        auto th = TrackHash(tfn);
+
+        track_delegate->setTrackAlias(th.track_fullname_hash);
+
+        _logger->info << "Publish track conn_id: " << conn_id
+                      << " hash: " << th.track_fullname_hash << std::flush;
+
+        auto conn_it = _connections.find(conn_id);
+        if (conn_it == _connections.end()) {
+            _logger->error << "Publish track conn_id: " << conn_id << " does not exist." << std::flush;
+            return std::nullopt;
+        }
+
+
+        // Set the track alias delegate
+        conn_it->second.tracks_by_alias[th.track_fullname_hash] = track_delegate;
+
+        // Check if this published track is a new namespace or existing.
+        auto [pub_ns_it, ns_is_new] = conn_it->second.pub_tracks_by_name.try_emplace(th.track_namespace_hash);
+
+        if (ns_is_new) {
+            _logger->info << "Publish track has new namespace hash: " << th.track_namespace_hash
+                          << " sending ANNOUNCE message" << std::flush;
+
+            send_announce(conn_it->second, track_delegate->getTrackNamespace());
+        }
+
+        // Add/update the track name delegate
+        pub_ns_it->second[th.track_name_hash] = track_delegate;
+
+        return th.track_fullname_hash;
     }
 
     // ---------------------------------------------------------------------------------------

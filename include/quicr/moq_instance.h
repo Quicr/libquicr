@@ -13,6 +13,11 @@
 #include <quicr/moq_instance_delegate.h>
 #include <quicr/moq_track_delegate.h>
 
+#include <unordered_map>
+#include <map>
+#include <string>
+#include <string_view>
+
 namespace quicr {
     constexpr uint64_t MOQT_VERSION = 0xff000004; /// draft-ietf-moq-transport-04
 
@@ -58,6 +63,29 @@ namespace quicr {
             CLIENT_NOT_CONNECTED,
             CLIENT_CONNECTING,
             CLIENT_FAILED_TO_CONNECT,
+        };
+
+        struct TrackFullName {
+            std::span<uint8_t const> name_space;
+            std::span<uint8_t const> name;
+        };
+
+        struct TrackHash
+        {
+            uint64_t track_namespace_hash;                      // 64bit hash of namespace
+            uint64_t track_name_hash;                           // 64bit hash of name
+
+            uint64_t track_fullname_hash;                       // 62bit of namespace+name
+
+            TrackHash(const TrackFullName& tfn) noexcept
+            {
+                track_namespace_hash = std::hash<std::string_view>{}(
+                  {reinterpret_cast<const char*>(tfn.name_space.data()), tfn.name_space.size()});
+                track_name_hash = std::hash<std::string_view>{}(
+                  {reinterpret_cast<const char*>(tfn.name.data()), tfn.name.size()});
+
+                track_fullname_hash = (track_namespace_hash ^ (track_name_hash << 1)) << 1 >> 2; // combine and convert to 62 bits for uintVar
+            }
         };
 
         /**
@@ -140,7 +168,7 @@ namespace quicr {
         void stop() { _stop = true; }
 
         // -------------------------------------------------------------------------------------------------
-        // Transprot Delegate/callback functions
+        // Transport Delegate/callback functions
         // -------------------------------------------------------------------------------------------------
 
         void on_new_data_context([[maybe_unused]] const TransportConnId& conn_id,
@@ -157,6 +185,7 @@ namespace quicr {
         void on_recv_dgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id) override;
 
       private:
+
         struct ConnectionContext
         {
             TransportConnId conn_id;
@@ -164,6 +193,16 @@ namespace quicr {
             bool setup_complete { false };   /// True if both client and server setup messages have completed
             uint64_t client_version { 0 };
             std::optional<messages::MoQMessageType> msg_type_received;  /// Indicates the current message type being read
+
+            // Tracks by track alias
+            std::map<uint64_t, std::weak_ptr<MoQTrackDelegate>> tracks_by_alias;
+
+            // Publish tracks by namespace and name. map[track namespace][track name] = track delegate
+            std::map<uint64_t, std::map<uint64_t, std::weak_ptr<MoQTrackDelegate>>> pub_tracks_by_name;
+
+            // Subscribes by subscribe_id
+            std::map<uint64_t, std::weak_ptr<MoQTrackDelegate>> sub_tracks;
+
         };
 
         // -------------------------------------------------------------------------------------------------
@@ -174,6 +213,8 @@ namespace quicr {
         void send_ctrl_msg(const ConnectionContext& conn_ctx, std::vector<uint8_t>&& data);
         void send_client_setup();
         void send_server_setup(ConnectionContext& conn_ctx);
+        void send_announce(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
+        void send_announce_ok(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
         void close_connection(TransportConnId conn_id, messages::MoQTerminationReason reason,
                               const std::string& reason_str);
         bool process_recv_message(ConnectionContext& conn_ctx,

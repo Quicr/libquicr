@@ -38,15 +38,5 @@ namespace quicr {
         return MoQTrackDelegate::ReadError::NO_DATA;
     }
 
-    MoQTrackDelegate::TrackReadStatus MoQTrackDelegate::statusRead()
-    {
-        return MoQTrackDelegate::TrackReadStatus::OK;
-    }
-
-    MoQTrackDelegate::TrackSendStatus MoQTrackDelegate::statusSend()
-    {
-        return MoQTrackDelegate::TrackSendStatus::OK;
-    }
-
 
 } // namespace quicr

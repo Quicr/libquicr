@@ -30,7 +30,11 @@ public:
 
     void cb_objectReceived(std::vector<uint8_t>&& object) override {}
     void cb_sendCongested(bool cleared, uint64_t objects_in_queue) override {}
-    void cb_sendReady() override {}
+
+    void cb_sendReady() override {
+        _logger->info << "Track alias: " << _track_alias.value() << " is ready to send" << std::flush;
+    }
+
     void cb_sendNotReady(TrackSendStatus status) override {}
     void cb_readReady() override {}
     void cb_readNotReady(TrackReadStatus status) override {}
@@ -84,8 +88,9 @@ void do_publisher(const std::string t_namespace,
     bool published_track { false };
     while (not stop) {
         if (!published_track && qclient_vars::conn_id) {
-            _logger->info << "Create publish track: " << t_namespace << "/" << t_name << std::flush;
-            //mi->publishTrack(*qclient_vars::conn_id, track_delegate);
+            _logger->info << "Publish track: " << t_namespace << "/" << t_name << std::flush;
+            mi->publishTrack(*qclient_vars::conn_id, track_delegate);
+            published_track = true;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
@@ -93,13 +98,37 @@ void do_publisher(const std::string t_namespace,
     _logger->info << "Publisher done track: " << t_namespace << "/" << t_name << std::flush;
 }
 
-quicr::MoQInstanceClientConfig init_config(cxxopts::ParseResult& cli_opts)
+quicr::MoQInstanceClientConfig init_config(cxxopts::ParseResult& cli_opts,
+                                           bool& enable_pub,
+                                           bool& enable_sub,
+                                           const cantina::LoggerPointer& logger)
 {
     quicr::MoQInstanceClientConfig config;
 
     std::string qlog_path;
     if (cli_opts.count("qlog")) {
         qlog_path = cli_opts["qlog"].as<std::string>();
+    }
+
+    if (cli_opts.count("debug") && cli_opts["debug"].as<bool>() == true) {
+        logger->info << "setting debug level" << std::flush;
+        logger->SetLogLevel("DEBUG");
+    }
+
+    if (cli_opts.count("pub_namespace") && cli_opts.count("pub_name")) {
+        enable_pub = true;
+        logger->info << "Publisher enabled using track"
+                     << " namespace: " << cli_opts["pub_namespace"].as<std::string>()
+                     << " name: " << cli_opts["pub_name"].as<std::string>()
+                     << std::flush;
+    }
+
+    if (cli_opts.count("sub_namespace") && cli_opts.count("sub_name")) {
+        enable_sub = true;
+        logger->info << "Subscriber enabled using track"
+                     << " namespace: " << cli_opts["sub_namespace"].as<std::string>()
+                     << " name: " << cli_opts["sub_name"].as<std::string>()
+                     << std::flush;
     }
 
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
@@ -155,36 +184,15 @@ main(int argc, char* argv[])
         return true;
     }
 
-    bool enable_pub { false };
-    if (result.count("pub_namespace") && result.count("pub_name")) {
-        enable_pub = true;
-        logger->info << "Publisher enabled using track"
-                     << " namespace: " << result["pub_namespace"].as<std::string>()
-                     << " name: " << result["pub_name"].as<std::string>()
-                     << std::flush;
-    }
-
-    bool enable_sub { false };
-    if (result.count("sub_namespace") && result.count("sub_name")) {
-        enable_sub = true;
-        logger->info << "Subscriber enabled using track"
-                     << " namespace: " << result["sub_namespace"].as<std::string>()
-                     << " name: " << result["sub_name"].as<std::string>()
-                     << std::flush;
-    }
-
-    if (result.count("debug") && result["debug"].as<bool>() == true) {
-        logger->info << "setting debug level" << std::flush;
-        logger->SetLogLevel("DEBUG");
-    }
-
     // Install a signal handlers to catch operating system signals
     installSignalHandlers();
 
     // Lock the mutex so that main can then wait on it
     std::unique_lock<std::mutex> lock(moq_example::main_mutex);
 
-    quicr::MoQInstanceClientConfig config = init_config(result);
+    bool enable_pub { false };
+    bool enable_sub { false };
+    quicr::MoQInstanceClientConfig config = init_config(result, enable_pub, enable_sub, logger);
 
     auto delegate = std::make_shared<clientDelegate>(logger);
 
@@ -197,7 +205,6 @@ main(int argc, char* argv[])
         bool stop_threads { false };
         std::thread pub_thread;
         if (enable_pub) {
-            logger->info << "run publisher thread" << std::flush;
             pub_thread = std::thread (do_publisher,
                                      result["pub_namespace"].as<std::string>(),
                                      result["pub_name"].as<std::string>(),
