@@ -106,9 +106,10 @@ namespace quicr {
 #else
         auto conn_id = _transport->start(nullptr, nullptr);
 #endif
-
         LOGGER_INFO(_logger, "Connecting session conn_id: " << conn_id << "...");
-        _connections.try_emplace(conn_id, ConnectionContext{ .conn_id =  conn_id });
+        auto conn_ctx = ConnectionContext();
+        conn_ctx.conn_id = conn_id;
+        _connections.try_emplace(conn_id, conn_ctx);
 
         return _status;
     }
@@ -389,6 +390,47 @@ namespace quicr {
         return false;
     }
 
+    std::optional<uint64_t> MoQInstance::subscribeTrack(TransportConnId conn_id,
+                                                        std::shared_ptr<MoQTrackDelegate> track_delegate) {
+        // Generate track alias
+        auto tfn = TrackFullName{ track_delegate->getTrackNamespace(), track_delegate->getTrackName() };
+
+        // Track hash is the track alias for now.
+        // TODO(tievens): Evaluate; change hash to be more than 62 bits to avoid collisions
+        auto th = TrackHash(tfn);
+
+        track_delegate->setTrackAlias(th.track_fullname_hash);
+
+        _logger->info << "Subscribe track conn_id: " << conn_id
+                      << " hash: " << th.track_fullname_hash << std::flush;
+
+        auto conn_it = _connections.find(conn_id);
+        if (conn_it == _connections.end()) {
+            _logger->error << "Subscribe track conn_id: " << conn_id << " does not exist." << std::flush;
+            return std::nullopt;
+        }
+
+---
+        // Set the track alias delegate
+        conn_it->second.tracks_by_alias[th.track_fullname_hash] = track_delegate;
+
+        // Check if this published track is a new namespace or existing.
+        auto [pub_ns_it, ns_is_new] = conn_it->second.pub_tracks_by_name.try_emplace(th.track_namespace_hash);
+
+        if (ns_is_new) {
+            _logger->info << "Publish track has new namespace hash: " << th.track_namespace_hash
+                          << " sending ANNOUNCE message" << std::flush;
+
+            send_announce(conn_it->second, track_delegate->getTrackNamespace());
+        }
+
+        // Add/update the track name delegate
+        pub_ns_it->second[th.track_name_hash] = track_delegate;
+
+
+        return th.track_fullname_hash;
+    }
+
     std::optional<uint64_t> MoQInstance::publishTrack(TransportConnId conn_id,
                                          std::shared_ptr<MoQTrackDelegate> track_delegate) {
 
@@ -410,12 +452,11 @@ namespace quicr {
             return std::nullopt;
         }
 
-
         // Set the track alias delegate
         conn_it->second.tracks_by_alias[th.track_fullname_hash] = track_delegate;
 
         // Check if this published track is a new namespace or existing.
-        auto [pub_ns_it, ns_is_new] = conn_it->second.pub_tracks_by_name.try_emplace(th.track_namespace_hash);
+        auto [pub_ns_it, ns_is_new] = conn_it->second.pub_tracks_by_name.try_emplace(th.track_namespace_hash, track_delegate);
 
         if (ns_is_new) {
             _logger->info << "Publish track has new namespace hash: " << th.track_namespace_hash

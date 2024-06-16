@@ -195,7 +195,7 @@ namespace quicr {
             std::optional<messages::MoQMessageType> msg_type_received;  /// Indicates the current message type being read
 
             // Tracks by track alias
-            std::map<uint64_t, std::weak_ptr<MoQTrackDelegate>> tracks_by_alias;
+            std::map<uint64_t, std::shared_ptr<MoQTrackDelegate>> tracks_by_alias;
 
             // Publish tracks by namespace and name. map[track namespace][track name] = track delegate
             std::map<uint64_t, std::map<uint64_t, std::weak_ptr<MoQTrackDelegate>>> pub_tracks_by_name;
