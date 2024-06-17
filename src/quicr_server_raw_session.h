@@ -56,7 +56,7 @@ public:
                    std::shared_ptr<ServerDelegate> delegate,
                    const cantina::LoggerPointer& logger);
 
-  ~ServerRawSession() = default;
+  ~ServerRawSession();
 
   // Transport APIs
   bool is_transport_ready() override;
