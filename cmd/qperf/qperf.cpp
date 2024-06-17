@@ -29,12 +29,16 @@ template<typename D, typename I, typename F, typename... Args>
 inline void
 loop_for(const D& duration, const I& interval, const F& func, Args&&... args)
 {
-  I t = I::zero();
-  do {
+  auto t = I::zero();
+  while (!terminate && t < duration) {
+    auto start = std::chrono::high_resolution_clock::now();
     func(std::forward<Args>(args)...);
+    auto end = std::chrono::high_resolution_clock::now();
+
     std::this_thread::sleep_for(interval);
-    t += interval;
-  } while (!terminate && t < duration);
+
+    t += interval + std::chrono::duration_cast<I>(end - start);
+  }
 }
 
 qtransport::time_stamp_us
@@ -76,6 +80,7 @@ main(int argc, char** argv)
     ("s,msg_size", "Byte size of message", cxxopts::value<std::uint16_t>()->default_value("1024"))
     ("relay_url", "Relay port to connect on", cxxopts::value<std::string>()->default_value("relay.quicr.ctgpoc.com"))
     ("relay_port", "Relay port to connect on", cxxopts::value<std::uint16_t>()->default_value("33435"))
+    ("d,duration", "The duration of the test in seconds", cxxopts::value<std::uint32_t>()->default_value("120"))
     ("i,interval", "The interval in microseconds to send publish messages", cxxopts::value<std::uint32_t>()->default_value("1000"))
     ("p,priority", "Priority for sending publish messages", cxxopts::value<std::uint8_t>()->default_value("1"))
     ("e,expiry_age", "Expiry age of objects in ms", cxxopts::value<std::uint16_t>()->default_value("500"))
@@ -110,6 +115,7 @@ main(int argc, char** argv)
   const std::uint16_t expiry_age = result["expiry_age"].as<std::uint16_t>();
   const std::chrono::microseconds interval(
     result["interval"].as<std::uint32_t>());
+  const std::chrono::seconds duration(result["duration"].as<std::uint32_t>());
 
   const quicr::RelayInfo info{
     .hostname = result["relay_url"].as<std::string>(),
@@ -157,12 +163,13 @@ main(int argc, char** argv)
   cv.wait(lock, [&] { return publish_intents_received.load() == streams; });
 
   const std::uint64_t bitrate = (msg_size * 8) / (interval.count() / 1e6);
+  const std::uint64_t expected_objects = 1e6 / interval.count();
 
   LOGGER_INFO(logger, "+==========================================+");
-  LOGGER_INFO(logger, "| Starting 2 minute test");
+  LOGGER_INFO(logger, "| Starting test of duration " << duration.count() << " seconds");
   LOGGER_INFO(logger, "+-------------------------------------------");
   LOGGER_INFO(logger, "| * Approx bitrate: " << format_bitrate(bitrate));
-  LOGGER_INFO(logger, "| * Expected Objects/s: " << (1e6 / interval.count()) << "");
+  LOGGER_INFO(logger, "| * Expected Objects/s: " << expected_objects << "");
   LOGGER_INFO(logger, "+==========================================+");
 
   std::atomic_size_t finished_publishers = 0;
@@ -174,7 +181,7 @@ main(int argc, char** argv)
       quicr::Namespace& pub_ns = namespaces.at(index);
       quicr::Name name = pub_ns;
 
-      ::loop_for(std::chrono::minutes(2), interval, [&] {
+      ::loop_for(duration, interval, [&] {
         std::vector<uint8_t> msg_bytes = buffer;
 
         std::lock_guard _(mutex);
