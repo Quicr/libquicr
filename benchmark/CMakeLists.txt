@@ -13,7 +13,7 @@ if (NOT benchmark_FOUND)
 endif()
 
 add_executable(quicr_benchmark
-    # message_buffer.cpp
+    message_buffer.cpp
     client_session.cpp
 )
 
