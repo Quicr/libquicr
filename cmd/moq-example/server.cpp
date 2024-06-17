@@ -47,6 +47,22 @@ class serverDelegate : public quicr::MoQInstanceDelegate
     void cb_clientSetup(qtransport::TransportConnId conn_id, quicr::messages::MoqClientSetup client_setup) override {}
     void cb_serverSetup(qtransport::TransportConnId conn_id, quicr::messages::MoqServerSetup server_setup) override {}
 
+    bool cb_subscribe(qtransport::TransportConnId conn_id,
+                      uint64_t subscribe_id,
+                      std::span<uint8_t const> name_space,
+                      std::span<uint8_t const> name) override
+    {
+        std::string t_namespace(name_space.begin(), name_space.end());
+        std::string t_name(name.begin(), name.end());
+
+        _logger->info << "New subscribe conn_id: " << conn_id
+                       << " subscribe_id: " << subscribe_id
+                       << " track: " << t_namespace << "/" << t_name
+                       << std::flush;
+
+        return true;
+    }
+
   private:
     cantina::LoggerPointer _logger;
 };

@@ -36,7 +36,10 @@ public:
     }
 
     void cb_sendNotReady(TrackSendStatus status) override {}
-    void cb_readReady() override {}
+    void cb_readReady() override
+    {
+        _logger->info << "Track alias: " << _track_alias.value() << " is ready to read" << std::flush;
+    }
     void cb_readNotReady(TrackReadStatus status) override {}
 };
 
@@ -98,6 +101,33 @@ void do_publisher(const std::string t_namespace,
     _logger->info << "Publisher done track: " << t_namespace << "/" << t_name << std::flush;
 }
 
+void do_subscriber(const std::string t_namespace,
+                   const std::string t_name,
+                   const std::shared_ptr<quicr::MoQInstance>& moqInstance,
+                   const cantina::LoggerPointer& logger,
+                   const bool& stop)
+{
+    cantina::LoggerPointer _logger = std::make_shared<cantina::Logger>("SUB", logger);
+
+    auto mi = moqInstance;
+
+    auto track_delegate = std::make_shared<trackDelegate>(t_namespace, t_name, 2, 3000, logger);
+
+    _logger->info << "Started subscriber track: " << t_namespace << "/" << t_name << std::flush;
+
+    bool subscribe_track { false };
+    while (not stop) {
+        if (!subscribe_track && qclient_vars::conn_id) {
+            _logger->info << "Subscribe track: " << t_namespace << "/" << t_name << std::flush;
+            mi->subscribeTrack(*qclient_vars::conn_id, track_delegate);
+            subscribe_track = true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+
+    _logger->info << "Subscriber done track: " << t_namespace << "/" << t_name << std::flush;
+}
+
 quicr::MoQInstanceClientConfig init_config(cxxopts::ParseResult& cli_opts,
                                            bool& enable_pub,
                                            bool& enable_sub,
@@ -156,7 +186,7 @@ main(int argc, char* argv[])
     options
       .set_width(75)
       .set_tab_expansion()
-      .allow_unrecognised_options()
+      //.allow_unrecognised_options()
       .add_options()
       ("h,help", "Print help")
       ("d,debug", "Enable debugging") // a bool parameter
@@ -188,7 +218,7 @@ main(int argc, char* argv[])
     installSignalHandlers();
 
     // Lock the mutex so that main can then wait on it
-    std::unique_lock<std::mutex> lock(moq_example::main_mutex);
+    std::unique_lock lock(moq_example::main_mutex);
 
     bool enable_pub { false };
     bool enable_sub { false };
@@ -203,12 +233,19 @@ main(int argc, char* argv[])
         moqInstance->run_client();
 
         bool stop_threads { false };
-        std::thread pub_thread;
+        std::thread pub_thread, sub_thread;
         if (enable_pub) {
             pub_thread = std::thread (do_publisher,
                                      result["pub_namespace"].as<std::string>(),
                                      result["pub_name"].as<std::string>(),
                                      moqInstance, logger, stop_threads);
+        }
+
+        if (enable_sub) {
+            sub_thread = std::thread (do_subscriber,
+                                      result["sub_namespace"].as<std::string>(),
+                                      result["sub_name"].as<std::string>(),
+                                      moqInstance, logger, stop_threads);
         }
 
         // Wait until told to terminate
@@ -218,6 +255,10 @@ main(int argc, char* argv[])
 
         if (pub_thread.joinable()) {
             pub_thread.join();
+        }
+
+        if (sub_thread.joinable()) {
+            sub_thread.join();
         }
 
         moqInstance->stop();

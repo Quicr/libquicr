@@ -204,6 +204,82 @@ namespace quicr {
         send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
     }
 
+    void MoQInstance::send_subscribe(ConnectionContext& conn_ctx,
+                                     uint64_t subscribe_id,
+                                     TrackFullName& tfn,
+                                     TrackHash th)
+    {
+        StreamBuffer<uint8_t> buffer;
+
+        auto subscribe  = MoqSubscribe {};
+        subscribe.subscribe_id = subscribe_id;
+        subscribe.track_alias = th.track_fullname_hash;
+        subscribe.track_namespace.assign(tfn.name_space.begin(), tfn.name_space.end());
+        subscribe.track_name.assign(tfn.name.begin(), tfn.name.end());
+        subscribe.filter_type = FilterType::LatestGroup;
+        subscribe.num_params = 0;
+
+        buffer << subscribe;
+
+        std::vector<uint8_t> net_data = buffer.front(buffer.size());
+
+        _logger->debug << "Sending SUBSCRIBE to conn_id: " << conn_ctx.conn_id
+                       << " subscribe_id: " << subscribe_id
+                       << " track namespace hash: " << th.track_namespace_hash
+                       << " name hash: " << th.track_name_hash
+                       << std::flush;
+
+        send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+    }
+
+    void MoQInstance::send_subscribe_ok(ConnectionContext& conn_ctx,
+                                        uint64_t subscribe_id,
+                                        uint64_t expires,
+                                        bool content_exists)
+    {
+        StreamBuffer<uint8_t> buffer;
+
+        auto subscribe_ok  = MoqSubscribeOk {};
+        subscribe_ok.subscribe_id = subscribe_id;
+        subscribe_ok.expires = expires;
+        subscribe_ok.content_exists = content_exists;
+        buffer << subscribe_ok;
+
+        std::vector<uint8_t> net_data = buffer.front(buffer.size());
+
+        _logger->debug << "Sending SUBSCRIBE OK to conn_id: " << conn_ctx.conn_id
+                       << " subscribe_id: " << subscribe_id
+                       << std::flush;
+
+        send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+    }
+
+    void MoQInstance::send_subscribe_error(ConnectionContext& conn_ctx,
+                                           uint64_t subscribe_id,
+                                           uint64_t track_alias,
+                                           MoQSubscribeError error,
+                                           const std::string& reason)
+    {
+        qtransport::StreamBuffer<uint8_t> buffer;
+
+        auto subscribe_err  = MoqSubscribeError {};
+        subscribe_err.subscribe_id = 0x1;
+        subscribe_err.err_code = static_cast<uint64_t>(error);
+        subscribe_err.track_alias = track_alias;
+        subscribe_err.reason_phrase.assign(reason.begin(), reason.end());
+
+        buffer << subscribe_err;
+
+        std::vector<uint8_t> net_data = buffer.front(buffer.size());
+
+        _logger->debug << "Sending SUBSCRIBE ERROR to conn_id: " << conn_ctx.conn_id
+                       << " subscribe_id: " << subscribe_id
+                       << " error code: " << static_cast<int>(error)
+                       << " reason: " << reason
+                       << std::flush;
+
+        send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+    }
 
     MoQInstance::Status MoQInstance::status()
     {
@@ -230,12 +306,103 @@ namespace quicr {
                 break;
             case MoQMessageType::OBJECT_DATAGRAM:
                 break;
-            case MoQMessageType::SUBSCRIBE:
+            case MoQMessageType::SUBSCRIBE: {
+                if (not stream_buffer->anyHasValue()) {
+                    _logger->debug << "Received subscribe, init stream buffer" << std::flush;
+                    stream_buffer->initAny<MoqSubscribe>();
+                }
+
+                auto& msg = stream_buffer->getAny<MoqSubscribe>();
+                if (*stream_buffer >> msg) {
+                    auto tfn = TrackFullName{ msg.track_namespace, msg.track_name };
+                    auto th = TrackHash(tfn);
+
+                    // For client/publisher, notify track that there is a subscriber
+                    if (_client_mode) {
+                        auto ptd = getPubTrackDelegate(conn_ctx, th);
+                        if (not ptd.has_value()) {
+                            _logger->info << "Received subscribe unknown publish track"
+                                          << " namespace hash: " << th.track_namespace_hash
+                                          << " name hash: " << th.track_name_hash
+                                          << std::flush;
+
+                            send_subscribe_error(conn_ctx,
+                                                 msg.subscribe_id,
+                                                 msg.track_alias,
+                                                 MoQSubscribeError::TRACK_NOT_EXIST,
+                                                 "Published track not found");
+                            return true;
+                        }
+
+                        // TODO(tievens): Set content exists
+                        send_subscribe_ok(conn_ctx, msg.subscribe_id, MOQT_SUBSCRIBE_EXPIRES, false);
+
+                        // Indicate send is ready upon subscribe
+                        // TODO(tievens): Maybe needs a delay as subscriber may have not received ok before data is sent
+                        ptd->lock().get()->cb_sendReady();
+
+                    } else { // Server mode
+                        if (msg.subscribe_id > conn_ctx._sub_id) {
+                            conn_ctx._sub_id = msg.subscribe_id+1;
+                        }
+
+                        // TODO(tievens): add filter type when caching supports it
+                        if (_delegate->cb_subscribe(conn_ctx.conn_id,
+                                                    msg.subscribe_id,
+                                                    tfn.name_space,
+                                                    tfn.name)) {
+                            send_subscribe_ok(conn_ctx, msg.subscribe_id, MOQT_SUBSCRIBE_EXPIRES, false);
+                        }
+                    }
+
+                    stream_buffer->resetAny();
+                    return true;
+                }
                 break;
-            case MoQMessageType::SUBSCRIBE_OK:
+            }
+            case MoQMessageType::SUBSCRIBE_OK: {
+                if (not stream_buffer->anyHasValue()) {
+                    _logger->debug << "Received subscribe ok, init stream buffer" << std::flush;
+                    stream_buffer->initAny<MoqSubscribeOk>();
+                }
+
+                auto& msg = stream_buffer->getAny<MoqSubscribeOk>();
+                if (*stream_buffer >> msg) {
+                    auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+
+                    if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                        _logger->info << "Received subsribe ok to unknown subscribe track"
+                                      << " subscribe_id: " << msg.subscribe_id
+                                      << " , ignored"
+                                      << std::flush;
+
+                        //TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race condition
+                        stream_buffer->resetAny();
+                        return true;
+                    }
+
+                    sub_it->second.get()->cb_readReady();
+
+                    stream_buffer->resetAny();
+                    return true;
+                }
                 break;
-            case MoQMessageType::SUBSCRIBE_ERROR:
+            }
+            case MoQMessageType::SUBSCRIBE_ERROR: {
+                if (not stream_buffer->anyHasValue()) {
+                    _logger->debug << "Received subscribe error, init stream buffer" << std::flush;
+                    stream_buffer->initAny<MoqSubscribeError>();
+                }
+
+                auto& msg = stream_buffer->getAny<MoqSubscribeError>();
+                if (*stream_buffer >> msg) {
+
+
+                    stream_buffer->resetAny();
+                    return true;
+                }
                 break;
+            }
             case MoQMessageType::ANNOUNCE: {
                 if (not stream_buffer->anyHasValue()) {
                     _logger->debug << "Received announce, init stream buffer" << std::flush;
@@ -271,10 +438,12 @@ namespace quicr {
                     // Update each track to indicate status is okay to publish
                     auto pub_it = conn_ctx.pub_tracks_by_name.find(th.track_namespace_hash);
                     for (const auto& td: pub_it->second) {
-                        td.second.lock().get()->setSendStatus(MoQTrackDelegate::TrackSendStatus::OK);
-                        td.second.lock().get()->cb_sendReady();
+                        td.second.get()->setSendStatus(MoQTrackDelegate::TrackSendStatus::OK);
+                        td.second.get()->cb_sendReady();
                     }
 
+                    stream_buffer->resetAny();
+                    return true;
                 }
                 break;
             }
@@ -390,8 +559,8 @@ namespace quicr {
     }
 
     std::optional<uint64_t> MoQInstance::subscribeTrack(TransportConnId conn_id,
-                                                        std::shared_ptr<MoQTrackDelegate> track_delegate) {
-
+                                                        std::shared_ptr<MoQTrackDelegate> track_delegate)
+    {
         // Generate track alias
         auto tfn = TrackFullName{ track_delegate->getTrackNamespace(), track_delegate->getTrackName() };
 
@@ -404,14 +573,53 @@ namespace quicr {
         _logger->info << "Subscribe track conn_id: " << conn_id
                       << " hash: " << th.track_fullname_hash << std::flush;
 
+        std::lock_guard<std::mutex> _(_state_mutex);
         auto conn_it = _connections.find(conn_id);
         if (conn_it == _connections.end()) {
             _logger->error << "Subscribe track conn_id: " << conn_id << " does not exist." << std::flush;
             return std::nullopt;
         }
 
-        // Set the track alias delegate
-        conn_it->second.tracks_by_alias[th.track_fullname_hash] = track_delegate;
+        auto sid = conn_it->second._sub_id++;
+
+        _logger->debug << "subscribe id to add to memory: " << sid << std::flush;
+
+        // Set the track delegate for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
+        conn_it->second.tracks_by_sub_id[sid] = track_delegate;
+
+        track_delegate->setSubscribeId(sid);
+
+        send_subscribe(conn_it->second, sid, tfn, th);
+
+        return th.track_fullname_hash;
+    }
+
+    std::optional<uint64_t> MoQInstance::bindSubscribeTrack(TransportConnId conn_id,
+                                                            uint64_t subscribe_id,
+                                                            std::shared_ptr<MoQTrackDelegate> track_delegate) {
+
+        // Generate track alias
+        auto tfn = TrackFullName{ track_delegate->getTrackNamespace(), track_delegate->getTrackName() };
+
+        // Track hash is the track alias for now.
+        auto th = TrackHash(tfn);
+
+        track_delegate->setTrackAlias(th.track_fullname_hash);
+
+        _logger->info << "Bind subscribe track delegate conn_id: " << conn_id
+                      << " hash: " << th.track_fullname_hash << std::flush;
+
+        std::lock_guard<std::mutex> _(_state_mutex);
+        auto conn_it = _connections.find(conn_id);
+        if (conn_it == _connections.end()) {
+            _logger->error << "Subscribe track conn_id: " << conn_id << " does not exist." << std::flush;
+            return std::nullopt;
+        }
+
+        // Set the track delegate for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
+        conn_it->second.tracks_by_sub_id[subscribe_id] = track_delegate;
+
+        track_delegate->setSubscribeId(subscribe_id);
 
         return th.track_fullname_hash;
     }
@@ -431,14 +639,13 @@ namespace quicr {
         _logger->info << "Publish track conn_id: " << conn_id
                       << " hash: " << th.track_fullname_hash << std::flush;
 
+        std::lock_guard<std::mutex> _(_state_mutex);
+
         auto conn_it = _connections.find(conn_id);
         if (conn_it == _connections.end()) {
             _logger->error << "Publish track conn_id: " << conn_id << " does not exist." << std::flush;
             return std::nullopt;
         }
-
-        // Set the track alias delegate
-        conn_it->second.tracks_by_alias[th.track_fullname_hash] = track_delegate;
 
         // Check if this published track is a new namespace or existing.
         auto pub_ns_it = conn_it->second.pub_tracks_by_name.find(th.track_namespace_hash);
@@ -458,10 +665,26 @@ namespace quicr {
             }
         }
 
-        // Add/update the track name delegate
+        // Set the track delegate for pub/sub
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_delegate;
 
         return th.track_fullname_hash;
+    }
+
+    std::optional<std::weak_ptr<MoQTrackDelegate>> MoQInstance::getPubTrackDelegate(ConnectionContext& conn_ctx,
+                                                                                    TrackHash& th)
+    {
+        auto pub_ns_it = conn_ctx.pub_tracks_by_name.find(th.track_namespace_hash);
+        if (pub_ns_it == conn_ctx.pub_tracks_by_name.end()) {
+            return std::nullopt;
+        } else {
+            auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
+            if (pub_n_it == pub_ns_it->second.end()) {
+                return std::nullopt;
+            }
+
+            return pub_n_it->second;
+        }
     }
 
     // ---------------------------------------------------------------------------------------

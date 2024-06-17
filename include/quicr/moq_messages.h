@@ -62,6 +62,15 @@ enum class MoQMessageType : uint64_t
     STREAM_HEADER_GROUP,
 };
 
+enum class MoQSubscribeError : uint8_t
+{
+  INTERNAL_ERROR=0x0,
+  INVALID_RANGE,
+  RETRY_TRACK_ALIAS,
+
+  TRACK_NOT_EXIST=0xF0 // Missing in draft
+};
+
 // TODO (Suhas): rename it to StreamMapping
 enum ForwardingPreference : uint8_t {
   StreamPerGroup = 0,

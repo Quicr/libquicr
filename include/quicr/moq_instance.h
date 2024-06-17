@@ -20,6 +20,7 @@
 
 namespace quicr {
     constexpr uint64_t MOQT_VERSION = 0xff000004; /// draft-ietf-moq-transport-04
+    constexpr uint64_t MOQT_SUBSCRIBE_EXPIRES = 0;      /// Never expires
 
     using namespace qtransport;
 
@@ -118,12 +119,28 @@ namespace quicr {
         /**
          * @brief Subscribe to a track
          *
+         * @param conn_id           Connection ID to send subscribe
          * @param track_delegate    Track delegate to use for track related functions and callbacks
          *
          * @returns `track_alias` if no error and nullopt on error
          */
         std::optional<uint64_t> subscribeTrack(TransportConnId conn_id,
                                                std::shared_ptr<MoQTrackDelegate> track_delegate);
+
+        /**
+         * @brief Bind Subscribe track delegate
+         *
+         * @details This method is used to bind a received subscribe to a track delegate
+         *
+         * @param conn_id               Connection ID to send subscribe
+         * @param subscribe_id          Local subscribe ID to use
+         * @param track_delegate        Track delegate to use for track related functions and callbacks
+         *
+         * @returns `track_alias` if no error and nullopt on error
+         */
+        std::optional<uint64_t> bindSubscribeTrack(TransportConnId conn_id,
+                                                   uint64_t subscribe_id,
+                                                   std::shared_ptr<MoQTrackDelegate> track_delegate);
 
         /**
          * @brief Publish to a track
@@ -194,15 +211,13 @@ namespace quicr {
             uint64_t client_version { 0 };
             std::optional<messages::MoQMessageType> msg_type_received;  /// Indicates the current message type being read
 
-            // Tracks by track alias
-            std::map<uint64_t, std::shared_ptr<MoQTrackDelegate>> tracks_by_alias;
+            uint64_t _sub_id {0};      /// Connection specific ID for subscribe messages
+
+            // Tracks by subscribe ID
+            std::map<uint64_t, std::shared_ptr<MoQTrackDelegate>> tracks_by_sub_id;
 
             // Publish tracks by namespace and name. map[track namespace][track name] = track delegate
-            std::map<uint64_t, std::map<uint64_t, std::weak_ptr<MoQTrackDelegate>>> pub_tracks_by_name;
-
-            // Subscribes by subscribe_id
-            std::map<uint64_t, std::weak_ptr<MoQTrackDelegate>> sub_tracks;
-
+            std::map<uint64_t, std::map<uint64_t, std::shared_ptr<MoQTrackDelegate>>> pub_tracks_by_name;
         };
 
         // -------------------------------------------------------------------------------------------------
@@ -215,17 +230,29 @@ namespace quicr {
         void send_server_setup(ConnectionContext& conn_ctx);
         void send_announce(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
         void send_announce_ok(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
+        void send_subscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id, TrackFullName& tfn, TrackHash th);
+        void send_subscribe_ok(ConnectionContext& conn_ctx,
+                               uint64_t subscribe_id,
+                               uint64_t expires,
+                               bool content_exists);
+        void send_subscribe_error(ConnectionContext& conn_ctx,
+                                  uint64_t subscribe_id,
+                                  uint64_t track_alias,
+                                  messages::MoQSubscribeError error,
+                                  const std::string& reason);
         void close_connection(TransportConnId conn_id, messages::MoQTerminationReason reason,
                               const std::string& reason_str);
         bool process_recv_message(ConnectionContext& conn_ctx,
                                   std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+        std::optional<std::weak_ptr<MoQTrackDelegate>> getPubTrackDelegate(ConnectionContext& conn_ctx,
+                                                                           TrackHash& th);
 
         // -------------------------------------------------------------------------------------------------
         // Private member variables
         // -------------------------------------------------------------------------------------------------
 
 
-        std::mutex _mutex;
+        std::mutex _state_mutex;
         const bool _client_mode;
         bool _stop { false };
         const MoQInstanceServerConfig _server_config;

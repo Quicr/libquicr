@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include <transport/transport.h>
 #include <quicr/moq_messages.h>
+#include <transport/transport.h>
 
 namespace quicr {
     using namespace qtransport;
@@ -77,6 +77,23 @@ namespace quicr {
         virtual bool cb_announce([[maybe_unused]] TransportConnId conn_id,
                                  [[maybe_unused]] uint64_t track_namespace_hash) { return true; }
 
+        /**
+         * @brief Callback notification for new subscribe received
+         *
+         * @param conn_id             Source connection ID
+         * @param subscribe_id        Subscribe ID received
+         * @param name_space          Track Namespace from subscription
+         * @param name                Track name from subscription
+         *
+         * @return True if send announce should be sent, false if not
+         */
+        virtual bool cb_subscribe([[maybe_unused]] TransportConnId conn_id,
+                                  [[maybe_unused]] uint64_t subscribe_id,
+                                  [[maybe_unused]] std::span<uint8_t const> name_space,
+                                  [[maybe_unused]] std::span<uint8_t const> name)
+        {
+            return true;
+        }
 
     };
 

@@ -261,7 +261,15 @@ namespace quicr {
         uint8_t _def_priority;
         uint32_t _def_ttl;
         std::optional<uint64_t> _track_alias;
+
+        /**
+         * _subscribe_id is the primary index/key for subscribe subscribe context/delegate storage.
+         *   It is use as the subscribe_id in MOQT related subscribes.  Subscribe ID will adapt
+         *   to received subscribe IDs, so the value will reflect either the received subscribe ID
+         *   or the next one that increments from last received ID.
+         */
         std::optional<uint64_t> _subscribe_id;
+
         TrackSendStatus _send_status { TrackSendStatus::NOT_ANNOUNCED };
         TrackReadStatus _read_status { TrackReadStatus::NOT_SUBSCRIBED };
     };
