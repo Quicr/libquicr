@@ -107,9 +107,8 @@ namespace quicr {
         auto conn_id = _transport->start(nullptr, nullptr);
 #endif
         LOGGER_INFO(_logger, "Connecting session conn_id: " << conn_id << "...");
-        auto conn_ctx = ConnectionContext();
-        conn_ctx.conn_id = conn_id;
-        _connections.try_emplace(conn_id, conn_ctx);
+        auto [conn_ctx, _] = _connections.try_emplace(conn_id, ConnectionContext{});
+        conn_ctx->second.conn_id = conn_id;
 
         return _status;
     }
@@ -392,6 +391,7 @@ namespace quicr {
 
     std::optional<uint64_t> MoQInstance::subscribeTrack(TransportConnId conn_id,
                                                         std::shared_ptr<MoQTrackDelegate> track_delegate) {
+
         // Generate track alias
         auto tfn = TrackFullName{ track_delegate->getTrackNamespace(), track_delegate->getTrackName() };
 
@@ -410,23 +410,8 @@ namespace quicr {
             return std::nullopt;
         }
 
----
         // Set the track alias delegate
         conn_it->second.tracks_by_alias[th.track_fullname_hash] = track_delegate;
-
-        // Check if this published track is a new namespace or existing.
-        auto [pub_ns_it, ns_is_new] = conn_it->second.pub_tracks_by_name.try_emplace(th.track_namespace_hash);
-
-        if (ns_is_new) {
-            _logger->info << "Publish track has new namespace hash: " << th.track_namespace_hash
-                          << " sending ANNOUNCE message" << std::flush;
-
-            send_announce(conn_it->second, track_delegate->getTrackNamespace());
-        }
-
-        // Add/update the track name delegate
-        pub_ns_it->second[th.track_name_hash] = track_delegate;
-
 
         return th.track_fullname_hash;
     }
@@ -456,17 +441,25 @@ namespace quicr {
         conn_it->second.tracks_by_alias[th.track_fullname_hash] = track_delegate;
 
         // Check if this published track is a new namespace or existing.
-        auto [pub_ns_it, ns_is_new] = conn_it->second.pub_tracks_by_name.try_emplace(th.track_namespace_hash, track_delegate);
-
-        if (ns_is_new) {
+        auto pub_ns_it = conn_it->second.pub_tracks_by_name.find(th.track_namespace_hash);
+        if (pub_ns_it == conn_it->second.pub_tracks_by_name.end()) {
             _logger->info << "Publish track has new namespace hash: " << th.track_namespace_hash
                           << " sending ANNOUNCE message" << std::flush;
 
             send_announce(conn_it->second, track_delegate->getTrackNamespace());
+
+        } else {
+            auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
+            if (pub_n_it == pub_ns_it->second.end()) {
+                _logger->info << "Publish track has new track "
+                              << " namespace hash: " << th.track_namespace_hash
+                              << " name hash: " << th.track_name_hash
+                              << std::flush;
+            }
         }
 
         // Add/update the track name delegate
-        pub_ns_it->second[th.track_name_hash] = track_delegate;
+        conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_delegate;
 
         return th.track_fullname_hash;
     }

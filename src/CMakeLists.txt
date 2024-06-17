@@ -11,7 +11,6 @@ target_sources(quicr PRIVATE
         quicr_server_raw_session.cpp
         moq_instance.cpp
         moq_track_delegate_base.cpp
-        moq_session.cpp
 )
 
 if(NOT LIBQUICR_WITHOUT_INFLUXDB)
