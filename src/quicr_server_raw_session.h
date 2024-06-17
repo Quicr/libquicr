@@ -54,7 +54,7 @@ public:
   ServerRawSession(std::shared_ptr<qtransport::ITransport> transport,
                    std::shared_ptr<ServerDelegate> delegate);
 
-  ~ServerRawSession() = default;
+  ~ServerRawSession();
 
   // Transport APIs
   bool is_transport_ready() override;

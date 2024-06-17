@@ -70,6 +70,20 @@ ServerRawSession::ServerRawSession(
 {
 }
 
+ServerRawSession::~ServerRawSession()
+{
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+#ifndef REALTIME
+  if (_mexport.init("http://metrics.m10x.ctgpoc.com:8086",
+                    "Media10x",
+                    "cisco-cto-media10x") ==
+      MetricsExporter::MetricsExporterError::NoError) {
+    _mexport.submit();
+  }
+#endif
+#endif
+}
+
 std::shared_ptr<qtransport::ITransport>
 ServerRawSession::setupTransport(const qtransport::TransportConfig& cfg)
 {
@@ -103,6 +117,7 @@ ServerRawSession::run()
 
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
+#ifdef REALTIME
   if (_mexport.init("http://metrics.m10x.ctgpoc.com:8086",
                    "Media10x",
                    "cisco-cto-media10x") !=
@@ -114,6 +129,7 @@ ServerRawSession::run()
     LOGGER_ERROR(logger, "ERROR metrics conn samples null");
   }
   _mexport.run();
+#endif
 #endif
 
   return transport->status() == qtransport::TransportStatus::Ready;
