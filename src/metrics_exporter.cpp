@@ -79,6 +79,31 @@ namespace quicr {
       _writer_thread = std::thread(&MetricsExporter::writer, this);
     }
 
+    void
+    MetricsExporter::submit()
+    {
+      while (const auto conn_sample = metrics_conn_samples->pop()) {
+        try {
+          write_conn_metrics(*conn_sample);
+
+          while (const auto data_sample = metrics_data_samples->pop()) {
+            write_data_metrics(*data_sample);
+          }
+
+          _influxDb->flushBatch();
+        } catch (const influxdb::InfluxDBException& exception) {
+          logger->error << "InfluxDb exception: " << exception.what() << std::flush;
+          connect();
+        } catch (const std::exception& exception) {
+          logger->error << "Exception: " << exception.what() << std::flush;
+          connect();
+        } catch (...) {
+          logger->error << "Unknown exception" << std::flush;
+          connect();
+        }
+      }
+    }
+
     void MetricsExporter::write_conn_metrics(const MetricsConnSample& sample)
     {
       if (const auto info = get_conn_ctx_info(sample.conn_ctx_id)) {

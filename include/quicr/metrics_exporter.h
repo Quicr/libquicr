@@ -96,6 +96,8 @@ namespace quicr {
          */
         void run();
 
+        void submit();
+
         void set_conn_ctx_info(const TransportConnId conn_id,
                                const ConnContextInfo info,
                                bool is_client);
