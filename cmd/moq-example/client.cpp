@@ -28,7 +28,7 @@ public:
     {
     }
 
-    void cb_objectReceived(std::vector<uint8_t>&& object) override {}
+    void cb_objectReceived(uint64_t group_id, uint64_t object_id, std::vector<uint8_t>&& object) override {}
     void cb_sendCongested(bool cleared, uint64_t objects_in_queue) override {}
 
     void cb_sendReady() override {
@@ -41,6 +41,11 @@ public:
         _logger->info << "Track alias: " << _track_alias.value() << " is ready to read" << std::flush;
     }
     void cb_readNotReady(TrackReadStatus status) override {}
+
+    SendError sendObject(const uint64_t  group_id, const uint64_t object_id, const std::span<const uint8_t>& object, uint8_t priority, uint32_t ttl) {
+        //TODO: check send status before sending
+
+    }
 };
 
 class clientDelegate : public quicr::MoQInstanceDelegate
@@ -96,6 +101,13 @@ void do_publisher(const std::string t_namespace,
             published_track = true;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+        //TODO: Hardcoded publish, remove and make it interactive sends
+        constexpr auto NUM_MESSAGES = 10;
+        auto data = std::vector<uint8_t> {0, 1, 2, 3, 4, 5};
+        for (int i = 0; i < NUM_MESSAGES; i++) {
+            track_delegate->sendObject(100, i, data, 3, 500);
+        }
     }
 
     _logger->info << "Publisher done track: " << t_namespace << "/" << t_name << std::flush;

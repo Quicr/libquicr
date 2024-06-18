@@ -52,19 +52,43 @@ class serverDelegate : public quicr::MoQInstanceDelegate
                       std::span<uint8_t const> name_space,
                       std::span<uint8_t const> name) override
     {
-        std::string t_namespace(name_space.begin(), name_space.end());
-        std::string t_name(name.begin(), name.end());
+        std::string const t_namespace(name_space.begin(), name_space.end());
+        std::string const t_name(name.begin(), name.end());
 
         _logger->info << "New subscribe conn_id: " << conn_id
                        << " subscribe_id: " << subscribe_id
                        << " track: " << t_namespace << "/" << t_name
                        << std::flush;
 
+        active_subscriptions[subscribe_id] = conn_id;
         return true;
     }
 
+    bool cb_object_received([[maybe_unused]] qtransport::TransportConnId conn_id,
+                            [[maybe_unused]] uint64_t subscribe_id,
+                            [[maybe_unused]] uint64_t track_alias,
+                            [[maybe_unused]] uint64_t group_id,
+                            [[maybe_unused]] uint64_t object_id,
+                            [[maybe_unused]] std::vector<uint8_t>&& data)
+    {
+        if (!active_subscriptions.contains(subscribe_id)) {
+            _logger->info << "no active subscription conn_id: " << conn_id
+                          << " subscribe_id: " << subscribe_id
+                          << std::flush;
+            return true;
+        }
+
+        active_subscriptions.at(subscribe_id);
+    }
+
+    void set_moq_instance(std::shared_ptr<quicr::MoQInstance> mi) {
+        moq_instance_ptr = mi;
+    }
   private:
     cantina::LoggerPointer _logger;
+    std::weak_ptr<quicr::MoQInstance> moq_instance_ptr;
+    // map of subscription to its connections.
+    std::map<uint64_t , qtransport::TransportConnId> active_subscriptions {};
 };
 
 quicr::MoQInstanceServerConfig init_config(cxxopts::ParseResult& cli_opts, const cantina::LoggerPointer& logger)
@@ -137,9 +161,9 @@ main(int argc, char* argv[])
     auto delegate = std::make_shared<serverDelegate>(logger);
 
     try {
-        auto moqInstance = quicr::MoQInstance{config, delegate, logger};
-
-        moqInstance.run_server();
+        auto moqInstance = std::make_shared<quicr::MoQInstance>(config, delegate, logger);
+        delegate->set_moq_instance(moqInstance);
+        moqInstance->run_server();
 
         // Wait until told to terminate
         moq_example::cv.wait(lock, [&]() { return moq_example::terminate; });

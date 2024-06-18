@@ -9,26 +9,34 @@
 
 namespace quicr {
 
-    MoQTrackDelegate::SendError MoQTrackDelegate::sendObject([[maybe_unused]] const std::span<const uint8_t>& object)
+    MoQTrackDelegate::SendError MoQTrackDelegate::sendObject([[maybe_unused]] const uint64_t  group_id,
+                                                             [[maybe_unused]] const uint64_t object_id,
+                                                             [[maybe_unused]] const std::span<const uint8_t>& object)
     {
         return MoQTrackDelegate::SendError::OK;
     }
 
-    MoQTrackDelegate::SendError MoQTrackDelegate::sendObject([[maybe_unused]] const std::span<const uint8_t>& object,
+    MoQTrackDelegate::SendError MoQTrackDelegate::sendObject([[maybe_unused]] const uint64_t  group_id,
+                                                             [[maybe_unused]] const uint64_t object_id,
+                                                             [[maybe_unused]] const std::span<const uint8_t>& object,
                                                              [[maybe_unused]] uint32_t ttl)
     {
         return MoQTrackDelegate::SendError::OK;
     }
 
-    MoQTrackDelegate::SendError MoQTrackDelegate::sendObject([[maybe_unused]] const std::span<const uint8_t>& object,
-                                           [[maybe_unused]] uint8_t priority)
+    MoQTrackDelegate::SendError MoQTrackDelegate::sendObject([[maybe_unused]] const uint64_t  group_id,
+                                                             [[maybe_unused]] const uint64_t object_id,
+                                                             [[maybe_unused]] const std::span<const uint8_t>& object,
+                                                             [[maybe_unused]] uint8_t priority)
     {
         return MoQTrackDelegate::SendError::OK;
     }
 
-    MoQTrackDelegate::SendError MoQTrackDelegate::sendObject([[maybe_unused]] const std::span<const uint8_t>& object,
-                                           [[maybe_unused]] uint8_t priority,
-                                           [[maybe_unused]] uint32_t ttl)
+    MoQTrackDelegate::SendError MoQTrackDelegate::sendObject([[maybe_unused]] const uint64_t  group_id,
+                                                             [[maybe_unused]] const uint64_t object_id,
+                                                             [[maybe_unused]] const std::span<const uint8_t>& object,
+                                                             [[maybe_unused]] uint8_t priority,
+                                                             [[maybe_unused]] uint32_t ttl)
     {
         return MoQTrackDelegate::SendError::OK;
     }

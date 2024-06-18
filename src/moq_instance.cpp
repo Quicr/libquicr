@@ -540,8 +540,6 @@ namespace quicr {
 
                     stream_buffer->resetAny();
                     conn_ctx.setup_complete = true;
-
-
                     return true;
                 }
                 break;
@@ -549,6 +547,54 @@ namespace quicr {
             case MoQMessageType::STREAM_HEADER_TRACK:
                 break;
             case MoQMessageType::STREAM_HEADER_GROUP:
+                if (not stream_buffer->anyHasValue()) {
+                    _logger->debug << "Received stream header group, init stream buffer" << std::flush;
+                    stream_buffer->initAny<MoqStreamHeaderGroup>();
+                }
+
+                auto& msg = stream_buffer->getAny<MoqStreamHeaderGroup>();
+                if (*stream_buffer >> msg) {
+                    if (_client_mode) {
+                            auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                            if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                                _logger->info << "Received stream_header_group to unknown subscribe track"
+                                          << " subscribe_id: " << msg.subscribe_id
+                                          << " , ignored"
+                                          << std::flush;
+
+                                stream_buffer->resetAny();
+                                return true;
+                            }
+
+                            stream_buffer->resetAny();
+                            // let's get the full object payload
+                            stream_buffer->initAny<MoqStreamGroupObject>();
+                            auto& obj = stream_buffer->getAny<MoqStreamGroupObject>();
+                            if (*stream_buffer >> obj) {
+                                sub_it->second->cb_objectReceived(msg.group_id, obj.object_id, std::move(obj.payload));
+                            }
+                            stream_buffer->resetAny();
+                            return true;
+                    } else {
+                            //TODO: refactor this into its own function
+                            stream_buffer->resetAny();
+                            // let's get the full object payload
+                            stream_buffer->initAny<MoqStreamGroupObject>();
+                            auto& obj = stream_buffer->getAny<MoqStreamGroupObject>();
+                            if (*stream_buffer >> obj) {
+                                _delegate->cb_object_received(conn_ctx.conn_id,
+                                                              msg.subscribe_id,
+                                                              msg.track_alias,
+                                                              msg.group_id,
+                                                              obj.object_id,
+                                                              std::move(obj.payload));
+                            }
+                            stream_buffer->resetAny();
+                            return true;
+                    }
+
+                }
+
                 break;
         }
 

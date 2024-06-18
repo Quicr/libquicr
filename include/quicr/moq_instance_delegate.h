@@ -95,6 +95,17 @@ namespace quicr {
             return true;
         }
 
+        virtual bool cb_object_received([[maybe_unused]] TransportConnId conn_id,
+                                        [[maybe_unused]] uint64_t subscribe_id,
+                                        [[maybe_unused]] uint64_t track_alias,
+                                        [[maybe_unused]] uint64_t group_id,
+                                        [[maybe_unused]] uint64_t object_id,
+                                        [[maybe_unused]] std::vector<uint8_t>&& data)
+        {
+            return true;
+        }
+
+
     };
 
 } // namespace quicr

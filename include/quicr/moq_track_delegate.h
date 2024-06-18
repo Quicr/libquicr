@@ -98,10 +98,10 @@ namespace quicr {
          * @returns SendError status of the send
          *
          */
-        SendError sendObject(const std::span<const uint8_t>& object);
-        SendError sendObject(const std::span<const uint8_t>& object, uint32_t ttl);
-        SendError sendObject(const std::span<const uint8_t>& object, uint8_t priority);
-        SendError sendObject(const std::span<const uint8_t>& object, uint8_t priority, uint32_t ttl);
+        SendError sendObject(const uint64_t  group_id, const uint64_t object_id, const std::span<const uint8_t>& object);
+        SendError sendObject(const uint64_t  group_id, const uint64_t object_id, const std::span<const uint8_t>& object, uint32_t ttl);
+        SendError sendObject(const uint64_t  group_id, const uint64_t object_id, const std::span<const uint8_t>& object, uint8_t priority);
+        SendError sendObject(const uint64_t  group_id, const uint64_t object_id, const std::span<const uint8_t>& object, uint8_t priority, uint32_t ttl);
 
         /**
          * @brief Read object from track
@@ -153,7 +153,9 @@ namespace quicr {
          *
          * @param object    Data object received
          */
-        virtual void cb_objectReceived(std::vector<uint8_t>&& object) = 0;
+        virtual void cb_objectReceived(uint64_t group_id,
+                                       uint64_t object_id,
+                                       std::vector<uint8_t>&& object) = 0;
 
         /**
          * @brief Notification that data can be sent
