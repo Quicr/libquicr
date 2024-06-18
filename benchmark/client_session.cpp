@@ -28,11 +28,13 @@ public:
     .hostname = "relay.quicr.ctgpoc.com",
     .port = 33435,
     .proto = quicr::RelayInfo::Protocol::QUIC,
+    .relay_id = "",
   };
   const qtransport::TransportConfig config{
     .tls_cert_filename = nullptr,
     .tls_key_filename = nullptr,
     .use_reset_wait_strategy = false,
+    .quic_qlog_path = "",
   };
 
   std::unique_ptr<quicr::Client> client;
