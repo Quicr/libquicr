@@ -177,9 +177,8 @@ main(int argc, char** argv)
   std::vector<uint8_t> buffer(msg_size);
   std::vector<std::thread> threads;
 
-  for (std::size_t i = 0; i < streams; ++i) {
-    threads.emplace_back([&, index = i] {
-      quicr::Namespace& pub_ns = namespaces.at(index);
+  for (quicr::Namespace& pub_ns : namespaces) {
+    threads.emplace_back([&] {
       quicr::Name name = pub_ns;
 
       ::loop_for(duration, interval, [&] {
@@ -206,6 +205,10 @@ main(int argc, char** argv)
 
   cv.wait(lock,
           [&] { return terminate.load() || finished_publishers == streams; });
+
+  for (quicr::Namespace& pub_ns : namespaces) {
+    client.publishIntentEnd(pub_ns, "");
+  }
 
   if (terminate) {
     LOGGER_INFO(logger, "Received interrupt, exiting early...");
