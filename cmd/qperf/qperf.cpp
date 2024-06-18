@@ -6,7 +6,6 @@
 #include <condition_variable>
 #include <csignal>
 #include <cstdlib>
-#include <stop_token>
 #include <thread>
 
 namespace {
@@ -121,12 +120,14 @@ main(int argc, char** argv)
     .hostname = result["relay_url"].as<std::string>(),
     .port = result["relay_port"].as<std::uint16_t>(),
     .proto = quicr::RelayInfo::Protocol::QUIC,
+    .relay_id = "",
   };
 
   const qtransport::TransportConfig config{
     .tls_cert_filename = nullptr,
     .tls_key_filename = nullptr,
     .use_reset_wait_strategy = false,
+    .quic_qlog_path = "",
   };
 
   auto logger = std::make_shared<cantina::Logger>("perf", "PERF");
