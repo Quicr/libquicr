@@ -41,11 +41,6 @@ public:
         _logger->info << "Track alias: " << _track_alias.value() << " is ready to read" << std::flush;
     }
     void cb_readNotReady(TrackReadStatus status) override {}
-
-    SendError sendObject(const uint64_t  group_id, const uint64_t object_id, const std::span<const uint8_t>& object, uint8_t priority, uint32_t ttl) {
-        //TODO: check send status before sending
-
-    }
 };
 
 class clientDelegate : public quicr::MoQInstanceDelegate
@@ -94,20 +89,41 @@ void do_publisher(const std::string t_namespace,
     _logger->info << "Started publisher track: " << t_namespace << "/" << t_name << std::flush;
 
     bool published_track { false };
+    bool sending { false };
+    uint64_t group_id { 0 };
+    uint64_t object_id { 0 };
+
     while (not stop) {
         if (!published_track && qclient_vars::conn_id) {
             _logger->info << "Publish track: " << t_namespace << "/" << t_name << std::flush;
             mi->publishTrack(*qclient_vars::conn_id, track_delegate);
             published_track = true;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-        //TODO: Hardcoded publish, remove and make it interactive sends
-        constexpr auto NUM_MESSAGES = 10;
-        auto data = std::vector<uint8_t> {0, 1, 2, 3, 4, 5};
-        for (int i = 0; i < NUM_MESSAGES; i++) {
-            track_delegate->sendObject(100, i, data, 3, 500);
+        if (track_delegate->statusSend() != quicr::MoQTrackDelegate::TrackSendStatus::OK) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            continue;
         }
+
+        if (!sending) {
+            _logger->info << "--------------------------------------------------------------------------" << std::flush;
+            _logger->info << " Type message and press enter to send" << std::flush;
+            _logger->info << "--------------------------------------------------------------------------" << std::flush;
+            sending = true;
+        }
+
+        std::string msg;
+        getline(std::cin, msg);
+        _logger->info << "Send mesage: " << msg << std::flush;
+
+        if (object_id % 5 == 0) {       // Set new group
+            object_id = 0;
+            group_id++;
+        }
+
+        std::vector<uint8_t> msg_v(msg.begin(), msg.end());
+        auto result = track_delegate->sendObject(group_id, object_id++, std::move(msg_v));
+        _logger->info << "send error: " << static_cast<int>(result) << std::flush;
     }
 
     _logger->info << "Publisher done track: " << t_namespace << "/" << t_name << std::flush;

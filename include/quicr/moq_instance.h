@@ -201,6 +201,14 @@ namespace quicr {
                             const bool is_bidir = false) override;
         void on_recv_dgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id) override;
 
+        MoQTrackDelegate::SendError send_object(std::weak_ptr<MoQTrackDelegate> track_delegate,
+                                                uint8_t priority,
+                                                uint32_t ttl,
+                                                bool stream_header_needed,
+                                                uint64_t group_id,
+                                                uint64_t object_id,
+                                                bytes&& data);
+
       private:
 
         struct ConnectionContext
@@ -209,7 +217,7 @@ namespace quicr {
             std::optional<uint64_t> ctrl_data_ctx_id;
             bool setup_complete { false };   /// True if both client and server setup messages have completed
             uint64_t client_version { 0 };
-            std::optional<messages::MoQMessageType> msg_type_received;  /// Indicates the current message type being read
+            std::optional<messages::MoQMessageType> ctrl_msg_type_received;  /// Indicates the current message type being read
 
             uint64_t _sub_id {0};      /// Connection specific ID for subscribe messages
 
@@ -242,8 +250,10 @@ namespace quicr {
                                   const std::string& reason);
         void close_connection(TransportConnId conn_id, messages::MoQTerminationReason reason,
                               const std::string& reason_str);
-        bool process_recv_message(ConnectionContext& conn_ctx,
-                                  std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+        bool process_recv_ctrl_message(ConnectionContext& conn_ctx,
+                                       std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+        bool process_recv_data_message(ConnectionContext& conn_ctx,
+                                       std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
         std::optional<std::weak_ptr<MoQTrackDelegate>> getPubTrackDelegate(ConnectionContext& conn_ctx,
                                                                            TrackHash& th);
 

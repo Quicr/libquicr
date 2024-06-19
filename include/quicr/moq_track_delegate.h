@@ -5,7 +5,6 @@
  */
 #pragma once
 
-#include <quicr/moq_messages.h>
 #include <quicr/quicr_common.h>
 
 namespace quicr {
@@ -32,6 +31,7 @@ namespace quicr {
         enum class SendError : uint8_t
         {
             OK = 0,
+            INTERNAL_ERROR,
             NOT_AUTHORIZED,
             NOT_ANNOUNCED,
             NO_SUBSCRIBERS,
@@ -76,10 +76,10 @@ namespace quicr {
                          uint8_t default_priority,
                          uint32_t default_ttl,
                          const cantina::LoggerPointer& logger) :
-              _logger(std::make_shared<cantina::Logger>("MTD", logger))
+              _mi_track_mode(track_mode)
+             , _logger(std::make_shared<cantina::Logger>("MTD", logger))
              , _track_namespace(track_namespace)
              , _track_name(track_name)
-             , _track_mode(track_mode)
         {
           this->setDefaultPriority(default_priority);
           this->setDefaultTTL(default_ttl);
@@ -93,26 +93,29 @@ namespace quicr {
          *   indicate if there are no subscribers. In this case, the object will
          *   not be sent.
          *
-         * @param[in] object   Object to send to track
+         * @param[in] group_id     Group ID of object
+         * @param[in] object_id    Object ID of the object
+         * @param[in] object       Object to send to track
+         * @param[in] ttl          Expire TTL for object
+         * @param[in] priority     Priority for object; will be set upon next qualifing stream object
          *
          * @returns SendError status of the send
          *
          */
-        SendError sendObject(const uint64_t  group_id, const uint64_t object_id, const std::span<const uint8_t>& object);
-        SendError sendObject(const uint64_t  group_id, const uint64_t object_id, const std::span<const uint8_t>& object, uint32_t ttl);
-        SendError sendObject(const uint64_t  group_id, const uint64_t object_id, const std::span<const uint8_t>& object, uint8_t priority);
-        SendError sendObject(const uint64_t  group_id, const uint64_t object_id, const std::span<const uint8_t>& object, uint8_t priority, uint32_t ttl);
-
-        /**
-         * @brief Read object from track
-         *
-         * @details Reads an object from the subscribed track
-         *
-         * @param[out] object   Refence to object to be updated. Will be cleared.
-         *
-         * @returns ReadError status of the read
-         */
-        ReadError readObject(std::vector<const uint8_t>& object);
+        SendError sendObject(const uint64_t group_id, const uint64_t object_id, const std::span<const uint8_t>& object);
+        SendError sendObject(const uint64_t group_id,
+                             const uint64_t object_id,
+                             const std::span<const uint8_t>& object,
+                             uint32_t ttl);
+        SendError sendObject(const uint64_t group_id,
+                             const uint64_t object_id,
+                             const std::span<const uint8_t>& object,
+                             uint8_t priority);
+        SendError sendObject(const uint64_t group_id,
+                             const uint64_t object_id,
+                             const std::span<const uint8_t>& object,
+                             uint8_t priority,
+                             uint32_t ttl);
 
         /**
          * @brief Current track read status
@@ -141,6 +144,11 @@ namespace quicr {
          * @brief set/update the default TTL expirty for published objects
          */
         void setDefaultTTL(uint32_t ttl) { _def_ttl = ttl; }
+
+        /**
+         * @brief set/update the track mode for sending
+         */
+        void setTrackMode(TrackMode track_mode) { _mi_track_mode = track_mode; }
 
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods to be overridden
@@ -252,6 +260,38 @@ namespace quicr {
          */
         void setSendStatus(TrackSendStatus status) { _send_status = status; }
 
+
+        // --------------------------------------------------------------------------
+        // MOQ Instance specific public variables/methods - Caller should not use these
+        // --------------------------------------------------------------------------
+
+        /**
+         * @brief Send Object function via the MoQ instance
+         *
+         * @details This is set by the MoQInstance.
+         *   Send object function provides direct access to the MoQInstance that will send
+         *   the object based on the track mode.
+         *
+         * @param priority              Priority to use for object; set on next track change
+         * @param ttl                   Expire time to live in milliseconds
+         * @param stream_header_needed  Indicates if group or track header is needed before this data object
+         * @param data                  Raw data/object that should be transmitted - MoQInstance serializes the data
+         */
+        std::function<SendError(uint8_t priority,
+                                uint32_t ttl,
+                                bool stream_header_needed,
+                                uint64_t group_id,
+                                uint64_t object_id,
+                                bytes&& data)> _mi_sendObjFunc;
+
+        uint64_t _mi_send_data_ctx_id;    // Set by moq instance
+        uint64_t _mi_conn_id;             // Set by moq instance
+        TrackMode _mi_track_mode;         // Set by moq instance
+        bool _mi_stream_header_received { false }; // True if stream header is complete, false if pending
+
+        uint8_t _def_priority;            // Set by caller and is used when priority is not specified
+        uint32_t _def_ttl;                // Set by caller and is used when TTL is not specified
+
         // --------------------------------------------------------------------------
         // --------------------------------------------------------------------------
 
@@ -259,9 +299,6 @@ namespace quicr {
         cantina::LoggerPointer _logger;
         const bytes _track_namespace;
         const bytes _track_name;
-        [[maybe_unused]] TrackMode _track_mode;
-        uint8_t _def_priority;
-        uint32_t _def_ttl;
         std::optional<uint64_t> _track_alias;
 
         /**
@@ -274,6 +311,10 @@ namespace quicr {
 
         TrackSendStatus _send_status { TrackSendStatus::NOT_ANNOUNCED };
         TrackReadStatus _read_status { TrackReadStatus::NOT_SUBSCRIBED };
+
+      private:
+        uint64_t _prev_group_id {0};
+        bool _sent_track_header { false };  // Used only in stream per tarck mode
     };
 
 } // namespace quicr

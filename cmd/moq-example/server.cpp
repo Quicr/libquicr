@@ -2,20 +2,68 @@
 #include <quicr/moq_instance.h>
 
 #include <cantina/logger.h>
+#include <unordered_map>
 #include <condition_variable>
 #include <csignal>
 #include <oss/cxxopts.hpp>
-
-
 #include "signal_handler.h"
-
 #include "subscription.h"
+
+namespace qserver_vars {
+    /*
+     * Active subscribes for a given track, indexed (keyed) by track_alias,conn_id
+     *     NOTE: This indexing intentionally prohibits per connection having more
+     *           than one subscribe to a full track name.
+     *
+     *     Example: track_delegate = subscribes[track_alias][conn_id]
+     */
+    std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::shared_ptr<quicr::MoQTrackDelegate>>> subscribes;
+
+}
+
+class subTrackDelegate : public quicr::MoQTrackDelegate
+{
+public:
+    subTrackDelegate(const std::string& t_namespace,
+                     const std::string& t_name,
+                     uint8_t priority,
+                     uint32_t ttl,
+                     const cantina::LoggerPointer& logger)
+      : MoQTrackDelegate({ t_namespace.begin(), t_namespace.end() },
+                         { t_name.begin(), t_name.end() },
+                         TrackMode::STREAM_PER_GROUP,
+                         priority,
+                         ttl,
+                         logger)
+    {
+    }
+
+    void cb_objectReceived(uint64_t group_id, uint64_t object_id, std::vector<uint8_t>&& object) override {}
+    void cb_sendCongested(bool cleared, uint64_t objects_in_queue) override {}
+
+    void cb_sendReady() override {
+        _logger->info << "Track alias: " << _track_alias.value() << " is ready to send" << std::flush;
+    }
+
+    void cb_sendNotReady(TrackSendStatus status) override {}
+    void cb_readReady() override
+    {
+        _logger->info << "Track alias: " << _track_alias.value() << " is ready to read" << std::flush;
+    }
+    void cb_readNotReady(TrackReadStatus status) override {}
+};
+
 
 class serverDelegate : public quicr::MoQInstanceDelegate
 {
   public:
     serverDelegate(const cantina::LoggerPointer& logger) :
       _logger(std::make_shared<cantina::Logger>("MID", logger)) {}
+
+    void set_moq_instance(std::weak_ptr<quicr::MoQInstance> moq_instance)
+    {
+        _moq_instance = moq_instance;
+    }
 
     void cb_newConnection(qtransport::TransportConnId conn_id,
                           const std::span<uint8_t>& endpoint_id,
@@ -60,35 +108,45 @@ class serverDelegate : public quicr::MoQInstanceDelegate
                        << " track: " << t_namespace << "/" << t_name
                        << std::flush;
 
-        active_subscriptions[subscribe_id] = conn_id;
+        auto track_delegate = std::make_shared<subTrackDelegate>(t_namespace, t_name, 2, 3000, _logger);
+        auto tfn = quicr::MoQInstance::TrackFullName{ name_space, name };
+        auto th = quicr::MoQInstance::TrackHash(tfn);
+        qserver_vars::subscribes[th.track_fullname_hash][conn_id] = track_delegate;
+
+        // Create a subscribe track that will be used by the relay to send to subscriber for matching objects
+        _moq_instance.lock()->bindSubscribeTrack(conn_id, subscribe_id, track_delegate);
+
         return true;
     }
 
-    bool cb_object_received([[maybe_unused]] qtransport::TransportConnId conn_id,
-                            [[maybe_unused]] uint64_t subscribe_id,
-                            [[maybe_unused]] uint64_t track_alias,
-                            [[maybe_unused]] uint64_t group_id,
-                            [[maybe_unused]] uint64_t object_id,
-                            [[maybe_unused]] std::vector<uint8_t>&& data)
+    void cb_objectReceived(qtransport::TransportConnId conn_id,
+                           uint64_t subscribe_id,
+                           uint64_t track_alias,
+                           uint64_t group_id,
+                           uint64_t object_id,
+                           std::vector<uint8_t>&& data)
     {
-        if (!active_subscriptions.contains(subscribe_id)) {
-            _logger->info << "no active subscription conn_id: " << conn_id
-                          << " subscribe_id: " << subscribe_id
+        _logger->info << "Recieved object conn_id: " << conn_id
+                      << " subscribe_id: " << subscribe_id
+                      << " track_alias: " << track_alias
+                      << " group_id: " << group_id
+                      << " object_id: " << object_id
+                      << " data size: " << data.size()
+                      << std::flush;
+
+        // Relay to all subscribes
+        auto sub_it = qserver_vars::subscribes.find(track_alias);
+        for (auto& [conn_id, track_delegate]: sub_it->second) {
+            _logger->info << "Sending to conn_id: " << conn_id
+                          << " subscribe_id: " << *track_delegate->getSubscribeId()
                           << std::flush;
-            return true;
+            track_delegate->sendObject(group_id, object_id, data);
         }
-
-        active_subscriptions.at(subscribe_id);
     }
 
-    void set_moq_instance(std::shared_ptr<quicr::MoQInstance> mi) {
-        moq_instance_ptr = mi;
-    }
   private:
     cantina::LoggerPointer _logger;
-    std::weak_ptr<quicr::MoQInstance> moq_instance_ptr;
-    // map of subscription to its connections.
-    std::map<uint64_t , qtransport::TransportConnId> active_subscriptions {};
+    std::weak_ptr<quicr::MoQInstance> _moq_instance;
 };
 
 quicr::MoQInstanceServerConfig init_config(cxxopts::ParseResult& cli_opts, const cantina::LoggerPointer& logger)
