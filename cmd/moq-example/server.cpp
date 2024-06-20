@@ -3,6 +3,7 @@
 
 #include <cantina/logger.h>
 #include <unordered_map>
+#include <set>
 #include <condition_variable>
 #include <csignal>
 #include <oss/cxxopts.hpp>
@@ -10,6 +11,13 @@
 #include "subscription.h"
 
 namespace qserver_vars {
+
+    /*
+     * Map/state of announcements
+     *      track_alias_set = announce_state[track_namespace][conn_id]
+     */
+    std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::set<uint64_t>>> announce_state;
+
     /*
      * Active subscribes for a given track, indexed (keyed) by track_alias,conn_id
      *     NOTE: This indexing intentionally prohibits per connection having more
@@ -18,6 +26,13 @@ namespace qserver_vars {
      *     Example: track_delegate = subscribes[track_alias][conn_id]
      */
     std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::shared_ptr<quicr::MoQTrackDelegate>>> subscribes;
+
+    /*
+     * Active publisher/announce subscribes that this relay has made to receive objects from publisher.
+     *
+     * track_delegate = pub_subscribes[track_alias][conn_id]
+     */
+    std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::shared_ptr<quicr::MoQTrackDelegate>>> pub_subscribes;
 
 }
 
@@ -76,7 +91,10 @@ class serverDelegate : public quicr::MoQInstanceDelegate
                        << "  for namespace_hash: " << track_namespace_hash
                        << std::flush;
 
-        // Send announce OK
+        // Add to state if not exist
+        qserver_vars::announce_state[track_namespace_hash].try_emplace(conn_id);
+
+        // true results in Send announce OK
         return true;
     }
 
@@ -115,6 +133,29 @@ class serverDelegate : public quicr::MoQInstanceDelegate
 
         // Create a subscribe track that will be used by the relay to send to subscriber for matching objects
         _moq_instance.lock()->bindSubscribeTrack(conn_id, subscribe_id, track_delegate);
+
+        //TODO: Create subscribe to announcer if new track
+        auto anno_ns_it = qserver_vars::announce_state.find(th.track_namespace_hash);
+        if (anno_ns_it == qserver_vars::announce_state.end()) {
+            _logger->info << "Subscribe to track namespace: " << t_namespace
+                          <<  ", does not have any announcements." << std::flush;
+            // TODO(tievens): Handle creating subscribe to announcer when subscribe is present
+            return true;
+        }
+
+        for (auto& [conn_id, tracks]: anno_ns_it->second) {
+            if (!tracks.contains(th.track_name_hash)) {
+                _logger->info << "Sending subscribe to announcer conn_id: " << conn_id
+                              << " subscribe track_alias: " << th.track_name_hash
+                              << std::flush;
+
+                tracks.insert(th.track_name_hash); // Add track alais to state
+
+                auto pub_track_delegate = std::make_shared<subTrackDelegate>(t_namespace, t_name, 2, 3000, _logger);
+                _moq_instance.lock()->subscribeTrack(conn_id, pub_track_delegate);
+                qserver_vars::pub_subscribes[th.track_fullname_hash][conn_id] = pub_track_delegate;
+            }
+        }
 
         return true;
     }

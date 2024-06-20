@@ -287,7 +287,7 @@ namespace quicr {
         uint64_t _mi_send_data_ctx_id;    // Set by moq instance
         uint64_t _mi_conn_id;             // Set by moq instance
         TrackMode _mi_track_mode;         // Set by moq instance
-        bool _mi_stream_header_received { false }; // True if stream header is complete, false if pending
+
 
         uint8_t _def_priority;            // Set by caller and is used when priority is not specified
         uint32_t _def_ttl;                // Set by caller and is used when TTL is not specified

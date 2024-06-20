@@ -313,6 +313,10 @@ namespace quicr {
                     auto tfn = TrackFullName{ msg.track_namespace, msg.track_name };
                     auto th = TrackHash(tfn);
 
+                    if (msg.subscribe_id > conn_ctx._sub_id) {
+                        conn_ctx._sub_id = msg.subscribe_id+1;
+                    }
+
                     // For client/publisher, notify track that there is a subscriber
                     if (_client_mode) {
                         auto ptd = getPubTrackDelegate(conn_ctx, th);
@@ -330,19 +334,18 @@ namespace quicr {
                             return true;
                         }
 
-                        // TODO(tievens): Set content exists
                         send_subscribe_ok(conn_ctx, msg.subscribe_id, MOQT_SUBSCRIBE_EXPIRES, false);
+
+                        _logger->debug << "Received subscribe to announced track alias: " << msg.track_alias
+                                       << ", setting send state to ready" << std::flush;
 
                         // Indicate send is ready upon subscribe
                         // TODO(tievens): Maybe needs a delay as subscriber may have not received ok before data is sent
+                        ptd->lock()->setSubscribeId(msg.subscribe_id);
                         ptd->lock()->setSendStatus(MoQTrackDelegate::TrackSendStatus::OK);
                         ptd->lock()->cb_sendReady();
 
                     } else { // Server mode
-                        if (msg.subscribe_id > conn_ctx._sub_id) {
-                            conn_ctx._sub_id = msg.subscribe_id+1;
-                        }
-
                         // TODO(tievens): add filter type when caching supports it
                         if (_delegate->cb_subscribe(conn_ctx.conn_id,
                                                     msg.subscribe_id,
@@ -380,6 +383,7 @@ namespace quicr {
 
                     sub_it->second.get()->cb_readReady();
 
+                    /*
                     // For mirroring, update self publish track for same namespace/track that it can send
                     auto tfn = TrackFullName{ sub_it->second->getTrackNamespace(), sub_it->second->getTrackName() };
                     auto th = TrackHash(tfn);
@@ -394,7 +398,7 @@ namespace quicr {
                         pub_track->lock()->setSendStatus(MoQTrackDelegate::TrackSendStatus::OK);
                         pub_track->lock()->cb_sendReady();
                     }
-
+                    */
 
                     stream_buffer->resetAny();
                     return true;
@@ -583,7 +587,7 @@ namespace quicr {
                              "Stream buffer cannot be zero when parsing message type");
         }
 
-        // Header not set, get the header type
+        // Header not set, get the header for this stream or datagram
         MoQMessageType data_type;
         if (!stream_buffer->anyHasValue()) {
             auto val = stream_buffer->decode_uintV();
@@ -591,6 +595,15 @@ namespace quicr {
                 data_type = static_cast<MoQMessageType>(*val);
             } else {
                 return false;
+            }
+        } else {
+            auto dt = stream_buffer->getAnyType();
+            if (dt.has_value()) {
+                data_type = static_cast<MoQMessageType>(*dt);
+            }
+            else {
+                _logger->warning << "Unknown data type for data stream" << std::flush;
+                return true;
             }
         }
 
@@ -604,11 +617,11 @@ namespace quicr {
             case MoQMessageType::STREAM_HEADER_GROUP: {
                 if (not stream_buffer->anyHasValue()) {
                     _logger->debug << "Received stream header group, init stream buffer" << std::flush;
-                    stream_buffer->initAny<MoqStreamHeaderGroup>();
+                    stream_buffer->initAny<MoqStreamHeaderGroup>(static_cast<uint64_t>(MoQMessageType::STREAM_HEADER_GROUP));
                 }
 
                 auto& msg = stream_buffer->getAny<MoqStreamHeaderGroup>();
-                if (*stream_buffer >> msg) {
+                if (!stream_buffer->anyHasValueB() && *stream_buffer >> msg) {
                     auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
                     if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
                         _logger->warning << "Received stream_header_group to unknown subscribe track"
@@ -618,25 +631,53 @@ namespace quicr {
 
                         // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
 
-                        stream_buffer->resetAny();
                         return true;
                     }
 
-                    sub_it->second->_mi_stream_header_received = true;
-                    _logger->warning << "Received stream_header_group "
-                              << " subscribe_id: " << msg.subscribe_id
-                              << " priority: " << msg.priority
-                              << " track_alais: " << msg.track_alias
-                              << " group_id: " << msg.group_id
-                              << std::flush;
+                    // Init second working buffer to read data object
+                    stream_buffer->initAnyB<MoqStreamGroupObject>();
 
-                    stream_buffer->resetAny();
-                    return true;
+                    _logger->debug << "Received stream_header_group "
+                                   << " subscribe_id: " << msg.subscribe_id
+                                   << " priority: " << msg.priority
+                                   << " track_alais: " << msg.track_alias
+                                   << " group_id: " << msg.group_id
+                                   << std::flush;
                 }
+
+                if (stream_buffer->anyHasValueB()) {
+                    MoqStreamGroupObject obj;
+                    if (*stream_buffer >> obj) {
+                        auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                        if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                            _logger->warning << "Received stream_header_group to unknown subscribe track"
+                                      << " subscribe_id: " << msg.subscribe_id
+                                      << " , ignored"
+                                      << std::flush;
+
+                            // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+
+                            return true;
+                        }
+
+                        _logger->debug << "Received stream_group_object "
+                                       << " subscribe_id: " << msg.subscribe_id
+                                       << " priority: " << msg.priority
+                                       << " track_alais: " << msg.track_alias
+                                       << " group_id: " << msg.group_id
+                                       << " object_id: " << obj.object_id
+                                       << " data size: " << obj.payload.size()
+                                       << std::flush;
+                        stream_buffer->resetAnyB();
+                    }
+                }
+
                 break;
             }
 
             default:
+                // Process the stream object type
+
                 _logger->error << "Unsupported MOQT data message "
                                << "type: " << static_cast<uint64_t>(*conn_ctx.ctrl_msg_type_received)
                                << std::flush;
@@ -645,11 +686,8 @@ namespace quicr {
                                  "Unsupported MOQT data message type");
                 return true;
 
-        } // End of switch(msg type)
+        }
 
-        _logger->debug << " type: " << static_cast<int>(*conn_ctx.ctrl_msg_type_received)
-                      << " sbuf_size: " << stream_buffer->size()
-                      << std::flush;
         return false;
     }
 
