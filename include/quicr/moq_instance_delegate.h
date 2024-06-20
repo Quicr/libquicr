@@ -95,23 +95,6 @@ namespace quicr {
             return true;
         }
 
-        /**
-         * @brief Server Mode; Callback notification on new object received to be relayed
-         *
-         * @param conn_id              Source connection Id
-         * @param subscribe_id         Subscribe ID received
-         * @param track_alias          Track alias received
-         * @param group_id             Group ID received
-         * @param object_id            Object ID received
-         * @param data                 Data received
-         */
-        virtual void cb_objectReceived([[maybe_unused]] TransportConnId conn_id,
-                                       [[maybe_unused]] uint64_t subscribe_id,
-                                       [[maybe_unused]] uint64_t track_alias,
-                                       [[maybe_unused]] uint64_t group_id,
-                                       [[maybe_unused]] uint64_t object_id,
-                                       [[maybe_unused]] std::vector<uint8_t>&& data) {}
-
     };
 
 } // namespace quicr

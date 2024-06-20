@@ -28,7 +28,11 @@ public:
     {
     }
 
-    void cb_objectReceived(uint64_t group_id, uint64_t object_id, std::vector<uint8_t>&& object) override {}
+    void cb_objectReceived(uint64_t group_id, uint64_t object_id, std::vector<uint8_t>&& object) override {
+        std::string msg(object.begin(), object.end());
+
+        _logger->info << "Received message: " << msg << std::flush;
+    }
     void cb_sendCongested(bool cleared, uint64_t objects_in_queue) override {}
 
     void cb_sendReady() override {

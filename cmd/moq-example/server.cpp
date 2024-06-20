@@ -53,7 +53,17 @@ public:
     {
     }
 
-    void cb_objectReceived(uint64_t group_id, uint64_t object_id, std::vector<uint8_t>&& object) override {}
+    // TODO: Add prioirty and TTL
+    void cb_objectReceived(uint64_t group_id, uint64_t object_id, std::vector<uint8_t>&& object) override {
+
+        for (const auto& [conn_id, td]: qserver_vars::subscribes.find(*_track_alias)->second) {
+            _logger->debug << "Relaying track_alias: " << *_track_alias
+                           << ", object to subscribe conn_id: " << conn_id
+                           << " data size: " << object.size() << std::flush;
+
+            td->sendObject(group_id, object_id, object);
+        }
+    }
     void cb_sendCongested(bool cleared, uint64_t objects_in_queue) override {}
 
     void cb_sendReady() override {
@@ -158,31 +168,6 @@ class serverDelegate : public quicr::MoQInstanceDelegate
         }
 
         return true;
-    }
-
-    void cb_objectReceived(qtransport::TransportConnId conn_id,
-                           uint64_t subscribe_id,
-                           uint64_t track_alias,
-                           uint64_t group_id,
-                           uint64_t object_id,
-                           std::vector<uint8_t>&& data)
-    {
-        _logger->info << "Recieved object conn_id: " << conn_id
-                      << " subscribe_id: " << subscribe_id
-                      << " track_alias: " << track_alias
-                      << " group_id: " << group_id
-                      << " object_id: " << object_id
-                      << " data size: " << data.size()
-                      << std::flush;
-
-        // Relay to all subscribes
-        auto sub_it = qserver_vars::subscribes.find(track_alias);
-        for (auto& [conn_id, track_delegate]: sub_it->second) {
-            _logger->info << "Sending to conn_id: " << conn_id
-                          << " subscribe_id: " << *track_delegate->getSubscribeId()
-                          << std::flush;
-            track_delegate->sendObject(group_id, object_id, data);
-        }
     }
 
   private:

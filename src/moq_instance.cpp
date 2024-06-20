@@ -669,6 +669,8 @@ namespace quicr {
                                        << " data size: " << obj.payload.size()
                                        << std::flush;
                         stream_buffer->resetAnyB();
+
+                        sub_it->second->cb_objectReceived(msg.group_id, obj.object_id, std::move(obj.payload));
                     }
                 }
 
@@ -770,6 +772,26 @@ namespace quicr {
         _mexport.set_data_ctx_info(conn_id, track_delegate->_mi_send_data_ctx_id,
                                    {.subscribe = false, .nspace = {n, 64} } );
 #endif
+
+        // Setup the function for the track delegate to use to send objects with thread safety
+        track_delegate->_mi_sendObjFunc =
+          [&,
+           track_delegate = track_delegate,
+           subscribe_id = track_delegate->getSubscribeId()](uint8_t priority,
+                                                                        uint32_t ttl,
+                                                                        bool stream_header_needed,
+                                                                        uint64_t group_id,
+                                                                        uint64_t object_id,
+                                                                        bytes&& data) -> MoQTrackDelegate::SendError {
+            return send_object(track_delegate,
+                               priority,
+                               ttl,
+                               stream_header_needed,
+                               group_id,
+                               object_id,
+                               std::move(data));
+        };
+
 
         return th.track_fullname_hash;
     }
