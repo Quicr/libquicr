@@ -679,13 +679,14 @@ namespace quicr {
 
             default:
                 // Process the stream object type
-
+                /*
                 _logger->error << "Unsupported MOQT data message "
                                << "type: " << static_cast<uint64_t>(*conn_ctx.ctrl_msg_type_received)
                                << std::flush;
                 close_connection(conn_ctx.conn_id,
                                  MoQTerminationReason::PROTOCOL_VIOLATION,
                                  "Unsupported MOQT data message type");
+                 */
                 return true;
 
         }
