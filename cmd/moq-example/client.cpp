@@ -4,10 +4,14 @@
 #include "signal_handler.h"
 
 #include <iostream>
+#include <chrono>
+#include <format>
 #include <oss/cxxopts.hpp>
 
 namespace qclient_vars {
     std::optional<qtransport::TransportConnId> conn_id;
+
+    bool publish_clock {false};
 }
 
 
@@ -111,14 +115,29 @@ void do_publisher(const std::string t_namespace,
 
         if (!sending) {
             _logger->info << "--------------------------------------------------------------------------" << std::flush;
-            _logger->info << " Type message and press enter to send" << std::flush;
+
+            if (qclient_vars::publish_clock) {
+                _logger->info << " Publishing clock timestamp every second" << std::flush;
+            } else {
+                _logger->info << " Type message and press enter to send" << std::flush;
+            }
+
             _logger->info << "--------------------------------------------------------------------------" << std::flush;
             sending = true;
         }
 
         std::string msg;
-        getline(std::cin, msg);
-        _logger->info << "Send mesage: " << msg << std::flush;
+        if (qclient_vars::publish_clock) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(999));
+            std::stringstream ss;
+            auto tp = std::chrono::system_clock::now();
+            ss << "Time: " << std::format("{:%a %b %e %T %Y}",  std::chrono::time_point_cast<std::chrono::microseconds>(tp));
+            msg = ss.str();
+            _logger->info << msg << std::flush;
+        } else { // stdin
+            getline(std::cin, msg);
+            _logger->info << "Send message: " << msg << std::flush;
+        }
 
         if (object_id % 5 == 0) {       // Set new group
             object_id = 0;
@@ -127,7 +146,7 @@ void do_publisher(const std::string t_namespace,
 
         std::vector<uint8_t> msg_v(msg.begin(), msg.end());
         auto result = track_delegate->sendObject(group_id, object_id++, std::move(msg_v));
-        _logger->info << "send error: " << static_cast<int>(result) << std::flush;
+        _logger->debug << "send error: " << static_cast<int>(result) << std::flush;
     }
 
     _logger->info << "Publisher done track: " << t_namespace << "/" << t_name << std::flush;
@@ -185,6 +204,12 @@ quicr::MoQInstanceClientConfig init_config(cxxopts::ParseResult& cli_opts,
                      << std::flush;
     }
 
+    if (cli_opts.count("clock") && cli_opts["clock"].as<bool>() == true) {
+        logger->info << "Running in clock publish mode" << std::flush;
+        qclient_vars::publish_clock = true;
+    }
+
+
     if (cli_opts.count("sub_namespace") && cli_opts.count("sub_name")) {
         enable_sub = true;
         logger->info << "Subscriber enabled using track"
@@ -192,6 +217,8 @@ quicr::MoQInstanceClientConfig init_config(cxxopts::ParseResult& cli_opts,
                      << " name: " << cli_opts["sub_name"].as<std::string>()
                      << std::flush;
     }
+
+
 
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
     config.server_host_ip = cli_opts["host"].as<std::string>();
@@ -231,6 +258,7 @@ main(int argc, char* argv[])
     options.add_options("Publisher")
       ("pub_namespace", "Track namespace", cxxopts::value<std::string>())
       ("pub_name", "Track name", cxxopts::value<std::string>())
+      ("clock", "Publish clock timestamp every second instead of using STDIN chat")
     ;
 
     options.add_options("Subscriber")
@@ -270,20 +298,21 @@ main(int argc, char* argv[])
             pub_thread = std::thread (do_publisher,
                                      result["pub_namespace"].as<std::string>(),
                                      result["pub_name"].as<std::string>(),
-                                     moqInstance, logger, stop_threads);
+                                     moqInstance, logger, std::ref(stop_threads));
         }
 
         if (enable_sub) {
             sub_thread = std::thread (do_subscriber,
                                       result["sub_namespace"].as<std::string>(),
                                       result["sub_name"].as<std::string>(),
-                                      moqInstance, logger, stop_threads);
+                                      moqInstance, logger, std::ref(stop_threads));
         }
 
         // Wait until told to terminate
         moq_example::cv.wait(lock, [&]() { return moq_example::terminate; });
 
         stop_threads = true;
+        logger->info << "Stopping threads..." << std::flush;
 
         if (pub_thread.joinable()) {
             pub_thread.join();
@@ -309,6 +338,8 @@ main(int argc, char* argv[])
         std::cerr << "Unexpected exception" << std::endl;
         result_code = EXIT_FAILURE;
     }
+
+    logger->info << "Exit" << std::flush;
 
     return result_code;
 }

@@ -1,7 +1,7 @@
 
 add_executable(qserver
         server.cpp
-        subscription.cpp)
+)
 target_link_libraries(qserver PRIVATE quicr)
 
 if(NOT LIBQUICR_WITHOUT_INFLUXDB)

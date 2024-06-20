@@ -1012,7 +1012,7 @@ namespace quicr {
                        << " status: " << static_cast<int>(status)
                        << std::flush;
 
-        if (_client_mode) {
+        if (_client_mode && status == TransportStatus::Ready) {
             auto& conn_ctx = _connections[conn_id];
             _logger->info << "Connection established, creating bi-dir stream and sending CLIENT_SETUP" << std::flush;
 

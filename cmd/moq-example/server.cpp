@@ -5,10 +5,8 @@
 #include <unordered_map>
 #include <set>
 #include <condition_variable>
-#include <csignal>
 #include <oss/cxxopts.hpp>
 #include "signal_handler.h"
-#include "subscription.h"
 
 namespace qserver_vars {
 
