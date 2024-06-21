@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <chrono>
+#include <iomanip>
 #include <oss/cxxopts.hpp>
 
 namespace qclient_vars {
