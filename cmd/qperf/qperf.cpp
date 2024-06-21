@@ -6,6 +6,7 @@
 #include <condition_variable>
 #include <csignal>
 #include <cstdlib>
+#include <stop_token>
 #include <thread>
 
 namespace {
@@ -30,13 +31,13 @@ loop_for(const D& duration, const I& interval, const F& func, Args&&... args)
 {
   auto t = I::zero();
   while (!terminate && t < duration) {
-    auto start = std::chrono::high_resolution_clock::now();
+    const auto start = std::chrono::high_resolution_clock::now();
     func(std::forward<Args>(args)...);
-    auto end = std::chrono::high_resolution_clock::now();
+    const auto end = std::chrono::high_resolution_clock::now();
 
-    std::this_thread::sleep_for(interval);
-
-    t += interval + std::chrono::duration_cast<I>(end - start);
+    std::this_thread::sleep_for(interval -
+                                std::chrono::duration_cast<I>(end - start));
+    t += interval;
   }
 }
 
@@ -50,11 +51,14 @@ now()
 std::string
 format_bitrate(const std::uint32_t& bitrate)
 {
-  if (bitrate > 1'000'000) {
-    return std::to_string(double(bitrate) / 1'000'000.0) + " Mbps";
+  if (bitrate > 1e9) {
+    return std::to_string(double(bitrate) / 1e9) + " Gbps";
   }
-  if (bitrate > 1000) {
-    return std::to_string(double(bitrate) / 1000.0) + " Kbps";
+  if (bitrate > 1e6) {
+    return std::to_string(double(bitrate) / 1e6) + " Mbps";
+  }
+  if (bitrate > 1e3) {
+    return std::to_string(double(bitrate) / 1e3) + " Kbps";
   }
 
   return std::to_string(bitrate) + " bps";
@@ -74,6 +78,7 @@ main(int argc, char** argv)
   cxxopts::Options options("QPerf");
   options.add_options()
     ("n,namespace", "Namespace to publish on", cxxopts::value<std::string>())
+    ("endpoint_id", "Name of the client", cxxopts::value<std::string>()->default_value("perf@cisco.com"))
     ("streams", "Number of streams per client", cxxopts::value<std::size_t>()->default_value("1"))
     ("chunk_size", "Chunk size", cxxopts::value<std::size_t>()->default_value("3000"))
     ("s,msg_size", "Byte size of message", cxxopts::value<std::uint16_t>()->default_value("1024"))
@@ -82,7 +87,7 @@ main(int argc, char** argv)
     ("d,duration", "The duration of the test in seconds", cxxopts::value<std::uint32_t>()->default_value("120"))
     ("i,interval", "The interval in microseconds to send publish messages", cxxopts::value<std::uint32_t>()->default_value("1000"))
     ("p,priority", "Priority for sending publish messages", cxxopts::value<std::uint8_t>()->default_value("1"))
-    ("e,expiry_age", "Expiry age of objects in ms", cxxopts::value<std::uint16_t>()->default_value("500"))
+    ("e,expiry_age", "Expiry age of objects in ms", cxxopts::value<std::uint16_t>()->default_value("5000"))
     ("h,help", "Print usage");
   // clang-format on
 
@@ -126,12 +131,13 @@ main(int argc, char** argv)
   const qtransport::TransportConfig config{
     .tls_cert_filename = nullptr,
     .tls_key_filename = nullptr,
+    .time_queue_max_duration = expiry_age,
     .use_reset_wait_strategy = false,
-    .quic_qlog_path = "",
   };
 
   auto logger = std::make_shared<cantina::Logger>("perf", "PERF");
-  quicr::Client client(info, "perf@cisco.com", chunk_size, config, logger);
+  quicr::Client client(
+    info, result["endpoint_id"].as<std::string>(), chunk_size, config, logger);
 
   try {
     if (!client.connect()) {
@@ -166,23 +172,32 @@ main(int argc, char** argv)
   const std::uint64_t bitrate = (msg_size * 8) / (interval.count() / 1e6);
   const std::uint64_t expected_objects = 1e6 / interval.count();
 
+  // clang-format off
   LOGGER_INFO(logger, "+==========================================+");
   LOGGER_INFO(logger, "| Starting test of duration " << duration.count() << " seconds");
   LOGGER_INFO(logger, "+-------------------------------------------");
-  LOGGER_INFO(logger, "| * Approx bitrate: " << format_bitrate(bitrate));
-  LOGGER_INFO(logger, "| * Expected Objects/s: " << expected_objects << "");
+  LOGGER_INFO(logger, "| *            Streams: " << streams);
+  LOGGER_INFO(logger, "| *     Approx bitrate: " << format_bitrate(bitrate));
+  LOGGER_INFO(logger, "| *      Total bitrate: " << format_bitrate(bitrate * streams));
+  LOGGER_INFO(logger, "| * Expected Objects/s: " << expected_objects);
+  LOGGER_INFO(logger, "| *    Total Objects/s: " << (expected_objects * streams));
   LOGGER_INFO(logger, "+==========================================+");
+  // clang-format on
 
   std::atomic_size_t finished_publishers = 0;
-  std::vector<uint8_t> buffer(msg_size);
+  std::vector<std::uint8_t> buffer(msg_size, 0);
   std::vector<std::thread> threads;
+  std::size_t total_objects_published = 0;
 
+  const auto start = std::chrono::high_resolution_clock::now();
   for (quicr::Namespace& pub_ns : namespaces) {
     threads.emplace_back([&] {
+      pthread_setname_np(std::string(pub_ns).c_str());
+
       quicr::Name name = pub_ns;
 
       ::loop_for(duration, interval, [&] {
-        std::vector<uint8_t> msg_bytes = buffer;
+        std::vector<std::uint8_t> msg_bytes = buffer;
 
         std::lock_guard _(mutex);
         client.publishNamedObject(name,
@@ -193,6 +208,7 @@ main(int argc, char** argv)
                                     "perf:publish",
                                     now(),
                                   } });
+        ++total_objects_published;
 
         name = pub_ns.name() |
                (~(~0x0_name << (128 - pub_ns.length())) & (name + 1));
@@ -206,15 +222,22 @@ main(int argc, char** argv)
   cv.wait(lock,
           [&] { return terminate.load() || finished_publishers == streams; });
 
-  for (quicr::Namespace& pub_ns : namespaces) {
-    client.publishIntentEnd(pub_ns, "");
-  }
+  const auto end = std::chrono::high_resolution_clock::now();
+  const auto elapsed =
+    std::chrono::duration_cast<std::chrono::seconds>(end - start);
 
+  // clang-format off
+  LOGGER_INFO(logger, "+==========================================+");
   if (terminate) {
-    LOGGER_INFO(logger, "Received interrupt, exiting early...");
+    LOGGER_INFO(logger, "| Received interrupt, exiting early");
   } else {
-    LOGGER_INFO(logger, "Test complete, exiting...");
+    LOGGER_INFO(logger, "| Test complete");
   }
+  LOGGER_INFO(logger, "+-------------------------------------------");
+  LOGGER_INFO(logger, "| *          Duration: " << elapsed.count() << " seconds");
+  LOGGER_INFO(logger, "| * Published Objects: " << total_objects_published);
+  LOGGER_INFO(logger, "+==========================================+");
+  // clang-format on
 
   for (auto& thread : threads) {
     thread.join();

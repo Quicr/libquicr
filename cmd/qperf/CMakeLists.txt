@@ -8,6 +8,8 @@ endif()
 add_executable(qperf qperf.cpp)
 target_link_libraries(qperf PRIVATE quicr cxxopts)
 
+configure_file(run_qperf.py run_qperf.py COPYONLY)
+
 target_compile_options(qperf
         PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall>
