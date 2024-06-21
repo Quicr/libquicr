@@ -5,7 +5,6 @@
 
 #include <iostream>
 #include <chrono>
-#include <format>
 #include <oss/cxxopts.hpp>
 
 namespace qclient_vars {
@@ -14,6 +13,23 @@ namespace qclient_vars {
     bool publish_clock {false};
 }
 
+std::string get_time_str()
+{
+    std::ostringstream oss;
+
+    auto now = std::chrono::system_clock::now();
+    auto now_us = std::chrono::time_point_cast<std::chrono::microseconds>(now);
+    std::time_t t = std::chrono::system_clock::to_time_t(now);
+    struct tm tm_result{};
+    localtime_r(&t, &tm_result);
+    oss << std::put_time(&tm_result, "%F %T")
+        << "."
+        << std::setfill('0')
+        << std::setw(6)
+        << (now_us.time_since_epoch().count()) % 1'000'000;
+
+    return oss.str();
+}
 
 class trackDelegate : public quicr::MoQTrackDelegate
 {
@@ -129,10 +145,7 @@ void do_publisher(const std::string t_namespace,
         std::string msg;
         if (qclient_vars::publish_clock) {
             std::this_thread::sleep_for(std::chrono::milliseconds(999));
-            std::stringstream ss;
-            auto tp = std::chrono::system_clock::now();
-            ss << "Time: " << std::format("{:%a %b %e %T %Y}",  std::chrono::time_point_cast<std::chrono::microseconds>(tp));
-            msg = ss.str();
+            msg = get_time_str();
             _logger->info << msg << std::flush;
         } else { // stdin
             getline(std::cin, msg);
