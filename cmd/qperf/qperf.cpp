@@ -6,7 +6,6 @@
 #include <condition_variable>
 #include <csignal>
 #include <cstdlib>
-#include <stop_token>
 #include <thread>
 
 namespace {
