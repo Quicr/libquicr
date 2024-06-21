@@ -49,7 +49,10 @@ public:
     {
     }
 
-    void cb_objectReceived(uint64_t group_id, uint64_t object_id, std::vector<uint8_t>&& object) override {
+    void cb_objectReceived(uint64_t group_id, uint64_t object_id,
+                           [[maybe_unused]] uint8_t priority,
+                           std::vector<uint8_t>&& object,
+                           [[maybe_unused]] TrackMode track_mode) override {
         std::string msg(object.begin(), object.end());
 
         _logger->info << "Received message: " << msg << std::flush;

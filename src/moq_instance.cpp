@@ -625,7 +625,9 @@ namespace quicr {
                                    << " priority: " << msg.priority << " track_alias: " << msg.track_alias
                                    << " group_id: " << msg.group_id << " object_id: " << msg.object_id
                                    << " data size: " << msg.payload.size() << std::flush;
-                    sub_it->second->cb_objectReceived(msg.group_id, msg.object_id, std::move(msg.payload));
+                    sub_it->second->cb_objectReceived(msg.group_id, msg.object_id, msg.priority,
+                                                      std::move(msg.payload),
+                                                      MoQTrackDelegate::TrackMode::STREAM_PER_OBJECT);
                     stream_buffer->resetAny();
                 }
                 break;
@@ -680,7 +682,9 @@ namespace quicr {
                                        << " data size: " << obj.payload.size() << std::flush;
                         stream_buffer->resetAnyB();
 
-                        sub_it->second->cb_objectReceived(obj.group_id, obj.object_id, std::move(obj.payload));
+                        sub_it->second->cb_objectReceived(obj.group_id, obj.object_id, msg.priority,
+                                                          std::move(obj.payload),
+                                                          MoQTrackDelegate::TrackMode::STREAM_PER_TRACK);
                     }
                 }
                 break;
@@ -741,7 +745,9 @@ namespace quicr {
                                        << std::flush;
                         stream_buffer->resetAnyB();
 
-                        sub_it->second->cb_objectReceived(msg.group_id, obj.object_id, std::move(obj.payload));
+                        sub_it->second->cb_objectReceived(msg.group_id, obj.object_id, msg.priority,
+                                                          std::move(obj.payload),
+                                                          MoQTrackDelegate::TrackMode::STREAM_PER_GROUP);
                     }
                 }
 
@@ -1213,7 +1219,9 @@ namespace quicr {
                                    << " data size: " << msg.payload.size()
                                    << std::flush;
 
-                    sub_it->second->cb_objectReceived(msg.group_id, msg.object_id, std::move(msg.payload));
+                    sub_it->second->cb_objectReceived(msg.group_id, msg.object_id, msg.priority,
+                                                      std::move(msg.payload),
+                                                      MoQTrackDelegate::TrackMode::DATAGRAM);
 
                 } else {
                     _logger->warning << "Failed to decode datagram conn_id: " << conn_id

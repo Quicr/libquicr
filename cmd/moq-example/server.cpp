@@ -52,14 +52,18 @@ public:
     }
 
     // TODO: Add prioirty and TTL
-    void cb_objectReceived(uint64_t group_id, uint64_t object_id, std::vector<uint8_t>&& object) override {
+    void cb_objectReceived(uint64_t group_id, uint64_t object_id,
+                           uint8_t priority,
+                           std::vector<uint8_t>&& object,
+                           TrackMode track_mode) override {
 
         for (const auto& [conn_id, td]: qserver_vars::subscribes.find(*_track_alias)->second) {
             _logger->debug << "Relaying track_alias: " << *_track_alias
                            << ", object to subscribe conn_id: " << conn_id
                            << " data size: " << object.size() << std::flush;
 
-            td->sendObject(group_id, object_id, object);
+            td->setTrackMode(track_mode);
+            td->sendObject(group_id, object_id, object, priority);
         }
     }
     void cb_sendCongested(bool cleared, uint64_t objects_in_queue) override {}

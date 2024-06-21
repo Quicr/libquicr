@@ -159,11 +159,17 @@ namespace quicr {
          *
          * @details Event notification to provide the caller the received data object
          *
-         * @param object    Data object received
+         * @param group_id          Group ID of the object received
+         * @param object_id         Object ID of the object received
+         * @parma priority          Priority of the object received
+         * @param object            Data object received
+         * @param track_mode        Track mode the object was received
          */
         virtual void cb_objectReceived(uint64_t group_id,
                                        uint64_t object_id,
-                                       std::vector<uint8_t>&& object) = 0;
+                                       uint8_t priority,
+                                       std::vector<uint8_t>&& object,
+                                       TrackMode track_mode) = 0;
 
         /**
          * @brief Notification that data can be sent
