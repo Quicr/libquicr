@@ -7,7 +7,7 @@ namespace quicr::messages {
 //
 // Utility
 //
-bool parse_uintV_field(qtransport::StreamBuffer<uint8_t> &buffer, uint64_t& field) {
+static bool parse_uintV_field(qtransport::StreamBuffer<uint8_t> &buffer, uint64_t& field) {
   auto val = buffer.decode_uintV();
   if (!val) {
     return false;
@@ -17,7 +17,7 @@ bool parse_uintV_field(qtransport::StreamBuffer<uint8_t> &buffer, uint64_t& fiel
 }
 
 
-bool parse_bytes_field(qtransport::StreamBuffer<uint8_t> &buffer, quicr::bytes& field) {
+static bool parse_bytes_field(qtransport::StreamBuffer<uint8_t> &buffer, quicr::bytes& field) {
   auto val = buffer.decode_bytes();
   if (!val) {
     return false;

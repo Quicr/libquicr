@@ -80,7 +80,6 @@ enum ForwardingPreference : uint8_t {
   Datagram
 };
 
-
 //
 // Parameters
 //
@@ -103,6 +102,9 @@ struct MoqParameter {
 private:
   uint64_t current_pos {0};
 };
+
+MessageBuffer& operator<<(MessageBuffer &buffer, const MoqParameter &param);
+MessageBuffer& operator>>(MessageBuffer &buffer, MoqParameter &param);
 
 //
 // Setup
