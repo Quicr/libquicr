@@ -192,8 +192,6 @@ main(int argc, char** argv)
   const auto start = std::chrono::high_resolution_clock::now();
   for (quicr::Namespace& pub_ns : namespaces) {
     threads.emplace_back([&] {
-      pthread_setname_np(std::string(pub_ns).c_str());
-
       quicr::Name name = pub_ns;
 
       ::loop_for(duration, interval, [&] {
