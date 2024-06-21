@@ -42,7 +42,7 @@ public:
                   const cantina::LoggerPointer& logger)
       : MoQTrackDelegate({ t_namespace.begin(), t_namespace.end() },
                          { t_name.begin(), t_name.end() },
-                         TrackMode::STREAM_PER_GROUP,
+                         TrackMode::DATAGRAM,
                          priority,
                          ttl,
                          logger)
@@ -160,7 +160,6 @@ void do_publisher(const std::string t_namespace,
 
         std::vector<uint8_t> msg_v(msg.begin(), msg.end());
         auto result = track_delegate->sendObject(group_id, object_id++, std::move(msg_v));
-        _logger->debug << "send error: " << static_cast<int>(result) << std::flush;
     }
 
     _logger->info << "Publisher done track: " << t_namespace << "/" << t_name << std::flush;

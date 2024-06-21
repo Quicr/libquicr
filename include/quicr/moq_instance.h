@@ -252,7 +252,7 @@ namespace quicr {
                               const std::string& reason_str);
         bool process_recv_ctrl_message(ConnectionContext& conn_ctx,
                                        std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
-        bool process_recv_data_message(ConnectionContext& conn_ctx,
+        bool process_recv_stream_data_message(ConnectionContext& conn_ctx,
                                        std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
         std::optional<std::weak_ptr<MoQTrackDelegate>> getPubTrackDelegate(ConnectionContext& conn_ctx,
                                                                            TrackHash& th);

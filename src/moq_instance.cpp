@@ -337,7 +337,10 @@ namespace quicr {
                         send_subscribe_ok(conn_ctx, msg.subscribe_id, MOQT_SUBSCRIBE_EXPIRES, false);
 
                         _logger->debug << "Received subscribe to announced track alias: " << msg.track_alias
-                                       << ", setting send state to ready" << std::flush;
+                                       << " recv subscribe_id: " << msg.subscribe_id
+                                       << ", setting send"
+                                          ""
+                                          " state to ready" << std::flush;
 
                         // Indicate send is ready upon subscribe
                         // TODO(tievens): Maybe needs a delay as subscriber may have not received ok before data is sent
@@ -578,8 +581,8 @@ namespace quicr {
         return false;
     }
 
-    bool MoQInstance::process_recv_data_message(ConnectionContext& conn_ctx,
-                                                std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer)
+    bool MoQInstance::process_recv_stream_data_message(ConnectionContext& conn_ctx,
+                                                       std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer)
     {
         if (stream_buffer->size() == 0) { // should never happen
             close_connection(conn_ctx.conn_id,
@@ -608,12 +611,89 @@ namespace quicr {
         }
 
         switch (data_type) {
-            case MoQMessageType::OBJECT_DATAGRAM:
+            case MoQMessageType::OBJECT_STREAM: {
+                if (not stream_buffer->anyHasValue()) {
+                    _logger->debug << "Received stream header object, init stream buffer" << std::flush;
+                    stream_buffer->initAny<MoqObjectStream>(
+                      static_cast<uint64_t>(MoQMessageType::OBJECT_STREAM));
+                }
+
+                auto& msg = stream_buffer->getAny<MoqObjectStream>();
+                if (*stream_buffer >> msg) {
+                    auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                    if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                        _logger->warning << "Received stream_object to unknown subscribe track"
+                                         << " subscribe_id: " << msg.subscribe_id << " , ignored" << std::flush;
+
+                        // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+
+                        return true;
+                    }
+
+                    _logger->debug << "Received stream_object " << " subscribe_id: " << msg.subscribe_id
+                                   << " priority: " << msg.priority << " track_alias: " << msg.track_alias
+                                   << " group_id: " << msg.group_id << " object_id: " << msg.object_id
+                                   << " data size: " << msg.payload.size() << std::flush;
+                    sub_it->second->cb_objectReceived(msg.group_id, msg.object_id, std::move(msg.payload));
+                    stream_buffer->resetAny();
+                }
                 break;
-            case MoQMessageType::OBJECT_STREAM:
+            }
+
+            case MoQMessageType::STREAM_HEADER_TRACK: {
+                if (not stream_buffer->anyHasValue()) {
+                    _logger->debug << "Received stream header track, init stream buffer" << std::flush;
+                    stream_buffer->initAny<MoqStreamHeaderTrack>(
+                      static_cast<uint64_t>(MoQMessageType::STREAM_HEADER_TRACK));
+                }
+
+                auto& msg = stream_buffer->getAny<MoqStreamHeaderTrack>();
+                if (!stream_buffer->anyHasValueB() && *stream_buffer >> msg) {
+                    auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                    if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                        _logger->warning << "Received stream_header_track to unknown subscribe track"
+                                         << " subscribe_id: " << msg.subscribe_id << " , ignored" << std::flush;
+
+                        // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+
+                        return true;
+                    }
+
+                    // Init second working buffer to read data object
+                    stream_buffer->initAnyB<MoqStreamTrackObject>();
+
+                    _logger->debug << "Received stream_header_track " << " subscribe_id: " << msg.subscribe_id
+                                   << " priority: " << msg.priority << " track_alias: " << msg.track_alias
+                                   << std::flush;
+                }
+
+                if (stream_buffer->anyHasValueB()) {
+                    MoqStreamTrackObject obj;
+                    if (*stream_buffer >> obj) {
+                        auto sub_it
+
+
+                          = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                        if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                            _logger->warning << "Received stream_header_group to unknown subscribe track"
+                                             << " subscribe_id: " << msg.subscribe_id << " , ignored" << std::flush;
+
+                            // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+
+                            return true;
+                        }
+
+                        _logger->debug << "Received stream_track_object " << " subscribe_id: " << msg.subscribe_id
+                                       << " priority: " << msg.priority << " track_alias: " << msg.track_alias
+                                       << " group_id: " << obj.group_id << " object_id: " << obj.object_id
+                                       << " data size: " << obj.payload.size() << std::flush;
+                        stream_buffer->resetAnyB();
+
+                        sub_it->second->cb_objectReceived(obj.group_id, obj.object_id, std::move(obj.payload));
+                    }
+                }
                 break;
-            case MoQMessageType::STREAM_HEADER_TRACK:
-                break;
+            }
             case MoQMessageType::STREAM_HEADER_GROUP: {
                 if (not stream_buffer->anyHasValue()) {
                     _logger->debug << "Received stream header group, init stream buffer" << std::flush;
@@ -1047,6 +1127,9 @@ namespace quicr {
                         const bool is_bidir)
     {
         auto stream_buf = _transport->getStreamBuffer(conn_id, stream_id);
+
+        //std::lock_guard<std::mutex> _(_state_mutex);
+
         auto& conn_ctx = _connections[conn_id];
 
         if (stream_buf == nullptr) {
@@ -1086,7 +1169,7 @@ namespace quicr {
 
             // Data stream, unidirectional
             else {
-                if (process_recv_data_message(conn_ctx, stream_buf)) {
+                if (process_recv_stream_data_message(conn_ctx, stream_buf)) {
                     break;
                 }
             }
@@ -1100,9 +1183,55 @@ namespace quicr {
 
     void MoQInstance::on_recv_dgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id)
     {
-        _logger->info << "datagram data conn_id: " << conn_id
-                      << " data_ctx_id: " << (data_ctx_id ? *data_ctx_id : 0)
-                      << std::flush;
+        MoqObjectStream object_datagram_out;
+        for (int i=0; i < 70; i++) {
+            auto data = _transport->dequeue(conn_id, data_ctx_id);
+            if (data && !data->empty()) {
+                StreamBuffer<uint8_t> buffer;
+                buffer.push(*data);
+
+                auto msg_type = buffer.decode_uintV();
+                if (!msg_type || static_cast<MoQMessageType>(*msg_type) != MoQMessageType::OBJECT_DATAGRAM) {
+                    _logger->warning << "Received datagram that is not message type OBJECT_DATAGRAM, dropping" << std::flush;
+                    continue;
+                }
+
+                MoqObjectDatagram msg;
+                if (buffer >> msg) {
+
+                    //std::lock_guard<std::mutex> _(_state_mutex);
+
+                    auto& conn_ctx = _connections[conn_id];
+                    auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                    if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                        _logger->warning << "Received datagram to unknown subscribe track"
+                                         << " subscribe_id: " << msg.subscribe_id << ", ignored" << std::flush;
+
+                        // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+
+                        continue;
+                    }
+
+
+                    _logger->debug << "Received object datagram conn_id: " << conn_id
+                                   << " data_ctx_id: " << (data_ctx_id ? *data_ctx_id : 0)
+                                   << " subscriber_id: " << msg.subscribe_id
+                                   << " track_alias: " << msg.track_alias
+                                   << " group_id: " << msg.group_id
+                                   << " object_id: " << msg.object_id
+                                   << " data size: " << msg.payload.size()
+                                   << std::flush;
+
+                    sub_it->second->cb_objectReceived(msg.group_id, msg.object_id, std::move(msg.payload));
+
+                } else {
+                    _logger->warning << "Failed to decode datagram conn_id: " << conn_id
+                                     << " data_ctx_id: " << (data_ctx_id ? *data_ctx_id : 0)
+                                     << std::flush;
+                }
+
+            }
+        }
 
     }
 
