@@ -44,7 +44,7 @@ public:
                      const cantina::LoggerPointer& logger)
       : MoQTrackDelegate({ t_namespace.begin(), t_namespace.end() },
                          { t_name.begin(), t_name.end() },
-                         TrackMode::DATAGRAM,
+                         TrackMode::STREAM_PER_GROUP,
                          priority,
                          ttl,
                          logger)

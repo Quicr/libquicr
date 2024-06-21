@@ -386,23 +386,6 @@ namespace quicr {
 
                     sub_it->second.get()->cb_readReady();
 
-                    /*
-                    // For mirroring, update self publish track for same namespace/track that it can send
-                    auto tfn = TrackFullName{ sub_it->second->getTrackNamespace(), sub_it->second->getTrackName() };
-                    auto th = TrackHash(tfn);
-
-                    auto pub_track = getPubTrackDelegate(conn_ctx, th);
-                    if (pub_track.has_value()) {
-                        if (conn_ctx._sub_id <= msg.subscribe_id) {
-                            conn_ctx._sub_id = msg.subscribe_id  + 1;
-                        }
-
-                        pub_track->lock()->setSubscribeId(msg.subscribe_id);
-                        pub_track->lock()->setSendStatus(MoQTrackDelegate::TrackSendStatus::OK);
-                        pub_track->lock()->cb_sendReady();
-                    }
-                    */
-
                     stream_buffer->resetAny();
                     return true;
                 }
@@ -467,20 +450,28 @@ namespace quicr {
                 break;
             }
             case MoQMessageType::ANNOUNCE_ERROR:
+                _logger->debug << "Received announce error " << std::flush;
                 break;
             case MoQMessageType::UNANNOUNCE:
+                _logger->debug << "Received unannounce" << std::flush;
                 break;
             case MoQMessageType::UNSUBSCRIBE:
+                _logger->debug << "Received unsubscribe" << std::flush;
                 break;
             case MoQMessageType::SUBSCRIBE_DONE:
+                _logger->debug << "Received subscribe done" << std::flush;
                 break;
             case MoQMessageType::ANNOUNCE_CANCEL:
+                _logger->debug << "Received announce cancel" << std::flush;
                 break;
             case MoQMessageType::TRACK_STATUS_REQUEST:
+                _logger->debug << "Received track status request" << std::flush;
                 break;
             case MoQMessageType::TRACK_STATUS:
+                _logger->debug << "Received track status" << std::flush;
                 break;
             case MoQMessageType::GOWAY:
+                _logger->debug << "Received goaway" << std::flush;
                 break;
             case MoQMessageType::CLIENT_SETUP: {
                     if (not stream_buffer->anyHasValue()) {
