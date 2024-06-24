@@ -7,6 +7,7 @@
 #include <csignal>
 #include <cstdlib>
 #include <thread>
+#include <unordered_map>
 
 namespace {
 std::condition_variable cv;
@@ -14,14 +15,41 @@ std::mutex mutex;
 std::atomic_bool terminate = false;
 std::atomic_size_t sub_responses_received = 0;
 
-struct PerfPublishDelegate : public quicr::PublisherDelegate
+struct PerfSubscriberDelegate : public quicr::SubscriberDelegate
 {
-  void onPublishIntentResponse(const quicr::Namespace&,
-                               const quicr::PublishIntentResult&) override
+  cantina::LoggerPointer logger;
+  PerfSubscriberDelegate(cantina::LoggerPointer l) : logger{std::move(l)} {}
+
+  void onSubscribeResponse(const quicr::Namespace&,
+                           const quicr::SubscribeResult&)
   {
     ++sub_responses_received;
     cv.notify_one();
   }
+
+  void onSubscriptionEnded(const quicr::Namespace&,
+                           const quicr::SubscribeResult::SubscribeStatus&)
+  {
+    LOGGER_INFO(logger, "Subscription ended");
+  }
+
+  void onSubscribedObject(const quicr::Name&, uint8_t, quicr::bytes&& data)
+  {
+    ++subscribed_objects_received;
+    total_bytes_received += data.size();
+  }
+
+  void onSubscribedObjectFragment(const quicr::Name&,
+                                  uint8_t,
+                                  const uint64_t&,
+                                  bool,
+                                  quicr::bytes&&)
+  {
+    throw std::runtime_error("Unexpected");
+  }
+
+  std::size_t subscribed_objects_received = 0;
+  std::size_t total_bytes_received = 0;
 };
 
 template<typename D, typename I, typename F, typename... Args>
@@ -38,29 +66,6 @@ loop_for(const D& duration, const I& interval, const F& func, Args&&... args)
                                 std::chrono::duration_cast<I>(end - start));
     t += interval;
   }
-}
-
-qtransport::time_stamp_us
-now()
-{
-  return std::chrono::time_point_cast<std::chrono::microseconds>(
-    std::chrono::steady_clock::now());
-};
-
-std::string
-format_bitrate(const std::uint32_t& bitrate)
-{
-  if (bitrate > 1e9) {
-    return std::to_string(double(bitrate) / 1e9) + " Gbps";
-  }
-  if (bitrate > 1e6) {
-    return std::to_string(double(bitrate) / 1e6) + " Mbps";
-  }
-  if (bitrate > 1e3) {
-    return std::to_string(double(bitrate) / 1e3) + " Kbps";
-  }
-
-  return std::to_string(bitrate) + " bps";
 }
 }
 
@@ -80,11 +85,8 @@ main(int argc, char** argv)
     ("endpoint_id", "Name of the client", cxxopts::value<std::string>()->default_value("perf@cisco.com"))
     ("streams", "Number of streams per client", cxxopts::value<std::size_t>()->default_value("1"))
     ("chunk_size", "Chunk size", cxxopts::value<std::size_t>()->default_value("3000"))
-    ("s,msg_size", "Byte size of message", cxxopts::value<std::uint16_t>()->default_value("1024"))
     ("relay_url", "Relay port to connect on", cxxopts::value<std::string>()->default_value("relay.quicr.ctgpoc.com"))
     ("relay_port", "Relay port to connect on", cxxopts::value<std::uint16_t>()->default_value("33435"))
-    ("d,duration", "The duration of the test in seconds", cxxopts::value<std::uint32_t>()->default_value("120"))
-    ("i,interval", "The interval in microseconds to send publish messages", cxxopts::value<std::uint32_t>()->default_value("1000"))
     ("p,priority", "Priority for sending publish messages", cxxopts::value<std::uint8_t>()->default_value("1"))
     ("e,expiry_age", "Expiry age of objects in ms", cxxopts::value<std::uint16_t>()->default_value("5000"))
     ("h,help", "Print usage");
@@ -113,12 +115,8 @@ main(int argc, char** argv)
   const quicr::Namespace ns = { result["namespace"].as<std::string>() };
   const std::size_t streams = result["streams"].as<std::size_t>();
   const std::size_t chunk_size = result["chunk_size"].as<std::size_t>();
-  const std::uint16_t msg_size = result["msg_size"].as<std::uint16_t>();
   const std::uint8_t priority = result["priority"].as<std::uint8_t>();
   const std::uint16_t expiry_age = result["expiry_age"].as<std::uint16_t>();
-  const std::chrono::microseconds interval(
-    result["interval"].as<std::uint32_t>());
-  const std::chrono::seconds duration(result["duration"].as<std::uint32_t>());
 
   const quicr::RelayInfo info{
     .hostname = result["relay_url"].as<std::string>(),
@@ -134,7 +132,7 @@ main(int argc, char** argv)
     .use_reset_wait_strategy = false,
   };
 
-  auto logger = std::make_shared<cantina::Logger>("perf", "PERF");
+  auto logger = std::make_shared<cantina::Logger>("subperf", "SUBPERF");
   quicr::Client client(
     info, result["endpoint_id"].as<std::string>(), chunk_size, config, logger);
 
@@ -151,95 +149,53 @@ main(int argc, char** argv)
 
   std::signal(SIGINT, handle_terminate_signal);
 
-  std::vector<quicr::Namespace> namespaces;
+  quicr::namespace_map<std::shared_ptr<PerfSubscriberDelegate>> delegates;
 
   for (std::uint16_t i = 0; i < streams; ++i) {
-    auto& publish_ns = namespaces.emplace_back(
-      ns.name() + ((0x0_name + i) << (128 - ns.length())), ns.length());
+    auto [entry, _] = delegates.emplace(
+      quicr::Namespace{ns.name() + ((0x0_name + i) << (128 - ns.length())), ns.length()}, std::make_shared<PerfSubscriberDelegate>(logger));
 
-    client.publishIntent(std::make_shared<PerfPublishDelegate>(),
-                         publish_ns,
-                         "",
-                         "",
-                         {},
-                         quicr::TransportMode::ReliablePerTrack);
+    auto& [sub_ns, delegate] = *entry;
+    client.subscribe(delegate,
+                     sub_ns,
+                     quicr::SubscribeIntent::immediate,
+                     quicr::TransportMode::ReliablePerTrack,
+                     "",
+                     "",
+                     {},
+                     priority);
   }
 
   std::unique_lock lock(mutex);
   cv.wait(lock, [&] { return sub_responses_received.load() == streams; });
 
-  const std::uint64_t bitrate = (msg_size * 8) / (interval.count() / 1e6);
-  const std::uint64_t expected_objects = 1e6 / interval.count();
-
-  // clang-format off
   LOGGER_INFO(logger, "+==========================================+");
-  LOGGER_INFO(logger, "| Starting test of duration " << duration.count() << " seconds");
-  LOGGER_INFO(logger, "+-------------------------------------------");
-  LOGGER_INFO(logger, "| *                Streams: " << streams);
-  LOGGER_INFO(logger, "| *         Approx bitrate: " << format_bitrate(bitrate));
-  LOGGER_INFO(logger, "| *          Total bitrate: " << format_bitrate(bitrate * streams));
-  LOGGER_INFO(logger, "| *     Expected Objects/s: " << expected_objects);
-  LOGGER_INFO(logger, "| *        Total Objects/s: " << (expected_objects * streams));
-  LOGGER_INFO(logger, "| * Total Expected Objects: " << (expected_objects * streams * duration.count()));
+  LOGGER_INFO(logger, "| Starting test");
+  LOGGER_INFO(logger, "+------------------------------------------+");
+  LOGGER_INFO(logger, "| *             Streams: " << streams);
+  LOGGER_INFO(logger, "| * Total Subscriptions: " << sub_responses_received);
   LOGGER_INFO(logger, "+==========================================+");
-  // clang-format on
-
-  std::atomic_size_t finished_publishers = 0;
-  std::atomic_size_t total_objects_published = 0;
-  std::vector<std::uint8_t> buffer(msg_size, 0);
-  std::vector<std::thread> threads;
 
   const auto start = std::chrono::high_resolution_clock::now();
-  for (quicr::Namespace& pub_ns : namespaces) {
-    threads.emplace_back([&] {
-      quicr::Name name = pub_ns;
 
-      ::loop_for(duration, interval, [&] {
-        std::vector<std::uint8_t> msg_bytes = buffer;
-
-        std::lock_guard _(mutex);
-        client.publishNamedObject(name,
-                                  priority,
-                                  expiry_age,
-                                  std::move(msg_bytes),
-                                  { {
-                                    "perf:publish",
-                                    now(),
-                                  } });
-        ++total_objects_published;
-
-        name = pub_ns.name() |
-               (~(~0x0_name << (128 - pub_ns.length())) & (name + 1));
-      });
-
-      ++finished_publishers;
-      cv.notify_one();
-    });
-  }
-
-  cv.wait(lock,
-          [&] { return terminate.load() || finished_publishers == streams; });
+  LOGGER_INFO(logger, "Press Ctrl + C to end the test");
+  cv.wait(lock, [&] { return terminate.load(); });
 
   const auto end = std::chrono::high_resolution_clock::now();
   const auto elapsed =
     std::chrono::duration_cast<std::chrono::seconds>(end - start);
 
-  // clang-format off
-  LOGGER_INFO(logger, "+==========================================+");
-  if (terminate) {
-    LOGGER_INFO(logger, "| Received interrupt, exiting early");
-  } else {
-    LOGGER_INFO(logger, "| Test complete");
-  }
-  LOGGER_INFO(logger, "+-------------------------------------------");
-  LOGGER_INFO(logger, "| *          Duration: " << elapsed.count() << " seconds");
-  LOGGER_INFO(logger, "| * Published Objects: " << total_objects_published);
-  LOGGER_INFO(logger, "+==========================================+");
-  // clang-format on
+  std::size_t total_bytes_received = 0;
+  std::for_each(delegates.begin(), delegates.end(), [&](const auto& entry) {
+    total_bytes_received += entry.second->total_bytes_received;
+  });
 
-  for (auto& thread : threads) {
-    thread.join();
-  }
+  LOGGER_INFO(logger, "+==========================================+");
+  LOGGER_INFO(logger, "| Test complete");
+  LOGGER_INFO(logger, "+------------------------------------------+");
+  LOGGER_INFO(logger, "| *             Duration: " << elapsed.count() << " seconds");
+  LOGGER_INFO(logger, "| * Total Bytes received: " << total_bytes_received);
+  LOGGER_INFO(logger, "+==========================================+");
 
   return EXIT_SUCCESS;
 }
