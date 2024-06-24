@@ -1,7 +1,6 @@
 [submodule "dependencies/transport"]
 	path = dependencies/transport
 	url = https://github.com/Quicr/transport.git
-	branch = mbedtls
 [submodule "dependencies/doctest"]
 	path = dependencies/doctest
 	url = https://github.com/doctest/doctest.git
