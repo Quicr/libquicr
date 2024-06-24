@@ -419,6 +419,7 @@ namespace quicr {
 
                     if (_delegate->cb_announce(conn_ctx.conn_id, th.track_namespace_hash)) {
                         send_announce_ok(conn_ctx, msg.track_namespace);
+                        _delegate->cb_announce_post(conn_ctx.conn_id, th.track_namespace_hash);
                     }
 
                     stream_buffer->resetAny();
@@ -441,7 +442,8 @@ namespace quicr {
                     // Update each track to indicate status is okay to publish
                     auto pub_it = conn_ctx.pub_tracks_by_name.find(th.track_namespace_hash);
                     for (const auto& td: pub_it->second) {
-                        td.second.get()->setSendStatus(MoQTrackDelegate::TrackSendStatus::NO_SUBSCRIBERS);
+                        if (td.second.get()->statusSend() != MoQTrackDelegate::TrackSendStatus::OK)
+                            td.second.get()->setSendStatus(MoQTrackDelegate::TrackSendStatus::NO_SUBSCRIBERS);
                     }
 
                     stream_buffer->resetAny();
@@ -903,6 +905,7 @@ namespace quicr {
             _logger->info << "Publish track has new namespace hash: " << th.track_namespace_hash
                           << " sending ANNOUNCE message" << std::flush;
 
+            track_delegate->setSendStatus(MoQTrackDelegate::TrackSendStatus::PENDING_ANNOUNCE_RESPONSE);
             send_announce(conn_it->second, track_delegate->getTrackNamespace());
 
         } else {

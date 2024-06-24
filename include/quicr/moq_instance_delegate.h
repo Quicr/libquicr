@@ -67,7 +67,7 @@ namespace quicr {
                                     [[maybe_unused]] messages::MoqServerSetup server_setup) {}
 
         /**
-         * @brief Server Mode; Callback notification for new announce received
+         * @brief Server Mode; Callback notification for new announce received (need to authorize)
          *
          * @param conn_id                   Source connection ID
          * @param track_namespace_hash      Track namespace hash
@@ -76,6 +76,19 @@ namespace quicr {
          */
         virtual bool cb_announce([[maybe_unused]] TransportConnId conn_id,
                                  [[maybe_unused]] uint64_t track_namespace_hash) { return true; }
+
+        /**
+         * @brief Server Mode; Callback notification for new announce received post OK being sent
+         *
+         * @details After announce an OK is sent providing the announce was authorized and accepted. This
+         *      callback is called after `cb_announce()` to allow the server to subscribe or followup
+         *      with actions based on the announce.
+         *
+         * @param conn_id                   Source connection ID
+         * @param track_namespace_hash      Track namespace hash
+         */
+        virtual void cb_announce_post([[maybe_unused]] TransportConnId conn_id,
+                                      [[maybe_unused]] uint64_t track_namespace_hash) { }
 
         /**
          * @brief Callback notification for new subscribe received
