@@ -113,16 +113,9 @@ namespace quicr {
          *
          * @param conn_id             Source connection ID
          * @param subscribe_id        Subscribe ID received
-         * @param name_space          Track Namespace from subscription
-         * @param name                Track name from subscription
-         *
-         * @return True if send announce should be sent, false if not
          */
-        virtual bool cb_unsubscribe([[maybe_unused]] TransportConnId conn_id,
-                                  [[maybe_unused]] uint64_t subscribe_id)
-        {
-            return true;
-        }
+        virtual void cb_unsubscribe([[maybe_unused]] TransportConnId conn_id,
+                                    [[maybe_unused]] uint64_t subscribe_id) {}
 
     };
 

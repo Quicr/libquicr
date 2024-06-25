@@ -860,7 +860,6 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqObjectDatagram &ms
 }
 
 
-
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
            const MoqStreamHeaderTrack& msg){
 

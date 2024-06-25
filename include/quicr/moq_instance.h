@@ -78,6 +78,11 @@ namespace quicr {
 
             uint64_t track_fullname_hash;                       // 62bit of namespace+name
 
+            TrackHash(const uint64_t name_space, const uint64_t name) {
+                track_namespace_hash = name_space;
+                track_name_hash = name;
+            }
+
             TrackHash(const TrackFullName& tfn) noexcept
             {
                 track_namespace_hash = std::hash<std::string_view>{}(
@@ -216,7 +221,7 @@ namespace quicr {
                                                 bool stream_header_needed,
                                                 uint64_t group_id,
                                                 uint64_t object_id,
-                                                bytes&& data);
+                                                std::span<const uint8_t> data);
 
       private:
 
@@ -229,6 +234,9 @@ namespace quicr {
             std::optional<messages::MoQMessageType> ctrl_msg_type_received;  /// Indicates the current message type being read
 
             uint64_t _sub_id {0};      /// Connection specific ID for subscribe messages
+
+            // Track namespace/name by received subscribe IDs - Used to map published tracks to subscribes in client mode
+            std::map<uint64_t, std::pair<uint64_t, uint64_t>> recv_sub_id;
 
             // Tracks by subscribe ID
             std::map<uint64_t, std::shared_ptr<MoQTrackDelegate>> tracks_by_sub_id;
@@ -252,6 +260,7 @@ namespace quicr {
                                uint64_t subscribe_id,
                                uint64_t expires,
                                bool content_exists);
+        void send_unsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id);
         void send_subscribe_error(ConnectionContext& conn_ctx,
                                   uint64_t subscribe_id,
                                   uint64_t track_alias,
@@ -265,7 +274,8 @@ namespace quicr {
                                        std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
         void remove_subscribeTrack(ConnectionContext& conn_ctx,
-                                   MoQTrackDelegate& delegate);
+                                   MoQTrackDelegate& delegate,
+                                   bool remove_delegate=true);
 
         std::optional<std::weak_ptr<MoQTrackDelegate>> getPubTrackDelegate(ConnectionContext& conn_ctx,
                                                                            TrackHash& th);
@@ -280,7 +290,8 @@ namespace quicr {
         bool _stop { false };
         const MoQInstanceServerConfig _server_config;
         const MoQInstanceClientConfig _client_config;
-        std::shared_ptr<MoQInstanceDelegate> _delegate;
+
+        std::map<TransportConnId, ConnectionContext> _connections;
 
         Status _status{ Status::NOT_READY };
 
@@ -291,9 +302,8 @@ namespace quicr {
         MetricsExporter _mexport;
 #endif
 
-        std::shared_ptr<ITransport> _transport;
-
-        std::map<TransportConnId, ConnectionContext> _connections;
+        std::shared_ptr<MoQInstanceDelegate> _delegate;
+        std::shared_ptr<ITransport> _transport; // **MUST** be last for proper order of destruction
     };
 
 } // namespace quicr

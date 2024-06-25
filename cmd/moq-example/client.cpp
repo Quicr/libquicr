@@ -32,6 +32,11 @@ std::string get_time_str()
     return oss.str();
 }
 
+/* -------------------------------------------------------------------------------------------------
+ * Track delegate is used for either publish or subscribe. All handling for the track is via the
+ *      delegate.
+ * -------------------------------------------------------------------------------------------------
+ */
 class trackDelegate : public quicr::MoQTrackDelegate
 {
 public:
@@ -63,7 +68,13 @@ public:
         _logger->info << "Track alias: " << _track_alias.value() << " is ready to send" << std::flush;
     }
 
-    void cb_sendNotReady(TrackSendStatus status) override {}
+    void cb_sendNotReady(TrackSendStatus status) override {
+        _logger->info << "Track alias: " << _track_alias.value()
+                      << " is NOT ready to send"
+                      << " status: " << static_cast<int>(status)
+                      << std::flush;
+    }
+
     void cb_readReady() override
     {
         _logger->info << "Track alias: " << _track_alias.value() << " is ready to read" << std::flush;
@@ -71,6 +82,10 @@ public:
     void cb_readNotReady(TrackReadStatus status) override {}
 };
 
+/* -------------------------------------------------------------------------------------------------
+ * Client MOQ instance delegate is used to control and interact with the connection.
+ * -------------------------------------------------------------------------------------------------
+ */
 class clientDelegate : public quicr::MoQInstanceDelegate
 {
 public:
@@ -102,6 +117,10 @@ private:
     cantina::LoggerPointer _logger;
 };
 
+/* -------------------------------------------------------------------------------------------------
+ * Publisher Thread to perform publishing
+ * -------------------------------------------------------------------------------------------------
+ */
 void do_publisher(const std::string t_namespace,
                   const std::string t_name,
                   const std::shared_ptr<quicr::MoQInstance>& moqInstance,
@@ -162,12 +181,16 @@ void do_publisher(const std::string t_namespace,
         }
 
         std::vector<uint8_t> msg_v(msg.begin(), msg.end());
-        auto result = track_delegate->sendObject(group_id, object_id++, std::move(msg_v));
+        auto result = track_delegate->sendObject(group_id, object_id++, msg_v);
     }
 
     _logger->info << "Publisher done track: " << t_namespace << "/" << t_name << std::flush;
 }
 
+/* -------------------------------------------------------------------------------------------------
+ * Subscriber thread to perform subscribe
+ * -------------------------------------------------------------------------------------------------
+ */
 void do_subscriber(const std::string t_namespace,
                    const std::string t_name,
                    const std::shared_ptr<quicr::MoQInstance>& moqInstance,
@@ -192,9 +215,17 @@ void do_subscriber(const std::string t_namespace,
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
+    mi->unsubscribeTrack(*qclient_vars::conn_id, track_delegate);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
     _logger->info << "Subscriber done track: " << t_namespace << "/" << t_name << std::flush;
 }
 
+/* -------------------------------------------------------------------------------------------------
+ * Main program
+ * -------------------------------------------------------------------------------------------------
+ */
 quicr::MoQInstanceClientConfig init_config(cxxopts::ParseResult& cli_opts,
                                            bool& enable_pub,
                                            bool& enable_sub,

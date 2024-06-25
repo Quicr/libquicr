@@ -9,9 +9,10 @@
 #include "signal_handler.h"
 
 namespace qserver_vars {
+    std::mutex _state_mutex;
 
     /*
-     * Map of announcements
+     * Map of subscribes (e.g., track alias) sent to announcements
      *      track_alias_set = announce_active[track_namespace][conn_id]
      */
     std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::set<uint64_t>>> announce_active;
@@ -25,10 +26,17 @@ namespace qserver_vars {
      */
     std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::shared_ptr<quicr::MoQTrackDelegate>>> subscribes;
 
+    /*
+     * Subscribe ID to alias mapping
+     *      Used to lookup the track alias for a given subscribe ID
+     *
+     *      track_alias = subscribe_alias_sub_id[conn_id][subscribe_id]
+     */
+    std::unordered_map<uint64_t, std::unordered_map<uint64_t, uint64_t>> subscribe_alias_sub_id;
 
     /*
      * Map of subscribes set by namespace and track name hash
-     *      Set<subscribe_who> = subscribe_active[track_namespace][track_name_hash]
+     *      Set<subscribe_who> = subscribe_active[track_namespace_hash][track_name_hash]
      */
     struct SubscribeWho {
         uint64_t conn_id;
@@ -55,6 +63,11 @@ namespace qserver_vars {
     std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::shared_ptr<quicr::MoQTrackDelegate>>> pub_subscribes;
 }
 
+/* -------------------------------------------------------------------------------------------------
+ * Subscribe Track Delegate - Relay runs on subscribes and uses subscribe delegate to send data
+ *      to subscriber
+ * -------------------------------------------------------------------------------------------------
+ */
 class subTrackDelegate : public quicr::MoQTrackDelegate
 {
 public:
@@ -78,7 +91,18 @@ public:
                            std::vector<uint8_t>&& object,
                            TrackMode track_mode) override {
 
-        for (const auto& [conn_id, td]: qserver_vars::subscribes.find(*_track_alias)->second) {
+        std::lock_guard<std::mutex> _(qserver_vars::_state_mutex);
+
+        auto sub_it = qserver_vars::subscribes.find(*_track_alias);
+
+        if (sub_it == qserver_vars::subscribes.end()) {
+            _logger->debug << "No subscribes, not relaying track_alias: " << *_track_alias
+                           << " data size: " << object.size() << std::flush;
+
+            return;
+        }
+
+        for (const auto& [conn_id, td]: sub_it->second) {
             _logger->debug << "Relaying track_alias: " << *_track_alias
                            << ", object to subscribe conn_id: " << conn_id
                            << " data size: " << object.size() << std::flush;
@@ -98,10 +122,37 @@ public:
     {
         _logger->info << "Track alias: " << _track_alias.value() << " is ready to read" << std::flush;
     }
-    void cb_readNotReady(TrackReadStatus status) override {}
+    void cb_readNotReady(TrackReadStatus status) override {
+
+        std::string reason = "";
+        switch (status) {
+            case TrackReadStatus::NOT_CONNECTED:
+                reason = "not connected";
+                break;
+            case TrackReadStatus::SUBSCRIBE_ERROR:
+                reason = "subscribe error";
+                break;
+            case TrackReadStatus::NOT_AUTHORIZED:
+                reason = "not authorized";
+                break;
+            case TrackReadStatus::NOT_SUBSCRIBED:
+                reason = "not subscribed";
+                break;
+            case TrackReadStatus::PENDING_SUBSCRIBE_RESPONSE:
+                reason = "pending subscribe response";
+                break;
+            default:
+                break;
+        }
+
+        _logger->info << "Track alias: " << _track_alias.value() << " is NOT ready, status: " << reason << std::flush;
+    }
 };
 
-
+/* -------------------------------------------------------------------------------------------------
+ * Server delegate is the instance delegate for connection handling
+ * -------------------------------------------------------------------------------------------------
+ */
 class serverDelegate : public quicr::MoQInstanceDelegate
 {
   public:
@@ -190,6 +241,92 @@ class serverDelegate : public quicr::MoQInstanceDelegate
     void cb_clientSetup(qtransport::TransportConnId conn_id, quicr::messages::MoqClientSetup client_setup) override {}
     void cb_serverSetup(qtransport::TransportConnId conn_id, quicr::messages::MoqServerSetup server_setup) override {}
 
+    void cb_unsubscribe(qtransport::TransportConnId conn_id,
+                        uint64_t subscribe_id) {
+        _logger->info << "Unsubscribe conn_id: " << conn_id
+                      << " subscribe_id: " << subscribe_id
+                      << std::flush;
+
+        auto ta_conn_it = qserver_vars::subscribe_alias_sub_id.find(conn_id);
+        if (ta_conn_it == qserver_vars::subscribe_alias_sub_id.end()) {
+            _logger->warning << "Unable to find track alias connection for conn_id: " << conn_id
+                             << " subscribe_id: " << subscribe_id
+                             << std::flush;
+            return;
+        }
+
+        auto ta_it = ta_conn_it->second.find(subscribe_id);
+        if (ta_it == ta_conn_it->second.end()) {
+            _logger->warning << "Unable to find track alias for conn_id: " << conn_id
+                              << " subscribe_id: " << subscribe_id
+                              << std::flush;
+            return;
+        }
+
+        std::lock_guard<std::mutex> _(qserver_vars::_state_mutex);
+
+        auto track_alias = ta_it->second;
+
+        ta_conn_it->second.erase(ta_it);
+        if (!ta_conn_it->second.size()) {
+            qserver_vars::subscribe_alias_sub_id.erase(ta_conn_it);
+        }
+
+
+        auto& track_delegate = qserver_vars::subscribes[track_alias][conn_id];
+
+        if (track_delegate == nullptr) {
+            _logger->warning << "Unsubscribe unable to find track delegate for conn_id: " << conn_id
+                             << " subscribe_id: " << subscribe_id << std::flush;
+            return;
+        }
+
+
+        auto tfn = quicr::MoQInstance::TrackFullName{ track_delegate->getTrackNamespace(), track_delegate->getTrackName() };
+        auto th = quicr::MoQInstance::TrackHash(tfn);
+
+        qserver_vars::subscribes[track_alias].erase(conn_id);
+        bool unsub_pub { false };
+        if (!qserver_vars::subscribes[track_alias].size()) {
+            unsub_pub = true;
+            qserver_vars::subscribes.erase(track_alias);
+        }
+
+        qserver_vars::subscribe_active[th.track_namespace_hash][th.track_name_hash].erase(qserver_vars::SubscribeWho{
+          .conn_id = conn_id, .subscribe_id = subscribe_id, .track_alias = th.track_fullname_hash });
+
+        if (!qserver_vars::subscribe_active[th.track_namespace_hash][th.track_name_hash].size()) {
+            qserver_vars::subscribe_active[th.track_namespace_hash].erase(th.track_name_hash);
+        }
+
+        if (!qserver_vars::subscribe_active[th.track_namespace_hash].size()) {
+            qserver_vars::subscribe_active.erase(th.track_namespace_hash);
+        }
+
+        if (unsub_pub) {
+            _logger->info << "No subscribers left, unsub publisher track_alias: " << track_alias << std::flush;
+
+            auto anno_ns_it = qserver_vars::announce_active.find(th.track_namespace_hash);
+            if (anno_ns_it == qserver_vars::announce_active.end()) {
+                return;
+            }
+
+            for (auto& [conn_id, tracks]: anno_ns_it->second) {
+                if (tracks.contains(th.track_name_hash)) {
+                    _logger->info << "Unsubscribe to announcer conn_id: " << conn_id
+                                  << " subscribe track_alias: " << th.track_name_hash << std::flush;
+
+                    tracks.erase(th.track_name_hash); // Add track alias to state
+
+                    auto pub_delegate = qserver_vars::pub_subscribes[th.track_fullname_hash][conn_id];
+                    if (pub_delegate != nullptr) {
+                        _moq_instance.lock()->unsubscribeTrack(conn_id, pub_delegate);
+                    }
+                }
+            }
+        }
+    }
+
     bool cb_subscribe(qtransport::TransportConnId conn_id,
                       uint64_t subscribe_id,
                       std::span<uint8_t const> name_space,
@@ -207,6 +344,7 @@ class serverDelegate : public quicr::MoQInstanceDelegate
         auto tfn = quicr::MoQInstance::TrackFullName{ name_space, name };
         auto th = quicr::MoQInstance::TrackHash(tfn);
         qserver_vars::subscribes[th.track_fullname_hash][conn_id] = track_delegate;
+        qserver_vars::subscribe_alias_sub_id[conn_id][subscribe_id] = th.track_fullname_hash;
 
         // record subscribe as active from this subscriber
         qserver_vars::subscribe_active[th.track_namespace_hash][th.track_name_hash].emplace(
@@ -247,6 +385,10 @@ class serverDelegate : public quicr::MoQInstanceDelegate
     std::weak_ptr<quicr::MoQInstance> _moq_instance;
 };
 
+/* -------------------------------------------------------------------------------------------------
+ * Main program
+ * -------------------------------------------------------------------------------------------------
+ */
 quicr::MoQInstanceServerConfig init_config(cxxopts::ParseResult& cli_opts, const cantina::LoggerPointer& logger)
 {
     quicr::MoQInstanceServerConfig config;
@@ -274,6 +416,7 @@ quicr::MoQInstanceServerConfig init_config(cxxopts::ParseResult& cli_opts, const
 
     return config;
 }
+
 
 int
 main(int argc, char* argv[])

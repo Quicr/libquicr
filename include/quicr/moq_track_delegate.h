@@ -41,16 +41,17 @@ namespace quicr {
         enum class TrackReadStatus : uint8_t
         {
             OK = 0,
+            NOT_CONNECTED,
             SUBSCRIBE_ERROR,
             NOT_AUTHORIZED,
             NOT_SUBSCRIBED,
-            PENDING_SUBSCRIBE_RESPONSE,
-            SUBSCRIBE_NOT_AUTHORIZED
+            PENDING_SUBSCRIBE_RESPONSE
         };
 
         enum class TrackSendStatus : uint8_t
         {
             OK = 0,
+            NOT_CONNECTED,
             NOT_ANNOUNCED,
             PENDING_ANNOUNCE_RESPONSE,
             ANNOUNCE_NOT_AUTHORIZED,
@@ -104,18 +105,18 @@ namespace quicr {
          * @returns SendError status of the send
          *
          */
-        SendError sendObject(const uint64_t group_id, const uint64_t object_id, const std::span<const uint8_t>& object);
+        SendError sendObject(const uint64_t group_id, const uint64_t object_id, std::span<const uint8_t> object);
         SendError sendObject(const uint64_t group_id,
                              const uint64_t object_id,
-                             const std::span<const uint8_t>& object,
+                             std::span<const uint8_t> object,
                              uint32_t ttl);
         SendError sendObject(const uint64_t group_id,
                              const uint64_t object_id,
-                             const std::span<const uint8_t>& object,
+                             std::span<const uint8_t> object,
                              uint8_t priority);
         SendError sendObject(const uint64_t group_id,
                              const uint64_t object_id,
-                             const std::span<const uint8_t>& object,
+                             std::span<const uint8_t> object,
                              uint8_t priority,
                              uint32_t ttl);
 
@@ -295,7 +296,7 @@ namespace quicr {
                                 bool stream_header_needed,
                                 uint64_t group_id,
                                 uint64_t object_id,
-                                bytes&& data)> _mi_sendObjFunc;
+                                std::span<const uint8_t> data)> _mi_sendObjFunc;
 
         uint64_t _mi_send_data_ctx_id;    // Set by moq instance
         uint64_t _mi_conn_id;             // Set by moq instance
