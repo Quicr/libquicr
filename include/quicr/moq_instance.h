@@ -128,6 +128,15 @@ namespace quicr {
                                                std::shared_ptr<MoQTrackDelegate> track_delegate);
 
         /**
+         * @brief Unsubscribe track
+         *
+         * @param conn_id           Connection ID to send subscribe
+         * @param track_delegate    Track delegate to use for track related functions and callbacks
+         */
+        void unsubscribeTrack(TransportConnId conn_id,
+                              std::shared_ptr<MoQTrackDelegate> track_delegate);
+
+        /**
          * @brief Bind Subscribe track delegate
          *
          * @details This method is used to bind a received subscribe to a track delegate
@@ -254,6 +263,10 @@ namespace quicr {
                                        std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
         bool process_recv_stream_data_message(ConnectionContext& conn_ctx,
                                        std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+
+        void remove_subscribeTrack(ConnectionContext& conn_ctx,
+                                   MoQTrackDelegate& delegate);
+
         std::optional<std::weak_ptr<MoQTrackDelegate>> getPubTrackDelegate(ConnectionContext& conn_ctx,
                                                                            TrackHash& th);
 

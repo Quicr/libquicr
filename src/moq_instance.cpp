@@ -374,7 +374,7 @@ namespace quicr {
                     auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
 
                     if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                        _logger->warning << "Received subsribe ok to unknown subscribe track"
+                        _logger->warning << "Received subscribe ok to unknown subscribe track"
                                       << " subscribe_id: " << msg.subscribe_id
                                       << " , ignored"
                                       << std::flush;
@@ -399,7 +399,21 @@ namespace quicr {
 
                 auto& msg = stream_buffer->getAny<MoqSubscribeError>();
                 if (*stream_buffer >> msg) {
+                    auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
 
+                    if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                        _logger->warning << "Received subscribe error to unknown subscribe_id"
+                                         << " subscribe_id: " << msg.subscribe_id
+                                         << " , ignored"
+                                         << std::flush;
+
+                        //TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race condition
+                        stream_buffer->resetAny();
+                        return true;
+                    }
+
+                    sub_it->second.get()->cb_readNotReady(MoQTrackDelegate::TrackReadStatus::SUBSCRIBE_ERROR);
+                    remove_subscribeTrack(conn_ctx, *sub_it->second);
 
                     stream_buffer->resetAny();
                     return true;
@@ -458,8 +472,37 @@ namespace quicr {
                 _logger->debug << "Received unannounce" << std::flush;
                 break;
             case MoQMessageType::UNSUBSCRIBE:
-                _logger->debug << "Received unsubscribe" << std::flush;
+            {
+                if (not stream_buffer->anyHasValue()) {
+                    _logger->debug << "Received unsubscribe, init stream buffer" << std::flush;
+                    stream_buffer->initAny<MoqUnsubscribe>();
+                }
+
+                auto& msg = stream_buffer->getAny<MoqUnsubscribe>();
+                if (*stream_buffer >> msg) {
+                    auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+
+                    if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                        _logger->warning << "Received unsubscribe to unknown subscribe_id"
+                                         << " subscribe_id: " << msg.subscribe_id
+                                         << " , ignored"
+                                         << std::flush;
+
+                        //TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race condition
+                        stream_buffer->resetAny();
+                        return true;
+                    }
+
+                    sub_it->second.get()->cb_readNotReady(MoQTrackDelegate::TrackReadStatus::NOT_SUBSCRIBED);
+                    remove_subscribeTrack(conn_ctx, *sub_it->second);
+
+                    stream_buffer->resetAny();
+                    return true;
+                }
+
+
                 break;
+            }
             case MoQMessageType::SUBSCRIBE_DONE:
                 _logger->debug << "Received subscribe done" << std::flush;
                 break;
@@ -876,6 +919,28 @@ namespace quicr {
         return th.track_fullname_hash;
     }
 
+    void MoQInstance::unsubscribeTrack(qtransport::TransportConnId conn_id, std::shared_ptr<MoQTrackDelegate> track_delegate)
+    {
+        auto& conn_ctx = _connections[conn_id];
+        remove_subscribeTrack(conn_ctx,*track_delegate);
+    }
+
+    void MoQInstance::remove_subscribeTrack(ConnectionContext& conn_ctx,
+                                          MoQTrackDelegate& delegate)
+    {
+        delegate.setReadStatus(MoQTrackDelegate::TrackReadStatus::NOT_SUBSCRIBED);
+        delegate.setSubscribeId(std::nullopt);
+
+        auto subscribe_id = delegate.getSubscribeId();
+        if (subscribe_id.has_value()) {
+
+            std::lock_guard<std::mutex> _(_state_mutex);
+            _logger->debug << "remove subscribe id: " << *subscribe_id << std::flush;
+
+            conn_ctx.tracks_by_sub_id.erase(*subscribe_id);
+        }
+    }
+
     std::optional<uint64_t> MoQInstance::publishTrack(TransportConnId conn_id,
                                          std::shared_ptr<MoQTrackDelegate> track_delegate) {
 
@@ -1082,6 +1147,7 @@ namespace quicr {
             return pub_n_it->second;
         }
     }
+
 
     // ---------------------------------------------------------------------------------------
     // Transport delegate callbacks

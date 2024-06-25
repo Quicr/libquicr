@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include "cantina/logger.h"
 #include <quicr/quicr_common.h>
 
 namespace quicr {
@@ -40,6 +41,7 @@ namespace quicr {
         enum class TrackReadStatus : uint8_t
         {
             OK = 0,
+            SUBSCRIBE_ERROR,
             NOT_AUTHORIZED,
             NOT_SUBSCRIBED,
             PENDING_SUBSCRIBE_RESPONSE,
@@ -239,7 +241,7 @@ namespace quicr {
          *
          * @param subscribe_id          62bit subscribe ID
          */
-        void setSubscribeId(uint64_t subscribe_id) { _subscribe_id = subscribe_id; }
+        void setSubscribeId(std::optional<uint64_t> subscribe_id) { _subscribe_id = subscribe_id; }
 
         /**
          * @brief Get the subscribe ID
@@ -266,6 +268,11 @@ namespace quicr {
          */
         void setSendStatus(TrackSendStatus status) { _send_status = status; }
 
+        /**
+         * @brief Set the read status
+         * @param status                Status of reading (aka subscribe)
+         */
+        void setReadStatus(TrackReadStatus status) { _read_status = status; }
 
         // --------------------------------------------------------------------------
         // MOQ Instance specific public variables/methods - Caller should not use these
