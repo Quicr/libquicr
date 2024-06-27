@@ -1467,6 +1467,7 @@ namespace quicr {
                     send_client_setup();
                     _status = Status::READY;
                 }
+                break;
             }
 
             case TransportStatus::Connecting:
