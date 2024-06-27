@@ -167,6 +167,14 @@ namespace quicr {
         std::optional<uint64_t> publishTrack(TransportConnId conn_id, std::shared_ptr<MoQTrackDelegate> track_delegate);
 
         /**
+         * @brief Unpublish track
+         *
+         * @param track_delegate    Track delegate used when published track
+         */
+        void unpublishTrack(TransportConnId conn_id, std::shared_ptr<MoQTrackDelegate> track_delegate);
+
+
+        /**
          * @brief Make client connection and run
          *
          * @details Makes a client connection session if instance is in client mode and runs as client
@@ -255,12 +263,16 @@ namespace quicr {
         void send_server_setup(ConnectionContext& conn_ctx);
         void send_announce(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
         void send_announce_ok(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
+        void send_unannounce(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
         void send_subscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id, TrackFullName& tfn, TrackHash th);
         void send_subscribe_ok(ConnectionContext& conn_ctx,
                                uint64_t subscribe_id,
                                uint64_t expires,
                                bool content_exists);
         void send_unsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id);
+        void send_subscribe_done(ConnectionContext& conn_ctx,
+                                 uint64_t subscribe_id,
+                                 const std::string& reason);
         void send_subscribe_error(ConnectionContext& conn_ctx,
                                   uint64_t subscribe_id,
                                   uint64_t track_alias,

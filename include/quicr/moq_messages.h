@@ -227,6 +227,42 @@ private:
 };
 
 //
+// Track Status
+//
+struct MoqTrackStatusRequest {
+    TrackNamespace track_namespace;
+    TrackName track_name;
+    friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqTrackStatusRequest &msg);
+    friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                         const MoqTrackStatusRequest& msg);
+  private:
+    size_t current_pos {0};
+    bool parsing_completed { false };
+};
+
+enum class TrackStatus : uint64_t {
+    IN_PROGRESS=0x00,
+    DOES_NOT_EXIST,
+    NOT_STARTED,
+    FINISHED,
+    UNKNOWN
+};
+struct MoqTrackStatus {
+    TrackNamespace track_namespace;
+    TrackName track_name;
+    TrackStatus status_code;
+    uint64_t last_group_id {0};
+    uint64_t last_object_id {0};
+    friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqTrackStatus &msg);
+    friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                                         const MoqTrackStatus& msg);
+  private:
+    size_t current_pos {0};
+    bool parsing_completed { false };
+};
+
+
+//
 // Announce
 //
 

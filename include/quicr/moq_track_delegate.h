@@ -268,12 +268,14 @@ namespace quicr {
          * @param status                Status of sending (aka publish objects)
          */
         void setSendStatus(TrackSendStatus status) { _send_status = status; }
+        TrackSendStatus getSendStatus() { return _send_status; }
 
         /**
          * @brief Set the read status
          * @param status                Status of reading (aka subscribe)
          */
         void setReadStatus(TrackReadStatus status) { _read_status = status; }
+        TrackReadStatus getReadStatus() { return _read_status; }
 
         // --------------------------------------------------------------------------
         // MOQ Instance specific public variables/methods - Caller should not use these

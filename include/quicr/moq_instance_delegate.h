@@ -91,6 +91,17 @@ namespace quicr {
                                       [[maybe_unused]] uint64_t track_namespace_hash) { }
 
         /**
+         * @brief Server Mode; Callback notification for unannounce received
+         *
+         * @param conn_id                   Source connection ID
+         * @param track_namespace_hash      Track namespace hash
+         * @param track_name_hash           Track name is present if subscribe DONE was received
+         *                                  Otherwise, it will be nullopt for received UNANNOUNCE
+         */
+        virtual void cb_unannounce([[maybe_unused]] TransportConnId conn_id,
+                                   [[maybe_unused]] uint64_t track_namespace_hash,
+                                   [[maybe_unused]] std::optional<uint64_t> track_name_hash) { }
+        /**
          * @brief Callback notification for new subscribe received
          *
          * @param conn_id             Source connection ID

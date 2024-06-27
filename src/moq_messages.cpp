@@ -104,6 +104,114 @@ MessageBuffer& operator>>(MessageBuffer &buffer, MoqParameter &param) {
   return buffer;
 }
 
+//
+// Track Status
+//
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                              const MoqTrackStatus& msg) {
+    buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::TRACK_STATUS)));
+    buffer.push_lv(msg.track_namespace);
+    buffer.push_lv(msg.track_name);
+    buffer.push(qtransport::to_uintV(static_cast<uint64_t>(msg.status_code)));
+    buffer.push(qtransport::to_uintV(msg.last_group_id));
+    buffer.push(qtransport::to_uintV(msg.last_object_id));
+
+    return buffer;
+}
+
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqTrackStatus &msg) {
+
+    switch (msg.current_pos) {
+        case 0: {
+            if(!parse_bytes_field(buffer, msg.track_namespace)) {
+                return false;
+            }
+            msg.current_pos += 1;
+            [[fallthrough]];
+        }
+        case 1: {
+            if(!parse_bytes_field(buffer, msg.track_name)) {
+                return false;
+            }
+            msg.current_pos += 1;
+            [[fallthrough]];
+        }
+        case 2: {
+            const auto val = buffer.decode_uintV();
+            if (!val) {
+                return false;
+            }
+            msg.status_code = static_cast<TrackStatus>(*val);
+            msg.current_pos += 1;
+            [[fallthrough]];
+        }
+        case 3: {
+            if (!parse_uintV_field(buffer, msg.last_group_id)) {
+                return false;
+            }
+            msg.current_pos += 1;
+
+            [[fallthrough]];
+        }
+        case 4: {
+            if (!parse_uintV_field(buffer, msg.last_object_id)) {
+                return false;
+            }
+            msg.current_pos += 1;
+
+            msg.parsing_completed = true;
+
+            [[fallthrough]];
+        }
+        default:
+            break;
+    }
+
+    if (!msg.parsing_completed ) {
+        return false;
+    }
+
+    return true;
+}
+
+qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
+                                              const MoqTrackStatusRequest& msg){
+    buffer.push(qtransport::to_uintV(static_cast<uint64_t>(MoQMessageType::TRACK_STATUS_REQUEST)));
+    buffer.push_lv(msg.track_namespace);
+    buffer.push_lv(msg.track_name);
+
+    return buffer;
+}
+
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqTrackStatusRequest &msg) {
+
+    switch (msg.current_pos) {
+        case 0: {
+            if (!parse_bytes_field(buffer, msg.track_namespace)) {
+                return false;
+            }
+            msg.current_pos += 1;
+            [[fallthrough]];
+        }
+        case 1: {
+            if (!parse_bytes_field(buffer, msg.track_name)) {
+                return false;
+            }
+            msg.current_pos += 1;
+            msg.parsing_completed = true;
+            [[fallthrough]];
+        }
+        default:
+            break;
+    }
+
+    if (!msg.parsing_completed ) {
+        return false;
+    }
+
+    return true;
+}
+
 
 //
 // Subscribe

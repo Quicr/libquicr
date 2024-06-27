@@ -184,6 +184,9 @@ void do_publisher(const std::string t_namespace,
         auto result = track_delegate->sendObject(group_id, object_id++, msg_v);
     }
 
+    mi->unpublishTrack(*qclient_vars::conn_id, track_delegate);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
     _logger->info << "Publisher done track: " << t_namespace << "/" << t_name << std::flush;
 }
 
@@ -372,6 +375,7 @@ main(int argc, char* argv[])
         moqInstance->stop();
 
         logger->info << "Client done" << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
         // Unlock the mutex
         lock.unlock();

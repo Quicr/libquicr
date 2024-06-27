@@ -204,6 +204,21 @@ namespace quicr {
         send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
     }
 
+    void MoQInstance::send_unannounce(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace)
+    {
+        StreamBuffer<uint8_t> buffer;
+        auto unannounce = MoqUnannounce{};
+
+        unannounce.track_namespace.assign(track_namespace.begin(), track_namespace.end());
+        buffer <<  unannounce;
+
+        std::vector<uint8_t> net_data = buffer.front(buffer.size());
+
+        _logger->debug << "Sending UNANNOUNCE to conn_id: " << conn_ctx.conn_id << std::flush;
+
+        send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+    }
+
     void MoQInstance::send_subscribe(ConnectionContext& conn_ctx,
                                      uint64_t subscribe_id,
                                      TrackFullName& tfn,
@@ -253,6 +268,28 @@ namespace quicr {
 
         send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
     }
+
+    void MoQInstance::send_subscribe_done(ConnectionContext& conn_ctx,
+                                          uint64_t subscribe_id,
+                                          const std::string& reason)
+    {
+        StreamBuffer<uint8_t> buffer;
+
+        auto subscribe_done  = MoqSubscribeDone {};
+        subscribe_done.subscribe_id = subscribe_id;
+        subscribe_done.reason_phrase.assign(reason.begin(), reason.end());
+        subscribe_done.content_exists = false;
+        buffer << subscribe_done;
+
+        std::vector<uint8_t> net_data = buffer.front(buffer.size());
+
+        _logger->debug << "Sending SUBSCRIBE DONE to conn_id: " << conn_ctx.conn_id
+                       << " subscribe_id: " << subscribe_id
+                       << std::flush;
+
+        send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+    }
+
 
     void MoQInstance::send_unsubscribe(ConnectionContext& conn_ctx,
                                        uint64_t subscribe_id)
@@ -333,18 +370,17 @@ namespace quicr {
                     auto th = TrackHash(tfn);
 
                     if (msg.subscribe_id > conn_ctx._sub_id) {
-                        conn_ctx._sub_id = msg.subscribe_id+1;
+                        conn_ctx._sub_id = msg.subscribe_id + 1;
                     }
 
                     // For client/publisher, notify track that there is a subscriber
                     if (_client_mode) {
                         auto ptd = getPubTrackDelegate(conn_ctx, th);
                         if (not ptd.has_value()) {
-                            _logger->warning << "Received subscribe unknown publish track"
-                                             << " conn_id:" << conn_ctx.conn_id
-                                             << " namespace hash: " << th.track_namespace_hash
-                                             << " name hash: " << th.track_name_hash
-                                             << std::flush;
+                            _logger->warning
+                              << "Received subscribe unknown publish track" << " conn_id:" << conn_ctx.conn_id
+                              << " namespace hash: " << th.track_namespace_hash << " name hash: " << th.track_name_hash
+                              << std::flush;
 
                             send_subscribe_error(conn_ctx,
                                                  msg.subscribe_id,
@@ -360,7 +396,8 @@ namespace quicr {
                                        << " recv subscribe_id: " << msg.subscribe_id
                                        << ", setting send"
                                           ""
-                                          " state to ready" << std::flush;
+                                          " state to ready"
+                                       << std::flush;
 
                         // Indicate send is ready upon subscribe
                         // TODO(tievens): Maybe needs a delay as subscriber may have not received ok before data is sent
@@ -372,10 +409,7 @@ namespace quicr {
 
                     } else { // Server mode
                         // TODO(tievens): add filter type when caching supports it
-                        if (_delegate->cb_subscribe(conn_ctx.conn_id,
-                                                    msg.subscribe_id,
-                                                    tfn.name_space,
-                                                    tfn.name)) {
+                        if (_delegate->cb_subscribe(conn_ctx.conn_id, msg.subscribe_id, tfn.name_space, tfn.name)) {
                             send_subscribe_ok(conn_ctx, msg.subscribe_id, MOQT_SUBSCRIBE_EXPIRES, false);
                         }
                     }
@@ -397,12 +431,10 @@ namespace quicr {
 
                     if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
                         _logger->warning << "Received subscribe ok to unknown subscribe track"
-                                         << " conn_id:" << conn_ctx.conn_id
-                                         << " subscribe_id: " << msg.subscribe_id
-                                         << " , ignored"
-                                         << std::flush;
+                                         << " conn_id:" << conn_ctx.conn_id << " subscribe_id: " << msg.subscribe_id
+                                         << " , ignored" << std::flush;
 
-                        //TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race condition
+                        // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race condition
                         stream_buffer->resetAny();
                         return true;
                     }
@@ -426,12 +458,10 @@ namespace quicr {
 
                     if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
                         _logger->warning << "Received subscribe error to unknown subscribe_id"
-                                         << " conn_id:" << conn_ctx.conn_id
-                                         << " subscribe_id: " << msg.subscribe_id
-                                         << " , ignored"
-                                         << std::flush;
+                                         << " conn_id:" << conn_ctx.conn_id << " subscribe_id: " << msg.subscribe_id
+                                         << " , ignored" << std::flush;
 
-                        //TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race condition
+                        // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race condition
                         stream_buffer->resetAny();
                         return true;
                     }
@@ -452,7 +482,7 @@ namespace quicr {
 
                 auto& msg = stream_buffer->getAny<MoqAnnounce>();
                 if (*stream_buffer >> msg) {
-                    auto tfn = TrackFullName{ msg.track_namespace, { } };
+                    auto tfn = TrackFullName{ msg.track_namespace, {} };
                     auto th = TrackHash(tfn);
 
                     if (_delegate->cb_announce(conn_ctx.conn_id, th.track_namespace_hash)) {
@@ -473,15 +503,14 @@ namespace quicr {
 
                 auto& msg = stream_buffer->getAny<MoqAnnounceOk>();
                 if (*stream_buffer >> msg) {
-                    auto tfn = TrackFullName{ msg.track_namespace, { } };
+                    auto tfn = TrackFullName{ msg.track_namespace, {} };
                     auto th = TrackHash(tfn);
-                    _logger->debug << "Received announce ok, "
-                                   << " conn_id:" << conn_ctx.conn_id
+                    _logger->debug << "Received announce ok, " << " conn_id:" << conn_ctx.conn_id
                                    << " namespace_hash: " << th.track_namespace_hash << std::flush;
 
                     // Update each track to indicate status is okay to publish
                     auto pub_it = conn_ctx.pub_tracks_by_name.find(th.track_namespace_hash);
-                    for (const auto& td: pub_it->second) {
+                    for (const auto& td : pub_it->second) {
                         if (td.second.get()->statusSend() != MoQTrackDelegate::TrackSendStatus::OK)
                             td.second.get()->setSendStatus(MoQTrackDelegate::TrackSendStatus::NO_SUBSCRIBERS);
                     }
@@ -494,11 +523,30 @@ namespace quicr {
             case MoQMessageType::ANNOUNCE_ERROR:
                 _logger->debug << "Received announce error " << std::flush;
                 break;
-            case MoQMessageType::UNANNOUNCE:
-                _logger->debug << "Received unannounce" << std::flush;
+
+            case MoQMessageType::UNANNOUNCE: {
+                if (not stream_buffer->anyHasValue()) {
+                    _logger->debug << "Received unannounce, init stream buffer" << std::flush;
+                    stream_buffer->initAny<MoqUnannounce>();
+                }
+
+                auto& msg = stream_buffer->getAny<MoqUnannounce>();
+                if (*stream_buffer >> msg) {
+                    auto tfn = TrackFullName{ msg.track_namespace, {} };
+                    auto th = TrackHash(tfn);
+
+                    _logger->info << "Received unannounce for namespace_hash: " << th.track_namespace_hash
+                                  << std::flush;
+
+                    _delegate->cb_unannounce(conn_ctx.conn_id, th.track_namespace_hash, std::nullopt);
+
+                    stream_buffer->resetAny();
+                    return true;
+                }
+
                 break;
-            case MoQMessageType::UNSUBSCRIBE:
-            {
+            }
+            case MoQMessageType::UNSUBSCRIBE: {
                 if (not stream_buffer->anyHasValue()) {
                     _logger->debug << "Received unsubscribe, init stream buffer" << std::flush;
                     stream_buffer->initAny<MoqUnsubscribe>();
@@ -540,24 +588,127 @@ namespace quicr {
                     return true;
                 }
 
+                break;
+            }
+            case MoQMessageType::SUBSCRIBE_DONE: {
+                if (not stream_buffer->anyHasValue()) {
+                    _logger->debug << "Received subscribe done, init stream buffer" << std::flush;
+                    stream_buffer->initAny<MoqSubscribeDone>();
+                }
+
+                auto& msg = stream_buffer->getAny<MoqSubscribeDone>();
+                if (*stream_buffer >> msg) {
+                    auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                    if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                        _logger->warning << "Received subscribe done to unknown subscribe_id"
+                                         << " conn_id:" << conn_ctx.conn_id << " subscribe_id: " << msg.subscribe_id
+                                         << " , ignored" << std::flush;
+
+                        // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race condition
+                        stream_buffer->resetAny();
+                        return true;
+                    }
+                    auto tfn = TrackFullName{ sub_it->second->getTrackNamespace(), sub_it->second->getTrackNamespace() };
+                    auto th = TrackHash(tfn);
+
+                    _logger->debug << "Received subscribe done conn_id: " << conn_ctx.conn_id
+                                   << " subscribe_id: " << msg.subscribe_id
+                                   << " track namespace hash: " << th.track_namespace_hash
+                                   << " name hash: " << th.track_name_hash
+                                   << " track alias: " << th.track_fullname_hash
+                                   << std::flush;
+
+                    sub_it->second.get()->cb_readNotReady(MoQTrackDelegate::TrackReadStatus::NOT_SUBSCRIBED);
+                    _delegate->cb_unannounce(conn_ctx.conn_id, th.track_namespace_hash, th.track_name_hash);
+
+                    stream_buffer->resetAny();
+                    return true;
+                }
+                break;
+            }
+            case MoQMessageType::ANNOUNCE_CANCEL: {
+                if (not stream_buffer->anyHasValue()) {
+                    _logger->debug << "Received announce cancel, init stream buffer" << std::flush;
+                    stream_buffer->initAny<MoqAnnounceCancel>();
+                }
+
+                auto& msg = stream_buffer->getAny<MoqAnnounceCancel>();
+                if (*stream_buffer >> msg) {
+                    auto tfn = TrackFullName{ msg.track_namespace, {} };
+                    auto th = TrackHash(tfn);
+
+                    _logger->info << "Received announce cancel for namespace_hash: " << th.track_namespace_hash
+                                  << std::flush;
+
+                    stream_buffer->resetAny();
+                    return true;
+                }
 
                 break;
             }
-            case MoQMessageType::SUBSCRIBE_DONE:
-                _logger->debug << "Received subscribe done" << std::flush;
+            case MoQMessageType::TRACK_STATUS_REQUEST: {
+                if (not stream_buffer->anyHasValue()) {
+                    _logger->debug << "Received track status request, init stream buffer" << std::flush;
+                    stream_buffer->initAny<MoqTrackStatusRequest>();
+                }
+
+                auto& msg = stream_buffer->getAny<MoqTrackStatusRequest>();
+                if (*stream_buffer >> msg) {
+                    auto tfn = TrackFullName{ msg.track_namespace, msg.track_name };
+                    auto th = TrackHash(tfn);
+
+                    _logger->info << "Received track status request for "
+                                  << " namespace_hash: " << th.track_namespace_hash
+                                  << " name_hash: " << th.track_name_hash
+                                  << std::flush;
+
+                    stream_buffer->resetAny();
+                    return true;
+                }
+
                 break;
-            case MoQMessageType::ANNOUNCE_CANCEL:
-                _logger->debug << "Received announce cancel" << std::flush;
+            }
+            case MoQMessageType::TRACK_STATUS: {
+                if (not stream_buffer->anyHasValue()) {
+                    _logger->debug << "Received track status, init stream buffer" << std::flush;
+                    stream_buffer->initAny<MoqTrackStatus>();
+                }
+
+                auto& msg = stream_buffer->getAny<MoqTrackStatus>();
+                if (*stream_buffer >> msg) {
+                    auto tfn = TrackFullName{ msg.track_namespace, msg.track_name };
+                    auto th = TrackHash(tfn);
+
+                    _logger->info << "Received track status for "
+                                  << " namespace_hash: " << th.track_namespace_hash
+                                  << " name_hash: " << th.track_name_hash
+                                  << std::flush;
+
+                    stream_buffer->resetAny();
+                    return true;
+                }
+
                 break;
-            case MoQMessageType::TRACK_STATUS_REQUEST:
-                _logger->debug << "Received track status request" << std::flush;
+            }
+            case MoQMessageType::GOWAY: {
+                if (not stream_buffer->anyHasValue()) {
+                    _logger->debug << "Received goaway, init stream buffer" << std::flush;
+                    stream_buffer->initAny<MoqGoaway>();
+                }
+
+                auto& msg = stream_buffer->getAny<MoqGoaway>();
+                if (*stream_buffer >> msg) {
+                    std::string new_sess_uri(msg.new_session_uri.begin(), msg.new_session_uri.end());
+                    _logger->info << "Received goaway "
+                                  << " new session uri: " << new_sess_uri
+                                  << std::flush;
+
+                    stream_buffer->resetAny();
+                    return true;
+                }
+
                 break;
-            case MoQMessageType::TRACK_STATUS:
-                _logger->debug << "Received track status" << std::flush;
-                break;
-            case MoQMessageType::GOWAY:
-                _logger->debug << "Received goaway" << std::flush;
-                break;
+            }
             case MoQMessageType::CLIENT_SETUP: {
                     if (not stream_buffer->anyHasValue()) {
                         _logger->debug << "Received client setup, init stream buffer" << std::flush;
@@ -984,12 +1135,79 @@ namespace quicr {
 
             _logger->debug << "remove subscribe id: " << *subscribe_id << std::flush;
 
+            _transport->deleteDataContext(conn_ctx.conn_id, delegate._mi_send_data_ctx_id);
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+            _mexport.del_data_ctx_info(conn_ctx.conn_id, delegate._mi_send_data_ctx_id);
+#endif
+            delegate._mi_send_data_ctx_id = 0;
+
+
             if (remove_delegate) {
                 std::lock_guard<std::mutex> _(_state_mutex);
                 conn_ctx.tracks_by_sub_id.erase(*subscribe_id);
             }
         }
     }
+
+    void MoQInstance::unpublishTrack(TransportConnId conn_id,
+                                     std::shared_ptr<MoQTrackDelegate> track_delegate) {
+
+        // Generate track alias
+        auto tfn = TrackFullName{ track_delegate->getTrackNamespace(), track_delegate->getTrackName() };
+        auto th = TrackHash(tfn);
+
+        _logger->info << "Unpublish track conn_id: " << conn_id
+                      << " hash: " << th.track_fullname_hash << std::flush;
+
+        std::lock_guard<std::mutex> _(_state_mutex);
+
+        auto conn_it = _connections.find(conn_id);
+        if (conn_it == _connections.end()) {
+            _logger->error << "Unpublish track conn_id: " << conn_id << " does not exist." << std::flush;
+            return;
+        }
+
+        // Check if this published track is a new namespace or existing.
+        auto pub_ns_it = conn_it->second.pub_tracks_by_name.find(th.track_namespace_hash);
+        if (pub_ns_it != conn_it->second.pub_tracks_by_name.end()) {
+            auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
+            if (pub_n_it != pub_ns_it->second.end()) {
+
+                // Send subscribe done if track has subscriber and is sending
+                if (pub_n_it->second->getSendStatus() == MoQTrackDelegate::TrackSendStatus::OK
+                    && pub_n_it->second->getSubscribeId().has_value()) {
+                    _logger->info << "Unpublish track namespace hash: " << th.track_namespace_hash
+                                  << " track_name_hash: " << th.track_name_hash
+                                  << " track_alias: " << th.track_fullname_hash
+                                  << ", sending subscribe_done"
+                                  << std::flush;
+                    send_subscribe_done(conn_it->second, *pub_n_it->second->getSubscribeId(), "Unpublish track");
+                } else {
+                    _logger->info << "Unpublish track namespace hash: " << th.track_namespace_hash
+                                  << " track_name_hash: " << th.track_name_hash
+                                  << " track_alias: " << th.track_fullname_hash
+                                  << std::flush;
+                }
+
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+                _mexport.del_data_ctx_info(conn_id, track_delegate->_mi_send_data_ctx_id);
+#endif
+                pub_n_it->second->_mi_send_data_ctx_id = 0;
+
+                pub_n_it->second->setSendStatus(MoQTrackDelegate::TrackSendStatus::NOT_ANNOUNCED);
+                pub_ns_it->second.erase(pub_n_it);
+            }
+
+            if (!pub_ns_it->second.size()) {
+                _logger->info << "Unpublish namespace hash: " << th.track_namespace_hash
+                              << ", has no tracks, sending unannounce" << std::flush;
+                send_unannounce(conn_it->second, track_delegate->getTrackNamespace());
+                conn_it->second.pub_tracks_by_name.erase(pub_ns_it);
+            }
+        }
+    }
+
 
     std::optional<uint64_t> MoQInstance::publishTrack(TransportConnId conn_id,
                                          std::shared_ptr<MoQTrackDelegate> track_delegate) {
@@ -1262,6 +1480,9 @@ namespace quicr {
 
                 // TODO(tievens): Clean up publish tracks
 
+#ifndef LIBQUICR_WITHOUT_INFLUXDB
+                _mexport.del_conn_ctx_info(conn_id);
+#endif
                 _connections.erase(conn_it);
 
                 break;
