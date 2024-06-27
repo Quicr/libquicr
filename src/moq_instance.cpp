@@ -520,10 +520,34 @@ namespace quicr {
                 }
                 break;
             }
-            case MoQMessageType::ANNOUNCE_ERROR:
-                _logger->debug << "Received announce error " << std::flush;
-                break;
+            case MoQMessageType::ANNOUNCE_ERROR: {
+                if (not stream_buffer->anyHasValue()) {
+                    _logger->debug << "Received announce error, init stream buffer" << std::flush;
+                    stream_buffer->initAny<MoqAnnounceError>();
+                }
 
+                auto& msg = stream_buffer->getAny<MoqAnnounceError>();
+                if (*stream_buffer >> msg) {
+                    if (msg.track_namespace) {
+                        std::string reason = "unknown";
+                        auto tfn = TrackFullName{ *msg.track_namespace, {} };
+                        auto th = TrackHash(tfn);
+
+                        if (msg.reason_phrase) {
+                            reason.assign(msg.reason_phrase->begin(), msg.reason_phrase->end());
+                        }
+
+                        _logger->info << "Received announce error for namespace_hash: " << th.track_namespace_hash
+                                      << " error code: " << (msg.err_code.has_value() ? *msg.err_code : 0)
+                                      << " reason: " << reason << std::flush;
+
+                        stream_buffer->resetAny();
+                        return true;
+                    }
+                }
+
+                break;
+            }
             case MoQMessageType::UNANNOUNCE: {
                 if (not stream_buffer->anyHasValue()) {
                     _logger->debug << "Received unannounce, init stream buffer" << std::flush;
