@@ -165,7 +165,7 @@ class serverDelegate : public quicr::MoQInstanceDelegate
     }
 
     void cb_newConnection(qtransport::TransportConnId conn_id,
-                          const std::span<uint8_t>& endpoint_id,
+                          const std::span<uint8_t> endpoint_id,
                           const qtransport::TransportRemote& remote) override {}
 
     void cb_unannounce(qtransport::TransportConnId conn_id,
@@ -266,7 +266,7 @@ class serverDelegate : public quicr::MoQInstanceDelegate
     }
 
     void cb_connectionStatus(qtransport::TransportConnId conn_id,
-                             const std::span<uint8_t>& endpoint_id,
+                             const std::span<uint8_t> endpoint_id,
                              qtransport::TransportStatus status) override {
         auto ep_id = std::string(endpoint_id.begin(), endpoint_id.end());
 
@@ -343,7 +343,7 @@ class serverDelegate : public quicr::MoQInstanceDelegate
         }
 
         if (unsub_pub) {
-            _logger->info << "No subscribers left, unsub publisher track_alias: " << track_alias << std::flush;
+            _logger->info << "No subscribers left, unsubscribe publisher track_alias: " << track_alias << std::flush;
 
             auto anno_ns_it = qserver_vars::announce_active.find(th.track_namespace_hash);
             if (anno_ns_it == qserver_vars::announce_active.end()) {
@@ -351,11 +351,11 @@ class serverDelegate : public quicr::MoQInstanceDelegate
             }
 
             for (auto& [conn_id, tracks]: anno_ns_it->second) {
-                if (tracks.contains(th.track_name_hash)) {
+                if (tracks.contains(th.track_fullname_hash)) {
                     _logger->info << "Unsubscribe to announcer conn_id: " << conn_id
-                                  << " subscribe track_alias: " << th.track_name_hash << std::flush;
+                                  << " subscribe track_alias: " << th.track_fullname_hash << std::flush;
 
-                    tracks.erase(th.track_name_hash); // Add track alias to state
+                    tracks.erase(th.track_fullname_hash); // Add track alias to state
 
                     auto pub_delegate = qserver_vars::pub_subscribes[th.track_fullname_hash][conn_id];
                     if (pub_delegate != nullptr) {

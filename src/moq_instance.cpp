@@ -182,8 +182,6 @@ namespace quicr {
         announce.params = {};
         buffer <<  announce;
 
-        std::vector<uint8_t> net_data = buffer.front(buffer.size());
-
         _logger->debug << "Sending ANNOUNCE to conn_id: " << conn_ctx.conn_id << std::flush;
 
         send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
@@ -197,8 +195,6 @@ namespace quicr {
         announce_ok.track_namespace.assign(track_namespace.begin(), track_namespace.end());
         buffer <<  announce_ok;
 
-        std::vector<uint8_t> net_data = buffer.front(buffer.size());
-
         _logger->debug << "Sending ANNOUNCE OK to conn_id: " << conn_ctx.conn_id << std::flush;
 
         send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
@@ -211,8 +207,6 @@ namespace quicr {
 
         unannounce.track_namespace.assign(track_namespace.begin(), track_namespace.end());
         buffer <<  unannounce;
-
-        std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
         _logger->debug << "Sending UNANNOUNCE to conn_id: " << conn_ctx.conn_id << std::flush;
 
@@ -236,8 +230,6 @@ namespace quicr {
 
         buffer << subscribe;
 
-        std::vector<uint8_t> net_data = buffer.front(buffer.size());
-
         _logger->debug << "Sending SUBSCRIBE to conn_id: " << conn_ctx.conn_id
                        << " subscribe_id: " << subscribe_id
                        << " track namespace hash: " << th.track_namespace_hash
@@ -260,8 +252,6 @@ namespace quicr {
         subscribe_ok.content_exists = content_exists;
         buffer << subscribe_ok;
 
-        std::vector<uint8_t> net_data = buffer.front(buffer.size());
-
         _logger->debug << "Sending SUBSCRIBE OK to conn_id: " << conn_ctx.conn_id
                        << " subscribe_id: " << subscribe_id
                        << std::flush;
@@ -281,8 +271,6 @@ namespace quicr {
         subscribe_done.content_exists = false;
         buffer << subscribe_done;
 
-        std::vector<uint8_t> net_data = buffer.front(buffer.size());
-
         _logger->debug << "Sending SUBSCRIBE DONE to conn_id: " << conn_ctx.conn_id
                        << " subscribe_id: " << subscribe_id
                        << std::flush;
@@ -299,8 +287,6 @@ namespace quicr {
         auto unsubscribe  = MoqUnsubscribe {};
         unsubscribe.subscribe_id = subscribe_id;
         buffer << unsubscribe;
-
-        std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
         _logger->debug << "Sending UNSUBSCRIBE to conn_id: " << conn_ctx.conn_id
                        << " subscribe_id: " << subscribe_id
@@ -325,8 +311,6 @@ namespace quicr {
         subscribe_err.reason_phrase.assign(reason.begin(), reason.end());
 
         buffer << subscribe_err;
-
-        std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
         _logger->debug << "Sending SUBSCRIBE ERROR to conn_id: " << conn_ctx.conn_id
                        << " subscribe_id: " << subscribe_id
@@ -401,9 +385,10 @@ namespace quicr {
 
                         // Indicate send is ready upon subscribe
                         // TODO(tievens): Maybe needs a delay as subscriber may have not received ok before data is sent
-                        ptd->lock()->setSubscribeId(msg.subscribe_id);
-                        ptd->lock()->setSendStatus(MoQTrackDelegate::TrackSendStatus::OK);
-                        ptd->lock()->cb_sendReady();
+                        auto ptd_l = ptd->lock();
+                        ptd_l->setSubscribeId(msg.subscribe_id);
+                        ptd_l->setSendStatus(MoQTrackDelegate::TrackSendStatus::OK);
+                        ptd_l->cb_sendReady();
 
                         conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
 
@@ -511,7 +496,7 @@ namespace quicr {
                     // Update each track to indicate status is okay to publish
                     auto pub_it = conn_ctx.pub_tracks_by_name.find(th.track_namespace_hash);
                     for (const auto& td : pub_it->second) {
-                        if (td.second.get()->statusSend() != MoQTrackDelegate::TrackSendStatus::OK)
+                        if (td.second.get()->getSendStatus() != MoQTrackDelegate::TrackSendStatus::OK)
                             td.second.get()->setSendStatus(MoQTrackDelegate::TrackSendStatus::NO_SUBSCRIBERS);
                     }
 

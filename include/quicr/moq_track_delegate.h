@@ -121,24 +121,6 @@ namespace quicr {
                              uint32_t ttl);
 
         /**
-         * @brief Current track read status
-         *
-         * @details Obtains the current track read status/state
-         *
-         * @returns current TrackReadStatus
-         */
-        TrackReadStatus statusRead() { return _read_status; }
-
-        /**
-         * @brief Current track send status
-         *
-         * @details Obtains the current track send status/state
-         *
-         * @returns current TrackSendStatus
-         */
-        TrackSendStatus statusSend() { return _send_status; }
-
-        /**
          * @brief set/update the default priority for published objects
          */
         void setDefaultPriority(uint8_t priority) { _def_priority = priority; }

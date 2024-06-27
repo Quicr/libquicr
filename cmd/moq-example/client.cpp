@@ -93,11 +93,11 @@ public:
         _logger(std::make_shared<cantina::Logger>("MID", logger)) {}
 
     void cb_newConnection(qtransport::TransportConnId conn_id,
-                          const std::span<uint8_t>& endpoint_id,
+                          const std::span<uint8_t> endpoint_id,
                           const qtransport::TransportRemote& remote) override {}
 
     void cb_connectionStatus(qtransport::TransportConnId conn_id,
-                             const std::span<uint8_t>& endpoint_id,
+                             const std::span<uint8_t> endpoint_id,
                              qtransport::TransportStatus status) override
     {
         auto ep_id = std::string(endpoint_id.begin(), endpoint_id.end());
@@ -147,7 +147,7 @@ void do_publisher(const std::string t_namespace,
             published_track = true;
         }
 
-        if (track_delegate->statusSend() != quicr::MoQTrackDelegate::TrackSendStatus::OK) {
+        if (track_delegate->getSendStatus() != quicr::MoQTrackDelegate::TrackSendStatus::OK) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
@@ -180,8 +180,8 @@ void do_publisher(const std::string t_namespace,
             group_id++;
         }
 
-        std::vector<uint8_t> msg_v(msg.begin(), msg.end());
-        auto result = track_delegate->sendObject(group_id, object_id++, msg_v);
+        track_delegate->sendObject(
+          group_id, object_id++, std::span{ std::bit_cast<uint8_t*>(msg.data()), msg.size() });
     }
 
     mi->unpublishTrack(*qclient_vars::conn_id, track_delegate);
