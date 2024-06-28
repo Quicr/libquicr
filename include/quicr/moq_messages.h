@@ -54,7 +54,7 @@ enum class MoQMessageType : uint64_t
     TRACK_STATUS_REQUEST,
     TRACK_STATUS,
 
-    GOWAY = 0x10,
+    GOAWAY = 0x10,
 
     CLIENT_SETUP = 0x40,
     SERVER_SETUP,

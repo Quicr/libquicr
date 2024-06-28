@@ -165,7 +165,7 @@ class serverDelegate : public quicr::MoQInstanceDelegate
     }
 
     void cb_newConnection(qtransport::TransportConnId conn_id,
-                          const std::span<uint8_t> endpoint_id,
+                          std::span<uint8_t const> endpoint_id,
                           const qtransport::TransportRemote& remote) override {}
 
     void cb_unannounce(qtransport::TransportConnId conn_id,
@@ -266,7 +266,7 @@ class serverDelegate : public quicr::MoQInstanceDelegate
     }
 
     void cb_connectionStatus(qtransport::TransportConnId conn_id,
-                             const std::span<uint8_t> endpoint_id,
+                             std::span<uint8_t const> endpoint_id,
                              qtransport::TransportStatus status) override {
         auto ep_id = std::string(endpoint_id.begin(), endpoint_id.end());
 

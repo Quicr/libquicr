@@ -140,7 +140,7 @@ namespace quicr {
         // --------------------------------------------------------------------------
 
         /**
-         * @brief Notificaiton of received data object
+         * @brief Notification of received data object
          *
          * @details Event notification to provide the caller the received data object
          *

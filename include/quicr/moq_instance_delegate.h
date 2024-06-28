@@ -30,7 +30,7 @@ namespace quicr {
          * @param remote           Transport remote connection information
          */
         virtual void cb_newConnection([[maybe_unused]] TransportConnId conn_id,
-                                      [[maybe_unused]] const std::span<uint8_t> endpoint_id,
+                                      [[maybe_unused]] std::span<uint8_t const> endpoint_id,
                                       [[maybe_unused]] const TransportRemote& remote) {};
 
         /**
@@ -42,7 +42,7 @@ namespace quicr {
          * @param status           Transport status of connection id
          */
         virtual void cb_connectionStatus(TransportConnId conn_id,
-                                         const std::span<uint8_t> endpoint_id,
+                                         std::span<uint8_t const> endpoint_id,
                                          TransportStatus status) = 0;
 
         /**

@@ -743,6 +743,6 @@ TEST_CASE("MoqGoaway Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
   MoqGoaway goaway_out{};
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::GOWAY), goaway_out));
+  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::GOAWAY), goaway_out));
   CHECK_EQ(from_ascii("go.away.now.no.return"), goaway_out.new_session_uri);
 }

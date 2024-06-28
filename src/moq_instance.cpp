@@ -699,7 +699,7 @@ namespace quicr {
 
                 break;
             }
-            case MoQMessageType::GOWAY: {
+            case MoQMessageType::GOAWAY: {
                 if (not stream_buffer->anyHasValue()) {
                     _logger->debug << "Received goaway, init stream buffer" << std::flush;
                     stream_buffer->initAny<MoqGoaway>();
@@ -1522,7 +1522,7 @@ namespace quicr {
     {
         auto stream_buf = _transport->getStreamBuffer(conn_id, stream_id);
 
-        //std::lock_guard<std::mutex> _(_state_mutex);
+        //TODO(tievens): Considering moving lock to here... std::lock_guard<std::mutex> _(_state_mutex);
 
         auto& conn_ctx = _connections[conn_id];
 
@@ -1540,7 +1540,7 @@ namespace quicr {
             conn_ctx.ctrl_data_ctx_id = data_ctx_id;
         }
 
-        for (int i=0; i < 60; i++) { // don't loop forever, especially on bad stream
+        for (int i=0; i < MOQT_READ_LOOP_MAX_PER_STREAM; i++) { // don't loop forever, especially on bad stream
             // bidir is Control stream, data streams are unidirectional
             if (is_bidir) {
                 if (not conn_ctx.ctrl_msg_type_received) {
@@ -1578,7 +1578,7 @@ namespace quicr {
     void MoQInstance::on_recv_dgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id)
     {
         MoqObjectStream object_datagram_out;
-        for (int i=0; i < 70; i++) {
+        for (int i=0; i < MOQT_READ_LOOP_MAX_PER_STREAM; i++) {
             auto data = _transport->dequeue(conn_id, data_ctx_id);
             if (data && !data->empty()) {
                 StreamBuffer<uint8_t> buffer;
@@ -1593,7 +1593,7 @@ namespace quicr {
                 MoqObjectDatagram msg;
                 if (buffer >> msg) {
 
-                    //std::lock_guard<std::mutex> _(_state_mutex);
+                    ////TODO(tievens): Considering moving lock to here... std::lock_guard<std::mutex> _(_state_mutex);
 
                     auto& conn_ctx = _connections[conn_id];
                     auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);

@@ -19,8 +19,9 @@
 #include <string_view>
 
 namespace quicr {
-    constexpr uint64_t MOQT_VERSION = 0xff000004; /// draft-ietf-moq-transport-04
-    constexpr uint64_t MOQT_SUBSCRIBE_EXPIRES = 0;      /// Never expires
+    constexpr uint64_t MOQT_VERSION = 0xff000004;             /// draft-ietf-moq-transport-04
+    constexpr uint64_t MOQT_SUBSCRIBE_EXPIRES = 0;            /// Never expires
+    constexpr int MOQT_READ_LOOP_MAX_PER_STREAM = 60;         /// Support packet/frame bursts, but do not allow starving other streams
 
     using namespace qtransport;
 
