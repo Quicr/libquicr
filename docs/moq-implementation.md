@@ -121,8 +121,6 @@ sequenceDiagram
     actor S as Subscriber
     participant SI as SUB_MoQInstance
     participant R as Relay
-    participant PI as PUB_MoQInstance
-    actor P as Publisher
     
     S->>SI: subscribeTrack('conf/100/tim/video', '1080p')
     SI->>R: SUBSCRIBE (namespace, track_name)
