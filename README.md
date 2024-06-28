@@ -43,4 +43,4 @@ openssl req -nodes -x509 -newkey ec:<(openssl ecparam -name secp256r1) -days 365
 
 ### MOQ Implementation Documentation
 
-See [docs/moq-implementation.md]
+See [MOQ Implementation](docs/moq-implementation.md)
