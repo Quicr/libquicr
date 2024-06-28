@@ -110,7 +110,7 @@ send any objecs yet.
 
 ### Create Subscribe Track Flow
 
-API call to 'subscribeTrack(connection_id, track_delegate)' will establish a new subscribe track fullname. A MOQT
+API call to `subscribeTrack(connection_id, track_delegate)` will establish a new subscribe track fullname. A MOQT
 subscribe will be sent when calling this method. 
 
 Below shows the flow of what happens with an initial subscribe. 
@@ -167,7 +167,7 @@ flowchart LR
 > [!NOTE]
 > In the multiple publisher use-case, the connection ID is taken into account when processing the above flow. Forwarding
 > state is updated for each matching namespace publisher. What is not shown, but is pretty complicated, is that
-> not all publishers will subscribe OK to [ns,n], resulting in some being added to the forwarding state and others not.
+> not all publishers will subscribe OK to `[ns,n]`, resulting in some being added to the forwarding state and others not.
 
 #### Subscribe handling when publisher announcement comes after subscribe
 Below illustrates the flow of when subscribe arrives before announcer.
@@ -186,19 +186,21 @@ flowchart LR
     sQy_b --> sQy
     end
     sQy --> D
+    sQ -- No --> D
     aC -- No --> D
     
     
 ```
 
-Noticed that the above flow is not so complicated with having to update each announcer, but it is more complicated
-in identifying each distinct subscribe [ns,n].
+> [!NOTE]
+> Noticed that the above flow is not so complicated with having to update each announcer, but it is more complicated
+> in identifying each distinct subscribe `[ns,n]`.
 
 ### Unsubscribe Flow
 Unsubscribe flow gets pretty complicated as the state requires notifying the publisher (announcer) using an unsubscribe
 to indicate there are no subscribers. If there is at lest one subscriber, then the announcer is not unsubscribed.
-If there are zero subscribers left, then an unsubscribe is sent to each of the announcer that
-matchs `[ns,n] = track_alias = track fullname`
+If there are zero subscribers left, then an unsubscribe is sent to each of the announcers that
+matches `[ns,n] = track_alias = track fullname`
 
 TODO: add flow diagram
 
@@ -211,11 +213,11 @@ more churn.
 
 For this reason, the relay does not propagate this right now. 
 
-For the same reasoning as mentioned above, the relay will process an UNANNOUNCE locally and remove the announcer
+For the same reasoning as mentioned above, the relay will process an UNANNOUNCE and remove the announcer
 and associated forwarding table entries, but will not cause excessive churn with subscribers to notify them yet that
-the publisher is gone. The existing subscribes will linger until the clients decided to unsubscribe. 
+the publisher is gone. The existing subscribes will linger until the clients decide to unsubscribe. 
 
-The MOQT draft-04 includes TRACK_STATUS, which should be used to convey per subscriber and publisher on 
+The MOQT draft-04 has TRACK_STATUS, which should be used to convey per subscriber and publisher on 
 status if there are any subscribers and/or publishers. 
 
 Excessive churn can be seen more often with race conditions, which would benefit from some level of dampening. 
