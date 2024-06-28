@@ -134,16 +134,91 @@ sequenceDiagram
 > Notice in the above diagram, the subscribe is successful and data could be read, but it does not
 > yet result in objects being received.  
 
-### Subscribe to Publish Announce Flow
+### Subscribe and Publish Announce Flows
 
 Before data can be sent to the subscribe, the relay **MUST** associate publish announcements by issuing a subscribe
 to the publisher. The publisher will then acknowledge the track fullname and will start to send data using the
 `subscribe_id` for the track fullname (track alias). 
 
-#### Subscribe association when publisher announcement comes before subscribe
-Below illustrates the flow of when a subscribe arrives after announcer is already known. 
+Depending on if subscribe or announce comes first, the flow is different.
 
-#### Subscribe association when publisher announcement comes after subscribe
-Below illustrates the flow of when a subscribe arrives after announcer is already known. 
+#### Subscribe handling when publisher announcement comes before subscribe
+
+Below illustrates the flow of when subscribe arrives after announcer is already known.
+
+```mermaid
+flowchart LR
+    D((Done))
+    aS[[Append subscribe to forwarding state]]
+    
+    
+    S>"Subscribe [ns,n]"] --> asQ{"ns == announce ns?"}
+    asQ -- Yes --> asQy(("iterate"))
+    subgraph "forEach connection of announce == [n]" 
+        asQy --> sQ{Have existing\nsubscribes?}
+        sQ -- No --> sQn["Send subscribe to announcer [ns,n]"]
+        sQn --> aS
+        sQ -- Yes --> aS
+    end
+    aS --> D
+    asQ -- No --> D
+```
+
+> [!NOTE]
+> In the multiple publisher use-case, the connection ID is taken into account when processing the above flow. Forwarding
+> state is updated for each matching namespace publisher. What is not shown, but is pretty complicated, is that
+> not all publishers will subscribe OK to [ns,n], resulting in some being added to the forwarding state and others not.
+
+#### Subscribe handling when publisher announcement comes after subscribe
+Below illustrates the flow of when subscribe arrives before announcer.
+
+```mermaid
+flowchart LR
+    D((Done))
+    
+    A>"Announce [n]"] --> aC{"Is [n] new?"}
+    aC -- Yes --> aCy[Create state for new announce]
+    aCy --> sQ{"Have subscribes\nmatching [n]?"}
+    sQ -- Yes --> sQy(("`iterate`"))
+    subgraph "forEach subscribe[ns,n]"
+    sQy --> sQy_a[[Get Track full name]]
+    sQy_a --> sQy_b[Send subscribe]
+    sQy_b --> sQy
+    end
+    sQy --> D
+    aC -- No --> D
+    
+    
+```
+
+Noticed that the above flow is not so complicated with having to update each announcer, but it is more complicated
+in identifying each distinct subscribe [ns,n].
+
+### Unsubscribe Flow
+Unsubscribe flow gets pretty complicated as the state requires notifying the publisher (announcer) using an unsubscribe
+to indicate there are no subscribers. If there is at lest one subscriber, then the announcer is not unsubscribed.
+If there are zero subscribers left, then an unsubscribe is sent to each of the announcer that
+matchs `[ns,n] = track_alias = track fullname`
+
+TODO: add flow diagram
+
+### Unannounce Flow
+Unannounce flow is complicated in that SUBSCRIBE_DONE should be sent first to indicate that publishing is over. 
+When the relay receives a SUBSCRIBE_DONE, it updates the state of the subscription to the publisher to indicate it's over.
+The relay could propagate the SUBSCRIBE_DONE, but then that would cause excessive churn over thousands of subscribers,
+especially when considering that in MOQT the only way to come back from SUBSCRIBE_DONE is to unsubscribe and subscribe again...
+more churn. 
+
+For this reason, the relay does not propagate this right now. 
+
+For the same reasoning as mentioned above, the relay will process an UNANNOUNCE locally and remove the announcer
+and associated forwarding table entries, but will not cause excessive churn with subscribers to notify them yet that
+the publisher is gone. The existing subscribes will linger until the clients decided to unsubscribe. 
+
+The MOQT draft-04 includes TRACK_STATUS, which should be used to convey per subscriber and publisher on 
+status if there are any subscribers and/or publishers. 
+
+Excessive churn can be seen more often with race conditions, which would benefit from some level of dampening. 
+The current example/relay implementations takes this into account. 
 
 
