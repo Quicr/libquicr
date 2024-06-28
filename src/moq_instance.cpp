@@ -140,10 +140,10 @@ namespace quicr {
 
         client_setup.num_versions = 1;      // NOTE: Not used for encode, verison vector size is used
         client_setup.supported_versions = { MOQT_VERSION };
-        client_setup.role_parameter.param_type = static_cast<uint64_t>(ParameterType::Role);
-        client_setup.role_parameter.param_length = 0x1; // NOTE: not used for encode, size of value is used
-        client_setup.role_parameter.param_value = { 0x03 };
-        client_setup.endpoint_id_parameter.param_value.assign(_client_config.endpoint_id.begin(),
+        client_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::Role);
+        client_setup.role_parameter.length = 0x1; // NOTE: not used for encode, size of value is used
+        client_setup.role_parameter.value = { 0x03 };
+        client_setup.endpoint_id_parameter.value.assign(_client_config.endpoint_id.begin(),
                                                               _client_config.endpoint_id.end());
 
         buffer << client_setup;
@@ -159,10 +159,10 @@ namespace quicr {
         auto server_setup = MoqServerSetup{};
 
         server_setup.selection_version = { conn_ctx.client_version };
-        server_setup.role_parameter.param_type = static_cast<uint64_t>(ParameterType::Role);
-        server_setup.role_parameter.param_length = 0x1; // NOTE: not used for encode, size of value is used
-        server_setup.role_parameter.param_value = { 0x03 };
-        server_setup.endpoint_id_parameter.param_value.assign(_server_config.endpoint_id.begin(),
+        server_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::Role);
+        server_setup.role_parameter.length = 0x1; // NOTE: not used for encode, size of value is used
+        server_setup.role_parameter.value = { 0x03 };
+        server_setup.endpoint_id_parameter.value.assign(_server_config.endpoint_id.begin(),
                                                               _server_config.endpoint_id.end());
 
 
@@ -733,18 +733,18 @@ namespace quicr {
 
                         }
 
-                        std::string client_endpoint_id(msg.endpoint_id_parameter.param_value.begin(),
-                                                        msg.endpoint_id_parameter.param_value.end());
+                        std::string client_endpoint_id(msg.endpoint_id_parameter.value.begin(),
+                                                        msg.endpoint_id_parameter.value.end());
 
                         _delegate->cb_connectionStatus(conn_ctx.conn_id,
-                                                       msg.endpoint_id_parameter.param_value,
+                                                       msg.endpoint_id_parameter.value,
                                                        TransportStatus::Ready);
 
                         _logger->info << "Client setup received "
                                       << " conn_id:" << conn_ctx.conn_id
                                       << " from: " << client_endpoint_id
                                       << " num_versions: " << msg.num_versions
-                                      << " role: " << static_cast<int>(msg.role_parameter.param_value.front())
+                                      << " role: " << static_cast<int>(msg.role_parameter.value.front())
                                       << " version: 0x" << std::hex << msg.supported_versions.front()
                                       << std::dec << std::flush;
 
@@ -773,17 +773,17 @@ namespace quicr {
 
                 auto& msg = stream_buffer->getAny<MoqServerSetup>();
                 if (*stream_buffer >> msg) {
-                    std::string server_endpoint_id(msg.endpoint_id_parameter.param_value.begin(),
-                                msg.endpoint_id_parameter.param_value.end());
+                    std::string server_endpoint_id(msg.endpoint_id_parameter.value.begin(),
+                                msg.endpoint_id_parameter.value.end());
 
                     _delegate->cb_connectionStatus(conn_ctx.conn_id,
-                               msg.endpoint_id_parameter.param_value,
+                               msg.endpoint_id_parameter.value,
                                TransportStatus::Ready);
 
                     _logger->info << "Server setup received"
                                   << " conn_id:" << conn_ctx.conn_id
                                   << " from: " << server_endpoint_id
-                                  << " role: " << static_cast<int>(msg.role_parameter.param_value.front())
+                                  << " role: " << static_cast<int>(msg.role_parameter.value.front())
                                   << " selected_version: 0x" << std::hex << msg.selection_version
                                   << std::dec << std::flush;
 

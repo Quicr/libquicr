@@ -94,9 +94,9 @@ enum struct ParameterType : uint8_t {
 };
 
 struct MoqParameter {
-  uint64_t param_type {0};
-  uint64_t param_length {0};
-  bytes param_value;
+  uint64_t type{0};
+  uint64_t length{0};
+  bytes value;
   friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqParameter &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
                                                        const MoqParameter& msg);

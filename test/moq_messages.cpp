@@ -248,9 +248,9 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
   MoqParameter param;
-  param.param_type = static_cast<uint64_t>(ParameterType::AuthorizationInfo),
-  param.param_length = 0x2;
-  param.param_value = {0x1, 0x2};
+  param.type = static_cast<uint64_t>(ParameterType::AuthorizationInfo),
+  param.length = 0x2;
+  param.value = {0x1, 0x2};
 
   auto subscribe  = MoqSubscribe {};
   subscribe.subscribe_id = 0x1;
@@ -272,9 +272,9 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
   CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
   CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
   CHECK_EQ(subscribe.track_params.size(), subscribe_out.track_params.size());
-  CHECK_EQ(subscribe.track_params[0].param_type, subscribe_out.track_params[0].param_type);
-  CHECK_EQ(subscribe.track_params[0].param_length, subscribe_out.track_params[0].param_length);
-  CHECK_EQ(subscribe.track_params[0].param_value, subscribe_out.track_params[0].param_value);
+  CHECK_EQ(subscribe.track_params[0].type, subscribe_out.track_params[0].type);
+  CHECK_EQ(subscribe.track_params[0].length, subscribe_out.track_params[0].length);
+  CHECK_EQ(subscribe.track_params[0].value, subscribe_out.track_params[0].value);
 }
 
 
@@ -282,14 +282,14 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
   MoqParameter param1;
-  param1.param_type = static_cast<uint64_t>(ParameterType::AuthorizationInfo);
-  param1.param_length = 0x2;
-  param1.param_value = {0x1, 0x2};
+  param1.type = static_cast<uint64_t>(ParameterType::AuthorizationInfo);
+  param1.length = 0x2;
+  param1.value = {0x1, 0x2};
 
   MoqParameter param2;
-  param2.param_type = static_cast<uint64_t>(ParameterType::AuthorizationInfo);
-  param2.param_length = 0x3;
-  param2.param_value = {0x1, 0x2, 0x3};
+  param2.type = static_cast<uint64_t>(ParameterType::AuthorizationInfo);
+  param2.length = 0x3;
+  param2.value = {0x1, 0x2, 0x3};
 
 
   auto subscribe  = MoqSubscribe {};
@@ -313,13 +313,13 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
   CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
   CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
   CHECK_EQ(subscribe.track_params.size(), subscribe_out.track_params.size());
-  CHECK_EQ(subscribe.track_params[0].param_type, subscribe_out.track_params[0].param_type);
-  CHECK_EQ(subscribe.track_params[0].param_length, subscribe_out.track_params[0].param_length);
-  CHECK_EQ(subscribe.track_params[0].param_value, subscribe_out.track_params[0].param_value);
+  CHECK_EQ(subscribe.track_params[0].type, subscribe_out.track_params[0].type);
+  CHECK_EQ(subscribe.track_params[0].length, subscribe_out.track_params[0].length);
+  CHECK_EQ(subscribe.track_params[0].value, subscribe_out.track_params[0].value);
 
-  CHECK_EQ(subscribe.track_params[1].param_type, subscribe_out.track_params[1].param_type);
-  CHECK_EQ(subscribe.track_params[1].param_length, subscribe_out.track_params[1].param_length);
-  CHECK_EQ(subscribe.track_params[1].param_value, subscribe_out.track_params[1].param_value);
+  CHECK_EQ(subscribe.track_params[1].type, subscribe_out.track_params[1].type);
+  CHECK_EQ(subscribe.track_params[1].length, subscribe_out.track_params[1].length);
+  CHECK_EQ(subscribe.track_params[1].value, subscribe_out.track_params[1].value);
 }
 
 
@@ -350,9 +350,9 @@ MoqSubscribe generate_subscribe(FilterType filter, size_t  num_params = 0, uint6
 
   while(num_params > 0) {
     MoqParameter param1;
-    param1.param_type = static_cast<uint64_t>(ParameterType::AuthorizationInfo);
-    param1.param_length = 0x2;
-    param1.param_value = {0x1, 0x2};
+    param1.type = static_cast<uint64_t>(ParameterType::AuthorizationInfo);
+    param1.length = 0x2;
+    param1.value = {0x1, 0x2};
     out.track_params.push_back(param1);
     num_params--;
   }
@@ -386,12 +386,12 @@ TEST_CASE("Subscribe (Combo) Message encode/decode")
     CHECK_EQ(subscribes[i].filter_type, subscribe_out.filter_type);
     CHECK_EQ(subscribes[i].track_params.size(), subscribe_out.track_params.size());
     for(size_t j = 0; j < subscribes[i].track_params.size(); j++) {
-      CHECK_EQ(subscribes[i].track_params[j].param_type,
-               subscribe_out.track_params[j].param_type);
-      CHECK_EQ(subscribes[i].track_params[j].param_length,
-               subscribe_out.track_params[j].param_length);
-      CHECK_EQ(subscribes[i].track_params[j].param_value,
-               subscribe_out.track_params[j].param_value);
+      CHECK_EQ(subscribes[i].track_params[j].type,
+               subscribe_out.track_params[j].type);
+      CHECK_EQ(subscribes[i].track_params[j].length,
+               subscribe_out.track_params[j].length);
+      CHECK_EQ(subscribes[i].track_params[j].value,
+               subscribe_out.track_params[j].value);
 
     }
   }
@@ -533,10 +533,10 @@ TEST_CASE("ClientSetup  Message encode/decode")
   auto client_setup = MoqClientSetup {};
   client_setup.num_versions = 2;
   client_setup.supported_versions = {0x1000, 0x2000};
-  client_setup.role_parameter.param_type = static_cast<uint64_t>(ParameterType::Role);
-  client_setup.role_parameter.param_length = 0x1;
-  client_setup.role_parameter.param_value = {0xFF};
-  client_setup.endpoint_id_parameter.param_value.assign(endpoint_id.begin(), endpoint_id.end());
+  client_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::Role);
+  client_setup.role_parameter.length = 0x1;
+  client_setup.role_parameter.value = {0xFF};
+  client_setup.endpoint_id_parameter.value.assign(endpoint_id.begin(), endpoint_id.end());
 
   buffer << client_setup;
 
@@ -545,8 +545,8 @@ TEST_CASE("ClientSetup  Message encode/decode")
   MoqClientSetup client_setup_out;
   CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::CLIENT_SETUP), client_setup_out));
   CHECK_EQ(client_setup.supported_versions, client_setup_out.supported_versions);
-  CHECK_EQ(client_setup.role_parameter.param_value, client_setup_out.role_parameter.param_value);
-  CHECK_EQ(client_setup.endpoint_id_parameter.param_value, client_setup_out.endpoint_id_parameter.param_value);
+  CHECK_EQ(client_setup.role_parameter.value, client_setup_out.role_parameter.value);
+  CHECK_EQ(client_setup.endpoint_id_parameter.value, client_setup_out.endpoint_id_parameter.value);
 }
 
 
@@ -556,10 +556,10 @@ TEST_CASE("ServerSetup  Message encode/decode")
   const std::string endpoint_id = "server_test";
   auto server_setup = MoqServerSetup {};
   server_setup.selection_version = {0x1000};
-  server_setup.role_parameter.param_type = static_cast<uint64_t>(ParameterType::Role);
-  server_setup.role_parameter.param_length = 0x1;
-  server_setup.role_parameter.param_value = {0xFF};
-  server_setup.endpoint_id_parameter.param_value.assign(endpoint_id.begin(), endpoint_id.end());
+  server_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::Role);
+  server_setup.role_parameter.length = 0x1;
+  server_setup.role_parameter.value = {0xFF};
+  server_setup.endpoint_id_parameter.value.assign(endpoint_id.begin(), endpoint_id.end());
 
   buffer << server_setup;
 
@@ -568,8 +568,8 @@ TEST_CASE("ServerSetup  Message encode/decode")
   MoqServerSetup server_setup_out;
   CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SERVER_SETUP), server_setup_out));
   CHECK_EQ(server_setup.selection_version, server_setup_out.selection_version);
-  CHECK_EQ(server_setup.role_parameter.param_value, server_setup.role_parameter.param_value);
-  CHECK_EQ(server_setup.endpoint_id_parameter.param_value, server_setup_out.endpoint_id_parameter.param_value);
+  CHECK_EQ(server_setup.role_parameter.value, server_setup.role_parameter.value);
+  CHECK_EQ(server_setup.endpoint_id_parameter.value, server_setup_out.endpoint_id_parameter.value);
 }
 
 TEST_CASE("ObjectStream  Message encode/decode")
