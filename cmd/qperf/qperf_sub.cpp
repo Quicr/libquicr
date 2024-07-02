@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <thread>
 #include <unordered_map>
+  auto logger = std::make_shared<cantina::Logger>("subperf", "SUBPERF");
 
 namespace {
 std::condition_variable cv;
@@ -51,28 +52,13 @@ struct PerfSubscriberDelegate : public quicr::SubscriberDelegate
   std::size_t subscribed_objects_received = 0;
   std::size_t total_bytes_received = 0;
 };
-
-template<typename D, typename I, typename F, typename... Args>
-inline void
-loop_for(const D& duration, const I& interval, const F& func, Args&&... args)
-{
-  auto t = I::zero();
-  while (!terminate && t < duration) {
-    const auto start = std::chrono::high_resolution_clock::now();
-    func(std::forward<Args>(args)...);
-    const auto end = std::chrono::high_resolution_clock::now();
-
-    std::this_thread::sleep_for(interval -
-                                std::chrono::duration_cast<I>(end - start));
-    t += interval;
-  }
-}
 }
 
 void
 handle_terminate_signal(int)
 {
   terminate = true;
+  cv.notify_all();
 }
 
 int
@@ -89,6 +75,7 @@ main(int argc, char** argv)
     ("relay_port", "Relay port to connect on", cxxopts::value<std::uint16_t>()->default_value("33435"))
     ("p,priority", "Priority for sending publish messages", cxxopts::value<std::uint8_t>()->default_value("1"))
     ("e,expiry_age", "Expiry age of objects in ms", cxxopts::value<std::uint16_t>()->default_value("5000"))
+    ("delay", "Startup delay in ms", cxxopts::value<std::uint32_t>()->default_value("1000"))
     ("h,help", "Print usage");
   // clang-format on
 
@@ -117,6 +104,7 @@ main(int argc, char** argv)
   const std::size_t chunk_size = result["chunk_size"].as<std::size_t>();
   const std::uint8_t priority = result["priority"].as<std::uint8_t>();
   const std::uint16_t expiry_age = result["expiry_age"].as<std::uint16_t>();
+  const std::chrono::milliseconds delay(result["delay"].as<std::uint32_t>());
 
   const quicr::RelayInfo info{
     .hostname = result["relay_url"].as<std::string>(),
@@ -147,6 +135,8 @@ main(int argc, char** argv)
     return EXIT_FAILURE;
   }
 
+  std::this_thread::sleep_for(delay);
+
   std::signal(SIGINT, handle_terminate_signal);
 
   quicr::namespace_map<std::shared_ptr<PerfSubscriberDelegate>> delegates;
@@ -159,7 +149,7 @@ main(int argc, char** argv)
     client.subscribe(delegate,
                      sub_ns,
                      quicr::SubscribeIntent::immediate,
-                     quicr::TransportMode::ReliablePerTrack,
+                     quicr::TransportMode::ReliablePerGroup,
                      "",
                      "",
                      {},
@@ -167,7 +157,9 @@ main(int argc, char** argv)
   }
 
   std::unique_lock lock(mutex);
-  cv.wait(lock, [&] { return sub_responses_received.load() == streams; });
+  cv.wait(lock, [&] { return terminate.load() || sub_responses_received == streams; });
+
+  if (terminate) return EXIT_FAILURE;
 
   LOGGER_INFO(logger, "+==========================================+");
   LOGGER_INFO(logger, "| Starting test");
