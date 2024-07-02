@@ -12,14 +12,14 @@ namespace {
 std::condition_variable cv;
 std::mutex mutex;
 std::atomic_bool terminate = false;
-std::atomic_size_t sub_responses_received = 0;
+std::atomic_size_t publish_intents_received = 0;
 
 struct PerfPublishDelegate : public quicr::PublisherDelegate
 {
   void onPublishIntentResponse(const quicr::Namespace&,
                                const quicr::PublishIntentResult&) override
   {
-    ++sub_responses_received;
+    ++publish_intents_received;
     cv.notify_one();
   }
 };
@@ -87,6 +87,9 @@ main(int argc, char** argv)
     ("i,interval", "The interval in microseconds to send publish messages", cxxopts::value<std::uint32_t>()->default_value("1000"))
     ("p,priority", "Priority for sending publish messages", cxxopts::value<std::uint8_t>()->default_value("1"))
     ("e,expiry_age", "Expiry age of objects in ms", cxxopts::value<std::uint16_t>()->default_value("5000"))
+    ("reliable", "Should use reliable per group", cxxopts::value<bool>())
+    ("g,group_size", "Size before group index changes", cxxopts::value<std::uint16_t>()->default_value("0"))
+    ("delay", "Startup delay in ms", cxxopts::value<std::uint32_t>()->default_value("1000"))
     ("h,help", "Print usage");
   // clang-format on
 
@@ -119,6 +122,9 @@ main(int argc, char** argv)
   const std::chrono::microseconds interval(
     result["interval"].as<std::uint32_t>());
   const std::chrono::seconds duration(result["duration"].as<std::uint32_t>());
+  const bool reliable = result["reliable"].as<bool>();
+  const std::uint16_t group_size = result["group_size"].as<std::uint16_t>();
+  const std::chrono::milliseconds delay(result["delay"].as<std::uint32_t>());
 
   const quicr::RelayInfo info{
     .hostname = result["relay_url"].as<std::string>(),
@@ -135,38 +141,44 @@ main(int argc, char** argv)
   };
 
   auto logger = std::make_shared<cantina::Logger>("perf", "PERF");
-  quicr::Client client(
-    info, result["endpoint_id"].as<std::string>(), chunk_size, config, logger);
 
-  try {
-    if (!client.connect()) {
-      LOGGER_CRITICAL(logger,
-                      "Failed to connect to relay '" << info.hostname << ":"
-                                                     << info.port << "'");
-      return EXIT_FAILURE;
-    }
-  } catch (...) {
-    return EXIT_FAILURE;
-  }
-
-  std::signal(SIGINT, handle_terminate_signal);
+  std::unique_lock lock(mutex);
+  std::vector<std::shared_ptr<quicr::Client>> clients;
 
   std::vector<quicr::Namespace> namespaces;
 
-  for (std::uint16_t i = 0; i < streams; ++i) {
-    auto& publish_ns = namespaces.emplace_back(
-      ns.name() + ((0x0_name + i) << (128 - ns.length())), ns.length());
-
-    client.publishIntent(std::make_shared<PerfPublishDelegate>(),
-                         publish_ns,
-                         "",
-                         "",
-                         {},
-                         quicr::TransportMode::ReliablePerTrack);
+  for (int j = 0; j < 100; ++j) {
+    auto client =
+      std::make_shared<quicr::Client>(info,
+                                      result["endpoint_id"].as<std::string>(),
+                                      chunk_size,
+                                      config,
+                                      logger);
+    clients.push_back(std::move(client));
   }
 
-  std::unique_lock lock(mutex);
-  cv.wait(lock, [&] { return sub_responses_received.load() == streams; });
+  std::vector<std::thread> cthreads;
+  for (auto& client : clients) {
+    cthreads.emplace_back([=, c = client] {
+      try {
+        if (!c->connect()) {
+          LOGGER_CRITICAL(logger,
+                          "Failed to connect to relay '" << info.hostname << ":"
+                                                         << info.port << "'");
+          std::exit(EXIT_FAILURE);
+        }
+      } catch (...) {
+        std::exit(EXIT_FAILURE);
+      }
+    });
+  }
+
+  std::this_thread::sleep_for(delay);
+
+  for (auto& t : cthreads) {
+    if (t.joinable())
+      t.join();
+  }
 
   const std::uint64_t bitrate = (msg_size * 8) / (interval.count() / 1e6);
   const std::uint64_t expected_objects = 1e6 / interval.count();
@@ -184,41 +196,71 @@ main(int argc, char** argv)
   LOGGER_INFO(logger, "+==========================================+");
   // clang-format on
 
+  const auto start = std::chrono::high_resolution_clock::now();
+  for (const auto& client : clients) {
+    for (std::uint16_t i = 0; i < streams; ++i) {
+      auto& publish_ns = namespaces.emplace_back(
+        ns.name() + ((0x0_name + i) << (128 - ns.length())), ns.length());
+
+      client->publishIntent(std::make_shared<PerfPublishDelegate>(),
+                            publish_ns,
+                            "",
+                            "",
+                            {},
+                            reliable ? quicr::TransportMode::ReliablePerGroup
+                                     : quicr::TransportMode::Unreliable);
+    }
+
+    cv.wait(lock, [&] { return publish_intents_received.load() == streams; });
+  }
+
   std::atomic_size_t finished_publishers = 0;
   std::atomic_size_t total_objects_published = 0;
   std::vector<std::uint8_t> buffer(msg_size, 0);
   std::vector<std::thread> threads;
 
-  const auto start = std::chrono::high_resolution_clock::now();
-  for (quicr::Namespace& pub_ns : namespaces) {
-    threads.emplace_back([&] {
-      quicr::Name name = pub_ns;
+  std::signal(SIGINT, handle_terminate_signal);
 
-      ::loop_for(duration, interval, [&] {
-        std::vector<std::uint8_t> msg_bytes = buffer;
+  std::this_thread::sleep_for(delay);
 
-        std::lock_guard _(mutex);
-        client.publishNamedObject(name,
-                                  priority,
-                                  expiry_age,
-                                  std::move(msg_bytes),
-                                  { {
-                                    "perf:publish",
-                                    now(),
-                                  } });
-        ++total_objects_published;
+  for (const auto& client : clients) {
+    for (quicr::Namespace& pub_ns : namespaces) {
+      threads.emplace_back([&] {
+        std::size_t group = 0;
+        std::size_t objects = 0;
+        ::loop_for(duration, interval, [&] {
+          std::vector<std::uint8_t> msg_bytes = buffer;
 
-        name = pub_ns.name() |
-               (~(~0x0_name << (128 - pub_ns.length())) & (name + 1));
+          std::lock_guard _(mutex);
+
+          quicr::Name name =
+            pub_ns.name() | (~(~0x0_name << (128 - pub_ns.length())) &
+                             (pub_ns.name() + (group << 16) + objects++));
+          if (objects == group_size) {
+            ++group;
+            objects = 0;
+          }
+
+          client->publishNamedObject(name,
+                                     priority,
+                                     expiry_age,
+                                     std::move(msg_bytes),
+                                     { {
+                                       "perf:publish",
+                                       now(),
+                                     } });
+          ++total_objects_published;
+        });
+
+        ++finished_publishers;
+        cv.notify_one();
       });
-
-      ++finished_publishers;
-      cv.notify_one();
-    });
+    }
   }
 
-  cv.wait(lock,
-          [&] { return terminate.load() || finished_publishers == streams; });
+  cv.wait(lock, [&] {
+    return terminate.load() || finished_publishers == streams * 100;
+  });
 
   const auto end = std::chrono::high_resolution_clock::now();
   const auto elapsed =
