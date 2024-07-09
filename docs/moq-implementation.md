@@ -49,6 +49,66 @@ that represents the track fullname. Track alias is used when encoding object and
 having to duplicate the large binary array of bytes for namespace and name.
 
 ## API
+
+### High Level Flow
+
+At a high level, this API provides a very simplistic track (aka channel, aka virtual connection) between publisher
+and any given number of subscribers. The below topology represents the high level forwarding-plane that the
+API provides. 
+
+```mermaid
+flowchart TD
+    P[Publisher Track ABC] --> S1[Subcriber 1]
+    P --> S2[Subscriber 2]
+    P --> S3[Subscriber 3]
+    P --> SN[Subscriber n]
+```
+
+#### As Client 
+
+As a client, the flow is quite simple. Below illustrates a Client using the API. 
+
+```mermaid
+flowchart TD
+    A([Client App Code])-->MOQI[New MoQInstance]
+    MOQI-->B((MoQ Instance Request))
+    B-->ST[[Subscribe Track Delegate]]
+    B-->PT[[Publish Track Delegate]]
+    ST-->S_RO(Receive Object)
+    S_RO-->ST
+    PT-->P_SO(Send Object)
+    P_SO-->PT
+```
+
+#### As Server/Relay
+
+As a server/Relay; Below illustrates at a high level the server API.
+
+> [!NOTE]
+> The below does not include the decision tree and flow interaction for sending subscribe to
+> announcer.  That's an extra flow that is shown later. 
+
+```mermaid
+flowchart TD
+    A([Server App Code])-->MOQI[New MoQInstance]
+    MOQI-->B((Accept New\nConnections))
+    B-->AC[Per Connection]
+    B-->WA[Wait for Announce]
+    
+    WA-->AV[Validate]
+    AV-->AS[Updated State]
+    AS-->WA
+    
+    AC-->WS[Wait for Subscribe]
+    WS-->SV[Validate]
+    SV-->SS[Update State]
+    SS-->FA[Find Announce]
+    FA-->BS[Bind Subscribe]
+    BS-->SA[Add to Announce State]
+    SA-->WS
+```
+
+
 ### MOQ Track Delegate
 Publish and subscribe use the same delegate interface and base implementation. The track delegate can be subscribe only,
 publish only, or both publish and subscribe. The caller creates the delegate and ownes the lifecycle of it. 
