@@ -113,7 +113,11 @@ int do_publisher(cantina::LoggerPointer logger,
       return -1;
     }
 
-    logger->info << "Received intent response. Type message and press ENTER to publish. Type exit to end program." << std::flush;
+    logger->info << "Received intent response." << std::flush;
+
+    std::cout << "-----------------------------------------------------------------------" << std::endl;
+    std::cout << " Type a message and press ENTER to publish. Type the word exit to end program." << std::flush;
+    std::cout << "-----------------------------------------------------------------------" << std::endl;
 
     while (true) {
       std::string msg;
