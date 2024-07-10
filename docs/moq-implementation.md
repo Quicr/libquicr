@@ -15,12 +15,9 @@ object. The subscriber will receive the complete 2500 bytes as an object.
 
 Objects can be of any size, but when using datagram they are restricted to MTU size in MOQT. **Libquicr** implements
 value added feature to optionally **slice** objects into smaller slices to be transmitted via datagram and stream objects. 
-For datagram, object sizes greater than transport MTU will automatically but sliced at the current MTU size. Subscribers
+For datagram, object sizes greater than transport 1280 will automatically but sliced at the current MTU size. Subscribers
 will reassemble the slices to generate the complete object that was published. In this sense, the application on
 both sides are unaware that the object needed to be slice in order to efficiently transmit it. 
-
-## Object Slicing
-TODO - Add details
 
 ## Track Fullname
 Publishing objects are sent using a track fullname that subscribers subscribe to. Relay (aka server) will forward received
