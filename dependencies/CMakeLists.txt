@@ -17,13 +17,6 @@ if(CMAKE_FRAMEWORK)
     endmacro()
 endif()
 
-if (${USE_MBEDTLS})
-    find_package(MbedTLS)
-else()
-    # Set OpenSSL for submodules
-    find_package(OpenSSL)
-endif()
-
 # --------------------------------------------------------
 # Submodules
 # --------------------------------------------------------
@@ -44,6 +37,7 @@ if(NOT LIBQUICR_WITHOUT_INFLUXDB)
 
     if (${USE_MBEDTLS})
 
+        message(INFO "Libquicr building with MBedTLS")
         # libcurl
         # https://github.com/curl/curl/blob/master/CMake/FindMbedTLS.cmake
         set (MBEDTLS_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/transport/dependencies/mbedtls/include)
@@ -78,12 +72,12 @@ if(NOT LIBQUICR_WITHOUT_INFLUXDB)
 
         # options below are needed for boringSSL support in libcurl with mac os
         add_compile_options(-Wno-gnu-anonymous-struct
-        -Wno-nested-anon-types)
+                            -Wno-nested-anon-types)
 
         add_definitions("-DSUPPORT_CURLOPT_SSL_CTX_FUNCTION=0")
         include_directories(BEFORE ${CMAKE_CURRENT_SOURCE_DIR}/transport/dependencies/mbedtls/include)
         add_subdirectory( cpr )
-        add_dependencies(cpr MbedTLS::mbedx509 MbedTLS::mbedtls MbedTLS::mbedcrypto)
+        add_dependencies(cpr quicr-transport)
 
     else()
 
@@ -121,10 +115,8 @@ if(NOT LIBQUICR_WITHOUT_INFLUXDB)
         add_dependencies( cpr OpenSSL::SSL OpenSSL::Crypto)
     endif()
 
-    # if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # Restore original build testing if/when CPR disables it
-    set(BUILD_TESTING ${_BUILD_TESTING} CACHE TRUE "" FORCE)
-    #    endif()
+    set(BUILD_TESTING ${_BUILD_TESTING} CACHE STRING "" FORCE)
 
     # influxdb-cxx
     option (INFLUXCXX_TESTING ${BUILD_TESTING})

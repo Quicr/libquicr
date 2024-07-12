@@ -1,22 +1,26 @@
-set (OPENSSL_FOUND TRUE)
 
-set (OPENSSL_CRYPTO_LIBRARY BoringSSL::crypto)
-set (OPENSSL_CRYPTO_LIBRARIES BoringSSL::crypto)
-set (OPENSSL_SSL_LIBRARY BoringSSL::ssl)
-set (OPENSSL_LIBRARIES BoringSSL::ssl BoringSSL::crypto)
+if (NOT ${USE_MBEDTLS})
 
-set (OPENSSL_VERSION "1.0.1f")
-set (OPENSSL_VERSION_NUMBER 1)
-set (OPENSSL_VERSION_MAJOR 1)
-set (OPENSSL_VERSION_MINOR 0)
-set (OPENSSL_VERSION_FIX 1)
-set (OPENSSL_VERSION_PATCH "t")
+    set (OPENSSL_FOUND TRUE)
 
-find_path(OPENSSL_INCLUDE_DIR
-        NAMES
-        openssl/opensslv.h
-        HINTS
-        ${CMAKE_CURRENT_SOURCE_DIR}/transport/dependencies/boringssl/include
-)
+    set (OPENSSL_CRYPTO_LIBRARY BoringSSL::crypto)
+    set (OPENSSL_CRYPTO_LIBRARIES BoringSSL::crypto)
+    set (OPENSSL_SSL_LIBRARY BoringSSL::ssl)
+    set (OPENSSL_LIBRARIES BoringSSL::ssl BoringSSL::crypto)
 
-mark_as_advanced(OPENSSL_INCLUDE_DIR OPENSSL_LIBRARIES OPENSSL_CRYPTO_LIBRARY OPENSSL_SSL_LIBRARY)
+    set (OPENSSL_VERSION "1.0.1f")
+    set (OPENSSL_VERSION_NUMBER 1)
+    set (OPENSSL_VERSION_MAJOR 1)
+    set (OPENSSL_VERSION_MINOR 0)
+    set (OPENSSL_VERSION_FIX 1)
+    set (OPENSSL_VERSION_PATCH "t")
+
+    find_path(OPENSSL_INCLUDE_DIR
+            NAMES
+            openssl/opensslv.h
+            HINTS
+            ${CMAKE_CURRENT_SOURCE_DIR}/transport/dependencies/boringssl/include
+    )
+
+    mark_as_advanced(OPENSSL_INCLUDE_DIR OPENSSL_LIBRARIES OPENSSL_CRYPTO_LIBRARY OPENSSL_SSL_LIBRARY)
+endif ()
