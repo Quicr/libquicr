@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <quicr/metrics_exporter.h>
 #include <quicr/quicr_common.h>
 #include <transport/transport.h>
 
@@ -310,10 +309,6 @@ namespace quicr {
 
         // Log handler to use
         cantina::LoggerPointer _logger;
-
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-        MetricsExporter _mexport;
-#endif
 
         std::shared_ptr<MoQInstanceDelegate> _delegate;
         std::shared_ptr<ITransport> _transport; // **MUST** be last for proper order of destruction

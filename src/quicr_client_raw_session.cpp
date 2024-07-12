@@ -81,8 +81,6 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
   transport = qtransport::ITransport::make_client_transport(
     server, tconfig, *this, this->logger);
 
-  logger->info << "Starting metrics exporter" << std::flush;
-
   metrics_conn_samples = std::make_shared<qtransport::safe_queue<qtransport::MetricsConnSample>>(qtransport::MAX_METRICS_SAMPLES_QUEUE);
   metrics_data_samples = std::make_shared<qtransport::safe_queue<qtransport::MetricsDataSample>>(qtransport::MAX_METRICS_SAMPLES_QUEUE);
 
@@ -334,6 +332,9 @@ ClientRawSession::runPublishMeasurements()
 
         publishMeasurement(data_measurement);
       }
+
+      LOGGER_DEBUG(logger, "Sent measurements");
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     LOGGER_INFO(logger, "Finished metrics thread");
   });
@@ -353,7 +354,7 @@ ClientRawSession::publishMeasurement(const Measurement& measurement)
   trace.reserve(10);
   trace.push_back({"libquicr:publishMetrics:begin", start_time});
 
-  publishNamedObject(*metrics_namespace, 31, 500, std::move(measurement_bytes), std::move(trace));
+  publishNamedObject(*metrics_namespace, 31, 50000, std::move(measurement_bytes), std::move(trace));
 }
 
 /*===========================================================================*/

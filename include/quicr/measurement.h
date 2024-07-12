@@ -1,5 +1,7 @@
 #pragma once
 
+#include <quicr/namespace.h>
+
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
@@ -73,5 +75,12 @@ private:
   std::chrono::system_clock::time_point _timestamp;
   std::unordered_map<std::string, Attribute> _attributes;
   std::unordered_map<std::string, Metric> _metrics;
+};
+
+struct MeasurementsConfig
+{
+  quicr::Namespace metrics_namespace;
+  std::uint8_t priority;
+  std::uint16_t ttl;
 };
 }

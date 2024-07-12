@@ -18,9 +18,6 @@ namespace quicr {
         , _server_config({})
         , _client_config(cfg)
         , _logger(std::make_shared<cantina::Logger>("MIC", logger))
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-        , _mexport(logger)
-#endif
         , _delegate(std::move(delegate))
         , _transport({})
     {
@@ -38,9 +35,6 @@ namespace quicr {
       , _server_config(cfg)
       , _client_config({})
       , _logger(std::make_shared<cantina::Logger>("MIS", logger))
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-        , _mexport(logger)
-#endif
       , _delegate(std::move(delegate))
       , _transport({})
     {
@@ -53,18 +47,7 @@ namespace quicr {
 
     void MoQInstance::init()
     {
-        _logger->info << "Starting metrics exporter" << std::flush;
-
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-        if (_mexport.init("http://metrics.m10x.ctgpoc.com:8086",
-                         "Media10x",
-                         "cisco-cto-media10x") !=
-            MetricsExporter::MetricsExporterError::NoError) {
-            throw std::runtime_error("Failed to connect to InfluxDB");
-            }
-
-        _mexport.run();
-#endif
+        // TODO(trigaux): runPublshMeasurements
     }
 
     MoQInstance::Status MoQInstance::run_server()
@@ -76,11 +59,8 @@ namespace quicr {
         _transport = ITransport::make_server_transport(server, _server_config.transport_config,
                                                        *this, _logger);
 
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-        _transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples);
-#else
+        // TODO(trigaux): Add member samples queues
         _transport->start(nullptr, nullptr);
-#endif
 
         switch (_transport->status()) {
             case TransportStatus::Ready:
@@ -101,11 +81,8 @@ namespace quicr {
 
         _status = Status::CLIENT_CONNECTING;
 
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-        auto conn_id = _transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples);
-#else
+        // TODO(trigaux): Add member samples queues
         auto conn_id = _transport->start(nullptr, nullptr);
-#endif
         LOGGER_INFO(_logger, "Connecting session conn_id: " << conn_id << "...");
         auto [conn_ctx, _] = _connections.try_emplace(conn_id, ConnectionContext{});
         conn_ctx->second.conn_id = conn_id;
@@ -751,13 +728,6 @@ namespace quicr {
                         conn_ctx.client_version = msg.supported_versions.front();
                         stream_buffer->resetAny();
 
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-                        _mexport.set_conn_ctx_info(conn_ctx.conn_id, {.endpoint_id = client_endpoint_id,
-                                                                            .relay_id = _server_config.endpoint_id,
-                                                                            .data_ctx_info = {}}, false);
-                        _mexport.set_data_ctx_info(conn_ctx.conn_id, *conn_ctx.ctrl_data_ctx_id,
-                                                   {.subscribe = false, .nspace = {}});
-#endif
 
                         send_server_setup(conn_ctx);
                         conn_ctx.setup_complete = true;
@@ -786,15 +756,6 @@ namespace quicr {
                                   << " role: " << static_cast<int>(msg.role_parameter.value.front())
                                   << " selected_version: 0x" << std::hex << msg.selection_version
                                   << std::dec << std::flush;
-
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-                    _mexport.set_conn_ctx_info(conn_ctx.conn_id, {.endpoint_id = server_endpoint_id,
-                                                                        .relay_id = _server_config.endpoint_id,
-                                                                        .data_ctx_info = {}}, false);
-
-                    _mexport.set_data_ctx_info(conn_ctx.conn_id, *conn_ctx.ctrl_data_ctx_id,
-                                               {.subscribe = false, .nspace = {}});
-#endif
 
                     stream_buffer->resetAny();
                     conn_ctx.setup_complete = true;
@@ -1091,14 +1052,6 @@ namespace quicr {
           track_delegate->_def_priority,
           false);
 
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-        Name n;
-        n += th.track_fullname_hash;
-
-        _mexport.set_data_ctx_info(conn_id, track_delegate->_mi_send_data_ctx_id,
-                                   {.subscribe = false, .nspace = {n, 64} } );
-#endif
-
         // Setup the function for the track delegate to use to send objects with thread safety
         track_delegate->_mi_sendObjFunc =
           [&,
@@ -1146,9 +1099,6 @@ namespace quicr {
 
             _transport->deleteDataContext(conn_ctx.conn_id, delegate._mi_send_data_ctx_id);
 
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-            _mexport.del_data_ctx_info(conn_ctx.conn_id, delegate._mi_send_data_ctx_id);
-#endif
             delegate._mi_send_data_ctx_id = 0;
 
 
@@ -1199,9 +1149,6 @@ namespace quicr {
                                   << std::flush;
                 }
 
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-                _mexport.del_data_ctx_info(conn_id, track_delegate->_mi_send_data_ctx_id);
-#endif
                 pub_n_it->second->_mi_send_data_ctx_id = 0;
 
                 pub_n_it->second->setSendStatus(MoQTrackDelegate::TrackSendStatus::NOT_ANNOUNCED);
@@ -1269,15 +1216,6 @@ namespace quicr {
           track_delegate->_mi_track_mode == MoQTrackDelegate::TrackMode::DATAGRAM ? false : true,
           track_delegate->_def_priority,
           false);
-
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-        Name n;
-        n += th.track_fullname_hash;
-
-        _mexport.set_data_ctx_info(conn_id, track_delegate->_mi_send_data_ctx_id,
-                                   {.subscribe = false, .nspace = {n, 64} } );
-#endif
-
 
         // Setup the function for the track delegate to use to send objects with thread safety
         track_delegate->_mi_sendObjFunc =
@@ -1444,10 +1382,6 @@ namespace quicr {
                                   << std::flush;
 
                     conn_ctx.ctrl_data_ctx_id = _transport->createDataContext(conn_id, true, 0, true);
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-                    _mexport.set_data_ctx_info(
-                      conn_ctx.conn_id, *conn_ctx.ctrl_data_ctx_id, { .subscribe = false, .nspace = {} });
-#endif
 
                     send_client_setup();
                     _status = Status::READY;
@@ -1490,9 +1424,6 @@ namespace quicr {
 
                 // TODO(tievens): Clean up publish tracks
 
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-                _mexport.del_conn_ctx_info(conn_id);
-#endif
                 _connections.erase(conn_it);
 
                 break;
