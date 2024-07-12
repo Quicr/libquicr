@@ -23,6 +23,9 @@ using MetricValueType = std::variant<std::uint8_t,
                                      double,
                                      std::string>;
 
+/**
+ * @brief Holds actual data of a measurement field.
+ */
 struct Metric
 {
   std::string name;
@@ -32,14 +35,22 @@ struct Metric
 void to_json(json& j, const Metric& m);
 void from_json(const json& j, Metric& m);
 
+/**
+ * @brief Equivalent to a tag
+ */
 struct Attribute
 {
+  // TODO(trigaux): Should possibly make this optional
   std::string name;
   std::string value;
   std::optional<std::string> type = std::nullopt;
 };
 void to_json(json& j, const Attribute& a);
+void from_json(const json& j, Attribute& a);
 
+/**
+ * @brief Builder pattern measurement which holds several different metrics.
+ */
 class Measurement
 {
 public:
@@ -48,21 +59,20 @@ public:
 
   Measurement& SetTime(const std::chrono::system_clock::time_point& time) noexcept;
 
-  Measurement& AddAttribute(const Attribute& attr) noexcept;
-  Measurement& AddAttribute(const std::string& name, const std::string& value, std::optional<std::string> type = std::nullopt) noexcept;
+  Measurement& AddAttribute(const Attribute& attr);
+  Measurement& AddAttribute(const std::string& name, const std::string& value, std::optional<std::string> type = std::nullopt);
+
   Measurement& SetAttribute(const std::string& name, const std::string& value);
+
   Attribute& GetAttribute(const std::string& name) { return _attributes.at(name); }
 
-  Measurement& AddMetric(const std::string& name, const std::uint8_t& value);
-  Measurement& AddMetric(const std::string& name, const std::uint16_t& value);
-  Measurement& AddMetric(const std::string& name, const std::uint32_t& value);
-  Measurement& AddMetric(const std::string& name, const std::uint64_t& value);
-  Measurement& AddMetric(const std::string& name, const float& value);
-  Measurement& AddMetric(const std::string& name, const double& value);
-  Measurement& AddMetric(const std::string& name, const std::string& value);
+  Measurement& AddMetric(const std::string& name, const MetricValueType& value);
 
   template<typename T>
   T& GetMetricValue(const std::string& name);
+
+  template<typename T>
+  const T& GetMetricValue(const std::string& name) const;
 
   template<typename T>
   Measurement& SetMetric(const std::string& name, const T& value);
@@ -77,6 +87,9 @@ private:
   std::unordered_map<std::string, Metric> _metrics;
 };
 
+/**
+ * @brief Config for publishing measurements.
+ */
 struct MeasurementsConfig
 {
   quicr::Namespace metrics_namespace;

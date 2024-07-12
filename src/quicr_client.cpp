@@ -17,14 +17,14 @@ Client::Client(const RelayInfo& relay_info,
                size_t chunk_size,
                const qtransport::TransportConfig& tconfig,
                const cantina::LoggerPointer& logger,
-               std::optional<quicr::Namespace> metrics_ns)
+               std::optional<MeasurementsConfig> metrics_config)
 {
   switch (relay_info.proto) {
     case RelayInfo::Protocol::UDP:
       [[fallthrough]];
     case RelayInfo::Protocol::QUIC:
       client_session =
-        std::make_unique<ClientRawSession>(relay_info, endpoint_id, chunk_size, tconfig, logger, metrics_ns);
+        std::make_unique<ClientRawSession>(relay_info, endpoint_id, chunk_size, tconfig, logger, metrics_config);
       break;
     default:
       throw ClientException("Unsupported relay protocol");

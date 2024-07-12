@@ -62,7 +62,7 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
                                    size_t chunk_size,
                                    const qtransport::TransportConfig& tconfig,
                                    const cantina::LoggerPointer& logger,
-                                   std::optional<Namespace> metrics_ns)
+                                   std::optional<MeasurementsConfig> metrics_config)
   : logger(std::make_shared<cantina::Logger>("QSES", logger))
   , _endpoint_id(endpoint_id)
   , _chunk_size(chunk_size)
@@ -84,9 +84,9 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
   metrics_conn_samples = std::make_shared<qtransport::safe_queue<qtransport::MetricsConnSample>>(qtransport::MAX_METRICS_SAMPLES_QUEUE);
   metrics_data_samples = std::make_shared<qtransport::safe_queue<qtransport::MetricsDataSample>>(qtransport::MAX_METRICS_SAMPLES_QUEUE);
 
-  if (metrics_ns)
+  if (metrics_config.has_value())
   {
-    metrics_namespace = *metrics_ns;
+    _metrics_config = metrics_config.value();
   }
 
   connection_measurement =
@@ -244,7 +244,7 @@ ClientRawSession::connecting() const
 void
 ClientRawSession::runPublishMeasurements()
 {
-  if (!metrics_namespace) return;
+  if (!_metrics_config.has_value()) return;
 
   LOGGER_INFO(logger, "Starting metrics thread");
   _metrics_thread = std::thread([this]{
@@ -340,10 +340,10 @@ ClientRawSession::runPublishMeasurements()
   });
 }
 
-void
-ClientRawSession::publishMeasurement(const Measurement& measurement)
+void ClientRawSession::publishMeasurement(const Measurement& measurement)
 {
-  if (!metrics_namespace) return;
+  if (!_metrics_config.has_value())
+    return;
 
   const json measurement_json = measurement;
   const std::string measurement_str = measurement_json.dump();
@@ -352,9 +352,13 @@ ClientRawSession::publishMeasurement(const Measurement& measurement)
   const auto start_time = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::steady_clock::now());
   std::vector<qtransport::MethodTraceItem> trace;
   trace.reserve(10);
-  trace.push_back({"libquicr:publishMetrics:begin", start_time});
+  trace.push_back({ "libquicr:publishMetrics:begin", start_time });
 
-  publishNamedObject(*metrics_namespace, 31, 50000, std::move(measurement_bytes), std::move(trace));
+  publishNamedObject(_metrics_config->metrics_namespace,
+                     _metrics_config->priority,
+                     _metrics_config->ttl,
+                     std::move(measurement_bytes),
+                     std::move(trace));
 }
 
 /*===========================================================================*/
@@ -1020,9 +1024,9 @@ ClientRawSession::handle(std::optional<uint64_t> stream_id,
                    << " relay_id: " << response.relay_id
                    << std::flush;
 
-      if (metrics_namespace) {
+      if (_metrics_config.has_value()) {
         publishIntent(std::make_shared<MetricsPublishDelegate>([this] { this->runPublishMeasurements(); }),
-                      *metrics_namespace,
+                      _metrics_config->metrics_namespace,
                       "",
                       "",
                       {},

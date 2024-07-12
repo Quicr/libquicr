@@ -40,20 +40,21 @@ public:
   /**
    * @brief Setup a QUICR Client with publisher and subscriber functionality
    *
-   * @param relay_info  : Relay Information to be used by the transport
-   * @param endpoint_id : Client endpoint ID (e.g., email)
-   * @param chunk_size  : Size in bytes to chunk messages if greater than this size
-   *                      Zero disables, value is max(chunk_size, max_transport_data_size)
-   * @param tconfig     : Transport configuration
-   * @param logger      : Shared pointer to cantina::Logger object
-   *                      loggings operations
+   * @param relay_info     : Relay Information to be used by the transport
+   * @param endpoint_id    : Client endpoint ID (e.g., email)
+   * @param chunk_size     : Size in bytes to chunk messages if greater than this size
+   *                         Zero disables, value is max(chunk_size, max_transport_data_size)
+   * @param tconfig        : Transport configuration
+   * @param logger         : Shared pointer to cantina::Logger object
+   *                         loggings operations
+   * @param metrics_config : Information for publishing metrics.
    */
   Client(const RelayInfo& relay_info,
          const std::string& endpoint_id,
          size_t chunk_size,
          const qtransport::TransportConfig& tconfig,
          const cantina::LoggerPointer& logger,
-         std::optional<quicr::Namespace> metrics_ns = std::nullopt);
+         std::optional<MeasurementsConfig> metrics_config = std::nullopt);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber

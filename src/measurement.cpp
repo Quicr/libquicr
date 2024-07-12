@@ -1,5 +1,8 @@
 #include "quicr/measurement.h"
 
+#include <typeinfo>
+#include <type_traits>
+
 namespace quicr {
 
     Measurement::Measurement(const std::string& name)
@@ -14,7 +17,7 @@ namespace quicr {
         return *this;
     }
 
-    Measurement& Measurement::AddAttribute(const Attribute& attr) noexcept
+    Measurement& Measurement::AddAttribute(const Attribute& attr)
     {
         _attributes.emplace(attr.value, attr);
         return *this;
@@ -22,7 +25,7 @@ namespace quicr {
 
     Measurement& Measurement::AddAttribute(const std::string& name,
                                            const std::string& value,
-                                           std::optional<std::string> type) noexcept
+                                           std::optional<std::string> type)
     {
         _attributes.emplace(name, Attribute{ name, value, type });
         return *this;
@@ -40,6 +43,12 @@ namespace quicr {
         return std::get<T>(_metrics.at(name).value);
     }
 
+    template<typename T>
+    const T& Measurement::GetMetricValue(const std::string& name) const
+    {
+        return std::get<T>(_metrics.at(name).value);
+    }
+
     template std::uint8_t& Measurement::GetMetricValue<std::uint8_t>(const std::string&);
     template std::uint16_t& Measurement::GetMetricValue<std::uint16_t>(const std::string&);
     template std::uint32_t& Measurement::GetMetricValue<std::uint32_t>(const std::string&);
@@ -48,47 +57,43 @@ namespace quicr {
     template double& Measurement::GetMetricValue<double>(const std::string&);
     template std::string& Measurement::GetMetricValue<std::string>(const std::string&);
 
-    Measurement& Measurement::AddMetric(const std::string& name, const std::uint8_t& value)
+    Measurement& Measurement::AddMetric(const std::string& name, const MetricValueType& value)
     {
-        _metrics.emplace(name, Metric{ name, "uint8", value });
+        std::visit([&](auto&& v) {
+             using T = std::decay_t<decltype(v)>;
+            if constexpr (std::is_same_v<T, std::uint8_t>)
+            {
+                _metrics.emplace(name, Metric{ name, "uint8", value });
+            }
+            else if constexpr (std::is_same_v<T, std::uint16_t>)
+            {
+                _metrics.emplace(name, Metric{ name, "uint16", value });
+            }
+            else if constexpr (std::is_same_v<T, std::uint32_t>)
+            {
+                _metrics.emplace(name, Metric{ name, "uint32", value });
+            }
+            else if constexpr (std::is_same_v<T, std::uint64_t>)
+            {
+                _metrics.emplace(name, Metric{ name, "uint64", value });
+            }
+            else if constexpr (std::is_same_v<T, float>)
+            {
+                _metrics.emplace(name, Metric{ name, "float32", value });
+            }
+            else if constexpr (std::is_same_v<T, double>)
+            {
+                _metrics.emplace(name, Metric{ name, "float64", value });
+            }
+            else if constexpr (std::is_same_v<T, std::string>)
+            {
+                _metrics.emplace(name, Metric{ name, "string", value });
+            }
+        }, value);
+
         return *this;
     }
 
-    Measurement& Measurement::AddMetric(const std::string& name, const std::uint16_t& value)
-    {
-        _metrics.emplace(name, Metric{ name, "uint16", value });
-        return *this;
-    }
-
-    Measurement& Measurement::AddMetric(const std::string& name, const std::uint32_t& value)
-    {
-        _metrics.emplace(name, Metric{ name, "uint32", value });
-        return *this;
-    }
-
-    Measurement& Measurement::AddMetric(const std::string& name, const std::uint64_t& value)
-    {
-        _metrics.emplace(name, Metric{ name, "uint64", value });
-        return *this;
-    }
-
-    Measurement& Measurement::AddMetric(const std::string& name, const float& value)
-    {
-        _metrics.emplace(name, Metric{ name, "float32", value });
-        return *this;
-    }
-
-    Measurement& Measurement::AddMetric(const std::string& name, const double& value)
-    {
-        _metrics.emplace(name, Metric{ name, "float64", value });
-        return *this;
-    }
-
-    Measurement& Measurement::AddMetric(const std::string& name, const std::string& value)
-    {
-        _metrics.emplace(name, Metric{ name, "string", value });
-        return *this;
-    }
     template<typename T>
     Measurement& Measurement::SetMetric(const std::string& name, const T& value)
     {
@@ -146,6 +151,17 @@ namespace quicr {
         }
     }
 
+    void from_json(const json& j, Attribute& a)
+    {
+        // FIXME(trigaux): Using name as key for value would be preferable, but nlohmann::json is bad at that.
+        a.name = j.at("an");
+        a.value = j.at("av");
+
+        if (j.contains("at")) {
+            a.type = j.at("at");
+        }
+    }
+
     void to_json(json& j, const Measurement& m)
     {
         j["ts"] = m._timestamp.time_since_epoch().count();
@@ -173,16 +189,7 @@ namespace quicr {
 
         if (j.contains("attrs")) {
             for (const auto& [_, attr_json] : j["attrs"].items()) {
-                Attribute attr;
-
-                // FIXME(trigaux): Using name as key for value would be preferable, but nlohmann::json is bad at that.
-                attr.name = attr_json.at("an");
-                attr.value = attr_json.at("av");
-
-                if (attr_json.contains("at")) {
-                    attr.type = attr_json.at("at");
-                }
-
+                Attribute attr = attr_json;
                 m._attributes.emplace(attr.name, std::move(attr));
             }
         }

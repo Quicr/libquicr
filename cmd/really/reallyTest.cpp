@@ -232,7 +232,13 @@ main(int argc, char* argv[])
     .tls_key_filename = "",
   };
 
-  quicr::Client client(relay, "a@cisco.com", 0, tcfg, logger, quicr::Namespace("0xA11CEB0B000000000000000000000000/80"));
+  quicr::MeasurementsConfig metrics_config{
+    .metrics_namespace = quicr::Namespace("0xA11CEB0B000000000000000000000000/80"),
+    .priority = 31,
+    .ttl = 50000,
+  };
+
+  quicr::Client client(relay, "a@cisco.com", 0, tcfg, logger, metrics_config);
   auto pd = std::make_shared<pubDelegate>(logger);
 
   if (!client.connect()) {

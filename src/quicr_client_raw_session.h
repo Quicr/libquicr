@@ -45,12 +45,13 @@ public:
    * @brief Setup a QUICR Client Session with publisher and subscriber
    *        functionality.
    *
-   * @param relayInfo   : Relay Information to be used by the transport
-   * @param endpoint_id : Client endpoint ID (e.g., email)
-   * @param chunk_size  : Size in bytes to chunk messages if greater than this size
-   *                      Zero disables, value is max(chunk_size, max_transport_data_size)
-   * @param tconfig     : Transport configuration
-   * @param logger      : Shared pointer to a cantina::Logger object
+   * @param relayInfo      : Relay Information to be used by the transport
+   * @param endpoint_id    : Client endpoint ID (e.g., email)
+   * @param chunk_size     : Size in bytes to chunk messages if greater than this size
+   *                         Zero disables, value is max(chunk_size, max_transport_data_size)
+   * @param tconfig        : Transport configuration
+   * @param logger         : Shared pointer to a cantina::Logger object
+   * @param metrics_config : Information for publishing metrics.
    *
    * @throws std::runtime_error : If transport fails to connect.
    */
@@ -59,7 +60,7 @@ public:
                    size_t chunk_size,
                    const qtransport::TransportConfig& tconfig,
                    const cantina::LoggerPointer& logger,
-                   std::optional<quicr::Namespace> metrics_ns = std::nullopt);
+                   std::optional<MeasurementsConfig> metrics_config = std::nullopt);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber
@@ -376,7 +377,7 @@ protected:
   friend MetricsPublishDelegate;
 
   std::thread _metrics_thread;
-  std::optional<quicr::Namespace> metrics_namespace;
+  std::optional<MeasurementsConfig> _metrics_config;
   Measurement connection_measurement;
   std::map<qtransport::DataContextId, Measurement> data_measurements;
 
