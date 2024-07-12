@@ -1,7 +1,7 @@
 #include "quicr/measurement.h"
 
-#include <typeinfo>
 #include <type_traits>
+#include <typeinfo>
 
 namespace quicr {
 
@@ -59,37 +59,26 @@ namespace quicr {
 
     Measurement& Measurement::AddMetric(const std::string& name, const MetricValueType& value)
     {
-        std::visit([&](auto&& v) {
-             using T = std::decay_t<decltype(v)>;
-            if constexpr (std::is_same_v<T, std::uint8_t>)
-            {
-                _metrics.emplace(name, Metric{ name, "uint8", value });
-            }
-            else if constexpr (std::is_same_v<T, std::uint16_t>)
-            {
-                _metrics.emplace(name, Metric{ name, "uint16", value });
-            }
-            else if constexpr (std::is_same_v<T, std::uint32_t>)
-            {
-                _metrics.emplace(name, Metric{ name, "uint32", value });
-            }
-            else if constexpr (std::is_same_v<T, std::uint64_t>)
-            {
-                _metrics.emplace(name, Metric{ name, "uint64", value });
-            }
-            else if constexpr (std::is_same_v<T, float>)
-            {
-                _metrics.emplace(name, Metric{ name, "float32", value });
-            }
-            else if constexpr (std::is_same_v<T, double>)
-            {
-                _metrics.emplace(name, Metric{ name, "float64", value });
-            }
-            else if constexpr (std::is_same_v<T, std::string>)
-            {
-                _metrics.emplace(name, Metric{ name, "string", value });
-            }
-        }, value);
+        std::visit(
+          [&](auto&& v) {
+              using T = std::decay_t<decltype(v)>;
+              if constexpr (std::is_same_v<T, std::uint8_t>) {
+                  _metrics.emplace(name, Metric{ name, "uint8", value });
+              } else if constexpr (std::is_same_v<T, std::uint16_t>) {
+                  _metrics.emplace(name, Metric{ name, "uint16", value });
+              } else if constexpr (std::is_same_v<T, std::uint32_t>) {
+                  _metrics.emplace(name, Metric{ name, "uint32", value });
+              } else if constexpr (std::is_same_v<T, std::uint64_t>) {
+                  _metrics.emplace(name, Metric{ name, "uint64", value });
+              } else if constexpr (std::is_same_v<T, float>) {
+                  _metrics.emplace(name, Metric{ name, "float32", value });
+              } else if constexpr (std::is_same_v<T, double>) {
+                  _metrics.emplace(name, Metric{ name, "float64", value });
+              } else if constexpr (std::is_same_v<T, std::string>) {
+                  _metrics.emplace(name, Metric{ name, "string", value });
+              }
+          },
+          value);
 
         return *this;
     }
