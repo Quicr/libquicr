@@ -3,7 +3,7 @@ import subprocess
 import os
 import signal
 import sys
-import string
+import time
 
 parser = argparse.ArgumentParser("QPerf")
 parser.add_argument("--clients", help="Number of client processes to spawn.", type=int, default=1)
@@ -16,6 +16,7 @@ parser.add_argument("--duration", help="Duration of test in seconds.", type=int,
 parser.add_argument("--interval", help="The interval in microseconds to send publish messages", type=int, default=1000)
 parser.add_argument("--priority", help="Priority for sending publish messages", type=int, default=1)
 parser.add_argument("--expiry_age", help="Expiry age of objects in ms", type=int, default=5000)
+parser.add_argument("--delay", help="Startup delay in ms", type=int, default=1000)
 args = parser.parse_args()
 
 print("+==========================================+")
@@ -33,7 +34,7 @@ print("+==========================================+")
 cwd = os.getcwd()
 qperf = cwd + "/qperf"
 for i in range(args.clients):
-    qperf_cmd =f'{qperf} -n 0x01020304050607080{i:x}10111213141516/80 --endpoint_id perf{i:x}@cisco.com -d {args.duration} --streams {args.streams} --chunk_size {args.chunk_size} --msg_size {args.msg_size} --relay_url {args.relay_url} --relay_port {args.relay_port} --interval {args.interval} --priority {args.priority} --expiry_age {args.expiry_age}'
+    qperf_cmd =f'{qperf} -n 0x0102030405{i:08x}10111213141516/80 --endpoint_id perf{i}@cisco.com -d {args.duration} --streams {args.streams} --chunk_size {args.chunk_size} --msg_size {args.msg_size} --relay_url {args.relay_url} --relay_port {args.relay_port} --interval {args.interval} --priority {args.priority} --expiry_age {args.expiry_age}'
     subprocess.Popen(qperf_cmd, shell=True, stderr=subprocess.DEVNULL)
 
 def signal_handler(sig, frame):
