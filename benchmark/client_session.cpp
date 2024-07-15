@@ -34,7 +34,7 @@ public:
     .tls_cert_filename = nullptr,
     .tls_key_filename = nullptr,
     .use_reset_wait_strategy = false,
-    .quic_qlog_path = "",
+    .quic_qlog_path = nullptr,
   };
 
   std::unique_ptr<quicr::Client> client;
