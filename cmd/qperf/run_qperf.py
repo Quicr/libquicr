@@ -34,7 +34,7 @@ print("+==========================================+")
 cwd = os.getcwd()
 qperf = cwd + "/qperf"
 for i in range(args.clients):
-    qperf_cmd =f'{qperf} -n 0x0102030405{i:08x}10111213141516/80 --endpoint_id perf{i}@cisco.com -d {args.duration} --streams {args.streams} --chunk_size {args.chunk_size} --msg_size {args.msg_size} --relay_url {args.relay_url} --relay_port {args.relay_port} --interval {args.interval} --priority {args.priority} --expiry_age {args.expiry_age}'
+    qperf_cmd =f'{qperf} -n 0x0102030405{i:08x}10111213141516/80 --endpoint_id perf{i}@cisco.com -d {args.duration} --streams {args.streams} --chunk_size {args.chunk_size} --msg_size {args.msg_size} --relay_url {args.relay_url} --relay_port {args.relay_port} --interval {args.interval} --priority {args.priority} --expiry_age {args.expiry_age} --delay {args.delay}'
     subprocess.Popen(qperf_cmd, shell=True, stderr=subprocess.DEVNULL)
 
 def signal_handler(sig, frame):
