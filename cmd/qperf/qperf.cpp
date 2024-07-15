@@ -138,47 +138,50 @@ main(int argc, char** argv)
     .tls_key_filename = nullptr,
     .time_queue_max_duration = expiry_age,
     .use_reset_wait_strategy = false,
+    .quic_qlog_path = "",
   };
 
   auto logger = std::make_shared<cantina::Logger>("perf", "PERF");
 
   std::unique_lock lock(mutex);
-  std::vector<std::shared_ptr<quicr::Client>> clients;
+
+  auto client = std::make_unique<quicr::Client>(
+    info, result["endpoint_id"].as<std::string>(), chunk_size, config, logger);
+
+  try {
+    if (!client->connect()) {
+      LOGGER_CRITICAL(logger,
+                      "Failed to connect to relay '" << info.hostname << ":"
+                                                     << info.port << "'");
+      return EXIT_FAILURE;
+    }
+  } catch (const std::exception& e) {
+    LOGGER_CRITICAL(logger,
+                    "Failed to connect to relay '"
+                      << info.hostname << ":" << info.port
+                      << "' with exception: " << e.what());
+    return EXIT_FAILURE;
+  } catch (...) {
+    return EXIT_FAILURE;
+  }
 
   std::vector<quicr::Namespace> namespaces;
+  for (std::uint16_t i = 0; i < streams; ++i) {
+    auto& publish_ns = namespaces.emplace_back(
+      ns.name() + ((0x0_name + i) << (128 - ns.length())), ns.length());
 
-  for (int j = 0; j < 100; ++j) {
-    auto client =
-      std::make_shared<quicr::Client>(info,
-                                      result["endpoint_id"].as<std::string>(),
-                                      chunk_size,
-                                      config,
-                                      logger);
-    clients.push_back(std::move(client));
+    client->publishIntent(std::make_shared<PerfPublishDelegate>(),
+                          publish_ns,
+                          "",
+                          "",
+                          {},
+                          reliable ? quicr::TransportMode::ReliablePerGroup
+                                   : quicr::TransportMode::Unreliable);
   }
 
-  std::vector<std::thread> cthreads;
-  for (auto& client : clients) {
-    cthreads.emplace_back([=, c = client] {
-      try {
-        if (!c->connect()) {
-          LOGGER_CRITICAL(logger,
-                          "Failed to connect to relay '" << info.hostname << ":"
-                                                         << info.port << "'");
-          std::exit(EXIT_FAILURE);
-        }
-      } catch (...) {
-        std::exit(EXIT_FAILURE);
-      }
-    });
-  }
+  cv.wait(lock, [&] { return publish_intents_received.load() == streams; });
 
   std::this_thread::sleep_for(delay);
-
-  for (auto& t : cthreads) {
-    if (t.joinable())
-      t.join();
-  }
 
   const std::uint64_t bitrate = (msg_size * 8) / (interval.count() / 1e6);
   const std::uint64_t expected_objects = 1e6 / interval.count();
@@ -196,23 +199,7 @@ main(int argc, char** argv)
   LOGGER_INFO(logger, "+==========================================+");
   // clang-format on
 
-  const auto start = std::chrono::high_resolution_clock::now();
-  for (const auto& client : clients) {
-    for (std::uint16_t i = 0; i < streams; ++i) {
-      auto& publish_ns = namespaces.emplace_back(
-        ns.name() + ((0x0_name + i) << (128 - ns.length())), ns.length());
-
-      client->publishIntent(std::make_shared<PerfPublishDelegate>(),
-                            publish_ns,
-                            "",
-                            "",
-                            {},
-                            reliable ? quicr::TransportMode::ReliablePerGroup
-                                     : quicr::TransportMode::Unreliable);
-    }
-
-    cv.wait(lock, [&] { return publish_intents_received.load() == streams; });
-  }
+  std::this_thread::sleep_for(delay);
 
   std::atomic_size_t finished_publishers = 0;
   std::atomic_size_t total_objects_published = 0;
@@ -221,46 +208,43 @@ main(int argc, char** argv)
 
   std::signal(SIGINT, handle_terminate_signal);
 
-  std::this_thread::sleep_for(delay);
+  const auto start = std::chrono::high_resolution_clock::now();
 
-  for (const auto& client : clients) {
-    for (quicr::Namespace& pub_ns : namespaces) {
-      threads.emplace_back([&] {
-        std::size_t group = 0;
-        std::size_t objects = 0;
-        ::loop_for(duration, interval, [&] {
-          std::vector<std::uint8_t> msg_bytes = buffer;
+  for (quicr::Namespace& pub_ns : namespaces) {
+    threads.emplace_back([&] {
+      std::size_t group = 0;
+      std::size_t objects = 0;
+      ::loop_for(duration, interval, [&] {
+        std::vector<std::uint8_t> msg_bytes = buffer;
 
-          std::lock_guard _(mutex);
+        std::lock_guard _(mutex);
 
-          quicr::Name name =
-            pub_ns.name() | (~(~0x0_name << (128 - pub_ns.length())) &
-                             (pub_ns.name() + (group << 16) + objects++));
-          if (objects == group_size) {
-            ++group;
-            objects = 0;
-          }
+        quicr::Name name =
+          pub_ns.name() | (~(~0x0_name << (128 - pub_ns.length())) &
+                           (pub_ns.name() + (group << 16) + objects++));
+        if (objects == group_size) {
+          ++group;
+          objects = 0;
+        }
 
-          client->publishNamedObject(name,
-                                     priority,
-                                     expiry_age,
-                                     std::move(msg_bytes),
-                                     { {
-                                       "perf:publish",
-                                       now(),
-                                     } });
-          ++total_objects_published;
-        });
-
-        ++finished_publishers;
-        cv.notify_one();
+        client->publishNamedObject(name,
+                                   priority,
+                                   expiry_age,
+                                   std::move(msg_bytes),
+                                   { {
+                                     "perf:publish",
+                                     now(),
+                                   } });
+        ++total_objects_published;
       });
-    }
+
+      ++finished_publishers;
+      cv.notify_one();
+    });
   }
 
-  cv.wait(lock, [&] {
-    return terminate.load() || finished_publishers == streams * 100;
-  });
+  cv.wait(lock,
+          [&] { return terminate.load() || finished_publishers == streams; });
 
   const auto end = std::chrono::high_resolution_clock::now();
   const auto elapsed =
