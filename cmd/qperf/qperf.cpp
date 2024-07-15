@@ -138,7 +138,7 @@ main(int argc, char** argv)
     .tls_key_filename = nullptr,
     .time_queue_max_duration = expiry_age,
     .use_reset_wait_strategy = false,
-    .quic_qlog_path = "",
+    .quic_qlog_path = nullptr,
   };
 
   auto logger = std::make_shared<cantina::Logger>("perf", "PERF");
