@@ -277,9 +277,9 @@ quicr::MoQInstanceClientConfig init_config(cxxopts::ParseResult& cli_opts,
     config.transport_config.debug = cli_opts["debug"].as<bool>();;
     config.transport_config.use_reset_wait_strategy = false;
     config.transport_config.time_queue_max_duration = 5000;
-    config.transport_config.tls_cert_filename = nullptr;
-    config.transport_config.tls_key_filename = nullptr;
-    config.transport_config.quic_qlog_path = qlog_path.size() ? const_cast<char *>(qlog_path.c_str()) : nullptr;
+    config.transport_config.tls_cert_filename = "";
+    config.transport_config.tls_key_filename = "";
+    config.transport_config.quic_qlog_path = qlog_path;
 
     return config;
 }
