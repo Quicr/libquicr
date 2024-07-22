@@ -447,11 +447,11 @@ quicr::MoQInstanceServerConfig init_config(cxxopts::ParseResult& cli_opts, const
     config.server_port = cli_opts["port"].as<uint16_t>();
     config.server_proto = qtransport::TransportProtocol::QUIC;
     config.transport_config.debug = cli_opts["debug"].as<bool>();
-    config.transport_config.tls_cert_filename = const_cast<char *>(cli_opts["cert"].as<std::string>().c_str());
-    config.transport_config.tls_key_filename = const_cast<char *>(cli_opts["key"].as<std::string>().c_str());
+    config.transport_config.tls_cert_filename = cli_opts["cert"].as<std::string>();
+    config.transport_config.tls_key_filename = cli_opts["key"].as<std::string>();
     config.transport_config.use_reset_wait_strategy = false;
     config.transport_config.time_queue_max_duration = 5000;
-    config.transport_config.quic_qlog_path = qlog_path.size() ? const_cast<char *>(qlog_path.c_str()) : nullptr;
+    config.transport_config.quic_qlog_path = qlog_path;
 
     return config;
 }
