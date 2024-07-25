@@ -16,7 +16,7 @@ target_sources(quicr PRIVATE
 if(NOT LIBQUICR_WITHOUT_INFLUXDB)
     target_sources(quicr PRIVATE metrics_exporter.cpp)
 else ()
-    add_definitions("-DLIBQUICR_WITHOUT_INFLUXDB")
+    add_compile_definitions(LIBQUICR_WITHOUT_INFLUXDB)
 endif()
 
 # Suppress external lib warnings
