@@ -228,14 +228,15 @@ main(int argc, char* argv[])
                       .proto = quicr::RelayInfo::Protocol::QUIC };
 
   const auto tcfg = qtransport::TransportConfig{
-    .tls_cert_filename = "",
-    .tls_key_filename = "",
+    .tls_cert_filename = nullptr,
+    .tls_key_filename = nullptr,
+    .time_queue_max_duration = 5000,
   };
 
   quicr::MeasurementsConfig metrics_config{
     .metrics_namespace = quicr::Namespace("0xA11CEB0B000000000000000000000000/80"),
-    .priority = 31,
-    .ttl = 50000,
+    .priority = 1,
+    .ttl = 5000,
   };
 
   quicr::Client client(relay, "a@cisco.com", 0, tcfg, logger, metrics_config);

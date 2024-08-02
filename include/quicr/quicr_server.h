@@ -38,7 +38,7 @@ public:
          const qtransport::TransportConfig& tconfig,
          std::shared_ptr<ServerDelegate> delegate_in,
          const cantina::LoggerPointer& logger,
-         std::optional<quicr::Namespace> metrics_ns = std::nullopt);
+         std::optional<MeasurementsConfig> measurements_cfg = std::nullopt);
 
   /**
    * API for unit test cases .

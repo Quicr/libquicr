@@ -37,7 +37,7 @@ ServerRawSession::ServerRawSession(const RelayInfo& relayInfo,
                                    const qtransport::TransportConfig& tconfig,
                                    std::shared_ptr<ServerDelegate> delegate_in,
                                    const cantina::LoggerPointer& logger,
-                                   std::optional<Namespace> metrics_ns)
+                                   std::optional<MeasurementsConfig> m_cfg)
   : delegate(std::move(delegate_in))
   , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport_delegate(*this)
@@ -59,9 +59,9 @@ ServerRawSession::ServerRawSession(const RelayInfo& relayInfo,
   metrics_conn_samples = std::make_shared<qtransport::safe_queue<qtransport::MetricsConnSample>>(qtransport::MAX_METRICS_SAMPLES_QUEUE);
   metrics_data_samples = std::make_shared<qtransport::safe_queue<qtransport::MetricsDataSample>>(qtransport::MAX_METRICS_SAMPLES_QUEUE);
 
-  if (metrics_ns)
+  if (m_cfg.has_value())
   {
-    metrics_namespace = *metrics_ns;
+    this->measurements_cfg = m_cfg;
   }
 
   transport->start(metrics_conn_samples, metrics_data_samples);
@@ -111,7 +111,7 @@ ServerRawSession::run()
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
-  if (metrics_namespace)
+  if (measurements_cfg.has_value())
   {
     runPublishMeasurements();
   }
@@ -798,16 +798,20 @@ ServerRawSession::TransportDelegate::on_recv_dgram(const qtransport::TransportCo
 void
 ServerRawSession::publishMeasurement(const Measurement& measurement)
 {
+  if (!measurements_cfg.has_value())
+  {
+    return;
+  }
+
   const json measurement_json = measurement;
-  const std::string measurement_str = measurement_json.dump();
-  quicr::bytes measurement_bytes(measurement_str.begin(), measurement_str.end());
+  quicr::bytes measurement_bytes = json::to_bson(measurement_json);
 
   messages::PublishDatagram datagram;
-  datagram.header.name = *metrics_namespace;
+  datagram.header.name = measurements_cfg->metrics_namespace;
   datagram.header.media_id = 0;
   datagram.header.group_id = 0;
   datagram.header.object_id = 0;
-  datagram.header.priority = 127;
+  datagram.header.priority = measurements_cfg->priority;
   datagram.header.offset_and_fin = 1ULL;
   datagram.media_type = messages::MediaType::RealtimeMedia;
   datagram.media_data_length = measurement_bytes.size();

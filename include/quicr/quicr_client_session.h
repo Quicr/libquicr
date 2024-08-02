@@ -178,6 +178,19 @@ public:
                                           bool is_last_fragment,
                                           bytes&& data) = 0;
 
+  /**
+   * @brief Publish measurement object.
+   *
+   * @param measurement : The measurement to be published.
+   */
   virtual void publishMeasurement(const Measurement& measurement) = 0;
+
+  /**
+   * @brief Publish measurement json object.
+   *
+   * @param measurement_json : The measurement to be published. The JSON body MUST reflect the structure of
+   *                           quicr::Measurement.
+   */
+  virtual void publishMeasurement(const json& measurement_json) = 0;
 };
 } // namespace quicr

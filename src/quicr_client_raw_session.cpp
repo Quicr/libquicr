@@ -346,8 +346,15 @@ void ClientRawSession::publishMeasurement(const Measurement& measurement)
     return;
 
   const json measurement_json = measurement;
-  const std::string measurement_str = measurement_json.dump();
-  quicr::bytes measurement_bytes(measurement_str.begin(), measurement_str.end());
+  publishMeasurement(measurement_json);
+}
+
+void ClientRawSession::publishMeasurement(const json& measurement_json)
+{
+  if (!_metrics_config.has_value())
+    return;
+
+  std::lock_guard _(_metrics_mutex);
 
   const auto start_time = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::steady_clock::now());
   std::vector<qtransport::MethodTraceItem> trace;
@@ -357,7 +364,7 @@ void ClientRawSession::publishMeasurement(const Measurement& measurement)
   publishNamedObject(_metrics_config->metrics_namespace,
                      _metrics_config->priority,
                      _metrics_config->ttl,
-                     std::move(measurement_bytes),
+                     json::to_bson(measurement_json),
                      std::move(trace));
 }
 
@@ -1031,7 +1038,7 @@ ClientRawSession::handle(std::optional<uint64_t> stream_id,
                       "",
                       {},
                       TransportMode::ReliablePerTrack,
-                      31);
+                      _metrics_config->priority);
       }
       break;
     }

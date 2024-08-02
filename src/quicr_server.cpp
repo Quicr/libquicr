@@ -11,14 +11,14 @@ Server::Server(const RelayInfo& relayInfo,
                const qtransport::TransportConfig& tconfig,
                std::shared_ptr<ServerDelegate> delegate_in,
                const cantina::LoggerPointer& logger,
-               std::optional<quicr::Namespace> metrics_ns)
+               std::optional<MeasurementsConfig> measurements_cfg)
 {
   switch (relayInfo.proto) {
     case RelayInfo::Protocol::UDP:
       [[fallthrough]];
     case RelayInfo::Protocol::QUIC:
       server_session = std::make_unique<ServerRawSession>(
-        relayInfo, tconfig, std::move(delegate_in), logger, metrics_ns);
+        relayInfo, tconfig, std::move(delegate_in), logger, measurements_cfg);
       break;
     default:
       throw ServerException("Unsupported relay protocol");

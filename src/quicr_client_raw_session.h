@@ -218,7 +218,20 @@ public:
                                   bytes&& data) override;
 
 
+  /**
+   * @brief Publish measurement object.
+   *
+   * @param measurement : The measurement to be published.
+   */
   void publishMeasurement(const Measurement& measurement) override;
+
+  /**
+   * @brief Publish measurement json object.
+   *
+   * @param measurement_json : The measurement to be published. The JSON body MUST reflect the structure of
+   *                           quicr::Measurement.
+   */
+  void publishMeasurement(const json& measurement_json) override;
 
 protected:
   struct MsgFragment {
@@ -380,6 +393,7 @@ protected:
   std::optional<MeasurementsConfig> _metrics_config;
   Measurement connection_measurement;
   std::map<qtransport::DataContextId, Measurement> data_measurements;
+  std::mutex _metrics_mutex;
 
   // TODO(trigaux): Remove when metrics counting moves to libqucir.
   std::shared_ptr<qtransport::safe_queue<qtransport::MetricsConnSample>> metrics_conn_samples;

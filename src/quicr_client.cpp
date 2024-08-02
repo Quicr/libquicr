@@ -148,4 +148,10 @@ Client::publishMeasurement(const Measurement& measurement)
 {
   client_session->publishMeasurement(measurement);
 }
+
+void
+Client::publishMeasurement(const json& measurement_json)
+{
+  client_session->publishMeasurement(measurement_json);
+}
 } // namespace quicr

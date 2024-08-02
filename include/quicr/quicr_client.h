@@ -207,7 +207,20 @@ public:
                                   bool is_last_fragment,
                                   bytes&& data);
 
+  /**
+   * @brief Publish measurement object.
+   *
+   * @param measurement : The measurement to be published.
+   */
   void publishMeasurement(const Measurement& measurement);
+
+  /**
+   * @brief Publish measurement json object.
+   *
+   * @param measurement_json : The measurement to be published. The JSON body MUST reflect the structure of
+   *                           quicr::Measurement.
+   */
+  void publishMeasurement(const json& measurement_json);
 
 protected:
   std::unique_ptr<ClientSession> client_session;

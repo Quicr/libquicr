@@ -271,10 +271,16 @@ main()
       .debug = true
     };
 
+    quicr::MeasurementsConfig metrics_config{
+      .metrics_namespace = quicr::Namespace("0xA11CEB0B000000000000000000000000/80"),
+      .priority = 1,
+      .ttl = 5000,
+    };
+
     auto logger = std::make_shared<cantina::Logger>("really");
     auto delegate = std::make_shared<ReallyServerDelegate>(logger);
     auto server =
-      std::make_shared<quicr::Server>(relayInfo, tcfg, delegate, logger, quicr::Namespace("0xA11CEB0B000000000000000000000000/80"));
+      std::make_shared<quicr::Server>(relayInfo, tcfg, delegate, logger, metrics_config);
 
     // TODO(trigaux): Remove this once delegate no longer depends on server.
     delegate->setServer(server);

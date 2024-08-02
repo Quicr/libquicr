@@ -57,6 +57,8 @@ public:
   Measurement() = default;
   Measurement(const std::string& name);
 
+  const std::string& GetName() const { return _name; }
+
   Measurement& SetTime(const std::chrono::system_clock::time_point& time) noexcept;
 
   Measurement& AddAttribute(const Attribute& attr);
