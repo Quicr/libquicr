@@ -1,19 +1,36 @@
-# Media over Quic (MOQ) Transport API
+# Media over Quic Transport (MOQT) API
 
-### MOQ Instance
+## MOQ Implementation Instance
 Instance is the connection handler for the client connection and server listening socket. 
 
- Class                          | Description                                                      
---------------------------------|------------------------------------------------------------------
-quicr::MoQInstance             | MOQ Instance connection supporting server/relay and client modes 
-quicr::MoQInstanceClientConfig | MOQ Instance configuration using client mode            
-quicr::MoQInstanceServerConfig | MOQ Instance configuration using server mode
-quicr::MoQInstanceDelegate | MOQ Instance delegate for callbacks on control and connection related events
+### Client
 
-### Publish and Subscribe Track Delegate
+ Class                    | Description                                                                  
+--------------------------|------------------------------------------------------------------------------
+ quicr::MoQClient         | Client handler, which is specific to a QUIC IP connection             
+ quicr::MoQClientConfig   | Client configuration                                 
+ quicr::MoQClientDelegate | Client delegate for callbacks (control messages and connection related events) 
 
-quicr::MoQTrackDelegate track delegate is used for subscribe, publish, or both. It implements both
-receive and sending operations.
+### Server
 
+ Class                    | Description                                                                  
+--------------------------|------------------------------------------------------------------------------
+ quicr::MoQServer         | Server handler, which is specific to the QUIC IP listening IP and port             
+ quicr::MoQServerConfig   | Server configuration                                 
+ quicr::MoQServerDelegate | Server delegate for callbacks (control messages and connection related events) 
 
+### Track Handlers
 
+`publishTrack()` and `subscribeTrack()` use the below implemented handler classes. 
+
+ Class                           | Description                                                      
+---------------------------------|------------------------------------------------------------------
+ quicr::MoQSubscribeTrackHandler | Subscribe track handler for subscribe related operations and callbacks 
+ quicr::MoQPublishTrackHandler   | Publish track handler for publish related operations and callbacks
+
+---
+
+## Documentation Links
+
+* [MoQ Implementation Details](https://github.com/Quicr/libquicr/blob/main/docs/moq-implementation.md)
+* Quick Start

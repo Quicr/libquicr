@@ -65,8 +65,8 @@ As a client, the flow is quite simple. Below illustrates a Client using the API.
 flowchart TD
     A([Client App Code])-->MOQI[New MoQInstance]
     MOQI-->B((MoQ Instance Request))
-    B-->ST[[Subscribe Track Delegate]]
-    B-->PT[[Publish Track Delegate]]
+    B-->ST[[Subscribe Track Handler]]
+    B-->PT[[Publish Track Handler]]
     ST-->S_RO(Receive Object)
     S_RO-->ST
     PT-->P_SO(Send Object)
@@ -101,32 +101,46 @@ flowchart TD
     SA-->WS
 ```
 
+### Threading Model
 
-### MOQ Track Delegate
-Publish and subscribe use the same delegate interface and base implementation. The track delegate can be subscribe only,
-publish only, or both publish and subscribe. The caller creates the delegate and ownes the lifecycle of it. 
-The `MoQInstance` holds a reference to the delegate so that callbacks can be used concurrently/thread-safe. 
+### Threads Created
+Three threads are used by libquicr. 
 
-The track delegate is the primary handler for sending and receiving data to/from a track. Callbacks are implemented
-in the delegate to notify the caller of various events. 
+1. Libqucir creates a thread for the transport, which is the Picoquic event loop thread.
+2. The transport creates a thread for notifications of received data or connection level events.
+   Libquicr uses this thread to process data received from the transport. All processed data is
+   handled in this thread. 
+3. Transport creates a Tick service thread that is used by all time queues and metrics. Tick 
+   service is a fast chrono tick counter. 
 
-### MOQ Instance Delegate
+> [!NOTE] 
+> Write data is performed in the caller/application thread. 
 
-The caller implements and ownes the `MoQInstance` delegate. The instance delegate is passed to the `MoQInstance` 
-constructor. The `MoQInstance` creates a thread-safe reference to the delegate. Callbacks are implemented by 
+The API methods and callbacks are thread safe. 
+
+### MOQ Track Handler
+
+Publish and subscribe handlers implement callbacks and related operational methods. The caller creates the handler
+for subscribe/publish track. The caller is the owner of the handler instantiation, which will be used by the
+MoQClient or MoQServer. The MoQClient/MoQServer handler instance will have a shared reference to the track
+handler.  The track handler is used for sending and receiving data to/from a track. 
+
+### MOQ Client/Server Delegate
+
+The caller implements and owns the `MoQClientDelegate` and `MoQServerDelgate`. The delegate is passed to the `MoQImpl` 
+constructor. The `MoQImpl` creates a thread-safe reference to the delegate. Callbacks are implemented by 
 the caller to be notified on various MOQT control flow events. Various control flow events include status of the
 instance, connection status, new connections, announces, subscribes, etc.
 
-### MOQ Instance
+### MOQ Client/Server Instance
 
-The `MoQInstance` is a QUIC connection instance, which is either a client or server. In client mode, it represents
-a single QUIC connection to a server. In serer mode, it represents a listening socket that accepts many QUIC connections.
+The `MoQClient` and `MoQServer` instance handlers represent a QUIC transport IP connection or server listening IP/PORT.
 
 ## Control Message Flows
 
 ### Create Publish Track Flow
 
-API call to `publishTrack(connection_id, track_delegate)` will establish a new publish track fullname. If the track
+API call to `publishTrack(connection_id, track_handler)` will establish a new publish track fullname. If the track
 **namespace** is new and has not been processed before, a **MOQT announce** flow will be implemented. Below shows
 the flow. 
 
@@ -163,7 +177,7 @@ send any objecs yet.
 
 ### Create Subscribe Track Flow
 
-API call to `subscribeTrack(connection_id, track_delegate)` will establish a new subscribe track fullname. A MOQT
+API call to `subscribeTrack(connection_id, track_handler)` will establish a new subscribe track fullname. A MOQT
 subscribe will be sent when calling this method. 
 
 Below shows the flow of what happens with an initial subscribe. 

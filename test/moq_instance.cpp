@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include <quicr/moq_instance.h>
+#include <quicr/moq_impl.h>
 
 using namespace quicr;
 

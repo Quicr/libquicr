@@ -10,8 +10,10 @@
 #include <quicr/quicr_common.h>
 #include <transport/transport.h>
 
-#include <quicr/moq_instance_delegate.h>
-#include <quicr/moq_track_delegate.h>
+#include <quicr/moq_impl_config.h>
+#include <quicr/moq_base_track_handler.h>
+#include <quicr/moq_client_delegate.h>
+#include <quicr/moq_server_delegate.h>
 
 #include <unordered_map>
 #include <map>
@@ -19,40 +21,20 @@
 #include <string_view>
 
 namespace quicr {
-    constexpr uint64_t MOQT_VERSION = 0xff000004;             /// draft-ietf-moq-transport-04
-    constexpr uint64_t MOQT_SUBSCRIBE_EXPIRES = 0;            /// Never expires
-    constexpr int MOQT_READ_LOOP_MAX_PER_STREAM = 60;         /// Support packet/frame bursts, but do not allow starving other streams
-
     using namespace qtransport;
 
-    struct MoQInstanceConfig
-    {
-        std::string endpoint_id; /// Endpoint ID for the client or server, should be unique
-        TransportConfig transport_config;
-    };
-
-    struct MoQInstanceClientConfig : MoQInstanceConfig
-    {
-        std::string server_host_ip;     /// Relay hostname or IP to connect to
-        uint16_t server_port;           /// Relay port to connect to
-        TransportProtocol server_proto; /// Protocol to use when connecting to relay
-    };
-
-    struct MoQInstanceServerConfig : MoQInstanceConfig
-    {
-        std::string server_bind_ip;     /// IP address to bind to, can be 0.0.0.0
-        uint16_t server_port;           /// Listening port for server
-        TransportProtocol server_proto; /// Protocol to use
-    };
 
     /**
-     * @brief MOQ Instance
-     * @Details MoQ Instance is the handler for either a client or server. It can run
+     * @brief MOQ Implementation supporting both client and server modes
+     * @Details MoQ implementation is the handler for either a client or server. It can run
      *   in only one mode, client or server.
      */
-    class MoQInstance : public ITransport::TransportDelegate
+    class MoQImpl : public ITransport::TransportDelegate
     {
       public:
+        MoQImpl() = delete;
+
+      protected:
         enum class Status : uint8_t
         {
             READY = 0,
@@ -98,26 +80,26 @@ namespace quicr {
         /**
          * @brief Client mode Constructor to create the MOQ instance
          *
-         * @param cfg     MoQ Instance Client Configuration
-         * @param delegate   MoQ instance delegate of callbacks
-         * @param logger  MoQ Log pointer to parent logger
+         * @param cfg       MoQ Instance Client Configuration
+         * @param delegate  MoQ instance delegate of callbacks
+         * @param logger    MoQ Log pointer to parent logger
          */
-        MoQInstance(const MoQInstanceClientConfig& cfg,
-                    std::shared_ptr<MoQInstanceDelegate> delegate,
-                    const cantina::LoggerPointer& logger);
+        MoQImpl(const MoQClientConfig& cfg,
+                std::shared_ptr<MoQClientDelegate> delegate,
+                const cantina::LoggerPointer& logger);
 
         /**
          * @brief Server mode Constructor to create the MOQ instance
          *
-         * @param cfg        MoQ Instance Server Configuration
-         * @param delegate   MoQ instance delegate of callbacks
+         * @param cfg        MoQ Server Configuration
+         * @param delegate   MoQ delegate of callbacks
          * @param logger     MoQ Log pointer to parent logger
          */
-        MoQInstance(const MoQInstanceServerConfig& cfg,
-                    std::shared_ptr<MoQInstanceDelegate> delegate,
-                    const cantina::LoggerPointer& logger);
+        MoQImpl(const MoQServerConfig& cfg,
+                std::shared_ptr<MoQServerDelegate> delegate,
+                const cantina::LoggerPointer& logger);
 
-        ~MoQInstance() = default;
+        ~MoQImpl() = default;
 
         // -------------------------------------------------------------------------------------------------
         // Public API MoQ Intance API methods
@@ -131,7 +113,7 @@ namespace quicr {
          * @returns `track_alias` if no error and nullopt on error
          */
         std::optional<uint64_t> subscribeTrack(TransportConnId conn_id,
-                                               std::shared_ptr<MoQTrackDelegate> track_delegate);
+                                               std::shared_ptr<MoQBaseTrackHandler> track_delegate);
 
         /**
          * @brief Unsubscribe track
@@ -140,7 +122,7 @@ namespace quicr {
          * @param track_delegate    Track delegate to use for track related functions and callbacks
          */
         void unsubscribeTrack(TransportConnId conn_id,
-                              std::shared_ptr<MoQTrackDelegate> track_delegate);
+                              std::shared_ptr<MoQBaseTrackHandler> track_delegate);
 
         /**
          * @brief Bind Subscribe track delegate
@@ -155,7 +137,7 @@ namespace quicr {
          */
         std::optional<uint64_t> bindSubscribeTrack(TransportConnId conn_id,
                                                    uint64_t subscribe_id,
-                                                   std::shared_ptr<MoQTrackDelegate> track_delegate);
+                                                   std::shared_ptr<MoQBaseTrackHandler> track_delegate);
 
         /**
          * @brief Publish to a track
@@ -165,22 +147,22 @@ namespace quicr {
          *
          * @returns `track_alias` if no error and nullopt on error
          */
-        std::optional<uint64_t> publishTrack(TransportConnId conn_id, std::shared_ptr<MoQTrackDelegate> track_delegate);
+        std::optional<uint64_t> publishTrack(TransportConnId conn_id, std::shared_ptr<MoQBaseTrackHandler> track_delegate);
 
         /**
          * @brief Unpublish track
          *
          * @param track_delegate    Track delegate used when published track
          */
-        void unpublishTrack(TransportConnId conn_id, std::shared_ptr<MoQTrackDelegate> track_delegate);
+        void unpublishTrack(TransportConnId conn_id, std::shared_ptr<MoQBaseTrackHandler> track_delegate);
 
 
         /**
          * @brief Make client connection and run
          *
          * @details Makes a client connection session if instance is in client mode and runs as client
-         *
-         * @return Status indicating state or error. If succesful, status will be
+         *     Session will be created using a thread to run the QUIC connection
+         * @return Status indicating state or error. If successful, status will be
          *    CLIENT_CONNECTING.
          */
         Status run_client();
@@ -189,8 +171,9 @@ namespace quicr {
          * @brief Start Server Listening
          *
          * @details Creates transport and listens for new connections
+         *     Session will be created using a thread to run the QUIC connection
          *
-         * @return Status indicating state or error. If succesful, status will be
+         * @return Status indicating state or error. If successful, status will be
          *    READY.
          */
         Status run_server();
@@ -224,7 +207,7 @@ namespace quicr {
                             const bool is_bidir = false) override;
         void on_recv_dgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id) override;
 
-        MoQTrackDelegate::SendError send_object(std::weak_ptr<MoQTrackDelegate> track_delegate,
+        MoQBaseTrackHandler::SendError send_object(std::weak_ptr<MoQBaseTrackHandler> track_delegate,
                                                 uint8_t priority,
                                                 uint32_t ttl,
                                                 bool stream_header_needed,
@@ -238,20 +221,20 @@ namespace quicr {
         {
             TransportConnId conn_id;
             std::optional<uint64_t> ctrl_data_ctx_id;
-            bool setup_complete { false };   /// True if both client and server setup messages have completed
+            bool setup_complete { false };   ///< True if both client and server setup messages have completed
             uint64_t client_version { 0 };
-            std::optional<messages::MoQMessageType> ctrl_msg_type_received;  /// Indicates the current message type being read
+            std::optional<messages::MoQMessageType> ctrl_msg_type_received;  ///< Indicates the current message type being read
 
-            uint64_t _sub_id {0};      /// Connection specific ID for subscribe messages
+            uint64_t _sub_id {0};      ///< Connection specific ID for subscribe messages
 
             // Track namespace/name by received subscribe IDs - Used to map published tracks to subscribes in client mode
             std::map<uint64_t, std::pair<uint64_t, uint64_t>> recv_sub_id;
 
             // Tracks by subscribe ID
-            std::map<uint64_t, std::shared_ptr<MoQTrackDelegate>> tracks_by_sub_id;
+            std::map<uint64_t, std::shared_ptr<MoQBaseTrackHandler>> tracks_by_sub_id;
 
             // Publish tracks by namespace and name. map[track namespace][track name] = track delegate
-            std::map<uint64_t, std::map<uint64_t, std::shared_ptr<MoQTrackDelegate>>> pub_tracks_by_name;
+            std::map<uint64_t, std::map<uint64_t, std::shared_ptr<MoQBaseTrackHandler>>> pub_tracks_by_name;
         };
 
         // -------------------------------------------------------------------------------------------------
@@ -287,10 +270,10 @@ namespace quicr {
                                        std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
         void remove_subscribeTrack(ConnectionContext& conn_ctx,
-                                   MoQTrackDelegate& delegate,
+                                   MoQBaseTrackHandler& delegate,
                                    bool remove_delegate=true);
 
-        std::optional<std::weak_ptr<MoQTrackDelegate>> getPubTrackDelegate(ConnectionContext& conn_ctx,
+        std::optional<std::weak_ptr<MoQBaseTrackHandler>> getPubTrackDelegate(ConnectionContext& conn_ctx,
                                                                            TrackHash& th);
 
         // -------------------------------------------------------------------------------------------------
@@ -301,8 +284,8 @@ namespace quicr {
         std::mutex _state_mutex;
         const bool _client_mode;
         bool _stop { false };
-        const MoQInstanceServerConfig _server_config;
-        const MoQInstanceClientConfig _client_config;
+        const MoQServerConfig _server_config;
+        const MoQClientConfig _client_config;
 
         std::map<TransportConnId, ConnectionContext> _connections;
 
@@ -315,7 +298,8 @@ namespace quicr {
         MetricsExporter _mexport;
 #endif
 
-        std::shared_ptr<MoQInstanceDelegate> _delegate;
+        std::shared_ptr<MoQClientDelegate> _client_delegate;
+        std::shared_ptr<MoQServerDelegate> _server_delegate;
         std::shared_ptr<ITransport> _transport; // **MUST** be last for proper order of destruction
     };
 
