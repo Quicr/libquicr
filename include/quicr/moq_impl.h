@@ -14,6 +14,8 @@
 #include <quicr/moq_base_track_handler.h>
 #include <quicr/moq_client_delegate.h>
 #include <quicr/moq_server_delegate.h>
+#include <quicr/moq_subscribe_track_handler.h>
+#include <quicr/moq_publish_track_handler.h>
 
 #include <unordered_map>
 #include <map>
@@ -34,7 +36,6 @@ namespace quicr {
       public:
         MoQImpl() = delete;
 
-      protected:
         enum class Status : uint8_t
         {
             READY = 0,
@@ -49,6 +50,7 @@ namespace quicr {
             CLIENT_FAILED_TO_CONNECT,
         };
 
+      protected:
         struct TrackFullName {
             std::span<uint8_t const> name_space;
             std::span<uint8_t const> name;
@@ -104,6 +106,8 @@ namespace quicr {
         // -------------------------------------------------------------------------------------------------
         // Public API MoQ Intance API methods
         // -------------------------------------------------------------------------------------------------
+      public:
+
         /**
          * @brief Subscribe to a track
          *
@@ -113,7 +117,7 @@ namespace quicr {
          * @returns `track_alias` if no error and nullopt on error
          */
         std::optional<uint64_t> subscribeTrack(TransportConnId conn_id,
-                                               std::shared_ptr<MoQBaseTrackHandler> track_delegate);
+                                               std::shared_ptr<MoQSubscribeTrackHandler> track_delegate);
 
         /**
          * @brief Unsubscribe track
@@ -122,22 +126,7 @@ namespace quicr {
          * @param track_delegate    Track delegate to use for track related functions and callbacks
          */
         void unsubscribeTrack(TransportConnId conn_id,
-                              std::shared_ptr<MoQBaseTrackHandler> track_delegate);
-
-        /**
-         * @brief Bind Subscribe track delegate
-         *
-         * @details This method is used to bind a received subscribe to a track delegate
-         *
-         * @param conn_id               Connection ID to send subscribe
-         * @param subscribe_id          Local subscribe ID to use
-         * @param track_delegate        Track delegate to use for track related functions and callbacks
-         *
-         * @returns `track_alias` if no error and nullopt on error
-         */
-        std::optional<uint64_t> bindSubscribeTrack(TransportConnId conn_id,
-                                                   uint64_t subscribe_id,
-                                                   std::shared_ptr<MoQBaseTrackHandler> track_delegate);
+                              std::shared_ptr<MoQSubscribeTrackHandler> track_delegate);
 
         /**
          * @brief Publish to a track
@@ -147,14 +136,14 @@ namespace quicr {
          *
          * @returns `track_alias` if no error and nullopt on error
          */
-        std::optional<uint64_t> publishTrack(TransportConnId conn_id, std::shared_ptr<MoQBaseTrackHandler> track_delegate);
+        std::optional<uint64_t> publishTrack(TransportConnId conn_id, std::shared_ptr<MoQPublishTrackHandler> track_delegate);
 
         /**
          * @brief Unpublish track
          *
          * @param track_delegate    Track delegate used when published track
          */
-        void unpublishTrack(TransportConnId conn_id, std::shared_ptr<MoQBaseTrackHandler> track_delegate);
+        void unpublishTrack(TransportConnId conn_id, std::shared_ptr<MoQPublishTrackHandler> track_delegate);
 
 
         /**
@@ -190,6 +179,7 @@ namespace quicr {
          */
         void stop() { _stop = true; }
 
+      private:
         // -------------------------------------------------------------------------------------------------
         // Transport Delegate/callback functions
         // -------------------------------------------------------------------------------------------------
@@ -214,8 +204,6 @@ namespace quicr {
                                                 uint64_t group_id,
                                                 uint64_t object_id,
                                                 std::span<const uint8_t> data);
-
-      private:
 
         struct ConnectionContext
         {
