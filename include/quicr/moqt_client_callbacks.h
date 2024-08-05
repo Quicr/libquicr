@@ -17,20 +17,20 @@ namespace quicr {
      *
      * @details MoQ client callback delegate for connection and MOQT control message handling.
      */
-    class MOQTClientDelegate
+    class MOQTClientCallbacks
     {
       public:
         /**
-         * @brief Notification for connection status/state change
-         * @details Notification indicates state change of connection, such as disconnected
+         * @brief Callback notification for connection status/state change
+         * @details Callback notification indicates state change of connection, such as disconnected
          *
          * @param conn_id          Transport connection ID
          * @param endpoint_id      Endpoint ID of remote side
          * @param status           Transport status of connection id
          */
-        virtual void connectionStatusCallback(TransportConnId conn_id,
-                                              std::span<uint8_t const> endpoint_id,
-                                              TransportStatus status) = 0;
+        virtual void connectionStatus(TransportConnId conn_id,
+                                      std::span<uint8_t const> endpoint_id,
+                                      TransportStatus status) = 0;
 
         /**
          * @brief Callback on server setup message
@@ -40,8 +40,8 @@ namespace quicr {
          * @param conn_id          Transport connection ID
          * @param server_setup     Decoded sever setup message
          */
-        virtual void serverSetupCallback([[maybe_unused]] TransportConnId conn_id,
-                                         [[maybe_unused]] messages::MoqServerSetup server_setup)
+        virtual void serverSetup([[maybe_unused]] TransportConnId conn_id,
+                                 [[maybe_unused]] messages::MoqServerSetup server_setup)
         {
         }
 
@@ -55,10 +55,10 @@ namespace quicr {
          *
          * @return True if send announce should be sent, false if not
          */
-        virtual bool subscribeCallback([[maybe_unused]] TransportConnId conn_id,
-                                       [[maybe_unused]] uint64_t subscribe_id,
-                                       [[maybe_unused]] std::span<uint8_t const> name_space,
-                                       [[maybe_unused]] std::span<uint8_t const> name)
+        virtual bool subscribe([[maybe_unused]] TransportConnId conn_id,
+                               [[maybe_unused]] uint64_t subscribe_id,
+                               [[maybe_unused]] std::span<uint8_t const> name_space,
+                               [[maybe_unused]] std::span<uint8_t const> name)
         {
             return true;
         }
@@ -69,10 +69,7 @@ namespace quicr {
          * @param conn_id             Source connection ID
          * @param subscribe_id        Subscribe ID received
          */
-        virtual void unsubscribeCallback([[maybe_unused]] TransportConnId conn_id,
-                                         [[maybe_unused]] uint64_t subscribe_id)
-        {
-        }
+        virtual void unsubscribe([[maybe_unused]] TransportConnId conn_id, [[maybe_unused]] uint64_t subscribe_id) {}
     };
 
 } // namespace quicr

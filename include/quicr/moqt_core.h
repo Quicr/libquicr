@@ -11,10 +11,10 @@
 #include <transport/transport.h>
 
 #include <quicr/moqt_base_track_handler.h>
-#include <quicr/moqt_client_delegate.h>
+#include <quicr/moqt_client_callbacks.h>
 #include <quicr/moqt_config.h>
 #include <quicr/moqt_publish_track_handler.h>
-#include <quicr/moqt_server_delegate.h>
+#include <quicr/moqt_server_callbacks.h>
 #include <quicr/moqt_subscribe_track_handler.h>
 
 #include <map>
@@ -88,7 +88,7 @@ namespace quicr {
          * @param logger    MoQ Log pointer to parent logger
          */
         MOQTCore(const MOQTClientConfig& cfg,
-                 std::shared_ptr<MOQTClientDelegate> delegate,
+                 std::shared_ptr<MOQTClientCallbacks> delegate,
                  const cantina::LoggerPointer& logger);
 
         /**
@@ -99,7 +99,7 @@ namespace quicr {
          * @param logger     MoQ Log pointer to parent logger
          */
         MOQTCore(const MOQTServerConfig& cfg,
-                 std::shared_ptr<MOQTServerDelegate> delegate,
+                 std::shared_ptr<MOQTServerCallbacks> delegate,
                  const cantina::LoggerPointer& logger);
 
         ~MOQTCore() = default;
@@ -258,8 +258,8 @@ namespace quicr {
         MetricsExporter _mexport;
 #endif
 
-        std::shared_ptr<MOQTClientDelegate> _client_delegate;
-        std::shared_ptr<MOQTServerDelegate> _server_delegate;
+        std::shared_ptr<MOQTClientCallbacks> _client_delegate;
+        std::shared_ptr<MOQTServerCallbacks> _server_delegate;
         std::shared_ptr<ITransport> _transport; // **MUST** be last for proper order of destruction
     };
 

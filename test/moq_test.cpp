@@ -21,9 +21,8 @@ TEST_CASE("Track Handler")
         }
 
       public:
-        void cb_sendNotReady(MOQTBaseTrackHandler::TrackSendStatus status) override;
-        void cb_sendNotReady(Status status) override;
-        void cb_sendCongested(bool cleared, uint64_t objects_in_queue) override;
+        void statusCallback(Status status) override;
+        void congestedCallback(bool cleared, uint64_t objects_in_queue) override;
     };
 
     std::string track_ns = "abc";
