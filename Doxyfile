@@ -2870,8 +2870,9 @@ MSCGEN_TOOL            =
 
 MSCFILE_DIRS           =
 
-GENERATE_TREEVIEW      = YES # optional. Also works without treeview
-DISABLE_INDEX = NO
-FULL_SIDEBAR = NO
-HTML_EXTRA_STYLESHEET  = docs/css/doxygen-awesome.css
+GENERATE_TREEVIEW      = YES # required!
+DISABLE_INDEX          = NO
+FULL_SIDEBAR           = NO
+HTML_EXTRA_STYLESHEET  = docs/css/doxygen-awesome.css \
+                         docs/css/doxygen-awesome-sidebar-only.css
 HTML_COLORSTYLE        = LIGHT # required with Doxygen >= 1.9.5
