@@ -14,7 +14,7 @@ namespace quicr {
     /**
      * @brief MoQ Client
      *
-     * @Details MoQ Client is the handler of the MOQT QUIC transport IP connection.
+     * @details MoQ Client is the handler of the MOQT QUIC transport IP connection.
      */
     class MoQServer : public MoQImpl
     {
@@ -32,6 +32,19 @@ namespace quicr {
         : MoQImpl(cfg, delegate, logger) {}
 
         ~MoQServer() = default;
+
+        /**
+         * @brief Start Server Listening
+         *
+         * @details Creates transport and listens for new connections
+         *     Session will be created using a thread to run the QUIC connection
+         *
+         * @return Status indicating state or error. If successful, status will be
+         *    READY.
+         */
+        Status run();
     };
+
+
 
 } // namespace quicr

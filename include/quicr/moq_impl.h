@@ -147,27 +147,6 @@ namespace quicr {
 
 
         /**
-         * @brief Make client connection and run
-         *
-         * @details Makes a client connection session if instance is in client mode and runs as client
-         *     Session will be created using a thread to run the QUIC connection
-         * @return Status indicating state or error. If successful, status will be
-         *    CLIENT_CONNECTING.
-         */
-        Status run_client();
-
-        /**
-         * @brief Start Server Listening
-         *
-         * @details Creates transport and listens for new connections
-         *     Session will be created using a thread to run the QUIC connection
-         *
-         * @return Status indicating state or error. If successful, status will be
-         *    READY.
-         */
-        Status run_server();
-
-        /**
          * @brief Get the instance status
          *
          * @return Status indicating the state/status of the instance
