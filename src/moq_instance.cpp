@@ -1022,6 +1022,7 @@ namespace quicr {
     std::optional<uint64_t> MoQInstance::subscribeTrack(TransportConnId conn_id,
                                                         std::shared_ptr<MOQTBaseTrackHandler> track_delegate)
     {
+        // TODO: Ensure that run is called before this
         // Generate track alias
         auto tfn = TrackFullName{ track_delegate->getTrackNamespace(), track_delegate->getTrackName() };
 
@@ -1220,6 +1221,8 @@ namespace quicr {
 
     std::optional<uint64_t> MoQInstance::publishTrack(TransportConnId conn_id,
                                          std::shared_ptr<MOQTBaseTrackHandler> track_delegate) {
+
+        // TODO: Ensure that run is called before this
 
         // Generate track alias
         auto tfn = TrackFullName{ track_delegate->getTrackNamespace(), track_delegate->getTrackName() };
