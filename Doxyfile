@@ -2873,6 +2873,5 @@ MSCFILE_DIRS           =
 GENERATE_TREEVIEW      = YES # required!
 DISABLE_INDEX          = NO
 FULL_SIDEBAR           = NO
-HTML_EXTRA_STYLESHEET  = docs/css/doxygen-awesome.css \
-                         docs/css/doxygen-awesome-sidebar-only.css
+HTML_EXTRA_STYLESHEET  = docs/css/doxygen-awesome.css
 HTML_COLORSTYLE        = LIGHT # required with Doxygen >= 1.9.5
