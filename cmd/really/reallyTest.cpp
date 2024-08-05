@@ -230,9 +230,16 @@ main(int argc, char* argv[])
   const auto tcfg = qtransport::TransportConfig{
     .tls_cert_filename = "",
     .tls_key_filename = "",
+    .time_queue_max_duration = 5000,
   };
 
-  quicr::Client client(relay, "a@cisco.com", 0, tcfg, logger);
+  quicr::MeasurementsConfig metrics_config{
+    .metrics_namespace = quicr::Namespace("0xA11CEB0B000000000000000000000000/80"),
+    .priority = 1,
+    .ttl = 5000,
+  };
+
+  quicr::Client client(relay, "a@cisco.com", 0, tcfg, logger, metrics_config);
   auto pd = std::make_shared<pubDelegate>(logger);
 
   if (!client.connect()) {

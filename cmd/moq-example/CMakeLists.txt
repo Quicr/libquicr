@@ -4,12 +4,6 @@ add_executable(qserver
 )
 target_link_libraries(qserver PRIVATE quicr)
 
-if(NOT LIBQUICR_WITHOUT_INFLUXDB)
-  target_link_libraries(qserver
-          PRIVATE InfluxData::InfluxDB)
-endif()
-
-
 target_compile_options(qserver
         PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall>
@@ -29,11 +23,6 @@ endif()
 add_executable(qclient client.cpp)
 
 target_link_libraries(qclient PRIVATE quicr)
-
-if(NOT LIBQUICR_WITHOUT_INFLUXDB)
-  target_link_libraries(qclient
-          PRIVATE InfluxData::InfluxDB)
-endif()
 
 target_compile_options(qclient
         PRIVATE

@@ -40,19 +40,21 @@ public:
   /**
    * @brief Setup a QUICR Client with publisher and subscriber functionality
    *
-   * @param relay_info  : Relay Information to be used by the transport
-   * @param endpoint_id : Client endpoint ID (e.g., email)
-   * @param chunk_size  : Size in bytes to chunk messages if greater than this size
-   *                      Zero disables, value is max(chunk_size, max_transport_data_size)
-   * @param tconfig     : Transport configuration
-   * @param logger      : Shared pointer to cantina::Logger object
-   *                      loggings operations
+   * @param relay_info     : Relay Information to be used by the transport
+   * @param endpoint_id    : Client endpoint ID (e.g., email)
+   * @param chunk_size     : Size in bytes to chunk messages if greater than this size
+   *                         Zero disables, value is max(chunk_size, max_transport_data_size)
+   * @param tconfig        : Transport configuration
+   * @param logger         : Shared pointer to cantina::Logger object
+   *                         loggings operations
+   * @param metrics_config : Information for publishing metrics.
    */
   Client(const RelayInfo& relay_info,
          const std::string& endpoint_id,
          size_t chunk_size,
          const qtransport::TransportConfig& tconfig,
-         const cantina::LoggerPointer& logger);
+         const cantina::LoggerPointer& logger,
+         std::optional<MeasurementsConfig> metrics_config = std::nullopt);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber
@@ -205,11 +207,22 @@ public:
                                   bool is_last_fragment,
                                   bytes&& data);
 
+  /**
+   * @brief Publish measurement object.
+   *
+   * @param measurement : The measurement to be published.
+   */
+  void publishMeasurement(const Measurement& measurement);
+
+  /**
+   * @brief Publish measurement json object.
+   *
+   * @param measurement_json : The measurement to be published. The JSON body MUST reflect the structure of
+   *                           quicr::Measurement.
+   */
+  void publishMeasurement(const json& measurement_json);
+
 protected:
   std::unique_ptr<ClientSession> client_session;
 };
-
-using QuicRClient
-  [[deprecated("quicr::QuicRClient stutters, use quicr::Client")]] =
-    quicr::Client;
 }

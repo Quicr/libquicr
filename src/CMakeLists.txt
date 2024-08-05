@@ -2,6 +2,7 @@
 add_library(quicr)
 
 target_sources(quicr PRIVATE
+        measurement.cpp
         message_buffer.cpp
         encode.cpp
         moq_messages.cpp
@@ -12,12 +13,6 @@ target_sources(quicr PRIVATE
         moq_instance.cpp
         moq_track_delegate_base.cpp
 )
-
-if(NOT LIBQUICR_WITHOUT_INFLUXDB)
-    target_sources(quicr PRIVATE metrics_exporter.cpp)
-else ()
-    add_definitions("-DLIBQUICR_WITHOUT_INFLUXDB")
-endif()
 
 # Suppress external lib warnings
 set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)
@@ -51,9 +46,5 @@ target_link_libraries(quicr
         quicr-transport
         qname)
 
-if(NOT LIBQUICR_WITHOUT_INFLUXDB)
-    target_link_libraries(quicr
-            PRIVATE InfluxData::InfluxDB)
-endif()
-target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include)
-
+target_link_libraries(quicr PRIVATE nlohmann_json::nlohmann_json)
+target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include ${nlohmann_json_SOURCE_DIR}/include)

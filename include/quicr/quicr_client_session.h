@@ -19,6 +19,7 @@
 
 #include "quicr_client_delegate.h"
 #include "quicr_common.h"
+#include "measurement.h"
 
 #include <quicr/namespace.h>
 #include <transport/transport.h>
@@ -176,10 +177,20 @@ public:
                                           const uint64_t& offset,
                                           bool is_last_fragment,
                                           bytes&& data) = 0;
+
+  /**
+   * @brief Publish measurement object.
+   *
+   * @param measurement : The measurement to be published.
+   */
+  virtual void publishMeasurement(const Measurement& measurement) = 0;
+
+  /**
+   * @brief Publish measurement json object.
+   *
+   * @param measurement_json : The measurement to be published. The JSON body MUST reflect the structure of
+   *                           quicr::Measurement.
+   */
+  virtual void publishMeasurement(const json& measurement_json) = 0;
 };
-
-using QuicRClientSession [[deprecated(
-  "quicr::QuicRClientSession stutters, use quicr::ClientSession")]] =
-  quicr::ClientSession;
-
 } // namespace quicr
