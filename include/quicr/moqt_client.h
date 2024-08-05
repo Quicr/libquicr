@@ -36,10 +36,11 @@ namespace quicr {
         ~MOQTClient() = default;
 
         /**
-         * @brief Make client connection and run
+         * @brief Runs client connection in transport thread
          *
-         * @details Makes a client connection session if instance is in client mode and runs as client
-         *     Session will be created using a thread to run the QUIC connection
+         * @details Makes a client connection session and runs in a newly created thread. All control and track
+         *   callbacks will be run based on events.
+         *
          * @return Status indicating state or error. If successful, status will be
          *    CLIENT_CONNECTING.
          */
