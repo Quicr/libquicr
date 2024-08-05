@@ -2,7 +2,7 @@ var searchData=
 [
   ['name_0',['name',['../structquicr_1_1_m_o_q_t_core_1_1_track_full_name.html#a69ac50824718a4452bc033efb58b10e7',1,'quicr::MOQTCore::TrackFullName']]],
   ['name_5fspace_1',['name_space',['../structquicr_1_1_m_o_q_t_core_1_1_track_full_name.html#acb7303aaf20f9364eed311d364d6e290',1,'quicr::MOQTCore::TrackFullName']]],
-  ['newconnectioncallback_2',['newConnectionCallback',['../classquicr_1_1_m_o_q_t_server_delegate.html#a612643a0ca6dd4959711dbbb27bb883c',1,'quicr::MOQTServerDelegate']]],
+  ['newconnection_2',['newConnection',['../classquicr_1_1_m_o_q_t_server_callbacks.html#aa13124ef42d22a1608cba6a703fceb14',1,'quicr::MOQTServerCallbacks']]],
   ['no_5fdata_3',['NO_DATA',['../classquicr_1_1_m_o_q_t_subscribe_track_handler.html#a0584a0d573dcea14e285e7ac98c02383aee69335f36c559202930f685b01c009e',1,'quicr::MOQTSubscribeTrackHandler']]],
   ['no_5fsubscribers_4',['NO_SUBSCRIBERS',['../classquicr_1_1_m_o_q_t_publish_track_handler.html#a894ff51821b6d3bb9a9ab99a2f0f81f3a7b652afb5918ccf1361216fcea781793',1,'quicr::MOQTPublishTrackHandler::NO_SUBSCRIBERS'],['../classquicr_1_1_m_o_q_t_publish_track_handler.html#ac2c7c41244aea8ff6e6d18374af2c74ca7b652afb5918ccf1361216fcea781793',1,'quicr::MOQTPublishTrackHandler::NO_SUBSCRIBERS']]],
   ['not_5fannounced_5',['NOT_ANNOUNCED',['../classquicr_1_1_m_o_q_t_publish_track_handler.html#a894ff51821b6d3bb9a9ab99a2f0f81f3a6b00381a9ee082731c7372b3bd7d4d19',1,'quicr::MOQTPublishTrackHandler::NOT_ANNOUNCED'],['../classquicr_1_1_m_o_q_t_publish_track_handler.html#ac2c7c41244aea8ff6e6d18374af2c74ca6b00381a9ee082731c7372b3bd7d4d19',1,'quicr::MOQTPublishTrackHandler::NOT_ANNOUNCED']]],

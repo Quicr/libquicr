@@ -5,7 +5,7 @@ var searchData=
   ['server_5fhost_5fip_2',['server_host_ip',['../structquicr_1_1_m_o_q_t_client_config.html#ac470ea50ed698c53b5e22163aced2140',1,'quicr::MOQTClientConfig']]],
   ['server_5fport_3',['server_port',['../structquicr_1_1_m_o_q_t_client_config.html#a7a0eed77ebe2d328ce4ce0bcc6f108e3',1,'quicr::MOQTClientConfig::server_port'],['../structquicr_1_1_m_o_q_t_server_config.html#aae70c6b94a7f44019d3bd8ea2f58f228',1,'quicr::MOQTServerConfig::server_port']]],
   ['server_5fproto_4',['server_proto',['../structquicr_1_1_m_o_q_t_client_config.html#a979be091c65e8a7dc6bbe2f3cff5a1cf',1,'quicr::MOQTClientConfig::server_proto'],['../structquicr_1_1_m_o_q_t_server_config.html#af82c3ef1a5b90941afdc2c64f04a2003',1,'quicr::MOQTServerConfig::server_proto']]],
-  ['serversetupcallback_5',['serverSetupCallback',['../classquicr_1_1_m_o_q_t_client_delegate.html#ad9fd7bd3521e11897b93035a008de617',1,'quicr::MOQTClientDelegate']]],
+  ['serversetup_5',['serverSetup',['../classquicr_1_1_m_o_q_t_client_callbacks.html#aa0da2ee69322246f1841d832e7a16d89',1,'quicr::MOQTClientCallbacks']]],
   ['setdefaultpriority_6',['setDefaultPriority',['../classquicr_1_1_m_o_q_t_publish_track_handler.html#a993aaeb89256a063237f2a12cc0a1f4a',1,'quicr::MOQTPublishTrackHandler']]],
   ['setdefaultttl_7',['setDefaultTTL',['../classquicr_1_1_m_o_q_t_publish_track_handler.html#aa7297ebabf1d446cdf98999224764b16',1,'quicr::MOQTPublishTrackHandler']]],
   ['setsubscribeid_8',['setSubscribeId',['../classquicr_1_1_m_o_q_t_base_track_handler.html#a5ef0ffee5bc2d119a5361b9288a1d632',1,'quicr::MOQTBaseTrackHandler']]],
@@ -18,7 +18,7 @@ var searchData=
   ['stream_5fper_5fgroup_15',['STREAM_PER_GROUP',['../classquicr_1_1_m_o_q_t_base_track_handler.html#ad16151ecb23e4a6b9f6844690c8ac454a66eb5bb6378e9f0b1d784fc4ff2e0f5d',1,'quicr::MOQTBaseTrackHandler']]],
   ['stream_5fper_5fobject_16',['STREAM_PER_OBJECT',['../classquicr_1_1_m_o_q_t_base_track_handler.html#ad16151ecb23e4a6b9f6844690c8ac454adad46197b0b281bc60e53924abdac2ca',1,'quicr::MOQTBaseTrackHandler']]],
   ['stream_5fper_5ftrack_17',['STREAM_PER_TRACK',['../classquicr_1_1_m_o_q_t_base_track_handler.html#ad16151ecb23e4a6b9f6844690c8ac454a5d9bfc2d3b9635692f35d7508e96781f',1,'quicr::MOQTBaseTrackHandler']]],
-  ['subscribe_5ferror_18',['SUBSCRIBE_ERROR',['../classquicr_1_1_m_o_q_t_subscribe_track_handler.html#ad5c145cc7b6d9d5529922f6ed9124eceaea24874d9426bdfaa8767bbe97c38bdb',1,'quicr::MOQTSubscribeTrackHandler']]],
-  ['subscribecallback_19',['subscribeCallback',['../classquicr_1_1_m_o_q_t_client_delegate.html#ac35b185540e6d24d37a34d911a998aa0',1,'quicr::MOQTClientDelegate::subscribeCallback()'],['../classquicr_1_1_m_o_q_t_server_delegate.html#a18ae5c9297c4a896213a69c895f19462',1,'quicr::MOQTServerDelegate::subscribeCallback()']]],
+  ['subscribe_18',['subscribe',['../classquicr_1_1_m_o_q_t_client_callbacks.html#a28c87b0d17346fdf9f177a3e1bf2edc5',1,'quicr::MOQTClientCallbacks::subscribe()'],['../classquicr_1_1_m_o_q_t_server_callbacks.html#a356136392fc3b03741c146f52aac35a5',1,'quicr::MOQTServerCallbacks::subscribe()']]],
+  ['subscribe_5ferror_19',['SUBSCRIBE_ERROR',['../classquicr_1_1_m_o_q_t_subscribe_track_handler.html#ad5c145cc7b6d9d5529922f6ed9124eceaea24874d9426bdfaa8767bbe97c38bdb',1,'quicr::MOQTSubscribeTrackHandler']]],
   ['subscribetrack_20',['subscribeTrack',['../classquicr_1_1_m_o_q_t_core.html#a0b9b0672711e575625f1c637eb1a16c3',1,'quicr::MOQTCore']]]
 ];

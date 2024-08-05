@@ -102,8 +102,8 @@ $(function(){initNavTree('index.html',''); initResizable(true); });
 <div class="contents">
 <div class="textblock"><p><a class="anchor" id="md_docs_2moq-api-main"></a> </p>
 <h1><a class="anchor" id="autotoc_md1"></a>
-MOQ Implementation Instance</h1>
-<p>Instance is the connection handler for the client connection and server listening socket.</p>
+MOQT Core</h1>
+<p>The MOQT protocol and API implementation is in <a class="el" href="classquicr_1_1_m_o_q_t_core.html" title="MOQ Implementation supporting both client and server modes.">quicr::MOQTCore</a>. Both <a class="el" href="classquicr_1_1_m_o_q_t_client.html" title="MoQ Client.">quicr::MOQTClient</a> and <a class="el" href="classquicr_1_1_m_o_q_t_server.html" title="MoQ Client.">quicr::MOQTServer</a> implement <a class="el" href="classquicr_1_1_m_o_q_t_core.html" title="MOQ Implementation supporting both client and server modes.">quicr::MOQTCore</a>.</p>
 <h2><a class="anchor" id="autotoc_md2"></a>
 Client</h2>
 <table class="markdownTable">
@@ -114,7 +114,7 @@ Client</h2>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone"><a class="el" href="structquicr_1_1_m_o_q_t_client_config.html">quicr::MOQTClientConfig</a>   </td><td class="markdownTableBodyNone">Client configuration    </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><a class="el" href="classquicr_1_1_m_o_q_t_client_delegate.html" title="MoQ/MOQT client callbacks.">quicr::MOQTClientDelegate</a>   </td><td class="markdownTableBodyNone">Client delegate for callbacks (control messages and connection related events)   </td></tr>
+<td class="markdownTableBodyNone"><a class="el" href="classquicr_1_1_m_o_q_t_client_callbacks.html" title="MoQ/MOQT client callbacks.">quicr::MOQTClientCallbacks</a>   </td><td class="markdownTableBodyNone">Client callbacks (control messages and connection related events)   </td></tr>
 </table>
 <h2><a class="anchor" id="autotoc_md3"></a>
 Server</h2>
@@ -126,7 +126,7 @@ Server</h2>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone"><a class="el" href="structquicr_1_1_m_o_q_t_server_config.html">quicr::MOQTServerConfig</a>   </td><td class="markdownTableBodyNone">Server configuration    </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><a class="el" href="classquicr_1_1_m_o_q_t_server_delegate.html" title="MoQ/MOQT server callbacks.">quicr::MOQTServerDelegate</a>   </td><td class="markdownTableBodyNone">Server delegate for callbacks (control messages and connection related events)   </td></tr>
+<td class="markdownTableBodyNone"><a class="el" href="classquicr_1_1_m_o_q_t_server_callbacks.html" title="MoQ/MOQT server callbacks.">quicr::MOQTServerCallbacks</a>   </td><td class="markdownTableBodyNone">Server callbacks (control messages and connection related events)   </td></tr>
 </table>
 <h2><a class="anchor" id="autotoc_md4"></a>
 Track Handlers</h2>
@@ -143,7 +143,7 @@ Track Handlers</h2>
 <h1><a class="anchor" id="autotoc_md6"></a>
 Documentation Links</h1>
 <ul>
-<li><a href="https://github.com/Quicr/libquicr/blob/main/docs/moq-implementation.md">MoQ Implementation Details</a></li>
+<li><a href="https://github.com/Quicr/libquicr/blob/main/docs/moq-implementation.md">MOQT Implementation Details</a></li>
 <li>Quick Start </li>
 </ul>
 </div></div><!-- PageDoc -->

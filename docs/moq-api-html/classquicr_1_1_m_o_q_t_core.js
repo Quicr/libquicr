@@ -13,8 +13,8 @@ var classquicr_1_1_m_o_q_t_core =
       [ "CLIENT_FAILED_TO_CONNECT", "classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaedda36378de9b5e644b84fd40a6fc6529243", null ]
     ] ],
     [ "MOQTCore", "classquicr_1_1_m_o_q_t_core.html#a12c6d8e4f6ddc6ced65d5015445777a7", null ],
-    [ "MOQTCore", "classquicr_1_1_m_o_q_t_core.html#aa33effce4d86dca30b20bc437fc69adf", null ],
-    [ "MOQTCore", "classquicr_1_1_m_o_q_t_core.html#a0a37eb666365f8cc74749f755c614ab0", null ],
+    [ "MOQTCore", "classquicr_1_1_m_o_q_t_core.html#a7fb46a7eadc7f8d2a09cc238b75433fe", null ],
+    [ "MOQTCore", "classquicr_1_1_m_o_q_t_core.html#a8d5ef9be6013baf453e92bca020d6ae7", null ],
     [ "~MOQTCore", "classquicr_1_1_m_o_q_t_core.html#a4a008afd4e77ef6eb45722f1673b7057", null ],
     [ "publishTrack", "classquicr_1_1_m_o_q_t_core.html#ac50a057781c8d1292f13d8fa5e4dd3cf", null ],
     [ "status", "classquicr_1_1_m_o_q_t_core.html#a62be68c3a9a26fa6072264a3ce4b13b9", null ],

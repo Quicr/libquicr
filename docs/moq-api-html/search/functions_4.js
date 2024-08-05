@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['newconnectioncallback_0',['newConnectionCallback',['../classquicr_1_1_m_o_q_t_server_delegate.html#a612643a0ca6dd4959711dbbb27bb883c',1,'quicr::MOQTServerDelegate']]]
+  ['newconnection_0',['newConnection',['../classquicr_1_1_m_o_q_t_server_callbacks.html#aa13124ef42d22a1608cba6a703fceb14',1,'quicr::MOQTServerCallbacks']]]
 ];

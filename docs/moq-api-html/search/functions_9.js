@@ -1,7 +1,7 @@
 var searchData=
 [
-  ['unannouncecallback_0',['unannounceCallback',['../classquicr_1_1_m_o_q_t_server_delegate.html#a98a24454bd761101d79b6f2b8499b6bc',1,'quicr::MOQTServerDelegate']]],
+  ['unannounce_0',['unannounce',['../classquicr_1_1_m_o_q_t_server_callbacks.html#a3274bdf5c5162c0f74d42804ccc0b49f',1,'quicr::MOQTServerCallbacks']]],
   ['unpublishtrack_1',['unpublishTrack',['../classquicr_1_1_m_o_q_t_core.html#afe45fd978beb3a857de484269f3b45cf',1,'quicr::MOQTCore']]],
-  ['unsubscribecallback_2',['unsubscribeCallback',['../classquicr_1_1_m_o_q_t_client_delegate.html#a14ae619dfd5d5f4611fbb97b7ad9e1bf',1,'quicr::MOQTClientDelegate::unsubscribeCallback()'],['../classquicr_1_1_m_o_q_t_server_delegate.html#ab0d5b95e7ba67986cb21e2011c6451a2',1,'quicr::MOQTServerDelegate::unsubscribeCallback()']]],
+  ['unsubscribe_2',['unsubscribe',['../classquicr_1_1_m_o_q_t_client_callbacks.html#a8e668e12ca3fa3ea7990cd26286812f8',1,'quicr::MOQTClientCallbacks::unsubscribe()'],['../classquicr_1_1_m_o_q_t_server_callbacks.html#a675caaaf56ee60063b1e47b4f484a9bb',1,'quicr::MOQTServerCallbacks::unsubscribe()']]],
   ['unsubscribetrack_3',['unsubscribeTrack',['../classquicr_1_1_m_o_q_t_core.html#ac7940c9543b4a1569af54bb451cbfc55',1,'quicr::MOQTCore']]]
 ];
