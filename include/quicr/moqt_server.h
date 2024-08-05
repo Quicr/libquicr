@@ -36,10 +36,10 @@ namespace quicr {
         ~MOQTServer() = default;
 
         /**
-         * @brief Start Server Listening
+         * @brief Runs server transport thread to listen for new connections
          *
-         * @details Creates transport and listens for new connections
-         *     Session will be created using a thread to run the QUIC connection
+         * @details Creates a new transport thread to listen for new connections. All control and track
+         *   callbacks will be run based on events.
          *
          * @return Status indicating state or error. If successful, status will be
          *    READY.

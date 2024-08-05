@@ -59,29 +59,28 @@ namespace quicr {
         }
 
         /**
-         * @brief Callback notification for new announce received (need to authorize)
+         * @brief Callback notification for new announce received that needs to be authorized
          *
          * @param conn_id                   Source connection ID
          * @param track_namespace_hash      Track namespace hash
          *
-         * @return True if send announce should be sent, false if not
+         * @return True if authorized and announce OK will be sent, false if not
          */
-        virtual bool announce([[maybe_unused]] TransportConnId conn_id, [[maybe_unused]] uint64_t track_namespace_hash)
+        virtual bool announceVerify([[maybe_unused]] TransportConnId conn_id, [[maybe_unused]] uint64_t track_namespace_hash)
         {
             return true;
         }
 
         /**
-         * @brief Callback notification for new announce received post OK being sent
+         * @brief Callback notification for new announce OK that has been sent
          *
-         * @details After announce an OK is sent providing the announce was authorized and accepted. This
-         *      callback is called after `cb_announce()` to allow the server to subscribe or followup
-         *      with actions based on the announce.
+         * @details Callback to indicate that announce OK has been sent and that the application/server
+         *   can proceed with post announce messages, such as subscribes based on matching the announcement.
          *
          * @param conn_id                   Source connection ID
          * @param track_namespace_hash      Track namespace hash
          */
-        virtual void announcePost([[maybe_unused]] TransportConnId conn_id,
+        virtual void announceOkSent([[maybe_unused]] TransportConnId conn_id,
                                   [[maybe_unused]] uint64_t track_namespace_hash)
         {
         }

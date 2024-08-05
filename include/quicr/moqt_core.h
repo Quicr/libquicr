@@ -42,7 +42,7 @@ namespace quicr {
             ERROR_NOT_IN_CLIENT_MODE,
             ERROR_NOT_IN_SERVER_MODE,
 
-            CLIENT_INVALID_PARAMS,
+            INVALID_PARAMS,
             CLIENT_NOT_CONNECTED,
             CLIENT_CONNECTING,
             CLIENT_FAILED_TO_CONNECT,
