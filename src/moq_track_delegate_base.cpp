@@ -4,19 +4,19 @@
  *  All Rights Reserved
  */
 
-#include <quicr/moq_base_track_handler.h>
-#include <quicr/moq_impl.h>
+#include <quicr/moqt_base_track_handler.h>
+#include <quicr/moqt_core.h>
 
 namespace quicr {
 
-    MoQBaseTrackHandler::SendError MoQBaseTrackHandler::sendObject([[maybe_unused]] const uint64_t  group_id,
+    MOQTBaseTrackHandler::SendError MOQTBaseTrackHandler::sendObject([[maybe_unused]] const uint64_t  group_id,
                                                              [[maybe_unused]] const uint64_t object_id,
                                                              [[maybe_unused]] std::span<const uint8_t> object)
     {
         return sendObject(group_id, object_id, object, _def_priority, _def_ttl);
     }
 
-    MoQBaseTrackHandler::SendError MoQBaseTrackHandler::sendObject([[maybe_unused]] const uint64_t  group_id,
+    MOQTBaseTrackHandler::SendError MOQTBaseTrackHandler::sendObject([[maybe_unused]] const uint64_t  group_id,
                                                              [[maybe_unused]] const uint64_t object_id,
                                                              [[maybe_unused]] std::span<const uint8_t> object,
                                                              [[maybe_unused]] uint32_t ttl)
@@ -24,7 +24,7 @@ namespace quicr {
         return sendObject(group_id, object_id, object, _def_priority, ttl);
     }
 
-    MoQBaseTrackHandler::SendError MoQBaseTrackHandler::sendObject([[maybe_unused]] const uint64_t  group_id,
+    MOQTBaseTrackHandler::SendError MOQTBaseTrackHandler::sendObject([[maybe_unused]] const uint64_t  group_id,
                                                              [[maybe_unused]] const uint64_t object_id,
                                                              [[maybe_unused]] std::span<const uint8_t> object,
                                                              [[maybe_unused]] uint8_t priority)
@@ -33,7 +33,7 @@ namespace quicr {
         return sendObject(group_id, object_id, object, priority, _def_ttl);
     }
 
-    MoQBaseTrackHandler::SendError MoQBaseTrackHandler::sendObject([[maybe_unused]] const uint64_t  group_id,
+    MOQTBaseTrackHandler::SendError MOQTBaseTrackHandler::sendObject([[maybe_unused]] const uint64_t  group_id,
                                                              [[maybe_unused]] const uint64_t object_id,
                                                              [[maybe_unused]] std::span<const uint8_t> object,
                                                              [[maybe_unused]] uint8_t priority,

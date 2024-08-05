@@ -2,7 +2,7 @@
 #include <doctest/doctest.h>
 #include <iostream>
 #include <memory>
-#include <quicr/moq_messages.h>
+#include <quicr/moqt_messages.h>
 #include <sstream>
 #include <string>
 #include <sys/socket.h>
@@ -441,7 +441,7 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
   CHECK_EQ(subscribe_ok.largest_object, subscribe_ok_out.largest_object);
 }
 
-TEST_CASE("SubscribeError  Message encode/decode")
+TEST_CASE("Error  Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
 

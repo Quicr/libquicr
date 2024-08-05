@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <quicr/moq_impl.h>
+#include <quicr/moqt_core.h>
 
 namespace quicr {
     using namespace qtransport;
@@ -16,7 +16,7 @@ namespace quicr {
      *
      * @details MoQ Client is the handler of the MOQT QUIC transport IP connection.
      */
-    class MoQServer : public MoQImpl
+    class MOQTServer : public MOQTCore
     {
       public:
         /**
@@ -26,12 +26,14 @@ namespace quicr {
          * @param delegate      MoQ Server delegate of callbacks
          * @param logger        MoQ Log pointer to parent logger
          */
-        MoQServer(const MoQServerConfig& cfg,
-                  std::shared_ptr<MoQServerDelegate> delegate,
-                    const cantina::LoggerPointer& logger)
-        : MoQImpl(cfg, delegate, logger) {}
+        MOQTServer(const MOQTServerConfig& cfg,
+                   std::shared_ptr<MOQTServerDelegate> delegate,
+                   const cantina::LoggerPointer& logger)
+          : MOQTCore(cfg, delegate, logger)
+        {
+        }
 
-        ~MoQServer() = default;
+        ~MOQTServer() = default;
 
         /**
          * @brief Start Server Listening
@@ -44,7 +46,5 @@ namespace quicr {
          */
         Status run();
     };
-
-
 
 } // namespace quicr

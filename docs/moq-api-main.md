@@ -5,28 +5,28 @@ Instance is the connection handler for the client connection and server listenin
 
 ### Client
 
- Class                    | Description                                                                  
---------------------------|------------------------------------------------------------------------------
- quicr::MoQClient         | Client handler, which is specific to a QUIC IP connection             
- quicr::MoQClientConfig   | Client configuration                                 
- quicr::MoQClientDelegate | Client delegate for callbacks (control messages and connection related events) 
+ Class                     | Description                                                                    
+---------------------------|--------------------------------------------------------------------------------
+ quicr::MOQTClient         | Client handler, which is specific to a QUIC IP connection                      
+ quicr::MOQTClientConfig   | Client configuration                                                           
+ quicr::MOQTClientDelegate | Client delegate for callbacks (control messages and connection related events) 
 
 ### Server
 
- Class                    | Description                                                                  
---------------------------|------------------------------------------------------------------------------
- quicr::MoQServer         | Server handler, which is specific to the QUIC IP listening IP and port             
- quicr::MoQServerConfig   | Server configuration                                 
- quicr::MoQServerDelegate | Server delegate for callbacks (control messages and connection related events) 
+ Class                     | Description                                                                    
+---------------------------|--------------------------------------------------------------------------------
+ quicr::MOQTServer         | Server handler, which is specific to the QUIC IP listening IP and port         
+ quicr::MOQTServerConfig   | Server configuration                                                           
+ quicr::MOQTServerDelegate | Server delegate for callbacks (control messages and connection related events) 
 
 ### Track Handlers
 
 `publishTrack()` and `subscribeTrack()` use the below implemented handler classes. 
 
- Class                           | Description                                                      
----------------------------------|------------------------------------------------------------------
- quicr::MoQSubscribeTrackHandler | Subscribe track handler for subscribe related operations and callbacks 
- quicr::MoQPublishTrackHandler   | Publish track handler for publish related operations and callbacks
+ Class                            | Description                                                            
+----------------------------------|------------------------------------------------------------------------
+ quicr::MOQTSubscribeTrackHandler | Subscribe track handler for subscribe related operations and callbacks 
+ quicr::MOQTPublishTrackHandler   | Publish track handler for publish related operations and callbacks     
 
 ---
 

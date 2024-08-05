@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <quicr/moq_messages.h>
+#include <quicr/moqt_messages.h>
 #include <transport/transport.h>
 
 namespace quicr {
@@ -17,7 +17,7 @@ namespace quicr {
      *
      * @details MoQ client callback delegate for connection and MOQT control message handling.
      */
-    class MoQClientDelegate
+    class MOQTClientDelegate
     {
       public:
         /**
@@ -28,9 +28,9 @@ namespace quicr {
          * @param endpoint_id      Endpoint ID of remote side
          * @param status           Transport status of connection id
          */
-        virtual void cb_connectionStatus(TransportConnId conn_id,
-                                         std::span<uint8_t const> endpoint_id,
-                                         TransportStatus status) = 0;
+        virtual void connectionStatusCallback(TransportConnId conn_id,
+                                              std::span<uint8_t const> endpoint_id,
+                                              TransportStatus status) = 0;
 
         /**
          * @brief Callback on server setup message
@@ -40,8 +40,8 @@ namespace quicr {
          * @param conn_id          Transport connection ID
          * @param server_setup     Decoded sever setup message
          */
-        virtual void cb_serverSetup([[maybe_unused]] TransportConnId conn_id,
-                                    [[maybe_unused]] messages::MoqServerSetup server_setup)
+        virtual void serverSetupCallback([[maybe_unused]] TransportConnId conn_id,
+                                         [[maybe_unused]] messages::MoqServerSetup server_setup)
         {
         }
 
@@ -55,10 +55,10 @@ namespace quicr {
          *
          * @return True if send announce should be sent, false if not
          */
-        virtual bool cb_subscribe([[maybe_unused]] TransportConnId conn_id,
-                                  [[maybe_unused]] uint64_t subscribe_id,
-                                  [[maybe_unused]] std::span<uint8_t const> name_space,
-                                  [[maybe_unused]] std::span<uint8_t const> name)
+        virtual bool subscribeCallback([[maybe_unused]] TransportConnId conn_id,
+                                       [[maybe_unused]] uint64_t subscribe_id,
+                                       [[maybe_unused]] std::span<uint8_t const> name_space,
+                                       [[maybe_unused]] std::span<uint8_t const> name)
         {
             return true;
         }
@@ -69,7 +69,10 @@ namespace quicr {
          * @param conn_id             Source connection ID
          * @param subscribe_id        Subscribe ID received
          */
-        virtual void cb_unsubscribe([[maybe_unused]] TransportConnId conn_id, [[maybe_unused]] uint64_t subscribe_id) {}
+        virtual void unsubscribeCallback([[maybe_unused]] TransportConnId conn_id,
+                                         [[maybe_unused]] uint64_t subscribe_id)
+        {
+        }
     };
 
 } // namespace quicr
