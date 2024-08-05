@@ -12,9 +12,9 @@ namespace quicr {
     using namespace qtransport;
 
     /**
-     * @brief MoQ Client
+     * @brief MOQT Client
      *
-     * @details MoQ Client is the handler of the MOQT QUIC transport IP connection.
+     * @details MOQT Client is the handler of the MOQT QUIC transport IP connection.
      */
     class MOQTClient : public MOQTCore
     {
@@ -22,14 +22,14 @@ namespace quicr {
         /**
          * @brief MoQ Client Constructor to create the client mode instance
          *
-         * @param cfg           MoQ Client Configuration
-         * @param delegate      MoQ Client delegate of callbacks
-         * @param logger        MoQ Log pointer to parent logger
+         * @param cfg           MOQT Client Configuration
+         * @param callbacks     MOQT Client callbacks
+         * @param logger        MOQT Log pointer to parent logger
          */
         MOQTClient(const MOQTClientConfig& cfg,
-                   std::shared_ptr<MOQTClientCallbacks> delegate,
+                   std::shared_ptr<MOQTClientCallbacks> callbacks,
                    const cantina::LoggerPointer& logger)
-          : MOQTCore(cfg, delegate, logger)
+          : MOQTCore(cfg, callbacks, logger)
         {
         }
 
@@ -45,6 +45,7 @@ namespace quicr {
          *    CLIENT_CONNECTING.
          */
         Status run();
+
     };
 
 } // namespace quicr

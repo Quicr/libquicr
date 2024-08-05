@@ -83,23 +83,23 @@ namespace quicr {
         /**
          * @brief Client mode Constructor to create the MOQ instance
          *
-         * @param cfg       MoQ Instance Client Configuration
-         * @param delegate  MoQ instance delegate of callbacks
-         * @param logger    MoQ Log pointer to parent logger
+         * @param cfg       MOQT Instance Client Configuration
+         * @param callbacks MOQT client callbacks
+         * @param logger    MOQT Log pointer to parent logger
          */
         MOQTCore(const MOQTClientConfig& cfg,
-                 std::shared_ptr<MOQTClientCallbacks> delegate,
+                 std::shared_ptr<MOQTClientCallbacks> callbacks,
                  const cantina::LoggerPointer& logger);
 
         /**
          * @brief Server mode Constructor to create the MOQ instance
          *
-         * @param cfg        MoQ Server Configuration
-         * @param delegate   MoQ delegate of callbacks
-         * @param logger     MoQ Log pointer to parent logger
+         * @param cfg        MOQT Server Configuration
+         * @param delegate   MOQT server of callbacks
+         * @param logger     MOQT Log pointer to parent logger
          */
         MOQTCore(const MOQTServerConfig& cfg,
-                 std::shared_ptr<MOQTServerCallbacks> delegate,
+                 std::shared_ptr<MOQTServerCallbacks> callbacks,
                  const cantina::LoggerPointer& logger);
 
         ~MOQTCore() = default;
