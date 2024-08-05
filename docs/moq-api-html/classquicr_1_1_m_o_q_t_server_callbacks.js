@@ -1,7 +1,7 @@
 var classquicr_1_1_m_o_q_t_server_callbacks =
 [
-    [ "announce", "classquicr_1_1_m_o_q_t_server_callbacks.html#ab3d959027d393a385d173abf1b281317", null ],
-    [ "announcePost", "classquicr_1_1_m_o_q_t_server_callbacks.html#a1248bb4cddd241f5a6dca7d31918b484", null ],
+    [ "announceOkSent", "classquicr_1_1_m_o_q_t_server_callbacks.html#a7acbd91f3bc11b94254f7df69d0cf037", null ],
+    [ "announceVerify", "classquicr_1_1_m_o_q_t_server_callbacks.html#ae96fb64515f3278d9455d000079107ea", null ],
     [ "clientSetup", "classquicr_1_1_m_o_q_t_server_callbacks.html#a8396f299459af7a29b548e07b0772c9d", null ],
     [ "connectionStatus", "classquicr_1_1_m_o_q_t_server_callbacks.html#ae95b8fe2f5b6bda81a2299f103f17e1e", null ],
     [ "newConnection", "classquicr_1_1_m_o_q_t_server_callbacks.html#aa13124ef42d22a1608cba6a703fceb14", null ],

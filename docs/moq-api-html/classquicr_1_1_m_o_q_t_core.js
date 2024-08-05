@@ -7,7 +7,7 @@ var classquicr_1_1_m_o_q_t_core =
       [ "NOT_READY", "classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaedda9455b42e74acb2ec1c7292e54d28aff2", null ],
       [ "ERROR_NOT_IN_CLIENT_MODE", "classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaeddae369dbf7aec377806a2ea71d8e57a8fb", null ],
       [ "ERROR_NOT_IN_SERVER_MODE", "classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaeddaa4e6aad6ed22d9d5974f60506aa9017a", null ],
-      [ "CLIENT_INVALID_PARAMS", "classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaeddaad0cfc7aea66fa473ed45dea47a04460", null ],
+      [ "INVALID_PARAMS", "classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaedda23060c3a67b5a18ec0efb6382babc565", null ],
       [ "CLIENT_NOT_CONNECTED", "classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaedda93df17d814379cf5f39d0ea11c0cf9da", null ],
       [ "CLIENT_CONNECTING", "classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaedda42019b327f663322abd2ba415f486ced", null ],
       [ "CLIENT_FAILED_TO_CONNECT", "classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaedda36378de9b5e644b84fd40a6fc6529243", null ]

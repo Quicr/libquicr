@@ -120,12 +120,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a8396f299459af7a29b548e07b0772c9d" id="r_a8396f299459af7a29b548e07b0772c9d"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a8396f299459af7a29b548e07b0772c9d">clientSetup</a> (TransportConnId conn_id, messages::MoqClientSetup client_setup)</td></tr>
 <tr class="memdesc:a8396f299459af7a29b548e07b0772c9d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on client setup message.  <br /></td></tr>
 <tr class="separator:a8396f299459af7a29b548e07b0772c9d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab3d959027d393a385d173abf1b281317" id="r_ab3d959027d393a385d173abf1b281317"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab3d959027d393a385d173abf1b281317">announce</a> (TransportConnId conn_id, uint64_t track_namespace_hash)</td></tr>
-<tr class="memdesc:ab3d959027d393a385d173abf1b281317"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new announce received (need to authorize)  <br /></td></tr>
-<tr class="separator:ab3d959027d393a385d173abf1b281317"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1248bb4cddd241f5a6dca7d31918b484" id="r_a1248bb4cddd241f5a6dca7d31918b484"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a1248bb4cddd241f5a6dca7d31918b484">announcePost</a> (TransportConnId conn_id, uint64_t track_namespace_hash)</td></tr>
-<tr class="memdesc:a1248bb4cddd241f5a6dca7d31918b484"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new announce received post OK being sent.  <br /></td></tr>
-<tr class="separator:a1248bb4cddd241f5a6dca7d31918b484"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae96fb64515f3278d9455d000079107ea" id="r_ae96fb64515f3278d9455d000079107ea"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae96fb64515f3278d9455d000079107ea">announceVerify</a> (TransportConnId conn_id, uint64_t track_namespace_hash)</td></tr>
+<tr class="memdesc:ae96fb64515f3278d9455d000079107ea"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new announce received that needs to be authorized.  <br /></td></tr>
+<tr class="separator:ae96fb64515f3278d9455d000079107ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7acbd91f3bc11b94254f7df69d0cf037" id="r_a7acbd91f3bc11b94254f7df69d0cf037"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a7acbd91f3bc11b94254f7df69d0cf037">announceOkSent</a> (TransportConnId conn_id, uint64_t track_namespace_hash)</td></tr>
+<tr class="memdesc:a7acbd91f3bc11b94254f7df69d0cf037"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new announce OK that has been sent.  <br /></td></tr>
+<tr class="separator:a7acbd91f3bc11b94254f7df69d0cf037"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3274bdf5c5162c0f74d42804ccc0b49f" id="r_a3274bdf5c5162c0f74d42804ccc0b49f"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a3274bdf5c5162c0f74d42804ccc0b49f">unannounce</a> (TransportConnId conn_id, uint64_t track_namespace_hash, std::optional&lt; uint64_t &gt; track_name_hash)</td></tr>
 <tr class="memdesc:a3274bdf5c5162c0f74d42804ccc0b49f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for unannounce received.  <br /></td></tr>
 <tr class="separator:a3274bdf5c5162c0f74d42804ccc0b49f"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -140,8 +140,8 @@ Public Member Functions</h2></td></tr>
 <div class="textblock"><p>MoQ/MOQT server callbacks. </p>
 <p>MoQ server callback delegate for connection and MOQT control message handling. </p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
-<a id="ab3d959027d393a385d173abf1b281317" name="ab3d959027d393a385d173abf1b281317"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab3d959027d393a385d173abf1b281317">&#9670;&#160;</a></span>announce()</h2>
+<a id="a7acbd91f3bc11b94254f7df69d0cf037" name="a7acbd91f3bc11b94254f7df69d0cf037"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7acbd91f3bc11b94254f7df69d0cf037">&#9670;&#160;</a></span>announceOkSent()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -150,7 +150,7 @@ Public Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual bool quicr::MOQTServerCallbacks::announce </td>
+          <td class="memname">virtual void quicr::MOQTServerCallbacks::announceOkSent </td>
           <td>(</td>
           <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
         </tr>
@@ -167,47 +167,8 @@ Public Member Functions</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Callback notification for new announce received (need to authorize) </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">conn_id</td><td>Source connection ID </td></tr>
-    <tr><td class="paramname">track_namespace_hash</td><td>Track namespace hash</td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>True if send announce should be sent, false if not </dd></dl>
-
-</div>
-</div>
-<a id="a1248bb4cddd241f5a6dca7d31918b484" name="a1248bb4cddd241f5a6dca7d31918b484"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1248bb4cddd241f5a6dca7d31918b484">&#9670;&#160;</a></span>announcePost()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">virtual void quicr::MOQTServerCallbacks::announcePost </td>
-          <td>(</td>
-          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">uint64_t</td>          <td class="paramname"><span class="paramname"><em>track_namespace_hash</em></span>&#160;)</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Callback notification for new announce received post OK being sent. </p>
-<p>After announce an OK is sent providing the announce was authorized and accepted. This callback is called after <code>cb_announce()</code> to allow the server to subscribe or followup with actions based on the announce.</p>
+<p>Callback notification for new announce OK that has been sent. </p>
+<p>Callback to indicate that announce OK has been sent and that the application/server can proceed with post announce messages, such as subscribes based on matching the announcement.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">conn_id</td><td>Source connection ID </td></tr>
@@ -215,6 +176,45 @@ Public Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
+
+</div>
+</div>
+<a id="ae96fb64515f3278d9455d000079107ea" name="ae96fb64515f3278d9455d000079107ea"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae96fb64515f3278d9455d000079107ea">&#9670;&#160;</a></span>announceVerify()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual bool quicr::MOQTServerCallbacks::announceVerify </td>
+          <td>(</td>
+          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint64_t</td>          <td class="paramname"><span class="paramname"><em>track_namespace_hash</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Callback notification for new announce received that needs to be authorized. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">conn_id</td><td>Source connection ID </td></tr>
+    <tr><td class="paramname">track_namespace_hash</td><td>Track namespace hash</td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>True if authorized and announce OK will be sent, false if not </dd></dl>
 
 </div>
 </div>
