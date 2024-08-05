@@ -1,7 +1,5 @@
 var searchData=
 [
-  ['_5fmi_5fconn_5fid_0',['_mi_conn_id',['../classquicr_1_1_mo_q_base_track_handler.html#a8c6eae34cbca608e67f4cefbc104d75f',1,'quicr::MoQBaseTrackHandler']]],
-  ['_5fmi_5fsend_5fdata_5fctx_5fid_1',['_mi_send_data_ctx_id',['../classquicr_1_1_mo_q_base_track_handler.html#a48ee702585d185ed4774f2a56e52c81c',1,'quicr::MoQBaseTrackHandler']]],
-  ['_5fmi_5fsendobjfunc_2',['_mi_sendObjFunc',['../classquicr_1_1_mo_q_base_track_handler.html#a5840bb963cce6a77713a8118b5fe8326',1,'quicr::MoQBaseTrackHandler']]],
-  ['_5fmi_5ftrack_5fmode_3',['_mi_track_mode',['../classquicr_1_1_mo_q_base_track_handler.html#a5bc2f3e17224f4860bbca31052f84750',1,'quicr::MoQBaseTrackHandler']]]
+  ['announce_5fnot_5fauthorized_0',['ANNOUNCE_NOT_AUTHORIZED',['../classquicr_1_1_mo_q_base_track_handler.html#a4c1a7e507fa5cf135aae6a8a713d396ba467d2cb7273d0fc2226bc29615f2d48b',1,'quicr::MoQBaseTrackHandler::ANNOUNCE_NOT_AUTHORIZED'],['../classquicr_1_1_mo_q_publish_track_handler.html#a10c961cc3461908d28f2474333528f09a467d2cb7273d0fc2226bc29615f2d48b',1,'quicr::MoQPublishTrackHandler::ANNOUNCE_NOT_AUTHORIZED']]],
+  ['api_1',['Media over Quic Transport (MOQT) API',['../index.html',1,'']]]
 ];

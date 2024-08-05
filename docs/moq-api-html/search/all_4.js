@@ -1,6 +1,11 @@
 var searchData=
 [
-  ['endpoint_5fid_0',['endpoint_id',['../structquicr_1_1_mo_q_impl_config.html#a0675f9275341a474be720aa787f46194',1,'quicr::MoQImplConfig']]],
-  ['error_5fnot_5fin_5fclient_5fmode_1',['ERROR_NOT_IN_CLIENT_MODE',['../classquicr_1_1_mo_q_impl.html#a9a74b9c7dc92fae35f88f42dd2fc75b6ae369dbf7aec377806a2ea71d8e57a8fb',1,'quicr::MoQImpl']]],
-  ['error_5fnot_5fin_5fserver_5fmode_2',['ERROR_NOT_IN_SERVER_MODE',['../classquicr_1_1_mo_q_impl.html#a9a74b9c7dc92fae35f88f42dd2fc75b6aa4e6aad6ed22d9d5974f60506aa9017a',1,'quicr::MoQImpl']]]
+  ['getconnectionid_0',['getConnectionId',['../classquicr_1_1_mo_q_base_track_handler.html#a81565c3ea56f5c40b68d589eb47d8959',1,'quicr::MoQBaseTrackHandler']]],
+  ['getdatacontextid_1',['getDataContextId',['../classquicr_1_1_mo_q_publish_track_handler.html#ac6a07a27e79d6248695fa7e3ec474868',1,'quicr::MoQPublishTrackHandler']]],
+  ['getreadstatus_2',['getReadStatus',['../classquicr_1_1_mo_q_subscribe_track_handler.html#a2c63b2b37f727c402297e56e53482fa2',1,'quicr::MoQSubscribeTrackHandler']]],
+  ['getsendstatus_3',['getSendStatus',['../classquicr_1_1_mo_q_publish_track_handler.html#adc2d7f189a43a48f23922da42f10fda1',1,'quicr::MoQPublishTrackHandler']]],
+  ['getsubscribeid_4',['getSubscribeId',['../classquicr_1_1_mo_q_base_track_handler.html#abb1e294adbfc0b43e2d2f3ec39c99621',1,'quicr::MoQBaseTrackHandler']]],
+  ['gettrackalias_5',['getTrackAlias',['../classquicr_1_1_mo_q_base_track_handler.html#a2c28899a3963f93e84906a72fe3376a1',1,'quicr::MoQBaseTrackHandler']]],
+  ['gettrackname_6',['getTrackName',['../classquicr_1_1_mo_q_base_track_handler.html#a2f3232476a7261868271c46d61705301',1,'quicr::MoQBaseTrackHandler']]],
+  ['gettracknamespace_7',['getTrackNamespace',['../classquicr_1_1_mo_q_base_track_handler.html#af162bcf5d3b913fb8c1275adb8ab4e0b',1,'quicr::MoQBaseTrackHandler']]]
 ];

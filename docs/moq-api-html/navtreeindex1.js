@@ -1,16 +1,11 @@
 var NAVTREEINDEX1 =
 {
-"classquicr_1_1_mo_q_subscribe_track_handler.html#abf3ec6bd2e62356da9e4b9308cba1585":[1,0,0,10,4],
-"classquicr_1_1_mo_q_subscribe_track_handler.html#abf3ec6bd2e62356da9e4b9308cba1585":[2,0,0,10,4],
-"classquicr_1_1_mo_q_subscribe_track_handler.html#aef838199dae003ff7178687903549734":[1,0,0,10,3],
-"classquicr_1_1_mo_q_subscribe_track_handler.html#aef838199dae003ff7178687903549734":[2,0,0,10,3],
-"dir_49e56c817e5e54854c35e136979f97ca.html":[3,0,0],
-"dir_63c2ae21967f3a5a594ee14d8245c5a5.html":[3,0,1,0],
 "dir_d44c64559bbebec7f509842c48db8b23.html":[3,0,1],
 "files.html":[3,0],
 "functions.html":[2,3,0],
-"functions_enum.html":[2,3,3],
+"functions_enum.html":[2,3,4],
 "functions_func.html":[2,3,1],
+"functions_type.html":[2,3,3],
 "functions_vars.html":[2,3,2],
 "hierarchy.html":[2,2],
 "index.html":[],

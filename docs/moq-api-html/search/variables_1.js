@@ -1,4 +1,6 @@
 var searchData=
 [
-  ['endpoint_5fid_0',['endpoint_id',['../structquicr_1_1_mo_q_impl_config.html#a0675f9275341a474be720aa787f46194',1,'quicr::MoQImplConfig']]]
+  ['moqt_5fread_5floop_5fmax_5fper_5fstream_0',['MOQT_READ_LOOP_MAX_PER_STREAM',['../namespacequicr.html#a531cc21f0cde4a9fe8c097735a62a4be',1,'quicr']]],
+  ['moqt_5fsubscribe_5fexpires_1',['MOQT_SUBSCRIBE_EXPIRES',['../namespacequicr.html#ab5823ed7dc5d459fbff1474786fcbd33',1,'quicr']]],
+  ['moqt_5fversion_2',['MOQT_VERSION',['../namespacequicr.html#a71ca89f812eb9d5bc60939cae4caa0f1',1,'quicr']]]
 ];

@@ -1,6 +1,29 @@
 var searchData=
 [
-  ['readerror_0',['ReadError',['../classquicr_1_1_mo_q_subscribe_track_handler.html#a265ffc5b64826a53c9ccb9cfcc45f412',1,'quicr::MoQSubscribeTrackHandler']]],
-  ['ready_1',['READY',['../classquicr_1_1_mo_q_impl.html#a9a74b9c7dc92fae35f88f42dd2fc75b6a2baa69eafc7204f3bd8648eba580c489',1,'quicr::MoQImpl']]],
-  ['run_2',['run',['../classquicr_1_1_mo_q_client.html#a89484a331bfb61f5b8f6b4b4eb6c24ba',1,'quicr::MoQClient::run()'],['../classquicr_1_1_mo_q_server.html#a7179a911eb708c4efa06367776be351c',1,'quicr::MoQServer::run()']]]
+  ['senderror_0',['SendError',['../classquicr_1_1_mo_q_base_track_handler.html#ab7a9f258dfc54e1a00375aa9c4032ea3',1,'quicr::MoQBaseTrackHandler::SendError'],['../classquicr_1_1_mo_q_publish_track_handler.html#aa7df27298ef34cf131de2ff04c5937cc',1,'quicr::MoQPublishTrackHandler::SendError']]],
+  ['sendobject_1',['sendObject',['../classquicr_1_1_mo_q_publish_track_handler.html#a97e1439b20f76820b04502ddc5befb7c',1,'quicr::MoQPublishTrackHandler::sendObject(const uint64_t group_id, const uint64_t object_id, std::span&lt; const uint8_t &gt; object)'],['../classquicr_1_1_mo_q_publish_track_handler.html#a9a11fdbaf6a09bacba748bc9ab0d8423',1,'quicr::MoQPublishTrackHandler::sendObject(const uint64_t group_id, const uint64_t object_id, std::span&lt; const uint8_t &gt; object, uint32_t ttl)'],['../classquicr_1_1_mo_q_publish_track_handler.html#a90fe339d87b9d9af65d679f10e91325c',1,'quicr::MoQPublishTrackHandler::sendObject(const uint64_t group_id, const uint64_t object_id, std::span&lt; const uint8_t &gt; object, uint8_t priority)'],['../classquicr_1_1_mo_q_publish_track_handler.html#a7eb698566efe46eb3e23a4ccae15e4b8',1,'quicr::MoQPublishTrackHandler::sendObject(const uint64_t group_id, const uint64_t object_id, std::span&lt; const uint8_t &gt; object, uint8_t priority, uint32_t ttl)']]],
+  ['sendobjfunction_2',['sendObjFunction',['../classquicr_1_1_mo_q_publish_track_handler.html#a7f92733deaba1f7575529785709cecd3',1,'quicr::MoQPublishTrackHandler']]],
+  ['server_3',['Server',['../index.html#autotoc_md3',1,'']]],
+  ['server_5fbind_5fip_4',['server_bind_ip',['../structquicr_1_1_mo_q_server_config.html#a5a9ba91b16e067ad3162487a53809930',1,'quicr::MoQServerConfig']]],
+  ['server_5fhost_5fip_5',['server_host_ip',['../structquicr_1_1_mo_q_client_config.html#adffc8e5c735d925be4265880b81a6ae1',1,'quicr::MoQClientConfig']]],
+  ['server_5fport_6',['server_port',['../structquicr_1_1_mo_q_client_config.html#add3ea10f497b962f31ced723ad7a1c6f',1,'quicr::MoQClientConfig::server_port'],['../structquicr_1_1_mo_q_server_config.html#a785fc69f8bd2a55d874b3cacc1b1b810',1,'quicr::MoQServerConfig::server_port']]],
+  ['server_5fproto_7',['server_proto',['../structquicr_1_1_mo_q_client_config.html#a1f6d29a9c1b28b0990600cf46968e1bc',1,'quicr::MoQClientConfig::server_proto'],['../structquicr_1_1_mo_q_server_config.html#ab7e000b10850e9decefd1c035cf8692f',1,'quicr::MoQServerConfig::server_proto']]],
+  ['setconnectionid_8',['setConnectionId',['../classquicr_1_1_mo_q_base_track_handler.html#a6f2958d0c10e356c67e5e880b6d460a6',1,'quicr::MoQBaseTrackHandler']]],
+  ['setdatacontextid_9',['setDataContextId',['../classquicr_1_1_mo_q_publish_track_handler.html#a27f84f3c0f315c93c86e0fc9dfc903ad',1,'quicr::MoQPublishTrackHandler']]],
+  ['setdefaultpriority_10',['setDefaultPriority',['../classquicr_1_1_mo_q_publish_track_handler.html#ae45d93d1fd2a0d100243cac9a658b4fd',1,'quicr::MoQPublishTrackHandler']]],
+  ['setdefaultttl_11',['setDefaultTTL',['../classquicr_1_1_mo_q_publish_track_handler.html#a9926acc39b18a076a26ee44fda4e5e24',1,'quicr::MoQPublishTrackHandler']]],
+  ['setreadstatus_12',['setReadStatus',['../classquicr_1_1_mo_q_subscribe_track_handler.html#a34c5b006f5e86b9e25e1caa195b7f297',1,'quicr::MoQSubscribeTrackHandler']]],
+  ['setsendobjectfunction_13',['setSendObjectFunction',['../classquicr_1_1_mo_q_publish_track_handler.html#a6af8685917a6eecf0993df66389974cd',1,'quicr::MoQPublishTrackHandler']]],
+  ['setsendstatus_14',['setSendStatus',['../classquicr_1_1_mo_q_publish_track_handler.html#ad68000672770cbebeeec05de0d076f39',1,'quicr::MoQPublishTrackHandler']]],
+  ['setsubscribeid_15',['setSubscribeId',['../classquicr_1_1_mo_q_base_track_handler.html#aa618025a0f65d3576d8d2156f7e32b02',1,'quicr::MoQBaseTrackHandler']]],
+  ['settrackalias_16',['setTrackAlias',['../classquicr_1_1_mo_q_base_track_handler.html#ae756b3c12b80d99ce98c721502771771',1,'quicr::MoQBaseTrackHandler']]],
+  ['settrackmode_17',['setTrackMode',['../classquicr_1_1_mo_q_publish_track_handler.html#a19899d60f9c4ddd2c0ef3a3dc61b0ea4',1,'quicr::MoQPublishTrackHandler']]],
+  ['status_18',['Status',['../classquicr_1_1_mo_q_impl.html#a9a74b9c7dc92fae35f88f42dd2fc75b6',1,'quicr::MoQImpl']]],
+  ['status_19',['status',['../classquicr_1_1_mo_q_impl.html#a315d1afb811c4651c16940fbf3bde00a',1,'quicr::MoQImpl']]],
+  ['stop_20',['stop',['../classquicr_1_1_mo_q_impl.html#a7a3f63b0bacaee10bee435ac17607e7b',1,'quicr::MoQImpl']]],
+  ['stream_5fper_5fgroup_21',['STREAM_PER_GROUP',['../classquicr_1_1_mo_q_base_track_handler.html#a16182c860efd5a26410379d9663e3a09a66eb5bb6378e9f0b1d784fc4ff2e0f5d',1,'quicr::MoQBaseTrackHandler']]],
+  ['stream_5fper_5fobject_22',['STREAM_PER_OBJECT',['../classquicr_1_1_mo_q_base_track_handler.html#a16182c860efd5a26410379d9663e3a09adad46197b0b281bc60e53924abdac2ca',1,'quicr::MoQBaseTrackHandler']]],
+  ['stream_5fper_5ftrack_23',['STREAM_PER_TRACK',['../classquicr_1_1_mo_q_base_track_handler.html#a16182c860efd5a26410379d9663e3a09a5d9bfc2d3b9635692f35d7508e96781f',1,'quicr::MoQBaseTrackHandler']]],
+  ['subscribe_5ferror_24',['SUBSCRIBE_ERROR',['../classquicr_1_1_mo_q_subscribe_track_handler.html#a1bea85a52a4fdd7eb20100a88e318957aea24874d9426bdfaa8767bbe97c38bdb',1,'quicr::MoQSubscribeTrackHandler']]],
+  ['subscribetrack_25',['subscribeTrack',['../classquicr_1_1_mo_q_impl.html#a86da4e9833fdbc5b3c775b0774612694',1,'quicr::MoQImpl']]]
 ];

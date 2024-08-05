@@ -20,6 +20,7 @@
 <script type="text/javascript" src="search/search.js"></script>
 <link href="doxygen.css" rel="stylesheet" type="text/css" />
 <link href="doxygen-awesome.css" rel="stylesheet" type="text/css"/>
+<link href="doxygen-awesome-sidebar-only.css" rel="stylesheet" type="text/css"/>
 </head>
 <body>
 <div id="top"><!-- do not remove this div, it is closed by doxygen! -->
@@ -101,7 +102,6 @@ $(function(){initNavTree('classquicr_1_1_mo_q_base_track_handler.html',''); init
 <a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
-<a href="#pro-attribs">Protected Attributes</a> &#124;
 <a href="classquicr_1_1_mo_q_base_track_handler-members.html">List of all members</a>  </div>
   <div class="headertitle"><div class="title">quicr::MoQBaseTrackHandler Class Reference<span class="mlabels"><span class="mlabel">abstract</span></span></div></div>
 </div><!--header-->
@@ -154,6 +154,8 @@ Public Types</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
+<tr class="memitem:a3af25fdb0052c9787248341cfb96275a" id="r_a3af25fdb0052c9787248341cfb96275a"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a3af25fdb0052c9787248341cfb96275a">~MoQBaseTrackHandler</a> ()=default</td></tr>
+<tr class="separator:a3af25fdb0052c9787248341cfb96275a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3d806a96950c4c6bf4a800deb3f26aee" id="r_a3d806a96950c4c6bf4a800deb3f26aee"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a3d806a96950c4c6bf4a800deb3f26aee">MoQBaseTrackHandler</a> ()=delete</td></tr>
 <tr class="separator:a3d806a96950c4c6bf4a800deb3f26aee"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4821169dd651c89b41fd516471723f42" id="r_a4821169dd651c89b41fd516471723f42"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4821169dd651c89b41fd516471723f42">cb_sendNotReady</a> (<a class="el" href="#a4c1a7e507fa5cf135aae6a8a713d396b">TrackSendStatus</a> status)=0</td></tr>
@@ -180,47 +182,18 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a2f3232476a7261868271c46d61705301" id="r_a2f3232476a7261868271c46d61705301"><td class="memItemLeft" align="right" valign="top">std::span&lt; uint8_t const &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a2f3232476a7261868271c46d61705301">getTrackName</a> ()</td></tr>
 <tr class="memdesc:a2f3232476a7261868271c46d61705301"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the track name.  <br /></td></tr>
 <tr class="separator:a2f3232476a7261868271c46d61705301"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2de0411b32c19a45035aa01f0dedb764" id="r_a2de0411b32c19a45035aa01f0dedb764"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a2de0411b32c19a45035aa01f0dedb764">setSendStatus</a> (<a class="el" href="#a4c1a7e507fa5cf135aae6a8a713d396b">TrackSendStatus</a> status)</td></tr>
-<tr class="memdesc:a2de0411b32c19a45035aa01f0dedb764"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the send status.  <br /></td></tr>
-<tr class="separator:a2de0411b32c19a45035aa01f0dedb764"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae20b0d6fefe55171d894045d3eb40301" id="r_ae20b0d6fefe55171d894045d3eb40301"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#a4c1a7e507fa5cf135aae6a8a713d396b">TrackSendStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae20b0d6fefe55171d894045d3eb40301">getSendStatus</a> ()</td></tr>
-<tr class="separator:ae20b0d6fefe55171d894045d3eb40301"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6f2958d0c10e356c67e5e880b6d460a6" id="r_a6f2958d0c10e356c67e5e880b6d460a6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a6f2958d0c10e356c67e5e880b6d460a6">setConnectionId</a> (uint64_t conn_id)</td></tr>
+<tr class="memdesc:a6f2958d0c10e356c67e5e880b6d460a6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the connection ID.  <br /></td></tr>
+<tr class="separator:a6f2958d0c10e356c67e5e880b6d460a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a81565c3ea56f5c40b68d589eb47d8959" id="r_a81565c3ea56f5c40b68d589eb47d8959"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a81565c3ea56f5c40b68d589eb47d8959">getConnectionId</a> ()</td></tr>
+<tr class="memdesc:a81565c3ea56f5c40b68d589eb47d8959"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the connection ID.  <br /></td></tr>
+<tr class="separator:a81565c3ea56f5c40b68d589eb47d8959"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-methods" name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:afa2fbc574d8e53bbced40ec57ad8c154" id="r_afa2fbc574d8e53bbced40ec57ad8c154"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#afa2fbc574d8e53bbced40ec57ad8c154">MoQBaseTrackHandler</a> (const bytes &amp;track_namespace, const bytes &amp;track_name, <a class="el" href="#a16182c860efd5a26410379d9663e3a09">TrackMode</a> track_mode, uint8_t default_priority, uint32_t default_ttl, const cantina::LoggerPointer &amp;logger)</td></tr>
-<tr class="memdesc:afa2fbc574d8e53bbced40ec57ad8c154"><td class="mdescLeft">&#160;</td><td class="mdescRight">Track delegate constructor.  <br /></td></tr>
-<tr class="separator:afa2fbc574d8e53bbced40ec57ad8c154"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9dec2f663b9de047812bc287d2801e21" id="r_a9dec2f663b9de047812bc287d2801e21"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#ab7a9f258dfc54e1a00375aa9c4032ea3">SendError</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9dec2f663b9de047812bc287d2801e21">sendObject</a> (const uint64_t group_id, const uint64_t object_id, std::span&lt; const uint8_t &gt; object)</td></tr>
-<tr class="memdesc:a9dec2f663b9de047812bc287d2801e21"><td class="mdescLeft">&#160;</td><td class="mdescRight">Send object to announced track.  <br /></td></tr>
-<tr class="separator:a9dec2f663b9de047812bc287d2801e21"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a993f01c0699d17df4fc690f16f89726f" id="r_a993f01c0699d17df4fc690f16f89726f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#ab7a9f258dfc54e1a00375aa9c4032ea3">SendError</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a993f01c0699d17df4fc690f16f89726f">sendObject</a> (const uint64_t group_id, const uint64_t object_id, std::span&lt; const uint8_t &gt; object, uint32_t ttl)</td></tr>
-<tr class="separator:a993f01c0699d17df4fc690f16f89726f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a745889e928b1f1fbfcb05210cfc56a30" id="r_a745889e928b1f1fbfcb05210cfc56a30"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#ab7a9f258dfc54e1a00375aa9c4032ea3">SendError</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a745889e928b1f1fbfcb05210cfc56a30">sendObject</a> (const uint64_t group_id, const uint64_t object_id, std::span&lt; const uint8_t &gt; object, uint8_t priority)</td></tr>
-<tr class="separator:a745889e928b1f1fbfcb05210cfc56a30"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a25d1749f9af6825ec2ad506cb694f50a" id="r_a25d1749f9af6825ec2ad506cb694f50a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#ab7a9f258dfc54e1a00375aa9c4032ea3">SendError</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a25d1749f9af6825ec2ad506cb694f50a">sendObject</a> (const uint64_t group_id, const uint64_t object_id, std::span&lt; const uint8_t &gt; object, uint8_t priority, uint32_t ttl)</td></tr>
-<tr class="separator:a25d1749f9af6825ec2ad506cb694f50a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aedafc1a3f6f9fb0e83008b6a51cc7b09" id="r_aedafc1a3f6f9fb0e83008b6a51cc7b09"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aedafc1a3f6f9fb0e83008b6a51cc7b09">setDefaultPriority</a> (uint8_t priority)</td></tr>
-<tr class="memdesc:aedafc1a3f6f9fb0e83008b6a51cc7b09"><td class="mdescLeft">&#160;</td><td class="mdescRight">set/update the default priority for published objects  <br /></td></tr>
-<tr class="separator:aedafc1a3f6f9fb0e83008b6a51cc7b09"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aee8dc25dbba1108d4ddc755ca8e928ad" id="r_aee8dc25dbba1108d4ddc755ca8e928ad"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aee8dc25dbba1108d4ddc755ca8e928ad">setDefaultTTL</a> (uint32_t ttl)</td></tr>
-<tr class="memdesc:aee8dc25dbba1108d4ddc755ca8e928ad"><td class="mdescLeft">&#160;</td><td class="mdescRight">set/update the default TTL expirty for published objects  <br /></td></tr>
-<tr class="separator:aee8dc25dbba1108d4ddc755ca8e928ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2b7e5c6bfed9a2e8b8b8dee828b387e0" id="r_a2b7e5c6bfed9a2e8b8b8dee828b387e0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a2b7e5c6bfed9a2e8b8b8dee828b387e0">setTrackMode</a> (<a class="el" href="#a16182c860efd5a26410379d9663e3a09">TrackMode</a> track_mode)</td></tr>
-<tr class="memdesc:a2b7e5c6bfed9a2e8b8b8dee828b387e0"><td class="mdescLeft">&#160;</td><td class="mdescRight">set/update the track mode for sending  <br /></td></tr>
-<tr class="separator:a2b7e5c6bfed9a2e8b8b8dee828b387e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-attribs" name="pro-attribs"></a>
-Protected Attributes</h2></td></tr>
-<tr class="memitem:a5840bb963cce6a77713a8118b5fe8326" id="r_a5840bb963cce6a77713a8118b5fe8326"><td class="memItemLeft" align="right" valign="top">std::function&lt; <a class="el" href="#ab7a9f258dfc54e1a00375aa9c4032ea3">SendError</a>(uint8_t priority, uint32_t ttl, bool stream_header_needed, uint64_t group_id, uint64_t object_id, std::span&lt; const uint8_t &gt; data)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a5840bb963cce6a77713a8118b5fe8326">_mi_sendObjFunc</a></td></tr>
-<tr class="memdesc:a5840bb963cce6a77713a8118b5fe8326"><td class="mdescLeft">&#160;</td><td class="mdescRight">Send Object function via the MoQ instance.  <br /></td></tr>
-<tr class="separator:a5840bb963cce6a77713a8118b5fe8326"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a48ee702585d185ed4774f2a56e52c81c" id="r_a48ee702585d185ed4774f2a56e52c81c"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a48ee702585d185ed4774f2a56e52c81c">_mi_send_data_ctx_id</a></td></tr>
-<tr class="separator:a48ee702585d185ed4774f2a56e52c81c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8c6eae34cbca608e67f4cefbc104d75f" id="r_a8c6eae34cbca608e67f4cefbc104d75f"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a8c6eae34cbca608e67f4cefbc104d75f">_mi_conn_id</a></td></tr>
-<tr class="separator:a8c6eae34cbca608e67f4cefbc104d75f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5bc2f3e17224f4860bbca31052f84750" id="r_a5bc2f3e17224f4860bbca31052f84750"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#a16182c860efd5a26410379d9663e3a09">TrackMode</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a5bc2f3e17224f4860bbca31052f84750">_mi_track_mode</a></td></tr>
-<tr class="separator:a5bc2f3e17224f4860bbca31052f84750"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a12e3548ee8be9fd40ab72d2c1703c3b1" id="r_a12e3548ee8be9fd40ab72d2c1703c3b1"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a12e3548ee8be9fd40ab72d2c1703c3b1">MoQBaseTrackHandler</a> (const bytes &amp;track_namespace, const bytes &amp;track_name, const cantina::LoggerPointer &amp;logger)</td></tr>
+<tr class="memdesc:a12e3548ee8be9fd40ab72d2c1703c3b1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Track delegate constructor.  <br /></td></tr>
+<tr class="separator:a12e3548ee8be9fd40ab72d2c1703c3b1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>MoQ track base handler for tracks (subscribe/publish) </p>
@@ -314,6 +287,31 @@ Protected Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a id="a3af25fdb0052c9787248341cfb96275a" name="a3af25fdb0052c9787248341cfb96275a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3af25fdb0052c9787248341cfb96275a">&#9670;&#160;</a></span>~MoQBaseTrackHandler()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual quicr::MoQBaseTrackHandler::~MoQBaseTrackHandler </td>
+          <td>(</td>
+          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span><span class="mlabel">default</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a3d806a96950c4c6bf4a800deb3f26aee" name="a3d806a96950c4c6bf4a800deb3f26aee"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a3d806a96950c4c6bf4a800deb3f26aee">&#9670;&#160;</a></span>MoQBaseTrackHandler() <span class="overload">[1/2]</span></h2>
 
@@ -339,8 +337,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="afa2fbc574d8e53bbced40ec57ad8c154" name="afa2fbc574d8e53bbced40ec57ad8c154"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afa2fbc574d8e53bbced40ec57ad8c154">&#9670;&#160;</a></span>MoQBaseTrackHandler() <span class="overload">[2/2]</span></h2>
+<a id="a12e3548ee8be9fd40ab72d2c1703c3b1" name="a12e3548ee8be9fd40ab72d2c1703c3b1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a12e3548ee8be9fd40ab72d2c1703c3b1">&#9670;&#160;</a></span>MoQBaseTrackHandler() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -357,21 +355,6 @@ Protected Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const bytes &amp;</td>          <td class="paramname"><span class="paramname"><em>track_name</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="#a16182c860efd5a26410379d9663e3a09">TrackMode</a></td>          <td class="paramname"><span class="paramname"><em>track_mode</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">uint8_t</td>          <td class="paramname"><span class="paramname"><em>default_priority</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">uint32_t</td>          <td class="paramname"><span class="paramname"><em>default_ttl</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -466,8 +449,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ae20b0d6fefe55171d894045d3eb40301" name="ae20b0d6fefe55171d894045d3eb40301"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae20b0d6fefe55171d894045d3eb40301">&#9670;&#160;</a></span>getSendStatus()</h2>
+<a id="a81565c3ea56f5c40b68d589eb47d8959" name="a81565c3ea56f5c40b68d589eb47d8959"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a81565c3ea56f5c40b68d589eb47d8959">&#9670;&#160;</a></span>getConnectionId()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -476,7 +459,7 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="#a4c1a7e507fa5cf135aae6a8a713d396b">TrackSendStatus</a> quicr::MoQBaseTrackHandler::getSendStatus </td>
+          <td class="memname">uint64_t quicr::MoQBaseTrackHandler::getConnectionId </td>
           <td>(</td>
           <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
           <td></td>
@@ -488,6 +471,8 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+
+<p>Get the connection ID. </p>
 
 </div>
 </div>
@@ -603,8 +588,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a9dec2f663b9de047812bc287d2801e21" name="a9dec2f663b9de047812bc287d2801e21"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9dec2f663b9de047812bc287d2801e21">&#9670;&#160;</a></span>sendObject() <span class="overload">[1/4]</span></h2>
+<a id="a6f2958d0c10e356c67e5e880b6d460a6" name="a6f2958d0c10e356c67e5e880b6d460a6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6f2958d0c10e356c67e5e880b6d460a6">&#9670;&#160;</a></span>setConnectionId()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -613,233 +598,9 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="#ab7a9f258dfc54e1a00375aa9c4032ea3">SendError</a> quicr::MoQBaseTrackHandler::sendObject </td>
+          <td class="memname">void quicr::MoQBaseTrackHandler::setConnectionId </td>
           <td>(</td>
-          <td class="paramtype">const uint64_t</td>          <td class="paramname"><span class="paramname"><em>group_id</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const uint64_t</td>          <td class="paramname"><span class="paramname"><em>object_id</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::span&lt; const uint8_t &gt;</td>          <td class="paramname"><span class="paramname"><em>object</em></span>&#160;)</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Send object to announced track. </p>
-<p>Send object to announced track that was previously announced. This will have an error if the track wasn't announced yet. Status will indicate if there are no subscribers. In this case, the object will not be sent.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramdir">[in]</td><td class="paramname">group_id</td><td>Group ID of object </td></tr>
-    <tr><td class="paramdir">[in]</td><td class="paramname">object_id</td><td>Object ID of the object </td></tr>
-    <tr><td class="paramdir">[in]</td><td class="paramname">object</td><td>Object to send to track </td></tr>
-    <tr><td class="paramdir">[in]</td><td class="paramname">ttl</td><td>Expire TTL for object </td></tr>
-    <tr><td class="paramdir">[in]</td><td class="paramname">priority</td><td>Priority for object; will be set upon next qualifing stream object</td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>SendError status of the send </dd></dl>
-
-</div>
-</div>
-<a id="a993f01c0699d17df4fc690f16f89726f" name="a993f01c0699d17df4fc690f16f89726f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a993f01c0699d17df4fc690f16f89726f">&#9670;&#160;</a></span>sendObject() <span class="overload">[2/4]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="#ab7a9f258dfc54e1a00375aa9c4032ea3">SendError</a> quicr::MoQBaseTrackHandler::sendObject </td>
-          <td>(</td>
-          <td class="paramtype">const uint64_t</td>          <td class="paramname"><span class="paramname"><em>group_id</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const uint64_t</td>          <td class="paramname"><span class="paramname"><em>object_id</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::span&lt; const uint8_t &gt;</td>          <td class="paramname"><span class="paramname"><em>object</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">uint32_t</td>          <td class="paramname"><span class="paramname"><em>ttl</em></span>&#160;)</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a745889e928b1f1fbfcb05210cfc56a30" name="a745889e928b1f1fbfcb05210cfc56a30"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a745889e928b1f1fbfcb05210cfc56a30">&#9670;&#160;</a></span>sendObject() <span class="overload">[3/4]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="#ab7a9f258dfc54e1a00375aa9c4032ea3">SendError</a> quicr::MoQBaseTrackHandler::sendObject </td>
-          <td>(</td>
-          <td class="paramtype">const uint64_t</td>          <td class="paramname"><span class="paramname"><em>group_id</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const uint64_t</td>          <td class="paramname"><span class="paramname"><em>object_id</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::span&lt; const uint8_t &gt;</td>          <td class="paramname"><span class="paramname"><em>object</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">uint8_t</td>          <td class="paramname"><span class="paramname"><em>priority</em></span>&#160;)</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a25d1749f9af6825ec2ad506cb694f50a" name="a25d1749f9af6825ec2ad506cb694f50a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a25d1749f9af6825ec2ad506cb694f50a">&#9670;&#160;</a></span>sendObject() <span class="overload">[4/4]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="#ab7a9f258dfc54e1a00375aa9c4032ea3">SendError</a> quicr::MoQBaseTrackHandler::sendObject </td>
-          <td>(</td>
-          <td class="paramtype">const uint64_t</td>          <td class="paramname"><span class="paramname"><em>group_id</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const uint64_t</td>          <td class="paramname"><span class="paramname"><em>object_id</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::span&lt; const uint8_t &gt;</td>          <td class="paramname"><span class="paramname"><em>object</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">uint8_t</td>          <td class="paramname"><span class="paramname"><em>priority</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">uint32_t</td>          <td class="paramname"><span class="paramname"><em>ttl</em></span>&#160;)</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="aedafc1a3f6f9fb0e83008b6a51cc7b09" name="aedafc1a3f6f9fb0e83008b6a51cc7b09"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aedafc1a3f6f9fb0e83008b6a51cc7b09">&#9670;&#160;</a></span>setDefaultPriority()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void quicr::MoQBaseTrackHandler::setDefaultPriority </td>
-          <td>(</td>
-          <td class="paramtype">uint8_t</td>          <td class="paramname"><span class="paramname"><em>priority</em></span></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>set/update the default priority for published objects </p>
-
-</div>
-</div>
-<a id="aee8dc25dbba1108d4ddc755ca8e928ad" name="aee8dc25dbba1108d4ddc755ca8e928ad"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aee8dc25dbba1108d4ddc755ca8e928ad">&#9670;&#160;</a></span>setDefaultTTL()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void quicr::MoQBaseTrackHandler::setDefaultTTL </td>
-          <td>(</td>
-          <td class="paramtype">uint32_t</td>          <td class="paramname"><span class="paramname"><em>ttl</em></span></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>set/update the default TTL expirty for published objects </p>
-
-</div>
-</div>
-<a id="a2de0411b32c19a45035aa01f0dedb764" name="a2de0411b32c19a45035aa01f0dedb764"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2de0411b32c19a45035aa01f0dedb764">&#9670;&#160;</a></span>setSendStatus()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void quicr::MoQBaseTrackHandler::setSendStatus </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="#a4c1a7e507fa5cf135aae6a8a713d396b">TrackSendStatus</a></td>          <td class="paramname"><span class="paramname"><em>status</em></span></td><td>)</td>
+          <td class="paramtype">uint64_t</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span></td><td>)</td>
           <td></td>
         </tr>
       </table>
@@ -850,13 +611,8 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Set the send status. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">status</td><td>Status of sending (aka publish objects) </td></tr>
-  </table>
-  </dd>
-</dl>
+<p>Set the connection ID. </p>
+<p>The MOQ Handler sets the connection ID </p>
 
 </div>
 </div>
@@ -925,134 +681,6 @@ Protected Attributes</h2></td></tr>
   </table>
   </dd>
 </dl>
-
-</div>
-</div>
-<a id="a2b7e5c6bfed9a2e8b8b8dee828b387e0" name="a2b7e5c6bfed9a2e8b8b8dee828b387e0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2b7e5c6bfed9a2e8b8b8dee828b387e0">&#9670;&#160;</a></span>setTrackMode()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void quicr::MoQBaseTrackHandler::setTrackMode </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="#a16182c860efd5a26410379d9663e3a09">TrackMode</a></td>          <td class="paramname"><span class="paramname"><em>track_mode</em></span></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>set/update the track mode for sending </p>
-
-</div>
-</div>
-<h2 class="groupheader">Member Data Documentation</h2>
-<a id="a8c6eae34cbca608e67f4cefbc104d75f" name="a8c6eae34cbca608e67f4cefbc104d75f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8c6eae34cbca608e67f4cefbc104d75f">&#9670;&#160;</a></span>_mi_conn_id</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">uint64_t quicr::MoQBaseTrackHandler::_mi_conn_id</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a48ee702585d185ed4774f2a56e52c81c" name="a48ee702585d185ed4774f2a56e52c81c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a48ee702585d185ed4774f2a56e52c81c">&#9670;&#160;</a></span>_mi_send_data_ctx_id</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">uint64_t quicr::MoQBaseTrackHandler::_mi_send_data_ctx_id</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a5840bb963cce6a77713a8118b5fe8326" name="a5840bb963cce6a77713a8118b5fe8326"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5840bb963cce6a77713a8118b5fe8326">&#9670;&#160;</a></span>_mi_sendObjFunc</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::function&lt;<a class="el" href="#ab7a9f258dfc54e1a00375aa9c4032ea3">SendError</a>(uint8_t priority, uint32_t ttl, bool stream_header_needed, uint64_t group_id, uint64_t object_id, std::span&lt;const uint8_t&gt; data)&gt; quicr::MoQBaseTrackHandler::_mi_sendObjFunc</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Send Object function via the MoQ instance. </p>
-<p>This is set by the MoQInstance. Send object function provides direct access to the MoQInstance that will send the object based on the track mode.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">priority</td><td>Priority to use for object; set on next track change </td></tr>
-    <tr><td class="paramname">ttl</td><td>Expire time to live in milliseconds </td></tr>
-    <tr><td class="paramname">stream_header_needed</td><td>Indicates if group or track header is needed before this data object </td></tr>
-    <tr><td class="paramname">data</td><td>Raw data/object that should be transmitted - MoQInstance serializes the data </td></tr>
-  </table>
-  </dd>
-</dl>
-
-</div>
-</div>
-<a id="a5bc2f3e17224f4860bbca31052f84750" name="a5bc2f3e17224f4860bbca31052f84750"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5bc2f3e17224f4860bbca31052f84750">&#9670;&#160;</a></span>_mi_track_mode</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="#a16182c860efd5a26410379d9663e3a09">TrackMode</a> quicr::MoQBaseTrackHandler::_mi_track_mode</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
 
 </div>
 </div>
