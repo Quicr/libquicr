@@ -228,8 +228,8 @@ main(int argc, char* argv[])
                       .proto = quicr::RelayInfo::Protocol::QUIC };
 
   const auto tcfg = qtransport::TransportConfig{
-    .tls_cert_filename = nullptr,
-    .tls_key_filename = nullptr,
+    .tls_cert_filename = "",
+    .tls_key_filename = "",
     .time_queue_max_duration = 5000,
   };
 
