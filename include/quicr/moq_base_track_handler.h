@@ -18,6 +18,7 @@ namespace quicr {
     class MoQBaseTrackHandler
     {
       public:
+        virtual ~MoQBaseTrackHandler() = default;
         enum class SendError : uint8_t
         {
             OK = 0,
@@ -57,65 +58,12 @@ namespace quicr {
       protected:
         MoQBaseTrackHandler(const bytes& track_namespace,
                             const bytes& track_name,
-                            TrackMode track_mode,
-                            uint8_t default_priority,
-                            uint32_t default_ttl,
                             const cantina::LoggerPointer& logger)
-          : _mi_track_mode(track_mode)
-          , _logger(std::make_shared<cantina::Logger>("MTD", logger))
+          : _logger(std::make_shared<cantina::Logger>("MTD", logger))
           , _track_namespace(track_namespace)
           , _track_name(track_name)
         {
-            this->setDefaultPriority(default_priority);
-            this->setDefaultTTL(default_ttl);
         }
-
-        /**
-         * @brief Send object to announced track
-         *
-         * @details Send object to announced track that was previously announced.
-         *   This will have an error if the track wasn't announced yet. Status will
-         *   indicate if there are no subscribers. In this case, the object will
-         *   not be sent.
-         *
-         * @param[in] group_id     Group ID of object
-         * @param[in] object_id    Object ID of the object
-         * @param[in] object       Object to send to track
-         * @param[in] ttl          Expire TTL for object
-         * @param[in] priority     Priority for object; will be set upon next qualifing stream object
-         *
-         * @returns SendError status of the send
-         *
-         */
-        SendError sendObject(const uint64_t group_id, const uint64_t object_id, std::span<const uint8_t> object);
-        SendError sendObject(const uint64_t group_id,
-                             const uint64_t object_id,
-                             std::span<const uint8_t> object,
-                             uint32_t ttl);
-        SendError sendObject(const uint64_t group_id,
-                             const uint64_t object_id,
-                             std::span<const uint8_t> object,
-                             uint8_t priority);
-        SendError sendObject(const uint64_t group_id,
-                             const uint64_t object_id,
-                             std::span<const uint8_t> object,
-                             uint8_t priority,
-                             uint32_t ttl);
-
-        /**
-         * @brief set/update the default priority for published objects
-         */
-        void setDefaultPriority(uint8_t priority) { _def_priority = priority; }
-
-        /**
-         * @brief set/update the default TTL expirty for published objects
-         */
-        void setDefaultTTL(uint32_t ttl) { _def_ttl = ttl; }
-
-        /**
-         * @brief set/update the track mode for sending
-         */
-        void setTrackMode(TrackMode track_mode) { _mi_track_mode = track_mode; }
 
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods to be overridden
@@ -190,48 +138,27 @@ namespace quicr {
         std::span<uint8_t const> getTrackName() { return std::span(_track_name); }
 
         /**
-         * @brief Set the send status
-         * @param status                Status of sending (aka publish objects)
+         * @brief Set the connection ID
+         *
+         * @details The MOQ Handler sets the connection ID
          */
-        void setSendStatus(TrackSendStatus status) { _send_status = status; }
-        TrackSendStatus getSendStatus() { return _send_status; }
+        void setConnectionId(uint64_t conn_id) { _mi_conn_id = conn_id; };
 
-
-        // --------------------------------------------------------------------------
-        // MOQ Instance specific public variables/methods - Caller should not use these
-        // --------------------------------------------------------------------------
-      protected:
         /**
-         * @brief Send Object function via the MoQ instance
-         *
-         * @details This is set by the MoQInstance.
-         *   Send object function provides direct access to the MoQInstance that will send
-         *   the object based on the track mode.
-         *
-         * @param priority              Priority to use for object; set on next track change
-         * @param ttl                   Expire time to live in milliseconds
-         * @param stream_header_needed  Indicates if group or track header is needed before this data object
-         * @param data                  Raw data/object that should be transmitted - MoQInstance serializes the data
+         * @brief Get the connection ID
          */
-        std::function<SendError(uint8_t priority,
-                                uint32_t ttl,
-                                bool stream_header_needed,
-                                uint64_t group_id,
-                                uint64_t object_id,
-                                std::span<const uint8_t> data)>
-          _mi_sendObjFunc;
+        uint64_t getConnectionId() { return _mi_conn_id; };
 
-        uint64_t _mi_send_data_ctx_id; // Set by moq instance
-        uint64_t _mi_conn_id;          // Set by moq instance
-        TrackMode _mi_track_mode;      // Set by moq instance
-
+        // --------------------------------------------------------------------------
+        // MOQ Implementation specific variables/methods
+        // --------------------------------------------------------------------------
       private:
         cantina::LoggerPointer _logger;
-        uint8_t _def_priority; // Set by caller and is used when priority is not specified
-        uint32_t _def_ttl;     // Set by caller and is used when TTL is not specified
         const bytes _track_namespace;
         const bytes _track_name;
         std::optional<uint64_t> _track_alias;
+
+        uint64_t _mi_conn_id;          // Set by moq implementation
 
         /**
          * _subscribe_id is the primary index/key for subscribe subscribe context/delegate storage.
