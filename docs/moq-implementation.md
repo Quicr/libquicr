@@ -127,8 +127,8 @@ handler.  The track handler is used for sending and receiving data to/from a tra
 
 ### MOQ Client/Server Delegate
 
-The caller implements and owns the `MoQClientDelegate` and `MoQServerDelgate`. The delegate is passed to the `MoQImpl` 
-constructor. The `MoQImpl` creates a thread-safe reference to the delegate. Callbacks are implemented by 
+The caller implements and owns the `MoQClientDelegate` and `MoQServerDelgate`. The delegate is passed to the `MOQTCore` 
+constructor. The `MOQTCore` creates a thread-safe reference to the delegate. Callbacks are implemented by 
 the caller to be notified on various MOQT control flow events. Various control flow events include status of the
 instance, connection status, new connections, announces, subscribes, etc.
 

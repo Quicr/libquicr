@@ -15,28 +15,12 @@ namespace quicr {
      *
      * @details Base MoQ track handler
      */
-    class MoQBaseTrackHandler
+    class MOQTBaseTrackHandler
     {
       public:
-        virtual ~MoQBaseTrackHandler() = default;
-        enum class SendError : uint8_t
-        {
-            OK = 0,
-            INTERNAL_ERROR,
-            NOT_AUTHORIZED,
-            NOT_ANNOUNCED,
-            NO_SUBSCRIBERS,
-        };
+        friend class MOQTCore;
 
-        enum class TrackSendStatus : uint8_t
-        {
-            OK = 0,
-            NOT_CONNECTED,
-            NOT_ANNOUNCED,
-            PENDING_ANNOUNCE_RESPONSE,
-            ANNOUNCE_NOT_AUTHORIZED,
-            NO_SUBSCRIBERS,
-        };
+        virtual ~MOQTBaseTrackHandler() = default;
 
         enum class TrackMode : uint8_t
         {
@@ -50,15 +34,15 @@ namespace quicr {
         // Public API methods that normally should not be overridden
         // --------------------------------------------------------------------------
 
-        MoQBaseTrackHandler() = delete;
+        MOQTBaseTrackHandler() = delete;
 
         /**
          * @brief Track delegate constructor
          */
       protected:
-        MoQBaseTrackHandler(const bytes& track_namespace,
-                            const bytes& track_name,
-                            const cantina::LoggerPointer& logger)
+        MOQTBaseTrackHandler(const bytes& track_namespace,
+                             const bytes& track_name,
+                             const cantina::LoggerPointer& logger)
           : _logger(std::make_shared<cantina::Logger>("MTD", logger))
           , _track_namespace(track_namespace)
           , _track_name(track_name)
@@ -69,29 +53,6 @@ namespace quicr {
         // Public Virtual API callback event methods to be overridden
         // --------------------------------------------------------------------------
       public:
-        /**
-         * @brief Notification that data can not be sent
-         * @details Notification that data cannot be sent yet with a reason. This will
-         *   be called as it transitions through send states.
-         *
-         * @param status        Indicates the reason for why data cannot be sent [yet]
-         */
-        virtual void cb_sendNotReady(TrackSendStatus status) = 0;
-
-        /**
-         * @brief Notification that the send queue is congested
-         * @details Notification indicates that send queue is backlogged and sending more
-         *   will likely cause more congestion.
-         *
-         * @param cleared             Indicates if congestion has cleared
-         * @param objects_in_queue    Number of objects still pending to be sent at time of notification
-         */
-        virtual void cb_sendCongested(bool cleared, uint64_t objects_in_queue) = 0;
-
-        // --------------------------------------------------------------------------
-        // Internal API methods used by MOQ instance and peering session
-        // --------------------------------------------------------------------------
-
         /**
          * @brief Set the track alias
          * @details MOQ Instance session will set the track alias when the track has
@@ -138,27 +99,31 @@ namespace quicr {
         std::span<uint8_t const> getTrackName() { return std::span(_track_name); }
 
         /**
-         * @brief Set the connection ID
-         *
-         * @details The MOQ Handler sets the connection ID
-         */
-        void setConnectionId(uint64_t conn_id) { _mi_conn_id = conn_id; };
-
-        /**
          * @brief Get the connection ID
          */
         uint64_t getConnectionId() { return _mi_conn_id; };
 
         // --------------------------------------------------------------------------
-        // MOQ Implementation specific variables/methods
+        // Internal
         // --------------------------------------------------------------------------
       private:
+        /**
+         * @brief Set the connection ID
+         *
+         * @details The MOQ Handler sets the connection ID
+         */
+        void set_connection_id(uint64_t conn_id) { _mi_conn_id = conn_id; };
+
+        // --------------------------------------------------------------------------
+        // Member variables
+        // --------------------------------------------------------------------------
+
         cantina::LoggerPointer _logger;
         const bytes _track_namespace;
         const bytes _track_name;
         std::optional<uint64_t> _track_alias;
 
-        uint64_t _mi_conn_id;          // Set by moq implementation
+        uint64_t _mi_conn_id; // Set by moq implementation
 
         /**
          * _subscribe_id is the primary index/key for subscribe subscribe context/delegate storage.
@@ -169,6 +134,7 @@ namespace quicr {
         std::optional<uint64_t> _subscribe_id;
 
         uint64_t _prev_group_id{ 0 };
+        uint64_t _prev_object_id{ 0 };
     };
 
 } // namespace quicr

@@ -1,5 +1,5 @@
 
-#include <quicr/moq_impl.h>
+#include <quicr/moqt_core.h>
 
 #include "signal_handler.h"
 
@@ -37,7 +37,7 @@ std::string get_time_str()
  *      delegate.
  * -------------------------------------------------------------------------------------------------
  */
-class trackDelegate : public quicr::MoQBaseTrackHandler
+class trackDelegate : public quicr::MOQTBaseTrackHandler
 {
 public:
     trackDelegate(const std::string& t_namespace,
@@ -45,7 +45,7 @@ public:
                   uint8_t priority,
                   uint32_t ttl,
                   const cantina::LoggerPointer& logger)
-      : MoQBaseTrackHandler({ t_namespace.begin(), t_namespace.end() },
+      : MOQTBaseTrackHandler({ t_namespace.begin(), t_namespace.end() },
                          { t_name.begin(), t_name.end() },
                          TrackMode::STREAM_PER_GROUP,
                          priority,
@@ -147,7 +147,7 @@ void do_publisher(const std::string t_namespace,
             published_track = true;
         }
 
-        if (track_delegate->getSendStatus() != quicr::MoQBaseTrackHandler::TrackSendStatus::OK) {
+        if (track_delegate->getSendStatus() != quicr::MOQTBaseTrackHandler::TrackSendStatus::OK) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
