@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['readerror_0',['ReadError',['../classquicr_1_1_mo_q_track_delegate.html#a4b2cd91721e78c3898f3cc06d65b5224',1,'quicr::MoQTrackDelegate']]]
+  ['readerror_0',['ReadError',['../classquicr_1_1_mo_q_subscribe_track_handler.html#a265ffc5b64826a53c9ccb9cfcc45f412',1,'quicr::MoQSubscribeTrackHandler']]]
 ];

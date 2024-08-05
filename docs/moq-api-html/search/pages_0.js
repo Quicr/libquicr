@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['api_0',['Media over Quic (MOQ) Transport API',['../index.html',1,'']]]
+  ['api_0',['Media over Quic Transport (MOQT) API',['../index.html',1,'']]]
 ];

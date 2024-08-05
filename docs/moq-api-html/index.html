@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=11"/>
 <meta name="generator" content="Doxygen 1.11.0"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>LibQuicR: Media over Quic (MOQ) Transport API</title>
+<title>LibQuicR: Media over Quic Transport (MOQT) API</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -84,28 +84,55 @@ $(function(){ initResizable(false); });
 </div>
 
 <div><div class="header">
-  <div class="headertitle"><div class="title">Media over Quic (MOQ) Transport API </div></div>
+  <div class="headertitle"><div class="title">Media over Quic Transport (MOQT) API </div></div>
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><p><a class="anchor" id="md_docs_2moq-api-main"></a> </p>
-<h2><a class="anchor" id="autotoc_md1"></a>
-MOQ Instance</h2>
+<h1><a class="anchor" id="autotoc_md1"></a>
+MOQ Implementation Instance</h1>
 <p>Instance is the connection handler for the client connection and server listening socket.</p>
+<h2><a class="anchor" id="autotoc_md2"></a>
+Client</h2>
 <table class="markdownTable">
 <tr class="markdownTableHead">
 <th class="markdownTableHeadNone">Class   </th><th class="markdownTableHeadNone">Description    </th></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><a class="el" href="classquicr_1_1_mo_q_instance.html" title="MOQ Instance @Details MoQ Instance is the handler for either a client or server. It can run in only o...">quicr::MoQInstance</a>   </td><td class="markdownTableBodyNone">MOQ Instance connection supporting server/relay and client modes    </td></tr>
+<td class="markdownTableBodyNone"><a class="el" href="classquicr_1_1_mo_q_client.html" title="MoQ Client.">quicr::MoQClient</a>   </td><td class="markdownTableBodyNone">Client handler, which is specific to a QUIC IP connection    </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone"><a class="el" href="structquicr_1_1_mo_q_instance_client_config.html">quicr::MoQInstanceClientConfig</a>   </td><td class="markdownTableBodyNone">MOQ Instance configuration using client mode    </td></tr>
+<td class="markdownTableBodyNone"><a class="el" href="structquicr_1_1_mo_q_client_config.html">quicr::MoQClientConfig</a>   </td><td class="markdownTableBodyNone">Client configuration    </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><a class="el" href="structquicr_1_1_mo_q_instance_server_config.html">quicr::MoQInstanceServerConfig</a>   </td><td class="markdownTableBodyNone">MOQ Instance configuration using server mode    </td></tr>
-<tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone"><a class="el" href="classquicr_1_1_mo_q_instance_delegate.html" title="MOQ/MOQT callbacks.">quicr::MoQInstanceDelegate</a>   </td><td class="markdownTableBodyNone">MOQ Instance delegate for callbacks on control and connection related events   </td></tr>
+<td class="markdownTableBodyNone"><a class="el" href="classquicr_1_1_mo_q_client_delegate.html" title="MoQ/MOQT client callbacks.">quicr::MoQClientDelegate</a>   </td><td class="markdownTableBodyNone">Client delegate for callbacks (control messages and connection related events)   </td></tr>
 </table>
-<h2><a class="anchor" id="autotoc_md2"></a>
-Publish and Subscribe Track Delegate</h2>
-<p><a class="el" href="classquicr_1_1_mo_q_track_delegate.html" title="MOQ track delegate for subscribe and publish.">quicr::MoQTrackDelegate</a> track delegate is used for subscribe, publish, or both. It implements both receive and sending operations. </p>
+<h2><a class="anchor" id="autotoc_md3"></a>
+Server</h2>
+<table class="markdownTable">
+<tr class="markdownTableHead">
+<th class="markdownTableHeadNone">Class   </th><th class="markdownTableHeadNone">Description    </th></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><a class="el" href="classquicr_1_1_mo_q_server.html" title="MoQ Client.">quicr::MoQServer</a>   </td><td class="markdownTableBodyNone">Server handler, which is specific to the QUIC IP listening IP and port    </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone"><a class="el" href="structquicr_1_1_mo_q_server_config.html">quicr::MoQServerConfig</a>   </td><td class="markdownTableBodyNone">Server configuration    </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><a class="el" href="classquicr_1_1_mo_q_server_delegate.html" title="MoQ/MOQT server callbacks.">quicr::MoQServerDelegate</a>   </td><td class="markdownTableBodyNone">Server delegate for callbacks (control messages and connection related events)   </td></tr>
+</table>
+<h2><a class="anchor" id="autotoc_md4"></a>
+Track Handlers</h2>
+<p><code>publishTrack()</code> and <code>subscribeTrack()</code> use the below implemented handler classes.</p>
+<table class="markdownTable">
+<tr class="markdownTableHead">
+<th class="markdownTableHeadNone">Class   </th><th class="markdownTableHeadNone">Description    </th></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><a class="el" href="classquicr_1_1_mo_q_subscribe_track_handler.html" title="MOQ track handler for subscribed track.">quicr::MoQSubscribeTrackHandler</a>   </td><td class="markdownTableBodyNone">Subscribe track handler for subscribe related operations and callbacks    </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone"><a class="el" href="classquicr_1_1_mo_q_publish_track_handler.html" title="MOQ track handler for published track.">quicr::MoQPublishTrackHandler</a>   </td><td class="markdownTableBodyNone">Publish track handler for publish related operations and callbacks   </td></tr>
+</table>
+<hr  />
+<h1><a class="anchor" id="autotoc_md6"></a>
+Documentation Links</h1>
+<ul>
+<li><a href="https://github.com/Quicr/libquicr/blob/main/docs/moq-implementation.md">MoQ Implementation Details</a></li>
+<li>Quick Start </li>
+</ul>
 </div></div><!-- PageDoc -->
 <a href="doxygen_crawl.html"/>
 </div><!-- contents -->

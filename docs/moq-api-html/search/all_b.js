@@ -1,7 +1,5 @@
 var searchData=
 [
-  ['pending_5fannounce_5fresponse_0',['PENDING_ANNOUNCE_RESPONSE',['../classquicr_1_1_mo_q_track_delegate.html#af80fc5a77fec650920008d8f4f547c4fa0fa40ea05638457b7483b09618938451',1,'quicr::MoQTrackDelegate']]],
-  ['pending_5fsubscribe_5fresponse_1',['PENDING_SUBSCRIBE_RESPONSE',['../classquicr_1_1_mo_q_track_delegate.html#ac8c018056551d4c169a191e76d05c00aac14f52ecbf2d81fa6d1a7b5f3547af56',1,'quicr::MoQTrackDelegate']]],
-  ['publish_20and_20subscribe_20track_20delegate_2',['Publish and Subscribe Track Delegate',['../index.html#autotoc_md2',1,'']]],
-  ['publishtrack_3',['publishTrack',['../classquicr_1_1_mo_q_instance.html#abce59b46d84a44eb9d6c8015cfc70ceb',1,'quicr::MoQInstance']]]
+  ['ok_0',['OK',['../classquicr_1_1_mo_q_base_track_handler.html#ab7a9f258dfc54e1a00375aa9c4032ea3ae0aa021e21dddbd6d8cecec71e9cf564',1,'quicr::MoQBaseTrackHandler::OK'],['../classquicr_1_1_mo_q_base_track_handler.html#a4c1a7e507fa5cf135aae6a8a713d396bae0aa021e21dddbd6d8cecec71e9cf564',1,'quicr::MoQBaseTrackHandler::OK'],['../classquicr_1_1_mo_q_subscribe_track_handler.html#a265ffc5b64826a53c9ccb9cfcc45f412ae0aa021e21dddbd6d8cecec71e9cf564',1,'quicr::MoQSubscribeTrackHandler::OK'],['../classquicr_1_1_mo_q_subscribe_track_handler.html#a1bea85a52a4fdd7eb20100a88e318957ae0aa021e21dddbd6d8cecec71e9cf564',1,'quicr::MoQSubscribeTrackHandler::OK'],['../classquicr_1_1_mo_q_publish_track_handler.html#aa7df27298ef34cf131de2ff04c5937ccae0aa021e21dddbd6d8cecec71e9cf564',1,'quicr::MoQPublishTrackHandler::OK'],['../classquicr_1_1_mo_q_publish_track_handler.html#a10c961cc3461908d28f2474333528f09ae0aa021e21dddbd6d8cecec71e9cf564',1,'quicr::MoQPublishTrackHandler::OK']]],
+  ['over_20quic_20transport_20moqt_20api_1',['Media over Quic Transport (MOQT) API',['../index.html',1,'']]]
 ];

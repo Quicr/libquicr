@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['_7emoqinstance_0',['~MoQInstance',['../classquicr_1_1_mo_q_instance.html#a32f0d5a84505f6728f8a3d4fca86fa07',1,'quicr::MoQInstance']]]
+  ['unpublishtrack_0',['unpublishTrack',['../classquicr_1_1_mo_q_impl.html#a05d019e42b7fdb003a952419bc4bd7fe',1,'quicr::MoQImpl']]],
+  ['unsubscribetrack_1',['unsubscribeTrack',['../classquicr_1_1_mo_q_impl.html#ac5366d8e0031ce9c6e636ea3b69ffbb2',1,'quicr::MoQImpl']]]
 ];

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['datagram_0',['DATAGRAM',['../classquicr_1_1_mo_q_track_delegate.html#a9d1238297b268110af9ed7010ec46d21a77531d7905cb7b4e343ca868f98312f3',1,'quicr::MoQTrackDelegate']]]
+  ['datagram_0',['DATAGRAM',['../classquicr_1_1_mo_q_base_track_handler.html#a16182c860efd5a26410379d9663e3a09a77531d7905cb7b4e343ca868f98312f3',1,'quicr::MoQBaseTrackHandler']]]
 ];
