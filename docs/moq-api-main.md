@@ -1,23 +1,24 @@
 # Media over Quic Transport (MOQT) API
 
-## MOQ Implementation Instance
-Instance is the connection handler for the client connection and server listening socket. 
+## MOQT Core
+The MOQT protocol and API implementation is in quicr::MOQTCore. Both quicr::MOQTClient and quicr::MOQTServer
+implement quicr::MOQTCore. 
 
 ### Client
 
- Class                     | Description                                                                    
----------------------------|--------------------------------------------------------------------------------
- quicr::MOQTClient         | Client handler, which is specific to a QUIC IP connection                      
- quicr::MOQTClientConfig   | Client configuration                                                           
- quicr::MOQTClientDelegate | Client delegate for callbacks (control messages and connection related events) 
+ Class                      | Description                                                       
+----------------------------|-------------------------------------------------------------------
+ quicr::MOQTClient          | Client handler, which is specific to a QUIC IP connection         
+ quicr::MOQTClientConfig    | Client configuration                                              
+ quicr::MOQTClientCallbacks | Client callbacks (control messages and connection related events) 
 
 ### Server
 
- Class                     | Description                                                                    
----------------------------|--------------------------------------------------------------------------------
- quicr::MOQTServer         | Server handler, which is specific to the QUIC IP listening IP and port         
- quicr::MOQTServerConfig   | Server configuration                                                           
- quicr::MOQTServerDelegate | Server delegate for callbacks (control messages and connection related events) 
+ Class                      | Description                                                            
+----------------------------|------------------------------------------------------------------------
+ quicr::MOQTServer          | Server handler, which is specific to the QUIC IP listening IP and port 
+ quicr::MOQTServerConfig    | Server configuration                                                   
+ quicr::MOQTServerCallbacks | Server callbacks (control messages and connection related events)      
 
 ### Track Handlers
 
@@ -32,5 +33,5 @@ Instance is the connection handler for the client connection and server listenin
 
 ## Documentation Links
 
-* [MoQ Implementation Details](https://github.com/Quicr/libquicr/blob/main/docs/moq-implementation.md)
+* [MOQT Implementation Details](https://github.com/Quicr/libquicr/blob/main/docs/moq-implementation.md)
 * Quick Start

@@ -953,9 +953,9 @@ INPUT                  =  docs/moq-api-main.md \
                           include/quicr/moqt_core.h \
                           include/quicr/moqt_config.h \
                           include/quicr/moqt_client.h \
-                          include/quicr/moqt_client_delegate.h \
+                          include/quicr/moqt_client_callbacks.h \
                           include/quicr/moqt_server.h \
-                          include/quicr/moqt_server_delegate.h \
+                          include/quicr/moqt_server_callbacks.h \
                           include/quicr/moqt_base_track_handler.h \
                           include/quicr/moqt_subscribe_track_handler.h \
                           include/quicr/moqt_publish_track_handler.h

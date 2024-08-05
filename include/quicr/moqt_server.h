@@ -27,7 +27,7 @@ namespace quicr {
          * @param logger        MoQ Log pointer to parent logger
          */
         MOQTServer(const MOQTServerConfig& cfg,
-                   std::shared_ptr<MOQTServerDelegate> delegate,
+                   std::shared_ptr<MOQTServerCallbacks> delegate,
                    const cantina::LoggerPointer& logger)
           : MOQTCore(cfg, delegate, logger)
         {
