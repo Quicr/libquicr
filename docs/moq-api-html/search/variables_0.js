@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['endpoint_5fid_0',['endpoint_id',['../structquicr_1_1_mo_q_impl_config.html#a0675f9275341a474be720aa787f46194',1,'quicr::MoQImplConfig']]]
+  ['endpoint_5fid_0',['endpoint_id',['../structquicr_1_1_m_o_q_t_config.html#a3f8c74c53e9fae2c83c2950c5aa999c9',1,'quicr::MOQTConfig']]]
 ];

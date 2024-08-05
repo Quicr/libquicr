@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['trackhash_0',['TrackHash',['../structquicr_1_1_mo_q_impl_1_1_track_hash.html#a622775170d4df1692ab451195ac89c78',1,'quicr::MoQImpl::TrackHash::TrackHash(const uint64_t name_space, const uint64_t name)'],['../structquicr_1_1_mo_q_impl_1_1_track_hash.html#a874db2da6c558ff6526b1eae23c07a38',1,'quicr::MoQImpl::TrackHash::TrackHash(const TrackFullName &amp;tfn) noexcept']]]
+  ['receivedobjectcallback_0',['receivedObjectCallback',['../classquicr_1_1_m_o_q_t_subscribe_track_handler.html#aa0528274f57de54eb3660a1888cadd56',1,'quicr::MOQTSubscribeTrackHandler']]],
+  ['run_1',['run',['../classquicr_1_1_m_o_q_t_client.html#ae6b8b7615a7cf6eb128a8bf077d6d1dc',1,'quicr::MOQTClient::run()'],['../classquicr_1_1_m_o_q_t_server.html#a20cd80d7f06434f8280e8cad99483aba',1,'quicr::MOQTServer::run()']]]
 ];

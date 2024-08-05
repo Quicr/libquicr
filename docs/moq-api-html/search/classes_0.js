@@ -1,14 +1,14 @@
 var searchData=
 [
-  ['moqbasetrackhandler_0',['MoQBaseTrackHandler',['../classquicr_1_1_mo_q_base_track_handler.html',1,'quicr']]],
-  ['moqclient_1',['MoQClient',['../classquicr_1_1_mo_q_client.html',1,'quicr']]],
-  ['moqclientconfig_2',['MoQClientConfig',['../structquicr_1_1_mo_q_client_config.html',1,'quicr']]],
-  ['moqclientdelegate_3',['MoQClientDelegate',['../classquicr_1_1_mo_q_client_delegate.html',1,'quicr']]],
-  ['moqimpl_4',['MoQImpl',['../classquicr_1_1_mo_q_impl.html',1,'quicr']]],
-  ['moqimplconfig_5',['MoQImplConfig',['../structquicr_1_1_mo_q_impl_config.html',1,'quicr']]],
-  ['moqpublishtrackhandler_6',['MoQPublishTrackHandler',['../classquicr_1_1_mo_q_publish_track_handler.html',1,'quicr']]],
-  ['moqserver_7',['MoQServer',['../classquicr_1_1_mo_q_server.html',1,'quicr']]],
-  ['moqserverconfig_8',['MoQServerConfig',['../structquicr_1_1_mo_q_server_config.html',1,'quicr']]],
-  ['moqserverdelegate_9',['MoQServerDelegate',['../classquicr_1_1_mo_q_server_delegate.html',1,'quicr']]],
-  ['moqsubscribetrackhandler_10',['MoQSubscribeTrackHandler',['../classquicr_1_1_mo_q_subscribe_track_handler.html',1,'quicr']]]
+  ['moqtbasetrackhandler_0',['MOQTBaseTrackHandler',['../classquicr_1_1_m_o_q_t_base_track_handler.html',1,'quicr']]],
+  ['moqtclient_1',['MOQTClient',['../classquicr_1_1_m_o_q_t_client.html',1,'quicr']]],
+  ['moqtclientconfig_2',['MOQTClientConfig',['../structquicr_1_1_m_o_q_t_client_config.html',1,'quicr']]],
+  ['moqtclientdelegate_3',['MOQTClientDelegate',['../classquicr_1_1_m_o_q_t_client_delegate.html',1,'quicr']]],
+  ['moqtconfig_4',['MOQTConfig',['../structquicr_1_1_m_o_q_t_config.html',1,'quicr']]],
+  ['moqtcore_5',['MOQTCore',['../classquicr_1_1_m_o_q_t_core.html',1,'quicr']]],
+  ['moqtpublishtrackhandler_6',['MOQTPublishTrackHandler',['../classquicr_1_1_m_o_q_t_publish_track_handler.html',1,'quicr']]],
+  ['moqtserver_7',['MOQTServer',['../classquicr_1_1_m_o_q_t_server.html',1,'quicr']]],
+  ['moqtserverconfig_8',['MOQTServerConfig',['../structquicr_1_1_m_o_q_t_server_config.html',1,'quicr']]],
+  ['moqtserverdelegate_9',['MOQTServerDelegate',['../classquicr_1_1_m_o_q_t_server_delegate.html',1,'quicr']]],
+  ['moqtsubscribetrackhandler_10',['MOQTSubscribeTrackHandler',['../classquicr_1_1_m_o_q_t_subscribe_track_handler.html',1,'quicr']]]
 ];

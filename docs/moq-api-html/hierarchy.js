@@ -1,21 +1,21 @@
 var hierarchy =
 [
-    [ "quicr::MoQBaseTrackHandler", "classquicr_1_1_mo_q_base_track_handler.html", [
-      [ "quicr::MoQPublishTrackHandler", "classquicr_1_1_mo_q_publish_track_handler.html", null ],
-      [ "quicr::MoQSubscribeTrackHandler", "classquicr_1_1_mo_q_subscribe_track_handler.html", null ]
+    [ "quicr::MOQTBaseTrackHandler", "classquicr_1_1_m_o_q_t_base_track_handler.html", [
+      [ "quicr::MOQTPublishTrackHandler", "classquicr_1_1_m_o_q_t_publish_track_handler.html", null ],
+      [ "quicr::MOQTSubscribeTrackHandler", "classquicr_1_1_m_o_q_t_subscribe_track_handler.html", null ]
     ] ],
-    [ "quicr::MoQClientDelegate", "classquicr_1_1_mo_q_client_delegate.html", null ],
-    [ "quicr::MoQImplConfig", "structquicr_1_1_mo_q_impl_config.html", [
-      [ "quicr::MoQClientConfig", "structquicr_1_1_mo_q_client_config.html", null ],
-      [ "quicr::MoQServerConfig", "structquicr_1_1_mo_q_server_config.html", null ]
+    [ "quicr::MOQTClientDelegate", "classquicr_1_1_m_o_q_t_client_delegate.html", null ],
+    [ "quicr::MOQTConfig", "structquicr_1_1_m_o_q_t_config.html", [
+      [ "quicr::MOQTClientConfig", "structquicr_1_1_m_o_q_t_client_config.html", null ],
+      [ "quicr::MOQTServerConfig", "structquicr_1_1_m_o_q_t_server_config.html", null ]
     ] ],
-    [ "quicr::MoQServerDelegate", "classquicr_1_1_mo_q_server_delegate.html", null ],
-    [ "quicr::MoQImpl::TrackFullName", "structquicr_1_1_mo_q_impl_1_1_track_full_name.html", null ],
-    [ "quicr::MoQImpl::TrackHash", "structquicr_1_1_mo_q_impl_1_1_track_hash.html", null ],
+    [ "quicr::MOQTServerDelegate", "classquicr_1_1_m_o_q_t_server_delegate.html", null ],
+    [ "quicr::MOQTCore::TrackFullName", "structquicr_1_1_m_o_q_t_core_1_1_track_full_name.html", null ],
+    [ "quicr::MOQTCore::TrackHash", "structquicr_1_1_m_o_q_t_core_1_1_track_hash.html", null ],
     [ "ITransport::TransportDelegate", null, [
-      [ "quicr::MoQImpl", "classquicr_1_1_mo_q_impl.html", [
-        [ "quicr::MoQClient", "classquicr_1_1_mo_q_client.html", null ],
-        [ "quicr::MoQServer", "classquicr_1_1_mo_q_server.html", null ]
+      [ "quicr::MOQTCore", "classquicr_1_1_m_o_q_t_core.html", [
+        [ "quicr::MOQTClient", "classquicr_1_1_m_o_q_t_client.html", null ],
+        [ "quicr::MOQTServer", "classquicr_1_1_m_o_q_t_server.html", null ]
       ] ]
     ] ]
 ];
