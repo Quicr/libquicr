@@ -1,5 +1,5 @@
 
-#include <quicr/moq_instance.h>
+#include <quicr/moq_impl.h>
 
 #include <cantina/logger.h>
 #include <unordered_map>
@@ -24,7 +24,7 @@ namespace qserver_vars {
      *
      *     Example: track_delegate = subscribes[track_alias][conn_id]
      */
-    std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::shared_ptr<quicr::MoQTrackDelegate>>> subscribes;
+    std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::shared_ptr<quicr::MoQBaseTrackHandler>>> subscribes;
 
     /*
      * Subscribe ID to alias mapping
@@ -60,7 +60,7 @@ namespace qserver_vars {
      *
      * track_delegate = pub_subscribes[track_alias][conn_id]
      */
-    std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::shared_ptr<quicr::MoQTrackDelegate>>> pub_subscribes;
+    std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::shared_ptr<quicr::MoQBaseTrackHandler>>> pub_subscribes;
 }
 
 /* -------------------------------------------------------------------------------------------------
@@ -68,7 +68,7 @@ namespace qserver_vars {
  *      to subscriber
  * -------------------------------------------------------------------------------------------------
  */
-class subTrackDelegate : public quicr::MoQTrackDelegate
+class subTrackDelegate : public quicr::MoQBaseTrackHandler
 {
 public:
     subTrackDelegate(const std::string& t_namespace,
@@ -76,7 +76,7 @@ public:
                      uint8_t priority,
                      uint32_t ttl,
                      const cantina::LoggerPointer& logger)
-      : MoQTrackDelegate({ t_namespace.begin(), t_namespace.end() },
+      : MoQBaseTrackHandler({ t_namespace.begin(), t_namespace.end() },
                          { t_name.begin(), t_name.end() },
                          TrackMode::STREAM_PER_GROUP,
                          priority,
@@ -447,11 +447,11 @@ quicr::MoQInstanceServerConfig init_config(cxxopts::ParseResult& cli_opts, const
     config.server_port = cli_opts["port"].as<uint16_t>();
     config.server_proto = qtransport::TransportProtocol::QUIC;
     config.transport_config.debug = cli_opts["debug"].as<bool>();
-    config.transport_config.tls_cert_filename = const_cast<char *>(cli_opts["cert"].as<std::string>().c_str());
-    config.transport_config.tls_key_filename = const_cast<char *>(cli_opts["key"].as<std::string>().c_str());
+    config.transport_config.tls_cert_filename = cli_opts["cert"].as<std::string>();
+    config.transport_config.tls_key_filename = cli_opts["key"].as<std::string>();
     config.transport_config.use_reset_wait_strategy = false;
     config.transport_config.time_queue_max_duration = 5000;
-    config.transport_config.quic_qlog_path = qlog_path.size() ? const_cast<char *>(qlog_path.c_str()) : nullptr;
+    config.transport_config.quic_qlog_path = qlog_path;
 
     return config;
 }

@@ -11,24 +11,13 @@
 namespace quicr {
 
     /**
-     * @brief MOQ track delegate for subscribe and publish
+     * @brief MoQ track base handler for tracks (subscribe/publish)
      *
-     * @details MOQ track delegate defines all track related callbacks and
-     *  functions. Track delegate operates on a single track (namespace + name).
-     *  It can be used for subscribe, publish, or both subscribe and publish. The
-     *  only requirement is that the namespace and track alias be the same.
+     * @details Base MoQ track handler
      */
-    class MoQTrackDelegate
+    class MoQBaseTrackHandler
     {
       public:
-        enum class ReadError : uint8_t
-        {
-            OK = 0,
-            NOT_AUTHORIZED,
-            NOT_SUBSCRIBED,
-            NO_DATA,
-        };
-
         enum class SendError : uint8_t
         {
             OK = 0,
@@ -36,16 +25,6 @@ namespace quicr {
             NOT_AUTHORIZED,
             NOT_ANNOUNCED,
             NO_SUBSCRIBERS,
-        };
-
-        enum class TrackReadStatus : uint8_t
-        {
-            OK = 0,
-            NOT_CONNECTED,
-            SUBSCRIBE_ERROR,
-            NOT_AUTHORIZED,
-            NOT_SUBSCRIBED,
-            PENDING_SUBSCRIBE_RESPONSE
         };
 
         enum class TrackSendStatus : uint8_t
@@ -70,22 +49,25 @@ namespace quicr {
         // Public API methods that normally should not be overridden
         // --------------------------------------------------------------------------
 
+        MoQBaseTrackHandler() = delete;
+
         /**
          * @brief Track delegate constructor
          */
-        MoQTrackDelegate(const bytes& track_namespace,
-                         const bytes& track_name,
-                         TrackMode track_mode,
-                         uint8_t default_priority,
-                         uint32_t default_ttl,
-                         const cantina::LoggerPointer& logger) :
-              _mi_track_mode(track_mode)
-             , _logger(std::make_shared<cantina::Logger>("MTD", logger))
-             , _track_namespace(track_namespace)
-             , _track_name(track_name)
+      protected:
+        MoQBaseTrackHandler(const bytes& track_namespace,
+                            const bytes& track_name,
+                            TrackMode track_mode,
+                            uint8_t default_priority,
+                            uint32_t default_ttl,
+                            const cantina::LoggerPointer& logger)
+          : _mi_track_mode(track_mode)
+          , _logger(std::make_shared<cantina::Logger>("MTD", logger))
+          , _track_namespace(track_namespace)
+          , _track_name(track_name)
         {
-          this->setDefaultPriority(default_priority);
-          this->setDefaultTTL(default_ttl);
+            this->setDefaultPriority(default_priority);
+            this->setDefaultTTL(default_ttl);
         }
 
         /**
@@ -138,31 +120,7 @@ namespace quicr {
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods to be overridden
         // --------------------------------------------------------------------------
-
-        /**
-         * @brief Notification of received data object
-         *
-         * @details Event notification to provide the caller the received data object
-         *
-         * @param group_id          Group ID of the object received
-         * @param object_id         Object ID of the object received
-         * @parma priority          Priority of the object received
-         * @param object            Data object received
-         * @param track_mode        Track mode the object was received
-         */
-        virtual void cb_objectReceived(uint64_t group_id,
-                                       uint64_t object_id,
-                                       uint8_t priority,
-                                       std::vector<uint8_t>&& object,
-                                       TrackMode track_mode) = 0;
-
-        /**
-         * @brief Notification that data can be sent
-         * @details Notification that an announcement has been successful and there is at least one
-         *   subscriber for the track. Data can now be succesfully sent.
-         */
-        virtual void cb_sendReady() = 0;
-
+      public:
         /**
          * @brief Notification that data can not be sent
          * @details Notification that data cannot be sent yet with a reason. This will
@@ -181,20 +139,6 @@ namespace quicr {
          * @param objects_in_queue    Number of objects still pending to be sent at time of notification
          */
         virtual void cb_sendCongested(bool cleared, uint64_t objects_in_queue) = 0;
-
-        /**
-         * @brief Notification to indicate reading is ready
-         * @details Notification that an announcement has been successful and but
-         * there are no subscribers, so data cannot be sent yet.
-         */
-        virtual void cb_readReady() = 0;
-
-        /**
-         * @brief Notification that read is not available
-         *
-         * @param status        Indicates the reason for why data cannot be sent [yet]
-         */
-        virtual void cb_readNotReady(TrackReadStatus status) = 0;
 
         // --------------------------------------------------------------------------
         // Internal API methods used by MOQ instance and peering session
@@ -252,17 +196,11 @@ namespace quicr {
         void setSendStatus(TrackSendStatus status) { _send_status = status; }
         TrackSendStatus getSendStatus() { return _send_status; }
 
-        /**
-         * @brief Set the read status
-         * @param status                Status of reading (aka subscribe)
-         */
-        void setReadStatus(TrackReadStatus status) { _read_status = status; }
-        TrackReadStatus getReadStatus() { return _read_status; }
 
         // --------------------------------------------------------------------------
         // MOQ Instance specific public variables/methods - Caller should not use these
         // --------------------------------------------------------------------------
-
+      protected:
         /**
          * @brief Send Object function via the MoQ instance
          *
@@ -280,21 +218,17 @@ namespace quicr {
                                 bool stream_header_needed,
                                 uint64_t group_id,
                                 uint64_t object_id,
-                                std::span<const uint8_t> data)> _mi_sendObjFunc;
+                                std::span<const uint8_t> data)>
+          _mi_sendObjFunc;
 
-        uint64_t _mi_send_data_ctx_id;    // Set by moq instance
-        uint64_t _mi_conn_id;             // Set by moq instance
-        TrackMode _mi_track_mode;         // Set by moq instance
+        uint64_t _mi_send_data_ctx_id; // Set by moq instance
+        uint64_t _mi_conn_id;          // Set by moq instance
+        TrackMode _mi_track_mode;      // Set by moq instance
 
-
-        uint8_t _def_priority;            // Set by caller and is used when priority is not specified
-        uint32_t _def_ttl;                // Set by caller and is used when TTL is not specified
-
-        // --------------------------------------------------------------------------
-        // --------------------------------------------------------------------------
-
-      protected:
+      private:
         cantina::LoggerPointer _logger;
+        uint8_t _def_priority; // Set by caller and is used when priority is not specified
+        uint32_t _def_ttl;     // Set by caller and is used when TTL is not specified
         const bytes _track_namespace;
         const bytes _track_name;
         std::optional<uint64_t> _track_alias;
@@ -307,12 +241,7 @@ namespace quicr {
          */
         std::optional<uint64_t> _subscribe_id;
 
-        TrackSendStatus _send_status { TrackSendStatus::NOT_ANNOUNCED };
-        TrackReadStatus _read_status { TrackReadStatus::NOT_SUBSCRIBED };
-
-      private:
-        uint64_t _prev_group_id {0};
-        bool _sent_track_header { false };  // Used only in stream per tarck mode
+        uint64_t _prev_group_id{ 0 };
     };
 
 } // namespace quicr

@@ -1,5 +1,5 @@
 
-#include <quicr/moq_instance.h>
+#include <quicr/moq_impl.h>
 
 #include "signal_handler.h"
 
@@ -37,7 +37,7 @@ std::string get_time_str()
  *      delegate.
  * -------------------------------------------------------------------------------------------------
  */
-class trackDelegate : public quicr::MoQTrackDelegate
+class trackDelegate : public quicr::MoQBaseTrackHandler
 {
 public:
     trackDelegate(const std::string& t_namespace,
@@ -45,7 +45,7 @@ public:
                   uint8_t priority,
                   uint32_t ttl,
                   const cantina::LoggerPointer& logger)
-      : MoQTrackDelegate({ t_namespace.begin(), t_namespace.end() },
+      : MoQBaseTrackHandler({ t_namespace.begin(), t_namespace.end() },
                          { t_name.begin(), t_name.end() },
                          TrackMode::STREAM_PER_GROUP,
                          priority,
@@ -147,7 +147,7 @@ void do_publisher(const std::string t_namespace,
             published_track = true;
         }
 
-        if (track_delegate->getSendStatus() != quicr::MoQTrackDelegate::TrackSendStatus::OK) {
+        if (track_delegate->getSendStatus() != quicr::MoQBaseTrackHandler::TrackSendStatus::OK) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
@@ -277,9 +277,9 @@ quicr::MoQInstanceClientConfig init_config(cxxopts::ParseResult& cli_opts,
     config.transport_config.debug = cli_opts["debug"].as<bool>();;
     config.transport_config.use_reset_wait_strategy = false;
     config.transport_config.time_queue_max_duration = 5000;
-    config.transport_config.tls_cert_filename = nullptr;
-    config.transport_config.tls_key_filename = nullptr;
-    config.transport_config.quic_qlog_path = qlog_path.size() ? const_cast<char *>(qlog_path.c_str()) : nullptr;
+    config.transport_config.tls_cert_filename = "";
+    config.transport_config.tls_key_filename = "";
+    config.transport_config.quic_qlog_path = qlog_path;
 
     return config;
 }

@@ -13,16 +13,16 @@ namespace quicr {
     using namespace qtransport;
 
     /**
-     * @brief MOQ/MOQT callbacks
+     * @brief MoQ/MOQT server callbacks
      *
-     * @details MOQ instance is created and this delegate is passed to the instanct constructor.
-     *    MOQ instance callbacks are defined in this delegate
+     * @details MoQ server callback delegate for connection and MOQT control message handling.
      */
-    class MoQInstanceDelegate
+
+    class MoQServerDelegate
     {
     public:
         /**
-         * @brief Server Mode; Notification on new connection
+         * @brief Notification on new connection
          * @details Notification that a new connection has been accepted
          *
          * @param conn_id          Transport connection ID
@@ -46,7 +46,7 @@ namespace quicr {
                                          TransportStatus status) = 0;
 
         /**
-         * @brief Server Mode; callback on client setup message
+         * @brief Callback on client setup message
          * @detais In server mode, client will send a setup message on new connection.
          *         Server responds with server setup.
          *
@@ -57,17 +57,7 @@ namespace quicr {
                                     [[maybe_unused]] messages::MoqClientSetup client_setup) {}
 
         /**
-         * @brief Client Mode; callback on server setup message
-         * @details In client mode, server will send sever setup in response to client setup message sent.
-         *
-         * @param conn_id          Transport connection ID
-         * @param server_setup     Decoded sever setup message
-         */
-        virtual void cb_serverSetup([[maybe_unused]] TransportConnId conn_id,
-                                    [[maybe_unused]] messages::MoqServerSetup server_setup) {}
-
-        /**
-         * @brief Server Mode; Callback notification for new announce received (need to authorize)
+         * @brief Callback notification for new announce received (need to authorize)
          *
          * @param conn_id                   Source connection ID
          * @param track_namespace_hash      Track namespace hash
@@ -78,7 +68,7 @@ namespace quicr {
                                  [[maybe_unused]] uint64_t track_namespace_hash) { return true; }
 
         /**
-         * @brief Server Mode; Callback notification for new announce received post OK being sent
+         * @brief Callback notification for new announce received post OK being sent
          *
          * @details After announce an OK is sent providing the announce was authorized and accepted. This
          *      callback is called after `cb_announce()` to allow the server to subscribe or followup
@@ -91,7 +81,7 @@ namespace quicr {
                                       [[maybe_unused]] uint64_t track_namespace_hash) { }
 
         /**
-         * @brief Server Mode; Callback notification for unannounce received
+         * @brief Callback notification for unannounce received
          *
          * @param conn_id                   Source connection ID
          * @param track_namespace_hash      Track namespace hash

@@ -7,6 +7,7 @@ add_executable(quicr_test
                 quicr_server.cpp
                 moq_messages.cpp
                 moq_instance.cpp
+                moq_test.cpp
                 encode.cpp
         moq_messages.cpp)
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)

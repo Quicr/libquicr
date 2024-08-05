@@ -4,7 +4,7 @@
  *  All Rights Reserved
  */
 
-#include <quicr/moq_instance.h>
+#include <quicr/moq_impl.h>
 #include <quicr/moq_messages.h>
 
 namespace quicr {
@@ -387,7 +387,7 @@ namespace quicr {
                         // TODO(tievens): Maybe needs a delay as subscriber may have not received ok before data is sent
                         auto ptd_l = ptd->lock();
                         ptd_l->setSubscribeId(msg.subscribe_id);
-                        ptd_l->setSendStatus(MoQTrackDelegate::TrackSendStatus::OK);
+                        ptd_l->setSendStatus(MoQBaseTrackHandler::TrackSendStatus::OK);
                         ptd_l->cb_sendReady();
 
                         conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
@@ -451,7 +451,7 @@ namespace quicr {
                         return true;
                     }
 
-                    sub_it->second.get()->cb_readNotReady(MoQTrackDelegate::TrackReadStatus::SUBSCRIBE_ERROR);
+                    sub_it->second.get()->cb_readNotReady(MoQBaseTrackHandler::TrackReadStatus::SUBSCRIBE_ERROR);
                     remove_subscribeTrack(conn_ctx, *sub_it->second);
 
                     stream_buffer->resetAny();
@@ -496,8 +496,8 @@ namespace quicr {
                     // Update each track to indicate status is okay to publish
                     auto pub_it = conn_ctx.pub_tracks_by_name.find(th.track_namespace_hash);
                     for (const auto& td : pub_it->second) {
-                        if (td.second.get()->getSendStatus() != MoQTrackDelegate::TrackSendStatus::OK)
-                            td.second.get()->setSendStatus(MoQTrackDelegate::TrackSendStatus::NO_SUBSCRIBERS);
+                        if (td.second.get()->getSendStatus() != MoQBaseTrackHandler::TrackSendStatus::OK)
+                            td.second.get()->setSendStatus(MoQBaseTrackHandler::TrackSendStatus::NO_SUBSCRIBERS);
                     }
 
                     stream_buffer->resetAny();
@@ -577,7 +577,7 @@ namespace quicr {
 
                         _logger->debug << "Received unsubscribe conn_id: " << conn_ctx.conn_id
                                        << " subscribe_id: " << msg.subscribe_id << std::flush;
-                        sub_it->second.get()->cb_readNotReady(MoQTrackDelegate::TrackReadStatus::NOT_SUBSCRIBED);
+                        sub_it->second.get()->cb_readNotReady(MoQBaseTrackHandler::TrackReadStatus::NOT_SUBSCRIBED);
 
                         _delegate->cb_unsubscribe(conn_ctx.conn_id, msg.subscribe_id);
 
@@ -586,8 +586,8 @@ namespace quicr {
                         const auto& [name_space, name] = conn_ctx.recv_sub_id[msg.subscribe_id];
                         TrackHash th(name_space, name);
                         if (auto pdt = getPubTrackDelegate(conn_ctx, th)) {
-                            pdt->lock()->setSendStatus(MoQTrackDelegate::TrackSendStatus::NO_SUBSCRIBERS);
-                            pdt->lock()->cb_sendNotReady(MoQTrackDelegate::TrackSendStatus::NO_SUBSCRIBERS);
+                            pdt->lock()->setSendStatus(MoQBaseTrackHandler::TrackSendStatus::NO_SUBSCRIBERS);
+                            pdt->lock()->cb_sendNotReady(MoQBaseTrackHandler::TrackSendStatus::NO_SUBSCRIBERS);
                         }
 
                         conn_ctx.recv_sub_id.erase(msg.subscribe_id);
@@ -627,7 +627,7 @@ namespace quicr {
                                    << " track alias: " << th.track_fullname_hash
                                    << std::flush;
 
-                    sub_it->second.get()->cb_readNotReady(MoQTrackDelegate::TrackReadStatus::NOT_SUBSCRIBED);
+                    sub_it->second.get()->cb_readNotReady(MoQBaseTrackHandler::TrackReadStatus::NOT_SUBSCRIBED);
                     _delegate->cb_unannounce(conn_ctx.conn_id, th.track_namespace_hash, th.track_name_hash);
 
                     stream_buffer->resetAny();
@@ -875,7 +875,7 @@ namespace quicr {
                                    << " data size: " << msg.payload.size() << std::flush;
                     sub_it->second->cb_objectReceived(msg.group_id, msg.object_id, msg.priority,
                                                       std::move(msg.payload),
-                                                      MoQTrackDelegate::TrackMode::STREAM_PER_OBJECT);
+                                                      MoQBaseTrackHandler::TrackMode::STREAM_PER_OBJECT);
                     stream_buffer->resetAny();
                 }
                 break;
@@ -932,7 +932,7 @@ namespace quicr {
 
                         sub_it->second->cb_objectReceived(obj.group_id, obj.object_id, msg.priority,
                                                           std::move(obj.payload),
-                                                          MoQTrackDelegate::TrackMode::STREAM_PER_TRACK);
+                                                          MoQBaseTrackHandler::TrackMode::STREAM_PER_TRACK);
                     }
                 }
                 break;
@@ -995,7 +995,7 @@ namespace quicr {
 
                         sub_it->second->cb_objectReceived(msg.group_id, obj.object_id, msg.priority,
                                                           std::move(obj.payload),
-                                                          MoQTrackDelegate::TrackMode::STREAM_PER_GROUP);
+                                                          MoQBaseTrackHandler::TrackMode::STREAM_PER_GROUP);
                     }
                 }
 
@@ -1020,7 +1020,7 @@ namespace quicr {
     }
 
     std::optional<uint64_t> MoQInstance::subscribeTrack(TransportConnId conn_id,
-                                                        std::shared_ptr<MoQTrackDelegate> track_delegate)
+                                                        std::shared_ptr<MoQBaseTrackHandler> track_delegate)
     {
         // Generate track alias
         auto tfn = TrackFullName{ track_delegate->getTrackNamespace(), track_delegate->getTrackName() };
@@ -1057,7 +1057,7 @@ namespace quicr {
 
     std::optional<uint64_t> MoQInstance::bindSubscribeTrack(TransportConnId conn_id,
                                                             uint64_t subscribe_id,
-                                                            std::shared_ptr<MoQTrackDelegate> track_delegate) {
+                                                            std::shared_ptr<MoQBaseTrackHandler> track_delegate) {
 
 
         // Generate track alias
@@ -1087,7 +1087,7 @@ namespace quicr {
 
         track_delegate->_mi_send_data_ctx_id = _transport->createDataContext(
           conn_id,
-          track_delegate->_mi_track_mode == MoQTrackDelegate::TrackMode::DATAGRAM ? false : true,
+          track_delegate->_mi_track_mode == MoQBaseTrackHandler::TrackMode::DATAGRAM ? false : true,
           track_delegate->_def_priority,
           false);
 
@@ -1108,7 +1108,7 @@ namespace quicr {
                                                                         bool stream_header_needed,
                                                                         uint64_t group_id,
                                                                         uint64_t object_id,
-                                                                        std::span<uint8_t const> data) -> MoQTrackDelegate::SendError {
+                                                                        std::span<uint8_t const> data) -> MoQBaseTrackHandler::SendError {
             return send_object(track_delegate,
                                priority,
                                ttl,
@@ -1122,7 +1122,7 @@ namespace quicr {
         return th.track_fullname_hash;
     }
 
-    void MoQInstance::unsubscribeTrack(qtransport::TransportConnId conn_id, std::shared_ptr<MoQTrackDelegate> track_delegate)
+    void MoQInstance::unsubscribeTrack(qtransport::TransportConnId conn_id, std::shared_ptr<MoQBaseTrackHandler> track_delegate)
     {
         auto& conn_ctx = _connections[conn_id];
         if (track_delegate->getSubscribeId().has_value()) {
@@ -1132,9 +1132,9 @@ namespace quicr {
     }
 
     void MoQInstance::remove_subscribeTrack(ConnectionContext& conn_ctx,
-                                          MoQTrackDelegate& delegate, bool remove_delegate)
+                                            MoQBaseTrackHandler& delegate, bool remove_delegate)
     {
-        delegate.setReadStatus(MoQTrackDelegate::TrackReadStatus::NOT_SUBSCRIBED);
+        delegate.setReadStatus(MoQBaseTrackHandler::TrackReadStatus::NOT_SUBSCRIBED);
         delegate.setSubscribeId(std::nullopt);
 
         auto subscribe_id = delegate.getSubscribeId();
@@ -1160,7 +1160,7 @@ namespace quicr {
     }
 
     void MoQInstance::unpublishTrack(TransportConnId conn_id,
-                                     std::shared_ptr<MoQTrackDelegate> track_delegate) {
+                                     std::shared_ptr<MoQBaseTrackHandler> track_delegate) {
 
         // Generate track alias
         auto tfn = TrackFullName{ track_delegate->getTrackNamespace(), track_delegate->getTrackName() };
@@ -1184,7 +1184,7 @@ namespace quicr {
             if (pub_n_it != pub_ns_it->second.end()) {
 
                 // Send subscribe done if track has subscriber and is sending
-                if (pub_n_it->second->getSendStatus() == MoQTrackDelegate::TrackSendStatus::OK
+                if (pub_n_it->second->getSendStatus() == MoQBaseTrackHandler::TrackSendStatus::OK
                     && pub_n_it->second->getSubscribeId().has_value()) {
                     _logger->info << "Unpublish track namespace hash: " << th.track_namespace_hash
                                   << " track_name_hash: " << th.track_name_hash
@@ -1204,7 +1204,7 @@ namespace quicr {
 #endif
                 pub_n_it->second->_mi_send_data_ctx_id = 0;
 
-                pub_n_it->second->setSendStatus(MoQTrackDelegate::TrackSendStatus::NOT_ANNOUNCED);
+                pub_n_it->second->setSendStatus(MoQBaseTrackHandler::TrackSendStatus::NOT_ANNOUNCED);
                 pub_ns_it->second.erase(pub_n_it);
             }
 
@@ -1219,7 +1219,7 @@ namespace quicr {
 
 
     std::optional<uint64_t> MoQInstance::publishTrack(TransportConnId conn_id,
-                                         std::shared_ptr<MoQTrackDelegate> track_delegate) {
+                                         std::shared_ptr<MoQBaseTrackHandler> track_delegate) {
 
         // Generate track alias
         auto tfn = TrackFullName{ track_delegate->getTrackNamespace(), track_delegate->getTrackName() };
@@ -1247,7 +1247,7 @@ namespace quicr {
             _logger->info << "Publish track has new namespace hash: " << th.track_namespace_hash
                           << " sending ANNOUNCE message" << std::flush;
 
-            track_delegate->setSendStatus(MoQTrackDelegate::TrackSendStatus::PENDING_ANNOUNCE_RESPONSE);
+            track_delegate->setSendStatus(MoQBaseTrackHandler::TrackSendStatus::PENDING_ANNOUNCE_RESPONSE);
             send_announce(conn_it->second, track_delegate->getTrackNamespace());
 
         } else {
@@ -1266,7 +1266,7 @@ namespace quicr {
         track_delegate->_mi_conn_id = conn_id;
         track_delegate->_mi_send_data_ctx_id = _transport->createDataContext(
           conn_id,
-          track_delegate->_mi_track_mode == MoQTrackDelegate::TrackMode::DATAGRAM ? false : true,
+          track_delegate->_mi_track_mode == MoQBaseTrackHandler::TrackMode::DATAGRAM ? false : true,
           track_delegate->_def_priority,
           false);
 
@@ -1288,7 +1288,7 @@ namespace quicr {
                                                             bool stream_header_needed,
                                                             uint64_t group_id,
                                                             uint64_t object_id,
-                                                            std::span<const uint8_t> data) -> MoQTrackDelegate::SendError {
+                                                            std::span<const uint8_t> data) -> MoQBaseTrackHandler::SendError {
             return send_object(track_delegate,
                                priority,
                                ttl,
@@ -1301,7 +1301,7 @@ namespace quicr {
         return th.track_fullname_hash;
     }
 
-    MoQTrackDelegate::SendError MoQInstance::send_object(std::weak_ptr<MoQTrackDelegate> track_delegate,
+    MoQBaseTrackHandler::SendError MoQInstance::send_object(std::weak_ptr<MoQBaseTrackHandler> track_delegate,
                                                          uint8_t priority,
                                                          uint32_t ttl,
                                                          bool stream_header_needed,
@@ -1313,11 +1313,11 @@ namespace quicr {
         auto td = track_delegate.lock();
 
         if (!td->getTrackAlias().has_value()) {
-            return MoQTrackDelegate::SendError::NOT_ANNOUNCED;
+            return MoQBaseTrackHandler::SendError::NOT_ANNOUNCED;
         }
 
         if (!td->getSubscribeId().has_value()) {
-            return MoQTrackDelegate::SendError::NO_SUBSCRIBERS;
+            return MoQBaseTrackHandler::SendError::NO_SUBSCRIBERS;
         }
 
         ITransport::EnqueueFlags eflags;
@@ -1325,7 +1325,7 @@ namespace quicr {
         StreamBuffer<uint8_t> buffer;
 
         switch(td->_mi_track_mode) {
-            case MoQTrackDelegate::TrackMode::DATAGRAM: {
+            case MoQBaseTrackHandler::TrackMode::DATAGRAM: {
                 MoqObjectDatagram object;
                 object.group_id = group_id;
                 object.object_id = object_id;
@@ -1336,7 +1336,7 @@ namespace quicr {
                 buffer << object;
                 break;
             }
-            case MoQTrackDelegate::TrackMode::STREAM_PER_OBJECT: {
+            case MoQBaseTrackHandler::TrackMode::STREAM_PER_OBJECT: {
                 eflags.use_reliable = true;
                 eflags.new_stream = true;
 
@@ -1352,7 +1352,7 @@ namespace quicr {
                 break;
             }
 
-            case MoQTrackDelegate::TrackMode::STREAM_PER_GROUP: {
+            case MoQBaseTrackHandler::TrackMode::STREAM_PER_GROUP: {
                 eflags.use_reliable = true;
 
                 if (stream_header_needed) {
@@ -1375,7 +1375,7 @@ namespace quicr {
 
                 break;
             }
-            case MoQTrackDelegate::TrackMode::STREAM_PER_TRACK: {
+            case MoQBaseTrackHandler::TrackMode::STREAM_PER_TRACK: {
                 eflags.use_reliable = true;
 
                 if (stream_header_needed) {
@@ -1405,11 +1405,11 @@ namespace quicr {
                     { MethodTraceItem{} }, priority,
                     ttl, 0, eflags);
 
-        return MoQTrackDelegate::SendError::OK;
+        return MoQBaseTrackHandler::SendError::OK;
     }
 
 
-    std::optional<std::weak_ptr<MoQTrackDelegate>> MoQInstance::getPubTrackDelegate(ConnectionContext& conn_ctx,
+    std::optional<std::weak_ptr<MoQBaseTrackHandler>> MoQInstance::getPubTrackDelegate(ConnectionContext& conn_ctx,
                                                                                     TrackHash& th)
     {
         auto pub_ns_it = conn_ctx.pub_tracks_by_name.find(th.track_namespace_hash);
@@ -1472,7 +1472,7 @@ namespace quicr {
                 }
 
                 for (const auto& [sub_id, delegate] : conn_it->second.tracks_by_sub_id) {
-                    delegate->cb_readNotReady(MoQTrackDelegate::TrackReadStatus::NOT_SUBSCRIBED);
+                    delegate->cb_readNotReady(MoQBaseTrackHandler::TrackReadStatus::NOT_SUBSCRIBED);
                     _delegate->cb_unsubscribe(conn_id, sub_id);
                     remove_subscribeTrack(conn_it->second, *delegate);
                 }
@@ -1480,8 +1480,8 @@ namespace quicr {
                 for (const auto& [name_space, track] : conn_it->second.recv_sub_id) {
                     TrackHash th(track.first, track.second);
                     if (auto pdt = getPubTrackDelegate(conn_it->second, th)) {
-                        pdt->lock()->setSendStatus(MoQTrackDelegate::TrackSendStatus::NO_SUBSCRIBERS);
-                        pdt->lock()->cb_sendNotReady(MoQTrackDelegate::TrackSendStatus::NO_SUBSCRIBERS);
+                        pdt->lock()->setSendStatus(MoQBaseTrackHandler::TrackSendStatus::NO_SUBSCRIBERS);
+                        pdt->lock()->cb_sendNotReady(MoQBaseTrackHandler::TrackSendStatus::NO_SUBSCRIBERS);
                     }
                 }
 
@@ -1618,7 +1618,7 @@ namespace quicr {
 
                     sub_it->second->cb_objectReceived(msg.group_id, msg.object_id, msg.priority,
                                                       std::move(msg.payload),
-                                                      MoQTrackDelegate::TrackMode::DATAGRAM);
+                                                      MoQBaseTrackHandler::TrackMode::DATAGRAM);
 
                 } else {
                     _logger->warning << "Failed to decode datagram conn_id: " << conn_id
