@@ -95,7 +95,7 @@ namespace quicr {
          * @brief Server mode Constructor to create the MOQ instance
          *
          * @param cfg        MOQT Server Configuration
-         * @param delegate   MOQT server of callbacks
+         * @param callbacks  MOQT server of callbacks
          * @param logger     MOQT Log pointer to parent logger
          */
         MOQTCore(const MOQTServerConfig& cfg,
