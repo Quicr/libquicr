@@ -1,9 +1,5 @@
 var NAVTREEINDEX1 =
 {
-"namespacequicr.html#ab5823ed7dc5d459fbff1474786fcbd33":[1,0,0,12],
-"namespaces.html":[1,0],
-"pages.html":[],
-"structquicr_1_1_m_o_q_t_client_config.html":[1,0,0,3],
 "structquicr_1_1_m_o_q_t_client_config.html":[2,0,0,3],
 "structquicr_1_1_m_o_q_t_client_config.html#a7a0eed77ebe2d328ce4ce0bcc6f108e3":[1,0,0,3,1],
 "structquicr_1_1_m_o_q_t_client_config.html#a7a0eed77ebe2d328ce4ce0bcc6f108e3":[2,0,0,3,1],

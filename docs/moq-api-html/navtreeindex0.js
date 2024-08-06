@@ -46,10 +46,6 @@ var NAVTREEINDEX0 =
 "classquicr_1_1_m_o_q_t_client.html#ae6b8b7615a7cf6eb128a8bf077d6d1dc":[2,0,0,1,2],
 "classquicr_1_1_m_o_q_t_client_callbacks.html":[1,0,0,2],
 "classquicr_1_1_m_o_q_t_client_callbacks.html":[2,0,0,2],
-"classquicr_1_1_m_o_q_t_client_callbacks.html#a28c87b0d17346fdf9f177a3e1bf2edc5":[1,0,0,2,2],
-"classquicr_1_1_m_o_q_t_client_callbacks.html#a28c87b0d17346fdf9f177a3e1bf2edc5":[2,0,0,2,2],
-"classquicr_1_1_m_o_q_t_client_callbacks.html#a8e668e12ca3fa3ea7990cd26286812f8":[1,0,0,2,3],
-"classquicr_1_1_m_o_q_t_client_callbacks.html#a8e668e12ca3fa3ea7990cd26286812f8":[2,0,0,2,3],
 "classquicr_1_1_m_o_q_t_client_callbacks.html#a8f8c3015181fe797a2cbedef9ca12d52":[1,0,0,2,0],
 "classquicr_1_1_m_o_q_t_client_callbacks.html#a8f8c3015181fe797a2cbedef9ca12d52":[2,0,0,2,0],
 "classquicr_1_1_m_o_q_t_client_callbacks.html#aa0da2ee69322246f1841d832e7a16d89":[1,0,0,2,1],
@@ -249,5 +245,9 @@ var NAVTREEINDEX0 =
 "namespacemembers_vars.html":[1,1,1],
 "namespacequicr.html":[1,0,0],
 "namespacequicr.html#a531cc21f0cde4a9fe8c097735a62a4be":[1,0,0,11],
-"namespacequicr.html#a71ca89f812eb9d5bc60939cae4caa0f1":[1,0,0,13]
+"namespacequicr.html#a71ca89f812eb9d5bc60939cae4caa0f1":[1,0,0,13],
+"namespacequicr.html#ab5823ed7dc5d459fbff1474786fcbd33":[1,0,0,12],
+"namespaces.html":[1,0],
+"pages.html":[],
+"structquicr_1_1_m_o_q_t_client_config.html":[1,0,0,3]
 };

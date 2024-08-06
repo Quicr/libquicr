@@ -129,24 +129,11 @@ $(function(){initNavTree('moqt__client__callbacks_8h_source.html',''); initResiz
 <div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span>        }</div>
 </div>
 <div class="line"><a id="l00047" name="l00047"></a><span class="lineno">   47</span> </div>
-<div class="foldopen" id="foldopen00058" data-start="{" data-end="}">
-<div class="line"><a id="l00058" name="l00058"></a><span class="lineno"><a class="line" href="classquicr_1_1_m_o_q_t_client_callbacks.html#a28c87b0d17346fdf9f177a3e1bf2edc5">   58</a></span>        <span class="keyword">virtual</span> <span class="keywordtype">bool</span> <a class="code hl_function" href="classquicr_1_1_m_o_q_t_client_callbacks.html#a28c87b0d17346fdf9f177a3e1bf2edc5">subscribe</a>([[maybe_unused]] TransportConnId conn_id,</div>
-<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span>                               [[maybe_unused]] uint64_t subscribe_id,</div>
-<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span>                               [[maybe_unused]] std::span&lt;uint8_t const&gt; name_space,</div>
-<div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span>                               [[maybe_unused]] std::span&lt;uint8_t const&gt; name)</div>
-<div class="line"><a id="l00062" name="l00062"></a><span class="lineno">   62</span>        {</div>
-<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span>            <span class="keywordflow">return</span> <span class="keyword">true</span>;</div>
-<div class="line"><a id="l00064" name="l00064"></a><span class="lineno">   64</span>        }</div>
+<div class="line"><a id="l00048" name="l00048"></a><span class="lineno">   48</span>    };</div>
 </div>
-<div class="line"><a id="l00065" name="l00065"></a><span class="lineno">   65</span> </div>
-<div class="line"><a id="l00072" name="l00072"></a><span class="lineno"><a class="line" href="classquicr_1_1_m_o_q_t_client_callbacks.html#a8e668e12ca3fa3ea7990cd26286812f8">   72</a></span>        <span class="keyword">virtual</span> <span class="keywordtype">void</span> <a class="code hl_function" href="classquicr_1_1_m_o_q_t_client_callbacks.html#a8e668e12ca3fa3ea7990cd26286812f8">unsubscribe</a>([[maybe_unused]] TransportConnId conn_id, [[maybe_unused]] uint64_t subscribe_id) {}</div>
-<div class="line"><a id="l00073" name="l00073"></a><span class="lineno">   73</span>    };</div>
-</div>
-<div class="line"><a id="l00074" name="l00074"></a><span class="lineno">   74</span> </div>
-<div class="line"><a id="l00075" name="l00075"></a><span class="lineno">   75</span>} <span class="comment">// namespace quicr</span></div>
+<div class="line"><a id="l00049" name="l00049"></a><span class="lineno">   49</span> </div>
+<div class="line"><a id="l00050" name="l00050"></a><span class="lineno">   50</span>} <span class="comment">// namespace quicr</span></div>
 <div class="ttc" id="aclassquicr_1_1_m_o_q_t_client_callbacks_html"><div class="ttname"><a href="classquicr_1_1_m_o_q_t_client_callbacks.html">quicr::MOQTClientCallbacks</a></div><div class="ttdoc">MoQ/MOQT client callbacks.</div><div class="ttdef"><b>Definition</b> moqt_client_callbacks.h:21</div></div>
-<div class="ttc" id="aclassquicr_1_1_m_o_q_t_client_callbacks_html_a28c87b0d17346fdf9f177a3e1bf2edc5"><div class="ttname"><a href="classquicr_1_1_m_o_q_t_client_callbacks.html#a28c87b0d17346fdf9f177a3e1bf2edc5">quicr::MOQTClientCallbacks::subscribe</a></div><div class="ttdeci">virtual bool subscribe(TransportConnId conn_id, uint64_t subscribe_id, std::span&lt; uint8_t const &gt; name_space, std::span&lt; uint8_t const &gt; name)</div><div class="ttdoc">Callback notification for new subscribe received.</div><div class="ttdef"><b>Definition</b> moqt_client_callbacks.h:58</div></div>
-<div class="ttc" id="aclassquicr_1_1_m_o_q_t_client_callbacks_html_a8e668e12ca3fa3ea7990cd26286812f8"><div class="ttname"><a href="classquicr_1_1_m_o_q_t_client_callbacks.html#a8e668e12ca3fa3ea7990cd26286812f8">quicr::MOQTClientCallbacks::unsubscribe</a></div><div class="ttdeci">virtual void unsubscribe(TransportConnId conn_id, uint64_t subscribe_id)</div><div class="ttdoc">Callback notification on unsubscribe received.</div><div class="ttdef"><b>Definition</b> moqt_client_callbacks.h:72</div></div>
 <div class="ttc" id="aclassquicr_1_1_m_o_q_t_client_callbacks_html_a8f8c3015181fe797a2cbedef9ca12d52"><div class="ttname"><a href="classquicr_1_1_m_o_q_t_client_callbacks.html#a8f8c3015181fe797a2cbedef9ca12d52">quicr::MOQTClientCallbacks::connectionStatus</a></div><div class="ttdeci">virtual void connectionStatus(TransportConnId conn_id, std::span&lt; uint8_t const &gt; endpoint_id, TransportStatus status)=0</div><div class="ttdoc">Callback notification for connection status/state change.</div></div>
 <div class="ttc" id="aclassquicr_1_1_m_o_q_t_client_callbacks_html_aa0da2ee69322246f1841d832e7a16d89"><div class="ttname"><a href="classquicr_1_1_m_o_q_t_client_callbacks.html#aa0da2ee69322246f1841d832e7a16d89">quicr::MOQTClientCallbacks::serverSetup</a></div><div class="ttdeci">virtual void serverSetup(TransportConnId conn_id, messages::MoqServerSetup server_setup)</div><div class="ttdoc">Callback on server setup message.</div><div class="ttdef"><b>Definition</b> moqt_client_callbacks.h:43</div></div>
 <div class="ttc" id="anamespacequicr_html"><div class="ttname"><a href="namespacequicr.html">quicr</a></div><div class="ttdef"><b>Definition</b> moqt_core.h:24</div></div>

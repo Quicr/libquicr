@@ -18,7 +18,7 @@ var searchData=
   ['stream_5fper_5fgroup_15',['STREAM_PER_GROUP',['../classquicr_1_1_m_o_q_t_base_track_handler.html#ad16151ecb23e4a6b9f6844690c8ac454a66eb5bb6378e9f0b1d784fc4ff2e0f5d',1,'quicr::MOQTBaseTrackHandler']]],
   ['stream_5fper_5fobject_16',['STREAM_PER_OBJECT',['../classquicr_1_1_m_o_q_t_base_track_handler.html#ad16151ecb23e4a6b9f6844690c8ac454adad46197b0b281bc60e53924abdac2ca',1,'quicr::MOQTBaseTrackHandler']]],
   ['stream_5fper_5ftrack_17',['STREAM_PER_TRACK',['../classquicr_1_1_m_o_q_t_base_track_handler.html#ad16151ecb23e4a6b9f6844690c8ac454a5d9bfc2d3b9635692f35d7508e96781f',1,'quicr::MOQTBaseTrackHandler']]],
-  ['subscribe_18',['subscribe',['../classquicr_1_1_m_o_q_t_client_callbacks.html#a28c87b0d17346fdf9f177a3e1bf2edc5',1,'quicr::MOQTClientCallbacks::subscribe()'],['../classquicr_1_1_m_o_q_t_server_callbacks.html#a356136392fc3b03741c146f52aac35a5',1,'quicr::MOQTServerCallbacks::subscribe()']]],
+  ['subscribe_18',['subscribe',['../classquicr_1_1_m_o_q_t_server_callbacks.html#a356136392fc3b03741c146f52aac35a5',1,'quicr::MOQTServerCallbacks']]],
   ['subscribe_5ferror_19',['SUBSCRIBE_ERROR',['../classquicr_1_1_m_o_q_t_subscribe_track_handler.html#ad5c145cc7b6d9d5529922f6ed9124eceaea24874d9426bdfaa8767bbe97c38bdb',1,'quicr::MOQTSubscribeTrackHandler']]],
   ['subscribetrack_20',['subscribeTrack',['../classquicr_1_1_m_o_q_t_core.html#a0b9b0672711e575625f1c637eb1a16c3',1,'quicr::MOQTCore']]]
 ];

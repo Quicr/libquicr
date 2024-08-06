@@ -117,12 +117,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aa0da2ee69322246f1841d832e7a16d89" id="r_aa0da2ee69322246f1841d832e7a16d89"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa0da2ee69322246f1841d832e7a16d89">serverSetup</a> (TransportConnId conn_id, messages::MoqServerSetup server_setup)</td></tr>
 <tr class="memdesc:aa0da2ee69322246f1841d832e7a16d89"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on server setup message.  <br /></td></tr>
 <tr class="separator:aa0da2ee69322246f1841d832e7a16d89"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a28c87b0d17346fdf9f177a3e1bf2edc5" id="r_a28c87b0d17346fdf9f177a3e1bf2edc5"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a28c87b0d17346fdf9f177a3e1bf2edc5">subscribe</a> (TransportConnId conn_id, uint64_t subscribe_id, std::span&lt; uint8_t const &gt; name_space, std::span&lt; uint8_t const &gt; name)</td></tr>
-<tr class="memdesc:a28c87b0d17346fdf9f177a3e1bf2edc5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new subscribe received.  <br /></td></tr>
-<tr class="separator:a28c87b0d17346fdf9f177a3e1bf2edc5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8e668e12ca3fa3ea7990cd26286812f8" id="r_a8e668e12ca3fa3ea7990cd26286812f8"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a8e668e12ca3fa3ea7990cd26286812f8">unsubscribe</a> (TransportConnId conn_id, uint64_t subscribe_id)</td></tr>
-<tr class="memdesc:a8e668e12ca3fa3ea7990cd26286812f8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification on unsubscribe received.  <br /></td></tr>
-<tr class="separator:a8e668e12ca3fa3ea7990cd26286812f8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>MoQ/MOQT client callbacks. </p>
@@ -206,95 +200,6 @@ Public Member Functions</h2></td></tr>
   <table class="params">
     <tr><td class="paramname">conn_id</td><td>Transport connection ID </td></tr>
     <tr><td class="paramname">server_setup</td><td>Decoded sever setup message </td></tr>
-  </table>
-  </dd>
-</dl>
-
-</div>
-</div>
-<a id="a28c87b0d17346fdf9f177a3e1bf2edc5" name="a28c87b0d17346fdf9f177a3e1bf2edc5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a28c87b0d17346fdf9f177a3e1bf2edc5">&#9670;&#160;</a></span>subscribe()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">virtual bool quicr::MOQTClientCallbacks::subscribe </td>
-          <td>(</td>
-          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">uint64_t</td>          <td class="paramname"><span class="paramname"><em>subscribe_id</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::span&lt; uint8_t const &gt;</td>          <td class="paramname"><span class="paramname"><em>name_space</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::span&lt; uint8_t const &gt;</td>          <td class="paramname"><span class="paramname"><em>name</em></span>&#160;)</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Callback notification for new subscribe received. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">conn_id</td><td>Source connection ID </td></tr>
-    <tr><td class="paramname">subscribe_id</td><td>Subscribe ID received </td></tr>
-    <tr><td class="paramname">name_space</td><td>Track Namespace from subscription </td></tr>
-    <tr><td class="paramname">name</td><td>Track name from subscription</td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>True if send announce should be sent, false if not </dd></dl>
-
-</div>
-</div>
-<a id="a8e668e12ca3fa3ea7990cd26286812f8" name="a8e668e12ca3fa3ea7990cd26286812f8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8e668e12ca3fa3ea7990cd26286812f8">&#9670;&#160;</a></span>unsubscribe()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">virtual void quicr::MOQTClientCallbacks::unsubscribe </td>
-          <td>(</td>
-          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">uint64_t</td>          <td class="paramname"><span class="paramname"><em>subscribe_id</em></span>&#160;)</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Callback notification on unsubscribe received. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">conn_id</td><td>Source connection ID </td></tr>
-    <tr><td class="paramname">subscribe_id</td><td>Subscribe ID received </td></tr>
   </table>
   </dd>
 </dl>
