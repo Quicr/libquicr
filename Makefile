@@ -5,6 +5,7 @@
 #   CMAKE_GENERATOR=Ninja
 
 BUILD_DIR=build
+export MERMAID_FILTER_THEME=neutral
 CLANG_FORMAT=clang-format -i
 
 .PHONY: all clean cclean format tidy
@@ -35,6 +36,13 @@ clean:
 
 cclean:
 	rm -rf ${BUILD_DIR}
+
+doc:
+	@echo "Creating Doxygen Docs"
+	@doxygen
+	@echo "Creating implementation doc HTML"
+	@pandoc docs/moqt-api-process-flows.md -f markdown -o docs/moqt-api-process-flows.html --filter=mermaid-filter
+
 
 format:
 	find include -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}

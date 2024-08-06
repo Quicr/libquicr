@@ -45,31 +45,6 @@ namespace quicr {
         {
         }
 
-        /**
-         * @brief Callback notification for new subscribe received
-         *
-         * @param conn_id             Source connection ID
-         * @param subscribe_id        Subscribe ID received
-         * @param name_space          Track Namespace from subscription
-         * @param name                Track name from subscription
-         *
-         * @return True if send announce should be sent, false if not
-         */
-        virtual bool subscribe([[maybe_unused]] TransportConnId conn_id,
-                               [[maybe_unused]] uint64_t subscribe_id,
-                               [[maybe_unused]] std::span<uint8_t const> name_space,
-                               [[maybe_unused]] std::span<uint8_t const> name)
-        {
-            return true;
-        }
-
-        /**
-         * @brief Callback notification on unsubscribe received
-         *
-         * @param conn_id             Source connection ID
-         * @param subscribe_id        Subscribe ID received
-         */
-        virtual void unsubscribe([[maybe_unused]] TransportConnId conn_id, [[maybe_unused]] uint64_t subscribe_id) {}
     };
 
 } // namespace quicr

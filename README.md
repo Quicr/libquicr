@@ -49,6 +49,22 @@ openssl req -nodes -x509 -newkey ec:<(openssl ecparam -name prime256v1) -days 36
 ```
 
 
+### Generate documentation
+API documentation can be generated using `make doc`
+
+Below programs need to be installed. 
+
+Example on MacOS:
+
+* `brew install doxygen`
+* `brew install npm`
+* `brew install pandoc`
+* `npm install --global mermaid-filter`
+
+> [!NOTE]
+> https://github.com/raghur/mermaid-filter adds mermaid support to pandoc
+> 
+
 ### MOQ Implementation Documentation
 
 See [MOQ Implementation](docs/moq-implementation.md)
