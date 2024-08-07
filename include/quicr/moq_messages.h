@@ -101,7 +101,7 @@ struct MoqParameter {
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
                                                        const MoqParameter& msg);
 private:
-  uint64_t current_pos {0};
+  [[maybe_unused]] uint64_t current_pos {0};
 };
 
 MessageBuffer& operator<<(MessageBuffer &buffer, const MoqParameter &param);
@@ -405,5 +405,5 @@ private:
   uint64_t current_pos {0};
   bool parse_completed { false };
 };
-  
+
 }

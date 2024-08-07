@@ -85,6 +85,8 @@ public:
     {
     }
 
+    virtual ~subTrackDelegate() = default;
+
     // TODO: Add prioirty and TTL
     void cb_objectReceived(uint64_t group_id, uint64_t object_id,
                            uint8_t priority,
@@ -111,13 +113,13 @@ public:
             td->sendObject(group_id, object_id, object, priority);
         }
     }
-    void cb_sendCongested(bool cleared, uint64_t objects_in_queue) override {}
+    void cb_sendCongested(bool, uint64_t) override {}
 
     void cb_sendReady() override {
         _logger->info << "Track alias: " << _track_alias.value() << " is ready to send" << std::flush;
     }
 
-    void cb_sendNotReady(TrackSendStatus status) override {}
+    void cb_sendNotReady(TrackSendStatus) override {}
     void cb_readReady() override
     {
         _logger->info << "Track alias: " << _track_alias.value() << " is ready to read" << std::flush;
@@ -159,18 +161,20 @@ class serverDelegate : public quicr::MoQInstanceDelegate
     serverDelegate(const cantina::LoggerPointer& logger) :
       _logger(std::make_shared<cantina::Logger>("MID", logger)) {}
 
+    virtual ~serverDelegate() = default;
+
     void set_moq_instance(std::weak_ptr<quicr::MoQInstance> moq_instance)
     {
         _moq_instance = moq_instance;
     }
 
-    void cb_newConnection(qtransport::TransportConnId conn_id,
-                          std::span<uint8_t const> endpoint_id,
-                          const qtransport::TransportRemote& remote) override {}
+    void cb_newConnection(qtransport::TransportConnId,
+                          Span<uint8_t const>,
+                          const qtransport::TransportRemote&) override {}
 
     void cb_unannounce(qtransport::TransportConnId conn_id,
                        uint64_t track_namespace_hash,
-                       std::optional<uint64_t> track_name_hash) {
+                       std::optional<uint64_t> track_name_hash) override {
 
         if (track_name_hash.has_value()) { // subscribe done received
             _logger->info << "Received subscribe done from conn_id: " << conn_id
@@ -239,7 +243,7 @@ class serverDelegate : public quicr::MoQInstanceDelegate
             for (const auto& [track_name, who]: sub_active_it->second) {
                 if (who.size()) { // Have subscribes
                     auto& a_who = *who.begin();
-                    if (!anno_tracks.contains(a_who.track_alias)) {
+                    if (anno_tracks.find(a_who.track_alias) == anno_tracks.end()) {
                         _logger->info << "Sending subscribe to announcer conn_id: " << conn_id
                                       << " subscribe track_alias: " << a_who.track_alias
                                       << std::flush;
@@ -266,7 +270,7 @@ class serverDelegate : public quicr::MoQInstanceDelegate
     }
 
     void cb_connectionStatus(qtransport::TransportConnId conn_id,
-                             std::span<uint8_t const> endpoint_id,
+                             Span<uint8_t const> endpoint_id,
                              qtransport::TransportStatus status) override {
         auto ep_id = std::string(endpoint_id.begin(), endpoint_id.end());
 
@@ -277,11 +281,11 @@ class serverDelegate : public quicr::MoQInstanceDelegate
 
         }
     }
-    void cb_clientSetup(qtransport::TransportConnId conn_id, quicr::messages::MoqClientSetup client_setup) override {}
-    void cb_serverSetup(qtransport::TransportConnId conn_id, quicr::messages::MoqServerSetup server_setup) override {}
+    void cb_clientSetup(qtransport::TransportConnId, quicr::messages::MoqClientSetup) override {}
+    void cb_serverSetup(qtransport::TransportConnId, quicr::messages::MoqServerSetup) override {}
 
     void cb_unsubscribe(qtransport::TransportConnId conn_id,
-                        uint64_t subscribe_id) {
+                        uint64_t subscribe_id) override {
         _logger->info << "Unsubscribe conn_id: " << conn_id
                       << " subscribe_id: " << subscribe_id
                       << std::flush;
@@ -351,7 +355,7 @@ class serverDelegate : public quicr::MoQInstanceDelegate
             }
 
             for (auto& [conn_id, tracks]: anno_ns_it->second) {
-                if (tracks.contains(th.track_fullname_hash)) {
+                if (tracks.find(th.track_fullname_hash) == tracks.end()) {
                     _logger->info << "Unsubscribe to announcer conn_id: " << conn_id
                                   << " subscribe track_alias: " << th.track_fullname_hash << std::flush;
 
@@ -368,8 +372,8 @@ class serverDelegate : public quicr::MoQInstanceDelegate
 
     bool cb_subscribe(qtransport::TransportConnId conn_id,
                       uint64_t subscribe_id,
-                      std::span<uint8_t const> name_space,
-                      std::span<uint8_t const> name) override
+                      Span<uint8_t const> name_space,
+                      Span<uint8_t const> name) override
     {
         std::string const t_namespace(name_space.begin(), name_space.end());
         std::string const t_name(name.begin(), name.end());
@@ -403,7 +407,7 @@ class serverDelegate : public quicr::MoQInstanceDelegate
         }
 
         for (auto& [conn_id, tracks]: anno_ns_it->second) {
-            if (!tracks.contains(th.track_fullname_hash)) {
+            if (tracks.find(th.track_fullname_hash) == tracks.end()) {
                 _logger->info << "Sending subscribe to announcer conn_id: " << conn_id
                               << " subscribe track_alias: " << th.track_fullname_hash
                               << std::flush;
@@ -485,7 +489,7 @@ main(int argc, char* argv[])
     if (result.count("help"))
     {
         std::cout << options.help({""}) << std::endl;
-        return true;
+        return EXIT_SUCCESS;
     }
 
     // Install a signal handlers to catch operating system signals
