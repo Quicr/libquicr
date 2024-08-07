@@ -7,6 +7,7 @@
 
 #include "cantina/logger.h"
 #include <quicr/quicr_common.h>
+#include <transport/span.h>
 
 namespace quicr {
 
@@ -105,18 +106,18 @@ namespace quicr {
          * @returns SendError status of the send
          *
          */
-        SendError sendObject(const uint64_t group_id, const uint64_t object_id, std::span<const uint8_t> object);
+        SendError sendObject(const uint64_t group_id, const uint64_t object_id, Span<const uint8_t> object);
         SendError sendObject(const uint64_t group_id,
                              const uint64_t object_id,
-                             std::span<const uint8_t> object,
+                             Span<const uint8_t> object,
                              uint32_t ttl);
         SendError sendObject(const uint64_t group_id,
                              const uint64_t object_id,
-                             std::span<const uint8_t> object,
+                             Span<const uint8_t> object,
                              uint8_t priority);
         SendError sendObject(const uint64_t group_id,
                              const uint64_t object_id,
-                             std::span<const uint8_t> object,
+                             Span<const uint8_t> object,
                              uint8_t priority,
                              uint32_t ttl);
 
@@ -237,13 +238,13 @@ namespace quicr {
          * @brief Get the track namespace
          * @return span of track namespace
          */
-        std::span<uint8_t const> getTrackNamespace() { return std::span(_track_namespace); }
+        Span<uint8_t const> getTrackNamespace() { return {_track_namespace}; }
 
         /**
          * @brief Get the track name
          * @return span of track name
          */
-        std::span<uint8_t const> getTrackName() { return std::span(_track_name); }
+        Span<uint8_t const> getTrackName() { return {_track_name}; }
 
         /**
          * @brief Set the send status
@@ -280,7 +281,7 @@ namespace quicr {
                                 bool stream_header_needed,
                                 uint64_t group_id,
                                 uint64_t object_id,
-                                std::span<const uint8_t> data)> _mi_sendObjFunc;
+                                Span<const uint8_t> data)> _mi_sendObjFunc;
 
         uint64_t _mi_send_data_ctx_id;    // Set by moq instance
         uint64_t _mi_conn_id;             // Set by moq instance

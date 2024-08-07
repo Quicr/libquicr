@@ -12,6 +12,7 @@
 
 #include <quicr/moq_instance_delegate.h>
 #include <quicr/moq_track_delegate.h>
+#include <transport/span.h>
 
 #include <unordered_map>
 #include <map>
@@ -68,8 +69,8 @@ namespace quicr {
         };
 
         struct TrackFullName {
-            std::span<uint8_t const> name_space;
-            std::span<uint8_t const> name;
+            Span<uint8_t const> name_space;
+            Span<uint8_t const> name;
         };
 
         struct TrackHash
@@ -230,7 +231,7 @@ namespace quicr {
                                                 bool stream_header_needed,
                                                 uint64_t group_id,
                                                 uint64_t object_id,
-                                                std::span<const uint8_t> data);
+                                                Span<const uint8_t> data);
 
       private:
 
@@ -262,9 +263,9 @@ namespace quicr {
         void send_ctrl_msg(const ConnectionContext& conn_ctx, std::vector<uint8_t>&& data);
         void send_client_setup();
         void send_server_setup(ConnectionContext& conn_ctx);
-        void send_announce(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
-        void send_announce_ok(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
-        void send_unannounce(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
+        void send_announce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace);
+        void send_announce_ok(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace);
+        void send_unannounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace);
         void send_subscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id, TrackFullName& tfn, TrackHash th);
         void send_subscribe_ok(ConnectionContext& conn_ctx,
                                uint64_t subscribe_id,

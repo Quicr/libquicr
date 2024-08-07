@@ -7,6 +7,7 @@
 #pragma once
 
 #include <quicr/moq_messages.h>
+#include <transport/span.h>
 #include <transport/transport.h>
 
 namespace quicr {
@@ -30,7 +31,7 @@ namespace quicr {
          * @param remote           Transport remote connection information
          */
         virtual void cb_newConnection([[maybe_unused]] TransportConnId conn_id,
-                                      [[maybe_unused]] std::span<uint8_t const> endpoint_id,
+                                      [[maybe_unused]] Span<uint8_t const> endpoint_id,
                                       [[maybe_unused]] const TransportRemote& remote) {};
 
         /**
@@ -42,7 +43,7 @@ namespace quicr {
          * @param status           Transport status of connection id
          */
         virtual void cb_connectionStatus(TransportConnId conn_id,
-                                         std::span<uint8_t const> endpoint_id,
+                                         Span<uint8_t const> endpoint_id,
                                          TransportStatus status) = 0;
 
         /**
@@ -113,8 +114,8 @@ namespace quicr {
          */
         virtual bool cb_subscribe([[maybe_unused]] TransportConnId conn_id,
                                   [[maybe_unused]] uint64_t subscribe_id,
-                                  [[maybe_unused]] std::span<uint8_t const> name_space,
-                                  [[maybe_unused]] std::span<uint8_t const> name)
+                                  [[maybe_unused]] Span<uint8_t const> name_space,
+                                  [[maybe_unused]] Span<uint8_t const> name)
         {
             return true;
         }

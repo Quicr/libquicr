@@ -162,7 +162,7 @@ ServerRawSession::subscribeResponse(const uint64_t& subscriber_id,
                                     const SubscribeResult& result)
 {
   // start populating message to encode
-  if (!subscribe_id_state.contains(subscriber_id)) {
+  if (subscribe_id_state.find(subscriber_id) == subscribe_id_state.end()) {
     return;
   }
 
@@ -189,7 +189,7 @@ ServerRawSession::subscriptionEnded(
   const SubscribeResult::SubscribeStatus& reason)
 {
   // start populating message to encode
-  if (!subscribe_id_state.contains(subscriber_id)) {
+  if (subscribe_id_state.find(subscriber_id) == subscribe_id_state.end()) {
     return;
   }
 
@@ -214,7 +214,7 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
                                   const messages::PublishDatagram& datagram)
 {
   // start populating message to encode
-  if (!subscribe_id_state.contains(subscriber_id)) {
+  if (subscribe_id_state.find(subscriber_id) == subscribe_id_state.end()) {
     logger->info << "Send Object, missing subscriber_id: " << subscriber_id
                  << std::flush;
     return;
@@ -518,10 +518,11 @@ ServerRawSession::handle_unsubscribe(
   msg >> unsub;
 
   // Remove states if state exists
-  if (_subscribe_state[unsub.quicr_namespace].contains(conn_id)) {
+  auto& subscribe_state = _subscribe_state[unsub.quicr_namespace];
+  if (subscribe_state.find(conn_id) != subscribe_state.end()) {
     const auto lock = std::lock_guard<std::mutex>(session_mutex);
 
-    auto& context = _subscribe_state[unsub.quicr_namespace][conn_id];
+    auto& context = subscribe_state[conn_id];
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
     _mexport.del_data_ctx_info(conn_id, context->data_ctx_id);

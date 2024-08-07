@@ -168,7 +168,7 @@ operator>>(MessageBuffer& msg, uintVar_t& v)
 }
 
 MessageBuffer&
-operator<<(MessageBuffer& msg, std::span<const uint8_t> val)
+operator<<(MessageBuffer& msg, Span<const uint8_t> val)
 {
   msg << static_cast<uintVar_t>(val.size());
   msg.push(val);

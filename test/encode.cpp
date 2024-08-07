@@ -24,7 +24,7 @@ TEST_CASE("MessageBuffer Swap Bytes")
   auto u32_be = uint32_t(0);
   auto u64_be = uint64_t(0);
   auto u128_be = Name{};
-  if constexpr (std::endian::native == std::endian::little) {
+  if constexpr (quicr::messages::is_big_endian()) {
     u16_be = uint16_t(0x3412U);
     u32_be = uint32_t(0x78563412U);
     u64_be = uint64_t(0xF0DEBC9A78563412);

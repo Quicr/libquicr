@@ -827,7 +827,7 @@ ClientRawSession::handle_pub_fragment(
   const auto name = datagram.header.name;
   auto curr_index = circular_index;
   auto not_found = false;
-  while (!fragments.at(circular_index).contains(name)) {
+  while (fragments.at(circular_index).find(name) == fragments.at(circular_index).end()) {
     curr_index = (curr_index > 0) ? curr_index - 1 : fragments.size() - 1;
     if (curr_index == circular_index) {
       // We have completed a cycle without finding our name
