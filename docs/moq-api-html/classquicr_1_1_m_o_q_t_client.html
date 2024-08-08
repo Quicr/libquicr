@@ -100,7 +100,7 @@ $(function(){initNavTree('classquicr_1_1_m_o_q_t_client.html',''); initResizable
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="classquicr_1_1_m_o_q_t_client-members.html">List of all members</a>  </div>
-  <div class="headertitle"><div class="title">quicr::MOQTClient Class Reference</div></div>
+  <div class="headertitle"><div class="title">quicr::MOQTClient Class Reference<span class="mlabels"><span class="mlabel">abstract</span></span></div></div>
 </div><!--header-->
 <div class="contents">
 
@@ -120,14 +120,20 @@ Inheritance diagram for quicr::MOQTClient:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a09e54fe35f1135c4ad43387519521114" id="r_a09e54fe35f1135c4ad43387519521114"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a09e54fe35f1135c4ad43387519521114">MOQTClient</a> (const <a class="el" href="structquicr_1_1_m_o_q_t_client_config.html">MOQTClientConfig</a> &amp;cfg, std::shared_ptr&lt; <a class="el" href="classquicr_1_1_m_o_q_t_client_callbacks.html">MOQTClientCallbacks</a> &gt; callbacks, const cantina::LoggerPointer &amp;logger)</td></tr>
-<tr class="memdesc:a09e54fe35f1135c4ad43387519521114"><td class="mdescLeft">&#160;</td><td class="mdescRight">MoQ Client Constructor to create the client mode instance.  <br /></td></tr>
-<tr class="separator:a09e54fe35f1135c4ad43387519521114"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a65f5035c61ad311f88213798dd321f67" id="r_a65f5035c61ad311f88213798dd321f67"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a65f5035c61ad311f88213798dd321f67">MOQTClient</a> (const <a class="el" href="structquicr_1_1_m_o_q_t_client_config.html">MOQTClientConfig</a> &amp;cfg, const cantina::LoggerPointer &amp;logger)</td></tr>
+<tr class="memdesc:a65f5035c61ad311f88213798dd321f67"><td class="mdescLeft">&#160;</td><td class="mdescRight">MoQ Client Constructor to create the client mode instance.  <br /></td></tr>
+<tr class="separator:a65f5035c61ad311f88213798dd321f67"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7877d012574c2e03636218619b9ddeba" id="r_a7877d012574c2e03636218619b9ddeba"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a7877d012574c2e03636218619b9ddeba">~MOQTClient</a> ()=default</td></tr>
 <tr class="separator:a7877d012574c2e03636218619b9ddeba"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae6b8b7615a7cf6eb128a8bf077d6d1dc" id="r_ae6b8b7615a7cf6eb128a8bf077d6d1dc"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaedd">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae6b8b7615a7cf6eb128a8bf077d6d1dc">run</a> ()</td></tr>
 <tr class="memdesc:ae6b8b7615a7cf6eb128a8bf077d6d1dc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Runs client connection in transport thread.  <br /></td></tr>
 <tr class="separator:ae6b8b7615a7cf6eb128a8bf077d6d1dc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a962dcdd52d6d75c54b621572684d11ce" id="r_a962dcdd52d6d75c54b621572684d11ce"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a962dcdd52d6d75c54b621572684d11ce">connectionStatus</a> (TransportConnId conn_id, TransportStatus <a class="el" href="classquicr_1_1_m_o_q_t_core.html#a62be68c3a9a26fa6072264a3ce4b13b9">status</a>)=0</td></tr>
+<tr class="memdesc:a962dcdd52d6d75c54b621572684d11ce"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for connection status/state change.  <br /></td></tr>
+<tr class="separator:a962dcdd52d6d75c54b621572684d11ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a84b25fa22247f6e26e81997ddd468774" id="r_a84b25fa22247f6e26e81997ddd468774"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a84b25fa22247f6e26e81997ddd468774">serverSetup</a> (TransportConnId conn_id, messages::MoqServerSetup server_setup)=0</td></tr>
+<tr class="memdesc:a84b25fa22247f6e26e81997ddd468774"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on server setup message.  <br /></td></tr>
+<tr class="separator:a84b25fa22247f6e26e81997ddd468774"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classquicr_1_1_m_o_q_t_core"><td colspan="2" onclick="javascript:dynsection.toggleInherit('pub_methods_classquicr_1_1_m_o_q_t_core')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classquicr_1_1_m_o_q_t_core.html">quicr::MOQTCore</a></td></tr>
 <tr class="memitem:a12c6d8e4f6ddc6ced65d5015445777a7 inherit pub_methods_classquicr_1_1_m_o_q_t_core" id="r_a12c6d8e4f6ddc6ced65d5015445777a7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_m_o_q_t_core.html#a12c6d8e4f6ddc6ced65d5015445777a7">MOQTCore</a> ()=delete</td></tr>
 <tr class="separator:a12c6d8e4f6ddc6ced65d5015445777a7 inherit pub_methods_classquicr_1_1_m_o_q_t_core"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -155,23 +161,22 @@ Additional Inherited Members</h2></td></tr>
 <tr class="memitem:a9c58e6ee82635b87923c4e0981ddaedd inherit pub_types_classquicr_1_1_m_o_q_t_core" id="r_a9c58e6ee82635b87923c4e0981ddaedd"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaedd">Status</a> : uint8_t { <br />
 &#160;&#160;<a class="el" href="classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaedda2baa69eafc7204f3bd8648eba580c489">READY</a> = 0
 , <a class="el" href="classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaedda9455b42e74acb2ec1c7292e54d28aff2">NOT_READY</a>
-, <a class="el" href="classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaeddae369dbf7aec377806a2ea71d8e57a8fb">ERROR_NOT_IN_CLIENT_MODE</a>
-, <a class="el" href="classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaeddaa4e6aad6ed22d9d5974f60506aa9017a">ERROR_NOT_IN_SERVER_MODE</a>
+, <a class="el" href="classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaeddae8c0c70879b5895c615677261d64a1ee">INTERNAL_ERROR</a>
+, <a class="el" href="classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaedda23060c3a67b5a18ec0efb6382babc565">INVALID_PARAMS</a>
 , <br />
-&#160;&#160;<a class="el" href="classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaedda23060c3a67b5a18ec0efb6382babc565">INVALID_PARAMS</a>
-, <a class="el" href="classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaedda93df17d814379cf5f39d0ea11c0cf9da">CLIENT_NOT_CONNECTED</a>
+&#160;&#160;<a class="el" href="classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaedda93df17d814379cf5f39d0ea11c0cf9da">CLIENT_NOT_CONNECTED</a>
 , <a class="el" href="classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaedda42019b327f663322abd2ba415f486ced">CLIENT_CONNECTING</a>
 , <a class="el" href="classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaedda36378de9b5e644b84fd40a6fc6529243">CLIENT_FAILED_TO_CONNECT</a>
 <br />
  }</td></tr>
 <tr class="separator:a9c58e6ee82635b87923c4e0981ddaedd inherit pub_types_classquicr_1_1_m_o_q_t_core"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_methods_classquicr_1_1_m_o_q_t_core"><td colspan="2" onclick="javascript:dynsection.toggleInherit('pro_methods_classquicr_1_1_m_o_q_t_core')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classquicr_1_1_m_o_q_t_core.html">quicr::MOQTCore</a></td></tr>
-<tr class="memitem:af351f0ae9ba582045472633088a6904a inherit pro_methods_classquicr_1_1_m_o_q_t_core" id="r_af351f0ae9ba582045472633088a6904a"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_m_o_q_t_core.html#af351f0ae9ba582045472633088a6904a">MOQTCore</a> (const <a class="el" href="structquicr_1_1_m_o_q_t_client_config.html">MOQTClientConfig</a> &amp;cfg, std::shared_ptr&lt; <a class="el" href="classquicr_1_1_m_o_q_t_client_callbacks.html">MOQTClientCallbacks</a> &gt; callbacks, const cantina::LoggerPointer &amp;logger)</td></tr>
-<tr class="memdesc:af351f0ae9ba582045472633088a6904a inherit pro_methods_classquicr_1_1_m_o_q_t_core"><td class="mdescLeft">&#160;</td><td class="mdescRight">Client mode Constructor to create the MOQ instance.  <br /></td></tr>
-<tr class="separator:af351f0ae9ba582045472633088a6904a inherit pro_methods_classquicr_1_1_m_o_q_t_core"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6effdf8bf5dd8095340fb9fe8cfacc2c inherit pro_methods_classquicr_1_1_m_o_q_t_core" id="r_a6effdf8bf5dd8095340fb9fe8cfacc2c"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_m_o_q_t_core.html#a6effdf8bf5dd8095340fb9fe8cfacc2c">MOQTCore</a> (const <a class="el" href="structquicr_1_1_m_o_q_t_server_config.html">MOQTServerConfig</a> &amp;cfg, std::shared_ptr&lt; <a class="el" href="classquicr_1_1_m_o_q_t_server_callbacks.html">MOQTServerCallbacks</a> &gt; callbacks, const cantina::LoggerPointer &amp;logger)</td></tr>
-<tr class="memdesc:a6effdf8bf5dd8095340fb9fe8cfacc2c inherit pro_methods_classquicr_1_1_m_o_q_t_core"><td class="mdescLeft">&#160;</td><td class="mdescRight">Server mode Constructor to create the MOQ instance.  <br /></td></tr>
-<tr class="separator:a6effdf8bf5dd8095340fb9fe8cfacc2c inherit pro_methods_classquicr_1_1_m_o_q_t_core"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a45fa091bd2e2d52820ff33cf35ce1cb9 inherit pro_methods_classquicr_1_1_m_o_q_t_core" id="r_a45fa091bd2e2d52820ff33cf35ce1cb9"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_m_o_q_t_core.html#a45fa091bd2e2d52820ff33cf35ce1cb9">MOQTCore</a> (const <a class="el" href="structquicr_1_1_m_o_q_t_client_config.html">MOQTClientConfig</a> &amp;cfg, const cantina::LoggerPointer &amp;logger)</td></tr>
+<tr class="memdesc:a45fa091bd2e2d52820ff33cf35ce1cb9 inherit pro_methods_classquicr_1_1_m_o_q_t_core"><td class="mdescLeft">&#160;</td><td class="mdescRight">Client mode Constructor to create the MOQ instance.  <br /></td></tr>
+<tr class="separator:a45fa091bd2e2d52820ff33cf35ce1cb9 inherit pro_methods_classquicr_1_1_m_o_q_t_core"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa0cd2a4e377ce236797d0a50a0be2eb5 inherit pro_methods_classquicr_1_1_m_o_q_t_core" id="r_aa0cd2a4e377ce236797d0a50a0be2eb5"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_m_o_q_t_core.html#aa0cd2a4e377ce236797d0a50a0be2eb5">MOQTCore</a> (const <a class="el" href="structquicr_1_1_m_o_q_t_server_config.html">MOQTServerConfig</a> &amp;cfg, const cantina::LoggerPointer &amp;logger)</td></tr>
+<tr class="memdesc:aa0cd2a4e377ce236797d0a50a0be2eb5 inherit pro_methods_classquicr_1_1_m_o_q_t_core"><td class="mdescLeft">&#160;</td><td class="mdescRight">Server mode Constructor to create the MOQ instance.  <br /></td></tr>
+<tr class="separator:aa0cd2a4e377ce236797d0a50a0be2eb5 inherit pro_methods_classquicr_1_1_m_o_q_t_core"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4a008afd4e77ef6eb45722f1673b7057 inherit pro_methods_classquicr_1_1_m_o_q_t_core" id="r_a4a008afd4e77ef6eb45722f1673b7057"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_m_o_q_t_core.html#a4a008afd4e77ef6eb45722f1673b7057">~MOQTCore</a> ()=default</td></tr>
 <tr class="separator:a4a008afd4e77ef6eb45722f1673b7057 inherit pro_methods_classquicr_1_1_m_o_q_t_core"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
@@ -179,8 +184,8 @@ Additional Inherited Members</h2></td></tr>
 <div class="textblock"><p>MOQT Client. </p>
 <p>MOQT Client is the handler of the MOQT QUIC transport IP connection. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a09e54fe35f1135c4ad43387519521114" name="a09e54fe35f1135c4ad43387519521114"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a09e54fe35f1135c4ad43387519521114">&#9670;&#160;</a></span>MOQTClient()</h2>
+<a id="a65f5035c61ad311f88213798dd321f67" name="a65f5035c61ad311f88213798dd321f67"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a65f5035c61ad311f88213798dd321f67">&#9670;&#160;</a></span>MOQTClient()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -192,11 +197,6 @@ Additional Inherited Members</h2></td></tr>
           <td class="memname">quicr::MOQTClient::MOQTClient </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structquicr_1_1_m_o_q_t_client_config.html">MOQTClientConfig</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>cfg</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::shared_ptr&lt; <a class="el" href="classquicr_1_1_m_o_q_t_client_callbacks.html">MOQTClientCallbacks</a> &gt;</td>          <td class="paramname"><span class="paramname"><em>callbacks</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -215,7 +215,6 @@ Additional Inherited Members</h2></td></tr>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">cfg</td><td>MOQT Client Configuration </td></tr>
-    <tr><td class="paramname">callbacks</td><td>MOQT Client callbacks </td></tr>
     <tr><td class="paramname">logger</td><td>MOQT Log pointer to parent logger </td></tr>
   </table>
   </dd>
@@ -249,6 +248,45 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a962dcdd52d6d75c54b621572684d11ce" name="a962dcdd52d6d75c54b621572684d11ce"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a962dcdd52d6d75c54b621572684d11ce">&#9670;&#160;</a></span>connectionStatus()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void quicr::MOQTClient::connectionStatus </td>
+          <td>(</td>
+          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">TransportStatus</td>          <td class="paramname"><span class="paramname"><em>status</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Callback notification for connection status/state change. </p>
+<p>Callback notification indicates state change of connection, such as disconnected</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">conn_id</td><td>Transport connection ID </td></tr>
+    <tr><td class="paramname">status</td><td>Transport status of connection id </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
 <a id="ae6b8b7615a7cf6eb128a8bf077d6d1dc" name="ae6b8b7615a7cf6eb128a8bf077d6d1dc"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae6b8b7615a7cf6eb128a8bf077d6d1dc">&#9670;&#160;</a></span>run()</h2>
 
@@ -267,6 +305,45 @@ Additional Inherited Members</h2></td></tr>
 <p>Runs client connection in transport thread. </p>
 <p>Makes a client connection session and runs in a newly created thread. All control and track callbacks will be run based on events.</p>
 <dl class="section return"><dt>Returns</dt><dd>Status indicating state or error. If successful, status will be CLIENT_CONNECTING. </dd></dl>
+
+</div>
+</div>
+<a id="a84b25fa22247f6e26e81997ddd468774" name="a84b25fa22247f6e26e81997ddd468774"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a84b25fa22247f6e26e81997ddd468774">&#9670;&#160;</a></span>serverSetup()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void quicr::MOQTClient::serverSetup </td>
+          <td>(</td>
+          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">messages::MoqServerSetup</td>          <td class="paramname"><span class="paramname"><em>server_setup</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Callback on server setup message. </p>
+<p>Server will send sever setup in response to client setup message sent. This callback is called when a server setup has been received.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">conn_id</td><td>Transport connection ID </td></tr>
+    <tr><td class="paramname">server_setup</td><td>Decoded sever setup message </td></tr>
+  </table>
+  </dd>
+</dl>
 
 </div>
 </div>

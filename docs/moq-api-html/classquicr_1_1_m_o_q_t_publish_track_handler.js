@@ -24,7 +24,6 @@ var classquicr_1_1_m_o_q_t_publish_track_handler =
     [ "publishObject", "classquicr_1_1_m_o_q_t_publish_track_handler.html#ae0a6943706d806eae743cf3e7cd0a95e", null ],
     [ "setDefaultPriority", "classquicr_1_1_m_o_q_t_publish_track_handler.html#a993aaeb89256a063237f2a12cc0a1f4a", null ],
     [ "setDefaultTTL", "classquicr_1_1_m_o_q_t_publish_track_handler.html#aa7297ebabf1d446cdf98999224764b16", null ],
-    [ "setTrackMode", "classquicr_1_1_m_o_q_t_publish_track_handler.html#a887b5d59498a4cd2609697a453a9ab3c", null ],
     [ "statusCallback", "classquicr_1_1_m_o_q_t_publish_track_handler.html#ad04f84d190e85d95da91216928f2cdf7", null ],
     [ "MOQTCore", "classquicr_1_1_m_o_q_t_publish_track_handler.html#a37e27649a4f6743003af885e9e00861c", null ]
 ];

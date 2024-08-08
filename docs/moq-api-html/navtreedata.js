@@ -53,7 +53,7 @@ var NAVTREE =
 var NAVTREEINDEX =
 [
 "annotated.html",
-"structquicr_1_1_m_o_q_t_client_config.html"
+"structquicr_1_1_m_o_q_t_core_1_1_full_track_name.html"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronisation';
