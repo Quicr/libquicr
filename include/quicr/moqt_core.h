@@ -11,10 +11,8 @@
 #include <transport/transport.h>
 
 #include <quicr/moqt_base_track_handler.h>
-#include <quicr/moqt_client_callbacks.h>
 #include <quicr/moqt_config.h>
 #include <quicr/moqt_publish_track_handler.h>
-#include <quicr/moqt_server_callbacks.h>
 #include <quicr/moqt_subscribe_track_handler.h>
 
 #include <map>
@@ -39,8 +37,7 @@ namespace quicr {
             READY = 0,
             NOT_READY,
 
-            ERROR_NOT_IN_CLIENT_MODE,
-            ERROR_NOT_IN_SERVER_MODE,
+            INTERNAL_ERROR,
 
             INVALID_PARAMS,
             CLIENT_NOT_CONNECTED,
@@ -49,14 +46,16 @@ namespace quicr {
         };
 
       protected:
-        struct TrackFullName
+        struct FullTrackName
         {
-            std::span<uint8_t const> name_space;
-            std::span<uint8_t const> name;
+            std::span<uint8_t const> track_namespace;
+            std::span<uint8_t const> track_name;
+            std::optional<uint64_t> track_alias;
         };
 
         struct TrackHash
         {
+          j
             uint64_t track_namespace_hash; // 64bit hash of namespace
             uint64_t track_name_hash;      // 64bit hash of name
 
@@ -68,10 +67,10 @@ namespace quicr {
                 track_name_hash = name;
             }
 
-            TrackHash(const TrackFullName& tfn) noexcept
+            TrackHash(const FullTrackName& tfn) noexcept
             {
                 track_namespace_hash = std::hash<std::string_view>{}(
-                  { reinterpret_cast<const char*>(tfn.name_space.data()), tfn.name_space.size() });
+                  { reinterpret_cast<const char*>(tfn.track_namespace.data()), tfn.track_namespace.size() });
                 track_name_hash =
                   std::hash<std::string_view>{}({ reinterpret_cast<const char*>(tfn.name.data()), tfn.name.size() });
 
@@ -84,22 +83,18 @@ namespace quicr {
          * @brief Client mode Constructor to create the MOQ instance
          *
          * @param cfg       MOQT Instance Client Configuration
-         * @param callbacks MOQT client callbacks
          * @param logger    MOQT Log pointer to parent logger
          */
         MOQTCore(const MOQTClientConfig& cfg,
-                 std::shared_ptr<MOQTClientCallbacks> callbacks,
                  const cantina::LoggerPointer& logger);
 
         /**
          * @brief Server mode Constructor to create the MOQ instance
          *
          * @param cfg        MOQT Server Configuration
-         * @param callbacks  MOQT server of callbacks
          * @param logger     MOQT Log pointer to parent logger
          */
         MOQTCore(const MOQTServerConfig& cfg,
-                 std::shared_ptr<MOQTServerCallbacks> callbacks,
                  const cantina::LoggerPointer& logger);
 
         ~MOQTCore() = default;
@@ -210,7 +205,7 @@ namespace quicr {
         void send_announce(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
         void send_announce_ok(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
         void send_unannounce(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
-        void send_subscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id, TrackFullName& tfn, TrackHash th);
+        void send_subscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id, FullTrackName& tfn, TrackHash th);
         void send_subscribe_ok(ConnectionContext& conn_ctx,
                                uint64_t subscribe_id,
                                uint64_t expires,

@@ -89,11 +89,6 @@ namespace quicr {
         // Various getter/setters
         // --------------------------------------------------------------------------
         /**
-         * @brief set/update the track mode for publishing
-         */
-        void setTrackMode(TrackMode track_mode) { _mi_track_mode = track_mode; }
-
-        /**
          * @brief set/update the default priority for published objects
          */
         void setDefaultPriority(uint8_t priority) { _def_priority = priority; }
