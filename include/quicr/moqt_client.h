@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <quicr/moqt_messages.h>
 #include <quicr/moqt_core.h>
 
 namespace quicr {
@@ -23,13 +24,11 @@ namespace quicr {
          * @brief MoQ Client Constructor to create the client mode instance
          *
          * @param cfg           MOQT Client Configuration
-         * @param callbacks     MOQT Client callbacks
          * @param logger        MOQT Log pointer to parent logger
          */
         MOQTClient(const MOQTClientConfig& cfg,
-                   std::shared_ptr<MOQTClientCallbacks> callbacks,
                    const cantina::LoggerPointer& logger)
-          : MOQTCore(cfg, callbacks, logger)
+          : MOQTCore(cfg, logger)
         {
         }
 
@@ -45,6 +44,26 @@ namespace quicr {
          *    CLIENT_CONNECTING.
          */
         Status run();
+
+        /**
+         * @brief Callback notification for connection status/state change
+         * @details Callback notification indicates state change of connection, such as disconnected
+         *
+         * @param conn_id          Transport connection ID
+         * @param status           Transport status of connection id
+         */
+        virtual void connectionStatus(TransportConnId conn_id, TransportStatus status) = 0;
+
+        /**
+         * @brief Callback on server setup message
+         * @details Server will send sever setup in response to client setup message sent. This callback is called
+         *  when a server setup has been received.
+         *
+         * @param conn_id          Transport connection ID
+         * @param server_setup     Decoded sever setup message
+         */
+        virtual void serverSetup([[maybe_unused]] TransportConnId conn_id,
+                                 [[maybe_unused]] messages::MoqServerSetup server_setup) = 0;
 
     };
 

@@ -10,7 +10,6 @@ implement quicr::MOQTCore.
 ----------------------------|-------------------------------------------------------------------
  quicr::MOQTClient          | Client handler, which is specific to a QUIC IP connection         
  quicr::MOQTClientConfig    | Client configuration                                              
- quicr::MOQTClientCallbacks | Client callbacks (control messages and connection related events) 
 
 ### Server
 
@@ -18,7 +17,6 @@ implement quicr::MOQTCore.
 ----------------------------|------------------------------------------------------------------------
  quicr::MOQTServer          | Server handler, which is specific to the QUIC IP listening IP and port 
  quicr::MOQTServerConfig    | Server configuration                                                   
- quicr::MOQTServerCallbacks | Server callbacks (control messages and connection related events)      
 
 ### Track Handlers
 

@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <quicr/metrics_exporter.h>
 #include <transport/transport.h>
 
 #include <string>
