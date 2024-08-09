@@ -36,8 +36,8 @@ namespace quicr {
         const std::string METRICS_SOURCE_CLIENT { "client" };
         const std::string METRICS_SOURCE_SERVER { "server" };
 
-        std::shared_ptr<safe_queue<MetricsConnSample>> metrics_conn_samples;
-        std::shared_ptr<safe_queue<MetricsDataSample>> metrics_data_samples;
+        std::shared_ptr<SafeQueue<MetricsConnSample>> metrics_conn_samples;
+        std::shared_ptr<SafeQueue<MetricsDataSample>> metrics_data_samples;
 
         struct DataContextInfo
         {
