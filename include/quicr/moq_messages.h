@@ -405,5 +405,5 @@ private:
   uint64_t current_pos {0};
   bool parse_completed { false };
 };
-  
+
 }

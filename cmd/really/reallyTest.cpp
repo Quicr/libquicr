@@ -209,7 +209,7 @@ main(int argc, char* argv[])
   }
 
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  auto name = quicr::Name(std::string(argv[1]));
+  auto name = quicr::Name(argv[1]);
 
   logger->info << "Name = " << name << std::flush;
 
