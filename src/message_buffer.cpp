@@ -50,12 +50,6 @@ MessageBuffer::MessageBuffer(buffer_type&& buffer)
 }
 
 void
-MessageBuffer::push(span_type data)
-{
-  _buffer.insert(_buffer.end(), data.begin(), data.end());
-}
-
-void
 MessageBuffer::push(buffer_type&& data)
 {
   _buffer.insert(_buffer.end(),

@@ -4,7 +4,6 @@
 #include <transport/span.h>
 
 #include <bit>
-#include <span>
 #include <vector>
 
 namespace quicr::messages {
@@ -154,7 +153,7 @@ public:
   const_pointer data() const noexcept { return _buffer.data() + _read_offset; }
 
   void push(const value_type& value) { _buffer.push_back(value); }
-  void push(span_type data);
+  void push(span_type data) { _buffer.insert(_buffer.end(), data.begin(), data.end()); }
   void push(buffer_type&& data);
 
   void pop() { cleanup(); }
