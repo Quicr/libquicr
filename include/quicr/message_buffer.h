@@ -15,7 +15,7 @@ constexpr bool is_big_endian()
 #if __cplusplus >= 202002L
   return std::endian::native == std::endian::big;
 #else
-  return htonl(47) == 47;
+  return (const uint8_t&)0x01020304 == 0x01;
 #endif
 }
 
