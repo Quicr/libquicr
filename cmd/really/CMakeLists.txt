@@ -14,7 +14,7 @@ set_target_properties(really
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS ON)
 
-if(CLANG_TIDY_EXE)
+if(LINT)
   set_target_properties(quicr PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
 endif()
 

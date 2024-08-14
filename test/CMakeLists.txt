@@ -29,7 +29,7 @@ set_target_properties(quicr_test
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS ON)
 
-if(CLANG_TIDY_EXE)
+if(LINT)
     set_target_properties(quicr_test PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
 endif()
 

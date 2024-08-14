@@ -14,7 +14,7 @@ project(quicr
         DESCRIPTION "quicr library"
         LANGUAGES CXX)
 
-option(CLANG_TIDY "Perform linting with clang-tidy" OFF)
+option(LINT "Perform linting (clang-tidy et at)" OFF)
 
 option(PLATFORM_ESP_IDF "Enabble support for esp-idf (Default OFF)" OFF)
 option(USE_MBEDTLS OFF)
@@ -29,13 +29,9 @@ endif()
 ###
 ### Global Config
 ###
-if(CLANG_TIDY)
-    find_program(CLANG_TIDY_EXE NAMES "clang-tidy")
-    if(CLANG_TIDY_EXE)
-        message(STATUS "Found clang-tidy: ${CLANG_TIDY_EXE}")
-    else()
-        message(WARNING "clang-tidy requested, but not found")
-    endif()
+if(LINT)
+    find_program(CLANG_TIDY_EXE NAMES "clang-tidy" REQUIRED)
+    message(STATUS "Found clang-tidy: ${CLANG_TIDY_EXE}")
 endif()
 
 set (BUILD_SHARED_LIBS OFF)

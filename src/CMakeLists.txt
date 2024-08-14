@@ -33,8 +33,10 @@ set_target_properties(quicr
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS OFF)
 
-if(CLANG_TIDY_EXE)
-    set_target_properties(quicr PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
+if(LINT)
+    set_target_properties(quicr PROPERTIES
+        CXX_CLANG_TIDY "${CLANG_TIDY_EXE}"
+        CXX_CLANG_TIDY_EXPORT_FIXES_DIR "clang-tidy-fixes")
 endif()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
