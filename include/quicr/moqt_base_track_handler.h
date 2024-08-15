@@ -8,19 +8,19 @@
 #include "cantina/logger.h"
 #include <quicr/quicr_common.h>
 
-namespace quicr {
+namespace moq {
 
     /**
      * @brief MoQ track base handler for tracks (subscribe/publish)
      *
      * @details Base MoQ track handler
      */
-    class MOQTBaseTrackHandler
+    class BaseTrackHandler
     {
       public:
-        friend class MOQTCore;
+        friend class Core;
 
-        virtual ~MOQTBaseTrackHandler() = default;
+        virtual ~BaseTrackHandler() = default;
 
         enum class TrackMode : uint8_t
         {
@@ -34,13 +34,13 @@ namespace quicr {
         // Public API methods that normally should not be overridden
         // --------------------------------------------------------------------------
 
-        MOQTBaseTrackHandler() = delete;
+        BaseTrackHandler() = delete;
 
         /**
          * @brief Track delegate constructor
          */
       protected:
-        MOQTBaseTrackHandler(const bytes& track_namespace,
+        BaseTrackHandler(const bytes& track_namespace,
                              const bytes& track_name,
                              const cantina::LoggerPointer& logger)
           : _logger(std::make_shared<cantina::Logger>("MTD", logger))

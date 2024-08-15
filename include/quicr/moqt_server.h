@@ -9,7 +9,7 @@
 #include <quicr/moqt_messages.h>
 #include <quicr/moqt_core.h>
 
-namespace quicr {
+namespace moq {
     using namespace qtransport;
 
     /**
@@ -17,7 +17,7 @@ namespace quicr {
      *
      * @details MOQT Server is the handler of the MOQT QUIC listening socket
      */
-    class MOQTServer : public MOQTCore
+    class MOQTServer : public Core
     {
       public:
         /**
@@ -26,16 +26,16 @@ namespace quicr {
          * @param cfg           MOQT Server Configuration
          * @param logger        MOQT Log pointer to parent logger
          */
-        MOQTServer(const MOQTServerConfig& cfg,
+        MOQTServer(const ServerConfig& cfg,
                    const cantina::LoggerPointer& logger)
-          : MOQTCore(cfg, logger)
+          : Core(cfg, logger)
         {
         }
 
         ~MOQTServer() = default;
 
         /**
-         * @brief Runs server transport thread to listen for new connections
+         * @brief Starts server transport thread to listen for new connections
          *
          * @details Creates a new transport thread to listen for new connections. All control and track
          *   callbacks will be run based on events.
@@ -43,7 +43,12 @@ namespace quicr {
          * @return Status indicating state or error. If successful, status will be
          *    READY.
          */
-        Status run();
+        Status start();
+
+        /**
+         * Stop the server transport
+         */
+        void stop() { _stop = true; }
 
 
         /**
@@ -75,7 +80,7 @@ namespace quicr {
          * @param client_setup     Decoded client setup message
          */
         virtual void clientSetupReceived([[maybe_unused]] TransportConnId conn_id,
-                                         [[maybe_unused]] messages::MoqClientSetup client_setup) = 0;
+                                         [[maybe_unused]] transport::MoqClientSetup client_setup) = 0;
 
         /**
          * @brief Callback notification for new announce received that needs to be authorized
@@ -95,8 +100,8 @@ namespace quicr {
          * @param track_namespace           Track namespace
          *
          */
-        virtual void unannounce([[maybe_unused]] TransportConnId conn_id,
-                                [[maybe_unused]] const std::vector<uint8_t>& track_namespace) = 0;
+        virtual void unannounceReceived([[maybe_unused]] TransportConnId conn_id,
+                                        [[maybe_unused]] const std::vector<uint8_t>& track_namespace) = 0;
 
         /**
          * @brief Callback notification for new subscribe received
@@ -108,10 +113,10 @@ namespace quicr {
          *
          * @return True if send announce should be sent, false if not
          */
-        virtual bool subscribe([[maybe_unused]] TransportConnId conn_id,
-                               [[maybe_unused]] uint64_t subscribe_id,
-                               [[maybe_unused]] const std::vector<uint8_t>& track_namespace,
-                               [[maybe_unused]] const std::vector<uint8_t>& track_name) = 0;
+        virtual bool subscribeReceived([[maybe_unused]] TransportConnId conn_id,
+                                       [[maybe_unused]] uint64_t subscribe_id,
+                                       [[maybe_unused]] const std::vector<uint8_t>& track_namespace,
+                                       [[maybe_unused]] const std::vector<uint8_t>& track_name) = 0;
 
         /**
          * @brief Callback notification on unsubscribe received
@@ -119,7 +124,8 @@ namespace quicr {
          * @param conn_id             Source connection ID
          * @param subscribe_id        Subscribe ID received
          */
-        virtual void unsubscribe([[maybe_unused]] TransportConnId conn_id, [[maybe_unused]] uint64_t subscribe_id) = 0;
+        virtual void unsubscribeReceived([[maybe_unused]] TransportConnId conn_id,
+                                         [[maybe_unused]] uint64_t subscribe_id) = 0;
 
     };
 
