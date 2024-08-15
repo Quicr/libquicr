@@ -11,14 +11,14 @@ namespace quicr {
 
     MOQTBaseTrackHandler::SendError MOQTBaseTrackHandler::sendObject([[maybe_unused]] const uint64_t  group_id,
                                                              [[maybe_unused]] const uint64_t object_id,
-                                                             [[maybe_unused]] std::span<const uint8_t> object)
+                                                             [[maybe_unused]] Span<const uint8_t> object)
     {
         return sendObject(group_id, object_id, object, _def_priority, _def_ttl);
     }
 
     MOQTBaseTrackHandler::SendError MOQTBaseTrackHandler::sendObject([[maybe_unused]] const uint64_t  group_id,
                                                              [[maybe_unused]] const uint64_t object_id,
-                                                             [[maybe_unused]] std::span<const uint8_t> object,
+                                                             [[maybe_unused]] Span<const uint8_t> object,
                                                              [[maybe_unused]] uint32_t ttl)
     {
         return sendObject(group_id, object_id, object, _def_priority, ttl);
@@ -26,7 +26,7 @@ namespace quicr {
 
     MOQTBaseTrackHandler::SendError MOQTBaseTrackHandler::sendObject([[maybe_unused]] const uint64_t  group_id,
                                                              [[maybe_unused]] const uint64_t object_id,
-                                                             [[maybe_unused]] std::span<const uint8_t> object,
+                                                             [[maybe_unused]] Span<const uint8_t> object,
                                                              [[maybe_unused]] uint8_t priority)
     {
 
@@ -35,7 +35,7 @@ namespace quicr {
 
     MOQTBaseTrackHandler::SendError MOQTBaseTrackHandler::sendObject([[maybe_unused]] const uint64_t  group_id,
                                                              [[maybe_unused]] const uint64_t object_id,
-                                                             [[maybe_unused]] std::span<const uint8_t> object,
+                                                             [[maybe_unused]] Span<const uint8_t> object,
                                                              [[maybe_unused]] uint8_t priority,
                                                              [[maybe_unused]] uint32_t ttl)
     {

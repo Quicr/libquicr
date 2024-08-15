@@ -10,6 +10,7 @@
 #include <quicr/quicr_common.h>
 #include <transport/transport.h>
 
+#include <transport/span.h>
 #include <quicr/moqt_base_track_handler.h>
 #include <quicr/moqt_config.h>
 #include <quicr/moqt_publish_track_handler.h>
@@ -45,11 +46,9 @@ namespace moq {
             CLIENT_FAILED_TO_CONNECT,
         };
 
-      protected:
-        struct FullTrackName
-        {
-            std::span<uint8_t const> track_namespace;
-            std::span<uint8_t const> track_name;
+        struct TrackFullName {
+            Span<uint8_t const> name_space;
+            Span<uint8_t const> name;
             std::optional<uint64_t> track_alias;
         };
 
@@ -166,6 +165,16 @@ namespace moq {
                             const bool is_bidir = false) override;
         void on_recv_dgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id) override;
 
+        MoQTrackDelegate::SendError send_object(std::weak_ptr<MoQTrackDelegate> track_delegate,
+                                                uint8_t priority,
+                                                uint32_t ttl,
+                                                bool stream_header_needed,
+                                                uint64_t group_id,
+                                                uint64_t object_id,
+                                                Span<const uint8_t> data);
+
+      private:
+
         struct ConnectionContext
         {
             TransportConnId conn_id;
@@ -196,10 +205,10 @@ namespace moq {
         void send_ctrl_msg(const ConnectionContext& conn_ctx, std::vector<uint8_t>&& data);
         void send_client_setup();
         void send_server_setup(ConnectionContext& conn_ctx);
-        void send_announce(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
-        void send_announce_ok(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
-        void send_unannounce(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
-        void send_subscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id, FullTrackName& tfn, TrackHash th);
+        void send_announce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace);
+        void send_announce_ok(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace);
+        void send_unannounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace);
+        void send_subscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id, TrackFullName& tfn, TrackHash th);
         void send_subscribe_ok(ConnectionContext& conn_ctx,
                                uint64_t subscribe_id,
                                uint64_t expires,
