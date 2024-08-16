@@ -1,19 +1,19 @@
 var hierarchy =
 [
-    [ "quicr::MOQTCore::FullTrackName", "structquicr_1_1_m_o_q_t_core_1_1_full_track_name.html", null ],
-    [ "quicr::MOQTBaseTrackHandler", "classquicr_1_1_m_o_q_t_base_track_handler.html", [
-      [ "quicr::MOQTPublishTrackHandler", "classquicr_1_1_m_o_q_t_publish_track_handler.html", null ],
-      [ "quicr::MOQTSubscribeTrackHandler", "classquicr_1_1_m_o_q_t_subscribe_track_handler.html", null ]
+    [ "moq::transport::BaseTrackHandler", "classmoq_1_1transport_1_1_base_track_handler.html", [
+      [ "moq::transport::PublishTrackHandler", "classmoq_1_1transport_1_1_publish_track_handler.html", null ],
+      [ "moq::transport::SubscribeTrackHandler", "classmoq_1_1transport_1_1_subscribe_track_handler.html", null ]
     ] ],
-    [ "quicr::MOQTConfig", "structquicr_1_1_m_o_q_t_config.html", [
-      [ "quicr::MOQTClientConfig", "structquicr_1_1_m_o_q_t_client_config.html", null ],
-      [ "quicr::MOQTServerConfig", "structquicr_1_1_m_o_q_t_server_config.html", null ]
+    [ "moq::transport::Config", "structmoq_1_1transport_1_1_config.html", [
+      [ "moq::transport::ClientConfig", "structmoq_1_1transport_1_1_client_config.html", null ],
+      [ "moq::transport::ServerConfig", "structmoq_1_1transport_1_1_server_config.html", null ]
     ] ],
-    [ "quicr::MOQTCore::TrackHash", "structquicr_1_1_m_o_q_t_core_1_1_track_hash.html", null ],
+    [ "moq::transport::Transport::TrackFullName", "structmoq_1_1transport_1_1_transport_1_1_track_full_name.html", null ],
+    [ "moq::transport::Transport::TrackHash", "structmoq_1_1transport_1_1_transport_1_1_track_hash.html", null ],
     [ "ITransport::TransportDelegate", null, [
-      [ "quicr::MOQTCore", "classquicr_1_1_m_o_q_t_core.html", [
-        [ "quicr::MOQTClient", "classquicr_1_1_m_o_q_t_client.html", null ],
-        [ "quicr::MOQTServer", "classquicr_1_1_m_o_q_t_server.html", null ]
+      [ "moq::transport::Transport", "classmoq_1_1transport_1_1_transport.html", [
+        [ "moq::transport::Client", "classmoq_1_1transport_1_1_client.html", null ],
+        [ "moq::transport::Server", "classmoq_1_1transport_1_1_server.html", null ]
       ] ]
     ] ]
 ];

@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['publishobject_0',['publishObject',['../classquicr_1_1_m_o_q_t_publish_track_handler.html#ae0a6943706d806eae743cf3e7cd0a95e',1,'quicr::MOQTPublishTrackHandler::publishObject(const uint64_t group_id, const uint64_t object_id, std::span&lt; const uint8_t &gt; object, uint8_t priority, uint32_t ttl)'],['../classquicr_1_1_m_o_q_t_publish_track_handler.html#a8389282a00ed8902d7e378380309fecd',1,'quicr::MOQTPublishTrackHandler::publishObject(const uint64_t group_id, const uint64_t object_id, std::span&lt; const uint8_t &gt; object)'],['../classquicr_1_1_m_o_q_t_publish_track_handler.html#ab49ef595d3063908deb88240327975e0',1,'quicr::MOQTPublishTrackHandler::publishObject(const uint64_t group_id, const uint64_t object_id, std::span&lt; const uint8_t &gt; object, uint32_t ttl)'],['../classquicr_1_1_m_o_q_t_publish_track_handler.html#a58c98999543f59dfe8b7693f59e52328',1,'quicr::MOQTPublishTrackHandler::publishObject(const uint64_t group_id, const uint64_t object_id, std::span&lt; const uint8_t &gt; object, uint8_t priority)']]],
-  ['publishtrack_1',['publishTrack',['../classquicr_1_1_m_o_q_t_core.html#ac50a057781c8d1292f13d8fa5e4dd3cf',1,'quicr::MOQTCore']]]
+  ['newconnection_0',['newConnection',['../classmoq_1_1transport_1_1_server.html#a7c4d1389ee02faa0b2709906400b7215',1,'moq::transport::Server']]]
 ];

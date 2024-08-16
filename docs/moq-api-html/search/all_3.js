@@ -1,5 +1,6 @@
 var searchData=
 [
-  ['endpoint_5fid_0',['endpoint_id',['../structquicr_1_1_m_o_q_t_config.html#a3f8c74c53e9fae2c83c2950c5aa999c9',1,'quicr::MOQTConfig']]],
-  ['error_1',['Error',['../classquicr_1_1_m_o_q_t_subscribe_track_handler.html#a0584a0d573dcea14e285e7ac98c02383',1,'quicr::MOQTSubscribeTrackHandler::Error'],['../classquicr_1_1_m_o_q_t_publish_track_handler.html#a894ff51821b6d3bb9a9ab99a2f0f81f3',1,'quicr::MOQTPublishTrackHandler::Error']]]
+  ['datagram_0',['DATAGRAM',['../classmoq_1_1transport_1_1_publish_track_handler.html#ae4a306de319dd1dd2f711fff779b741ca77531d7905cb7b4e343ca868f98312f3',1,'moq::transport::PublishTrackHandler']]],
+  ['disconnect_1',['disconnect',['../classmoq_1_1transport_1_1_client.html#ac85a02f7747625ed76a33e8c3dce1127',1,'moq::transport::Client']]],
+  ['documentation_20links_2',['Documentation Links',['../index.html#autotoc_md6',1,'']]]
 ];

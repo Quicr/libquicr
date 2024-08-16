@@ -1,7 +1,5 @@
 var searchData=
 [
-  ['unannounce_0',['unannounce',['../classquicr_1_1_m_o_q_t_server.html#a3648236565eef2caccb302cda8f94c07',1,'quicr::MOQTServer']]],
-  ['unpublishtrack_1',['unpublishTrack',['../classquicr_1_1_m_o_q_t_core.html#afe45fd978beb3a857de484269f3b45cf',1,'quicr::MOQTCore']]],
-  ['unsubscribe_2',['unsubscribe',['../classquicr_1_1_m_o_q_t_server.html#a1ddf258158daec33c07217005e92dc10',1,'quicr::MOQTServer']]],
-  ['unsubscribetrack_3',['unsubscribeTrack',['../classquicr_1_1_m_o_q_t_core.html#ac7940c9543b4a1569af54bb451cbfc55',1,'quicr::MOQTCore']]]
+  ['trackhash_0',['TrackHash',['../structmoq_1_1transport_1_1_transport_1_1_track_hash.html#ab436e8947af2d9cb201e517ceb0670cf',1,'moq::transport::Transport::TrackHash::TrackHash(const uint64_t name_space, const uint64_t name)'],['../structmoq_1_1transport_1_1_transport_1_1_track_hash.html#aea5d431cc935144cf8c4f44168363125',1,'moq::transport::Transport::TrackHash::TrackHash(const FullTrackName &amp;tfn) noexcept']]],
+  ['transport_1',['Transport',['../classmoq_1_1transport_1_1_transport.html#a93c38be09ca30fe1f3599dbd2f641c04',1,'moq::transport::Transport::Transport()=delete'],['../classmoq_1_1transport_1_1_transport.html#ac1d7221132b80c7b0a46a3db7e282a97',1,'moq::transport::Transport::Transport(const ClientConfig &amp;cfg, const cantina::LoggerPointer &amp;logger)'],['../classmoq_1_1transport_1_1_transport.html#a1d4881d0c5a49a95ca22f6fb691bfeff',1,'moq::transport::Transport::Transport(const ServerConfig &amp;cfg, const cantina::LoggerPointer &amp;logger)']]]
 ];

@@ -1,9 +1,7 @@
 var searchData=
 [
-  ['getconnectionid_0',['getConnectionId',['../classquicr_1_1_m_o_q_t_base_track_handler.html#a3e7c15769d293272157f674d2baf19d0',1,'quicr::MOQTBaseTrackHandler']]],
-  ['getstatus_1',['getStatus',['../classquicr_1_1_m_o_q_t_subscribe_track_handler.html#ae0d8d03406ece95ee56493abb6f7f5bc',1,'quicr::MOQTSubscribeTrackHandler::getStatus()'],['../classquicr_1_1_m_o_q_t_publish_track_handler.html#ac69b834765a9954305a0409807447204',1,'quicr::MOQTPublishTrackHandler::getStatus()']]],
-  ['getsubscribeid_2',['getSubscribeId',['../classquicr_1_1_m_o_q_t_base_track_handler.html#afd39e6194f860ad4686ac71cf78377d7',1,'quicr::MOQTBaseTrackHandler']]],
-  ['gettrackalias_3',['getTrackAlias',['../classquicr_1_1_m_o_q_t_base_track_handler.html#a76669b056eceb65615a2f8637c7f9d21',1,'quicr::MOQTBaseTrackHandler']]],
-  ['gettrackname_4',['getTrackName',['../classquicr_1_1_m_o_q_t_base_track_handler.html#a9472271f47f1d37e5849cafbd7a76cb1',1,'quicr::MOQTBaseTrackHandler']]],
-  ['gettracknamespace_5',['getTrackNamespace',['../classquicr_1_1_m_o_q_t_base_track_handler.html#adba17108640427b9be43219f2e8dfdcd',1,'quicr::MOQTBaseTrackHandler']]]
+  ['client_0',['Client',['../classmoq_1_1transport_1_1_client.html#afee91fc4295df93d2ce1841b31d9ffcd',1,'moq::transport::Client']]],
+  ['clientsetupreceived_1',['clientSetupReceived',['../classmoq_1_1transport_1_1_server.html#a9eff38e63b8c74bd0fa511ce64b7a9e8',1,'moq::transport::Server']]],
+  ['connect_2',['connect',['../classmoq_1_1transport_1_1_client.html#a5ca38d71bb1fcdf24f284cf2ab6d73a8',1,'moq::transport::Client']]],
+  ['connectionchanged_3',['connectionChanged',['../classmoq_1_1transport_1_1_client.html#a61d6581ba477ce16b63447e2cc33f223',1,'moq::transport::Client::connectionChanged()'],['../classmoq_1_1transport_1_1_server.html#aaa87e430da4847004232c933954c873e',1,'moq::transport::Server::connectionChanged()']]]
 ];

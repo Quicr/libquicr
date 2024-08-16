@@ -1,4 +1,4 @@
 var namespaces_dup =
 [
-    [ "quicr", "namespacequicr.html", "namespacequicr" ]
+    [ "moq", "namespacemoq.html", "namespacemoq" ]
 ];

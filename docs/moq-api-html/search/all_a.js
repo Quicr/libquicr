@@ -1,11 +1,9 @@
 var searchData=
 [
-  ['newconnection_0',['newConnection',['../classquicr_1_1_m_o_q_t_server.html#ac5bdf96fcc2f8e4e6681919fa703ea54',1,'quicr::MOQTServer']]],
-  ['no_5fdata_1',['NO_DATA',['../classquicr_1_1_m_o_q_t_subscribe_track_handler.html#a0584a0d573dcea14e285e7ac98c02383aee69335f36c559202930f685b01c009e',1,'quicr::MOQTSubscribeTrackHandler']]],
-  ['no_5fsubscribers_2',['NO_SUBSCRIBERS',['../classquicr_1_1_m_o_q_t_publish_track_handler.html#a894ff51821b6d3bb9a9ab99a2f0f81f3a7b652afb5918ccf1361216fcea781793',1,'quicr::MOQTPublishTrackHandler::NO_SUBSCRIBERS'],['../classquicr_1_1_m_o_q_t_publish_track_handler.html#ac2c7c41244aea8ff6e6d18374af2c74ca7b652afb5918ccf1361216fcea781793',1,'quicr::MOQTPublishTrackHandler::NO_SUBSCRIBERS']]],
-  ['not_5fannounced_3',['NOT_ANNOUNCED',['../classquicr_1_1_m_o_q_t_publish_track_handler.html#a894ff51821b6d3bb9a9ab99a2f0f81f3a6b00381a9ee082731c7372b3bd7d4d19',1,'quicr::MOQTPublishTrackHandler::NOT_ANNOUNCED'],['../classquicr_1_1_m_o_q_t_publish_track_handler.html#ac2c7c41244aea8ff6e6d18374af2c74ca6b00381a9ee082731c7372b3bd7d4d19',1,'quicr::MOQTPublishTrackHandler::NOT_ANNOUNCED']]],
-  ['not_5fauthorized_4',['NOT_AUTHORIZED',['../classquicr_1_1_m_o_q_t_subscribe_track_handler.html#a0584a0d573dcea14e285e7ac98c02383ae4db4f5f832166a100de8888a273b4f2',1,'quicr::MOQTSubscribeTrackHandler::NOT_AUTHORIZED'],['../classquicr_1_1_m_o_q_t_subscribe_track_handler.html#ad5c145cc7b6d9d5529922f6ed9124eceae4db4f5f832166a100de8888a273b4f2',1,'quicr::MOQTSubscribeTrackHandler::NOT_AUTHORIZED'],['../classquicr_1_1_m_o_q_t_publish_track_handler.html#a894ff51821b6d3bb9a9ab99a2f0f81f3ae4db4f5f832166a100de8888a273b4f2',1,'quicr::MOQTPublishTrackHandler::NOT_AUTHORIZED']]],
-  ['not_5fconnected_5',['NOT_CONNECTED',['../classquicr_1_1_m_o_q_t_subscribe_track_handler.html#ad5c145cc7b6d9d5529922f6ed9124ecead91be9b5ceb9fe0af02b9b02413eccf8',1,'quicr::MOQTSubscribeTrackHandler::NOT_CONNECTED'],['../classquicr_1_1_m_o_q_t_publish_track_handler.html#ac2c7c41244aea8ff6e6d18374af2c74cad91be9b5ceb9fe0af02b9b02413eccf8',1,'quicr::MOQTPublishTrackHandler::NOT_CONNECTED']]],
-  ['not_5fready_6',['NOT_READY',['../classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaedda9455b42e74acb2ec1c7292e54d28aff2',1,'quicr::MOQTCore']]],
-  ['not_5fsubscribed_7',['NOT_SUBSCRIBED',['../classquicr_1_1_m_o_q_t_subscribe_track_handler.html#a0584a0d573dcea14e285e7ac98c02383a60043f2e1809e49f6ec637e0323d271c',1,'quicr::MOQTSubscribeTrackHandler::NOT_SUBSCRIBED'],['../classquicr_1_1_m_o_q_t_subscribe_track_handler.html#ad5c145cc7b6d9d5529922f6ed9124ecea60043f2e1809e49f6ec637e0323d271c',1,'quicr::MOQTSubscribeTrackHandler::NOT_SUBSCRIBED']]]
+  ['media_20over_20quic_20transport_20moqt_20publisher_20subscriber_20api_0',['Media over QUIC Transport (MoQT) Publisher/Subscriber API',['../index.html',1,'']]],
+  ['moq_1',['moq',['../namespacemoq.html',1,'']]],
+  ['moq_2dapi_2dmain_2emd_2',['moq-api-main.md',['../moq-api-main_8md.html',1,'']]],
+  ['moq_3a_3atransport_3',['transport',['../namespacemoq_1_1transport.html',1,'moq']]],
+  ['moqt_20publisher_20subscriber_20api_4',['Media over QUIC Transport (MoQT) Publisher/Subscriber API',['../index.html',1,'']]],
+  ['moqt_5fversion_5',['MOQT_VERSION',['../namespacemoq_1_1transport.html#a670677060ebb88486a3187cfef318985',1,'moq::transport']]]
 ];

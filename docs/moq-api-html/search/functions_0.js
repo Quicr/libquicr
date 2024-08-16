@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['announcereceived_0',['announceReceived',['../classquicr_1_1_m_o_q_t_server.html#a940a511e65339d91a4a4f983353621bc',1,'quicr::MOQTServer']]]
+  ['announcereceived_0',['announceReceived',['../classmoq_1_1transport_1_1_server.html#a0a22986d4cfff71a56172e7b43e0ed8e',1,'moq::transport::Server']]]
 ];

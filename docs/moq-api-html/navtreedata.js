@@ -25,12 +25,13 @@
 var NAVTREE =
 [
   [ "LibQuicR", "index.html", [
-    [ "Media over Quic Transport (MOQT) API", "index.html", "index" ],
+    [ "Media over QUIC Transport (MoQT) Publisher/Subscriber API", "index.html", "index" ],
     [ "Namespaces", "namespaces.html", [
       [ "Namespace List", "namespaces.html", "namespaces_dup" ],
       [ "Namespace Members", "namespacemembers.html", [
         [ "All", "namespacemembers.html", null ],
-        [ "Variables", "namespacemembers_vars.html", null ]
+        [ "Variables", "namespacemembers_vars.html", null ],
+        [ "Typedefs", "namespacemembers_type.html", null ]
       ] ]
     ] ],
     [ "Classes", "annotated.html", [
@@ -53,7 +54,7 @@ var NAVTREE =
 var NAVTREEINDEX =
 [
 "annotated.html",
-"structquicr_1_1_m_o_q_t_core_1_1_full_track_name.html"
+"structmoq_1_1transport_1_1_config.html"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronisation';

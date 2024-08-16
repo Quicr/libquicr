@@ -1,23 +1,5 @@
 var searchData=
 [
-  ['server_0',['Server',['../index.html#autotoc_md3',1,'']]],
-  ['server_5fbind_5fip_1',['server_bind_ip',['../structquicr_1_1_m_o_q_t_server_config.html#a5773436c30bfdef1649061927b522a67',1,'quicr::MOQTServerConfig']]],
-  ['server_5fhost_5fip_2',['server_host_ip',['../structquicr_1_1_m_o_q_t_client_config.html#ac470ea50ed698c53b5e22163aced2140',1,'quicr::MOQTClientConfig']]],
-  ['server_5fport_3',['server_port',['../structquicr_1_1_m_o_q_t_client_config.html#a7a0eed77ebe2d328ce4ce0bcc6f108e3',1,'quicr::MOQTClientConfig::server_port'],['../structquicr_1_1_m_o_q_t_server_config.html#aae70c6b94a7f44019d3bd8ea2f58f228',1,'quicr::MOQTServerConfig::server_port']]],
-  ['server_5fproto_4',['server_proto',['../structquicr_1_1_m_o_q_t_client_config.html#a979be091c65e8a7dc6bbe2f3cff5a1cf',1,'quicr::MOQTClientConfig::server_proto'],['../structquicr_1_1_m_o_q_t_server_config.html#af82c3ef1a5b90941afdc2c64f04a2003',1,'quicr::MOQTServerConfig::server_proto']]],
-  ['serversetup_5',['serverSetup',['../classquicr_1_1_m_o_q_t_client.html#a84b25fa22247f6e26e81997ddd468774',1,'quicr::MOQTClient']]],
-  ['setdefaultpriority_6',['setDefaultPriority',['../classquicr_1_1_m_o_q_t_publish_track_handler.html#a993aaeb89256a063237f2a12cc0a1f4a',1,'quicr::MOQTPublishTrackHandler']]],
-  ['setdefaultttl_7',['setDefaultTTL',['../classquicr_1_1_m_o_q_t_publish_track_handler.html#aa7297ebabf1d446cdf98999224764b16',1,'quicr::MOQTPublishTrackHandler']]],
-  ['setsubscribeid_8',['setSubscribeId',['../classquicr_1_1_m_o_q_t_base_track_handler.html#a5ef0ffee5bc2d119a5361b9288a1d632',1,'quicr::MOQTBaseTrackHandler']]],
-  ['settrackalias_9',['setTrackAlias',['../classquicr_1_1_m_o_q_t_base_track_handler.html#a19a76af5aed420a22b13773663b361c2',1,'quicr::MOQTBaseTrackHandler']]],
-  ['status_10',['Status',['../classquicr_1_1_m_o_q_t_core.html#a9c58e6ee82635b87923c4e0981ddaedd',1,'quicr::MOQTCore::Status'],['../classquicr_1_1_m_o_q_t_subscribe_track_handler.html#ad5c145cc7b6d9d5529922f6ed9124ece',1,'quicr::MOQTSubscribeTrackHandler::Status'],['../classquicr_1_1_m_o_q_t_publish_track_handler.html#ac2c7c41244aea8ff6e6d18374af2c74c',1,'quicr::MOQTPublishTrackHandler::Status']]],
-  ['status_11',['status',['../classquicr_1_1_m_o_q_t_core.html#a62be68c3a9a26fa6072264a3ce4b13b9',1,'quicr::MOQTCore']]],
-  ['statuscallback_12',['statusCallback',['../classquicr_1_1_m_o_q_t_subscribe_track_handler.html#a5c529625997e957e6e6b818a2b89ccd1',1,'quicr::MOQTSubscribeTrackHandler::statusCallback()'],['../classquicr_1_1_m_o_q_t_publish_track_handler.html#ad04f84d190e85d95da91216928f2cdf7',1,'quicr::MOQTPublishTrackHandler::statusCallback()']]],
-  ['stop_13',['stop',['../classquicr_1_1_m_o_q_t_core.html#a9911fc3fe11b7d6038be797afb9e1f66',1,'quicr::MOQTCore']]],
-  ['stream_5fper_5fgroup_14',['STREAM_PER_GROUP',['../classquicr_1_1_m_o_q_t_base_track_handler.html#ad16151ecb23e4a6b9f6844690c8ac454a66eb5bb6378e9f0b1d784fc4ff2e0f5d',1,'quicr::MOQTBaseTrackHandler']]],
-  ['stream_5fper_5fobject_15',['STREAM_PER_OBJECT',['../classquicr_1_1_m_o_q_t_base_track_handler.html#ad16151ecb23e4a6b9f6844690c8ac454adad46197b0b281bc60e53924abdac2ca',1,'quicr::MOQTBaseTrackHandler']]],
-  ['stream_5fper_5ftrack_16',['STREAM_PER_TRACK',['../classquicr_1_1_m_o_q_t_base_track_handler.html#ad16151ecb23e4a6b9f6844690c8ac454a5d9bfc2d3b9635692f35d7508e96781f',1,'quicr::MOQTBaseTrackHandler']]],
-  ['subscribe_17',['subscribe',['../classquicr_1_1_m_o_q_t_server.html#ae8140a1ae98849fc617e95dd61b8ec0c',1,'quicr::MOQTServer']]],
-  ['subscribe_5ferror_18',['SUBSCRIBE_ERROR',['../classquicr_1_1_m_o_q_t_subscribe_track_handler.html#ad5c145cc7b6d9d5529922f6ed9124eceaea24874d9426bdfaa8767bbe97c38bdb',1,'quicr::MOQTSubscribeTrackHandler']]],
-  ['subscribetrack_19',['subscribeTrack',['../classquicr_1_1_m_o_q_t_core.html#a0b9b0672711e575625f1c637eb1a16c3',1,'quicr::MOQTCore']]]
+  ['read_5floop_5fmax_5fper_5fstream_0',['READ_LOOP_MAX_PER_STREAM',['../namespacemoq_1_1transport.html#afa70181eb14db946c025e25521ce2978',1,'moq::transport']]],
+  ['ready_1',['READY',['../classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa2baa69eafc7204f3bd8648eba580c489',1,'moq::transport::Transport']]]
 ];
