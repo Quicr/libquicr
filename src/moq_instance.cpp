@@ -173,7 +173,7 @@ namespace quicr {
         send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
     }
 
-    void MoQInstance::send_announce(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace)
+    void MoQInstance::send_announce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
     {
         StreamBuffer<uint8_t> buffer;
         auto announce = MoqAnnounce{};
@@ -187,7 +187,7 @@ namespace quicr {
         send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
     }
 
-    void MoQInstance::send_announce_ok(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace)
+    void MoQInstance::send_announce_ok(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
     {
         StreamBuffer<uint8_t> buffer;
         auto announce_ok = MoqAnnounceOk{};
@@ -200,7 +200,7 @@ namespace quicr {
         send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
     }
 
-    void MoQInstance::send_unannounce(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace)
+    void MoQInstance::send_unannounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
     {
         StreamBuffer<uint8_t> buffer;
         auto unannounce = MoqUnannounce{};
@@ -1109,7 +1109,7 @@ namespace quicr {
                                                                         bool stream_header_needed,
                                                                         uint64_t group_id,
                                                                         uint64_t object_id,
-                                                                        std::span<uint8_t const> data) -> MOQTBaseTrackHandler::SendError {
+                                                                        Span<uint8_t const> data) -> MoQTrackDelegate::SendError {
             return send_object(track_delegate,
                                priority,
                                ttl,
@@ -1291,7 +1291,7 @@ namespace quicr {
                                                             bool stream_header_needed,
                                                             uint64_t group_id,
                                                             uint64_t object_id,
-                                                            std::span<const uint8_t> data) -> MOQTBaseTrackHandler::SendError {
+                                                            Span<const uint8_t> data) -> MoQTrackDelegate::SendError {
             return send_object(track_delegate,
                                priority,
                                ttl,
@@ -1310,7 +1310,7 @@ namespace quicr {
                                                          bool stream_header_needed,
                                                          uint64_t group_id,
                                                          uint64_t object_id,
-                                                         std::span<const uint8_t> data)
+                                                         Span<const uint8_t> data)
     {
 
         auto td = track_delegate.lock();

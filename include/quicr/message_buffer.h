@@ -1,19 +1,28 @@
 #pragma once
 
 #include <quicr/name.h>
+#include <transport/span.h>
 
 #include <bit>
-#include <span>
 #include <vector>
 
 namespace quicr::messages {
 
 // clang-format off
 namespace {
+constexpr bool is_big_endian()
+{
+#if __cplusplus >= 202002L
+  return std::endian::native == std::endian::big;
+#else
+  return (const uint8_t&)0x0001 == 0x00;
+#endif
+}
+
 constexpr uint16_t
 swap_bytes(uint16_t value)
 {
-  if constexpr (std::endian::native == std::endian::big)
+  if constexpr (is_big_endian())
     return value;
 
   return ((value >> 8) & 0x00ff) | ((value << 8) & 0xff00);
@@ -22,7 +31,7 @@ swap_bytes(uint16_t value)
 constexpr uint32_t
 swap_bytes(uint32_t value)
 {
-  if constexpr (std::endian::native == std::endian::big)
+  if constexpr (is_big_endian())
     return value;
 
   return ((value >> 24) & 0x000000ff) |
@@ -34,7 +43,7 @@ swap_bytes(uint32_t value)
 constexpr uint64_t
 swap_bytes(uint64_t value)
 {
-  if constexpr (std::endian::native == std::endian::big)
+  if constexpr (is_big_endian())
     return value;
 
   return ((value >> 56) & 0x00000000000000ff) |
@@ -50,7 +59,7 @@ swap_bytes(uint64_t value)
 constexpr quicr::Name
 swap_bytes(quicr::Name value)
 {
-  if constexpr (std::endian::native == std::endian::big)
+  if constexpr (is_big_endian())
     return value;
 
   constexpr auto ones = ~0x0_name;
@@ -110,7 +119,7 @@ private:
 public:
   using value_type = std::uint8_t;
   using buffer_type = std::vector<value_type>;
-  using span_type = std::span<const value_type>;
+  using span_type = Span<const value_type>;
 
   using iterator = buffer_type::iterator;
   using const_iterator = buffer_type::const_iterator;
@@ -144,7 +153,7 @@ public:
   const_pointer data() const noexcept { return _buffer.data() + _read_offset; }
 
   void push(const value_type& value) { _buffer.push_back(value); }
-  void push(span_type data);
+  void push(span_type data) { _buffer.insert(_buffer.end(), data.begin(), data.end()); }
   void push(buffer_type&& data);
 
   void pop() { cleanup(); }
@@ -182,7 +191,11 @@ public:
    * @param value The message to be written.
    * @returns The MessageBuffer that was written to.
    */
+#if __cplusplus >= 202002L
   template<UnsignedOrName T>
+#else
+  template<typename T, typename std::enable_if_t<std::is_integral_v<T> || std::is_same_v<T, Name>, bool> = true>
+#endif
   inline MessageBuffer& operator<<(T value)
   {
     value = swap_bytes(value);
@@ -207,7 +220,11 @@ public:
    * @param value The value to read into.
    * @returns The MessageBuffer that was read from.
    */
+#if __cplusplus >= 202002L
   template<UnsignedOrName T>
+#else
+  template<typename T, typename std::enable_if_t<std::is_integral_v<T> || std::is_same_v<T, Name>, bool> = true>
+#endif
   inline MessageBuffer& operator>>(T& value)
   {
     if (empty())

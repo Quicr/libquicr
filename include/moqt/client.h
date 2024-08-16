@@ -6,10 +6,10 @@
 
 #pragma once
 
-#include <quicr/moqt_messages.h>
-#include <quicr/moqt_core.h>
+#include <moqt/core/transport.h>
+#include <moqt/config.h>
 
-namespace quicr {
+namespace moq::transport {
     using namespace qtransport;
 
     /**
@@ -17,7 +17,7 @@ namespace quicr {
      *
      * @details MOQT Client is the handler of the MOQT QUIC transport IP connection.
      */
-    class MOQTClient : public MOQTCore
+    class Client : public Transport
     {
       public:
         /**
@@ -26,16 +26,15 @@ namespace quicr {
          * @param cfg           MOQT Client Configuration
          * @param logger        MOQT Log pointer to parent logger
          */
-        MOQTClient(const MOQTClientConfig& cfg,
-                   const cantina::LoggerPointer& logger)
-          : MOQTCore(cfg, logger)
+        Client(const ClientConfig& cfg, const cantina::LoggerPointer& logger)
+          : Core(cfg, logger)
         {
         }
 
-        ~MOQTClient() = default;
+        ~Client() = default;
 
         /**
-         * @brief Runs client connection in transport thread
+         * @brief Starts a client connection via a transport thread (non-blocking)
          *
          * @details Makes a client connection session and runs in a newly created thread. All control and track
          *   callbacks will be run based on events.
@@ -43,7 +42,16 @@ namespace quicr {
          * @return Status indicating state or error. If successful, status will be
          *    CLIENT_CONNECTING.
          */
-        Status run();
+        Status connect();
+
+        /**
+         * @brief Disconnect the client connection gracefully (blocking)
+         *
+         * @details Unsubscribes and unpublishes all remaining active ones, sends MOQT control messages
+         *   for those and then closes the QUIC connection gracefully. Stops the transport thread. The class
+         *   destructor calls this method as well. Status will be updated to reflect not connected.
+         */
+        void disconnect();
 
         /**
          * @brief Callback notification for connection status/state change
@@ -52,7 +60,7 @@ namespace quicr {
          * @param conn_id          Transport connection ID
          * @param status           Transport status of connection id
          */
-        virtual void connectionStatus(TransportConnId conn_id, TransportStatus status) = 0;
+        virtual void connectionChanged(TransportConnId conn_id, TransportStatus status) = 0;
 
         /**
          * @brief Callback on server setup message
@@ -67,4 +75,4 @@ namespace quicr {
 
     };
 
-} // namespace quicr
+} // namespace moq::transport

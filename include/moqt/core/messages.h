@@ -7,7 +7,7 @@
 #include <quicr/message_buffer.h>
 #include <transport/stream_buffer.h>
 
-namespace quicr::messages {
+namespace moq::transport::messages {
 
 using Version = uint64_t;
 using TrackNamespace = quicr::bytes;
@@ -405,5 +405,5 @@ private:
   uint64_t current_pos {0};
   bool parse_completed { false };
 };
-  
-}
+
+} // end of namespace moq::transport::messages

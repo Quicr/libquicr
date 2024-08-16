@@ -6,10 +6,9 @@
 #pragma once
 
 #include "cantina/logger.h"
-#include <quicr/moqt_base_track_handler.h>
-#include <quicr/quicr_common.h>
+#include <moqt/core/base_track_handler.h>
 
-namespace quicr {
+namespace moq::transport {
 
     /**
      * @brief MOQ track handler for subscribed track
@@ -19,10 +18,10 @@ namespace quicr {
      *
      *  This extends the base track handler to add subscribe handling
      */
-    class MOQTSubscribeTrackHandler : public MOQTBaseTrackHandler
+    class SubscribeTrackHandler : public BaseTrackHandler
     {
       public:
-        friend class MOQTCore;
+        friend class Transport;
 
         enum class Error : uint8_t
         {
@@ -39,7 +38,8 @@ namespace quicr {
             SUBSCRIBE_ERROR,
             NOT_AUTHORIZED,
             NOT_SUBSCRIBED,
-            PENDING_SUBSCRIBE_RESPONSE
+            PENDING_SUBSCRIBE_RESPONSE,
+            SENDING_UNSUBSCRIBE               // Triggers callbacks to not be called in this state
         };
 
         // --------------------------------------------------------------------------
@@ -49,10 +49,10 @@ namespace quicr {
         /**
          * @brief Track delegate constructor
          */
-        MOQTSubscribeTrackHandler(const bytes& track_namespace,
+        SubscribeTrackHandler(const bytes& track_namespace,
                                   const bytes& track_name,
                                   const cantina::LoggerPointer& logger)
-          : MOQTBaseTrackHandler(track_namespace, track_name, logger)
+          : BaseTrackHandler(track_namespace, track_name, logger)
         {
         }
 
@@ -78,11 +78,11 @@ namespace quicr {
          * @param object            Data object received
          * @param track_mode        Track mode the object was received
          */
-        virtual void receivedObjectCallback(uint64_t group_id,
-                                            uint64_t object_id,
-                                            uint8_t priority,
-                                            std::vector<uint8_t>&& object,
-                                            TrackMode track_mode) = 0;
+        virtual void objectReceived(uint64_t group_id,
+                                    uint64_t object_id,
+                                    uint8_t priority,
+                                    std::vector<uint8_t>&& object,
+                                    TrackMode track_mode) = 0;
 
         /**
          * @brief Notification of subscribe status
@@ -91,7 +91,7 @@ namespace quicr {
          *
          * @param status        Indicates status of the subscribe
          */
-        virtual void statusCallback(Status status) = 0;
+        virtual void statusChanged(Status status) = 0;
 
         // --------------------------------------------------------------------------
         // Internal

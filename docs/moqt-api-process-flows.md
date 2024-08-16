@@ -66,4 +66,4 @@ flowchart TD
 
 ### Client
 
-![Client API Diagram](images/moqt-client-api.png)
+<img src="images/moqt-client-api.png" alt="Client Process Flow" style="height: auto; width:80%"/>

@@ -5,11 +5,11 @@ add_executable(quicr_test
                 quicr_client.cpp
                 stream_buffer.cpp
                 quicr_server.cpp
-                moq_messages.cpp
+        moqt_messages.cpp
                 moq_instance.cpp
-                moq_test.cpp
+        moqt_test.cpp
                 encode.cpp
-        moq_messages.cpp)
+        moqt_messages.cpp)
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
 target_link_libraries(quicr_test PRIVATE quicr doctest::doctest)
@@ -26,7 +26,7 @@ target_compile_options(quicr_test
 
 set_target_properties(quicr_test
     PROPERTIES
-        CXX_STANDARD 20
+        CXX_STANDARD 17
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS ON)
 

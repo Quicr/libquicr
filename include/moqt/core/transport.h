@@ -10,16 +10,18 @@
 #include <quicr/quicr_common.h>
 #include <transport/transport.h>
 
-#include <quicr/moqt_base_track_handler.h>
-#include <quicr/moqt_config.h>
-#include <quicr/moqt_publish_track_handler.h>
-#include <quicr/moqt_subscribe_track_handler.h>
+#include <transport/span.h>
+#include <moqt/core/transport.h>
+#include <moqt/core/messages.h>
+#include <moqt/config.h>
+#include <moqt/publish_track_handler.h>
+#include <moqt/subscribe_track_handler.h>
 
 #include <map>
 #include <string>
 #include <string_view>
 
-namespace quicr {
+namespace moq::transport {
     using namespace qtransport;
 
     /**
@@ -27,10 +29,10 @@ namespace quicr {
      * @details MoQ implementation is the handler for either a client or server. It can run
      *   in only one mode, client or server.
      */
-    class MOQTCore : public ITransport::TransportDelegate
+    class Transport : public ITransport::TransportDelegate
     {
       public:
-        MOQTCore() = delete;
+        Transport() = delete;
 
         enum class Status : uint8_t
         {
@@ -45,17 +47,14 @@ namespace quicr {
             CLIENT_FAILED_TO_CONNECT,
         };
 
-      protected:
-        struct FullTrackName
-        {
-            std::span<uint8_t const> track_namespace;
-            std::span<uint8_t const> track_name;
+        struct TrackFullName {
+            Span<uint8_t const> name_space;
+            Span<uint8_t const> name;
             std::optional<uint64_t> track_alias;
         };
 
         struct TrackHash
         {
-          j
             uint64_t track_namespace_hash; // 64bit hash of namespace
             uint64_t track_name_hash;      // 64bit hash of name
 
@@ -85,7 +84,7 @@ namespace quicr {
          * @param cfg       MOQT Instance Client Configuration
          * @param logger    MOQT Log pointer to parent logger
          */
-        MOQTCore(const MOQTClientConfig& cfg,
+        Transport(const ClientConfig& cfg,
                  const cantina::LoggerPointer& logger);
 
         /**
@@ -94,10 +93,10 @@ namespace quicr {
          * @param cfg        MOQT Server Configuration
          * @param logger     MOQT Log pointer to parent logger
          */
-        MOQTCore(const MOQTServerConfig& cfg,
+        Transport(const ServerConfig& cfg,
                  const cantina::LoggerPointer& logger);
 
-        ~MOQTCore() = default;
+        ~Transport() = default;
 
         // -------------------------------------------------------------------------------------------------
         // Public API MoQ Intance API methods
@@ -112,7 +111,7 @@ namespace quicr {
          * @returns `track_alias` if no error and nullopt on error
          */
         std::optional<uint64_t> subscribeTrack(TransportConnId conn_id,
-                                               std::shared_ptr<MOQTSubscribeTrackHandler> track_delegate);
+                                               std::shared_ptr<SubscribeTrackHandler> track_delegate);
 
         /**
          * @brief Unsubscribe track
@@ -120,7 +119,7 @@ namespace quicr {
          * @param conn_id           Connection ID to send subscribe
          * @param track_delegate    Track delegate to use for track related functions and callbacks
          */
-        void unsubscribeTrack(TransportConnId conn_id, std::shared_ptr<MOQTSubscribeTrackHandler> track_delegate);
+        void unsubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_delegate);
 
         /**
          * @brief Publish to a track
@@ -132,7 +131,7 @@ namespace quicr {
          * @returns `track_alias` if no error and nullopt on error
          */
         std::optional<uint64_t> publishTrack(TransportConnId conn_id,
-                                             std::shared_ptr<MOQTPublishTrackHandler> track_delegate);
+                                             std::shared_ptr<PublishTrackHandler> track_delegate);
 
         /**
          * @brief Unpublish track
@@ -140,7 +139,7 @@ namespace quicr {
          * @param conn_id           Connection ID from transport for the QUIC connection context
          * @param track_delegate    Track delegate used when published track
          */
-        void unpublishTrack(TransportConnId conn_id, std::shared_ptr<MOQTPublishTrackHandler> track_delegate);
+        void unpublishTrack(TransportConnId conn_id, std::shared_ptr<PublishTrackHandler> track_delegate);
 
         /**
          * @brief Get the instance status
@@ -148,11 +147,6 @@ namespace quicr {
          * @return Status indicating the state/status of the instance
          */
         Status status();
-
-        /**
-         * Stop Instance
-         */
-        void stop() { _stop = true; }
 
       private:
         // -------------------------------------------------------------------------------------------------
@@ -172,13 +166,23 @@ namespace quicr {
                             const bool is_bidir = false) override;
         void on_recv_dgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id) override;
 
+        PublishTrackHandler::Error send_object(std::weak_ptr<PublishTrackHandler> track_delegate,
+                                                uint8_t priority,
+                                                uint32_t ttl,
+                                                bool stream_header_needed,
+                                                uint64_t group_id,
+                                                uint64_t object_id,
+                                                Span<const uint8_t> data);
+
+      private:
+
         struct ConnectionContext
         {
             TransportConnId conn_id;
             std::optional<uint64_t> ctrl_data_ctx_id;
             bool setup_complete{ false }; ///< True if both client and server setup messages have completed
             uint64_t client_version{ 0 };
-            std::optional<messages::MoQMessageType>
+            std::optional<transport::MoQMessageType>
               ctrl_msg_type_received; ///< Indicates the current message type being read
 
             uint64_t _sub_id{ 0 }; ///< Connection specific ID for subscribe messages
@@ -188,10 +192,10 @@ namespace quicr {
             std::map<uint64_t, std::pair<uint64_t, uint64_t>> recv_sub_id;
 
             // Tracks by subscribe ID
-            std::map<uint64_t, std::shared_ptr<MOQTBaseTrackHandler>> tracks_by_sub_id;
+            std::map<uint64_t, std::shared_ptr<BaseTrackHandler>> tracks_by_sub_id;
 
             // Publish tracks by namespace and name. map[track namespace][track name] = track delegate
-            std::map<uint64_t, std::map<uint64_t, std::shared_ptr<MOQTBaseTrackHandler>>> pub_tracks_by_name;
+            std::map<uint64_t, std::map<uint64_t, std::shared_ptr<BaseTrackHandler>>> pub_tracks_by_name;
         };
 
         // -------------------------------------------------------------------------------------------------
@@ -202,10 +206,10 @@ namespace quicr {
         void send_ctrl_msg(const ConnectionContext& conn_ctx, std::vector<uint8_t>&& data);
         void send_client_setup();
         void send_server_setup(ConnectionContext& conn_ctx);
-        void send_announce(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
-        void send_announce_ok(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
-        void send_unannounce(ConnectionContext& conn_ctx, std::span<uint8_t const> track_namespace);
-        void send_subscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id, FullTrackName& tfn, TrackHash th);
+        void send_announce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace);
+        void send_announce_ok(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace);
+        void send_unannounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace);
+        void send_subscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id, TrackFullName& tfn, TrackHash th);
         void send_subscribe_ok(ConnectionContext& conn_ctx,
                                uint64_t subscribe_id,
                                uint64_t expires,
@@ -215,10 +219,10 @@ namespace quicr {
         void send_subscribe_error(ConnectionContext& conn_ctx,
                                   uint64_t subscribe_id,
                                   uint64_t track_alias,
-                                  messages::MoQSubscribeError error,
+                                  transport::MoQSubscribeError error,
                                   const std::string& reason);
         void close_connection(TransportConnId conn_id,
-                              messages::MoQTerminationReason reason,
+                              transport::MoQTerminationReason reason,
                               const std::string& reason_str);
         bool process_recv_ctrl_message(ConnectionContext& conn_ctx,
                                        std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
@@ -226,10 +230,10 @@ namespace quicr {
                                               std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
         void remove_subscribeTrack(ConnectionContext& conn_ctx,
-                                   MOQTSubscribeTrackHandler& delegate,
+                                   SubscribeTrackHandler& delegate,
                                    bool remove_delegate = true);
 
-        std::optional<std::weak_ptr<MOQTPublishTrackHandler>> getPubTrackDelegate(ConnectionContext& conn_ctx,
+        std::optional<std::weak_ptr<PublishTrackHandler>> getPubTrackDelegate(ConnectionContext& conn_ctx,
                                                                                   TrackHash& th);
 
         // -------------------------------------------------------------------------------------------------
@@ -239,8 +243,8 @@ namespace quicr {
         std::mutex _state_mutex;
         const bool _client_mode;
         bool _stop{ false };
-        const MOQTServerConfig _server_config;
-        const MOQTClientConfig _client_config;
+        const ServerConfig _server_config;
+        const ClientConfig _client_config;
 
         std::map<TransportConnId, ConnectionContext> _connections;
 
@@ -258,4 +262,4 @@ namespace quicr {
         std::shared_ptr<ITransport> _transport; // **MUST** be last for proper order of destruction
     };
 
-} // namespace quicr
+} // namespace moq::transport

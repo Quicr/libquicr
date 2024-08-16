@@ -54,6 +54,8 @@ public:
     {
     }
 
+    virtual ~trackDelegate() = default;
+
     void cb_objectReceived(uint64_t group_id, uint64_t object_id,
                            [[maybe_unused]] uint8_t priority,
                            std::vector<uint8_t>&& object,
@@ -92,12 +94,14 @@ public:
     clientDelegate(const cantina::LoggerPointer& logger) :
         _logger(std::make_shared<cantina::Logger>("MID", logger)) {}
 
+    virtual ~clientDelegate() = default;
+
     void cb_newConnection(qtransport::TransportConnId conn_id,
-                          std::span<uint8_t const> endpoint_id,
+                          Span<uint8_t const> endpoint_id,
                           const qtransport::TransportRemote& remote) override {}
 
     void cb_connectionStatus(qtransport::TransportConnId conn_id,
-                             std::span<uint8_t const> endpoint_id,
+                             Span<uint8_t const> endpoint_id,
                              qtransport::TransportStatus status) override
     {
         auto ep_id = std::string(endpoint_id.begin(), endpoint_id.end());
@@ -181,7 +185,7 @@ void do_publisher(const std::string t_namespace,
         }
 
         track_delegate->sendObject(
-          group_id, object_id++, std::span{ std::bit_cast<uint8_t*>(msg.data()), msg.size() });
+          group_id, object_id++, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
     }
 
     mi->unpublishTrack(*qclient_vars::conn_id, track_delegate);

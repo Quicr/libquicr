@@ -10,7 +10,7 @@ target_compile_options(really
 
 set_target_properties(really
         PROPERTIES
-        CXX_STANDARD 20
+        CXX_STANDARD 17
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS ON)
 
@@ -33,6 +33,6 @@ target_compile_options(reallyTest
 
 set_target_properties(reallyTest
         PROPERTIES
-        CXX_STANDARD 20
+        CXX_STANDARD 17
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS OFF)

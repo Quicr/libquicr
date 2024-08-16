@@ -6,10 +6,11 @@
 
 #pragma once
 
-#include <quicr/moqt_messages.h>
-#include <quicr/moqt_core.h>
+#include <moqt/config.h>
+#include <moqt/core/messages.h>
+#include <moqt/core/transport.h>
 
-namespace quicr {
+namespace moq::transport {
     using namespace qtransport;
 
     /**
@@ -17,7 +18,7 @@ namespace quicr {
      *
      * @details MOQT Server is the handler of the MOQT QUIC listening socket
      */
-    class MOQTServer : public MOQTCore
+    class Server : public Transport
     {
       public:
         /**
@@ -26,16 +27,15 @@ namespace quicr {
          * @param cfg           MOQT Server Configuration
          * @param logger        MOQT Log pointer to parent logger
          */
-        MOQTServer(const MOQTServerConfig& cfg,
-                   const cantina::LoggerPointer& logger)
-          : MOQTCore(cfg, logger)
+        Server(const ServerConfig& cfg, const cantina::LoggerPointer& logger)
+          : Transport(cfg, logger)
         {
         }
 
-        ~MOQTServer() = default;
+        ~Server() = default;
 
         /**
-         * @brief Runs server transport thread to listen for new connections
+         * @brief Starts server transport thread to listen for new connections
          *
          * @details Creates a new transport thread to listen for new connections. All control and track
          *   callbacks will be run based on events.
@@ -43,8 +43,12 @@ namespace quicr {
          * @return Status indicating state or error. If successful, status will be
          *    READY.
          */
-        Status run();
+        Status start();
 
+        /**
+         * Stop the server transport
+         */
+        void stop() { _stop = true; }
 
         /**
          * @brief Callback notification on new connection
@@ -63,8 +67,7 @@ namespace quicr {
          * @param conn_id          Transport connection ID
          * @param status           Transport status of connection id
          */
-        virtual void connectionChanged(TransportConnId conn_id,
-                                      TransportStatus status) = 0;
+        virtual void connectionChanged(TransportConnId conn_id, TransportStatus status) = 0;
 
         /**
          * @brief Callback on client setup message
@@ -95,8 +98,8 @@ namespace quicr {
          * @param track_namespace           Track namespace
          *
          */
-        virtual void unannounce([[maybe_unused]] TransportConnId conn_id,
-                                [[maybe_unused]] const std::vector<uint8_t>& track_namespace) = 0;
+        virtual void unannounceReceived([[maybe_unused]] TransportConnId conn_id,
+                                        [[maybe_unused]] const std::vector<uint8_t>& track_namespace) = 0;
 
         /**
          * @brief Callback notification for new subscribe received
@@ -108,10 +111,10 @@ namespace quicr {
          *
          * @return True if send announce should be sent, false if not
          */
-        virtual bool subscribe([[maybe_unused]] TransportConnId conn_id,
-                               [[maybe_unused]] uint64_t subscribe_id,
-                               [[maybe_unused]] const std::vector<uint8_t>& track_namespace,
-                               [[maybe_unused]] const std::vector<uint8_t>& track_name) = 0;
+        virtual bool subscribeReceived([[maybe_unused]] TransportConnId conn_id,
+                                       [[maybe_unused]] uint64_t subscribe_id,
+                                       [[maybe_unused]] const std::vector<uint8_t>& track_namespace,
+                                       [[maybe_unused]] const std::vector<uint8_t>& track_name) = 0;
 
         /**
          * @brief Callback notification on unsubscribe received
@@ -119,8 +122,11 @@ namespace quicr {
          * @param conn_id             Source connection ID
          * @param subscribe_id        Subscribe ID received
          */
-        virtual void unsubscribe([[maybe_unused]] TransportConnId conn_id, [[maybe_unused]] uint64_t subscribe_id) = 0;
+        virtual void unsubscribeReceived([[maybe_unused]] TransportConnId conn_id,
+                                         [[maybe_unused]] uint64_t subscribe_id) = 0;
 
+      private:
+        bool _stop{ false };
     };
 
-} // namespace quicr
+} // namespace moq::transport
