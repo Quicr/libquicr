@@ -7,10 +7,9 @@
 #pragma once
 
 #include <transport/transport.h>
-
 #include <string>
 
-namespace moq {
+namespace moq::transport {
     constexpr uint64_t MOQT_VERSION = 0xff000004;  ///< draft-ietf-moq-transport-04
     constexpr uint64_t SUBSCRIBE_EXPIRES = 0; ///< Never expires
     constexpr int READ_LOOP_MAX_PER_STREAM =

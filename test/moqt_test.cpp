@@ -1,14 +1,16 @@
 #include <doctest/doctest.h>
 
-#include <quicr/moqt_client.h>
-#include <quicr/moqt_core.h>
-#include <quicr/moqt_server.h>
 
-using namespace quicr;
+#include <moqt/api/client.h>
+#include <moqt/api/server.h>
+#include <moqt/api/publish_track_handler.h>
+#include <moqt/api/subscribe_track_handler.h>
+
+using namespace moq::transport;
 
 TEST_CASE("Track Handler")
 {
-    class PHandler : public MOQTPublishTrackHandler
+    class PHandler : public PublishTrackHandler
     {
         PHandler(const bytes& track_namespace,
                  const bytes& track_name,
@@ -16,20 +18,16 @@ TEST_CASE("Track Handler")
                  uint8_t default_priority,
                  uint32_t default_ttl,
                  const cantina::LoggerPointer& logger)
-          : MOQTPublishTrackHandler(track_namespace, track_name, track_mode, default_priority, default_ttl, logger)
+          : PublishTrackHandler(track_namespace, track_name, track_mode, default_priority, default_ttl, logger)
         {
         }
-
-      public:
-        void statusCallback(Status status) override;
-        void congestedCallback(bool cleared, uint64_t objects_in_queue) override;
     };
 
     std::string track_ns = "abc";
     std::string track_n = "track";
     PHandler phandler({ track_ns.begin(), track_ns.end() },
                       { track_n.begin(), track_n.end() },
-                      MOQTBaseTrackHandler::TrackMode::STREAM_PER_GROUP,
+                      PublishTrackHandler::TrackMode::STREAM_PER_GROUP,
                       1,
                       100,
                       std::make_shared<cantina::Logger>("PUB"));

@@ -6,10 +6,9 @@
 #pragma once
 
 #include "cantina/logger.h"
-#include <quicr/moqt_base_track_handler.h>
-#include <quicr/quicr_common.h>
+#include <moqt/base_track_handler.h>
 
-namespace moq {
+namespace moq::transport {
 
     /**
      * @brief MOQ track handler for subscribed track

@@ -6,9 +6,10 @@
 
 #pragma once
 
-#include <quicr/moqt_core.h>
+#include <moqt/core.h>
+#include <moqt/api/config.h>
 
-namespace moq {
+namespace moq::transport {
     using namespace qtransport;
 
     /**
@@ -74,4 +75,4 @@ namespace moq {
 
     };
 
-} // namespace quicr
+} // namespace moq::transport

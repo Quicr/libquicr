@@ -11,16 +11,16 @@
 #include <transport/transport.h>
 
 #include <transport/span.h>
-#include <quicr/moqt_base_track_handler.h>
-#include <quicr/moqt_config.h>
-#include <quicr/moqt_publish_track_handler.h>
-#include <quicr/moqt_subscribe_track_handler.h>
+#include <moqt/transport.h>
+#include <moqt/config.h>
+#include <moqt/publish_track_handler.h>
+#include <moqt/subscribe_track_handler.h>
 
 #include <map>
 #include <string>
 #include <string_view>
 
-namespace moq {
+namespace moq::transport {
     using namespace qtransport;
 
     /**
@@ -261,4 +261,4 @@ namespace moq {
         std::shared_ptr<ITransport> _transport; // **MUST** be last for proper order of destruction
     };
 
-} // namespace quicr
+} // namespace moq::transport

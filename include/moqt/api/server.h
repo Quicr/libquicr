@@ -6,10 +6,11 @@
 
 #pragma once
 
-#include <quicr/moqt_messages.h>
-#include <quicr/moqt_core.h>
+#include <moqt/api/config.h>
+#include <moqt/core.h>
+#include <moqt/messages.h>
 
-namespace moq {
+namespace moq::transport {
     using namespace qtransport;
 
     /**
@@ -17,7 +18,7 @@ namespace moq {
      *
      * @details MOQT Server is the handler of the MOQT QUIC listening socket
      */
-    class MOQTServer : public Core
+    class Server : public Core
     {
       public:
         /**
@@ -26,13 +27,12 @@ namespace moq {
          * @param cfg           MOQT Server Configuration
          * @param logger        MOQT Log pointer to parent logger
          */
-        MOQTServer(const ServerConfig& cfg,
-                   const cantina::LoggerPointer& logger)
+        Server(const ServerConfig& cfg, const cantina::LoggerPointer& logger)
           : Core(cfg, logger)
         {
         }
 
-        ~MOQTServer() = default;
+        ~Server() = default;
 
         /**
          * @brief Starts server transport thread to listen for new connections
@@ -49,7 +49,6 @@ namespace moq {
          * Stop the server transport
          */
         void stop() { _stop = true; }
-
 
         /**
          * @brief Callback notification on new connection
@@ -68,8 +67,7 @@ namespace moq {
          * @param conn_id          Transport connection ID
          * @param status           Transport status of connection id
          */
-        virtual void connectionChanged(TransportConnId conn_id,
-                                      TransportStatus status) = 0;
+        virtual void connectionChanged(TransportConnId conn_id, TransportStatus status) = 0;
 
         /**
          * @brief Callback on client setup message
@@ -126,7 +124,6 @@ namespace moq {
          */
         virtual void unsubscribeReceived([[maybe_unused]] TransportConnId conn_id,
                                          [[maybe_unused]] uint64_t subscribe_id) = 0;
-
     };
 
-} // namespace quicr
+} // namespace moq::transport

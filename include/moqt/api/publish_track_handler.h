@@ -6,9 +6,9 @@
 #pragma once
 
 #include "cantina/logger.h"
-#include <quicr/moqt_base_track_handler.h>
+#include <moqt/base_track_handler.h>
 
-namespace moq {
+namespace moq::transport {
 
     /**
      * @brief MOQ track handler for published track
@@ -23,6 +23,22 @@ namespace moq {
       public:
         friend class Core;
 
+        /**
+         * @brief Publish track mode
+         *
+         * @details QUIC stream handling mode to use for publihsing objects
+         */
+        enum class TrackMode : uint8_t
+        {
+            DATAGRAM,
+            STREAM_PER_OBJECT,
+            STREAM_PER_GROUP,
+            STREAM_PER_TRACK
+        };
+
+        /**
+         * @brief Error codes
+         */
         enum class Error : uint8_t
         {
             OK = 0,
@@ -32,6 +48,9 @@ namespace moq {
             NO_SUBSCRIBERS,
         };
 
+        /**
+         * @brief  Status codes
+         */
         enum class Status : uint8_t
         {
             OK = 0,
@@ -51,14 +70,15 @@ namespace moq {
          * @brief Track delegate constructor
          */
         PublishTrackHandler(const bytes& track_namespace,
-                                const bytes& track_name,
-                                TrackMode track_mode,
-                                uint8_t default_priority,
-                                uint32_t default_ttl,
-                                const cantina::LoggerPointer& logger)
+                            const bytes& track_name,
+                            TrackMode track_mode,
+                            uint8_t default_priority,
+                            uint32_t default_ttl,
+                            const cantina::LoggerPointer& logger)
           : BaseTrackHandler(track_namespace, track_name, logger)
+          , _track_mode(track_mode)
         {
-            setTrackMode(track_mode);
+
             setDefaultPriority(default_priority);
             setDefaultTTL(default_ttl);
         }
@@ -130,7 +150,6 @@ namespace moq {
                             std::span<const uint8_t> object,
                             uint8_t priority);
 
-
         // --------------------------------------------------------------------------
         // Internals
         // --------------------------------------------------------------------------
@@ -181,9 +200,10 @@ namespace moq {
         // --------------------------------------------------------------------------
 
         Status _publish_status{ Status::NOT_ANNOUNCED };
-        TrackMode _mi_track_mode;
+        TrackMode _track_mode;
         uint8_t _def_priority;            // Set by caller and is used when priority is not specified
         uint32_t _def_ttl;                // Set by caller and is used when TTL is not specified
+
         uint64_t _mi_publish_data_ctx_id; // publishing data context ID
         publishObjFunction _mi_publishObjFunc;
 

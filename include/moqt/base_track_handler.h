@@ -6,9 +6,10 @@
 #pragma once
 
 #include "cantina/logger.h"
-#include <quicr/quicr_common.h>
 
-namespace moq {
+namespace moq::transport {
+
+    using bytes = std::vector<uint8_t>;
 
     /**
      * @brief MoQ track base handler for tracks (subscribe/publish)
@@ -22,27 +23,17 @@ namespace moq {
 
         virtual ~BaseTrackHandler() = default;
 
-        enum class TrackMode : uint8_t
-        {
-            DATAGRAM,
-            STREAM_PER_OBJECT,
-            STREAM_PER_GROUP,
-            STREAM_PER_TRACK
-        };
-
         // --------------------------------------------------------------------------
         // Public API methods that normally should not be overridden
         // --------------------------------------------------------------------------
 
         BaseTrackHandler() = delete;
 
+      protected:
         /**
          * @brief Track delegate constructor
          */
-      protected:
-        BaseTrackHandler(const bytes& track_namespace,
-                             const bytes& track_name,
-                             const cantina::LoggerPointer& logger)
+        BaseTrackHandler(const bytes& track_namespace, const bytes& track_name, const cantina::LoggerPointer& logger)
           : _logger(std::make_shared<cantina::Logger>("MTD", logger))
           , _track_namespace(track_namespace)
           , _track_name(track_name)
