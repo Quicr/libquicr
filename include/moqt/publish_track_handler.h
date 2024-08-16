@@ -6,7 +6,7 @@
 #pragma once
 
 #include "cantina/logger.h"
-#include <moqt/base_track_handler.h>
+#include <moqt/core/base_track_handler.h>
 
 namespace moq::transport {
 
@@ -21,7 +21,7 @@ namespace moq::transport {
     class PublishTrackHandler : protected BaseTrackHandler
     {
       public:
-        friend class Core;
+        friend class Transport;
 
         /**
          * @brief Publish track mode

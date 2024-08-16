@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include <moqt/core.h>
-#include <moqt/api/config.h>
+#include <moqt/core/transport.h>
+#include <moqt/config.h>
 
 namespace moq::transport {
     using namespace qtransport;
@@ -17,7 +17,7 @@ namespace moq::transport {
      *
      * @details MOQT Client is the handler of the MOQT QUIC transport IP connection.
      */
-    class Client : public Core
+    class Client : public Transport
     {
       public:
         /**
@@ -71,7 +71,7 @@ namespace moq::transport {
          * @param server_setup     Decoded sever setup message
          */
         virtual void serverSetup([[maybe_unused]] TransportConnId conn_id,
-                                 [[maybe_unused]] transport::MoqServerSetup server_setup) = 0;
+                                 [[maybe_unused]] messages::MoqServerSetup server_setup) = 0;
 
     };
 

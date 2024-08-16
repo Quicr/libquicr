@@ -11,7 +11,8 @@
 #include <transport/transport.h>
 
 #include <transport/span.h>
-#include <moqt/transport.h>
+#include <moqt/core/transport.h>
+#include <moqt/core/messages.h>
 #include <moqt/config.h>
 #include <moqt/publish_track_handler.h>
 #include <moqt/subscribe_track_handler.h>
@@ -28,10 +29,10 @@ namespace moq::transport {
      * @details MoQ implementation is the handler for either a client or server. It can run
      *   in only one mode, client or server.
      */
-    class Core : public ITransport::TransportDelegate
+    class Transport : public ITransport::TransportDelegate
     {
       public:
-        Core() = delete;
+        Transport() = delete;
 
         enum class Status : uint8_t
         {
@@ -83,7 +84,7 @@ namespace moq::transport {
          * @param cfg       MOQT Instance Client Configuration
          * @param logger    MOQT Log pointer to parent logger
          */
-        Core(const ClientConfig& cfg,
+        Transport(const ClientConfig& cfg,
                  const cantina::LoggerPointer& logger);
 
         /**
@@ -92,10 +93,10 @@ namespace moq::transport {
          * @param cfg        MOQT Server Configuration
          * @param logger     MOQT Log pointer to parent logger
          */
-        Core(const ServerConfig& cfg,
+        Transport(const ServerConfig& cfg,
                  const cantina::LoggerPointer& logger);
 
-        ~Core() = default;
+        ~Transport() = default;
 
         // -------------------------------------------------------------------------------------------------
         // Public API MoQ Intance API methods
@@ -165,7 +166,7 @@ namespace moq::transport {
                             const bool is_bidir = false) override;
         void on_recv_dgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id) override;
 
-        MoQTrackDelegate::SendError send_object(std::weak_ptr<MoQTrackDelegate> track_delegate,
+        PublishTrackHandler::Error send_object(std::weak_ptr<PublishTrackHandler> track_delegate,
                                                 uint8_t priority,
                                                 uint32_t ttl,
                                                 bool stream_header_needed,

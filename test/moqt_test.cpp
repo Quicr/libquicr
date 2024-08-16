@@ -1,10 +1,10 @@
 #include <doctest/doctest.h>
 
 
-#include <moqt/api/client.h>
-#include <moqt/api/server.h>
-#include <moqt/api/publish_track_handler.h>
-#include <moqt/api/subscribe_track_handler.h>
+#include <moqt/client.h>
+#include <moqt/server.h>
+#include <moqt/publish_track_handler.h>
+#include <moqt/subscribe_track_handler.h>
 
 using namespace moq::transport;
 

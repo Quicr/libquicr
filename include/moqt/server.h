@@ -6,9 +6,9 @@
 
 #pragma once
 
-#include <moqt/api/config.h>
-#include <moqt/core.h>
-#include <moqt/messages.h>
+#include <moqt/config.h>
+#include <moqt/core/messages.h>
+#include <moqt/core/transport.h>
 
 namespace moq::transport {
     using namespace qtransport;
@@ -18,7 +18,7 @@ namespace moq::transport {
      *
      * @details MOQT Server is the handler of the MOQT QUIC listening socket
      */
-    class Server : public Core
+    class Server : public Transport
     {
       public:
         /**
@@ -28,7 +28,7 @@ namespace moq::transport {
          * @param logger        MOQT Log pointer to parent logger
          */
         Server(const ServerConfig& cfg, const cantina::LoggerPointer& logger)
-          : Core(cfg, logger)
+          : Transport(cfg, logger)
         {
         }
 
@@ -78,7 +78,7 @@ namespace moq::transport {
          * @param client_setup     Decoded client setup message
          */
         virtual void clientSetupReceived([[maybe_unused]] TransportConnId conn_id,
-                                         [[maybe_unused]] transport::MoqClientSetup client_setup) = 0;
+                                         [[maybe_unused]] messages::MoqClientSetup client_setup) = 0;
 
         /**
          * @brief Callback notification for new announce received that needs to be authorized
@@ -124,6 +124,9 @@ namespace moq::transport {
          */
         virtual void unsubscribeReceived([[maybe_unused]] TransportConnId conn_id,
                                          [[maybe_unused]] uint64_t subscribe_id) = 0;
+
+      private:
+        bool _stop{ false };
     };
 
 } // namespace moq::transport
