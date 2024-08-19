@@ -98,7 +98,6 @@ $(function(){initNavTree('classmoq_1_1transport_1_1_publish_track_handler.html',
 
 <div class="header">
   <div class="summary">
-<a href="#nested-classes">Classes</a> &#124;
 <a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="classmoq_1_1transport_1_1_publish_track_handler-members.html">List of all members</a>  </div>
@@ -120,24 +119,30 @@ Inheritance diagram for moq::transport::PublishTrackHandler:</div>
   </map>
 </div></div>
 <table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="nested-classes" name="nested-classes"></a>
-Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structmoq_1_1transport_1_1_publish_track_handler_1_1_send_params.html">SendParams</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-types" name="pub-types"></a>
 Public Types</h2></td></tr>
-<tr class="memitem:a2b0ae40087c3b10f23d11953ac0f9360" id="r_a2b0ae40087c3b10f23d11953ac0f9360"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a2b0ae40087c3b10f23d11953ac0f9360">Error</a> : uint8_t { <br />
-&#160;&#160;<a class="el" href="#a2b0ae40087c3b10f23d11953ac0f9360ae69fa9a656f76dd8a4d89f21992b2d3a">kOk</a> = 0
-, <a class="el" href="#a2b0ae40087c3b10f23d11953ac0f9360afcd417a134c251034b0d61b07c826394">kInternalError</a>
-, <a class="el" href="#a2b0ae40087c3b10f23d11953ac0f9360a94d644150606feeb2501ae2801a617ed">kNotAuthorized</a>
-, <a class="el" href="#a2b0ae40087c3b10f23d11953ac0f9360a0aacc8d02db06999d93256fad11a0f91">kNotAnnounced</a>
+<tr class="memitem:ac8fbbc7cf1bc2bca92ac15174997760d" id="r_ac8fbbc7cf1bc2bca92ac15174997760d"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760d">PublishStatus</a> : uint8_t { <br />
+&#160;&#160;<a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760dae69fa9a656f76dd8a4d89f21992b2d3a">kOk</a> = 0
+, <a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760dafcd417a134c251034b0d61b07c826394">kInternalError</a>
+, <a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760da94d644150606feeb2501ae2801a617ed">kNotAuthorized</a>
+, <a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760da0aacc8d02db06999d93256fad11a0f91">kNotAnnounced</a>
 , <br />
-&#160;&#160;<a class="el" href="#a2b0ae40087c3b10f23d11953ac0f9360a029c756c36d0d64ad37d82fdd25135ad">kNoSubscribers</a>
+&#160;&#160;<a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760da029c756c36d0d64ad37d82fdd25135ad">kNoSubscribers</a>
+, <a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760da7f270eac08c2051777675fb3d19c4907">kObjectPayloadLengthExceeded</a>
+, <a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760da8a8092b44ca2f3d0e02013ab991d0ec2">kPreviousObjectTruncated</a>
+, <a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760da05b3e664bc3465982f33d4a02e0e903b">kNoPreviousObject</a>
+, <br />
+&#160;&#160;<a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760da9a145f4e212bb020d888fa7df22c92b3">kObjectDataComplete</a>
+, <a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760da161afdbbfaed9cf4e4c14abc4f3a7cf7">kObjectContinuationDataNeeded</a>
+, <a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760da29bc6ab59d21091c424ae5e9a036b1b3">kObjectDataIncomplete</a>
+, <a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760daa6997d7faf893c343835acd339b724d3">kObjectDataTooLarge</a>
+, <br />
+&#160;&#160;<a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760dac87ef4310cf44057c582f1fdb9e9eb1d">kPreviousObjectNotCompleteMustStartNewGroup</a>
+, <a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760da9c12d1b02e769f07c2b4f43ca50b02d5">kPreviousObjectNotCompleteMustStartNewTrack</a>
 <br />
  }</td></tr>
-<tr class="memdesc:a2b0ae40087c3b10f23d11953ac0f9360"><td class="mdescLeft">&#160;</td><td class="mdescRight">Error codes.  <a href="#a2b0ae40087c3b10f23d11953ac0f9360">More...</a><br /></td></tr>
-<tr class="separator:a2b0ae40087c3b10f23d11953ac0f9360"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memdesc:ac8fbbc7cf1bc2bca92ac15174997760d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish status codes.  <a href="#ac8fbbc7cf1bc2bca92ac15174997760d">More...</a><br /></td></tr>
+<tr class="separator:ac8fbbc7cf1bc2bca92ac15174997760d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac8f88d32786056608af22660e2fa9c18" id="r_ac8f88d32786056608af22660e2fa9c18"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ac8f88d32786056608af22660e2fa9c18">Status</a> : uint8_t { <br />
 &#160;&#160;<a class="el" href="#ac8f88d32786056608af22660e2fa9c18ab8c5bbba307a5b38f6a1474fbf23dddd">kOK</a> = 0
 , <a class="el" href="#ac8f88d32786056608af22660e2fa9c18a32a54fa8629fe6e9cb3e265e959258d8">kNotConnected</a>
@@ -149,14 +154,14 @@ Public Types</h2></td></tr>
 , <a class="el" href="#ac8f88d32786056608af22660e2fa9c18a6473b74b448bc158ffb66542042c88b3">kSendingUnannounce</a>
 <br />
  }</td></tr>
-<tr class="memdesc:ac8f88d32786056608af22660e2fa9c18"><td class="mdescLeft">&#160;</td><td class="mdescRight">Status codes.  <a href="#ac8f88d32786056608af22660e2fa9c18">More...</a><br /></td></tr>
+<tr class="memdesc:ac8f88d32786056608af22660e2fa9c18"><td class="mdescLeft">&#160;</td><td class="mdescRight">Status codes for the publish track.  <a href="#ac8f88d32786056608af22660e2fa9c18">More...</a><br /></td></tr>
 <tr class="separator:ac8f88d32786056608af22660e2fa9c18"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:af947122d275c5eab99208103913159e5" id="r_af947122d275c5eab99208103913159e5"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#af947122d275c5eab99208103913159e5">PublishTrackHandler</a> (const <a class="el" href="namespacemoq_1_1transport.html#a8346c913ef230120bc3fe0bd689acea3">Bytes</a> &amp;track_namespace, const <a class="el" href="namespacemoq_1_1transport.html#a8346c913ef230120bc3fe0bd689acea3">Bytes</a> &amp;track_name, <a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598e">TrackMode</a> track_mode, uint8_t default_priority, uint32_t default_ttl)</td></tr>
-<tr class="memdesc:af947122d275c5eab99208103913159e5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish track handler constructor.  <br /></td></tr>
-<tr class="separator:af947122d275c5eab99208103913159e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab83d866be9c7e1ecc9e617160464dfe9" id="r_ab83d866be9c7e1ecc9e617160464dfe9"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab83d866be9c7e1ecc9e617160464dfe9">PublishTrackHandler</a> (const <a class="el" href="structmoq_1_1transport_1_1_full_track_name.html">FullTrackName</a> &amp;full_track_name, <a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598e">TrackMode</a> track_mode, uint8_t default_priority, uint32_t default_ttl)</td></tr>
+<tr class="memdesc:ab83d866be9c7e1ecc9e617160464dfe9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish track handler constructor.  <br /></td></tr>
+<tr class="separator:ab83d866be9c7e1ecc9e617160464dfe9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5f2318aef8021772958a7e475d63314a" id="r_a5f2318aef8021772958a7e475d63314a"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a5f2318aef8021772958a7e475d63314a">StatusChanged</a> (<a class="el" href="#ac8f88d32786056608af22660e2fa9c18">PublishTrackHandler::Status</a> status)=0</td></tr>
 <tr class="memdesc:a5f2318aef8021772958a7e475d63314a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification of publish status.  <br /></td></tr>
 <tr class="separator:a5f2318aef8021772958a7e475d63314a"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -169,9 +174,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ae293712df5916126b5c497401895e2bf" id="r_ae293712df5916126b5c497401895e2bf"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#ac8f88d32786056608af22660e2fa9c18">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae293712df5916126b5c497401895e2bf">GetStatus</a> ()</td></tr>
 <tr class="memdesc:ae293712df5916126b5c497401895e2bf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the publish status.  <br /></td></tr>
 <tr class="separator:ae293712df5916126b5c497401895e2bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a42323a060e072755418bce59f7158630" id="r_a42323a060e072755418bce59f7158630"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#a2b0ae40087c3b10f23d11953ac0f9360">Error</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a42323a060e072755418bce59f7158630">PublishObject</a> (const <a class="el" href="structmoq_1_1transport_1_1_publish_track_handler_1_1_send_params.html">SendParams</a> send_params, <a class="el" href="namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a> object)</td></tr>
-<tr class="memdesc:a42323a060e072755418bce59f7158630"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish object to announced track.  <br /></td></tr>
-<tr class="separator:a42323a060e072755418bce59f7158630"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a794c836ba10e299e506303db55aad8cd" id="r_a794c836ba10e299e506303db55aad8cd"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760d">PublishStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a794c836ba10e299e506303db55aad8cd">PublishObject</a> (const <a class="el" href="structmoq_1_1transport_1_1_object_headers.html">ObjectHeaders</a> &amp;object_headers, <a class="el" href="namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a> data)</td></tr>
+<tr class="memdesc:a794c836ba10e299e506303db55aad8cd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish object to the announced track.  <br /></td></tr>
+<tr class="separator:a794c836ba10e299e506303db55aad8cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a10698b2de2017b3a198f3d089faa082b" id="r_a10698b2de2017b3a198f3d089faa082b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760d">PublishStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a10698b2de2017b3a198f3d089faa082b">PublishContinuationData</a> (<a class="el" href="namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a> data)</td></tr>
+<tr class="memdesc:a10698b2de2017b3a198f3d089faa082b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish continuation data.  <br /></td></tr>
+<tr class="separator:a10698b2de2017b3a198f3d089faa082b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="inherited" name="inherited"></a>
 Additional Inherited Members</h2></td></tr>
@@ -184,9 +192,9 @@ Additional Inherited Members</h2></td></tr>
 <tr class="memdesc:a5b6888694dddaa5c6c71662d7324598e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Track mode object of object published or received.  <a href="classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598e">More...</a><br /></td></tr>
 <tr class="separator:a5b6888694dddaa5c6c71662d7324598e inherit pro_types_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td colspan="2" onclick="javascript:dynsection.toggleInherit('pro_methods_classmoq_1_1transport_1_1_base_track_handler')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html">moq::transport::BaseTrackHandler</a></td></tr>
-<tr class="memitem:aaccdfa74a0fba055a772ee5ba62b53c6 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_aaccdfa74a0fba055a772ee5ba62b53c6"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#aaccdfa74a0fba055a772ee5ba62b53c6">BaseTrackHandler</a> (const <a class="el" href="namespacemoq_1_1transport.html#a8346c913ef230120bc3fe0bd689acea3">Bytes</a> &amp;track_namespace, const <a class="el" href="namespacemoq_1_1transport.html#a8346c913ef230120bc3fe0bd689acea3">Bytes</a> &amp;track_name)</td></tr>
-<tr class="memdesc:aaccdfa74a0fba055a772ee5ba62b53c6 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Track delegate constructor.  <br /></td></tr>
-<tr class="separator:aaccdfa74a0fba055a772ee5ba62b53c6 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afaf7ac3e1f1ca190a8318b7100e1b7a0 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_afaf7ac3e1f1ca190a8318b7100e1b7a0"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#afaf7ac3e1f1ca190a8318b7100e1b7a0">BaseTrackHandler</a> (const <a class="el" href="structmoq_1_1transport_1_1_full_track_name.html">FullTrackName</a> &amp;full_track_name)</td></tr>
+<tr class="memdesc:afaf7ac3e1f1ca190a8318b7100e1b7a0 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Track delegate constructor.  <br /></td></tr>
+<tr class="separator:afaf7ac3e1f1ca190a8318b7100e1b7a0 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a13f266677d96952bf7dcda3792df741a inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_a13f266677d96952bf7dcda3792df741a"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a13f266677d96952bf7dcda3792df741a">~BaseTrackHandler</a> ()=default</td></tr>
 <tr class="separator:a13f266677d96952bf7dcda3792df741a inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaa199b9bbfffbe33759086eabf7296e7 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_aaa199b9bbfffbe33759086eabf7296e7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#aaa199b9bbfffbe33759086eabf7296e7">BaseTrackHandler</a> ()=delete</td></tr>
@@ -203,12 +211,9 @@ Additional Inherited Members</h2></td></tr>
 <tr class="memitem:a50b5e06b594882cdeda7cd18f5374682 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_a50b5e06b594882cdeda7cd18f5374682"><td class="memItemLeft" align="right" valign="top">std::optional&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a50b5e06b594882cdeda7cd18f5374682">GetSubscribeId</a> ()</td></tr>
 <tr class="memdesc:a50b5e06b594882cdeda7cd18f5374682 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the subscribe ID.  <br /></td></tr>
 <tr class="separator:a50b5e06b594882cdeda7cd18f5374682 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a92498601c41687e5985afa1fa881c3c1 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_a92498601c41687e5985afa1fa881c3c1"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a92498601c41687e5985afa1fa881c3c1">GetTrackNamespace</a> ()</td></tr>
-<tr class="memdesc:a92498601c41687e5985afa1fa881c3c1 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the track namespace.  <br /></td></tr>
-<tr class="separator:a92498601c41687e5985afa1fa881c3c1 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab6d80b0334e5f451d0d34f6d7ae67771 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_ab6d80b0334e5f451d0d34f6d7ae67771"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#ab6d80b0334e5f451d0d34f6d7ae67771">GetTrackName</a> ()</td></tr>
-<tr class="memdesc:ab6d80b0334e5f451d0d34f6d7ae67771 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the track name.  <br /></td></tr>
-<tr class="separator:ab6d80b0334e5f451d0d34f6d7ae67771 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa323b56498f294300d37a86ee9a3e35e inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_aa323b56498f294300d37a86ee9a3e35e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structmoq_1_1transport_1_1_full_track_name.html">FullTrackName</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#aa323b56498f294300d37a86ee9a3e35e">GetFullTrackName</a> ()</td></tr>
+<tr class="memdesc:aa323b56498f294300d37a86ee9a3e35e inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the full track name.  <br /></td></tr>
+<tr class="separator:aa323b56498f294300d37a86ee9a3e35e inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a98c75f3ff838b6f8e7f9357009d456de inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_a98c75f3ff838b6f8e7f9357009d456de"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a98c75f3ff838b6f8e7f9357009d456de">GetConnectionId</a> ()</td></tr>
 <tr class="memdesc:a98c75f3ff838b6f8e7f9357009d456de inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the connection ID.  <br /></td></tr>
 <tr class="separator:a98c75f3ff838b6f8e7f9357009d456de inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -218,8 +223,8 @@ Additional Inherited Members</h2></td></tr>
 <p>MOQ publish track handler defines all track related callbacks and functions for publish. Track handler operates on a single track (namespace + name).</p>
 <p>This extends the base track handler to add publish (aka send) handling </p>
 </div><h2 class="groupheader">Member Enumeration Documentation</h2>
-<a id="a2b0ae40087c3b10f23d11953ac0f9360" name="a2b0ae40087c3b10f23d11953ac0f9360"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2b0ae40087c3b10f23d11953ac0f9360">&#9670;&#160;</a></span>Error</h2>
+<a id="ac8fbbc7cf1bc2bca92ac15174997760d" name="ac8fbbc7cf1bc2bca92ac15174997760d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac8fbbc7cf1bc2bca92ac15174997760d">&#9670;&#160;</a></span>PublishStatus</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -228,7 +233,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">enum class <a class="el" href="#a2b0ae40087c3b10f23d11953ac0f9360">moq::transport::PublishTrackHandler::Error</a> : uint8_t</td>
+          <td class="memname">enum class <a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760d">moq::transport::PublishTrackHandler::PublishStatus</a> : uint8_t</td>
         </tr>
       </table>
   </td>
@@ -238,13 +243,26 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Error codes. </p>
+<p>Publish status codes. </p>
 <table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a2b0ae40087c3b10f23d11953ac0f9360ae69fa9a656f76dd8a4d89f21992b2d3a" name="a2b0ae40087c3b10f23d11953ac0f9360ae69fa9a656f76dd8a4d89f21992b2d3a"></a>kOk&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a2b0ae40087c3b10f23d11953ac0f9360afcd417a134c251034b0d61b07c826394" name="a2b0ae40087c3b10f23d11953ac0f9360afcd417a134c251034b0d61b07c826394"></a>kInternalError&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a2b0ae40087c3b10f23d11953ac0f9360a94d644150606feeb2501ae2801a617ed" name="a2b0ae40087c3b10f23d11953ac0f9360a94d644150606feeb2501ae2801a617ed"></a>kNotAuthorized&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a2b0ae40087c3b10f23d11953ac0f9360a0aacc8d02db06999d93256fad11a0f91" name="a2b0ae40087c3b10f23d11953ac0f9360a0aacc8d02db06999d93256fad11a0f91"></a>kNotAnnounced&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a2b0ae40087c3b10f23d11953ac0f9360a029c756c36d0d64ad37d82fdd25135ad" name="a2b0ae40087c3b10f23d11953ac0f9360a029c756c36d0d64ad37d82fdd25135ad"></a>kNoSubscribers&#160;</td><td class="fielddoc"></td></tr>
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ac8fbbc7cf1bc2bca92ac15174997760dae69fa9a656f76dd8a4d89f21992b2d3a" name="ac8fbbc7cf1bc2bca92ac15174997760dae69fa9a656f76dd8a4d89f21992b2d3a"></a>kOk&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="ac8fbbc7cf1bc2bca92ac15174997760dafcd417a134c251034b0d61b07c826394" name="ac8fbbc7cf1bc2bca92ac15174997760dafcd417a134c251034b0d61b07c826394"></a>kInternalError&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="ac8fbbc7cf1bc2bca92ac15174997760da94d644150606feeb2501ae2801a617ed" name="ac8fbbc7cf1bc2bca92ac15174997760da94d644150606feeb2501ae2801a617ed"></a>kNotAuthorized&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="ac8fbbc7cf1bc2bca92ac15174997760da0aacc8d02db06999d93256fad11a0f91" name="ac8fbbc7cf1bc2bca92ac15174997760da0aacc8d02db06999d93256fad11a0f91"></a>kNotAnnounced&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="ac8fbbc7cf1bc2bca92ac15174997760da029c756c36d0d64ad37d82fdd25135ad" name="ac8fbbc7cf1bc2bca92ac15174997760da029c756c36d0d64ad37d82fdd25135ad"></a>kNoSubscribers&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="ac8fbbc7cf1bc2bca92ac15174997760da7f270eac08c2051777675fb3d19c4907" name="ac8fbbc7cf1bc2bca92ac15174997760da7f270eac08c2051777675fb3d19c4907"></a>kObjectPayloadLengthExceeded&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="ac8fbbc7cf1bc2bca92ac15174997760da8a8092b44ca2f3d0e02013ab991d0ec2" name="ac8fbbc7cf1bc2bca92ac15174997760da8a8092b44ca2f3d0e02013ab991d0ec2"></a>kPreviousObjectTruncated&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="ac8fbbc7cf1bc2bca92ac15174997760da05b3e664bc3465982f33d4a02e0e903b" name="ac8fbbc7cf1bc2bca92ac15174997760da05b3e664bc3465982f33d4a02e0e903b"></a>kNoPreviousObject&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="ac8fbbc7cf1bc2bca92ac15174997760da9a145f4e212bb020d888fa7df22c92b3" name="ac8fbbc7cf1bc2bca92ac15174997760da9a145f4e212bb020d888fa7df22c92b3"></a>kObjectDataComplete&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="ac8fbbc7cf1bc2bca92ac15174997760da161afdbbfaed9cf4e4c14abc4f3a7cf7" name="ac8fbbc7cf1bc2bca92ac15174997760da161afdbbfaed9cf4e4c14abc4f3a7cf7"></a>kObjectContinuationDataNeeded&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="ac8fbbc7cf1bc2bca92ac15174997760da29bc6ab59d21091c424ae5e9a036b1b3" name="ac8fbbc7cf1bc2bca92ac15174997760da29bc6ab59d21091c424ae5e9a036b1b3"></a>kObjectDataIncomplete&#160;</td><td class="fielddoc"><p><a class="el" href="#a794c836ba10e299e506303db55aad8cd" title="Publish object to the announced track.">PublishObject()</a> was called when continuation data remains. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ac8fbbc7cf1bc2bca92ac15174997760daa6997d7faf893c343835acd339b724d3" name="ac8fbbc7cf1bc2bca92ac15174997760daa6997d7faf893c343835acd339b724d3"></a>kObjectDataTooLarge&#160;</td><td class="fielddoc"><p>Indicates that the published object data is too large based on the object header payload size plus any/all data that was sent already. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ac8fbbc7cf1bc2bca92ac15174997760dac87ef4310cf44057c582f1fdb9e9eb1d" name="ac8fbbc7cf1bc2bca92ac15174997760dac87ef4310cf44057c582f1fdb9e9eb1d"></a>kPreviousObjectNotCompleteMustStartNewGroup&#160;</td><td class="fielddoc"><p>Previous object payload has not been completed and new object cannot start in per-group track mode unless new group is used. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="ac8fbbc7cf1bc2bca92ac15174997760da9c12d1b02e769f07c2b4f43ca50b02d5" name="ac8fbbc7cf1bc2bca92ac15174997760da9c12d1b02e769f07c2b4f43ca50b02d5"></a>kPreviousObjectNotCompleteMustStartNewTrack&#160;</td><td class="fielddoc"><p>Previous object payload has not been completed and new object cannot start in per-track track mode without creating a new track. This requires to unpublish and to publish track again. </p>
+</td></tr>
 </table>
 
 </div>
@@ -269,7 +287,7 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Status codes. </p>
+<p>Status codes for the publish track. </p>
 <table class="fieldtable">
 <tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ac8f88d32786056608af22660e2fa9c18ab8c5bbba307a5b38f6a1474fbf23dddd" name="ac8f88d32786056608af22660e2fa9c18ab8c5bbba307a5b38f6a1474fbf23dddd"></a>kOK&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="ac8f88d32786056608af22660e2fa9c18a32a54fa8629fe6e9cb3e265e959258d8" name="ac8f88d32786056608af22660e2fa9c18a32a54fa8629fe6e9cb3e265e959258d8"></a>kNotConnected&#160;</td><td class="fielddoc"></td></tr>
@@ -283,8 +301,8 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="af947122d275c5eab99208103913159e5" name="af947122d275c5eab99208103913159e5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af947122d275c5eab99208103913159e5">&#9670;&#160;</a></span>PublishTrackHandler()</h2>
+<a id="ab83d866be9c7e1ecc9e617160464dfe9" name="ab83d866be9c7e1ecc9e617160464dfe9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab83d866be9c7e1ecc9e617160464dfe9">&#9670;&#160;</a></span>PublishTrackHandler()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -295,12 +313,7 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="memname">moq::transport::PublishTrackHandler::PublishTrackHandler </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="namespacemoq_1_1transport.html#a8346c913ef230120bc3fe0bd689acea3">Bytes</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_namespace</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="namespacemoq_1_1transport.html#a8346c913ef230120bc3fe0bd689acea3">Bytes</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_name</em></span>, </td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_full_track_name.html">FullTrackName</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>full_track_name</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -328,11 +341,10 @@ Additional Inherited Members</h2></td></tr>
 <p>Publish track handler constructor. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">track_namespace</td><td>Opaque binary array of bytes track namespace </td></tr>
-    <tr><td class="paramname">track_name</td><td>Opaque binary array of bytes track name </td></tr>
+    <tr><td class="paramname">full_track_name</td><td>Full track name struct </td></tr>
     <tr><td class="paramname">track_mode</td><td>The track mode to operate using </td></tr>
-    <tr><td class="paramname">default_priority</td><td>Default priority for objects if not specified in <a class="el" href="structmoq_1_1transport_1_1_publish_track_handler_1_1_send_params.html">SendParams</a> </td></tr>
-    <tr><td class="paramname">default_ttl</td><td>Default TTL for objects if not specified in <a class="el" href="structmoq_1_1transport_1_1_publish_track_handler_1_1_send_params.html">SendParams</a> </td></tr>
+    <tr><td class="paramname">default_priority</td><td>Default priority for objects if not specified in ObjectHeaderss </td></tr>
+    <tr><td class="paramname">default_ttl</td><td>Default TTL for objects if not specified in ObjectHeaderss </td></tr>
   </table>
   </dd>
 </dl>
@@ -368,42 +380,80 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a42323a060e072755418bce59f7158630" name="a42323a060e072755418bce59f7158630"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a42323a060e072755418bce59f7158630">&#9670;&#160;</a></span>PublishObject()</h2>
+<a id="a10698b2de2017b3a198f3d089faa082b" name="a10698b2de2017b3a198f3d089faa082b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a10698b2de2017b3a198f3d089faa082b">&#9670;&#160;</a></span>PublishContinuationData()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="#a2b0ae40087c3b10f23d11953ac0f9360">Error</a> moq::transport::PublishTrackHandler::PublishObject </td>
+          <td class="memname"><a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760d">PublishStatus</a> moq::transport::PublishTrackHandler::PublishContinuationData </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_publish_track_handler_1_1_send_params.html">SendParams</a></td>          <td class="paramname"><span class="paramname"><em>send_params</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
+          <td class="paramtype"><a class="el" href="namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a></td>          <td class="paramname"><span class="paramname"><em>data</em></span></td><td>)</td>
           <td></td>
-          <td class="paramtype"><a class="el" href="namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a></td>          <td class="paramname"><span class="paramname"><em>object</em></span>&#160;)</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>Publish object to announced track. </p>
-<p>Publish object to announced track that was previously announced. This will have an error if the track wasn't announced yet. Status will indicate if there are no subscribers. In this case, the object will not be sent.</p>
+<p>Publish continuation data. </p>
+<p>Publish continuation data for the previous <a class="el" href="#a794c836ba10e299e506303db55aad8cd" title="Publish object to the announced track.">PublishObject()</a>. The data should be the remaining data of the object payload size.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname"></td><td></td></tr>
+    <tr><td class="paramname">data</td><td>Remaining payload data for the object being published. The length cannot exceed the original object payload size.</td></tr>
   </table>
   </dd>
 </dl>
-<p>param [in] object_id Object ID of the object </p><dl class="params"><dt>Parameters</dt><dd>
+<dl class="section return"><dt>Returns</dt><dd><ul>
+<li><a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760da9a145f4e212bb020d888fa7df22c92b3">PublishStatus::kObjectDataComplete</a> if the data fulfills the remaining data,</li>
+<li><a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760da161afdbbfaed9cf4e4c14abc4f3a7cf7">PublishStatus::kObjectContinuationDataNeeded</a> if more data is still needed,</li>
+<li><a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760daa6997d7faf893c343835acd339b724d3">PublishStatus::kObjectDataTooLarge</a> if the data provided would exceed the remaining amount of data,</li>
+<li><a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760da05b3e664bc3465982f33d4a02e0e903b">PublishStatus::kNoPreviousObject</a> if the previous object was completed or if there was no previous object,</li>
+<li>other track status </li>
+</ul>
+</dd></dl>
+
+</div>
+</div>
+<a id="a794c836ba10e299e506303db55aad8cd" name="a794c836ba10e299e506303db55aad8cd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a794c836ba10e299e506303db55aad8cd">&#9670;&#160;</a></span>PublishObject()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760d">PublishStatus</a> moq::transport::PublishTrackHandler::PublishObject </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_object_headers.html">ObjectHeaders</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>object_headers</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a></td>          <td class="paramname"><span class="paramname"><em>data</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Publish object to the announced track. </p>
+<p>Publish an object to announced track that was previously announced. This will have an error if the track wasn't announced yet. Status will indicate if there are no subscribers. In this case, the object will not be sent.</p>
+<p><b>Restrictions:</b></p><ul>
+<li>This method cannot be called twice with the same object header group and object IDs.</li>
+<li>In <a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598ea2090d4af6fa9dbd62ccadb58933ec824">TrackMode::kStreamPerGroup</a>, <a class="el" href="structmoq_1_1transport_1_1_object_headers.html#a5b9cde3bcb559087f2e58f9ee43428b3" title="Object group ID - Should be derived using time in microseconds.">ObjectHeaders::group_id</a> <b>MUST</b> be different than the previous when calling this method when the previous has not been completed yet using <a class="el" href="#a10698b2de2017b3a198f3d089faa082b" title="Publish continuation data.">PublishContinuationData()</a>. If group id is not different, the Error::kPreviousObjectNotCompleteMustStartNewGroup will be returned and the object will not be sent. If new group ID is provided, then the previous object will terminate with stream closure, resulting in the previous being truncated.</li>
+<li>In <a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598eadf09fb233c57a1f2ba2e56279dd4aa37">TrackMode::kStreamPerTrack</a>, this method <b>CANNOT</b> be called until the previous object has been completed using <a class="el" href="#a10698b2de2017b3a198f3d089faa082b" title="Publish continuation data.">PublishContinuationData()</a>. Calling this method before completing the previous object remaining data will result in <a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760da29bc6ab59d21091c424ae5e9a036b1b3" title="PublishObject() was called when continuation data remains.">PublishStatus::kObjectDataIncomplete</a>. No data would be sent and the stream would remain unchanged. It is expected that the caller would send the remaining continuation data.</li>
+</ul>
+<dl class="section note"><dt>Note</dt><dd>If data is less than object_header.payload_length, then <a class="el" href="#a794c836ba10e299e506303db55aad8cd" title="Publish object to the announced track.">PublishObject()</a> should be called to send the remaining data.</dd></dl>
+<dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramdir">[in]</td><td class="paramname">object</td><td>Object to publish to track </td></tr>
-    <tr><td class="paramdir">[in]</td><td class="paramname">ttl</td><td>Expire TTL for object </td></tr>
-    <tr><td class="paramdir">[in]</td><td class="paramname">priority</td><td>Priority for object; will be set upon next qualifing stream object</td></tr>
+    <tr><td class="paramname">object_headers</td><td>Object headers, must include group and object Ids </td></tr>
+    <tr><td class="paramname">data</td><td>Payload data for the object, must be &lt;= object_headers.payload_length</td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section return"><dt>Returns</dt><dd>Error status of the publish </dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>Publish status of the publish<ul>
+<li><a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760da161afdbbfaed9cf4e4c14abc4f3a7cf7">PublishStatus::kObjectContinuationDataNeeded</a> if the object payload data is not completed but it was sent,</li>
+<li><a class="el" href="#ac8fbbc7cf1bc2bca92ac15174997760da9a145f4e212bb020d888fa7df22c92b3">PublishStatus::kObjectDataComplete</a> if the object data was sent and the data is complete,</li>
+<li>other track status </li>
+</ul>
+</dd></dl>
 
 </div>
 </div>

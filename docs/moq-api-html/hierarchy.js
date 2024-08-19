@@ -8,9 +8,9 @@ var hierarchy =
       [ "moq::transport::ClientConfig", "structmoq_1_1transport_1_1_client_config.html", null ],
       [ "moq::transport::ServerConfig", "structmoq_1_1transport_1_1_server_config.html", null ]
     ] ],
-    [ "moq::transport::Transport::FullTrackName", "structmoq_1_1transport_1_1_transport_1_1_full_track_name.html", null ],
-    [ "moq::transport::PublishTrackHandler::SendParams", "structmoq_1_1transport_1_1_publish_track_handler_1_1_send_params.html", null ],
-    [ "moq::transport::Transport::TrackHash", "structmoq_1_1transport_1_1_transport_1_1_track_hash.html", null ],
+    [ "moq::transport::FullTrackName", "structmoq_1_1transport_1_1_full_track_name.html", null ],
+    [ "moq::transport::ObjectHeaders", "structmoq_1_1transport_1_1_object_headers.html", null ],
+    [ "moq::transport::TrackHash", "structmoq_1_1transport_1_1_track_hash.html", null ],
     [ "ITransport::TransportDelegate", null, [
       [ "moq::transport::Transport", "classmoq_1_1transport_1_1_transport.html", [
         [ "moq::transport::Client", "classmoq_1_1transport_1_1_client.html", null ],

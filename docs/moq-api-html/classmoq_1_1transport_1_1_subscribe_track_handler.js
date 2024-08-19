@@ -15,7 +15,7 @@ var classmoq_1_1transport_1_1_subscribe_track_handler =
       [ "kPendingSubscribeResponse", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532a0a3ab3e9715377a993aa8530a0a67cdc", null ],
       [ "kSendingUnsubscribe", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532a0c00fa0c8dbc5959120d45bc8386979f", null ]
     ] ],
-    [ "SubscribeTrackHandler", "classmoq_1_1transport_1_1_subscribe_track_handler.html#af058d2df50dcfb8c7d052030f1b84859", null ],
+    [ "SubscribeTrackHandler", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a24056c782a2761c8950e6174425d0fa5", null ],
     [ "GetStatus", "classmoq_1_1transport_1_1_subscribe_track_handler.html#adf96f1e6778c525bd765afb8690427cd", null ],
     [ "ObjectReceived", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a034cf67453f427cd5576f3603f0de75d", null ],
     [ "StatusChanged", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a56fc8443d2f1867c21738c2abb0734b5", null ],

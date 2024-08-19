@@ -1,7 +1,5 @@
 var classmoq_1_1transport_1_1_transport =
 [
-    [ "FullTrackName", "structmoq_1_1transport_1_1_transport_1_1_full_track_name.html", "structmoq_1_1transport_1_1_transport_1_1_full_track_name" ],
-    [ "TrackHash", "structmoq_1_1transport_1_1_transport_1_1_track_hash.html", "structmoq_1_1transport_1_1_transport_1_1_track_hash" ],
     [ "Status", "classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95f", [
       [ "kReady", "classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa25d5606fe07425ea73f245c48612c039", null ],
       [ "kNotReady", "classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fab163982e1fe69b9bf0e76ebfcbf0d05a", null ],
