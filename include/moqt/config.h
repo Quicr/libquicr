@@ -17,11 +17,12 @@ namespace moq::transport {
     {
         std::string endpoint_id;                 ///< Endpoint ID for the client or server, should be unique
         TransportConfig transport_config;
+        uint64_t metrics_sample_ms { 5000 };
     };
 
     struct ClientConfig : Config
     {
-        std::string moq_uri;                     ///< MoQT URI such as moqt://<relay>[:port][/path?query]
+        std::string moq_uri;                     ///< MoQT URI such as moqt://relay[:port][/path?query]
     };
 
     struct ServerConfig : Config

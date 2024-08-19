@@ -954,6 +954,7 @@ INPUT                  =  docs/moq-api-main.md \
                           include/moqt/common.h \
                           include/moqt/config.h \
                           include/moqt/client.h \
+                          include/moqt/metrics.h \
                           include/moqt/server.h \
                           include/moqt/subscribe_track_handler.h \
                           include/moqt/publish_track_handler.h \
