@@ -1,23 +1,23 @@
 var classmoq_1_1transport_1_1_subscribe_track_handler =
 [
     [ "Error", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a0b6c05648e066aca89661463965ae68e", [
-      [ "OK", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a0b6c05648e066aca89661463965ae68eae0aa021e21dddbd6d8cecec71e9cf564", null ],
-      [ "NOT_AUTHORIZED", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a0b6c05648e066aca89661463965ae68eae4db4f5f832166a100de8888a273b4f2", null ],
-      [ "NOT_SUBSCRIBED", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a0b6c05648e066aca89661463965ae68ea60043f2e1809e49f6ec637e0323d271c", null ],
-      [ "NO_DATA", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a0b6c05648e066aca89661463965ae68eaee69335f36c559202930f685b01c009e", null ]
+      [ "kOk", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a0b6c05648e066aca89661463965ae68eae69fa9a656f76dd8a4d89f21992b2d3a", null ],
+      [ "kNotAuthorized", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a0b6c05648e066aca89661463965ae68ea94d644150606feeb2501ae2801a617ed", null ],
+      [ "kNotSubscribed", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a0b6c05648e066aca89661463965ae68ea92328fe39107890e5ea75689d9e5d32f", null ],
+      [ "kNoData", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a0b6c05648e066aca89661463965ae68ea50ec98d6918446dccb689557dd045b51", null ]
     ] ],
     [ "Status", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532", [
-      [ "OK", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532ae0aa021e21dddbd6d8cecec71e9cf564", null ],
-      [ "NOT_CONNECTED", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532ad91be9b5ceb9fe0af02b9b02413eccf8", null ],
-      [ "SUBSCRIBE_ERROR", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532aea24874d9426bdfaa8767bbe97c38bdb", null ],
-      [ "NOT_AUTHORIZED", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532ae4db4f5f832166a100de8888a273b4f2", null ],
-      [ "NOT_SUBSCRIBED", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532a60043f2e1809e49f6ec637e0323d271c", null ],
-      [ "PENDING_SUBSCRIBE_RESPONSE", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532ac14f52ecbf2d81fa6d1a7b5f3547af56", null ],
-      [ "SENDING_UNSUBSCRIBE", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532a87123187962fd8067b4ac055ae8577a9", null ]
+      [ "kOk", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532ae69fa9a656f76dd8a4d89f21992b2d3a", null ],
+      [ "kNotConnected", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532a32a54fa8629fe6e9cb3e265e959258d8", null ],
+      [ "kSubscribeError", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532a6eea58710b4bb41e1060ec0b21650de0", null ],
+      [ "kNotAuthorized", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532a94d644150606feeb2501ae2801a617ed", null ],
+      [ "kNotSubscribed", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532a92328fe39107890e5ea75689d9e5d32f", null ],
+      [ "kPendingSubscribeResponse", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532a0a3ab3e9715377a993aa8530a0a67cdc", null ],
+      [ "kSendingUnsubscribe", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532a0c00fa0c8dbc5959120d45bc8386979f", null ]
     ] ],
-    [ "SubscribeTrackHandler", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a988dab543f6b8e27a7790511e9dce6bd", null ],
-    [ "getStatus", "classmoq_1_1transport_1_1_subscribe_track_handler.html#af3dc87f7ee2a6b14f779e3ce24631e61", null ],
-    [ "objectReceived", "classmoq_1_1transport_1_1_subscribe_track_handler.html#acd50ab328b9c6448fb271c5660afde6f", null ],
-    [ "statusChanged", "classmoq_1_1transport_1_1_subscribe_track_handler.html#ae920480fb645b5e4d55bff6dea5fca7b", null ],
+    [ "SubscribeTrackHandler", "classmoq_1_1transport_1_1_subscribe_track_handler.html#af058d2df50dcfb8c7d052030f1b84859", null ],
+    [ "GetStatus", "classmoq_1_1transport_1_1_subscribe_track_handler.html#adf96f1e6778c525bd765afb8690427cd", null ],
+    [ "ObjectReceived", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a034cf67453f427cd5576f3603f0de75d", null ],
+    [ "StatusChanged", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a56fc8443d2f1867c21738c2abb0734b5", null ],
     [ "Transport", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a3d2e8a0836666771da7b79c3f6bc9ae0", null ]
 ];

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['trackmode_0',['TrackMode',['../classmoq_1_1transport_1_1_publish_track_handler.html#ae4a306de319dd1dd2f711fff779b741c',1,'moq::transport::PublishTrackHandler']]]
+  ['trackmode_0',['TrackMode',['../classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598e',1,'moq::transport::BaseTrackHandler']]]
 ];

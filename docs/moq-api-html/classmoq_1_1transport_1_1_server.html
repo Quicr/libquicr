@@ -104,7 +104,7 @@ $(function(){initNavTree('classmoq_1_1transport_1_1_server.html',''); initResiza
 </div><!--header-->
 <div class="contents">
 
-<p>MOQT <a class="el" href="classmoq_1_1transport_1_1_server.html" title="MOQT Server.">Server</a>.  
+<p>MoQT <a class="el" href="classmoq_1_1transport_1_1_server.html" title="MoQT Server.">Server</a>.  
  <a href="#details">More...</a></p>
 
 <p><code>#include &lt;<a class="el" href="server_8h_source.html">server.h</a>&gt;</code></p>
@@ -120,86 +120,86 @@ Inheritance diagram for moq::transport::Server:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:ae1521f4b21232f6bceb0f8e94aa17fe0" id="r_ae1521f4b21232f6bceb0f8e94aa17fe0"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae1521f4b21232f6bceb0f8e94aa17fe0">Server</a> (const <a class="el" href="structmoq_1_1transport_1_1_server_config.html">ServerConfig</a> &amp;cfg, const cantina::LoggerPointer &amp;logger)</td></tr>
-<tr class="memdesc:ae1521f4b21232f6bceb0f8e94aa17fe0"><td class="mdescLeft">&#160;</td><td class="mdescRight">MoQ <a class="el" href="classmoq_1_1transport_1_1_server.html" title="MOQT Server.">Server</a> constructor to create the MOQ server mode instance.  <br /></td></tr>
-<tr class="separator:ae1521f4b21232f6bceb0f8e94aa17fe0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a94c87c7df675a1d4a790dac85832e49f" id="r_a94c87c7df675a1d4a790dac85832e49f"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a94c87c7df675a1d4a790dac85832e49f">Server</a> (const <a class="el" href="structmoq_1_1transport_1_1_server_config.html">ServerConfig</a> &amp;cfg)</td></tr>
+<tr class="memdesc:a94c87c7df675a1d4a790dac85832e49f"><td class="mdescLeft">&#160;</td><td class="mdescRight">MoQ <a class="el" href="classmoq_1_1transport_1_1_server.html" title="MoQT Server.">Server</a> constructor to create the MOQ server mode instance.  <br /></td></tr>
+<tr class="separator:a94c87c7df675a1d4a790dac85832e49f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a642b9d9214241e51efded9a45b397c4c" id="r_a642b9d9214241e51efded9a45b397c4c"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a642b9d9214241e51efded9a45b397c4c">~Server</a> ()=default</td></tr>
 <tr class="separator:a642b9d9214241e51efded9a45b397c4c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab47f396f1b3f74aaa1c56a2b6e3ca396" id="r_ab47f396f1b3f74aaa1c56a2b6e3ca396"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95f">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab47f396f1b3f74aaa1c56a2b6e3ca396">start</a> ()</td></tr>
-<tr class="memdesc:ab47f396f1b3f74aaa1c56a2b6e3ca396"><td class="mdescLeft">&#160;</td><td class="mdescRight">Starts server transport thread to listen for new connections.  <br /></td></tr>
-<tr class="separator:ab47f396f1b3f74aaa1c56a2b6e3ca396"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9a6cc8c0ee194489f64c51edd1594f89" id="r_a9a6cc8c0ee194489f64c51edd1594f89"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9a6cc8c0ee194489f64c51edd1594f89">stop</a> ()</td></tr>
-<tr class="separator:a9a6cc8c0ee194489f64c51edd1594f89"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7c4d1389ee02faa0b2709906400b7215" id="r_a7c4d1389ee02faa0b2709906400b7215"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a7c4d1389ee02faa0b2709906400b7215">newConnection</a> (TransportConnId conn_id, const TransportRemote &amp;remote)=0</td></tr>
-<tr class="memdesc:a7c4d1389ee02faa0b2709906400b7215"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification on new connection.  <br /></td></tr>
-<tr class="separator:a7c4d1389ee02faa0b2709906400b7215"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aaa87e430da4847004232c933954c873e" id="r_aaa87e430da4847004232c933954c873e"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aaa87e430da4847004232c933954c873e">connectionChanged</a> (TransportConnId conn_id, TransportStatus <a class="el" href="classmoq_1_1transport_1_1_transport.html#acb0e3deeebb2370f5ca73dd904f2841b">status</a>)=0</td></tr>
-<tr class="memdesc:aaa87e430da4847004232c933954c873e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for connection status/state change.  <br /></td></tr>
-<tr class="separator:aaa87e430da4847004232c933954c873e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9eff38e63b8c74bd0fa511ce64b7a9e8" id="r_a9eff38e63b8c74bd0fa511ce64b7a9e8"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9eff38e63b8c74bd0fa511ce64b7a9e8">clientSetupReceived</a> (TransportConnId conn_id, messages::MoqClientSetup client_setup)=0</td></tr>
-<tr class="memdesc:a9eff38e63b8c74bd0fa511ce64b7a9e8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on client setup message.  <br /></td></tr>
-<tr class="separator:a9eff38e63b8c74bd0fa511ce64b7a9e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0a22986d4cfff71a56172e7b43e0ed8e" id="r_a0a22986d4cfff71a56172e7b43e0ed8e"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a0a22986d4cfff71a56172e7b43e0ed8e">announceReceived</a> (TransportConnId conn_id, const std::vector&lt; uint8_t &gt; &amp;track_namespace)=0</td></tr>
-<tr class="memdesc:a0a22986d4cfff71a56172e7b43e0ed8e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new announce received that needs to be authorized.  <br /></td></tr>
-<tr class="separator:a0a22986d4cfff71a56172e7b43e0ed8e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9d0f5f96e42bbeb402aacbfc88636bd3" id="r_a9d0f5f96e42bbeb402aacbfc88636bd3"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9d0f5f96e42bbeb402aacbfc88636bd3">unannounceReceived</a> (TransportConnId conn_id, const std::vector&lt; uint8_t &gt; &amp;track_namespace)=0</td></tr>
-<tr class="memdesc:a9d0f5f96e42bbeb402aacbfc88636bd3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for unannounce received.  <br /></td></tr>
-<tr class="separator:a9d0f5f96e42bbeb402aacbfc88636bd3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a196bb252509d686e3083da1663497a31" id="r_a196bb252509d686e3083da1663497a31"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a196bb252509d686e3083da1663497a31">subscribeReceived</a> (TransportConnId conn_id, uint64_t subscribe_id, const std::vector&lt; uint8_t &gt; &amp;track_namespace, const std::vector&lt; uint8_t &gt; &amp;track_name)=0</td></tr>
-<tr class="memdesc:a196bb252509d686e3083da1663497a31"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new subscribe received.  <br /></td></tr>
-<tr class="separator:a196bb252509d686e3083da1663497a31"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a413543762e583af8c61f5d993ec7eb60" id="r_a413543762e583af8c61f5d993ec7eb60"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a413543762e583af8c61f5d993ec7eb60">unsubscribeReceived</a> (TransportConnId conn_id, uint64_t subscribe_id)=0</td></tr>
-<tr class="memdesc:a413543762e583af8c61f5d993ec7eb60"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification on unsubscribe received.  <br /></td></tr>
-<tr class="separator:a413543762e583af8c61f5d993ec7eb60"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa5672cff2c489f2e26a58c7612826e0c" id="r_aa5672cff2c489f2e26a58c7612826e0c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95f">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa5672cff2c489f2e26a58c7612826e0c">Start</a> ()</td></tr>
+<tr class="memdesc:aa5672cff2c489f2e26a58c7612826e0c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Starts server transport thread to listen for new connections.  <br /></td></tr>
+<tr class="separator:aa5672cff2c489f2e26a58c7612826e0c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0f8ef4f5162919f5de68504513c98945" id="r_a0f8ef4f5162919f5de68504513c98945"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a0f8ef4f5162919f5de68504513c98945">Stop</a> ()</td></tr>
+<tr class="separator:a0f8ef4f5162919f5de68504513c98945"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0261a9adcd954fac332ecdf4b5afb8d9" id="r_a0261a9adcd954fac332ecdf4b5afb8d9"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a0261a9adcd954fac332ecdf4b5afb8d9">NewConnection</a> (TransportConnId conn_id, const TransportRemote &amp;remote)=0</td></tr>
+<tr class="memdesc:a0261a9adcd954fac332ecdf4b5afb8d9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification on new connection.  <br /></td></tr>
+<tr class="separator:a0261a9adcd954fac332ecdf4b5afb8d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7088915ed55f13077bf5303b44832e5c" id="r_a7088915ed55f13077bf5303b44832e5c"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a7088915ed55f13077bf5303b44832e5c">ConnectionChanged</a> (TransportConnId conn_id, TransportStatus status)=0</td></tr>
+<tr class="memdesc:a7088915ed55f13077bf5303b44832e5c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for connection status/state change.  <br /></td></tr>
+<tr class="separator:a7088915ed55f13077bf5303b44832e5c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a089b04c936e6fb740a89a4833b26ed1d" id="r_a089b04c936e6fb740a89a4833b26ed1d"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a089b04c936e6fb740a89a4833b26ed1d">ClientSetupReceived</a> (TransportConnId conn_id, messages::MoqClientSetup client_setup)=0</td></tr>
+<tr class="memdesc:a089b04c936e6fb740a89a4833b26ed1d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on client setup message.  <br /></td></tr>
+<tr class="separator:a089b04c936e6fb740a89a4833b26ed1d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a335943fb8803c6072bbac8e014816acb" id="r_a335943fb8803c6072bbac8e014816acb"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a335943fb8803c6072bbac8e014816acb">AnnounceReceived</a> (TransportConnId conn_id, const std::vector&lt; uint8_t &gt; &amp;track_namespace)=0</td></tr>
+<tr class="memdesc:a335943fb8803c6072bbac8e014816acb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new announce received that needs to be authorized.  <br /></td></tr>
+<tr class="separator:a335943fb8803c6072bbac8e014816acb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a070042696dfa90d9364aa028fd5b6396" id="r_a070042696dfa90d9364aa028fd5b6396"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a070042696dfa90d9364aa028fd5b6396">UnannounceReceived</a> (TransportConnId conn_id, const std::vector&lt; uint8_t &gt; &amp;track_namespace)=0</td></tr>
+<tr class="memdesc:a070042696dfa90d9364aa028fd5b6396"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for unannounce received.  <br /></td></tr>
+<tr class="separator:a070042696dfa90d9364aa028fd5b6396"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afbe836d7b5111b11fd1c588dcd233983" id="r_afbe836d7b5111b11fd1c588dcd233983"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#afbe836d7b5111b11fd1c588dcd233983">SubscribeReceived</a> (TransportConnId conn_id, uint64_t subscribe_id, const std::vector&lt; uint8_t &gt; &amp;track_namespace, const std::vector&lt; uint8_t &gt; &amp;track_name)=0</td></tr>
+<tr class="memdesc:afbe836d7b5111b11fd1c588dcd233983"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new subscribe received.  <br /></td></tr>
+<tr class="separator:afbe836d7b5111b11fd1c588dcd233983"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afc8cb5b48411c4275eb9d815cd469f61" id="r_afc8cb5b48411c4275eb9d815cd469f61"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#afc8cb5b48411c4275eb9d815cd469f61">UnsubscribeReceived</a> (TransportConnId conn_id, uint64_t subscribe_id)=0</td></tr>
+<tr class="memdesc:afc8cb5b48411c4275eb9d815cd469f61"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification on unsubscribe received.  <br /></td></tr>
+<tr class="separator:afc8cb5b48411c4275eb9d815cd469f61"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classmoq_1_1transport_1_1_transport"><td colspan="2" onclick="javascript:dynsection.toggleInherit('pub_methods_classmoq_1_1transport_1_1_transport')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classmoq_1_1transport_1_1_transport.html">moq::transport::Transport</a></td></tr>
 <tr class="memitem:a93c38be09ca30fe1f3599dbd2f641c04 inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_a93c38be09ca30fe1f3599dbd2f641c04"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a93c38be09ca30fe1f3599dbd2f641c04">Transport</a> ()=delete</td></tr>
 <tr class="separator:a93c38be09ca30fe1f3599dbd2f641c04 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac1d7221132b80c7b0a46a3db7e282a97 inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_ac1d7221132b80c7b0a46a3db7e282a97"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#ac1d7221132b80c7b0a46a3db7e282a97">Transport</a> (const <a class="el" href="structmoq_1_1transport_1_1_client_config.html">ClientConfig</a> &amp;cfg, const cantina::LoggerPointer &amp;logger)</td></tr>
-<tr class="memdesc:ac1d7221132b80c7b0a46a3db7e282a97 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classmoq_1_1transport_1_1_client.html" title="MOQT Client.">Client</a> mode Constructor to create the MOQ instance.  <br /></td></tr>
-<tr class="separator:ac1d7221132b80c7b0a46a3db7e282a97 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1d4881d0c5a49a95ca22f6fb691bfeff inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_a1d4881d0c5a49a95ca22f6fb691bfeff"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a1d4881d0c5a49a95ca22f6fb691bfeff">Transport</a> (const <a class="el" href="structmoq_1_1transport_1_1_server_config.html">ServerConfig</a> &amp;cfg, const cantina::LoggerPointer &amp;logger)</td></tr>
-<tr class="memdesc:a1d4881d0c5a49a95ca22f6fb691bfeff inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classmoq_1_1transport_1_1_server.html" title="MOQT Server.">Server</a> mode Constructor to create the MOQ instance.  <br /></td></tr>
-<tr class="separator:a1d4881d0c5a49a95ca22f6fb691bfeff inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4a82c05bdb4ff36373e2a8c26dbdf84e inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_a4a82c05bdb4ff36373e2a8c26dbdf84e"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a4a82c05bdb4ff36373e2a8c26dbdf84e">Transport</a> (const <a class="el" href="structmoq_1_1transport_1_1_client_config.html">ClientConfig</a> &amp;cfg)</td></tr>
+<tr class="memdesc:a4a82c05bdb4ff36373e2a8c26dbdf84e inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classmoq_1_1transport_1_1_client.html" title="MoQT Client.">Client</a> mode Constructor to create the MOQ instance.  <br /></td></tr>
+<tr class="separator:a4a82c05bdb4ff36373e2a8c26dbdf84e inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3fe69507f5b771492d5a23dc30779eea inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_a3fe69507f5b771492d5a23dc30779eea"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a3fe69507f5b771492d5a23dc30779eea">Transport</a> (const <a class="el" href="structmoq_1_1transport_1_1_server_config.html">ServerConfig</a> &amp;cfg)</td></tr>
+<tr class="memdesc:a3fe69507f5b771492d5a23dc30779eea inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classmoq_1_1transport_1_1_server.html" title="MoQT Server.">Server</a> mode Constructor to create the MOQ instance.  <br /></td></tr>
+<tr class="separator:a3fe69507f5b771492d5a23dc30779eea inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aed39b5a9d247e25031a9c6dbfa01c749 inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_aed39b5a9d247e25031a9c6dbfa01c749"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#aed39b5a9d247e25031a9c6dbfa01c749">~Transport</a> ()=default</td></tr>
 <tr class="separator:aed39b5a9d247e25031a9c6dbfa01c749 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad313827d39780111b8440d1b31c1ef36 inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_ad313827d39780111b8440d1b31c1ef36"><td class="memItemLeft" align="right" valign="top">std::optional&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#ad313827d39780111b8440d1b31c1ef36">subscribeTrack</a> (TransportConnId conn_id, std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt; track_delegate)</td></tr>
-<tr class="memdesc:ad313827d39780111b8440d1b31c1ef36 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="mdescLeft">&#160;</td><td class="mdescRight">Subscribe to a track.  <br /></td></tr>
-<tr class="separator:ad313827d39780111b8440d1b31c1ef36 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3808db4f9925203d91e3185a22be9fd4 inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_a3808db4f9925203d91e3185a22be9fd4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a3808db4f9925203d91e3185a22be9fd4">unsubscribeTrack</a> (TransportConnId conn_id, std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt; track_delegate)</td></tr>
-<tr class="memdesc:a3808db4f9925203d91e3185a22be9fd4 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="mdescLeft">&#160;</td><td class="mdescRight">Unsubscribe track.  <br /></td></tr>
-<tr class="separator:a3808db4f9925203d91e3185a22be9fd4 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a92d539ffd2ce707509c56f62a35dbae8 inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_a92d539ffd2ce707509c56f62a35dbae8"><td class="memItemLeft" align="right" valign="top">std::optional&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a92d539ffd2ce707509c56f62a35dbae8">publishTrack</a> (TransportConnId conn_id, std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_publish_track_handler.html">PublishTrackHandler</a> &gt; track_delegate)</td></tr>
-<tr class="memdesc:a92d539ffd2ce707509c56f62a35dbae8 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish to a track.  <br /></td></tr>
-<tr class="separator:a92d539ffd2ce707509c56f62a35dbae8 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab68a29e2621d0eb2043a1a51879798ff inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_ab68a29e2621d0eb2043a1a51879798ff"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#ab68a29e2621d0eb2043a1a51879798ff">unpublishTrack</a> (TransportConnId conn_id, std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_publish_track_handler.html">PublishTrackHandler</a> &gt; track_delegate)</td></tr>
-<tr class="memdesc:ab68a29e2621d0eb2043a1a51879798ff inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="mdescLeft">&#160;</td><td class="mdescRight">Unpublish track.  <br /></td></tr>
-<tr class="separator:ab68a29e2621d0eb2043a1a51879798ff inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acb0e3deeebb2370f5ca73dd904f2841b inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_acb0e3deeebb2370f5ca73dd904f2841b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95f">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#acb0e3deeebb2370f5ca73dd904f2841b">status</a> ()</td></tr>
-<tr class="memdesc:acb0e3deeebb2370f5ca73dd904f2841b inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the instance status.  <br /></td></tr>
-<tr class="separator:acb0e3deeebb2370f5ca73dd904f2841b inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1289da8905b94aee0925ff0ae252c9c9 inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_a1289da8905b94aee0925ff0ae252c9c9"><td class="memItemLeft" align="right" valign="top">std::optional&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a1289da8905b94aee0925ff0ae252c9c9">SubscribeTrack</a> (TransportConnId conn_id, std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt; track_delegate)</td></tr>
+<tr class="memdesc:a1289da8905b94aee0925ff0ae252c9c9 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="mdescLeft">&#160;</td><td class="mdescRight">Subscribe to a track.  <br /></td></tr>
+<tr class="separator:a1289da8905b94aee0925ff0ae252c9c9 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaa9f9f80f41666ab68795b15c0e75cd0 inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_aaa9f9f80f41666ab68795b15c0e75cd0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#aaa9f9f80f41666ab68795b15c0e75cd0">UnsubscribeTrack</a> (TransportConnId conn_id, std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt; track_delegate)</td></tr>
+<tr class="memdesc:aaa9f9f80f41666ab68795b15c0e75cd0 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="mdescLeft">&#160;</td><td class="mdescRight">Unsubscribe track.  <br /></td></tr>
+<tr class="separator:aaa9f9f80f41666ab68795b15c0e75cd0 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a26a89ce899c9d225bbf22a4621e86142 inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_a26a89ce899c9d225bbf22a4621e86142"><td class="memItemLeft" align="right" valign="top">std::optional&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a26a89ce899c9d225bbf22a4621e86142">PublishTrack</a> (TransportConnId conn_id, std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_publish_track_handler.html">PublishTrackHandler</a> &gt; track_delegate)</td></tr>
+<tr class="memdesc:a26a89ce899c9d225bbf22a4621e86142 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish to a track.  <br /></td></tr>
+<tr class="separator:a26a89ce899c9d225bbf22a4621e86142 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a28bdd804f0ee788208e8e1d8e90fa849 inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_a28bdd804f0ee788208e8e1d8e90fa849"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a28bdd804f0ee788208e8e1d8e90fa849">UnpublishTrack</a> (TransportConnId conn_id, std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_publish_track_handler.html">PublishTrackHandler</a> &gt; track_delegate)</td></tr>
+<tr class="memdesc:a28bdd804f0ee788208e8e1d8e90fa849 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="mdescLeft">&#160;</td><td class="mdescRight">Unpublish track.  <br /></td></tr>
+<tr class="separator:a28bdd804f0ee788208e8e1d8e90fa849 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af43aafd345b5c27044c986fd45789646 inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_af43aafd345b5c27044c986fd45789646"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95f">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#af43aafd345b5c27044c986fd45789646">GetStatus</a> ()</td></tr>
+<tr class="memdesc:af43aafd345b5c27044c986fd45789646 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the instance status.  <br /></td></tr>
+<tr class="separator:af43aafd345b5c27044c986fd45789646 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="inherited" name="inherited"></a>
 Additional Inherited Members</h2></td></tr>
 <tr class="inherit_header pub_types_classmoq_1_1transport_1_1_transport"><td colspan="2" onclick="javascript:dynsection.toggleInherit('pub_types_classmoq_1_1transport_1_1_transport')"><img src="closed.png" alt="-"/>&#160;Public Types inherited from <a class="el" href="classmoq_1_1transport_1_1_transport.html">moq::transport::Transport</a></td></tr>
 <tr class="memitem:a8c76c8e60a77de1e1e8700f29a48a95f inherit pub_types_classmoq_1_1transport_1_1_transport" id="r_a8c76c8e60a77de1e1e8700f29a48a95f"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95f">Status</a> : uint8_t { <br />
-&#160;&#160;<a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa2baa69eafc7204f3bd8648eba580c489">READY</a> = 0
-, <a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa9455b42e74acb2ec1c7292e54d28aff2">NOT_READY</a>
-, <a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fae8c0c70879b5895c615677261d64a1ee">INTERNAL_ERROR</a>
-, <a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa23060c3a67b5a18ec0efb6382babc565">INVALID_PARAMS</a>
+&#160;&#160;<a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa25d5606fe07425ea73f245c48612c039">kReady</a> = 0
+, <a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fab163982e1fe69b9bf0e76ebfcbf0d05a">kNotReady</a>
+, <a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fafcd417a134c251034b0d61b07c826394">kInternalError</a>
+, <a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa71aef956fd9cddbf4828a62cdb0e0054">kInvalidParams</a>
 , <br />
-&#160;&#160;<a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa93df17d814379cf5f39d0ea11c0cf9da">CLIENT_NOT_CONNECTED</a>
-, <a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa42019b327f663322abd2ba415f486ced">CLIENT_CONNECTING</a>
-, <a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa36378de9b5e644b84fd40a6fc6529243">CLIENT_FAILED_TO_CONNECT</a>
+&#160;&#160;<a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa187b89e08078bd1db68d86de88038285">kClientConnecting</a>
+, <a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fabb1e61c81d527a44c5336ea61f741703">kClientNotConnected</a>
+, <a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa0f5e17046fb4ddeee5de0b632f3c38c2">kClientFailedToConnect</a>
 <br />
  }</td></tr>
 <tr class="separator:a8c76c8e60a77de1e1e8700f29a48a95f inherit pub_types_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>MOQT <a class="el" href="classmoq_1_1transport_1_1_server.html" title="MOQT Server.">Server</a>. </p>
-<p>MOQT <a class="el" href="classmoq_1_1transport_1_1_server.html" title="MOQT Server.">Server</a> is the handler of the MOQT QUIC listening socket </p>
+<div class="textblock"><p>MoQT <a class="el" href="classmoq_1_1transport_1_1_server.html" title="MoQT Server.">Server</a>. </p>
+<p>MoQT <a class="el" href="classmoq_1_1transport_1_1_server.html" title="MoQT Server.">Server</a> is the handler of the MoQT QUIC listening socket </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="ae1521f4b21232f6bceb0f8e94aa17fe0" name="ae1521f4b21232f6bceb0f8e94aa17fe0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae1521f4b21232f6bceb0f8e94aa17fe0">&#9670;&#160;</a></span>Server()</h2>
+<a id="a94c87c7df675a1d4a790dac85832e49f" name="a94c87c7df675a1d4a790dac85832e49f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a94c87c7df675a1d4a790dac85832e49f">&#9670;&#160;</a></span>Server()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -210,12 +210,8 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="memname">moq::transport::Server::Server </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_server_config.html">ServerConfig</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>cfg</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_server_config.html">ServerConfig</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>cfg</em></span></td><td>)</td>
           <td></td>
-          <td class="paramtype">const cantina::LoggerPointer &amp;</td>          <td class="paramname"><span class="paramname"><em>logger</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -225,11 +221,10 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>MoQ <a class="el" href="classmoq_1_1transport_1_1_server.html" title="MOQT Server.">Server</a> constructor to create the MOQ server mode instance. </p>
+<p>MoQ <a class="el" href="classmoq_1_1transport_1_1_server.html" title="MoQT Server.">Server</a> constructor to create the MOQ server mode instance. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">cfg</td><td>MOQT <a class="el" href="classmoq_1_1transport_1_1_server.html" title="MOQT Server.">Server</a> Configuration </td></tr>
-    <tr><td class="paramname">logger</td><td>MOQT Log pointer to parent logger </td></tr>
+    <tr><td class="paramname">cfg</td><td>MoQT <a class="el" href="classmoq_1_1transport_1_1_server.html" title="MoQT Server.">Server</a> Configuration </td></tr>
   </table>
   </dd>
 </dl>
@@ -262,8 +257,8 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a0a22986d4cfff71a56172e7b43e0ed8e" name="a0a22986d4cfff71a56172e7b43e0ed8e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0a22986d4cfff71a56172e7b43e0ed8e">&#9670;&#160;</a></span>announceReceived()</h2>
+<a id="a335943fb8803c6072bbac8e014816acb" name="a335943fb8803c6072bbac8e014816acb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a335943fb8803c6072bbac8e014816acb">&#9670;&#160;</a></span>AnnounceReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -272,7 +267,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual bool moq::transport::Server::announceReceived </td>
+          <td class="memname">virtual bool moq::transport::Server::AnnounceReceived </td>
           <td>(</td>
           <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
         </tr>
@@ -301,8 +296,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a9eff38e63b8c74bd0fa511ce64b7a9e8" name="a9eff38e63b8c74bd0fa511ce64b7a9e8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9eff38e63b8c74bd0fa511ce64b7a9e8">&#9670;&#160;</a></span>clientSetupReceived()</h2>
+<a id="a089b04c936e6fb740a89a4833b26ed1d" name="a089b04c936e6fb740a89a4833b26ed1d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a089b04c936e6fb740a89a4833b26ed1d">&#9670;&#160;</a></span>ClientSetupReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -311,7 +306,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void moq::transport::Server::clientSetupReceived </td>
+          <td class="memname">virtual void moq::transport::Server::ClientSetupReceived </td>
           <td>(</td>
           <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
         </tr>
@@ -329,7 +324,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Callback on client setup message. </p>
-<p>In server mode, client will send a setup message on new connection. <a class="el" href="classmoq_1_1transport_1_1_server.html" title="MOQT Server.">Server</a> responds with server setup.</p>
+<p>In server mode, client will send a setup message on new connection. <a class="el" href="classmoq_1_1transport_1_1_server.html" title="MoQT Server.">Server</a> responds with server setup.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">conn_id</td><td><a class="el" href="classmoq_1_1transport_1_1_transport.html" title="MOQ Implementation supporting both client and server modes.">Transport</a> connection ID </td></tr>
@@ -340,8 +335,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="aaa87e430da4847004232c933954c873e" name="aaa87e430da4847004232c933954c873e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aaa87e430da4847004232c933954c873e">&#9670;&#160;</a></span>connectionChanged()</h2>
+<a id="a7088915ed55f13077bf5303b44832e5c" name="a7088915ed55f13077bf5303b44832e5c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7088915ed55f13077bf5303b44832e5c">&#9670;&#160;</a></span>ConnectionChanged()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -350,7 +345,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void moq::transport::Server::connectionChanged </td>
+          <td class="memname">virtual void moq::transport::Server::ConnectionChanged </td>
           <td>(</td>
           <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
         </tr>
@@ -379,8 +374,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a7c4d1389ee02faa0b2709906400b7215" name="a7c4d1389ee02faa0b2709906400b7215"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7c4d1389ee02faa0b2709906400b7215">&#9670;&#160;</a></span>newConnection()</h2>
+<a id="a0261a9adcd954fac332ecdf4b5afb8d9" name="a0261a9adcd954fac332ecdf4b5afb8d9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0261a9adcd954fac332ecdf4b5afb8d9">&#9670;&#160;</a></span>NewConnection()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -389,7 +384,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void moq::transport::Server::newConnection </td>
+          <td class="memname">virtual void moq::transport::Server::NewConnection </td>
           <td>(</td>
           <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
         </tr>
@@ -418,14 +413,14 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="ab47f396f1b3f74aaa1c56a2b6e3ca396" name="ab47f396f1b3f74aaa1c56a2b6e3ca396"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab47f396f1b3f74aaa1c56a2b6e3ca396">&#9670;&#160;</a></span>start()</h2>
+<a id="aa5672cff2c489f2e26a58c7612826e0c" name="aa5672cff2c489f2e26a58c7612826e0c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa5672cff2c489f2e26a58c7612826e0c">&#9670;&#160;</a></span>Start()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95f">Status</a> moq::transport::Server::start </td>
+          <td class="memname"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95f">Status</a> moq::transport::Server::Start </td>
           <td>(</td>
           <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
           <td></td>
@@ -439,8 +434,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a9a6cc8c0ee194489f64c51edd1594f89" name="a9a6cc8c0ee194489f64c51edd1594f89"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9a6cc8c0ee194489f64c51edd1594f89">&#9670;&#160;</a></span>stop()</h2>
+<a id="a0f8ef4f5162919f5de68504513c98945" name="a0f8ef4f5162919f5de68504513c98945"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0f8ef4f5162919f5de68504513c98945">&#9670;&#160;</a></span>Stop()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -449,7 +444,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void moq::transport::Server::stop </td>
+          <td class="memname">void moq::transport::Server::Stop </td>
           <td>(</td>
           <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
           <td></td>
@@ -465,8 +460,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a196bb252509d686e3083da1663497a31" name="a196bb252509d686e3083da1663497a31"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a196bb252509d686e3083da1663497a31">&#9670;&#160;</a></span>subscribeReceived()</h2>
+<a id="afbe836d7b5111b11fd1c588dcd233983" name="afbe836d7b5111b11fd1c588dcd233983"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afbe836d7b5111b11fd1c588dcd233983">&#9670;&#160;</a></span>SubscribeReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -475,7 +470,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual bool moq::transport::Server::subscribeReceived </td>
+          <td class="memname">virtual bool moq::transport::Server::SubscribeReceived </td>
           <td>(</td>
           <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
         </tr>
@@ -516,8 +511,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a9d0f5f96e42bbeb402aacbfc88636bd3" name="a9d0f5f96e42bbeb402aacbfc88636bd3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9d0f5f96e42bbeb402aacbfc88636bd3">&#9670;&#160;</a></span>unannounceReceived()</h2>
+<a id="a070042696dfa90d9364aa028fd5b6396" name="a070042696dfa90d9364aa028fd5b6396"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a070042696dfa90d9364aa028fd5b6396">&#9670;&#160;</a></span>UnannounceReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -526,7 +521,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void moq::transport::Server::unannounceReceived </td>
+          <td class="memname">virtual void moq::transport::Server::UnannounceReceived </td>
           <td>(</td>
           <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
         </tr>
@@ -554,8 +549,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a413543762e583af8c61f5d993ec7eb60" name="a413543762e583af8c61f5d993ec7eb60"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a413543762e583af8c61f5d993ec7eb60">&#9670;&#160;</a></span>unsubscribeReceived()</h2>
+<a id="afc8cb5b48411c4275eb9d815cd469f61" name="afc8cb5b48411c4275eb9d815cd469f61"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afc8cb5b48411c4275eb9d815cd469f61">&#9670;&#160;</a></span>UnsubscribeReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -564,7 +559,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void moq::transport::Server::unsubscribeReceived </td>
+          <td class="memname">virtual void moq::transport::Server::UnsubscribeReceived </td>
           <td>(</td>
           <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
         </tr>

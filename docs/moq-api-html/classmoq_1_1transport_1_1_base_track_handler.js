@@ -1,14 +1,20 @@
 var classmoq_1_1transport_1_1_base_track_handler =
 [
+    [ "TrackMode", "classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598e", [
+      [ "kDatagram", "classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598ea4bb84e10753a26c522752e5178df7c67", null ],
+      [ "kStreamPerObject", "classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598ea4e3e03fff4b2f1efbb17e3b6d1138c34", null ],
+      [ "kStreamPerGroup", "classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598ea2090d4af6fa9dbd62ccadb58933ec824", null ],
+      [ "kStreamPerTrack", "classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598eadf09fb233c57a1f2ba2e56279dd4aa37", null ]
+    ] ],
     [ "~BaseTrackHandler", "classmoq_1_1transport_1_1_base_track_handler.html#a13f266677d96952bf7dcda3792df741a", null ],
     [ "BaseTrackHandler", "classmoq_1_1transport_1_1_base_track_handler.html#aaa199b9bbfffbe33759086eabf7296e7", null ],
-    [ "BaseTrackHandler", "classmoq_1_1transport_1_1_base_track_handler.html#ad580212af86de72c2d8d7f44ca7ed02b", null ],
-    [ "getConnectionId", "classmoq_1_1transport_1_1_base_track_handler.html#a509fabaefaa6a4f955a8bfea73752585", null ],
-    [ "getSubscribeId", "classmoq_1_1transport_1_1_base_track_handler.html#afa0f834b15e048314bcf6414f71e3383", null ],
-    [ "getTrackAlias", "classmoq_1_1transport_1_1_base_track_handler.html#a05260eb30e2f2e46baa93eacaec10912", null ],
-    [ "getTrackName", "classmoq_1_1transport_1_1_base_track_handler.html#a788a678953dee31756e63ce404478309", null ],
-    [ "getTrackNamespace", "classmoq_1_1transport_1_1_base_track_handler.html#a6dae93fe4843513ff65d801d70cbf75a", null ],
-    [ "setSubscribeId", "classmoq_1_1transport_1_1_base_track_handler.html#aacf23b8a55dc6e21bfeaa3b1ef3e3f5e", null ],
-    [ "setTrackAlias", "classmoq_1_1transport_1_1_base_track_handler.html#a941a142251bbbae3340ae7b22d91bce7", null ],
-    [ "Core", "classmoq_1_1transport_1_1_base_track_handler.html#a4107254ac74f90d4f91e810d755b98c2", null ]
+    [ "BaseTrackHandler", "classmoq_1_1transport_1_1_base_track_handler.html#aaccdfa74a0fba055a772ee5ba62b53c6", null ],
+    [ "GetConnectionId", "classmoq_1_1transport_1_1_base_track_handler.html#a98c75f3ff838b6f8e7f9357009d456de", null ],
+    [ "GetSubscribeId", "classmoq_1_1transport_1_1_base_track_handler.html#a50b5e06b594882cdeda7cd18f5374682", null ],
+    [ "GetSubscribeId", "classmoq_1_1transport_1_1_base_track_handler.html#a13fde0189b20b4de2a2156dbf262b57d", null ],
+    [ "GetTrackAlias", "classmoq_1_1transport_1_1_base_track_handler.html#a1381a108f2b807c941ecbd17dc2ae8fb", null ],
+    [ "GetTrackName", "classmoq_1_1transport_1_1_base_track_handler.html#ab6d80b0334e5f451d0d34f6d7ae67771", null ],
+    [ "GetTrackNamespace", "classmoq_1_1transport_1_1_base_track_handler.html#a92498601c41687e5985afa1fa881c3c1", null ],
+    [ "SetTrackAlias", "classmoq_1_1transport_1_1_base_track_handler.html#ad3a4bf4ece4a43150dd7243c3d3e8d70", null ],
+    [ "Transport", "classmoq_1_1transport_1_1_base_track_handler.html#a3d2e8a0836666771da7b79c3f6bc9ae0", null ]
 ];

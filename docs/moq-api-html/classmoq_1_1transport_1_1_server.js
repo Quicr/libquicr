@@ -1,14 +1,14 @@
 var classmoq_1_1transport_1_1_server =
 [
-    [ "Server", "classmoq_1_1transport_1_1_server.html#ae1521f4b21232f6bceb0f8e94aa17fe0", null ],
+    [ "Server", "classmoq_1_1transport_1_1_server.html#a94c87c7df675a1d4a790dac85832e49f", null ],
     [ "~Server", "classmoq_1_1transport_1_1_server.html#a642b9d9214241e51efded9a45b397c4c", null ],
-    [ "announceReceived", "classmoq_1_1transport_1_1_server.html#a0a22986d4cfff71a56172e7b43e0ed8e", null ],
-    [ "clientSetupReceived", "classmoq_1_1transport_1_1_server.html#a9eff38e63b8c74bd0fa511ce64b7a9e8", null ],
-    [ "connectionChanged", "classmoq_1_1transport_1_1_server.html#aaa87e430da4847004232c933954c873e", null ],
-    [ "newConnection", "classmoq_1_1transport_1_1_server.html#a7c4d1389ee02faa0b2709906400b7215", null ],
-    [ "start", "classmoq_1_1transport_1_1_server.html#ab47f396f1b3f74aaa1c56a2b6e3ca396", null ],
-    [ "stop", "classmoq_1_1transport_1_1_server.html#a9a6cc8c0ee194489f64c51edd1594f89", null ],
-    [ "subscribeReceived", "classmoq_1_1transport_1_1_server.html#a196bb252509d686e3083da1663497a31", null ],
-    [ "unannounceReceived", "classmoq_1_1transport_1_1_server.html#a9d0f5f96e42bbeb402aacbfc88636bd3", null ],
-    [ "unsubscribeReceived", "classmoq_1_1transport_1_1_server.html#a413543762e583af8c61f5d993ec7eb60", null ]
+    [ "AnnounceReceived", "classmoq_1_1transport_1_1_server.html#a335943fb8803c6072bbac8e014816acb", null ],
+    [ "ClientSetupReceived", "classmoq_1_1transport_1_1_server.html#a089b04c936e6fb740a89a4833b26ed1d", null ],
+    [ "ConnectionChanged", "classmoq_1_1transport_1_1_server.html#a7088915ed55f13077bf5303b44832e5c", null ],
+    [ "NewConnection", "classmoq_1_1transport_1_1_server.html#a0261a9adcd954fac332ecdf4b5afb8d9", null ],
+    [ "Start", "classmoq_1_1transport_1_1_server.html#aa5672cff2c489f2e26a58c7612826e0c", null ],
+    [ "Stop", "classmoq_1_1transport_1_1_server.html#a0f8ef4f5162919f5de68504513c98945", null ],
+    [ "SubscribeReceived", "classmoq_1_1transport_1_1_server.html#afbe836d7b5111b11fd1c588dcd233983", null ],
+    [ "UnannounceReceived", "classmoq_1_1transport_1_1_server.html#a070042696dfa90d9364aa028fd5b6396", null ],
+    [ "UnsubscribeReceived", "classmoq_1_1transport_1_1_server.html#afc8cb5b48411c4275eb9d815cd469f61", null ]
 ];

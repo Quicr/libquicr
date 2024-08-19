@@ -111,7 +111,7 @@ Classes</h2></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">MoQ track base handler for tracks (subscribe/publish)  <a href="classmoq_1_1transport_1_1_base_track_handler.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_client.html">Client</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">MOQT <a class="el" href="classmoq_1_1transport_1_1_client.html" title="MOQT Client.">Client</a>.  <a href="classmoq_1_1transport_1_1_client.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">MoQT <a class="el" href="classmoq_1_1transport_1_1_client.html" title="MoQT Client.">Client</a>.  <a href="classmoq_1_1transport_1_1_client.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structmoq_1_1transport_1_1_client_config.html">ClientConfig</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -121,7 +121,7 @@ Classes</h2></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">MOQ track handler for published track.  <a href="classmoq_1_1transport_1_1_publish_track_handler.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_server.html">Server</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">MOQT <a class="el" href="classmoq_1_1transport_1_1_server.html" title="MOQT Server.">Server</a>.  <a href="classmoq_1_1transport_1_1_server.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">MoQT <a class="el" href="classmoq_1_1transport_1_1_server.html" title="MoQT Server.">Server</a>.  <a href="classmoq_1_1transport_1_1_server.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structmoq_1_1transport_1_1_server_config.html">ServerConfig</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -134,30 +134,46 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="typedef-members" name="typedef-members"></a>
 Typedefs</h2></td></tr>
-<tr class="memitem:a3448a04a6b05769bcd6d012988c8a23e" id="r_a3448a04a6b05769bcd6d012988c8a23e"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a3448a04a6b05769bcd6d012988c8a23e">bytes</a> = std::vector&lt;uint8_t&gt;</td></tr>
-<tr class="separator:a3448a04a6b05769bcd6d012988c8a23e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8346c913ef230120bc3fe0bd689acea3" id="r_a8346c913ef230120bc3fe0bd689acea3"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a8346c913ef230120bc3fe0bd689acea3">Bytes</a> = std::vector&lt;uint8_t&gt;</td></tr>
+<tr class="separator:a8346c913ef230120bc3fe0bd689acea3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a73d3e7e643e9f7190c7a3207d46bd436" id="r_a73d3e7e643e9f7190c7a3207d46bd436"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a> = Span&lt;uint8_t const&gt;</td></tr>
+<tr class="separator:a73d3e7e643e9f7190c7a3207d46bd436"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="var-members" name="var-members"></a>
 Variables</h2></td></tr>
-<tr class="memitem:a670677060ebb88486a3187cfef318985" id="r_a670677060ebb88486a3187cfef318985"><td class="memItemLeft" align="right" valign="top">constexpr uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a670677060ebb88486a3187cfef318985">MOQT_VERSION</a> = 0xff000004</td></tr>
-<tr class="memdesc:a670677060ebb88486a3187cfef318985"><td class="mdescLeft">&#160;</td><td class="mdescRight">draft-ietf-moq-transport-04  <br /></td></tr>
-<tr class="separator:a670677060ebb88486a3187cfef318985"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aafec8316927b00478d234ef943979ba5" id="r_aafec8316927b00478d234ef943979ba5"><td class="memItemLeft" align="right" valign="top">constexpr uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aafec8316927b00478d234ef943979ba5">SUBSCRIBE_EXPIRES</a> = 0</td></tr>
-<tr class="memdesc:aafec8316927b00478d234ef943979ba5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Never expires.  <br /></td></tr>
-<tr class="separator:aafec8316927b00478d234ef943979ba5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afa70181eb14db946c025e25521ce2978" id="r_afa70181eb14db946c025e25521ce2978"><td class="memItemLeft" align="right" valign="top">constexpr int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#afa70181eb14db946c025e25521ce2978">READ_LOOP_MAX_PER_STREAM</a></td></tr>
-<tr class="memdesc:afa70181eb14db946c025e25521ce2978"><td class="mdescLeft">&#160;</td><td class="mdescRight">Support packet/frame bursts, but do not allow starving other streams.  <br /></td></tr>
-<tr class="separator:afa70181eb14db946c025e25521ce2978"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae4d81d85477b2d2e25a3f568a9d87d49" id="r_ae4d81d85477b2d2e25a3f568a9d87d49"><td class="memItemLeft" align="right" valign="top">constexpr uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae4d81d85477b2d2e25a3f568a9d87d49">kMoqtVersion</a> = 0xff000004</td></tr>
+<tr class="memdesc:ae4d81d85477b2d2e25a3f568a9d87d49"><td class="mdescLeft">&#160;</td><td class="mdescRight">draft-ietf-moq-transport-04  <br /></td></tr>
+<tr class="separator:ae4d81d85477b2d2e25a3f568a9d87d49"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a30657595db509732c65f6d30c2cb97c0" id="r_a30657595db509732c65f6d30c2cb97c0"><td class="memItemLeft" align="right" valign="top">constexpr uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a30657595db509732c65f6d30c2cb97c0">kSubscribeExpires</a> = 0</td></tr>
+<tr class="memdesc:a30657595db509732c65f6d30c2cb97c0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Never expires.  <br /></td></tr>
+<tr class="separator:a30657595db509732c65f6d30c2cb97c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab71080b7123653baa32d80bcd1146ac3" id="r_ab71080b7123653baa32d80bcd1146ac3"><td class="memItemLeft" align="right" valign="top">constexpr int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab71080b7123653baa32d80bcd1146ac3">kReadLoopMaxPerStream</a> = 60</td></tr>
+<tr class="memdesc:ab71080b7123653baa32d80bcd1146ac3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Support packet/frame bursts, but do not allow starving other streams.  <br /></td></tr>
+<tr class="separator:ab71080b7123653baa32d80bcd1146ac3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Typedef Documentation</h2>
-<a id="a3448a04a6b05769bcd6d012988c8a23e" name="a3448a04a6b05769bcd6d012988c8a23e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3448a04a6b05769bcd6d012988c8a23e">&#9670;&#160;</a></span>bytes</h2>
+<a id="a8346c913ef230120bc3fe0bd689acea3" name="a8346c913ef230120bc3fe0bd689acea3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8346c913ef230120bc3fe0bd689acea3">&#9670;&#160;</a></span>Bytes</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">using <a class="el" href="#a3448a04a6b05769bcd6d012988c8a23e">moq::transport::bytes</a> = std::vector&lt;uint8_t&gt;</td>
+          <td class="memname">using <a class="el" href="#a8346c913ef230120bc3fe0bd689acea3">moq::transport::Bytes</a> = std::vector&lt;uint8_t&gt;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a73d3e7e643e9f7190c7a3207d46bd436" name="a73d3e7e643e9f7190c7a3207d46bd436"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a73d3e7e643e9f7190c7a3207d46bd436">&#9670;&#160;</a></span>BytesSpan</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="#a73d3e7e643e9f7190c7a3207d46bd436">moq::transport::BytesSpan</a> = Span&lt;uint8_t const&gt;</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -165,8 +181,8 @@ Variables</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Variable Documentation</h2>
-<a id="a670677060ebb88486a3187cfef318985" name="a670677060ebb88486a3187cfef318985"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a670677060ebb88486a3187cfef318985">&#9670;&#160;</a></span>MOQT_VERSION</h2>
+<a id="ae4d81d85477b2d2e25a3f568a9d87d49" name="ae4d81d85477b2d2e25a3f568a9d87d49"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae4d81d85477b2d2e25a3f568a9d87d49">&#9670;&#160;</a></span>kMoqtVersion</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -175,7 +191,7 @@ Variables</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">uint64_t moq::transport::MOQT_VERSION = 0xff000004</td>
+          <td class="memname">uint64_t moq::transport::kMoqtVersion = 0xff000004</td>
         </tr>
       </table>
   </td>
@@ -189,8 +205,8 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a id="afa70181eb14db946c025e25521ce2978" name="afa70181eb14db946c025e25521ce2978"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afa70181eb14db946c025e25521ce2978">&#9670;&#160;</a></span>READ_LOOP_MAX_PER_STREAM</h2>
+<a id="ab71080b7123653baa32d80bcd1146ac3" name="ab71080b7123653baa32d80bcd1146ac3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab71080b7123653baa32d80bcd1146ac3">&#9670;&#160;</a></span>kReadLoopMaxPerStream</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -199,7 +215,7 @@ Variables</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int moq::transport::READ_LOOP_MAX_PER_STREAM</td>
+          <td class="memname">int moq::transport::kReadLoopMaxPerStream = 60</td>
         </tr>
       </table>
   </td>
@@ -208,15 +224,13 @@ Variables</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<b>Initial value:</b><div class="fragment"><div class="line">=</div>
-<div class="line">      60</div>
-</div><!-- fragment -->
+
 <p>Support packet/frame bursts, but do not allow starving other streams. </p>
 
 </div>
 </div>
-<a id="aafec8316927b00478d234ef943979ba5" name="aafec8316927b00478d234ef943979ba5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aafec8316927b00478d234ef943979ba5">&#9670;&#160;</a></span>SUBSCRIBE_EXPIRES</h2>
+<a id="a30657595db509732c65f6d30c2cb97c0" name="a30657595db509732c65f6d30c2cb97c0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a30657595db509732c65f6d30c2cb97c0">&#9670;&#160;</a></span>kSubscribeExpires</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -225,7 +239,7 @@ Variables</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">uint64_t moq::transport::SUBSCRIBE_EXPIRES = 0</td>
+          <td class="memname">uint64_t moq::transport::kSubscribeExpires = 0</td>
         </tr>
       </table>
   </td>

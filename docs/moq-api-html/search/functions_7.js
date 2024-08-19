@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['publishobject_0',['publishObject',['../classmoq_1_1transport_1_1_publish_track_handler.html#a931995e075bcc9317760c9ed374ed5f8',1,'moq::transport::PublishTrackHandler::publishObject(const uint64_t group_id, const uint64_t object_id, std::span&lt; const uint8_t &gt; object, uint8_t priority, uint32_t ttl)'],['../classmoq_1_1transport_1_1_publish_track_handler.html#a32d7e145e9d639a97ee87276f204d2f8',1,'moq::transport::PublishTrackHandler::publishObject(const uint64_t group_id, const uint64_t object_id, std::span&lt; const uint8_t &gt; object)'],['../classmoq_1_1transport_1_1_publish_track_handler.html#a76e89bc611855d7796b298240f04865b',1,'moq::transport::PublishTrackHandler::publishObject(const uint64_t group_id, const uint64_t object_id, std::span&lt; const uint8_t &gt; object, uint32_t ttl)'],['../classmoq_1_1transport_1_1_publish_track_handler.html#ab467b72a0ef42e79b225a7256ebe99dc',1,'moq::transport::PublishTrackHandler::publishObject(const uint64_t group_id, const uint64_t object_id, std::span&lt; const uint8_t &gt; object, uint8_t priority)']]],
-  ['publishtrack_1',['publishTrack',['../classmoq_1_1transport_1_1_transport.html#a92d539ffd2ce707509c56f62a35dbae8',1,'moq::transport::Transport']]],
-  ['publishtrackhandler_2',['PublishTrackHandler',['../classmoq_1_1transport_1_1_publish_track_handler.html#a47fff8ae2fe5d0bd6275e83301a460b5',1,'moq::transport::PublishTrackHandler']]]
+  ['publishobject_0',['PublishObject',['../classmoq_1_1transport_1_1_publish_track_handler.html#a42323a060e072755418bce59f7158630',1,'moq::transport::PublishTrackHandler']]],
+  ['publishtrack_1',['PublishTrack',['../classmoq_1_1transport_1_1_transport.html#a26a89ce899c9d225bbf22a4621e86142',1,'moq::transport::Transport']]],
+  ['publishtrackhandler_2',['PublishTrackHandler',['../classmoq_1_1transport_1_1_publish_track_handler.html#af947122d275c5eab99208103913159e5',1,'moq::transport::PublishTrackHandler']]]
 ];

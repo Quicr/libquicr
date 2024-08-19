@@ -1,9 +1,9 @@
 var searchData=
 [
-  ['getconnectionid_0',['getConnectionId',['../classmoq_1_1transport_1_1_base_track_handler.html#a509fabaefaa6a4f955a8bfea73752585',1,'moq::transport::BaseTrackHandler']]],
-  ['getstatus_1',['getStatus',['../classmoq_1_1transport_1_1_subscribe_track_handler.html#af3dc87f7ee2a6b14f779e3ce24631e61',1,'moq::transport::SubscribeTrackHandler::getStatus()'],['../classmoq_1_1transport_1_1_publish_track_handler.html#a1cafa5c3db3e5737cf0ec0a8ba527a88',1,'moq::transport::PublishTrackHandler::getStatus()']]],
-  ['getsubscribeid_2',['getSubscribeId',['../classmoq_1_1transport_1_1_base_track_handler.html#afa0f834b15e048314bcf6414f71e3383',1,'moq::transport::BaseTrackHandler']]],
-  ['gettrackalias_3',['getTrackAlias',['../classmoq_1_1transport_1_1_base_track_handler.html#a05260eb30e2f2e46baa93eacaec10912',1,'moq::transport::BaseTrackHandler']]],
-  ['gettrackname_4',['getTrackName',['../classmoq_1_1transport_1_1_base_track_handler.html#a788a678953dee31756e63ce404478309',1,'moq::transport::BaseTrackHandler']]],
-  ['gettracknamespace_5',['getTrackNamespace',['../classmoq_1_1transport_1_1_base_track_handler.html#a6dae93fe4843513ff65d801d70cbf75a',1,'moq::transport::BaseTrackHandler']]]
+  ['getconnectionid_0',['GetConnectionId',['../classmoq_1_1transport_1_1_base_track_handler.html#a98c75f3ff838b6f8e7f9357009d456de',1,'moq::transport::BaseTrackHandler']]],
+  ['getstatus_1',['GetStatus',['../classmoq_1_1transport_1_1_transport.html#af43aafd345b5c27044c986fd45789646',1,'moq::transport::Transport::GetStatus()'],['../classmoq_1_1transport_1_1_subscribe_track_handler.html#adf96f1e6778c525bd765afb8690427cd',1,'moq::transport::SubscribeTrackHandler::GetStatus()'],['../classmoq_1_1transport_1_1_publish_track_handler.html#ae293712df5916126b5c497401895e2bf',1,'moq::transport::PublishTrackHandler::GetStatus()']]],
+  ['getsubscribeid_2',['GetSubscribeId',['../classmoq_1_1transport_1_1_base_track_handler.html#a13fde0189b20b4de2a2156dbf262b57d',1,'moq::transport::BaseTrackHandler::GetSubscribeId(std::optional&lt; uint64_t &gt; subscribe_id)'],['../classmoq_1_1transport_1_1_base_track_handler.html#a50b5e06b594882cdeda7cd18f5374682',1,'moq::transport::BaseTrackHandler::GetSubscribeId()']]],
+  ['gettrackalias_3',['GetTrackAlias',['../classmoq_1_1transport_1_1_base_track_handler.html#a1381a108f2b807c941ecbd17dc2ae8fb',1,'moq::transport::BaseTrackHandler']]],
+  ['gettrackname_4',['GetTrackName',['../classmoq_1_1transport_1_1_base_track_handler.html#ab6d80b0334e5f451d0d34f6d7ae67771',1,'moq::transport::BaseTrackHandler']]],
+  ['gettracknamespace_5',['GetTrackNamespace',['../classmoq_1_1transport_1_1_base_track_handler.html#a92498601c41687e5985afa1fa881c3c1',1,'moq::transport::BaseTrackHandler']]]
 ];

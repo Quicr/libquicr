@@ -98,6 +98,7 @@ $(function(){initNavTree('classmoq_1_1transport_1_1_base_track_handler.html','')
 
 <div class="header">
   <div class="summary">
+<a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="classmoq_1_1transport_1_1_base_track_handler-members.html">List of all members</a>  </div>
@@ -120,44 +121,86 @@ Inheritance diagram for moq::transport::BaseTrackHandler:</div>
   </map>
 </div></div>
 <table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-types" name="pub-types"></a>
+Public Types</h2></td></tr>
+<tr class="memitem:a5b6888694dddaa5c6c71662d7324598e" id="r_a5b6888694dddaa5c6c71662d7324598e"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a5b6888694dddaa5c6c71662d7324598e">TrackMode</a> : uint8_t { <a class="el" href="#a5b6888694dddaa5c6c71662d7324598ea4bb84e10753a26c522752e5178df7c67">kDatagram</a>
+, <a class="el" href="#a5b6888694dddaa5c6c71662d7324598ea4e3e03fff4b2f1efbb17e3b6d1138c34">kStreamPerObject</a>
+, <a class="el" href="#a5b6888694dddaa5c6c71662d7324598ea2090d4af6fa9dbd62ccadb58933ec824">kStreamPerGroup</a>
+, <a class="el" href="#a5b6888694dddaa5c6c71662d7324598eadf09fb233c57a1f2ba2e56279dd4aa37">kStreamPerTrack</a>
+ }</td></tr>
+<tr class="memdesc:a5b6888694dddaa5c6c71662d7324598e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Track mode object of object published or received.  <a href="#a5b6888694dddaa5c6c71662d7324598e">More...</a><br /></td></tr>
+<tr class="separator:a5b6888694dddaa5c6c71662d7324598e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a13f266677d96952bf7dcda3792df741a" id="r_a13f266677d96952bf7dcda3792df741a"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a13f266677d96952bf7dcda3792df741a">~BaseTrackHandler</a> ()=default</td></tr>
 <tr class="separator:a13f266677d96952bf7dcda3792df741a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaa199b9bbfffbe33759086eabf7296e7" id="r_aaa199b9bbfffbe33759086eabf7296e7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aaa199b9bbfffbe33759086eabf7296e7">BaseTrackHandler</a> ()=delete</td></tr>
 <tr class="separator:aaa199b9bbfffbe33759086eabf7296e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a941a142251bbbae3340ae7b22d91bce7" id="r_a941a142251bbbae3340ae7b22d91bce7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a941a142251bbbae3340ae7b22d91bce7">setTrackAlias</a> (uint64_t track_alias)</td></tr>
-<tr class="memdesc:a941a142251bbbae3340ae7b22d91bce7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the track alias.  <br /></td></tr>
-<tr class="separator:a941a142251bbbae3340ae7b22d91bce7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a05260eb30e2f2e46baa93eacaec10912" id="r_a05260eb30e2f2e46baa93eacaec10912"><td class="memItemLeft" align="right" valign="top">std::optional&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a05260eb30e2f2e46baa93eacaec10912">getTrackAlias</a> ()</td></tr>
-<tr class="memdesc:a05260eb30e2f2e46baa93eacaec10912"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the track alias.  <br /></td></tr>
-<tr class="separator:a05260eb30e2f2e46baa93eacaec10912"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aacf23b8a55dc6e21bfeaa3b1ef3e3f5e" id="r_aacf23b8a55dc6e21bfeaa3b1ef3e3f5e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aacf23b8a55dc6e21bfeaa3b1ef3e3f5e">setSubscribeId</a> (std::optional&lt; uint64_t &gt; subscribe_id)</td></tr>
-<tr class="memdesc:aacf23b8a55dc6e21bfeaa3b1ef3e3f5e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the subscribe ID.  <br /></td></tr>
-<tr class="separator:aacf23b8a55dc6e21bfeaa3b1ef3e3f5e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afa0f834b15e048314bcf6414f71e3383" id="r_afa0f834b15e048314bcf6414f71e3383"><td class="memItemLeft" align="right" valign="top">std::optional&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#afa0f834b15e048314bcf6414f71e3383">getSubscribeId</a> ()</td></tr>
-<tr class="memdesc:afa0f834b15e048314bcf6414f71e3383"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the subscribe ID.  <br /></td></tr>
-<tr class="separator:afa0f834b15e048314bcf6414f71e3383"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6dae93fe4843513ff65d801d70cbf75a" id="r_a6dae93fe4843513ff65d801d70cbf75a"><td class="memItemLeft" align="right" valign="top">std::span&lt; uint8_t const &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a6dae93fe4843513ff65d801d70cbf75a">getTrackNamespace</a> ()</td></tr>
-<tr class="memdesc:a6dae93fe4843513ff65d801d70cbf75a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the track namespace.  <br /></td></tr>
-<tr class="separator:a6dae93fe4843513ff65d801d70cbf75a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a788a678953dee31756e63ce404478309" id="r_a788a678953dee31756e63ce404478309"><td class="memItemLeft" align="right" valign="top">std::span&lt; uint8_t const &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a788a678953dee31756e63ce404478309">getTrackName</a> ()</td></tr>
-<tr class="memdesc:a788a678953dee31756e63ce404478309"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the track name.  <br /></td></tr>
-<tr class="separator:a788a678953dee31756e63ce404478309"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a509fabaefaa6a4f955a8bfea73752585" id="r_a509fabaefaa6a4f955a8bfea73752585"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a509fabaefaa6a4f955a8bfea73752585">getConnectionId</a> ()</td></tr>
-<tr class="memdesc:a509fabaefaa6a4f955a8bfea73752585"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the connection ID.  <br /></td></tr>
-<tr class="separator:a509fabaefaa6a4f955a8bfea73752585"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad3a4bf4ece4a43150dd7243c3d3e8d70" id="r_ad3a4bf4ece4a43150dd7243c3d3e8d70"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad3a4bf4ece4a43150dd7243c3d3e8d70">SetTrackAlias</a> (uint64_t track_alias)</td></tr>
+<tr class="memdesc:ad3a4bf4ece4a43150dd7243c3d3e8d70"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the track alias.  <br /></td></tr>
+<tr class="separator:ad3a4bf4ece4a43150dd7243c3d3e8d70"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1381a108f2b807c941ecbd17dc2ae8fb" id="r_a1381a108f2b807c941ecbd17dc2ae8fb"><td class="memItemLeft" align="right" valign="top">std::optional&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a1381a108f2b807c941ecbd17dc2ae8fb">GetTrackAlias</a> ()</td></tr>
+<tr class="memdesc:a1381a108f2b807c941ecbd17dc2ae8fb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the track alias.  <br /></td></tr>
+<tr class="separator:a1381a108f2b807c941ecbd17dc2ae8fb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a13fde0189b20b4de2a2156dbf262b57d" id="r_a13fde0189b20b4de2a2156dbf262b57d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a13fde0189b20b4de2a2156dbf262b57d">GetSubscribeId</a> (std::optional&lt; uint64_t &gt; subscribe_id)</td></tr>
+<tr class="memdesc:a13fde0189b20b4de2a2156dbf262b57d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the subscribe ID.  <br /></td></tr>
+<tr class="separator:a13fde0189b20b4de2a2156dbf262b57d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a50b5e06b594882cdeda7cd18f5374682" id="r_a50b5e06b594882cdeda7cd18f5374682"><td class="memItemLeft" align="right" valign="top">std::optional&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a50b5e06b594882cdeda7cd18f5374682">GetSubscribeId</a> ()</td></tr>
+<tr class="memdesc:a50b5e06b594882cdeda7cd18f5374682"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the subscribe ID.  <br /></td></tr>
+<tr class="separator:a50b5e06b594882cdeda7cd18f5374682"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a92498601c41687e5985afa1fa881c3c1" id="r_a92498601c41687e5985afa1fa881c3c1"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a92498601c41687e5985afa1fa881c3c1">GetTrackNamespace</a> ()</td></tr>
+<tr class="memdesc:a92498601c41687e5985afa1fa881c3c1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the track namespace.  <br /></td></tr>
+<tr class="separator:a92498601c41687e5985afa1fa881c3c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab6d80b0334e5f451d0d34f6d7ae67771" id="r_ab6d80b0334e5f451d0d34f6d7ae67771"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab6d80b0334e5f451d0d34f6d7ae67771">GetTrackName</a> ()</td></tr>
+<tr class="memdesc:ab6d80b0334e5f451d0d34f6d7ae67771"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the track name.  <br /></td></tr>
+<tr class="separator:ab6d80b0334e5f451d0d34f6d7ae67771"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a98c75f3ff838b6f8e7f9357009d456de" id="r_a98c75f3ff838b6f8e7f9357009d456de"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a98c75f3ff838b6f8e7f9357009d456de">GetConnectionId</a> ()</td></tr>
+<tr class="memdesc:a98c75f3ff838b6f8e7f9357009d456de"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the connection ID.  <br /></td></tr>
+<tr class="separator:a98c75f3ff838b6f8e7f9357009d456de"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-methods" name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:ad580212af86de72c2d8d7f44ca7ed02b" id="r_ad580212af86de72c2d8d7f44ca7ed02b"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad580212af86de72c2d8d7f44ca7ed02b">BaseTrackHandler</a> (const <a class="el" href="namespacemoq_1_1transport.html#a3448a04a6b05769bcd6d012988c8a23e">bytes</a> &amp;track_namespace, const <a class="el" href="namespacemoq_1_1transport.html#a3448a04a6b05769bcd6d012988c8a23e">bytes</a> &amp;track_name, const cantina::LoggerPointer &amp;logger)</td></tr>
-<tr class="memdesc:ad580212af86de72c2d8d7f44ca7ed02b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Track delegate constructor.  <br /></td></tr>
-<tr class="separator:ad580212af86de72c2d8d7f44ca7ed02b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaccdfa74a0fba055a772ee5ba62b53c6" id="r_aaccdfa74a0fba055a772ee5ba62b53c6"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aaccdfa74a0fba055a772ee5ba62b53c6">BaseTrackHandler</a> (const <a class="el" href="namespacemoq_1_1transport.html#a8346c913ef230120bc3fe0bd689acea3">Bytes</a> &amp;track_namespace, const <a class="el" href="namespacemoq_1_1transport.html#a8346c913ef230120bc3fe0bd689acea3">Bytes</a> &amp;track_name)</td></tr>
+<tr class="memdesc:aaccdfa74a0fba055a772ee5ba62b53c6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Track delegate constructor.  <br /></td></tr>
+<tr class="separator:aaccdfa74a0fba055a772ee5ba62b53c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>MoQ track base handler for tracks (subscribe/publish) </p>
 <p>Base MoQ track handler </p>
-</div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+</div><h2 class="groupheader">Member Enumeration Documentation</h2>
+<a id="a5b6888694dddaa5c6c71662d7324598e" name="a5b6888694dddaa5c6c71662d7324598e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5b6888694dddaa5c6c71662d7324598e">&#9670;&#160;</a></span>TrackMode</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum class <a class="el" href="#a5b6888694dddaa5c6c71662d7324598e">moq::transport::BaseTrackHandler::TrackMode</a> : uint8_t</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">strong</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Track mode object of object published or received. </p>
+<p>QUIC stream handling mode used to send objects or how object was received </p>
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a5b6888694dddaa5c6c71662d7324598ea4bb84e10753a26c522752e5178df7c67" name="a5b6888694dddaa5c6c71662d7324598ea4bb84e10753a26c522752e5178df7c67"></a>kDatagram&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a5b6888694dddaa5c6c71662d7324598ea4e3e03fff4b2f1efbb17e3b6d1138c34" name="a5b6888694dddaa5c6c71662d7324598ea4e3e03fff4b2f1efbb17e3b6d1138c34"></a>kStreamPerObject&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a5b6888694dddaa5c6c71662d7324598ea2090d4af6fa9dbd62ccadb58933ec824" name="a5b6888694dddaa5c6c71662d7324598ea2090d4af6fa9dbd62ccadb58933ec824"></a>kStreamPerGroup&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a5b6888694dddaa5c6c71662d7324598eadf09fb233c57a1f2ba2e56279dd4aa37" name="a5b6888694dddaa5c6c71662d7324598eadf09fb233c57a1f2ba2e56279dd4aa37"></a>kStreamPerTrack&#160;</td><td class="fielddoc"></td></tr>
+</table>
+
+</div>
+</div>
+<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a13f266677d96952bf7dcda3792df741a" name="a13f266677d96952bf7dcda3792df741a"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a13f266677d96952bf7dcda3792df741a">&#9670;&#160;</a></span>~BaseTrackHandler()</h2>
 
@@ -208,8 +251,8 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="ad580212af86de72c2d8d7f44ca7ed02b" name="ad580212af86de72c2d8d7f44ca7ed02b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad580212af86de72c2d8d7f44ca7ed02b">&#9670;&#160;</a></span>BaseTrackHandler() <span class="overload">[2/2]</span></h2>
+<a id="aaccdfa74a0fba055a772ee5ba62b53c6" name="aaccdfa74a0fba055a772ee5ba62b53c6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaccdfa74a0fba055a772ee5ba62b53c6">&#9670;&#160;</a></span>BaseTrackHandler() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -220,17 +263,12 @@ Protected Member Functions</h2></td></tr>
         <tr>
           <td class="memname">moq::transport::BaseTrackHandler::BaseTrackHandler </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="namespacemoq_1_1transport.html#a3448a04a6b05769bcd6d012988c8a23e">bytes</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_namespace</em></span>, </td>
+          <td class="paramtype">const <a class="el" href="namespacemoq_1_1transport.html#a8346c913ef230120bc3fe0bd689acea3">Bytes</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_namespace</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="namespacemoq_1_1transport.html#a3448a04a6b05769bcd6d012988c8a23e">bytes</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_name</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const cantina::LoggerPointer &amp;</td>          <td class="paramname"><span class="paramname"><em>logger</em></span>&#160;)</td>
+          <td class="paramtype">const <a class="el" href="namespacemoq_1_1transport.html#a8346c913ef230120bc3fe0bd689acea3">Bytes</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_name</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -241,12 +279,19 @@ Protected Member Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Track delegate constructor. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">track_namespace</td><td>Opaque binary array of bytes track namespace </td></tr>
+    <tr><td class="paramname">track_name</td><td>Opaque binary array of bytes track name </td></tr>
+  </table>
+  </dd>
+</dl>
 
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a509fabaefaa6a4f955a8bfea73752585" name="a509fabaefaa6a4f955a8bfea73752585"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a509fabaefaa6a4f955a8bfea73752585">&#9670;&#160;</a></span>getConnectionId()</h2>
+<a id="a98c75f3ff838b6f8e7f9357009d456de" name="a98c75f3ff838b6f8e7f9357009d456de"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a98c75f3ff838b6f8e7f9357009d456de">&#9670;&#160;</a></span>GetConnectionId()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -255,7 +300,7 @@ Protected Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">uint64_t moq::transport::BaseTrackHandler::getConnectionId </td>
+          <td class="memname">uint64_t moq::transport::BaseTrackHandler::GetConnectionId </td>
           <td>(</td>
           <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
           <td></td>
@@ -272,8 +317,8 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="afa0f834b15e048314bcf6414f71e3383" name="afa0f834b15e048314bcf6414f71e3383"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afa0f834b15e048314bcf6414f71e3383">&#9670;&#160;</a></span>getSubscribeId()</h2>
+<a id="a50b5e06b594882cdeda7cd18f5374682" name="a50b5e06b594882cdeda7cd18f5374682"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a50b5e06b594882cdeda7cd18f5374682">&#9670;&#160;</a></span>GetSubscribeId() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -282,7 +327,7 @@ Protected Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">std::optional&lt; uint64_t &gt; moq::transport::BaseTrackHandler::getSubscribeId </td>
+          <td class="memname">std::optional&lt; uint64_t &gt; moq::transport::BaseTrackHandler::GetSubscribeId </td>
           <td>(</td>
           <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
           <td></td>
@@ -300,8 +345,8 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a05260eb30e2f2e46baa93eacaec10912" name="a05260eb30e2f2e46baa93eacaec10912"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a05260eb30e2f2e46baa93eacaec10912">&#9670;&#160;</a></span>getTrackAlias()</h2>
+<a id="a13fde0189b20b4de2a2156dbf262b57d" name="a13fde0189b20b4de2a2156dbf262b57d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a13fde0189b20b4de2a2156dbf262b57d">&#9670;&#160;</a></span>GetSubscribeId() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -310,91 +355,7 @@ Protected Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">std::optional&lt; uint64_t &gt; moq::transport::BaseTrackHandler::getTrackAlias </td>
-          <td>(</td>
-          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Get the track alias. </p>
-<dl class="section return"><dt>Returns</dt><dd>Track alias as an optional. Track alias may not be set yet. If not set, nullopt will be returned. </dd></dl>
-
-</div>
-</div>
-<a id="a788a678953dee31756e63ce404478309" name="a788a678953dee31756e63ce404478309"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a788a678953dee31756e63ce404478309">&#9670;&#160;</a></span>getTrackName()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::span&lt; uint8_t const  &gt; moq::transport::BaseTrackHandler::getTrackName </td>
-          <td>(</td>
-          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Get the track name. </p>
-<dl class="section return"><dt>Returns</dt><dd>span of track name </dd></dl>
-
-</div>
-</div>
-<a id="a6dae93fe4843513ff65d801d70cbf75a" name="a6dae93fe4843513ff65d801d70cbf75a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6dae93fe4843513ff65d801d70cbf75a">&#9670;&#160;</a></span>getTrackNamespace()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::span&lt; uint8_t const  &gt; moq::transport::BaseTrackHandler::getTrackNamespace </td>
-          <td>(</td>
-          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Get the track namespace. </p>
-<dl class="section return"><dt>Returns</dt><dd>span of track namespace </dd></dl>
-
-</div>
-</div>
-<a id="aacf23b8a55dc6e21bfeaa3b1ef3e3f5e" name="aacf23b8a55dc6e21bfeaa3b1ef3e3f5e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aacf23b8a55dc6e21bfeaa3b1ef3e3f5e">&#9670;&#160;</a></span>setSubscribeId()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void moq::transport::BaseTrackHandler::setSubscribeId </td>
+          <td class="memname">void moq::transport::BaseTrackHandler::GetSubscribeId </td>
           <td>(</td>
           <td class="paramtype">std::optional&lt; uint64_t &gt;</td>          <td class="paramname"><span class="paramname"><em>subscribe_id</em></span></td><td>)</td>
           <td></td>
@@ -418,8 +379,8 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a941a142251bbbae3340ae7b22d91bce7" name="a941a142251bbbae3340ae7b22d91bce7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a941a142251bbbae3340ae7b22d91bce7">&#9670;&#160;</a></span>setTrackAlias()</h2>
+<a id="a1381a108f2b807c941ecbd17dc2ae8fb" name="a1381a108f2b807c941ecbd17dc2ae8fb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1381a108f2b807c941ecbd17dc2ae8fb">&#9670;&#160;</a></span>GetTrackAlias()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -428,7 +389,91 @@ Protected Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void moq::transport::BaseTrackHandler::setTrackAlias </td>
+          <td class="memname">std::optional&lt; uint64_t &gt; moq::transport::BaseTrackHandler::GetTrackAlias </td>
+          <td>(</td>
+          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get the track alias. </p>
+<dl class="section return"><dt>Returns</dt><dd>Track alias as an optional. Track alias may not be set yet. If not set, nullopt will be returned. </dd></dl>
+
+</div>
+</div>
+<a id="ab6d80b0334e5f451d0d34f6d7ae67771" name="ab6d80b0334e5f451d0d34f6d7ae67771"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab6d80b0334e5f451d0d34f6d7ae67771">&#9670;&#160;</a></span>GetTrackName()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a> moq::transport::BaseTrackHandler::GetTrackName </td>
+          <td>(</td>
+          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get the track name. </p>
+<dl class="section return"><dt>Returns</dt><dd>span of track name </dd></dl>
+
+</div>
+</div>
+<a id="a92498601c41687e5985afa1fa881c3c1" name="a92498601c41687e5985afa1fa881c3c1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a92498601c41687e5985afa1fa881c3c1">&#9670;&#160;</a></span>GetTrackNamespace()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a> moq::transport::BaseTrackHandler::GetTrackNamespace </td>
+          <td>(</td>
+          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get the track namespace. </p>
+<dl class="section return"><dt>Returns</dt><dd>span of track namespace </dd></dl>
+
+</div>
+</div>
+<a id="ad3a4bf4ece4a43150dd7243c3d3e8d70" name="ad3a4bf4ece4a43150dd7243c3d3e8d70"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad3a4bf4ece4a43150dd7243c3d3e8d70">&#9670;&#160;</a></span>SetTrackAlias()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void moq::transport::BaseTrackHandler::SetTrackAlias </td>
           <td>(</td>
           <td class="paramtype">uint64_t</td>          <td class="paramname"><span class="paramname"><em>track_alias</em></span></td><td>)</td>
           <td></td>
@@ -442,10 +487,10 @@ Protected Member Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Set the track alias. </p>
-<p>MOQ Instance session will set the track alias when the track has been assigned.</p>
+<p>MOQ transport instance will set the track alias when the track has been assigned.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">track_alias</td><td>MOQT track alias for track namespace+name that is relative to the sesssion </td></tr>
+    <tr><td class="paramname">track_alias</td><td>MoQT track alias for track namespace+name that is relative to the QUIC connection session </td></tr>
   </table>
   </dd>
 </dl>

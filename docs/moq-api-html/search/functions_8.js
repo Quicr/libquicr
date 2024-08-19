@@ -1,17 +1,14 @@
 var searchData=
 [
-  ['server_0',['Server',['../classmoq_1_1transport_1_1_server.html#ae1521f4b21232f6bceb0f8e94aa17fe0',1,'moq::transport::Server']]],
-  ['serversetup_1',['serverSetup',['../classmoq_1_1transport_1_1_client.html#a5bae1dff8ffd3ea5864adaabde55f062',1,'moq::transport::Client']]],
-  ['setdefaultpriority_2',['setDefaultPriority',['../classmoq_1_1transport_1_1_publish_track_handler.html#ac1322952575c6bebcf07b6bf92915f3b',1,'moq::transport::PublishTrackHandler']]],
-  ['setdefaultttl_3',['setDefaultTTL',['../classmoq_1_1transport_1_1_publish_track_handler.html#a9f5a4db8e2ba7c50006d87dd9c779940',1,'moq::transport::PublishTrackHandler']]],
-  ['setsubscribeid_4',['setSubscribeId',['../classmoq_1_1transport_1_1_base_track_handler.html#aacf23b8a55dc6e21bfeaa3b1ef3e3f5e',1,'moq::transport::BaseTrackHandler']]],
-  ['settrackalias_5',['setTrackAlias',['../classmoq_1_1transport_1_1_base_track_handler.html#a941a142251bbbae3340ae7b22d91bce7',1,'moq::transport::BaseTrackHandler']]],
-  ['start_6',['start',['../classmoq_1_1transport_1_1_server.html#ab47f396f1b3f74aaa1c56a2b6e3ca396',1,'moq::transport::Server']]],
-  ['status_7',['status',['../classmoq_1_1transport_1_1_transport.html#acb0e3deeebb2370f5ca73dd904f2841b',1,'moq::transport::Transport']]],
-  ['statuschanged_8',['statusChanged',['../classmoq_1_1transport_1_1_subscribe_track_handler.html#ae920480fb645b5e4d55bff6dea5fca7b',1,'moq::transport::SubscribeTrackHandler']]],
-  ['statusstatus_9',['statusStatus',['../classmoq_1_1transport_1_1_publish_track_handler.html#a33336249c9f453291ecd0060153ddbac',1,'moq::transport::PublishTrackHandler']]],
-  ['stop_10',['stop',['../classmoq_1_1transport_1_1_server.html#a9a6cc8c0ee194489f64c51edd1594f89',1,'moq::transport::Server']]],
-  ['subscribereceived_11',['subscribeReceived',['../classmoq_1_1transport_1_1_server.html#a196bb252509d686e3083da1663497a31',1,'moq::transport::Server']]],
-  ['subscribetrack_12',['subscribeTrack',['../classmoq_1_1transport_1_1_transport.html#ad313827d39780111b8440d1b31c1ef36',1,'moq::transport::Transport']]],
-  ['subscribetrackhandler_13',['SubscribeTrackHandler',['../classmoq_1_1transport_1_1_subscribe_track_handler.html#a988dab543f6b8e27a7790511e9dce6bd',1,'moq::transport::SubscribeTrackHandler']]]
+  ['server_0',['Server',['../classmoq_1_1transport_1_1_server.html#a94c87c7df675a1d4a790dac85832e49f',1,'moq::transport::Server']]],
+  ['serversetup_1',['ServerSetup',['../classmoq_1_1transport_1_1_client.html#ae886035a9a62ecec6ea9b315e35b1abd',1,'moq::transport::Client']]],
+  ['setdefaultpriority_2',['SetDefaultPriority',['../classmoq_1_1transport_1_1_publish_track_handler.html#a6fa9d79454f513d88bbfba5bf48c6909',1,'moq::transport::PublishTrackHandler']]],
+  ['setdefaultttl_3',['SetDefaultTTL',['../classmoq_1_1transport_1_1_publish_track_handler.html#ada12793474e79e16ba9b1dde2e1b693f',1,'moq::transport::PublishTrackHandler']]],
+  ['settrackalias_4',['SetTrackAlias',['../classmoq_1_1transport_1_1_base_track_handler.html#ad3a4bf4ece4a43150dd7243c3d3e8d70',1,'moq::transport::BaseTrackHandler']]],
+  ['start_5',['Start',['../classmoq_1_1transport_1_1_server.html#aa5672cff2c489f2e26a58c7612826e0c',1,'moq::transport::Server']]],
+  ['statuschanged_6',['StatusChanged',['../classmoq_1_1transport_1_1_subscribe_track_handler.html#a56fc8443d2f1867c21738c2abb0734b5',1,'moq::transport::SubscribeTrackHandler::StatusChanged()'],['../classmoq_1_1transport_1_1_publish_track_handler.html#a5f2318aef8021772958a7e475d63314a',1,'moq::transport::PublishTrackHandler::StatusChanged()']]],
+  ['stop_7',['Stop',['../classmoq_1_1transport_1_1_server.html#a0f8ef4f5162919f5de68504513c98945',1,'moq::transport::Server']]],
+  ['subscribereceived_8',['SubscribeReceived',['../classmoq_1_1transport_1_1_server.html#afbe836d7b5111b11fd1c588dcd233983',1,'moq::transport::Server']]],
+  ['subscribetrack_9',['SubscribeTrack',['../classmoq_1_1transport_1_1_transport.html#a1289da8905b94aee0925ff0ae252c9c9',1,'moq::transport::Transport']]],
+  ['subscribetrackhandler_10',['SubscribeTrackHandler',['../classmoq_1_1transport_1_1_subscribe_track_handler.html#af058d2df50dcfb8c7d052030f1b84859',1,'moq::transport::SubscribeTrackHandler']]]
 ];

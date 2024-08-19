@@ -117,15 +117,9 @@ Inheritance diagram for moq::transport::ClientConfig:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:ab0e99e315da31d78acdcc05aeccf1250" id="r_ab0e99e315da31d78acdcc05aeccf1250"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab0e99e315da31d78acdcc05aeccf1250">server_host_ip</a></td></tr>
-<tr class="memdesc:ab0e99e315da31d78acdcc05aeccf1250"><td class="mdescLeft">&#160;</td><td class="mdescRight">Relay hostname or IP to connect to.  <br /></td></tr>
-<tr class="separator:ab0e99e315da31d78acdcc05aeccf1250"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a43a05da060933dee4efa8d47c25dbc58" id="r_a43a05da060933dee4efa8d47c25dbc58"><td class="memItemLeft" align="right" valign="top">uint16_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a43a05da060933dee4efa8d47c25dbc58">server_port</a></td></tr>
-<tr class="memdesc:a43a05da060933dee4efa8d47c25dbc58"><td class="mdescLeft">&#160;</td><td class="mdescRight">Relay port to connect to.  <br /></td></tr>
-<tr class="separator:a43a05da060933dee4efa8d47c25dbc58"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad292f10ea0149d85da259d34a0a7dae8" id="r_ad292f10ea0149d85da259d34a0a7dae8"><td class="memItemLeft" align="right" valign="top">TransportProtocol&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad292f10ea0149d85da259d34a0a7dae8">server_proto</a></td></tr>
-<tr class="memdesc:ad292f10ea0149d85da259d34a0a7dae8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Protocol to use when connecting to relay.  <br /></td></tr>
-<tr class="separator:ad292f10ea0149d85da259d34a0a7dae8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab5f6640dc07d59c6fa890ff62f8997a1" id="r_ab5f6640dc07d59c6fa890ff62f8997a1"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab5f6640dc07d59c6fa890ff62f8997a1">moq_uri</a></td></tr>
+<tr class="memdesc:ab5f6640dc07d59c6fa890ff62f8997a1"><td class="mdescLeft">&#160;</td><td class="mdescRight">MoQT URI such as moqt://&lt;relay&gt;[:port][/path?query].  <br /></td></tr>
+<tr class="separator:ab5f6640dc07d59c6fa890ff62f8997a1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_attribs_structmoq_1_1transport_1_1_config"><td colspan="2" onclick="javascript:dynsection.toggleInherit('pub_attribs_structmoq_1_1transport_1_1_config')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="structmoq_1_1transport_1_1_config.html">moq::transport::Config</a></td></tr>
 <tr class="memitem:ad3d97537b925ab1d9b24651716ed18b8 inherit pub_attribs_structmoq_1_1transport_1_1_config" id="r_ad3d97537b925ab1d9b24651716ed18b8"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structmoq_1_1transport_1_1_config.html#ad3d97537b925ab1d9b24651716ed18b8">endpoint_id</a></td></tr>
 <tr class="memdesc:ad3d97537b925ab1d9b24651716ed18b8 inherit pub_attribs_structmoq_1_1transport_1_1_config"><td class="mdescLeft">&#160;</td><td class="mdescRight">Endpoint ID for the client or server, should be unique.  <br /></td></tr>
@@ -134,51 +128,19 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a601e3853d4060db9a0c8b8998babebec inherit pub_attribs_structmoq_1_1transport_1_1_config"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a id="ab0e99e315da31d78acdcc05aeccf1250" name="ab0e99e315da31d78acdcc05aeccf1250"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab0e99e315da31d78acdcc05aeccf1250">&#9670;&#160;</a></span>server_host_ip</h2>
+<a id="ab5f6640dc07d59c6fa890ff62f8997a1" name="ab5f6640dc07d59c6fa890ff62f8997a1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab5f6640dc07d59c6fa890ff62f8997a1">&#9670;&#160;</a></span>moq_uri</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::string moq::transport::ClientConfig::server_host_ip</td>
+          <td class="memname">std::string moq::transport::ClientConfig::moq_uri</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>Relay hostname or IP to connect to. </p>
-
-</div>
-</div>
-<a id="a43a05da060933dee4efa8d47c25dbc58" name="a43a05da060933dee4efa8d47c25dbc58"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a43a05da060933dee4efa8d47c25dbc58">&#9670;&#160;</a></span>server_port</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">uint16_t moq::transport::ClientConfig::server_port</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Relay port to connect to. </p>
-
-</div>
-</div>
-<a id="ad292f10ea0149d85da259d34a0a7dae8" name="ad292f10ea0149d85da259d34a0a7dae8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad292f10ea0149d85da259d34a0a7dae8">&#9670;&#160;</a></span>server_proto</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">TransportProtocol moq::transport::ClientConfig::server_proto</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Protocol to use when connecting to relay. </p>
+<p>MoQT URI such as moqt://&lt;relay&gt;[:port][/path?query]. </p>
 
 </div>
 </div>

@@ -9,8 +9,9 @@ var namespacemoq_1_1transport =
     [ "ServerConfig", "structmoq_1_1transport_1_1_server_config.html", "structmoq_1_1transport_1_1_server_config" ],
     [ "SubscribeTrackHandler", "classmoq_1_1transport_1_1_subscribe_track_handler.html", "classmoq_1_1transport_1_1_subscribe_track_handler" ],
     [ "Transport", "classmoq_1_1transport_1_1_transport.html", "classmoq_1_1transport_1_1_transport" ],
-    [ "bytes", "namespacemoq_1_1transport.html#a3448a04a6b05769bcd6d012988c8a23e", null ],
-    [ "MOQT_VERSION", "namespacemoq_1_1transport.html#a670677060ebb88486a3187cfef318985", null ],
-    [ "READ_LOOP_MAX_PER_STREAM", "namespacemoq_1_1transport.html#afa70181eb14db946c025e25521ce2978", null ],
-    [ "SUBSCRIBE_EXPIRES", "namespacemoq_1_1transport.html#aafec8316927b00478d234ef943979ba5", null ]
+    [ "Bytes", "namespacemoq_1_1transport.html#a8346c913ef230120bc3fe0bd689acea3", null ],
+    [ "BytesSpan", "namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436", null ],
+    [ "kMoqtVersion", "namespacemoq_1_1transport.html#ae4d81d85477b2d2e25a3f568a9d87d49", null ],
+    [ "kReadLoopMaxPerStream", "namespacemoq_1_1transport.html#ab71080b7123653baa32d80bcd1146ac3", null ],
+    [ "kSubscribeExpires", "namespacemoq_1_1transport.html#a30657595db509732c65f6d30c2cb97c0", null ]
 ];

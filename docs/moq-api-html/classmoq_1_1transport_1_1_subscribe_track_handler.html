@@ -121,72 +121,80 @@ Inheritance diagram for moq::transport::SubscribeTrackHandler:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-types" name="pub-types"></a>
 Public Types</h2></td></tr>
-<tr class="memitem:a0b6c05648e066aca89661463965ae68e" id="r_a0b6c05648e066aca89661463965ae68e"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a0b6c05648e066aca89661463965ae68e">Error</a> : uint8_t { <a class="el" href="#a0b6c05648e066aca89661463965ae68eae0aa021e21dddbd6d8cecec71e9cf564">OK</a> = 0
-, <a class="el" href="#a0b6c05648e066aca89661463965ae68eae4db4f5f832166a100de8888a273b4f2">NOT_AUTHORIZED</a>
-, <a class="el" href="#a0b6c05648e066aca89661463965ae68ea60043f2e1809e49f6ec637e0323d271c">NOT_SUBSCRIBED</a>
-, <a class="el" href="#a0b6c05648e066aca89661463965ae68eaee69335f36c559202930f685b01c009e">NO_DATA</a>
+<tr class="memitem:a0b6c05648e066aca89661463965ae68e" id="r_a0b6c05648e066aca89661463965ae68e"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a0b6c05648e066aca89661463965ae68e">Error</a> : uint8_t { <a class="el" href="#a0b6c05648e066aca89661463965ae68eae69fa9a656f76dd8a4d89f21992b2d3a">kOk</a> = 0
+, <a class="el" href="#a0b6c05648e066aca89661463965ae68ea94d644150606feeb2501ae2801a617ed">kNotAuthorized</a>
+, <a class="el" href="#a0b6c05648e066aca89661463965ae68ea92328fe39107890e5ea75689d9e5d32f">kNotSubscribed</a>
+, <a class="el" href="#a0b6c05648e066aca89661463965ae68ea50ec98d6918446dccb689557dd045b51">kNoData</a>
  }</td></tr>
 <tr class="separator:a0b6c05648e066aca89661463965ae68e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a211c3b8bc1b5fe128d18b3b9a7a26532" id="r_a211c3b8bc1b5fe128d18b3b9a7a26532"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532">Status</a> : uint8_t { <br />
-&#160;&#160;<a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532ae0aa021e21dddbd6d8cecec71e9cf564">OK</a> = 0
-, <a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532ad91be9b5ceb9fe0af02b9b02413eccf8">NOT_CONNECTED</a>
-, <a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532aea24874d9426bdfaa8767bbe97c38bdb">SUBSCRIBE_ERROR</a>
-, <a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532ae4db4f5f832166a100de8888a273b4f2">NOT_AUTHORIZED</a>
+&#160;&#160;<a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532ae69fa9a656f76dd8a4d89f21992b2d3a">kOk</a> = 0
+, <a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532a32a54fa8629fe6e9cb3e265e959258d8">kNotConnected</a>
+, <a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532a6eea58710b4bb41e1060ec0b21650de0">kSubscribeError</a>
+, <a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532a94d644150606feeb2501ae2801a617ed">kNotAuthorized</a>
 , <br />
-&#160;&#160;<a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532a60043f2e1809e49f6ec637e0323d271c">NOT_SUBSCRIBED</a>
-, <a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532ac14f52ecbf2d81fa6d1a7b5f3547af56">PENDING_SUBSCRIBE_RESPONSE</a>
-, <a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532a87123187962fd8067b4ac055ae8577a9">SENDING_UNSUBSCRIBE</a>
+&#160;&#160;<a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532a92328fe39107890e5ea75689d9e5d32f">kNotSubscribed</a>
+, <a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532a0a3ab3e9715377a993aa8530a0a67cdc">kPendingSubscribeResponse</a>
+, <a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532a0c00fa0c8dbc5959120d45bc8386979f">kSendingUnsubscribe</a>
 <br />
  }</td></tr>
 <tr class="separator:a211c3b8bc1b5fe128d18b3b9a7a26532"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pub_types_classmoq_1_1transport_1_1_base_track_handler"><td colspan="2" onclick="javascript:dynsection.toggleInherit('pub_types_classmoq_1_1transport_1_1_base_track_handler')"><img src="closed.png" alt="-"/>&#160;Public Types inherited from <a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html">moq::transport::BaseTrackHandler</a></td></tr>
+<tr class="memitem:a5b6888694dddaa5c6c71662d7324598e inherit pub_types_classmoq_1_1transport_1_1_base_track_handler" id="r_a5b6888694dddaa5c6c71662d7324598e"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598e">TrackMode</a> : uint8_t { <a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598ea4bb84e10753a26c522752e5178df7c67">kDatagram</a>
+, <a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598ea4e3e03fff4b2f1efbb17e3b6d1138c34">kStreamPerObject</a>
+, <a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598ea2090d4af6fa9dbd62ccadb58933ec824">kStreamPerGroup</a>
+, <a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598eadf09fb233c57a1f2ba2e56279dd4aa37">kStreamPerTrack</a>
+ }</td></tr>
+<tr class="memdesc:a5b6888694dddaa5c6c71662d7324598e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Track mode object of object published or received.  <a href="classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598e">More...</a><br /></td></tr>
+<tr class="separator:a5b6888694dddaa5c6c71662d7324598e inherit pub_types_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a988dab543f6b8e27a7790511e9dce6bd" id="r_a988dab543f6b8e27a7790511e9dce6bd"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a988dab543f6b8e27a7790511e9dce6bd">SubscribeTrackHandler</a> (const <a class="el" href="namespacemoq_1_1transport.html#a3448a04a6b05769bcd6d012988c8a23e">bytes</a> &amp;track_namespace, const <a class="el" href="namespacemoq_1_1transport.html#a3448a04a6b05769bcd6d012988c8a23e">bytes</a> &amp;track_name, const cantina::LoggerPointer &amp;logger)</td></tr>
-<tr class="memdesc:a988dab543f6b8e27a7790511e9dce6bd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Track delegate constructor.  <br /></td></tr>
-<tr class="separator:a988dab543f6b8e27a7790511e9dce6bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af3dc87f7ee2a6b14f779e3ce24631e61" id="r_af3dc87f7ee2a6b14f779e3ce24631e61"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#af3dc87f7ee2a6b14f779e3ce24631e61">getStatus</a> ()</td></tr>
-<tr class="memdesc:af3dc87f7ee2a6b14f779e3ce24631e61"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the status of the subscribe.  <br /></td></tr>
-<tr class="separator:af3dc87f7ee2a6b14f779e3ce24631e61"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acd50ab328b9c6448fb271c5660afde6f" id="r_acd50ab328b9c6448fb271c5660afde6f"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#acd50ab328b9c6448fb271c5660afde6f">objectReceived</a> (uint64_t group_id, uint64_t object_id, uint8_t priority, std::vector&lt; uint8_t &gt; &amp;&amp;object, TrackMode track_mode)=0</td></tr>
-<tr class="memdesc:acd50ab328b9c6448fb271c5660afde6f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification of received data object.  <br /></td></tr>
-<tr class="separator:acd50ab328b9c6448fb271c5660afde6f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae920480fb645b5e4d55bff6dea5fca7b" id="r_ae920480fb645b5e4d55bff6dea5fca7b"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae920480fb645b5e4d55bff6dea5fca7b">statusChanged</a> (<a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532">Status</a> status)=0</td></tr>
-<tr class="memdesc:ae920480fb645b5e4d55bff6dea5fca7b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification of subscribe status.  <br /></td></tr>
-<tr class="separator:ae920480fb645b5e4d55bff6dea5fca7b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af058d2df50dcfb8c7d052030f1b84859" id="r_af058d2df50dcfb8c7d052030f1b84859"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#af058d2df50dcfb8c7d052030f1b84859">SubscribeTrackHandler</a> (const <a class="el" href="namespacemoq_1_1transport.html#a8346c913ef230120bc3fe0bd689acea3">Bytes</a> &amp;track_namespace, const <a class="el" href="namespacemoq_1_1transport.html#a8346c913ef230120bc3fe0bd689acea3">Bytes</a> &amp;track_name)</td></tr>
+<tr class="memdesc:af058d2df50dcfb8c7d052030f1b84859"><td class="mdescLeft">&#160;</td><td class="mdescRight">Subscribe track handler constructor.  <br /></td></tr>
+<tr class="separator:af058d2df50dcfb8c7d052030f1b84859"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adf96f1e6778c525bd765afb8690427cd" id="r_adf96f1e6778c525bd765afb8690427cd"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#adf96f1e6778c525bd765afb8690427cd">GetStatus</a> ()</td></tr>
+<tr class="memdesc:adf96f1e6778c525bd765afb8690427cd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the status of the subscribe.  <br /></td></tr>
+<tr class="separator:adf96f1e6778c525bd765afb8690427cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a034cf67453f427cd5576f3603f0de75d" id="r_a034cf67453f427cd5576f3603f0de75d"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a034cf67453f427cd5576f3603f0de75d">ObjectReceived</a> (uint64_t group_id, uint64_t object_id, uint8_t priority, std::vector&lt; uint8_t &gt; &amp;&amp;object, <a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598e">TrackMode</a> track_mode)=0</td></tr>
+<tr class="memdesc:a034cf67453f427cd5576f3603f0de75d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification of received data object.  <br /></td></tr>
+<tr class="separator:a034cf67453f427cd5576f3603f0de75d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a56fc8443d2f1867c21738c2abb0734b5" id="r_a56fc8443d2f1867c21738c2abb0734b5"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a56fc8443d2f1867c21738c2abb0734b5">StatusChanged</a> (<a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532">Status</a> status)=0</td></tr>
+<tr class="memdesc:a56fc8443d2f1867c21738c2abb0734b5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification of subscribe status.  <br /></td></tr>
+<tr class="separator:a56fc8443d2f1867c21738c2abb0734b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td colspan="2" onclick="javascript:dynsection.toggleInherit('pub_methods_classmoq_1_1transport_1_1_base_track_handler')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html">moq::transport::BaseTrackHandler</a></td></tr>
 <tr class="memitem:a13f266677d96952bf7dcda3792df741a inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_a13f266677d96952bf7dcda3792df741a"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a13f266677d96952bf7dcda3792df741a">~BaseTrackHandler</a> ()=default</td></tr>
 <tr class="separator:a13f266677d96952bf7dcda3792df741a inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaa199b9bbfffbe33759086eabf7296e7 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_aaa199b9bbfffbe33759086eabf7296e7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#aaa199b9bbfffbe33759086eabf7296e7">BaseTrackHandler</a> ()=delete</td></tr>
 <tr class="separator:aaa199b9bbfffbe33759086eabf7296e7 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a941a142251bbbae3340ae7b22d91bce7 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_a941a142251bbbae3340ae7b22d91bce7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a941a142251bbbae3340ae7b22d91bce7">setTrackAlias</a> (uint64_t track_alias)</td></tr>
-<tr class="memdesc:a941a142251bbbae3340ae7b22d91bce7 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the track alias.  <br /></td></tr>
-<tr class="separator:a941a142251bbbae3340ae7b22d91bce7 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a05260eb30e2f2e46baa93eacaec10912 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_a05260eb30e2f2e46baa93eacaec10912"><td class="memItemLeft" align="right" valign="top">std::optional&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a05260eb30e2f2e46baa93eacaec10912">getTrackAlias</a> ()</td></tr>
-<tr class="memdesc:a05260eb30e2f2e46baa93eacaec10912 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the track alias.  <br /></td></tr>
-<tr class="separator:a05260eb30e2f2e46baa93eacaec10912 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aacf23b8a55dc6e21bfeaa3b1ef3e3f5e inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_aacf23b8a55dc6e21bfeaa3b1ef3e3f5e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#aacf23b8a55dc6e21bfeaa3b1ef3e3f5e">setSubscribeId</a> (std::optional&lt; uint64_t &gt; subscribe_id)</td></tr>
-<tr class="memdesc:aacf23b8a55dc6e21bfeaa3b1ef3e3f5e inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the subscribe ID.  <br /></td></tr>
-<tr class="separator:aacf23b8a55dc6e21bfeaa3b1ef3e3f5e inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afa0f834b15e048314bcf6414f71e3383 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_afa0f834b15e048314bcf6414f71e3383"><td class="memItemLeft" align="right" valign="top">std::optional&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#afa0f834b15e048314bcf6414f71e3383">getSubscribeId</a> ()</td></tr>
-<tr class="memdesc:afa0f834b15e048314bcf6414f71e3383 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the subscribe ID.  <br /></td></tr>
-<tr class="separator:afa0f834b15e048314bcf6414f71e3383 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6dae93fe4843513ff65d801d70cbf75a inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_a6dae93fe4843513ff65d801d70cbf75a"><td class="memItemLeft" align="right" valign="top">std::span&lt; uint8_t const &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a6dae93fe4843513ff65d801d70cbf75a">getTrackNamespace</a> ()</td></tr>
-<tr class="memdesc:a6dae93fe4843513ff65d801d70cbf75a inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the track namespace.  <br /></td></tr>
-<tr class="separator:a6dae93fe4843513ff65d801d70cbf75a inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a788a678953dee31756e63ce404478309 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_a788a678953dee31756e63ce404478309"><td class="memItemLeft" align="right" valign="top">std::span&lt; uint8_t const &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a788a678953dee31756e63ce404478309">getTrackName</a> ()</td></tr>
-<tr class="memdesc:a788a678953dee31756e63ce404478309 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the track name.  <br /></td></tr>
-<tr class="separator:a788a678953dee31756e63ce404478309 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a509fabaefaa6a4f955a8bfea73752585 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_a509fabaefaa6a4f955a8bfea73752585"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a509fabaefaa6a4f955a8bfea73752585">getConnectionId</a> ()</td></tr>
-<tr class="memdesc:a509fabaefaa6a4f955a8bfea73752585 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the connection ID.  <br /></td></tr>
-<tr class="separator:a509fabaefaa6a4f955a8bfea73752585 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad3a4bf4ece4a43150dd7243c3d3e8d70 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_ad3a4bf4ece4a43150dd7243c3d3e8d70"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#ad3a4bf4ece4a43150dd7243c3d3e8d70">SetTrackAlias</a> (uint64_t track_alias)</td></tr>
+<tr class="memdesc:ad3a4bf4ece4a43150dd7243c3d3e8d70 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the track alias.  <br /></td></tr>
+<tr class="separator:ad3a4bf4ece4a43150dd7243c3d3e8d70 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1381a108f2b807c941ecbd17dc2ae8fb inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_a1381a108f2b807c941ecbd17dc2ae8fb"><td class="memItemLeft" align="right" valign="top">std::optional&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a1381a108f2b807c941ecbd17dc2ae8fb">GetTrackAlias</a> ()</td></tr>
+<tr class="memdesc:a1381a108f2b807c941ecbd17dc2ae8fb inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the track alias.  <br /></td></tr>
+<tr class="separator:a1381a108f2b807c941ecbd17dc2ae8fb inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a13fde0189b20b4de2a2156dbf262b57d inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_a13fde0189b20b4de2a2156dbf262b57d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a13fde0189b20b4de2a2156dbf262b57d">GetSubscribeId</a> (std::optional&lt; uint64_t &gt; subscribe_id)</td></tr>
+<tr class="memdesc:a13fde0189b20b4de2a2156dbf262b57d inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the subscribe ID.  <br /></td></tr>
+<tr class="separator:a13fde0189b20b4de2a2156dbf262b57d inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a50b5e06b594882cdeda7cd18f5374682 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_a50b5e06b594882cdeda7cd18f5374682"><td class="memItemLeft" align="right" valign="top">std::optional&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a50b5e06b594882cdeda7cd18f5374682">GetSubscribeId</a> ()</td></tr>
+<tr class="memdesc:a50b5e06b594882cdeda7cd18f5374682 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the subscribe ID.  <br /></td></tr>
+<tr class="separator:a50b5e06b594882cdeda7cd18f5374682 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a92498601c41687e5985afa1fa881c3c1 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_a92498601c41687e5985afa1fa881c3c1"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a92498601c41687e5985afa1fa881c3c1">GetTrackNamespace</a> ()</td></tr>
+<tr class="memdesc:a92498601c41687e5985afa1fa881c3c1 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the track namespace.  <br /></td></tr>
+<tr class="separator:a92498601c41687e5985afa1fa881c3c1 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab6d80b0334e5f451d0d34f6d7ae67771 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_ab6d80b0334e5f451d0d34f6d7ae67771"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#ab6d80b0334e5f451d0d34f6d7ae67771">GetTrackName</a> ()</td></tr>
+<tr class="memdesc:ab6d80b0334e5f451d0d34f6d7ae67771 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the track name.  <br /></td></tr>
+<tr class="separator:ab6d80b0334e5f451d0d34f6d7ae67771 inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a98c75f3ff838b6f8e7f9357009d456de inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_a98c75f3ff838b6f8e7f9357009d456de"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a98c75f3ff838b6f8e7f9357009d456de">GetConnectionId</a> ()</td></tr>
+<tr class="memdesc:a98c75f3ff838b6f8e7f9357009d456de inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the connection ID.  <br /></td></tr>
+<tr class="separator:a98c75f3ff838b6f8e7f9357009d456de inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="inherited" name="inherited"></a>
 Additional Inherited Members</h2></td></tr>
 <tr class="inherit_header pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td colspan="2" onclick="javascript:dynsection.toggleInherit('pro_methods_classmoq_1_1transport_1_1_base_track_handler')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html">moq::transport::BaseTrackHandler</a></td></tr>
-<tr class="memitem:ad580212af86de72c2d8d7f44ca7ed02b inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_ad580212af86de72c2d8d7f44ca7ed02b"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#ad580212af86de72c2d8d7f44ca7ed02b">BaseTrackHandler</a> (const <a class="el" href="namespacemoq_1_1transport.html#a3448a04a6b05769bcd6d012988c8a23e">bytes</a> &amp;track_namespace, const <a class="el" href="namespacemoq_1_1transport.html#a3448a04a6b05769bcd6d012988c8a23e">bytes</a> &amp;track_name, const cantina::LoggerPointer &amp;logger)</td></tr>
-<tr class="memdesc:ad580212af86de72c2d8d7f44ca7ed02b inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Track delegate constructor.  <br /></td></tr>
-<tr class="separator:ad580212af86de72c2d8d7f44ca7ed02b inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaccdfa74a0fba055a772ee5ba62b53c6 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_aaccdfa74a0fba055a772ee5ba62b53c6"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#aaccdfa74a0fba055a772ee5ba62b53c6">BaseTrackHandler</a> (const <a class="el" href="namespacemoq_1_1transport.html#a8346c913ef230120bc3fe0bd689acea3">Bytes</a> &amp;track_namespace, const <a class="el" href="namespacemoq_1_1transport.html#a8346c913ef230120bc3fe0bd689acea3">Bytes</a> &amp;track_name)</td></tr>
+<tr class="memdesc:aaccdfa74a0fba055a772ee5ba62b53c6 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Track delegate constructor.  <br /></td></tr>
+<tr class="separator:aaccdfa74a0fba055a772ee5ba62b53c6 inherit pro_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>MOQ track handler for subscribed track. </p>
@@ -213,10 +221,10 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a0b6c05648e066aca89661463965ae68eae0aa021e21dddbd6d8cecec71e9cf564" name="a0b6c05648e066aca89661463965ae68eae0aa021e21dddbd6d8cecec71e9cf564"></a>OK&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a0b6c05648e066aca89661463965ae68eae4db4f5f832166a100de8888a273b4f2" name="a0b6c05648e066aca89661463965ae68eae4db4f5f832166a100de8888a273b4f2"></a>NOT_AUTHORIZED&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a0b6c05648e066aca89661463965ae68ea60043f2e1809e49f6ec637e0323d271c" name="a0b6c05648e066aca89661463965ae68ea60043f2e1809e49f6ec637e0323d271c"></a>NOT_SUBSCRIBED&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a0b6c05648e066aca89661463965ae68eaee69335f36c559202930f685b01c009e" name="a0b6c05648e066aca89661463965ae68eaee69335f36c559202930f685b01c009e"></a>NO_DATA&#160;</td><td class="fielddoc"></td></tr>
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a0b6c05648e066aca89661463965ae68eae69fa9a656f76dd8a4d89f21992b2d3a" name="a0b6c05648e066aca89661463965ae68eae69fa9a656f76dd8a4d89f21992b2d3a"></a>kOk&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a0b6c05648e066aca89661463965ae68ea94d644150606feeb2501ae2801a617ed" name="a0b6c05648e066aca89661463965ae68ea94d644150606feeb2501ae2801a617ed"></a>kNotAuthorized&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a0b6c05648e066aca89661463965ae68ea92328fe39107890e5ea75689d9e5d32f" name="a0b6c05648e066aca89661463965ae68ea92328fe39107890e5ea75689d9e5d32f"></a>kNotSubscribed&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a0b6c05648e066aca89661463965ae68ea50ec98d6918446dccb689557dd045b51" name="a0b6c05648e066aca89661463965ae68ea50ec98d6918446dccb689557dd045b51"></a>kNoData&#160;</td><td class="fielddoc"></td></tr>
 </table>
 
 </div>
@@ -241,20 +249,20 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a211c3b8bc1b5fe128d18b3b9a7a26532ae0aa021e21dddbd6d8cecec71e9cf564" name="a211c3b8bc1b5fe128d18b3b9a7a26532ae0aa021e21dddbd6d8cecec71e9cf564"></a>OK&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a211c3b8bc1b5fe128d18b3b9a7a26532ad91be9b5ceb9fe0af02b9b02413eccf8" name="a211c3b8bc1b5fe128d18b3b9a7a26532ad91be9b5ceb9fe0af02b9b02413eccf8"></a>NOT_CONNECTED&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a211c3b8bc1b5fe128d18b3b9a7a26532aea24874d9426bdfaa8767bbe97c38bdb" name="a211c3b8bc1b5fe128d18b3b9a7a26532aea24874d9426bdfaa8767bbe97c38bdb"></a>SUBSCRIBE_ERROR&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a211c3b8bc1b5fe128d18b3b9a7a26532ae4db4f5f832166a100de8888a273b4f2" name="a211c3b8bc1b5fe128d18b3b9a7a26532ae4db4f5f832166a100de8888a273b4f2"></a>NOT_AUTHORIZED&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a211c3b8bc1b5fe128d18b3b9a7a26532a60043f2e1809e49f6ec637e0323d271c" name="a211c3b8bc1b5fe128d18b3b9a7a26532a60043f2e1809e49f6ec637e0323d271c"></a>NOT_SUBSCRIBED&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a211c3b8bc1b5fe128d18b3b9a7a26532ac14f52ecbf2d81fa6d1a7b5f3547af56" name="a211c3b8bc1b5fe128d18b3b9a7a26532ac14f52ecbf2d81fa6d1a7b5f3547af56"></a>PENDING_SUBSCRIBE_RESPONSE&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a211c3b8bc1b5fe128d18b3b9a7a26532a87123187962fd8067b4ac055ae8577a9" name="a211c3b8bc1b5fe128d18b3b9a7a26532a87123187962fd8067b4ac055ae8577a9"></a>SENDING_UNSUBSCRIBE&#160;</td><td class="fielddoc"></td></tr>
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a211c3b8bc1b5fe128d18b3b9a7a26532ae69fa9a656f76dd8a4d89f21992b2d3a" name="a211c3b8bc1b5fe128d18b3b9a7a26532ae69fa9a656f76dd8a4d89f21992b2d3a"></a>kOk&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a211c3b8bc1b5fe128d18b3b9a7a26532a32a54fa8629fe6e9cb3e265e959258d8" name="a211c3b8bc1b5fe128d18b3b9a7a26532a32a54fa8629fe6e9cb3e265e959258d8"></a>kNotConnected&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a211c3b8bc1b5fe128d18b3b9a7a26532a6eea58710b4bb41e1060ec0b21650de0" name="a211c3b8bc1b5fe128d18b3b9a7a26532a6eea58710b4bb41e1060ec0b21650de0"></a>kSubscribeError&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a211c3b8bc1b5fe128d18b3b9a7a26532a94d644150606feeb2501ae2801a617ed" name="a211c3b8bc1b5fe128d18b3b9a7a26532a94d644150606feeb2501ae2801a617ed"></a>kNotAuthorized&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a211c3b8bc1b5fe128d18b3b9a7a26532a92328fe39107890e5ea75689d9e5d32f" name="a211c3b8bc1b5fe128d18b3b9a7a26532a92328fe39107890e5ea75689d9e5d32f"></a>kNotSubscribed&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a211c3b8bc1b5fe128d18b3b9a7a26532a0a3ab3e9715377a993aa8530a0a67cdc" name="a211c3b8bc1b5fe128d18b3b9a7a26532a0a3ab3e9715377a993aa8530a0a67cdc"></a>kPendingSubscribeResponse&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a211c3b8bc1b5fe128d18b3b9a7a26532a0c00fa0c8dbc5959120d45bc8386979f" name="a211c3b8bc1b5fe128d18b3b9a7a26532a0c00fa0c8dbc5959120d45bc8386979f"></a>kSendingUnsubscribe&#160;</td><td class="fielddoc"></td></tr>
 </table>
 
 </div>
 </div>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a988dab543f6b8e27a7790511e9dce6bd" name="a988dab543f6b8e27a7790511e9dce6bd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a988dab543f6b8e27a7790511e9dce6bd">&#9670;&#160;</a></span>SubscribeTrackHandler()</h2>
+<a id="af058d2df50dcfb8c7d052030f1b84859" name="af058d2df50dcfb8c7d052030f1b84859"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af058d2df50dcfb8c7d052030f1b84859">&#9670;&#160;</a></span>SubscribeTrackHandler()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -265,17 +273,12 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="memname">moq::transport::SubscribeTrackHandler::SubscribeTrackHandler </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="namespacemoq_1_1transport.html#a3448a04a6b05769bcd6d012988c8a23e">bytes</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_namespace</em></span>, </td>
+          <td class="paramtype">const <a class="el" href="namespacemoq_1_1transport.html#a8346c913ef230120bc3fe0bd689acea3">Bytes</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_namespace</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="namespacemoq_1_1transport.html#a3448a04a6b05769bcd6d012988c8a23e">bytes</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_name</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const cantina::LoggerPointer &amp;</td>          <td class="paramname"><span class="paramname"><em>logger</em></span>&#160;)</td>
+          <td class="paramtype">const <a class="el" href="namespacemoq_1_1transport.html#a8346c913ef230120bc3fe0bd689acea3">Bytes</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_name</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -285,13 +288,20 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Track delegate constructor. </p>
+<p>Subscribe track handler constructor. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">track_namespace</td><td>Opaque binary array of bytes track namespace </td></tr>
+    <tr><td class="paramname">track_name</td><td>Opaque binary array of bytes track name </td></tr>
+  </table>
+  </dd>
+</dl>
 
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="af3dc87f7ee2a6b14f779e3ce24631e61" name="af3dc87f7ee2a6b14f779e3ce24631e61"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af3dc87f7ee2a6b14f779e3ce24631e61">&#9670;&#160;</a></span>getStatus()</h2>
+<a id="adf96f1e6778c525bd765afb8690427cd" name="adf96f1e6778c525bd765afb8690427cd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adf96f1e6778c525bd765afb8690427cd">&#9670;&#160;</a></span>GetStatus()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -300,7 +310,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532">Status</a> moq::transport::SubscribeTrackHandler::getStatus </td>
+          <td class="memname"><a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532">Status</a> moq::transport::SubscribeTrackHandler::GetStatus </td>
           <td>(</td>
           <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
           <td></td>
@@ -318,8 +328,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="acd50ab328b9c6448fb271c5660afde6f" name="acd50ab328b9c6448fb271c5660afde6f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acd50ab328b9c6448fb271c5660afde6f">&#9670;&#160;</a></span>objectReceived()</h2>
+<a id="a034cf67453f427cd5576f3603f0de75d" name="a034cf67453f427cd5576f3603f0de75d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a034cf67453f427cd5576f3603f0de75d">&#9670;&#160;</a></span>ObjectReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -328,7 +338,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void moq::transport::SubscribeTrackHandler::objectReceived </td>
+          <td class="memname">virtual void moq::transport::SubscribeTrackHandler::ObjectReceived </td>
           <td>(</td>
           <td class="paramtype">uint64_t</td>          <td class="paramname"><span class="paramname"><em>group_id</em></span>, </td>
         </tr>
@@ -350,7 +360,7 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">TrackMode</td>          <td class="paramname"><span class="paramname"><em>track_mode</em></span>&#160;)</td>
+          <td class="paramtype"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598e">TrackMode</a></td>          <td class="paramname"><span class="paramname"><em>track_mode</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -375,8 +385,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="ae920480fb645b5e4d55bff6dea5fca7b" name="ae920480fb645b5e4d55bff6dea5fca7b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae920480fb645b5e4d55bff6dea5fca7b">&#9670;&#160;</a></span>statusChanged()</h2>
+<a id="a56fc8443d2f1867c21738c2abb0734b5" name="a56fc8443d2f1867c21738c2abb0734b5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a56fc8443d2f1867c21738c2abb0734b5">&#9670;&#160;</a></span>StatusChanged()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -385,7 +395,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void moq::transport::SubscribeTrackHandler::statusChanged </td>
+          <td class="memname">virtual void moq::transport::SubscribeTrackHandler::StatusChanged </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532">Status</a></td>          <td class="paramname"><span class="paramname"><em>status</em></span></td><td>)</td>
           <td></td>
