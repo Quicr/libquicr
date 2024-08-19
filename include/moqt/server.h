@@ -7,8 +7,8 @@
 #pragma once
 
 #include <moqt/config.h>
-#include <moqt/core/messages.h>
 #include <moqt/core/transport.h>
+#include <moqt/core/messages.h>
 
 namespace moq::transport {
     using namespace qtransport;

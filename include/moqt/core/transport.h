@@ -12,6 +12,7 @@
 #include <transport/span.h>
 #include <moqt/core/messages.h>
 #include <moqt/config.h>
+#include <moqt/common.h>
 #include <moqt/publish_track_handler.h>
 #include <moqt/subscribe_track_handler.h>
 
@@ -20,7 +21,6 @@
 #include <string_view>
 
 namespace moq::transport {
-    using namespace qtransport;
 
     /**
      * @brief MOQ Implementation supporting both client and server modes
@@ -46,36 +46,6 @@ namespace moq::transport {
             kClientFailedToConnect
         };
 
-        struct FullTrackName {
-            Span<uint8_t const> name_space;
-            Span<uint8_t const> name;
-            std::optional<uint64_t> track_alias;
-        };
-
-        struct TrackHash
-        {
-            uint64_t track_namespace_hash; // 64bit hash of namespace
-            uint64_t track_name_hash;      // 64bit hash of name
-
-            uint64_t track_fullname_hash; // 62bit of namespace+name
-
-            TrackHash(const uint64_t name_space, const uint64_t name)
-            {
-                track_namespace_hash = name_space;
-                track_name_hash = name;
-            }
-
-            TrackHash(const FullTrackName& ftn) noexcept
-            {
-                track_namespace_hash = std::hash<std::string_view>{}(
-                  { reinterpret_cast<const char*>(ftn.name_space.data()), ftn.name_space.size() });
-                track_name_hash =
-                  std::hash<std::string_view>{}({ reinterpret_cast<const char*>(ftn.name.data()), ftn.name.size() });
-
-                track_fullname_hash = (track_namespace_hash ^ (track_name_hash << 1)) << 1 >>
-                                      2; // combine and convert to 62 bits for uintVar
-            }
-        };
 
         /**
          * @brief Client mode Constructor to create the MOQ instance

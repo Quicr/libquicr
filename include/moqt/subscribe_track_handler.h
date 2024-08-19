@@ -23,6 +23,9 @@ namespace moq::transport {
       public:
         friend class Transport;
 
+        /**
+         * @brief Receive status codes
+         */
         enum class Error : uint8_t
         {
             kOk = 0,
@@ -31,6 +34,9 @@ namespace moq::transport {
             kNoData
         };
 
+        /**
+         * @brief  Status codes for the subscribe track
+         */
         enum class Status : uint8_t
         {
             kOk = 0,
@@ -49,12 +55,10 @@ namespace moq::transport {
         /**
          * @brief Subscribe track handler constructor
          *
-         * @param track_namespace       Opaque binary array of bytes track namespace
-         * @param track_name            Opaque binary array of bytes track name
+         * @param full_track_name       Full track name struct
          */
-        SubscribeTrackHandler(const Bytes& track_namespace,
-                              const Bytes& track_name)
-          : BaseTrackHandler(track_namespace, track_name)
+        SubscribeTrackHandler(const FullTrackName& full_track_name)
+          : BaseTrackHandler(full_track_name)
         {
         }
 

@@ -7,12 +7,10 @@
 
 #include <optional>
 #include <transport/span.h>
+#include <moqt/common.h>
 #include <vector>
 
 namespace moq::transport {
-
-    using Bytes = std::vector<uint8_t>;
-    using BytesSpan = Span<uint8_t const>;
 
     /**
      * @brief MoQ track base handler for tracks (subscribe/publish)
@@ -49,12 +47,10 @@ namespace moq::transport {
         /**
          * @brief Track delegate constructor
          *
-         * @param track_namespace       Opaque binary array of bytes track namespace
-         * @param track_name            Opaque binary array of bytes track name
+         * @param full_track_name       Full track name struct
          */
-        BaseTrackHandler(const Bytes& track_namespace, const Bytes& track_name)
-          : track_namespace_(track_namespace)
-          , track_name_(track_name)
+        BaseTrackHandler(const FullTrackName& full_track_name)
+          : full_track_name_(full_track_name)
         {
         }
 
@@ -70,14 +66,14 @@ namespace moq::transport {
          * @param track_alias       MoQT track alias for track namespace+name that
          *                          is relative to the QUIC connection session
          */
-        void SetTrackAlias(uint64_t track_alias) { track_alias_ = track_alias; }
+        void SetTrackAlias(uint64_t track_alias) { full_track_name_.track_alias = track_alias; }
 
         /**
          * @brief Get the track alias
          * @returns Track alias as an optional. Track alias may not be set yet. If not
          *   set, nullopt will be returned.
          */
-        std::optional<uint64_t> GetTrackAlias() { return track_alias_; }
+        std::optional<uint64_t> GetTrackAlias() { return full_track_name_.track_alias; }
 
         /**
          * @brief Sets the subscribe ID
@@ -96,16 +92,13 @@ namespace moq::transport {
         std::optional<uint64_t> GetSubscribeId() { return subscribe_id_; }
 
         /**
-         * @brief Get the track namespace
-         * @return span of track namespace
+         * @brief Get the full track name
+         *
+         * @details Gets the full track name
+         *
+         * @return FullTrackName
          */
-        BytesSpan GetTrackNamespace() { return { track_namespace_ }; }
-
-        /**
-         * @brief Get the track name
-         * @return span of track name
-         */
-        BytesSpan GetTrackName() { return { track_name_ }; }
+        FullTrackName GetFullTrackName() { return { full_track_name_ }; }
 
         /**
          * @brief Get the connection ID
@@ -127,10 +120,7 @@ namespace moq::transport {
         // Member variables
         // --------------------------------------------------------------------------
 
-        const Bytes track_namespace_;
-        const Bytes track_name_;
-        std::optional<uint64_t> track_alias_;
-
+        const FullTrackName full_track_name_;
         uint64_t conn_id_;
 
         /**
@@ -141,7 +131,7 @@ namespace moq::transport {
          */
         std::optional<uint64_t> subscribe_id_;
 
-        uint64_t prev_group_id_{ 0 };
+        uint64_t prev_object_group_id_{ 0 };
         uint64_t prev_object_id_{ 0 };
     };
 

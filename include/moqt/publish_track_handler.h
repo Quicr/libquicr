@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <functional>
 #include <moqt/core/base_track_handler.h>
 
 namespace moq::transport {
@@ -23,19 +24,38 @@ namespace moq::transport {
         friend class Transport;
 
         /**
-         * @brief Error codes
+         * @brief Publish status codes
          */
-        enum class Error : uint8_t
+        enum class PublishStatus : uint8_t
         {
             kOk = 0,
             kInternalError,
             kNotAuthorized,
             kNotAnnounced,
-            kNoSubscribers
+            kNoSubscribers,
+            kObjectPayloadLengthExceeded,
+            kPreviousObjectTruncated,
+
+            kNoPreviousObject,
+            kObjectDataComplete,
+            kObjectContinuationDataNeeded,
+            kObjectDataIncomplete,              ///< PublishObject() was called when continuation data remains
+
+            /// Indicates that the published object data is too large based on the object header payload size plus
+            /// any/all data that was sent already.
+            kObjectDataTooLarge,
+
+            /// Previous object payload has not been completed and new object cannot start in per-group track mode
+            /// unless new group is used.
+            kPreviousObjectNotCompleteMustStartNewGroup,
+
+            /// Previous object payload has not been completed and new object cannot start in per-track track mode
+            /// without creating a new track. This requires to unpublish and to publish track again.
+            kPreviousObjectNotCompleteMustStartNewTrack,
         };
 
         /**
-         * @brief  Status codes
+         * @brief  Status codes for the publish track
          */
         enum class Status : uint8_t
         {
@@ -45,17 +65,9 @@ namespace moq::transport {
             kPendingAnnounceResponse,
             kAnnounceNotAuthorized,
             kNoSubscribers,
-            kSendingUnannounce
+            kSendingUnannounce,
         };
 
-        struct SendParams
-        {
-         std::optional<uint64_t> group_id;      ///< Object group ID - Should be derived using time in microseconds
-         std::optional<uint64_t> object_id;     ///< Object ID - Start at zero and increment for each object in group
-         std::optional<uint32_t> prioirty;      ///< Priority of the object, lower value is better
-         std::optional<uint16_t> ttl;           ///< Object time to live in milliseconds
-
-        };
 
         // --------------------------------------------------------------------------
         // Public API methods that normally should not be overridden
@@ -64,18 +76,16 @@ namespace moq::transport {
         /**
          * @brief Publish track handler constructor
          *
-         * @param track_namespace       Opaque binary array of bytes track namespace
-         * @param track_name            Opaque binary array of bytes track name
+         * @param full_track_name       Full track name struct
          * @param track_mode            The track mode to operate using
-         * @param default_priority      Default priority for objects if not specified in SendParams
-         * @param default_ttl           Default TTL for objects if not specified in SendParams
+         * @param default_priority      Default priority for objects if not specified in ObjectHeaderss
+         * @param default_ttl           Default TTL for objects if not specified in ObjectHeaderss
          */
-        PublishTrackHandler(const Bytes& track_namespace,
-                            const Bytes& track_name,
+        PublishTrackHandler(const FullTrackName& full_track_name,
                             TrackMode track_mode,
                             uint8_t default_priority,
                             uint32_t default_ttl)
-          : BaseTrackHandler(track_namespace, track_name)
+          : BaseTrackHandler(full_track_name)
           , track_mode_(track_mode)
           , def_priority_(default_priority)
           , def_ttl_(default_ttl)
@@ -119,22 +129,55 @@ namespace moq::transport {
         // --------------------------------------------------------------------------
 
         /**
-         * @brief Publish object to announced track
+         * @brief Publish object to the announced track
          *
-         * @details Publish object to announced track that was previously announced.
+         * @details Publish an object to announced track that was previously announced.
          *   This will have an error if the track wasn't announced yet. Status will
          *   indicate if there are no subscribers. In this case, the object will
          *   not be sent.
          *
-         * @param
-         * @param[in] object_id    Object ID of the object
-         * @param[in] object       Object to publish to track
-         * @param[in] ttl          Expire TTL for object
-         * @param[in] priority     Priority for object; will be set upon next qualifing stream object
+         *   **Restrictions:**
+         *   - This method cannot be called twice with the same object header group and object IDs.
+         *   - In TrackMode::kStreamPerGroup, ObjectHeaders::group_id **MUST** be different than the previous
+         *     when calling this method when the previous has not been completed yet using PublishContinuationData().
+         *     If group id is not different, the Error::kPreviousObjectNotCompleteMustStartNewGroup will be returned
+         *     and the object will not be sent. If new group ID is provided, then the previous object will terminate
+         *     with stream closure, resulting in the previous being truncated.
+         *   - In TrackMode::kStreamPerTrack, this method **CANNOT** be called until the previous object has been
+         *     completed using PublishContinuationData(). Calling this method before completing the previous
+         *     object remaining data will result in PublishStatus::kObjectDataIncomplete. No data would be sent and the
+         *     stream would remain unchanged. It is expected that the caller would send the remaining continuation data.
          *
-         * @returns Error status of the publish
+         * @note If data is less than object_header.payload_length, then PublishObject()
+         *   should be called to send the remaining data.
+         *
+         * @param object_headers        Object headers, must include group and object Ids
+         * @param data                  Payload data for the object, must be <= object_headers.payload_length
+         *
+         * @returns Publish status of the publish
+         *    * PublishStatus::kObjectContinuationDataNeeded if the object payload data is not completed but it was sent,
+         *    * PublishStatus::kObjectDataComplete if the object data was sent and the data is complete,
+         *    * other track status
          */
-        Error PublishObject(const SendParams send_params, BytesSpan object);
+        PublishStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
+
+        /**
+         * @brief Publish continuation data
+         *
+         * @details Publish continuation data for the previous PublishObject(). The data should be the
+         *      remaining data of the object payload size.
+         *
+         * @param data                  Remaining payload data for the object being published. The length cannot exceed
+         *                              the original object payload size.
+         *
+         * @returns
+         *      * PublishStatus::kObjectDataComplete if the data fulfills the remaining data,
+         *      * PublishStatus::kObjectContinuationDataNeeded if more data is still needed,
+         *      * PublishStatus::kObjectDataTooLarge if the data provided would exceed the remaining amount of data,
+         *      * PublishStatus::kNoPreviousObject if the previous object was completed or if there was no previous object,
+         *      * other track status
+         */
+        PublishStatus PublishContinuationData(BytesSpan data);
 
         // --------------------------------------------------------------------------
         // Internals
@@ -152,12 +195,12 @@ namespace moq::transport {
          * @param stream_header_needed  Indicates if group or track header is needed before this data object
          * @param data                  Raw data/object that should be transmitted - MoQInstance serializes the data
          */
-        using PublishObjFunction = std::function<Error(uint8_t priority,
-                                                       uint32_t ttl,
-                                                       bool stream_header_needed,
-                                                       uint64_t group_id,
-                                                       uint64_t object_id,
-                                                       BytesSpan data)>;
+        using PublishObjFunction = std::function<PublishStatus(uint8_t priority,
+                                                               uint32_t ttl,
+                                                               bool stream_header_needed,
+                                                               uint64_t group_id,
+                                                               uint64_t object_id,
+                                                               BytesSpan data)>;
         /**
          * @brief Set the Data context ID
          *
@@ -184,7 +227,6 @@ namespace moq::transport {
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
-
         Status publish_status_{ Status::kNotAnnounced };
         TrackMode track_mode_;
         uint8_t def_priority_;              // Set by caller and is used when priority is not specified
@@ -193,6 +235,7 @@ namespace moq::transport {
         uint64_t publish_data_ctx_id_;      // publishing data context ID
         PublishObjFunction publish_object_func_;
 
+        uint64_t object_payload_remaining_length_ { 0 };
         bool sent_track_header_ { false };  // Used only in stream per track mode
     };
 

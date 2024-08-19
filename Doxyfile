@@ -951,6 +951,7 @@ WARN_LOGFILE           =
 
 INPUT                  =  docs/moq-api-main.md \
                           include/moqt/core/transport.h \
+                          include/moqt/common.h \
                           include/moqt/config.h \
                           include/moqt/client.h \
                           include/moqt/server.h \
