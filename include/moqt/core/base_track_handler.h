@@ -5,11 +5,14 @@
  */
 #pragma once
 
-#include "cantina/logger.h"
+#include <optional>
+#include <transport/span.h>
+#include <vector>
 
 namespace moq::transport {
 
-    using bytes = std::vector<uint8_t>;
+    using Bytes = std::vector<uint8_t>;
+    using BytesSpan = Span<uint8_t const>;
 
     /**
      * @brief MoQ track base handler for tracks (subscribe/publish)
@@ -19,7 +22,20 @@ namespace moq::transport {
     class BaseTrackHandler
     {
       public:
-        friend class Core;
+        friend class Transport;
+
+        /**
+         * @brief Track mode object of object published or received
+         *
+         * @details QUIC stream handling mode used to send objects or how object was received
+         */
+        enum class TrackMode : uint8_t
+        {
+            kDatagram,
+            kStreamPerObject,
+            kStreamPerGroup,
+            kStreamPerTrack
+        };
 
         virtual ~BaseTrackHandler() = default;
 
@@ -32,11 +48,13 @@ namespace moq::transport {
       protected:
         /**
          * @brief Track delegate constructor
+         *
+         * @param track_namespace       Opaque binary array of bytes track namespace
+         * @param track_name            Opaque binary array of bytes track name
          */
-        BaseTrackHandler(const bytes& track_namespace, const bytes& track_name, const cantina::LoggerPointer& logger)
-          : _logger(std::make_shared<cantina::Logger>("MTD", logger))
-          , _track_namespace(track_namespace)
-          , _track_name(track_name)
+        BaseTrackHandler(const Bytes& track_namespace, const Bytes& track_name)
+          : track_namespace_(track_namespace)
+          , track_name_(track_name)
         {
         }
 
@@ -46,20 +64,20 @@ namespace moq::transport {
       public:
         /**
          * @brief Set the track alias
-         * @details MOQ Instance session will set the track alias when the track has
+         * @details MOQ transport instance will set the track alias when the track has
          *   been assigned.
          *
-         * @param track_alias       MOQT track alias for track namespace+name that
-         *                          is relative to the sesssion
+         * @param track_alias       MoQT track alias for track namespace+name that
+         *                          is relative to the QUIC connection session
          */
-        void setTrackAlias(uint64_t track_alias) { _track_alias = track_alias; }
+        void SetTrackAlias(uint64_t track_alias) { track_alias_ = track_alias; }
 
         /**
          * @brief Get the track alias
          * @returns Track alias as an optional. Track alias may not be set yet. If not
          *   set, nullopt will be returned.
          */
-        std::optional<uint64_t> getTrackAlias() { return _track_alias; }
+        std::optional<uint64_t> GetTrackAlias() { return track_alias_; }
 
         /**
          * @brief Sets the subscribe ID
@@ -68,31 +86,31 @@ namespace moq::transport {
          *
          * @param subscribe_id          62bit subscribe ID
          */
-        void setSubscribeId(std::optional<uint64_t> subscribe_id) { _subscribe_id = subscribe_id; }
+        void GetSubscribeId(std::optional<uint64_t> subscribe_id) { subscribe_id_ = subscribe_id; }
 
         /**
          * @brief Get the subscribe ID
          *
          * @return nullopt if not subscribed, otherwise the subscribe ID
          */
-        std::optional<uint64_t> getSubscribeId() { return _subscribe_id; }
+        std::optional<uint64_t> GetSubscribeId() { return subscribe_id_; }
 
         /**
          * @brief Get the track namespace
          * @return span of track namespace
          */
-        std::span<uint8_t const> getTrackNamespace() { return std::span(_track_namespace); }
+        BytesSpan GetTrackNamespace() { return { track_namespace_ }; }
 
         /**
          * @brief Get the track name
          * @return span of track name
          */
-        std::span<uint8_t const> getTrackName() { return std::span(_track_name); }
+        BytesSpan GetTrackName() { return { track_name_ }; }
 
         /**
          * @brief Get the connection ID
          */
-        uint64_t getConnectionId() { return _mi_conn_id; };
+        uint64_t GetConnectionId() { return conn_id_; };
 
         // --------------------------------------------------------------------------
         // Internal
@@ -103,29 +121,28 @@ namespace moq::transport {
          *
          * @details The MOQ Handler sets the connection ID
          */
-        void set_connection_id(uint64_t conn_id) { _mi_conn_id = conn_id; };
+        void SetConnectionId(uint64_t conn_id) { conn_id_ = conn_id; };
 
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
 
-        cantina::LoggerPointer _logger;
-        const bytes _track_namespace;
-        const bytes _track_name;
-        std::optional<uint64_t> _track_alias;
+        const Bytes track_namespace_;
+        const Bytes track_name_;
+        std::optional<uint64_t> track_alias_;
 
-        uint64_t _mi_conn_id; // Set by moq implementation
+        uint64_t conn_id_;
 
         /**
-         * _subscribe_id is the primary index/key for subscribe subscribe context/delegate storage.
-         *   It is use as the subscribe_id in MOQT related subscribes.  Subscribe ID will adapt
+         * subscribe_id_ is the primary index/key for subscribe subscribe context/delegate storage.
+         *   It is use as the subscribe_id in MoQT related subscribes.  Subscribe ID will adapt
          *   to received subscribe IDs, so the value will reflect either the received subscribe ID
          *   or the next one that increments from last received ID.
          */
-        std::optional<uint64_t> _subscribe_id;
+        std::optional<uint64_t> subscribe_id_;
 
-        uint64_t _prev_group_id{ 0 };
-        uint64_t _prev_object_id{ 0 };
+        uint64_t prev_group_id_{ 0 };
+        uint64_t prev_object_id_{ 0 };
     };
 
-} // namespace quicr
+} // namespace moq::transport

@@ -5,8 +5,8 @@
  */
 #pragma once
 
-#include "cantina/logger.h"
 #include <moqt/core/base_track_handler.h>
+#include <moqt/publish_track_handler.h>
 
 namespace moq::transport {
 
@@ -25,21 +25,21 @@ namespace moq::transport {
 
         enum class Error : uint8_t
         {
-            OK = 0,
-            NOT_AUTHORIZED,
-            NOT_SUBSCRIBED,
-            NO_DATA,
+            kOk = 0,
+            kNotAuthorized,
+            kNotSubscribed,
+            kNoData
         };
 
         enum class Status : uint8_t
         {
-            OK = 0,
-            NOT_CONNECTED,
-            SUBSCRIBE_ERROR,
-            NOT_AUTHORIZED,
-            NOT_SUBSCRIBED,
-            PENDING_SUBSCRIBE_RESPONSE,
-            SENDING_UNSUBSCRIBE               // Triggers callbacks to not be called in this state
+            kOk = 0,
+            kNotConnected,
+            kSubscribeError,
+            kNotAuthorized,
+            kNotSubscribed,
+            kPendingSubscribeResponse,
+            kSendingUnsubscribe                 // Triggers callbacks to not be called in this state
         };
 
         // --------------------------------------------------------------------------
@@ -47,12 +47,14 @@ namespace moq::transport {
         // --------------------------------------------------------------------------
 
         /**
-         * @brief Track delegate constructor
+         * @brief Subscribe track handler constructor
+         *
+         * @param track_namespace       Opaque binary array of bytes track namespace
+         * @param track_name            Opaque binary array of bytes track name
          */
-        SubscribeTrackHandler(const bytes& track_namespace,
-                                  const bytes& track_name,
-                                  const cantina::LoggerPointer& logger)
-          : BaseTrackHandler(track_namespace, track_name, logger)
+        SubscribeTrackHandler(const Bytes& track_namespace,
+                              const Bytes& track_name)
+          : BaseTrackHandler(track_namespace, track_name)
         {
         }
 
@@ -61,7 +63,7 @@ namespace moq::transport {
          *
          * @return Status of the subscribe
          */
-        Status getStatus() { return _status; }
+        Status GetStatus() { return status_; }
 
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods to be overridden
@@ -78,7 +80,7 @@ namespace moq::transport {
          * @param object            Data object received
          * @param track_mode        Track mode the object was received
          */
-        virtual void objectReceived(uint64_t group_id,
+        virtual void ObjectReceived(uint64_t group_id,
                                     uint64_t object_id,
                                     uint8_t priority,
                                     std::vector<uint8_t>&& object,
@@ -91,7 +93,7 @@ namespace moq::transport {
          *
          * @param status        Indicates status of the subscribe
          */
-        virtual void statusChanged(Status status) = 0;
+        virtual void StatusChanged(Status status) = 0;
 
         // --------------------------------------------------------------------------
         // Internal
@@ -101,12 +103,12 @@ namespace moq::transport {
          * @brief Set the subscribe status
          * @param status                Status of the subscribe
          */
-        void set_status(Status status) { _status = status; }
+        void SetStatus(Status status) { status_ = status; }
 
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
-        Status _status{ Status::NOT_SUBSCRIBED };
+        Status status_ { Status::kNotSubscribed };
     };
 
-} // namespace quicr
+} // namespace moq::transport

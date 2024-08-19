@@ -13,9 +13,9 @@ namespace moq::transport {
     using namespace qtransport;
 
     /**
-     * @brief MOQT Client
+     * @brief MoQT Client
      *
-     * @details MOQT Client is the handler of the MOQT QUIC transport IP connection.
+     * @details MoQT Client is the handler of the MoQT QUIC transport IP connection.
      */
     class Client : public Transport
     {
@@ -23,11 +23,10 @@ namespace moq::transport {
         /**
          * @brief MoQ Client Constructor to create the client mode instance
          *
-         * @param cfg           MOQT Client Configuration
-         * @param logger        MOQT Log pointer to parent logger
+         * @param cfg           MoQT Client Configuration
          */
-        Client(const ClientConfig& cfg, const cantina::LoggerPointer& logger)
-          : Core(cfg, logger)
+        Client(const ClientConfig& cfg)
+          : Transport(cfg)
         {
         }
 
@@ -40,18 +39,18 @@ namespace moq::transport {
          *   callbacks will be run based on events.
          *
          * @return Status indicating state or error. If successful, status will be
-         *    CLIENT_CONNECTING.
+         *    kClientConnecting.
          */
-        Status connect();
+        Status Connect();
 
         /**
          * @brief Disconnect the client connection gracefully (blocking)
          *
-         * @details Unsubscribes and unpublishes all remaining active ones, sends MOQT control messages
+         * @details Unsubscribes and unpublishes all remaining active ones, sends MoQT control messages
          *   for those and then closes the QUIC connection gracefully. Stops the transport thread. The class
          *   destructor calls this method as well. Status will be updated to reflect not connected.
          */
-        void disconnect();
+        void Disconnect();
 
         /**
          * @brief Callback notification for connection status/state change
@@ -60,7 +59,7 @@ namespace moq::transport {
          * @param conn_id          Transport connection ID
          * @param status           Transport status of connection id
          */
-        virtual void connectionChanged(TransportConnId conn_id, TransportStatus status) = 0;
+        virtual void ConnectionChanged(TransportConnId conn_id, TransportStatus status) = 0;
 
         /**
          * @brief Callback on server setup message
@@ -70,7 +69,7 @@ namespace moq::transport {
          * @param conn_id          Transport connection ID
          * @param server_setup     Decoded sever setup message
          */
-        virtual void serverSetup([[maybe_unused]] TransportConnId conn_id,
+        virtual void ServerSetup([[maybe_unused]] TransportConnId conn_id,
                                  [[maybe_unused]] messages::MoqServerSetup server_setup) = 0;
 
     };

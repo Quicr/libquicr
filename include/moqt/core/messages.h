@@ -23,7 +23,7 @@ using TrackAlias = uint64_t;
 using ParamType = uint64_t;
 
 
-enum class MoQTerminationReason : uint64_t
+enum class MoqtTerminationReason : uint64_t
 {
   NO_ERROR = 0x0,
   INTERNAL_ERROR,
@@ -36,7 +36,7 @@ enum class MoQTerminationReason : uint64_t
 };
 
 // Ref: https://moq-wg.github.io/moq-transport/draft-ietf-moq-transport.html#name-messages
-enum class MoQMessageType : uint64_t
+enum class MoqtMessageType : uint64_t
 {
     OBJECT_STREAM = 0x0,
     OBJECT_DATAGRAM,
@@ -63,7 +63,7 @@ enum class MoQMessageType : uint64_t
     STREAM_HEADER_GROUP,
 };
 
-enum class MoQSubscribeError : uint8_t
+enum class MoqtSubscribeError : uint8_t
 {
   INTERNAL_ERROR=0x0,
   INVALID_RANGE,
