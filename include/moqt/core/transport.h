@@ -7,11 +7,9 @@
 #pragma once
 
 #include <quicr/metrics_exporter.h>
-#include <quicr/quicr_common.h>
 #include <transport/transport.h>
 
 #include <transport/span.h>
-#include <moqt/core/transport.h>
 #include <moqt/core/messages.h>
 #include <moqt/config.h>
 #include <moqt/publish_track_handler.h>
@@ -36,18 +34,19 @@ namespace moq::transport {
 
         enum class Status : uint8_t
         {
-            READY = 0,
-            NOT_READY,
+            kReady = 0,
+            kNotReady,
 
-            INTERNAL_ERROR,
+            kInternalError,
 
-            INVALID_PARAMS,
-            CLIENT_NOT_CONNECTED,
-            CLIENT_CONNECTING,
-            CLIENT_FAILED_TO_CONNECT,
+            kInvalidParams,
+
+            kClientConnecting,
+            kClientNotConnected,
+            kClientFailedToConnect
         };
 
-        struct TrackFullName {
+        struct FullTrackName {
             Span<uint8_t const> name_space;
             Span<uint8_t const> name;
             std::optional<uint64_t> track_alias;
@@ -66,12 +65,12 @@ namespace moq::transport {
                 track_name_hash = name;
             }
 
-            TrackHash(const FullTrackName& tfn) noexcept
+            TrackHash(const FullTrackName& ftn) noexcept
             {
                 track_namespace_hash = std::hash<std::string_view>{}(
-                  { reinterpret_cast<const char*>(tfn.track_namespace.data()), tfn.track_namespace.size() });
+                  { reinterpret_cast<const char*>(ftn.name_space.data()), ftn.name_space.size() });
                 track_name_hash =
-                  std::hash<std::string_view>{}({ reinterpret_cast<const char*>(tfn.name.data()), tfn.name.size() });
+                  std::hash<std::string_view>{}({ reinterpret_cast<const char*>(ftn.name.data()), ftn.name.size() });
 
                 track_fullname_hash = (track_namespace_hash ^ (track_name_hash << 1)) << 1 >>
                                       2; // combine and convert to 62 bits for uintVar
@@ -81,27 +80,22 @@ namespace moq::transport {
         /**
          * @brief Client mode Constructor to create the MOQ instance
          *
-         * @param cfg       MOQT Instance Client Configuration
-         * @param logger    MOQT Log pointer to parent logger
+         * @param cfg       MoQT Instance Client Configuration
          */
-        Transport(const ClientConfig& cfg,
-                 const cantina::LoggerPointer& logger);
+        Transport(const ClientConfig& cfg);
 
         /**
          * @brief Server mode Constructor to create the MOQ instance
          *
-         * @param cfg        MOQT Server Configuration
-         * @param logger     MOQT Log pointer to parent logger
+         * @param cfg        MoQT Server Configuration
          */
-        Transport(const ServerConfig& cfg,
-                 const cantina::LoggerPointer& logger);
+        Transport(const ServerConfig& cfg);
 
         ~Transport() = default;
 
         // -------------------------------------------------------------------------------------------------
         // Public API MoQ Intance API methods
         // -------------------------------------------------------------------------------------------------
-      public:
         /**
          * @brief Subscribe to a track
          *
@@ -110,7 +104,7 @@ namespace moq::transport {
          *
          * @returns `track_alias` if no error and nullopt on error
          */
-        std::optional<uint64_t> subscribeTrack(TransportConnId conn_id,
+        std::optional<uint64_t> SubscribeTrack(TransportConnId conn_id,
                                                std::shared_ptr<SubscribeTrackHandler> track_delegate);
 
         /**
@@ -119,7 +113,7 @@ namespace moq::transport {
          * @param conn_id           Connection ID to send subscribe
          * @param track_delegate    Track delegate to use for track related functions and callbacks
          */
-        void unsubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_delegate);
+        void UnsubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_delegate);
 
         /**
          * @brief Publish to a track
@@ -130,7 +124,7 @@ namespace moq::transport {
          *
          * @returns `track_alias` if no error and nullopt on error
          */
-        std::optional<uint64_t> publishTrack(TransportConnId conn_id,
+        std::optional<uint64_t> PublishTrack(TransportConnId conn_id,
                                              std::shared_ptr<PublishTrackHandler> track_delegate);
 
         /**
@@ -139,14 +133,14 @@ namespace moq::transport {
          * @param conn_id           Connection ID from transport for the QUIC connection context
          * @param track_delegate    Track delegate used when published track
          */
-        void unpublishTrack(TransportConnId conn_id, std::shared_ptr<PublishTrackHandler> track_delegate);
+        void UnpublishTrack(TransportConnId conn_id, std::shared_ptr<PublishTrackHandler> track_delegate);
 
         /**
          * @brief Get the instance status
          *
          * @return Status indicating the state/status of the instance
          */
-        Status status();
+        Status GetStatus();
 
       private:
         // -------------------------------------------------------------------------------------------------
@@ -166,100 +160,85 @@ namespace moq::transport {
                             const bool is_bidir = false) override;
         void on_recv_dgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id) override;
 
-        PublishTrackHandler::Error send_object(std::weak_ptr<PublishTrackHandler> track_delegate,
-                                                uint8_t priority,
-                                                uint32_t ttl,
-                                                bool stream_header_needed,
-                                                uint64_t group_id,
-                                                uint64_t object_id,
-                                                Span<const uint8_t> data);
-
-      private:
+        // -------------------------------------------------------------------------------------------------
+        // End of transport delegate/callback functions
+        // -------------------------------------------------------------------------------------------------
 
         struct ConnectionContext
         {
             TransportConnId conn_id;
             std::optional<uint64_t> ctrl_data_ctx_id;
-            bool setup_complete{ false }; ///< True if both client and server setup messages have completed
+            bool setup_complete { false }; ///< True if both client and server setup messages have completed
             uint64_t client_version{ 0 };
-            std::optional<transport::MoQMessageType>
-              ctrl_msg_type_received; ///< Indicates the current message type being read
+            std::optional<messages::MoqtMessageType> ctrl_msg_type_received; ///< Indicates the current message type being read
 
-            uint64_t _sub_id{ 0 }; ///< Connection specific ID for subscribe messages
+            uint64_t current_subscribe_id { 0 }; ///< Connection specific ID for subscribe messages
 
-            // Track namespace/name by received subscribe IDs - Used to map published tracks to subscribes in client
-            // mode
+            /// Track namespace/name by received subscribe IDs
+            /// Used to map published tracks to subscribes in client mode
             std::map<uint64_t, std::pair<uint64_t, uint64_t>> recv_sub_id;
 
-            // Tracks by subscribe ID
+            /// Tracks by subscribe ID
             std::map<uint64_t, std::shared_ptr<BaseTrackHandler>> tracks_by_sub_id;
 
-            // Publish tracks by namespace and name. map[track namespace][track name] = track delegate
+            /// Publish tracks by namespace and name. map[track namespace][track name] = track delegate
             std::map<uint64_t, std::map<uint64_t, std::shared_ptr<BaseTrackHandler>>> pub_tracks_by_name;
         };
 
         // -------------------------------------------------------------------------------------------------
         // Private methods
         // -------------------------------------------------------------------------------------------------
-        void init();
+        void Init();
 
-        void send_ctrl_msg(const ConnectionContext& conn_ctx, std::vector<uint8_t>&& data);
-        void send_client_setup();
-        void send_server_setup(ConnectionContext& conn_ctx);
-        void send_announce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace);
-        void send_announce_ok(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace);
-        void send_unannounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace);
-        void send_subscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id, TrackFullName& tfn, TrackHash th);
-        void send_subscribe_ok(ConnectionContext& conn_ctx,
-                               uint64_t subscribe_id,
-                               uint64_t expires,
-                               bool content_exists);
-        void send_unsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id);
-        void send_subscribe_done(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason);
-        void send_subscribe_error(ConnectionContext& conn_ctx,
-                                  uint64_t subscribe_id,
-                                  uint64_t track_alias,
-                                  transport::MoQSubscribeError error,
-                                  const std::string& reason);
-        void close_connection(TransportConnId conn_id,
-                              transport::MoQTerminationReason reason,
-                              const std::string& reason_str);
-        bool process_recv_ctrl_message(ConnectionContext& conn_ctx,
-                                       std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
-        bool process_recv_stream_data_message(ConnectionContext& conn_ctx,
-                                              std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+        void SendCtrlMsg(const ConnectionContext& conn_ctx, std::vector<uint8_t>&& data);
+        void SendClientSetup();
+        void SendServerSetup(ConnectionContext& conn_ctx);
+        void SendAnnounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace);
+        void SendAnnounceOk(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace);
+        void SendUnannounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace);
+        void SendSubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id, FullTrackName& tfn, TrackHash th);
+        void SendSubscribeOk(ConnectionContext& conn_ctx, uint64_t subscribe_id, uint64_t expires, bool content_exists);
+        void SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id);
+        void SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason);
+        void SendSubscribeError(ConnectionContext& conn_ctx,
+                                uint64_t subscribe_id,
+                                uint64_t track_alias,
+                                messages::MoqtSubscribeError error,
+                                const std::string& reason);
+        void CloseConnection(TransportConnId conn_id,
+                             messages::MoqtTerminationReason reason,
+                             const std::string& reason_str);
+        bool ProcessRecvCtrlMessage(ConnectionContext& conn_ctx,
+                                    std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+        bool ProcessRecvStreamDataMessage(ConnectionContext& conn_ctx,
+                                          std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
-        void remove_subscribeTrack(ConnectionContext& conn_ctx,
-                                   SubscribeTrackHandler& delegate,
-                                   bool remove_delegate = true);
+        void RemoveSubscribeTrack(ConnectionContext& conn_ctx,
+                                  SubscribeTrackHandler& delegate,
+                                  bool remove_delegate = true);
 
-        std::optional<std::weak_ptr<PublishTrackHandler>> getPubTrackDelegate(ConnectionContext& conn_ctx,
-                                                                                  TrackHash& th);
+        std::optional<std::weak_ptr<PublishTrackHandler>> GetPubTrackHandler(ConnectionContext& conn_ctx,
+                                                                             TrackHash& th);
 
         // -------------------------------------------------------------------------------------------------
         // Private member variables
         // -------------------------------------------------------------------------------------------------
 
-        std::mutex _state_mutex;
-        const bool _client_mode;
-        bool _stop{ false };
-        const ServerConfig _server_config;
-        const ClientConfig _client_config;
+        std::mutex state_mutex_;
+        const bool client_mode_;
+        bool stop_ { false };
+        const ServerConfig server_config_;
+        const ClientConfig client_config_;
 
-        std::map<TransportConnId, ConnectionContext> _connections;
+        std::map<TransportConnId, ConnectionContext> connections_;
 
-        Status _status{ Status::NOT_READY };
-
-        // Log handler to use
-        cantina::LoggerPointer _logger;
+        Status status_ { Status::kNotReady };
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-        MetricsExporter _mexport;
+        quicr::MetricsExporter mexport_;
 #endif
 
-        std::shared_ptr<MOQTClientCallbacks> _client_delegate;
-        std::shared_ptr<MOQTServerCallbacks> _server_delegate;
-        std::shared_ptr<ITransport> _transport; // **MUST** be last for proper order of destruction
+        std::shared_ptr<ITransport> quic_transport_; // **MUST** be last for proper order of destruction
     };
 
 } // namespace moq::transport

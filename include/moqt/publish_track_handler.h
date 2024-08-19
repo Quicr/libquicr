@@ -5,7 +5,6 @@
  */
 #pragma once
 
-#include "cantina/logger.h"
 #include <moqt/core/base_track_handler.h>
 
 namespace moq::transport {
@@ -24,28 +23,15 @@ namespace moq::transport {
         friend class Transport;
 
         /**
-         * @brief Publish track mode
-         *
-         * @details QUIC stream handling mode to use for publihsing objects
-         */
-        enum class TrackMode : uint8_t
-        {
-            DATAGRAM,
-            STREAM_PER_OBJECT,
-            STREAM_PER_GROUP,
-            STREAM_PER_TRACK
-        };
-
-        /**
          * @brief Error codes
          */
         enum class Error : uint8_t
         {
-            OK = 0,
-            INTERNAL_ERROR,
-            NOT_AUTHORIZED,
-            NOT_ANNOUNCED,
-            NO_SUBSCRIBERS,
+            kOk = 0,
+            kInternalError,
+            kNotAuthorized,
+            kNotAnnounced,
+            kNoSubscribers
         };
 
         /**
@@ -53,13 +39,22 @@ namespace moq::transport {
          */
         enum class Status : uint8_t
         {
-            OK = 0,
-            NOT_CONNECTED,
-            NOT_ANNOUNCED,
-            PENDING_ANNOUNCE_RESPONSE,
-            ANNOUNCE_NOT_AUTHORIZED,
-            NO_SUBSCRIBERS,
-            SENDING_UNANNOUNCE,
+            kOK = 0,
+            kNotConnected,
+            kNotAnnounced,
+            kPendingAnnounceResponse,
+            kAnnounceNotAuthorized,
+            kNoSubscribers,
+            kSendingUnannounce
+        };
+
+        struct SendParams
+        {
+         std::optional<uint64_t> group_id;      ///< Object group ID - Should be derived using time in microseconds
+         std::optional<uint64_t> object_id;     ///< Object ID - Start at zero and increment for each object in group
+         std::optional<uint32_t> prioirty;      ///< Priority of the object, lower value is better
+         std::optional<uint16_t> ttl;           ///< Object time to live in milliseconds
+
         };
 
         // --------------------------------------------------------------------------
@@ -67,20 +62,24 @@ namespace moq::transport {
         // --------------------------------------------------------------------------
 
         /**
-         * @brief Track delegate constructor
+         * @brief Publish track handler constructor
+         *
+         * @param track_namespace       Opaque binary array of bytes track namespace
+         * @param track_name            Opaque binary array of bytes track name
+         * @param track_mode            The track mode to operate using
+         * @param default_priority      Default priority for objects if not specified in SendParams
+         * @param default_ttl           Default TTL for objects if not specified in SendParams
          */
-        PublishTrackHandler(const bytes& track_namespace,
-                            const bytes& track_name,
+        PublishTrackHandler(const Bytes& track_namespace,
+                            const Bytes& track_name,
                             TrackMode track_mode,
                             uint8_t default_priority,
-                            uint32_t default_ttl,
-                            const cantina::LoggerPointer& logger)
-          : BaseTrackHandler(track_namespace, track_name, logger)
-          , _track_mode(track_mode)
+                            uint32_t default_ttl)
+          : BaseTrackHandler(track_namespace, track_name)
+          , track_mode_(track_mode)
+          , def_priority_(default_priority)
+          , def_ttl_(default_ttl)
         {
-
-            setDefaultPriority(default_priority);
-            setDefaultTTL(default_ttl);
         }
 
         // --------------------------------------------------------------------------
@@ -93,7 +92,7 @@ namespace moq::transport {
          *
          * @param status        Indicates the status of being able to publish
          */
-        virtual void statusStatus(PublishTrackHandler::Status status) = 0;
+        virtual void StatusChanged(PublishTrackHandler::Status status) = 0;
 
         // --------------------------------------------------------------------------
         // Various getter/setters
@@ -101,19 +100,19 @@ namespace moq::transport {
         /**
          * @brief set/update the default priority for published objects
          */
-        void setDefaultPriority(uint8_t priority) { _def_priority = priority; }
+        void SetDefaultPriority(uint8_t priority) { def_priority_ = priority; }
 
         /**
-         * @brief set/update the default TTL expirty for published objects
+         * @brief set/update the default TTL expiry for published objects
          */
-        void setDefaultTTL(uint32_t ttl) { _def_ttl = ttl; }
+        void SetDefaultTTL(uint32_t ttl) { def_ttl_ = ttl; }
 
         /**
          * @brief Get the publish status
          *
          * @return Status of publish
          */
-        Status getStatus() { return _publish_status; }
+        Status GetStatus() { return publish_status_; }
 
         // --------------------------------------------------------------------------
         // Methods that normally do not need to be overridden
@@ -127,28 +126,15 @@ namespace moq::transport {
          *   indicate if there are no subscribers. In this case, the object will
          *   not be sent.
          *
-         * @param[in] group_id     Group ID of object
+         * @param
          * @param[in] object_id    Object ID of the object
          * @param[in] object       Object to publish to track
          * @param[in] ttl          Expire TTL for object
          * @param[in] priority     Priority for object; will be set upon next qualifing stream object
          *
-         * @returns PublishError status of the publish
+         * @returns Error status of the publish
          */
-        Error publishObject(const uint64_t group_id,
-                            const uint64_t object_id,
-                            std::span<const uint8_t> object,
-                            uint8_t priority,
-                            uint32_t ttl);
-        Error publishObject(const uint64_t group_id, const uint64_t object_id, std::span<const uint8_t> object);
-        Error publishObject(const uint64_t group_id,
-                            const uint64_t object_id,
-                            std::span<const uint8_t> object,
-                            uint32_t ttl);
-        Error publishObject(const uint64_t group_id,
-                            const uint64_t object_id,
-                            std::span<const uint8_t> object,
-                            uint8_t priority);
+        Error PublishObject(const SendParams send_params, BytesSpan object);
 
         // --------------------------------------------------------------------------
         // Internals
@@ -166,48 +152,48 @@ namespace moq::transport {
          * @param stream_header_needed  Indicates if group or track header is needed before this data object
          * @param data                  Raw data/object that should be transmitted - MoQInstance serializes the data
          */
-        using publishObjFunction = std::function<Error(uint8_t priority,
+        using PublishObjFunction = std::function<Error(uint8_t priority,
                                                        uint32_t ttl,
                                                        bool stream_header_needed,
                                                        uint64_t group_id,
                                                        uint64_t object_id,
-                                                       std::span<const uint8_t> data)>;
+                                                       BytesSpan data)>;
         /**
          * @brief Set the Data context ID
          *
          * @details The MOQ Handler sets the data context ID
          */
-        void set_data_context_id(uint64_t data_ctx_id) { _mi_publish_data_ctx_id = data_ctx_id; };
+        void SetDataContextId(uint64_t data_ctx_id) { publish_data_ctx_id_ = data_ctx_id; };
 
         /**
          * @brief Get the Data context ID
          */
-        uint64_t get_data_context_id() { return _mi_publish_data_ctx_id; };
+        uint64_t GetDataContextId() { return publish_data_ctx_id_; };
 
-        void set_publish_object_function(publishObjFunction&& publish_func)
+        void SetPublishObjectFunction(PublishObjFunction&& publish_func)
         {
-            _mi_publishObjFunc = std::move(publish_func);
+            publish_object_func_ = std::move(publish_func);
         }
 
         /**
          * @brief Set the publish status
          * @param status                Status of publishing (aka publish objects)
          */
-        void set_status(Status status) { _publish_status = status; }
+        void SetStatus(Status status) { publish_status_ = status; }
 
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
 
-        Status _publish_status{ Status::NOT_ANNOUNCED };
-        TrackMode _track_mode;
-        uint8_t _def_priority;            // Set by caller and is used when priority is not specified
-        uint32_t _def_ttl;                // Set by caller and is used when TTL is not specified
+        Status publish_status_{ Status::kNotAnnounced };
+        TrackMode track_mode_;
+        uint8_t def_priority_;              // Set by caller and is used when priority is not specified
+        uint32_t def_ttl_;                  // Set by caller and is used when TTL is not specified
 
-        uint64_t _mi_publish_data_ctx_id; // publishing data context ID
-        publishObjFunction _mi_publishObjFunc;
+        uint64_t publish_data_ctx_id_;      // publishing data context ID
+        PublishObjFunction publish_object_func_;
 
-        bool _sent_track_header{ false }; // Used only in stream per track mode
+        bool sent_track_header_ { false };  // Used only in stream per track mode
     };
 
-} // namespace quicr
+} // namespace moq::transport
