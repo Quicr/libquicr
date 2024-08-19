@@ -31,6 +31,13 @@
 #include <string>
 #include <thread>
 
+#define LOGGER_TRACE(logger, ...) if (logger) SPDLOG_LOGGER_TRACE(logger, __VA_ARGS__)
+#define LOGGER_DEBUG(logger, ...) if (logger) SPDLOG_LOGGER_DEBUG(logger, __VA_ARGS__)
+#define LOGGER_INFO(logger, ...) if (logger) SPDLOG_LOGGER_INFO(logger, __VA_ARGS__)
+#define LOGGER_WARN(logger, ...) if (logger) SPDLOG_LOGGER_WARN(logger, __VA_ARGS__)
+#define LOGGER_ERROR(logger, ...) if (logger) SPDLOG_LOGGER_ERROR(logger, __VA_ARGS__)
+#define LOGGER_CRITICAL(logger, ...) if (logger) SPDLOG_LOGGER_CRITICAL(logger, __VA_ARGS__)
+
 namespace quicr {
 
 namespace {
@@ -56,17 +63,10 @@ to_TransportRemote(const RelayInfo& info) noexcept
 ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
                                    const std::string& endpoint_id,
                                    size_t chunk_size,
-                                   const qtransport::TransportConfig& tconfig,
-                                   const cantina::LoggerPointer& logger)
-  : logger(std::make_shared<cantina::Logger>("QSES", logger))
-  , _endpoint_id(endpoint_id)
+                                   const qtransport::TransportConfig& tconfig)
+  : _endpoint_id(endpoint_id)
   , _chunk_size(chunk_size)
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-  , _mexport(logger)
-#endif
 {
-  this->logger->Log("Initialize Client");
-
   if (relay_info.proto == RelayInfo::Protocol::UDP) {
       transport_needs_fragmentation = true;
   }
@@ -76,10 +76,7 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
   }
 
   const auto server = to_TransportRemote(relay_info);
-  transport = qtransport::ITransport::make_client_transport(
-    server, tconfig, *this, this->logger);
-
-  logger->info << "Starting metrics exporter" << std::flush;
+  transport = qtransport::ITransport::make_client_transport(server, tconfig, *this);
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
   if (_mexport.init("http://metrics.m10x.ctgpoc.com:8086",
@@ -94,15 +91,9 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
 
 }
 
-ClientRawSession::ClientRawSession(
-  std::shared_ptr<qtransport::ITransport> transport_in,
-  const cantina::LoggerPointer& logger)
+ClientRawSession::ClientRawSession(std::shared_ptr<qtransport::ITransport> transport_in)
   : has_shared_transport{ true }
-  , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport(std::move(transport_in))
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-  , _mexport(logger)
-#endif
 {
 }
 
@@ -128,16 +119,16 @@ ClientRawSession::connect()
 
   transport_conn_id = transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples);
 
-  LOGGER_INFO(logger, "Connecting session " << *transport_conn_id << "...");
+  LOGGER_INFO(logger, "Connecting session {0}...", *transport_conn_id);
 
   while (!stopping &&
          transport->status() == qtransport::TransportStatus::Connecting) {
-    LOGGER_DEBUG(logger, "Connecting... " << int(stopping.load()));
+    LOGGER_DEBUG(logger, "Connecting... {0}", int(stopping.load()));
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
   if (stopping || !transport) {
-    LOGGER_INFO(logger, "Cancelling connecting session " << *transport_conn_id);
+    LOGGER_INFO(logger, "Cancelling connecting session {0}", *transport_conn_id);
     return false;
   }
 
@@ -146,7 +137,7 @@ ClientRawSession::connect()
     msg << "Session " << *transport_conn_id
         << " failed to connect to server, transport status: "
         << int(transport->status());
-    logger->Log(cantina::LogLevel::Critical, msg.str());
+    LOGGER_CRITICAL(logger, msg.str());
 
     throw std::runtime_error(msg.str());
   }
@@ -184,21 +175,21 @@ ClientRawSession::disconnect()
 
   const auto& conn_id =
     transport_conn_id ? transport_conn_id.value() : 0;
-  LOGGER_DEBUG(logger, "Disconnecting session " << conn_id << "...");
+  LOGGER_DEBUG(logger, "Disconnecting session {0}...", conn_id);
 
   stopping = true;
   try {
     transport->close(conn_id);
   } catch (const std::exception& e) {
     LOGGER_ERROR(
-      logger, "Error disconnecting session " << conn_id << ": " << e.what());
+      logger, "Error disconnecting session {0}: {1}", conn_id, e.what());
     return false;
   } catch (...) {
-    LOGGER_ERROR(logger, "Unknown error disconnecting session " << conn_id);
+    LOGGER_ERROR(logger, "Unknown error disconnecting session {0}", conn_id);
     return false;
   }
 
-  LOGGER_INFO(logger, "Disconnected session " << conn_id << "!");
+  LOGGER_INFO(logger, "Disconnected session {0}!", conn_id);
 
   transport_conn_id = std::nullopt;
   transport_ctrl_data_ctx_id = std::nullopt;
@@ -227,11 +218,7 @@ ClientRawSession::on_connection_status(
   const qtransport::TransportConnId& conn_id,
   const qtransport::TransportStatus status)
 {
-  {
-    LOGGER_DEBUG(logger,
-                 "connection_status: cid: " << conn_id
-                                            << " status: " << int(status));
-  }
+  LOGGER_DEBUG(logger, "connection_status: cid: {0} status: {1}", conn_id, int(status));
 
   switch (status) {
     case qtransport::TransportStatus::Connecting:
@@ -240,14 +227,12 @@ ClientRawSession::on_connection_status(
       stopping = false;
       break;
     case qtransport::TransportStatus::Disconnected:
-      LOGGER_INFO(logger,
-                  "Received disconnect from transport for context: "
-                    << conn_id);
+      LOGGER_INFO(logger, "Received disconnect from transport for context: {0}", conn_id);
       [[fallthrough]];
     case qtransport::TransportStatus::Shutdown:
       [[fallthrough]];
     case qtransport::TransportStatus::RemoteRequestClose:
-      LOGGER_INFO(logger, "Shutting down context: " << conn_id);
+      LOGGER_INFO(logger, "Shutting down context: {0}", conn_id);
       stopping = true;
       break;
   }
@@ -260,9 +245,10 @@ ClientRawSession::on_new_connection(
 {
 }
 
-void
-ClientRawSession::on_new_data_context(const qtransport::TransportConnId &conn_id, const qtransport::DataContextId &data_ctx_id) {
-  LOGGER_INFO(logger, "New BiDir data context conn_id: " << conn_id << " data_ctx_id: " << data_ctx_id);
+void ClientRawSession::on_new_data_context(const qtransport::TransportConnId& conn_id,
+                                           const qtransport::DataContextId& data_ctx_id)
+{
+  LOGGER_INFO(logger, "New BiDir data context conn_id: {0} data_ctx_id: {1}", conn_id, data_ctx_id);
 }
 
 void ClientRawSession::on_recv_dgram(const TransportConnId& conn_id,
@@ -284,7 +270,7 @@ void ClientRawSession::on_recv_dgram(const TransportConnId& conn_id,
     try {
       handle(std::nullopt, std::nullopt, std::move(msg_buffer));
     } catch (const std::exception& e) {
-      LOGGER_DEBUG(logger, "Dropping malformed message: " << e.what());
+      LOGGER_DEBUG(logger, "Dropping malformed message: {0}", e.what());
       return;
     } catch (...) {
       LOGGER_CRITICAL(logger,
@@ -326,7 +312,7 @@ void ClientRawSession::on_recv_stream(const TransportConnId& conn_id,
           messages::MessageBuffer msg_buffer{ obj };
           handle(stream_id, data_ctx_id, std::move(msg_buffer));
         } catch (const std::exception& e) {
-          LOGGER_DEBUG(logger, "Dropping malformed message: " << e.what());
+          LOGGER_DEBUG(logger, "Dropping malformed message: {0}", e.what());
           return;
         } catch (...) {
           LOGGER_CRITICAL(
@@ -361,7 +347,7 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
   }
 
   if (transport_mode == TransportMode::UsePublisher) {
-    logger->error << "Publish Intent for ns: " << quicr_namespace << " cannot use 'UsePublisher'" << std::flush;
+    LOGGER_ERROR(logger, "Publish Intent for ns: {0} cannot use 'UsePublisher'", std::string(quicr_namespace));
     throw std::runtime_error("Transport mode cannot be 'UsePublisher' for publish intents");
   }
 
@@ -374,11 +360,12 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
   _mexport.set_data_ctx_info(conn_id, data_ctx_id, {.subscribe = false, .nspace = quicr_namespace});
 #endif
 
-  logger->info << "Publish Intent ns: " << quicr_namespace
-               << " data_ctx_id: " << data_ctx_id
-               << " priority: " << static_cast<int>(priority)
-               << " mode: " << static_cast<int>(transport_mode)
-               << std::flush;
+  LOGGER_INFO(logger,
+              "Publish Intent ns: {0} data_ctx_id: {1} priority: {2} mode: {3}",
+              std::string(quicr_namespace),
+              data_ctx_id,
+              static_cast<int>(priority),
+              static_cast<int>(transport_mode));
 
   publish_state[quicr_namespace] = {
     .state = PublishContext::State::Pending,
@@ -401,8 +388,7 @@ ClientRawSession::publishIntent(std::shared_ptr<PublisherDelegate> pub_delegate,
                                intent.payload.size() };
   msg << intent;
 
-  auto error =   enqueue_ctrl_msg(msg.take());
-
+  auto error = enqueue_ctrl_msg(msg.take());
   return error == qtransport::TransportError::None;
 }
 
@@ -462,10 +448,11 @@ ClientRawSession::subscribe(
   if (!sub_delegates.contains(quicr_namespace)) {
     sub_delegates[quicr_namespace] = std::move(subscriber_delegate);
 
-    logger->info << "Subscribe ns: " << quicr_namespace
-           << " priority: " << static_cast<int>(priority)
-           << " mode: " << static_cast<int>(transport_mode)
-           << std::flush;
+    LOGGER_INFO(logger,
+                "Subscribe ns: {0} priority: {1} mode: {2}",
+                std::string(quicr_namespace),
+                static_cast<int>(priority),
+                static_cast<int>(transport_mode));
 
     const auto data_ctx_id = get_or_create_data_ctx_id(conn_id, transport_mode, priority);
     subscribe_state[quicr_namespace] = SubscribeContext{
@@ -492,14 +479,14 @@ ClientRawSession::subscribe(
 
   if (transport_mode == TransportMode::Pause) {
       if (sub_it->second.state != SubscriptionState::Ready) {
-          logger->error << "Failed to pause ns: " << quicr_namespace << " due to state not being ready" << std::flush;
+          LOGGER_ERROR(logger, "Failed to pause ns: {0} due to state not being ready", std::string(quicr_namespace));
           return;
       }
       sub_it->second.state = SubscriptionState::Paused;
   }
   else if (transport_mode == TransportMode::Resume) {
       if (sub_it->second.state != SubscriptionState::Paused) {
-          logger->info << "Ignoring Resume ns: " << quicr_namespace << " due to state not being Paused" << std::flush;
+          LOGGER_INFO(logger, "Ignoring Resume ns: {0} due to state not being Paused", std::string(quicr_namespace));
           return;
       }
       sub_it->second.state = SubscriptionState::Ready;
@@ -565,8 +552,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
   auto ps_it = publish_state.find(quicr_name);
 
   if (ps_it == publish_state.end()) {
-    LOGGER_INFO(
-      logger, "No publish intent for '" << quicr_name << "' missing, dropping");
+    LOGGER_INFO(logger, "No publish intent for '{0}' missing, dropping", std::string(quicr_name));
 
     return;
   }
@@ -583,7 +569,7 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
   const auto prev_group_id = context.group_id;
   auto gap_log = gap_check(true, quicr_name, context.group_id, context.object_id);
   if (!gap_log.empty()) {
-    logger->Log(gap_log);
+    LOGGER_INFO(logger, gap_log);
   }
 
   datagram.header.name = quicr_name;
@@ -711,13 +697,16 @@ ClientRawSession::publishNamedObject(const quicr::Name& quicr_name,
 
       trace.push_back({"libquicr:publishNamedObject:afterEnqueue:LasgFrag", trace_start_time});
 
-      if (auto err = transport->enqueue(
-            context.transport_conn_id, context.transport_data_ctx_id, msg.take(), std::move(trace), priority,
-            expiry_age_ms, pop_delay_ms, eflags);
+      if (auto err = transport->enqueue(context.transport_conn_id,
+                                        context.transport_data_ctx_id,
+                                        msg.take(),
+                                        std::move(trace),
+                                        priority,
+                                        expiry_age_ms,
+                                        pop_delay_ms,
+                                        eflags);
           err != qtransport::TransportError::None) {
-        LOGGER_WARNING(logger,
-                       "Published object delayed due to enqueue error "
-                         << static_cast<unsigned>(err));
+        LOGGER_WARN(logger, "Published object delayed due to enqueue error {0}", static_cast<unsigned>(err));
       }
     }
   }
@@ -871,7 +860,7 @@ ClientRawSession::handle(std::optional<uint64_t> stream_id,
                          messages::MessageBuffer&& msg)
 {
   if (msg.empty()) {
-    std::cout << "Transport Reported Empty Data" << std::endl;
+    LOGGER_WARN(logger, "Transport Reported Empty Data");
     return;
   }
 
@@ -889,9 +878,7 @@ ClientRawSession::handle(std::optional<uint64_t> stream_id,
                                  .data_ctx_info = {}}, true);
 #endif
 
-      logger->info << "Received connection response with"
-                   << " relay_id: " << response.relay_id
-                   << std::flush;
+      LOGGER_INFO(logger, "Received connection response with relay_id: {0}", response.relay_id);
       break;
     }
     case messages::MessageType::SubscribeResponse: {
@@ -900,17 +887,16 @@ ClientRawSession::handle(std::optional<uint64_t> stream_id,
 
       const auto result = SubscribeResult{ .status = response.response };
 
-      if (sub_delegates.contains(response.quicr_namespace)) {
-        auto& context = subscribe_state[response.quicr_namespace];
-        context.state = SubscriptionState::Ready;
+      if (!sub_delegates.contains(response.quicr_namespace)) {
+        LOGGER_ERROR(logger, "Got SubscribeResponse: No delegate found for namespace {0}", std::string(response.quicr_namespace));
+        break;
+      }
 
-        if (const auto& sub_delegate =
-              sub_delegates[response.quicr_namespace]) {
-          sub_delegate->onSubscribeResponse(response.quicr_namespace, result);
-        }
-      } else {
-        std::cout << "Got SubscribeResponse: No delegate found for namespace"
-                  << response.quicr_namespace << std::endl;
+      auto& context = subscribe_state[response.quicr_namespace];
+      context.state = SubscriptionState::Ready;
+
+      if (const auto& sub_delegate = sub_delegates[response.quicr_namespace]) {
+        sub_delegate->onSubscribeResponse(response.quicr_namespace, result);
       }
 
       break;
@@ -951,9 +937,7 @@ ClientRawSession::handle(std::optional<uint64_t> stream_id,
                                  context.object_id);
 
         if (!gap_log.empty()) {
-          logger->info << "conn_id: " << context.transport_conn_id
-                       << " data_ctx_id: " << context.transport_data_ctx_id
-                       << " " << gap_log << std::flush;
+          LOGGER_INFO(logger, "conn_id: {0} data_ctx_id: {1} {2}", context.transport_conn_id, context.transport_data_ctx_id, gap_log);
         }
 
         if (datagram.header.offset_and_fin != uintVar_t(0x1)) {
@@ -974,16 +958,14 @@ ClientRawSession::handle(std::optional<uint64_t> stream_id,
       msg >> response;
 
       if (!pub_delegates.contains(response.quicr_namespace)) {
-        std::cout
-          << "Got PublishIntentResponse: No delegate found for namespace "
-          << response.quicr_namespace << std::endl;
+        LOGGER_ERROR(logger, "Got PublishIntentResponse: No delegate found for namespace {0}", std::string(response.quicr_namespace));
         return;
       }
 
       auto ps_it = publish_state.find(response.quicr_namespace);
 
       if (ps_it == publish_state.end()) {
-        LOGGER_ERROR(logger, "No publish intent for '" << response.quicr_namespace << "' missing, dropping");
+        LOGGER_ERROR(logger, "No publish intent for '{0}' missing, dropping", std::string(response.quicr_namespace));
         break;
       }
 
@@ -992,14 +974,14 @@ ClientRawSession::handle(std::optional<uint64_t> stream_id,
     transport->setRemoteDataCtxId(ps_it->second.transport_conn_id, ps_it->second.transport_data_ctx_id,
                                   response.remote_data_ctx_id);
 
-      if (ps_it->second.state != PublishContext::State::Ready) {
-        logger->info << "Publish intent ready for ns: " << response.quicr_namespace
-                     << " data_ctx_id: " << ps_it->second.transport_data_ctx_id
-                     << " remote_data_ctx_id: " << ps_it->second.remote_data_ctx_id
-                     << std::flush;
+    if (ps_it->second.state != PublishContext::State::Ready) {
+        LOGGER_INFO(logger,
+                    "Publish intent ready for ns: {0} data_ctx_id: {1} remote_data_ctx_id: {2}",
+                    std::string(response.quicr_namespace),
+                    ps_it->second.transport_data_ctx_id,
+                    ps_it->second.remote_data_ctx_id);
         ps_it->second.state = PublishContext::State::Ready;
-      }
-
+    }
 
       if (const auto& delegate = pub_delegates[response.quicr_namespace]) {
         const auto result = PublishIntentResult{

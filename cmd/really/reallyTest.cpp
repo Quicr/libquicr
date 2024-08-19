@@ -1,7 +1,8 @@
-#include <cantina/logger.h>
 #include <quicr/quicr_client.h>
 #include <quicr/quicr_common.h>
 #include <transport/transport.h>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 #include <chrono>
 #include <cstring>
@@ -9,11 +10,18 @@
 #include <sstream>
 #include <thread>
 
+#define LOGGER_TRACE(logger, ...) if (logger) SPDLOG_LOGGER_TRACE(logger, __VA_ARGS__)
+#define LOGGER_DEBUG(logger, ...) if (logger) SPDLOG_LOGGER_DEBUG(logger, __VA_ARGS__)
+#define LOGGER_INFO(logger, ...) if (logger) SPDLOG_LOGGER_INFO(logger, __VA_ARGS__)
+#define LOGGER_WARN(logger, ...) if (logger) SPDLOG_LOGGER_WARN(logger, __VA_ARGS__)
+#define LOGGER_ERROR(logger, ...) if (logger) SPDLOG_LOGGER_ERROR(logger, __VA_ARGS__)
+#define LOGGER_CRITICAL(logger, ...) if (logger) SPDLOG_LOGGER_CRITICAL(logger, __VA_ARGS__)
+
 class subDelegate : public quicr::SubscriberDelegate
 {
 public:
-  explicit subDelegate(cantina::LoggerPointer& logger)
-    : logger(std::make_shared<cantina::Logger>("SDEL", logger))
+  explicit subDelegate()
+    : logger(spdlog::stderr_color_mt("SDEL"))
   {
   }
 
@@ -21,10 +29,7 @@ public:
     [[maybe_unused]] const quicr::Namespace& quicr_namespace,
     [[maybe_unused]] const quicr::SubscribeResult& result) override
   {
-    logger->info << "onSubscriptionResponse: name: " << quicr_namespace << "/"
-                 << int(quicr_namespace.length())
-                 << " status: " << static_cast<unsigned>(result.status)
-                 << std::flush;
+    LOGGER_INFO(logger, "onSubscriptionResponse: name: {0}/{1} status: ", std::string(quicr_namespace), int(quicr_namespace.length()), static_cast<unsigned>(result.status));
   }
 
   void onSubscriptionEnded(
@@ -32,23 +37,20 @@ public:
     [[maybe_unused]] const quicr::SubscribeResult::SubscribeStatus& reason)
     override
   {
-    logger->info << "onSubscriptionEnded: name: " << quicr_namespace << "/"
-                 << static_cast<unsigned>(quicr_namespace.length())
-                 << std::flush;
+    LOGGER_INFO(logger, "onSubscriptionEnded: name: {0}/{1}", std::string(quicr_namespace), static_cast<unsigned>(quicr_namespace.length()));
   }
 
   void onSubscribedObject([[maybe_unused]] const quicr::Name& quicr_name,
                           [[maybe_unused]] uint8_t priority,
                           [[maybe_unused]] quicr::bytes&& data) override
   {
-    logger->info << "recv object: name: " << quicr_name
-                 << " data sz: " << data.size();
+    std::ostringstream log_msg;
+    log_msg << "recv object: name: " << quicr_name << " data sz: " << data.size();
 
     if (!data.empty()) {
-      logger->info << " data: " << data.data();
+      log_msg << " data: " << data.data();
     }
-
-    logger->info << std::flush;
+    LOGGER_INFO(logger, log_msg.str());
   }
 
   void onSubscribedObjectFragment(
@@ -61,7 +63,7 @@ public:
   }
 
 private:
-  cantina::LoggerPointer logger;
+  std::shared_ptr<spdlog::logger> logger;
 };
 
 class pubDelegate : public quicr::PublisherDelegate
@@ -69,8 +71,8 @@ class pubDelegate : public quicr::PublisherDelegate
 public:
   std::atomic<bool> got_intent_response { false };
 
-  explicit pubDelegate(cantina::LoggerPointer& logger)
-    : logger(std::make_shared<cantina::Logger>("PDEL", logger))
+  explicit pubDelegate()
+    : logger(spdlog::stderr_color_mt("PDEL"))
   {
   }
 
@@ -78,28 +80,24 @@ public:
     const quicr::Namespace& quicr_namespace,
     const quicr::PublishIntentResult& result) override
   {
-    LOGGER_INFO(logger,
-                "Received PublishIntentResponse for "
-                  << quicr_namespace << ": "
-                  << static_cast<int>(result.status));
+    LOGGER_INFO(logger, "Received PublishIntentResponse for {0}: {1}", std::string(quicr_namespace), static_cast<int>(result.status));
     got_intent_response = true;
   }
 
 private:
-  cantina::LoggerPointer logger;
+  std::shared_ptr<spdlog::logger> logger;
 };
 
-int do_publisher(cantina::LoggerPointer logger,
+int do_publisher(std::shared_ptr<spdlog::logger> logger,
                  quicr::Client& client,
                  std::shared_ptr<pubDelegate> pd,
                  quicr::Name name) {
 
     auto nspace = quicr::Namespace(name, 96);
-    logger->info << "Publish Intent for name: " << name
-                 << " == namespace: " << nspace << std::flush;
+    LOGGER_INFO(logger, "Publish Intent for name: {0} == namespace: {1}", std::string(name), std::string(nspace));
 
     client.publishIntent(pd, nspace, {}, {}, {}, quicr::TransportMode::ReliablePerGroup, 2);
-    logger->info << "Waiting for intent response, up to 2.5 seconds" << std::flush;
+    LOGGER_INFO(logger, "Waiting for intent response, up to 2.5 seconds");
 
     for (int c=0; c < 50; c++) {
       if (pd->got_intent_response) {
@@ -109,11 +107,11 @@ int do_publisher(cantina::LoggerPointer logger,
     }
 
     if (!pd->got_intent_response) {
-      logger->info << "Did not receive publish intent, cannot proceed. Exit" << std::flush;
+      LOGGER_ERROR(logger, "Did not receive publish intent, cannot proceed. Exit");
       return -1;
     }
 
-    logger->info << "Received intent response." << std::flush;
+    LOGGER_INFO(logger, "Received intent response.");
 
     std::cout << "-----------------------------------------------------------------------" << std::endl;
     std::cout << " Type a message and press ENTER to publish. Type the word exit to end program." << std::flush;
@@ -123,11 +121,11 @@ int do_publisher(cantina::LoggerPointer logger,
       std::string msg;
       getline(std::cin, msg);
       if (!msg.compare("exit")) {
-        logger->info << "Exit" << std::flush;
+        LOGGER_INFO(logger, "Exit");
         break;
       }
 
-      logger->info << "Publish: " << msg << std::flush;
+      LOGGER_INFO(logger, "Publish: {0}", msg);
       std::vector<uint8_t> m_data(msg.begin(), msg.end());
 
       std::vector<qtransport::MethodTraceItem> trace;
@@ -141,14 +139,14 @@ int do_publisher(cantina::LoggerPointer logger,
     return 0;
 }
 
-int do_subscribe(cantina::LoggerPointer logger,
+int do_subscribe(std::shared_ptr<spdlog::logger> logger,
                  quicr::Client& client,
                  quicr::Name name) {
 
-    auto sd = std::make_shared<subDelegate>(logger);
+    auto sd = std::make_shared<subDelegate>();
     auto nspace = quicr::Namespace(name, 96);
 
-    logger->info << "Subscribe to " << name << "/" << 96 << std::flush;
+    LOGGER_INFO(logger, "Subscribe to {0}/{1}", std::string(name), 96);
 
     client.subscribe(sd,
                      nspace,
@@ -158,21 +156,21 @@ int do_subscribe(cantina::LoggerPointer logger,
                      "auth_token",
                      quicr::bytes{});
 
-    logger->info << "Type exit to end program" << std::flush;
+    LOGGER_INFO(logger, "Type exit to end program");
     while (true) {
       std::string msg;
       getline(std::cin, msg);
       if (!msg.compare("exit")) {
-        logger->info << "Exit" << std::flush;
+        LOGGER_INFO(logger, "Exit");
         break;
       }
     }
 
 
-    logger->Log("Now unsubscribing");
+    LOGGER_INFO(logger, "Now unsubscribing");
     client.unsubscribe(nspace, {}, {});
 
-    logger->Log("Sleeping for 5 seconds before exiting");
+    LOGGER_INFO(logger, "Sleeping for 5 seconds before exiting");
     std::this_thread::sleep_for(std::chrono::seconds(5));
 
     return 0;
@@ -181,8 +179,7 @@ int do_subscribe(cantina::LoggerPointer logger,
 int
 main(int argc, char* argv[])
 {
-  cantina::LoggerPointer logger =
-  std::make_shared<cantina::Logger>("reallyTest");
+  auto logger = spdlog::stderr_color_mt("reallyTest");
 
   if ((argc != 2) && (argc != 3)) {
     std::cerr
@@ -211,7 +208,7 @@ main(int argc, char* argv[])
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   auto name = quicr::Name(argv[1]);
 
-  logger->info << "Name = " << name << std::flush;
+  LOGGER_INFO(logger, "Name = {0}", std::string(name));
 
   auto data = std::vector<uint8_t>{};
   if (argc == 3) {
@@ -220,7 +217,7 @@ main(int argc, char* argv[])
     data.insert(data.end(), data_str.begin(), data_str.end());
   }
 
-  logger->info << "Connecting to " << relayName << ":" << port << std::flush;
+  LOGGER_INFO(logger, "Connecting to {0}: {1}", relayName, port);
 
   const auto relay =
     quicr::RelayInfo{ .hostname = relayName,
@@ -232,11 +229,11 @@ main(int argc, char* argv[])
     .tls_key_filename = "",
   };
 
-  quicr::Client client(relay, "a@cisco.com", 0, tcfg, logger);
-  auto pd = std::make_shared<pubDelegate>(logger);
+  quicr::Client client(relay, "a@cisco.com", 0, tcfg);
+  auto pd = std::make_shared<pubDelegate>();
 
   if (!client.connect()) {
-    logger->Log(cantina::LogLevel::Critical, "Transport connect failed");
+    LOGGER_CRITICAL(logger, "Transport connect failed");
     return 0;
   }
 

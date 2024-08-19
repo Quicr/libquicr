@@ -25,6 +25,13 @@
 #include <sstream>
 #include <thread>
 
+#define LOGGER_TRACE(logger, ...) if (logger) SPDLOG_LOGGER_TRACE(logger, __VA_ARGS__)
+#define LOGGER_DEBUG(logger, ...) if (logger) SPDLOG_LOGGER_DEBUG(logger, __VA_ARGS__)
+#define LOGGER_INFO(logger, ...) if (logger) SPDLOG_LOGGER_INFO(logger, __VA_ARGS__)
+#define LOGGER_WARN(logger, ...) if (logger) SPDLOG_LOGGER_WARN(logger, __VA_ARGS__)
+#define LOGGER_ERROR(logger, ...) if (logger) SPDLOG_LOGGER_ERROR(logger, __VA_ARGS__)
+#define LOGGER_CRITICAL(logger, ...) if (logger) SPDLOG_LOGGER_CRITICAL(logger, __VA_ARGS__)
+
 namespace quicr {
 /*
  * Initialize the QUICR server session at the port specified.
@@ -32,14 +39,9 @@ namespace quicr {
  */
 ServerRawSession::ServerRawSession(const RelayInfo& relayInfo,
                                    const qtransport::TransportConfig& tconfig,
-                                   std::shared_ptr<ServerDelegate> delegate_in,
-                                   const cantina::LoggerPointer& logger)
+                                   std::shared_ptr<ServerDelegate> delegate_in)
   : delegate(std::move(delegate_in))
-  , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport_delegate(*this)
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-  , _mexport(logger)
-#endif
 {
   t_relay.host_or_ip = relayInfo.hostname;
   t_relay.port = relayInfo.port;
@@ -59,15 +61,10 @@ ServerRawSession::ServerRawSession(const RelayInfo& relayInfo,
 
 ServerRawSession::ServerRawSession(
   std::shared_ptr<qtransport::ITransport> transport_in,
-  std::shared_ptr<ServerDelegate> delegate_in,
-  const cantina::LoggerPointer& logger)
+  std::shared_ptr<ServerDelegate> delegate_in)
   : delegate(std::move(delegate_in))
-  , logger(std::make_shared<cantina::Logger>("QSES", logger))
   , transport_delegate(*this)
   , transport(std::move(transport_in))
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-  , _mexport(logger)
-#endif
 {
 }
 
@@ -75,8 +72,7 @@ std::shared_ptr<qtransport::ITransport>
 ServerRawSession::setupTransport(const qtransport::TransportConfig& cfg)
 {
 
-  return qtransport::ITransport::make_server_transport(
-    t_relay, cfg, transport_delegate, logger);
+  return qtransport::ITransport::make_server_transport(t_relay, cfg, transport_delegate);
 }
 
 // Transport APIs
@@ -100,7 +96,7 @@ ServerRawSession::run()
   _running = true;
 
   while (transport->status() == qtransport::TransportStatus::Connecting) {
-    logger->Log("Waiting for server to be ready");
+    LOGGER_INFO(logger, "Waiting for server to be ready");
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
@@ -114,7 +110,7 @@ ServerRawSession::run()
       }
 
   if (!transport->metrics_conn_samples) {
-    logger->error << "ERROR metrics conn samples null" << std::flush;
+    LOGGER_ERROR(logger, "ERROR metrics conn samples null");
   }
   _mexport.run();
 #endif
@@ -149,10 +145,11 @@ ServerRawSession::publishIntentResponse(const quicr::Namespace& quicr_namespace,
 
   const auto& conn_ctx = _connections[context.transport_conn_id];
 
-  logger->info << "Sending publish intent response ns: " << quicr_namespace
-               << " conn_id: " << context.transport_conn_id
-               << " data_ctx_id: " << context.data_ctx_id
-               << std::flush;
+  LOGGER_INFO(logger,
+              "Sending publish intent response ns: {0} conn_id: {1} data_ctx_id: {2}",
+              std::string(quicr_namespace),
+              context.transport_conn_id,
+              context.data_ctx_id);
   enqueue_ctrl_msg(context.transport_conn_id, conn_ctx.ctrl_data_ctx_id, msg.take());
 }
 
@@ -215,8 +212,7 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
 {
   // start populating message to encode
   if (subscribe_id_state.find(subscriber_id) == subscribe_id_state.end()) {
-    logger->info << "Send Object, missing subscriber_id: " << subscriber_id
-                 << std::flush;
+    LOGGER_INFO(logger, "Send Object, missing subscriber_id: {0}", subscriber_id);
     return;
   }
 
@@ -243,11 +239,13 @@ ServerRawSession::sendNamedObject(const uint64_t& subscriber_id,
     _mexport.set_data_ctx_info(context->transport_conn_id, context->data_ctx_id, {.subscribe = true, .nspace = context->nspace});
 #endif
 
-    logger->info << "Creating new data context for subscriber_id: " << subscriber_id
-                 << " conn_id: " << context->transport_conn_id
-                 << " remote_data_ctx_id: " << context->remote_data_ctx_id
-                 << " new data_ctx_id: " << context->data_ctx_id
-                 << std::flush;
+    LOGGER_INFO(
+      logger,
+      "Creating new data context for subscriber_id: {0} conn_id: {1} remote_data_ctx_id: {2} new data_ctx_id: {3}",
+      subscriber_id,
+      context->transport_conn_id,
+      context->remote_data_ctx_id,
+      context->data_ctx_id);
   }
 
   if (context->priority != priority) {
@@ -374,9 +372,7 @@ void ServerRawSession::handle(TransportConnId conn_id,
       break;
     }
     default:
-      logger->info << "Invalid Message Type "
-                   << static_cast<int>(msg_type)
-                   << std::flush;
+      LOGGER_INFO(logger, "Invalid Message Type {0}", static_cast<int>(msg_type));
       break;
   }
 }
@@ -394,9 +390,7 @@ ServerRawSession::handle_connect(
   const auto conn_it = _connections.find(conn_id);
   if (conn_it != _connections.end()) {
     conn_it->second.endpoint_id = connect.endpoint_id;
-    logger->info << "conn_id: " << conn_id
-                 << " Connect from endpoint_id: " << connect.endpoint_id
-                 << std::flush;
+    LOGGER_INFO(logger, "conn_id: {0} Connect from endpoint_id: {1}", conn_id, connect.endpoint_id);
   }
 
   const auto response = messages::ConnectResponse{
@@ -437,9 +431,7 @@ ServerRawSession::handle_subscribe(
           delegate->onSubscribePause(subscribe.quicr_namespace, context->subscriber_id, conn_id, data_ctx_id,
                                      context->paused);
       } else {
-          logger->warning << "Existing subscription is not allowed to be modified "
-                          << " subscriber_id: " << context->subscriber_id
-                          << std::flush;
+          LOGGER_WARN(logger, "Existing subscription is not allowed to be modified subscriber_id: {0}", context->subscriber_id);
       }
 
       return;
@@ -491,12 +483,13 @@ ServerRawSession::handle_subscribe(
       return;
   }
 
-  logger->debug << "New Subscribe conn_id: " << conn_id
-                << " ns: " << subscribe.quicr_namespace
-                << " transport_mode: " << static_cast<int>(context->transport_mode)
-                << " subscriber_id: " << context->subscriber_id
-                << " pending_data_ctx: " << context->pending_reliable_data_ctx
-                << std::flush;
+  LOGGER_DEBUG(logger,
+               "New Subscribe conn_id: {0} ns: {1} transport_mode: {2} subscriber_id: {3} pending_data_ctx: {4}",
+               conn_id,
+               subscribe.quicr_namespace,
+               static_cast<int>(context->transport_mode),
+               context->subscriber_id,
+               context->pending_reliable_data_ctx);
 
   delegate->onSubscribe(subscribe.quicr_namespace,
                         context->subscriber_id,
@@ -555,8 +548,7 @@ ServerRawSession::handle_publish(qtransport::TransportConnId conn_id,
 
   if (publish_namespace == publish_namespaces.end()) {
     // TODO(trigaux): Add metrics for tracking dropped messages
-    logger->info << "Dropping published object, no namespace for "
-                 << datagram.header.name << std::flush;
+    LOGGER_INFO(logger, "Dropping published object, no namespace for {0}", std::string(datagram.header.name));
     return;
   }
 
@@ -566,9 +558,7 @@ ServerRawSession::handle_publish(qtransport::TransportConnId conn_id,
     false, datagram.header.name, context.prev_group_id, context.prev_object_id);
 
   if (!gap_log.empty()) {
-    logger->info << "conn_id: " << conn_id
-                 << " data_ctx_id: " << (data_ctx_id ? *data_ctx_id : 0)
-                 << " " << gap_log << std::flush;
+    LOGGER_INFO(logger, "conn_id: {0} data_ctx_id: {1} {2}", conn_id, (data_ctx_id ? *data_ctx_id : 0), gap_log);
   }
 
   if (!data_ctx_id && stream_id) {
@@ -671,13 +661,10 @@ ServerRawSession::TransportDelegate::on_connection_status(
   const qtransport::TransportConnId& conn_id,
   const qtransport::TransportStatus status)
 {
-  LOGGER_DEBUG(server.logger,
-               "connection_status: conn_id: " << conn_id
-                                              << " status: " << int(status));
+  LOGGER_DEBUG(server.logger, "connection_status: conn_id: {0} status: {1}", conn_id,  int(status));
 
   if (status == qtransport::TransportStatus::Disconnected) {
-    server.logger->info << "Removing state for conn_id: " << conn_id
-                        << std::flush;
+    LOGGER_INFO(server.logger, "Removing state for conn_id: {0}", conn_id);
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
     server._mexport.del_conn_ctx_info(conn_id);
@@ -723,21 +710,17 @@ ServerRawSession::TransportDelegate::on_new_connection(
   const qtransport::TransportConnId& conn_id,
   const qtransport::TransportRemote& remote)
 {
-  LOGGER_DEBUG(server.logger,
-               "new_connection: conn_id: " << conn_id
-                                           << " remote: " << remote.host_or_ip
-                                           << " port:" << ntohs(remote.port));
-
+  LOGGER_DEBUG(server.logger, "new_connection: conn_id: {0} remote: {1} port: {2}", conn_id, remote.host_or_ip, ntohs(remote.port));
 
   auto& conn_ctx = server._connections[conn_id];
   conn_ctx.conn_id = conn_id;
   conn_ctx.remote = remote;
 }
 
-void ServerRawSession::TransportDelegate::on_new_data_context(const qtransport::TransportConnId &conn_id,
-                                                              const qtransport::DataContextId &data_ctx_id)
+void ServerRawSession::TransportDelegate::on_new_data_context([[maybe_unused]] const qtransport::TransportConnId &conn_id,
+                                                              [[maybe_unused]] const qtransport::DataContextId &data_ctx_id)
 {
-  LOGGER_DEBUG(server.logger, "New BiDir data context conn_id: " << conn_id << " data_ctx_id: " << data_ctx_id);
+  LOGGER_DEBUG(server.logger, "New BiDir data context conn_id: {0} data_ctx_id: {1}", conn_id, data_ctx_id);
 }
 
 void
@@ -768,27 +751,16 @@ ServerRawSession::TransportDelegate::on_recv_stream(const TransportConnId& conn_
         try {
           messages::MessageBuffer msg_buffer{ obj };
 
-          server.handle(conn_id, stream_id, data_ctx_id,
-                        std::move(msg_buffer), is_bidir);
-
+          server.handle(conn_id, stream_id, data_ctx_id, std::move(msg_buffer), is_bidir);
         } catch (const messages::MessageBuffer::ReadException& ex) {
-
-          // TODO(trigaux): When reliable, we really should reset the stream if
-          // this happens (at least more than once)
-          server.logger->critical
-            << "Received read exception error while reading from message buffer: "
-            << ex.what() << std::flush;
+          // TODO: When reliable, we really should reset the stream if this happens (at least more than once)
+          LOGGER_CRITICAL(server.logger, "Received read exception error while reading from message buffer: {0}", ex.what());
           return;
-
-        } catch (const std::exception& /* ex */) {
-          server.logger->Log(cantina::LogLevel::Critical,
-                             "Received standard exception error while reading "
-                             "from message buffer");
+        } catch (const std::exception& ex) {
+          LOGGER_CRITICAL(server.logger, "Received standard exception error while reading from message buffer: {0}", ex.what());
           return;
         } catch (...) {
-          server.logger->Log(
-            cantina::LogLevel::Critical,
-            "Received unknown error while reading from message buffer");
+          LOGGER_CRITICAL(server.logger, "Received unknown error while reading from message buffer");
           return;
         }
       } else {
@@ -816,23 +788,14 @@ ServerRawSession::TransportDelegate::on_recv_dgram(const TransportConnId& conn_i
         server.handle(conn_id, std::nullopt, data_ctx_id, std::move(msg_buffer));
 
       } catch (const messages::MessageBuffer::ReadException& ex) {
-
-        // TODO(trigaux): When reliable, we really should reset the stream if
-        // this happens (at least more than once)
-        server.logger->critical
-          << "Received read exception error while reading from message buffer: "
-          << ex.what() << std::flush;
+        // TODO: When reliable, we really should reset the stream if this happens (at least more than once)
+        LOGGER_CRITICAL(server.logger, "Received read exception error while reading from message buffer: {0}",  ex.what());
         continue;
-
-      } catch (const std::exception& /* ex */) {
-        server.logger->Log(cantina::LogLevel::Critical,
-                           "Received standard exception error while reading "
-                           "from message buffer");
+      } catch (const std::exception& ex) {
+        LOGGER_CRITICAL(server.logger, "Received standard exception error while reading from message buffer: {0}", ex.what());
         continue;
       } catch (...) {
-        server.logger->Log(
-          cantina::LogLevel::Critical,
-          "Received unknown error while reading from message buffer");
+        LOGGER_CRITICAL(server.logger, "Received unknown error while reading from message buffer");
         continue;
       }
     } else {

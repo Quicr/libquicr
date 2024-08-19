@@ -46,10 +46,11 @@ if(MSVC)
     target_compile_definitions(quicr _CRT_SECURE_NO_WARNINGS)
 endif()
 
-target_link_libraries(quicr
-    PUBLIC
-        quicr-transport
-        qname)
+target_link_libraries(quicr PUBLIC
+    quicr-transport
+    qname
+    spdlog
+)
 
 if(NOT LIBQUICR_WITHOUT_INFLUXDB)
     target_link_libraries(quicr

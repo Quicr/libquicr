@@ -6,7 +6,6 @@
 #include "quicr_server_delegate.h"
 #include "quicr_server_session.h"
 
-#include <cantina/logger.h>
 #include <transport/transport.h>
 
 #include <memory>
@@ -32,19 +31,16 @@ public:
    * @param relayInfo        : Relay Information to be used by the transport
    * @param tconfig          : Transport configuration
    * @param delegate         : Server delegate
-   * @param logger           : Shared pointer to cantina::Logger object
    */
   Server(const RelayInfo& relayInfo,
          const qtransport::TransportConfig& tconfig,
-         std::shared_ptr<ServerDelegate> delegate_in,
-         const cantina::LoggerPointer& logger);
+         std::shared_ptr<ServerDelegate> delegate_in);
 
   /**
    * API for unit test cases .
    */
   Server(std::shared_ptr<qtransport::ITransport> transport,
-         std::shared_ptr<ServerDelegate> delegate_in,
-         const cantina::LoggerPointer& logger);
+         std::shared_ptr<ServerDelegate> delegate_in);
 
   // Transport APIs
   bool is_transport_ready();
@@ -122,9 +118,4 @@ public:
 protected:
   std::unique_ptr<ServerSession> server_session;
 };
-
-using QuicRServer
-  [[deprecated("quicr::QuicRServer stutters, use quicr::Server")]] =
-    quicr::Server;
-
 } // namespace quicr

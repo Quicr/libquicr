@@ -3,9 +3,10 @@
 #include <quicr/quicr_common.h>
 #include <quicr/quicr_server.h>
 #include <transport/transport.h>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 #include "subscription.h"
-#include <cantina/logger.h>
 
 #include <condition_variable>
 #include <csignal>
@@ -128,8 +129,8 @@ installSignalHandlers()
 class ReallyServerDelegate : public quicr::ServerDelegate
 {
 public:
-  explicit ReallyServerDelegate(const cantina::LoggerPointer& parent_logger)
-    : logger{ std::make_shared<cantina::Logger>("SDEL", parent_logger) }
+  explicit ReallyServerDelegate()
+    : logger{ spdlog::stderr_color_mt("SDEL") }
   {
   }
 
@@ -148,8 +149,7 @@ public:
                        quicr::bytes&& /* e2e_token */) override
   {
     // TODO(trigaux): Authenticate token
-    logger->info << "Publish intent namespace: " << quicr_namespace
-                 << std::flush;
+    SPDLOG_LOGGER_INFO(logger, "Publish intent namespace: {0}", std::string(quicr_namespace));
 
     // TODO(trigaux): Move logic into quicr::Server
     const auto result =
@@ -187,8 +187,7 @@ public:
                      const std::string& /* auth_token */) override
   {
 
-    logger->info << "onUnsubscribe: Namespace " << quicr_namespace
-                 << " subscribe_id: " << subscriber_id << std::flush;
+    SPDLOG_LOGGER_INFO(logger, "onUnsubscribe: Namespace {0} subscribe_id: {1}", std::string(quicr_namespace), subscriber_id);
 
     // TODO(trigaux): Move logic into quicr::Server
     server->subscriptionEnded(subscriber_id,
@@ -218,9 +217,7 @@ public:
     [[maybe_unused]] const std::string& auth_token,
     [[maybe_unused]] quicr::bytes&& data) override
   {
-    logger->info << "onSubscribe: Namespace " << quicr_namespace << "/"
-                 << static_cast<unsigned>(quicr_namespace.length())
-                 << " subscribe_id: " << subscriber_id << std::flush;
+    SPDLOG_LOGGER_INFO(logger, "onSubscribe: Namespace {0}/{1} subscribe_id: {2}", std::string(quicr_namespace), static_cast<unsigned>(quicr_namespace.length()), subscriber_id);
 
     const auto remote = Subscriptions::Remote{
       .subscribe_id = subscriber_id,
@@ -235,7 +232,7 @@ public:
   }
 
 private:
-  cantina::LoggerPointer logger;
+  std::shared_ptr<spdlog::logger> logger;
 
   // TODO(trigaux): Remove this once all above server logic is moved
   std::shared_ptr<quicr::Server> server;
@@ -271,10 +268,9 @@ main()
       .debug = true
     };
 
-    auto logger = std::make_shared<cantina::Logger>("really");
-    auto delegate = std::make_shared<ReallyServerDelegate>(logger);
-    auto server =
-      std::make_shared<quicr::Server>(relayInfo, tcfg, delegate, logger);
+    auto logger = spdlog::stderr_color_mt("really");
+    auto delegate = std::make_shared<ReallyServerDelegate>();
+    auto server = std::make_shared<quicr::Server>(relayInfo, tcfg, delegate);
 
     // TODO(trigaux): Remove this once delegate no longer depends on server.
     delegate->setServer(server);

@@ -7,10 +7,6 @@
 #include <vector>
 
 using namespace quicr;
-
-static auto logger =
-  std::make_shared<cantina::Logger>("Server Test", "SRV_TEST");
-
 struct TestSubscriberDelegate : public SubscriberDelegate
 {
   TestSubscriberDelegate() = default;
@@ -96,11 +92,10 @@ TEST_CASE("Object Lifetime")
                                     .port = 1234,
                                     .proto = RelayInfo::Protocol::UDP,
                                     .relay_id = "relay-test"};
-  const auto logger = std::make_shared<cantina::Logger>("TEST");
   const auto tcfg = qtransport::TransportConfig{ .tls_cert_filename = "",
                                                  .tls_key_filename = "",
                                                  .quic_qlog_path = "" };
 
   // NOLINTNEXTLINE(cert-err33-c)
-  CHECK_NOTHROW(std::make_unique<Server>(relayInfo, tcfg, delegate, logger));
+  CHECK_NOTHROW(std::make_unique<Server>(relayInfo, tcfg, delegate));
 }

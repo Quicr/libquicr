@@ -24,6 +24,7 @@
 
 #include <qname>
 #include <transport/transport.h>
+#include <spdlog/spdlog.h>
 
 #include <atomic>
 #include <map>
@@ -49,25 +50,21 @@ public:
    * @param chunk_size  : Size in bytes to chunk messages if greater than this size
    *                      Zero disables, value is max(chunk_size, max_transport_data_size)
    * @param tconfig     : Transport configuration
-   * @param logger      : Shared pointer to a cantina::Logger object
    *
    * @throws std::runtime_error : If transport fails to connect.
    */
   ClientRawSession(const RelayInfo& relay_info,
                    const std::string& endpoint_id,
                    size_t chunk_size,
-                   const qtransport::TransportConfig& tconfig,
-                   const cantina::LoggerPointer& logger);
+                   const qtransport::TransportConfig& tconfig);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber
    *        functionality.
    *
    * @param transport : External transport pointer to use.
-   * @param logger    : Shared pointer to a cantina::Logger object
    */
-  ClientRawSession(std::shared_ptr<qtransport::ITransport> transport,
-                   const cantina::LoggerPointer& logger);
+  ClientRawSession(std::shared_ptr<qtransport::ITransport> transport);
 
   /**
    * @brief Destructor for the raw client session object
@@ -342,7 +339,7 @@ protected:
   using FragmentBuffer = std::map<quicr::Name, MsgFragment>;
   std::array<FragmentBuffer, max_fragment_buffers> fragments;
 
-  cantina::LoggerPointer logger;
+  std::shared_ptr<spdlog::logger> logger;
 
   const std::string _endpoint_id;           /// Client Endpoint ID
   size_t _chunk_size {0};                   /// Size in bytes to break up a message
