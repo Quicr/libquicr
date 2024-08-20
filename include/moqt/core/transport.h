@@ -9,13 +9,13 @@
 #include <quicr/metrics_exporter.h>
 #include <transport/transport.h>
 
-#include <transport/span.h>
-#include <moqt/core/messages.h>
-#include <moqt/config.h>
 #include <moqt/common.h>
+#include <moqt/config.h>
+#include <moqt/core/messages.h>
+#include <moqt/metrics.h>
 #include <moqt/publish_track_handler.h>
 #include <moqt/subscribe_track_handler.h>
-#include <moqt/metrics.h>
+#include <transport/span.h>
 
 #include <map>
 #include <string>
@@ -46,7 +46,6 @@ namespace moq::transport {
             kClientNotConnected,
             kClientFailedToConnect
         };
-
 
         /**
          * @brief Client mode Constructor to create the MOQ instance
@@ -151,11 +150,12 @@ namespace moq::transport {
         {
             TransportConnId conn_id;
             std::optional<uint64_t> ctrl_data_ctx_id;
-            bool setup_complete { false }; ///< True if both client and server setup messages have completed
+            bool setup_complete{ false }; ///< True if both client and server setup messages have completed
             uint64_t client_version{ 0 };
-            std::optional<messages::MoqtMessageType> ctrl_msg_type_received; ///< Indicates the current message type being read
+            std::optional<messages::MoqtMessageType>
+              ctrl_msg_type_received; ///< Indicates the current message type being read
 
-            uint64_t current_subscribe_id { 0 }; ///< Connection specific ID for subscribe messages
+            uint64_t current_subscribe_id{ 0 }; ///< Connection specific ID for subscribe messages
 
             /// Track namespace/name by received subscribe IDs
             /// Used to map published tracks to subscribes in client mode
@@ -191,8 +191,7 @@ namespace moq::transport {
         void CloseConnection(TransportConnId conn_id,
                              messages::MoqtTerminationReason reason,
                              const std::string& reason_str);
-        bool ProcessRecvCtrlMessage(ConnectionContext& conn_ctx,
-                                    std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+        bool ProcessRecvCtrlMessage(ConnectionContext& conn_ctx, std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
         bool ProcessRecvStreamDataMessage(ConnectionContext& conn_ctx,
                                           std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
@@ -209,13 +208,13 @@ namespace moq::transport {
 
         std::mutex state_mutex_;
         const bool client_mode_;
-        bool stop_ { false };
+        bool stop_{ false };
         const ServerConfig server_config_;
         const ClientConfig client_config_;
 
         std::map<TransportConnId, ConnectionContext> connections_;
 
-        Status status_ { Status::kNotReady };
+        Status status_{ Status::kNotReady };
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
         quicr::MetricsExporter mexport_;

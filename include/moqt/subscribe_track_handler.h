@@ -6,8 +6,8 @@
 #pragma once
 
 #include <moqt/core/base_track_handler.h>
-#include <moqt/publish_track_handler.h>
 #include <moqt/metrics.h>
+#include <moqt/publish_track_handler.h>
 
 namespace moq::transport {
 
@@ -46,7 +46,7 @@ namespace moq::transport {
             kNotAuthorized,
             kNotSubscribed,
             kPendingSubscribeResponse,
-            kSendingUnsubscribe                 // Triggers callbacks to not be called in this state
+            kSendingUnsubscribe // Triggers callbacks to not be called in this state
         };
 
         // --------------------------------------------------------------------------
@@ -125,7 +125,7 @@ namespace moq::transport {
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
-        Status status_ { Status::kNotSubscribed };
+        Status status_{ Status::kNotSubscribed };
     };
 
 } // namespace moq::transport
