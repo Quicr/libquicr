@@ -56,10 +56,15 @@ namespace moq::transport {
         /**
          * @brief Subscribe track handler constructor
          *
-         * @param full_track_name       Full track name struct
+         * @param full_track_name           Full track name struct
+         * @param only_complete_objects     If **false**, the ObjectReceived() can be called back with incomplete data.
+         *                                  In the case of incomplete data, ContinuationDataReceived() will be called
+         *                                  with the remaining data. If **true** ObjectReceived() will only be called
+         *                                  with complete data.
          */
-        SubscribeTrackHandler(const FullTrackName& full_track_name)
+        SubscribeTrackHandler(const FullTrackName& full_track_name, bool only_complete_objects)
           : BaseTrackHandler(full_track_name)
+          , only_complete_objects_(only_complete_objects)
         {
         }
 
@@ -79,17 +84,25 @@ namespace moq::transport {
          *
          * @details Event notification to provide the caller the received data object
          *
-         * @param group_id          Group ID of the object received
-         * @param object_id         Object ID of the object received
-         * @param priority          Priority of the object received
-         * @param object            Data object received
+         * @param object_headers    Object headers, must include group and object Ids
+         * @param data              Object payload data received. If only_complete_objects_ is false, data may be
+         *                          less than payload length. The caller **MUST** implement ContinuationDataReceived()
+         *                          to receive the remaining bytes of the payload.
          * @param track_mode        Track mode the object was received
          */
-        virtual void ObjectReceived(uint64_t group_id,
-                                    uint64_t object_id,
-                                    uint8_t priority,
-                                    std::vector<uint8_t>&& object,
+        virtual void ObjectReceived(const ObjectHeaders& headers,
+                                    std::vector<uint8_t>&& data,
                                     TrackMode track_mode) = 0;
+
+        /**
+         * @brief Notification of received continuation data
+         *
+         * @details Event notification to provide the caller the received data of data that should be appended
+         *      to the last ObjectReceived() payload. This is only used if only_complete_objects_ = **false**.
+         *
+         * @param object            Data received that should be appended to last object payload
+         */
+        virtual void ContinuationDataReceived(std::vector<uint8_t>&& data) = 0;
 
         /**
          * @brief Notification of subscribe status
@@ -137,6 +150,7 @@ namespace moq::transport {
         // Member variables
         // --------------------------------------------------------------------------
         Status status_{ Status::kNotSubscribed };
+        bool only_complete_objects_;
     };
 
 } // namespace moq::transport
