@@ -165,6 +165,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a56fc8443d2f1867c21738c2abb0734b5" id="r_a56fc8443d2f1867c21738c2abb0734b5"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a56fc8443d2f1867c21738c2abb0734b5">StatusChanged</a> (<a class="el" href="#a211c3b8bc1b5fe128d18b3b9a7a26532">Status</a> status)=0</td></tr>
 <tr class="memdesc:a56fc8443d2f1867c21738c2abb0734b5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification of subscribe status.  <br /></td></tr>
 <tr class="separator:a56fc8443d2f1867c21738c2abb0734b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5b1193438bae5e090404567d0bd4672d" id="r_a5b1193438bae5e090404567d0bd4672d"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a5b1193438bae5e090404567d0bd4672d">MetricsSampled</a> (const <a class="el" href="structmoq_1_1transport_1_1_subscribe_track_metrics.html">SubscribeTrackMetrics</a> &amp;&amp;metrics)=0</td></tr>
+<tr class="memdesc:a5b1193438bae5e090404567d0bd4672d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification callback to provide sampled metrics.  <br /></td></tr>
+<tr class="separator:a5b1193438bae5e090404567d0bd4672d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td colspan="2" onclick="javascript:dynsection.toggleInherit('pub_methods_classmoq_1_1transport_1_1_base_track_handler')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html">moq::transport::BaseTrackHandler</a></td></tr>
 <tr class="memitem:a13f266677d96952bf7dcda3792df741a inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler" id="r_a13f266677d96952bf7dcda3792df741a"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a13f266677d96952bf7dcda3792df741a">~BaseTrackHandler</a> ()=default</td></tr>
 <tr class="separator:a13f266677d96952bf7dcda3792df741a inherit pub_methods_classmoq_1_1transport_1_1_base_track_handler"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -330,6 +333,40 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Get the status of the subscribe. </p>
 <dl class="section return"><dt>Returns</dt><dd>Status of the subscribe </dd></dl>
+
+</div>
+</div>
+<a id="a5b1193438bae5e090404567d0bd4672d" name="a5b1193438bae5e090404567d0bd4672d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5b1193438bae5e090404567d0bd4672d">&#9670;&#160;</a></span>MetricsSampled()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void moq::transport::SubscribeTrackHandler::MetricsSampled </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_subscribe_track_metrics.html">SubscribeTrackMetrics</a> &amp;&amp;</td>          <td class="paramname"><span class="paramname"><em>metrics</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Notification callback to provide sampled metrics. </p>
+<p>Callback will be triggered on <a class="el" href="structmoq_1_1transport_1_1_config.html#ad11929434b5ddbb42c8765ea012a2478">Config::metrics_sample_ms</a> to provide the sampled data based on the sample period. After this callback, the period/sample based metrics will reset and start over for the new period.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">metrics</td><td>Copy of the subscribed metrics for the sample period </td></tr>
+  </table>
+  </dd>
+</dl>
 
 </div>
 </div>

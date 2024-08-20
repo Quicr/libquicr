@@ -131,12 +131,15 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a4a19ae4f8e379b1f3436b49cf4e198a3" id="r_a4a19ae4f8e379b1f3436b49cf4e198a3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4a19ae4f8e379b1f3436b49cf4e198a3">Disconnect</a> ()</td></tr>
 <tr class="memdesc:a4a19ae4f8e379b1f3436b49cf4e198a3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Disconnect the client connection gracefully (blocking)  <br /></td></tr>
 <tr class="separator:a4a19ae4f8e379b1f3436b49cf4e198a3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4efe30de93eb6a005c589ca9c5881f2a" id="r_a4efe30de93eb6a005c589ca9c5881f2a"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4efe30de93eb6a005c589ca9c5881f2a">ConnectionChanged</a> (TransportConnId conn_id, TransportStatus status)=0</td></tr>
-<tr class="memdesc:a4efe30de93eb6a005c589ca9c5881f2a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for connection status/state change.  <br /></td></tr>
-<tr class="separator:a4efe30de93eb6a005c589ca9c5881f2a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae886035a9a62ecec6ea9b315e35b1abd" id="r_ae886035a9a62ecec6ea9b315e35b1abd"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae886035a9a62ecec6ea9b315e35b1abd">ServerSetup</a> (TransportConnId conn_id, messages::MoqServerSetup server_setup)=0</td></tr>
-<tr class="memdesc:ae886035a9a62ecec6ea9b315e35b1abd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on server setup message.  <br /></td></tr>
-<tr class="separator:ae886035a9a62ecec6ea9b315e35b1abd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad8b4b128e9d939586ae9611cb0e16cbd" id="r_ad8b4b128e9d939586ae9611cb0e16cbd"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad8b4b128e9d939586ae9611cb0e16cbd">ConnectionChanged</a> (TransportStatus status)=0</td></tr>
+<tr class="memdesc:ad8b4b128e9d939586ae9611cb0e16cbd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for connection status/state change.  <br /></td></tr>
+<tr class="separator:ad8b4b128e9d939586ae9611cb0e16cbd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a86305dbcda3ee78ea13e12b30949dd3d" id="r_a86305dbcda3ee78ea13e12b30949dd3d"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a86305dbcda3ee78ea13e12b30949dd3d">ServerSetup</a> (const messages::MoqServerSetup &amp;server_setup)=0</td></tr>
+<tr class="memdesc:a86305dbcda3ee78ea13e12b30949dd3d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on server setup message.  <br /></td></tr>
+<tr class="separator:a86305dbcda3ee78ea13e12b30949dd3d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aadbf35f7f86e3001e9742bce4f1f3bf5" id="r_aadbf35f7f86e3001e9742bce4f1f3bf5"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aadbf35f7f86e3001e9742bce4f1f3bf5">MetricsSampled</a> (const <a class="el" href="structmoq_1_1transport_1_1_connection_metrics.html">ConnectionMetrics</a> &amp;&amp;metrics)=0</td></tr>
+<tr class="memdesc:aadbf35f7f86e3001e9742bce4f1f3bf5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification callback to provide sampled metrics.  <br /></td></tr>
+<tr class="separator:aadbf35f7f86e3001e9742bce4f1f3bf5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classmoq_1_1transport_1_1_transport"><td colspan="2" onclick="javascript:dynsection.toggleInherit('pub_methods_classmoq_1_1transport_1_1_transport')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classmoq_1_1transport_1_1_transport.html">moq::transport::Transport</a></td></tr>
 <tr class="memitem:a93c38be09ca30fe1f3599dbd2f641c04 inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_a93c38be09ca30fe1f3599dbd2f641c04"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a93c38be09ca30fe1f3599dbd2f641c04">Transport</a> ()=delete</td></tr>
 <tr class="separator:a93c38be09ca30fe1f3599dbd2f641c04 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -268,8 +271,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a4efe30de93eb6a005c589ca9c5881f2a" name="a4efe30de93eb6a005c589ca9c5881f2a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4efe30de93eb6a005c589ca9c5881f2a">&#9670;&#160;</a></span>ConnectionChanged()</h2>
+<a id="ad8b4b128e9d939586ae9611cb0e16cbd" name="ad8b4b128e9d939586ae9611cb0e16cbd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad8b4b128e9d939586ae9611cb0e16cbd">&#9670;&#160;</a></span>ConnectionChanged()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -280,12 +283,8 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="memname">virtual void moq::transport::Client::ConnectionChanged </td>
           <td>(</td>
-          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
+          <td class="paramtype">TransportStatus</td>          <td class="paramname"><span class="paramname"><em>status</em></span></td><td>)</td>
           <td></td>
-          <td class="paramtype">TransportStatus</td>          <td class="paramname"><span class="paramname"><em>status</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -327,8 +326,42 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="ae886035a9a62ecec6ea9b315e35b1abd" name="ae886035a9a62ecec6ea9b315e35b1abd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae886035a9a62ecec6ea9b315e35b1abd">&#9670;&#160;</a></span>ServerSetup()</h2>
+<a id="aadbf35f7f86e3001e9742bce4f1f3bf5" name="aadbf35f7f86e3001e9742bce4f1f3bf5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aadbf35f7f86e3001e9742bce4f1f3bf5">&#9670;&#160;</a></span>MetricsSampled()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void moq::transport::Client::MetricsSampled </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_connection_metrics.html">ConnectionMetrics</a> &amp;&amp;</td>          <td class="paramname"><span class="paramname"><em>metrics</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Notification callback to provide sampled metrics. </p>
+<p>Callback will be triggered on <a class="el" href="structmoq_1_1transport_1_1_config.html#ad11929434b5ddbb42c8765ea012a2478">Config::metrics_sample_ms</a> to provide the sampled data based on the sample period. After this callback, the period/sample based metrics will reset and start over for the new period.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">metrics</td><td>Copy of the connection metrics for the sample period </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="a86305dbcda3ee78ea13e12b30949dd3d" name="a86305dbcda3ee78ea13e12b30949dd3d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a86305dbcda3ee78ea13e12b30949dd3d">&#9670;&#160;</a></span>ServerSetup()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -339,12 +372,8 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="memname">virtual void moq::transport::Client::ServerSetup </td>
           <td>(</td>
-          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
+          <td class="paramtype">const messages::MoqServerSetup &amp;</td>          <td class="paramname"><span class="paramname"><em>server_setup</em></span></td><td>)</td>
           <td></td>
-          <td class="paramtype">messages::MoqServerSetup</td>          <td class="paramname"><span class="paramname"><em>server_setup</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -358,7 +387,6 @@ Additional Inherited Members</h2></td></tr>
 <p><a class="el" href="classmoq_1_1transport_1_1_server.html" title="MoQT Server.">Server</a> will send sever setup in response to client setup message sent. This callback is called when a server setup has been received.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">conn_id</td><td><a class="el" href="classmoq_1_1transport_1_1_transport.html" title="MOQ Implementation supporting both client and server modes.">Transport</a> connection ID </td></tr>
     <tr><td class="paramname">server_setup</td><td>Decoded sever setup message </td></tr>
   </table>
   </dd>

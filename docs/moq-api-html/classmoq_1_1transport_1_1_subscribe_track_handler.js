@@ -17,6 +17,7 @@ var classmoq_1_1transport_1_1_subscribe_track_handler =
     ] ],
     [ "SubscribeTrackHandler", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a24056c782a2761c8950e6174425d0fa5", null ],
     [ "GetStatus", "classmoq_1_1transport_1_1_subscribe_track_handler.html#adf96f1e6778c525bd765afb8690427cd", null ],
+    [ "MetricsSampled", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a5b1193438bae5e090404567d0bd4672d", null ],
     [ "ObjectReceived", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a034cf67453f427cd5576f3603f0de75d", null ],
     [ "StatusChanged", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a56fc8443d2f1867c21738c2abb0734b5", null ],
     [ "Transport", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a3d2e8a0836666771da7b79c3f6bc9ae0", null ],

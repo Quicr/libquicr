@@ -136,9 +136,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a7088915ed55f13077bf5303b44832e5c" id="r_a7088915ed55f13077bf5303b44832e5c"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a7088915ed55f13077bf5303b44832e5c">ConnectionChanged</a> (TransportConnId conn_id, TransportStatus status)=0</td></tr>
 <tr class="memdesc:a7088915ed55f13077bf5303b44832e5c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for connection status/state change.  <br /></td></tr>
 <tr class="separator:a7088915ed55f13077bf5303b44832e5c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a089b04c936e6fb740a89a4833b26ed1d" id="r_a089b04c936e6fb740a89a4833b26ed1d"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a089b04c936e6fb740a89a4833b26ed1d">ClientSetupReceived</a> (TransportConnId conn_id, messages::MoqClientSetup client_setup)=0</td></tr>
-<tr class="memdesc:a089b04c936e6fb740a89a4833b26ed1d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on client setup message.  <br /></td></tr>
-<tr class="separator:a089b04c936e6fb740a89a4833b26ed1d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acd821c3320c599015dae20417d123acf" id="r_acd821c3320c599015dae20417d123acf"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#acd821c3320c599015dae20417d123acf">ClientSetupReceived</a> (TransportConnId conn_id, const messages::MoqClientSetup &amp;client_setup)=0</td></tr>
+<tr class="memdesc:acd821c3320c599015dae20417d123acf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on client setup message.  <br /></td></tr>
+<tr class="separator:acd821c3320c599015dae20417d123acf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a335943fb8803c6072bbac8e014816acb" id="r_a335943fb8803c6072bbac8e014816acb"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a335943fb8803c6072bbac8e014816acb">AnnounceReceived</a> (TransportConnId conn_id, const std::vector&lt; uint8_t &gt; &amp;track_namespace)=0</td></tr>
 <tr class="memdesc:a335943fb8803c6072bbac8e014816acb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new announce received that needs to be authorized.  <br /></td></tr>
 <tr class="separator:a335943fb8803c6072bbac8e014816acb"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -151,6 +151,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:afc8cb5b48411c4275eb9d815cd469f61" id="r_afc8cb5b48411c4275eb9d815cd469f61"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#afc8cb5b48411c4275eb9d815cd469f61">UnsubscribeReceived</a> (TransportConnId conn_id, uint64_t subscribe_id)=0</td></tr>
 <tr class="memdesc:afc8cb5b48411c4275eb9d815cd469f61"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification on unsubscribe received.  <br /></td></tr>
 <tr class="separator:afc8cb5b48411c4275eb9d815cd469f61"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0a99f806860991dc6c994619bbeab259" id="r_a0a99f806860991dc6c994619bbeab259"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a0a99f806860991dc6c994619bbeab259">MetricsSampled</a> (TransportConnId conn_id, const <a class="el" href="structmoq_1_1transport_1_1_connection_metrics.html">ConnectionMetrics</a> &amp;&amp;metrics)=0</td></tr>
+<tr class="memdesc:a0a99f806860991dc6c994619bbeab259"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification callback to provide sampled metrics.  <br /></td></tr>
+<tr class="separator:a0a99f806860991dc6c994619bbeab259"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classmoq_1_1transport_1_1_transport"><td colspan="2" onclick="javascript:dynsection.toggleInherit('pub_methods_classmoq_1_1transport_1_1_transport')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classmoq_1_1transport_1_1_transport.html">moq::transport::Transport</a></td></tr>
 <tr class="memitem:a93c38be09ca30fe1f3599dbd2f641c04 inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_a93c38be09ca30fe1f3599dbd2f641c04"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a93c38be09ca30fe1f3599dbd2f641c04">Transport</a> ()=delete</td></tr>
 <tr class="separator:a93c38be09ca30fe1f3599dbd2f641c04 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -300,8 +303,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a089b04c936e6fb740a89a4833b26ed1d" name="a089b04c936e6fb740a89a4833b26ed1d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a089b04c936e6fb740a89a4833b26ed1d">&#9670;&#160;</a></span>ClientSetupReceived()</h2>
+<a id="acd821c3320c599015dae20417d123acf" name="acd821c3320c599015dae20417d123acf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acd821c3320c599015dae20417d123acf">&#9670;&#160;</a></span>ClientSetupReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -317,7 +320,7 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">messages::MoqClientSetup</td>          <td class="paramname"><span class="paramname"><em>client_setup</em></span>&#160;)</td>
+          <td class="paramtype">const messages::MoqClientSetup &amp;</td>          <td class="paramname"><span class="paramname"><em>client_setup</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -372,6 +375,44 @@ Additional Inherited Members</h2></td></tr>
   <table class="params">
     <tr><td class="paramname">conn_id</td><td><a class="el" href="classmoq_1_1transport_1_1_transport.html" title="MOQ Implementation supporting both client and server modes.">Transport</a> connection ID </td></tr>
     <tr><td class="paramname">status</td><td><a class="el" href="classmoq_1_1transport_1_1_transport.html" title="MOQ Implementation supporting both client and server modes.">Transport</a> status of connection id </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="a0a99f806860991dc6c994619bbeab259" name="a0a99f806860991dc6c994619bbeab259"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0a99f806860991dc6c994619bbeab259">&#9670;&#160;</a></span>MetricsSampled()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void moq::transport::Server::MetricsSampled </td>
+          <td>(</td>
+          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_connection_metrics.html">ConnectionMetrics</a> &amp;&amp;</td>          <td class="paramname"><span class="paramname"><em>metrics</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Notification callback to provide sampled metrics. </p>
+<p>Callback will be triggered on <a class="el" href="structmoq_1_1transport_1_1_config.html#ad11929434b5ddbb42c8765ea012a2478">Config::metrics_sample_ms</a> to provide the sampled data based on the sample period. After this callback, the period/sample based metrics will reset and start over for the new period.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">metrics</td><td>Copy of the connection metrics for the sample period </td></tr>
   </table>
   </dd>
 </dl>

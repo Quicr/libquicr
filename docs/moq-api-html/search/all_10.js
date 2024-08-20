@@ -6,7 +6,7 @@ var searchData=
   ['server_5fbind_5fip_3',['server_bind_ip',['../structmoq_1_1transport_1_1_server_config.html#a2420bc70353ed61ceb43590bb9bb49e8',1,'moq::transport::ServerConfig']]],
   ['server_5fport_4',['server_port',['../structmoq_1_1transport_1_1_server_config.html#adac5ac12304d90c235d53df7db6ca65f',1,'moq::transport::ServerConfig']]],
   ['serverconfig_5',['ServerConfig',['../structmoq_1_1transport_1_1_server_config.html',1,'moq::transport']]],
-  ['serversetup_6',['ServerSetup',['../classmoq_1_1transport_1_1_client.html#ae886035a9a62ecec6ea9b315e35b1abd',1,'moq::transport::Client']]],
+  ['serversetup_6',['ServerSetup',['../classmoq_1_1transport_1_1_client.html#a86305dbcda3ee78ea13e12b30949dd3d',1,'moq::transport::Client']]],
   ['setdefaultpriority_7',['SetDefaultPriority',['../classmoq_1_1transport_1_1_publish_track_handler.html#a6fa9d79454f513d88bbfba5bf48c6909',1,'moq::transport::PublishTrackHandler']]],
   ['setdefaultttl_8',['SetDefaultTTL',['../classmoq_1_1transport_1_1_publish_track_handler.html#ada12793474e79e16ba9b1dde2e1b693f',1,'moq::transport::PublishTrackHandler']]],
   ['settrackalias_9',['SetTrackAlias',['../classmoq_1_1transport_1_1_base_track_handler.html#ad3a4bf4ece4a43150dd7243c3d3e8d70',1,'moq::transport::BaseTrackHandler']]],

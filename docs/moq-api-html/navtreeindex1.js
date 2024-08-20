@@ -1,5 +1,13 @@
 var NAVTREEINDEX1 =
 {
+"index.html#autotoc_md2":[0,1],
+"index.html#autotoc_md3":[0,2],
+"index.html#autotoc_md4":[0,3],
+"index.html#autotoc_md5":[0,4],
+"index.html#autotoc_md6":[0,5],
+"metrics_8h.html":[3,0,1,0,4],
+"metrics_8h_source.html":[3,0,1,0,4],
+"namespacemembers.html":[1,1,0],
 "namespacemembers_type.html":[1,1,2],
 "namespacemembers_vars.html":[1,1,1],
 "namespacemoq.html":[1,0,0],

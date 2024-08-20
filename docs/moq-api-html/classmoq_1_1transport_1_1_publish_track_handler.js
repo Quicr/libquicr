@@ -27,6 +27,7 @@ var classmoq_1_1transport_1_1_publish_track_handler =
     ] ],
     [ "PublishTrackHandler", "classmoq_1_1transport_1_1_publish_track_handler.html#ab83d866be9c7e1ecc9e617160464dfe9", null ],
     [ "GetStatus", "classmoq_1_1transport_1_1_publish_track_handler.html#ae293712df5916126b5c497401895e2bf", null ],
+    [ "MetricsSampled", "classmoq_1_1transport_1_1_publish_track_handler.html#aed9d8369a8bd95d20b546da1108da39d", null ],
     [ "PublishContinuationData", "classmoq_1_1transport_1_1_publish_track_handler.html#a10698b2de2017b3a198f3d089faa082b", null ],
     [ "PublishObject", "classmoq_1_1transport_1_1_publish_track_handler.html#a794c836ba10e299e506303db55aad8cd", null ],
     [ "SetDefaultPriority", "classmoq_1_1transport_1_1_publish_track_handler.html#a6fa9d79454f513d88bbfba5bf48c6909", null ],

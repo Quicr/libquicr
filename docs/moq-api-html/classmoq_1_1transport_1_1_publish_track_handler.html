@@ -166,6 +166,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a5f2318aef8021772958a7e475d63314a" id="r_a5f2318aef8021772958a7e475d63314a"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a5f2318aef8021772958a7e475d63314a">StatusChanged</a> (<a class="el" href="#ac8f88d32786056608af22660e2fa9c18">PublishTrackHandler::Status</a> status)=0</td></tr>
 <tr class="memdesc:a5f2318aef8021772958a7e475d63314a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification of publish status.  <br /></td></tr>
 <tr class="separator:a5f2318aef8021772958a7e475d63314a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aed9d8369a8bd95d20b546da1108da39d" id="r_aed9d8369a8bd95d20b546da1108da39d"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aed9d8369a8bd95d20b546da1108da39d">MetricsSampled</a> (const <a class="el" href="structmoq_1_1transport_1_1_publish_track_metrics.html">PublishTrackMetrics</a> &amp;&amp;metrics)=0</td></tr>
+<tr class="memdesc:aed9d8369a8bd95d20b546da1108da39d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification callback to provide sampled metrics.  <br /></td></tr>
+<tr class="separator:aed9d8369a8bd95d20b546da1108da39d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6fa9d79454f513d88bbfba5bf48c6909" id="r_a6fa9d79454f513d88bbfba5bf48c6909"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a6fa9d79454f513d88bbfba5bf48c6909">SetDefaultPriority</a> (uint8_t priority)</td></tr>
 <tr class="memdesc:a6fa9d79454f513d88bbfba5bf48c6909"><td class="mdescLeft">&#160;</td><td class="mdescRight">set/update the default priority for published objects  <br /></td></tr>
 <tr class="separator:a6fa9d79454f513d88bbfba5bf48c6909"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -384,6 +387,40 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Get the publish status. </p>
 <dl class="section return"><dt>Returns</dt><dd>Status of publish </dd></dl>
+
+</div>
+</div>
+<a id="aed9d8369a8bd95d20b546da1108da39d" name="aed9d8369a8bd95d20b546da1108da39d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aed9d8369a8bd95d20b546da1108da39d">&#9670;&#160;</a></span>MetricsSampled()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void moq::transport::PublishTrackHandler::MetricsSampled </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_publish_track_metrics.html">PublishTrackMetrics</a> &amp;&amp;</td>          <td class="paramname"><span class="paramname"><em>metrics</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Notification callback to provide sampled metrics. </p>
+<p>Callback will be triggered on <a class="el" href="structmoq_1_1transport_1_1_config.html#ad11929434b5ddbb42c8765ea012a2478">Config::metrics_sample_ms</a> to provide the sampled data based on the sample period. After this callback, the period/sample based metrics will reset and start over for the new period.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">metrics</td><td>Copy of the published metrics for the sample period </td></tr>
+  </table>
+  </dd>
+</dl>
 
 </div>
 </div>

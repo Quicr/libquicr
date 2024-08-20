@@ -1,7 +1,7 @@
 var searchData=
 [
-  ['_7ebasetrackhandler_0',['~BaseTrackHandler',['../classmoq_1_1transport_1_1_base_track_handler.html#a13f266677d96952bf7dcda3792df741a',1,'moq::transport::BaseTrackHandler']]],
-  ['_7eclient_1',['~Client',['../classmoq_1_1transport_1_1_client.html#a7bcba675b5da7797de35a09f619b1b60',1,'moq::transport::Client']]],
-  ['_7eserver_2',['~Server',['../classmoq_1_1transport_1_1_server.html#a642b9d9214241e51efded9a45b397c4c',1,'moq::transport::Server']]],
-  ['_7etransport_3',['~Transport',['../classmoq_1_1transport_1_1_transport.html#aed39b5a9d247e25031a9c6dbfa01c749',1,'moq::transport::Transport']]]
+  ['unannouncereceived_0',['UnannounceReceived',['../classmoq_1_1transport_1_1_server.html#a070042696dfa90d9364aa028fd5b6396',1,'moq::transport::Server']]],
+  ['unpublishtrack_1',['UnpublishTrack',['../classmoq_1_1transport_1_1_transport.html#a28bdd804f0ee788208e8e1d8e90fa849',1,'moq::transport::Transport']]],
+  ['unsubscribereceived_2',['UnsubscribeReceived',['../classmoq_1_1transport_1_1_server.html#afc8cb5b48411c4275eb9d815cd469f61',1,'moq::transport::Server']]],
+  ['unsubscribetrack_3',['UnsubscribeTrack',['../classmoq_1_1transport_1_1_transport.html#aaa9f9f80f41666ab68795b15c0e75cd0',1,'moq::transport::Transport']]]
 ];
