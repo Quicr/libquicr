@@ -108,8 +108,8 @@ $(function(){initNavTree('client_8h_source.html',''); initResizable(true); });
 <div class="line"><a id="l00006" name="l00006"></a><span class="lineno">    6</span> </div>
 <div class="line"><a id="l00007" name="l00007"></a><span class="lineno">    7</span><span class="preprocessor">#pragma once</span></div>
 <div class="line"><a id="l00008" name="l00008"></a><span class="lineno">    8</span> </div>
-<div class="line"><a id="l00009" name="l00009"></a><span class="lineno">    9</span><span class="preprocessor">#include &lt;<a class="code" href="transport_8h.html">moqt/core/transport.h</a>&gt;</span></div>
-<div class="line"><a id="l00010" name="l00010"></a><span class="lineno">   10</span><span class="preprocessor">#include &lt;<a class="code" href="config_8h.html">moqt/config.h</a>&gt;</span></div>
+<div class="line"><a id="l00009" name="l00009"></a><span class="lineno">    9</span><span class="preprocessor">#include &lt;<a class="code" href="config_8h.html">moqt/config.h</a>&gt;</span></div>
+<div class="line"><a id="l00010" name="l00010"></a><span class="lineno">   10</span><span class="preprocessor">#include &lt;<a class="code" href="transport_8h.html">moqt/core/transport.h</a>&gt;</span></div>
 <div class="line"><a id="l00011" name="l00011"></a><span class="lineno">   11</span> </div>
 <div class="line"><a id="l00012" name="l00012"></a><span class="lineno">   12</span><span class="keyword">namespace </span><a class="code hl_namespace" href="namespacemoq_1_1transport.html">moq::transport</a> {</div>
 <div class="line"><a id="l00013" name="l00013"></a><span class="lineno">   13</span>    <span class="keyword">using namespace </span>qtransport;</div>
@@ -135,11 +135,10 @@ $(function(){initNavTree('client_8h_source.html',''); initResizable(true); });
 <div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span> </div>
 <div class="line"><a id="l00072" name="l00072"></a><span class="lineno"><a class="line" href="classmoq_1_1transport_1_1_client.html#ae886035a9a62ecec6ea9b315e35b1abd">   72</a></span>        <span class="keyword">virtual</span> <span class="keywordtype">void</span> <a class="code hl_function" href="classmoq_1_1transport_1_1_client.html#ae886035a9a62ecec6ea9b315e35b1abd">ServerSetup</a>([[maybe_unused]] TransportConnId conn_id,</div>
 <div class="line"><a id="l00073" name="l00073"></a><span class="lineno">   73</span>                                 [[maybe_unused]] messages::MoqServerSetup server_setup) = 0;</div>
-<div class="line"><a id="l00074" name="l00074"></a><span class="lineno">   74</span> </div>
-<div class="line"><a id="l00075" name="l00075"></a><span class="lineno">   75</span>    };</div>
+<div class="line"><a id="l00074" name="l00074"></a><span class="lineno">   74</span>    };</div>
 </div>
-<div class="line"><a id="l00076" name="l00076"></a><span class="lineno">   76</span> </div>
-<div class="line"><a id="l00077" name="l00077"></a><span class="lineno">   77</span>} <span class="comment">// namespace moq::transport</span></div>
+<div class="line"><a id="l00075" name="l00075"></a><span class="lineno">   75</span> </div>
+<div class="line"><a id="l00076" name="l00076"></a><span class="lineno">   76</span>} <span class="comment">// namespace moq::transport</span></div>
 <div class="ttc" id="aclassmoq_1_1transport_1_1_client_html"><div class="ttname"><a href="classmoq_1_1transport_1_1_client.html">moq::transport::Client</a></div><div class="ttdoc">MoQT Client.</div><div class="ttdef"><b>Definition</b> client.h:21</div></div>
 <div class="ttc" id="aclassmoq_1_1transport_1_1_client_html_a4a19ae4f8e379b1f3436b49cf4e198a3"><div class="ttname"><a href="classmoq_1_1transport_1_1_client.html#a4a19ae4f8e379b1f3436b49cf4e198a3">moq::transport::Client::Disconnect</a></div><div class="ttdeci">void Disconnect()</div><div class="ttdoc">Disconnect the client connection gracefully (blocking)</div></div>
 <div class="ttc" id="aclassmoq_1_1transport_1_1_client_html_a4efe30de93eb6a005c589ca9c5881f2a"><div class="ttname"><a href="classmoq_1_1transport_1_1_client.html#a4efe30de93eb6a005c589ca9c5881f2a">moq::transport::Client::ConnectionChanged</a></div><div class="ttdeci">virtual void ConnectionChanged(TransportConnId conn_id, TransportStatus status)=0</div><div class="ttdoc">Callback notification for connection status/state change.</div></div>

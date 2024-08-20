@@ -108,8 +108,8 @@ $(function(){initNavTree('subscribe__track__handler_8h_source.html',''); initRes
 <div class="line"><a id="l00006" name="l00006"></a><span class="lineno">    6</span><span class="preprocessor">#pragma once</span></div>
 <div class="line"><a id="l00007" name="l00007"></a><span class="lineno">    7</span> </div>
 <div class="line"><a id="l00008" name="l00008"></a><span class="lineno">    8</span><span class="preprocessor">#include &lt;<a class="code" href="base__track__handler_8h.html">moqt/core/base_track_handler.h</a>&gt;</span></div>
-<div class="line"><a id="l00009" name="l00009"></a><span class="lineno">    9</span><span class="preprocessor">#include &lt;<a class="code" href="publish__track__handler_8h.html">moqt/publish_track_handler.h</a>&gt;</span></div>
-<div class="line"><a id="l00010" name="l00010"></a><span class="lineno">   10</span><span class="preprocessor">#include &lt;<a class="code" href="metrics_8h.html">moqt/metrics.h</a>&gt;</span></div>
+<div class="line"><a id="l00009" name="l00009"></a><span class="lineno">    9</span><span class="preprocessor">#include &lt;<a class="code" href="metrics_8h.html">moqt/metrics.h</a>&gt;</span></div>
+<div class="line"><a id="l00010" name="l00010"></a><span class="lineno">   10</span><span class="preprocessor">#include &lt;<a class="code" href="publish__track__handler_8h.html">moqt/publish_track_handler.h</a>&gt;</span></div>
 <div class="line"><a id="l00011" name="l00011"></a><span class="lineno">   11</span> </div>
 <div class="line"><a id="l00012" name="l00012"></a><span class="lineno">   12</span><span class="keyword">namespace </span><a class="code hl_namespace" href="namespacemoq_1_1transport.html">moq::transport</a> {</div>
 <div class="line"><a id="l00013" name="l00013"></a><span class="lineno">   13</span> </div>
@@ -138,7 +138,7 @@ $(function(){initNavTree('subscribe__track__handler_8h_source.html',''); initRes
 <div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span>            <a class="code hl_enumvalue" href="classmoq_1_1transport_1_1_subscribe_track_handler.html#a0b6c05648e066aca89661463965ae68ea94d644150606feeb2501ae2801a617ed">kNotAuthorized</a>,</div>
 <div class="line"><a id="l00047" name="l00047"></a><span class="lineno">   47</span>            <a class="code hl_enumvalue" href="classmoq_1_1transport_1_1_subscribe_track_handler.html#a0b6c05648e066aca89661463965ae68ea92328fe39107890e5ea75689d9e5d32f">kNotSubscribed</a>,</div>
 <div class="line"><a id="l00048" name="l00048"></a><span class="lineno">   48</span>            <a class="code hl_enumvalue" href="classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532a0a3ab3e9715377a993aa8530a0a67cdc">kPendingSubscribeResponse</a>,</div>
-<div class="line"><a id="l00049" name="l00049"></a><span class="lineno">   49</span>            <a class="code hl_enumvalue" href="classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532a0c00fa0c8dbc5959120d45bc8386979f">kSendingUnsubscribe</a>                 <span class="comment">// Triggers callbacks to not be called in this state</span></div>
+<div class="line"><a id="l00049" name="l00049"></a><span class="lineno">   49</span>            <a class="code hl_enumvalue" href="classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532a0c00fa0c8dbc5959120d45bc8386979f">kSendingUnsubscribe</a> <span class="comment">// Triggers callbacks to not be called in this state</span></div>
 <div class="line"><a id="l00050" name="l00050"></a><span class="lineno">   50</span>        };</div>
 </div>
 <div class="line"><a id="l00051" name="l00051"></a><span class="lineno">   51</span> </div>
@@ -182,7 +182,7 @@ $(function(){initNavTree('subscribe__track__handler_8h_source.html',''); initRes
 <div class="line"><a id="l00125" name="l00125"></a><span class="lineno">  125</span>        <span class="comment">// --------------------------------------------------------------------------</span></div>
 <div class="line"><a id="l00126" name="l00126"></a><span class="lineno">  126</span>        <span class="comment">// Member variables</span></div>
 <div class="line"><a id="l00127" name="l00127"></a><span class="lineno">  127</span>        <span class="comment">// --------------------------------------------------------------------------</span></div>
-<div class="line"><a id="l00128" name="l00128"></a><span class="lineno">  128</span>        <a class="code hl_enumeration" href="classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532">Status</a> status_ { <a class="code hl_enumvalue" href="classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532a92328fe39107890e5ea75689d9e5d32f">Status::kNotSubscribed</a> };</div>
+<div class="line"><a id="l00128" name="l00128"></a><span class="lineno">  128</span>        <a class="code hl_enumeration" href="classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532">Status</a> status_{ <a class="code hl_enumvalue" href="classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532a92328fe39107890e5ea75689d9e5d32f">Status::kNotSubscribed</a> };</div>
 <div class="line"><a id="l00129" name="l00129"></a><span class="lineno">  129</span>    };</div>
 </div>
 <div class="line"><a id="l00130" name="l00130"></a><span class="lineno">  130</span> </div>
@@ -211,7 +211,7 @@ $(function(){initNavTree('subscribe__track__handler_8h_source.html',''); initRes
 <div class="ttc" id="ametrics_8h_html"><div class="ttname"><a href="metrics_8h.html">metrics.h</a></div></div>
 <div class="ttc" id="anamespacemoq_1_1transport_html"><div class="ttname"><a href="namespacemoq_1_1transport.html">moq::transport</a></div><div class="ttdef"><b>Definition</b> transport.h:24</div></div>
 <div class="ttc" id="apublish__track__handler_8h_html"><div class="ttname"><a href="publish__track__handler_8h.html">publish_track_handler.h</a></div></div>
-<div class="ttc" id="astructmoq_1_1transport_1_1_full_track_name_html"><div class="ttname"><a href="structmoq_1_1transport_1_1_full_track_name.html">moq::transport::FullTrackName</a></div><div class="ttdoc">Full track name struct.</div><div class="ttdef"><b>Definition</b> common.h:29</div></div>
+<div class="ttc" id="astructmoq_1_1transport_1_1_full_track_name_html"><div class="ttname"><a href="structmoq_1_1transport_1_1_full_track_name.html">moq::transport::FullTrackName</a></div><div class="ttdoc">Full track name struct.</div><div class="ttdef"><b>Definition</b> common.h:30</div></div>
 <div class="ttc" id="astructmoq_1_1transport_1_1_subscribe_track_metrics_html"><div class="ttname"><a href="structmoq_1_1transport_1_1_subscribe_track_metrics.html">moq::transport::SubscribeTrackMetrics</a></div><div class="ttdef"><b>Definition</b> metrics.h:45</div></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
