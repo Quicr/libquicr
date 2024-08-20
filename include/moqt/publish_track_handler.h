@@ -7,6 +7,7 @@
 
 #include <functional>
 #include <moqt/core/base_track_handler.h>
+#include <moqt/metrics.h>
 
 namespace moq::transport {
 
@@ -178,6 +179,18 @@ namespace moq::transport {
          *      * other track status
          */
         PublishStatus PublishContinuationData(BytesSpan data);
+
+        // --------------------------------------------------------------------------
+        // Metrics
+        // --------------------------------------------------------------------------
+
+        /**
+         * @brief Publish metrics for the track
+         *
+         * @details Publish metrics are updated real-time and transport quic metrics on metrics_sample_ms
+         *     period.
+         */
+        PublishTrackMetrics publish_track_metrics_;
 
         // --------------------------------------------------------------------------
         // Internals

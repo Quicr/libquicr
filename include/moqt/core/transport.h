@@ -15,6 +15,7 @@
 #include <moqt/common.h>
 #include <moqt/publish_track_handler.h>
 #include <moqt/subscribe_track_handler.h>
+#include <moqt/metrics.h>
 
 #include <map>
 #include <string>
@@ -111,6 +112,18 @@ namespace moq::transport {
          * @return Status indicating the state/status of the instance
          */
         Status GetStatus();
+
+        // --------------------------------------------------------------------------
+        // Metrics
+        // --------------------------------------------------------------------------
+
+        /**
+         * @brief Connection metrics for server accepted connections
+         *
+         * @details Connection metrics are updated real-time and transport quic metrics on
+         *      Config::metrics_sample_ms period
+         */
+        std::map<TransportConnId, ConnectionMetrics> connection_metrics_;
 
       private:
         // -------------------------------------------------------------------------------------------------

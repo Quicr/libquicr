@@ -7,6 +7,7 @@
 
 #include <moqt/core/base_track_handler.h>
 #include <moqt/publish_track_handler.h>
+#include <moqt/metrics.h>
 
 namespace moq::transport {
 
@@ -98,6 +99,18 @@ namespace moq::transport {
          * @param status        Indicates status of the subscribe
          */
         virtual void StatusChanged(Status status) = 0;
+
+        // --------------------------------------------------------------------------
+        // Metrics
+        // --------------------------------------------------------------------------
+
+        /**
+         * @brief Subscribe metrics for the track
+         *
+         * @details Subscribe metrics are updated real-time and transport quic metrics on metrics_sample_ms
+         *     period.
+         */
+        SubscribeTrackMetrics subscribe_track_metrics_;
 
         // --------------------------------------------------------------------------
         // Internal
