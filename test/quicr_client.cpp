@@ -1,9 +1,10 @@
 #include "fake_transport.h"
 
-#include <cantina/logger.h>
 #include <doctest/doctest.h>
 #include <quicr/encode.h>
 #include <quicr/quicr_client.h>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 #include <memory>
 #include <string>
@@ -11,7 +12,7 @@
 
 using namespace quicr;
 
-auto logger = std::make_shared<cantina::Logger>("CLIENT_TEST");
+auto logger = ::spdlog::stderr_color_mt("CLIENT_TEST");
 
 struct TestSubscriberDelegate : public SubscriberDelegate
 {
@@ -57,7 +58,7 @@ struct TestPublisherDelegate : public PublisherDelegate
 TEST_CASE("Subscribe encode, send and receive")
 {
   auto transport = std::make_shared<FakeTransport>();
-  auto qclient = std::make_unique<quicr::Client>(transport, logger);
+  auto qclient = std::make_unique<quicr::Client>(transport);
   qclient->connect();
 
   const auto expected_ns = quicr::Namespace{ 0x10000000000000002000_name, 125 };
@@ -77,7 +78,7 @@ TEST_CASE("Subscribe encode, send and receive")
 TEST_CASE("Publish encode, send and receive")
 {
   auto transport = std::make_shared<FakeTransport>();
-  auto qclient = std::make_unique<quicr::Client>(transport, logger);
+  auto qclient = std::make_unique<quicr::Client>(transport);
   qclient->connect();
 
   const auto expected_name = 0x10000000000000002000_name;

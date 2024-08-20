@@ -7,12 +7,13 @@
 #include "quicr_common.h"
 
 #include <transport/transport.h>
-#include <cantina/logger.h>
 #include <qname>
 
+#include <chrono>
 #include <map>
 #include <memory>
 #include <string>
+#include <stdexcept>
 #include <vector>
 
 /**
@@ -45,24 +46,21 @@ public:
    * @param chunk_size  : Size in bytes to chunk messages if greater than this size
    *                      Zero disables, value is max(chunk_size, max_transport_data_size)
    * @param tconfig     : Transport configuration
-   * @param logger      : Shared pointer to cantina::Logger object
-   *                      loggings operations
+   * @param logger      : Shared pointer to a logger object
    */
   Client(const RelayInfo& relay_info,
          const std::string& endpoint_id,
          size_t chunk_size,
          const qtransport::TransportConfig& tconfig,
-         const cantina::LoggerPointer& logger);
+         std::shared_ptr<spdlog::logger> logger);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber
    *        functionality.
    *
    * @param transport : External transport pointer to use.
-   * @param logger    : Shared pointer to cantina::Logger object
    */
-  Client(std::shared_ptr<qtransport::ITransport> transport,
-         const cantina::LoggerPointer& logger);
+  Client(std::shared_ptr<qtransport::ITransport> transport);
 
   /**
    * @brief Destructor for the client
@@ -208,8 +206,4 @@ public:
 protected:
   std::unique_ptr<ClientSession> client_session;
 };
-
-using QuicRClient
-  [[deprecated("quicr::QuicRClient stutters, use quicr::Client")]] =
-    quicr::Client;
 }

@@ -5,9 +5,11 @@
  */
 #pragma once
 
-#include "cantina/logger.h"
 #include <quicr/quicr_common.h>
 #include <transport/span.h>
+#include <spdlog/spdlog.h>
+
+#include <memory>
 
 namespace quicr {
 
@@ -79,9 +81,9 @@ namespace quicr {
                          TrackMode track_mode,
                          uint8_t default_priority,
                          uint32_t default_ttl,
-                         const cantina::LoggerPointer& logger) :
+                         std::shared_ptr<spdlog::logger> logger) :
               _mi_track_mode(track_mode)
-             , _logger(std::make_shared<cantina::Logger>("MTD", logger))
+             , _logger(std::move(logger))
              , _track_namespace(track_namespace)
              , _track_name(track_name)
         {
@@ -295,7 +297,7 @@ namespace quicr {
         // --------------------------------------------------------------------------
 
       protected:
-        cantina::LoggerPointer _logger;
+        std::shared_ptr<spdlog::logger> _logger;
         const bytes _track_namespace;
         const bytes _track_name;
         std::optional<uint64_t> _track_alias;

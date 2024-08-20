@@ -16,26 +16,16 @@ Client::Client(const RelayInfo& relay_info,
                const std::string& endpoint_id,
                size_t chunk_size,
                const qtransport::TransportConfig& tconfig,
-               const cantina::LoggerPointer& logger)
+               std::shared_ptr<spdlog::logger> logger)
 {
-  switch (relay_info.proto) {
-    case RelayInfo::Protocol::UDP:
-      [[fallthrough]];
-    case RelayInfo::Protocol::QUIC:
-      client_session =
-        std::make_unique<ClientRawSession>(relay_info, endpoint_id, chunk_size, tconfig, logger);
-      break;
-    default:
-      throw ClientException("Unsupported relay protocol");
-      break;
-  }
+    client_session =
+      std::make_unique<ClientRawSession>(relay_info, endpoint_id, chunk_size, tconfig, std::move(logger));
 }
 
-Client::Client(std::shared_ptr<qtransport::ITransport> transport_in,
-               const cantina::LoggerPointer& logger)
+Client::Client(std::shared_ptr<qtransport::ITransport> transport_in)
 {
   client_session =
-    std::make_unique<ClientRawSession>(std::move(transport_in), logger);
+    std::make_unique<ClientRawSession>(std::move(transport_in));
 }
 
 bool

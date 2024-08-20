@@ -13,6 +13,7 @@
 #include <quicr/moq_instance_delegate.h>
 #include <quicr/moq_track_delegate.h>
 #include <transport/span.h>
+#include <spdlog/spdlog.h>
 
 #include <unordered_map>
 #include <map>
@@ -105,7 +106,7 @@ namespace quicr {
          */
         MoQInstance(const MoQInstanceClientConfig& cfg,
                     std::shared_ptr<MoQInstanceDelegate> delegate,
-                    const cantina::LoggerPointer& logger);
+                    std::shared_ptr<spdlog::logger> logger);
 
         /**
          * @brief Server mode Constructor to create the MOQ instance
@@ -116,7 +117,7 @@ namespace quicr {
          */
         MoQInstance(const MoQInstanceServerConfig& cfg,
                     std::shared_ptr<MoQInstanceDelegate> delegate,
-                    const cantina::LoggerPointer& logger);
+                    std::shared_ptr<spdlog::logger> logger);
 
         ~MoQInstance() = default;
 
@@ -309,8 +310,7 @@ namespace quicr {
 
         Status _status{ Status::NOT_READY };
 
-        // Log handler to use
-        cantina::LoggerPointer _logger;
+        std::shared_ptr<spdlog::logger> _logger;
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
         MetricsExporter _mexport;
