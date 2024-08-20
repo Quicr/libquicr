@@ -141,7 +141,7 @@ namespace moq::transport {
          *   - This method cannot be called twice with the same object header group and object IDs.
          *   - In TrackMode::kStreamPerGroup, ObjectHeaders::group_id **MUST** be different than the previous
          *     when calling this method when the previous has not been completed yet using PublishContinuationData().
-         *     If group id is not different, the Error::kPreviousObjectNotCompleteMustStartNewGroup will be returned
+         *     If group id is not different, the PublishStatus::kPreviousObjectNotCompleteMustStartNewGroup will be returned
          *     and the object will not be sent. If new group ID is provided, then the previous object will terminate
          *     with stream closure, resulting in the previous being truncated.
          *   - In TrackMode::kStreamPerTrack, this method **CANNOT** be called until the previous object has been
