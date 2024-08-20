@@ -149,7 +149,7 @@ namespace moq::transport {
          *     object remaining data will result in PublishStatus::kObjectDataIncomplete. No data would be sent and the
          *     stream would remain unchanged. It is expected that the caller would send the remaining continuation data.
          *
-         * @note If data is less than object_header.payload_length, then PublishObject()
+         * @note If data is less than ObjectHeaders::payload_length, then PublishObject()
          *   should be called to send the remaining data.
          *
          * @param object_headers        Object headers, must include group and object Ids

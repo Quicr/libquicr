@@ -7,8 +7,8 @@
 #pragma once
 
 #include <moqt/config.h>
-#include <moqt/core/transport.h>
 #include <moqt/core/messages.h>
+#include <moqt/core/transport.h>
 
 namespace moq::transport {
     using namespace qtransport;
@@ -125,7 +125,7 @@ namespace moq::transport {
                                          [[maybe_unused]] uint64_t subscribe_id) = 0;
 
       private:
-        bool stop_ { false };
+        bool stop_{ false };
     };
 
 } // namespace moq::transport

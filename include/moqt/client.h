@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include <moqt/core/transport.h>
 #include <moqt/config.h>
+#include <moqt/core/transport.h>
 
 namespace moq::transport {
     using namespace qtransport;
@@ -71,7 +71,6 @@ namespace moq::transport {
          */
         virtual void ServerSetup([[maybe_unused]] TransportConnId conn_id,
                                  [[maybe_unused]] messages::MoqServerSetup server_setup) = 0;
-
     };
 
 } // namespace moq::transport
