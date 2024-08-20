@@ -20,6 +20,6 @@ var searchData=
   ['subscriber_20api_17',['Media over QUIC Transport (MoQT) Publisher/Subscriber API',['../index.html',1,'']]],
   ['subscribereceived_18',['SubscribeReceived',['../classmoq_1_1transport_1_1_server.html#afbe836d7b5111b11fd1c588dcd233983',1,'moq::transport::Server']]],
   ['subscribetrack_19',['SubscribeTrack',['../classmoq_1_1transport_1_1_transport.html#a1289da8905b94aee0925ff0ae252c9c9',1,'moq::transport::Transport']]],
-  ['subscribetrackhandler_20',['SubscribeTrackHandler',['../classmoq_1_1transport_1_1_subscribe_track_handler.html',1,'moq::transport::SubscribeTrackHandler'],['../classmoq_1_1transport_1_1_subscribe_track_handler.html#a24056c782a2761c8950e6174425d0fa5',1,'moq::transport::SubscribeTrackHandler::SubscribeTrackHandler()']]],
+  ['subscribetrackhandler_20',['SubscribeTrackHandler',['../classmoq_1_1transport_1_1_subscribe_track_handler.html',1,'moq::transport::SubscribeTrackHandler'],['../classmoq_1_1transport_1_1_subscribe_track_handler.html#a5007f9048b3c45c660a1ae3c88f88cc2',1,'moq::transport::SubscribeTrackHandler::SubscribeTrackHandler()']]],
   ['subscribetrackmetrics_21',['SubscribeTrackMetrics',['../structmoq_1_1transport_1_1_subscribe_track_metrics.html',1,'moq::transport']]]
 ];
