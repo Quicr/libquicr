@@ -131,6 +131,7 @@ namespace moq::transport {
          *      on the sample period.  After this callback, the period/sample based metrics will reset and start over
          *      for the new period.
          *
+         * @param conn_id           Source connection ID
          * @param metrics           Copy of the connection metrics for the sample period
          */
         virtual void MetricsSampled(TransportConnId conn_id, const ConnectionMetrics&& metrics)  = 0;

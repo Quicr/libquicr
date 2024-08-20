@@ -56,7 +56,6 @@ namespace moq::transport {
          * @brief Callback notification for connection status/state change
          * @details Callback notification indicates state change of connection, such as disconnected
          *
-         * @param conn_id          Transport connection ID
          * @param status           Transport status of connection id
          */
         virtual void ConnectionChanged(TransportStatus status) = 0;
