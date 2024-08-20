@@ -63,8 +63,10 @@ to_TransportRemote(const RelayInfo& info) noexcept
 ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
                                    const std::string& endpoint_id,
                                    size_t chunk_size,
-                                   const qtransport::TransportConfig& tconfig)
-  : _endpoint_id(endpoint_id)
+                                   const qtransport::TransportConfig& tconfig,
+                                   std::shared_ptr<spdlog::logger> logger)
+  : logger(std::move(logger))
+  , _endpoint_id(endpoint_id)
   , _chunk_size(chunk_size)
 {
   if (relay_info.proto == RelayInfo::Protocol::UDP) {
@@ -76,7 +78,7 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
   }
 
   const auto server = to_TransportRemote(relay_info);
-  transport = qtransport::ITransport::make_client_transport(server, tconfig, *this);
+  transport = qtransport::ITransport::make_client_transport(server, tconfig, *this, logger);
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
   if (_mexport.init("http://metrics.m10x.ctgpoc.com:8086",

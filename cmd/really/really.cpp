@@ -129,8 +129,8 @@ installSignalHandlers()
 class ReallyServerDelegate : public quicr::ServerDelegate
 {
 public:
-  explicit ReallyServerDelegate()
-    : logger{ spdlog::stderr_color_mt("SDEL") }
+  explicit ReallyServerDelegate(std::shared_ptr<spdlog::logger> logger)
+    : logger{ std::move(logger) }
   {
   }
 
@@ -269,8 +269,8 @@ main()
     };
 
     auto logger = spdlog::stderr_color_mt("really");
-    auto delegate = std::make_shared<ReallyServerDelegate>();
-    auto server = std::make_shared<quicr::Server>(relayInfo, tcfg, delegate);
+    auto delegate = std::make_shared<ReallyServerDelegate>(logger);
+    auto server = std::make_shared<quicr::Server>(relayInfo, tcfg, delegate, logger);
 
     // TODO(trigaux): Remove this once delegate no longer depends on server.
     delegate->setServer(server);

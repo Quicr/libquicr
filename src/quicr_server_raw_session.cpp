@@ -39,8 +39,10 @@ namespace quicr {
  */
 ServerRawSession::ServerRawSession(const RelayInfo& relayInfo,
                                    const qtransport::TransportConfig& tconfig,
-                                   std::shared_ptr<ServerDelegate> delegate_in)
+                                   std::shared_ptr<ServerDelegate> delegate_in,
+                                   std::shared_ptr<spdlog::logger> logger)
   : delegate(std::move(delegate_in))
+  , logger(std::move(logger))
   , transport_delegate(*this)
 {
   t_relay.host_or_ip = relayInfo.hostname;
@@ -71,8 +73,7 @@ ServerRawSession::ServerRawSession(
 std::shared_ptr<qtransport::ITransport>
 ServerRawSession::setupTransport(const qtransport::TransportConfig& cfg)
 {
-
-  return qtransport::ITransport::make_server_transport(t_relay, cfg, transport_delegate);
+  return qtransport::ITransport::make_server_transport(t_relay, cfg, transport_delegate, logger);
 }
 
 // Transport APIs

@@ -46,11 +46,13 @@ public:
    * @param chunk_size  : Size in bytes to chunk messages if greater than this size
    *                      Zero disables, value is max(chunk_size, max_transport_data_size)
    * @param tconfig     : Transport configuration
+   * @param logger      : Shared pointer to a logger object
    */
   Client(const RelayInfo& relay_info,
          const std::string& endpoint_id,
          size_t chunk_size,
-         const qtransport::TransportConfig& tconfig);
+         const qtransport::TransportConfig& tconfig,
+         std::shared_ptr<spdlog::logger> logger);
 
   /**
    * @brief Setup a QUICR Client Session with publisher and subscriber

@@ -95,7 +95,5 @@ struct FakeTransport : public ITransport
     return std::nullopt;
   }
 
-  void enableLogging(int) override {}
-
   std::vector<uint8_t> stored_data;
 };

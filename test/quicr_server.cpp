@@ -97,5 +97,5 @@ TEST_CASE("Object Lifetime")
                                                  .quic_qlog_path = "" };
 
   // NOLINTNEXTLINE(cert-err33-c)
-  CHECK_NOTHROW(std::make_unique<Server>(relayInfo, tcfg, delegate));
+  CHECK_NOTHROW(std::make_unique<Server>(relayInfo, tcfg, delegate, nullptr));
 }

@@ -90,7 +90,7 @@ public:
 class clientDelegate : public quicr::MoQInstanceDelegate
 {
 public:
-    clientDelegate() : _logger(spdlog::stderr_color_mt("MID")) {}
+    clientDelegate(std::shared_ptr<spdlog::logger> logger) : _logger(std::move(logger)) {}
 
     virtual ~clientDelegate() = default;
 
@@ -326,7 +326,7 @@ main(int argc, char* argv[])
     bool enable_sub { false };
     quicr::MoQInstanceClientConfig config = init_config(result, enable_pub, enable_sub, logger);
 
-    auto delegate = std::make_shared<clientDelegate>();
+    auto delegate = std::make_shared<clientDelegate>(logger);
 
     try {
         //auto moqInstance = quicr::MoQInstance{config, delegate, logger};

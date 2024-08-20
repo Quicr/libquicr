@@ -20,8 +20,8 @@
 class subDelegate : public quicr::SubscriberDelegate
 {
 public:
-  explicit subDelegate()
-    : logger(spdlog::stderr_color_mt("SDEL"))
+  explicit subDelegate(std::shared_ptr<spdlog::logger> logger)
+    : logger(std::move(logger))
   {
   }
 
@@ -71,8 +71,8 @@ class pubDelegate : public quicr::PublisherDelegate
 public:
   std::atomic<bool> got_intent_response { false };
 
-  explicit pubDelegate()
-    : logger(spdlog::stderr_color_mt("PDEL"))
+  explicit pubDelegate(std::shared_ptr<spdlog::logger> logger)
+    : logger(std::move(logger))
   {
   }
 
@@ -143,7 +143,7 @@ int do_subscribe(std::shared_ptr<spdlog::logger> logger,
                  quicr::Client& client,
                  quicr::Name name) {
 
-    auto sd = std::make_shared<subDelegate>();
+    auto sd = std::make_shared<subDelegate>(logger);
     auto nspace = quicr::Namespace(name, 96);
 
     LOGGER_INFO(logger, "Subscribe to {0}/{1}", std::string(name), 96);
@@ -229,8 +229,8 @@ main(int argc, char* argv[])
     .tls_key_filename = "",
   };
 
-  quicr::Client client(relay, "a@cisco.com", 0, tcfg);
-  auto pd = std::make_shared<pubDelegate>();
+  quicr::Client client(relay, "a@cisco.com", 0, tcfg, logger);
+  auto pd = std::make_shared<pubDelegate>(logger);
 
   if (!client.connect()) {
     LOGGER_CRITICAL(logger, "Transport connect failed");

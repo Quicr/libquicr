@@ -28,6 +28,8 @@ namespace quicr {
         , _delegate(std::move(delegate))
         , _transport({})
     {
+        LOGGER_INFO(
+          _logger, "Created MoQ instance in client mode listening on {0}:{1}", cfg.server_host_ip, cfg.server_port);
         init();
     }
 
@@ -41,11 +43,15 @@ namespace quicr {
       , _delegate(std::move(delegate))
       , _transport({})
     {
+        LOGGER_INFO(
+          _logger, "Created MoQ instance in server mode listening on {0}:{1}", cfg.server_bind_ip, cfg.server_port);
         init();
     }
 
     void MoQInstance::init()
     {
+        LOGGER_INFO(_logger, "Starting metrics exporter");
+
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
         if (_mexport.init("http://metrics.m10x.ctgpoc.com:8086",
                          "Media10x",
@@ -64,7 +70,7 @@ namespace quicr {
                                  .port = _server_config.server_port,
                                  .proto =  _server_config.server_proto };
 
-        _transport = ITransport::make_server_transport(server, _server_config.transport_config, *this);
+        _transport = ITransport::make_server_transport(server, _server_config.transport_config, *this, _logger);
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
         _transport->start(_mexport.metrics_conn_samples, _mexport.metrics_data_samples);
@@ -86,7 +92,7 @@ namespace quicr {
                                 .port = _client_config.server_port,
                                 .proto =  _client_config.server_proto };
 
-        _transport = ITransport::make_client_transport(relay, _client_config.transport_config, *this);
+        _transport = ITransport::make_client_transport(relay, _client_config.transport_config, *this, _logger);
 
         _status = Status::CLIENT_CONNECTING;
 

@@ -31,10 +31,12 @@ public:
    * @param relayInfo        : Relay Information to be used by the transport
    * @param tconfig          : Transport configuration
    * @param delegate         : Server delegate
+   * @param logger      : Shared pointer to a logger object
    */
   Server(const RelayInfo& relayInfo,
          const qtransport::TransportConfig& tconfig,
-         std::shared_ptr<ServerDelegate> delegate_in);
+         std::shared_ptr<ServerDelegate> delegate_in,
+         std::shared_ptr<spdlog::logger> logger);
 
   /**
    * API for unit test cases .
