@@ -158,7 +158,7 @@ namespace moq::transport {
          * @returns Publish status of the publish
          *    * PublishStatus::kObjectContinuationDataNeeded if the object payload data is not completed but it was sent,
          *    * PublishStatus::kObjectDataComplete if the object data was sent and the data is complete,
-         *    * other track status
+         *    * other PublishStatus
          */
         PublishStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
 
@@ -176,7 +176,7 @@ namespace moq::transport {
          *      * PublishStatus::kObjectContinuationDataNeeded if more data is still needed,
          *      * PublishStatus::kObjectDataTooLarge if the data provided would exceed the remaining amount of data,
          *      * PublishStatus::kNoPreviousObject if the previous object was completed or if there was no previous object,
-         *      * other track status
+         *      * other PublishStatus
          */
         PublishStatus PublishContinuationData(BytesSpan data);
 
