@@ -25,9 +25,9 @@ and [Publish Track Handler](#moq::transport::PublishTrackHandler). Both classes 
 
 ## Track Handlers
 
-Both client and server implement `publishTrack()` and `subscribeTrack()` methods to start a new
-subscription and/or publication. Use the below handler classes when calling the methods. Each track
-handler is constructed for a single full track name (e.g., namespace and name).
+Both client and server moq::transport::Transport::PublishTrack() and moq::transport::Transport::SubscribeTrack()
+methods to start a new subscription and/or publication. Use the below handler classes when calling
+the methods. Each track handler is constructed for a single full track name (e.g., namespace and name).
 
  Class                                 | Description                                                            
 ---------------------------------------|------------------------------------------------------------------------
