@@ -100,6 +100,17 @@ namespace moq::transport {
          */
         virtual void StatusChanged(Status status) = 0;
 
+        /**
+         * @brief Notification callback to provide sampled metrics
+         *
+         * @details Callback will be triggered on Config::metrics_sample_ms to provide the sampled data based
+         *      on the sample period.  After this callback, the period/sample based metrics will reset and start over
+         *      for the new period.
+         *
+         * @param metrics           Copy of the subscribed metrics for the sample period
+         */
+        virtual void MetricsSampled(const SubscribeTrackMetrics&& metrics)  = 0;
+
         // --------------------------------------------------------------------------
         // Metrics
         // --------------------------------------------------------------------------

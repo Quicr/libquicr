@@ -56,8 +56,8 @@ namespace moq::transport {
          * @param conn_id          Transport connection ID
          * @param remote           Transport remote connection information
          */
-        virtual void NewConnection([[maybe_unused]] TransportConnId conn_id,
-                                   [[maybe_unused]] const TransportRemote& remote) = 0;
+        virtual void NewConnection(TransportConnId conn_id,
+                                   const TransportRemote& remote) = 0;
 
         /**
          * @brief Callback notification for connection status/state change
@@ -76,8 +76,8 @@ namespace moq::transport {
          * @param conn_id          Transport connection ID
          * @param client_setup     Decoded client setup message
          */
-        virtual void ClientSetupReceived([[maybe_unused]] TransportConnId conn_id,
-                                         [[maybe_unused]] messages::MoqClientSetup client_setup) = 0;
+        virtual void ClientSetupReceived(TransportConnId conn_id,
+                                         const messages::MoqClientSetup& client_setup) = 0;
 
         /**
          * @brief Callback notification for new announce received that needs to be authorized
@@ -87,8 +87,8 @@ namespace moq::transport {
          *
          * @return True if authorized and announce OK will be sent, false if not
          */
-        virtual bool AnnounceReceived([[maybe_unused]] TransportConnId conn_id,
-                                      [[maybe_unused]] const std::vector<uint8_t>& track_namespace) = 0;
+        virtual bool AnnounceReceived(TransportConnId conn_id,
+                                      const std::vector<uint8_t>& track_namespace) = 0;
 
         /**
          * @brief Callback notification for unannounce received
@@ -97,8 +97,8 @@ namespace moq::transport {
          * @param track_namespace           Track namespace
          *
          */
-        virtual void UnannounceReceived([[maybe_unused]] TransportConnId conn_id,
-                                        [[maybe_unused]] const std::vector<uint8_t>& track_namespace) = 0;
+        virtual void UnannounceReceived(TransportConnId conn_id,
+                                        const std::vector<uint8_t>& track_namespace) = 0;
 
         /**
          * @brief Callback notification for new subscribe received
@@ -110,10 +110,10 @@ namespace moq::transport {
          *
          * @return True if send announce should be sent, false if not
          */
-        virtual bool SubscribeReceived([[maybe_unused]] TransportConnId conn_id,
-                                       [[maybe_unused]] uint64_t subscribe_id,
-                                       [[maybe_unused]] const std::vector<uint8_t>& track_namespace,
-                                       [[maybe_unused]] const std::vector<uint8_t>& track_name) = 0;
+        virtual bool SubscribeReceived(TransportConnId conn_id,
+                                       uint64_t subscribe_id,
+                                       const std::vector<uint8_t>& track_namespace,
+                                       const std::vector<uint8_t>& track_name) = 0;
 
         /**
          * @brief Callback notification on unsubscribe received
@@ -121,8 +121,20 @@ namespace moq::transport {
          * @param conn_id             Source connection ID
          * @param subscribe_id        Subscribe ID received
          */
-        virtual void UnsubscribeReceived([[maybe_unused]] TransportConnId conn_id,
-                                         [[maybe_unused]] uint64_t subscribe_id) = 0;
+        virtual void UnsubscribeReceived(TransportConnId conn_id,
+                                         uint64_t subscribe_id) = 0;
+
+        /**
+         * @brief Notification callback to provide sampled metrics
+         *
+         * @details Callback will be triggered on Config::metrics_sample_ms to provide the sampled data based
+         *      on the sample period.  After this callback, the period/sample based metrics will reset and start over
+         *      for the new period.
+         *
+         * @param metrics           Copy of the connection metrics for the sample period
+         */
+        virtual void MetricsSampled(TransportConnId conn_id, const ConnectionMetrics&& metrics)  = 0;
+
 
       private:
         bool stop_{ false };

@@ -59,18 +59,28 @@ namespace moq::transport {
          * @param conn_id          Transport connection ID
          * @param status           Transport status of connection id
          */
-        virtual void ConnectionChanged(TransportConnId conn_id, TransportStatus status) = 0;
+        virtual void ConnectionChanged(TransportStatus status) = 0;
 
         /**
          * @brief Callback on server setup message
          * @details Server will send sever setup in response to client setup message sent. This callback is called
          *  when a server setup has been received.
          *
-         * @param conn_id          Transport connection ID
          * @param server_setup     Decoded sever setup message
          */
-        virtual void ServerSetup([[maybe_unused]] TransportConnId conn_id,
-                                 [[maybe_unused]] messages::MoqServerSetup server_setup) = 0;
+        virtual void ServerSetup(const messages::MoqServerSetup& server_setup) = 0;
+
+        /**
+         * @brief Notification callback to provide sampled metrics
+         *
+         * @details Callback will be triggered on Config::metrics_sample_ms to provide the sampled data based
+         *      on the sample period.  After this callback, the period/sample based metrics will reset and start over
+         *      for the new period.
+         *
+         * @param metrics           Copy of the connection metrics for the sample period
+         */
+        virtual void MetricsSampled(const ConnectionMetrics&& metrics)  = 0;
+
     };
 
 } // namespace moq::transport
