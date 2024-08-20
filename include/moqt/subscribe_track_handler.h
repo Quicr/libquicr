@@ -90,7 +90,7 @@ namespace moq::transport {
          *                          to receive the remaining bytes of the payload.
          * @param track_mode        Track mode the object was received
          */
-        virtual void ObjectReceived(const ObjectHeaders& headers,
+        virtual void ObjectReceived(const ObjectHeaders& object_headers,
                                     std::vector<uint8_t>&& data,
                                     TrackMode track_mode) = 0;
 
@@ -100,7 +100,7 @@ namespace moq::transport {
          * @details Event notification to provide the caller the received data of data that should be appended
          *      to the last ObjectReceived() payload. This is only used if only_complete_objects_ = **false**.
          *
-         * @param object            Data received that should be appended to last object payload
+         * @param data            Data received that should be appended to last object payload
          */
         virtual void ContinuationDataReceived(std::vector<uint8_t>&& data) = 0;
 
