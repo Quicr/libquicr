@@ -1,5 +1,6 @@
 var searchData=
 [
-  ['name_0',['name',['../structmoq_1_1transport_1_1_full_track_name.html#ace28fed6752866a56a488c5151880da3',1,'moq::transport::FullTrackName']]],
-  ['name_5fspace_1',['name_space',['../structmoq_1_1transport_1_1_full_track_name.html#a4631f71ee8ef4b771201c3ee666d1479',1,'moq::transport::FullTrackName']]]
+  ['kmoqtversion_0',['kMoqtVersion',['../namespacemoq_1_1transport.html#ae4d81d85477b2d2e25a3f568a9d87d49',1,'moq::transport']]],
+  ['kreadloopmaxperstream_1',['kReadLoopMaxPerStream',['../namespacemoq_1_1transport.html#ab71080b7123653baa32d80bcd1146ac3',1,'moq::transport']]],
+  ['ksubscribeexpires_2',['kSubscribeExpires',['../namespacemoq_1_1transport.html#a30657595db509732c65f6d30c2cb97c0',1,'moq::transport']]]
 ];

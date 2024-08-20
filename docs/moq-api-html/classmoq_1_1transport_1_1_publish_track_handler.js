@@ -32,5 +32,6 @@ var classmoq_1_1transport_1_1_publish_track_handler =
     [ "SetDefaultPriority", "classmoq_1_1transport_1_1_publish_track_handler.html#a6fa9d79454f513d88bbfba5bf48c6909", null ],
     [ "SetDefaultTTL", "classmoq_1_1transport_1_1_publish_track_handler.html#ada12793474e79e16ba9b1dde2e1b693f", null ],
     [ "StatusChanged", "classmoq_1_1transport_1_1_publish_track_handler.html#a5f2318aef8021772958a7e475d63314a", null ],
-    [ "Transport", "classmoq_1_1transport_1_1_publish_track_handler.html#a3d2e8a0836666771da7b79c3f6bc9ae0", null ]
+    [ "Transport", "classmoq_1_1transport_1_1_publish_track_handler.html#a3d2e8a0836666771da7b79c3f6bc9ae0", null ],
+    [ "publish_track_metrics_", "classmoq_1_1transport_1_1_publish_track_handler.html#a2efb542d8293583ba5771a5892f5ad63", null ]
 ];

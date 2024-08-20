@@ -17,5 +17,6 @@ var classmoq_1_1transport_1_1_transport =
     [ "PublishTrack", "classmoq_1_1transport_1_1_transport.html#a26a89ce899c9d225bbf22a4621e86142", null ],
     [ "SubscribeTrack", "classmoq_1_1transport_1_1_transport.html#a1289da8905b94aee0925ff0ae252c9c9", null ],
     [ "UnpublishTrack", "classmoq_1_1transport_1_1_transport.html#a28bdd804f0ee788208e8e1d8e90fa849", null ],
-    [ "UnsubscribeTrack", "classmoq_1_1transport_1_1_transport.html#aaa9f9f80f41666ab68795b15c0e75cd0", null ]
+    [ "UnsubscribeTrack", "classmoq_1_1transport_1_1_transport.html#aaa9f9f80f41666ab68795b15c0e75cd0", null ],
+    [ "connection_metrics_", "classmoq_1_1transport_1_1_transport.html#ad0fea9d5dfb3e9fab8b1b57a12a09ae0", null ]
 ];

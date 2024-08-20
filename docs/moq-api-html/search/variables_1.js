@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['group_5fid_0',['group_id',['../structmoq_1_1transport_1_1_object_headers.html#a5b9cde3bcb559087f2e58f9ee43428b3',1,'moq::transport::ObjectHeaders']]]
+  ['connection_5fmetrics_5f_0',['connection_metrics_',['../classmoq_1_1transport_1_1_transport.html#ad0fea9d5dfb3e9fab8b1b57a12a09ae0',1,'moq::transport::Transport']]]
 ];
