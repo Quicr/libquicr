@@ -15,7 +15,8 @@ set_target_properties(really
         CXX_EXTENSIONS ON)
 
 if(LINT)
-  set_target_properties(quicr PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
+  include(Lint)
+  lint(really)
 endif()
 
 

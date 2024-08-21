@@ -30,7 +30,8 @@ set_target_properties(quicr_benchmark
         CXX_EXTENSIONS ON)
 
 if(LINT)
-    set_target_properties(quicr_benchmark PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
+    include(Lint)
+    lint(quicr_benchmark)
 endif()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")

@@ -29,14 +29,10 @@ endif()
 ###
 ### Global Config
 ###
-if(LINT)
-    find_program(CLANG_TIDY_EXE NAMES "clang-tidy" REQUIRED)
-    message(STATUS "Found clang-tidy: ${CLANG_TIDY_EXE}")
-endif()
-
 set (BUILD_SHARED_LIBS OFF)
 set (BUILD_STATIC_LIBS ON)
 set (CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/transport/cmake)
 
 ###
 ### Include Ctest to ensure BUILD_TESTING is set

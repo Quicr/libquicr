@@ -21,11 +21,6 @@ set_target_properties(qserver
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS ON)
 
-if(LINT)
-  set_target_properties(quicr PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
-endif()
-
-
 add_executable(qclient client.cpp)
 
 target_link_libraries(qclient PRIVATE quicr)
@@ -46,3 +41,9 @@ set_target_properties(qclient
         CXX_STANDARD 17
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS OFF)
+
+if (LINT)
+  include(Lint)
+  lint(qserver)
+  lint(qclient)
+endif()
