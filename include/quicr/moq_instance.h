@@ -84,7 +84,6 @@ namespace quicr {
             TrackHash(const uint64_t name_space, const uint64_t name) {
                 track_namespace_hash = name_space;
                 track_name_hash = name;
-                track_fullname_hash = (track_namespace_hash ^ (track_name_hash << 1)) << 1 >> 2; // combine and convert to 62 bits for uintVar
             }
 
             TrackHash(const TrackFullName& tfn) noexcept

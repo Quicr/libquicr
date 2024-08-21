@@ -1,6 +1,7 @@
 ---
 Checks:            '-*,
-                    clang-analyzer-*,
+                    cert-*,
+                    -clang-analyzer-*,
                     -altera-*,
                     -fuchsia-*,
                     -abseil-string-find-startswith,
