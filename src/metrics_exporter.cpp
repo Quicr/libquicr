@@ -92,13 +92,10 @@ namespace quicr {
 
           _influxDb->flushBatch();
         } catch (const influxdb::InfluxDBException& exception) {
-          logger->error << "InfluxDb exception: " << exception.what() << std::flush;
           connect();
         } catch (const std::exception& exception) {
-          logger->error << "Exception: " << exception.what() << std::flush;
           connect();
         } catch (...) {
-          logger->error << "Unknown exception" << std::flush;
           connect();
         }
       }

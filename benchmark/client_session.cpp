@@ -5,8 +5,6 @@
 #include <atomic>
 #include <condition_variable>
 
-static auto logger = std::make_shared<cantina::CustomLogger>([](auto, const std::string&, bool) {});
-
 std::condition_variable cv;
 std::mutex mutex;
 std::atomic_bool can_publish = false;
@@ -31,10 +29,10 @@ public:
     .relay_id = "",
   };
   const qtransport::TransportConfig config{
-    .tls_cert_filename = nullptr,
-    .tls_key_filename = nullptr,
+    .tls_cert_filename = "",
+    .tls_key_filename = "",
     .use_reset_wait_strategy = false,
-    .quic_qlog_path = nullptr,
+    .quic_qlog_path = "",
   };
 
   std::unique_ptr<quicr::Client> client;
@@ -42,11 +40,11 @@ public:
   void SetUp(::benchmark::State&)
   {
     client = std::make_unique<quicr::Client>(
-      info, "benchmark@cisco.com", 0, config, logger);
+      info, "benchmark@cisco.com", 0, config, nullptr);
     client->connect();
     client->publishIntent(
       std::make_shared<BenchmarkPublishDelegate>(),
-      std::string_view{ "0x01020304050607080910111213141516/80" },
+      quicr::Namespace{0x01020304050607080910111213141516_name, 80},
       "",
       "",
       {},

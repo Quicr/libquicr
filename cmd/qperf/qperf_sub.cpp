@@ -1,5 +1,7 @@
 #include <cxxopts.hpp>
 #include <quicr/quicr_client.h>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 #include <atomic>
 #include <chrono>
@@ -8,7 +10,6 @@
 #include <cstdlib>
 #include <thread>
 #include <unordered_map>
-  auto logger = std::make_shared<cantina::Logger>("subperf", "SUBPERF");
 
 namespace {
 std::condition_variable cv;
@@ -18,8 +19,8 @@ std::atomic_size_t sub_responses_received = 0;
 
 struct PerfSubscriberDelegate : public quicr::SubscriberDelegate
 {
-  cantina::LoggerPointer logger;
-  PerfSubscriberDelegate(cantina::LoggerPointer l) : logger{std::move(l)} {}
+  std::shared_ptr<spdlog::logger> logger;
+  PerfSubscriberDelegate(std::shared_ptr<spdlog::logger> l) : logger{std::move(l)} {}
 
   void onSubscribeResponse(const quicr::Namespace&,
                            const quicr::SubscribeResult&)
@@ -31,7 +32,7 @@ struct PerfSubscriberDelegate : public quicr::SubscriberDelegate
   void onSubscriptionEnded(const quicr::Namespace&,
                            const quicr::SubscribeResult::SubscribeStatus&)
   {
-    LOGGER_INFO(logger, "Subscription ended");
+    SPDLOG_LOGGER_INFO(logger, "Subscription ended");
   }
 
   void onSubscribedObject(const quicr::Name&, uint8_t, quicr::bytes&& data)
@@ -120,15 +121,13 @@ main(int argc, char** argv)
     .use_reset_wait_strategy = false,
   };
 
-  auto logger = std::make_shared<cantina::Logger>("subperf", "SUBPERF");
+  const auto logger = spdlog::stderr_color_mt("SUBPERF");
   quicr::Client client(
     info, result["endpoint_id"].as<std::string>(), chunk_size, config, logger);
 
   try {
     if (!client.connect()) {
-      LOGGER_CRITICAL(logger,
-                      "Failed to connect to relay '" << info.hostname << ":"
-                                                     << info.port << "'");
+      SPDLOG_LOGGER_CRITICAL(logger, "Failed to connect to relay '{0}:{1}'", info.hostname , info.port);
       return EXIT_FAILURE;
     }
   } catch (...) {
@@ -161,16 +160,16 @@ main(int argc, char** argv)
 
   if (terminate) return EXIT_FAILURE;
 
-  LOGGER_INFO(logger, "+==========================================+");
-  LOGGER_INFO(logger, "| Starting test");
-  LOGGER_INFO(logger, "+------------------------------------------+");
-  LOGGER_INFO(logger, "| *             Streams: " << streams);
-  LOGGER_INFO(logger, "| * Total Subscriptions: " << sub_responses_received);
-  LOGGER_INFO(logger, "+==========================================+");
+  SPDLOG_LOGGER_INFO(logger, "+==========================================+");
+  SPDLOG_LOGGER_INFO(logger, "| Starting test");
+  SPDLOG_LOGGER_INFO(logger, "+------------------------------------------+");
+  SPDLOG_LOGGER_INFO(logger, "| *             Streams: {0}", streams);
+  SPDLOG_LOGGER_INFO(logger, "| * Total Subscriptions: {0}", sub_responses_received.load());
+  SPDLOG_LOGGER_INFO(logger, "+==========================================+");
 
   const auto start = std::chrono::high_resolution_clock::now();
 
-  LOGGER_INFO(logger, "Press Ctrl + C to end the test");
+  SPDLOG_LOGGER_INFO(logger, "Press Ctrl + C to end the test");
   cv.wait(lock, [&] { return terminate.load(); });
 
   const auto end = std::chrono::high_resolution_clock::now();
@@ -182,12 +181,12 @@ main(int argc, char** argv)
     total_bytes_received += entry.second->total_bytes_received;
   });
 
-  LOGGER_INFO(logger, "+==========================================+");
-  LOGGER_INFO(logger, "| Test complete");
-  LOGGER_INFO(logger, "+------------------------------------------+");
-  LOGGER_INFO(logger, "| *             Duration: " << elapsed.count() << " seconds");
-  LOGGER_INFO(logger, "| * Total Bytes received: " << total_bytes_received);
-  LOGGER_INFO(logger, "+==========================================+");
+  SPDLOG_LOGGER_INFO(logger, "+==========================================+");
+  SPDLOG_LOGGER_INFO(logger, "| Test complete");
+  SPDLOG_LOGGER_INFO(logger, "+------------------------------------------+");
+  SPDLOG_LOGGER_INFO(logger, "| *             Duration: {0} seconds", elapsed.count());
+  SPDLOG_LOGGER_INFO(logger, "| * Total Bytes received: {0}", total_bytes_received);
+  SPDLOG_LOGGER_INFO(logger, "+==========================================+");
 
   return EXIT_SUCCESS;
 }

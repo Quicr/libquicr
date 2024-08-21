@@ -1,5 +1,7 @@
 #include <cxxopts.hpp>
 #include <quicr/quicr_client.h>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 #include <atomic>
 #include <chrono>
@@ -141,7 +143,7 @@ main(int argc, char** argv)
     .quic_qlog_path = nullptr,
   };
 
-  auto logger = std::make_shared<cantina::Logger>("perf", "PERF");
+  const auto logger = spdlog::stderr_color_mt("PERF");
 
   std::unique_lock lock(mutex);
 
@@ -150,16 +152,11 @@ main(int argc, char** argv)
 
   try {
     if (!client->connect()) {
-      LOGGER_CRITICAL(logger,
-                      "Failed to connect to relay '" << info.hostname << ":"
-                                                     << info.port << "'");
+      SPDLOG_LOGGER_CRITICAL(logger, "Failed to connect to relay '{0}:{1}'", info.hostname, info.port);
       return EXIT_FAILURE;
     }
   } catch (const std::exception& e) {
-    LOGGER_CRITICAL(logger,
-                    "Failed to connect to relay '"
-                      << info.hostname << ":" << info.port
-                      << "' with exception: " << e.what());
+    SPDLOG_LOGGER_CRITICAL(logger, "Failed to connect to relay '{0}:{1}' eith exception: {2}", info.hostname,  info.port, e.what());
     return EXIT_FAILURE;
   } catch (...) {
     return EXIT_FAILURE;
@@ -187,16 +184,16 @@ main(int argc, char** argv)
   const std::uint64_t expected_objects = 1e6 / interval.count();
 
   // clang-format off
-  LOGGER_INFO(logger, "+==========================================+");
-  LOGGER_INFO(logger, "| Starting test of duration " << duration.count() << " seconds");
-  LOGGER_INFO(logger, "+-------------------------------------------");
-  LOGGER_INFO(logger, "| *                Streams: " << streams);
-  LOGGER_INFO(logger, "| *         Approx bitrate: " << format_bitrate(bitrate));
-  LOGGER_INFO(logger, "| *          Total bitrate: " << format_bitrate(bitrate * streams));
-  LOGGER_INFO(logger, "| *     Expected Objects/s: " << expected_objects);
-  LOGGER_INFO(logger, "| *        Total Objects/s: " << (expected_objects * streams));
-  LOGGER_INFO(logger, "| * Total Expected Objects: " << (expected_objects * streams * duration.count()));
-  LOGGER_INFO(logger, "+==========================================+");
+  SPDLOG_LOGGER_INFO(logger, "+==========================================+");
+  SPDLOG_LOGGER_INFO(logger, "| Starting test of duration {0} seconds", duration.count());
+  SPDLOG_LOGGER_INFO(logger, "+-------------------------------------------");
+  SPDLOG_LOGGER_INFO(logger, "| *                Streams: {0}", streams);
+  SPDLOG_LOGGER_INFO(logger, "| *         Approx bitrate: {0}", format_bitrate(bitrate));
+  SPDLOG_LOGGER_INFO(logger, "| *          Total bitrate: {0}", format_bitrate(bitrate * streams));
+  SPDLOG_LOGGER_INFO(logger, "| *     Expected Objects/s: {0}", expected_objects);
+  SPDLOG_LOGGER_INFO(logger, "| *        Total Objects/s: {0}", (expected_objects * streams));
+  SPDLOG_LOGGER_INFO(logger, "| * Total Expected Objects: {0}", (expected_objects * streams * duration.count()));
+  SPDLOG_LOGGER_INFO(logger, "+==========================================+");
   // clang-format on
 
   std::this_thread::sleep_for(delay);
@@ -251,16 +248,16 @@ main(int argc, char** argv)
     std::chrono::duration_cast<std::chrono::seconds>(end - start);
 
   // clang-format off
-  LOGGER_INFO(logger, "+==========================================+");
+  SPDLOG_LOGGER_INFO(logger, "+==========================================+");
   if (terminate) {
-    LOGGER_INFO(logger, "| Received interrupt, exiting early");
+    SPDLOG_LOGGER_INFO(logger, "| Received interrupt, exiting early");
   } else {
-    LOGGER_INFO(logger, "| Test complete");
+    SPDLOG_LOGGER_INFO(logger, "| Test complete");
   }
-  LOGGER_INFO(logger, "+-------------------------------------------");
-  LOGGER_INFO(logger, "| *          Duration: " << elapsed.count() << " seconds");
-  LOGGER_INFO(logger, "| * Published Objects: " << total_objects_published);
-  LOGGER_INFO(logger, "+==========================================+");
+  SPDLOG_LOGGER_INFO(logger, "+-------------------------------------------");
+  SPDLOG_LOGGER_INFO(logger, "| *          Duration: {0} seconds", elapsed.count());
+  SPDLOG_LOGGER_INFO(logger, "| * Published Objects: {0}", total_objects_published.load());
+  SPDLOG_LOGGER_INFO(logger, "+==========================================+");
   // clang-format on
 
   for (auto& thread : threads) {
