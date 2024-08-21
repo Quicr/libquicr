@@ -1,12 +1,13 @@
 
 #include <quicr/moq_instance.h>
 
-#include <cantina/logger.h>
 #include <unordered_map>
 #include <set>
 #include <condition_variable>
 #include <oss/cxxopts.hpp>
 #include "signal_handler.h"
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace qserver_vars {
     std::mutex _state_mutex;
@@ -75,13 +76,13 @@ public:
                      const std::string& t_name,
                      uint8_t priority,
                      uint32_t ttl,
-                     const cantina::LoggerPointer& logger)
+                     std::shared_ptr<spdlog::logger> logger)
       : MoQTrackDelegate({ t_namespace.begin(), t_namespace.end() },
                          { t_name.begin(), t_name.end() },
                          TrackMode::STREAM_PER_GROUP,
                          priority,
                          ttl,
-                         logger)
+                         std::move(logger))
     {
     }
 
@@ -98,16 +99,12 @@ public:
         auto sub_it = qserver_vars::subscribes.find(*_track_alias);
 
         if (sub_it == qserver_vars::subscribes.end()) {
-            _logger->debug << "No subscribes, not relaying track_alias: " << *_track_alias
-                           << " data size: " << object.size() << std::flush;
-
+            SPDLOG_LOGGER_DEBUG(_logger, "No subscribes, not relaying track_alias: {0} data size: ", *_track_alias, object.size());
             return;
         }
 
         for (const auto& [conn_id, td]: sub_it->second) {
-            _logger->debug << "Relaying track_alias: " << *_track_alias
-                           << ", object to subscribe conn_id: " << conn_id
-                           << " data size: " << object.size() << std::flush;
+            SPDLOG_LOGGER_DEBUG(_logger, "Relaying track_alias: {0}, object to subscribe conn_id: {1} data size: {2}", *_track_alias, conn_id, object.size());
 
             td->setTrackMode(track_mode);
             td->sendObject(group_id, object_id, object, priority);
@@ -116,13 +113,13 @@ public:
     void cb_sendCongested(bool, uint64_t) override {}
 
     void cb_sendReady() override {
-        _logger->info << "Track alias: " << _track_alias.value() << " is ready to send" << std::flush;
+        SPDLOG_LOGGER_INFO(_logger, "Track alias: {0} is ready to send", _track_alias.value());
     }
 
     void cb_sendNotReady(TrackSendStatus) override {}
     void cb_readReady() override
     {
-        _logger->info << "Track alias: " << _track_alias.value() << " is ready to read" << std::flush;
+        SPDLOG_LOGGER_INFO(_logger, "Track alias: {0} is ready to read", _track_alias.value());
     }
     void cb_readNotReady(TrackReadStatus status) override {
 
@@ -147,7 +144,7 @@ public:
                 break;
         }
 
-        _logger->info << "Track alias: " << _track_alias.value() << " is NOT ready, status: " << reason << std::flush;
+        SPDLOG_LOGGER_INFO(_logger, "Track alias: {0} is NOT ready, status: {1}", _track_alias.value(), reason);
     }
 };
 
@@ -158,8 +155,8 @@ public:
 class serverDelegate : public quicr::MoQInstanceDelegate
 {
   public:
-    serverDelegate(const cantina::LoggerPointer& logger) :
-      _logger(std::make_shared<cantina::Logger>("MID", logger)) {}
+    serverDelegate() :
+      _logger(spdlog::stderr_color_mt("MID")) {}
 
     virtual ~serverDelegate() = default;
 
@@ -177,24 +174,28 @@ class serverDelegate : public quicr::MoQInstanceDelegate
                        std::optional<uint64_t> track_name_hash) override {
 
         if (track_name_hash.has_value()) { // subscribe done received
-            _logger->info << "Received subscribe done from conn_id: " << conn_id
-                           << "  for namespace hash: " << track_namespace_hash
-                           << " name hash: " << *track_name_hash
-                           << ", informational update only"
-                           << std::flush;
+            SPDLOG_LOGGER_INFO(_logger,
+                               "Received subscribe done from conn_id: {0} for namespace hash: {1} name hash: {2}, "
+                               "informational update only",
+                               conn_id,
+                               track_namespace_hash,
+                               *track_name_hash);
         } else {
-            _logger->debug << "Received unannounce from conn_id: " << conn_id
-                           << "  for namespace hash: " << track_namespace_hash
-                           << ", removing all tracks associated with namespace"
-                           << std::flush;
+            SPDLOG_LOGGER_DEBUG(_logger,
+                                "Received unannounce from conn_id: {0}  for namespace hash: {1}, removing all tracks "
+                                "associated with namespace",
+                                conn_id,
+                                track_namespace_hash);
 
             for (auto track_alias: qserver_vars::announce_active[track_namespace_hash][conn_id]) {
                 auto ptd = qserver_vars::pub_subscribes[track_alias][conn_id];
                 if (ptd != nullptr) {
-                    _logger->info << "Received unannounce from conn_id: " << conn_id
-                                  << "  for namespace hash: " << track_namespace_hash
-                                  << ", removing track alias: " << track_alias
-                                  << std::flush;
+                    SPDLOG_LOGGER_INFO(
+                      _logger,
+                      "Received unannounce from conn_id: {0} for namespace hash: {1}, removing track alias: {2}",
+                      conn_id,
+                      track_namespace_hash,
+                      track_alias);
 
                     _moq_instance.lock()->unsubscribeTrack(conn_id, ptd);
                 }
@@ -214,17 +215,13 @@ class serverDelegate : public quicr::MoQInstanceDelegate
     bool cb_announce(qtransport::TransportConnId conn_id,
                      uint64_t track_namespace_hash) override {
 
-        _logger->debug << "Received announce from conn_id: " << conn_id
-                       << "  for namespace_hash: " << track_namespace_hash
-                       << std::flush;
+        SPDLOG_LOGGER_DEBUG(_logger, "Received announce from conn_id: {0} for namespace_hash: {1}", conn_id, track_namespace_hash);
 
         // Add to state if not exist
         auto [anno_conn_it, is_new] = qserver_vars::announce_active[track_namespace_hash].try_emplace(conn_id);
 
         if (!is_new) {
-            _logger->info << "Received announce from conn_id: " << conn_id
-                          << " for namespace_hash: " << track_namespace_hash
-                          << " is duplicate, ignoring" << std::flush;
+            SPDLOG_LOGGER_INFO(_logger, "Received announce from conn_id: {0} for namespace_hash: {0} is duplicate, ignoring", conn_id, track_namespace_hash);
             return true;
         }
 
@@ -244,9 +241,7 @@ class serverDelegate : public quicr::MoQInstanceDelegate
                 if (who.size()) { // Have subscribes
                     auto& a_who = *who.begin();
                     if (anno_tracks.find(a_who.track_alias) == anno_tracks.end()) {
-                        _logger->info << "Sending subscribe to announcer conn_id: " << conn_id
-                                      << " subscribe track_alias: " << a_who.track_alias
-                                      << std::flush;
+                        SPDLOG_LOGGER_INFO(_logger, "Sending subscribe to announcer conn_id: {0} subscribe track_alias: {1}", conn_id, a_who.track_alias);
 
                         anno_tracks.insert(a_who.track_alias); // Add track to state
 
@@ -275,10 +270,7 @@ class serverDelegate : public quicr::MoQInstanceDelegate
         auto ep_id = std::string(endpoint_id.begin(), endpoint_id.end());
 
         if (status == qtransport::TransportStatus::Ready) {
-            _logger->debug << "Connection ready conn_id: " << conn_id
-                           << " endpoint_id: " << ep_id
-                           << std::flush;
-
+            SPDLOG_LOGGER_DEBUG(_logger, "Connection ready conn_id: {0} endpoint_id: {1}", conn_id, ep_id);
         }
     }
     void cb_clientSetup(qtransport::TransportConnId, quicr::messages::MoqClientSetup) override {}
@@ -286,23 +278,17 @@ class serverDelegate : public quicr::MoQInstanceDelegate
 
     void cb_unsubscribe(qtransport::TransportConnId conn_id,
                         uint64_t subscribe_id) override {
-        _logger->info << "Unsubscribe conn_id: " << conn_id
-                      << " subscribe_id: " << subscribe_id
-                      << std::flush;
+        SPDLOG_LOGGER_INFO(_logger, "Unsubscribe conn_id: {0} subscribe_id: {1}", conn_id, subscribe_id);
 
         auto ta_conn_it = qserver_vars::subscribe_alias_sub_id.find(conn_id);
         if (ta_conn_it == qserver_vars::subscribe_alias_sub_id.end()) {
-            _logger->warning << "Unable to find track alias connection for conn_id: " << conn_id
-                             << " subscribe_id: " << subscribe_id
-                             << std::flush;
+            SPDLOG_LOGGER_WARN(_logger, "Unable to find track alias connection for conn_id: {0} subscribe_id: {1}", conn_id, subscribe_id);
             return;
         }
 
         auto ta_it = ta_conn_it->second.find(subscribe_id);
         if (ta_it == ta_conn_it->second.end()) {
-            _logger->warning << "Unable to find track alias for conn_id: " << conn_id
-                              << " subscribe_id: " << subscribe_id
-                              << std::flush;
+            SPDLOG_LOGGER_WARN(_logger, "Unable to find track alias for conn_id: {0} subscribe_id: {1}", conn_id, subscribe_id);
             return;
         }
 
@@ -319,8 +305,7 @@ class serverDelegate : public quicr::MoQInstanceDelegate
         auto& track_delegate = qserver_vars::subscribes[track_alias][conn_id];
 
         if (track_delegate == nullptr) {
-            _logger->warning << "Unsubscribe unable to find track delegate for conn_id: " << conn_id
-                             << " subscribe_id: " << subscribe_id << std::flush;
+            SPDLOG_LOGGER_WARN(_logger, "Unsubscribe unable to find track delegate for conn_id: {0} subscribe_id: {1}", conn_id, subscribe_id);
             return;
         }
 
@@ -347,7 +332,7 @@ class serverDelegate : public quicr::MoQInstanceDelegate
         }
 
         if (unsub_pub) {
-            _logger->info << "No subscribers left, unsubscribe publisher track_alias: " << track_alias << std::flush;
+            SPDLOG_LOGGER_INFO(_logger, "No subscribers left, unsubscribe publisher track_alias: {0}", track_alias);
 
             auto anno_ns_it = qserver_vars::announce_active.find(th.track_namespace_hash);
             if (anno_ns_it == qserver_vars::announce_active.end()) {
@@ -356,8 +341,7 @@ class serverDelegate : public quicr::MoQInstanceDelegate
 
             for (auto& [conn_id, tracks]: anno_ns_it->second) {
                 if (tracks.find(th.track_fullname_hash) == tracks.end()) {
-                    _logger->info << "Unsubscribe to announcer conn_id: " << conn_id
-                                  << " subscribe track_alias: " << th.track_fullname_hash << std::flush;
+                    SPDLOG_LOGGER_INFO(_logger, "Unsubscribe to announcer conn_id: {0} subscribe track_alias: {1}", conn_id, th.track_fullname_hash);
 
                     tracks.erase(th.track_fullname_hash); // Add track alias to state
 
@@ -378,10 +362,12 @@ class serverDelegate : public quicr::MoQInstanceDelegate
         std::string const t_namespace(name_space.begin(), name_space.end());
         std::string const t_name(name.begin(), name.end());
 
-        _logger->info << "New subscribe conn_id: " << conn_id
-                       << " subscribe_id: " << subscribe_id
-                       << " track: " << t_namespace << "/" << t_name
-                       << std::flush;
+        SPDLOG_LOGGER_INFO(_logger,
+                           "New subscribe conn_id: {0} subscribe_id: {1} track: {2}/{3}",
+                           conn_id,
+                           subscribe_id,
+                           t_namespace,
+                           t_name);
 
         auto track_delegate = std::make_shared<subTrackDelegate>(t_namespace, t_name, 2, 3000, _logger);
         auto tfn = quicr::MoQInstance::TrackFullName{ name_space, name };
@@ -401,16 +387,13 @@ class serverDelegate : public quicr::MoQInstanceDelegate
         // Subscribe to announcer if announcer is active
         auto anno_ns_it = qserver_vars::announce_active.find(th.track_namespace_hash);
         if (anno_ns_it == qserver_vars::announce_active.end()) {
-            _logger->info << "Subscribe to track namespace: " << t_namespace
-                          <<  ", does not have any announcements." << std::flush;
+            SPDLOG_LOGGER_INFO(_logger, "Subscribe to track namespace: {0}, does not have any announcements.", t_namespace);
             return true;
         }
 
         for (auto& [conn_id, tracks]: anno_ns_it->second) {
             if (tracks.find(th.track_fullname_hash) == tracks.end()) {
-                _logger->info << "Sending subscribe to announcer conn_id: " << conn_id
-                              << " subscribe track_alias: " << th.track_fullname_hash
-                              << std::flush;
+                SPDLOG_LOGGER_INFO(_logger, "Sending subscribe to announcer conn_id: {0} subscribe track_alias: {1}", conn_id, th.track_fullname_hash);
 
                 tracks.insert(th.track_fullname_hash); // Add track alias to state
 
@@ -424,7 +407,7 @@ class serverDelegate : public quicr::MoQInstanceDelegate
     }
 
   private:
-    cantina::LoggerPointer _logger;
+    std::shared_ptr<spdlog::logger> _logger;
     std::weak_ptr<quicr::MoQInstance> _moq_instance;
 };
 
@@ -432,7 +415,7 @@ class serverDelegate : public quicr::MoQInstanceDelegate
  * Main program
  * -------------------------------------------------------------------------------------------------
  */
-quicr::MoQInstanceServerConfig init_config(cxxopts::ParseResult& cli_opts, const cantina::LoggerPointer& logger)
+quicr::MoQInstanceServerConfig init_config(cxxopts::ParseResult& cli_opts, const std::shared_ptr<spdlog::logger>& logger)
 {
     quicr::MoQInstanceServerConfig config;
 
@@ -442,8 +425,8 @@ quicr::MoQInstanceServerConfig init_config(cxxopts::ParseResult& cli_opts, const
     }
 
     if (cli_opts.count("debug") && cli_opts["debug"].as<bool>() == true) {
-        logger->info << "setting debug level" << std::flush;
-        logger->SetLogLevel("DEBUG");
+        SPDLOG_LOGGER_INFO(logger, "setting debug level");
+        logger->set_level(spdlog::level::debug);
     }
 
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
@@ -466,7 +449,7 @@ main(int argc, char* argv[])
 {
     int result_code = EXIT_SUCCESS;
 
-    auto logger = std::make_shared<cantina::Logger>("qserver");
+    auto logger = spdlog::stderr_color_mt("qserver");
 
     cxxopts::Options options("qclient", "MOQ Example Client");
     options
@@ -500,7 +483,7 @@ main(int argc, char* argv[])
 
     quicr::MoQInstanceServerConfig config = init_config(result, logger);
 
-    auto delegate = std::make_shared<serverDelegate>(logger);
+    auto delegate = std::make_shared<serverDelegate>();
 
     try {
         auto moqInstance = std::make_shared<quicr::MoQInstance>(config, delegate, logger);

@@ -23,8 +23,7 @@
 using namespace std::chrono;
 namespace quicr {
 
-    MetricsExporter::MetricsExporter(const cantina::LoggerPointer& logger) :
-        logger(std::make_shared<cantina::Logger>("MExport", logger))
+    MetricsExporter::MetricsExporter()
     {
       metrics_conn_samples = std::make_shared<SafeQueue<MetricsConnSample>>(MAX_METRICS_SAMPLES_QUEUE);
       metrics_data_samples = std::make_shared<SafeQueue<MetricsDataSample>>(MAX_METRICS_SAMPLES_QUEUE);
@@ -40,7 +39,6 @@ namespace quicr {
         metrics_data_samples->stop_waiting();
 
       if (_writer_thread.joinable()) {
-        logger->info << "Closing metrics writer thread" << std::flush;
         _writer_thread.join();
       }
 
@@ -49,7 +47,6 @@ namespace quicr {
     MetricsExporter::MetricsExporterError MetricsExporter::init(const std::string& url,
                                                                 const std::string& bucket,
                                                                 const std::string& auth_token) {
-      logger->info << "Initializing metrics exporter" << std::flush;
       _influx_url = url;
       _influx_bucket = bucket;
       _influx_auth_token = auth_token;
@@ -59,7 +56,6 @@ namespace quicr {
 
 
     MetricsExporter::MetricsExporterError MetricsExporter::connect() {
-      logger->info << "Connecting to InfluxDb" << std::flush;
 
       try {
         _influxDb = influxdb::InfluxDBBuilder::http(_influx_url + "?db=" + _influx_bucket)
@@ -68,15 +64,12 @@ namespace quicr {
                 .connect();
 
         if (_influxDb == nullptr) {
-          logger->error << "Unable to connect to influxDb" << std::flush;
           return MetricsExporterError::FailedConnect;
         }
 
-        logger->info << "metrics exporter connected to influxDb" << std::flush;
         return MetricsExporterError::NoError;
 
       } catch (influxdb::InfluxDBException &e) {
-        logger->error << "InfluxDB exception: " << e.what() << std::flush;
         return MetricsExporterError::FailedConnect;
       }
     }
@@ -128,9 +121,6 @@ namespace quicr {
                   );
 
         }
-      } else {
-        logger->warning << "Connection info not found for "
-                        << " conn_id: " << sample.conn_ctx_id << std::flush;
       }
     }
 
@@ -141,21 +131,6 @@ namespace quicr {
           auto tp = system_clock::now()
                       + duration_cast<system_clock::duration>(sample.sample_time - steady_clock::now());
 
-          /* DEBUG ONLY
-          if (info->d_info.nspace == Namespace("0/0")) {
-            auto tt = system_clock::to_time_t(tp);
-            logger->info << "control stream "
-                         << "sample_time: " << std::put_time( std::gmtime(&tt), "%FT%T")
-                         << "." << tp.time_since_epoch().count() % 1000000
-                         << " endpoint: " << info->c_info.endpoint_id
-                         << " type: " << (info->d_info.subscribe ? "subscribe" : "publish")
-                         << " relay_id: " << _relay_id
-                         << " conn_id: " << sample.conn_ctx_id
-                         << " data_ctx_id: " << sample.data_ctx_id
-                         << " ns: " << info->d_info.nspace
-                         << " objs: " << sample.quic_sample->enqueued_objs << std::flush;
-          }
-          */
           _influxDb->write(influxdb::Point{METRICS_MEASUREMENT_NAME_QUIC_DATA_FLOW}
                            .setTimestamp(tp)
                            .addTag("endpoint_id", info->c_info.endpoint_id)
@@ -188,19 +163,11 @@ namespace quicr {
                         );
 
         }
-      } else {
-        logger->warning << "Data info not found for "
-                        << " conn_id: " << sample.conn_ctx_id
-                        << " data_id: " << sample.data_ctx_id
-                        << std::flush;
-
       }
     }
 
     void MetricsExporter::writer()
     {
-      logger->info << "Starting metrics writer thread" << std::flush;
-
       _influxDb->batchOf(100);
 
       while (not _stop) {
@@ -217,18 +184,13 @@ namespace quicr {
 
           _influxDb->flushBatch();
         } catch (const influxdb::InfluxDBException& exception) {
-          logger->error << "InfluxDb exception: " << exception.what() << std::flush;
           connect();
         } catch (const std::exception& exception) {
-          logger->error << "Exception: " << exception.what() << std::flush;
           connect();
         } catch (...) {
-          logger->error << "Unknown exception" << std::flush;
           connect();
         }
       }
-
-      logger->Log("metrics writer thread done");
     }
 
     std::optional<MetricsExporter::ConnContextInfo>

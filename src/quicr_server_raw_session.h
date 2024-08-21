@@ -21,8 +21,8 @@
 #include "quicr/quicr_server_session.h"
 #include "quicr/metrics_exporter.h"
 
-#include <cantina/logger.h>
 #include <transport/transport.h>
+#include <spdlog/spdlog.h>
 
 #include <map>
 #include <mutex>
@@ -41,20 +41,18 @@ public:
    * @param relayInfo        : Relay Information to be used by the transport
    * @param tconfig          : Transport configuration
    * @param delegate         : Server delegate
-   * @param logger           : Log handler instance. Will be used by transport
-   *                           quicr api
+   * @param logger           : Shared pointer to a logger object
    */
   ServerRawSession(const RelayInfo& relayInfo,
                    const qtransport::TransportConfig& tconfig,
                    std::shared_ptr<ServerDelegate> delegate,
-                   const cantina::LoggerPointer& logger);
+                   std::shared_ptr<spdlog::logger> logger);
 
   /**
    * API for unit test cases.
    */
   ServerRawSession(std::shared_ptr<qtransport::ITransport> transport,
-                   std::shared_ptr<ServerDelegate> delegate,
-                   const cantina::LoggerPointer& logger);
+                   std::shared_ptr<ServerDelegate> delegate);
 
   ~ServerRawSession() = default;
 
@@ -268,7 +266,7 @@ private:
   };
 
   std::shared_ptr<ServerDelegate> delegate;
-  cantina::LoggerPointer logger;
+  std::shared_ptr<spdlog::logger> logger;
   TransportDelegate transport_delegate;
   std::shared_ptr<qtransport::ITransport> transport;
   qtransport::TransportRemote t_relay;

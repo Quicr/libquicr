@@ -10,27 +10,16 @@ namespace quicr {
 Server::Server(const RelayInfo& relayInfo,
                const qtransport::TransportConfig& tconfig,
                std::shared_ptr<ServerDelegate> delegate_in,
-               const cantina::LoggerPointer& logger)
+               std::shared_ptr<spdlog::logger> logger)
 {
-  switch (relayInfo.proto) {
-    case RelayInfo::Protocol::UDP:
-      [[fallthrough]];
-    case RelayInfo::Protocol::QUIC:
-      server_session = std::make_unique<ServerRawSession>(
-        relayInfo, tconfig, std::move(delegate_in), logger);
-      break;
-    default:
-      throw ServerException("Unsupported relay protocol");
-      break;
-  }
+    server_session = std::make_unique<ServerRawSession>(relayInfo, tconfig, std::move(delegate_in), std::move(logger));
 }
 
 Server::Server(std::shared_ptr<qtransport::ITransport> transport_in,
-               std::shared_ptr<ServerDelegate> delegate_in,
-               const cantina::LoggerPointer& logger)
+               std::shared_ptr<ServerDelegate> delegate_in)
 {
   server_session = std::make_unique<ServerRawSession>(
-    std::move(transport_in), std::move(delegate_in), logger);
+    std::move(transport_in), std::move(delegate_in));
 }
 
 // Transport APIs

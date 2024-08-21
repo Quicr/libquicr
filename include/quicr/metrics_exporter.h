@@ -14,17 +14,18 @@
  */
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
 
-#include <string>
-#include <map>
-#include <optional>
-#include <mutex>
-#include <transport/transport.h>
+#include <InfluxDB.h>
+#include <InfluxDBFactory.h>
 #include <quicr/namespace.h>
 #include <transport/safe_queue.h>
-#include "cantina/logger.h"
-#include <InfluxDBFactory.h>
-#include <InfluxDB.h>
+#include <transport/transport.h>
 
+#include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <string>
+#include <thread>
 
 namespace quicr {
     using namespace qtransport;
@@ -72,7 +73,7 @@ namespace quicr {
             Connecting
         };
 
-        MetricsExporter(const cantina::LoggerPointer& logger);
+        MetricsExporter();
         ~MetricsExporter();
 
         /**
@@ -112,7 +113,6 @@ namespace quicr {
 
         void writer();
 
-        cantina::LoggerPointer logger;
         std::unique_ptr<influxdb::InfluxDB> _influxDb;
 
         std::mutex _state_mutex;
