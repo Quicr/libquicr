@@ -513,7 +513,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Callback notification for new subscribe received that doesn't match an existing publish track. </p>
-<p>When a new subscribe is received that doesn't match any existing publish track, this method will be called to signal the client application that there is a new subscribe full track name. The client app should <a class="el" href="#acad4a774505647832212281a6d11f34f" title="Publish to a track.">PublishTrack()</a> within this callback (or afterwards) and return <b>true</b> if the subscribe is accepted and publishing will commence. If the subscribe is rejected and a publish track will not begin, then <b>false</b> should be returned. The MOQT protocol will send the appropriate message to indicate the accept/reject.</p>
+<p>When a new subscribe is received that doesn't match any existing publish track, this method will be called to signal the client application that there is a new subscribe full track name. The client app should <a class="el" href="#acad4a774505647832212281a6d11f34f" title="Publish to a track.">PublishTrack()</a> within this callback (or afterwards) and return <b>true</b> if the subscribe is accepted and publishing will commence. If the subscribe is rejected and a publish track will not begin, then <b>false</b> should be returned. The <a class="el" href="classmoq_1_1transport_1_1_transport.html" title="MOQ Implementation supporting both client and server modes.">Transport</a> will send the appropriate message to indicate the accept/reject.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">track_full_name</td><td>Track full name </td></tr>
