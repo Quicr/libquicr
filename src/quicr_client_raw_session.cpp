@@ -81,7 +81,6 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
   transport = qtransport::ITransport::make_client_transport(server, tconfig, *this, logger);
 
 #ifndef LIBQUICR_WITHOUT_INFLUXDB
-#ifdef REALTIME
   if (_mexport.init("http://metrics.m10x.ctgpoc.com:8086",
                    "Media10x",
                    "cisco-cto-media10x") !=
@@ -90,7 +89,6 @@ ClientRawSession::ClientRawSession(const RelayInfo& relay_info,
   }
 
   _mexport.run();
-#endif
 #endif
 
 }
@@ -111,17 +109,6 @@ ClientRawSession::~ClientRawSession()
     // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
     disconnect();
   }
-
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-#ifndef REALTIME
-  if (_mexport.init("http://metrics.m10x.ctgpoc.com:8086",
-                    "Media10x",
-                    "cisco-cto-media10x") ==
-      MetricsExporter::MetricsExporterError::NoError) {
-    _mexport.submit();
-  }
-#endif
-#endif
 }
 
 bool
