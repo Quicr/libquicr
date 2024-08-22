@@ -78,7 +78,7 @@ namespace moq::transport {
          *      method will be called to signal the client application that there is a new subscribe full
          *      track name. The client app should PublishTrack() within this callback (or afterwards) and return
          *      **true** if the subscribe is accepted and publishing will commence. If the subscribe is rejected
-         *      and a publish track will not begin, then **false** should be returned. The MOQT protocol
+         *      and a publish track will not begin, then **false** should be returned. The Transport
          *      will send the appropriate message to indicate the accept/reject.
          *
          * @param track_full_name           Track full name
