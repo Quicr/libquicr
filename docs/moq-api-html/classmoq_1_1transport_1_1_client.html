@@ -99,6 +99,7 @@ $(function(){initNavTree('classmoq_1_1transport_1_1_client.html',''); initResiza
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="classmoq_1_1transport_1_1_client-members.html">List of all members</a>  </div>
   <div class="headertitle"><div class="title">moq::transport::Client Class Reference<span class="mlabels"><span class="mlabel">abstract</span></span></div></div>
 </div><!--header-->
@@ -134,9 +135,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ad8b4b128e9d939586ae9611cb0e16cbd" id="r_ad8b4b128e9d939586ae9611cb0e16cbd"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad8b4b128e9d939586ae9611cb0e16cbd">ConnectionChanged</a> (TransportStatus status)=0</td></tr>
 <tr class="memdesc:ad8b4b128e9d939586ae9611cb0e16cbd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for connection status/state change.  <br /></td></tr>
 <tr class="separator:ad8b4b128e9d939586ae9611cb0e16cbd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a86305dbcda3ee78ea13e12b30949dd3d" id="r_a86305dbcda3ee78ea13e12b30949dd3d"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a86305dbcda3ee78ea13e12b30949dd3d">ServerSetup</a> (const messages::MoqServerSetup &amp;server_setup)=0</td></tr>
-<tr class="memdesc:a86305dbcda3ee78ea13e12b30949dd3d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on server setup message.  <br /></td></tr>
-<tr class="separator:a86305dbcda3ee78ea13e12b30949dd3d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa080af86071a1ff407a3b0fecc6b45e9" id="r_aa080af86071a1ff407a3b0fecc6b45e9"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa080af86071a1ff407a3b0fecc6b45e9">ServerSetup</a> (const <a class="el" href="structmoq_1_1transport_1_1_server_setup_attributes.html">ServerSetupAttributes</a> &amp;server_setup_attributes)=0</td></tr>
+<tr class="memdesc:aa080af86071a1ff407a3b0fecc6b45e9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on server setup message.  <br /></td></tr>
+<tr class="separator:aa080af86071a1ff407a3b0fecc6b45e9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a42abd6388026908310785f73e9629ef7" id="r_a42abd6388026908310785f73e9629ef7"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a42abd6388026908310785f73e9629ef7">SubscribeReceived</a> (const <a class="el" href="structmoq_1_1transport_1_1_full_track_name.html">FullTrackName</a> &amp;track_full_name, const <a class="el" href="structmoq_1_1transport_1_1_subscribe_attributes.html">SubscribeAttributes</a> &amp;subscribe_attributes)=0</td></tr>
+<tr class="memdesc:a42abd6388026908310785f73e9629ef7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new subscribe received that doesn't match an existing publish track.  <br /></td></tr>
+<tr class="separator:a42abd6388026908310785f73e9629ef7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aadbf35f7f86e3001e9742bce4f1f3bf5" id="r_aadbf35f7f86e3001e9742bce4f1f3bf5"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aadbf35f7f86e3001e9742bce4f1f3bf5">MetricsSampled</a> (const <a class="el" href="structmoq_1_1transport_1_1_connection_metrics.html">ConnectionMetrics</a> &amp;&amp;metrics)=0</td></tr>
 <tr class="memdesc:aadbf35f7f86e3001e9742bce4f1f3bf5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification callback to provide sampled metrics.  <br /></td></tr>
 <tr class="separator:aadbf35f7f86e3001e9742bce4f1f3bf5"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -166,6 +170,24 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:af43aafd345b5c27044c986fd45789646 inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_af43aafd345b5c27044c986fd45789646"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95f">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#af43aafd345b5c27044c986fd45789646">GetStatus</a> ()</td></tr>
 <tr class="memdesc:af43aafd345b5c27044c986fd45789646 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the instance status.  <br /></td></tr>
 <tr class="separator:af43aafd345b5c27044c986fd45789646 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-methods" name="pro-methods"></a>
+Protected Member Functions</h2></td></tr>
+<tr class="memitem:ae6ed10e454e24ce91f3a88803fdf107c" id="r_ae6ed10e454e24ce91f3a88803fdf107c"><td class="memItemLeft" align="right" valign="top">std::optional&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae6ed10e454e24ce91f3a88803fdf107c">SubscribeTrack</a> (std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt; track_delegate)</td></tr>
+<tr class="memdesc:ae6ed10e454e24ce91f3a88803fdf107c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Subscribe to a track.  <br /></td></tr>
+<tr class="separator:ae6ed10e454e24ce91f3a88803fdf107c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a875084b40f4b7d8b564a5273b84342de" id="r_a875084b40f4b7d8b564a5273b84342de"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a875084b40f4b7d8b564a5273b84342de">UnsubscribeTrack</a> (std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt; track_delegate)</td></tr>
+<tr class="memdesc:a875084b40f4b7d8b564a5273b84342de"><td class="mdescLeft">&#160;</td><td class="mdescRight">Unsubscribe track.  <br /></td></tr>
+<tr class="separator:a875084b40f4b7d8b564a5273b84342de"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab2ce1e02c1f53c80f3e271f2e58753f1" id="r_ab2ce1e02c1f53c80f3e271f2e58753f1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab2ce1e02c1f53c80f3e271f2e58753f1">PublishTrackNamespace</a> (std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_publish_track_handler.html">PublishTrackHandler</a> &gt; track_delegate)</td></tr>
+<tr class="memdesc:ab2ce1e02c1f53c80f3e271f2e58753f1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish a track namespace.  <br /></td></tr>
+<tr class="separator:ab2ce1e02c1f53c80f3e271f2e58753f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acad4a774505647832212281a6d11f34f" id="r_acad4a774505647832212281a6d11f34f"><td class="memItemLeft" align="right" valign="top">std::optional&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#acad4a774505647832212281a6d11f34f">PublishTrack</a> (std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_publish_track_handler.html">PublishTrackHandler</a> &gt; track_delegate)</td></tr>
+<tr class="memdesc:acad4a774505647832212281a6d11f34f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish to a track.  <br /></td></tr>
+<tr class="separator:acad4a774505647832212281a6d11f34f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad31fe1ee183ea69e6584010875faf485" id="r_ad31fe1ee183ea69e6584010875faf485"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad31fe1ee183ea69e6584010875faf485">UnpublishTrack</a> (std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_publish_track_handler.html">PublishTrackHandler</a> &gt; track_delegate)</td></tr>
+<tr class="memdesc:ad31fe1ee183ea69e6584010875faf485"><td class="mdescLeft">&#160;</td><td class="mdescRight">Unpublish track.  <br /></td></tr>
+<tr class="separator:ad31fe1ee183ea69e6584010875faf485"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="inherited" name="inherited"></a>
 Additional Inherited Members</h2></td></tr>
@@ -359,8 +381,77 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a86305dbcda3ee78ea13e12b30949dd3d" name="a86305dbcda3ee78ea13e12b30949dd3d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a86305dbcda3ee78ea13e12b30949dd3d">&#9670;&#160;</a></span>ServerSetup()</h2>
+<a id="acad4a774505647832212281a6d11f34f" name="acad4a774505647832212281a6d11f34f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acad4a774505647832212281a6d11f34f">&#9670;&#160;</a></span>PublishTrack()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::optional&lt; uint64_t &gt; moq::transport::Client::PublishTrack </td>
+          <td>(</td>
+          <td class="paramtype">std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_publish_track_handler.html">PublishTrackHandler</a> &gt;</td>          <td class="paramname"><span class="paramname"><em>track_delegate</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Publish to a track. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">track_delegate</td><td>Track delegate to use for track related functions and callbacks</td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd><code>track_alias</code> if no error and nullopt on error </dd></dl>
+
+</div>
+</div>
+<a id="ab2ce1e02c1f53c80f3e271f2e58753f1" name="ab2ce1e02c1f53c80f3e271f2e58753f1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab2ce1e02c1f53c80f3e271f2e58753f1">&#9670;&#160;</a></span>PublishTrackNamespace()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void moq::transport::Client::PublishTrackNamespace </td>
+          <td>(</td>
+          <td class="paramtype">std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_publish_track_handler.html">PublishTrackHandler</a> &gt;</td>          <td class="paramname"><span class="paramname"><em>track_delegate</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Publish a track namespace. </p>
+<p>In MoQT, a publish namespace will result in an announce being sent. Announce OK will be reflected in the <a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95f">Status()</a> of the <a class="el" href="classmoq_1_1transport_1_1_publish_track_handler.html" title="MOQ track handler for published track.">PublishTrackHandler</a> passed. This method can be called at any time, but normally it would be called before publishing any tracks to the same namespace.</p>
+<p>If this method is called after a publish track with a matching namespace already exists or if called more than once, this will result in this track handler being added to the active state of the announce, but it will not result in a repeated announce being sent. Adding track handler to the announce state ensures that the announce will remain active if the other tracks are removed.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">track_delegate</td><td>Track delegate to use for track related functions and callbacks </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="aa080af86071a1ff407a3b0fecc6b45e9" name="aa080af86071a1ff407a3b0fecc6b45e9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa080af86071a1ff407a3b0fecc6b45e9">&#9670;&#160;</a></span>ServerSetup()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -371,7 +462,7 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="memname">virtual void moq::transport::Client::ServerSetup </td>
           <td>(</td>
-          <td class="paramtype">const messages::MoqServerSetup &amp;</td>          <td class="paramname"><span class="paramname"><em>server_setup</em></span></td><td>)</td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_server_setup_attributes.html">ServerSetupAttributes</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>server_setup_attributes</em></span></td><td>)</td>
           <td></td>
         </tr>
       </table>
@@ -386,7 +477,146 @@ Additional Inherited Members</h2></td></tr>
 <p><a class="el" href="classmoq_1_1transport_1_1_server.html" title="MoQT Server.">Server</a> will send sever setup in response to client setup message sent. This callback is called when a server setup has been received.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">server_setup</td><td>Decoded sever setup message </td></tr>
+    <tr><td class="paramname">server_setup_attributes</td><td><a class="el" href="classmoq_1_1transport_1_1_server.html" title="MoQT Server.">Server</a> setup attributes received </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="a42abd6388026908310785f73e9629ef7" name="a42abd6388026908310785f73e9629ef7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a42abd6388026908310785f73e9629ef7">&#9670;&#160;</a></span>SubscribeReceived()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual bool moq::transport::Client::SubscribeReceived </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_full_track_name.html">FullTrackName</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_full_name</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_subscribe_attributes.html">SubscribeAttributes</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>subscribe_attributes</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Callback notification for new subscribe received that doesn't match an existing publish track. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">track_full_name</td><td>Track full name </td></tr>
+    <tr><td class="paramname">subscribe_attributes</td><td>Subscribe attributes received</td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>True if send announce should be sent, false if not </dd></dl>
+
+</div>
+</div>
+<a id="ae6ed10e454e24ce91f3a88803fdf107c" name="ae6ed10e454e24ce91f3a88803fdf107c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae6ed10e454e24ce91f3a88803fdf107c">&#9670;&#160;</a></span>SubscribeTrack()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::optional&lt; uint64_t &gt; moq::transport::Client::SubscribeTrack </td>
+          <td>(</td>
+          <td class="paramtype">std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt;</td>          <td class="paramname"><span class="paramname"><em>track_delegate</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Subscribe to a track. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">track_delegate</td><td>Track delegate to use for track related functions and callbacks</td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd><code>track_alias</code> if no error and nullopt on error </dd></dl>
+
+</div>
+</div>
+<a id="ad31fe1ee183ea69e6584010875faf485" name="ad31fe1ee183ea69e6584010875faf485"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad31fe1ee183ea69e6584010875faf485">&#9670;&#160;</a></span>UnpublishTrack()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void moq::transport::Client::UnpublishTrack </td>
+          <td>(</td>
+          <td class="paramtype">std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_publish_track_handler.html">PublishTrackHandler</a> &gt;</td>          <td class="paramname"><span class="paramname"><em>track_delegate</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Unpublish track. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">track_delegate</td><td>Track delegate used when published track </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="a875084b40f4b7d8b564a5273b84342de" name="a875084b40f4b7d8b564a5273b84342de"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a875084b40f4b7d8b564a5273b84342de">&#9670;&#160;</a></span>UnsubscribeTrack()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void moq::transport::Client::UnsubscribeTrack </td>
+          <td>(</td>
+          <td class="paramtype">std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt;</td>          <td class="paramname"><span class="paramname"><em>track_delegate</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Unsubscribe track. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">track_delegate</td><td>Track delegate to use for track related functions and callbacks </td></tr>
   </table>
   </dd>
 </dl>

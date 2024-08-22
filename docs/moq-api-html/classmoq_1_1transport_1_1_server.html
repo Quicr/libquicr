@@ -136,18 +136,18 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a7088915ed55f13077bf5303b44832e5c" id="r_a7088915ed55f13077bf5303b44832e5c"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a7088915ed55f13077bf5303b44832e5c">ConnectionChanged</a> (TransportConnId conn_id, TransportStatus status)=0</td></tr>
 <tr class="memdesc:a7088915ed55f13077bf5303b44832e5c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for connection status/state change.  <br /></td></tr>
 <tr class="separator:a7088915ed55f13077bf5303b44832e5c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acd821c3320c599015dae20417d123acf" id="r_acd821c3320c599015dae20417d123acf"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#acd821c3320c599015dae20417d123acf">ClientSetupReceived</a> (TransportConnId conn_id, const messages::MoqClientSetup &amp;client_setup)=0</td></tr>
-<tr class="memdesc:acd821c3320c599015dae20417d123acf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on client setup message.  <br /></td></tr>
-<tr class="separator:acd821c3320c599015dae20417d123acf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a335943fb8803c6072bbac8e014816acb" id="r_a335943fb8803c6072bbac8e014816acb"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a335943fb8803c6072bbac8e014816acb">AnnounceReceived</a> (TransportConnId conn_id, const std::vector&lt; uint8_t &gt; &amp;track_namespace)=0</td></tr>
-<tr class="memdesc:a335943fb8803c6072bbac8e014816acb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new announce received that needs to be authorized.  <br /></td></tr>
-<tr class="separator:a335943fb8803c6072bbac8e014816acb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a070042696dfa90d9364aa028fd5b6396" id="r_a070042696dfa90d9364aa028fd5b6396"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a070042696dfa90d9364aa028fd5b6396">UnannounceReceived</a> (TransportConnId conn_id, const std::vector&lt; uint8_t &gt; &amp;track_namespace)=0</td></tr>
-<tr class="memdesc:a070042696dfa90d9364aa028fd5b6396"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for unannounce received.  <br /></td></tr>
-<tr class="separator:a070042696dfa90d9364aa028fd5b6396"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afbe836d7b5111b11fd1c588dcd233983" id="r_afbe836d7b5111b11fd1c588dcd233983"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#afbe836d7b5111b11fd1c588dcd233983">SubscribeReceived</a> (TransportConnId conn_id, uint64_t subscribe_id, const std::vector&lt; uint8_t &gt; &amp;track_namespace, const std::vector&lt; uint8_t &gt; &amp;track_name)=0</td></tr>
-<tr class="memdesc:afbe836d7b5111b11fd1c588dcd233983"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new subscribe received.  <br /></td></tr>
-<tr class="separator:afbe836d7b5111b11fd1c588dcd233983"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abaa80e0848f22526e055ef0a4b52db9d" id="r_abaa80e0848f22526e055ef0a4b52db9d"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#abaa80e0848f22526e055ef0a4b52db9d">ClientSetupReceived</a> (TransportConnId conn_id, const <a class="el" href="structmoq_1_1transport_1_1_client_setup_attributes.html">ClientSetupAttributes</a> &amp;client_setup_attributes)=0</td></tr>
+<tr class="memdesc:abaa80e0848f22526e055ef0a4b52db9d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on client setup message.  <br /></td></tr>
+<tr class="separator:abaa80e0848f22526e055ef0a4b52db9d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9188fca6e5e972976ae4e52400565384" id="r_a9188fca6e5e972976ae4e52400565384"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9188fca6e5e972976ae4e52400565384">AnnounceReceived</a> (TransportConnId conn_id, const <a class="el" href="namespacemoq_1_1transport.html#af86ede8e517199e4255fd1bea76fed21">TrackNamespace</a> &amp;track_namespace, const <a class="el" href="structmoq_1_1transport_1_1_publish_announce_attributes.html">PublishAnnounceAttributes</a> &amp;publish_announce_attributes)=0</td></tr>
+<tr class="memdesc:a9188fca6e5e972976ae4e52400565384"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new announce received that needs to be authorized.  <br /></td></tr>
+<tr class="separator:a9188fca6e5e972976ae4e52400565384"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aba0835a0993f9d43dd0a84ea2dad9282" id="r_aba0835a0993f9d43dd0a84ea2dad9282"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aba0835a0993f9d43dd0a84ea2dad9282">UnannounceReceived</a> (TransportConnId conn_id, const <a class="el" href="namespacemoq_1_1transport.html#af86ede8e517199e4255fd1bea76fed21">TrackNamespace</a> &amp;track_namespace)=0</td></tr>
+<tr class="memdesc:aba0835a0993f9d43dd0a84ea2dad9282"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for unannounce received.  <br /></td></tr>
+<tr class="separator:aba0835a0993f9d43dd0a84ea2dad9282"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a530406e0afba459ea64f896948b46ffa" id="r_a530406e0afba459ea64f896948b46ffa"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a530406e0afba459ea64f896948b46ffa">SubscribeReceived</a> (TransportConnId conn_id, uint64_t subscribe_id, const <a class="el" href="structmoq_1_1transport_1_1_full_track_name.html">FullTrackName</a> &amp;track_full_name, const <a class="el" href="structmoq_1_1transport_1_1_subscribe_attributes.html">SubscribeAttributes</a> &amp;subscribe_attributes)=0</td></tr>
+<tr class="memdesc:a530406e0afba459ea64f896948b46ffa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new subscribe received.  <br /></td></tr>
+<tr class="separator:a530406e0afba459ea64f896948b46ffa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afc8cb5b48411c4275eb9d815cd469f61" id="r_afc8cb5b48411c4275eb9d815cd469f61"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#afc8cb5b48411c4275eb9d815cd469f61">UnsubscribeReceived</a> (TransportConnId conn_id, uint64_t subscribe_id)=0</td></tr>
 <tr class="memdesc:afc8cb5b48411c4275eb9d815cd469f61"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification on unsubscribe received.  <br /></td></tr>
 <tr class="separator:afc8cb5b48411c4275eb9d815cd469f61"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -264,8 +264,8 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a335943fb8803c6072bbac8e014816acb" name="a335943fb8803c6072bbac8e014816acb"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a335943fb8803c6072bbac8e014816acb">&#9670;&#160;</a></span>AnnounceReceived()</h2>
+<a id="a9188fca6e5e972976ae4e52400565384" name="a9188fca6e5e972976ae4e52400565384"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9188fca6e5e972976ae4e52400565384">&#9670;&#160;</a></span>AnnounceReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -281,7 +281,12 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::vector&lt; uint8_t &gt; &amp;</td>          <td class="paramname"><span class="paramname"><em>track_namespace</em></span>&#160;)</td>
+          <td class="paramtype">const <a class="el" href="namespacemoq_1_1transport.html#af86ede8e517199e4255fd1bea76fed21">TrackNamespace</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_namespace</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_publish_announce_attributes.html">PublishAnnounceAttributes</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>publish_announce_attributes</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -295,7 +300,8 @@ Additional Inherited Members</h2></td></tr>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">conn_id</td><td>Source connection ID </td></tr>
-    <tr><td class="paramname">track_namespace</td><td>Track namespace</td></tr>
+    <tr><td class="paramname">track_namespace</td><td>Track namespace </td></tr>
+    <tr><td class="paramname">publish_announce_attributes</td><td>Publish announce attributes received</td></tr>
   </table>
   </dd>
 </dl>
@@ -303,8 +309,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="acd821c3320c599015dae20417d123acf" name="acd821c3320c599015dae20417d123acf"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acd821c3320c599015dae20417d123acf">&#9670;&#160;</a></span>ClientSetupReceived()</h2>
+<a id="abaa80e0848f22526e055ef0a4b52db9d" name="abaa80e0848f22526e055ef0a4b52db9d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abaa80e0848f22526e055ef0a4b52db9d">&#9670;&#160;</a></span>ClientSetupReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -320,7 +326,7 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const messages::MoqClientSetup &amp;</td>          <td class="paramname"><span class="paramname"><em>client_setup</em></span>&#160;)</td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_client_setup_attributes.html">ClientSetupAttributes</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>client_setup_attributes</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -335,7 +341,7 @@ Additional Inherited Members</h2></td></tr>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">conn_id</td><td><a class="el" href="classmoq_1_1transport_1_1_transport.html" title="MOQ Implementation supporting both client and server modes.">Transport</a> connection ID </td></tr>
-    <tr><td class="paramname">client_setup</td><td>Decoded client setup message </td></tr>
+    <tr><td class="paramname">client_setup_attributes</td><td>Decoded client setup message </td></tr>
   </table>
   </dd>
 </dl>
@@ -506,8 +512,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="afbe836d7b5111b11fd1c588dcd233983" name="afbe836d7b5111b11fd1c588dcd233983"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afbe836d7b5111b11fd1c588dcd233983">&#9670;&#160;</a></span>SubscribeReceived()</h2>
+<a id="a530406e0afba459ea64f896948b46ffa" name="a530406e0afba459ea64f896948b46ffa"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a530406e0afba459ea64f896948b46ffa">&#9670;&#160;</a></span>SubscribeReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -528,12 +534,12 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::vector&lt; uint8_t &gt; &amp;</td>          <td class="paramname"><span class="paramname"><em>track_namespace</em></span>, </td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_full_track_name.html">FullTrackName</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_full_name</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::vector&lt; uint8_t &gt; &amp;</td>          <td class="paramname"><span class="paramname"><em>track_name</em></span>&#160;)</td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_subscribe_attributes.html">SubscribeAttributes</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>subscribe_attributes</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -548,8 +554,8 @@ Additional Inherited Members</h2></td></tr>
   <table class="params">
     <tr><td class="paramname">conn_id</td><td>Source connection ID </td></tr>
     <tr><td class="paramname">subscribe_id</td><td>Subscribe ID received </td></tr>
-    <tr><td class="paramname">track_namespace</td><td>Track Namespace from subscription </td></tr>
-    <tr><td class="paramname">track_name</td><td>Track name from subscription</td></tr>
+    <tr><td class="paramname">track_full_name</td><td>Track full name </td></tr>
+    <tr><td class="paramname">subscribe_attributes</td><td>Subscribe attributes received</td></tr>
   </table>
   </dd>
 </dl>
@@ -557,8 +563,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a070042696dfa90d9364aa028fd5b6396" name="a070042696dfa90d9364aa028fd5b6396"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a070042696dfa90d9364aa028fd5b6396">&#9670;&#160;</a></span>UnannounceReceived()</h2>
+<a id="aba0835a0993f9d43dd0a84ea2dad9282" name="aba0835a0993f9d43dd0a84ea2dad9282"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aba0835a0993f9d43dd0a84ea2dad9282">&#9670;&#160;</a></span>UnannounceReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -574,7 +580,7 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::vector&lt; uint8_t &gt; &amp;</td>          <td class="paramname"><span class="paramname"><em>track_namespace</em></span>&#160;)</td>
+          <td class="paramtype">const <a class="el" href="namespacemoq_1_1transport.html#af86ede8e517199e4255fd1bea76fed21">TrackNamespace</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_namespace</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
