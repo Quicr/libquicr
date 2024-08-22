@@ -69,7 +69,7 @@ namespace moq::transport {
          *
          * @param server_setup_attributes     Server setup attributes received
          */
-        virtual void ServerSetup(const ServerSetupAttributes& server_setup) = 0;
+        virtual void ServerSetup(const ServerSetupAttributes& server_setup_attributes) = 0;
 
         /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
