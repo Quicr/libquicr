@@ -141,6 +141,10 @@ namespace moq::transport {
          *      the announce state ensures that the announce will remain active if the other tracks are
          *      removed.
          *
+         * @note
+         *      The PublishTrackHandler with this method only needs to have the FullTrackName::name_space defined.
+         *      Name and track alias is not used.
+         *
          *
          * @param track_delegate    Track delegate to use for track related functions
          *                          and callbacks
