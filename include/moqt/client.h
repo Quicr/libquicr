@@ -74,13 +74,18 @@ namespace moq::transport {
         /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
          *
-         * @details
+         * @details When a new subscribe is received that doesn't match any existing publish track, this
+         *      method will be called to signal the client application that there is a new subscribe full
+         *      track name. The client app should PublishTrack() within this callback (or afterwards) and return
+         *      **true** if the subscribe is accepted and publishing will commence. If the subscribe is rejected
+         *      and a publish track will not begin, then **false** should be returned. The MOQT protocol
+         *      will send the appropriate message to indicate the accept/reject.
          *
          * @param track_full_name           Track full name
          * @param subscribe_attributes      Subscribe attributes received
          *
-         *
-         * @return True if send announce should be sent, false if not
+         * @return Caller returns **true** to accept the subscribe and will start to publish, **false** to reject
+         *      the subscribe and will not publish.
          */
         virtual bool SubscribeReceived(const FullTrackName& track_full_name,
                                        const SubscribeAttributes& subscribe_attributes) = 0;
