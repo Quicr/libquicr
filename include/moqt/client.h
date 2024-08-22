@@ -6,7 +6,9 @@
 
 #pragma once
 
+#include <optional>
 #include <moqt/config.h>
+#include <moqt/common.h>
 #include <moqt/core/transport.h>
 
 namespace moq::transport {
@@ -65,9 +67,23 @@ namespace moq::transport {
          * @details Server will send sever setup in response to client setup message sent. This callback is called
          *  when a server setup has been received.
          *
-         * @param server_setup     Decoded sever setup message
+         * @param server_setup_attributes     Server setup attributes received
          */
-        virtual void ServerSetup(const messages::MoqServerSetup& server_setup) = 0;
+        virtual void ServerSetup(const ServerSetupAttributes& server_setup) = 0;
+
+        /**
+         * @brief Callback notification for new subscribe received that doesn't match an existing publish track
+         *
+         * @details
+         *
+         * @param track_full_name           Track full name
+         * @param subscribe_attributes      Subscribe attributes received
+         *
+         *
+         * @return True if send announce should be sent, false if not
+         */
+        virtual bool SubscribeReceived(const FullTrackName& track_full_name,
+                                       const SubscribeAttributes& subscribe_attributes) = 0;
 
         /**
          * @brief Notification callback to provide sampled metrics
@@ -78,8 +94,87 @@ namespace moq::transport {
          *
          * @param metrics           Copy of the connection metrics for the sample period
          */
-        virtual void MetricsSampled(const ConnectionMetrics&& metrics)  = 0;
+        virtual void MetricsSampled(const ConnectionMetrics&& metrics) = 0;
 
+      protected:
+        /**
+         * @brief Subscribe to a track
+         *
+         * @param track_delegate    Track delegate to use for track related functions and callbacks
+         *
+         * @returns `track_alias` if no error and nullopt on error
+         */
+        std::optional<uint64_t> SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_delegate) {
+            if (conn_id_) {
+                return Transport::SubscribeTrack(*conn_id_, std::move(track_delegate));
+            } else {
+                return std::nullopt;
+            }
+        }
+
+        /**
+         * @brief Unsubscribe track
+         *
+         * @param track_delegate    Track delegate to use for track related functions and callbacks
+         */
+        void UnsubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_delegate) {
+            if (conn_id_) {
+                Transport::UnsubscribeTrack(*conn_id_, std::move(track_delegate));
+            }
+        }
+
+        /**
+         * @brief Publish a track namespace
+         *
+         * @details In MoQT, a publish namespace will result in an announce being sent. Announce OK will
+         *      be reflected in the Status() of the PublishTrackHandler passed. This method can be called at any time,
+         *      but normally it would be called before publishing any tracks to the same namespace.
+         *
+         *      If this method is called after a publish track with a matching namespace already exists or if called
+         *      more than once, this will result in this track handler being added to the active state of the
+         *      announce, but it will not result in a repeated announce being sent. Adding track handler to
+         *      the announce state ensures that the announce will remain active if the other tracks are
+         *      removed.
+         *
+         *
+         * @param track_delegate    Track delegate to use for track related functions
+         *                          and callbacks
+         */
+        void PublishTrackNamespace(std::shared_ptr<PublishTrackHandler> track_delegate) {
+            if (conn_id_) {
+                Transport::PublishTrack(*conn_id_, std::move(track_delegate));
+            }
+        }
+
+        /**
+         * @brief Publish to a track
+         *
+         * @param track_delegate    Track delegate to use for track related functions
+         *                          and callbacks
+         *
+         * @returns `track_alias` if no error and nullopt on error
+         */
+        std::optional<uint64_t> PublishTrack(std::shared_ptr<PublishTrackHandler> track_delegate) {
+            if (conn_id_) {
+                return Transport::PublishTrack(*conn_id_, std::move(track_delegate));
+            } else {
+                return std::nullopt;
+            }
+        }
+
+        /**
+         * @brief Unpublish track
+         *
+         * @param track_delegate    Track delegate used when published track
+         */
+        void UnpublishTrack(std::shared_ptr<PublishTrackHandler> track_delegate) {
+            if (conn_id_) {
+                Transport::UnpublishTrack(*conn_id_, std::move(track_delegate));
+            }
+        }
+
+      private:
+        std::optional<TransportConnId> conn_id_;               ///< Connection ID for the client
     };
 
 } // namespace moq::transport

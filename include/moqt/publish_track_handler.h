@@ -78,7 +78,7 @@ namespace moq::transport {
         /**
          * @brief Publish track handler constructor
          *
-         * @param full_track_name       Full track name struct
+         * @param full_track_name       Full track name
          * @param track_mode            The track mode to operate using
          * @param default_priority      Default priority for objects if not specified in ObjectHeaderss
          * @param default_ttl           Default TTL for objects if not specified in ObjectHeaderss
