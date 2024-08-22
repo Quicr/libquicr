@@ -22,20 +22,23 @@ struct BenchmarkPublishDelegate : public quicr::PublisherDelegate
 class ClientFixture : public benchmark::Fixture
 {
 public:
-  const quicr::RelayInfo info{
-    .hostname = "relay.quicr.ctgpoc.com",
-    .port = 33435,
-    .proto = quicr::RelayInfo::Protocol::QUIC,
-    .relay_id = "",
-  };
-  const qtransport::TransportConfig config{
-    .tls_cert_filename = "",
-    .tls_key_filename = "",
-    .use_reset_wait_strategy = false,
-    .quic_qlog_path = "",
-  };
+  quicr::RelayInfo info;
+  qtransport::TransportConfig config;
 
   std::unique_ptr<quicr::Client> client;
+
+  ClientFixture()
+  {
+    info.hostname = "relay.quicr.ctgpoc.com";
+    info.port = 33435;
+    info.proto = quicr::RelayInfo::Protocol::QUIC;
+    info.relay_id = "";
+
+    config.tls_cert_filename = "";
+    config.tls_key_filename = "";
+    config.use_reset_wait_strategy = false;
+    config.quic_qlog_path = "";
+  }
 
   void SetUp(::benchmark::State&)
   {
