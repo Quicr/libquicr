@@ -135,7 +135,7 @@ namespace moq::transport {
          *      be reflected in the Status() of the PublishTrackHandler passed. This method can be called at any time,
          *      but normally it would be called before publishing any tracks to the same namespace.
          *
-         *      If this method is called after a publish track with a matching namespace already exists or if called
+         *      If this method is called after a publish track with a matching namespace that already exists or if called
          *      more than once, this will result in this track handler being added to the active state of the
          *      announce, but it will not result in a repeated announce being sent. Adding track handler to
          *      the announce state ensures that the announce will remain active if the other tracks are
