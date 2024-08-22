@@ -19,6 +19,35 @@ namespace moq::transport {
 
     using Bytes = std::vector<uint8_t>;
     using BytesSpan = Span<uint8_t const>;
+    using TrackNamespace = std::vector<uint8_t>;
+
+    /**
+     * @brief Subscribe attributes
+     *
+     * @details Various attributes relative to the subscribe
+     */
+     struct SubscribeAttributes {
+     };
+
+     /**
+     * @brief Publish announce attributes
+     *
+     * @details Various attributes relative to the publish announce
+      */
+     struct PublishAnnounceAttributes {
+     };
+
+     /**
+      * @brief Client Setup Attributes
+      */
+     struct ClientSetupAttributes {
+     };
+
+     /**
+      * @brief Server Setup Attributes
+      */
+      struct ServerSetupAttributes {
+      };
 
     /**
      * @brief Full track name struct
@@ -28,8 +57,8 @@ namespace moq::transport {
      */
     struct FullTrackName
     {
-        Span<uint8_t const> name_space;
-        Span<uint8_t const> name;
+        const TrackNamespace name_space;
+        const std::vector<uint8_t> name;
         std::optional<uint64_t> track_alias;
     };
 

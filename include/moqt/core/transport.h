@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <quicr/metrics_exporter.h>
 #include <transport/transport.h>
 
 #include <moqt/common.h>
@@ -64,7 +63,7 @@ namespace moq::transport {
         ~Transport() = default;
 
         // -------------------------------------------------------------------------------------------------
-        // Public API MoQ Intance API methods
+        // Public API MoQ Instance API methods
         // -------------------------------------------------------------------------------------------------
         /**
          * @brief Subscribe to a track
@@ -215,10 +214,6 @@ namespace moq::transport {
         std::map<TransportConnId, ConnectionContext> connections_;
 
         Status status_{ Status::kNotReady };
-
-#ifndef LIBQUICR_WITHOUT_INFLUXDB
-        quicr::MetricsExporter mexport_;
-#endif
 
         std::shared_ptr<ITransport> quic_transport_; // **MUST** be last for proper order of destruction
     };

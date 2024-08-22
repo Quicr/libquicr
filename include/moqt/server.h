@@ -73,22 +73,24 @@ namespace moq::transport {
          * @details In server mode, client will send a setup message on new connection.
          *         Server responds with server setup.
          *
-         * @param conn_id          Transport connection ID
-         * @param client_setup     Decoded client setup message
+         * @param conn_id                       Transport connection ID
+         * @param client_setup_attributes       Decoded client setup message
          */
         virtual void ClientSetupReceived(TransportConnId conn_id,
-                                         const messages::MoqClientSetup& client_setup) = 0;
+                                         const ClientSetupAttributes& client_setup_attributes) = 0;
 
         /**
          * @brief Callback notification for new announce received that needs to be authorized
          *
-         * @param conn_id                   Source connection ID
-         * @param track_namespace           Track namespace
+         * @param conn_id                       Source connection ID
+         * @param track_namespace               Track namespace
+         * @param publish_announce_attributes   Publish announce attributes received
          *
          * @return True if authorized and announce OK will be sent, false if not
          */
         virtual bool AnnounceReceived(TransportConnId conn_id,
-                                      const std::vector<uint8_t>& track_namespace) = 0;
+                                      const TrackNamespace& track_namespace,
+                                      const PublishAnnounceAttributes& publish_announce_attributes) = 0;
 
         /**
          * @brief Callback notification for unannounce received
@@ -98,22 +100,22 @@ namespace moq::transport {
          *
          */
         virtual void UnannounceReceived(TransportConnId conn_id,
-                                        const std::vector<uint8_t>& track_namespace) = 0;
+                                        const TrackNamespace& track_namespace) = 0;
 
         /**
          * @brief Callback notification for new subscribe received
          *
-         * @param conn_id             Source connection ID
-         * @param subscribe_id        Subscribe ID received
-         * @param track_namespace     Track Namespace from subscription
-         * @param track_name          Track name from subscription
+         * @param conn_id               Source connection ID
+         * @param subscribe_id          Subscribe ID received
+         * @param track_full_name       Track full name
+         * @param subscribe_attributes  Subscribe attributes received
          *
          * @return True if send announce should be sent, false if not
          */
         virtual bool SubscribeReceived(TransportConnId conn_id,
                                        uint64_t subscribe_id,
-                                       const std::vector<uint8_t>& track_namespace,
-                                       const std::vector<uint8_t>& track_name) = 0;
+                                       const FullTrackName& track_full_name,
+                                       const SubscribeAttributes& subscribe_attributes) = 0;
 
         /**
          * @brief Callback notification on unsubscribe received

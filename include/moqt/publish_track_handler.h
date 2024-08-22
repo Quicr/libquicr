@@ -27,7 +27,7 @@ namespace moq::transport {
         /**
          * @brief Publish status codes
          */
-        enum class PublishStatus : uint8_t
+        enum class PublishObjectStatus : uint8_t
         {
             kOk = 0,
             kInternalError,
@@ -66,18 +66,19 @@ namespace moq::transport {
             kPendingAnnounceResponse,
             kAnnounceNotAuthorized,
             kNoSubscribers,
-            kSendingUnannounce,
+            kSendingUnannounce,         ///< In this state, callbacks will not be called
         };
 
+        PublishTrackHandler() = delete;
 
         // --------------------------------------------------------------------------
-        // Public API methods that normally should not be overridden
+        // Public API methods
         // --------------------------------------------------------------------------
 
         /**
          * @brief Publish track handler constructor
          *
-         * @param full_track_name       Full track name struct
+         * @param full_track_name       Full track name
          * @param track_mode            The track mode to operate using
          * @param default_priority      Default priority for objects if not specified in ObjectHeaderss
          * @param default_ttl           Default TTL for objects if not specified in ObjectHeaderss
@@ -88,18 +89,19 @@ namespace moq::transport {
                             uint32_t default_ttl)
           : BaseTrackHandler(full_track_name)
           , track_mode_(track_mode)
-          , def_priority_(default_priority)
-          , def_ttl_(default_ttl)
+          , default_priority_(default_priority)
+          , default_ttl_(default_ttl)
         {
         }
 
         // --------------------------------------------------------------------------
-        // Public Virtual API callback event methods to be overridden
+        // Public Virtual API callback event methods
         // --------------------------------------------------------------------------
 
         /**
-         * @brief Notification of publish status
-         * @details Notification of publishing status, such as when it's ready to publish or not ready to publish
+         * @brief Notification of publish track status change
+         * @details Notification of a change to publish track status, such as
+         *      when it's ready to publish or not ready to publish
          *
          * @param status        Indicates the status of being able to publish
          */
@@ -123,12 +125,12 @@ namespace moq::transport {
         /**
          * @brief set/update the default priority for published objects
          */
-        void SetDefaultPriority(uint8_t priority) { def_priority_ = priority; }
+        void SetDefaultPriority(const uint8_t priority) { default_priority_ = priority; }
 
         /**
          * @brief set/update the default TTL expiry for published objects
          */
-        void SetDefaultTTL(uint32_t ttl) { def_ttl_ = ttl; }
+        void SetDefaultTTL(const uint32_t ttl) { default_ttl_ = ttl; }
 
         /**
          * @brief Get the publish status
@@ -172,7 +174,7 @@ namespace moq::transport {
          *    * PublishStatus::kObjectDataComplete if the object data was sent and the data is complete,
          *    * other PublishStatus
          */
-        PublishStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
+        PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
 
         /**
          * @brief Publish continuation data
@@ -190,7 +192,7 @@ namespace moq::transport {
          *      * PublishStatus::kNoPreviousObject if the previous object was completed or if there was no previous object,
          *      * other PublishStatus
          */
-        PublishStatus PublishContinuationData(BytesSpan data);
+        PublishObjectStatus PublishContinuationData(BytesSpan data);
 
         // --------------------------------------------------------------------------
         // Metrics
@@ -220,12 +222,12 @@ namespace moq::transport {
          * @param stream_header_needed  Indicates if group or track header is needed before this data object
          * @param data                  Raw data/object that should be transmitted - MoQInstance serializes the data
          */
-        using PublishObjFunction = std::function<PublishStatus(uint8_t priority,
-                                                               uint32_t ttl,
-                                                               bool stream_header_needed,
-                                                               uint64_t group_id,
-                                                               uint64_t object_id,
-                                                               BytesSpan data)>;
+        using PublishObjFunction = std::function<PublishObjectStatus(uint8_t priority,
+                                                                     uint32_t ttl,
+                                                                     bool stream_header_needed,
+                                                                     uint64_t group_id,
+                                                                     uint64_t object_id,
+                                                                     BytesSpan data)>;
         /**
          * @brief Set the Data context ID
          *
@@ -254,8 +256,8 @@ namespace moq::transport {
         // --------------------------------------------------------------------------
         Status publish_status_{ Status::kNotAnnounced };
         TrackMode track_mode_;
-        uint8_t def_priority_;              // Set by caller and is used when priority is not specified
-        uint32_t def_ttl_;                  // Set by caller and is used when TTL is not specified
+        uint8_t default_priority_;              // Set by caller and is used when priority is not specified
+        uint32_t default_ttl_;                  // Set by caller and is used when TTL is not specified
 
         uint64_t publish_data_ctx_id_;      // publishing data context ID
         PublishObjFunction publish_object_func_;

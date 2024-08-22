@@ -46,11 +46,13 @@ namespace moq::transport {
             kNotAuthorized,
             kNotSubscribed,
             kPendingSubscribeResponse,
-            kSendingUnsubscribe // Triggers callbacks to not be called in this state
+            kSendingUnsubscribe                 ///< In this state, callbacks will not be called
         };
 
+        SubscribeTrackHandler() = delete;
+
         // --------------------------------------------------------------------------
-        // Public API methods that normally should not be overridden
+        // Public API methods
         // --------------------------------------------------------------------------
 
         /**
@@ -76,7 +78,7 @@ namespace moq::transport {
         Status GetStatus() { return status_; }
 
         // --------------------------------------------------------------------------
-        // Public Virtual API callback event methods to be overridden
+        // Public Virtual API callback event methods
         // --------------------------------------------------------------------------
 
         /**
