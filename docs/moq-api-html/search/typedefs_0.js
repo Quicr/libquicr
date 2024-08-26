@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['bytes_0',['Bytes',['../namespacemoq_1_1transport.html#a8346c913ef230120bc3fe0bd689acea3',1,'moq::transport']]],
-  ['bytesspan_1',['BytesSpan',['../namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436',1,'moq::transport']]]
+  ['bytes_0',['Bytes',['../namespacemoq.html#a81214e5a1abfff300faa7c66a3de272e',1,'moq']]],
+  ['bytesspan_1',['BytesSpan',['../namespacemoq.html#ab303fd3ef64c30c643a089f4cf17d219',1,'moq']]]
 ];

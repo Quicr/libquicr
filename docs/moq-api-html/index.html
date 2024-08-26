@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=11"/>
 <meta name="generator" content="Doxygen 1.11.0"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>LibQuicR: Media over QUIC Transport (MoQT) Publisher/Subscriber API</title>
+<title>LibQuicR: Media over QUIC (MoQ) Publisher/Subscriber API</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -97,20 +97,20 @@ $(function(){initNavTree('index.html',''); initResizable(true); });
 </div>
 
 <div><div class="header">
-  <div class="headertitle"><div class="title">Media over QUIC Transport (MoQT) Publisher/Subscriber API </div></div>
+  <div class="headertitle"><div class="title">Media over QUIC (MoQ) Publisher/Subscriber API </div></div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p><a class="anchor" id="md_docs_2moq-api-main"></a> This library provides a publisher and subscriber API using MoQT. It provides a class for <a class="el" href="classmoq_1_1transport_1_1_client.html">Client</a> and <a class="el" href="classmoq_1_1transport_1_1_server.html">Server</a> that will handle all MoQT protocol state machine functions. Both classes contain pure virtual methods (e.g., callbacks) that <b>MUST</b> be implemented.</p>
-<p>Subscriptions and publications are handled via <a class="el" href="classmoq_1_1transport_1_1_subscribe_track_handler.html">Subscribe Track Handler</a> and <a class="el" href="classmoq_1_1transport_1_1_publish_track_handler.html">Publish Track Handler</a>. Both classes contain pure virtual methods (e.g., callbacks) that <b>MUST</b> be implemented.</p>
+<div class="textblock"><p><a class="anchor" id="md_docs_2moq-api-main"></a> This library provides a publisher and subscriber API using MoQ. It provides a class for <a class="el" href="classmoq_1_1_client.html">Client</a> and <a class="el" href="classmoq_1_1_server.html">Server</a> that will handle all MoQ protocol state machine functions. Both classes contain pure virtual methods (e.g., callbacks) that <b>MUST</b> be implemented.</p>
+<p>Subscriptions and publications are handled via <a class="el" href="classmoq_1_1_subscribe_track_handler.html">Subscribe Track Handler</a> and <a class="el" href="classmoq_1_1_publish_track_handler.html">Publish Track Handler</a>. Both classes contain pure virtual methods (e.g., callbacks) that <b>MUST</b> be implemented.</p>
 <h1><a class="anchor" id="autotoc_md1"></a>
 Client</h1>
 <table class="markdownTable">
 <tr class="markdownTableHead">
 <th class="markdownTableHeadNone">Class   </th><th class="markdownTableHeadNone">Description    </th></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><a class="el" href="classmoq_1_1transport_1_1_client.html" title="MoQT Client.">moq::transport::Client</a>   </td><td class="markdownTableBodyNone">Client handler, which is specific to a QUIC IP connection    </td></tr>
+<td class="markdownTableBodyNone"><a class="el" href="classmoq_1_1_client.html" title="MoQ Client.">moq::Client</a>   </td><td class="markdownTableBodyNone">Client handler, which is specific to a QUIC IP connection    </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone"><a class="el" href="structmoq_1_1transport_1_1_client_config.html">moq::transport::ClientConfig</a>   </td><td class="markdownTableBodyNone">Client configuration   </td></tr>
+<td class="markdownTableBodyNone"><a class="el" href="structmoq_1_1_client_config.html">moq::ClientConfig</a>   </td><td class="markdownTableBodyNone">Client configuration   </td></tr>
 </table>
 <h1><a class="anchor" id="autotoc_md2"></a>
 Server</h1>
@@ -118,31 +118,31 @@ Server</h1>
 <tr class="markdownTableHead">
 <th class="markdownTableHeadNone">Class   </th><th class="markdownTableHeadNone">Description    </th></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><a class="el" href="classmoq_1_1transport_1_1_server.html" title="MoQT Server.">moq::transport::Server</a>   </td><td class="markdownTableBodyNone">Server handler, which is specific to the QUIC IP listening IP and port    </td></tr>
+<td class="markdownTableBodyNone"><a class="el" href="classmoq_1_1_server.html" title="MoQ Server.">moq::Server</a>   </td><td class="markdownTableBodyNone">Server handler, which is specific to the QUIC IP listening IP and port    </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone"><a class="el" href="structmoq_1_1transport_1_1_server_config.html">moq::transport::ServerConfig</a>   </td><td class="markdownTableBodyNone">Server configuration   </td></tr>
+<td class="markdownTableBodyNone"><a class="el" href="structmoq_1_1_server_config.html">moq::ServerConfig</a>   </td><td class="markdownTableBodyNone">Server configuration   </td></tr>
 </table>
 <h1><a class="anchor" id="autotoc_md3"></a>
 Track Handlers</h1>
-<p>Both client and server provide <a class="el" href="classmoq_1_1transport_1_1_transport.html#a47f1fd0b93299f7e4f0f1177184e1764" title="Publish to a track.">moq::transport::Transport::PublishTrack()</a> and <a class="el" href="classmoq_1_1transport_1_1_transport.html#a891b4c479cf41d19d3bbe3a8c446414c" title="Subscribe to a track.">moq::transport::Transport::SubscribeTrack()</a> methods to start a new subscription and/or publication. Use the below handler classes when calling the methods. Each track handler is constructed for a single full track name (e.g., namespace and name).</p>
+<p>Both client and server provide moq::PublishTrack() and moq::SubscribeTrack() methods to start a new subscription and/or publication. Use the below handler classes when calling the methods. Each track handler is constructed for a single full track name (e.g., namespace and name).</p>
 <table class="markdownTable">
 <tr class="markdownTableHead">
 <th class="markdownTableHeadNone">Class   </th><th class="markdownTableHeadNone">Description    </th></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><a class="el" href="classmoq_1_1transport_1_1_subscribe_track_handler.html" title="MOQ track handler for subscribed track.">moq::transport::SubscribeTrackHandler</a>   </td><td class="markdownTableBodyNone">Subscribe track handler for subscribe related operations and callbacks    </td></tr>
+<td class="markdownTableBodyNone"><a class="el" href="classmoq_1_1_subscribe_track_handler.html" title="MOQ track handler for subscribed track.">moq::SubscribeTrackHandler</a>   </td><td class="markdownTableBodyNone">Subscribe track handler for subscribe related operations and callbacks    </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone"><a class="el" href="classmoq_1_1transport_1_1_publish_track_handler.html" title="MOQ track handler for published track.">moq::transport::PublishTrackHandler</a>   </td><td class="markdownTableBodyNone">Publish track handler for publish related operations and callbacks   </td></tr>
+<td class="markdownTableBodyNone"><a class="el" href="classmoq_1_1_publish_track_handler.html" title="MOQ track handler for published track.">moq::PublishTrackHandler</a>   </td><td class="markdownTableBodyNone">Publish track handler for publish related operations and callbacks   </td></tr>
 </table>
 <h1><a class="anchor" id="autotoc_md4"></a>
 Client Flow</h1>
-<p><img src="../images/moqt-client-api.png" alt="Client Process Flow" style="height: auto; width:80%" class="inline"/></p>
+<p><img src="../images/MoQ-client-api.png" alt="Client Process Flow" style="height: auto; width:80%" class="inline"/></p>
 <h1><a class="anchor" id="autotoc_md5"></a>
 Server Flow</h1>
 <h1><a class="anchor" id="autotoc_md6"></a>
 Documentation Links</h1>
 <ul>
-<li><a href="../moqt-api-process-flows.html">API Process Flows</a></li>
-<li><a href="https://github.com/Quicr/libquicr/blob/main/docs/moq-implementation.md">MOQT Implementation Details</a></li>
+<li><a href="../MoQ-api-process-flows.html">API Process Flows</a></li>
+<li><a href="https://github.com/Quicr/libquicr/blob/main/docs/moq-implementation.md">MoQ Implementation Details</a></li>
 <li>Quick Start </li>
 </ul>
 </div></div><!-- PageDoc -->

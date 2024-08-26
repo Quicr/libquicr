@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['kmoqtversion_0',['kMoqtVersion',['../namespacemoq_1_1transport.html#ae4d81d85477b2d2e25a3f568a9d87d49',1,'moq::transport']]],
-  ['kreadloopmaxperstream_1',['kReadLoopMaxPerStream',['../namespacemoq_1_1transport.html#ab71080b7123653baa32d80bcd1146ac3',1,'moq::transport']]],
-  ['ksubscribeexpires_2',['kSubscribeExpires',['../namespacemoq_1_1transport.html#a30657595db509732c65f6d30c2cb97c0',1,'moq::transport']]]
+  ['metrics_5fsample_5fms_0',['metrics_sample_ms',['../structmoq_1_1_config.html#aad6de0f066fe064a92ed07e928534085',1,'moq::Config']]],
+  ['moqt_5fversion_1',['moqt_version',['../structmoq_1_1_server_setup_attributes.html#a1b01f53201815f209fdfff5f2b5a3270',1,'moq::ServerSetupAttributes']]]
 ];

@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=11"/>
 <meta name="generator" content="Doxygen 1.11.0"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>LibQuicR: include/moqt/config.h Source File</title>
+<title>LibQuicR: include/moq/config.h Source File</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -111,53 +111,51 @@ $(function(){initNavTree('config_8h_source.html',''); initResizable(true); });
 <div class="line"><a id="l00009" name="l00009"></a><span class="lineno">    9</span><span class="preprocessor">#include &lt;transport/transport.h&gt;</span></div>
 <div class="line"><a id="l00010" name="l00010"></a><span class="lineno">   10</span><span class="preprocessor">#include &lt;string&gt;</span></div>
 <div class="line"><a id="l00011" name="l00011"></a><span class="lineno">   11</span> </div>
-<div class="line"><a id="l00012" name="l00012"></a><span class="lineno">   12</span><span class="keyword">namespace </span><a class="code hl_namespace" href="namespacemoq_1_1transport.html">moq::transport</a> {</div>
+<div class="line"><a id="l00012" name="l00012"></a><span class="lineno">   12</span><span class="keyword">namespace </span><a class="code hl_namespace" href="namespacemoq.html">moq</a> {</div>
 <div class="line"><a id="l00013" name="l00013"></a><span class="lineno">   13</span> </div>
-<div class="line"><a id="l00014" name="l00014"></a><span class="lineno">   14</span>    <span class="keyword">using namespace </span>qtransport;</div>
-<div class="line"><a id="l00015" name="l00015"></a><span class="lineno">   15</span> </div>
-<div class="foldopen" id="foldopen00016" data-start="{" data-end="};">
-<div class="line"><a id="l00016" name="l00016"></a><span class="lineno"><a class="line" href="structmoq_1_1transport_1_1_config.html">   16</a></span>    <span class="keyword">struct </span><a class="code hl_struct" href="structmoq_1_1transport_1_1_config.html">Config</a></div>
-<div class="line"><a id="l00017" name="l00017"></a><span class="lineno">   17</span>    {</div>
-<div class="line"><a id="l00018" name="l00018"></a><span class="lineno"><a class="line" href="structmoq_1_1transport_1_1_config.html#ad3d97537b925ab1d9b24651716ed18b8">   18</a></span>        std::string <a class="code hl_variable" href="structmoq_1_1transport_1_1_config.html#ad3d97537b925ab1d9b24651716ed18b8">endpoint_id</a>;                 </div>
-<div class="line"><a id="l00020" name="l00020"></a><span class="lineno">   20</span> </div>
-<div class="line"><a id="l00021" name="l00021"></a><span class="lineno"><a class="line" href="structmoq_1_1transport_1_1_config.html#a601e3853d4060db9a0c8b8998babebec">   21</a></span>        TransportConfig <a class="code hl_variable" href="structmoq_1_1transport_1_1_config.html#a601e3853d4060db9a0c8b8998babebec">transport_config</a>;</div>
-<div class="line"><a id="l00022" name="l00022"></a><span class="lineno"><a class="line" href="structmoq_1_1transport_1_1_config.html#ad11929434b5ddbb42c8765ea012a2478">   22</a></span>        uint64_t <a class="code hl_variable" href="structmoq_1_1transport_1_1_config.html#ad11929434b5ddbb42c8765ea012a2478">metrics_sample_ms</a> { 5000 };</div>
-<div class="line"><a id="l00023" name="l00023"></a><span class="lineno">   23</span>    };</div>
+<div class="foldopen" id="foldopen00014" data-start="{" data-end="};">
+<div class="line"><a id="l00014" name="l00014"></a><span class="lineno"><a class="line" href="structmoq_1_1_config.html">   14</a></span>    <span class="keyword">struct </span><a class="code hl_struct" href="structmoq_1_1_config.html">Config</a></div>
+<div class="line"><a id="l00015" name="l00015"></a><span class="lineno">   15</span>    {</div>
+<div class="line"><a id="l00016" name="l00016"></a><span class="lineno"><a class="line" href="structmoq_1_1_config.html#a0fbc5c91f891ad690e0df25c044e1b0a">   16</a></span>        std::string <a class="code hl_variable" href="structmoq_1_1_config.html#a0fbc5c91f891ad690e0df25c044e1b0a">endpoint_id</a>;                 </div>
+<div class="line"><a id="l00018" name="l00018"></a><span class="lineno">   18</span> </div>
+<div class="line"><a id="l00019" name="l00019"></a><span class="lineno"><a class="line" href="structmoq_1_1_config.html#affa4d4cd02482fc90ff7ee7a2b932a32">   19</a></span>        qtransport::TransportConfig <a class="code hl_variable" href="structmoq_1_1_config.html#affa4d4cd02482fc90ff7ee7a2b932a32">transport_config</a>;</div>
+<div class="line"><a id="l00020" name="l00020"></a><span class="lineno"><a class="line" href="structmoq_1_1_config.html#aad6de0f066fe064a92ed07e928534085">   20</a></span>        uint64_t <a class="code hl_variable" href="structmoq_1_1_config.html#aad6de0f066fe064a92ed07e928534085">metrics_sample_ms</a> { 5000 };</div>
+<div class="line"><a id="l00021" name="l00021"></a><span class="lineno">   21</span>    };</div>
 </div>
-<div class="line"><a id="l00024" name="l00024"></a><span class="lineno">   24</span> </div>
-<div class="foldopen" id="foldopen00025" data-start="{" data-end="};">
-<div class="line"><a id="l00025" name="l00025"></a><span class="lineno"><a class="line" href="structmoq_1_1transport_1_1_client_config.html">   25</a></span>    <span class="keyword">struct </span><a class="code hl_struct" href="structmoq_1_1transport_1_1_client_config.html">ClientConfig</a> : <a class="code hl_struct" href="structmoq_1_1transport_1_1_config.html">Config</a></div>
-<div class="line"><a id="l00026" name="l00026"></a><span class="lineno">   26</span>    {</div>
-<div class="line"><a id="l00027" name="l00027"></a><span class="lineno"><a class="line" href="structmoq_1_1transport_1_1_client_config.html#ab5f6640dc07d59c6fa890ff62f8997a1">   27</a></span>        std::string <a class="code hl_variable" href="structmoq_1_1transport_1_1_client_config.html#ab5f6640dc07d59c6fa890ff62f8997a1">moq_uri</a>;                     </div>
-<div class="line"><a id="l00028" name="l00028"></a><span class="lineno">   28</span>    };</div>
+<div class="line"><a id="l00022" name="l00022"></a><span class="lineno">   22</span> </div>
+<div class="foldopen" id="foldopen00023" data-start="{" data-end="};">
+<div class="line"><a id="l00023" name="l00023"></a><span class="lineno"><a class="line" href="structmoq_1_1_client_config.html">   23</a></span>    <span class="keyword">struct </span><a class="code hl_struct" href="structmoq_1_1_client_config.html">ClientConfig</a> : <a class="code hl_struct" href="structmoq_1_1_config.html">Config</a></div>
+<div class="line"><a id="l00024" name="l00024"></a><span class="lineno">   24</span>    {</div>
+<div class="line"><a id="l00025" name="l00025"></a><span class="lineno"><a class="line" href="structmoq_1_1_client_config.html#aa86fbb8fac3b7cae7137da382f8178dc">   25</a></span>        std::string <a class="code hl_variable" href="structmoq_1_1_client_config.html#aa86fbb8fac3b7cae7137da382f8178dc">connect_uri</a>;                </div>
+<div class="line"><a id="l00026" name="l00026"></a><span class="lineno">   26</span>    };</div>
 </div>
-<div class="line"><a id="l00029" name="l00029"></a><span class="lineno">   29</span> </div>
-<div class="foldopen" id="foldopen00030" data-start="{" data-end="};">
-<div class="line"><a id="l00030" name="l00030"></a><span class="lineno"><a class="line" href="structmoq_1_1transport_1_1_server_config.html">   30</a></span>    <span class="keyword">struct </span><a class="code hl_struct" href="structmoq_1_1transport_1_1_server_config.html">ServerConfig</a> : <a class="code hl_struct" href="structmoq_1_1transport_1_1_config.html">Config</a></div>
-<div class="line"><a id="l00031" name="l00031"></a><span class="lineno">   31</span>    {</div>
-<div class="line"><a id="l00032" name="l00032"></a><span class="lineno">   32</span> </div>
-<div class="line"><a id="l00033" name="l00033"></a><span class="lineno"><a class="line" href="structmoq_1_1transport_1_1_server_config.html#a2420bc70353ed61ceb43590bb9bb49e8">   33</a></span>        std::string <a class="code hl_variable" href="structmoq_1_1transport_1_1_server_config.html#a2420bc70353ed61ceb43590bb9bb49e8">server_bind_ip</a>;             </div>
-<div class="line"><a id="l00034" name="l00034"></a><span class="lineno"><a class="line" href="structmoq_1_1transport_1_1_server_config.html#adac5ac12304d90c235d53df7db6ca65f">   34</a></span>        uint16_t <a class="code hl_variable" href="structmoq_1_1transport_1_1_server_config.html#adac5ac12304d90c235d53df7db6ca65f">server_port</a>;                   </div>
-<div class="line"><a id="l00035" name="l00035"></a><span class="lineno">   35</span>    };</div>
+<div class="line"><a id="l00027" name="l00027"></a><span class="lineno">   27</span> </div>
+<div class="foldopen" id="foldopen00028" data-start="{" data-end="};">
+<div class="line"><a id="l00028" name="l00028"></a><span class="lineno"><a class="line" href="structmoq_1_1_server_config.html">   28</a></span>    <span class="keyword">struct </span><a class="code hl_struct" href="structmoq_1_1_server_config.html">ServerConfig</a> : <a class="code hl_struct" href="structmoq_1_1_config.html">Config</a></div>
+<div class="line"><a id="l00029" name="l00029"></a><span class="lineno">   29</span>    {</div>
+<div class="line"><a id="l00030" name="l00030"></a><span class="lineno">   30</span> </div>
+<div class="line"><a id="l00031" name="l00031"></a><span class="lineno"><a class="line" href="structmoq_1_1_server_config.html#a0e8a0b5c17d459858efd35c96c8e362f">   31</a></span>        std::string <a class="code hl_variable" href="structmoq_1_1_server_config.html#a0e8a0b5c17d459858efd35c96c8e362f">server_bind_ip</a>;             </div>
+<div class="line"><a id="l00033" name="l00033"></a><span class="lineno"><a class="line" href="structmoq_1_1_server_config.html#a5d798902f64b9747e5bf7b1fcef2db6a">   33</a></span>        uint16_t <a class="code hl_variable" href="structmoq_1_1_server_config.html#a5d798902f64b9747e5bf7b1fcef2db6a">server_port</a>;                   </div>
+<div class="line"><a id="l00034" name="l00034"></a><span class="lineno">   34</span>    };</div>
 </div>
-<div class="line"><a id="l00036" name="l00036"></a><span class="lineno">   36</span> </div>
-<div class="line"><a id="l00037" name="l00037"></a><span class="lineno">   37</span>} <span class="comment">// namespace moq::transport</span></div>
-<div class="ttc" id="anamespacemoq_1_1transport_html"><div class="ttname"><a href="namespacemoq_1_1transport.html">moq::transport</a></div><div class="ttdef"><b>Definition</b> transport.h:23</div></div>
-<div class="ttc" id="astructmoq_1_1transport_1_1_client_config_html"><div class="ttname"><a href="structmoq_1_1transport_1_1_client_config.html">moq::transport::ClientConfig</a></div><div class="ttdef"><b>Definition</b> config.h:26</div></div>
-<div class="ttc" id="astructmoq_1_1transport_1_1_client_config_html_ab5f6640dc07d59c6fa890ff62f8997a1"><div class="ttname"><a href="structmoq_1_1transport_1_1_client_config.html#ab5f6640dc07d59c6fa890ff62f8997a1">moq::transport::ClientConfig::moq_uri</a></div><div class="ttdeci">std::string moq_uri</div><div class="ttdoc">MoQT URI such as moqt://relay[:port][/path?query].</div><div class="ttdef"><b>Definition</b> config.h:27</div></div>
-<div class="ttc" id="astructmoq_1_1transport_1_1_config_html"><div class="ttname"><a href="structmoq_1_1transport_1_1_config.html">moq::transport::Config</a></div><div class="ttdef"><b>Definition</b> config.h:17</div></div>
-<div class="ttc" id="astructmoq_1_1transport_1_1_config_html_a601e3853d4060db9a0c8b8998babebec"><div class="ttname"><a href="structmoq_1_1transport_1_1_config.html#a601e3853d4060db9a0c8b8998babebec">moq::transport::Config::transport_config</a></div><div class="ttdeci">TransportConfig transport_config</div><div class="ttdef"><b>Definition</b> config.h:21</div></div>
-<div class="ttc" id="astructmoq_1_1transport_1_1_config_html_ad11929434b5ddbb42c8765ea012a2478"><div class="ttname"><a href="structmoq_1_1transport_1_1_config.html#ad11929434b5ddbb42c8765ea012a2478">moq::transport::Config::metrics_sample_ms</a></div><div class="ttdeci">uint64_t metrics_sample_ms</div><div class="ttdef"><b>Definition</b> config.h:22</div></div>
-<div class="ttc" id="astructmoq_1_1transport_1_1_config_html_ad3d97537b925ab1d9b24651716ed18b8"><div class="ttname"><a href="structmoq_1_1transport_1_1_config.html#ad3d97537b925ab1d9b24651716ed18b8">moq::transport::Config::endpoint_id</a></div><div class="ttdeci">std::string endpoint_id</div><div class="ttdoc">working to add to protocol: https://github.com/moq-wg/moq-transport/issues/461</div><div class="ttdef"><b>Definition</b> config.h:18</div></div>
-<div class="ttc" id="astructmoq_1_1transport_1_1_server_config_html"><div class="ttname"><a href="structmoq_1_1transport_1_1_server_config.html">moq::transport::ServerConfig</a></div><div class="ttdef"><b>Definition</b> config.h:31</div></div>
-<div class="ttc" id="astructmoq_1_1transport_1_1_server_config_html_a2420bc70353ed61ceb43590bb9bb49e8"><div class="ttname"><a href="structmoq_1_1transport_1_1_server_config.html#a2420bc70353ed61ceb43590bb9bb49e8">moq::transport::ServerConfig::server_bind_ip</a></div><div class="ttdeci">std::string server_bind_ip</div><div class="ttdoc">IP address to bind to, can be 0.0.0.0.</div><div class="ttdef"><b>Definition</b> config.h:33</div></div>
-<div class="ttc" id="astructmoq_1_1transport_1_1_server_config_html_adac5ac12304d90c235d53df7db6ca65f"><div class="ttname"><a href="structmoq_1_1transport_1_1_server_config.html#adac5ac12304d90c235d53df7db6ca65f">moq::transport::ServerConfig::server_port</a></div><div class="ttdeci">uint16_t server_port</div><div class="ttdoc">Listening port for server.</div><div class="ttdef"><b>Definition</b> config.h:34</div></div>
+<div class="line"><a id="l00035" name="l00035"></a><span class="lineno">   35</span> </div>
+<div class="line"><a id="l00036" name="l00036"></a><span class="lineno">   36</span>} <span class="comment">// namespace moq</span></div>
+<div class="ttc" id="anamespacemoq_html"><div class="ttname"><a href="namespacemoq.html">moq</a></div><div class="ttdef"><b>Definition</b> common.h:12</div></div>
+<div class="ttc" id="astructmoq_1_1_client_config_html"><div class="ttname"><a href="structmoq_1_1_client_config.html">moq::ClientConfig</a></div><div class="ttdef"><b>Definition</b> config.h:24</div></div>
+<div class="ttc" id="astructmoq_1_1_client_config_html_aa86fbb8fac3b7cae7137da382f8178dc"><div class="ttname"><a href="structmoq_1_1_client_config.html#aa86fbb8fac3b7cae7137da382f8178dc">moq::ClientConfig::connect_uri</a></div><div class="ttdeci">std::string connect_uri</div><div class="ttdoc">URI such as moqt://relay[:port][/path?query].</div><div class="ttdef"><b>Definition</b> config.h:25</div></div>
+<div class="ttc" id="astructmoq_1_1_config_html"><div class="ttname"><a href="structmoq_1_1_config.html">moq::Config</a></div><div class="ttdef"><b>Definition</b> config.h:15</div></div>
+<div class="ttc" id="astructmoq_1_1_config_html_a0fbc5c91f891ad690e0df25c044e1b0a"><div class="ttname"><a href="structmoq_1_1_config.html#a0fbc5c91f891ad690e0df25c044e1b0a">moq::Config::endpoint_id</a></div><div class="ttdeci">std::string endpoint_id</div><div class="ttdef"><b>Definition</b> config.h:16</div></div>
+<div class="ttc" id="astructmoq_1_1_config_html_aad6de0f066fe064a92ed07e928534085"><div class="ttname"><a href="structmoq_1_1_config.html#aad6de0f066fe064a92ed07e928534085">moq::Config::metrics_sample_ms</a></div><div class="ttdeci">uint64_t metrics_sample_ms</div><div class="ttdef"><b>Definition</b> config.h:20</div></div>
+<div class="ttc" id="astructmoq_1_1_config_html_affa4d4cd02482fc90ff7ee7a2b932a32"><div class="ttname"><a href="structmoq_1_1_config.html#affa4d4cd02482fc90ff7ee7a2b932a32">moq::Config::transport_config</a></div><div class="ttdeci">qtransport::TransportConfig transport_config</div><div class="ttdef"><b>Definition</b> config.h:19</div></div>
+<div class="ttc" id="astructmoq_1_1_server_config_html"><div class="ttname"><a href="structmoq_1_1_server_config.html">moq::ServerConfig</a></div><div class="ttdef"><b>Definition</b> config.h:29</div></div>
+<div class="ttc" id="astructmoq_1_1_server_config_html_a0e8a0b5c17d459858efd35c96c8e362f"><div class="ttname"><a href="structmoq_1_1_server_config.html#a0e8a0b5c17d459858efd35c96c8e362f">moq::ServerConfig::server_bind_ip</a></div><div class="ttdeci">std::string server_bind_ip</div><div class="ttdef"><b>Definition</b> config.h:31</div></div>
+<div class="ttc" id="astructmoq_1_1_server_config_html_a5d798902f64b9747e5bf7b1fcef2db6a"><div class="ttname"><a href="structmoq_1_1_server_config.html#a5d798902f64b9747e5bf7b1fcef2db6a">moq::ServerConfig::server_port</a></div><div class="ttdeci">uint16_t server_port</div><div class="ttdoc">Listening port for server.</div><div class="ttdef"><b>Definition</b> config.h:33</div></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="navelem"><a class="el" href="dir_d44c64559bbebec7f509842c48db8b23.html">include</a></li><li class="navelem"><a class="el" href="dir_5f5250bf2607f7aa76f3b05933e5af7d.html">moqt</a></li><li class="navelem"><a class="el" href="config_8h.html">config.h</a></li>
+    <li class="navelem"><a class="el" href="dir_d44c64559bbebec7f509842c48db8b23.html">include</a></li><li class="navelem"><a class="el" href="dir_808f6d770dd5c1941f29ade306711581.html">moq</a></li><li class="navelem"><a class="el" href="config_8h.html">config.h</a></li>
     <li class="footer">Generated by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.11.0 </li>
   </ul>
 </div>

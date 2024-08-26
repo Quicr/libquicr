@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['endpoint_5fid_0',['endpoint_id',['../structmoq_1_1transport_1_1_client_setup_attributes.html#a92fa6df0fba9890832a378c51926e4d7',1,'moq::transport::ClientSetupAttributes::endpoint_id'],['../structmoq_1_1transport_1_1_config.html#ad3d97537b925ab1d9b24651716ed18b8',1,'moq::transport::Config::endpoint_id']]],
-  ['error_1',['Error',['../classmoq_1_1transport_1_1_subscribe_track_handler.html#a0b6c05648e066aca89661463965ae68e',1,'moq::transport::SubscribeTrackHandler']]]
+  ['endpoint_5fid_0',['endpoint_id',['../structmoq_1_1_client_setup_attributes.html#ae7afb1cc7f121e58216093b10e1bc387',1,'moq::ClientSetupAttributes::endpoint_id'],['../structmoq_1_1_config.html#a0fbc5c91f891ad690e0df25c044e1b0a',1,'moq::Config::endpoint_id']]],
+  ['error_1',['Error',['../classmoq_1_1_subscribe_track_handler.html#a76b43b25d6ec3b57cf1499b6ba4fdca3',1,'moq::SubscribeTrackHandler']]]
 ];

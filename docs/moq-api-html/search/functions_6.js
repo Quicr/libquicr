@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['newconnection_0',['NewConnection',['../classmoq_1_1transport_1_1_server.html#a0261a9adcd954fac332ecdf4b5afb8d9',1,'moq::transport::Server']]]
+  ['objectreceived_0',['ObjectReceived',['../classmoq_1_1_subscribe_track_handler.html#a495d8908a970abf7309753ab7ab922a0',1,'moq::SubscribeTrackHandler']]]
 ];

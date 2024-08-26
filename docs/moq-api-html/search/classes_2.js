@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['fulltrackname_0',['FullTrackName',['../structmoq_1_1transport_1_1_full_track_name.html',1,'moq::transport']]]
+  ['quic_0',['Quic',['../structmoq_1_1_connection_metrics_1_1_quic.html',1,'moq::ConnectionMetrics::Quic'],['../structmoq_1_1_publish_track_metrics_1_1_quic.html',1,'moq::PublishTrackMetrics::Quic']]]
 ];
