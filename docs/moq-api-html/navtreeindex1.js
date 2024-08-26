@@ -1,5 +1,7 @@
 var NAVTREEINDEX1 =
 {
+"classmoq_1_1transport_1_1_transport.html#af43aafd345b5c27044c986fd45789646":[1,0,0,0,18,5],
+"classmoq_1_1transport_1_1_transport.html#af43aafd345b5c27044c986fd45789646":[2,0,0,0,18,5],
 "client_8h.html":[3,0,1,0,1],
 "client_8h_source.html":[3,0,1,0,1],
 "common_8h.html":[3,0,1,0,2],
@@ -130,8 +132,6 @@ var NAVTREEINDEX1 =
 "structmoq_1_1transport_1_1_full_track_name.html#ace7daa172ef24e62a4cdbb988bdd16c7":[2,0,0,0,6,0],
 "structmoq_1_1transport_1_1_object_headers.html":[1,0,0,0,7],
 "structmoq_1_1transport_1_1_object_headers.html":[2,0,0,0,7],
-"structmoq_1_1transport_1_1_object_headers.html#a0ff3c116392d19d14dc13ac9fe953016":[1,0,0,0,7,3],
-"structmoq_1_1transport_1_1_object_headers.html#a0ff3c116392d19d14dc13ac9fe953016":[2,0,0,0,7,3],
 "structmoq_1_1transport_1_1_object_headers.html#a43102aeac4ebc258f1aa032ae500b617":[1,0,0,0,7,2],
 "structmoq_1_1transport_1_1_object_headers.html#a43102aeac4ebc258f1aa032ae500b617":[2,0,0,0,7,2],
 "structmoq_1_1transport_1_1_object_headers.html#a5b9cde3bcb559087f2e58f9ee43428b3":[1,0,0,0,7,0],
@@ -140,6 +140,8 @@ var NAVTREEINDEX1 =
 "structmoq_1_1transport_1_1_object_headers.html#a7aa0b2056ecd0172cc27659bcb025c86":[2,0,0,0,7,1],
 "structmoq_1_1transport_1_1_object_headers.html#a9eb7a6a2c8105eae93d998da34e89094":[1,0,0,0,7,4],
 "structmoq_1_1transport_1_1_object_headers.html#a9eb7a6a2c8105eae93d998da34e89094":[2,0,0,0,7,4],
+"structmoq_1_1transport_1_1_object_headers.html#ad5718ca64239bb95028085adcd3a717a":[1,0,0,0,7,3],
+"structmoq_1_1transport_1_1_object_headers.html#ad5718ca64239bb95028085adcd3a717a":[2,0,0,0,7,3],
 "structmoq_1_1transport_1_1_publish_announce_attributes.html":[1,0,0,0,8],
 "structmoq_1_1transport_1_1_publish_announce_attributes.html":[2,0,0,0,8],
 "structmoq_1_1transport_1_1_publish_track_metrics.html":[1,0,0,0,10],

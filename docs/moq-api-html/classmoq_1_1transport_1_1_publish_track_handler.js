@@ -28,12 +28,12 @@ var classmoq_1_1transport_1_1_publish_track_handler =
     [ "PublishTrackHandler", "classmoq_1_1transport_1_1_publish_track_handler.html#afa7912c4b726343771093e0b95de858c", null ],
     [ "PublishTrackHandler", "classmoq_1_1transport_1_1_publish_track_handler.html#ab83d866be9c7e1ecc9e617160464dfe9", null ],
     [ "GetStatus", "classmoq_1_1transport_1_1_publish_track_handler.html#ae293712df5916126b5c497401895e2bf", null ],
-    [ "MetricsSampled", "classmoq_1_1transport_1_1_publish_track_handler.html#aed9d8369a8bd95d20b546da1108da39d", null ],
+    [ "MetricsSampled", "classmoq_1_1transport_1_1_publish_track_handler.html#a85a38942051d80f78295cabfd4651305", null ],
     [ "PublishContinuationData", "classmoq_1_1transport_1_1_publish_track_handler.html#af1ade700459404be05a873891fc9bcae", null ],
     [ "PublishObject", "classmoq_1_1transport_1_1_publish_track_handler.html#aea2f5f7415e0bbb30154c692f0ac2888", null ],
     [ "SetDefaultPriority", "classmoq_1_1transport_1_1_publish_track_handler.html#a0ef0383150c5cbd1962a730b7273a4ec", null ],
     [ "SetDefaultTTL", "classmoq_1_1transport_1_1_publish_track_handler.html#aa3eecea82f1c00035a6e9129a965c80b", null ],
-    [ "StatusChanged", "classmoq_1_1transport_1_1_publish_track_handler.html#a5f2318aef8021772958a7e475d63314a", null ],
+    [ "StatusChanged", "classmoq_1_1transport_1_1_publish_track_handler.html#aeb66d626243155f592264888d1853ead", null ],
     [ "Transport", "classmoq_1_1transport_1_1_publish_track_handler.html#a3d2e8a0836666771da7b79c3f6bc9ae0", null ],
     [ "publish_track_metrics_", "classmoq_1_1transport_1_1_publish_track_handler.html#a2efb542d8293583ba5771a5892f5ad63", null ]
 ];

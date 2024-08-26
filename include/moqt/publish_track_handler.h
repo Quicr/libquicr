@@ -105,7 +105,7 @@ namespace moq::transport {
          *
          * @param status        Indicates the status of being able to publish
          */
-        virtual void StatusChanged(PublishTrackHandler::Status status) = 0;
+        virtual void StatusChanged(PublishTrackHandler::Status status) {}
 
 
         /**
@@ -117,7 +117,7 @@ namespace moq::transport {
          *
          * @param metrics           Copy of the published metrics for the sample period
          */
-        virtual void MetricsSampled(const PublishTrackMetrics&& metrics)  = 0;
+        virtual void MetricsSampled(const PublishTrackMetrics&& metrics) {}
 
         // --------------------------------------------------------------------------
         // Various getter/setters

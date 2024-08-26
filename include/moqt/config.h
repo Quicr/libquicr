@@ -16,6 +16,8 @@ namespace moq::transport {
     struct Config
     {
         std::string endpoint_id;                 ///< Endpoint ID for the client or server, should be unique
+                                 ///< working to add to protocol: https://github.com/moq-wg/moq-transport/issues/461
+
         TransportConfig transport_config;
         uint64_t metrics_sample_ms { 5000 };
     };

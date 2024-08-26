@@ -101,7 +101,7 @@ $(function(){initNavTree('classmoq_1_1transport_1_1_client.html',''); initResiza
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="classmoq_1_1transport_1_1_client-members.html">List of all members</a>  </div>
-  <div class="headertitle"><div class="title">moq::transport::Client Class Reference<span class="mlabels"><span class="mlabel">abstract</span></span></div></div>
+  <div class="headertitle"><div class="title">moq::transport::Client Class Reference</div></div>
 </div><!--header-->
 <div class="contents">
 
@@ -129,24 +129,24 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ad4f8573afa71b1eb7d52975a5cab41c9" id="r_ad4f8573afa71b1eb7d52975a5cab41c9"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95f">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad4f8573afa71b1eb7d52975a5cab41c9">Connect</a> ()</td></tr>
 <tr class="memdesc:ad4f8573afa71b1eb7d52975a5cab41c9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Starts a client connection via a transport thread (non-blocking)  <br /></td></tr>
 <tr class="separator:ad4f8573afa71b1eb7d52975a5cab41c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4a19ae4f8e379b1f3436b49cf4e198a3" id="r_a4a19ae4f8e379b1f3436b49cf4e198a3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4a19ae4f8e379b1f3436b49cf4e198a3">Disconnect</a> ()</td></tr>
-<tr class="memdesc:a4a19ae4f8e379b1f3436b49cf4e198a3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Disconnect the client connection gracefully (blocking)  <br /></td></tr>
-<tr class="separator:a4a19ae4f8e379b1f3436b49cf4e198a3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad8b4b128e9d939586ae9611cb0e16cbd" id="r_ad8b4b128e9d939586ae9611cb0e16cbd"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad8b4b128e9d939586ae9611cb0e16cbd">ConnectionChanged</a> (TransportStatus status)=0</td></tr>
-<tr class="memdesc:ad8b4b128e9d939586ae9611cb0e16cbd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for connection status/state change.  <br /></td></tr>
-<tr class="separator:ad8b4b128e9d939586ae9611cb0e16cbd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa080af86071a1ff407a3b0fecc6b45e9" id="r_aa080af86071a1ff407a3b0fecc6b45e9"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa080af86071a1ff407a3b0fecc6b45e9">ServerSetup</a> (const <a class="el" href="structmoq_1_1transport_1_1_server_setup_attributes.html">ServerSetupAttributes</a> &amp;server_setup_attributes)=0</td></tr>
-<tr class="memdesc:aa080af86071a1ff407a3b0fecc6b45e9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on server setup message.  <br /></td></tr>
-<tr class="separator:aa080af86071a1ff407a3b0fecc6b45e9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae3d943a77b869b1eb7d8bf784e415a73" id="r_ae3d943a77b869b1eb7d8bf784e415a73"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacemoq_1_1transport.html#ae665f50333982e338608c1a1b2113171">PublishAnnounceStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae3d943a77b869b1eb7d8bf784e415a73">AnnounceStatusChanged</a> (const <a class="el" href="namespacemoq_1_1transport.html#af86ede8e517199e4255fd1bea76fed21">TrackNamespace</a> &amp;track_namespace)=0</td></tr>
-<tr class="memdesc:ae3d943a77b869b1eb7d8bf784e415a73"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification on publish announcement status change.  <br /></td></tr>
-<tr class="separator:ae3d943a77b869b1eb7d8bf784e415a73"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9b5122960cdee1e53adec441edf09c97" id="r_a9b5122960cdee1e53adec441edf09c97"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9b5122960cdee1e53adec441edf09c97">UnpublishedSubscribeReceived</a> (const <a class="el" href="structmoq_1_1transport_1_1_full_track_name.html">FullTrackName</a> &amp;track_full_name, const <a class="el" href="structmoq_1_1transport_1_1_subscribe_attributes.html">SubscribeAttributes</a> &amp;subscribe_attributes)=0</td></tr>
-<tr class="memdesc:a9b5122960cdee1e53adec441edf09c97"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new subscribe received that doesn't match an existing publish track.  <br /></td></tr>
-<tr class="separator:a9b5122960cdee1e53adec441edf09c97"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aadbf35f7f86e3001e9742bce4f1f3bf5" id="r_aadbf35f7f86e3001e9742bce4f1f3bf5"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aadbf35f7f86e3001e9742bce4f1f3bf5">MetricsSampled</a> (const <a class="el" href="structmoq_1_1transport_1_1_connection_metrics.html">ConnectionMetrics</a> &amp;&amp;metrics)=0</td></tr>
-<tr class="memdesc:aadbf35f7f86e3001e9742bce4f1f3bf5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification callback to provide sampled metrics.  <br /></td></tr>
-<tr class="separator:aadbf35f7f86e3001e9742bce4f1f3bf5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acb4251a5c4870432a387276209deb394" id="r_acb4251a5c4870432a387276209deb394"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95f">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#acb4251a5c4870432a387276209deb394">Disconnect</a> ()</td></tr>
+<tr class="memdesc:acb4251a5c4870432a387276209deb394"><td class="mdescLeft">&#160;</td><td class="mdescRight">Disconnect the client connection gracefully (non-blocking)  <br /></td></tr>
+<tr class="separator:acb4251a5c4870432a387276209deb394"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab0760f818436ee6a2b66d5ad293875e8" id="r_ab0760f818436ee6a2b66d5ad293875e8"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab0760f818436ee6a2b66d5ad293875e8">ConnectionChanged</a> (TransportStatus status)</td></tr>
+<tr class="memdesc:ab0760f818436ee6a2b66d5ad293875e8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for connection status/state change.  <br /></td></tr>
+<tr class="separator:ab0760f818436ee6a2b66d5ad293875e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9d3a052efeb2f5175436e2b594368d95" id="r_a9d3a052efeb2f5175436e2b594368d95"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9d3a052efeb2f5175436e2b594368d95">ServerSetup</a> (const <a class="el" href="structmoq_1_1transport_1_1_server_setup_attributes.html">ServerSetupAttributes</a> &amp;server_setup_attributes)</td></tr>
+<tr class="memdesc:a9d3a052efeb2f5175436e2b594368d95"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on server setup message.  <br /></td></tr>
+<tr class="separator:a9d3a052efeb2f5175436e2b594368d95"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1ebedd10ac3b015da2503c240f78811a" id="r_a1ebedd10ac3b015da2503c240f78811a"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacemoq_1_1transport.html#ae665f50333982e338608c1a1b2113171">PublishAnnounceStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a1ebedd10ac3b015da2503c240f78811a">AnnounceStatusChanged</a> (const <a class="el" href="namespacemoq_1_1transport.html#af86ede8e517199e4255fd1bea76fed21">TrackNamespace</a> &amp;track_namespace)</td></tr>
+<tr class="memdesc:a1ebedd10ac3b015da2503c240f78811a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification on publish announcement status change.  <br /></td></tr>
+<tr class="separator:a1ebedd10ac3b015da2503c240f78811a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaf905fb982b1e0c3e707f1fa5bbded4f" id="r_aaf905fb982b1e0c3e707f1fa5bbded4f"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aaf905fb982b1e0c3e707f1fa5bbded4f">UnpublishedSubscribeReceived</a> (const <a class="el" href="structmoq_1_1transport_1_1_full_track_name.html">FullTrackName</a> &amp;track_full_name, const <a class="el" href="structmoq_1_1transport_1_1_subscribe_attributes.html">SubscribeAttributes</a> &amp;subscribe_attributes)</td></tr>
+<tr class="memdesc:aaf905fb982b1e0c3e707f1fa5bbded4f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new subscribe received that doesn't match an existing publish track.  <br /></td></tr>
+<tr class="separator:aaf905fb982b1e0c3e707f1fa5bbded4f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af530dc6274932f927018ffd70848fa99" id="r_af530dc6274932f927018ffd70848fa99"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#af530dc6274932f927018ffd70848fa99">MetricsSampled</a> (const <a class="el" href="structmoq_1_1transport_1_1_connection_metrics.html">ConnectionMetrics</a> &amp;&amp;metrics)</td></tr>
+<tr class="memdesc:af530dc6274932f927018ffd70848fa99"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification callback to provide sampled metrics.  <br /></td></tr>
+<tr class="separator:af530dc6274932f927018ffd70848fa99"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classmoq_1_1transport_1_1_transport"><td colspan="2" onclick="javascript:dynsection.toggleInherit('pub_methods_classmoq_1_1transport_1_1_transport')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classmoq_1_1transport_1_1_transport.html">moq::transport::Transport</a></td></tr>
 <tr class="memitem:a93c38be09ca30fe1f3599dbd2f641c04 inherit pub_methods_classmoq_1_1transport_1_1_transport" id="r_a93c38be09ca30fe1f3599dbd2f641c04"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a93c38be09ca30fe1f3599dbd2f641c04">Transport</a> ()=delete</td></tr>
 <tr class="separator:a93c38be09ca30fe1f3599dbd2f641c04 inherit pub_methods_classmoq_1_1transport_1_1_transport"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -208,6 +208,7 @@ Additional Inherited Members</h2></td></tr>
 , <a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa71aef956fd9cddbf4828a62cdb0e0054">kInvalidParams</a>
 , <br />
 &#160;&#160;<a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa187b89e08078bd1db68d86de88038285">kClientConnecting</a>
+, <a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa7c92b98495ae8a8b8dad3b3213bb7a7d">kDisconnecting</a>
 , <a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fabb1e61c81d527a44c5336ea61f741703">kClientNotConnected</a>
 , <a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa0f5e17046fb4ddeee5de0b632f3c38c2">kClientFailedToConnect</a>
 <br />
@@ -281,8 +282,8 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="ae3d943a77b869b1eb7d8bf784e415a73" name="ae3d943a77b869b1eb7d8bf784e415a73"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae3d943a77b869b1eb7d8bf784e415a73">&#9670;&#160;</a></span>AnnounceStatusChanged()</h2>
+<a id="a1ebedd10ac3b015da2503c240f78811a" name="a1ebedd10ac3b015da2503c240f78811a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1ebedd10ac3b015da2503c240f78811a">&#9670;&#160;</a></span>AnnounceStatusChanged()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -299,7 +300,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">virtual</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -337,8 +338,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="ad8b4b128e9d939586ae9611cb0e16cbd" name="ad8b4b128e9d939586ae9611cb0e16cbd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad8b4b128e9d939586ae9611cb0e16cbd">&#9670;&#160;</a></span>ConnectionChanged()</h2>
+<a id="ab0760f818436ee6a2b66d5ad293875e8" name="ab0760f818436ee6a2b66d5ad293875e8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab0760f818436ee6a2b66d5ad293875e8">&#9670;&#160;</a></span>ConnectionChanged()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -355,7 +356,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">virtual</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -371,14 +372,14 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a4a19ae4f8e379b1f3436b49cf4e198a3" name="a4a19ae4f8e379b1f3436b49cf4e198a3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4a19ae4f8e379b1f3436b49cf4e198a3">&#9670;&#160;</a></span>Disconnect()</h2>
+<a id="acb4251a5c4870432a387276209deb394" name="acb4251a5c4870432a387276209deb394"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acb4251a5c4870432a387276209deb394">&#9670;&#160;</a></span>Disconnect()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void moq::transport::Client::Disconnect </td>
+          <td class="memname"><a class="el" href="classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95f">Status</a> moq::transport::Client::Disconnect </td>
           <td>(</td>
           <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
           <td></td>
@@ -386,8 +387,9 @@ Additional Inherited Members</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Disconnect the client connection gracefully (blocking) </p>
-<p>Unsubscribes and unpublishes all remaining active ones, sends MoQT control messages for those and then closes the QUIC connection gracefully. Stops the transport thread. The class destructor calls this method as well. Status will be updated to reflect not connected. </p>
+<p>Disconnect the client connection gracefully (non-blocking) </p>
+<p>Unsubscribes and unpublishes all remaining active ones, sends MoQT control messages for those and then closes the QUIC connection gracefully. Stops the transport thread. The class destructor calls this method as well. Status will be updated to reflect not connected.</p>
+<dl class="section return"><dt>Returns</dt><dd>Status of kDisconnecting </dd></dl>
 
 </div>
 </div>
@@ -425,8 +427,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="aadbf35f7f86e3001e9742bce4f1f3bf5" name="aadbf35f7f86e3001e9742bce4f1f3bf5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aadbf35f7f86e3001e9742bce4f1f3bf5">&#9670;&#160;</a></span>MetricsSampled()</h2>
+<a id="af530dc6274932f927018ffd70848fa99" name="af530dc6274932f927018ffd70848fa99"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af530dc6274932f927018ffd70848fa99">&#9670;&#160;</a></span>MetricsSampled()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -443,7 +445,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">virtual</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -564,8 +566,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="aa080af86071a1ff407a3b0fecc6b45e9" name="aa080af86071a1ff407a3b0fecc6b45e9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa080af86071a1ff407a3b0fecc6b45e9">&#9670;&#160;</a></span>ServerSetup()</h2>
+<a id="a9d3a052efeb2f5175436e2b594368d95" name="a9d3a052efeb2f5175436e2b594368d95"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9d3a052efeb2f5175436e2b594368d95">&#9670;&#160;</a></span>ServerSetup()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -582,7 +584,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">virtual</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -632,8 +634,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a9b5122960cdee1e53adec441edf09c97" name="a9b5122960cdee1e53adec441edf09c97"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9b5122960cdee1e53adec441edf09c97">&#9670;&#160;</a></span>UnpublishedSubscribeReceived()</h2>
+<a id="aaf905fb982b1e0c3e707f1fa5bbded4f" name="aaf905fb982b1e0c3e707f1fa5bbded4f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaf905fb982b1e0c3e707f1fa5bbded4f">&#9670;&#160;</a></span>UnpublishedSubscribeReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -654,7 +656,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">virtual</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">

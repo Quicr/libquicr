@@ -42,6 +42,7 @@ namespace moq::transport {
             kInvalidParams,
 
             kClientConnecting,
+            kDisconnecting,
             kClientNotConnected,
             kClientFailedToConnect
         };

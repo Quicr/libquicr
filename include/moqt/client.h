@@ -46,13 +46,15 @@ namespace moq::transport {
         Status Connect();
 
         /**
-         * @brief Disconnect the client connection gracefully (blocking)
+         * @brief Disconnect the client connection gracefully (non-blocking)
          *
          * @details Unsubscribes and unpublishes all remaining active ones, sends MoQT control messages
          *   for those and then closes the QUIC connection gracefully. Stops the transport thread. The class
          *   destructor calls this method as well. Status will be updated to reflect not connected.
+         *
+         * @return Status of kDisconnecting
          */
-        void Disconnect();
+        Status Disconnect();
 
         /**
          * @brief Callback notification for connection status/state change
@@ -60,7 +62,7 @@ namespace moq::transport {
          *
          * @param status           Transport status of connection id
          */
-        virtual void ConnectionChanged(TransportStatus status) = 0;
+        virtual void ConnectionChanged(TransportStatus status) {}
 
         /**
          * @brief Callback on server setup message
@@ -69,7 +71,7 @@ namespace moq::transport {
          *
          * @param server_setup_attributes     Server setup attributes received
          */
-        virtual void ServerSetup(const ServerSetupAttributes& server_setup_attributes) = 0;
+        virtual void ServerSetup(const ServerSetupAttributes& server_setup_attributes) {}
 
         /**
          * @brief Notification on publish announcement status change
@@ -80,7 +82,7 @@ namespace moq::transport {
          *
          * @return PublishAnnounceStatus of the namespace
          */
-        virtual PublishAnnounceStatus AnnounceStatusChanged(const TrackNamespace& track_namespace) = 0;
+        virtual PublishAnnounceStatus AnnounceStatusChanged(const TrackNamespace& track_namespace) {}
 
         /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
@@ -99,7 +101,7 @@ namespace moq::transport {
          *      the subscribe and will not publish.
          */
         virtual bool UnpublishedSubscribeReceived(const FullTrackName& track_full_name,
-                                                  const SubscribeAttributes& subscribe_attributes) = 0;
+                                                  const SubscribeAttributes& subscribe_attributes) {}
 
         /**
          * @brief Notification callback to provide sampled metrics
@@ -110,7 +112,7 @@ namespace moq::transport {
          *
          * @param metrics           Copy of the connection metrics for the sample period
          */
-        virtual void MetricsSampled(const ConnectionMetrics&& metrics) = 0;
+        virtual void MetricsSampled(const ConnectionMetrics&& metrics) {}
 
       protected:
         /**

@@ -6,6 +6,7 @@ var classmoq_1_1transport_1_1_transport =
       [ "kInternalError", "classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fafcd417a134c251034b0d61b07c826394", null ],
       [ "kInvalidParams", "classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa71aef956fd9cddbf4828a62cdb0e0054", null ],
       [ "kClientConnecting", "classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa187b89e08078bd1db68d86de88038285", null ],
+      [ "kDisconnecting", "classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa7c92b98495ae8a8b8dad3b3213bb7a7d", null ],
       [ "kClientNotConnected", "classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fabb1e61c81d527a44c5336ea61f741703", null ],
       [ "kClientFailedToConnect", "classmoq_1_1transport_1_1_transport.html#a8c76c8e60a77de1e1e8700f29a48a95fa0f5e17046fb4ddeee5de0b632f3c38c2", null ]
     ] ],

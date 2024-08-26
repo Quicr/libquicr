@@ -113,7 +113,7 @@ namespace moq::transport {
          */
         virtual void PartialObjectReceived(const ObjectHeaders& object_headers,
                                            Span<uint8_t> data,
-                                           TrackMode track_mode) {};
+                                           TrackMode track_mode) {}
 
         /**
          * @brief Notification of subscribe status
@@ -122,7 +122,7 @@ namespace moq::transport {
          *
          * @param status        Indicates status of the subscribe
          */
-        virtual void StatusChanged(Status status) = 0;
+        virtual void StatusChanged(Status status) {}
 
         /**
          * @brief Notification callback to provide sampled metrics
@@ -133,7 +133,7 @@ namespace moq::transport {
          *
          * @param metrics           Copy of the subscribed metrics for the sample period
          */
-        virtual void MetricsSampled(const SubscribeTrackMetrics&& metrics)  = 0;
+        virtual void MetricsSampled(const SubscribeTrackMetrics&& metrics) {}
 
         // --------------------------------------------------------------------------
         // Metrics

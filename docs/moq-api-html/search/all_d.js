@@ -2,7 +2,7 @@ var searchData=
 [
   ['partialobjectreceived_0',['PartialObjectReceived',['../classmoq_1_1transport_1_1_subscribe_track_handler.html#af6d6a5ae8fec813fc8af548993a17b1f',1,'moq::transport::SubscribeTrackHandler']]],
   ['payload_5flength_1',['payload_length',['../structmoq_1_1transport_1_1_object_headers.html#a43102aeac4ebc258f1aa032ae500b617',1,'moq::transport::ObjectHeaders']]],
-  ['priority_2',['priority',['../structmoq_1_1transport_1_1_object_headers.html#a0ff3c116392d19d14dc13ac9fe953016',1,'moq::transport::ObjectHeaders']]],
+  ['priority_2',['priority',['../structmoq_1_1transport_1_1_object_headers.html#ad5718ca64239bb95028085adcd3a717a',1,'moq::transport::ObjectHeaders']]],
   ['publish_5ftrack_5fhandler_2eh_3',['publish_track_handler.h',['../publish__track__handler_8h.html',1,'']]],
   ['publish_5ftrack_5fmetrics_5f_4',['publish_track_metrics_',['../classmoq_1_1transport_1_1_publish_track_handler.html#a2efb542d8293583ba5771a5892f5ad63',1,'moq::transport::PublishTrackHandler']]],
   ['publishannounce_5',['PublishAnnounce',['../classmoq_1_1transport_1_1_client.html#a9c219e1e4542294150c078da06b9df06',1,'moq::transport::Client']]],

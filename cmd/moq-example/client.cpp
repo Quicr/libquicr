@@ -62,7 +62,7 @@ public:
                            [[maybe_unused]] TrackMode track_mode) override {
         std::string msg(object.begin(), object.end());
 
-        _logger->info << "Received message: " << msg << std::flush;
+        _logger->info << "Received message: " << m sg << std::flush;
     }
     void cb_sendCongested(bool cleared, uint64_t objects_in_queue) override {}
 
