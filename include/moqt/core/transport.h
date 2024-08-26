@@ -42,6 +42,7 @@ namespace moq::transport {
             kInvalidParams,
 
             kClientConnecting,
+            kDisconnecting,
             kClientNotConnected,
             kClientFailedToConnect
         };
@@ -71,10 +72,8 @@ namespace moq::transport {
          * @param conn_id           Connection ID to send subscribe
          * @param track_delegate    Track delegate to use for track related functions and callbacks
          *
-         * @returns `track_alias` if no error and nullopt on error
          */
-        std::optional<uint64_t> SubscribeTrack(TransportConnId conn_id,
-                                               std::shared_ptr<SubscribeTrackHandler> track_delegate);
+        void SubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_delegate);
 
         /**
          * @brief Unsubscribe track
@@ -90,10 +89,8 @@ namespace moq::transport {
          * @param conn_id           Connection ID from transport for the QUIC connection context
          * @param track_delegate    Track delegate to use for track related functions
          *                          and callbacks
-         *
-         * @returns `track_alias` if no error and nullopt on error
          */
-        std::optional<uint64_t> PublishTrack(TransportConnId conn_id,
+        void PublishTrack(TransportConnId conn_id,
                                              std::shared_ptr<PublishTrackHandler> track_delegate);
 
         /**
