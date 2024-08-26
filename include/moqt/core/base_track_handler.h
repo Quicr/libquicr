@@ -120,7 +120,7 @@ namespace moq::transport {
         // Member variables
         // --------------------------------------------------------------------------
 
-        const FullTrackName full_track_name_;
+        FullTrackName full_track_name_;
         uint64_t conn_id_;
 
         /**

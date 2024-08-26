@@ -1,23 +1,24 @@
 #include <any>
 #include <doctest/doctest.h>
-#include <iostream>
 #include <memory>
-#include <quicr/moqt_messages.h>
-#include <sstream>
 #include <string>
 #include <sys/socket.h>
 
-using namespace quicr;
+#include <moqt/core/messages.h>
+
+
+using namespace moq::transport;
+using namespace moq::transport::messages;
 using namespace quicr::messages;
 
-static bytes from_ascii(const std::string& ascii)
+static Bytes from_ascii(const std::string& ascii)
 {
   return std::vector<uint8_t>(ascii.begin(), ascii.end());
 }
 
-const quicr::bytes TRACK_NAMESPACE_CONF = from_ascii("moqt://conf.example.com/conf/1");
-const quicr::bytes TRACK_NAME_ALICE_VIDEO = from_ascii("alice/video");
-const uintVar_t TRACK_ALIAS_ALICE_VIDEO = 0xA11CE;
+const Bytes TRACK_NAMESPACE_CONF = from_ascii("moqt://conf.example.com/conf/1");
+const Bytes TRACK_NAME_ALICE_VIDEO = from_ascii("alice/video");
+const uintV_t TRACK_ALIAS_ALICE_VIDEO { to_uintV(0xA11CE)};
 
 template<typename T>
 bool verify(std::vector<uint8_t>& net_data, uint64_t message_type, T& message, size_t slice_depth=1) {
@@ -56,13 +57,13 @@ TEST_CASE("AnnounceOk Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
 
-  auto announce_ok  = MoqAnnounceOk {};
+  auto announce_ok  = MoqtAnnounceOk {};
   announce_ok.track_namespace = TRACK_NAMESPACE_CONF;
   buffer << announce_ok;
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
-  MoqAnnounceOk announce_ok_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::ANNOUNCE_OK), announce_ok_out));
+  MoqtAnnounceOk announce_ok_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::ANNOUNCE_OK), announce_ok_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, announce_ok_out.track_namespace);
 }
 
@@ -70,13 +71,13 @@ TEST_CASE("Announce Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
 
-  auto announce  = MoqAnnounce {};
+  auto announce  = MoqtAnnounce {};
   announce.track_namespace = TRACK_NAMESPACE_CONF;
   announce.params = {};
   buffer <<  announce;
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
-  MoqAnnounce announce_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::ANNOUNCE), announce_out));
+  MoqtAnnounce announce_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::ANNOUNCE), announce_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, announce_out.track_namespace);
   CHECK_EQ(0, announce_out.params.size());
 }
@@ -85,13 +86,13 @@ TEST_CASE("Unannounce Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
 
-  auto unannounce  = MoqUnannounce {};
+  auto unannounce  = MoqtUnannounce {};
   unannounce.track_namespace = TRACK_NAMESPACE_CONF;
   buffer << unannounce;
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
-  MoqAnnounceOk announce_ok_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::UNANNOUNCE), announce_ok_out));
+  MoqtAnnounceOk announce_ok_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::UNANNOUNCE), announce_ok_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, announce_ok_out.track_namespace);
 }
 
@@ -99,15 +100,15 @@ TEST_CASE("AnnounceError Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
 
-  auto announce_err  = MoqAnnounceError {};
+  auto announce_err  = MoqtAnnounceError {};
   announce_err.track_namespace = TRACK_NAMESPACE_CONF;
   announce_err.err_code = 0x1234;
-  announce_err.reason_phrase = quicr::bytes{0x1,0x2,0x3};
+  announce_err.reason_phrase = Bytes{0x1,0x2,0x3};
   buffer << announce_err;
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
-  MoqAnnounceError announce_err_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::ANNOUNCE_ERROR), announce_err_out));
+  MoqtAnnounceError announce_err_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::ANNOUNCE_ERROR), announce_err_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, announce_err_out.track_namespace);
   CHECK_EQ(announce_err.err_code, announce_err_out.err_code);
   CHECK_EQ(announce_err.reason_phrase, announce_err_out.reason_phrase);
@@ -117,13 +118,13 @@ TEST_CASE("AnnounceCancel Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
 
-  auto announce_cancel  = MoqAnnounceCancel {};
+  auto announce_cancel  = MoqtAnnounceCancel {};
   announce_cancel.track_namespace = TRACK_NAMESPACE_CONF;
   buffer << announce_cancel;
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
-  MoqAnnounceCancel announce_cancel_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::ANNOUNCE_CANCEL), announce_cancel_out));
+  MoqtAnnounceCancel announce_cancel_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::ANNOUNCE_CANCEL), announce_cancel_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, announce_cancel_out.track_namespace);
 }
 
@@ -131,9 +132,9 @@ TEST_CASE("Subscribe (LatestObject) Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
 
-  auto subscribe  = MoqSubscribe {};
+  auto subscribe  = MoqtSubscribe {};
   subscribe.subscribe_id = 0x1;
-  subscribe.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+  subscribe.track_alias = to_uint64(TRACK_ALIAS_ALICE_VIDEO);
   subscribe.track_namespace = TRACK_NAMESPACE_CONF;
   subscribe.track_name = TRACK_NAME_ALICE_VIDEO;
   subscribe.filter_type = FilterType::LatestObject;
@@ -143,8 +144,8 @@ TEST_CASE("Subscribe (LatestObject) Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
-  MoqSubscribe subscribe_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE), subscribe_out));
+  MoqtSubscribe subscribe_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::SUBSCRIBE), subscribe_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
   CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
   CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -157,9 +158,9 @@ TEST_CASE("Subscribe (LatestGroup) Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
 
-  auto subscribe  = MoqSubscribe {};
+  auto subscribe  = MoqtSubscribe {};
   subscribe.subscribe_id = 0x1;
-  subscribe.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+  subscribe.track_alias = to_uint64(TRACK_ALIAS_ALICE_VIDEO);
   subscribe.track_namespace = TRACK_NAMESPACE_CONF;
   subscribe.track_name = TRACK_NAME_ALICE_VIDEO;
   subscribe.filter_type = FilterType::LatestGroup;
@@ -169,8 +170,8 @@ TEST_CASE("Subscribe (LatestGroup) Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
-  MoqSubscribe subscribe_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE), subscribe_out));
+  MoqtSubscribe subscribe_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::SUBSCRIBE), subscribe_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
   CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
   CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -183,9 +184,9 @@ TEST_CASE("Subscribe (AbsoluteStart) Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
 
-  auto subscribe  = MoqSubscribe {};
+  auto subscribe  = MoqtSubscribe {};
   subscribe.subscribe_id = 0x1;
-  subscribe.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+  subscribe.track_alias = to_uint64(TRACK_ALIAS_ALICE_VIDEO);
   subscribe.track_namespace = TRACK_NAMESPACE_CONF;
   subscribe.track_name = TRACK_NAME_ALICE_VIDEO;
   subscribe.filter_type = FilterType::AbsoluteStart;
@@ -197,8 +198,8 @@ TEST_CASE("Subscribe (AbsoluteStart) Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
-  MoqSubscribe subscribe_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE), subscribe_out));
+  MoqtSubscribe subscribe_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::SUBSCRIBE), subscribe_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
   CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
   CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -213,9 +214,9 @@ TEST_CASE("Subscribe (AbsoluteRange) Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
 
-  auto subscribe  = MoqSubscribe {};
+  auto subscribe  = MoqtSubscribe {};
   subscribe.subscribe_id = 0x1;
-  subscribe.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+  subscribe.track_alias = to_uint64(TRACK_ALIAS_ALICE_VIDEO);
   subscribe.track_namespace = TRACK_NAMESPACE_CONF;
   subscribe.track_name = TRACK_NAME_ALICE_VIDEO;
   subscribe.filter_type = FilterType::AbsoluteRange;
@@ -230,8 +231,8 @@ TEST_CASE("Subscribe (AbsoluteRange) Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
-  MoqSubscribe subscribe_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE), subscribe_out));
+  MoqtSubscribe subscribe_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::SUBSCRIBE), subscribe_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
   CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
   CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -247,14 +248,14 @@ TEST_CASE("Subscribe (AbsoluteRange) Message encode/decode")
 TEST_CASE("Subscribe (Params) Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
-  MoqParameter param;
+  MoqtParameter param;
   param.type = static_cast<uint64_t>(ParameterType::AuthorizationInfo),
   param.length = 0x2;
   param.value = {0x1, 0x2};
 
-  auto subscribe  = MoqSubscribe {};
+  auto subscribe  = MoqtSubscribe {};
   subscribe.subscribe_id = 0x1;
-  subscribe.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+  subscribe.track_alias = to_uint64(TRACK_ALIAS_ALICE_VIDEO);
   subscribe.track_namespace = TRACK_NAMESPACE_CONF;
   subscribe.track_name = TRACK_NAME_ALICE_VIDEO;
   subscribe.filter_type = FilterType::LatestObject;
@@ -264,8 +265,8 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
-  MoqSubscribe subscribe_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE), subscribe_out));
+  MoqtSubscribe subscribe_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::SUBSCRIBE), subscribe_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
   CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
   CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -281,20 +282,20 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
 TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
-  MoqParameter param1;
+  MoqtParameter param1;
   param1.type = static_cast<uint64_t>(ParameterType::AuthorizationInfo);
   param1.length = 0x2;
   param1.value = {0x1, 0x2};
 
-  MoqParameter param2;
+  MoqtParameter param2;
   param2.type = static_cast<uint64_t>(ParameterType::AuthorizationInfo);
   param2.length = 0x3;
   param2.value = {0x1, 0x2, 0x3};
 
 
-  auto subscribe  = MoqSubscribe {};
+  auto subscribe  = MoqtSubscribe {};
   subscribe.subscribe_id = 0x1;
-  subscribe.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+  subscribe.track_alias = to_uint64(TRACK_ALIAS_ALICE_VIDEO);
   subscribe.track_namespace = TRACK_NAMESPACE_CONF;
   subscribe.track_name = TRACK_NAME_ALICE_VIDEO;
   subscribe.filter_type = FilterType::LatestObject;
@@ -305,8 +306,8 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
-  MoqSubscribe subscribe_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE), subscribe_out));
+  MoqtSubscribe subscribe_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::SUBSCRIBE), subscribe_out));
   CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
   CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
   CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -323,11 +324,11 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 }
 
 
-MoqSubscribe generate_subscribe(FilterType filter, size_t  num_params = 0, uint64_t sg = 0, uint64_t so=0,
+MoqtSubscribe generate_subscribe(FilterType filter, size_t  num_params = 0, uint64_t sg = 0, uint64_t so=0,
                    uint64_t eg=0, uint64_t eo=0) {
-  MoqSubscribe out;
+  MoqtSubscribe out;
   out.subscribe_id = 0xABCD;
-  out.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+  out.track_alias = to_uint64(TRACK_ALIAS_ALICE_VIDEO);
   out.track_namespace = TRACK_NAMESPACE_CONF;
   out.track_name = TRACK_NAME_ALICE_VIDEO;
   out.filter_type = filter;
@@ -349,7 +350,7 @@ MoqSubscribe generate_subscribe(FilterType filter, size_t  num_params = 0, uint6
   }
 
   while(num_params > 0) {
-    MoqParameter param1;
+    MoqtParameter param1;
     param1.type = static_cast<uint64_t>(ParameterType::AuthorizationInfo);
     param1.length = 0x2;
     param1.value = {0x1, 0x2};
@@ -361,7 +362,7 @@ MoqSubscribe generate_subscribe(FilterType filter, size_t  num_params = 0, uint6
 
 TEST_CASE("Subscribe (Combo) Message encode/decode")
 {
-  auto subscribes = std::vector<MoqSubscribe> {
+  auto subscribes = std::vector<MoqtSubscribe> {
     generate_subscribe(FilterType::LatestObject),
     generate_subscribe(FilterType::LatestGroup),
     generate_subscribe(FilterType::LatestObject, 1),
@@ -376,9 +377,9 @@ TEST_CASE("Subscribe (Combo) Message encode/decode")
     qtransport::StreamBuffer<uint8_t> buffer;
     buffer << subscribes[i];
     std::vector<uint8_t> net_data = buffer.front(buffer.size());
-    MoqSubscribe subscribe_out;
+    MoqtSubscribe subscribe_out;
     CHECK(verify(
-      net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE), subscribe_out));
+      net_data, static_cast<uint64_t>(MoqtMessageType::SUBSCRIBE), subscribe_out));
     CHECK_EQ(TRACK_NAMESPACE_CONF, subscribe_out.track_namespace);
     CHECK_EQ(TRACK_NAME_ALICE_VIDEO, subscribe_out.track_name);
     CHECK_EQ(subscribes[i].subscribe_id, subscribe_out.subscribe_id);
@@ -402,7 +403,7 @@ TEST_CASE("SubscribeOk Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
 
-  auto subscribe_ok  = MoqSubscribeOk {};
+  auto subscribe_ok  = MoqtSubscribeOk {};
   subscribe_ok.subscribe_id = 0x1;
   subscribe_ok.expires = 0x100;
   subscribe_ok.content_exists = false;
@@ -410,8 +411,8 @@ TEST_CASE("SubscribeOk Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
-  MoqSubscribeOk subscribe_ok_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE_OK), subscribe_ok_out));
+  MoqtSubscribeOk subscribe_ok_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::SUBSCRIBE_OK), subscribe_ok_out));
   CHECK_EQ(subscribe_ok.subscribe_id, subscribe_ok_out.subscribe_id);
   CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
   CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
@@ -422,7 +423,7 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
 
-  auto subscribe_ok  = MoqSubscribeOk {};
+  auto subscribe_ok  = MoqtSubscribeOk {};
   subscribe_ok.subscribe_id = 0x1;
   subscribe_ok.expires = 0x100;
   subscribe_ok.content_exists = true;
@@ -432,8 +433,8 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
-  MoqSubscribeOk subscribe_ok_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE_OK), subscribe_ok_out));
+  MoqtSubscribeOk subscribe_ok_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::SUBSCRIBE_OK), subscribe_ok_out));
   CHECK_EQ(subscribe_ok.subscribe_id, subscribe_ok_out.subscribe_id);
   CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
   CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
@@ -445,17 +446,17 @@ TEST_CASE("Error  Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
 
-  auto subscribe_err  = MoqSubscribeError {};
+  auto subscribe_err  = MoqtSubscribeError {};
   subscribe_err.subscribe_id = 0x1;
   subscribe_err.err_code = 0;
-  subscribe_err.reason_phrase = quicr::bytes {0x0, 0x1};
-  subscribe_err.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+  subscribe_err.reason_phrase = Bytes {0x0, 0x1};
+  subscribe_err.track_alias = to_uint64(TRACK_ALIAS_ALICE_VIDEO);
   buffer << subscribe_err;
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
-  MoqSubscribeError subscribe_err_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE_ERROR), subscribe_err_out));
+  MoqtSubscribeError subscribe_err_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::SUBSCRIBE_ERROR), subscribe_err_out));
   CHECK_EQ(subscribe_err.subscribe_id, subscribe_err_out.subscribe_id);
   CHECK_EQ(subscribe_err.err_code, subscribe_err_out.err_code);
   CHECK_EQ(subscribe_err.reason_phrase, subscribe_err_out.reason_phrase);
@@ -466,14 +467,14 @@ TEST_CASE("Unsubscribe  Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
 
-  auto unsubscribe  = MoqUnsubscribe {};
+  auto unsubscribe  = MoqtUnsubscribe {};
   unsubscribe.subscribe_id = 0x1;
   buffer << unsubscribe;
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
-  MoqUnsubscribe unsubscribe_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::UNSUBSCRIBE), unsubscribe_out));
+  MoqtUnsubscribe unsubscribe_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::UNSUBSCRIBE), unsubscribe_out));
   CHECK_EQ(unsubscribe.subscribe_id, unsubscribe_out.subscribe_id);
 }
 
@@ -481,18 +482,18 @@ TEST_CASE("SubscribeDone  Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
 
-  auto subscribe_done  = MoqSubscribeDone {};
+  auto subscribe_done  = MoqtSubscribeDone {};
   subscribe_done.subscribe_id = 0x1;
   subscribe_done.status_code = 0x0;
-  subscribe_done.reason_phrase = quicr::bytes {0x0};
+  subscribe_done.reason_phrase = Bytes {0x0};
   subscribe_done.content_exists = false;
 
   buffer << subscribe_done;
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
-  MoqSubscribeDone subscribe_done_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE_DONE), subscribe_done_out));
+  MoqtSubscribeDone subscribe_done_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::SUBSCRIBE_DONE), subscribe_done_out));
   CHECK_EQ(subscribe_done.subscribe_id, subscribe_done_out.subscribe_id);
   CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
   CHECK_EQ(subscribe_done.reason_phrase, subscribe_done_out.reason_phrase);
@@ -503,10 +504,10 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
 
-  auto subscribe_done  = MoqSubscribeDone {};
+  auto subscribe_done  = MoqtSubscribeDone {};
   subscribe_done.subscribe_id = 0x1;
   subscribe_done.status_code = 0x0;
-  subscribe_done.reason_phrase = quicr::bytes {0x0};
+  subscribe_done.reason_phrase = Bytes {0x0};
   subscribe_done.content_exists = true;
   subscribe_done.final_group_id = 0x1111;
   subscribe_done.final_object_id = 0xff;
@@ -515,8 +516,8 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
-  MoqSubscribeDone subscribe_done_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SUBSCRIBE_DONE), subscribe_done_out));
+  MoqtSubscribeDone subscribe_done_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::SUBSCRIBE_DONE), subscribe_done_out));
   CHECK_EQ(subscribe_done.subscribe_id, subscribe_done_out.subscribe_id);
   CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
   CHECK_EQ(subscribe_done.reason_phrase, subscribe_done_out.reason_phrase);
@@ -530,7 +531,7 @@ TEST_CASE("ClientSetup  Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
   const std::string endpoint_id = "client test";
-  auto client_setup = MoqClientSetup {};
+  auto client_setup = MoqtClientSetup {};
   client_setup.num_versions = 2;
   client_setup.supported_versions = {0x1000, 0x2000};
   client_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::Role);
@@ -542,8 +543,8 @@ TEST_CASE("ClientSetup  Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
-  MoqClientSetup client_setup_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::CLIENT_SETUP), client_setup_out));
+  MoqtClientSetup client_setup_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::CLIENT_SETUP), client_setup_out));
   CHECK_EQ(client_setup.supported_versions, client_setup_out.supported_versions);
   CHECK_EQ(client_setup.role_parameter.value, client_setup_out.role_parameter.value);
   CHECK_EQ(client_setup.endpoint_id_parameter.value, client_setup_out.endpoint_id_parameter.value);
@@ -554,7 +555,7 @@ TEST_CASE("ServerSetup  Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
   const std::string endpoint_id = "server_test";
-  auto server_setup = MoqServerSetup {};
+  auto server_setup = MoqtServerSetup {};
   server_setup.selection_version = {0x1000};
   server_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::Role);
   server_setup.role_parameter.length = 0x1;
@@ -565,8 +566,8 @@ TEST_CASE("ServerSetup  Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
-  MoqServerSetup server_setup_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::SERVER_SETUP), server_setup_out));
+  MoqtServerSetup server_setup_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::SERVER_SETUP), server_setup_out));
   CHECK_EQ(server_setup.selection_version, server_setup_out.selection_version);
   CHECK_EQ(server_setup.role_parameter.value, server_setup.role_parameter.value);
   CHECK_EQ(server_setup.endpoint_id_parameter.value, server_setup_out.endpoint_id_parameter.value);
@@ -575,9 +576,9 @@ TEST_CASE("ServerSetup  Message encode/decode")
 TEST_CASE("ObjectStream  Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
-  auto object_stream = MoqObjectStream {};
+  auto object_stream = MoqtObjectStream {};
   object_stream.subscribe_id = 0x100;
-  object_stream.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+  object_stream.track_alias = to_uint64(TRACK_ALIAS_ALICE_VIDEO);
   object_stream.group_id = 0x1000;
   object_stream.object_id = 0xFF;
   object_stream.priority =0xA;
@@ -587,8 +588,8 @@ TEST_CASE("ObjectStream  Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
-  MoqObjectStream object_stream_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::OBJECT_STREAM), object_stream_out));
+  MoqtObjectStream object_stream_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::OBJECT_STREAM), object_stream_out));
   CHECK_EQ(object_stream.subscribe_id, object_stream_out.subscribe_id);
   CHECK_EQ(object_stream.track_alias, object_stream_out.track_alias);
   CHECK_EQ(object_stream.group_id, object_stream_out.group_id);
@@ -600,9 +601,9 @@ TEST_CASE("ObjectStream  Message encode/decode")
 TEST_CASE("ObjectDatagram  Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
-  auto object_datagram = MoqObjectDatagram {};
+  auto object_datagram = MoqtObjectDatagram {};
   object_datagram.subscribe_id = 0x100;
-  object_datagram.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+  object_datagram.track_alias = to_uint64(TRACK_ALIAS_ALICE_VIDEO);
   object_datagram.group_id = 0x1000;
   object_datagram.object_id = 0xFF;
   object_datagram.priority =0xA;
@@ -612,8 +613,8 @@ TEST_CASE("ObjectDatagram  Message encode/decode")
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
 
-  MoqObjectStream object_datagram_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::OBJECT_DATAGRAM), object_datagram_out));
+  MoqtObjectStream object_datagram_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::OBJECT_DATAGRAM), object_datagram_out));
   CHECK_EQ(object_datagram.subscribe_id, object_datagram_out.subscribe_id);
   CHECK_EQ(object_datagram.track_alias, object_datagram_out.track_alias);
   CHECK_EQ(object_datagram.group_id, object_datagram_out.group_id);
@@ -625,27 +626,27 @@ TEST_CASE("ObjectDatagram  Message encode/decode")
 TEST_CASE("StreamPerGroup Object  Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
-  auto hdr_grp = MoqStreamHeaderGroup {};
+  auto hdr_grp = MoqtStreamHeaderGroup {};
   hdr_grp.subscribe_id = 0x100;
-  hdr_grp.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+  hdr_grp.track_alias = to_uint64(TRACK_ALIAS_ALICE_VIDEO);
   hdr_grp.group_id = 0x1000;
   hdr_grp.priority = 0xA;
 
   buffer << hdr_grp;
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
-  MoqStreamHeaderGroup hdr_group_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::STREAM_HEADER_GROUP), hdr_group_out));
+  MoqtStreamHeaderGroup hdr_group_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::STREAM_HEADER_GROUP), hdr_group_out));
   CHECK_EQ(hdr_grp.subscribe_id, hdr_group_out.subscribe_id);
   CHECK_EQ(hdr_grp.track_alias, hdr_group_out.track_alias);
   CHECK_EQ(hdr_grp.group_id, hdr_group_out.group_id);
 
   // stream all the objects
   buffer.pop(buffer.size());
-  auto objects = std::vector<MoqStreamGroupObject>{};
+  auto objects = std::vector<MoqtStreamGroupObject>{};
   // send 10 objects
   for(size_t i = 0; i < 1000; i++) {
-    auto obj = MoqStreamGroupObject{};
+    auto obj = MoqtStreamGroupObject{};
     obj.object_id = i;
     obj.payload = {0x1, 0x2, 0x3, 0x4, 0x5};
     objects.push_back(obj);
@@ -654,7 +655,7 @@ TEST_CASE("StreamPerGroup Object  Message encode/decode")
 
   net_data.clear();
   net_data = buffer.front(buffer.size());
-  auto obj_out = MoqStreamGroupObject{};
+  auto obj_out = MoqtStreamGroupObject{};
   size_t object_count = 0;
   qtransport::StreamBuffer<uint8_t> in_buffer;
   for(size_t i =0; i < net_data.size(); i++) {
@@ -666,7 +667,7 @@ TEST_CASE("StreamPerGroup Object  Message encode/decode")
       CHECK_EQ(obj_out.payload, objects[object_count].payload);
       // got one object
       object_count++;
-      obj_out = MoqStreamGroupObject{};
+      obj_out = MoqtStreamGroupObject{};
       in_buffer.pop(in_buffer.size());
     }
   }
@@ -677,26 +678,26 @@ TEST_CASE("StreamPerGroup Object  Message encode/decode")
 TEST_CASE("StreamPerTrack Object  Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
-  auto hdr = MoqStreamHeaderTrack {};
+  auto hdr = MoqtStreamHeaderTrack {};
   hdr.subscribe_id = 0x100;
-  hdr.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+  hdr.track_alias = to_uint64(TRACK_ALIAS_ALICE_VIDEO);
   hdr.priority = 0xA;
 
   buffer << hdr;
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
-  MoqStreamHeaderTrack hdr_out;
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::STREAM_HEADER_TRACK), hdr_out));
+  MoqtStreamHeaderTrack hdr_out;
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::STREAM_HEADER_TRACK), hdr_out));
   CHECK_EQ(hdr_out.subscribe_id, hdr_out.subscribe_id);
   CHECK_EQ(hdr_out.track_alias, hdr_out.track_alias);
   CHECK_EQ(hdr_out.priority, hdr_out.priority);
 
   // stream all the objects
   buffer.pop(buffer.size());
-  auto objects = std::vector<MoqStreamTrackObject>{};
+  auto objects = std::vector<MoqtStreamTrackObject>{};
   // send 10 objects
   for(size_t i = 0; i < 1000; i++) {
-    auto obj = MoqStreamTrackObject{};
+    auto obj = MoqtStreamTrackObject{};
    if ( i % 10 == 0) {
       obj.group_id = i;
       obj.object_id = 0;
@@ -711,7 +712,7 @@ TEST_CASE("StreamPerTrack Object  Message encode/decode")
 
   net_data.clear();
   net_data = buffer.front(buffer.size());
-  auto obj_out = MoqStreamTrackObject{};
+  auto obj_out = MoqtStreamTrackObject{};
   size_t object_count = 0;
   qtransport::StreamBuffer<uint8_t> in_buffer;
   for(size_t i =0; i < net_data.size(); i++) {
@@ -724,7 +725,7 @@ TEST_CASE("StreamPerTrack Object  Message encode/decode")
       CHECK_EQ(obj_out.payload, objects[object_count].payload);
       // got one object
       object_count++;
-      obj_out = MoqStreamTrackObject{};
+      obj_out = MoqtStreamTrackObject{};
       in_buffer.pop(in_buffer.size());
     }
   }
@@ -733,16 +734,16 @@ TEST_CASE("StreamPerTrack Object  Message encode/decode")
 }
 
 
-TEST_CASE("MoqGoaway Message encode/decode")
+TEST_CASE("MoqtGoaway Message encode/decode")
 {
   qtransport::StreamBuffer<uint8_t> buffer;
 
-  auto goaway  = MoqGoaway {};
+  auto goaway  = MoqtGoaway {};
   goaway.new_session_uri = from_ascii("go.away.now.no.return");
   buffer << goaway;
 
   std::vector<uint8_t> net_data = buffer.front(buffer.size());
-  MoqGoaway goaway_out{};
-  CHECK(verify(net_data, static_cast<uint64_t>(MoQMessageType::GOAWAY), goaway_out));
+  MoqtGoaway goaway_out{};
+  CHECK(verify(net_data, static_cast<uint64_t>(MoqtMessageType::GOAWAY), goaway_out));
   CHECK_EQ(from_ascii("go.away.now.no.return"), goaway_out.new_session_uri);
 }

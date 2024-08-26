@@ -41,6 +41,6 @@ the methods. Each track handler is constructed for a single full track name (e.g
 
 ## Documentation Links
 
-* [API Process Flows](../docs/images/moqt-api-process-flows.html)
+* [API Process Flows](../moqt-api-process-flows.html)
 * [MOQT Implementation Details](https://github.com/Quicr/libquicr/blob/main/docs/moq-implementation.md)
 * Quick Start

@@ -86,6 +86,8 @@ namespace moq::transport {
          *
          * @details Event notification to provide the caller the received data object
          *
+         * @warning This data will be invalided after return of this method
+         *
          * @param object_headers    Object headers, must include group and object Ids
          * @param data              Object payload data received. If only_complete_objects_ is false, data may be
          *                          less than payload length. The caller **MUST** implement ContinuationDataReceived()
@@ -93,18 +95,25 @@ namespace moq::transport {
          * @param track_mode        Track mode the object was received
          */
         virtual void ObjectReceived(const ObjectHeaders& object_headers,
-                                    std::vector<uint8_t>&& data,
-                                    TrackMode track_mode) = 0;
+                                    Span<uint8_t> data,
+                                    TrackMode track_mode) {}
 
         /**
-         * @brief Notification of received continuation data
+         * @brief Notification of a partial object received data object
          *
-         * @details Event notification to provide the caller the received data of data that should be appended
-         *      to the last ObjectReceived() payload. This is only used if only_complete_objects_ = **false**.
+         * @details Event notification to provide the caller the received data object
          *
-         * @param data            Data received that should be appended to last object payload
+         * @warning This data will be invalided after return of this method
+         *
+         * @param object_headers    Object headers, must include group and object Ids
+         * @param data              Object payload data received. If only_complete_objects_ is false, data may be
+         *                          less than payload length. The caller **MUST** implement ContinuationDataReceived()
+         *                          to receive the remaining bytes of the payload.
+         * @param track_mode        Track mode the object was received
          */
-        virtual void ContinuationDataReceived(std::vector<uint8_t>&& data) = 0;
+        virtual void PartialObjectReceived(const ObjectHeaders& object_headers,
+                                           Span<uint8_t> data,
+                                           TrackMode track_mode) {};
 
         /**
          * @brief Notification of subscribe status
