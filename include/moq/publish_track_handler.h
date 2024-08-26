@@ -6,10 +6,10 @@
 #pragma once
 
 #include <functional>
-#include <moqt/core/base_track_handler.h>
-#include <moqt/metrics.h>
+#include <moq/detail/base_track_handler.h>
+#include <moq/metrics.h>
 
-namespace moq::transport {
+namespace moq {
 
     /**
      * @brief MOQ track handler for published track
@@ -105,7 +105,7 @@ namespace moq::transport {
          *
          * @param status        Indicates the status of being able to publish
          */
-        virtual void StatusChanged(PublishTrackHandler::Status status) {}
+        virtual void StatusChanged(Status status) {}
 
 
         /**
@@ -180,8 +180,7 @@ namespace moq::transport {
          *   not be sent.
          *
          *   **Restrictions:**
-         *   - This method cannot be called twice with the same object header group and object IDs.
-         *   - In TrackMode::kStreamPerGroup, ObjectHeaders::group_id **MUST** be different than the previous
+         *   - In TrackMode::kStreamPerGroup, /::group_id **MUST** be different than the previous
          *     when calling this method when the previous has not been completed yet using PublishContinuationData().
          *     If group id is not different, the PublishStatus::kPreviousObjectNotCompleteMustStartNewGroup will be
          *     returned and the object will not be sent. If new group ID is provided, then the previous object will
@@ -277,4 +276,4 @@ namespace moq::transport {
         bool sent_track_header_ { false };  // Used only in stream per track mode
     };
 
-} // namespace moq::transport
+} // namespace moq

@@ -8,19 +8,19 @@
 
 #include <transport/transport.h>
 
-#include <moqt/common.h>
-#include <moqt/config.h>
-#include <moqt/core/messages.h>
-#include <moqt/metrics.h>
-#include <moqt/publish_track_handler.h>
-#include <moqt/subscribe_track_handler.h>
+#include <moq/common.h>
+#include <moq/config.h>
+#include <moq/detail/messages.h>
+#include <moq/metrics.h>
+#include <moq/publish_track_handler.h>
+#include <moq/subscribe_track_handler.h>
 #include <transport/span.h>
 
 #include <map>
 #include <string>
 #include <string_view>
 
-namespace moq::transport {
+namespace moq {
 
     /**
      * @brief MOQ Implementation supporting both client and server modes
@@ -50,14 +50,14 @@ namespace moq::transport {
         /**
          * @brief Client mode Constructor to create the MOQ instance
          *
-         * @param cfg       MoQT Instance Client Configuration
+         * @param cfg       MoQ Instance Client Configuration
          */
         Transport(const ClientConfig& cfg);
 
         /**
          * @brief Server mode Constructor to create the MOQ instance
          *
-         * @param cfg        MoQT Server Configuration
+         * @param cfg        MoQ Server Configuration
          */
         Transport(const ServerConfig& cfg);
 
@@ -215,4 +215,4 @@ namespace moq::transport {
         std::shared_ptr<ITransport> quic_transport_; // **MUST** be last for proper order of destruction
     };
 
-} // namespace moq::transport
+} // namespace moq

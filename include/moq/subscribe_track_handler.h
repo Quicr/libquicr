@@ -5,11 +5,11 @@
  */
 #pragma once
 
-#include <moqt/core/base_track_handler.h>
-#include <moqt/metrics.h>
-#include <moqt/publish_track_handler.h>
+#include <moq/detail/base_track_handler.h>
+#include <moq/metrics.h>
+#include <moq/publish_track_handler.h>
 
-namespace moq::transport {
+namespace moq {
 
     /**
      * @brief MOQ track handler for subscribed track
@@ -59,10 +59,6 @@ namespace moq::transport {
          * @brief Subscribe track handler constructor
          *
          * @param full_track_name           Full track name struct
-         * @param only_complete_objects     If **false**, the ObjectReceived() can be called back with incomplete data.
-         *                                  In the case of incomplete data, ContinuationDataReceived() will be called
-         *                                  with the remaining data. If **true** ObjectReceived() will only be called
-         *                                  with complete data.
          */
         SubscribeTrackHandler(const FullTrackName& full_track_name)
           : BaseTrackHandler(full_track_name)
@@ -81,16 +77,14 @@ namespace moq::transport {
         // --------------------------------------------------------------------------
 
         /**
-         * @brief Notification of received data object
+         * @brief Notification of received [full] data object
          *
-         * @details Event notification to provide the caller the received data object
+         * @details Event notification to provide the caller the received full data object
          *
          * @warning This data will be invalided after return of this method
          *
          * @param object_headers    Object headers, must include group and object Ids
-         * @param data              Object payload data received. If only_complete_objects_ is false, data may be
-         *                          less than payload length. The caller **MUST** implement ContinuationDataReceived()
-         *                          to receive the remaining bytes of the payload.
+         * @param data              Object payload data received, **MUST** match ObjectHeaders::payload_length.
          */
         virtual void ObjectReceived(const ObjectHeaders& object_headers,
                                     Span<uint8_t> data) {}
@@ -103,9 +97,7 @@ namespace moq::transport {
          * @warning This data will be invalided after return of this method
          *
          * @param object_headers    Object headers, must include group and object Ids
-         * @param data              Object payload data received. If only_complete_objects_ is false, data may be
-         *                          less than payload length. The caller **MUST** implement ContinuationDataReceived()
-         *                          to receive the remaining bytes of the payload.
+         * @param data              Object payload data received, can be <= ObjectHeaders::payload_length
          */
         virtual void PartialObjectReceived(const ObjectHeaders& object_headers,
                                            Span<uint8_t> data) {}
@@ -158,4 +150,4 @@ namespace moq::transport {
         Status status_{ Status::kNotSubscribed };
     };
 
-} // namespace moq::transport
+} // namespace moq

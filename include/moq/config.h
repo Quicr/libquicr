@@ -9,29 +9,28 @@
 #include <transport/transport.h>
 #include <string>
 
-namespace moq::transport {
-
-    using namespace qtransport;
+namespace moq {
 
     struct Config
     {
         std::string endpoint_id;                 ///< Endpoint ID for the client or server, should be unique
-                                 ///< working to add to protocol: https://github.com/moq-wg/moq-transport/issues/461
+                                                 ///< working to add to protocol: https://github.com/moq-wg/moq-transport/issues/461
 
-        TransportConfig transport_config;
+        qtransport::TransportConfig transport_config;
         uint64_t metrics_sample_ms { 5000 };
     };
 
     struct ClientConfig : Config
     {
-        std::string moq_uri;                     ///< MoQT URI such as moqt://relay[:port][/path?query]
+        std::string connect_uri;                ///< URI such as moqt://relay[:port][/path?query]
     };
 
     struct ServerConfig : Config
     {
 
-        std::string server_bind_ip;             ///< IP address to bind to, can be 0.0.0.0
+        std::string server_bind_ip;             ///< IP address to bind to, can be 0.0.0.0 or ::
+                                                ///< Empty will be treated as ANY
         uint16_t server_port;                   ///< Listening port for server
     };
 
-} // namespace moq::transport
+} // namespace moq
