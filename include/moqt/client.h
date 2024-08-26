@@ -167,9 +167,20 @@ namespace moq::transport {
          *
          * @param track_namespace    Track delegate to use for track related functions
          *                           and callbacks
+         *
+         * @return PublishAnnounceStatus of the publish announce namespace
          */
-        void PublishAnnounce(const TrackNamespace& track_namespace) {
-        }
+        PublishAnnounceStatus PublishAnnounce(const TrackNamespace& track_namespace);
+
+        /**
+         * @brief Unannounce a publish namespace
+         *
+         * @details Unannounce a publish namespace. **ALL** tracks will be marked unpublish, as if called
+         *    by UnpublishTrack()
+         *
+         * @param track_namespace         Track namespace to unannounce
+         */
+        void PublishUnannounce(const TrackNamespace& track_namespace);
 
         /**
          * @brief Publish to a track
