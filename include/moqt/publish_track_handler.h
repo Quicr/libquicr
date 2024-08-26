@@ -204,7 +204,7 @@ namespace moq::transport {
          *    * other PublishStatus
          */
         PublishObjectStatus PublishPartialObject(const ObjectHeaders& object_headers, BytesSpan data);
-     
+
         // --------------------------------------------------------------------------
         // Metrics
         // --------------------------------------------------------------------------
