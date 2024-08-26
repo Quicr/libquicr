@@ -12,6 +12,5 @@ var searchData=
   ['connect_9',['Connect',['../classmoq_1_1transport_1_1_client.html#ad4f8573afa71b1eb7d52975a5cab41c9',1,'moq::transport::Client']]],
   ['connection_5fmetrics_5f_10',['connection_metrics_',['../classmoq_1_1transport_1_1_transport.html#ad0fea9d5dfb3e9fab8b1b57a12a09ae0',1,'moq::transport::Transport']]],
   ['connectionchanged_11',['ConnectionChanged',['../classmoq_1_1transport_1_1_client.html#ad8b4b128e9d939586ae9611cb0e16cbd',1,'moq::transport::Client::ConnectionChanged()'],['../classmoq_1_1transport_1_1_server.html#a7088915ed55f13077bf5303b44832e5c',1,'moq::transport::Server::ConnectionChanged()']]],
-  ['connectionmetrics_12',['ConnectionMetrics',['../structmoq_1_1transport_1_1_connection_metrics.html',1,'moq::transport']]],
-  ['continuationdatareceived_13',['ContinuationDataReceived',['../classmoq_1_1transport_1_1_subscribe_track_handler.html#ac11b1dd6be634eaeda904caf35d72366',1,'moq::transport::SubscribeTrackHandler']]]
+  ['connectionmetrics_12',['ConnectionMetrics',['../structmoq_1_1transport_1_1_connection_metrics.html',1,'moq::transport']]]
 ];

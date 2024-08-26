@@ -9,8 +9,8 @@ var classmoq_1_1transport_1_1_client =
     [ "PublishTrack", "classmoq_1_1transport_1_1_client.html#acad4a774505647832212281a6d11f34f", null ],
     [ "PublishTrackNamespace", "classmoq_1_1transport_1_1_client.html#ab2ce1e02c1f53c80f3e271f2e58753f1", null ],
     [ "ServerSetup", "classmoq_1_1transport_1_1_client.html#aa080af86071a1ff407a3b0fecc6b45e9", null ],
-    [ "SubscribeReceived", "classmoq_1_1transport_1_1_client.html#a42abd6388026908310785f73e9629ef7", null ],
     [ "SubscribeTrack", "classmoq_1_1transport_1_1_client.html#ae6ed10e454e24ce91f3a88803fdf107c", null ],
+    [ "UnpublishedSubscribeReceived", "classmoq_1_1transport_1_1_client.html#a9b5122960cdee1e53adec441edf09c97", null ],
     [ "UnpublishTrack", "classmoq_1_1transport_1_1_client.html#ad31fe1ee183ea69e6584010875faf485", null ],
     [ "UnsubscribeTrack", "classmoq_1_1transport_1_1_client.html#a875084b40f4b7d8b564a5273b84342de", null ]
 ];

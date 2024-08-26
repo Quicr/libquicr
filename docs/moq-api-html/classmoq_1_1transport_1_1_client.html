@@ -138,9 +138,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aa080af86071a1ff407a3b0fecc6b45e9" id="r_aa080af86071a1ff407a3b0fecc6b45e9"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa080af86071a1ff407a3b0fecc6b45e9">ServerSetup</a> (const <a class="el" href="structmoq_1_1transport_1_1_server_setup_attributes.html">ServerSetupAttributes</a> &amp;server_setup_attributes)=0</td></tr>
 <tr class="memdesc:aa080af86071a1ff407a3b0fecc6b45e9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on server setup message.  <br /></td></tr>
 <tr class="separator:aa080af86071a1ff407a3b0fecc6b45e9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a42abd6388026908310785f73e9629ef7" id="r_a42abd6388026908310785f73e9629ef7"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a42abd6388026908310785f73e9629ef7">SubscribeReceived</a> (const <a class="el" href="structmoq_1_1transport_1_1_full_track_name.html">FullTrackName</a> &amp;track_full_name, const <a class="el" href="structmoq_1_1transport_1_1_subscribe_attributes.html">SubscribeAttributes</a> &amp;subscribe_attributes)=0</td></tr>
-<tr class="memdesc:a42abd6388026908310785f73e9629ef7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new subscribe received that doesn't match an existing publish track.  <br /></td></tr>
-<tr class="separator:a42abd6388026908310785f73e9629ef7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9b5122960cdee1e53adec441edf09c97" id="r_a9b5122960cdee1e53adec441edf09c97"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9b5122960cdee1e53adec441edf09c97">UnpublishedSubscribeReceived</a> (const <a class="el" href="structmoq_1_1transport_1_1_full_track_name.html">FullTrackName</a> &amp;track_full_name, const <a class="el" href="structmoq_1_1transport_1_1_subscribe_attributes.html">SubscribeAttributes</a> &amp;subscribe_attributes)=0</td></tr>
+<tr class="memdesc:a9b5122960cdee1e53adec441edf09c97"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new subscribe received that doesn't match an existing publish track.  <br /></td></tr>
+<tr class="separator:a9b5122960cdee1e53adec441edf09c97"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aadbf35f7f86e3001e9742bce4f1f3bf5" id="r_aadbf35f7f86e3001e9742bce4f1f3bf5"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aadbf35f7f86e3001e9742bce4f1f3bf5">MetricsSampled</a> (const <a class="el" href="structmoq_1_1transport_1_1_connection_metrics.html">ConnectionMetrics</a> &amp;&amp;metrics)=0</td></tr>
 <tr class="memdesc:aadbf35f7f86e3001e9742bce4f1f3bf5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification callback to provide sampled metrics.  <br /></td></tr>
 <tr class="separator:aadbf35f7f86e3001e9742bce4f1f3bf5"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -485,46 +485,6 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a42abd6388026908310785f73e9629ef7" name="a42abd6388026908310785f73e9629ef7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a42abd6388026908310785f73e9629ef7">&#9670;&#160;</a></span>SubscribeReceived()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">virtual bool moq::transport::Client::SubscribeReceived </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_full_track_name.html">FullTrackName</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_full_name</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_subscribe_attributes.html">SubscribeAttributes</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>subscribe_attributes</em></span>&#160;)</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Callback notification for new subscribe received that doesn't match an existing publish track. </p>
-<p>When a new subscribe is received that doesn't match any existing publish track, this method will be called to signal the client application that there is a new subscribe full track name. The client app should <a class="el" href="#acad4a774505647832212281a6d11f34f" title="Publish to a track.">PublishTrack()</a> within this callback (or afterwards) and return <b>true</b> if the subscribe is accepted and publishing will commence. If the subscribe is rejected and a publish track will not begin, then <b>false</b> should be returned. The <a class="el" href="classmoq_1_1transport_1_1_transport.html" title="MOQ Implementation supporting both client and server modes.">Transport</a> will send the appropriate message to indicate the accept/reject.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">track_full_name</td><td>Track full name </td></tr>
-    <tr><td class="paramname">subscribe_attributes</td><td>Subscribe attributes received</td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>Caller returns <b>true</b> to accept the subscribe and will start to publish, <b>false</b> to reject the subscribe and will not publish. </dd></dl>
-
-</div>
-</div>
 <a id="ae6ed10e454e24ce91f3a88803fdf107c" name="ae6ed10e454e24ce91f3a88803fdf107c"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae6ed10e454e24ce91f3a88803fdf107c">&#9670;&#160;</a></span>SubscribeTrack()</h2>
 
@@ -556,6 +516,46 @@ Additional Inherited Members</h2></td></tr>
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd><code>track_alias</code> if no error and nullopt on error </dd></dl>
+
+</div>
+</div>
+<a id="a9b5122960cdee1e53adec441edf09c97" name="a9b5122960cdee1e53adec441edf09c97"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9b5122960cdee1e53adec441edf09c97">&#9670;&#160;</a></span>UnpublishedSubscribeReceived()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual bool moq::transport::Client::UnpublishedSubscribeReceived </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_full_track_name.html">FullTrackName</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_full_name</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_subscribe_attributes.html">SubscribeAttributes</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>subscribe_attributes</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Callback notification for new subscribe received that doesn't match an existing publish track. </p>
+<p>When a new subscribe is received that doesn't match any existing publish track, this method will be called to signal the client application that there is a new subscribe full track name. The client app should <a class="el" href="#acad4a774505647832212281a6d11f34f" title="Publish to a track.">PublishTrack()</a> within this callback (or afterwards) and return <b>true</b> if the subscribe is accepted and publishing will commence. If the subscribe is rejected and a publish track will not begin, then <b>false</b> should be returned. The <a class="el" href="classmoq_1_1transport_1_1_transport.html" title="MOQ Implementation supporting both client and server modes.">Transport</a> will send the appropriate message to indicate the accept/reject.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">track_full_name</td><td>Track full name </td></tr>
+    <tr><td class="paramname">subscribe_attributes</td><td>Subscribe attributes received</td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>Caller returns <b>true</b> to accept the subscribe and will start to publish, <b>false</b> to reject the subscribe and will not publish. </dd></dl>
 
 </div>
 </div>
