@@ -64,9 +64,8 @@ namespace moq::transport {
          *                                  with the remaining data. If **true** ObjectReceived() will only be called
          *                                  with complete data.
          */
-        SubscribeTrackHandler(const FullTrackName& full_track_name, bool only_complete_objects)
+        SubscribeTrackHandler(const FullTrackName& full_track_name)
           : BaseTrackHandler(full_track_name)
-          , only_complete_objects_(only_complete_objects)
         {
         }
 
@@ -92,11 +91,9 @@ namespace moq::transport {
          * @param data              Object payload data received. If only_complete_objects_ is false, data may be
          *                          less than payload length. The caller **MUST** implement ContinuationDataReceived()
          *                          to receive the remaining bytes of the payload.
-         * @param track_mode        Track mode the object was received
          */
         virtual void ObjectReceived(const ObjectHeaders& object_headers,
-                                    Span<uint8_t> data,
-                                    TrackMode track_mode) {}
+                                    Span<uint8_t> data) {}
 
         /**
          * @brief Notification of a partial object received data object
@@ -109,11 +106,9 @@ namespace moq::transport {
          * @param data              Object payload data received. If only_complete_objects_ is false, data may be
          *                          less than payload length. The caller **MUST** implement ContinuationDataReceived()
          *                          to receive the remaining bytes of the payload.
-         * @param track_mode        Track mode the object was received
          */
         virtual void PartialObjectReceived(const ObjectHeaders& object_headers,
-                                           Span<uint8_t> data,
-                                           TrackMode track_mode) {}
+                                           Span<uint8_t> data) {}
 
         /**
          * @brief Notification of subscribe status
@@ -161,7 +156,6 @@ namespace moq::transport {
         // Member variables
         // --------------------------------------------------------------------------
         Status status_{ Status::kNotSubscribed };
-        bool only_complete_objects_;
     };
 
 } // namespace moq::transport

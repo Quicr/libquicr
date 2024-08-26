@@ -8,5 +8,6 @@ var searchData=
   ['moq_2dapi_2dmain_2emd_5',['moq-api-main.md',['../moq-api-main_8md.html',1,'']]],
   ['moq_3a_3atransport_6',['transport',['../namespacemoq_1_1transport.html',1,'moq']]],
   ['moq_5furi_7',['moq_uri',['../structmoq_1_1transport_1_1_client_config.html#ab5f6640dc07d59c6fa890ff62f8997a1',1,'moq::transport::ClientConfig']]],
-  ['moqt_20publisher_20subscriber_20api_8',['Media over QUIC Transport (MoQT) Publisher/Subscriber API',['../index.html',1,'']]]
+  ['moqt_20publisher_20subscriber_20api_8',['Media over QUIC Transport (MoQT) Publisher/Subscriber API',['../index.html',1,'']]],
+  ['moqt_5fversion_9',['moqt_version',['../structmoq_1_1transport_1_1_server_setup_attributes.html#a3b9b02c5872907e349f0c100337ce806',1,'moq::transport::ServerSetupAttributes']]]
 ];

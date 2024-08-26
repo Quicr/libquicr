@@ -144,10 +144,38 @@ namespace moq::transport {
         // --------------------------------------------------------------------------
 
         /**
+         * @brief Publish [full] object
+         *
+         * @details Publish a full object. If not announced, it will be announced. Status will
+         *   indicate if there are no subscribers. In this case, the object will
+         *   not be sent.
+         *
+         * @note If data is less than ObjectHeaders::payload_length, the error kObjectDataIncomplete
+         *   will be returned and the object will not be sent.
+         *
+         *   **Restrictions:**
+         *   - This method cannot be called twice with the same object header group and object IDs.
+         *   - In TrackMode::kStreamPerGroup, ObjectHeaders::group_id **MUST** be different than the previous
+         *     when calling this method when the previous has not been completed yet using PublishContinuationData().
+         *     If group id is not different, the PublishStatus::kPreviousObjectNotCompleteMustStartNewGroup will be
+         *     returned and the object will not be sent. If new group ID is provided, then the previous object will
+         *     terminate with stream closure, resulting in the previous being truncated.
+         *   - In TrackMode::kStreamPerTrack, this method **CANNOT** be called until the previous object has been
+         *     completed using PublishContinuationData(). Calling this method before completing the previous
+         *     object remaining data will result in PublishStatus::kObjectDataIncomplete. No data would be sent and the
+         *     stream would remain unchanged. It is expected that the caller would send the remaining continuation data.
+         *
+         * @param object_headers        Object headers, must include group and object Ids
+         * @param data                  Full complete payload data for the object
+         *
+         * @returns Publish status of the publish
+         */
+        PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
+
+        /**
          * @brief Publish object to the announced track
          *
-         * @details Publish an object to announced track that was previously announced.
-         *   This will have an error if the track wasn't announced yet. Status will
+         * @details Publish a partial object. If not announced, it will be announced. Status will
          *   indicate if there are no subscribers. In this case, the object will
          *   not be sent.
          *
@@ -155,9 +183,9 @@ namespace moq::transport {
          *   - This method cannot be called twice with the same object header group and object IDs.
          *   - In TrackMode::kStreamPerGroup, ObjectHeaders::group_id **MUST** be different than the previous
          *     when calling this method when the previous has not been completed yet using PublishContinuationData().
-         *     If group id is not different, the PublishStatus::kPreviousObjectNotCompleteMustStartNewGroup will be returned
-         *     and the object will not be sent. If new group ID is provided, then the previous object will terminate
-         *     with stream closure, resulting in the previous being truncated.
+         *     If group id is not different, the PublishStatus::kPreviousObjectNotCompleteMustStartNewGroup will be
+         *     returned and the object will not be sent. If new group ID is provided, then the previous object will
+         *     terminate with stream closure, resulting in the previous being truncated.
          *   - In TrackMode::kStreamPerTrack, this method **CANNOT** be called until the previous object has been
          *     completed using PublishContinuationData(). Calling this method before completing the previous
          *     object remaining data will result in PublishStatus::kObjectDataIncomplete. No data would be sent and the
@@ -170,11 +198,12 @@ namespace moq::transport {
          * @param data                  Payload data for the object, must be <= object_headers.payload_length
          *
          * @returns Publish status of the publish
-         *    * PublishStatus::kObjectContinuationDataNeeded if the object payload data is not completed but it was sent,
+         *    * PublishStatus::kObjectContinuationDataNeeded if the object payload data is not completed but it was
+         * sent,
          *    * PublishStatus::kObjectDataComplete if the object data was sent and the data is complete,
          *    * other PublishStatus
          */
-        PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
+        PublishObjectStatus PublishPartialObject(const ObjectHeaders& object_headers, BytesSpan data);
 
         /**
          * @brief Publish continuation data

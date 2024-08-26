@@ -2,8 +2,8 @@ var common_8h =
 [
     [ "moq::transport::SubscribeAttributes", "structmoq_1_1transport_1_1_subscribe_attributes.html", null ],
     [ "moq::transport::PublishAnnounceAttributes", "structmoq_1_1transport_1_1_publish_announce_attributes.html", null ],
-    [ "moq::transport::ClientSetupAttributes", "structmoq_1_1transport_1_1_client_setup_attributes.html", null ],
-    [ "moq::transport::ServerSetupAttributes", "structmoq_1_1transport_1_1_server_setup_attributes.html", null ],
+    [ "moq::transport::ClientSetupAttributes", "structmoq_1_1transport_1_1_client_setup_attributes.html", "structmoq_1_1transport_1_1_client_setup_attributes" ],
+    [ "moq::transport::ServerSetupAttributes", "structmoq_1_1transport_1_1_server_setup_attributes.html", "structmoq_1_1transport_1_1_server_setup_attributes" ],
     [ "moq::transport::FullTrackName", "structmoq_1_1transport_1_1_full_track_name.html", "structmoq_1_1transport_1_1_full_track_name" ],
     [ "moq::transport::TrackHash", "structmoq_1_1transport_1_1_track_hash.html", "structmoq_1_1transport_1_1_track_hash" ],
     [ "moq::transport::ObjectHeaders", "structmoq_1_1transport_1_1_object_headers.html", "structmoq_1_1transport_1_1_object_headers" ],

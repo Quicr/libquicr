@@ -22,6 +22,21 @@ namespace moq::transport {
     class Client : public Transport
     {
       public:
+        enum class Status : uint8_t
+        {
+            kReady = 0,
+            kNotReady,
+
+            kInternalError,
+
+            kInvalidParams,
+
+            kClientConnecting,
+            kDisconnecting,
+            kClientNotConnected,
+            kClientFailedToConnect
+        };
+
         /**
          * @brief MoQ Client Constructor to create the client mode instance
          *
@@ -60,18 +75,19 @@ namespace moq::transport {
          * @brief Callback notification for connection status/state change
          * @details Callback notification indicates state change of connection, such as disconnected
          *
-         * @param status           Transport status of connection id
+         * @param status           Status change
          */
-        virtual void ConnectionChanged(TransportStatus status) {}
+        virtual void StatusChanged(Status status) {}
 
         /**
          * @brief Callback on server setup message
+         *
          * @details Server will send sever setup in response to client setup message sent. This callback is called
          *  when a server setup has been received.
          *
          * @param server_setup_attributes     Server setup attributes received
          */
-        virtual void ServerSetup(const ServerSetupAttributes& server_setup_attributes) {}
+        virtual void ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes) {}
 
         /**
          * @brief Notification on publish announcement status change
@@ -79,10 +95,9 @@ namespace moq::transport {
          * @details Callback notification for a change in publish announcement status
          *
          * @param track_namespace             Track namespace to announce
-         *
-         * @return PublishAnnounceStatus of the namespace
+         * @param status                      Publish announce status
          */
-        virtual PublishAnnounceStatus AnnounceStatusChanged(const TrackNamespace& track_namespace) {}
+        virtual void AnnounceStatusChanged(const TrackNamespace& track_namespace, const PublishAnnounceStatus status) {}
 
         /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
@@ -126,13 +141,13 @@ namespace moq::transport {
         /**
          * @brief Subscribe to a track
          *
-         * @param track_delegate    Track delegate to use for track related functions and callbacks
+         * @param track_handler    Track handler to use for track related functions and callbacks
          *
          * @returns `track_alias` if no error and nullopt on error
          */
-        std::optional<uint64_t> SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_delegate) {
+        std::optional<uint64_t> SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler) {
             if (conn_id_) {
-                return Transport::SubscribeTrack(*conn_id_, std::move(track_delegate));
+                return Transport::SubscribeTrack(*conn_id_, std::move(track_handler));
             } else {
                 return std::nullopt;
             }
@@ -141,11 +156,11 @@ namespace moq::transport {
         /**
          * @brief Unsubscribe track
          *
-         * @param track_delegate    Track delegate to use for track related functions and callbacks
+         * @param track_handler    Track handler to use for track related functions and callbacks
          */
-        void UnsubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_delegate) {
+        void UnsubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler) {
             if (conn_id_) {
-                Transport::UnsubscribeTrack(*conn_id_, std::move(track_delegate));
+                Transport::UnsubscribeTrack(*conn_id_, std::move(track_handler));
             }
         }
 
@@ -167,7 +182,7 @@ namespace moq::transport {
          *      Name and track alias is not used.
          *
          *
-         * @param track_namespace    Track delegate to use for track related functions
+         * @param track_namespace    Track handler to use for track related functions
          *                           and callbacks
          *
          * @return PublishAnnounceStatus of the publish announce namespace
@@ -187,14 +202,14 @@ namespace moq::transport {
         /**
          * @brief Publish to a track
          *
-         * @param track_delegate    Track delegate to use for track related functions
+         * @param track_handler    Track handler to use for track related functions
          *                          and callbacks
          *
          * @returns `track_alias` if no error and nullopt on error
          */
-        std::optional<uint64_t> PublishTrack(std::shared_ptr<PublishTrackHandler> track_delegate) {
+        std::optional<uint64_t> PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler) {
             if (conn_id_) {
-                return Transport::PublishTrack(*conn_id_, std::move(track_delegate));
+                return Transport::PublishTrack(*conn_id_, std::move(track_handler));
             } else {
                 return std::nullopt;
             }
@@ -203,11 +218,13 @@ namespace moq::transport {
         /**
          * @brief Unpublish track
          *
-         * @param track_delegate    Track delegate used when published track
+         * @details Unpublish a track that was previously published
+         *
+         * @param track_handler    Track handler used when published track
          */
-        void UnpublishTrack(std::shared_ptr<PublishTrackHandler> track_delegate) {
+        void UnpublishTrack(std::shared_ptr<PublishTrackHandler> track_handler) {
             if (conn_id_) {
-                Transport::UnpublishTrack(*conn_id_, std::move(track_delegate));
+                Transport::UnpublishTrack(*conn_id_, std::move(track_handler));
             }
         }
 

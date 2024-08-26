@@ -16,11 +16,11 @@ var classmoq_1_1transport_1_1_subscribe_track_handler =
       [ "kSendingUnsubscribe", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a211c3b8bc1b5fe128d18b3b9a7a26532a0c00fa0c8dbc5959120d45bc8386979f", null ]
     ] ],
     [ "SubscribeTrackHandler", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a9486ae080ec9324c1e27d0278c45ea09", null ],
-    [ "SubscribeTrackHandler", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a5007f9048b3c45c660a1ae3c88f88cc2", null ],
+    [ "SubscribeTrackHandler", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a24056c782a2761c8950e6174425d0fa5", null ],
     [ "GetStatus", "classmoq_1_1transport_1_1_subscribe_track_handler.html#adf96f1e6778c525bd765afb8690427cd", null ],
     [ "MetricsSampled", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a16bfc3ea3997a04bb9ded5b19d0447f2", null ],
-    [ "ObjectReceived", "classmoq_1_1transport_1_1_subscribe_track_handler.html#adf3ee6b79d381717abfbddeffe893cba", null ],
-    [ "PartialObjectReceived", "classmoq_1_1transport_1_1_subscribe_track_handler.html#af6d6a5ae8fec813fc8af548993a17b1f", null ],
+    [ "ObjectReceived", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a11fa0b93238b2b56e5f62b2e2358df75", null ],
+    [ "PartialObjectReceived", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a52d776730620de1fa2e73792263fcaed", null ],
     [ "StatusChanged", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a593649cc76f10eea685af50083c1666d", null ],
     [ "Transport", "classmoq_1_1transport_1_1_subscribe_track_handler.html#a3d2e8a0836666771da7b79c3f6bc9ae0", null ],
     [ "subscribe_track_metrics_", "classmoq_1_1transport_1_1_subscribe_track_handler.html#aa44a93790d7ca39cb5a1869bf155f23a", null ]

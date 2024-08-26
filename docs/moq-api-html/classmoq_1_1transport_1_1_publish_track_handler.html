@@ -181,8 +181,11 @@ Public Member Functions</h2></td></tr>
 <tr class="memdesc:ae293712df5916126b5c497401895e2bf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the publish status.  <br /></td></tr>
 <tr class="separator:ae293712df5916126b5c497401895e2bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aea2f5f7415e0bbb30154c692f0ac2888" id="r_aea2f5f7415e0bbb30154c692f0ac2888"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#a1fc79f38bf78c3ac1d92f2467763ea98">PublishObjectStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aea2f5f7415e0bbb30154c692f0ac2888">PublishObject</a> (const <a class="el" href="structmoq_1_1transport_1_1_object_headers.html">ObjectHeaders</a> &amp;object_headers, <a class="el" href="namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a> data)</td></tr>
-<tr class="memdesc:aea2f5f7415e0bbb30154c692f0ac2888"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish object to the announced track.  <br /></td></tr>
+<tr class="memdesc:aea2f5f7415e0bbb30154c692f0ac2888"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish [full] object.  <br /></td></tr>
 <tr class="separator:aea2f5f7415e0bbb30154c692f0ac2888"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a90e408a873350ccf8a6f0fe9b069db57" id="r_a90e408a873350ccf8a6f0fe9b069db57"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#a1fc79f38bf78c3ac1d92f2467763ea98">PublishObjectStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a90e408a873350ccf8a6f0fe9b069db57">PublishPartialObject</a> (const <a class="el" href="structmoq_1_1transport_1_1_object_headers.html">ObjectHeaders</a> &amp;object_headers, <a class="el" href="namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a> data)</td></tr>
+<tr class="memdesc:a90e408a873350ccf8a6f0fe9b069db57"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish object to the announced track.  <br /></td></tr>
+<tr class="separator:a90e408a873350ccf8a6f0fe9b069db57"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af1ade700459404be05a873891fc9bcae" id="r_af1ade700459404be05a873891fc9bcae"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#a1fc79f38bf78c3ac1d92f2467763ea98">PublishObjectStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#af1ade700459404be05a873891fc9bcae">PublishContinuationData</a> (<a class="el" href="namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a> data)</td></tr>
 <tr class="memdesc:af1ade700459404be05a873891fc9bcae"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish continuation data.  <br /></td></tr>
 <tr class="separator:af1ade700459404be05a873891fc9bcae"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -267,7 +270,7 @@ Additional Inherited Members</h2></td></tr>
 <tr><td class="fieldname"><a id="a1fc79f38bf78c3ac1d92f2467763ea98a05b3e664bc3465982f33d4a02e0e903b" name="a1fc79f38bf78c3ac1d92f2467763ea98a05b3e664bc3465982f33d4a02e0e903b"></a>kNoPreviousObject&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="a1fc79f38bf78c3ac1d92f2467763ea98a9a145f4e212bb020d888fa7df22c92b3" name="a1fc79f38bf78c3ac1d92f2467763ea98a9a145f4e212bb020d888fa7df22c92b3"></a>kObjectDataComplete&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="a1fc79f38bf78c3ac1d92f2467763ea98a161afdbbfaed9cf4e4c14abc4f3a7cf7" name="a1fc79f38bf78c3ac1d92f2467763ea98a161afdbbfaed9cf4e4c14abc4f3a7cf7"></a>kObjectContinuationDataNeeded&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a1fc79f38bf78c3ac1d92f2467763ea98a29bc6ab59d21091c424ae5e9a036b1b3" name="a1fc79f38bf78c3ac1d92f2467763ea98a29bc6ab59d21091c424ae5e9a036b1b3"></a>kObjectDataIncomplete&#160;</td><td class="fielddoc"><p><a class="el" href="#aea2f5f7415e0bbb30154c692f0ac2888" title="Publish object to the announced track.">PublishObject()</a> was called when continuation data remains. </p>
+<tr><td class="fieldname"><a id="a1fc79f38bf78c3ac1d92f2467763ea98a29bc6ab59d21091c424ae5e9a036b1b3" name="a1fc79f38bf78c3ac1d92f2467763ea98a29bc6ab59d21091c424ae5e9a036b1b3"></a>kObjectDataIncomplete&#160;</td><td class="fielddoc"><p><a class="el" href="#aea2f5f7415e0bbb30154c692f0ac2888" title="Publish [full] object.">PublishObject()</a> was called when continuation data remains. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="a1fc79f38bf78c3ac1d92f2467763ea98aa6997d7faf893c343835acd339b724d3" name="a1fc79f38bf78c3ac1d92f2467763ea98aa6997d7faf893c343835acd339b724d3"></a>kObjectDataTooLarge&#160;</td><td class="fielddoc"><p>Indicates that the published object data is too large based on the object header payload size plus any/all data that was sent already. </p>
 </td></tr>
@@ -468,7 +471,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Publish continuation data. </p>
-<p>Publish continuation data for the previous <a class="el" href="#aea2f5f7415e0bbb30154c692f0ac2888" title="Publish object to the announced track.">PublishObject()</a>. The data should be the remaining data of the object payload size.</p>
+<p>Publish continuation data for the previous <a class="el" href="#aea2f5f7415e0bbb30154c692f0ac2888" title="Publish [full] object.">PublishObject()</a>. The data should be the remaining data of the object payload size.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">data</td><td>Remaining payload data for the object being published. The length cannot exceed the original object payload size.</td></tr>
@@ -505,14 +508,52 @@ Additional Inherited Members</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Publish object to the announced track. </p>
-<p>Publish an object to announced track that was previously announced. This will have an error if the track wasn't announced yet. Status will indicate if there are no subscribers. In this case, the object will not be sent.</p>
+<p>Publish [full] object. </p>
+<p>Publish a full object. If not announced, it will be announced. Status will indicate if there are no subscribers. In this case, the object will not be sent.</p>
+<dl class="section note"><dt>Note</dt><dd>If data is less than <a class="el" href="structmoq_1_1transport_1_1_object_headers.html#a43102aeac4ebc258f1aa032ae500b617" title="Length of payload of the object data.">ObjectHeaders::payload_length</a>, the error kObjectDataIncomplete will be returned and the object will not be sent.</dd></dl>
 <p><b>Restrictions:</b></p><ul>
 <li>This method cannot be called twice with the same object header group and object IDs.</li>
 <li>In <a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598ea2090d4af6fa9dbd62ccadb58933ec824">TrackMode::kStreamPerGroup</a>, <a class="el" href="structmoq_1_1transport_1_1_object_headers.html#a5b9cde3bcb559087f2e58f9ee43428b3" title="Object group ID - Should be derived using time in microseconds.">ObjectHeaders::group_id</a> <b>MUST</b> be different than the previous when calling this method when the previous has not been completed yet using <a class="el" href="#af1ade700459404be05a873891fc9bcae" title="Publish continuation data.">PublishContinuationData()</a>. If group id is not different, the PublishStatus::kPreviousObjectNotCompleteMustStartNewGroup will be returned and the object will not be sent. If new group ID is provided, then the previous object will terminate with stream closure, resulting in the previous being truncated.</li>
 <li>In <a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598eadf09fb233c57a1f2ba2e56279dd4aa37">TrackMode::kStreamPerTrack</a>, this method <b>CANNOT</b> be called until the previous object has been completed using <a class="el" href="#af1ade700459404be05a873891fc9bcae" title="Publish continuation data.">PublishContinuationData()</a>. Calling this method before completing the previous object remaining data will result in PublishStatus::kObjectDataIncomplete. No data would be sent and the stream would remain unchanged. It is expected that the caller would send the remaining continuation data.</li>
 </ul>
-<dl class="section note"><dt>Note</dt><dd>If data is less than <a class="el" href="structmoq_1_1transport_1_1_object_headers.html#a43102aeac4ebc258f1aa032ae500b617" title="Length of payload of the object data.">ObjectHeaders::payload_length</a>, then <a class="el" href="#aea2f5f7415e0bbb30154c692f0ac2888" title="Publish object to the announced track.">PublishObject()</a> should be called to send the remaining data.</dd></dl>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">object_headers</td><td>Object headers, must include group and object Ids </td></tr>
+    <tr><td class="paramname">data</td><td>Full complete payload data for the object</td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>Publish status of the publish </dd></dl>
+
+</div>
+</div>
+<a id="a90e408a873350ccf8a6f0fe9b069db57" name="a90e408a873350ccf8a6f0fe9b069db57"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a90e408a873350ccf8a6f0fe9b069db57">&#9670;&#160;</a></span>PublishPartialObject()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="#a1fc79f38bf78c3ac1d92f2467763ea98">PublishObjectStatus</a> moq::transport::PublishTrackHandler::PublishPartialObject </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1transport_1_1_object_headers.html">ObjectHeaders</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>object_headers</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="namespacemoq_1_1transport.html#a73d3e7e643e9f7190c7a3207d46bd436">BytesSpan</a></td>          <td class="paramname"><span class="paramname"><em>data</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Publish object to the announced track. </p>
+<p>Publish a partial object. If not announced, it will be announced. Status will indicate if there are no subscribers. In this case, the object will not be sent.</p>
+<p><b>Restrictions:</b></p><ul>
+<li>This method cannot be called twice with the same object header group and object IDs.</li>
+<li>In <a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598ea2090d4af6fa9dbd62ccadb58933ec824">TrackMode::kStreamPerGroup</a>, <a class="el" href="structmoq_1_1transport_1_1_object_headers.html#a5b9cde3bcb559087f2e58f9ee43428b3" title="Object group ID - Should be derived using time in microseconds.">ObjectHeaders::group_id</a> <b>MUST</b> be different than the previous when calling this method when the previous has not been completed yet using <a class="el" href="#af1ade700459404be05a873891fc9bcae" title="Publish continuation data.">PublishContinuationData()</a>. If group id is not different, the PublishStatus::kPreviousObjectNotCompleteMustStartNewGroup will be returned and the object will not be sent. If new group ID is provided, then the previous object will terminate with stream closure, resulting in the previous being truncated.</li>
+<li>In <a class="el" href="classmoq_1_1transport_1_1_base_track_handler.html#a5b6888694dddaa5c6c71662d7324598eadf09fb233c57a1f2ba2e56279dd4aa37">TrackMode::kStreamPerTrack</a>, this method <b>CANNOT</b> be called until the previous object has been completed using <a class="el" href="#af1ade700459404be05a873891fc9bcae" title="Publish continuation data.">PublishContinuationData()</a>. Calling this method before completing the previous object remaining data will result in PublishStatus::kObjectDataIncomplete. No data would be sent and the stream would remain unchanged. It is expected that the caller would send the remaining continuation data.</li>
+</ul>
+<dl class="section note"><dt>Note</dt><dd>If data is less than <a class="el" href="structmoq_1_1transport_1_1_object_headers.html#a43102aeac4ebc258f1aa032ae500b617" title="Length of payload of the object data.">ObjectHeaders::payload_length</a>, then <a class="el" href="#aea2f5f7415e0bbb30154c692f0ac2888" title="Publish [full] object.">PublishObject()</a> should be called to send the remaining data.</dd></dl>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">object_headers</td><td>Object headers, must include group and object Ids </td></tr>
