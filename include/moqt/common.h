@@ -101,4 +101,19 @@ namespace moq::transport {
         std::optional<uint16_t> ttl;      ///< Object time to live in milliseconds
     };
 
-} // namespace moq::transport
+    /**
+     * @brief  Publish Announce Status
+     */
+    enum class PublishAnnounceStatus : uint8_t
+    {
+        kOK = 0,
+        kNotConnected,
+        kNotAnnounced,
+        kPendingAnnounceResponse,
+        kAnnounceNotAuthorized,
+        kSendingUnannounce, ///< In this state, callbacks will not be called
+    };
+
+
+}
+// namespace moq::transport

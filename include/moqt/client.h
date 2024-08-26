@@ -72,6 +72,17 @@ namespace moq::transport {
         virtual void ServerSetup(const ServerSetupAttributes& server_setup_attributes) = 0;
 
         /**
+         * @brief Notification on publish announcement status change
+         *
+         * @details Callback notification for a change in publish announcement status
+         *
+         * @param track_namespace             Track namespace to announce
+         *
+         * @return PublishAnnounceStatus of the namespace
+         */
+        virtual PublishAnnounceStatus AnnounceStatusChanged(const TrackNamespace& track_namespace) = 0;
+
+        /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
          *
          * @details When a new subscribe is received that doesn't match any existing publish track, this
@@ -102,6 +113,14 @@ namespace moq::transport {
         virtual void MetricsSampled(const ConnectionMetrics&& metrics) = 0;
 
       protected:
+        /**
+         * @brief Get announce status for namespace
+         * @param track_namespace           Track namespace of the announcement
+         *
+         * @return PublishAnnounceStatus of the namespace
+         */
+        PublishAnnounceStatus GetAnnounceStatus(const TrackNamespace& track_namespace);
+
         /**
          * @brief Subscribe to a track
          *
@@ -146,13 +165,10 @@ namespace moq::transport {
          *      Name and track alias is not used.
          *
          *
-         * @param track_delegate    Track delegate to use for track related functions
-         *                          and callbacks
+         * @param track_namespace    Track delegate to use for track related functions
+         *                           and callbacks
          */
-        void PublishTrackNamespace(std::shared_ptr<PublishTrackHandler> track_delegate) {
-            if (conn_id_) {
-                Transport::PublishTrack(*conn_id_, std::move(track_delegate));
-            }
+        void PublishAnnounce(const TrackNamespace& track_namespace) {
         }
 
         /**
