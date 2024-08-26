@@ -2,11 +2,11 @@
 
 #include <string>
 #include <vector>
-#include <moqt/common.h>
+#include <moq/common.h>
 #include <quicr/message_buffer.h>
 #include <transport/stream_buffer.h>
 
-namespace moq::transport::messages {
+namespace moq::messages {
 using namespace quicr::messages;
 
 using Version = uint64_t;
@@ -406,4 +406,4 @@ private:
   bool parse_completed { false };
 };
 
-} // end of namespace moq::transport::messages
+} // end of namespace moq::messages

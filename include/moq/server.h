@@ -6,17 +6,19 @@
 
 #pragma once
 
-#include <moqt/config.h>
-#include <moqt/core/messages.h>
-#include <moqt/core/transport.h>
+#include <moq/config.h>
+#include <moq/detail/messages.h>
+#include <moq/track_name.h>
+#include <moq/object.h>
+#include <moq/detail/transport.h>
 
-namespace moq::transport {
+namespace moq {
     using namespace qtransport;
 
     /**
-     * @brief MoQT Server
+     * @brief MoQ Server
      *
-     * @details MoQT Server is the handler of the MoQT QUIC listening socket
+     * @details MoQ Server is the handler of the MoQ QUIC listening socket
      */
     class Server : public Transport
     {
@@ -24,7 +26,7 @@ namespace moq::transport {
         /**
          * @brief MoQ Server constructor to create the MOQ server mode instance
          *
-         * @param cfg           MoQT Server Configuration
+         * @param cfg           MoQ Server Configuration
          */
         Server(const ServerConfig& cfg)
           : Transport(cfg)
@@ -66,7 +68,7 @@ namespace moq::transport {
          * @param conn_id          Transport connection ID
          * @param status           Transport status of connection id
          */
-        virtual void ConnectionChanged(TransportConnId conn_id, TransportStatus status) = 0;
+        virtual void ConnectionStatusChanged(TransportConnId conn_id, TransportStatus status) = 0;
 
         /**
          * @brief Callback on client setup message
@@ -107,6 +109,7 @@ namespace moq::transport {
          *
          * @param conn_id               Source connection ID
          * @param subscribe_id          Subscribe ID received
+         * @param proposed_track_alias  The proposed track alias the subscriber would like to use
          * @param track_full_name       Track full name
          * @param subscribe_attributes  Subscribe attributes received
          *
@@ -114,6 +117,7 @@ namespace moq::transport {
          */
         virtual bool SubscribeReceived(TransportConnId conn_id,
                                        uint64_t subscribe_id,
+                                       uint64_t proposed_track_alias,
                                        const FullTrackName& track_full_name,
                                        const SubscribeAttributes& subscribe_attributes) = 0;
 
@@ -143,4 +147,4 @@ namespace moq::transport {
         bool stop_{ false };
     };
 
-} // namespace moq::transport
+} // namespace moq

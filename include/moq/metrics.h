@@ -9,7 +9,7 @@
 #include <string>
 #include <transport/transport_metrics.h>
 
-namespace moq::transport {
+namespace moq {
     using namespace qtransport;
 
     struct ConnectionMetrics
@@ -67,4 +67,4 @@ namespace moq::transport {
         } quic;
     };
 
-} // namespace moq::transport
+} // namespace moq

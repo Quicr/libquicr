@@ -7,17 +7,19 @@
 #pragma once
 
 #include <optional>
-#include <moqt/config.h>
-#include <moqt/common.h>
-#include <moqt/core/transport.h>
+#include <moq/config.h>
+#include <moq/common.h>
+#include <moq/track_name.h>
+#include <moq/object.h>
+#include <moq/detail/transport.h>
 
-namespace moq::transport {
+namespace moq {
     using namespace qtransport;
 
     /**
-     * @brief MoQT Client
+     * @brief MoQ Client
      *
-     * @details MoQT Client is the handler of the MoQT QUIC transport IP connection.
+     * @details MoQ Client is the handler of the MoQ QUIC transport IP connection.
      */
     class Client : public Transport
     {
@@ -40,7 +42,7 @@ namespace moq::transport {
         /**
          * @brief MoQ Client Constructor to create the client mode instance
          *
-         * @param cfg           MoQT Client Configuration
+         * @param cfg           MoQ Client Configuration
          */
         Client(const ClientConfig& cfg)
           : Transport(cfg)
@@ -50,7 +52,7 @@ namespace moq::transport {
         ~Client() = default;
 
         /**
-         * @brief Starts a client connection via a transport thread (non-blocking)
+         * @brief Starts a client connection via a transport thread
          *
          * @details Makes a client connection session and runs in a newly created thread. All control and track
          *   callbacks will be run based on events.
@@ -61,9 +63,9 @@ namespace moq::transport {
         Status Connect();
 
         /**
-         * @brief Disconnect the client connection gracefully (non-blocking)
+         * @brief Disconnect the client connection gracefully
          *
-         * @details Unsubscribes and unpublishes all remaining active ones, sends MoQT control messages
+         * @details Unsubscribes and unpublishes all remaining active ones, sends MoQ control messages
          *   for those and then closes the QUIC connection gracefully. Stops the transport thread. The class
          *   destructor calls this method as well. Status will be updated to reflect not connected.
          *
@@ -167,7 +169,7 @@ namespace moq::transport {
         /**
          * @brief Publish a track namespace
          *
-         * @details In MoQT, a publish namespace will result in an announce being sent. Announce OK will
+         * @details In MoQ, a publish namespace will result in an announce being sent. Announce OK will
          *      be reflected in the Status() of the PublishTrackHandler passed. This method can be called at any time,
          *      but normally it would be called before publishing any tracks to the same namespace.
          *
@@ -232,4 +234,4 @@ namespace moq::transport {
         std::optional<TransportConnId> conn_id_;               ///< Connection ID for the client
     };
 
-} // namespace moq::transport
+} // namespace moq

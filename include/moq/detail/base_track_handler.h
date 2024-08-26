@@ -7,10 +7,12 @@
 
 #include <optional>
 #include <transport/span.h>
-#include <moqt/common.h>
+#include <moq/common.h>
+#include <moq/track_name.h>
+#include <moq/object.h>
 #include <vector>
 
-namespace moq::transport {
+namespace moq {
 
     /**
      * @brief MoQ track base handler for tracks (subscribe/publish)
@@ -63,7 +65,7 @@ namespace moq::transport {
          * @details MOQ transport instance will set the track alias when the track has
          *   been assigned.
          *
-         * @param track_alias       MoQT track alias for track namespace+name that
+         * @param track_alias       MoQ track alias for track namespace+name that
          *                          is relative to the QUIC connection session
          */
         void SetTrackAlias(uint64_t track_alias) { full_track_name_.track_alias = track_alias; }
@@ -125,7 +127,7 @@ namespace moq::transport {
 
         /**
          * subscribe_id_ is the primary index/key for subscribe subscribe context/delegate storage.
-         *   It is use as the subscribe_id in MoQT related subscribes.  Subscribe ID will adapt
+         *   It is use as the subscribe_id in MoQ related subscribes.  Subscribe ID will adapt
          *   to received subscribe IDs, so the value will reflect either the received subscribe ID
          *   or the next one that increments from last received ID.
          */
@@ -135,4 +137,4 @@ namespace moq::transport {
         uint64_t prev_object_id_{ 0 };
     };
 
-} // namespace moq::transport
+} // namespace moq
