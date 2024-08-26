@@ -185,9 +185,12 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:a875084b40f4b7d8b564a5273b84342de" id="r_a875084b40f4b7d8b564a5273b84342de"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a875084b40f4b7d8b564a5273b84342de">UnsubscribeTrack</a> (std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt; track_delegate)</td></tr>
 <tr class="memdesc:a875084b40f4b7d8b564a5273b84342de"><td class="mdescLeft">&#160;</td><td class="mdescRight">Unsubscribe track.  <br /></td></tr>
 <tr class="separator:a875084b40f4b7d8b564a5273b84342de"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2e72efe34fb55cee070dd8a2b3172ff6" id="r_a2e72efe34fb55cee070dd8a2b3172ff6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a2e72efe34fb55cee070dd8a2b3172ff6">PublishAnnounce</a> (const <a class="el" href="namespacemoq_1_1transport.html#af86ede8e517199e4255fd1bea76fed21">TrackNamespace</a> &amp;track_namespace)</td></tr>
-<tr class="memdesc:a2e72efe34fb55cee070dd8a2b3172ff6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish a track namespace.  <br /></td></tr>
-<tr class="separator:a2e72efe34fb55cee070dd8a2b3172ff6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9c219e1e4542294150c078da06b9df06" id="r_a9c219e1e4542294150c078da06b9df06"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacemoq_1_1transport.html#ae665f50333982e338608c1a1b2113171">PublishAnnounceStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9c219e1e4542294150c078da06b9df06">PublishAnnounce</a> (const <a class="el" href="namespacemoq_1_1transport.html#af86ede8e517199e4255fd1bea76fed21">TrackNamespace</a> &amp;track_namespace)</td></tr>
+<tr class="memdesc:a9c219e1e4542294150c078da06b9df06"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish a track namespace.  <br /></td></tr>
+<tr class="separator:a9c219e1e4542294150c078da06b9df06"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a007e02f797dae40647b89692035d03d0" id="r_a007e02f797dae40647b89692035d03d0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a007e02f797dae40647b89692035d03d0">PublishUnannounce</a> (const <a class="el" href="namespacemoq_1_1transport.html#af86ede8e517199e4255fd1bea76fed21">TrackNamespace</a> &amp;track_namespace)</td></tr>
+<tr class="memdesc:a007e02f797dae40647b89692035d03d0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Unannounce a publish namespace.  <br /></td></tr>
+<tr class="separator:a007e02f797dae40647b89692035d03d0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acad4a774505647832212281a6d11f34f" id="r_acad4a774505647832212281a6d11f34f"><td class="memItemLeft" align="right" valign="top">std::optional&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#acad4a774505647832212281a6d11f34f">PublishTrack</a> (std::shared_ptr&lt; <a class="el" href="classmoq_1_1transport_1_1_publish_track_handler.html">PublishTrackHandler</a> &gt; track_delegate)</td></tr>
 <tr class="memdesc:acad4a774505647832212281a6d11f34f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish to a track.  <br /></td></tr>
 <tr class="separator:acad4a774505647832212281a6d11f34f"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -456,8 +459,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a2e72efe34fb55cee070dd8a2b3172ff6" name="a2e72efe34fb55cee070dd8a2b3172ff6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2e72efe34fb55cee070dd8a2b3172ff6">&#9670;&#160;</a></span>PublishAnnounce()</h2>
+<a id="a9c219e1e4542294150c078da06b9df06" name="a9c219e1e4542294150c078da06b9df06"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9c219e1e4542294150c078da06b9df06">&#9670;&#160;</a></span>PublishAnnounce()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -466,7 +469,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void moq::transport::Client::PublishAnnounce </td>
+          <td class="memname"><a class="el" href="namespacemoq_1_1transport.html#ae665f50333982e338608c1a1b2113171">PublishAnnounceStatus</a> moq::transport::Client::PublishAnnounce </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="namespacemoq_1_1transport.html#af86ede8e517199e4255fd1bea76fed21">TrackNamespace</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_namespace</em></span></td><td>)</td>
           <td></td>
@@ -474,7 +477,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">protected</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -485,10 +488,11 @@ Additional Inherited Members</h2></td></tr>
 <dl class="section note"><dt>Note</dt><dd>The <a class="el" href="classmoq_1_1transport_1_1_publish_track_handler.html" title="MOQ track handler for published track.">PublishTrackHandler</a> with this method only needs to have the <a class="el" href="structmoq_1_1transport_1_1_full_track_name.html#a230b37a50b6bd1eecca4b55e05424f28">FullTrackName::name_space</a> defined. Name and track alias is not used.</dd></dl>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">track_namespace</td><td>Track delegate to use for track related functions and callbacks </td></tr>
+    <tr><td class="paramname">track_namespace</td><td>Track delegate to use for track related functions and callbacks</td></tr>
   </table>
   </dd>
 </dl>
+<dl class="section return"><dt>Returns</dt><dd>PublishAnnounceStatus of the publish announce namespace </dd></dl>
 
 </div>
 </div>
@@ -523,6 +527,40 @@ Additional Inherited Members</h2></td></tr>
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd><code>track_alias</code> if no error and nullopt on error </dd></dl>
+
+</div>
+</div>
+<a id="a007e02f797dae40647b89692035d03d0" name="a007e02f797dae40647b89692035d03d0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a007e02f797dae40647b89692035d03d0">&#9670;&#160;</a></span>PublishUnannounce()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void moq::transport::Client::PublishUnannounce </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="namespacemoq_1_1transport.html#af86ede8e517199e4255fd1bea76fed21">TrackNamespace</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_namespace</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Unannounce a publish namespace. </p>
+<p>Unannounce a publish namespace. <b>ALL</b> tracks will be marked unpublish, as if called by <a class="el" href="#ad31fe1ee183ea69e6584010875faf485" title="Unpublish track.">UnpublishTrack()</a></p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">track_namespace</td><td>Track namespace to unannounce </td></tr>
+  </table>
+  </dd>
+</dl>
 
 </div>
 </div>
