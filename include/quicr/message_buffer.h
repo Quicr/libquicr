@@ -1,7 +1,7 @@
 #pragma once
 
-#include <quicr/name.h>
 #include <transport/span.h>
+#include <moqt/common.h>
 
 #include <bit>
 #include <vector>
@@ -56,16 +56,6 @@ swap_bytes(uint64_t value)
          ((value << 56) & 0xff00000000000000);
 }
 
-constexpr quicr::Name
-swap_bytes(quicr::Name value)
-{
-  if constexpr (is_big_endian())
-    return value;
-
-  constexpr auto ones = ~0x0_name;
-  return ((ones & swap_bytes(uint64_t(value))) << 64) |
-                  swap_bytes(uint64_t(value >> 64));
-}
 }
 // clang-format on
 
@@ -187,15 +177,11 @@ public:
 
   /**
    * @brief Writes QUICR integral types to the buffer in NBO.
-   * @tparam T An unsigned integral type or a quicr::Name.
+   * @tparam T Value type
    * @param value The message to be written.
    * @returns The MessageBuffer that was written to.
    */
-#if __cplusplus >= 202002L
-  template<UnsignedOrName T>
-#else
-  template<typename T, typename std::enable_if_t<std::is_integral_v<T> || std::is_same_v<T, Name>, bool> = true>
-#endif
+  template<typename T>
   inline MessageBuffer& operator<<(T value)
   {
     value = swap_bytes(value);
@@ -220,11 +206,7 @@ public:
    * @param value The value to read into.
    * @returns The MessageBuffer that was read from.
    */
-#if __cplusplus >= 202002L
-  template<UnsignedOrName T>
-#else
-  template<typename T, typename std::enable_if_t<std::is_integral_v<T> || std::is_same_v<T, Name>, bool> = true>
-#endif
+  template<typename T>
   inline MessageBuffer& operator>>(T& value)
   {
     if (empty())

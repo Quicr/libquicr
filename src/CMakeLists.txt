@@ -3,14 +3,9 @@ add_library(quicr)
 
 target_sources(quicr PRIVATE
         message_buffer.cpp
-        encode.cpp
-        moq_messages.cpp
-        quicr_client.cpp
-        quicr_client_raw_session.cpp
-        quicr_server.cpp
-        quicr_server_raw_session.cpp
-        moq_instance.cpp
-        moq_track_delegate_base.cpp
+        moqt/messages.cpp
+        #moqt/transport.cpp
+        #moqt/track_delegate_base.cpp
 )
 
 if(NOT LIBQUICR_WITHOUT_INFLUXDB)

@@ -2,14 +2,9 @@
 
 add_executable(quicr_test
                 main.cpp
-                quicr_client.cpp
                 stream_buffer.cpp
-                quicr_server.cpp
-        moqt_messages.cpp
-                moq_instance.cpp
-        moqt_test.cpp
-                encode.cpp
-        moqt_messages.cpp)
+                moqt_messages.cpp
+                moqt_test.cpp)
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
 target_link_libraries(quicr_test PRIVATE quicr doctest::doctest)

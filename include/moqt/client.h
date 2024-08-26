@@ -87,8 +87,8 @@ namespace moq::transport {
          * @return Caller returns **true** to accept the subscribe and will start to publish, **false** to reject
          *      the subscribe and will not publish.
          */
-        virtual bool SubscribeReceived(const FullTrackName& track_full_name,
-                                       const SubscribeAttributes& subscribe_attributes) = 0;
+        virtual bool UnpublishedSubscribeReceived(const FullTrackName& track_full_name,
+                                                  const SubscribeAttributes& subscribe_attributes) = 0;
 
         /**
          * @brief Notification callback to provide sampled metrics
