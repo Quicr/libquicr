@@ -204,25 +204,7 @@ namespace moq::transport {
          *    * other PublishStatus
          */
         PublishObjectStatus PublishPartialObject(const ObjectHeaders& object_headers, BytesSpan data);
-
-        /**
-         * @brief Publish continuation data
-         *
-         * @details Publish continuation data for the previous PublishObject(). The data should be the
-         *      remaining data of the object payload size.
-         *
-         * @param data                  Remaining payload data for the object being published. The length cannot exceed
-         *                              the original object payload size.
-         *
-         * @returns
-         *      * PublishStatus::kObjectDataComplete if the data fulfills the remaining data,
-         *      * PublishStatus::kObjectContinuationDataNeeded if more data is still needed,
-         *      * PublishStatus::kObjectDataTooLarge if the data provided would exceed the remaining amount of data,
-         *      * PublishStatus::kNoPreviousObject if the previous object was completed or if there was no previous object,
-         *      * other PublishStatus
-         */
-        PublishObjectStatus PublishContinuationData(BytesSpan data);
-
+     
         // --------------------------------------------------------------------------
         // Metrics
         // --------------------------------------------------------------------------
