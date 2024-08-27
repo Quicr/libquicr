@@ -1,14 +1,14 @@
 
-#include <quicr/moq_instance.h>
-
-#include "signal_handler.h"
-
 #include <iostream>
 #include <chrono>
 #include <iomanip>
 #include <oss/cxxopts.hpp>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+
+#include <moq/client.h>
+
+#include "signal_handler.h"
 
 namespace qclient_vars {
   //std::optional<qtransport::TransportConnId> conn_id;
@@ -39,33 +39,34 @@ std::string get_time_str()
  *      delegate.
  * -------------------------------------------------------------------------------------------------
  */
-class trackDelegate : public quicr::MoQTrackDelegate
+class MySubscribeTrackHandler : public moq::SubscribeTrackHandler
 {
-  public:
-    trackDelegate(const std::string& t_namespace,
-                  const std::string& t_name,
-                  uint8_t priority,
-                  uint32_t ttl,
-                  std::shared_ptr<spdlog::logger> logger)
-      : MoQTrackDelegate({ t_namespace.begin(), t_namespace.end() },
-                         { t_name.begin(), t_name.end() },
-                         TrackMode::STREAM_PER_GROUP,
-                         priority,
-                         ttl,
-                         std::move(logger))
-    {
+public:
+  MySubscribeTrackHandler(const moq::FullTrackName& full_track_name)
+    : SubscribeTrackHandler( full_track_name )
+  {
+  }
+  
+  virtual ~MySubscribeTrackHandler() = default;
+  
+  virtual void ObjectReceived(const moq::ObjectHeaders& object_headers, Span<uint8_t> data) {
+    std::string msg(data.begin(), data.end());
+    SPDLOG_LOGGER_INFO(_logger, "Received message: {0}", msg);
+  }
+
+  virtual void StatusChanged(Status status) {
+    switch ( status ) {
+    case kOk : {
+      auto track_alias = GetTrackAlias();
+       SPDLOG_LOGGER_INFO(_logger, "Track alias: {0} is ready to read",  );
     }
-
-    virtual ~trackDelegate() = default;
-
-    void cb_objectReceived(uint64_t group_id, uint64_t object_id,
-                           [[maybe_unused]] uint8_t priority,
-                           std::vector<uint8_t>&& object,
-                           [[maybe_unused]] TrackMode track_mode) override {
-        std::string msg(object.begin(), object.end());
-
-        SPDLOG_LOGGER_INFO(_logger, "Received message: {0}", msg);
+      break;
+    default:
+      break; 
     }
+  }
+
+#if 0
     void cb_sendCongested(bool cleared, uint64_t objects_in_queue) override {}
 
     void cb_sendReady() override {
@@ -81,8 +82,10 @@ class trackDelegate : public quicr::MoQTrackDelegate
         SPDLOG_LOGGER_INFO(_logger, "Track alias: {0} is ready to read",  _track_alias.value());
     }
     void cb_readNotReady(TrackReadStatus status) override {}
+#endif
 };
 
+#if 0 
 /* -------------------------------------------------------------------------------------------------
  * Client MOQ instance delegate is used to control and interact with the connection.
  * -------------------------------------------------------------------------------------------------
@@ -382,3 +385,5 @@ main(int argc, char* argv[])
 
     return result_code;
 }
+
+#endif
