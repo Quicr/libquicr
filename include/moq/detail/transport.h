@@ -153,7 +153,7 @@ namespace moq {
             std::optional<uint64_t> ctrl_data_ctx_id;
             bool setup_complete{ false }; ///< True if both client and server setup messages have completed
             uint64_t client_version{ 0 };
-            std::optional<messages::MoqtMessageType>
+            std::optional<messages::MoqMessageType>
               ctrl_msg_type_received; ///< Indicates the current message type being read
 
             uint64_t current_subscribe_id{ 0 }; ///< Connection specific ID for subscribe messages

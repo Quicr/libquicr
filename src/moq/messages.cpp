@@ -92,7 +92,7 @@ MessageBuffer& operator>>(MessageBuffer& buffer, std::optional<T>& val) {
 
 
 //
-// MoqtParameter
+// MoqParameter
 //
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
@@ -1100,9 +1100,9 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamTrackObject 
 
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtStreamHeaderGroup& msg){
+           const MoqStreamHeaderGroup& msg){
 
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::STREAM_HEADER_GROUP)));
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_GROUP)));
   buffer.Push(qtransport::ToUintV(msg.subscribe_id));
   buffer.Push(qtransport::ToUintV(msg.track_alias));
   buffer.Push(qtransport::ToUintV(msg.group_id));
@@ -1110,31 +1110,31 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtStreamHeaderGroup &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamHeaderGroup &msg) {
   switch (msg.current_pos) {
     case 0: {
-      if(!parse_uintV_field(buffer, msg.subscribe_id)) {
+      if(!ParseUintVField(buffer, msg.subscribe_id)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 1: {
-      if(!parse_uintV_field(buffer, msg.track_alias)) {
+      if(!ParseUintVField(buffer, msg.track_alias)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 2: {
-      if(!parse_uintV_field(buffer, msg.group_id)) {
+      if(!ParseUintVField(buffer, msg.group_id)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 3: {
-      if(!parse_uintV_field(buffer, msg.priority)) {
+      if(!ParseUintVField(buffer, msg.priority)) {
         return false;
       }
       msg.current_pos += 1;
@@ -1153,18 +1153,18 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtStreamHeaderGroup
 }
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtStreamGroupObject& msg){
+           const MoqStreamGroupObject& msg){
 
   buffer.Push(qtransport::ToUintV(msg.object_id));
   buffer.PushLv(msg.payload);
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtStreamGroupObject &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamGroupObject &msg) {
 
   switch (msg.current_pos) {
     case 0: {
-      if(!parse_uintV_field(buffer, msg.object_id)) {
+      if(!ParseUintVField(buffer, msg.object_id)) {
         return false;
       }
       msg.current_pos += 1;
@@ -1192,9 +1192,9 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtStreamGroupObject
 
 // Client Setup message
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtClientSetup& msg){
+           const MoqClientSetup& msg){
 
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::CLIENT_SETUP)));
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::CLIENT_SETUP)));
   buffer.Push(qtransport::ToUintV(msg.supported_versions.size()));
   // versions
   for (const auto& ver: msg.supported_versions) {
@@ -1213,10 +1213,10 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtClientSetup &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqClientSetup &msg) {
   switch (msg.current_pos) {
     case 0: {
-      if(!parse_uintV_field(buffer, msg.num_versions)) {
+      if(!ParseUintVField(buffer, msg.num_versions)) {
         return false;
       }
       msg.current_pos += 1;
@@ -1225,7 +1225,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtClientSetup &msg)
     case 1: {
       while (msg.num_versions > 0) {
         uint64_t version{ 0 };
-        if (!parse_uintV_field(buffer, version)) {
+        if (!ParseUintVField(buffer, version)) {
           return false;
         }
         msg.supported_versions.push_back(version);
@@ -1237,7 +1237,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtClientSetup &msg)
     case 2: {
       if(!msg.num_params.has_value()) {
         auto params = uint64_t {0};
-        if (!parse_uintV_field(buffer, params)) {
+        if (!ParseUintVField(buffer, params)) {
           return false;
         }
         msg.num_params = params;
@@ -1245,11 +1245,11 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtClientSetup &msg)
       while (msg.num_params > 0) {
           if (!msg.current_param.has_value()) {
               uint64_t type{ 0 };
-              if (!parse_uintV_field(buffer, type)) {
+              if (!ParseUintVField(buffer, type)) {
                   return false;
               }
 
-              msg.current_param = MoqtParameter{};
+              msg.current_param = {};
               msg.current_param->type = type;
           }
 
@@ -1297,9 +1297,9 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtClientSetup &msg)
 // Server Setup message
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtServerSetup& msg){
+           const MoqServerSetup& msg){
 
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::SERVER_SETUP)));
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::SERVER_SETUP)));
   buffer.Push(qtransport::ToUintV(msg.selection_version));
 
   /// num params
@@ -1315,10 +1315,10 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtServerSetup &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqServerSetup &msg) {
   switch (msg.current_pos) {
     case 0: {
-      if(!parse_uintV_field(buffer, msg.selection_version)) {
+      if(!ParseUintVField(buffer, msg.selection_version)) {
         return false;
       }
       msg.current_pos += 1;
@@ -1327,7 +1327,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtServerSetup &msg)
     case 1: {
       if(!msg.num_params.has_value()) {
         auto params = uint64_t {0};
-        if (!parse_uintV_field(buffer, params)) {
+        if (!ParseUintVField(buffer, params)) {
           return false;
         }
         msg.num_params = params;
@@ -1335,11 +1335,11 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtServerSetup &msg)
       while (msg.num_params > 0) {
         if (!msg.current_param.has_value()) {
           uint64_t type {0};
-          if (!parse_uintV_field(buffer, type)) {
+          if (!ParseUintVField(buffer, type)) {
               return false;
           }
 
-          msg.current_param = MoqtParameter{};
+          msg.current_param = {};
           msg.current_param->type = type;
         }
 
