@@ -72,7 +72,6 @@ namespace moq {
          * @return Status of kDisconnecting
          */
         Status Disconnect();
-
         /**
          * @brief Callback notification for connection status/state change
          * @details Callback notification indicates state change of connection, such as disconnected

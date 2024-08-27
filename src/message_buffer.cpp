@@ -196,4 +196,4 @@ MessageBuffer::cleanup(size_t length)
   _read_offset = 0;
   _buffer.clear();
 }
-} // namespace quicr::messages
+} // namespace moq::messages

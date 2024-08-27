@@ -110,7 +110,7 @@ namespace moq {
          *
          * @param status        Indicates the status of being able to publish
          */
-        virtual void StatusChanged(Status status) {}
+        virtual void StatusChanged(Status status);
 
         /**
          * @brief Notification callback to provide sampled metrics
@@ -121,7 +121,7 @@ namespace moq {
          *
          * @param metrics           Copy of the published metrics for the sample period
          */
-        virtual void MetricsSampled(const PublishTrackMetrics&& metrics) {}
+        virtual void MetricsSampled(const PublishTrackMetrics&& metrics);
 
         // --------------------------------------------------------------------------
         // Various getter/setters
@@ -276,6 +276,8 @@ namespace moq {
         uint64_t publish_data_ctx_id_; // publishing data context ID
         PublishObjFunction publish_object_func_;
 
+        uint64_t prev_object_group_id_{ 0 };
+        uint64_t prev_object_id_{ 0 };
         uint64_t object_payload_remaining_length_{ 0 };
         bool sent_track_header_{ false }; // Used only in stream per track mode
     };

@@ -106,7 +106,7 @@ namespace moq {
         /**
          * Stop the server transport
          */
-        void Stop() { stop_ = true; }
+        void Stop();
 
         /**
          * @brief Callback notification on new connection

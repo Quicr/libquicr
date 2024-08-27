@@ -4,13 +4,13 @@
  *  All Rights Reserved
  */
 
-#include <moq/publish_track_handler.h>
+#include <moq/server_publish_track_handler.h>
 
 namespace moq {
-    void PublishTrackHandler::StatusChanged(Status) {}
-    void PublishTrackHandler::MetricsSampled(const PublishTrackMetrics&&) {}
+    void ServerPublishTrackHandler::StatusChanged(moq::ServerPublishTrackHandler::Status status) {}
+    void ServerPublishTrackHandler::MetricsSampled(const moq::PublishTrackMetrics&& metrics) {}
 
-    PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(
+    ServerPublishTrackHandler::PublishObjectStatus ServerPublishTrackHandler::PublishObject(
       const moq::ObjectHeaders& object_headers,
       moq::BytesSpan data)
     {
