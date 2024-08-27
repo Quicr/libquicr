@@ -69,7 +69,7 @@ namespace moq {
             kSendingUnannounce,         ///< In this state, callbacks will not be called
         };
 
-      private:
+      protected:
         /**
          * @brief Publish track handler constructor
          *

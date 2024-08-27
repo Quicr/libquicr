@@ -49,7 +49,7 @@ namespace moq {
             kSendingUnsubscribe                 ///< In this state, callbacks will not be called
         };
 
-      private:
+      protected:
         /**
          * @brief Subscribe track handler constructor
          *
