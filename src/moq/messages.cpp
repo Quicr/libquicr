@@ -24,6 +24,52 @@ static bool parse_bytes_field(qtransport::StreamBuffer<uint8_t> &buffer, Bytes& 
   return true;
 }
 
+MessageBuffer&
+operator<<(MessageBuffer& msg, Span<const uint8_t> val)
+{
+  msg.push(qtransport::ToUintV(val.size()));
+  msg.push(val);
+  return msg;
+}
+
+MessageBuffer&
+operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val)
+{
+  msg.push(qtransport::ToUintV(val.size()));
+  msg.push(std::move(val));
+  return msg;
+}
+
+MessageBuffer&
+operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
+{
+  std::size_t size = qtransport::UintVSize(msg.front());
+  std::size_t vec_size = qtransport::ToUint64(msg.pop_front(size));
+
+  val = msg.pop_front(vec_size);
+  return msg;
+}
+
+MessageBuffer&
+operator<<(MessageBuffer& msg, const std::string& val)
+{
+  std::vector<uint8_t> v(val.begin(), val.end());
+  msg << v;
+  return msg;
+}
+
+MessageBuffer&
+operator>>(MessageBuffer& msg, std::string& val)
+{
+  std::size_t size = qtransport::UintVSize(msg.front());
+  std::size_t vec_size = qtransport::ToUint64(msg.pop_front(size));
+
+  const auto val_vec = msg.pop_front(vec_size);
+  val.assign(val_vec.begin(), val_vec.end());
+
+  return msg;
+}
+
 //
 // Optional
 //
