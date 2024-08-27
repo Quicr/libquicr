@@ -132,9 +132,6 @@ namespace moq {
          *   or the next one that increments from last received ID.
          */
         std::optional<uint64_t> subscribe_id_;
-
-        uint64_t prev_object_group_id_{ 0 };
-        uint64_t prev_object_id_{ 0 };
     };
 
 } // namespace moq

@@ -170,7 +170,7 @@ namespace moq {
          *
          * @returns Publish status of the publish
          */
-        PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
+        [[maybe_unused]] PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
 
         /**
          * @brief Publish object to the announced track
@@ -272,6 +272,8 @@ namespace moq {
         uint64_t publish_data_ctx_id_;      // publishing data context ID
         PublishObjFunction publish_object_func_;
 
+        uint64_t prev_object_group_id_{ 0 };
+        uint64_t prev_object_id_{ 0 };
         uint64_t object_payload_remaining_length_ { 0 };
         bool sent_track_header_ { false };  // Used only in stream per track mode
     };

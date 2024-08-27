@@ -4,6 +4,7 @@ add_library(quicr)
 target_sources(quicr PRIVATE
         message_buffer.cpp
         moq/messages.cpp
+        moq/publish_track_handler_base.cpp
         #moqt/transport.cpp
 )
 
