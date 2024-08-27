@@ -24,6 +24,26 @@ namespace moq {
     {
       public:
         /**
+         * @brief Connection status codes
+         */
+        enum class ConnectionStatus : uint8_t
+        {
+            kNotConnected = 0,
+            kConnected,
+            kIdleTimeout,
+            kClosedByRemote
+        };
+
+        /**
+         * @brief Connection remote information
+         */
+        struct ConnectionRemoteInfo
+        {
+            std::string ip;         ///< remote IPv4/v6 address
+            uint16_t port;          ///< remote port
+        };
+
+        /**
          * @brief MoQ Server constructor to create the MOQ server mode instance
          *
          * @param cfg           MoQ Server Configuration
@@ -59,16 +79,16 @@ namespace moq {
          * @param remote           Transport remote connection information
          */
         virtual void NewConnection(TransportConnId conn_id,
-                                   const TransportRemote& remote) = 0;
+                                   const ConnectionRemoteInfo& remote) = 0;
 
         /**
          * @brief Callback notification for connection status/state change
          * @details Callback notification indicates state change of connection, such as disconnected
          *
          * @param conn_id          Transport connection ID
-         * @param status           Transport status of connection id
+         * @param status           ConnectionStatus of connection id
          */
-        virtual void ConnectionStatusChanged(TransportConnId conn_id, TransportStatus status) = 0;
+        virtual void ConnectionStatusChanged(TransportConnId conn_id, ConnectionStatus status) = 0;
 
         /**
          * @brief Callback on client setup message
@@ -141,6 +161,21 @@ namespace moq {
          * @param metrics           Copy of the connection metrics for the sample period
          */
         virtual void MetricsSampled(TransportConnId conn_id, const ConnectionMetrics&& metrics)  = 0;
+
+      protected:
+        /**
+         * @brief Bind a server publish track handler based on a subscribe
+         *
+         * @details The server will create a server publish track handler based on a received
+         *      subscribe. It will use this handler to send objects to subscriber.
+         *
+         * @param conn_id                   Connection ID of the client/subscriber
+         * @param subscribe_id              Subscribe ID from the received subscribe
+         * @param track_handler             Server publish track handler
+         */
+        void BindSubscribeTrack(TransportConnId conn_id,
+                                uint64_t subscribe_id,
+                                std::shared_ptr<ServerPublishTrackHandler> track_handler);
 
 
       private:

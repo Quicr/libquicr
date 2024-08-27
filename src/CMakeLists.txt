@@ -3,16 +3,9 @@ add_library(quicr)
 
 target_sources(quicr PRIVATE
         message_buffer.cpp
-        moqt/messages.cpp
+        moq/messages.cpp
         #moqt/transport.cpp
-        #moqt/track_delegate_base.cpp
 )
-
-if(NOT LIBQUICR_WITHOUT_INFLUXDB)
-    target_sources(quicr PRIVATE metrics_exporter.cpp)
-else ()
-    add_definitions("-DLIBQUICR_WITHOUT_INFLUXDB")
-endif()
 
 # Suppress external lib warnings
 set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)
@@ -43,12 +36,7 @@ endif()
 
 target_link_libraries(quicr
     PUBLIC
-        quicr-transport
-        qname)
+        quicr-transport)
 
-if(NOT LIBQUICR_WITHOUT_INFLUXDB)
-    target_link_libraries(quicr
-            PRIVATE InfluxData::InfluxDB)
-endif()
 target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include)
 

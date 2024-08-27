@@ -1,13 +1,12 @@
 #pragma once
 
-#include <string>
-#include <vector>
+#include <moq/message_buffer.h>
 #include <moq/common.h>
-#include <quicr/message_buffer.h>
+#include <string>
 #include <transport/stream_buffer.h>
+#include <vector>
 
 namespace moq::messages {
-using namespace quicr::messages;
 
 using Version = uint64_t;
 using TrackNamespace = Bytes;
@@ -100,8 +99,6 @@ struct MoqtParameter {
   friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtParameter &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
                                                        const MoqtParameter& msg);
-private:
-  uint64_t current_pos {0};
 };
 
 MessageBuffer& operator<<(MessageBuffer &buffer, const MoqtParameter &param);

@@ -956,6 +956,7 @@ INPUT                  =  docs/moq-api-main.md \
                           include/moq/client.h \
                           include/moq/metrics.h \
                           include/moq/server.h \
+                          include/moq/server_publish_track_handler.h \
                           include/moq/subscribe_track_handler.h \
                           include/moq/publish_track_handler.h \
                           include/moq/core/base_track_handler.h

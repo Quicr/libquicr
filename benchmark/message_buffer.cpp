@@ -1,7 +1,7 @@
 #include <benchmark/benchmark.h>
 
+#include "moq/message_buffer.h"
 #include <quicr/encode.h>
-#include <quicr/message_buffer.h>
 
 // The unused variables here are intentional, and we don't care about the
 // quality of the randomness.

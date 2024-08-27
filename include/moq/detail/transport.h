@@ -14,6 +14,7 @@
 #include <moq/metrics.h>
 #include <moq/publish_track_handler.h>
 #include <moq/subscribe_track_handler.h>
+#include <moq/server_publish_track_handler.h>
 #include <transport/span.h>
 
 #include <map>
@@ -90,8 +91,7 @@ namespace moq {
          * @param track_delegate    Track delegate to use for track related functions
          *                          and callbacks
          */
-        void PublishTrack(TransportConnId conn_id,
-                                             std::shared_ptr<PublishTrackHandler> track_delegate);
+        void PublishTrack(TransportConnId conn_id, std::shared_ptr<PublishTrackHandler> track_delegate);
 
         /**
          * @brief Unpublish track
@@ -125,18 +125,18 @@ namespace moq {
         // Transport Delegate/callback functions
         // -------------------------------------------------------------------------------------------------
 
-        void on_new_data_context([[maybe_unused]] const TransportConnId& conn_id,
-                                 [[maybe_unused]] const DataContextId& data_ctx_id) override
+        void OnNewDataContext([[maybe_unused]] const TransportConnId& conn_id,
+                              [[maybe_unused]] const DataContextId& data_ctx_id) override
         {
         }
 
-        void on_connection_status(const TransportConnId& conn_id, const TransportStatus status) override;
-        void on_new_connection(const TransportConnId& conn_id, const TransportRemote& remote) override;
-        void on_recv_stream(const TransportConnId& conn_id,
-                            uint64_t stream_id,
-                            std::optional<DataContextId> data_ctx_id,
-                            const bool is_bidir = false) override;
-        void on_recv_dgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id) override;
+        void OnConnectionStatus(const TransportConnId& conn_id, const TransportStatus status) override;
+        void OnNewConnection(const TransportConnId& conn_id, const TransportRemote& remote) override;
+        void OnRecvStream(const TransportConnId& conn_id,
+                          uint64_t stream_id,
+                          std::optional<DataContextId> data_ctx_id,
+                          const bool is_bidir = false) override;
+        void OnRecvDgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id) override;
 
         // -------------------------------------------------------------------------------------------------
         // End of transport delegate/callback functions

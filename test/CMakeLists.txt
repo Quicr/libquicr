@@ -1,18 +1,12 @@
 # Test Binary
 
 add_executable(quicr_test
-                main.cpp
-                stream_buffer.cpp
-                moqt_messages.cpp
-                moqt_test.cpp)
+        main.cpp
+        moq_messages.cpp
+        moq_test.cpp)
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
 target_link_libraries(quicr_test PRIVATE quicr doctest::doctest)
-
-if(NOT LIBQUICR_WITHOUT_INFLUXDB)
-    target_link_libraries(quicr_test
-            PRIVATE InfluxData::InfluxDB)
-endif()
 
 target_compile_options(quicr_test
     PRIVATE

@@ -1,5 +1,5 @@
 
-#include <quicr/moqt_core.h>
+#include <quicr/moq_instance.h>
 
 #include "signal_handler.h"
 
@@ -7,6 +7,8 @@
 #include <chrono>
 #include <iomanip>
 #include <oss/cxxopts.hpp>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace qclient_vars {
     std::optional<qtransport::TransportConnId> conn_id;
@@ -37,20 +39,20 @@ std::string get_time_str()
  *      delegate.
  * -------------------------------------------------------------------------------------------------
  */
-class trackDelegate : public quicr::MOQTBaseTrackHandler
+class trackDelegate : public quicr::MoQTrackDelegate
 {
-public:
+  public:
     trackDelegate(const std::string& t_namespace,
                   const std::string& t_name,
                   uint8_t priority,
                   uint32_t ttl,
-                  const cantina::LoggerPointer& logger)
-      : MOQTBaseTrackHandler({ t_namespace.begin(), t_namespace.end() },
+                  std::shared_ptr<spdlog::logger> logger)
+      : MoQTrackDelegate({ t_namespace.begin(), t_namespace.end() },
                          { t_name.begin(), t_name.end() },
                          TrackMode::STREAM_PER_GROUP,
                          priority,
                          ttl,
-                         logger)
+                         std::move(logger))
     {
     }
 
@@ -62,24 +64,21 @@ public:
                            [[maybe_unused]] TrackMode track_mode) override {
         std::string msg(object.begin(), object.end());
 
-        _logger->info << "Received message: " << m sg << std::flush;
+        SPDLOG_LOGGER_INFO(_logger, "Received message: {0}", msg);
     }
     void cb_sendCongested(bool cleared, uint64_t objects_in_queue) override {}
 
     void cb_sendReady() override {
-        _logger->info << "Track alias: " << _track_alias.value() << " is ready to send" << std::flush;
+        SPDLOG_LOGGER_INFO(_logger, "Track alias: {0} is ready to send", _track_alias.value());
     }
 
     void cb_sendNotReady(TrackSendStatus status) override {
-        _logger->info << "Track alias: " << _track_alias.value()
-                      << " is NOT ready to send"
-                      << " status: " << static_cast<int>(status)
-                      << std::flush;
+        SPDLOG_LOGGER_INFO(_logger, "Track alias: {0} is NOT ready to send status: {1}", _track_alias.value(), static_cast<int>(status));
     }
 
     void cb_readReady() override
     {
-        _logger->info << "Track alias: " << _track_alias.value() << " is ready to read" << std::flush;
+        SPDLOG_LOGGER_INFO(_logger, "Track alias: {0} is ready to read",  _track_alias.value());
     }
     void cb_readNotReady(TrackReadStatus status) override {}
 };
@@ -90,9 +89,8 @@ public:
  */
 class clientDelegate : public quicr::MoQInstanceDelegate
 {
-public:
-    clientDelegate(const cantina::LoggerPointer& logger) :
-        _logger(std::make_shared<cantina::Logger>("MID", logger)) {}
+  public:
+    clientDelegate(std::shared_ptr<spdlog::logger> logger) : _logger(std::move(logger)) {}
 
     virtual ~clientDelegate() = default;
 
@@ -107,9 +105,7 @@ public:
         auto ep_id = std::string(endpoint_id.begin(), endpoint_id.end());
 
         if (status == qtransport::TransportStatus::Ready) {
-            _logger->info << "Connection ready conn_id: " << conn_id
-                          << " endpoint_id: " << ep_id
-                          << std::flush;
+            SPDLOG_LOGGER_INFO(_logger, "Connection ready conn_id: {0} endpoint_id: {1}", conn_id, ep_id);
 
             qclient_vars::conn_id = conn_id;
         }
@@ -117,8 +113,8 @@ public:
     void cb_clientSetup(qtransport::TransportConnId conn_id, quicr::messages::MoqClientSetup client_setup) override {}
     void cb_serverSetup(qtransport::TransportConnId conn_id, quicr::messages::MoqServerSetup server_setup) override {}
 
-private:
-    cantina::LoggerPointer _logger;
+  private:
+    std::shared_ptr<spdlog::logger> _logger;
 };
 
 /* -------------------------------------------------------------------------------------------------
@@ -126,18 +122,17 @@ private:
  * -------------------------------------------------------------------------------------------------
  */
 void do_publisher(const std::string t_namespace,
-                  const std::string t_name,
-                  const std::shared_ptr<quicr::MoQInstance>& moqInstance,
-                  const cantina::LoggerPointer& logger,
-                  const bool& stop)
+             const std::string t_name,
+             const std::shared_ptr<quicr::MoQInstance>& moqInstance,
+             const bool& stop)
 {
-    cantina::LoggerPointer _logger = std::make_shared<cantina::Logger>("PUB", logger);
+    auto _logger = spdlog::stderr_color_mt("PUB");
 
     auto mi = moqInstance;
 
-    auto track_delegate = std::make_shared<trackDelegate>(t_namespace, t_name, 2, 3000, logger);
+    auto track_delegate = std::make_shared<trackDelegate>(t_namespace, t_name, 2, 3000, _logger);
 
-    _logger->info << "Started publisher track: " << t_namespace << "/" << t_name << std::flush;
+    SPDLOG_LOGGER_INFO(_logger, "Started publisher track: {0}/{1}",  t_namespace, t_name);
 
     bool published_track { false };
     bool sending { false };
@@ -146,26 +141,26 @@ void do_publisher(const std::string t_namespace,
 
     while (not stop) {
         if (!published_track && qclient_vars::conn_id) {
-            _logger->info << "Publish track: " << t_namespace << "/" << t_name << std::flush;
+            SPDLOG_LOGGER_INFO(_logger, "Publish track: {0}/{1}", t_namespace, t_name);
             mi->publishTrack(*qclient_vars::conn_id, track_delegate);
             published_track = true;
         }
 
-        if (track_delegate->getSendStatus() != quicr::MOQTBaseTrackHandler::TrackSendStatus::OK) {
+        if (track_delegate->getSendStatus() != quicr::MoQTrackDelegate::TrackSendStatus::OK) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
 
         if (!sending) {
-            _logger->info << "--------------------------------------------------------------------------" << std::flush;
+            SPDLOG_LOGGER_INFO(_logger, "--------------------------------------------------------------------------");
 
             if (qclient_vars::publish_clock) {
-                _logger->info << " Publishing clock timestamp every second" << std::flush;
+                SPDLOG_LOGGER_INFO(_logger, " Publishing clock timestamp every second");
             } else {
-                _logger->info << " Type message and press enter to send" << std::flush;
+                SPDLOG_LOGGER_INFO(_logger, " Type message and press enter to send");
             }
 
-            _logger->info << "--------------------------------------------------------------------------" << std::flush;
+            SPDLOG_LOGGER_INFO(_logger, "--------------------------------------------------------------------------");
             sending = true;
         }
 
@@ -173,10 +168,10 @@ void do_publisher(const std::string t_namespace,
         if (qclient_vars::publish_clock) {
             std::this_thread::sleep_for(std::chrono::milliseconds(999));
             msg = get_time_str();
-            _logger->info << msg << std::flush;
+            SPDLOG_LOGGER_INFO(_logger, msg);
         } else { // stdin
             getline(std::cin, msg);
-            _logger->info << "Send message: " << msg << std::flush;
+            SPDLOG_LOGGER_INFO(_logger, "Send message: {0}", msg);
         }
 
         if (object_id % 5 == 0) {       // Set new group
@@ -191,7 +186,7 @@ void do_publisher(const std::string t_namespace,
     mi->unpublishTrack(*qclient_vars::conn_id, track_delegate);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    _logger->info << "Publisher done track: " << t_namespace << "/" << t_name << std::flush;
+    SPDLOG_LOGGER_INFO(_logger, "Publisher done track: {0}/{1}", t_namespace, t_name);
 }
 
 /* -------------------------------------------------------------------------------------------------
@@ -199,23 +194,22 @@ void do_publisher(const std::string t_namespace,
  * -------------------------------------------------------------------------------------------------
  */
 void do_subscriber(const std::string t_namespace,
-                   const std::string t_name,
-                   const std::shared_ptr<quicr::MoQInstance>& moqInstance,
-                   const cantina::LoggerPointer& logger,
-                   const bool& stop)
+              const std::string t_name,
+              const std::shared_ptr<quicr::MoQInstance>& moqInstance,
+              const bool& stop)
 {
-    cantina::LoggerPointer _logger = std::make_shared<cantina::Logger>("SUB", logger);
+    auto _logger = spdlog::stderr_color_mt("SUB");
 
     auto mi = moqInstance;
 
-    auto track_delegate = std::make_shared<trackDelegate>(t_namespace, t_name, 2, 3000, logger);
+    auto track_delegate = std::make_shared<trackDelegate>(t_namespace, t_name, 2, 3000, _logger);
 
-    _logger->info << "Started subscriber track: " << t_namespace << "/" << t_name << std::flush;
+    SPDLOG_LOGGER_INFO(_logger, "Started subscriber track: {0}/{1}", t_namespace, t_name);
 
     bool subscribe_track { false };
     while (not stop) {
         if (!subscribe_track && qclient_vars::conn_id) {
-            _logger->info << "Subscribe track: " << t_namespace << "/" << t_name << std::flush;
+            SPDLOG_LOGGER_INFO(_logger, "Subscribe track: {0}/{1}", t_namespace, t_name);
             mi->subscribeTrack(*qclient_vars::conn_id, track_delegate);
             subscribe_track = true;
         }
@@ -226,7 +220,7 @@ void do_subscriber(const std::string t_namespace,
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    _logger->info << "Subscriber done track: " << t_namespace << "/" << t_name << std::flush;
+    SPDLOG_LOGGER_INFO(_logger, "Subscriber done track: {0}/{1}", t_namespace, t_name);
 }
 
 /* -------------------------------------------------------------------------------------------------
@@ -234,9 +228,9 @@ void do_subscriber(const std::string t_namespace,
  * -------------------------------------------------------------------------------------------------
  */
 quicr::MoQInstanceClientConfig init_config(cxxopts::ParseResult& cli_opts,
-                                           bool& enable_pub,
-                                           bool& enable_sub,
-                                           const cantina::LoggerPointer& logger)
+            bool& enable_pub,
+            bool& enable_sub,
+            const std::shared_ptr<spdlog::logger>& logger)
 {
     quicr::MoQInstanceClientConfig config;
 
@@ -246,30 +240,24 @@ quicr::MoQInstanceClientConfig init_config(cxxopts::ParseResult& cli_opts,
     }
 
     if (cli_opts.count("debug") && cli_opts["debug"].as<bool>() == true) {
-        logger->info << "setting debug level" << std::flush;
-        logger->SetLogLevel("DEBUG");
+        SPDLOG_LOGGER_INFO(logger, "setting debug level");
+        logger->set_level(spdlog::level::debug);
     }
 
     if (cli_opts.count("pub_namespace") && cli_opts.count("pub_name")) {
         enable_pub = true;
-        logger->info << "Publisher enabled using track"
-                     << " namespace: " << cli_opts["pub_namespace"].as<std::string>()
-                     << " name: " << cli_opts["pub_name"].as<std::string>()
-                     << std::flush;
+        SPDLOG_LOGGER_INFO(logger, "Publisher enabled using track namespace: {0} name: {1}", cli_opts["pub_namespace"].as<std::string>(), cli_opts["pub_name"].as<std::string>());
     }
 
     if (cli_opts.count("clock") && cli_opts["clock"].as<bool>() == true) {
-        logger->info << "Running in clock publish mode" << std::flush;
+        SPDLOG_LOGGER_INFO(logger, "Running in clock publish mode");
         qclient_vars::publish_clock = true;
     }
 
 
     if (cli_opts.count("sub_namespace") && cli_opts.count("sub_name")) {
         enable_sub = true;
-        logger->info << "Subscriber enabled using track"
-                     << " namespace: " << cli_opts["sub_namespace"].as<std::string>()
-                     << " name: " << cli_opts["sub_name"].as<std::string>()
-                     << std::flush;
+        SPDLOG_LOGGER_INFO(logger, "Subscriber enabled using track namespace: {0} name: {1}", cli_opts["sub_namespace"].as<std::string>(), cli_opts["sub_name"].as<std::string>());
     }
 
 
@@ -293,7 +281,7 @@ main(int argc, char* argv[])
 {
     int result_code = EXIT_SUCCESS;
 
-    cantina::LoggerPointer logger = std::make_shared<cantina::Logger>("qclient");
+    auto logger = spdlog::stderr_color_mt("qclient");
 
     cxxopts::Options options("qclient", "MOQ Example Client");
     options
@@ -301,24 +289,24 @@ main(int argc, char* argv[])
       .set_tab_expansion()
       //.allow_unrecognised_options()
       .add_options()
-      ("h,help", "Print help")
-      ("d,debug", "Enable debugging") // a bool parameter
+        ("h,help", "Print help")
+          ("d,debug", "Enable debugging") // a bool parameter
       ("r,host", "Relay host/IP", cxxopts::value<std::string>()->default_value("localhost"))
-      ("p,port", "Relay port", cxxopts::value<uint16_t>()->default_value("1234"))
-      ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))
-      ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
-    ; // end of options
+        ("p,port", "Relay port", cxxopts::value<uint16_t>()->default_value("1234"))
+          ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))
+            ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
+      ; // end of options
 
     options.add_options("Publisher")
       ("pub_namespace", "Track namespace", cxxopts::value<std::string>())
-      ("pub_name", "Track name", cxxopts::value<std::string>())
-      ("clock", "Publish clock timestamp every second instead of using STDIN chat")
-    ;
+        ("pub_name", "Track name", cxxopts::value<std::string>())
+          ("clock", "Publish clock timestamp every second instead of using STDIN chat")
+      ;
 
     options.add_options("Subscriber")
       ("sub_namespace", "Track namespace", cxxopts::value<std::string>())
-      ("sub_name", "Track name", cxxopts::value<std::string>())
-    ;
+        ("sub_name", "Track name", cxxopts::value<std::string>())
+      ;
 
     auto result = options.parse(argc, argv);
 
@@ -352,21 +340,21 @@ main(int argc, char* argv[])
             pub_thread = std::thread (do_publisher,
                                      result["pub_namespace"].as<std::string>(),
                                      result["pub_name"].as<std::string>(),
-                                     moqInstance, logger, std::ref(stop_threads));
+                                     moqInstance, std::ref(stop_threads));
         }
 
         if (enable_sub) {
             sub_thread = std::thread (do_subscriber,
-                                      result["sub_namespace"].as<std::string>(),
-                                      result["sub_name"].as<std::string>(),
-                                      moqInstance, logger, std::ref(stop_threads));
+                                     result["sub_namespace"].as<std::string>(),
+                                     result["sub_name"].as<std::string>(),
+                                     moqInstance, std::ref(stop_threads));
         }
 
         // Wait until told to terminate
         moq_example::cv.wait(lock, [&]() { return moq_example::terminate; });
 
         stop_threads = true;
-        logger->info << "Stopping threads..." << std::flush;
+        SPDLOG_LOGGER_INFO(logger, "Stopping threads...");
 
         if (pub_thread.joinable()) {
             pub_thread.join();
@@ -378,7 +366,7 @@ main(int argc, char* argv[])
 
         moqInstance->stop();
 
-        logger->info << "Client done" << std::endl;
+        SPDLOG_LOGGER_INFO(logger, "Client done");
         std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
         // Unlock the mutex
@@ -394,7 +382,7 @@ main(int argc, char* argv[])
         result_code = EXIT_FAILURE;
     }
 
-    logger->info << "Exit" << std::flush;
+    SPDLOG_LOGGER_INFO(logger, "Exit");
 
     return result_code;
 }
