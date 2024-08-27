@@ -14,6 +14,7 @@
 #include <moq/metrics.h>
 #include <moq/publish_track_handler.h>
 #include <moq/subscribe_track_handler.h>
+#include <moq/server_publish_track_handler.h>
 #include <transport/span.h>
 
 #include <map>

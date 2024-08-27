@@ -162,6 +162,21 @@ namespace moq {
          */
         virtual void MetricsSampled(TransportConnId conn_id, const ConnectionMetrics&& metrics)  = 0;
 
+      protected:
+        /**
+         * @brief Bind a server publish track handler based on a subscribe
+         *
+         * @details The server will create a server publish track handler based on a received
+         *      subscribe. It will use this handler to send objects to subscriber.
+         *
+         * @param conn_id                   Connection ID of the client/subscriber
+         * @param subscribe_id              Subscribe ID from the received subscribe
+         * @param track_handler             Server publish track handler
+         */
+        void BindSubscribeTrack(TransportConnId conn_id,
+                                uint64_t subscribe_id,
+                                std::shared_ptr<ServerPublishTrackHandler> track_handler);
+
 
       private:
         bool stop_{ false };
