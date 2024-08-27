@@ -404,7 +404,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg) {
             return false;
           }
 
-          msg.current_param = MoqtParameter;{};
+          msg.current_param = MoqParameter{};
           msg.current_param->type = type;
         }
 
