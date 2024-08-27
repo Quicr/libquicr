@@ -105,7 +105,7 @@ namespace moq {
          *
          * @param status        Indicates the status of being able to publish
          */
-        virtual void StatusChanged(Status status) {}
+        virtual void StatusChanged([[maybe_unused]] Status status) {}
 
 
         /**
@@ -117,7 +117,7 @@ namespace moq {
          *
          * @param metrics           Copy of the published metrics for the sample period
          */
-        virtual void MetricsSampled(const PublishTrackMetrics&& metrics) {}
+        virtual void MetricsSampled([[maybe_unused]] const PublishTrackMetrics&& metrics) {}
 
         // --------------------------------------------------------------------------
         // Various getter/setters

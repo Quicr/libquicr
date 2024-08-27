@@ -146,8 +146,8 @@ namespace moq {
          * @param track_handler    Track handler to use for track related functions and callbacks
          */
         void SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler) {
-            if (conn_id_) {
-                Transport::SubscribeTrack(*conn_id_, std::move(track_handler));
+            if (connection_handle_) {
+                Transport::SubscribeTrack(*connection_handle_, std::move(track_handler));
             }
         }
 
@@ -157,8 +157,8 @@ namespace moq {
          * @param track_handler    Track handler to use for track related functions and callbacks
          */
         void UnsubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler) {
-            if (conn_id_) {
-                Transport::UnsubscribeTrack(*conn_id_, std::move(track_handler));
+            if (connection_handle_) {
+                Transport::UnsubscribeTrack(*connection_handle_, std::move(track_handler));
             }
         }
 
@@ -204,8 +204,8 @@ namespace moq {
          *                          and callbacks
          */
         void PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler) {
-            if (conn_id_) {
-                Transport::PublishTrack(*conn_id_, std::move(track_handler));
+            if (connection_handle_) {
+                Transport::PublishTrack(*connection_handle_, std::move(track_handler));
             }
         }
 
@@ -217,13 +217,13 @@ namespace moq {
          * @param track_handler    Track handler used when published track
          */
         void UnpublishTrack(std::shared_ptr<PublishTrackHandler> track_handler) {
-            if (conn_id_) {
-                Transport::UnpublishTrack(*conn_id_, std::move(track_handler));
+            if (connection_handle_) {
+                Transport::UnpublishTrack(*connection_handle_, std::move(track_handler));
             }
         }
 
       private:
-        std::optional<TransportConnId> conn_id_;               ///< Connection ID for the client
+        std::optional<ConnectionHandle> connection_handle_;               ///< Connection ID for the client
     };
 
 } // namespace moq

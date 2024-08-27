@@ -105,7 +105,7 @@ namespace moq {
         /**
          * @brief Get the connection ID
          */
-        uint64_t GetConnectionId() { return conn_id_; };
+        uint64_t GetConnectionId() { return connection_handle_; };
 
         // --------------------------------------------------------------------------
         // Internal
@@ -116,14 +116,14 @@ namespace moq {
          *
          * @details The MOQ Handler sets the connection ID
          */
-        void SetConnectionId(uint64_t conn_id) { conn_id_ = conn_id; };
+        void SetConnectionId(uint64_t connection_handle) { connection_handle_ = connection_handle; };
 
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
 
         FullTrackName full_track_name_;
-        uint64_t conn_id_;
+        ConnectionHandle connection_handle_;
 
         /**
          * subscribe_id_ is the primary index/key for subscribe subscribe context/delegate storage.
