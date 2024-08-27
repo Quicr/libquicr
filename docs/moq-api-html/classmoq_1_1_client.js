@@ -18,11 +18,11 @@ var classmoq_1_1_client =
     [ "GetAnnounceStatus", "classmoq_1_1_client.html#a3395920608b29aad960efb3d8b13bdb1", null ],
     [ "MetricsSampled", "classmoq_1_1_client.html#a6ebd9709377683f5a097a8e6cdf9d7d8", null ],
     [ "PublishAnnounce", "classmoq_1_1_client.html#a9695a56a2f176f93f92692d273d8e833", null ],
-    [ "PublishTrack", "classmoq_1_1_client.html#aec9ba7b560e5de61b76027224f63ab62", null ],
+    [ "PublishTrack", "classmoq_1_1_client.html#aa2c00bc16bac132921df9fb198e1e5a5", null ],
     [ "PublishUnannounce", "classmoq_1_1_client.html#afa43ee3cedc6ead21e2ac6a0939b84af", null ],
     [ "ServerSetupReceived", "classmoq_1_1_client.html#ad99edf91aebfe14dcfd9773c43068414", null ],
     [ "StatusChanged", "classmoq_1_1_client.html#ae0da20b0802e47de0aa28b01e4d9299c", null ],
-    [ "SubscribeTrack", "classmoq_1_1_client.html#a2435729261ffe5080f12b4f75f20efc9", null ],
+    [ "SubscribeTrack", "classmoq_1_1_client.html#af4a6df065b6f10838f3db5c85c442913", null ],
     [ "UnpublishedSubscribeReceived", "classmoq_1_1_client.html#a5a6d785c4968127a7c3f22872d4858cf", null ],
     [ "UnpublishTrack", "classmoq_1_1_client.html#a1702f97af87f5bffef2c72b76e6b7024", null ],
     [ "UnsubscribeTrack", "classmoq_1_1_client.html#a71d74770bc1dcb3e240887afee178746", null ]

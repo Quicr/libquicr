@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['getannouncestatus_0',['GetAnnounceStatus',['../classmoq_1_1_client.html#a3395920608b29aad960efb3d8b13bdb1',1,'moq::Client']]],
-  ['getstatus_1',['GetStatus',['../classmoq_1_1_subscribe_track_handler.html#a90ac6d6967d504e9b6bf8b2551bbb5aa',1,'moq::SubscribeTrackHandler::GetStatus()'],['../classmoq_1_1_publish_track_handler.html#a646c15501191ce77872f4472974fbfd2',1,'moq::PublishTrackHandler::GetStatus()']]]
+  ['disconnect_0',['Disconnect',['../classmoq_1_1_client.html#a6093c86205bfc5413418583a33eab47a',1,'moq::Client']]]
 ];

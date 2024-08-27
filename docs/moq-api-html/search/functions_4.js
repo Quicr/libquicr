@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['metricssampled_0',['MetricsSampled',['../classmoq_1_1_client.html#a6ebd9709377683f5a097a8e6cdf9d7d8',1,'moq::Client::MetricsSampled()'],['../classmoq_1_1_server.html#a3885462cdc1ae9195b50a9262cab8f11',1,'moq::Server::MetricsSampled()'],['../classmoq_1_1_subscribe_track_handler.html#ae8310591c92309908016ca9551fcfda2',1,'moq::SubscribeTrackHandler::MetricsSampled()'],['../classmoq_1_1_publish_track_handler.html#a360e359a5ad9c709008d754b2131f205',1,'moq::PublishTrackHandler::MetricsSampled()']]]
+  ['getannouncestatus_0',['GetAnnounceStatus',['../classmoq_1_1_client.html#a3395920608b29aad960efb3d8b13bdb1',1,'moq::Client']]],
+  ['getstatus_1',['GetStatus',['../classmoq_1_1_server_publish_track_handler.html#a1c9714a85332fb526f0a446cee6563b9',1,'moq::ServerPublishTrackHandler::GetStatus()'],['../classmoq_1_1_subscribe_track_handler.html#a90ac6d6967d504e9b6bf8b2551bbb5aa',1,'moq::SubscribeTrackHandler::GetStatus()'],['../classmoq_1_1_publish_track_handler.html#a646c15501191ce77872f4472974fbfd2',1,'moq::PublishTrackHandler::GetStatus()']]]
 ];

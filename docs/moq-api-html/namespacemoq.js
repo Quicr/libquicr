@@ -10,6 +10,7 @@ var namespacemoq =
     [ "PublishTrackMetrics", "structmoq_1_1_publish_track_metrics.html", "structmoq_1_1_publish_track_metrics" ],
     [ "Server", "classmoq_1_1_server.html", "classmoq_1_1_server" ],
     [ "ServerConfig", "structmoq_1_1_server_config.html", "structmoq_1_1_server_config" ],
+    [ "ServerPublishTrackHandler", "classmoq_1_1_server_publish_track_handler.html", "classmoq_1_1_server_publish_track_handler" ],
     [ "ServerSetupAttributes", "structmoq_1_1_server_setup_attributes.html", "structmoq_1_1_server_setup_attributes" ],
     [ "SubscribeAttributes", "structmoq_1_1_subscribe_attributes.html", null ],
     [ "SubscribeTrackHandler", "classmoq_1_1_subscribe_track_handler.html", "classmoq_1_1_subscribe_track_handler" ],

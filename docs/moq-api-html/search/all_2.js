@@ -12,5 +12,7 @@ var searchData=
   ['connect_9',['Connect',['../classmoq_1_1_client.html#a4157503f0d29a6dcdd1275935f68eb7b',1,'moq::Client']]],
   ['connect_5furi_10',['connect_uri',['../structmoq_1_1_client_config.html#aa86fbb8fac3b7cae7137da382f8178dc',1,'moq::ClientConfig']]],
   ['connectionmetrics_11',['ConnectionMetrics',['../structmoq_1_1_connection_metrics.html',1,'moq']]],
-  ['connectionstatuschanged_12',['ConnectionStatusChanged',['../classmoq_1_1_server.html#ae97555ee3144407866d60f99ab8a5f88',1,'moq::Server']]]
+  ['connectionremoteinfo_12',['ConnectionRemoteInfo',['../structmoq_1_1_server_1_1_connection_remote_info.html',1,'moq::Server']]],
+  ['connectionstatus_13',['ConnectionStatus',['../classmoq_1_1_server.html#a1193735a47b53fac4319e89cf14e1380',1,'moq::Server']]],
+  ['connectionstatuschanged_14',['ConnectionStatusChanged',['../classmoq_1_1_server.html#a4e143970ae22c236b32b8b7c641ac146',1,'moq::Server']]]
 ];

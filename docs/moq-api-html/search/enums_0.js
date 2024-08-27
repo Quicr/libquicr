@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['error_0',['Error',['../classmoq_1_1_subscribe_track_handler.html#a76b43b25d6ec3b57cf1499b6ba4fdca3',1,'moq::SubscribeTrackHandler']]]
+  ['connectionstatus_0',['ConnectionStatus',['../classmoq_1_1_server.html#a1193735a47b53fac4319e89cf14e1380',1,'moq::Server']]]
 ];

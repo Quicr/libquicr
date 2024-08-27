@@ -98,7 +98,10 @@ $(function(){initNavTree('classmoq_1_1_server.html',''); initResizable(true); })
 
 <div class="header">
   <div class="summary">
+<a href="#nested-classes">Classes</a> &#124;
+<a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="classmoq_1_1_server-members.html">List of all members</a>  </div>
   <div class="headertitle"><div class="title">moq::Server Class Reference<span class="mlabels"><span class="mlabel">abstract</span></span></div></div>
 </div><!--header-->
@@ -115,6 +118,22 @@ Inheritance diagram for moq::Server:</div>
   <img src="classmoq_1_1_server.png" alt=""/>
  </div></div>
 <table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="nested-classes" name="nested-classes"></a>
+Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structmoq_1_1_server_1_1_connection_remote_info.html">ConnectionRemoteInfo</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Connection remote information.  <a href="structmoq_1_1_server_1_1_connection_remote_info.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-types" name="pub-types"></a>
+Public Types</h2></td></tr>
+<tr class="memitem:a1193735a47b53fac4319e89cf14e1380" id="r_a1193735a47b53fac4319e89cf14e1380"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a1193735a47b53fac4319e89cf14e1380">ConnectionStatus</a> : uint8_t { <a class="el" href="#a1193735a47b53fac4319e89cf14e1380a32a54fa8629fe6e9cb3e265e959258d8">kNotConnected</a> = 0
+, <a class="el" href="#a1193735a47b53fac4319e89cf14e1380a485b505a72a57b16c8dd36bfc17c98c0">kConnected</a>
+, <a class="el" href="#a1193735a47b53fac4319e89cf14e1380a01f83214ff68352c296bd2500c3921f4">kIdleTimeout</a>
+, <a class="el" href="#a1193735a47b53fac4319e89cf14e1380a5e2b81f5f112b1cf40737896b912e22d">kClosedByRemote</a>
+ }</td></tr>
+<tr class="memdesc:a1193735a47b53fac4319e89cf14e1380"><td class="mdescLeft">&#160;</td><td class="mdescRight">Connection status codes.  <a href="#a1193735a47b53fac4319e89cf14e1380">More...</a><br /></td></tr>
+<tr class="separator:a1193735a47b53fac4319e89cf14e1380"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:aac37805da0afaeb56bf3109389ba542f" id="r_aac37805da0afaeb56bf3109389ba542f"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aac37805da0afaeb56bf3109389ba542f">Server</a> (const <a class="el" href="structmoq_1_1_server_config.html">ServerConfig</a> &amp;cfg)</td></tr>
@@ -127,12 +146,12 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a02489424680abe79093d214bd6a4d7c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aed25c26361eb5b50c7f2d7caa0392ebf" id="r_aed25c26361eb5b50c7f2d7caa0392ebf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aed25c26361eb5b50c7f2d7caa0392ebf">Stop</a> ()</td></tr>
 <tr class="separator:aed25c26361eb5b50c7f2d7caa0392ebf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afaab4b48da2affce2bbc19c5d8ed4bc9" id="r_afaab4b48da2affce2bbc19c5d8ed4bc9"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#afaab4b48da2affce2bbc19c5d8ed4bc9">NewConnection</a> (TransportConnId conn_id, const TransportRemote &amp;remote)=0</td></tr>
-<tr class="memdesc:afaab4b48da2affce2bbc19c5d8ed4bc9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification on new connection.  <br /></td></tr>
-<tr class="separator:afaab4b48da2affce2bbc19c5d8ed4bc9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae97555ee3144407866d60f99ab8a5f88" id="r_ae97555ee3144407866d60f99ab8a5f88"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae97555ee3144407866d60f99ab8a5f88">ConnectionStatusChanged</a> (TransportConnId conn_id, TransportStatus status)=0</td></tr>
-<tr class="memdesc:ae97555ee3144407866d60f99ab8a5f88"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for connection status/state change.  <br /></td></tr>
-<tr class="separator:ae97555ee3144407866d60f99ab8a5f88"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3b77fdb5ebe419e7f3763c0461c18f86" id="r_a3b77fdb5ebe419e7f3763c0461c18f86"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a3b77fdb5ebe419e7f3763c0461c18f86">NewConnection</a> (TransportConnId conn_id, const <a class="el" href="structmoq_1_1_server_1_1_connection_remote_info.html">ConnectionRemoteInfo</a> &amp;remote)=0</td></tr>
+<tr class="memdesc:a3b77fdb5ebe419e7f3763c0461c18f86"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification on new connection.  <br /></td></tr>
+<tr class="separator:a3b77fdb5ebe419e7f3763c0461c18f86"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4e143970ae22c236b32b8b7c641ac146" id="r_a4e143970ae22c236b32b8b7c641ac146"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4e143970ae22c236b32b8b7c641ac146">ConnectionStatusChanged</a> (TransportConnId conn_id, <a class="el" href="#a1193735a47b53fac4319e89cf14e1380">ConnectionStatus</a> status)=0</td></tr>
+<tr class="memdesc:a4e143970ae22c236b32b8b7c641ac146"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for connection status/state change.  <br /></td></tr>
+<tr class="separator:a4e143970ae22c236b32b8b7c641ac146"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6f738127ecfd905647549d6609e04dc7" id="r_a6f738127ecfd905647549d6609e04dc7"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a6f738127ecfd905647549d6609e04dc7">ClientSetupReceived</a> (TransportConnId conn_id, const <a class="el" href="structmoq_1_1_client_setup_attributes.html">ClientSetupAttributes</a> &amp;client_setup_attributes)=0</td></tr>
 <tr class="memdesc:a6f738127ecfd905647549d6609e04dc7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on client setup message.  <br /></td></tr>
 <tr class="separator:a6f738127ecfd905647549d6609e04dc7"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -151,11 +170,48 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a3885462cdc1ae9195b50a9262cab8f11" id="r_a3885462cdc1ae9195b50a9262cab8f11"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a3885462cdc1ae9195b50a9262cab8f11">MetricsSampled</a> (TransportConnId conn_id, const <a class="el" href="structmoq_1_1_connection_metrics.html">ConnectionMetrics</a> &amp;&amp;metrics)=0</td></tr>
 <tr class="memdesc:a3885462cdc1ae9195b50a9262cab8f11"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification callback to provide sampled metrics.  <br /></td></tr>
 <tr class="separator:a3885462cdc1ae9195b50a9262cab8f11"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-methods" name="pro-methods"></a>
+Protected Member Functions</h2></td></tr>
+<tr class="memitem:a3b1be92414515fdfc83f12ec43cf14f1" id="r_a3b1be92414515fdfc83f12ec43cf14f1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a3b1be92414515fdfc83f12ec43cf14f1">BindSubscribeTrack</a> (TransportConnId conn_id, uint64_t subscribe_id, std::shared_ptr&lt; <a class="el" href="classmoq_1_1_server_publish_track_handler.html">ServerPublishTrackHandler</a> &gt; track_handler)</td></tr>
+<tr class="memdesc:a3b1be92414515fdfc83f12ec43cf14f1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Bind a server publish track handler based on a subscribe.  <br /></td></tr>
+<tr class="separator:a3b1be92414515fdfc83f12ec43cf14f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>MoQ <a class="el" href="classmoq_1_1_server.html" title="MoQ Server.">Server</a>. </p>
 <p>MoQ <a class="el" href="classmoq_1_1_server.html" title="MoQ Server.">Server</a> is the handler of the MoQ QUIC listening socket </p>
-</div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+</div><h2 class="groupheader">Member Enumeration Documentation</h2>
+<a id="a1193735a47b53fac4319e89cf14e1380" name="a1193735a47b53fac4319e89cf14e1380"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1193735a47b53fac4319e89cf14e1380">&#9670;&#160;</a></span>ConnectionStatus</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum class <a class="el" href="#a1193735a47b53fac4319e89cf14e1380">moq::Server::ConnectionStatus</a> : uint8_t</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">strong</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Connection status codes. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a1193735a47b53fac4319e89cf14e1380a32a54fa8629fe6e9cb3e265e959258d8" name="a1193735a47b53fac4319e89cf14e1380a32a54fa8629fe6e9cb3e265e959258d8"></a>kNotConnected&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a1193735a47b53fac4319e89cf14e1380a485b505a72a57b16c8dd36bfc17c98c0" name="a1193735a47b53fac4319e89cf14e1380a485b505a72a57b16c8dd36bfc17c98c0"></a>kConnected&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a1193735a47b53fac4319e89cf14e1380a01f83214ff68352c296bd2500c3921f4" name="a1193735a47b53fac4319e89cf14e1380a01f83214ff68352c296bd2500c3921f4"></a>kIdleTimeout&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a1193735a47b53fac4319e89cf14e1380a5e2b81f5f112b1cf40737896b912e22d" name="a1193735a47b53fac4319e89cf14e1380a5e2b81f5f112b1cf40737896b912e22d"></a>kClosedByRemote&#160;</td><td class="fielddoc"></td></tr>
+</table>
+
+</div>
+</div>
+<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="aac37805da0afaeb56bf3109389ba542f" name="aac37805da0afaeb56bf3109389ba542f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aac37805da0afaeb56bf3109389ba542f">&#9670;&#160;</a></span>Server()</h2>
 
@@ -260,6 +316,51 @@ Public Member Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="a3b1be92414515fdfc83f12ec43cf14f1" name="a3b1be92414515fdfc83f12ec43cf14f1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3b1be92414515fdfc83f12ec43cf14f1">&#9670;&#160;</a></span>BindSubscribeTrack()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void moq::Server::BindSubscribeTrack </td>
+          <td>(</td>
+          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint64_t</td>          <td class="paramname"><span class="paramname"><em>subscribe_id</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::shared_ptr&lt; <a class="el" href="classmoq_1_1_server_publish_track_handler.html">ServerPublishTrackHandler</a> &gt;</td>          <td class="paramname"><span class="paramname"><em>track_handler</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Bind a server publish track handler based on a subscribe. </p>
+<p>The server will create a server publish track handler based on a received subscribe. It will use this handler to send objects to subscriber.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">conn_id</td><td>Connection ID of the client/subscriber </td></tr>
+    <tr><td class="paramname">subscribe_id</td><td>Subscribe ID from the received subscribe </td></tr>
+    <tr><td class="paramname">track_handler</td><td><a class="el" href="classmoq_1_1_server.html" title="MoQ Server.">Server</a> publish track handler </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
 <a id="a6f738127ecfd905647549d6609e04dc7" name="a6f738127ecfd905647549d6609e04dc7"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a6f738127ecfd905647549d6609e04dc7">&#9670;&#160;</a></span>ClientSetupReceived()</h2>
 
@@ -299,8 +400,8 @@ Public Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="ae97555ee3144407866d60f99ab8a5f88" name="ae97555ee3144407866d60f99ab8a5f88"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae97555ee3144407866d60f99ab8a5f88">&#9670;&#160;</a></span>ConnectionStatusChanged()</h2>
+<a id="a4e143970ae22c236b32b8b7c641ac146" name="a4e143970ae22c236b32b8b7c641ac146"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4e143970ae22c236b32b8b7c641ac146">&#9670;&#160;</a></span>ConnectionStatusChanged()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -316,7 +417,7 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">TransportStatus</td>          <td class="paramname"><span class="paramname"><em>status</em></span>&#160;)</td>
+          <td class="paramtype"><a class="el" href="#a1193735a47b53fac4319e89cf14e1380">ConnectionStatus</a></td>          <td class="paramname"><span class="paramname"><em>status</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -331,7 +432,7 @@ Public Member Functions</h2></td></tr>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">conn_id</td><td>Transport connection ID </td></tr>
-    <tr><td class="paramname">status</td><td>Transport status of connection id </td></tr>
+    <tr><td class="paramname">status</td><td>ConnectionStatus of connection id </td></tr>
   </table>
   </dd>
 </dl>
@@ -377,8 +478,8 @@ Public Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="afaab4b48da2affce2bbc19c5d8ed4bc9" name="afaab4b48da2affce2bbc19c5d8ed4bc9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afaab4b48da2affce2bbc19c5d8ed4bc9">&#9670;&#160;</a></span>NewConnection()</h2>
+<a id="a3b77fdb5ebe419e7f3763c0461c18f86" name="a3b77fdb5ebe419e7f3763c0461c18f86"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3b77fdb5ebe419e7f3763c0461c18f86">&#9670;&#160;</a></span>NewConnection()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -394,7 +495,7 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const TransportRemote &amp;</td>          <td class="paramname"><span class="paramname"><em>remote</em></span>&#160;)</td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1_server_1_1_connection_remote_info.html">ConnectionRemoteInfo</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>remote</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
