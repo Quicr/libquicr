@@ -11,7 +11,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace qclient_vars {
-    std::optional<qtransport::TransportConnId> conn_id;
+  //std::optional<qtransport::TransportConnId> conn_id;
 
     bool publish_clock {false};
 }
@@ -227,12 +227,11 @@ void do_subscriber(const std::string t_namespace,
  * Main program
  * -------------------------------------------------------------------------------------------------
  */
-quicr::MoQInstanceClientConfig init_config(cxxopts::ParseResult& cli_opts,
-            bool& enable_pub,
-            bool& enable_sub,
-            const std::shared_ptr<spdlog::logger>& logger)
+moq::ClientConfig init_config(cxxopts::ParseResult& cli_opts,
+                 bool& enable_pub,
+                 bool& enable_sub)
 {
-    quicr::MoQInstanceClientConfig config;
+    moq::ClientConfig config;
 
     std::string qlog_path;
     if (cli_opts.count("qlog")) {
@@ -254,13 +253,10 @@ quicr::MoQInstanceClientConfig init_config(cxxopts::ParseResult& cli_opts,
         qclient_vars::publish_clock = true;
     }
 
-
     if (cli_opts.count("sub_namespace") && cli_opts.count("sub_name")) {
         enable_sub = true;
         SPDLOG_LOGGER_INFO(logger, "Subscriber enabled using track namespace: {0} name: {1}", cli_opts["sub_namespace"].as<std::string>(), cli_opts["sub_name"].as<std::string>());
     }
-
-
 
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
     config.server_host_ip = cli_opts["host"].as<std::string>();
