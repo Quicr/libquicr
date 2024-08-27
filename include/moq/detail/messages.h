@@ -1,6 +1,6 @@
 #pragma once
 
-#include <moq/message_buffer.h>
+#include "../../../src/moq/message_buffer.h"
 #include <moq/common.h>
 #include <string>
 #include <transport/stream_buffer.h>
