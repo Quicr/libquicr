@@ -47,4 +47,4 @@ namespace moq {
         }
     }
 
-} // namespace quicr
+} // namespace moq

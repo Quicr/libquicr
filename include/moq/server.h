@@ -101,12 +101,14 @@ namespace moq {
          * @return Status indicating state or error. If successful, status will be
          *    READY.
          */
-        Status Start();
+        Status Start() {
+            Transport::Start();
+        }
 
         /**
          * Stop the server transport
          */
-        void Stop() { stop_ = true; }
+        void Stop() { stop_ = true; Transport::Stop(); }
 
         /**
          * @brief Callback notification on new connection

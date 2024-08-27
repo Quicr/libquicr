@@ -15,6 +15,19 @@
 namespace moq {
 
     /**
+     * @brief Track mode object of object published or received
+     *
+     * @details QUIC stream handling mode used to send objects or how object was received
+     */
+    enum class TrackMode : uint8_t
+    {
+        kDatagram,
+        kStreamPerObject,
+        kStreamPerGroup,
+        kStreamPerTrack
+    };
+
+    /**
      * @brief MoQ track base handler for tracks (subscribe/publish)
      *
      * @details Base MoQ track handler
@@ -24,18 +37,6 @@ namespace moq {
       public:
         friend class Transport;
 
-        /**
-         * @brief Track mode object of object published or received
-         *
-         * @details QUIC stream handling mode used to send objects or how object was received
-         */
-        enum class TrackMode : uint8_t
-        {
-            kDatagram,
-            kStreamPerObject,
-            kStreamPerGroup,
-            kStreamPerTrack
-        };
 
         virtual ~BaseTrackHandler() = default;
 

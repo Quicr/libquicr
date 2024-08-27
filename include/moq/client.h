@@ -60,7 +60,9 @@ namespace moq {
          * @return Status indicating state or error. If successful, status will be
          *    kClientConnecting.
          */
-        Status Connect();
+        Status Connect() {
+            Transport::Start();
+        }
 
         /**
          * @brief Disconnect the client connection gracefully
@@ -71,7 +73,9 @@ namespace moq {
          *
          * @return Status of kDisconnecting
          */
-        Status Disconnect();
+        Status Disconnect() {
+            Transport::Stop();
+        }
 
         /**
          * @brief Callback notification for connection status/state change

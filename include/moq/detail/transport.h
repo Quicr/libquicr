@@ -16,6 +16,7 @@
 #include <moq/subscribe_track_handler.h>
 #include <moq/server_publish_track_handler.h>
 #include <transport/span.h>
+#include <spdlog/spdlog.h>
 
 #include <map>
 #include <string>
@@ -120,6 +121,10 @@ namespace moq {
          */
         std::map<ConnectionHandle, ConnectionMetrics> connection_metrics_;
 
+      protected:
+        Status Start();
+        Status Stop();
+
       private:
         // -------------------------------------------------------------------------------------------------
         // Transport Delegate/callback functions
@@ -198,12 +203,14 @@ namespace moq {
         std::optional<std::weak_ptr<PublishTrackHandler>> GetPubTrackHandler(ConnectionContext& conn_ctx,
                                                                              TrackHash& th);
 
+
         // -------------------------------------------------------------------------------------------------
         // Private member variables
         // -------------------------------------------------------------------------------------------------
 
         std::mutex state_mutex_;
         const bool client_mode_;
+        std::shared_ptr<spdlog::logger> logger_;
         bool stop_{ false };
         const ServerConfig server_config_;
         const ClientConfig client_config_;
@@ -211,6 +218,7 @@ namespace moq {
         std::map<ConnectionHandle, ConnectionContext> connections_;
 
         Status status_{ Status::kNotReady };
+
 
         std::shared_ptr<ITransport> quic_transport_; // **MUST** be last for proper order of destruction
     };
