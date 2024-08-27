@@ -61,7 +61,7 @@ namespace moq {
             kNoSubscriber,
         };
 
-      private:
+      protected:
         /**
          * @brief Publish track handler constructor
          *
