@@ -8,4 +8,17 @@
 
 namespace moq {
 
+    Client::Status Client::Connect()
+    {
+        Transport::Start();
+        return Status::kClientConnecting;
+    }
+
+    Client::Status Client::Disconnect()
+    {
+        Transport::Stop();
+        return Status::kDisconnecting;
+    }
+
+
 } // namespace moq

@@ -7,7 +7,8 @@ target_sources(quicr PRIVATE
         moq/publish_track_handler_base.cpp
         moq/server_publish_track_handler_base.cpp
         moq/transport.cpp
-        #moqt/transport.cpp
+        moq/server.cpp
+        moq/client.cpp
 )
 
 # Suppress external lib warnings
