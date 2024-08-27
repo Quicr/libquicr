@@ -1,9 +1,12 @@
 
 
 
+
 add_executable(qclient client.cpp)
 
 target_link_libraries(qclient PRIVATE quicr)
+
+target_include_directories(qclient PRIVATE ../dependencies )
 
 target_compile_options(qclient
         PRIVATE
