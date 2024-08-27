@@ -1,7 +1,8 @@
 #pragma once
 
-#include "transport/span.h"
-#include <moq/common.h>
+#include "moq/common.h"
+
+#include <transport/span.h>
 
 #include <bit>
 #include <vector>
@@ -202,7 +203,7 @@ swap_bytes(uint64_t value)
          * @param value The value to read into.
          * @returns The MessageBuffer that was read from.
          */
-        template<typename T>
+        template<typename T, typename std::enable_if_t<std::is_integral_v<T>, bool> = true>
         inline MessageBuffer& operator>>(T& value)
         {
             if (empty())
@@ -230,4 +231,11 @@ swap_bytes(uint64_t value)
         buffer_type _buffer;
         size_t _read_offset = 0;
     };
+
+    MessageBuffer& operator<<(MessageBuffer& msg, Span<const uint8_t> val);
+    MessageBuffer& operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val);
+    MessageBuffer& operator>>(MessageBuffer& msg, std::vector<uint8_t>& val);
+
+    MessageBuffer& operator<<(MessageBuffer& msg, const std::string& val);
+    MessageBuffer& operator>>(MessageBuffer& msg, std::string& val);
 }
