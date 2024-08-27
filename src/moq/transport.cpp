@@ -100,7 +100,7 @@ namespace moq {
 
    }
 
-   void Transport::send_client_setup()
+   void Transport::SendClientSetup()
    {
        StreamBuffer<uint8_t> buffer;
        auto client_setup = MoqClientSetup{};
@@ -117,7 +117,7 @@ namespace moq {
 
        auto &conn_ctx = _connections.begin()->second;
 
-       send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+       send_ctrl_msg(conn_ctx, buffer.Front(buffer.Size()));
    }
 
    void Transport::SendServerSetup(ConnectionContext& conn_ctx)
