@@ -146,7 +146,7 @@ void do_publisher(const std::string t_namespace,
             published_track = true;
         }
 
-        if (track_delegate->GetSendStatus() != quicr::MoQTrackDelegate::TrackSendStatus::OK) {
+        if (track_delegate->getSendStatus() != quicr::MoQTrackDelegate::TrackSendStatus::OK) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
