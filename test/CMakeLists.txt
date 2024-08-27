@@ -9,11 +9,6 @@ target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
 target_link_libraries(quicr_test PRIVATE quicr doctest::doctest)
 
-if(NOT LIBQUICR_WITHOUT_INFLUXDB)
-    target_link_libraries(quicr_test
-            PRIVATE InfluxData::InfluxDB)
-endif()
-
 target_compile_options(quicr_test
     PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall>

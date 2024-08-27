@@ -1,12 +1,12 @@
-#include <moqt/core/messages.h>
+#include <moq/detail/messages.h>
 
-namespace moq::transport::messages {
+namespace moq::messages {
 
 //
 // Utility
 //
 static bool parse_uintV_field(qtransport::StreamBuffer<uint8_t> &buffer, uint64_t& field) {
-  auto val = buffer.decode_uintV();
+  auto val = buffer.DecodeUintV();
   if (!val) {
     return false;
   }
@@ -16,7 +16,7 @@ static bool parse_uintV_field(qtransport::StreamBuffer<uint8_t> &buffer, uint64_
 
 
 static bool parse_bytes_field(qtransport::StreamBuffer<uint8_t> &buffer, Bytes& field) {
-  auto val = buffer.decode_bytes();
+  auto val = buffer.DecodeBytes();
   if (!val) {
     return false;
   }
