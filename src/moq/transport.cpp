@@ -22,7 +22,7 @@ namespace moq {
      : client_mode_(true)
      , server_config_({})
      , client_config_(cfg)
-     , quicquic_transport__({})
+     , quic_transport_({})
    {
        LOGGER_INFO(
          logger_, "Created Moq instance in client mode listening on {0}:{1}", cfg.server_host_ip, cfg.server_port);
@@ -83,13 +83,13 @@ namespace moq {
    void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, std::vector<uint8_t>&& data)
    {
        if (not conn_ctx.ctrl_data_ctx_id) {
-           close_connection(conn_ctx.connection_handle,
+           CloseConnection(conn_ctx.connection_handle,
                             MoqTerminationReason::PROTOCOL_VIOLATION,
                             "Control bidir stream not created");
            return;
        }
 
-       quic_transport_->enqueue(conn_ctx.connection_handle,
+       quic_transport_->Enqueue(conn_ctx.connection_handle,
                            *conn_ctx.ctrl_data_ctx_id,
                            std::move(data),
                            { MethodTraceItem{} },
@@ -100,7 +100,7 @@ namespace moq {
 
    }
 
-   void Transport::send_client_setup()
+   void Transport::SendClientSetup()
    {
        StreamBuffer<uint8_t> buffer;
        auto client_setup = MoqClientSetup{};
@@ -117,10 +117,10 @@ namespace moq {
 
        auto &conn_ctx = _connections.begin()->second;
 
-       send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+       send_ctrl_msg(conn_ctx, buffer.Front(buffer.Size()));
    }
 
-   void Transport::send_server_setup(ConnectionContext& conn_ctx)
+   void Transport::SendServerSetup(ConnectionContext& conn_ctx)
    {
        StreamBuffer<uint8_t> buffer;
        auto server_setup = MoqServerSetup{};
@@ -140,7 +140,7 @@ namespace moq {
        send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
    }
 
-   void Transport::send_announce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
+   void Transport::SendAnnounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
    {
        StreamBuffer<uint8_t> buffer;
        auto announce = MoqAnnounce{};
@@ -154,7 +154,7 @@ namespace moq {
        send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
    }
 
-   void Transport::send_announce_ok(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
+   void Transport::SendAnnounceOk(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
    {
        StreamBuffer<uint8_t> buffer;
        auto announce_ok = MoqAnnounceOk{};
@@ -167,7 +167,7 @@ namespace moq {
        send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
    }
 
-   void Transport::send_unannounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
+   void Transport::SendUnannounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
    {
        StreamBuffer<uint8_t> buffer;
        auto unannounce = MoqUnannounce{};
@@ -180,7 +180,7 @@ namespace moq {
        send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
    }
 
-   void Transport::send_subscribe(ConnectionContext& conn_ctx,
+   void Transport::SendSubscribe(ConnectionContext& conn_ctx,
                                     uint64_t subscribe_id,
                                     FullTrackName& tfn,
                                     TrackHash th)
@@ -207,7 +207,7 @@ namespace moq {
        send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
    }
 
-   void Transport::send_subscribe_ok(ConnectionContext& conn_ctx,
+   void Transport::SendSubscribeOk(ConnectionContext& conn_ctx,
                                        uint64_t subscribe_id,
                                        uint64_t expires,
                                        bool content_exists)
@@ -225,7 +225,7 @@ namespace moq {
        send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
    }
 
-   void Transport::send_subscribe_done(ConnectionContext& conn_ctx,
+   void Transport::SendSubscribeDone(ConnectionContext& conn_ctx,
                                          uint64_t subscribe_id,
                                          const std::string& reason)
    {
@@ -243,7 +243,7 @@ namespace moq {
    }
 
 
-   void Transport::send_unsubscribe(ConnectionContext& conn_ctx,
+   void Transport::SendUnsubscribe(ConnectionContext& conn_ctx,
                                       uint64_t subscribe_id)
    {
        StreamBuffer<uint8_t> buffer;
@@ -284,12 +284,12 @@ namespace moq {
        send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
    }
 
-   Transport::Status Transport::status()
+   Transport::Status Transport::Status()
    {
        return _status;
    }
 
-   bool Transport::process_recv_ctrl_message(ConnectionContext& conn_ctx,
+   bool Transport::ProcessRecvCtrlMessage(ConnectionContext& conn_ctx,
                                                std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer)
    {
        if (stream_buffer->size() == 0) { // should never happen
@@ -761,7 +761,7 @@ namespace moq {
        return false;
    }
 
-   bool Transport::process_recv_stream_data_message(ConnectionContext& conn_ctx,
+   bool Transport::ProcessRecvStreamDataMessage(ConnectionContext& conn_ctx,
                                                       std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer)
    {
        if (stream_buffer->size() == 0) { // should never happen
@@ -965,7 +965,7 @@ namespace moq {
        return false;
    }
 
-   std::optional<uint64_t> Transport::subscribeTrack(TransportConnId conn_id,
+   std::optional<uint64_t> Transport::SubscribeTrack(TransportConnId conn_id,
                                                        std::shared_ptr<MoqTrackDelegate> track_delegate)
    {
        // Generate track alias
@@ -1000,7 +1000,7 @@ namespace moq {
        return th.track_fullname_hash;
    }
 
-   std::optional<uint64_t> Transport::bindSubscribeTrack(TransportConnId conn_id,
+   std::optional<uint64_t> Transport::BindSubscribeTrack(TransportConnId conn_id,
                                                            uint64_t subscribe_id,
                                                            std::shared_ptr<MoqTrackDelegate> track_delegate) {
 
@@ -1066,7 +1066,7 @@ namespace moq {
        return th.track_fullname_hash;
    }
 
-   void Transport::unsubscribeTrack(qtransport::TransportConnId conn_id, std::shared_ptr<MoqTrackDelegate> track_delegate)
+   void Transport::UnsubscribeTrack(qtransport::TransportConnId conn_id, std::shared_ptr<MoqTrackDelegate> track_delegate)
    {
        auto& conn_ctx = _connections[conn_id];
        if (track_delegate->getSubscribeId().has_value()) {
@@ -1075,7 +1075,7 @@ namespace moq {
        remove_subscribeTrack(conn_ctx,*track_delegate);
    }
 
-   void Transport::remove_subscribeTrack(ConnectionContext& conn_ctx,
+   void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx,
                                            MoqTrackDelegate& delegate, bool remove_delegate)
    {
        delegate.setReadStatus(MoqTrackDelegate::TrackReadStatus::NOT_SUBSCRIBED);
@@ -1103,7 +1103,7 @@ namespace moq {
        }
    }
 
-   void Transport::unpublishTrack(TransportConnId conn_id,
+   void Transport::UnpublishTrack(TransportConnId conn_id,
                                     std::shared_ptr<MoqTrackDelegate> track_delegate) {
 
        // Generate track alias
@@ -1162,7 +1162,7 @@ namespace moq {
    }
 
 
-   std::optional<uint64_t> Transport::publishTrack(TransportConnId conn_id,
+   std::optional<uint64_t> Transport::PublishTrack(TransportConnId conn_id,
                                                      std::shared_ptr<MoqTrackDelegate> track_delegate) {
 
        // Generate track alias
@@ -1243,7 +1243,7 @@ namespace moq {
        return th.track_fullname_hash;
    }
 
-   MoqTrackDelegate::SendError Transport::send_object(std::weak_ptr<MoqTrackDelegate> track_delegate,
+   MoqTrackDelegate::SendError Transport::SendObject(std::weak_ptr<MoqTrackDelegate> track_delegate,
                                                         uint8_t priority,
                                                         uint32_t ttl,
                                                         bool stream_header_needed,
@@ -1351,7 +1351,7 @@ namespace moq {
    }
 
 
-   std::optional<std::weak_ptr<MoqTrackDelegate>> Transport::getPubTrackDelegate(ConnectionContext& conn_ctx,
+   std::optional<std::weak_ptr<MoqTrackDelegate>> Transport::GetPubTrackDelegate(ConnectionContext& conn_ctx,
                                                                                    TrackHash& th)
    {
        auto pub_ns_it = conn_ctx.pub_tracks_by_name.find(th.track_namespace_hash);
@@ -1372,7 +1372,7 @@ namespace moq {
    // Transport delegate callbacks
    // ---------------------------------------------------------------------------------------
 
-   void Transport::on_connection_status(const TransportConnId& conn_id, const TransportStatus status)
+   void Transport::OnConnectionStatus(const TransportConnId& conn_id, const TransportStatus status)
    {
        LOGGER_DEBUG(logger_, "Connection status conn_id: {0} status: {1}", conn_id, static_cast<int>(status));
 
@@ -1442,7 +1442,7 @@ namespace moq {
        }
    }
 
-   void Transport::on_new_connection(const TransportConnId& conn_id, const TransportRemote& remote)
+   void Transport::OnNewConnection(const TransportConnId& conn_id, const TransportRemote& remote)
    {
        auto [conn_ctx, is_new] = _connections.try_emplace(conn_id, ConnectionContext{});
 
@@ -1451,7 +1451,7 @@ namespace moq {
        conn_ctx->second.conn_id = conn_id;
    }
 
-   void Transport::on_recv_stream(const TransportConnId& conn_id,
+   void Transport::OnRecvStream(const TransportConnId& conn_id,
                                     uint64_t stream_id,
                                     std::optional<DataContextId> data_ctx_id,
                                     const bool is_bidir)
@@ -1511,7 +1511,7 @@ namespace moq {
        }
    }
 
-   void Transport::on_recv_dgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id)
+   void Transport::OnRecvDgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id)
    {
        MoqObjectStream object_datagram_out;
        for (int i=0; i < MOQT_READ_LOOP_MAX_PER_STREAM; i++) {
@@ -1565,7 +1565,7 @@ namespace moq {
 
    }
 
-   void Transport::close_connection(TransportConnId conn_id, messages::MoqTerminationReason reason,
+   void Transport::CloseConnection(TransportConnId conn_id, messages::MoqTerminationReason reason,
                                       const std::string& reason_str)
    {
        std::ostringstream log_msg;

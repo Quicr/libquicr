@@ -14,7 +14,7 @@ project(quicr
         DESCRIPTION "quicr library"
         LANGUAGES CXX)
 
-option(CLANG_TIDY "Perform linting with clang-tidy" OFF)
+option(LINT "Perform linting with clang-tidy" OFF)
 
 option(PLATFORM_ESP_IDF "Enabble support for esp-idf (Default OFF)" OFF)
 option(USE_MBEDTLS OFF)
@@ -29,18 +29,10 @@ endif()
 ###
 ### Global Config
 ###
-if(CLANG_TIDY)
-    find_program(CLANG_TIDY_EXE NAMES "clang-tidy")
-    if(CLANG_TIDY_EXE)
-        message(STATUS "Found clang-tidy: ${CLANG_TIDY_EXE}")
-    else()
-        message(WARNING "clang-tidy requested, but not found")
-    endif()
-endif()
-
 set (BUILD_SHARED_LIBS OFF)
 set (BUILD_STATIC_LIBS ON)
 set (CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/transport/cmake)
 
 ###
 ### Include Ctest to ensure BUILD_TESTING is set
