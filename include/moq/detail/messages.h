@@ -7,7 +7,6 @@
 #include <vector>
 
 namespace moq::messages {
-using namespace quicr::messages;
 
 using Version = uint64_t;
 using TrackNamespace = Bytes;
@@ -100,8 +99,6 @@ struct MoqtParameter {
   friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtParameter &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
                                                        const MoqtParameter& msg);
-private:
-  uint64_t current_pos {0};
 };
 
 MessageBuffer& operator<<(MessageBuffer &buffer, const MoqtParameter &param);

@@ -3,7 +3,7 @@ add_library(quicr)
 
 target_sources(quicr PRIVATE
         message_buffer.cpp
-        moqt/messages.cpp
+        moq/messages.cpp
         #moqt/transport.cpp
 )
 

@@ -1,14 +1,14 @@
 #pragma once
 
 #include "transport/span.h"
-#include <moqt/common.h>
+#include <moq/common.h>
 
 #include <bit>
 #include <vector>
 
-namespace quicr::messages {
+namespace moq::messages {
 
-// clang-format off
+    // clang-format off
 namespace {
 constexpr bool is_big_endian()
 {
@@ -57,181 +57,177 @@ swap_bytes(uint64_t value)
 }
 
 }
-// clang-format on
+    // clang-format on
 
-/**
- * @brief Defines a buffer that can be sent over transport.
- */
-class MessageBuffer
-{
-public:
-  struct ReadException : public std::runtime_error
-  {
-    using std::runtime_error::runtime_error;
-    using std::runtime_error::what;
-  };
-
-  struct EmptyException : public ReadException
-  {
-    EmptyException();
-  };
-
-  struct OutOfRangeException : public ReadException
-  {
-    OutOfRangeException(size_t length, size_t buffer_length);
-  };
-
-  struct LengthException : public ReadException
-  {
-    LengthException(size_t data_length, size_t expected_length);
-  };
-
-  class TypeReadException : public ReadException
-  {
-  protected:
-    using ReadException::ReadException;
-  };
-
-private:
-  template<typename T>
-  struct TypeReadException_Internal : public TypeReadException
-  {
-    TypeReadException_Internal(size_t buffer_length)
-      : TypeReadException("buffer size is smaller than type size: " +
-                          std::to_string(buffer_length) + " < " +
-                          std::to_string(sizeof(T)))
+    /**
+     * @brief Defines a buffer that can be sent over transport.
+     */
+    class MessageBuffer
     {
-    }
+      public:
+        struct ReadException : public std::runtime_error
+        {
+            using std::runtime_error::runtime_error;
+            using std::runtime_error::what;
+        };
 
-    using TypeReadException::what;
-  };
+        struct EmptyException : public ReadException
+        {
+            EmptyException();
+        };
 
-public:
-  using value_type = std::uint8_t;
-  using buffer_type = std::vector<value_type>;
-  using span_type = Span<const value_type>;
+        struct OutOfRangeException : public ReadException
+        {
+            OutOfRangeException(size_t length, size_t buffer_length);
+        };
 
-  using iterator = buffer_type::iterator;
-  using const_iterator = buffer_type::const_iterator;
-  using pointer = buffer_type::pointer;
-  using const_pointer = buffer_type::const_pointer;
+        struct LengthException : public ReadException
+        {
+            LengthException(size_t data_length, size_t expected_length);
+        };
 
-  MessageBuffer() = default;
-  MessageBuffer(const MessageBuffer& other) = default;
-  MessageBuffer(MessageBuffer&& other) = default;
-  MessageBuffer(size_t reserve_size) { _buffer.reserve(reserve_size); }
-  MessageBuffer(const buffer_type& buffer);
-  MessageBuffer(buffer_type&& buffer);
-  ~MessageBuffer() = default;
+        class TypeReadException : public ReadException
+        {
+          protected:
+            using ReadException::ReadException;
+        };
 
-  MessageBuffer& operator=(const MessageBuffer& other) = default;
-  MessageBuffer& operator=(MessageBuffer&& other) = default;
+      private:
+        template<typename T>
+        struct TypeReadException_Internal : public TypeReadException
+        {
+            TypeReadException_Internal(size_t buffer_length)
+              : TypeReadException("buffer size is smaller than type size: " + std::to_string(buffer_length) + " < " +
+                                  std::to_string(sizeof(T)))
+            {
+            }
 
-  bool empty() const { return _buffer.empty() || size() == 0; }
-  size_t size() const { return _buffer.size() - _read_offset; }
+            using TypeReadException::what;
+        };
 
-  iterator begin() noexcept { return std::next(_buffer.begin(), _read_offset); }
-  const_iterator begin() const noexcept
-  {
-    return std::next(_buffer.begin(), _read_offset);
-  }
+      public:
+        using value_type = std::uint8_t;
+        using buffer_type = std::vector<value_type>;
+        using span_type = Span<const value_type>;
 
-  iterator end() noexcept { return _buffer.end(); }
-  const_iterator end() const noexcept { return _buffer.end(); }
+        using iterator = buffer_type::iterator;
+        using const_iterator = buffer_type::const_iterator;
+        using pointer = buffer_type::pointer;
+        using const_pointer = buffer_type::const_pointer;
 
-  pointer data() noexcept { return _buffer.data() + _read_offset; }
-  const_pointer data() const noexcept { return _buffer.data() + _read_offset; }
+        MessageBuffer() = default;
+        MessageBuffer(const MessageBuffer& other) = default;
+        MessageBuffer(MessageBuffer&& other) = default;
+        MessageBuffer(size_t reserve_size) { _buffer.reserve(reserve_size); }
+        MessageBuffer(const buffer_type& buffer);
+        MessageBuffer(buffer_type&& buffer);
+        ~MessageBuffer() = default;
 
-  void push(const value_type& value) { _buffer.push_back(value); }
-  void push(span_type data) { _buffer.insert(_buffer.end(), data.begin(), data.end()); }
-  void push(buffer_type&& data);
+        MessageBuffer& operator=(const MessageBuffer& other) = default;
+        MessageBuffer& operator=(MessageBuffer&& other) = default;
 
-  void pop() { cleanup(); }
-  void pop(size_t length);
+        bool empty() const { return _buffer.empty() || size() == 0; }
+        size_t size() const { return _buffer.size() - _read_offset; }
 
-  const value_type& front() const;
-  span_type front(size_t length) const;
+        iterator begin() noexcept { return std::next(_buffer.begin(), _read_offset); }
+        const_iterator begin() const noexcept { return std::next(_buffer.begin(), _read_offset); }
 
-  value_type pop_front();
-  buffer_type pop_front(size_t length);
+        iterator end() noexcept { return _buffer.end(); }
+        const_iterator end() const noexcept { return _buffer.end(); }
 
-  /**
-   * @brief Moves the whole buffer, leaving MessageBuffer empty.
-   * @returns The buffer as an rvalue-ref.
-   */
-  buffer_type&& take();
+        pointer data() noexcept { return _buffer.data() + _read_offset; }
+        const_pointer data() const noexcept { return _buffer.data() + _read_offset; }
 
-  /**
-   * @brief Prints out the message buffer in hexadecimal bytes.
-   * @returns The message buffer bytes as a hexadecimal string.
-   */
-  std::string to_hex() const;
+        void push(const value_type& value) { _buffer.push_back(value); }
+        void push(span_type data) { _buffer.insert(_buffer.end(), data.begin(), data.end()); }
+        void push(buffer_type&& data);
 
-public:
-  /**
-   * @brief A fancy operator for push, writes a byte on the end of the buffer.
-   * @param value The byte to push.
-   * @returns The MessageBuffer that was written to.
-   */
-  MessageBuffer& operator<<(const value_type& value);
+        void pop() { cleanup(); }
+        void pop(size_t length);
 
-  /**
-   * @brief Writes QUICR integral types to the buffer in NBO.
-   * @tparam T Value type
-   * @param value The message to be written.
-   * @returns The MessageBuffer that was written to.
-   */
-  template<typename T>
-  inline MessageBuffer& operator<<(T value)
-  {
-    value = swap_bytes(value);
+        const value_type& front() const;
+        span_type front(size_t length) const;
 
-    const auto length = _buffer.size();
-    _buffer.resize(length + sizeof(T));
-    std::memcpy(_buffer.data() + length, &value, sizeof(T));
+        value_type pop_front();
+        buffer_type pop_front(size_t length);
 
-    return *this;
-  }
+        /**
+         * @brief Moves the whole buffer, leaving MessageBuffer empty.
+         * @returns The buffer as an rvalue-ref.
+         */
+        buffer_type&& take();
 
-  /**
-   * @brief A fancy operator for pop, reads a byte off the buffer.
-   * @param value The value to read into.
-   * @returns The MessageBuffer that was read from.
-   */
-  MessageBuffer& operator>>(value_type& value);
+        /**
+         * @brief Prints out the message buffer in hexadecimal bytes.
+         * @returns The message buffer bytes as a hexadecimal string.
+         */
+        std::string to_hex() const;
 
-  /**
-   * @brief Reads QUICR integral types in HBO.
-   * @tparam T A type satisfying quicr::is_integral.
-   * @param value The value to read into.
-   * @returns The MessageBuffer that was read from.
-   */
-  template<typename T>
-  inline MessageBuffer& operator>>(T& value)
-  {
-    if (empty())
-      throw EmptyException();
+      public:
+        /**
+         * @brief A fancy operator for push, writes a byte on the end of the buffer.
+         * @param value The byte to push.
+         * @returns The MessageBuffer that was written to.
+         */
+        MessageBuffer& operator<<(const value_type& value);
 
-    if (size() < sizeof(T))
-      throw TypeReadException_Internal<T>(size());
+        /**
+         * @brief Writes QUICR integral types to the buffer in NBO.
+         * @tparam T Value type
+         * @param value The message to be written.
+         * @returns The MessageBuffer that was written to.
+         */
+        template<typename T, typename std::enable_if_t<std::is_integral_v<T>, bool> = true>
+        inline MessageBuffer& operator<<(T value)
+        {
+            value = swap_bytes(value);
 
-    std::memcpy(&value, data(), sizeof(T));
-    cleanup(sizeof(T));
+            const auto length = _buffer.size();
+            _buffer.resize(length + sizeof(T));
+            std::memcpy(_buffer.data() + length, &value, sizeof(T));
 
-    value = swap_bytes(value);
+            return *this;
+        }
 
-    return *this;
-  }
+        /**
+         * @brief A fancy operator for pop, reads a byte off the buffer.
+         * @param value The value to read into.
+         * @returns The MessageBuffer that was read from.
+         */
+        MessageBuffer& operator>>(value_type& value);
 
-private:
-  /**
-   * @brief Adds to the read offset, and eventually clears the buffer.
-   * @param length The amount to add to the read offset.
-   */
-  void cleanup(size_t length = 1);
+        /**
+         * @brief Reads QUICR integral types in HBO.
+         * @tparam T A type satisfying quicr::is_integral.
+         * @param value The value to read into.
+         * @returns The MessageBuffer that was read from.
+         */
+        template<typename T>
+        inline MessageBuffer& operator>>(T& value)
+        {
+            if (empty())
+                throw EmptyException();
 
-private:
-  buffer_type _buffer;
-  size_t _read_offset = 0;
-};
+            if (size() < sizeof(T))
+                throw TypeReadException_Internal<T>(size());
+
+            std::memcpy(&value, data(), sizeof(T));
+            cleanup(sizeof(T));
+
+            value = swap_bytes(value);
+
+            return *this;
+        }
+
+      private:
+        /**
+         * @brief Adds to the read offset, and eventually clears the buffer.
+         * @param length The amount to add to the read offset.
+         */
+        void cleanup(size_t length = 1);
+
+      private:
+        buffer_type _buffer;
+        size_t _read_offset = 0;
+    };
 }

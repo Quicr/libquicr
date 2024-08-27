@@ -1,14 +1,12 @@
 #include "moq/message_buffer.h"
 
-#include <quicr/uvarint.h>
-
 #include <algorithm>
 #include <array>
 #include <iomanip>
 #include <sstream>
 #include <vector>
 
-namespace quicr::messages {
+namespace moq::messages {
 
 /*===========================================================================*/
 // Exception definitions
