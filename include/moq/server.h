@@ -108,7 +108,7 @@ namespace moq {
          * @param track_namespace               Track namespace
          * @param publish_announce_attributes   Publish announce attributes received
          *
-         * @return True if authorized and announce OK will be sent, false if not
+         * @return True if authorized and announce OK will be sent, false will result in an error being sent
          */
         virtual bool AnnounceReceived(ConnectionHandle connection_handle,
                                       const TrackNamespace& track_namespace,
@@ -133,7 +133,7 @@ namespace moq {
          * @param track_full_name       Track full name
          * @param subscribe_attributes  Subscribe attributes received
          *
-         * @return True if send announce should be sent, false if not
+         * @return True if send subscribe ok should be sent, false will result in an error being sent
          */
         virtual bool SubscribeReceived(ConnectionHandle connection_handle,
                                        uint64_t subscribe_id,
