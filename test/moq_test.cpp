@@ -7,6 +7,7 @@
 #include <moq/publish_track_handler.h>
 #include <moq/subscribe_track_handler.h>
 #include <moq/server_publish_track_handler.h>
+#include <moq/messages.h>
 
 using namespace moq;
 

@@ -2,7 +2,7 @@
 
 #include "moq/common.h"
 
-#include <transport/span.h>
+#include "transport/span.h"
 
 #include <bit>
 #include <vector>

@@ -1,4 +1,4 @@
-#include <moq/detail/messages.h>
+#include "messages.h"
 
 namespace moq::messages {
 
