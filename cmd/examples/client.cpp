@@ -51,14 +51,15 @@ public:
   
   virtual void ObjectReceived(const moq::ObjectHeaders& object_headers, Span<uint8_t> data) {
     std::string msg(data.begin(), data.end());
-    SPDLOG_LOGGER_INFO(_logger, "Received message: {0}", msg);
+    SPDLOG_INFO( "Received message: {0}", msg);
   }
 
   virtual void StatusChanged(Status status) {
     switch ( status ) {
-    case kOk : {
-      auto track_alias = GetTrackAlias();
-       SPDLOG_LOGGER_INFO(_logger, "Track alias: {0} is ready to read",  );
+    case Status::kOk : {
+      if (   auto track_alias = GetTrackAlias();  track_alias.has_value() ) {
+        SPDLOG_INFO( "Track alias: {0} is ready to read",  track_alias.value() );
+      }
     }
       break;
     default:
