@@ -35,14 +35,21 @@ namespace moq {
         };
 
         /**
-         * @brief
+         * @brief Error status when processing MOQT API messages
          */
-        struct ClientSetupResponse {
-
+        struct ErrorStatus {
+            bool status;
         };
 
+        /**
+         * @brief Response to received MOQT ClientSetup message
+         */
+        struct ClientSetupResponse: public ErrorStatus {};
 
-        struct ErrorReason {
+        /**
+         * @brief Response to received MOQT Subscribe message
+         */
+        struct SubscribeResponse: public ErrorStatus {
             enum class ReasonCode: uint8_t {
                 kInternalError = 0,
                 kInvalidRange,
@@ -50,17 +57,18 @@ namespace moq {
             };
             ReasonCode reason_code;
             std::optional<Bytes> reason_phrase;
+            std::optional<uint64_t> track_alias; ///< Set only when ResponseCode is kRetryTrackAlias
         };
 
-        struct SubscribeResponse {
-            bool status; ///< True indicates successful response, false implies error as indicated by reason_code
-            std::optional<ErrorReason> error_reason;  ///< Set only when status is false.
-            std::optional<uint64_t> track_alias; ///< Set only when ResponseCode is kkRetryTrackAlias
-        };
-
-        struct AnnounceResponse {
-            bool status; ///< True indicates successful response, false implies error as indicated by reason_code
-            std::optional<ErrorReason> error_reason;  ///< Set only when status is false.
+        /**
+         * @brief Response to received MOQT Announce message
+         */
+        struct AnnounceResponse: public ErrorStatus {
+            enum class ReasonCode: uint8_t {
+                kInternalError = 0,
+            };
+            std::optional<ReasonCode> reason_code; ///< set only when status is false.
+            std::optional<Bytes> reason_phrase;
         };
 
         /**
@@ -107,8 +115,8 @@ namespace moq {
          * @param connection_handle          Transport connection ID
          * @param remote           Transport remote connection information
          */
-        virtual void NewConnectionCreated(ConnectionHandle connection_handle,
-                                            const ConnectionRemoteInfo& remote) = 0;
+        virtual void NewConnectionAccepted(ConnectionHandle connection_handle,
+                                           const ConnectionRemoteInfo& remote) = 0;
 
         /**
          * @brief Callback notification for connection status/state change
@@ -140,7 +148,7 @@ namespace moq {
          * @param publish_announce_attributes   Publish announce attributes received
          *
          * @return If AnnounceResponse::status is true, ANNOUNNCE_OK MOQT message is sent
-         *         else ANNNOUNCE_ERROR MOQT messsage is sent with appropriate error reason
+         *         else ANNNOUNCE_ERROR MOQT message is sent with appropriate error reason
          *         provided in AnnounceResponse::error_reason.
          */
         virtual AnnounceResponse AnnounceReceived(ConnectionHandle connection_handle,
@@ -167,8 +175,8 @@ namespace moq {
          * @param subscribe_attributes  Subscribe attributes received
          *
          *
-         * @return If SubcribeResponse::status is true, SUBSCRIBE_OK MOQT message is sent
-*                   else SUBSCRIBE_ERROR MOQT messsage is sent with appropriate error reason
+         * @return If SubscribeResponse::status is true, SUBSCRIBE_OK MOQT message is sent
+*                   else SUBSCRIBE_ERROR MOQT message is sent with appropriate error reason
 *                   provided in SubscribeResponse::error_reason.
          */
         virtual SubscribeResponse SubscribeReceived(ConnectionHandle connection_handle,
