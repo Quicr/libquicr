@@ -70,36 +70,36 @@ namespace moq {
         /**
          * @brief Subscribe to a track
          *
-         * @param conn_id           Connection ID to send subscribe
+         * @param connection_handle           Connection ID to send subscribe
          * @param track_delegate    Track delegate to use for track related functions and callbacks
          *
          */
-        void SubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_delegate);
+        void SubscribeTrack(ConnectionHandle connection_handle, std::shared_ptr<SubscribeTrackHandler> track_delegate);
 
         /**
          * @brief Unsubscribe track
          *
-         * @param conn_id           Connection ID to send subscribe
+         * @param connection_handle           Connection ID to send subscribe
          * @param track_delegate    Track delegate to use for track related functions and callbacks
          */
-        void UnsubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_delegate);
+        void UnsubscribeTrack(ConnectionHandle connection_handle, std::shared_ptr<SubscribeTrackHandler> track_delegate);
 
         /**
          * @brief Publish to a track
          *
-         * @param conn_id           Connection ID from transport for the QUIC connection context
+         * @param connection_handle           Connection ID from transport for the QUIC connection context
          * @param track_delegate    Track delegate to use for track related functions
          *                          and callbacks
          */
-        void PublishTrack(TransportConnId conn_id, std::shared_ptr<PublishTrackHandler> track_delegate);
+        void PublishTrack(ConnectionHandle connection_handle, std::shared_ptr<PublishTrackHandler> track_delegate);
 
         /**
          * @brief Unpublish track
          *
-         * @param conn_id           Connection ID from transport for the QUIC connection context
+         * @param connection_handle           Connection ID from transport for the QUIC connection context
          * @param track_delegate    Track delegate used when published track
          */
-        void UnpublishTrack(TransportConnId conn_id, std::shared_ptr<PublishTrackHandler> track_delegate);
+        void UnpublishTrack(ConnectionHandle connection_handle, std::shared_ptr<PublishTrackHandler> track_delegate);
 
         /**
          * @brief Get the instance status
@@ -118,25 +118,25 @@ namespace moq {
          * @details Connection metrics are updated real-time and transport quic metrics on
          *      Config::metrics_sample_ms period
          */
-        std::map<TransportConnId, ConnectionMetrics> connection_metrics_;
+        std::map<ConnectionHandle, ConnectionMetrics> connection_metrics_;
 
       private:
         // -------------------------------------------------------------------------------------------------
         // Transport Delegate/callback functions
         // -------------------------------------------------------------------------------------------------
 
-        void OnNewDataContext([[maybe_unused]] const TransportConnId& conn_id,
+        void OnNewDataContext([[maybe_unused]] const ConnectionHandle& connection_handle,
                               [[maybe_unused]] const DataContextId& data_ctx_id) override
         {
         }
 
-        void OnConnectionStatus(const TransportConnId& conn_id, const TransportStatus status) override;
-        void OnNewConnection(const TransportConnId& conn_id, const TransportRemote& remote) override;
-        void OnRecvStream(const TransportConnId& conn_id,
+        void OnConnectionStatus(const ConnectionHandle& connection_handle, const TransportStatus status) override;
+        void OnNewConnection(const ConnectionHandle& connection_handle, const TransportRemote& remote) override;
+        void OnRecvStream(const ConnectionHandle& connection_handle,
                           uint64_t stream_id,
                           std::optional<DataContextId> data_ctx_id,
                           const bool is_bidir = false) override;
-        void OnRecvDgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id) override;
+        void OnRecvDgram(const ConnectionHandle& connection_handle, std::optional<DataContextId> data_ctx_id) override;
 
         // -------------------------------------------------------------------------------------------------
         // End of transport delegate/callback functions
@@ -144,7 +144,7 @@ namespace moq {
 
         struct ConnectionContext
         {
-            TransportConnId conn_id;
+            ConnectionHandle connection_handle;
             std::optional<uint64_t> ctrl_data_ctx_id;
             bool setup_complete{ false }; ///< True if both client and server setup messages have completed
             uint64_t client_version{ 0 };
@@ -184,7 +184,7 @@ namespace moq {
                                 uint64_t track_alias,
                                 messages::MoqtSubscribeError error,
                                 const std::string& reason);
-        void CloseConnection(TransportConnId conn_id,
+        void CloseConnection(ConnectionHandle connection_handle,
                              messages::MoqtTerminationReason reason,
                              const std::string& reason_str);
         bool ProcessRecvCtrlMessage(ConnectionContext& conn_ctx, std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
@@ -208,7 +208,7 @@ namespace moq {
         const ServerConfig server_config_;
         const ClientConfig client_config_;
 
-        std::map<TransportConnId, ConnectionContext> connections_;
+        std::map<ConnectionHandle, ConnectionContext> connections_;
 
         Status status_{ Status::kNotReady };
 

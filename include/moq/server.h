@@ -35,6 +35,43 @@ namespace moq {
         };
 
         /**
+         * @brief Error status when processing MOQT API messages
+         */
+        struct ErrorStatus {
+            bool status;
+        };
+
+        /**
+         * @brief Response to received MOQT ClientSetup message
+         */
+        struct ClientSetupResponse: public ErrorStatus {};
+
+        /**
+         * @brief Response to received MOQT Subscribe message
+         */
+        struct SubscribeResponse: public ErrorStatus {
+            enum class ReasonCode: uint8_t {
+                kInternalError = 0,
+                kInvalidRange,
+                kRetryTrackAlias,
+            };
+            ReasonCode reason_code;
+            std::optional<Bytes> reason_phrase;
+            std::optional<uint64_t> track_alias; ///< Set only when ResponseCode is kRetryTrackAlias
+        };
+
+        /**
+         * @brief Response to received MOQT Announce message
+         */
+        struct AnnounceResponse: public ErrorStatus {
+            enum class ReasonCode: uint8_t {
+                kInternalError = 0,
+            };
+            std::optional<ReasonCode> reason_code; ///< set only when status is false.
+            std::optional<Bytes> reason_phrase;
+        };
+
+        /**
          * @brief Connection remote information
          */
         struct ConnectionRemoteInfo
@@ -75,79 +112,86 @@ namespace moq {
          * @brief Callback notification on new connection
          * @details Callback notification that a new connection has been accepted
          *
-         * @param conn_id          Transport connection ID
+         * @param connection_handle          Transport connection ID
          * @param remote           Transport remote connection information
          */
-        virtual void NewConnection(TransportConnId conn_id,
-                                   const ConnectionRemoteInfo& remote) = 0;
+        virtual void NewConnectionAccepted(ConnectionHandle connection_handle,
+                                           const ConnectionRemoteInfo& remote) = 0;
 
         /**
          * @brief Callback notification for connection status/state change
          * @details Callback notification indicates state change of connection, such as disconnected
          *
-         * @param conn_id          Transport connection ID
+         * @param connection_handle          Transport connection ID
          * @param status           ConnectionStatus of connection id
          */
-        virtual void ConnectionStatusChanged(TransportConnId conn_id, ConnectionStatus status) = 0;
+        virtual void ConnectionStatusChanged(ConnectionHandle connection_handle, ConnectionStatus status) = 0;
 
         /**
          * @brief Callback on client setup message
          * @details In server mode, client will send a setup message on new connection.
          *         Server responds with server setup.
          *
-         * @param conn_id                       Transport connection ID
+         * @param connection_handle                       Transport connection ID
          * @param client_setup_attributes       Decoded client setup message
+         *
+         * @return ClientSetupResponse indicating the status of processing the setup message.
          */
-        virtual void ClientSetupReceived(TransportConnId conn_id,
-                                         const ClientSetupAttributes& client_setup_attributes) = 0;
+        virtual ClientSetupResponse ClientSetupReceived(ConnectionHandle connection_handle,
+                                                        const ClientSetupAttributes& client_setup_attributes) = 0;
 
         /**
          * @brief Callback notification for new announce received that needs to be authorized
          *
-         * @param conn_id                       Source connection ID
+         * @param connection_handle                       Source connection ID
          * @param track_namespace               Track namespace
          * @param publish_announce_attributes   Publish announce attributes received
          *
-         * @return True if authorized and announce OK will be sent, false if not
+         * @return If AnnounceResponse::status is true, ANNOUNNCE_OK MOQT message is sent
+         *         else ANNNOUNCE_ERROR MOQT message is sent with appropriate error reason
+         *         provided in AnnounceResponse::error_reason.
          */
-        virtual bool AnnounceReceived(TransportConnId conn_id,
-                                      const TrackNamespace& track_namespace,
-                                      const PublishAnnounceAttributes& publish_announce_attributes) = 0;
+        virtual AnnounceResponse AnnounceReceived(ConnectionHandle connection_handle,
+                                                  const TrackNamespace& track_namespace,
+                                                  const PublishAnnounceAttributes& publish_announce_attributes) = 0;
 
         /**
          * @brief Callback notification for unannounce received
          *
-         * @param conn_id                   Source connection ID
+         * @param connection_handle                   Source connection ID
          * @param track_namespace           Track namespace
          *
          */
-        virtual void UnannounceReceived(TransportConnId conn_id,
+        virtual void UnannounceReceived(ConnectionHandle connection_handle,
                                         const TrackNamespace& track_namespace) = 0;
 
         /**
          * @brief Callback notification for new subscribe received
          *
-         * @param conn_id               Source connection ID
+         * @param connection_handle               Source connection ID
          * @param subscribe_id          Subscribe ID received
          * @param proposed_track_alias  The proposed track alias the subscriber would like to use
          * @param track_full_name       Track full name
          * @param subscribe_attributes  Subscribe attributes received
          *
-         * @return True if send announce should be sent, false if not
+         *
+         * @return If SubscribeResponse::status is true, SUBSCRIBE_OK MOQT message is sent
+*                   else SUBSCRIBE_ERROR MOQT message is sent with appropriate error reason
+*                   provided in SubscribeResponse::error_reason.
          */
-        virtual bool SubscribeReceived(TransportConnId conn_id,
-                                       uint64_t subscribe_id,
-                                       uint64_t proposed_track_alias,
-                                       const FullTrackName& track_full_name,
-                                       const SubscribeAttributes& subscribe_attributes) = 0;
+        virtual SubscribeResponse SubscribeReceived(ConnectionHandle connection_handle,
+                                                    uint64_t subscribe_id,
+                                                    uint64_t proposed_track_alias,
+                                                    const FullTrackName& track_full_name,
+                                                    const SubscribeAttributes& subscribe_attributes) = 0;
 
         /**
          * @brief Callback notification on unsubscribe received
          *
-         * @param conn_id             Source connection ID
+         * @param connection_handle             Source connection ID
          * @param subscribe_id        Subscribe ID received
          */
-        virtual void UnsubscribeReceived(TransportConnId conn_id,
+        virtual void UnsubscribeReceived(ConnectionHandle connection_handle,
                                          uint64_t subscribe_id) = 0;
 
         /**
@@ -157,10 +201,10 @@ namespace moq {
          *      on the sample period.  After this callback, the period/sample based metrics will reset and start over
          *      for the new period.
          *
-         * @param conn_id           Source connection ID
+         * @param connection_handle           Source connection ID
          * @param metrics           Copy of the connection metrics for the sample period
          */
-        virtual void MetricsSampled(TransportConnId conn_id, const ConnectionMetrics&& metrics)  = 0;
+        virtual void MetricsSampled(ConnectionHandle connection_handle, const ConnectionMetrics&& metrics)  = 0;
 
       protected:
         /**
@@ -169,11 +213,11 @@ namespace moq {
          * @details The server will create a server publish track handler based on a received
          *      subscribe. It will use this handler to send objects to subscriber.
          *
-         * @param conn_id                   Connection ID of the client/subscriber
+         * @param connection_handle                   Connection ID of the client/subscriber
          * @param subscribe_id              Subscribe ID from the received subscribe
          * @param track_handler             Server publish track handler
          */
-        void BindSubscribeTrack(TransportConnId conn_id,
+        void BindPublisherTrack(ConnectionHandle connection_handle,
                                 uint64_t subscribe_id,
                                 std::shared_ptr<ServerPublishTrackHandler> track_handler);
 
