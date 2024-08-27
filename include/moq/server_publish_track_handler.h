@@ -12,14 +12,13 @@
 namespace moq {
 
     /**
-     * @brief MOQ track handler for published track
+     * @brief MOQ Server publish track handler
      *
-     * @details MOQ publish track handler defines all track related callbacks and
-     *  functions for publish. Track handler operates on a single track (namespace + name).
-     *
-     *  This extends the base track handler to add publish (aka send) handling
+     * @details MOQ server publish track handler defines all track related callbacks and
+     *  functions for handling the subscription and sending data back to the
+     *  subscriber. Server creates
      */
-    class PublishTrackHandler : protected BaseTrackHandler
+    class ServerPublishTrackHandler : protected BaseTrackHandler
     {
       public:
         friend class Transport;
@@ -31,16 +30,13 @@ namespace moq {
         {
             kOk = 0,
             kInternalError,
-            kNotAuthorized,
-            kNotAnnounced,
-            kNoSubscribers,
             kObjectPayloadLengthExceeded,
             kPreviousObjectTruncated,
 
             kNoPreviousObject,
             kObjectDataComplete,
             kObjectContinuationDataNeeded,
-            kObjectDataIncomplete,              ///< PublishObject() was called when continuation data remains
+            kObjectDataIncomplete, ///< PublishObject() was called when continuation data remains
 
             /// Indicates that the published object data is too large based on the object header payload size plus
             /// any/all data that was sent already.
@@ -56,20 +52,16 @@ namespace moq {
         };
 
         /**
-         * @brief  Status codes for the publish track
+         * @brief  Status codes for the handler
          */
         enum class Status : uint8_t
         {
             kOK = 0,
-            kNotConnected,
-            kNotAnnounced,
-            kPendingAnnounceResponse,
-            kAnnounceNotAuthorized,
-            kNoSubscribers,
-            kSendingUnannounce,         ///< In this state, callbacks will not be called
+            kInternalError,
+            kNoSubscriber,
         };
 
-        PublishTrackHandler() = delete;
+        ServerPublishTrackHandler() = delete;
 
         // --------------------------------------------------------------------------
         // Public API methods
@@ -83,10 +75,10 @@ namespace moq {
          * @param default_priority      Default priority for objects if not specified in ObjectHeaderss
          * @param default_ttl           Default TTL for objects if not specified in ObjectHeaderss
          */
-        PublishTrackHandler(const FullTrackName& full_track_name,
-                            TrackMode track_mode,
-                            uint8_t default_priority,
-                            uint32_t default_ttl)
+        ServerPublishTrackHandler(const FullTrackName& full_track_name,
+                                  TrackMode track_mode,
+                                  uint8_t default_priority,
+                                  uint32_t default_ttl)
           : BaseTrackHandler(full_track_name)
           , track_mode_(track_mode)
           , default_priority_(default_priority)
@@ -99,14 +91,13 @@ namespace moq {
         // --------------------------------------------------------------------------
 
         /**
-         * @brief Notification of publish track status change
-         * @details Notification of a change to publish track status, such as
+         * @brief Notification of handler status change
+         * @details Notification of a change to handler status, such as
          *      when it's ready to publish or not ready to publish
          *
          * @param status        Indicates the status of being able to publish
          */
         virtual void StatusChanged(Status status) {}
-
 
         /**
          * @brief Notification callback to provide sampled metrics
@@ -137,7 +128,7 @@ namespace moq {
          *
          * @return Status of publish
          */
-        Status GetStatus() { return publish_status_; }
+        Status GetStatus() { return status_; }
 
         // --------------------------------------------------------------------------
         // Methods that normally do not need to be overridden
@@ -259,21 +250,21 @@ namespace moq {
          * @brief Set the publish status
          * @param status                Status of publishing (aka publish objects)
          */
-        void SetStatus(Status status) { publish_status_ = status; }
+        void SetStatus(Status status) { status_ = status; }
 
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
-        Status publish_status_{ Status::kNotAnnounced };
+        Status status_{ Status::kOK };
         TrackMode track_mode_;
-        uint8_t default_priority_;              // Set by caller and is used when priority is not specified
-        uint32_t default_ttl_;                  // Set by caller and is used when TTL is not specified
+        uint8_t default_priority_; // Set by caller and is used when priority is not specified
+        uint32_t default_ttl_;     // Set by caller and is used when TTL is not specified
 
-        uint64_t publish_data_ctx_id_;      // publishing data context ID
+        uint64_t publish_data_ctx_id_; // publishing data context ID
         PublishObjFunction publish_object_func_;
 
-        uint64_t object_payload_remaining_length_ { 0 };
-        bool sent_track_header_ { false };  // Used only in stream per track mode
+        uint64_t object_payload_remaining_length_{ 0 };
+        bool sent_track_header_{ false }; // Used only in stream per track mode
     };
 
 } // namespace moq

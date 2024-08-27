@@ -90,8 +90,7 @@ namespace moq {
          * @param track_delegate    Track delegate to use for track related functions
          *                          and callbacks
          */
-        void PublishTrack(TransportConnId conn_id,
-                                             std::shared_ptr<PublishTrackHandler> track_delegate);
+        void PublishTrack(TransportConnId conn_id, std::shared_ptr<PublishTrackHandler> track_delegate);
 
         /**
          * @brief Unpublish track

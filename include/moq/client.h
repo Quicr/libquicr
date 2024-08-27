@@ -144,14 +144,10 @@ namespace moq {
          * @brief Subscribe to a track
          *
          * @param track_handler    Track handler to use for track related functions and callbacks
-         *
-         * @returns `track_alias` if no error and nullopt on error
          */
-        std::optional<uint64_t> SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler) {
+        void SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler) {
             if (conn_id_) {
-                return Transport::SubscribeTrack(*conn_id_, std::move(track_handler));
-            } else {
-                return std::nullopt;
+                Transport::SubscribeTrack(*conn_id_, std::move(track_handler));
             }
         }
 
@@ -206,14 +202,10 @@ namespace moq {
          *
          * @param track_handler    Track handler to use for track related functions
          *                          and callbacks
-         *
-         * @returns `track_alias` if no error and nullopt on error
          */
-        std::optional<uint64_t> PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler) {
+        void PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler) {
             if (conn_id_) {
-                return Transport::PublishTrack(*conn_id_, std::move(track_handler));
-            } else {
-                return std::nullopt;
+                Transport::PublishTrack(*conn_id_, std::move(track_handler));
             }
         }
 
