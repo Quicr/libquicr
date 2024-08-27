@@ -1,4 +1,24 @@
 
+
+
+add_executable(qclient client.cpp)
+
+target_link_libraries(qclient PRIVATE quicr)
+
+target_compile_options(qclient
+        PRIVATE
+        $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall>
+        $<$<CXX_COMPILER_ID:MSVC>: >)
+
+
+set_target_properties(qclient
+        PROPERTIES
+        CXX_STANDARD 17
+        CXX_STANDARD_REQUIRED YES
+        CXX_EXTENSIONS OFF)
+
+
+
 add_executable(qserver
         server.cpp
 )
@@ -18,20 +38,3 @@ set_target_properties(qserver
 if(CLANG_TIDY_EXE)
   set_target_properties(quicr PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
 endif()
-
-
-add_executable(qclient client.cpp)
-
-target_link_libraries(qclient PRIVATE quicr)
-
-target_compile_options(qclient
-        PRIVATE
-        $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall>
-        $<$<CXX_COMPILER_ID:MSVC>: >)
-
-
-set_target_properties(qclient
-        PROPERTIES
-        CXX_STANDARD 17
-        CXX_STANDARD_REQUIRED YES
-        CXX_EXTENSIONS OFF)
