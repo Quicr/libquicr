@@ -120,8 +120,20 @@ Inheritance diagram for moq::Server:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="nested-classes" name="nested-classes"></a>
 Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structmoq_1_1_server_1_1_announce_response.html">AnnounceResponse</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Response to received MOQT Announce message.  <a href="structmoq_1_1_server_1_1_announce_response.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structmoq_1_1_server_1_1_client_setup_response.html">ClientSetupResponse</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Response to received MOQT ClientSetup message.  <a href="structmoq_1_1_server_1_1_client_setup_response.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structmoq_1_1_server_1_1_connection_remote_info.html">ConnectionRemoteInfo</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Connection remote information.  <a href="structmoq_1_1_server_1_1_connection_remote_info.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structmoq_1_1_server_1_1_error_status.html">ErrorStatus</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Error status when processing MOQT API messages.  <a href="structmoq_1_1_server_1_1_error_status.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structmoq_1_1_server_1_1_subscribe_response.html">SubscribeResponse</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Response to received MOQT Subscribe message.  <a href="structmoq_1_1_server_1_1_subscribe_response.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-types" name="pub-types"></a>
@@ -146,36 +158,36 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a02489424680abe79093d214bd6a4d7c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aed25c26361eb5b50c7f2d7caa0392ebf" id="r_aed25c26361eb5b50c7f2d7caa0392ebf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aed25c26361eb5b50c7f2d7caa0392ebf">Stop</a> ()</td></tr>
 <tr class="separator:aed25c26361eb5b50c7f2d7caa0392ebf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3b77fdb5ebe419e7f3763c0461c18f86" id="r_a3b77fdb5ebe419e7f3763c0461c18f86"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a3b77fdb5ebe419e7f3763c0461c18f86">NewConnection</a> (TransportConnId conn_id, const <a class="el" href="structmoq_1_1_server_1_1_connection_remote_info.html">ConnectionRemoteInfo</a> &amp;remote)=0</td></tr>
-<tr class="memdesc:a3b77fdb5ebe419e7f3763c0461c18f86"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification on new connection.  <br /></td></tr>
-<tr class="separator:a3b77fdb5ebe419e7f3763c0461c18f86"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4e143970ae22c236b32b8b7c641ac146" id="r_a4e143970ae22c236b32b8b7c641ac146"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4e143970ae22c236b32b8b7c641ac146">ConnectionStatusChanged</a> (TransportConnId conn_id, <a class="el" href="#a1193735a47b53fac4319e89cf14e1380">ConnectionStatus</a> status)=0</td></tr>
-<tr class="memdesc:a4e143970ae22c236b32b8b7c641ac146"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for connection status/state change.  <br /></td></tr>
-<tr class="separator:a4e143970ae22c236b32b8b7c641ac146"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6f738127ecfd905647549d6609e04dc7" id="r_a6f738127ecfd905647549d6609e04dc7"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a6f738127ecfd905647549d6609e04dc7">ClientSetupReceived</a> (TransportConnId conn_id, const <a class="el" href="structmoq_1_1_client_setup_attributes.html">ClientSetupAttributes</a> &amp;client_setup_attributes)=0</td></tr>
-<tr class="memdesc:a6f738127ecfd905647549d6609e04dc7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on client setup message.  <br /></td></tr>
-<tr class="separator:a6f738127ecfd905647549d6609e04dc7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aff06ccfa8db7dc92acac46a5888d25b9" id="r_aff06ccfa8db7dc92acac46a5888d25b9"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aff06ccfa8db7dc92acac46a5888d25b9">AnnounceReceived</a> (TransportConnId conn_id, const TrackNamespace &amp;track_namespace, const <a class="el" href="structmoq_1_1_publish_announce_attributes.html">PublishAnnounceAttributes</a> &amp;publish_announce_attributes)=0</td></tr>
-<tr class="memdesc:aff06ccfa8db7dc92acac46a5888d25b9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new announce received that needs to be authorized.  <br /></td></tr>
-<tr class="separator:aff06ccfa8db7dc92acac46a5888d25b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a32b92df0fbdbd4cbd95ffc3b47414992" id="r_a32b92df0fbdbd4cbd95ffc3b47414992"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a32b92df0fbdbd4cbd95ffc3b47414992">UnannounceReceived</a> (TransportConnId conn_id, const TrackNamespace &amp;track_namespace)=0</td></tr>
-<tr class="memdesc:a32b92df0fbdbd4cbd95ffc3b47414992"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for unannounce received.  <br /></td></tr>
-<tr class="separator:a32b92df0fbdbd4cbd95ffc3b47414992"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abb984e4b659700ea966ebb285e131161" id="r_abb984e4b659700ea966ebb285e131161"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#abb984e4b659700ea966ebb285e131161">SubscribeReceived</a> (TransportConnId conn_id, uint64_t subscribe_id, uint64_t proposed_track_alias, const FullTrackName &amp;track_full_name, const <a class="el" href="structmoq_1_1_subscribe_attributes.html">SubscribeAttributes</a> &amp;subscribe_attributes)=0</td></tr>
-<tr class="memdesc:abb984e4b659700ea966ebb285e131161"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new subscribe received.  <br /></td></tr>
-<tr class="separator:abb984e4b659700ea966ebb285e131161"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab34e429bc54f93eeb953485cb855006e" id="r_ab34e429bc54f93eeb953485cb855006e"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab34e429bc54f93eeb953485cb855006e">UnsubscribeReceived</a> (TransportConnId conn_id, uint64_t subscribe_id)=0</td></tr>
-<tr class="memdesc:ab34e429bc54f93eeb953485cb855006e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification on unsubscribe received.  <br /></td></tr>
-<tr class="separator:ab34e429bc54f93eeb953485cb855006e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3885462cdc1ae9195b50a9262cab8f11" id="r_a3885462cdc1ae9195b50a9262cab8f11"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a3885462cdc1ae9195b50a9262cab8f11">MetricsSampled</a> (TransportConnId conn_id, const <a class="el" href="structmoq_1_1_connection_metrics.html">ConnectionMetrics</a> &amp;&amp;metrics)=0</td></tr>
-<tr class="memdesc:a3885462cdc1ae9195b50a9262cab8f11"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification callback to provide sampled metrics.  <br /></td></tr>
-<tr class="separator:a3885462cdc1ae9195b50a9262cab8f11"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af565cf176f61e6db23d75dcd2258c0f9" id="r_af565cf176f61e6db23d75dcd2258c0f9"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#af565cf176f61e6db23d75dcd2258c0f9">NewConnectionAccepted</a> (<a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a> connection_handle, const <a class="el" href="structmoq_1_1_server_1_1_connection_remote_info.html">ConnectionRemoteInfo</a> &amp;remote)=0</td></tr>
+<tr class="memdesc:af565cf176f61e6db23d75dcd2258c0f9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification on new connection.  <br /></td></tr>
+<tr class="separator:af565cf176f61e6db23d75dcd2258c0f9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a50827b2f4e7d3dd00fe670c64b6125ea" id="r_a50827b2f4e7d3dd00fe670c64b6125ea"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a50827b2f4e7d3dd00fe670c64b6125ea">ConnectionStatusChanged</a> (<a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a> connection_handle, <a class="el" href="#a1193735a47b53fac4319e89cf14e1380">ConnectionStatus</a> status)=0</td></tr>
+<tr class="memdesc:a50827b2f4e7d3dd00fe670c64b6125ea"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for connection status/state change.  <br /></td></tr>
+<tr class="separator:a50827b2f4e7d3dd00fe670c64b6125ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a70f391a7e5b74f89575ed4e3155cc02b" id="r_a70f391a7e5b74f89575ed4e3155cc02b"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structmoq_1_1_server_1_1_client_setup_response.html">ClientSetupResponse</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a70f391a7e5b74f89575ed4e3155cc02b">ClientSetupReceived</a> (<a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a> connection_handle, const <a class="el" href="structmoq_1_1_client_setup_attributes.html">ClientSetupAttributes</a> &amp;client_setup_attributes)=0</td></tr>
+<tr class="memdesc:a70f391a7e5b74f89575ed4e3155cc02b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on client setup message.  <br /></td></tr>
+<tr class="separator:a70f391a7e5b74f89575ed4e3155cc02b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a46c176dd2fb765e40d3e03ac5e93a458" id="r_a46c176dd2fb765e40d3e03ac5e93a458"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structmoq_1_1_server_1_1_announce_response.html">AnnounceResponse</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a46c176dd2fb765e40d3e03ac5e93a458">AnnounceReceived</a> (<a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a> connection_handle, const TrackNamespace &amp;track_namespace, const <a class="el" href="structmoq_1_1_publish_announce_attributes.html">PublishAnnounceAttributes</a> &amp;publish_announce_attributes)=0</td></tr>
+<tr class="memdesc:a46c176dd2fb765e40d3e03ac5e93a458"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new announce received that needs to be authorized.  <br /></td></tr>
+<tr class="separator:a46c176dd2fb765e40d3e03ac5e93a458"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac1f75ab418cde4a25e53a82b8a7c12c3" id="r_ac1f75ab418cde4a25e53a82b8a7c12c3"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ac1f75ab418cde4a25e53a82b8a7c12c3">UnannounceReceived</a> (<a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a> connection_handle, const TrackNamespace &amp;track_namespace)=0</td></tr>
+<tr class="memdesc:ac1f75ab418cde4a25e53a82b8a7c12c3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for unannounce received.  <br /></td></tr>
+<tr class="separator:ac1f75ab418cde4a25e53a82b8a7c12c3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a37516a64f5c7a3ce56f74ef2b5354187" id="r_a37516a64f5c7a3ce56f74ef2b5354187"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structmoq_1_1_server_1_1_subscribe_response.html">SubscribeResponse</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a37516a64f5c7a3ce56f74ef2b5354187">SubscribeReceived</a> (<a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a> connection_handle, uint64_t subscribe_id, uint64_t proposed_track_alias, const FullTrackName &amp;track_full_name, const <a class="el" href="structmoq_1_1_subscribe_attributes.html">SubscribeAttributes</a> &amp;subscribe_attributes)=0</td></tr>
+<tr class="memdesc:a37516a64f5c7a3ce56f74ef2b5354187"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new subscribe received.  <br /></td></tr>
+<tr class="separator:a37516a64f5c7a3ce56f74ef2b5354187"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5c6579c5d560a67909d7a6ddf36b9e5f" id="r_a5c6579c5d560a67909d7a6ddf36b9e5f"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a5c6579c5d560a67909d7a6ddf36b9e5f">UnsubscribeReceived</a> (<a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a> connection_handle, uint64_t subscribe_id)=0</td></tr>
+<tr class="memdesc:a5c6579c5d560a67909d7a6ddf36b9e5f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification on unsubscribe received.  <br /></td></tr>
+<tr class="separator:a5c6579c5d560a67909d7a6ddf36b9e5f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab8799307e464aff941f56ad0c944cb3f" id="r_ab8799307e464aff941f56ad0c944cb3f"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab8799307e464aff941f56ad0c944cb3f">MetricsSampled</a> (<a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a> connection_handle, const <a class="el" href="structmoq_1_1_connection_metrics.html">ConnectionMetrics</a> &amp;&amp;metrics)=0</td></tr>
+<tr class="memdesc:ab8799307e464aff941f56ad0c944cb3f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification callback to provide sampled metrics.  <br /></td></tr>
+<tr class="separator:ab8799307e464aff941f56ad0c944cb3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-methods" name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:a3b1be92414515fdfc83f12ec43cf14f1" id="r_a3b1be92414515fdfc83f12ec43cf14f1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a3b1be92414515fdfc83f12ec43cf14f1">BindSubscribeTrack</a> (TransportConnId conn_id, uint64_t subscribe_id, std::shared_ptr&lt; <a class="el" href="classmoq_1_1_server_publish_track_handler.html">ServerPublishTrackHandler</a> &gt; track_handler)</td></tr>
-<tr class="memdesc:a3b1be92414515fdfc83f12ec43cf14f1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Bind a server publish track handler based on a subscribe.  <br /></td></tr>
-<tr class="separator:a3b1be92414515fdfc83f12ec43cf14f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4e80792d77c726b000899f9e6119c93b" id="r_a4e80792d77c726b000899f9e6119c93b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4e80792d77c726b000899f9e6119c93b">BindPublisherTrack</a> (<a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a> connection_handle, uint64_t subscribe_id, std::shared_ptr&lt; <a class="el" href="classmoq_1_1_server_publish_track_handler.html">ServerPublishTrackHandler</a> &gt; track_handler)</td></tr>
+<tr class="memdesc:a4e80792d77c726b000899f9e6119c93b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Bind a server publish track handler based on a subscribe.  <br /></td></tr>
+<tr class="separator:a4e80792d77c726b000899f9e6119c93b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>MoQ <a class="el" href="classmoq_1_1_server.html" title="MoQ Server.">Server</a>. </p>
@@ -271,8 +283,8 @@ Protected Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="aff06ccfa8db7dc92acac46a5888d25b9" name="aff06ccfa8db7dc92acac46a5888d25b9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aff06ccfa8db7dc92acac46a5888d25b9">&#9670;&#160;</a></span>AnnounceReceived()</h2>
+<a id="a46c176dd2fb765e40d3e03ac5e93a458" name="a46c176dd2fb765e40d3e03ac5e93a458"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a46c176dd2fb765e40d3e03ac5e93a458">&#9670;&#160;</a></span>AnnounceReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -281,9 +293,9 @@ Protected Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual bool moq::Server::AnnounceReceived </td>
+          <td class="memname">virtual <a class="el" href="structmoq_1_1_server_1_1_announce_response.html">AnnounceResponse</a> moq::Server::AnnounceReceived </td>
           <td>(</td>
-          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
+          <td class="paramtype"><a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a></td>          <td class="paramname"><span class="paramname"><em>connection_handle</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -306,18 +318,18 @@ Protected Member Functions</h2></td></tr>
 <p>Callback notification for new announce received that needs to be authorized. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">conn_id</td><td>Source connection ID </td></tr>
+    <tr><td class="paramname">connection_handle</td><td>Source connection ID </td></tr>
     <tr><td class="paramname">track_namespace</td><td>Track namespace </td></tr>
     <tr><td class="paramname">publish_announce_attributes</td><td>Publish announce attributes received</td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section return"><dt>Returns</dt><dd>True if authorized and announce OK will be sent, false if not </dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>If <a class="el" href="structmoq_1_1_server_1_1_error_status.html#a54eeb2fda018227699d1b52f38eb73e2">AnnounceResponse::status</a> is true, ANNOUNNCE_OK MOQT message is sent else ANNNOUNCE_ERROR MOQT message is sent with appropriate error reason provided in AnnounceResponse::error_reason. </dd></dl>
 
 </div>
 </div>
-<a id="a3b1be92414515fdfc83f12ec43cf14f1" name="a3b1be92414515fdfc83f12ec43cf14f1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3b1be92414515fdfc83f12ec43cf14f1">&#9670;&#160;</a></span>BindSubscribeTrack()</h2>
+<a id="a4e80792d77c726b000899f9e6119c93b" name="a4e80792d77c726b000899f9e6119c93b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4e80792d77c726b000899f9e6119c93b">&#9670;&#160;</a></span>BindPublisherTrack()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -326,9 +338,9 @@ Protected Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void moq::Server::BindSubscribeTrack </td>
+          <td class="memname">void moq::Server::BindPublisherTrack </td>
           <td>(</td>
-          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
+          <td class="paramtype"><a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a></td>          <td class="paramname"><span class="paramname"><em>connection_handle</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -352,7 +364,7 @@ Protected Member Functions</h2></td></tr>
 <p>The server will create a server publish track handler based on a received subscribe. It will use this handler to send objects to subscriber.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">conn_id</td><td>Connection ID of the client/subscriber </td></tr>
+    <tr><td class="paramname">connection_handle</td><td>Connection ID of the client/subscriber </td></tr>
     <tr><td class="paramname">subscribe_id</td><td>Subscribe ID from the received subscribe </td></tr>
     <tr><td class="paramname">track_handler</td><td><a class="el" href="classmoq_1_1_server.html" title="MoQ Server.">Server</a> publish track handler </td></tr>
   </table>
@@ -361,8 +373,8 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a6f738127ecfd905647549d6609e04dc7" name="a6f738127ecfd905647549d6609e04dc7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6f738127ecfd905647549d6609e04dc7">&#9670;&#160;</a></span>ClientSetupReceived()</h2>
+<a id="a70f391a7e5b74f89575ed4e3155cc02b" name="a70f391a7e5b74f89575ed4e3155cc02b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a70f391a7e5b74f89575ed4e3155cc02b">&#9670;&#160;</a></span>ClientSetupReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -371,9 +383,9 @@ Protected Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void moq::Server::ClientSetupReceived </td>
+          <td class="memname">virtual <a class="el" href="structmoq_1_1_server_1_1_client_setup_response.html">ClientSetupResponse</a> moq::Server::ClientSetupReceived </td>
           <td>(</td>
-          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
+          <td class="paramtype"><a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a></td>          <td class="paramname"><span class="paramname"><em>connection_handle</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -392,16 +404,17 @@ Protected Member Functions</h2></td></tr>
 <p>In server mode, client will send a setup message on new connection. <a class="el" href="classmoq_1_1_server.html" title="MoQ Server.">Server</a> responds with server setup.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">conn_id</td><td>Transport connection ID </td></tr>
-    <tr><td class="paramname">client_setup_attributes</td><td>Decoded client setup message </td></tr>
+    <tr><td class="paramname">connection_handle</td><td>Transport connection ID </td></tr>
+    <tr><td class="paramname">client_setup_attributes</td><td>Decoded client setup message</td></tr>
   </table>
   </dd>
 </dl>
+<dl class="section return"><dt>Returns</dt><dd><a class="el" href="structmoq_1_1_server_1_1_client_setup_response.html" title="Response to received MOQT ClientSetup message.">ClientSetupResponse</a> indicating the status of processing the setup message. </dd></dl>
 
 </div>
 </div>
-<a id="a4e143970ae22c236b32b8b7c641ac146" name="a4e143970ae22c236b32b8b7c641ac146"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4e143970ae22c236b32b8b7c641ac146">&#9670;&#160;</a></span>ConnectionStatusChanged()</h2>
+<a id="a50827b2f4e7d3dd00fe670c64b6125ea" name="a50827b2f4e7d3dd00fe670c64b6125ea"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a50827b2f4e7d3dd00fe670c64b6125ea">&#9670;&#160;</a></span>ConnectionStatusChanged()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -412,7 +425,7 @@ Protected Member Functions</h2></td></tr>
         <tr>
           <td class="memname">virtual void moq::Server::ConnectionStatusChanged </td>
           <td>(</td>
-          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
+          <td class="paramtype"><a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a></td>          <td class="paramname"><span class="paramname"><em>connection_handle</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -431,7 +444,7 @@ Protected Member Functions</h2></td></tr>
 <p>Callback notification indicates state change of connection, such as disconnected</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">conn_id</td><td>Transport connection ID </td></tr>
+    <tr><td class="paramname">connection_handle</td><td>Transport connection ID </td></tr>
     <tr><td class="paramname">status</td><td>ConnectionStatus of connection id </td></tr>
   </table>
   </dd>
@@ -439,8 +452,8 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a3885462cdc1ae9195b50a9262cab8f11" name="a3885462cdc1ae9195b50a9262cab8f11"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3885462cdc1ae9195b50a9262cab8f11">&#9670;&#160;</a></span>MetricsSampled()</h2>
+<a id="ab8799307e464aff941f56ad0c944cb3f" name="ab8799307e464aff941f56ad0c944cb3f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab8799307e464aff941f56ad0c944cb3f">&#9670;&#160;</a></span>MetricsSampled()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -451,7 +464,7 @@ Protected Member Functions</h2></td></tr>
         <tr>
           <td class="memname">virtual void moq::Server::MetricsSampled </td>
           <td>(</td>
-          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
+          <td class="paramtype"><a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a></td>          <td class="paramname"><span class="paramname"><em>connection_handle</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -470,7 +483,7 @@ Protected Member Functions</h2></td></tr>
 <p>Callback will be triggered on <a class="el" href="structmoq_1_1_config.html#aad6de0f066fe064a92ed07e928534085">Config::metrics_sample_ms</a> to provide the sampled data based on the sample period. After this callback, the period/sample based metrics will reset and start over for the new period.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">conn_id</td><td>Source connection ID </td></tr>
+    <tr><td class="paramname">connection_handle</td><td>Source connection ID </td></tr>
     <tr><td class="paramname">metrics</td><td>Copy of the connection metrics for the sample period </td></tr>
   </table>
   </dd>
@@ -478,8 +491,8 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a3b77fdb5ebe419e7f3763c0461c18f86" name="a3b77fdb5ebe419e7f3763c0461c18f86"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3b77fdb5ebe419e7f3763c0461c18f86">&#9670;&#160;</a></span>NewConnection()</h2>
+<a id="af565cf176f61e6db23d75dcd2258c0f9" name="af565cf176f61e6db23d75dcd2258c0f9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af565cf176f61e6db23d75dcd2258c0f9">&#9670;&#160;</a></span>NewConnectionAccepted()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -488,9 +501,9 @@ Protected Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void moq::Server::NewConnection </td>
+          <td class="memname">virtual void moq::Server::NewConnectionAccepted </td>
           <td>(</td>
-          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
+          <td class="paramtype"><a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a></td>          <td class="paramname"><span class="paramname"><em>connection_handle</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -509,7 +522,7 @@ Protected Member Functions</h2></td></tr>
 <p>Callback notification that a new connection has been accepted</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">conn_id</td><td>Transport connection ID </td></tr>
+    <tr><td class="paramname">connection_handle</td><td>Transport connection ID </td></tr>
     <tr><td class="paramname">remote</td><td>Transport remote connection information </td></tr>
   </table>
   </dd>
@@ -564,8 +577,8 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="abb984e4b659700ea966ebb285e131161" name="abb984e4b659700ea966ebb285e131161"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abb984e4b659700ea966ebb285e131161">&#9670;&#160;</a></span>SubscribeReceived()</h2>
+<a id="a37516a64f5c7a3ce56f74ef2b5354187" name="a37516a64f5c7a3ce56f74ef2b5354187"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a37516a64f5c7a3ce56f74ef2b5354187">&#9670;&#160;</a></span>SubscribeReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -574,9 +587,9 @@ Protected Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual bool moq::Server::SubscribeReceived </td>
+          <td class="memname">virtual <a class="el" href="structmoq_1_1_server_1_1_subscribe_response.html">SubscribeResponse</a> moq::Server::SubscribeReceived </td>
           <td>(</td>
-          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
+          <td class="paramtype"><a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a></td>          <td class="paramname"><span class="paramname"><em>connection_handle</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -609,7 +622,7 @@ Protected Member Functions</h2></td></tr>
 <p>Callback notification for new subscribe received. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">conn_id</td><td>Source connection ID </td></tr>
+    <tr><td class="paramname">connection_handle</td><td>Source connection ID </td></tr>
     <tr><td class="paramname">subscribe_id</td><td>Subscribe ID received </td></tr>
     <tr><td class="paramname">proposed_track_alias</td><td>The proposed track alias the subscriber would like to use </td></tr>
     <tr><td class="paramname">track_full_name</td><td>Track full name </td></tr>
@@ -617,12 +630,12 @@ Protected Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section return"><dt>Returns</dt><dd>True if send announce should be sent, false if not </dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>If <a class="el" href="structmoq_1_1_server_1_1_error_status.html#a54eeb2fda018227699d1b52f38eb73e2">SubscribeResponse::status</a> is true, SUBSCRIBE_OK MOQT message is sent else SUBSCRIBE_ERROR MOQT message is sent with appropriate error reason provided in SubscribeResponse::error_reason. </dd></dl>
 
 </div>
 </div>
-<a id="a32b92df0fbdbd4cbd95ffc3b47414992" name="a32b92df0fbdbd4cbd95ffc3b47414992"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a32b92df0fbdbd4cbd95ffc3b47414992">&#9670;&#160;</a></span>UnannounceReceived()</h2>
+<a id="ac1f75ab418cde4a25e53a82b8a7c12c3" name="ac1f75ab418cde4a25e53a82b8a7c12c3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac1f75ab418cde4a25e53a82b8a7c12c3">&#9670;&#160;</a></span>UnannounceReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -633,7 +646,7 @@ Protected Member Functions</h2></td></tr>
         <tr>
           <td class="memname">virtual void moq::Server::UnannounceReceived </td>
           <td>(</td>
-          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
+          <td class="paramtype"><a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a></td>          <td class="paramname"><span class="paramname"><em>connection_handle</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -651,7 +664,7 @@ Protected Member Functions</h2></td></tr>
 <p>Callback notification for unannounce received. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">conn_id</td><td>Source connection ID </td></tr>
+    <tr><td class="paramname">connection_handle</td><td>Source connection ID </td></tr>
     <tr><td class="paramname">track_namespace</td><td>Track namespace </td></tr>
   </table>
   </dd>
@@ -659,8 +672,8 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="ab34e429bc54f93eeb953485cb855006e" name="ab34e429bc54f93eeb953485cb855006e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab34e429bc54f93eeb953485cb855006e">&#9670;&#160;</a></span>UnsubscribeReceived()</h2>
+<a id="a5c6579c5d560a67909d7a6ddf36b9e5f" name="a5c6579c5d560a67909d7a6ddf36b9e5f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5c6579c5d560a67909d7a6ddf36b9e5f">&#9670;&#160;</a></span>UnsubscribeReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -671,7 +684,7 @@ Protected Member Functions</h2></td></tr>
         <tr>
           <td class="memname">virtual void moq::Server::UnsubscribeReceived </td>
           <td>(</td>
-          <td class="paramtype">TransportConnId</td>          <td class="paramname"><span class="paramname"><em>conn_id</em></span>, </td>
+          <td class="paramtype"><a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a></td>          <td class="paramname"><span class="paramname"><em>connection_handle</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -689,7 +702,7 @@ Protected Member Functions</h2></td></tr>
 <p>Callback notification on unsubscribe received. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">conn_id</td><td>Source connection ID </td></tr>
+    <tr><td class="paramname">connection_handle</td><td>Source connection ID </td></tr>
     <tr><td class="paramname">subscribe_id</td><td>Subscribe ID received </td></tr>
   </table>
   </dd>

@@ -12,6 +12,12 @@ var hierarchy =
     ] ],
     [ "moq::ConnectionMetrics", "structmoq_1_1_connection_metrics.html", null ],
     [ "moq::Server::ConnectionRemoteInfo", "structmoq_1_1_server_1_1_connection_remote_info.html", null ],
+    [ "moq::Server::ErrorStatus", "structmoq_1_1_server_1_1_error_status.html", [
+      [ "moq::Server::AnnounceResponse", "structmoq_1_1_server_1_1_announce_response.html", null ],
+      [ "moq::Server::ClientSetupResponse", "structmoq_1_1_server_1_1_client_setup_response.html", null ],
+      [ "moq::Server::SubscribeResponse", "structmoq_1_1_server_1_1_subscribe_response.html", null ]
+    ] ],
+    [ "moq::ObjectHeaders", "structmoq_1_1_object_headers.html", null ],
     [ "moq::PublishAnnounceAttributes", "structmoq_1_1_publish_announce_attributes.html", null ],
     [ "moq::PublishTrackMetrics", "structmoq_1_1_publish_track_metrics.html", null ],
     [ "moq::ConnectionMetrics::Quic", "structmoq_1_1_connection_metrics_1_1_quic.html", null ],

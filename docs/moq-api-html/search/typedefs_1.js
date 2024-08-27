@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['tracknamespace_0',['TrackNamespace',['../namespacemoq_1_1transport.html#af86ede8e517199e4255fd1bea76fed21',1,'moq::transport']]]
+  ['connectionhandle_0',['ConnectionHandle',['../namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa',1,'moq']]]
 ];

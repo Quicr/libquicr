@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['bindsubscribetrack_0',['BindSubscribeTrack',['../classmoq_1_1_server.html#a3b1be92414515fdfc83f12ec43cf14f1',1,'moq::Server']]]
+  ['bindpublishertrack_0',['BindPublisherTrack',['../classmoq_1_1_server.html#a4e80792d77c726b000899f9e6119c93b',1,'moq::Server']]]
 ];

@@ -18,8 +18,6 @@ var classmoq_1_1_server_publish_track_handler =
       [ "kInternalError", "classmoq_1_1_server_publish_track_handler.html#a49f7e314744e5a67ae395a8818686dfeafcd417a134c251034b0d61b07c826394", null ],
       [ "kNoSubscriber", "classmoq_1_1_server_publish_track_handler.html#a49f7e314744e5a67ae395a8818686dfea4eca14ca10a92b49c29bb9464acef858", null ]
     ] ],
-    [ "ServerPublishTrackHandler", "classmoq_1_1_server_publish_track_handler.html#ad2205b119e3f1b81ede4bf6166f646ab", null ],
-    [ "ServerPublishTrackHandler", "classmoq_1_1_server_publish_track_handler.html#a013ae3aa27b48eb0565ee8ff5270a89b", null ],
     [ "GetStatus", "classmoq_1_1_server_publish_track_handler.html#a1c9714a85332fb526f0a446cee6563b9", null ],
     [ "MetricsSampled", "classmoq_1_1_server_publish_track_handler.html#a9261279cbc8b72c9e9ba8ed2548dc932", null ],
     [ "PublishObject", "classmoq_1_1_server_publish_track_handler.html#a27b85d17f369d9bf22e90b1a1df6851c", null ],

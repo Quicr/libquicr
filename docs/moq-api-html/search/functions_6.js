@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['newconnection_0',['NewConnection',['../classmoq_1_1_server.html#a3b77fdb5ebe419e7f3763c0461c18f86',1,'moq::Server']]]
+  ['newconnectionaccepted_0',['NewConnectionAccepted',['../classmoq_1_1_server.html#af565cf176f61e6db23d75dcd2258c0f9',1,'moq::Server']]]
 ];

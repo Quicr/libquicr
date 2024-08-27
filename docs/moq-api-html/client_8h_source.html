@@ -112,7 +112,7 @@ $(function(){initNavTree('client_8h_source.html',''); initResizable(true); });
 <div class="line"><a id="l00010" name="l00010"></a><span class="lineno">   10</span><span class="preprocessor">#include &lt;<a class="code" href="config_8h.html">moq/config.h</a>&gt;</span></div>
 <div class="line"><a id="l00011" name="l00011"></a><span class="lineno">   11</span><span class="preprocessor">#include &lt;<a class="code" href="common_8h.html">moq/common.h</a>&gt;</span></div>
 <div class="line"><a id="l00012" name="l00012"></a><span class="lineno">   12</span><span class="preprocessor">#include &lt;moq/track_name.h&gt;</span></div>
-<div class="line"><a id="l00013" name="l00013"></a><span class="lineno">   13</span><span class="preprocessor">#include &lt;moq/object.h&gt;</span></div>
+<div class="line"><a id="l00013" name="l00013"></a><span class="lineno">   13</span><span class="preprocessor">#include &lt;<a class="code" href="object_8h.html">moq/object.h</a>&gt;</span></div>
 <div class="line"><a id="l00014" name="l00014"></a><span class="lineno">   14</span><span class="preprocessor">#include &lt;moq/detail/transport.h&gt;</span></div>
 <div class="line"><a id="l00015" name="l00015"></a><span class="lineno">   15</span> </div>
 <div class="line"><a id="l00016" name="l00016"></a><span class="lineno">   16</span><span class="keyword">namespace </span><a class="code hl_namespace" href="namespacemoq.html">moq</a> {</div>
@@ -170,16 +170,16 @@ $(function(){initNavTree('client_8h_source.html',''); initResizable(true); });
 <div class="line"><a id="l00142" name="l00142"></a><span class="lineno">  142</span> </div>
 <div class="foldopen" id="foldopen00148" data-start="{" data-end="}">
 <div class="line"><a id="l00148" name="l00148"></a><span class="lineno"><a class="line" href="classmoq_1_1_client.html#af4a6df065b6f10838f3db5c85c442913">  148</a></span>        <span class="keywordtype">void</span> <a class="code hl_function" href="classmoq_1_1_client.html#af4a6df065b6f10838f3db5c85c442913">SubscribeTrack</a>(std::shared_ptr&lt;SubscribeTrackHandler&gt; track_handler) {</div>
-<div class="line"><a id="l00149" name="l00149"></a><span class="lineno">  149</span>            <span class="keywordflow">if</span> (conn_id_) {</div>
-<div class="line"><a id="l00150" name="l00150"></a><span class="lineno">  150</span>                Transport::SubscribeTrack(*conn_id_, std::move(track_handler));</div>
+<div class="line"><a id="l00149" name="l00149"></a><span class="lineno">  149</span>            <span class="keywordflow">if</span> (connection_handle_) {</div>
+<div class="line"><a id="l00150" name="l00150"></a><span class="lineno">  150</span>                Transport::SubscribeTrack(*connection_handle_, std::move(track_handler));</div>
 <div class="line"><a id="l00151" name="l00151"></a><span class="lineno">  151</span>            }</div>
 <div class="line"><a id="l00152" name="l00152"></a><span class="lineno">  152</span>        }</div>
 </div>
 <div class="line"><a id="l00153" name="l00153"></a><span class="lineno">  153</span> </div>
 <div class="foldopen" id="foldopen00159" data-start="{" data-end="}">
 <div class="line"><a id="l00159" name="l00159"></a><span class="lineno"><a class="line" href="classmoq_1_1_client.html#a71d74770bc1dcb3e240887afee178746">  159</a></span>        <span class="keywordtype">void</span> <a class="code hl_function" href="classmoq_1_1_client.html#a71d74770bc1dcb3e240887afee178746">UnsubscribeTrack</a>(std::shared_ptr&lt;SubscribeTrackHandler&gt; track_handler) {</div>
-<div class="line"><a id="l00160" name="l00160"></a><span class="lineno">  160</span>            <span class="keywordflow">if</span> (conn_id_) {</div>
-<div class="line"><a id="l00161" name="l00161"></a><span class="lineno">  161</span>                Transport::UnsubscribeTrack(*conn_id_, std::move(track_handler));</div>
+<div class="line"><a id="l00160" name="l00160"></a><span class="lineno">  160</span>            <span class="keywordflow">if</span> (connection_handle_) {</div>
+<div class="line"><a id="l00161" name="l00161"></a><span class="lineno">  161</span>                Transport::UnsubscribeTrack(*connection_handle_, std::move(track_handler));</div>
 <div class="line"><a id="l00162" name="l00162"></a><span class="lineno">  162</span>            }</div>
 <div class="line"><a id="l00163" name="l00163"></a><span class="lineno">  163</span>        }</div>
 </div>
@@ -190,22 +190,22 @@ $(function(){initNavTree('client_8h_source.html',''); initResizable(true); });
 <div class="line"><a id="l00199" name="l00199"></a><span class="lineno">  199</span> </div>
 <div class="foldopen" id="foldopen00206" data-start="{" data-end="}">
 <div class="line"><a id="l00206" name="l00206"></a><span class="lineno"><a class="line" href="classmoq_1_1_client.html#aa2c00bc16bac132921df9fb198e1e5a5">  206</a></span>        <span class="keywordtype">void</span> <a class="code hl_function" href="classmoq_1_1_client.html#aa2c00bc16bac132921df9fb198e1e5a5">PublishTrack</a>(std::shared_ptr&lt;PublishTrackHandler&gt; track_handler) {</div>
-<div class="line"><a id="l00207" name="l00207"></a><span class="lineno">  207</span>            <span class="keywordflow">if</span> (conn_id_) {</div>
-<div class="line"><a id="l00208" name="l00208"></a><span class="lineno">  208</span>                Transport::PublishTrack(*conn_id_, std::move(track_handler));</div>
+<div class="line"><a id="l00207" name="l00207"></a><span class="lineno">  207</span>            <span class="keywordflow">if</span> (connection_handle_) {</div>
+<div class="line"><a id="l00208" name="l00208"></a><span class="lineno">  208</span>                Transport::PublishTrack(*connection_handle_, std::move(track_handler));</div>
 <div class="line"><a id="l00209" name="l00209"></a><span class="lineno">  209</span>            }</div>
 <div class="line"><a id="l00210" name="l00210"></a><span class="lineno">  210</span>        }</div>
 </div>
 <div class="line"><a id="l00211" name="l00211"></a><span class="lineno">  211</span> </div>
 <div class="foldopen" id="foldopen00219" data-start="{" data-end="}">
 <div class="line"><a id="l00219" name="l00219"></a><span class="lineno"><a class="line" href="classmoq_1_1_client.html#a1702f97af87f5bffef2c72b76e6b7024">  219</a></span>        <span class="keywordtype">void</span> <a class="code hl_function" href="classmoq_1_1_client.html#a1702f97af87f5bffef2c72b76e6b7024">UnpublishTrack</a>(std::shared_ptr&lt;PublishTrackHandler&gt; track_handler) {</div>
-<div class="line"><a id="l00220" name="l00220"></a><span class="lineno">  220</span>            <span class="keywordflow">if</span> (conn_id_) {</div>
-<div class="line"><a id="l00221" name="l00221"></a><span class="lineno">  221</span>                Transport::UnpublishTrack(*conn_id_, std::move(track_handler));</div>
+<div class="line"><a id="l00220" name="l00220"></a><span class="lineno">  220</span>            <span class="keywordflow">if</span> (connection_handle_) {</div>
+<div class="line"><a id="l00221" name="l00221"></a><span class="lineno">  221</span>                Transport::UnpublishTrack(*connection_handle_, std::move(track_handler));</div>
 <div class="line"><a id="l00222" name="l00222"></a><span class="lineno">  222</span>            }</div>
 <div class="line"><a id="l00223" name="l00223"></a><span class="lineno">  223</span>        }</div>
 </div>
 <div class="line"><a id="l00224" name="l00224"></a><span class="lineno">  224</span> </div>
 <div class="line"><a id="l00225" name="l00225"></a><span class="lineno">  225</span>      <span class="keyword">private</span>:</div>
-<div class="line"><a id="l00226" name="l00226"></a><span class="lineno">  226</span>        std::optional&lt;TransportConnId&gt; conn_id_;               </div>
+<div class="line"><a id="l00226" name="l00226"></a><span class="lineno">  226</span>        std::optional&lt;ConnectionHandle&gt; connection_handle_;               </div>
 <div class="line"><a id="l00227" name="l00227"></a><span class="lineno">  227</span>    };</div>
 </div>
 <div class="line"><a id="l00228" name="l00228"></a><span class="lineno">  228</span> </div>
@@ -239,11 +239,12 @@ $(function(){initNavTree('client_8h_source.html',''); initResizable(true); });
 <div class="ttc" id="acommon_8h_html"><div class="ttname"><a href="common_8h.html">common.h</a></div></div>
 <div class="ttc" id="aconfig_8h_html"><div class="ttname"><a href="config_8h.html">config.h</a></div></div>
 <div class="ttc" id="anamespacemoq_html"><div class="ttname"><a href="namespacemoq.html">moq</a></div><div class="ttdef"><b>Definition</b> common.h:12</div></div>
-<div class="ttc" id="anamespacemoq_html_a0defea81133ed8384691f635e1a51ee6"><div class="ttname"><a href="namespacemoq.html#a0defea81133ed8384691f635e1a51ee6">moq::PublishAnnounceStatus</a></div><div class="ttdeci">PublishAnnounceStatus</div><div class="ttdoc">Publish Announce Status.</div><div class="ttdef"><b>Definition</b> common.h:60</div></div>
+<div class="ttc" id="anamespacemoq_html_a0defea81133ed8384691f635e1a51ee6"><div class="ttname"><a href="namespacemoq.html#a0defea81133ed8384691f635e1a51ee6">moq::PublishAnnounceStatus</a></div><div class="ttdeci">PublishAnnounceStatus</div><div class="ttdoc">Publish Announce Status.</div><div class="ttdef"><b>Definition</b> common.h:61</div></div>
+<div class="ttc" id="aobject_8h_html"><div class="ttname"><a href="object_8h.html">object.h</a></div></div>
 <div class="ttc" id="astructmoq_1_1_client_config_html"><div class="ttname"><a href="structmoq_1_1_client_config.html">moq::ClientConfig</a></div><div class="ttdef"><b>Definition</b> config.h:24</div></div>
 <div class="ttc" id="astructmoq_1_1_connection_metrics_html"><div class="ttname"><a href="structmoq_1_1_connection_metrics.html">moq::ConnectionMetrics</a></div><div class="ttdef"><b>Definition</b> metrics.h:16</div></div>
-<div class="ttc" id="astructmoq_1_1_server_setup_attributes_html"><div class="ttname"><a href="structmoq_1_1_server_setup_attributes.html">moq::ServerSetupAttributes</a></div><div class="ttdoc">Server Setup Attributes.</div><div class="ttdef"><b>Definition</b> common.h:51</div></div>
-<div class="ttc" id="astructmoq_1_1_subscribe_attributes_html"><div class="ttname"><a href="structmoq_1_1_subscribe_attributes.html">moq::SubscribeAttributes</a></div><div class="ttdoc">Subscribe attributes.</div><div class="ttdef"><b>Definition</b> common.h:29</div></div>
+<div class="ttc" id="astructmoq_1_1_server_setup_attributes_html"><div class="ttname"><a href="structmoq_1_1_server_setup_attributes.html">moq::ServerSetupAttributes</a></div><div class="ttdoc">Server Setup Attributes.</div><div class="ttdef"><b>Definition</b> common.h:52</div></div>
+<div class="ttc" id="astructmoq_1_1_subscribe_attributes_html"><div class="ttname"><a href="structmoq_1_1_subscribe_attributes.html">moq::SubscribeAttributes</a></div><div class="ttdoc">Subscribe attributes.</div><div class="ttdef"><b>Definition</b> common.h:30</div></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->

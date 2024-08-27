@@ -100,6 +100,7 @@ $(function(){initNavTree('classmoq_1_1_server_publish_track_handler.html',''); i
   <div class="summary">
 <a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="#pub-static-methods">Static Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="classmoq_1_1_server_publish_track_handler-members.html">List of all members</a>  </div>
   <div class="headertitle"><div class="title">moq::ServerPublishTrackHandler Class Reference</div></div>
@@ -146,11 +147,6 @@ Public Types</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:ad2205b119e3f1b81ede4bf6166f646ab" id="r_ad2205b119e3f1b81ede4bf6166f646ab"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad2205b119e3f1b81ede4bf6166f646ab">ServerPublishTrackHandler</a> ()=delete</td></tr>
-<tr class="separator:ad2205b119e3f1b81ede4bf6166f646ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a013ae3aa27b48eb0565ee8ff5270a89b" id="r_a013ae3aa27b48eb0565ee8ff5270a89b"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a013ae3aa27b48eb0565ee8ff5270a89b">ServerPublishTrackHandler</a> (const FullTrackName &amp;full_track_name, TrackMode track_mode, uint8_t default_priority, uint32_t default_ttl)</td></tr>
-<tr class="memdesc:a013ae3aa27b48eb0565ee8ff5270a89b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish track handler constructor.  <br /></td></tr>
-<tr class="separator:a013ae3aa27b48eb0565ee8ff5270a89b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a681b65a50dce8df96a2beac604a4d763" id="r_a681b65a50dce8df96a2beac604a4d763"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a681b65a50dce8df96a2beac604a4d763">StatusChanged</a> (<a class="el" href="#a49f7e314744e5a67ae395a8818686dfe">Status</a> status)</td></tr>
 <tr class="memdesc:a681b65a50dce8df96a2beac604a4d763"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification of handler status change.  <br /></td></tr>
 <tr class="separator:a681b65a50dce8df96a2beac604a4d763"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -166,12 +162,18 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a1c9714a85332fb526f0a446cee6563b9" id="r_a1c9714a85332fb526f0a446cee6563b9"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#a49f7e314744e5a67ae395a8818686dfe">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a1c9714a85332fb526f0a446cee6563b9">GetStatus</a> ()</td></tr>
 <tr class="memdesc:a1c9714a85332fb526f0a446cee6563b9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the publish status.  <br /></td></tr>
 <tr class="separator:a1c9714a85332fb526f0a446cee6563b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a27b85d17f369d9bf22e90b1a1df6851c" id="r_a27b85d17f369d9bf22e90b1a1df6851c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#afcb22e63a5baa0cc8f41be8d6f539fa8">PublishObjectStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a27b85d17f369d9bf22e90b1a1df6851c">PublishObject</a> (const ObjectHeaders &amp;object_headers, <a class="el" href="namespacemoq.html#ab303fd3ef64c30c643a089f4cf17d219">BytesSpan</a> data)</td></tr>
+<tr class="memitem:a27b85d17f369d9bf22e90b1a1df6851c" id="r_a27b85d17f369d9bf22e90b1a1df6851c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#afcb22e63a5baa0cc8f41be8d6f539fa8">PublishObjectStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a27b85d17f369d9bf22e90b1a1df6851c">PublishObject</a> (const <a class="el" href="structmoq_1_1_object_headers.html">ObjectHeaders</a> &amp;object_headers, <a class="el" href="namespacemoq.html#ab303fd3ef64c30c643a089f4cf17d219">BytesSpan</a> data)</td></tr>
 <tr class="memdesc:a27b85d17f369d9bf22e90b1a1df6851c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish [full] object.  <br /></td></tr>
 <tr class="separator:a27b85d17f369d9bf22e90b1a1df6851c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a07fceddd90a3d9f4f702494be0901943" id="r_a07fceddd90a3d9f4f702494be0901943"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#afcb22e63a5baa0cc8f41be8d6f539fa8">PublishObjectStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a07fceddd90a3d9f4f702494be0901943">PublishPartialObject</a> (const ObjectHeaders &amp;object_headers, <a class="el" href="namespacemoq.html#ab303fd3ef64c30c643a089f4cf17d219">BytesSpan</a> data)</td></tr>
+<tr class="memitem:a07fceddd90a3d9f4f702494be0901943" id="r_a07fceddd90a3d9f4f702494be0901943"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#afcb22e63a5baa0cc8f41be8d6f539fa8">PublishObjectStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a07fceddd90a3d9f4f702494be0901943">PublishPartialObject</a> (const <a class="el" href="structmoq_1_1_object_headers.html">ObjectHeaders</a> &amp;object_headers, <a class="el" href="namespacemoq.html#ab303fd3ef64c30c643a089f4cf17d219">BytesSpan</a> data)</td></tr>
 <tr class="memdesc:a07fceddd90a3d9f4f702494be0901943"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish object to the announced track.  <br /></td></tr>
 <tr class="separator:a07fceddd90a3d9f4f702494be0901943"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-static-methods" name="pub-static-methods"></a>
+Static Public Member Functions</h2></td></tr>
+<tr class="memitem:a2a360adc0c79d373c128e0651f5a66ca" id="r_a2a360adc0c79d373c128e0651f5a66ca"><td class="memItemLeft" align="right" valign="top">static std::shared_ptr&lt; <a class="el" href="classmoq_1_1_server_publish_track_handler.html">ServerPublishTrackHandler</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a2a360adc0c79d373c128e0651f5a66ca">Create</a> (const FullTrackName &amp;full_track_name, TrackMode track_mode, uint8_t default_priority, uint32_t default_ttl)</td></tr>
+<tr class="memdesc:a2a360adc0c79d373c128e0651f5a66ca"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create shared Publish track handler.  <br /></td></tr>
+<tr class="separator:a2a360adc0c79d373c128e0651f5a66ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -253,9 +255,9 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="ad2205b119e3f1b81ede4bf6166f646ab" name="ad2205b119e3f1b81ede4bf6166f646ab"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad2205b119e3f1b81ede4bf6166f646ab">&#9670;&#160;</a></span>ServerPublishTrackHandler() <span class="overload">[1/2]</span></h2>
+<h2 class="groupheader">Member Function Documentation</h2>
+<a id="a2a360adc0c79d373c128e0651f5a66ca" name="a2a360adc0c79d373c128e0651f5a66ca"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2a360adc0c79d373c128e0651f5a66ca">&#9670;&#160;</a></span>Create()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -264,32 +266,7 @@ Public Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">moq::ServerPublishTrackHandler::ServerPublishTrackHandler </td>
-          <td>(</td>
-          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">delete</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a013ae3aa27b48eb0565ee8ff5270a89b" name="a013ae3aa27b48eb0565ee8ff5270a89b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a013ae3aa27b48eb0565ee8ff5270a89b">&#9670;&#160;</a></span>ServerPublishTrackHandler() <span class="overload">[2/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">moq::ServerPublishTrackHandler::ServerPublishTrackHandler </td>
+          <td class="memname">static std::shared_ptr&lt; <a class="el" href="classmoq_1_1_server_publish_track_handler.html">ServerPublishTrackHandler</a> &gt; moq::ServerPublishTrackHandler::Create </td>
           <td>(</td>
           <td class="paramtype">const FullTrackName &amp;</td>          <td class="paramname"><span class="paramname"><em>full_track_name</em></span>, </td>
         </tr>
@@ -311,12 +288,12 @@ Public Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
 
-<p>Publish track handler constructor. </p>
+<p>Create shared Publish track handler. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">full_track_name</td><td>Full track name </td></tr>
@@ -329,7 +306,6 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<h2 class="groupheader">Member Function Documentation</h2>
 <a id="a1c9714a85332fb526f0a446cee6563b9" name="a1c9714a85332fb526f0a446cee6563b9"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a1c9714a85332fb526f0a446cee6563b9">&#9670;&#160;</a></span>GetStatus()</h2>
 
@@ -401,7 +377,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname"><a class="el" href="#afcb22e63a5baa0cc8f41be8d6f539fa8">PublishObjectStatus</a> moq::ServerPublishTrackHandler::PublishObject </td>
           <td>(</td>
-          <td class="paramtype">const ObjectHeaders &amp;</td>          <td class="paramname"><span class="paramname"><em>object_headers</em></span>, </td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1_object_headers.html">ObjectHeaders</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>object_headers</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -413,10 +389,10 @@ Public Attributes</h2></td></tr>
 
 <p>Publish [full] object. </p>
 <p>Publish a full object. If not announced, it will be announced. Status will indicate if there are no subscribers. In this case, the object will not be sent.</p>
-<dl class="section note"><dt>Note</dt><dd>If data is less than ObjectHeaders::payload_length, the error kObjectDataIncomplete will be returned and the object will not be sent.</dd></dl>
+<dl class="section note"><dt>Note</dt><dd>If data is less than <a class="el" href="structmoq_1_1_object_headers.html#a8c04a3b5c3957855d3614a1c8e490034" title="Length of payload of the object data.">ObjectHeaders::payload_length</a>, the error kObjectDataIncomplete will be returned and the object will not be sent.</dd></dl>
 <p><b>Restrictions:</b></p><ul>
 <li>This method cannot be called twice with the same object header group and object IDs.</li>
-<li>In TrackMode::kStreamPerGroup, ObjectHeaders::group_id <b>MUST</b> be different than the previous when calling this method when the previous has not been completed yet using PublishContinuationData(). If group id is not different, the PublishStatus::kPreviousObjectNotCompleteMustStartNewGroup will be returned and the object will not be sent. If new group ID is provided, then the previous object will terminate with stream closure, resulting in the previous being truncated.</li>
+<li>In TrackMode::kStreamPerGroup, <a class="el" href="structmoq_1_1_object_headers.html#a1b131665ac4e7e3eb5cc35439b00ab21" title="Object group ID - Should be derived using time in microseconds.">ObjectHeaders::group_id</a> <b>MUST</b> be different than the previous when calling this method when the previous has not been completed yet using PublishContinuationData(). If group id is not different, the PublishStatus::kPreviousObjectNotCompleteMustStartNewGroup will be returned and the object will not be sent. If new group ID is provided, then the previous object will terminate with stream closure, resulting in the previous being truncated.</li>
 <li>In TrackMode::kStreamPerTrack, this method <b>CANNOT</b> be called until the previous object has been completed using PublishContinuationData(). Calling this method before completing the previous object remaining data will result in PublishStatus::kObjectDataIncomplete. No data would be sent and the stream would remain unchanged. It is expected that the caller would send the remaining continuation data.</li>
 </ul>
 <dl class="params"><dt>Parameters</dt><dd>
@@ -439,7 +415,7 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname"><a class="el" href="#afcb22e63a5baa0cc8f41be8d6f539fa8">PublishObjectStatus</a> moq::ServerPublishTrackHandler::PublishPartialObject </td>
           <td>(</td>
-          <td class="paramtype">const ObjectHeaders &amp;</td>          <td class="paramname"><span class="paramname"><em>object_headers</em></span>, </td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1_object_headers.html">ObjectHeaders</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>object_headers</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -455,7 +431,7 @@ Public Attributes</h2></td></tr>
 <li>In TrackMode::kStreamPerGroup, /group_id <b>MUST</b> be different than the previous when calling this method when the previous has not been completed yet using PublishContinuationData(). If group id is not different, the PublishStatus::kPreviousObjectNotCompleteMustStartNewGroup will be returned and the object will not be sent. If new group ID is provided, then the previous object will terminate with stream closure, resulting in the previous being truncated.</li>
 <li>In TrackMode::kStreamPerTrack, this method <b>CANNOT</b> be called until the previous object has been completed using PublishContinuationData(). Calling this method before completing the previous object remaining data will result in PublishStatus::kObjectDataIncomplete. No data would be sent and the stream would remain unchanged. It is expected that the caller would send the remaining continuation data.</li>
 </ul>
-<dl class="section note"><dt>Note</dt><dd>If data is less than ObjectHeaders::payload_length, then <a class="el" href="#a27b85d17f369d9bf22e90b1a1df6851c" title="Publish [full] object.">PublishObject()</a> should be called to send the remaining data.</dd></dl>
+<dl class="section note"><dt>Note</dt><dd>If data is less than <a class="el" href="structmoq_1_1_object_headers.html#a8c04a3b5c3957855d3614a1c8e490034" title="Length of payload of the object data.">ObjectHeaders::payload_length</a>, then <a class="el" href="#a27b85d17f369d9bf22e90b1a1df6851c" title="Publish [full] object.">PublishObject()</a> should be called to send the remaining data.</dd></dl>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">object_headers</td><td>Object headers, must include group and object Ids </td></tr>

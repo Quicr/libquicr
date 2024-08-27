@@ -25,14 +25,12 @@ var classmoq_1_1_publish_track_handler =
       [ "kNoSubscribers", "classmoq_1_1_publish_track_handler.html#a95430826d3fdcf1d3bd249af5c6236aba029c756c36d0d64ad37d82fdd25135ad", null ],
       [ "kSendingUnannounce", "classmoq_1_1_publish_track_handler.html#a95430826d3fdcf1d3bd249af5c6236aba6473b74b448bc158ffb66542042c88b3", null ]
     ] ],
-    [ "PublishTrackHandler", "classmoq_1_1_publish_track_handler.html#a7b683494ce596e86c5e5d86f3b6bf494", null ],
-    [ "PublishTrackHandler", "classmoq_1_1_publish_track_handler.html#a9524aa0b0879ceebf58fe1b4adf2622a", null ],
-    [ "GetStatus", "classmoq_1_1_publish_track_handler.html#a646c15501191ce77872f4472974fbfd2", null ],
+    [ "GetStatus", "classmoq_1_1_publish_track_handler.html#a7180b4eb6f0dd55e0877654c4a5b175f", null ],
     [ "MetricsSampled", "classmoq_1_1_publish_track_handler.html#a360e359a5ad9c709008d754b2131f205", null ],
     [ "PublishObject", "classmoq_1_1_publish_track_handler.html#a687afe334e36c82ee9d9330424fe826d", null ],
     [ "PublishPartialObject", "classmoq_1_1_publish_track_handler.html#adb4a486c37ab16be4436150e14c0d5b6", null ],
-    [ "SetDefaultPriority", "classmoq_1_1_publish_track_handler.html#af4b7d39f42cb1b9a7952b9cc8ed15f35", null ],
-    [ "SetDefaultTTL", "classmoq_1_1_publish_track_handler.html#a2a612076917cd2432fffe45930049936", null ],
+    [ "SetDefaultPriority", "classmoq_1_1_publish_track_handler.html#a3b42ae4e15ba1442d1a9e7a364be6e35", null ],
+    [ "SetDefaultTTL", "classmoq_1_1_publish_track_handler.html#a3dcd70557b7316eb90a55a5c7d711c12", null ],
     [ "StatusChanged", "classmoq_1_1_publish_track_handler.html#a43781943bf95f82a6891f0cadbe105ed", null ],
     [ "Transport", "classmoq_1_1_publish_track_handler.html#a3d2e8a0836666771da7b79c3f6bc9ae0", null ],
     [ "publish_track_metrics_", "classmoq_1_1_publish_track_handler.html#a9933b1b4c7a144f379b5f8f5adc97aa3", null ]

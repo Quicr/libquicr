@@ -6,6 +6,7 @@ var annotated_dup =
       [ "ClientSetupAttributes", "structmoq_1_1_client_setup_attributes.html", "structmoq_1_1_client_setup_attributes" ],
       [ "Config", "structmoq_1_1_config.html", "structmoq_1_1_config" ],
       [ "ConnectionMetrics", "structmoq_1_1_connection_metrics.html", "structmoq_1_1_connection_metrics" ],
+      [ "ObjectHeaders", "structmoq_1_1_object_headers.html", "structmoq_1_1_object_headers" ],
       [ "PublishAnnounceAttributes", "structmoq_1_1_publish_announce_attributes.html", null ],
       [ "PublishTrackHandler", "classmoq_1_1_publish_track_handler.html", "classmoq_1_1_publish_track_handler" ],
       [ "PublishTrackMetrics", "structmoq_1_1_publish_track_metrics.html", "structmoq_1_1_publish_track_metrics" ],

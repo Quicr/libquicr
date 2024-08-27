@@ -1,5 +1,6 @@
 var searchData=
 [
-  ['metrics_5fsample_5fms_0',['metrics_sample_ms',['../structmoq_1_1_config.html#aad6de0f066fe064a92ed07e928534085',1,'moq::Config']]],
-  ['moqt_5fversion_1',['moqt_version',['../structmoq_1_1_server_setup_attributes.html#a1b01f53201815f209fdfff5f2b5a3270',1,'moq::ServerSetupAttributes']]]
+  ['kmoqtversion_0',['kMoqtVersion',['../namespacemoq.html#a2c92f7d282c99f17cb1666c1b61f971c',1,'moq']]],
+  ['kreadloopmaxperstream_1',['kReadLoopMaxPerStream',['../namespacemoq.html#a7f1487e024b511024b0dd53af85a5edb',1,'moq']]],
+  ['ksubscribeexpires_2',['kSubscribeExpires',['../namespacemoq.html#aab0bee8ed506c6523349b500aa182ed3',1,'moq']]]
 ];

@@ -1,6 +1,10 @@
 var classmoq_1_1_server =
 [
+    [ "AnnounceResponse", "structmoq_1_1_server_1_1_announce_response.html", "structmoq_1_1_server_1_1_announce_response" ],
+    [ "ClientSetupResponse", "structmoq_1_1_server_1_1_client_setup_response.html", null ],
     [ "ConnectionRemoteInfo", "structmoq_1_1_server_1_1_connection_remote_info.html", "structmoq_1_1_server_1_1_connection_remote_info" ],
+    [ "ErrorStatus", "structmoq_1_1_server_1_1_error_status.html", "structmoq_1_1_server_1_1_error_status" ],
+    [ "SubscribeResponse", "structmoq_1_1_server_1_1_subscribe_response.html", "structmoq_1_1_server_1_1_subscribe_response" ],
     [ "ConnectionStatus", "classmoq_1_1_server.html#a1193735a47b53fac4319e89cf14e1380", [
       [ "kNotConnected", "classmoq_1_1_server.html#a1193735a47b53fac4319e89cf14e1380a32a54fa8629fe6e9cb3e265e959258d8", null ],
       [ "kConnected", "classmoq_1_1_server.html#a1193735a47b53fac4319e89cf14e1380a485b505a72a57b16c8dd36bfc17c98c0", null ],
@@ -9,15 +13,15 @@ var classmoq_1_1_server =
     ] ],
     [ "Server", "classmoq_1_1_server.html#aac37805da0afaeb56bf3109389ba542f", null ],
     [ "~Server", "classmoq_1_1_server.html#acabaeb3d1e64c463df60289b2dc812d6", null ],
-    [ "AnnounceReceived", "classmoq_1_1_server.html#aff06ccfa8db7dc92acac46a5888d25b9", null ],
-    [ "BindSubscribeTrack", "classmoq_1_1_server.html#a3b1be92414515fdfc83f12ec43cf14f1", null ],
-    [ "ClientSetupReceived", "classmoq_1_1_server.html#a6f738127ecfd905647549d6609e04dc7", null ],
-    [ "ConnectionStatusChanged", "classmoq_1_1_server.html#a4e143970ae22c236b32b8b7c641ac146", null ],
-    [ "MetricsSampled", "classmoq_1_1_server.html#a3885462cdc1ae9195b50a9262cab8f11", null ],
-    [ "NewConnection", "classmoq_1_1_server.html#a3b77fdb5ebe419e7f3763c0461c18f86", null ],
+    [ "AnnounceReceived", "classmoq_1_1_server.html#a46c176dd2fb765e40d3e03ac5e93a458", null ],
+    [ "BindPublisherTrack", "classmoq_1_1_server.html#a4e80792d77c726b000899f9e6119c93b", null ],
+    [ "ClientSetupReceived", "classmoq_1_1_server.html#a70f391a7e5b74f89575ed4e3155cc02b", null ],
+    [ "ConnectionStatusChanged", "classmoq_1_1_server.html#a50827b2f4e7d3dd00fe670c64b6125ea", null ],
+    [ "MetricsSampled", "classmoq_1_1_server.html#ab8799307e464aff941f56ad0c944cb3f", null ],
+    [ "NewConnectionAccepted", "classmoq_1_1_server.html#af565cf176f61e6db23d75dcd2258c0f9", null ],
     [ "Start", "classmoq_1_1_server.html#a02489424680abe79093d214bd6a4d7c0", null ],
     [ "Stop", "classmoq_1_1_server.html#aed25c26361eb5b50c7f2d7caa0392ebf", null ],
-    [ "SubscribeReceived", "classmoq_1_1_server.html#abb984e4b659700ea966ebb285e131161", null ],
-    [ "UnannounceReceived", "classmoq_1_1_server.html#a32b92df0fbdbd4cbd95ffc3b47414992", null ],
-    [ "UnsubscribeReceived", "classmoq_1_1_server.html#ab34e429bc54f93eeb953485cb855006e", null ]
+    [ "SubscribeReceived", "classmoq_1_1_server.html#a37516a64f5c7a3ce56f74ef2b5354187", null ],
+    [ "UnannounceReceived", "classmoq_1_1_server.html#ac1f75ab418cde4a25e53a82b8a7c12c3", null ],
+    [ "UnsubscribeReceived", "classmoq_1_1_server.html#a5c6579c5d560a67909d7a6ddf36b9e5f", null ]
 ];

@@ -5,6 +5,7 @@ var namespacemoq =
     [ "ClientSetupAttributes", "structmoq_1_1_client_setup_attributes.html", "structmoq_1_1_client_setup_attributes" ],
     [ "Config", "structmoq_1_1_config.html", "structmoq_1_1_config" ],
     [ "ConnectionMetrics", "structmoq_1_1_connection_metrics.html", "structmoq_1_1_connection_metrics" ],
+    [ "ObjectHeaders", "structmoq_1_1_object_headers.html", "structmoq_1_1_object_headers" ],
     [ "PublishAnnounceAttributes", "structmoq_1_1_publish_announce_attributes.html", null ],
     [ "PublishTrackHandler", "classmoq_1_1_publish_track_handler.html", "classmoq_1_1_publish_track_handler" ],
     [ "PublishTrackMetrics", "structmoq_1_1_publish_track_metrics.html", "structmoq_1_1_publish_track_metrics" ],
@@ -17,6 +18,8 @@ var namespacemoq =
     [ "SubscribeTrackMetrics", "structmoq_1_1_subscribe_track_metrics.html", "structmoq_1_1_subscribe_track_metrics" ],
     [ "Bytes", "namespacemoq.html#a81214e5a1abfff300faa7c66a3de272e", null ],
     [ "BytesSpan", "namespacemoq.html#ab303fd3ef64c30c643a089f4cf17d219", null ],
+    [ "ConnectionHandle", "namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa", null ],
+    [ "Extensions", "namespacemoq.html#a0557bd52ce9d092661dea06ef9639389", null ],
     [ "PublishAnnounceStatus", "namespacemoq.html#a0defea81133ed8384691f635e1a51ee6", [
       [ "kOK", "namespacemoq.html#a0defea81133ed8384691f635e1a51ee6ab8c5bbba307a5b38f6a1474fbf23dddd", null ],
       [ "kNotConnected", "namespacemoq.html#a0defea81133ed8384691f635e1a51ee6a32a54fa8629fe6e9cb3e265e959258d8", null ],
