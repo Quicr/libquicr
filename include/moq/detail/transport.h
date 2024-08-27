@@ -187,10 +187,10 @@ namespace moq {
         void SendSubscribeError(ConnectionContext& conn_ctx,
                                 uint64_t subscribe_id,
                                 uint64_t track_alias,
-                                messages::MoqtSubscribeError error,
+                                messages::MoqSubscribeError error,
                                 const std::string& reason);
         void CloseConnection(ConnectionHandle connection_handle,
-                             messages::MoqtTerminationReason reason,
+                             messages::MoqTerminationReason reason,
                              const std::string& reason_str);
         bool ProcessRecvCtrlMessage(ConnectionContext& conn_ctx, std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
         bool ProcessRecvStreamDataMessage(ConnectionContext& conn_ctx,
