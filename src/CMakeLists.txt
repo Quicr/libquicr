@@ -37,6 +37,11 @@ if(MSVC)
     target_compile_definitions(quicr _CRT_SECURE_NO_WARNINGS)
 endif()
 
+if(LINT)
+    include(Lint)
+    lint(quicr)
+endif()
+
 target_link_libraries(quicr
     PUBLIC
         quicr-transport)
