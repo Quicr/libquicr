@@ -19,6 +19,7 @@ namespace moq {
 
     using Bytes = std::vector<uint8_t>;
     using BytesSpan = Span<uint8_t const>;
+    using ConnectionHandle = uint64_t;
 
     /**
      * @brief Subscribe attributes
@@ -41,7 +42,7 @@ namespace moq {
      */
     struct ClientSetupAttributes
     {
-      const std::string endpoint_id;
+        const std::string endpoint_id;
     };
 
     /**

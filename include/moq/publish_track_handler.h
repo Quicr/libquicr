@@ -120,7 +120,6 @@ namespace moq {
          */
         virtual void StatusChanged(Status status);
 
-
         /**
          * @brief Notification callback to provide sampled metrics
          *
