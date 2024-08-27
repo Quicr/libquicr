@@ -61,12 +61,7 @@ namespace moq {
             kNoSubscriber,
         };
 
-        ServerPublishTrackHandler() = delete;
-
-        // --------------------------------------------------------------------------
-        // Public API methods
-        // --------------------------------------------------------------------------
-
+      protected:
         /**
          * @brief Publish track handler constructor
          *
@@ -84,6 +79,24 @@ namespace moq {
           , default_priority_(default_priority)
           , default_ttl_(default_ttl)
         {
+        }
+
+      public:
+        /**
+         * @brief Create shared Publish track handler
+         *
+         * @param full_track_name       Full track name
+         * @param track_mode            The track mode to operate using
+         * @param default_priority      Default priority for objects if not specified in ObjectHeaderss
+         * @param default_ttl           Default TTL for objects if not specified in ObjectHeaderss
+         */
+        static std::shared_ptr<ServerPublishTrackHandler> Create(const FullTrackName& full_track_name,
+                                                                 TrackMode track_mode,
+                                                                 uint8_t default_priority,
+                                                                 uint32_t default_ttl)
+        {
+            return std::shared_ptr<ServerPublishTrackHandler>(
+              new ServerPublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl));
         }
 
         // --------------------------------------------------------------------------

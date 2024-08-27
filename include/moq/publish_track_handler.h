@@ -69,12 +69,7 @@ namespace moq {
             kSendingUnannounce,         ///< In this state, callbacks will not be called
         };
 
-        PublishTrackHandler() = delete;
-
-        // --------------------------------------------------------------------------
-        // Public API methods
-        // --------------------------------------------------------------------------
-
+      protected:
         /**
          * @brief Publish track handler constructor
          *
@@ -94,6 +89,24 @@ namespace moq {
         {
         }
 
+      public:
+        /**
+         * @brief Create a shared Publish track handler
+         *
+         * @param full_track_name       Full track name
+         * @param track_mode            The track mode to operate using
+         * @param default_priority      Default priority for objects if not specified in ObjectHeaderss
+         * @param default_ttl           Default TTL for objects if not specified in ObjectHeaderss
+         */
+        static std::shared_ptr<PublishTrackHandler> Create(const FullTrackName& full_track_name,
+                                                           TrackMode track_mode,
+                                                           uint8_t default_priority,
+                                                           uint32_t default_ttl)
+        {
+            return std::shared_ptr<PublishTrackHandler>(
+              new PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl));
+        }
+
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
         // --------------------------------------------------------------------------
@@ -105,8 +118,7 @@ namespace moq {
          *
          * @param status        Indicates the status of being able to publish
          */
-        virtual void StatusChanged([[maybe_unused]] Status status) {}
-
+        virtual void StatusChanged(Status status);
 
         /**
          * @brief Notification callback to provide sampled metrics
@@ -117,7 +129,7 @@ namespace moq {
          *
          * @param metrics           Copy of the published metrics for the sample period
          */
-        virtual void MetricsSampled([[maybe_unused]] const PublishTrackMetrics&& metrics) {}
+        virtual void MetricsSampled(const PublishTrackMetrics&& metrics);
 
         // --------------------------------------------------------------------------
         // Various getter/setters
@@ -125,19 +137,19 @@ namespace moq {
         /**
          * @brief set/update the default priority for published objects
          */
-        void SetDefaultPriority(const uint8_t priority) { default_priority_ = priority; }
+        void SetDefaultPriority(const uint8_t priority) noexcept { default_priority_ = priority; }
 
         /**
          * @brief set/update the default TTL expiry for published objects
          */
-        void SetDefaultTTL(const uint32_t ttl) { default_ttl_ = ttl; }
+        void SetDefaultTTL(const uint32_t ttl) noexcept { default_ttl_ = ttl; }
 
         /**
          * @brief Get the publish status
          *
          * @return Status of publish
          */
-        Status GetStatus() { return publish_status_; }
+        constexpr Status GetStatus() const noexcept { return publish_status_; }
 
         // --------------------------------------------------------------------------
         // Methods that normally do not need to be overridden
@@ -170,7 +182,7 @@ namespace moq {
          *
          * @returns Publish status of the publish
          */
-        [[maybe_unused]] PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
+        PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
 
         /**
          * @brief Publish object to the announced track
@@ -243,12 +255,12 @@ namespace moq {
          *
          * @details The MOQ Handler sets the data context ID
          */
-        void SetDataContextId(uint64_t data_ctx_id) { publish_data_ctx_id_ = data_ctx_id; };
+        void SetDataContextId(uint64_t data_ctx_id) noexcept { publish_data_ctx_id_ = data_ctx_id; };
 
         /**
          * @brief Get the Data context ID
          */
-        uint64_t GetDataContextId() { return publish_data_ctx_id_; };
+        constexpr uint64_t GetDataContextId() const noexcept { return publish_data_ctx_id_; };
 
         void SetPublishObjectFunction(PublishObjFunction&& publish_func)
         {
@@ -259,7 +271,7 @@ namespace moq {
          * @brief Set the publish status
          * @param status                Status of publishing (aka publish objects)
          */
-        void SetStatus(Status status) { publish_status_ = status; }
+        void SetStatus(Status status) noexcept { publish_status_ = status; }
 
         // --------------------------------------------------------------------------
         // Member variables

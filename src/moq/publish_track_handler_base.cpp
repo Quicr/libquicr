@@ -7,6 +7,8 @@
 #include <moq/publish_track_handler.h>
 
 namespace moq {
+    void PublishTrackHandler::StatusChanged(Status) {}
+    void PublishTrackHandler::MetricsSampled(const PublishTrackMetrics&&) {}
 
     PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(
       const moq::ObjectHeaders& object_headers,
@@ -27,14 +29,14 @@ namespace moq {
                     is_stream_header_needed = true;
                     sent_track_header_ = true;
                 }
-
                 break;
         }
 
         prev_object_group_id_ = object_headers.group_id;
 
         if (publish_object_func_ != nullptr) {
-            return publish_object_func_(object_headers.priority.has_value() ? object_headers.priority.value() : default_priority_,
+            return publish_object_func_(object_headers.priority.has_value() ? object_headers.priority.value()
+                                                                            : default_priority_,
                                         object_headers.ttl.has_value() ? object_headers.ttl.value() : default_ttl_,
                                         is_stream_header_needed,
                                         object_headers.group_id,

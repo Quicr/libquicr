@@ -8,8 +8,11 @@
 
 #include <cstdint>
 #include <optional>
+#include <map>
 
 namespace moq {
+    using Extensions = std::map<uint64_t, std::vector<uint8_t>>;
+
     /**
      * @brief Object headers struct
      *
@@ -22,6 +25,7 @@ namespace moq {
         uint64_t payload_length;         ///< Length of payload of the object data
         std::optional<uint8_t> priority; ///< Priority of the object, lower value is better
         std::optional<uint16_t> ttl;     ///< Object time to live in milliseconds
+        Extensions extensions;
     };
 
 

@@ -49,12 +49,7 @@ namespace moq {
             kSendingUnsubscribe                 ///< In this state, callbacks will not be called
         };
 
-        SubscribeTrackHandler() = delete;
-
-        // --------------------------------------------------------------------------
-        // Public API methods
-        // --------------------------------------------------------------------------
-
+      protected:
         /**
          * @brief Subscribe track handler constructor
          *
@@ -65,12 +60,23 @@ namespace moq {
         {
         }
 
+      public:
+        /**
+         * @brief Create shared Subscribe track handler
+         *
+         * @param full_track_name           Full track name struct
+         */
+        static std::shared_ptr<SubscribeTrackHandler> Create(const FullTrackName& full_track_name)
+        {
+            return std::shared_ptr<SubscribeTrackHandler>(new SubscribeTrackHandler(full_track_name));
+        }
+
         /**
          * @brief Get the status of the subscribe
          *
          * @return Status of the subscribe
          */
-        Status GetStatus() { return status_; }
+        constexpr Status GetStatus() const noexcept { return status_; }
 
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
@@ -86,8 +92,7 @@ namespace moq {
          * @param object_headers    Object headers, must include group and object Ids
          * @param data              Object payload data received, **MUST** match ObjectHeaders::payload_length.
          */
-        virtual void ObjectReceived(const ObjectHeaders& object_headers,
-                                    Span<uint8_t> data) {}
+        virtual void ObjectReceived(const ObjectHeaders& object_headers, Span<uint8_t> data) {}
 
         /**
          * @brief Notification of a partial object received data object
@@ -99,8 +104,7 @@ namespace moq {
          * @param object_headers    Object headers, must include group and object Ids
          * @param data              Object payload data received, can be <= ObjectHeaders::payload_length
          */
-        virtual void PartialObjectReceived(const ObjectHeaders& object_headers,
-                                           Span<uint8_t> data) {}
+        virtual void PartialObjectReceived(const ObjectHeaders& object_headers, Span<uint8_t> data) {}
 
         /**
          * @brief Notification of subscribe status
@@ -142,7 +146,7 @@ namespace moq {
          * @brief Set the subscribe status
          * @param status                Status of the subscribe
          */
-        void SetStatus(Status status) { status_ = status; }
+        void SetStatus(Status status) noexcept { status_ = status; }
 
         // --------------------------------------------------------------------------
         // Member variables
