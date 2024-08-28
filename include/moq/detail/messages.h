@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../../../../../../../../Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.2.sdk/usr/include/c++/v1/string"
-#include "../../../../../../../../Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.2.sdk/usr/include/c++/v1/vector"
-#include "../../../src/moq/message_buffer.h"
-#include "../common.h"
+#include <string>
+#include <vector>
+#include <moq/message_buffer.h>
+#include "moq/common.h"
 #include "stream_buffer.h"
 
 namespace moq::messages {
