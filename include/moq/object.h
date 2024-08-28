@@ -27,7 +27,7 @@ namespace moq {
         std::optional<uint8_t> priority;     ///< Priority of the object, lower value is better
         std::optional<uint16_t> ttl;         ///< Object time to live in milliseconds
         std::optional<TrackMode> track_mode; ///< Track Mode of how the object was received or mode to use when sending
-        Extensions extensions;
+        std::optional<Extensions> extensions;
     };
 
 }

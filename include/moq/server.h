@@ -23,8 +23,6 @@ namespace moq {
     class Server : public Transport
     {
       public:
-
-
         /**
          * @brief Response to received MOQT ClientSetup message
          */

@@ -113,6 +113,13 @@ namespace moq {
                 break;
             }
             case MoqMessageType::SUBSCRIBE_OK: {
+                auto&& [msg, parsed] = ParseControlMessage<MoqSubscribeOk>(ctrl_msg, stream_buffer);
+                if (parsed) {
+                    // Do something with msg
+                    stream_buffer->ResetAny();
+                }
+                break;
+
                 if (not stream_buffer->AnyHasValue()) {
                     SPDLOG_LOGGER_DEBUG(logger_, "Received subscribe ok, init stream buffer");
                     stream_buffer->InitAny<MoqSubscribeOk>();

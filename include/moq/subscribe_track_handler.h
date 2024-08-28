@@ -22,8 +22,6 @@ namespace moq {
     class SubscribeTrackHandler : public BaseTrackHandler
     {
       public:
-        friend class Transport;
-
         /**
          * @brief Receive status codes
          */
@@ -46,7 +44,7 @@ namespace moq {
             kNotAuthorized,
             kNotSubscribed,
             kPendingSubscribeResponse,
-            kSendingUnsubscribe                 ///< In this state, callbacks will not be called
+            kSendingUnsubscribe ///< In this state, callbacks will not be called
         };
 
       protected:
@@ -93,7 +91,9 @@ namespace moq {
          * @param data              Object payload data received, **MUST** match ObjectHeaders::payload_length.
          */
         virtual void ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
-                                    [[maybe_unused]] Span<uint8_t> data) {}
+                                    [[maybe_unused]] Span<uint8_t> data)
+        {
+        }
 
         /**
          * @brief Notification of a partial object received data object
@@ -106,7 +106,9 @@ namespace moq {
          * @param data              Object payload data received, can be <= ObjectHeaders::payload_length
          */
         virtual void PartialObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
-                                           [[maybe_unused]] Span<uint8_t> data) {}
+                                           [[maybe_unused]] Span<uint8_t> data)
+        {
+        }
 
         /**
          * @brief Notification of subscribe status
@@ -148,12 +150,16 @@ namespace moq {
          * @brief Set the subscribe status
          * @param status                Status of the subscribe
          */
-        void SetStatus(Status status) noexcept { status_ = status; }
+        void SetStatus(Status status) noexcept { status_ = status; StatusChanged(status); }
 
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
         Status status_{ Status::kNotSubscribed };
+
+        friend class Transport;
+        friend class Client;
+        friend class Server;
     };
 
 } // namespace moq

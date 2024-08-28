@@ -9,7 +9,6 @@
 #include <transport/span.h>
 #include <moq/common.h>
 #include <moq/track_name.h>
-#include <moq/object.h>
 #include <vector>
 
 namespace moq {

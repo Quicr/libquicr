@@ -4,12 +4,10 @@ add_library(quicr)
 target_sources(quicr PRIVATE
         message_buffer.cpp
         moq/messages.cpp
-        moq/publish_track_handler_base.cpp
-        moq/server_publish_track_handler_base.cpp
+        moq/publish_track_handler.cpp
         moq/transport.cpp
         moq/server.cpp
         moq/client.cpp
-        moq/receive_message_handler.cpp
 )
 
 # Suppress external lib warnings

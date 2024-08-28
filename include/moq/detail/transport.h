@@ -14,7 +14,6 @@
 #include <moq/detail/messages.h>
 #include <moq/metrics.h>
 #include <moq/publish_track_handler.h>
-#include <moq/server_publish_track_handler.h>
 #include <moq/subscribe_track_handler.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
@@ -45,10 +44,23 @@ namespace moq {
 
             kInvalidParams,
 
-            kClientConnecting,
+            kConnecting,
             kDisconnecting,
-            kClientNotConnected,
-            kClientFailedToConnect
+            kNotConnected,
+            kFailedToConnect
+        };
+
+        enum class ControlMessageStatus : uint8_t
+        {
+            kMessageIncomplete,        ///< control message is incomplete and more data is needed
+            kMessageComplete,          ///< control message is complete and stream buffer get any has complete message
+            kStreamBufferCannotBeZero, ///< stream buffer cannot be zero when parsing message type
+            kStreamBufferMissingType,  ///< connection context is missing message type
+            kUnsupportedMessageType,   ///< Unsupported MOQT message type
+        };
+
+        enum class StreamDataMessageStatus : uint8_t
+        {
         };
 
         /**
@@ -162,9 +174,6 @@ namespace moq {
         Status Stop();
 
       private:
-        friend class ReceiveMessageHandler;
-        friend class Server;
-
         // -------------------------------------------------------------------------------------------------
         // Transport Delegate/callback functions
         // -------------------------------------------------------------------------------------------------
@@ -249,10 +258,6 @@ namespace moq {
                                                                              TrackHash& th);
 
         // -------------------------------------------------------------------------------------------------
-        // Private member variables
-        // -------------------------------------------------------------------------------------------------
-
-        // -------------------------------------------------------------------------------------------------
         // Private member functions that will be implemented by Server class
         // -------------------------------------------------------------------------------------------------
         virtual void NewConnectionAccepted(ConnectionHandle,
@@ -262,20 +267,35 @@ namespace moq {
 
         // -------------------------------------------------------------------------------------------------
 
+      private:
+        // -------------------------------------------------------------------------------------------------
+        // Private member functions that will be implemented by both Server and Client
+        // ------------------------------------------------------------------------------------------------
+        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
+                                        std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
+        template<class MessageType>
+        std::pair<MessageType&, bool> ParseControlMessage(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+
+      private:
+        // -------------------------------------------------------------------------------------------------
+        // Private member variables
+        // -------------------------------------------------------------------------------------------------
         std::mutex state_mutex_;
         const bool client_mode_;
         std::shared_ptr<spdlog::logger> logger_;
         bool stop_{ false };
         const ServerConfig server_config_;
         const ClientConfig client_config_;
-        ReceiveMessageHandler receive_message_handler_;
 
         std::map<ConnectionHandle, ConnectionContext> connections_;
 
         Status status_{ Status::kNotReady };
 
         std::shared_ptr<ITransport> quic_transport_; // **MUST** be last for proper order of destruction
+
+        friend class Client;
+        friend class Server;
     };
 
 } // namespace moq
