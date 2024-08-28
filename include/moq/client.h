@@ -24,21 +24,6 @@ namespace moq {
     class Client : public Transport
     {
       public:
-        enum class Status : uint8_t
-        {
-            kReady = 0,
-            kNotReady,
-
-            kInternalError,
-
-            kInvalidParams,
-
-            kConnecting,
-            kDisconnecting,
-            kNotConnected,
-            kFailedToConnect
-        };
-
         /**
          * @brief MoQ Client Constructor to create the client mode instance
          *
@@ -86,7 +71,7 @@ namespace moq {
          *
          * @return Status of the Client
          */
-         Status GetStatus();
+         Status GetStatus() const noexcept { return status_; }
 
         /**
          * @brief Callback on server setup message
@@ -244,10 +229,12 @@ namespace moq {
             }
         }
 
-        virtual ControlMessage ProcessCtrlMessage(ConnectionContext& conn_ctx,
+        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
                                                   std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
       private:
+        void SetStatus(Status status) { status_ = status; StatusChanged(status); }
+
         std::optional<ConnectionHandle> connection_handle_;               ///< Connection ID for the client
     };
 

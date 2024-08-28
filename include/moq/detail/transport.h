@@ -44,10 +44,10 @@ namespace moq {
 
             kInvalidParams,
 
-            kClientConnecting,
+            kConnecting,
             kDisconnecting,
-            kClientNotConnected,
-            kClientFailedToConnect
+            kNotConnected,
+            kFailedToConnect
         };
 
         enum class ControlMessageStatus : uint8_t
@@ -57,12 +57,6 @@ namespace moq {
             kStreamBufferCannotBeZero, ///< stream buffer cannot be zero when parsing message type
             kStreamBufferMissingType,  ///< connection context is missing message type
             kUnsupportedMessageType,   ///< Unsupported MOQT message type
-        };
-
-        struct ControlMessage
-        {
-            ControlMessageStatus status;           ///< Status of the parse, if complete moq_message will be set
-            messages::MoqMessageType message_type; ///< MoQ message type parsed and stored in the **any**
         };
 
         enum class StreamDataMessageStatus : uint8_t
@@ -180,9 +174,6 @@ namespace moq {
         Status Stop();
 
       private:
-        friend class ReceiveMessageHandler;
-        friend class Server;
-
         // -------------------------------------------------------------------------------------------------
         // Transport Delegate/callback functions
         // -------------------------------------------------------------------------------------------------
@@ -267,10 +258,6 @@ namespace moq {
                                                                              TrackHash& th);
 
         // -------------------------------------------------------------------------------------------------
-        // Private member variables
-        // -------------------------------------------------------------------------------------------------
-
-        // -------------------------------------------------------------------------------------------------
         // Private member functions that will be implemented by Server class
         // -------------------------------------------------------------------------------------------------
         virtual void NewConnectionAccepted(ConnectionHandle,
@@ -281,13 +268,19 @@ namespace moq {
         // -------------------------------------------------------------------------------------------------
 
       private:
-        virtual ControlMessage ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                          std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+        // -------------------------------------------------------------------------------------------------
+        // Private member functions that will be implemented by both Server and Client
+        // ------------------------------------------------------------------------------------------------
+        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
+                                        std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
         template<class MessageType>
-        std::pair<MessageType&, bool> ParseControlMessage(ControlMessage& ctrl_msg, std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+        std::pair<MessageType&, bool> ParseControlMessage(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
       private:
+        // -------------------------------------------------------------------------------------------------
+        // Private member variables
+        // -------------------------------------------------------------------------------------------------
         std::mutex state_mutex_;
         const bool client_mode_;
         std::shared_ptr<spdlog::logger> logger_;
@@ -300,7 +293,6 @@ namespace moq {
         Status status_{ Status::kNotReady };
 
         std::shared_ptr<ITransport> quic_transport_; // **MUST** be last for proper order of destruction
-        bool last_control_message_complete_ { false };
 
         friend class Client;
         friend class Server;
