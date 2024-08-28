@@ -60,7 +60,7 @@ namespace moq {
          */
         enum class Status : uint8_t
         {
-            kOK = 0,
+            kOk = 0,
             kNotConnected,
             kNotAnnounced,
             kPendingAnnounceResponse,
@@ -83,7 +83,7 @@ namespace moq {
                             uint8_t default_priority,
                             uint32_t default_ttl)
           : BaseTrackHandler(full_track_name)
-          , track_mode_(track_mode)
+          , default_track_mode_(track_mode)
           , default_priority_(default_priority)
           , default_ttl_(default_ttl)
         {
@@ -143,6 +143,11 @@ namespace moq {
          * @brief set/update the default TTL expiry for published objects
          */
         void SetDefaultTTL(const uint32_t ttl) noexcept { default_ttl_ = ttl; }
+
+        /**
+         * @brief set/update the default track mode for objects
+         */
+        void SetDefaultTrackMode(const TrackMode track_mode) noexcept { default_track_mode_ = track_mode; }
 
         /**
          * @brief Get the publish status
@@ -246,7 +251,7 @@ namespace moq {
          */
         using PublishObjFunction = std::function<PublishObjectStatus(uint8_t priority,
                                                                      uint32_t ttl,
-                                                                     bool stream_header_needed,
+                                                                     bool Tr,
                                                                      uint64_t group_id,
                                                                      uint64_t object_id,
                                                                      BytesSpan data)>;
@@ -262,11 +267,6 @@ namespace moq {
          */
         constexpr uint64_t GetDataContextId() const noexcept { return publish_data_ctx_id_; };
 
-        void SetPublishObjectFunction(PublishObjFunction&& publish_func)
-        {
-            publish_object_func_ = std::move(publish_func);
-        }
-
         /**
          * @brief Set the publish status
          * @param status                Status of publishing (aka publish objects)
@@ -277,12 +277,12 @@ namespace moq {
         // Member variables
         // --------------------------------------------------------------------------
         Status publish_status_{ Status::kNotAnnounced };
-        TrackMode track_mode_;
+        TrackMode default_track_mode_;
         uint8_t default_priority_;              // Set by caller and is used when priority is not specified
         uint32_t default_ttl_;                  // Set by caller and is used when TTL is not specified
 
-        uint64_t publish_data_ctx_id_;      // publishing data context ID
-        PublishObjFunction publish_object_func_;
+        uint64_t publish_data_ctx_id_;              // set byte the transport; publishing data context ID
+        PublishObjFunction publish_object_func_;    // set by the transport
 
         uint64_t prev_object_group_id_{ 0 };
         uint64_t prev_object_id_{ 0 };
