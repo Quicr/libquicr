@@ -92,7 +92,7 @@ MessageBuffer& operator>>(MessageBuffer& buffer, std::optional<T>& val) {
 
 
 //
-// MoqtParameter
+// MoqParameter
 //
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
@@ -1249,7 +1249,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqClientSetup &msg) 
                   return false;
               }
 
-              msg.current_param = MoqParameter{};
+              msg.current_param = {};
               msg.current_param->type = type;
           }
 
@@ -1339,7 +1339,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqServerSetup &msg) 
               return false;
           }
 
-          msg.current_param = MoqParameter{};
+          msg.current_param = {};
           msg.current_param->type = type;
         }
 

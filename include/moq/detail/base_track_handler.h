@@ -55,6 +55,7 @@ namespace moq {
         BaseTrackHandler(const FullTrackName& full_track_name)
           : full_track_name_(full_track_name)
         {
+
         }
 
         // --------------------------------------------------------------------------
@@ -85,7 +86,7 @@ namespace moq {
          *
          * @param subscribe_id          62bit subscribe ID
          */
-        void GetSubscribeId(std::optional<uint64_t> subscribe_id) { subscribe_id_ = subscribe_id; }
+        void SetSubscribeId(std::optional<uint64_t> subscribe_id) { subscribe_id_ = subscribe_id; }
 
         /**
          * @brief Get the subscribe ID
@@ -124,7 +125,9 @@ namespace moq {
         // --------------------------------------------------------------------------
 
         FullTrackName full_track_name_;
-        ConnectionHandle connection_handle_;
+
+        ConnectionHandle connection_handle_;    // QUIC transport connection ID
+        uint64_t data_context_id_;              // QUIC transport data context ID
 
         /**
          * subscribe_id_ is the primary index/key for subscribe subscribe context/delegate storage.
