@@ -27,7 +27,7 @@ namespace qserver_vars {
      *
      *     Example: track_delegate = subscribes[track_alias][conn_id]
      */
-    std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::shared_ptr<moq::SubscribeTrackHandler>>> subscribes;
+    std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::shared_ptr<moq::ServerPublishTrackHandler>>> subscribes;
 
     /*
      * Subscribe ID to alias mapping
@@ -83,71 +83,64 @@ class MySubscribeTrackHandler : public moq::SubscribeTrackHandler
 
     // TODO: Add prioirty and TTL
     virtual void ObjectReceived(const moq::ObjectHeaders& headers, Span<uint8_t> data) {
-
-    //void cb_objectReceived(uint64_t group_id, uint64_t object_id,
-    //                       uint8_t priority,
-    //                       std::vector<uint8_t>&& object,
-    //                       TrackMode track_mode) override {
-
         std::lock_guard<std::mutex> _(qserver_vars::_state_mutex);
-#if 0 
-        auto sub_it = qserver_vars::subscribes.find(headers.track_alias);
+
+        auto track_alias = GetTrackAlias();
+        if ( !track_alias.has_value() ) {
+            SPDLOG_DEBUG( "Data without valid track alias");
+            return;
+        }
+        
+        auto sub_it = qserver_vars::subscribes.find( track_alias.value());
 
         if (sub_it == qserver_vars::subscribes.end()) {
-            SPDLOG_DEBUG( "No subscribes, not relaying track_alias: {0} data size: ",
-                          *_track_alias, object.size());
+            SPDLOG_DEBUG( "No subscribes, not relaying data size: {0} ", object.size());
             return;
         }
 
         for (const auto& [conn_id, td]: sub_it->second) {
-            SPDLOG_DEBUG( "Relaying track_alias: {0}, object to subscribe conn_id: {1} data size: {2}",
-                          *_track_alias, conn_id, object.size());
+            SPDLOG_DEBUG( "Relaying track_alias:  data size: {0}", object.size());
 
-            td->setTrackMode(track_mode);
-            td->sendObject(group_id, object_id, object, priority);
+            td->PublishObject(headers,data);
         }
-#endif
     }
 
-  //void cb_sendCongested(bool, uint64_t) override {}
 
-#if 0 
-    void cb_sendReady()  {
-        SPDLOG_INFO( "Track alias: {0} is ready to send", _track_alias.value());
-    }
-
-    void cb_sendNotReady(TrackSendStatus)  {}
-    void cb_readReady() 
-    {
-        SPDLOG_INFO( "Track alias: {0} is ready to read", _track_alias.value());
-    }
-    void cb_readNotReady(TrackReadStatus status)  {
-
-        std::string reason = "";
-        switch (status) {
-            case TrackReadStatus::NOT_CONNECTED:
-                reason = "not connected";
-                break;
-            case TrackReadStatus::SUBSCRIBE_ERROR:
-                reason = "subscribe error";
-                break;
-            case TrackReadStatus::NOT_AUTHORIZED:
-                reason = "not authorized";
-                break;
-            case TrackReadStatus::NOT_SUBSCRIBED:
-                reason = "not subscribed";
-                break;
-            case TrackReadStatus::PENDING_SUBSCRIBE_RESPONSE:
-                reason = "pending subscribe response";
-                break;
-            default:
-                break;
-        }
-
-        SPDLOG_INFO( "Track alias: {0} is NOT ready, status: {1}", _track_alias.value(), reason);
-    }
-#endif
+   virtual void StatusChanged(Status status) {
+     if ( status == Status::kOk ) {
+       SPDLOG_INFO( "Track alias: is subscribed" );
+     }
+     else {
+       std::string reason = "";
+       switch (status) {
+       case Status::kNotConnected:
+         reason = "not connected";
+         break;
+       case Status::kSubscribeError:
+         reason = "subscribe error";
+         break;
+       case Status::kNotAuthorized:
+         reason = "not authorized";
+         break;
+       case Status::kNotSubscribed:
+         reason = "not subscribed";
+         break;
+       case Status::kPendingSubscribeResponse:
+         reason = "pending subscribe response";
+         break;
+       case Status::kSendingUnsubscribe:
+         reason = "unsubscribing";
+         break;
+       default:
+         break;
+       }
+       
+       SPDLOG_INFO( "Track is NOT ready, status: {0}",  reason);
+     }
+   }
+  
 };
+
 
 /* -------------------------------------------------------------------------------------------------
  * Server delegate is the instance delegate for connection handling
@@ -159,13 +152,10 @@ class MyServer : public moq::Server
     MyServer(const moq::ServerConfig& cfg) : moq::Server( cfg ){}
 
     virtual ~MyServer() = default;
-
    
-
     virtual void NewConnectionAccepted(moq::ConnectionHandle connection_handle,
                                        const moq::Server::ConnectionRemoteInfo& remote) { }
    
-
   virtual void UnannounceReceived(moq::ConnectionHandle connection_handle,
                                   const moq::TrackNamespace& track_namespace){
 #if 0
@@ -368,7 +358,7 @@ class MyServer : public moq::Server
 #endif
     }
 
-  virtual void SubscribeReceived(moq::ConnectionHandle connection_handle,
+  virtual SubscribeResponse SubscribeReceived(moq::ConnectionHandle connection_handle,
                                                 uint64_t subscribe_id,
                                                 uint64_t proposed_track_alias,
                                                 const moq::FullTrackName& track_full_name,
