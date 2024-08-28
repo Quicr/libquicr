@@ -230,12 +230,14 @@ namespace moq {
       private:
         virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
                                         std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
-
         virtual bool ProcessStreamDataMessage(ConnectionContext& conn_ctx,
                                               std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
-      private:
-        void SetStatus(Status status) { status_ = status; StatusChanged(status); }
+        void SetStatus(Status status)
+        {
+            status_ = status;
+            StatusChanged(status);
+        }
 
         std::optional<ConnectionHandle> connection_handle_;               ///< Connection ID for the client
     };

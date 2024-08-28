@@ -198,9 +198,11 @@ namespace moq {
          */
         virtual void MetricsSampled(ConnectionHandle connection_handle, const ConnectionMetrics&& metrics)  = 0;
 
-      protected:
-
       private:
+        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
+                                        std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+
+
         bool stop_{ false };
     };
 
