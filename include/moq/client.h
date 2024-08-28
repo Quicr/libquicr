@@ -72,6 +72,7 @@ namespace moq {
          * @return Status of kDisconnecting
          */
         Status Disconnect();
+      
         /**
          * @brief Callback notification for connection status/state change
          * @details Callback notification indicates state change of connection, such as disconnected
@@ -80,6 +81,13 @@ namespace moq {
          */
         virtual void StatusChanged(Status status) {}
 
+         /**
+         * @brief Get the status of the Client
+         *
+         * @return Status of the Client
+         */
+         Status GetStatus();
+      
         /**
          * @brief Callback on server setup message
          *
@@ -130,7 +138,6 @@ namespace moq {
          */
         virtual void MetricsSampled(const ConnectionMetrics&& metrics) {}
 
-      protected:
         /**
          * @brief Get announce status for namespace
          * @param track_namespace           Track namespace of the announcement
