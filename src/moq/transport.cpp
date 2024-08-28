@@ -1007,6 +1007,8 @@ namespace moq {
     std::pair<messages::MoqStreamHeaderGroup&, bool> Transport::ParseControlMessage<messages::MoqStreamHeaderGroup>(std::shared_ptr<StreamBuffer<uint8_t>>&);
     template
     std::pair<messages::MoqStreamGroupObject&, bool> Transport::ParseControlMessage<messages::MoqStreamGroupObject>(std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template
+    std::pair<messages::MoqServerSetup&, bool> Transport::ParseControlMessage<messages::MoqServerSetup>(std::shared_ptr<StreamBuffer<uint8_t>>&);
 
 
     template
