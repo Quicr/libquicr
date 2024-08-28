@@ -26,13 +26,23 @@ namespace moq {
 
     void Client::AnnounceStatusChanged(const TrackNamespace&, const PublishAnnounceStatus) {}
 
-    void Client::UnpublishedSubscribeReceived(const FullTrackName&,
-                                              const SubscribeAttributes&)
+    void Client::UnpublishedSubscribeReceived(const FullTrackName&, const SubscribeAttributes&)
     {
         // TODO: add the default response
     }
 
+    void Client::ResolveSubscribe(ConnectionHandle, uint64_t, SubscribeResponse) {}
+
     void Client::MetricsSampled(const ConnectionMetrics&&) {}
+
+    PublishAnnounceStatus Client::GetAnnounceStatus(const TrackNamespace&)
+    {
+        return PublishAnnounceStatus();
+    }
+
+    void Client::PublishAnnounce(const TrackNamespace&) {}
+
+    void Client::PublishUnannounce(const TrackNamespace&) {}
 
     bool Client::ProcessCtrlMessage(ConnectionContext& conn_ctx, std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer)
     {

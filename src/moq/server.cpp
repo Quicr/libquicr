@@ -18,10 +18,27 @@ namespace moq {
         Transport::Stop();
     }
 
-    void Server::NewConnectionAccepted(moq::ConnectionHandle connection_handle, const ConnectionRemoteInfo& remote) {
+    void Server::NewConnectionAccepted(moq::ConnectionHandle connection_handle, const ConnectionRemoteInfo& remote)
+    {
         SPDLOG_LOGGER_INFO(
           logger_, "New connection conn_id: {0} remote ip: {1} port: {2}", connection_handle, remote.ip, remote.port);
     }
+
+    void Server::ConnectionStatusChanged(ConnectionHandle, ConnectionStatus) {}
+
+    void Server::AnnounceReceived(ConnectionHandle, const TrackNamespace&, const PublishAnnounceAttributes&) {}
+
+    void Server::ResolveAnnounce(ConnectionHandle, const TrackNamespace&, AnnounceResponse) {}
+
+    void Server::SubscribeReceived(ConnectionHandle,
+                                   uint64_t,
+                                   uint64_t,
+                                   const FullTrackName&,
+                                   const SubscribeAttributes&)
+    {
+    }
+
+    void Server::ResolveSubscribe(ConnectionHandle, uint64_t, SubscribeResponse) {}
 
     bool Server::ProcessCtrlMessage(ConnectionContext& conn_ctx, std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer)
     {
