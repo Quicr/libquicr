@@ -35,10 +35,11 @@ std::string get_time_str()
 }
 
 /* -------------------------------------------------------------------------------------------------
- * Track delegate is used for either publish or subscribe. All handling for the track is via the
+ * Track delegate is used for subscribe. All handling for the track is via the
  *      delegate.
  * -------------------------------------------------------------------------------------------------
  */
+
 class MySubscribeTrackHandler : public moq::SubscribeTrackHandler
 {
 public:
@@ -66,75 +67,76 @@ public:
       break; 
     }
   }
-
-#if 0
-    void cb_sendCongested(bool cleared, uint64_t objects_in_queue) override {}
-
-    void cb_sendReady() override {
-        SPDLOG_LOGGER_INFO(_logger, "Track alias: {0} is ready to send", _track_alias.value());
-    }
-
-    void cb_sendNotReady(TrackSendStatus status) override {
-        SPDLOG_LOGGER_INFO(_logger, "Track alias: {0} is NOT ready to send status: {1}", _track_alias.value(), static_cast<int>(status));
-    }
-
-    void cb_readReady() override
-    {
-        SPDLOG_LOGGER_INFO(_logger, "Track alias: {0} is ready to read",  _track_alias.value());
-    }
-    void cb_readNotReady(TrackReadStatus status) override {}
-#endif
 };
 
-#if 0 
+/* -------------------------------------------------------------------------------------------------
+ * Track delegate is used for either publish. All handling for the track is via the
+ *      delegate.
+ * -------------------------------------------------------------------------------------------------
+ */  
+class MyPublishTrackHandler : public moq::PublishTrackHandler
+{
+public:
+  MyPublishTrackHandler(const moq::FullTrackName& full_track_name,
+                        moq::TrackMode track_mode,
+                        uint8_t default_priority,
+                        uint32_t default_ttl )
+    : moq::PublishTrackHandler( full_track_name,
+                                track_mode,
+                                default_priority,
+                                default_ttl)
+  {
+  }
+  
+  virtual ~MyPublishTrackHandler() = default;
+
+  virtual void StatusChanged(Status status) {
+    switch ( status ) {
+    case Status::kOK : {
+      if (   auto track_alias = GetTrackAlias();  track_alias.has_value() ) {
+        SPDLOG_INFO( "Track alias: {0} is ready to read",  track_alias.value() );
+      }
+    }
+      break;
+    default:
+      break; 
+    }
+  }
+};
+
 /* -------------------------------------------------------------------------------------------------
  * Client MOQ instance delegate is used to control and interact with the connection.
  * -------------------------------------------------------------------------------------------------
  */
-class clientDelegate : public quicr::MoQInstanceDelegate
+class MyClient : public moq::Client
 {
-  public:
-    clientDelegate(std::shared_ptr<spdlog::logger> logger) : _logger(std::move(logger)) {}
-
-    virtual ~clientDelegate() = default;
-
-    void cb_newConnection(qtransport::TransportConnId conn_id,
-                          Span<uint8_t const> endpoint_id,
-                          const qtransport::TransportRemote& remote) override {}
-
-    void cb_connectionStatus(qtransport::TransportConnId conn_id,
-                             Span<uint8_t const> endpoint_id,
-                             qtransport::TransportStatus status) override
-    {
-        auto ep_id = std::string(endpoint_id.begin(), endpoint_id.end());
-
-        if (status == qtransport::TransportStatus::Ready) {
-            SPDLOG_LOGGER_INFO(_logger, "Connection ready conn_id: {0} endpoint_id: {1}", conn_id, ep_id);
-
-            qclient_vars::conn_id = conn_id;
-        }
+public:
+  MyClient(const moq::ClientConfig& cfg): moq::Client(cfg) {}
+  
+  virtual ~MyClient() = default;
+  
+  virtual void StatusChanged(Status status) {
+    if ( status == Status::kReady ) {
+      SPDLOG_INFO( "Connection ready" );
     }
-    void cb_clientSetup(qtransport::TransportConnId conn_id, quicr::messages::MoqClientSetup client_setup) override {}
-    void cb_serverSetup(qtransport::TransportConnId conn_id, quicr::messages::MoqServerSetup server_setup) override {}
-
-  private:
-    std::shared_ptr<spdlog::logger> _logger;
+  }
+  
 };
+
 
 /* -------------------------------------------------------------------------------------------------
  * Publisher Thread to perform publishing
  * -------------------------------------------------------------------------------------------------
  */
-void do_publisher(const std::string t_namespace,
-             const std::string t_name,
-             const std::shared_ptr<quicr::MoQInstance>& moqInstance,
-             const bool& stop)
-{
-    auto _logger = spdlog::stderr_color_mt("PUB");
 
+void do_publisher(const moq::FullTrackName& full_track_name,
+                  const std::shared_ptr<moq::Client>& moqInstance,
+                  const bool& stop)
+{
+#if 0 
     auto mi = moqInstance;
 
-    auto track_delegate = std::make_shared<trackDelegate>(t_namespace, t_name, 2, 3000, _logger);
+    auto track_delegate = std::make_shared<trackDelegate>(full_track_name);
 
     SPDLOG_LOGGER_INFO(_logger, "Started publisher track: {0}/{1}",  t_namespace, t_name);
 
@@ -191,40 +193,42 @@ void do_publisher(const std::string t_namespace,
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     SPDLOG_LOGGER_INFO(_logger, "Publisher done track: {0}/{1}", t_namespace, t_name);
+#endif
 }
+
 
 /* -------------------------------------------------------------------------------------------------
  * Subscriber thread to perform subscribe
  * -------------------------------------------------------------------------------------------------
  */
-void do_subscriber(const std::string t_namespace,
-              const std::string t_name,
-              const std::shared_ptr<quicr::MoQInstance>& moqInstance,
+void do_subscriber(const moq::FullTrackName& full_track_name,
+              const std::shared_ptr<moq::Client>& moqInstance,
               const bool& stop)
 {
-    auto _logger = spdlog::stderr_color_mt("SUB");
+  //auto mi = moqInstance;
 
-    auto mi = moqInstance;
+    auto track_delegate = std::make_shared<MySubscribeTrackHandler>( full_track_name );
 
-    auto track_delegate = std::make_shared<trackDelegate>(t_namespace, t_name, 2, 3000, _logger);
-
-    SPDLOG_LOGGER_INFO(_logger, "Started subscriber track: {0}/{1}", t_namespace, t_name);
+    SPDLOG_INFO( "Started subscriber");
 
     bool subscribe_track { false };
+    
+
     while (not stop) {
-        if (!subscribe_track && qclient_vars::conn_id) {
-            SPDLOG_LOGGER_INFO(_logger, "Subscribe track: {0}/{1}", t_namespace, t_name);
-            mi->subscribeTrack(*qclient_vars::conn_id, track_delegate);
+      if ( (!subscribe_track) && ( moqInstance->GetStatus() == MyClient::Status::kReady) ) {
+            SPDLOG_INFO("Subscribing to track" );
+            moqInstance->SubscribeTrack( track_delegate );
             subscribe_track = true;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
-    mi->unsubscribeTrack(*qclient_vars::conn_id, track_delegate);
+    moqInstance->UnsubscribeTrack( track_delegate);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    SPDLOG_LOGGER_INFO(_logger, "Subscriber done track: {0}/{1}", t_namespace, t_name);
+    SPDLOG_INFO( "Subscriber done track");
+
 }
 
 /* -------------------------------------------------------------------------------------------------
@@ -243,29 +247,29 @@ moq::ClientConfig init_config(cxxopts::ParseResult& cli_opts,
     }
 
     if (cli_opts.count("debug") && cli_opts["debug"].as<bool>() == true) {
-        SPDLOG_LOGGER_INFO(logger, "setting debug level");
-        logger->set_level(spdlog::level::debug);
+        SPDLOG_INFO( "setting debug level");
+        spdlog::set_level(spdlog::level::debug);
     }
 
     if (cli_opts.count("pub_namespace") && cli_opts.count("pub_name")) {
         enable_pub = true;
-        SPDLOG_LOGGER_INFO(logger, "Publisher enabled using track namespace: {0} name: {1}", cli_opts["pub_namespace"].as<std::string>(), cli_opts["pub_name"].as<std::string>());
+        SPDLOG_INFO( "Publisher enabled using track namespace: {0} name: {1}",
+                     cli_opts["pub_namespace"].as<std::string>(), cli_opts["pub_name"].as<std::string>());
     }
 
     if (cli_opts.count("clock") && cli_opts["clock"].as<bool>() == true) {
-        SPDLOG_LOGGER_INFO(logger, "Running in clock publish mode");
+        SPDLOG_INFO( "Running in clock publish mode");
         qclient_vars::publish_clock = true;
     }
 
     if (cli_opts.count("sub_namespace") && cli_opts.count("sub_name")) {
         enable_sub = true;
-        SPDLOG_LOGGER_INFO(logger, "Subscriber enabled using track namespace: {0} name: {1}", cli_opts["sub_namespace"].as<std::string>(), cli_opts["sub_name"].as<std::string>());
+        SPDLOG_INFO( "Subscriber enabled using track namespace: {0} name: {1}",
+                     cli_opts["sub_namespace"].as<std::string>(), cli_opts["sub_name"].as<std::string>());
     }
 
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
-    config.server_host_ip = cli_opts["host"].as<std::string>();
-    config.server_port = cli_opts["port"].as<uint16_t>();
-    config.server_proto = qtransport::TransportProtocol::QUIC;
+    config.connect_uri = cli_opts["url"].as<std::string>();
     config.transport_config.debug = cli_opts["debug"].as<bool>();;
     config.transport_config.use_reset_wait_strategy = false;
     config.transport_config.time_queue_max_duration = 5000;
@@ -281,7 +285,7 @@ main(int argc, char* argv[])
 {
     int result_code = EXIT_SUCCESS;
 
-    auto logger = spdlog::stderr_color_mt("qclient");
+    //auto logger = spdlog::stderr_color_mt("qclient");
 
     cxxopts::Options options("qclient", "MOQ Example Client");
     options
@@ -291,8 +295,7 @@ main(int argc, char* argv[])
       .add_options()
         ("h,help", "Print help")
           ("d,debug", "Enable debugging") // a bool parameter
-      ("r,host", "Relay host/IP", cxxopts::value<std::string>()->default_value("localhost"))
-        ("p,port", "Relay port", cxxopts::value<uint16_t>()->default_value("1234"))
+      ("r,uri", "Relay URL", cxxopts::value<std::string>()->default_value("moqt::/localhost:1234"))
           ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))
             ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
       ; // end of options
@@ -324,37 +327,44 @@ main(int argc, char* argv[])
 
     bool enable_pub { false };
     bool enable_sub { false };
-    quicr::MoQInstanceClientConfig config = init_config(result, enable_pub, enable_sub, logger);
+    moq::ClientConfig config = init_config(result, enable_pub, enable_sub );
 
-    auto delegate = std::make_shared<clientDelegate>(logger);
+    auto pub_name_space = result["pub_namespace"].as<std::string>();
+    auto pub_name = result["pub_name"].as<std::string>();
+    std::vector<uint8_t> pub_name_space_vec(pub_name_space.begin(), pub_name_space.end());
+    std::vector<uint8_t> pub_name_vec(pub_name.begin(), pub_name.end());
+    moq::FullTrackName full_pub_track_name { pub_name_space_vec , pub_name_vec, 42 /* track_alias */  };
+
+    auto sub_name_space = result["sub_namespace"].as<std::string>();
+    auto sub_name = result["sub_name"].as<std::string>();
+    std::vector<uint8_t> sub_name_space_vec(sub_name_space.begin(), sub_name_space.end());
+    std::vector<uint8_t> sub_name_vec(sub_name.begin(), sub_name.end());
+    moq::FullTrackName full_sub_track_name { sub_name_space_vec , sub_name_vec, 44 /* track_alias */  };
 
     try {
-        //auto moqInstance = quicr::MoQInstance{config, delegate, logger};
-        auto moqInstance = std::make_shared<quicr::MoQInstance>(config, delegate, logger);
+        auto moqInstance = std::make_shared<MyClient>(config);
 
-        moqInstance->run_client();
+        moqInstance->Connect();
 
         bool stop_threads { false };
         std::thread pub_thread, sub_thread;
-        if (enable_pub) {
-            pub_thread = std::thread (do_publisher,
-                                     result["pub_namespace"].as<std::string>(),
-                                     result["pub_name"].as<std::string>(),
+        
+        if (enable_pub) {    
+          pub_thread = std::thread (do_publisher, full_pub_track_name, 
                                      moqInstance, std::ref(stop_threads));
         }
 
         if (enable_sub) {
             sub_thread = std::thread (do_subscriber,
-                                     result["sub_namespace"].as<std::string>(),
-                                     result["sub_name"].as<std::string>(),
-                                     moqInstance, std::ref(stop_threads));
+                                     full_pub_track_name,
+                                      moqInstance, std::ref(stop_threads));
         }
 
         // Wait until told to terminate
         moq_example::cv.wait(lock, [&]() { return moq_example::terminate; });
 
         stop_threads = true;
-        SPDLOG_LOGGER_INFO(logger, "Stopping threads...");
+        SPDLOG_INFO( "Stopping threads...");
 
         if (pub_thread.joinable()) {
             pub_thread.join();
@@ -364,9 +374,9 @@ main(int argc, char* argv[])
             sub_thread.join();
         }
 
-        moqInstance->stop();
+        moqInstance->Disconnect();
 
-        SPDLOG_LOGGER_INFO(logger, "Client done");
+        SPDLOG_INFO( "Client done");
         std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
         // Unlock the mutex
@@ -382,9 +392,8 @@ main(int argc, char* argv[])
         result_code = EXIT_FAILURE;
     }
 
-    SPDLOG_LOGGER_INFO(logger, "Exit");
+    SPDLOG_INFO( "Exit");
 
     return result_code;
 }
 
-#endif
