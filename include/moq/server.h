@@ -35,39 +35,26 @@ namespace moq {
         };
 
         /**
-         * @brief Error status when processing MOQT API messages
-         */
-        struct ErrorStatus {
-            bool status;
-        };
-
-        /**
          * @brief Response to received MOQT ClientSetup message
          */
         struct ClientSetupResponse: public ErrorStatus {};
 
-        /**
-         * @brief Response to received MOQT Subscribe message
-         */
-        struct SubscribeResponse: public ErrorStatus {
-            enum class ReasonCode: uint8_t {
-                kInternalError = 0,
-                kInvalidRange,
-                kRetryTrackAlias,
-            };
-            ReasonCode reason_code;
-            std::optional<Bytes> reason_phrase;
-            std::optional<uint64_t> track_alias; ///< Set only when ResponseCode is kRetryTrackAlias
-        };
 
         /**
          * @brief Response to received MOQT Announce message
          */
-        struct AnnounceResponse: public ErrorStatus {
+        struct AnnounceResponse {
+            /**
+             * @details **kOK** indicates that the announce is accepted and OK should be sent. Any other
+             *       value indicates that the announce is not accepted and the reason code and other
+             *       fields will be set.
+             */
             enum class ReasonCode: uint8_t {
-                kInternalError = 0,
+                kOk = 0,
+                kInternalError
             };
-            std::optional<ReasonCode> reason_code; ///< set only when status is false.
+            ReasonCode reason_code;
+
             std::optional<Bytes> reason_phrase;
         };
 
@@ -115,8 +102,7 @@ namespace moq {
          * @param connection_handle          Transport connection ID
          * @param remote           Transport remote connection information
          */
-        virtual void NewConnectionAccepted(ConnectionHandle connection_handle,
-                                           const ConnectionRemoteInfo& remote) = 0;
+        void NewConnectionAccepted(ConnectionHandle connection_handle, const ConnectionRemoteInfo& remote) override;
 
         /**
          * @brief Callback notification for connection status/state change
@@ -143,22 +129,35 @@ namespace moq {
         /**
          * @brief Callback notification for new announce received that needs to be authorized
          *
-         * @param connection_handle                       Source connection ID
+         * @note The caller **MUST** respond to this via ResolveAnnounce(). If the caller does not
+         * override this method, the default will call ResolveAnnounce() with the status of OK
+         *
+         * @param connection_handle             Source connection ID
          * @param track_namespace               Track namespace
          * @param publish_announce_attributes   Publish announce attributes received
-         *
-         * @return If AnnounceResponse::status is true, ANNOUNNCE_OK MOQT message is sent
-         *         else ANNNOUNCE_ERROR MOQT message is sent with appropriate error reason
-         *         provided in AnnounceResponse::error_reason.
          */
-        virtual AnnounceResponse AnnounceReceived(ConnectionHandle connection_handle,
-                                                  const TrackNamespace& track_namespace,
-                                                  const PublishAnnounceAttributes& publish_announce_attributes) = 0;
+        virtual void AnnounceReceived(ConnectionHandle connection_handle,
+                                      const TrackNamespace& track_namespace,
+                                      const PublishAnnounceAttributes& publish_announce_attributes);
+
+        /**
+         * @brief Accept or reject an announce that was received
+         *
+         * @details Accept or reject an announce received via AnnounceReceived(). The MoQ Transport
+         *      will send the protocol message based on the AnnounceResponse
+         *
+         * @param connection_handle        source connection ID
+         * @param track_namespace          track namespace
+         * @param announce_response        response to for the announcement
+         */
+        void ResolveAnnounce(ConnectionHandle connection_handle,
+                            const TrackNamespace& track_namespace,
+                            AnnounceResponse announce_response);
 
         /**
          * @brief Callback notification for unannounce received
          *
-         * @param connection_handle                   Source connection ID
+         * @param connection_handle         Source connection ID
          * @param track_namespace           Track namespace
          *
          */
@@ -168,22 +167,34 @@ namespace moq {
         /**
          * @brief Callback notification for new subscribe received
          *
-         * @param connection_handle               Source connection ID
+         * @note The caller **MUST** respond to this via ResolveSubscribe(). If the caller does not
+         * override this method, the default will call ResolveSubscribe() with the status of OK
+         *
+         * @param connection_handle     Source connection ID
          * @param subscribe_id          Subscribe ID received
          * @param proposed_track_alias  The proposed track alias the subscriber would like to use
          * @param track_full_name       Track full name
          * @param subscribe_attributes  Subscribe attributes received
-         *
-         *
-         * @return If SubscribeResponse::status is true, SUBSCRIBE_OK MOQT message is sent
-*                   else SUBSCRIBE_ERROR MOQT message is sent with appropriate error reason
-*                   provided in SubscribeResponse::error_reason.
          */
-        virtual SubscribeResponse SubscribeReceived(ConnectionHandle connection_handle,
-                                                    uint64_t subscribe_id,
-                                                    uint64_t proposed_track_alias,
-                                                    const FullTrackName& track_full_name,
-                                                    const SubscribeAttributes& subscribe_attributes) = 0;
+        virtual void SubscribeReceived(ConnectionHandle connection_handle,
+                                       uint64_t subscribe_id,
+                                       uint64_t proposed_track_alias,
+                                       const FullTrackName& track_full_name,
+                                       const SubscribeAttributes& subscribe_attributes);
+
+        /**
+         * @brief Accept or reject an subscribe that was received
+         *
+         * @details Accept or reject an subscribe received via SubscribeReceived(). The MoQ Transport
+         *      will send the protocol message based on the SubscribeResponse
+         *
+         * @param connection_handle        source connection ID
+         * @param subscribe_id             subscribe ID
+         * @param subscribe_response       response to for the subscribe
+         */
+        virtual void ResolveSubscribe(ConnectionHandle connection_handle,
+                                      uint64_t subscribe_id,
+                                      SubscribeResponse subscribe_response);
 
         /**
          * @brief Callback notification on unsubscribe received
@@ -207,20 +218,6 @@ namespace moq {
         virtual void MetricsSampled(ConnectionHandle connection_handle, const ConnectionMetrics&& metrics)  = 0;
 
       protected:
-        /**
-         * @brief Bind a server publish track handler based on a subscribe
-         *
-         * @details The server will create a server publish track handler based on a received
-         *      subscribe. It will use this handler to send objects to subscriber.
-         *
-         * @param connection_handle                   Connection ID of the client/subscriber
-         * @param subscribe_id              Subscribe ID from the received subscribe
-         * @param track_handler             Server publish track handler
-         */
-        void BindPublisherTrack(ConnectionHandle connection_handle,
-                                uint64_t subscribe_id,
-                                std::shared_ptr<ServerPublishTrackHandler> track_handler);
-
 
       private:
         bool stop_{ false };

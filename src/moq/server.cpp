@@ -18,4 +18,6 @@ namespace moq {
         Transport::Stop();
     }
 
+    void Server::NewConnectionAccepted(moq::ConnectionHandle, const int&) {
+    }
 } // namespace moq

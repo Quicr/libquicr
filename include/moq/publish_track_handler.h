@@ -251,7 +251,7 @@ namespace moq {
          */
         using PublishObjFunction = std::function<PublishObjectStatus(uint8_t priority,
                                                                      uint32_t ttl,
-                                                                     bool Tr,
+                                                                     bool stream_header_needed,
                                                                      uint64_t group_id,
                                                                      uint64_t object_id,
                                                                      BytesSpan data)>;

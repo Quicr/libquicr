@@ -28,6 +28,29 @@ namespace moq {
     };
 
     /**
+     * @brief Response to received MOQT Subscribe message
+     */
+    struct SubscribeResponse
+    {
+        /**
+         * @details **kOK** indicates that the subscribe is accepted and OK should be sent. Any other
+         *       value indicates that the subscribe is not accepted and the reason code and other
+         *       fields will be set.
+         */
+        enum class ReasonCode : uint8_t
+        {
+            kOk = 0,
+            kInternalError,
+            kInvalidRange,
+            kRetryTrackAlias,
+        };
+        ReasonCode reason_code;
+
+        std::optional<Bytes> reason_phrase;
+        std::optional<uint64_t> track_alias; ///< Set only when ResponseCode is kRetryTrackAlias
+    };
+
+    /**
      * @brief MoQ track base handler for tracks (subscribe/publish)
      *
      * @details Base MoQ track handler

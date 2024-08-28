@@ -33,10 +33,10 @@ namespace moq {
 
             kInvalidParams,
 
-            kClientConnecting,
+            kConnecting,
             kDisconnecting,
-            kClientNotConnected,
-            kClientFailedToConnect
+            kNotConnected,
+            kFailedToConnect
         };
 
         /**
@@ -118,14 +118,32 @@ namespace moq {
          *      and a publish track will not begin, then **false** should be returned. The Transport
          *      will send the appropriate message to indicate the accept/reject.
          *
+         * @note The caller **MUST** respond to this via ResolveSubscribe(). If the caller does not
+         *      override this method, the default will call ResolveSubscribe() with the status of error as
+         *      not exists.
+         *
          * @param track_full_name           Track full name
          * @param subscribe_attributes      Subscribe attributes received
-         *
-         * @return Caller returns **true** to accept the subscribe and will start to publish, **false** to reject
-         *      the subscribe and will not publish.
          */
-        virtual bool UnpublishedSubscribeReceived(const FullTrackName& track_full_name,
-                                                  const SubscribeAttributes& subscribe_attributes) {}
+        virtual void UnpublishedSubscribeReceived(const FullTrackName& track_full_name,
+                                                  const SubscribeAttributes& subscribe_attributes) {
+            // TODO: add the default response
+        }
+
+        /**
+         * @brief Accept or reject an subscribe that was received
+         *
+         * @details Accept or reject an subscribe received via SubscribeReceived(). The MoQ Transport
+         *      will send the protocol message based on the SubscribeResponse
+         *
+         * @param connection_handle        source connection ID
+         * @param subscribe_id             subscribe ID
+         * @param subscribe_response       response to for the subscribe
+         */
+        virtual void ResolveSubscribe(ConnectionHandle connection_handle,
+                                      uint64_t subscribe_id,
+                                      SubscribeResponse subscribe_response);
+
 
         /**
          * @brief Notification callback to provide sampled metrics
@@ -188,10 +206,8 @@ namespace moq {
          *
          * @param track_namespace    Track handler to use for track related functions
          *                           and callbacks
-         *
-         * @return PublishAnnounceStatus of the publish announce namespace
          */
-        PublishAnnounceStatus PublishAnnounce(const TrackNamespace& track_namespace);
+        void PublishAnnounce(const TrackNamespace& track_namespace);
 
         /**
          * @brief Unannounce a publish namespace
