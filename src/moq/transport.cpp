@@ -336,7 +336,7 @@ namespace moq {
 
     void Transport::BindPublisherTrack(TransportConnId conn_id,
                                        uint64_t subscribe_id,
-                                       std::shared_ptr<ServerPublishTrackHandler> track_handler)
+                                       std::shared_ptr<PublishTrackHandler> track_handler)
     {
         // Generate track alias
         const auto& tfn = track_handler->GetFullTrackName();
@@ -364,7 +364,7 @@ namespace moq {
 
         track_handler->publish_data_ctx_id_ =
           quic_transport_->CreateDataContext(conn_id,
-                                             track_handler->track_mode_ == TrackMode::kDatagram ? false : true,
+                                             track_handler->default_track_mode_ == TrackMode::kDatagram ? false : true,
                                              track_handler->default_priority_,
                                              false);
 
