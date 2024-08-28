@@ -4,7 +4,7 @@
 #include <string>
 #include <sys/socket.h>
 
-#include "moq/messages.h"
+#include "moq/detail/messages.h"
 
 using namespace moq;
 using namespace moq::messages;

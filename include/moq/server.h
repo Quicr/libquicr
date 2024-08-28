@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "moq/messages.h"
+#include "moq/detail/messages.h"
 #include <moq/config.h>
 #include <moq/detail/transport.h>
 #include <moq/object.h>

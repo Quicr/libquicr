@@ -1303,7 +1303,6 @@ void
 PicoQuicTransport::OnRecvDatagram(ConnectionContext* conn_ctx, uint8_t* bytes, size_t length)
 {
     if (length == 0) {
-        LOGGER_DEBUG("On receive datagram has zero length, ignoring");
         return;
     }
 
@@ -1789,7 +1788,7 @@ void PicoQuicTransport::CbNotifier()
     LOGGER_INFO(logger, "Starting transport callback notifier thread");
 
     while (not stop_) {
-        auto cb = std::move(cbNotifyQueue_.BlockPop());
+        auto cb = cbNotifyQueue_.BlockPop();
         if (cb) {
             (*cb)();
         } else {

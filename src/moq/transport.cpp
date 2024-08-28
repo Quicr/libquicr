@@ -25,7 +25,7 @@ namespace moq {
      , quic_transport_({})
    {
        LOGGER_INFO(
-         logger_, "Created Moq instance in client mode listening on {0}:{1}", cfg.server_host_ip, cfg.server_port);
+         logger_, "Created Moq instance in client mode listening on {0}", cfg.connect_uri);
        Init();
    }
 
@@ -48,10 +48,10 @@ namespace moq {
    Transport::Status Transport::Start()
    {
        if (client_mode_) {
-           TransportRemote relay { .host_or_ip = client_config_.server_host_ip,
-                                  .port = client_config_.server_port,
-                                  .proto =  TransportProtocol::kQuic };
-
+           TransportRemote relay;
+           relay.host_or_ip = client_config_.connect_uri;
+           //    relay.port = client_config_.server_port; // TODO: Break out port form connect uri
+           relay.proto = TransportProtocol::kQuic;
            quic_transport_ = ITransport::MakeClientTransport(relay, client_config_.transport_config, *this, logger_);
 
            status_ = Status::kClientConnecting;
@@ -106,7 +106,7 @@ namespace moq {
        auto client_setup = MoqClientSetup{};
 
        client_setup.num_versions = 1;      // NOTE: Not used for encode, verison vector size is used
-       client_setup.supported_versions = { MOQT_VERSION };
+       client_setup.supported_versions = { MOQ_VERSION };
        client_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::Role);
        client_setup.role_parameter.length = 0x1; // NOTE: not used for encode, size of value is used
        client_setup.role_parameter.value = { 0x03 };
@@ -115,9 +115,9 @@ namespace moq {
 
        buffer << client_setup;
 
-       auto &conn_ctx = _connections.begin()->second;
+       auto &conn_ctx = connections_.begin()->second;
 
-       send_ctrl_msg(conn_ctx, buffer.Front(buffer.Size()));
+       SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
    }
 
    void Transport::SendServerSetup(ConnectionContext& conn_ctx)
@@ -137,7 +137,7 @@ namespace moq {
 
        LOGGER_DEBUG(logger_, "Sending SERVER_SETUP to conn_id: {0}", conn_ctx.connection_handle);
 
-       send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+       SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
    }
 
    void Transport::SendAnnounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
@@ -151,7 +151,7 @@ namespace moq {
 
        LOGGER_DEBUG(logger_, "Sending ANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
 
-       send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+       SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
    }
 
    void Transport::SendAnnounceOk(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
@@ -164,7 +164,7 @@ namespace moq {
 
        LOGGER_DEBUG(logger_, "Sending ANNOUNCE OK to conn_id: {0}", conn_ctx.connection_handle);
 
-       send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+       SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
    }
 
    void Transport::SendUnannounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
@@ -177,7 +177,7 @@ namespace moq {
 
        LOGGER_DEBUG(logger_, "Sending UNANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
 
-       send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+       SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
    }
 
    void Transport::SendSubscribe(ConnectionContext& conn_ctx,
@@ -204,7 +204,7 @@ namespace moq {
                     th.track_namespace_hash,
                     th.track_name_hash);
 
-       send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+       SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
    }
 
    void Transport::SendSubscribeOk(ConnectionContext& conn_ctx,
@@ -222,7 +222,7 @@ namespace moq {
 
        LOGGER_DEBUG(logger_, "Sending SUBSCRIBE OK to conn_id: {0} subscribe_id: {1}",conn_ctx.connection_handle, subscribe_id);
 
-       send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+       SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
    }
 
    void Transport::SendSubscribeDone(ConnectionContext& conn_ctx,
@@ -239,7 +239,7 @@ namespace moq {
 
        LOGGER_DEBUG(logger_, "Sending SUBSCRIBE DONE to conn_id: {0} subscribe_id: {1}", conn_ctx.connection_handle, subscribe_id);
 
-       send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+       SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
    }
 
 
@@ -254,7 +254,7 @@ namespace moq {
 
        LOGGER_DEBUG(logger_, "Sending UNSUBSCRIBE to conn_id: {0} subscribe_id: {1}", conn_ctx.connection_handle, subscribe_id);
 
-       send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+       SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
    }
 
 
@@ -281,43 +281,43 @@ namespace moq {
                     static_cast<int>(error),
                     reason);
 
-       send_ctrl_msg(conn_ctx, buffer.front(buffer.size()));
+       SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
    }
 
    Transport::Status Transport::Status()
    {
-       return _status;
+       return status_;
    }
 
    bool Transport::ProcessRecvCtrlMessage(ConnectionContext& conn_ctx,
                                                std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer)
    {
-       if (stream_buffer->size() == 0) { // should never happen
-           close_connection(conn_ctx.connection_handle,
+       if (stream_buffer->Size() == 0) { // should never happen
+           CloseConnection(conn_ctx.connection_handle,
                             MoqTerminationReason::INTERNAL_ERROR,
                             "Stream buffer cannot be zero when parsing message type");
        }
 
        if (not conn_ctx.ctrl_msg_type_received) { // should never happen
-           close_connection(conn_ctx.connection_handle,
+           CloseConnection(conn_ctx.connection_handle,
                             MoqTerminationReason::INTERNAL_ERROR,
                             "Process recv message connection context is missing message type");
        }
 
        switch (*conn_ctx.ctrl_msg_type_received) {
            case MoqMessageType::SUBSCRIBE: {
-               if (not stream_buffer->anyHasValue()) {
+               if (not stream_buffer->AnyHasValue()) {
                    LOGGER_DEBUG(logger_, "Received subscribe, init stream buffer");
-                   stream_buffer->initAny<MoqSubscribe>();
+                   stream_buffer->InitAny<MoqSubscribe>();
                }
 
-               auto& msg = stream_buffer->getAny<MoqSubscribe>();
+               auto& msg = stream_buffer->GetAny<MoqSubscribe>();
                if (*stream_buffer >> msg) {
                    auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
                    auto th = TrackHash(tfn);
 
-                   if (msg.subscribe_id > conn_ctx._sub_id) {
-                       conn_ctx._sub_id = msg.subscribe_id + 1;
+                   if (msg.subscribe_id > conn_ctx.current_subscribe_id) {
+                       conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
                    }
 
                    // For client/publisher, notify track that there is a subscriber
@@ -339,7 +339,7 @@ namespace moq {
                            return true;
                        }
 
-                       send_subscribe_ok(conn_ctx, msg.subscribe_id, MOQT_SUBSCRIBE_EXPIRES, false);
+                       send_subscribe_ok(conn_ctx, msg.subscribe_id, MOQ_SUBSCRIBE_EXPIRES, false);
 
                        LOGGER_DEBUG(logger_, "Received subscribe to announced track alias: {0} recv subscribe_id: {1}, setting send state to ready", msg.track_alias, msg.subscribe_id);
 
