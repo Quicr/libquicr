@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <transport/transport.h>
+#include <moq/quic/transport.h>
 
 #include "moq/messages.h"
 #include <moq/common.h>
@@ -15,7 +15,7 @@
 #include <moq/publish_track_handler.h>
 #include <moq/server_publish_track_handler.h>
 #include <moq/subscribe_track_handler.h>
-#include <transport/span.h>
+#include <moq/quic/span.h>
 #include <spdlog/spdlog.h>
 
 #include <map>

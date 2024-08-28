@@ -1,8 +1,7 @@
 
-add_library(quicr)
-
-target_sources(quicr PRIVATE
+set (sources
         message_buffer.cpp
+        quic/transport.cpp
         moq/messages.cpp
         moq/publish_track_handler_base.cpp
         moq/server_publish_track_handler_base.cpp
@@ -11,9 +10,16 @@ target_sources(quicr PRIVATE
         moq/client.cpp
 )
 
+if (NOT PLATFORM_ESP_IDF)
+    list(APPEND sources quic/transport_picoquic.cpp)
+endif()
+
+add_library(quicr ${sources})
+
+
 # Suppress external lib warnings
 set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)
-target_compile_options(quicr-transport PRIVATE -w)
+#target_compile_options(quicr-transport PRIVATE -w)
 
 target_compile_options(quicr
     PRIVATE
@@ -41,7 +47,16 @@ endif()
 
 target_link_libraries(quicr
     PUBLIC
-        quicr-transport)
+        spdlog)
 
-target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include)
+if (NOT PLATFORM_ESP_IDF)
+    target_link_libraries(quicr
+            PUBLIC
+            picoquic-core picoquic-log)
+endif()
+if (PLATFORM_ESP_IDF)
+    add_compile_definitions(${LIB_NAME} PLATFORM_ESP)
+endif()
+
+target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src)
 
