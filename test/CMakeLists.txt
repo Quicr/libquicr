@@ -3,9 +3,7 @@
 add_executable(quicr_test
         main.cpp
         moq_messages.cpp
-        moq_test.cpp
-        track_handlers.cpp
-)
+        moq_test.cpp)
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
 target_link_libraries(quicr_test PRIVATE quicr doctest::doctest)
