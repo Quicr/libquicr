@@ -133,12 +133,13 @@ void do_publisher(const moq::FullTrackName& full_track_name,
                   const std::shared_ptr<moq::Client>& moqInstance,
                   const bool& stop)
 {
-#if 0 
-    auto mi = moqInstance;
-
-    auto track_delegate = std::make_shared<trackDelegate>(full_track_name);
-
-    SPDLOG_LOGGER_INFO(_logger, "Started publisher track: {0}/{1}",  t_namespace, t_name);
+#if 1
+    auto track_delegate = std::make_shared<MyPublishTrackHandler>(full_track_name,
+                                                                  moq::TrackMode::kStreamPerGroup/*mode*/,
+                                                                  2/*prirority*/,
+                                                                  3000/*ttl*/);
+    
+    SPDLOG_INFO( "Started publisher track");
 
     bool published_track { false };
     bool sending { false };
@@ -146,27 +147,27 @@ void do_publisher(const moq::FullTrackName& full_track_name,
     uint64_t object_id { 0 };
 
     while (not stop) {
-        if (!published_track && qclient_vars::conn_id) {
-            SPDLOG_LOGGER_INFO(_logger, "Publish track: {0}/{1}", t_namespace, t_name);
-            mi->publishTrack(*qclient_vars::conn_id, track_delegate);
+      if ( (!published_track) &&  ( moqInstance->GetStatus() == MyClient::Status::kReady)  ) {
+            SPDLOG_INFO( "Publish track ");
+            moqInstance->PublishTrack(  track_delegate);
             published_track = true;
         }
 
-        if (track_delegate->getSendStatus() != quicr::MoQTrackDelegate::TrackSendStatus::OK) {
+      if (track_delegate->GetStatus() != MyPublishTrackHandler::Status::kOK) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
 
         if (!sending) {
-            SPDLOG_LOGGER_INFO(_logger, "--------------------------------------------------------------------------");
+            SPDLOG_INFO( "--------------------------------------------------------------------------");
 
             if (qclient_vars::publish_clock) {
-                SPDLOG_LOGGER_INFO(_logger, " Publishing clock timestamp every second");
+                SPDLOG_INFO( " Publishing clock timestamp every second");
             } else {
-                SPDLOG_LOGGER_INFO(_logger, " Type message and press enter to send");
+                SPDLOG_INFO( " Type message and press enter to send");
             }
 
-            SPDLOG_LOGGER_INFO(_logger, "--------------------------------------------------------------------------");
+            SPDLOG_INFO( "--------------------------------------------------------------------------");
             sending = true;
         }
 
@@ -174,10 +175,10 @@ void do_publisher(const moq::FullTrackName& full_track_name,
         if (qclient_vars::publish_clock) {
             std::this_thread::sleep_for(std::chrono::milliseconds(999));
             msg = get_time_str();
-            SPDLOG_LOGGER_INFO(_logger, msg);
+            SPDLOG_INFO( msg);
         } else { // stdin
             getline(std::cin, msg);
-            SPDLOG_LOGGER_INFO(_logger, "Send message: {0}", msg);
+            SPDLOG_INFO( "Send message: {0}", msg);
         }
 
         if (object_id % 5 == 0) {       // Set new group
@@ -185,14 +186,17 @@ void do_publisher(const moq::FullTrackName& full_track_name,
             group_id++;
         }
 
-        track_delegate->sendObject(
-          group_id, object_id++, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
+        moq::ObjectHeaders obj_headers = { group_id, object_id++, msg.size(), 2 /*priority*/, 3000 /* ttl */ , {} /*extentions*/ };
+        
+         track_delegate->PublishObject( obj_headers,
+                                        { reinterpret_cast<uint8_t*>(msg.data()), msg.size() }
+                                        );
     }
 
-    mi->unpublishTrack(*qclient_vars::conn_id, track_delegate);
+    moqInstance->UnpublishTrack( track_delegate);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    SPDLOG_LOGGER_INFO(_logger, "Publisher done track: {0}/{1}", t_namespace, t_name);
+    SPDLOG_INFO( "Publisher done track");
 #endif
 }
 
@@ -205,8 +209,6 @@ void do_subscriber(const moq::FullTrackName& full_track_name,
               const std::shared_ptr<moq::Client>& moqInstance,
               const bool& stop)
 {
-  //auto mi = moqInstance;
-
     auto track_delegate = std::make_shared<MySubscribeTrackHandler>( full_track_name );
 
     SPDLOG_INFO( "Started subscriber");
@@ -284,8 +286,6 @@ int
 main(int argc, char* argv[])
 {
     int result_code = EXIT_SUCCESS;
-
-    //auto logger = spdlog::stderr_color_mt("qclient");
 
     cxxopts::Options options("qclient", "MOQ Example Client");
     options
