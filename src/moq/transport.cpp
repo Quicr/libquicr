@@ -839,8 +839,14 @@ namespace moq {
                                  msg.object_id,
                                  msg.payload.size());
 
-                    sub_it->second->cb_objectReceived(
-                      msg.group_id, msg.object_id, msg.priority, std::move(msg.payload), TrackMode::kDatagram);
+                    sub_it->second->ObjectReceived({ msg.group_id,
+                                                     msg.object_id,
+                                                     msg.payload.size(),
+                                                     msg.priority,
+                                                     std::nullopt,
+                                                     TrackMode::kDatagram,
+                                                     std::nullopt },
+                                                   std::move(msg.payload));
 
                 } else {
                     LOGGER_WARN(logger_,
