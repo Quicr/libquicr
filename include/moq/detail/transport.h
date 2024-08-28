@@ -13,7 +13,6 @@
 #include <moq/config.h>
 #include <moq/detail/messages.h>
 #include <moq/metrics.h>
-#include <moq/server.h>
 #include <moq/publish_track_handler.h>
 #include <moq/server_publish_track_handler.h>
 #include <moq/subscribe_track_handler.h>
@@ -50,6 +49,26 @@ namespace moq {
             kDisconnecting,
             kClientNotConnected,
             kClientFailedToConnect
+        };
+
+        /**
+         * @brief Connection status codes
+         */
+        enum class ConnectionStatus : uint8_t
+        {
+            kNotConnected = 0,
+            kConnected,
+            kIdleTimeout,
+            kClosedByRemote
+        };
+
+        /**
+         * @brief Connection remote information
+         */
+        struct ConnectionRemoteInfo
+        {
+            std::string ip;         ///< remote IPv4/v6 address
+            uint16_t port;          ///< remote port
         };
 
         /**
@@ -237,12 +256,14 @@ namespace moq {
         // Private member functions that will be implemented by Server class
         // -------------------------------------------------------------------------------------------------
         virtual void NewConnectionAccepted(ConnectionHandle,
-                                           const Server::ConnectionRemoteInfo&) {};
+                                           const ConnectionRemoteInfo&) {};
 
-        virtual void ConnectionStatusChanged(ConnectionHandle connection_handle, Server::ConnectionStatus status) = 0;
+        virtual void ConnectionStatusChanged(ConnectionHandle, ConnectionStatus) {};
 
         virtual ClientSetupResponse ClientSetupReceived(ConnectionHandle connection_handle,
                                                         const ClientSetupAttributes& client_setup_attributes) = 0;
+
+        // -------------------------------------------------------------------------------------------------
 
         /**
          * @brief Callback notification for new announce received that needs to be authorized

@@ -23,21 +23,12 @@ namespace moq {
     class Server : public Transport
     {
       public:
-        /**
-         * @brief Connection status codes
-         */
-        enum class ConnectionStatus : uint8_t
-        {
-            kNotConnected = 0,
-            kConnected,
-            kIdleTimeout,
-            kClosedByRemote
-        };
+
 
         /**
          * @brief Response to received MOQT ClientSetup message
          */
-        struct ClientSetupResponse: public ErrorStatus {};
+        struct ClientSetupResponse {};
 
 
         /**
@@ -58,14 +49,6 @@ namespace moq {
             std::optional<Bytes> reason_phrase;
         };
 
-        /**
-         * @brief Connection remote information
-         */
-        struct ConnectionRemoteInfo
-        {
-            std::string ip;         ///< remote IPv4/v6 address
-            uint16_t port;          ///< remote port
-        };
 
         /**
          * @brief MoQ Server constructor to create the MOQ server mode instance
@@ -100,26 +83,26 @@ namespace moq {
          * @details Callback notification that a new connection has been accepted
          *
          * @param connection_handle          Transport connection ID
-         * @param remote           Transport remote connection information
+         * @param remote                     Transport remote connection information
          */
-        void NewConnectionAccepted(ConnectionHandle connection_handle, const ConnectionRemoteInfo& remote) override;
+         void NewConnectionAccepted(ConnectionHandle connection_handle, const ConnectionRemoteInfo& remote);
 
         /**
          * @brief Callback notification for connection status/state change
          * @details Callback notification indicates state change of connection, such as disconnected
          *
          * @param connection_handle          Transport connection ID
-         * @param status           ConnectionStatus of connection id
+         * @param status                     ConnectionStatus of connection id
          */
-        virtual void ConnectionStatusChanged(ConnectionHandle connection_handle, ConnectionStatus status) = 0;
+         void ConnectionStatusChanged(ConnectionHandle connection_handle, ConnectionStatus status);
 
         /**
          * @brief Callback on client setup message
          * @details In server mode, client will send a setup message on new connection.
          *         Server responds with server setup.
          *
-         * @param connection_handle                       Transport connection ID
-         * @param client_setup_attributes       Decoded client setup message
+         * @param connection_handle                    Transport connection ID
+         * @param client_setup_attributes              Decoded client setup message
          *
          * @return ClientSetupResponse indicating the status of processing the setup message.
          */

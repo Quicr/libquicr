@@ -18,6 +18,8 @@ namespace moq {
         Transport::Stop();
     }
 
-    void Server::NewConnectionAccepted(moq::ConnectionHandle, const int&) {
+    void Server::NewConnectionAccepted(moq::ConnectionHandle connection_handle, const ConnectionRemoteInfo& remote) {
+        SPDLOG_LOGGER_INFO(
+          logger_, "New connection conn_id: {0} remote ip: {1} port: {2}", connection_handle, remote.ip, remote.port);
     }
 } // namespace moq

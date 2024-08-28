@@ -700,17 +700,18 @@ namespace moq {
                     return;
                 }
 
+                // Notify the subscriber handlers of disconnect
                 for (const auto& [sub_id, handler] : conn_it->second.tracks_by_sub_id) {
-                    handler->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
-                    RemoveSubscribeNotify(conn_id, sub_id);
+                    ConnectionStatusChanged(conn_id, ConnectionStatus::kClosedByRemote);
                     RemoveSubscribeTrack(conn_it->second, *handler);
+                    handler->SetStatus(SubscribeTrackHandler::Status::kNotConnected);       // Set after remove subscribe track
                 }
 
+                // Notify publish handlers of disconnect
                 for (const auto& [name_space, track] : conn_it->second.recv_sub_id) {
                     TrackHash th(track.first, track.second);
                     if (auto pdt = GetPubTrackHandler(conn_it->second, th)) {
-                        pdt->lock()->SetSendStatus(MoqTrackDelegate::TrackSendStatus::NO_SUBSCRIBERS);
-                        pdt->lock()->cb_sendNotReady(MoqTrackDelegate::TrackSendStatus::NO_SUBSCRIBERS);
+                        pdt->lock()->SetStatus(PublishTrackHandler::Status::kNotConnected);
                     }
                 }
 
@@ -723,8 +724,8 @@ namespace moq {
 
                 break;
             }
-            case TransportStatus::Shutdown:
-                _status = Status::NOT_READY;
+            case TransportStatus::kShutdown:
+                status_ = Status::kNotReady;
                 break;
         }
     }
@@ -733,10 +734,8 @@ namespace moq {
     {
         auto [conn_ctx, is_new] = connections_.try_emplace(conn_id, ConnectionContext{});
 
-        LOGGER_INFO(
-          logger_, "New connection conn_id: {0} remote ip: {1} port: {2}", conn_id, remote.host_or_ip, remote.port);
-
-        conn_ctx->second.conn_id = conn_id;
+        conn_ctx->second.connection_handle = conn_id;
+        NewConnectionAccepted(conn_id, { remote.host_or_ip, remote.port } );
     }
 
     void Transport::OnRecvStream(const TransportConnId& conn_id,
@@ -744,7 +743,7 @@ namespace moq {
                                  std::optional<DataContextId> data_ctx_id,
                                  const bool is_bidir)
     {
-        auto stream_buf = quic_transport_->getStreamBuffer(conn_id, stream_id);
+        auto stream_buf = quic_transport_->GetStreamBuffer(conn_id, stream_id);
 
         // TODO(tievens): Considering moving lock to here... std::lock_guard<std::mutex> _(state_mutex_);
 
@@ -763,11 +762,11 @@ namespace moq {
             conn_ctx.ctrl_data_ctx_id = data_ctx_id;
         }
 
-        for (int i = 0; i < MOQ_READ_LOOP_MAX_PER_STREAM; i++) { // don't loop forever, especially on bad stream
+        for (int i = 0; i < kReadLoopMaxPerStream; i++) { // don't loop forever, especially on bad stream
             // bidir is Control stream, data streams are unidirectional
             if (is_bidir) {
                 if (not conn_ctx.ctrl_msg_type_received) {
-                    auto msg_type = stream_buf->decode_uintV();
+                    auto msg_type = stream_buf->DecodeUintV();
 
                     if (msg_type) {
                         conn_ctx.ctrl_msg_type_received = static_cast<MoqMessageType>(*msg_type);
@@ -791,7 +790,7 @@ namespace moq {
                 }
             }
 
-            if (!stream_buf->size()) { // done
+            if (!stream_buf->Size()) { // done
                 break;
             }
         }
@@ -800,8 +799,8 @@ namespace moq {
     void Transport::OnRecvDgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id)
     {
         MoqObjectStream object_datagram_out;
-        for (int i = 0; i < MOQ_READ_LOOP_MAX_PER_STREAM; i++) {
-            auto data = quic_transport_->dequeue(conn_id, data_ctx_id);
+        for (int i = 0; i < kReadLoopMaxPerStream; i++) {
+            auto data = quic_transport_->Dequeue(conn_id, data_ctx_id);
             if (data && !data->empty()) {
                 StreamBuffer<uint8_t> buffer;
                 buffer.Push(*data);
