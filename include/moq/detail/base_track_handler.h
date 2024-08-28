@@ -6,7 +6,7 @@
 #pragma once
 
 #include <optional>
-#include <transport/span.h>
+#include <moq/detail/span.h>
 #include <moq/common.h>
 #include <moq/track_name.h>
 #include <moq/object.h>

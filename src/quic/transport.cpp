@@ -1,8 +1,5 @@
-#include "transport_udp.h"
-#include <transport/transport.h>
-#if not defined(PLATFORM_ESP)
-  #include "transport_picoquic.h"
-#endif
+#include <moq/detail/quic_transport.h>
+#include "transport_picoquic.h"
 #include <memory>
 #include <stdexcept>
 #include <spdlog/logger.h>
@@ -17,16 +14,12 @@ ITransport::MakeClientTransport(const TransportRemote& server,
                                   std::shared_ptr<spdlog::logger> logger)
 {
   switch (server.proto) {
-    case TransportProtocol::kUdp:
-      return std::make_shared<UDPTransport>(server, tcfg, delegate, false, std::move(logger));
-#ifndef PLATFORM_ESP
-    case TransportProtocol::kQuic:
+     case TransportProtocol::kQuic:
       return std::make_shared<PicoQuicTransport>(server,
                                                  tcfg,
                                                  delegate,
                                                  false,
                                                  std::move(logger));
-#endif
     default:
       throw std::runtime_error("make_client_transport: Protocol not implemented");
       break;
@@ -42,17 +35,13 @@ ITransport::MakeServerTransport(const TransportRemote& server,
                                   std::shared_ptr<spdlog::logger> logger)
 {
   switch (server.proto) {
-    case TransportProtocol::kUdp:
-      return std::make_shared<UDPTransport>(server, tcfg, delegate, true, std::move(logger));
 
-#ifndef PLATFORM_ESP
     case TransportProtocol::kQuic:
       return std::make_shared<PicoQuicTransport>(server,
                                                  tcfg,
                                                  delegate,
                                                  true,
                                                  std::move(logger));
-#endif
     default:
       throw std::runtime_error("make_server_transport: Protocol not implemented");
       break;

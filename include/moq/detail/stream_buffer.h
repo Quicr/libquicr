@@ -5,9 +5,9 @@
 #include <deque>
 #include <mutex>
 #include <optional>
-#include <transport/span.h>
+#include "span.h"
 
-#include <transport/uintvar.h>
+#include "uintvar.h"
 
 namespace qtransport {
     template<typename T, class Allocator = std::allocator<T>>

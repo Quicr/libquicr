@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <transport/transport.h>
+#include <moq/detail/quic_transport.h>
 #include <string>
 
 namespace moq {

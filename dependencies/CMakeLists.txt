@@ -25,7 +25,7 @@ if (NOT TARGET spdlog)
     add_subdirectory(spdlog)
 endif()
 
-if(BUILD_TESTING AND QTRANSPORT_BUILD_TESTS AND NOT TARGET doctest)
+if(BUILD_TESTING AND QUICR_BUILD_TESTS AND NOT TARGET doctest)
     add_subdirectory(doctest)
 endif()
 

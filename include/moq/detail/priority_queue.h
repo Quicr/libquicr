@@ -47,7 +47,7 @@ namespace qtransport {
          * @param tick_service Shared pointer to tick_service service
          */
         PriorityQueue(const std::shared_ptr<TickService>& tick_service)
-          : PriorityQueue(1000, 1, tick_service_, 1000)
+          : PriorityQueue(1000, 1, tick_service, 1000)
         {
         }
 

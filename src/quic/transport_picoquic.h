@@ -20,15 +20,14 @@
 #include <picoquic.h>
 #include <picoquic_config.h>
 #include <picoquic_packet_loop.h>
-#include <transport/transport.h>
+#include <moq/detail/quic_transport.h>
 #include <spdlog/spdlog.h>
 
-#include "transport/priority_queue.h"
-#include "transport/safe_queue.h"
-#include "transport/time_queue.h"
-#include "transport/transport_metrics.h"
-#include "transport/stream_buffer.h"
-
+#include <moq/detail/priority_queue.h>
+#include <moq/detail/safe_queue.h>
+#include <moq/detail/time_queue.h>
+#include <moq/detail/quic_transport_metrics.h>
+#include <moq/detail/stream_buffer.h>
 namespace qtransport {
 
     constexpr int kPqLoopMaxDelayUs = 500;           /// The max microseconds that pq_loop will be ran again

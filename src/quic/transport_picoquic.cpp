@@ -11,13 +11,12 @@
 #include <picosocks.h>
 
 // Transport.
-#include "transport/transport.h"
-#include "transport/transport_metrics.h"
-#include "transport/safe_queue.h"
-#include "transport/stream_buffer.h"
-#include "transport/priority_queue.h"
-#include "transport/span.h"
-#include "transport/time_queue.h"
+#include <moq/detail/quic_transport_metrics.h>
+#include <moq/detail/safe_queue.h>
+#include <moq/detail/stream_buffer.h>
+#include <moq/detail/priority_queue.h>
+#include <moq/detail/span.h>
+#include <moq/detail/time_queue.h>
 #include <spdlog/logger.h>
 
 // System.
@@ -79,7 +78,7 @@ namespace {
      *
      * @return The datagram stream id.
      */
-    constexpr DataContextId MakeDatagramStreamId(bool is_server, bool is_unidirectional)
+    constexpr DataContextId MakeDatagramStreamId(bool /*is_server*/, bool /*is_unidirectional*/)
     {
         return 0;
     }

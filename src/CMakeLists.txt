@@ -1,7 +1,9 @@
 
-set (sources
+add_library(quicr)
+target_sources (quicr PRIVATE
         message_buffer.cpp
         quic/transport.cpp
+        quic/transport_picoquic.cpp
         moq/messages.cpp
         moq/publish_track_handler_base.cpp
         moq/server_publish_track_handler_base.cpp
@@ -9,13 +11,6 @@ set (sources
         moq/server.cpp
         moq/client.cpp
 )
-
-if (NOT PLATFORM_ESP_IDF)
-    list(APPEND sources quic/transport_picoquic.cpp)
-endif()
-
-add_library(quicr ${sources})
-
 
 # Suppress external lib warnings
 set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)

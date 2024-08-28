@@ -7,8 +7,8 @@
 #include <moq/server_publish_track_handler.h>
 
 namespace moq {
-    void ServerPublishTrackHandler::StatusChanged(moq::ServerPublishTrackHandler::Status status) {}
-    void ServerPublishTrackHandler::MetricsSampled(const moq::PublishTrackMetrics&& metrics) {}
+    void ServerPublishTrackHandler::StatusChanged(moq::ServerPublishTrackHandler::Status /*status*/) {}
+    void ServerPublishTrackHandler::MetricsSampled(const moq::PublishTrackMetrics&& /*metrics*/) {}
 
     ServerPublishTrackHandler::PublishObjectStatus ServerPublishTrackHandler::PublishObject(
       const moq::ObjectHeaders& object_headers,

@@ -10,10 +10,10 @@
 #include <sys/socket.h>
 #include <string>
 
-#include <transport/uintvar.h>
-#include <transport/safe_queue.h>
-#include <transport/transport_metrics.h>
-#include <transport/stream_buffer.h>
+#include "quic_transport_metrics.h"
+#include "safe_queue.h"
+#include "stream_buffer.h"
+#include "uintvar.h"
 #include <spdlog/spdlog.h>
 
 namespace qtransport {
