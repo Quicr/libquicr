@@ -14,7 +14,6 @@
 #include <moq/detail/messages.h>
 #include <moq/metrics.h>
 #include <moq/publish_track_handler.h>
-#include <moq/server_publish_track_handler.h>
 #include <moq/subscribe_track_handler.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
@@ -49,6 +48,25 @@ namespace moq {
             kDisconnecting,
             kClientNotConnected,
             kClientFailedToConnect
+        };
+
+        enum class ControlMessageStatus : uint8_t
+        {
+            kMessageIncomplete,        ///< control message is incomplete and more data is needed
+            kMessageComplete,          ///< control message is complete and stream buffer get any has complete message
+            kStreamBufferCannotBeZero, ///< stream buffer cannot be zero when parsing message type
+            kStreamBufferMissingType,  ///< connection context is missing message type
+            kUnsupportedMessageType,   ///< Unsupported MOQT message type
+        };
+
+        struct ControlMessage
+        {
+            ControlMessageStatus status;           ///< Status of the parse, if complete moq_message will be set
+            messages::MoqMessageType message_type; ///< MoQ message type parsed and stored in the **any**
+        };
+
+        enum class StreamDataMessageStatus : uint8_t
+        {
         };
 
         /**
@@ -262,20 +280,30 @@ namespace moq {
 
         // -------------------------------------------------------------------------------------------------
 
+      private:
+        virtual ControlMessage ProcessCtrlMessage(ConnectionContext& conn_ctx,
+                                          std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
+        template<class MessageType>
+        std::pair<MessageType&, bool> ParseControlMessage(ControlMessage& ctrl_msg, std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+
+      private:
         std::mutex state_mutex_;
         const bool client_mode_;
         std::shared_ptr<spdlog::logger> logger_;
         bool stop_{ false };
         const ServerConfig server_config_;
         const ClientConfig client_config_;
-        ReceiveMessageHandler receive_message_handler_;
 
         std::map<ConnectionHandle, ConnectionContext> connections_;
 
         Status status_{ Status::kNotReady };
 
         std::shared_ptr<ITransport> quic_transport_; // **MUST** be last for proper order of destruction
+        bool last_control_message_complete_ { false };
+
+        friend class Client;
+        friend class Server;
     };
 
 } // namespace moq

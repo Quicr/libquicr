@@ -72,7 +72,7 @@ namespace moq {
          * @return Status of kDisconnecting
          */
         Status Disconnect();
-      
+
         /**
          * @brief Callback notification for connection status/state change
          * @details Callback notification indicates state change of connection, such as disconnected
@@ -87,7 +87,7 @@ namespace moq {
          * @return Status of the Client
          */
          Status GetStatus();
-      
+
         /**
          * @brief Callback on server setup message
          *
@@ -243,6 +243,9 @@ namespace moq {
                 Transport::UnpublishTrack(*connection_handle_, std::move(track_handler));
             }
         }
+
+        virtual ControlMessage ProcessCtrlMessage(ConnectionContext& conn_ctx,
+                                                  std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
       private:
         std::optional<ConnectionHandle> connection_handle_;               ///< Connection ID for the client
