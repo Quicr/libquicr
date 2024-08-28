@@ -523,14 +523,10 @@ namespace moq {
 
             default:
                 // Process the stream object type
-                /*
-                logger_->error << "Unsupported MOQT data message "
-                               << "type: " << static_cast<uint64_t>(*conn_ctx.ctrl_msg_type_received)
-                               << std::flush;
+                SPDLOG_LOGGER_ERROR(logger_, "Unsupported MOQT data message type: {0}", static_cast<uint64_t>(*conn_ctx.ctrl_msg_type_received));
                 CloseConnection(conn_ctx.connection_handle,
-                                 MoqTerminationReason::PROTOCOL_VIOLATION,
+                                 messages::MoqTerminationReason::PROTOCOL_VIOLATION,
                                  "Unsupported MOQT data message type");
-                 */
                 return true;
         }
 
