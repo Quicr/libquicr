@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <moq/detail/receive_message_handler.h>
 #include <transport/transport.h>
 
 #include <moq/common.h>
@@ -22,6 +21,7 @@
 #include <map>
 #include <string>
 #include <string_view>
+#include <tuple>
 
 namespace moq {
 
@@ -274,8 +274,20 @@ namespace moq {
         virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
                                         std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
+        virtual bool ProcessStreamDataMessage(ConnectionContext& conn_ctx,
+                                              std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+
         template<class MessageType>
         std::pair<MessageType&, bool> ParseControlMessage(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+
+        template<class MessageType>
+        std::pair<MessageType&, bool> ParseDataMessage(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer, messages::MoqMessageType msg_type);
+
+        template<class HeaderType, class MessageType>
+        std::pair<HeaderType&, bool> ParseStreamData(
+          std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
+          messages::MoqMessageType msg_type,
+          const ConnectionContext& conn_ctx);
 
       private:
         // -------------------------------------------------------------------------------------------------

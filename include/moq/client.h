@@ -64,7 +64,7 @@ namespace moq {
          *
          * @param status           Status change
          */
-        virtual void StatusChanged(Status status) {}
+        virtual void StatusChanged(Status status);
 
          /**
          * @brief Get the status of the Client
@@ -81,7 +81,7 @@ namespace moq {
          *
          * @param server_setup_attributes     Server setup attributes received
          */
-        virtual void ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes) {}
+        virtual void ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes);
 
         /**
          * @brief Notification on publish announcement status change
@@ -91,7 +91,7 @@ namespace moq {
          * @param track_namespace             Track namespace to announce
          * @param status                      Publish announce status
          */
-        virtual void AnnounceStatusChanged(const TrackNamespace& track_namespace, const PublishAnnounceStatus status) {}
+        virtual void AnnounceStatusChanged(const TrackNamespace& track_namespace, const PublishAnnounceStatus status);
 
         /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
@@ -111,9 +111,7 @@ namespace moq {
          * @param subscribe_attributes      Subscribe attributes received
          */
         virtual void UnpublishedSubscribeReceived(const FullTrackName& track_full_name,
-                                                  const SubscribeAttributes& subscribe_attributes) {
-            // TODO: add the default response
-        }
+                                                  const SubscribeAttributes& subscribe_attributes);
 
         /**
          * @brief Accept or reject an subscribe that was received
@@ -139,7 +137,7 @@ namespace moq {
          *
          * @param metrics           Copy of the connection metrics for the sample period
          */
-        virtual void MetricsSampled(const ConnectionMetrics&& metrics) {}
+        virtual void MetricsSampled(const ConnectionMetrics&& metrics);
 
         /**
          * @brief Get announce status for namespace
@@ -229,8 +227,12 @@ namespace moq {
             }
         }
 
+      private:
         virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                                  std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+                                        std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+
+        virtual bool ProcessStreamDataMessage(ConnectionContext& conn_ctx,
+                                              std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
       private:
         void SetStatus(Status status) { status_ = status; StatusChanged(status); }
