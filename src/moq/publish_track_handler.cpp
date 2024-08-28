@@ -11,7 +11,7 @@ namespace moq {
     void PublishTrackHandler::MetricsSampled(const PublishTrackMetrics&&) {}
 
     PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(
-      const moq::ObjectHeaders& object_headers,
+      const ObjectHeaders& object_headers,
       moq::BytesSpan data)
     {
         bool is_stream_header_needed{ false };

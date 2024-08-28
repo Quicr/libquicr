@@ -69,7 +69,7 @@ namespace moq {
 
             quic_transport_ = ITransport::MakeClientTransport(relay, client_config_.transport_config, *this, logger_);
 
-            status_ = Status::kClientConnecting;
+            status_ = Status::kConnecting;
 
             auto conn_id = quic_transport_->Start(nullptr, nullptr);
 
@@ -785,7 +785,7 @@ namespace moq {
 
             // Data stream, unidirectional
             else {
-                if (process_recv_stream_data_message(conn_ctx, stream_buf)) {
+                if (ProcessStreamDataMessage(conn_ctx, stream_buf)) {
                     break;
                 }
             }
@@ -846,7 +846,7 @@ namespace moq {
                                                      std::nullopt,
                                                      TrackMode::kDatagram,
                                                      std::nullopt },
-                                                   std::move(msg.payload));
+                                                   msg.payload);
 
                 } else {
                     LOGGER_WARN(logger_,
@@ -903,6 +903,11 @@ namespace moq {
         return false;
     }
 
+    bool Transport::ProcessStreamDataMessage(ConnectionContext&, std::shared_ptr<StreamBuffer<uint8_t>>&)
+    {
+        return false;
+    }
+
     template<class MessageType>
     std::pair<MessageType&, bool> Transport::ParseControlMessage(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer)
     {
@@ -913,6 +918,51 @@ namespace moq {
 
         auto& msg = stream_buffer->GetAny<MessageType>();
         if (*stream_buffer >> msg) {
+            return { msg, true };
+        }
+
+        return { msg, false };
+    }
+
+    template<class MessageType>
+    std::pair<MessageType&, bool> Transport::ParseDataMessage(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
+                                                              MoqMessageType msg_type)
+    {
+        if (!stream_buffer->AnyHasValue()) {
+            SPDLOG_LOGGER_INFO(logger_, "Received stream message (type = {0}), init stream buffer", static_cast<std::uint64_t>(msg_type));
+            stream_buffer->InitAny<MessageType>(static_cast<uint64_t>(msg_type));
+        }
+
+        auto& msg = stream_buffer->GetAny<MessageType>();
+        if (*stream_buffer >> msg) {
+            return { msg, true };
+        }
+
+        return { msg, false };
+    }
+
+    template<class HeaderType, class MessageType>
+    std::pair<HeaderType&, bool> Transport::ParseStreamData(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
+                                                            MoqMessageType msg_type,
+                                                            const ConnectionContext& conn_ctx)
+    {
+        if (!stream_buffer->AnyHasValue()) {
+            LOGGER_DEBUG(logger_, "Received stream header (type = {0}), init stream buffer", static_cast<std::uint64_t>(msg_type));
+            stream_buffer->InitAny<HeaderType>(static_cast<uint64_t>(msg_type));
+        }
+
+        auto& msg = stream_buffer->GetAny<HeaderType>();
+        if (!stream_buffer->AnyHasValueB() && *stream_buffer >> msg) {
+            auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+            if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                SPDLOG_LOGGER_WARN(logger_,
+                                   "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
+                                   msg.subscribe_id);
+                return {msg, true} ;
+            }
+
+            // Init second working buffer to read data object
+            stream_buffer->InitAnyB<MessageType>();
             return { msg, true };
         }
 
@@ -957,5 +1007,21 @@ namespace moq {
     std::pair<messages::MoqStreamHeaderGroup&, bool> Transport::ParseControlMessage<messages::MoqStreamHeaderGroup>(std::shared_ptr<StreamBuffer<uint8_t>>&);
     template
     std::pair<messages::MoqStreamGroupObject&, bool> Transport::ParseControlMessage<messages::MoqStreamGroupObject>(std::shared_ptr<StreamBuffer<uint8_t>>&);
+
+
+    template
+    std::pair<messages::MoqObjectStream&, bool> Transport::ParseDataMessage<messages::MoqObjectStream>(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
+                                                              MoqMessageType msg_type);
+
+
+
+    template
+    std::pair<messages::MoqStreamHeaderTrack&, bool> Transport::ParseStreamData<messages::MoqStreamHeaderTrack, messages::MoqStreamTrackObject>(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
+                                                            MoqMessageType msg_type,
+                                                            const ConnectionContext& conn_ctx);
+    template
+    std::pair<messages::MoqStreamHeaderGroup&, bool> Transport::ParseStreamData<messages::MoqStreamHeaderGroup, messages::MoqStreamGroupObject>(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
+                                                            MoqMessageType msg_type,
+                                                            const ConnectionContext& conn_ctx);
 
 } // namespace moq

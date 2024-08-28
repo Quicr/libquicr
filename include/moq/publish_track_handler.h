@@ -7,6 +7,7 @@
 
 #include <functional>
 #include <moq/detail/base_track_handler.h>
+#include <moq/object.h>
 #include <moq/metrics.h>
 
 namespace moq {
