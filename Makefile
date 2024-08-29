@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+# SPDX-License-Identifier: BSD-2-Clause
+
 # This is just a convenience Makefile to avoid having to remember
 # all the CMake commands and their arguments.
 
