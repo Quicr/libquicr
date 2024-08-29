@@ -94,7 +94,7 @@ namespace moq {
      , client_config_(cfg)
      , quic_transport_({})
    {
-       LOGGER_INFO(logger_, "Created Moq instance in client mode listening on {0}", cfg.connect_uri);
+       LOGGER_INFO(logger_, "Created Moq instance in client mode connecting to {0}", cfg.connect_uri);
        Init();
    }
 
@@ -120,7 +120,7 @@ namespace moq {
            TransportRemote relay;
            auto parse_result = parse_connect_uri(client_config_.connect_uri);
            if (!parse_result) {
-               return Transport::Status::kInvalidParams;
+               return Status::kInvalidParams;
            }
            auto [address, port] = parse_result.value();
            relay.host_or_ip = address;
@@ -131,6 +131,8 @@ namespace moq {
 
 
            auto conn_id = quic_transport_->Start(nullptr, nullptr);
+
+           SetConnectionHandle(conn_id);
 
            status_ = Status::kConnecting;
            StatusChanged(status_);
@@ -147,13 +149,10 @@ namespace moq {
            server.proto = TransportProtocol::kQuic;
 
            quic_transport_ = ITransport::MakeServerTransport(server, server_config_.transport_config, *this, logger_);
+           quic_transport_->Start(nullptr, nullptr);
 
-           switch (quic_transport_->Status()) {
-               case TransportStatus::kReady:
-                   return Status::kReady;
-               default:
-                   return Status::kNotReady;
-           }
+           status_ = Status::kReady;
+           return status_;
        }
    }
 

@@ -272,6 +272,7 @@ namespace moq {
 
         virtual void ConnectionStatusChanged(ConnectionHandle, ConnectionStatus) {};
 
+        virtual void SetConnectionHandle(ConnectionHandle) {};
 
         // -------------------------------------------------------------------------------------------------
 
