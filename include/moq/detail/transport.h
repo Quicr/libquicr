@@ -178,9 +178,7 @@ namespace moq {
         // -------------------------------------------------------------------------------------------------
 
         void OnNewDataContext([[maybe_unused]] const ConnectionHandle& connection_handle,
-                              [[maybe_unused]] const DataContextId& data_ctx_id) override
-        {
-        }
+                              [[maybe_unused]] const DataContextId& data_ctx_id) override;
 
         void OnConnectionStatus(const ConnectionHandle& connection_handle, const TransportStatus status) override;
         void OnNewConnection(const ConnectionHandle& connection_handle, const TransportRemote& remote) override;

@@ -64,5 +64,5 @@ if(BUILD_TESTING AND QUICR_BUILD_TESTS)
 endif()
 
 if (BUILD_BENCHMARKING AND quicr_BUILD_BENCHMARKS)
-#    add_subdirectory(benchmark)
+   add_subdirectory(benchmark)
 endif()

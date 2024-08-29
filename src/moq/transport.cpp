@@ -95,6 +95,13 @@ namespace moq {
         }
     }
 
+    Transport::Status Transport::Stop()
+    {
+        return Status();
+    }
+
+    void Transport::OnNewDataContext(const ConnectionHandle&, const DataContextId&) {}
+
     void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, std::vector<uint8_t>&& data)
     {
         if (not conn_ctx.ctrl_data_ctx_id) {
@@ -391,7 +398,9 @@ namespace moq {
         RemoveSubscribeTrack(conn_ctx, *track_handler);
     }
 
-    void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx, SubscribeTrackHandler& handler, bool remove_handler)
+    void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx,
+                                         SubscribeTrackHandler& handler,
+                                         bool remove_handler)
     {
         handler.SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
         handler.SetSubscribeId(std::nullopt);
@@ -469,8 +478,7 @@ namespace moq {
         }
     }
 
-    void Transport::PublishTrack(TransportConnId conn_id,
-                                 std::shared_ptr<PublishTrackHandler> track_handler)
+    void Transport::PublishTrack(TransportConnId conn_id, std::shared_ptr<PublishTrackHandler> track_handler)
     {
         // Generate track alias
         auto tfn = track_handler->GetFullTrackName();
@@ -704,7 +712,8 @@ namespace moq {
                 for (const auto& [sub_id, handler] : conn_it->second.tracks_by_sub_id) {
                     ConnectionStatusChanged(conn_id, ConnectionStatus::kClosedByRemote);
                     RemoveSubscribeTrack(conn_it->second, *handler);
-                    handler->SetStatus(SubscribeTrackHandler::Status::kNotConnected);       // Set after remove subscribe track
+                    handler->SetStatus(
+                      SubscribeTrackHandler::Status::kNotConnected); // Set after remove subscribe track
                 }
 
                 // Notify publish handlers of disconnect
@@ -735,7 +744,7 @@ namespace moq {
         auto [conn_ctx, is_new] = connections_.try_emplace(conn_id, ConnectionContext{});
 
         conn_ctx->second.connection_handle = conn_id;
-        NewConnectionAccepted(conn_id, { remote.host_or_ip, remote.port } );
+        NewConnectionAccepted(conn_id, { remote.host_or_ip, remote.port });
     }
 
     void Transport::OnRecvStream(const TransportConnId& conn_id,
@@ -929,7 +938,9 @@ namespace moq {
                                                               MoqMessageType msg_type)
     {
         if (!stream_buffer->AnyHasValue()) {
-            SPDLOG_LOGGER_INFO(logger_, "Received stream message (type = {0}), init stream buffer", static_cast<std::uint64_t>(msg_type));
+            SPDLOG_LOGGER_INFO(logger_,
+                               "Received stream message (type = {0}), init stream buffer",
+                               static_cast<std::uint64_t>(msg_type));
             stream_buffer->InitAny<MessageType>(static_cast<uint64_t>(msg_type));
         }
 
@@ -947,7 +958,8 @@ namespace moq {
                                                             const ConnectionContext& conn_ctx)
     {
         if (!stream_buffer->AnyHasValue()) {
-            LOGGER_DEBUG(logger_, "Received stream header (type = {0}), init stream buffer", static_cast<std::uint64_t>(msg_type));
+            LOGGER_DEBUG(
+              logger_, "Received stream header (type = {0}), init stream buffer", static_cast<std::uint64_t>(msg_type));
             stream_buffer->InitAny<HeaderType>(static_cast<uint64_t>(msg_type));
         }
 
@@ -958,7 +970,7 @@ namespace moq {
                 SPDLOG_LOGGER_WARN(logger_,
                                    "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
                                    msg.subscribe_id);
-                return {msg, true} ;
+                return { msg, true };
             }
 
             // Init second working buffer to read data object
@@ -969,61 +981,60 @@ namespace moq {
         return { msg, false };
     }
 
-    template
-    std::pair<messages::MoqSubscribe&, bool> Transport::ParseControlMessage<messages::MoqSubscribe>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqSubscribeOk&, bool> Transport::ParseControlMessage<messages::MoqSubscribeOk>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqSubscribeError&, bool> Transport::ParseControlMessage<messages::MoqSubscribeError>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqUnsubscribe&, bool> Transport::ParseControlMessage<messages::MoqUnsubscribe>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqSubscribeDone&, bool> Transport::ParseControlMessage<messages::MoqSubscribeDone>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqTrackStatusRequest&, bool> Transport::ParseControlMessage<messages::MoqTrackStatusRequest>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqTrackStatus&, bool> Transport::ParseControlMessage<messages::MoqTrackStatus>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqAnnounce&, bool> Transport::ParseControlMessage<messages::MoqAnnounce>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqAnnounceOk&, bool> Transport::ParseControlMessage<messages::MoqAnnounceOk>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqAnnounceError&, bool> Transport::ParseControlMessage<messages::MoqAnnounceError>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqUnannounce&, bool> Transport::ParseControlMessage<messages::MoqUnannounce>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqAnnounceCancel&, bool> Transport::ParseControlMessage<messages::MoqAnnounceCancel>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqGoaway&, bool> Transport::ParseControlMessage<messages::MoqGoaway>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqClientSetup&, bool> Transport::ParseControlMessage<messages::MoqClientSetup>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqObjectStream&, bool> Transport::ParseControlMessage<messages::MoqObjectStream>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqObjectDatagram&, bool> Transport::ParseControlMessage<messages::MoqObjectDatagram>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqStreamHeaderTrack&, bool> Transport::ParseControlMessage<messages::MoqStreamHeaderTrack>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqStreamHeaderGroup&, bool> Transport::ParseControlMessage<messages::MoqStreamHeaderGroup>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqStreamGroupObject&, bool> Transport::ParseControlMessage<messages::MoqStreamGroupObject>(std::shared_ptr<StreamBuffer<uint8_t>>&);
-    template
-    std::pair<messages::MoqServerSetup&, bool> Transport::ParseControlMessage<messages::MoqServerSetup>(std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqSubscribe&, bool> Transport::ParseControlMessage<messages::MoqSubscribe>(
+      std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqSubscribeOk&, bool> Transport::ParseControlMessage<messages::MoqSubscribeOk>(
+      std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqSubscribeError&, bool> Transport::ParseControlMessage<messages::MoqSubscribeError>(
+      std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqUnsubscribe&, bool> Transport::ParseControlMessage<messages::MoqUnsubscribe>(
+      std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqSubscribeDone&, bool> Transport::ParseControlMessage<messages::MoqSubscribeDone>(
+      std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqTrackStatusRequest&, bool>
+    Transport::ParseControlMessage<messages::MoqTrackStatusRequest>(std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqTrackStatus&, bool> Transport::ParseControlMessage<messages::MoqTrackStatus>(
+      std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqAnnounce&, bool> Transport::ParseControlMessage<messages::MoqAnnounce>(
+      std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqAnnounceOk&, bool> Transport::ParseControlMessage<messages::MoqAnnounceOk>(
+      std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqAnnounceError&, bool> Transport::ParseControlMessage<messages::MoqAnnounceError>(
+      std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqUnannounce&, bool> Transport::ParseControlMessage<messages::MoqUnannounce>(
+      std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqAnnounceCancel&, bool> Transport::ParseControlMessage<messages::MoqAnnounceCancel>(
+      std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqGoaway&, bool> Transport::ParseControlMessage<messages::MoqGoaway>(
+      std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqClientSetup&, bool> Transport::ParseControlMessage<messages::MoqClientSetup>(
+      std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqObjectStream&, bool> Transport::ParseControlMessage<messages::MoqObjectStream>(
+      std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqObjectDatagram&, bool> Transport::ParseControlMessage<messages::MoqObjectDatagram>(
+      std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqStreamHeaderTrack&, bool>
+    Transport::ParseControlMessage<messages::MoqStreamHeaderTrack>(std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqStreamHeaderGroup&, bool>
+    Transport::ParseControlMessage<messages::MoqStreamHeaderGroup>(std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqStreamGroupObject&, bool>
+    Transport::ParseControlMessage<messages::MoqStreamGroupObject>(std::shared_ptr<StreamBuffer<uint8_t>>&);
+    template std::pair<messages::MoqServerSetup&, bool> Transport::ParseControlMessage<messages::MoqServerSetup>(
+      std::shared_ptr<StreamBuffer<uint8_t>>&);
 
+    template std::pair<messages::MoqObjectStream&, bool> Transport::ParseDataMessage<messages::MoqObjectStream>(
+      std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
+      MoqMessageType msg_type);
 
-    template
-    std::pair<messages::MoqObjectStream&, bool> Transport::ParseDataMessage<messages::MoqObjectStream>(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
-                                                              MoqMessageType msg_type);
-
-
-
-    template
-    std::pair<messages::MoqStreamHeaderTrack&, bool> Transport::ParseStreamData<messages::MoqStreamHeaderTrack, messages::MoqStreamTrackObject>(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
-                                                            MoqMessageType msg_type,
-                                                            const ConnectionContext& conn_ctx);
-    template
-    std::pair<messages::MoqStreamHeaderGroup&, bool> Transport::ParseStreamData<messages::MoqStreamHeaderGroup, messages::MoqStreamGroupObject>(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
-                                                            MoqMessageType msg_type,
-                                                            const ConnectionContext& conn_ctx);
+    template std::pair<messages::MoqStreamHeaderTrack&, bool>
+    Transport::ParseStreamData<messages::MoqStreamHeaderTrack, messages::MoqStreamTrackObject>(
+      std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
+      MoqMessageType msg_type,
+      const ConnectionContext& conn_ctx);
+    template std::pair<messages::MoqStreamHeaderGroup&, bool>
+    Transport::ParseStreamData<messages::MoqStreamHeaderGroup, messages::MoqStreamGroupObject>(
+      std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
+      MoqMessageType msg_type,
+      const ConnectionContext& conn_ctx);
 
 } // namespace moq
