@@ -6,11 +6,11 @@
 
 #pragma once
 
+#include "moq/detail/messages.h"
 #include <moq/config.h>
-#include <moq/detail/messages.h>
-#include <moq/track_name.h>
-#include <moq/object.h>
 #include <moq/detail/transport.h>
+#include <moq/object.h>
+#include <moq/track_name.h>
 
 namespace moq {
     using namespace qtransport;

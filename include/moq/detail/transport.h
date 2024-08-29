@@ -6,17 +6,18 @@
 
 #pragma once
 
-#include <transport/transport.h>
+#include <moq/detail/messages.h>
+
+#include "quic_transport.h"
 
 #include <moq/common.h>
 #include <moq/config.h>
-#include <moq/detail/messages.h>
 #include <moq/metrics.h>
 #include <moq/publish_track_handler.h>
+#include "span.h"
 #include <moq/subscribe_track_handler.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
-#include <transport/span.h>
 
 #include <map>
 #include <string>

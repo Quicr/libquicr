@@ -6,7 +6,6 @@
 #include <moq/common.h>
 #include <moq/publish_track_handler.h>
 #include <moq/subscribe_track_handler.h>
-
 using namespace moq;
 
 TEST_CASE("Track Handler")

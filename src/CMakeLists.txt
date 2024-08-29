@@ -1,8 +1,9 @@
 
 add_library(quicr)
-
-target_sources(quicr PRIVATE
+target_sources (quicr PRIVATE
         message_buffer.cpp
+        quic/transport.cpp
+        quic/transport_picoquic.cpp
         moq/messages.cpp
         moq/publish_track_handler.cpp
         moq/transport.cpp
@@ -12,7 +13,7 @@ target_sources(quicr PRIVATE
 
 # Suppress external lib warnings
 set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)
-target_compile_options(quicr-transport PRIVATE -w)
+#target_compile_options(quicr-transport PRIVATE -w)
 
 target_compile_options(quicr
     PRIVATE
@@ -25,7 +26,7 @@ set_target_properties(quicr
         CXX_EXTENSIONS OFF)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    target_compile_options(quicr PRIVATE -Wall -pedantic -Wextra -Werror -Wmissing-declarations)
+    target_compile_options(quicr PRIVATE -Wall -pedantic -Wextra  -Wmissing-declarations)
 endif()
 
 if(MSVC)
@@ -40,7 +41,16 @@ endif()
 
 target_link_libraries(quicr
     PUBLIC
-        quicr-transport)
+        spdlog)
 
-target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include)
+if (NOT PLATFORM_ESP_IDF)
+    target_link_libraries(quicr
+            PUBLIC
+            picoquic-core picoquic-log)
+endif()
+if (PLATFORM_ESP_IDF)
+    add_compile_definitions(${LIB_NAME} PLATFORM_ESP)
+endif()
+
+target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src)
 
