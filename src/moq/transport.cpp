@@ -831,10 +831,21 @@ namespace moq {
            conn_ctx.ctrl_data_ctx_id = data_ctx_id;
        }
 
+       /*
+        * Loop  any times to continue to read objects. This loop should only continue if the current object is read
+        *       and has been completed and there is more data. If there isn't enough data to parse the message, the
+        *       loop should be stopped.  The ProcessCtrlMessage() and ProcessStreamDataMessage() methods return
+        *       **true** to indicate that the loop should continue.  They return **false** to indicate that
+        *       there wasn't enough data and more data should be provided.
+        */
        for (int i = 0; i < kReadLoopMaxPerStream; i++) { // don't loop forever, especially on bad stream
+           if (stream_buf->Empty()) { // done
+               break;
+           }
+
            // bidir is Control stream, data streams are unidirectional
            if (is_bidir) {
-               if (not conn_ctx.ctrl_msg_type_received) {
+               if (not conn_ctx.ctrl_msg_type_received.has_value()) {
                    auto msg_type = stream_buf->DecodeUintV();
 
                    if (msg_type) {
@@ -844,23 +855,20 @@ namespace moq {
                    }
                }
 
-               if (conn_ctx.ctrl_msg_type_received) {
-                   if (ProcessCtrlMessage(conn_ctx, stream_buf)) {
-                       conn_ctx.ctrl_msg_type_received = std::nullopt;
-                       break;
-                   }
+               if (ProcessCtrlMessage(conn_ctx, stream_buf)) {
+                   conn_ctx.ctrl_msg_type_received = std::nullopt; // Clear current type now that it's complete
+
+               } else {
+                   break; // More data is needed, wait for next callback
                }
+
            }
 
            // Data stream, unidirectional
            else {
-               if (ProcessStreamDataMessage(conn_ctx, stream_buf)) {
-                   break;
+               if (!ProcessStreamDataMessage(conn_ctx, stream_buf)) {
+                   break; // More data is needed, wait for next callback
                }
-           }
-
-           if (!stream_buf->Size()) { // done
-               break;
            }
        }
    }
@@ -967,13 +975,228 @@ namespace moq {
        }
    }
 
-   bool Transport::ProcessCtrlMessage(Transport::ConnectionContext&, std::shared_ptr<StreamBuffer<uint8_t>>&)
+   bool Transport::ProcessStreamDataMessage(ConnectionContext& conn_ctx,
+                                            std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer)
    {
-       return false;
-   }
+       if (stream_buffer->Empty()) { // should never happen
+           SPDLOG_LOGGER_ERROR(logger_, "Stream buffer cannot be zero when parsing message type, bad stream");
 
-   bool Transport::ProcessStreamDataMessage(ConnectionContext&, std::shared_ptr<StreamBuffer<uint8_t>>&)
-   {
+           return false;
+       }
+
+       // Header not set, get the header for this stream or datagram
+       MoqMessageType data_type;
+
+       auto dt = stream_buffer->GetAnyType();
+       if (dt.has_value()) {
+           data_type = static_cast<MoqMessageType>(*dt);
+       } else {
+           auto val = stream_buffer->DecodeUintV();
+           data_type = static_cast<MoqMessageType>(*val);
+           stream_buffer->SetAnyType(*val);
+       }
+
+       switch (data_type) {
+           case messages::MoqMessageType::OBJECT_STREAM: {
+               auto&& [msg, parsed] =
+                 ParseDataMessage<messages::MoqObjectStream>(stream_buffer, messages::MoqMessageType::OBJECT_STREAM);
+               if (parsed) {
+                   auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                   if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                       SPDLOG_LOGGER_WARN(
+                         logger_,
+                         "Received stream_object to unknown subscribe track subscribe_id: {0}, ignored",
+                         msg.subscribe_id);
+
+                       // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+
+                       return true;
+                   }
+
+                   SPDLOG_LOGGER_TRACE(
+                     logger_,
+                     "Received stream_object subscribe_id: {0} priority: {1} track_alias: {2} group_id: "
+                     "{3} object_id: {4} data size: {5}",
+                     msg.subscribe_id,
+                     msg.priority,
+                     msg.track_alias,
+                     msg.group_id,
+                     msg.object_id,
+                     msg.payload.size());
+
+                   sub_it->second->ObjectReceived({ msg.group_id,
+                                                    msg.object_id,
+                                                    msg.payload.size(),
+                                                    msg.priority,
+                                                    std::nullopt,
+                                                    TrackMode::kStreamPerObject,
+                                                    std::nullopt },
+                                                  msg.payload);
+                   stream_buffer->ResetAny();
+                   return true;
+               }
+               break;
+           }
+
+           case messages::MoqMessageType::STREAM_HEADER_TRACK:
+               {
+               if (not stream_buffer->AnyHasValue()) {
+                   LOGGER_DEBUG(logger_, "Received stream header track, init stream buffer");
+                   stream_buffer->InitAny<MoqStreamHeaderTrack>(
+                     static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_TRACK));
+               }
+
+               auto& msg = stream_buffer->GetAny<MoqStreamHeaderTrack>();
+               if (!stream_buffer->AnyHasValueB() && *stream_buffer >> msg) {
+                   auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                   if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                       LOGGER_WARN(logger_,
+                                   "Received stream_header_track to unknown subscribe track subscribe_id: {0}, ignored",
+                                   msg.subscribe_id);
+
+                       // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+
+                       return true;
+                   }
+                   // Init second working buffer to read data object
+                   stream_buffer->InitAnyB<MoqStreamTrackObject>();
+
+                   SPDLOG_LOGGER_DEBUG(logger_,
+                                       "Received stream_header_track subscribe_id: {0} priority: {1} track_alias: {2}",
+                                       msg.subscribe_id,
+                                       msg.priority,
+                                       msg.track_alias);
+               }
+
+               if (stream_buffer->AnyHasValueB()) {
+                   auto& obj = stream_buffer->GetAnyB<MoqStreamTrackObject>();
+                   if (*stream_buffer >> obj) {
+                       auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                       if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                           SPDLOG_LOGGER_WARN(
+                             logger_,
+                             "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
+                             msg.subscribe_id);
+
+                           // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+                           stream_buffer->ResetAnyB();
+                           return true;
+                       }
+
+                       SPDLOG_LOGGER_DEBUG(
+                         logger_,
+                         "Received stream_track_object subscribe_id: {0} priority: {1} track_alias: {2} "
+                         "group_id: {3} object_id: {4} data size: {5}",
+                         msg.subscribe_id,
+                         msg.priority,
+                         msg.track_alias,
+                         obj.group_id,
+                         obj.object_id,
+                         obj.payload.size());
+
+
+                       sub_it->second->ObjectReceived({ obj.group_id,
+                                                        obj.object_id,
+                                                        obj.payload.size(),
+                                                        msg.priority,
+                                                        std::nullopt,
+                                                        TrackMode::kStreamPerTrack,
+                                                        std::nullopt },
+                                                      obj.payload);
+
+                       stream_buffer->ResetAnyB();
+                       stream_buffer->InitAnyB<MoqStreamTrackObject>();
+
+                       return true;
+                   }
+               }
+               break;
+           }
+           case messages::MoqMessageType::STREAM_HEADER_GROUP: {
+               if (not stream_buffer->AnyHasValue()) {
+                   LOGGER_DEBUG(logger_, "Received stream header group, init stream buffer");
+                   stream_buffer->InitAny<MoqStreamHeaderGroup>(
+                     static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_GROUP));
+               }
+
+               auto& msg = stream_buffer->GetAny<MoqStreamHeaderGroup>();
+               if (!stream_buffer->AnyHasValueB() && *stream_buffer >> msg) {
+                   auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                   if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                       LOGGER_WARN(logger_,
+                                   "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
+                                   msg.subscribe_id);
+
+                       // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+
+                       return true;
+                   }
+
+                   // Init second working buffer to read data object
+                   stream_buffer->InitAnyB<MoqStreamGroupObject>();
+
+
+                   LOGGER_DEBUG(
+                     logger_,
+                     "Received stream_header_group subscribe_id: {0} priority: {1} track_alias: {2} group_id: {3}",
+                     msg.subscribe_id,
+                     msg.priority,
+                     msg.track_alias,
+                     msg.group_id);
+               }
+
+               if (stream_buffer->AnyHasValueB()) {
+                   auto& obj = stream_buffer->GetAnyB<MoqStreamGroupObject>();
+                   if (*stream_buffer >> obj) {
+                       auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                       if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                           SPDLOG_LOGGER_WARN(
+                             logger_,
+                             "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
+                             msg.subscribe_id);
+
+                           // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+                           stream_buffer->ResetAnyB();
+                           stream_buffer->InitAnyB<MoqStreamGroupObject>();
+                           return true;
+                       }
+
+                       SPDLOG_LOGGER_DEBUG(
+                         logger_,
+                         "Received stream_group_object subscribe_id: {0} priority: {1} track_alias: {2} "
+                         "group_id: {3} object_id: {4} data size: {5}",
+                         msg.subscribe_id,
+                         msg.priority,
+                         msg.track_alias,
+                         msg.group_id,
+                         obj.object_id,
+                         obj.payload.size());
+
+                       sub_it->second->ObjectReceived({ msg.group_id,
+                                                        obj.object_id,
+                                                        obj.payload.size(),
+                                                        msg.priority,
+                                                        std::nullopt,
+                                                        TrackMode::kStreamPerGroup,
+                                                        std::nullopt },
+                                                      obj.payload);
+
+                       stream_buffer->ResetAnyB();
+                       stream_buffer->InitAnyB<MoqStreamGroupObject>();
+                       return true;
+                   }
+               }
+               break;
+           }
+
+           default:
+               // Process the stream object type
+               SPDLOG_LOGGER_ERROR(logger_,
+                                   "Unsupported MOQT data message type: {0}, bad stream",
+                                   static_cast<uint64_t>(data_type));
+               return false;
+       }
+
        return false;
    }
 
@@ -1038,7 +1261,7 @@ namespace moq {
            return { msg, true };
        }
 
-       return { msg, false };
+       return { msg, stream_buffer->AnyHasValueB() };
    }
 
    template std::pair<messages::MoqSubscribe&, bool> Transport::ParseControlMessage<messages::MoqSubscribe>(

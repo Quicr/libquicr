@@ -10,6 +10,7 @@
 #include <optional>
 #include "span.h"
 
+#include "spdlog/spdlog.h"
 #include "uintvar.h"
 
 namespace qtransport {
@@ -249,6 +250,8 @@ namespace qtransport {
                 if (Available(UintVSize(*uv_msb))) {
                     uint64_t uv_len = UintVSize(*uv_msb);
                     auto len = ToUint64(Front(uv_len));
+
+                    SPDLOG_INFO("buf size: {0} payload length: {1}", buffer_.size(), len);
 
                     if (buffer_.size() >= uv_len + len) {
                         Pop(uv_len);
