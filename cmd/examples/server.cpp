@@ -414,7 +414,7 @@ class MyServer : public moq::Server
     {
         auto th = moq::TrackHash(track_full_name);
 
-        SPDLOG_INFO("New subscribe connection handle: {0} subscribe_id: {1} track alias: {2}}",
+        SPDLOG_INFO("New subscribe connection handle: {0} subscribe_id: {1} track alias: {2}",
                     connection_handle,
                     subscribe_id,
                     th.track_fullname_hash);
