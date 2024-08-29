@@ -112,11 +112,11 @@ class MyClient : public moq::Client
 
 void
 do_publisher(const moq::FullTrackName& full_track_name,
-             const std::shared_ptr<moq::Client>& moqInstance,
+             const std::shared_ptr<moq::Client>& client,
              const bool& stop)
 {
 #if 1
-    auto track_delegate = std::make_shared<MyPublishTrackHandler>(
+    auto track_handler = std::make_shared<MyPublishTrackHandler>(
       full_track_name, moq::TrackMode::kStreamPerGroup /*mode*/, 2 /*prirority*/, 3000 /*ttl*/);
 
     SPDLOG_INFO("Started publisher track");
@@ -127,13 +127,13 @@ do_publisher(const moq::FullTrackName& full_track_name,
     uint64_t object_id{ 0 };
 
     while (not stop) {
-        if ((!published_track) && (moqInstance->GetStatus() == MyClient::Status::kReady)) {
+        if ((!published_track) && (client->GetStatus() == MyClient::Status::kReady)) {
             SPDLOG_INFO("Publish track ");
-            moqInstance->PublishTrack(track_delegate);
+            client->PublishTrack(track_handler);
             published_track = true;
         }
 
-        if (track_delegate->GetStatus() != MyPublishTrackHandler::Status::kOk) {
+        if (track_handler->GetStatus() != MyPublishTrackHandler::Status::kOk) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
@@ -169,10 +169,10 @@ do_publisher(const moq::FullTrackName& full_track_name,
         moq::ObjectHeaders obj_headers = { group_id,       object_id++,    msg.size(),
                                            2 /*priority*/, 3000 /* ttl */, {} /*extentions*/ };
 
-        track_delegate->PublishObject(obj_headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
+        track_handler->PublishObject(obj_headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
     }
 
-    moqInstance->UnpublishTrack(track_delegate);
+    client->UnpublishTrack(track_handler);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     SPDLOG_INFO("Publisher done track");
@@ -185,25 +185,25 @@ do_publisher(const moq::FullTrackName& full_track_name,
  */
 void
 do_subscriber(const moq::FullTrackName& full_track_name,
-              const std::shared_ptr<moq::Client>& moqInstance,
+              const std::shared_ptr<moq::Client>& client,
               const bool& stop)
 {
-    auto track_delegate = std::make_shared<MySubscribeTrackHandler>(full_track_name);
+    auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name);
 
     SPDLOG_INFO("Started subscriber");
 
     bool subscribe_track{ false };
 
     while (not stop) {
-        if ((!subscribe_track) && (moqInstance->GetStatus() == MyClient::Status::kReady)) {
+        if ((!subscribe_track) && (client->GetStatus() == MyClient::Status::kReady)) {
             SPDLOG_INFO("Subscribing to track");
-            moqInstance->SubscribeTrack(track_delegate);
+            client->SubscribeTrack(track_handler);
             subscribe_track = true;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
-    moqInstance->UnsubscribeTrack(track_delegate);
+    client->UnsubscribeTrack(track_handler);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 

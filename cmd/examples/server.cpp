@@ -259,9 +259,9 @@ class MyServer : public moq::Server
     {
         auto th = moq::TrackHash({ track_namespace, {}, std::nullopt });
 
-        SPDLOG_DEBUG("Received announce from connection handle: {0} for namespace_hash: {1}",
+        SPDLOG_INFO("Received announce from connection handle: {0} for namespace_hash: {1}",
                      connection_handle,
-                     track_namespace_hash);
+                     th.track_namespace_hash);
 
         // Add to state if not exist
         auto [anno_conn_it, is_new] =
@@ -323,7 +323,7 @@ class MyServer : public moq::Server
         return client_setup_response;
     }
 
-    virtual void UnsubscribeReceived(moq::ConnectionHandle connection_handle, uint64_t subscribe_id)
+    void UnsubscribeReceived(moq::ConnectionHandle connection_handle, uint64_t subscribe_id) override
     {
         SPDLOG_INFO("Unsubscribe connection handle: {0} subscribe_id: {1}", connection_handle, subscribe_id);
 
@@ -404,11 +404,11 @@ class MyServer : public moq::Server
         }
     }
 
-    virtual void SubscribeReceived(moq::ConnectionHandle connection_handle,
+    void SubscribeReceived(moq::ConnectionHandle connection_handle,
                                    uint64_t subscribe_id,
                                    uint64_t proposed_track_alias,
                                    const moq::FullTrackName& track_full_name,
-                                   const moq::SubscribeAttributes& subscribe_attributes)
+                                   const moq::SubscribeAttributes& subscribe_attributes) override
     {
         auto th = moq::TrackHash(track_full_name);
 
