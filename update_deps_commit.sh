@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+# SPDX-License-Identifier: BSD-2-Clause
 
 # Build at a known-good commit
 echo "In update script"

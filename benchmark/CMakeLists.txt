@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+# SPDX-License-Identifier: BSD-2-Clause
+
 find_package(benchmark)
 if (NOT benchmark_FOUND)
     set(BENCHMARK_USE_BUNDLED_GTEST OFF)

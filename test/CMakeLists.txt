@@ -1,4 +1,5 @@
-# Test Binary
+# SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+# SPDX-License-Identifier: BSD-2-Clause
 
 add_executable(quicr_test
         main.cpp
