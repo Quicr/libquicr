@@ -149,7 +149,6 @@ namespace moq {
         FullTrackName full_track_name_;
 
         ConnectionHandle connection_handle_;    // QUIC transport connection ID
-        uint64_t data_context_id_;              // QUIC transport data context ID
 
         /**
          * subscribe_id_ is the primary index/key for subscribe subscribe context/delegate storage.

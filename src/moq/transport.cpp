@@ -468,10 +468,6 @@ namespace moq {
 
            LOGGER_DEBUG(logger_, "remove subscribe id: {0}", *subscribe_id);
 
-           quic_transport_->DeleteDataContext(conn_ctx.connection_handle, handler.data_context_id_);
-
-           handler.data_context_id_ = 0;
-
            if (remove_handler) {
                std::lock_guard<std::mutex> _(state_mutex_);
                conn_ctx.tracks_by_sub_id.erase(*subscribe_id);
@@ -519,7 +515,7 @@ namespace moq {
                                th.track_fullname_hash);
                }
 
-               pub_n_it->second->data_context_id_ = 0;
+               pub_n_it->second->publish_data_ctx_id_ = 0;
 
                pub_n_it->second->SetStatus(PublishTrackHandler::Status::kNotAnnounced);
                pub_ns_it->second.erase(pub_n_it);
@@ -578,7 +574,7 @@ namespace moq {
        conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
 
        track_handler->connection_handle_ = conn_id;
-       track_handler->data_context_id_ =
+       track_handler->publish_data_ctx_id_ =
          quic_transport_->CreateDataContext(conn_id,
                                             track_handler->default_track_mode_ == TrackMode::kDatagram ? false : true,
                                             track_handler->default_priority_,

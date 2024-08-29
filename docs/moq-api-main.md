@@ -33,7 +33,6 @@ the methods. Each track handler is constructed for a single full track name (e.g
 --------------------------------|------------------------------------------------------------------------
  moq::SubscribeTrackHandler     | Subscribe track handler for subscribe related operations and callbacks 
  moq::PublishTrackHandler       | Publish track handler for publish related operations and callbacks     
- moq::ServerPublishTrackHandler | Service Publish track handler used to publish to subscriber based on received subscribe     
 
 ## Client Flow
 <img src="../images/MoQ-client-api.png" alt="Client Process Flow" style="height: auto; width:80%"/>
