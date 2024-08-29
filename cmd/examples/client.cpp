@@ -160,16 +160,12 @@ do_publisher(const moq::FullTrackName& full_track_name,
             std::this_thread::sleep_for(std::chrono::milliseconds(999));
             msg = moq::example::GetTimeStr();
             SPDLOG_INFO(msg);
-            for (int i=0; i < 2000; i++) {
-                msg.append("a");
-            }
-            msg.append("--END");
         } else { // stdin
             getline(std::cin, msg);
             SPDLOG_INFO("Send message: {0}", msg);
         }
 
-        if (object_id % 500 == 0) { // Set new group
+        if (object_id % 10 == 0) { // Set new group
             object_id = 0;
             group_id++;
         }
