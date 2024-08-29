@@ -200,13 +200,15 @@ class MyServer : public moq::Server
 #endif
     }
 
+#if 0
   virtual AnnounceResponse AnnounceReceived(moq::ConnectionHandle connection_handle,
                                             const moq::TrackNamespace& track_namespace,
                                             const moq::PublishAnnounceAttributes& publish_announce_attributes) {
-     //bool cb_announce(qtransport::TransportConnId conn_id,
-     //                uint64_t track_namespace_hash) override {
-#if 0 
-        SPDLOG_DEBUG( "Received announce from conn_id: {0} for namespace_hash: {1}", conn_id, track_namespace_hash);
+    
+    // TODO - sort out hash hash of namespace works ?
+    uint64_t track_namespace_hash;
+    
+        SPDLOG_DEBUG( "Received announce from conn_id: {0} for namespace: {1}", conn_id, track_namespace );
 
         // Add to state if not exist
         auto [anno_conn_it, is_new] = qserver_vars::announce_active[track_namespace_hash].try_emplace(conn_id);
@@ -217,14 +219,10 @@ class MyServer : public moq::Server
             return true;
         }
 
-        // true results in Send announce OK
-        return true;
-#endif
-    }
-
-#if 0
-    void cb_announce_post(qtransport::TransportConnId conn_id,
-                          uint64_t track_namespace_hash) override {
+     
+        AnnounceResponse ret;
+        // TODO fill in and call correct returns
+        
 
         auto& anno_tracks = qserver_vars::announce_active[track_namespace_hash][conn_id];
 
@@ -261,19 +259,20 @@ class MyServer : public moq::Server
     }
 #endif
 
-#if 0
-    void cb_connectionStatus(qtransport::TransportConnId conn_id,
-                             Span<uint8_t const> endpoint_id,
-                             qtransport::TransportStatus status) override {
-        auto ep_id = std::string(endpoint_id.begin(), endpoint_id.end());
 
-        if (status == qtransport::TransportStatus::kReady) {
-            SPDLOG_DEBUG( "Connection ready conn_id: {0} endpoint_id: {1}", conn_id, ep_id);
-        }
-    }
-    void cb_clientSetup(qtransport::TransportConnId, quicr::messages::MoqClientSetup) override {}
-    void cb_serverSetup(qtransport::TransportConnId, quicr::messages::MoqServerSetup) override {}
-#endif
+  virtual void ConnectionStatusChanged( moq::ConnectionHandle connection_handle, ConnectionStatus status){
+      if (status == qtransport::TransportStatus::kReady) {
+            SPDLOG_DEBUG( "Connection ready conn_id: {0} ", connection_handle );
+      }
+  }
+  
+
+  // TODO - move new API 
+  virtual ClientSetupResponse ClientSetupReceived( moq::ConnectionHandle connection_handle,
+                                                   const moq::ClientSetupAttributes& client_setup_attributes){
+     // TODO form ClientSetupResponse and send 
+   }
+
   
 
   virtual void UnsubscribeReceived(moq::ConnectionHandle connection_handle,
@@ -367,7 +366,7 @@ class MyServer : public moq::Server
       //                uint64_t subscribe_id,
       //                Span<uint8_t const> name_space,
       //                Span<uint8_t const> name) override
-#if 0
+#if 1
         std::string const t_namespace(name_space.begin(), name_space.end());
         std::string const t_name(name.begin(), name.end());
 
