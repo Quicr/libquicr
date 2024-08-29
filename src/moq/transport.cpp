@@ -5,6 +5,9 @@
 */
 
 #include "moq/detail/transport.h"
+
+#include "../../dependencies/boringssl/tool/transport_common.h"
+
 #include <sstream>
 
 #define LOGGER_TRACE(logger, ...)                                                                                      \
@@ -63,15 +66,17 @@ namespace moq {
    {
        if (client_mode_) {
            TransportRemote relay;
-           relay.host_or_ip = client_config_.connect_uri;
-           //    relay.port = client_config_.server_port; // TODO: Break out port form connect uri
+           relay.host_or_ip = client_config_.connect_uri; // TODO: Add URI parser
+           relay.port = 2222; // TODO: Add URI parser
            relay.proto = TransportProtocol::kQuic;
 
            quic_transport_ = ITransport::MakeClientTransport(relay, client_config_.transport_config, *this, logger_);
 
-           status_ = Status::kConnecting;
 
            auto conn_id = quic_transport_->Start(nullptr, nullptr);
+
+           status_ = Status::kConnecting;
+           ConnectionStatus(Status::kConnecting);
 
            LOGGER_INFO(logger_, "Connecting session conn_id: {0}...", conn_id);
            auto [conn_ctx, _] = connections_.try_emplace(conn_id, ConnectionContext{});
