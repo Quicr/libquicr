@@ -1,9 +1,5 @@
 var searchData=
 [
-  ['partialobjectreceived_0',['PartialObjectReceived',['../classmoq_1_1_subscribe_track_handler.html#a7552e1d9ce44d2ad2064baaaffd79128',1,'moq::SubscribeTrackHandler']]],
-  ['publishannounce_1',['PublishAnnounce',['../classmoq_1_1_client.html#a9695a56a2f176f93f92692d273d8e833',1,'moq::Client']]],
-  ['publishobject_2',['PublishObject',['../classmoq_1_1_server_publish_track_handler.html#a27b85d17f369d9bf22e90b1a1df6851c',1,'moq::ServerPublishTrackHandler::PublishObject()'],['../classmoq_1_1_publish_track_handler.html#a687afe334e36c82ee9d9330424fe826d',1,'moq::PublishTrackHandler::PublishObject()']]],
-  ['publishpartialobject_3',['PublishPartialObject',['../classmoq_1_1_server_publish_track_handler.html#a07fceddd90a3d9f4f702494be0901943',1,'moq::ServerPublishTrackHandler::PublishPartialObject()'],['../classmoq_1_1_publish_track_handler.html#adb4a486c37ab16be4436150e14c0d5b6',1,'moq::PublishTrackHandler::PublishPartialObject()']]],
-  ['publishtrack_4',['PublishTrack',['../classmoq_1_1_client.html#aa2c00bc16bac132921df9fb198e1e5a5',1,'moq::Client']]],
-  ['publishunannounce_5',['PublishUnannounce',['../classmoq_1_1_client.html#afa43ee3cedc6ead21e2ac6a0939b84af',1,'moq::Client']]]
+  ['resolveannounce_0',['ResolveAnnounce',['../classmoq_1_1_server.html#acf00b33da34ef2b01c838cb8d8bc405f',1,'moq::Server']]],
+  ['resolvesubscribe_1',['ResolveSubscribe',['../classmoq_1_1_client.html#ad836c5d20f46f70c44efcf8eff41844c',1,'moq::Client::ResolveSubscribe()'],['../classmoq_1_1_server.html#a386d4b286190fd07acc560f1b84deac5',1,'moq::Server::ResolveSubscribe()']]]
 ];

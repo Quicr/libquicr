@@ -15,11 +15,14 @@ var classmoq_1_1_subscribe_track_handler =
       [ "kPendingSubscribeResponse", "classmoq_1_1_subscribe_track_handler.html#a7bace1ef1c10b72739ba4bba475d72cba0a3ab3e9715377a993aa8530a0a67cdc", null ],
       [ "kSendingUnsubscribe", "classmoq_1_1_subscribe_track_handler.html#a7bace1ef1c10b72739ba4bba475d72cba0c00fa0c8dbc5959120d45bc8386979f", null ]
     ] ],
+    [ "SubscribeTrackHandler", "classmoq_1_1_subscribe_track_handler.html#a137b97a0b3e08f2a3b8548de9766c377", null ],
     [ "GetStatus", "classmoq_1_1_subscribe_track_handler.html#a83a0c75919136d5dd3320a1282d4f49b", null ],
     [ "MetricsSampled", "classmoq_1_1_subscribe_track_handler.html#ae8310591c92309908016ca9551fcfda2", null ],
     [ "ObjectReceived", "classmoq_1_1_subscribe_track_handler.html#a495d8908a970abf7309753ab7ab922a0", null ],
     [ "PartialObjectReceived", "classmoq_1_1_subscribe_track_handler.html#a7552e1d9ce44d2ad2064baaaffd79128", null ],
     [ "StatusChanged", "classmoq_1_1_subscribe_track_handler.html#af855ac9a7475ef865dc335de4dc86b93", null ],
+    [ "Client", "classmoq_1_1_subscribe_track_handler.html#a5db1c99e2c94b26278f3838c85cdb618", null ],
+    [ "Server", "classmoq_1_1_subscribe_track_handler.html#ac2055578ac48afabe5af487878450f68", null ],
     [ "Transport", "classmoq_1_1_subscribe_track_handler.html#a3d2e8a0836666771da7b79c3f6bc9ae0", null ],
     [ "subscribe_track_metrics_", "classmoq_1_1_subscribe_track_handler.html#a96fa9a8b2bdebeb5fe4559eb74846981", null ]
 ];

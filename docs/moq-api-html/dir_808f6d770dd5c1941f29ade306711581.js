@@ -7,6 +7,5 @@ var dir_808f6d770dd5c1941f29ade306711581 =
     [ "object.h", "object_8h.html", "object_8h" ],
     [ "publish_track_handler.h", "publish__track__handler_8h.html", "publish__track__handler_8h" ],
     [ "server.h", "server_8h.html", "server_8h" ],
-    [ "server_publish_track_handler.h", "server__publish__track__handler_8h.html", "server__publish__track__handler_8h" ],
     [ "subscribe_track_handler.h", "subscribe__track__handler_8h.html", "subscribe__track__handler_8h" ]
 ];

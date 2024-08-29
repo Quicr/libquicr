@@ -126,21 +126,24 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:ac74bda59179811b4c1c010d5ebd5ce9a" id="r_ac74bda59179811b4c1c010d5ebd5ce9a"><td class="memItemLeft" align="right" valign="top">std::optional&lt; uint16_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ac74bda59179811b4c1c010d5ebd5ce9a">ttl</a></td></tr>
 <tr class="memdesc:ac74bda59179811b4c1c010d5ebd5ce9a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Object time to live in milliseconds.  <br /></td></tr>
 <tr class="separator:ac74bda59179811b4c1c010d5ebd5ce9a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a11a51fa67c20d64e77ecae3d5871b613" id="r_a11a51fa67c20d64e77ecae3d5871b613"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacemoq.html#a0557bd52ce9d092661dea06ef9639389">Extensions</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a11a51fa67c20d64e77ecae3d5871b613">extensions</a></td></tr>
-<tr class="separator:a11a51fa67c20d64e77ecae3d5871b613"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaf5bf0c4da7c7e4f929d8ef4513ccfa6" id="r_aaf5bf0c4da7c7e4f929d8ef4513ccfa6"><td class="memItemLeft" align="right" valign="top">std::optional&lt; TrackMode &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aaf5bf0c4da7c7e4f929d8ef4513ccfa6">track_mode</a></td></tr>
+<tr class="memdesc:aaf5bf0c4da7c7e4f929d8ef4513ccfa6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Track Mode of how the object was received or mode to use when sending.  <br /></td></tr>
+<tr class="separator:aaf5bf0c4da7c7e4f929d8ef4513ccfa6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa69fde35cc12b2283cea271f938c6b2e" id="r_aa69fde35cc12b2283cea271f938c6b2e"><td class="memItemLeft" align="right" valign="top">std::optional&lt; <a class="el" href="namespacemoq.html#a0557bd52ce9d092661dea06ef9639389">Extensions</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa69fde35cc12b2283cea271f938c6b2e">extensions</a></td></tr>
+<tr class="separator:aa69fde35cc12b2283cea271f938c6b2e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Object headers struct. </p>
 <p>Object headers are passed when sending and receiving an object. The object headers describe the object. </p>
 </div><h2 class="groupheader">Member Data Documentation</h2>
-<a id="a11a51fa67c20d64e77ecae3d5871b613" name="a11a51fa67c20d64e77ecae3d5871b613"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a11a51fa67c20d64e77ecae3d5871b613">&#9670;&#160;</a></span>extensions</h2>
+<a id="aa69fde35cc12b2283cea271f938c6b2e" name="aa69fde35cc12b2283cea271f938c6b2e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa69fde35cc12b2283cea271f938c6b2e">&#9670;&#160;</a></span>extensions</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="namespacemoq.html#a0557bd52ce9d092661dea06ef9639389">Extensions</a> moq::ObjectHeaders::extensions</td>
+          <td class="memname">std::optional&lt;<a class="el" href="namespacemoq.html#a0557bd52ce9d092661dea06ef9639389">Extensions</a>&gt; moq::ObjectHeaders::extensions</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -208,6 +211,22 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Priority of the object, lower value is better. </p>
+
+</div>
+</div>
+<a id="aaf5bf0c4da7c7e4f929d8ef4513ccfa6" name="aaf5bf0c4da7c7e4f929d8ef4513ccfa6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaf5bf0c4da7c7e4f929d8ef4513ccfa6">&#9670;&#160;</a></span>track_mode</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::optional&lt;TrackMode&gt; moq::ObjectHeaders::track_mode</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Track Mode of how the object was received or mode to use when sending. </p>
 
 </div>
 </div>

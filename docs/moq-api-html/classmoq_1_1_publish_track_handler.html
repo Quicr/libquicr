@@ -102,6 +102,7 @@ $(function(){initNavTree('classmoq_1_1_publish_track_handler.html',''); initResi
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-static-methods">Static Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
+<a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="classmoq_1_1_publish_track_handler-members.html">List of all members</a>  </div>
   <div class="headertitle"><div class="title">moq::PublishTrackHandler Class Reference</div></div>
 </div><!--header-->
@@ -143,7 +144,7 @@ Public Types</h2></td></tr>
 <tr class="memdesc:a30b4175fceffdb5445858f6c0b3b5b02"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish status codes.  <a href="#a30b4175fceffdb5445858f6c0b3b5b02">More...</a><br /></td></tr>
 <tr class="separator:a30b4175fceffdb5445858f6c0b3b5b02"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a95430826d3fdcf1d3bd249af5c6236ab" id="r_a95430826d3fdcf1d3bd249af5c6236ab"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a95430826d3fdcf1d3bd249af5c6236ab">Status</a> : uint8_t { <br />
-&#160;&#160;<a class="el" href="#a95430826d3fdcf1d3bd249af5c6236abab8c5bbba307a5b38f6a1474fbf23dddd">kOK</a> = 0
+&#160;&#160;<a class="el" href="#a95430826d3fdcf1d3bd249af5c6236abae69fa9a656f76dd8a4d89f21992b2d3a">kOk</a> = 0
 , <a class="el" href="#a95430826d3fdcf1d3bd249af5c6236aba32a54fa8629fe6e9cb3e265e959258d8">kNotConnected</a>
 , <a class="el" href="#a95430826d3fdcf1d3bd249af5c6236aba0aacc8d02db06999d93256fad11a0f91">kNotAnnounced</a>
 , <a class="el" href="#a95430826d3fdcf1d3bd249af5c6236abad16e5c0773211b3d591e160d6e4dfbce">kPendingAnnounceResponse</a>
@@ -170,6 +171,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a3dcd70557b7316eb90a55a5c7d711c12" id="r_a3dcd70557b7316eb90a55a5c7d711c12"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a3dcd70557b7316eb90a55a5c7d711c12">SetDefaultTTL</a> (const uint32_t ttl) noexcept</td></tr>
 <tr class="memdesc:a3dcd70557b7316eb90a55a5c7d711c12"><td class="mdescLeft">&#160;</td><td class="mdescRight">set/update the default TTL expiry for published objects  <br /></td></tr>
 <tr class="separator:a3dcd70557b7316eb90a55a5c7d711c12"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac7a5607cdb191413491e1027dd54a7a7" id="r_ac7a5607cdb191413491e1027dd54a7a7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ac7a5607cdb191413491e1027dd54a7a7">SetDefaultTrackMode</a> (const TrackMode track_mode) noexcept</td></tr>
+<tr class="memdesc:ac7a5607cdb191413491e1027dd54a7a7"><td class="mdescLeft">&#160;</td><td class="mdescRight">set/update the default track mode for objects  <br /></td></tr>
+<tr class="separator:ac7a5607cdb191413491e1027dd54a7a7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7180b4eb6f0dd55e0877654c4a5b175f" id="r_a7180b4eb6f0dd55e0877654c4a5b175f"><td class="memItemLeft" align="right" valign="top">constexpr <a class="el" href="#a95430826d3fdcf1d3bd249af5c6236ab">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a7180b4eb6f0dd55e0877654c4a5b175f">GetStatus</a> () const noexcept</td></tr>
 <tr class="memdesc:a7180b4eb6f0dd55e0877654c4a5b175f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the publish status.  <br /></td></tr>
 <tr class="separator:a7180b4eb6f0dd55e0877654c4a5b175f"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -191,6 +195,12 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a9933b1b4c7a144f379b5f8f5adc97aa3" id="r_a9933b1b4c7a144f379b5f8f5adc97aa3"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structmoq_1_1_publish_track_metrics.html">PublishTrackMetrics</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9933b1b4c7a144f379b5f8f5adc97aa3">publish_track_metrics_</a></td></tr>
 <tr class="memdesc:a9933b1b4c7a144f379b5f8f5adc97aa3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish metrics for the track.  <br /></td></tr>
 <tr class="separator:a9933b1b4c7a144f379b5f8f5adc97aa3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-methods" name="pro-methods"></a>
+Protected Member Functions</h2></td></tr>
+<tr class="memitem:a9524aa0b0879ceebf58fe1b4adf2622a" id="r_a9524aa0b0879ceebf58fe1b4adf2622a"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9524aa0b0879ceebf58fe1b4adf2622a">PublishTrackHandler</a> (const FullTrackName &amp;full_track_name, TrackMode track_mode, uint8_t default_priority, uint32_t default_ttl)</td></tr>
+<tr class="memdesc:a9524aa0b0879ceebf58fe1b4adf2622a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish track handler constructor.  <br /></td></tr>
+<tr class="separator:a9524aa0b0879ceebf58fe1b4adf2622a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>MOQ track handler for published track. </p>
@@ -263,7 +273,7 @@ Public Attributes</h2></td></tr>
 
 <p>Status codes for the publish track. </p>
 <table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a95430826d3fdcf1d3bd249af5c6236abab8c5bbba307a5b38f6a1474fbf23dddd" name="a95430826d3fdcf1d3bd249af5c6236abab8c5bbba307a5b38f6a1474fbf23dddd"></a>kOK&#160;</td><td class="fielddoc"></td></tr>
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a95430826d3fdcf1d3bd249af5c6236abae69fa9a656f76dd8a4d89f21992b2d3a" name="a95430826d3fdcf1d3bd249af5c6236abae69fa9a656f76dd8a4d89f21992b2d3a"></a>kOk&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="a95430826d3fdcf1d3bd249af5c6236aba32a54fa8629fe6e9cb3e265e959258d8" name="a95430826d3fdcf1d3bd249af5c6236aba32a54fa8629fe6e9cb3e265e959258d8"></a>kNotConnected&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="a95430826d3fdcf1d3bd249af5c6236aba0aacc8d02db06999d93256fad11a0f91" name="a95430826d3fdcf1d3bd249af5c6236aba0aacc8d02db06999d93256fad11a0f91"></a>kNotAnnounced&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="a95430826d3fdcf1d3bd249af5c6236abad16e5c0773211b3d591e160d6e4dfbce" name="a95430826d3fdcf1d3bd249af5c6236abad16e5c0773211b3d591e160d6e4dfbce"></a>kPendingAnnounceResponse&#160;</td><td class="fielddoc"></td></tr>
@@ -272,6 +282,57 @@ Public Attributes</h2></td></tr>
 <tr><td class="fieldname"><a id="a95430826d3fdcf1d3bd249af5c6236aba6473b74b448bc158ffb66542042c88b3" name="a95430826d3fdcf1d3bd249af5c6236aba6473b74b448bc158ffb66542042c88b3"></a>kSendingUnannounce&#160;</td><td class="fielddoc"><p>In this state, callbacks will not be called. </p>
 </td></tr>
 </table>
+
+</div>
+</div>
+<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a id="a9524aa0b0879ceebf58fe1b4adf2622a" name="a9524aa0b0879ceebf58fe1b4adf2622a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9524aa0b0879ceebf58fe1b4adf2622a">&#9670;&#160;</a></span>PublishTrackHandler()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">moq::PublishTrackHandler::PublishTrackHandler </td>
+          <td>(</td>
+          <td class="paramtype">const FullTrackName &amp;</td>          <td class="paramname"><span class="paramname"><em>full_track_name</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">TrackMode</td>          <td class="paramname"><span class="paramname"><em>track_mode</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint8_t</td>          <td class="paramname"><span class="paramname"><em>default_priority</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint32_t</td>          <td class="paramname"><span class="paramname"><em>default_ttl</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Publish track handler constructor. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">full_track_name</td><td>Full track name </td></tr>
+    <tr><td class="paramname">track_mode</td><td>The track mode to operate using </td></tr>
+    <tr><td class="paramname">default_priority</td><td>Default priority for objects if not specified in ObjectHeaderss </td></tr>
+    <tr><td class="paramname">default_ttl</td><td>Default TTL for objects if not specified in ObjectHeaderss </td></tr>
+  </table>
+  </dd>
+</dl>
 
 </div>
 </div>
@@ -492,6 +553,33 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>set/update the default priority for published objects </p>
+
+</div>
+</div>
+<a id="ac7a5607cdb191413491e1027dd54a7a7" name="ac7a5607cdb191413491e1027dd54a7a7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac7a5607cdb191413491e1027dd54a7a7">&#9670;&#160;</a></span>SetDefaultTrackMode()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void moq::PublishTrackHandler::SetDefaultTrackMode </td>
+          <td>(</td>
+          <td class="paramtype">const TrackMode</td>          <td class="paramname"><span class="paramname"><em>track_mode</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">noexcept</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>set/update the default track mode for objects </p>
 
 </div>
 </div>

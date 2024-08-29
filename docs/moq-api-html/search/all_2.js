@@ -14,8 +14,6 @@ var searchData=
   ['connect_5furi_11',['connect_uri',['../structmoq_1_1_client_config.html#aa86fbb8fac3b7cae7137da382f8178dc',1,'moq::ClientConfig']]],
   ['connectionhandle_12',['ConnectionHandle',['../namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa',1,'moq']]],
   ['connectionmetrics_13',['ConnectionMetrics',['../structmoq_1_1_connection_metrics.html',1,'moq']]],
-  ['connectionremoteinfo_14',['ConnectionRemoteInfo',['../structmoq_1_1_server_1_1_connection_remote_info.html',1,'moq::Server']]],
-  ['connectionstatus_15',['ConnectionStatus',['../classmoq_1_1_server.html#a1193735a47b53fac4319e89cf14e1380',1,'moq::Server']]],
-  ['connectionstatuschanged_16',['ConnectionStatusChanged',['../classmoq_1_1_server.html#a50827b2f4e7d3dd00fe670c64b6125ea',1,'moq::Server']]],
-  ['create_17',['Create',['../classmoq_1_1_server_publish_track_handler.html#a2a360adc0c79d373c128e0651f5a66ca',1,'moq::ServerPublishTrackHandler::Create()'],['../classmoq_1_1_subscribe_track_handler.html#ab136073b455d29ddda30d24531fdad9f',1,'moq::SubscribeTrackHandler::Create()'],['../classmoq_1_1_publish_track_handler.html#aae49339b5e238a4348e2ce016c9d912c',1,'moq::PublishTrackHandler::Create()']]]
+  ['connectionstatuschanged_14',['ConnectionStatusChanged',['../classmoq_1_1_server.html#ac9f831a2efe53cae081f0d97c61075f0',1,'moq::Server']]],
+  ['create_15',['Create',['../classmoq_1_1_subscribe_track_handler.html#ab136073b455d29ddda30d24531fdad9f',1,'moq::SubscribeTrackHandler::Create()'],['../classmoq_1_1_publish_track_handler.html#aae49339b5e238a4348e2ce016c9d912c',1,'moq::PublishTrackHandler::Create()']]]
 ];

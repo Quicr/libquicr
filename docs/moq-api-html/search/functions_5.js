@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['metricssampled_0',['MetricsSampled',['../classmoq_1_1_client.html#a6ebd9709377683f5a097a8e6cdf9d7d8',1,'moq::Client::MetricsSampled()'],['../classmoq_1_1_server.html#ab8799307e464aff941f56ad0c944cb3f',1,'moq::Server::MetricsSampled()'],['../classmoq_1_1_server_publish_track_handler.html#a9261279cbc8b72c9e9ba8ed2548dc932',1,'moq::ServerPublishTrackHandler::MetricsSampled()'],['../classmoq_1_1_subscribe_track_handler.html#ae8310591c92309908016ca9551fcfda2',1,'moq::SubscribeTrackHandler::MetricsSampled()'],['../classmoq_1_1_publish_track_handler.html#a360e359a5ad9c709008d754b2131f205',1,'moq::PublishTrackHandler::MetricsSampled()']]]
+  ['newconnectionaccepted_0',['NewConnectionAccepted',['../classmoq_1_1_server.html#a20dec7ac9fa31a6c2060423097c1ef3a',1,'moq::Server']]]
 ];
