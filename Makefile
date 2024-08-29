@@ -23,10 +23,10 @@ ci: CMakeLists.txt cmd/CMakeLists.txt
 	cmake -B${BUILD_DIR} -DCLANG_TIDY=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DBUILD_BENCHMARKING=ON
 
 cert:
-	@echo "Creating certificate in ${BUILD_DIR}/cmd/really"
+	@echo "Creating certificate in ${BUILD_DIR}/cmd/examples"
 	@openssl req -nodes -x509 -newkey rsa:2048 -days 365 \
-        -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.quicr.ctgpoc.com" \
-        -keyout ${BUILD_DIR}/cmd/really/server-key.pem -out ${BUILD_DIR}/cmd/really/server-cert.pem
+        -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org" \
+        -keyout ${BUILD_DIR}/cmd/examples/server-key.pem -out ${BUILD_DIR}/cmd/examples/server-cert.pem
 test: ci
 	cmake --build ${BUILD_DIR}
 	ctest --test-dir ${BUILD_DIR} --output-on-failure
