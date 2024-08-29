@@ -219,8 +219,8 @@ namespace moq {
                     }
 
                     SPDLOG_LOGGER_DEBUG(logger_,
-                                        "Received unsubscribe conn_id: {0} subscribe_id: {1}"
-                                          << conn_ctx.connection_handle,
+                                        "Received unsubscribe conn_id: {0} subscribe_id: {1}",
+                                        conn_ctx.connection_handle,
                                         msg.subscribe_id);
                     sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
 

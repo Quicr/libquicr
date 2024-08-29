@@ -15,7 +15,6 @@ target_sources (quicr PRIVATE
 
 # Suppress external lib warnings
 set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)
-#target_compile_options(quicr-transport PRIVATE -w)
 
 target_compile_options(quicr
     PRIVATE
@@ -35,6 +34,8 @@ if(MSVC)
     target_compile_options(quicr PRIVATE /W4 /WX)
     target_compile_definitions(quicr _CRT_SECURE_NO_WARNINGS)
 endif()
+
+target_compile_definitions(quicr PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
 
 if(LINT)
     include(Lint)
