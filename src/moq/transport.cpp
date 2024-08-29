@@ -135,11 +135,7 @@ namespace moq {
            auto conn_id = quic_transport_->Start(nullptr, nullptr);
 
            status_ = Status::kConnecting;
-<<<<<<< Updated upstream
            StatusChanged(status_);
-=======
-           //ConnectionStatus(Status::kConnecting);
->>>>>>> Stashed changes
 
            LOGGER_INFO(logger_, "Connecting session conn_id: {0}...", conn_id);
            auto [conn_ctx, _] = connections_.try_emplace(conn_id, ConnectionContext{});
