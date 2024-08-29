@@ -24,21 +24,6 @@ namespace moq {
     class Client : public Transport
     {
       public:
-        enum class Status : uint8_t
-        {
-            kReady = 0,
-            kNotReady,
-
-            kInternalError,
-
-            kInvalidParams,
-
-            kClientConnecting,
-            kDisconnecting,
-            kClientNotConnected,
-            kClientFailedToConnect
-        };
-
         /**
          * @brief MoQ Client Constructor to create the client mode instance
          *
@@ -72,22 +57,22 @@ namespace moq {
          * @return Status of kDisconnecting
          */
         Status Disconnect();
-      
+
         /**
          * @brief Callback notification for connection status/state change
          * @details Callback notification indicates state change of connection, such as disconnected
          *
          * @param status           Status change
          */
-        virtual void StatusChanged(Status status) {}
+        virtual void StatusChanged(Status status);
 
          /**
          * @brief Get the status of the Client
          *
          * @return Status of the Client
          */
-         Status GetStatus();
-      
+         Status GetStatus() const noexcept { return status_; }
+
         /**
          * @brief Callback on server setup message
          *
@@ -96,7 +81,7 @@ namespace moq {
          *
          * @param server_setup_attributes     Server setup attributes received
          */
-        virtual void ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes) {}
+        virtual void ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes);
 
         /**
          * @brief Notification on publish announcement status change
@@ -106,7 +91,7 @@ namespace moq {
          * @param track_namespace             Track namespace to announce
          * @param status                      Publish announce status
          */
-        virtual void AnnounceStatusChanged(const TrackNamespace& track_namespace, const PublishAnnounceStatus status) {}
+        virtual void AnnounceStatusChanged(const TrackNamespace& track_namespace, const PublishAnnounceStatus status);
 
         /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
@@ -118,14 +103,30 @@ namespace moq {
          *      and a publish track will not begin, then **false** should be returned. The Transport
          *      will send the appropriate message to indicate the accept/reject.
          *
+         * @note The caller **MUST** respond to this via ResolveSubscribe(). If the caller does not
+         *      override this method, the default will call ResolveSubscribe() with the status of error as
+         *      not exists.
+         *
          * @param track_full_name           Track full name
          * @param subscribe_attributes      Subscribe attributes received
-         *
-         * @return Caller returns **true** to accept the subscribe and will start to publish, **false** to reject
-         *      the subscribe and will not publish.
          */
-        virtual bool UnpublishedSubscribeReceived(const FullTrackName& track_full_name,
-                                                  const SubscribeAttributes& subscribe_attributes) {}
+        virtual void UnpublishedSubscribeReceived(const FullTrackName& track_full_name,
+                                                  const SubscribeAttributes& subscribe_attributes);
+
+        /**
+         * @brief Accept or reject an subscribe that was received
+         *
+         * @details Accept or reject an subscribe received via SubscribeReceived(). The MoQ Transport
+         *      will send the protocol message based on the SubscribeResponse
+         *
+         * @param connection_handle        source connection ID
+         * @param subscribe_id             subscribe ID
+         * @param subscribe_response       response to for the subscribe
+         */
+        virtual void ResolveSubscribe(ConnectionHandle connection_handle,
+                                      uint64_t subscribe_id,
+                                      SubscribeResponse subscribe_response);
+
 
         /**
          * @brief Notification callback to provide sampled metrics
@@ -136,7 +137,7 @@ namespace moq {
          *
          * @param metrics           Copy of the connection metrics for the sample period
          */
-        virtual void MetricsSampled(const ConnectionMetrics&& metrics) {}
+        virtual void MetricsSampled(const ConnectionMetrics&& metrics);
 
         /**
          * @brief Get announce status for namespace
@@ -188,10 +189,8 @@ namespace moq {
          *
          * @param track_namespace    Track handler to use for track related functions
          *                           and callbacks
-         *
-         * @return PublishAnnounceStatus of the publish announce namespace
          */
-        PublishAnnounceStatus PublishAnnounce(const TrackNamespace& track_namespace);
+        void PublishAnnounce(const TrackNamespace& track_namespace);
 
         /**
          * @brief Unannounce a publish namespace
@@ -229,6 +228,17 @@ namespace moq {
         }
 
       private:
+        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
+                                        std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+        virtual bool ProcessStreamDataMessage(ConnectionContext& conn_ctx,
+                                              std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+
+        void SetStatus(Status status)
+        {
+            status_ = status;
+            StatusChanged(status);
+        }
+
         std::optional<ConnectionHandle> connection_handle_;               ///< Connection ID for the client
     };
 

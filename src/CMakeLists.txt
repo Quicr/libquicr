@@ -7,6 +7,8 @@ target_sources (quicr PRIVATE
         moq/messages.cpp
         moq/publish_track_handler_base.cpp
         moq/server_publish_track_handler_base.cpp
+        moq/messages.cpp
+        moq/publish_track_handler.cpp
         moq/transport.cpp
         moq/server.cpp
         moq/client.cpp
