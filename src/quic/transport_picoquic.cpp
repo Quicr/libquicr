@@ -1619,6 +1619,7 @@ TransportConnId PicoQuicTransport::CreateClient()
     if (ret != 0 || server_address.ss_family == 0) {
         LOGGER_ERROR(logger, "Failed to get server: {0} port: {1}", serverInfo_.host_or_ip, serverInfo_.port);
         SetStatus(TransportStatus::kDisconnected);
+        OnConnectionStatus(0, TransportStatus::kShutdown);
         return 0;
     } else if (is_name) {
         sni = serverInfo_.host_or_ip.c_str();
