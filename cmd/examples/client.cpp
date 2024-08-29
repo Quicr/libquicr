@@ -1,5 +1,3 @@
-
-
 #include <oss/cxxopts.hpp>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
@@ -13,7 +11,6 @@ namespace qclient_vars {
     bool publish_clock{ false };
 }
 
-
 /**
  * @brief  Subscribe track handler
  * @details Subscribe track handler used for the subscribe command line option.
@@ -26,9 +23,7 @@ class MySubscribeTrackHandler : public moq::SubscribeTrackHandler
     {
     }
 
-    virtual ~MySubscribeTrackHandler() = default;
-
-    virtual void ObjectReceived(const moq::ObjectHeaders& object_headers, Span<uint8_t> data)
+    void ObjectReceived(const moq::ObjectHeaders& object_headers, Span<uint8_t> data) override
     {
         std::string msg(data.begin(), data.end());
         SPDLOG_INFO("Received message: {0}", msg);
@@ -46,10 +41,6 @@ class MySubscribeTrackHandler : public moq::SubscribeTrackHandler
                 break;
         }
     }
-
-private:
-    const moq::FullTrackName full_track_name_;
-
 };
 
 /**
@@ -67,9 +58,7 @@ class MyPublishTrackHandler : public moq::PublishTrackHandler
     {
     }
 
-    virtual ~MyPublishTrackHandler() = default;
-
-    virtual void StatusChanged(Status status)
+    void StatusChanged(Status status) override
     {
         switch (status) {
             case Status::kOk: {
@@ -96,16 +85,19 @@ class MyClient : public moq::Client
     {
     }
 
-    virtual ~MyClient() = default;
-
-    virtual void StatusChanged(Status status)
+    void StatusChanged(Status status) override
     {
-        if (status == Status::kReady) {
-            SPDLOG_INFO("Connection ready");
-        } else {
-            SPDLOG_INFO("Connection failed");
-            stop_threads_ = true;
-            moq_example::terminate = true;
+        switch (status) {
+            case Status::kReady:
+                SPDLOG_INFO("Connection ready");
+                break;
+            case Status::kConnecting:
+                break;
+            default:
+                SPDLOG_INFO("Connection failed {0}", static_cast<int>(status));
+                stop_threads_ = true;
+                moq_example::terminate = true;
+                break;
         }
     }
 
@@ -319,16 +311,14 @@ main(int argc, char* argv[])
         std::thread pub_thread, sub_thread;
 
         if (enable_pub) {
-            const auto& pub_track_name = moq::example::MakeFullTrackName(result["pub_namespace"].as<std::string>(),
-                                                                         result["pub_name"].as<std::string>(),
-                                                                         1001);
+            const auto& pub_track_name = moq::example::MakeFullTrackName(
+              result["pub_namespace"].as<std::string>(), result["pub_name"].as<std::string>(), 1001);
 
             pub_thread = std::thread(do_publisher, pub_track_name, client, std::ref(stop_threads));
         }
         if (enable_sub) {
-            const auto& sub_track_name = moq::example::MakeFullTrackName(result["sub_namespace"].as<std::string>(),
-                                                                         result["sub_name"].as<std::string>(),
-                                                                         2001);
+            const auto& sub_track_name = moq::example::MakeFullTrackName(
+              result["sub_namespace"].as<std::string>(), result["sub_name"].as<std::string>(), 2001);
 
             sub_thread = std::thread(do_subscriber, sub_track_name, client, std::ref(stop_threads));
         }

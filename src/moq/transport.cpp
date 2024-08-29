@@ -147,13 +147,10 @@ namespace moq {
            server.proto = TransportProtocol::kQuic;
 
            quic_transport_ = ITransport::MakeServerTransport(server, server_config_.transport_config, *this, logger_);
+           quic_transport_->Start(nullptr, nullptr);
 
-           switch (quic_transport_->Status()) {
-               case TransportStatus::kReady:
-                   return Status::kReady;
-               default:
-                   return Status::kNotReady;
-           }
+           status_ = Status::kReady;
+           return status_;
        }
    }
 
