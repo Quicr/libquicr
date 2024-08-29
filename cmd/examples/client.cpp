@@ -92,7 +92,7 @@ public:
 
   virtual void StatusChanged(Status status) {
     switch ( status ) {
-    case Status::kOK : {
+    case Status::kOk : {
       if (   auto track_alias = GetTrackAlias();  track_alias.has_value() ) {
         SPDLOG_INFO( "Track alias: {0} is ready to read",  track_alias.value() );
       }
@@ -153,7 +153,7 @@ void do_publisher(const moq::FullTrackName& full_track_name,
             published_track = true;
         }
 
-      if (track_delegate->GetStatus() != MyPublishTrackHandler::Status::kOK) {
+      if (track_delegate->GetStatus() != MyPublishTrackHandler::Status::kOk ) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
@@ -295,7 +295,7 @@ main(int argc, char* argv[])
       .add_options()
         ("h,help", "Print help")
           ("d,debug", "Enable debugging") // a bool parameter
-      ("r,uri", "Relay URL", cxxopts::value<std::string>()->default_value("moqt::/localhost:1234"))
+      ("r,url", "Relay URL", cxxopts::value<std::string>()->default_value("moqt::/localhost:1234"))
           ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))
             ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
       ; // end of options
@@ -316,7 +316,7 @@ main(int argc, char* argv[])
     if (result.count("help"))
     {
         std::cout << options.help({"", "Publisher", "Subscriber"}) << std::endl;
-        return true;
+        return EXIT_SUCCESS;
     }
 
     // Install a signal handlers to catch operating system signals

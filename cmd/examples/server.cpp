@@ -27,7 +27,7 @@ namespace qserver_vars {
      *
      *     Example: track_delegate = subscribes[track_alias][conn_id]
      */
-    std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::shared_ptr<moq::ServerPublishTrackHandler>>> subscribes;
+    std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::shared_ptr<moq::PublishTrackHandler>>> subscribes;
 
     /*
      * Subscribe ID to alias mapping
@@ -63,7 +63,7 @@ namespace qserver_vars {
      *
      * track_delegate = pub_subscribes[track_alias][conn_id]
      */
-    std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::shared_ptr<moq::ServerPublishTrackHandler>>> pub_subscribes;
+    std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::shared_ptr<moq::PublishTrackHandler>>> pub_subscribes;
 }
 
 /* -------------------------------------------------------------------------------------------------
@@ -152,7 +152,10 @@ class MyServer : public moq::Server
     MyServer(const moq::ServerConfig& cfg) : moq::Server( cfg ){}
 
     virtual ~MyServer() = default;
-   
+
+  virtual void MetricsSampled( moq::ConnectionHandle connection_handle, const moq::ConnectionMetrics&& metrics) {
+  };
+  
     virtual void NewConnectionAccepted(moq::ConnectionHandle connection_handle,
                                        const moq::Server::ConnectionRemoteInfo& remote) { }
    
@@ -261,9 +264,11 @@ class MyServer : public moq::Server
 
 
   virtual void ConnectionStatusChanged( moq::ConnectionHandle connection_handle, ConnectionStatus status){
+#if 0 
       if (status == qtransport::TransportStatus::kReady) {
             SPDLOG_DEBUG( "Connection ready conn_id: {0} ", connection_handle );
       }
+#endif
   }
   
 
@@ -357,7 +362,7 @@ class MyServer : public moq::Server
 #endif
     }
 
-  virtual SubscribeResponse SubscribeReceived(moq::ConnectionHandle connection_handle,
+  virtual void SubscribeReceived(moq::ConnectionHandle connection_handle,
                                                 uint64_t subscribe_id,
                                                 uint64_t proposed_track_alias,
                                                 const moq::FullTrackName& track_full_name,
@@ -366,7 +371,7 @@ class MyServer : public moq::Server
       //                uint64_t subscribe_id,
       //                Span<uint8_t const> name_space,
       //                Span<uint8_t const> name) override
-#if 1
+#if 0
         std::string const t_namespace(name_space.begin(), name_space.end());
         std::string const t_name(name.begin(), name.end());
 
@@ -410,6 +415,9 @@ class MyServer : public moq::Server
                 qserver_vars::pub_subscribes[th.track_fullname_hash][conn_id] = pub_track_delegate;
             }
         }
+
+
+        // TODO   setup   moq::SubscribeResponse and call function
 #endif
     }
 
@@ -490,7 +498,7 @@ main(int argc, char* argv[])
 
     moq::ServerConfig config = init_config(result);
 
-    auto delegate = std::make_shared<MyServer>();
+    auto delegate = std::make_shared<MyServer>( config );
 
     try {
         auto moqInstance = std::make_shared<MyServer>(config);
