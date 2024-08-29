@@ -7,6 +7,7 @@
 
 #include <functional>
 #include <moq/detail/base_track_handler.h>
+#include <moq/object.h>
 #include <moq/metrics.h>
 
 namespace moq {
@@ -19,11 +20,9 @@ namespace moq {
      *
      *  This extends the base track handler to add publish (aka send) handling
      */
-    class PublishTrackHandler : protected BaseTrackHandler
+    class PublishTrackHandler : public BaseTrackHandler
     {
       public:
-        friend class Transport;
-
         /**
          * @brief Publish status codes
          */
@@ -40,7 +39,7 @@ namespace moq {
             kNoPreviousObject,
             kObjectDataComplete,
             kObjectContinuationDataNeeded,
-            kObjectDataIncomplete,              ///< PublishObject() was called when continuation data remains
+            kObjectDataIncomplete, ///< PublishObject() was called when continuation data remains
 
             /// Indicates that the published object data is too large based on the object header payload size plus
             /// any/all data that was sent already.
@@ -66,7 +65,7 @@ namespace moq {
             kPendingAnnounceResponse,
             kAnnounceNotAuthorized,
             kNoSubscribers,
-            kSendingUnannounce,         ///< In this state, callbacks will not be called
+            kSendingUnannounce, ///< In this state, callbacks will not be called
         };
 
       protected:
@@ -251,7 +250,7 @@ namespace moq {
          */
         using PublishObjFunction = std::function<PublishObjectStatus(uint8_t priority,
                                                                      uint32_t ttl,
-                                                                     bool Tr,
+                                                                     bool stream_header_needed,
                                                                      uint64_t group_id,
                                                                      uint64_t object_id,
                                                                      BytesSpan data)>;
@@ -271,23 +270,27 @@ namespace moq {
          * @brief Set the publish status
          * @param status                Status of publishing (aka publish objects)
          */
-        void SetStatus(Status status) noexcept { publish_status_ = status; }
+        void SetStatus(Status status) noexcept { publish_status_ = status; StatusChanged(status); }
 
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
         Status publish_status_{ Status::kNotAnnounced };
         TrackMode default_track_mode_;
-        uint8_t default_priority_;              // Set by caller and is used when priority is not specified
-        uint32_t default_ttl_;                  // Set by caller and is used when TTL is not specified
+        uint8_t default_priority_; // Set by caller and is used when priority is not specified
+        uint32_t default_ttl_;     // Set by caller and is used when TTL is not specified
 
-        uint64_t publish_data_ctx_id_;              // set byte the transport; publishing data context ID
-        PublishObjFunction publish_object_func_;    // set by the transport
+        uint64_t publish_data_ctx_id_;           // set byte the transport; publishing data context ID
+        PublishObjFunction publish_object_func_; // set by the transport
 
         uint64_t prev_object_group_id_{ 0 };
         uint64_t prev_object_id_{ 0 };
-        uint64_t object_payload_remaining_length_ { 0 };
-        bool sent_track_header_ { false };  // Used only in stream per track mode
+        uint64_t object_payload_remaining_length_{ 0 };
+        bool sent_track_header_{ false }; // Used only in stream per track mode
+
+        friend class Transport;
+        friend class Client;
+        friend class Server;
     };
 
 } // namespace moq

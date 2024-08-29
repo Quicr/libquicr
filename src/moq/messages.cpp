@@ -1204,7 +1204,7 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
   /// num params
   buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(2)));
   // role param
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(msg.role_parameter.type)));
+  buffer.Push(qtransport::ToUintV(msg.role_parameter.type));
   buffer.PushLv(msg.role_parameter.value);
   // endpoint_id param
   buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(ParameterType::EndpointId)));
@@ -1249,7 +1249,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqClientSetup &msg) 
                   return false;
               }
 
-              msg.current_param = {};
+              msg.current_param = MoqParameter{};
               msg.current_param->type = type;
           }
 
@@ -1339,7 +1339,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqServerSetup &msg) 
               return false;
           }
 
-          msg.current_param = {};
+          msg.current_param = MoqParameter{};
           msg.current_param->type = type;
         }
 
