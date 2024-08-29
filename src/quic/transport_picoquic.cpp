@@ -342,7 +342,7 @@ int PqEventCb(picoquic_cnx_t* pq_cnx,
         }
 
         default:
-            LOGGER_DEBUG(transport->logger, "Got event {0}", fin_or_event);
+            LOGGER_DEBUG(transport->logger, "Got event {0}", static_cast<int>(fin_or_event));
             break;
     }
 
@@ -776,7 +776,7 @@ void PicoQuicTransport::SetDataCtxPriority(const TransportConnId conn_id, DataCo
     if (data_ctx_it == conn_it->second.active_data_contexts.end())
         return;
 
-    LOGGER_DEBUG(logger, "Set data context priority to {0}  conn_id: {1} data_ctx_id: {2}" << static_cast<int>(priority), conn_id, data_ctx_id);
+    LOGGER_DEBUG(logger, "Set data context priority to {0}  conn_id: {1} data_ctx_id: {2}", static_cast<int>(priority), conn_id, data_ctx_id);
 
     data_ctx_it->second.priority = priority;
 }
@@ -1807,7 +1807,7 @@ void PicoQuicTransport::CreateStream(ConnectionContext& conn_ctx, DataContext *d
 {
     conn_ctx.last_stream_id = picoquic_get_next_local_stream_id(conn_ctx.pq_cnx, !data_ctx->is_bidir);
 
-    LOGGER_DEBUG(logger, "conn_id: {0} data_ctx_id: {1} create new stream with stream_id: {2}" << conn_ctx.conn_id, data_ctx->data_ctx_id, conn_ctx.last_stream_id);
+    LOGGER_DEBUG(logger, "conn_id: {0} data_ctx_id: {1} create new stream with stream_id: {2}", conn_ctx.conn_id, data_ctx->data_ctx_id, conn_ctx.last_stream_id);
 
     if (data_ctx->current_stream_id) {
         CloseStream(conn_ctx, data_ctx, false);
@@ -1845,7 +1845,7 @@ void PicoQuicTransport::CloseStream(ConnectionContext& conn_ctx, DataContext* da
         picoquic_reset_stream(conn_ctx.pq_cnx, *data_ctx->current_stream_id, 0);
 
     } else {
-        LOGGER_INFO(logger, "Sending FIN for stream_id: {0} conn_id: {1}",*data_ctx->current_stream_id, conn_ctx.conn_id);
+        LOGGER_INFO(logger, "Sending FIN for stream_id: {0} conn_id: {1}", *data_ctx->current_stream_id, conn_ctx.conn_id);
 
         picoquic_reset_stream_ctx(conn_ctx.pq_cnx, *data_ctx->current_stream_id);
         uint8_t empty {0};

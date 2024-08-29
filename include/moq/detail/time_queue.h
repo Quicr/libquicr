@@ -74,7 +74,7 @@ namespace qtransport {
             tick_thread_ = std::thread(&ThreadedTickService::TickLoop, this);
         }
 
-        ~ThreadedTickService()
+        virtual ~ThreadedTickService()
         {
             stop_ = true;
             if (tick_thread_.joinable())
