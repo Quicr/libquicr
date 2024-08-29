@@ -97,6 +97,7 @@ class MyClient : public moq::Client
                 SPDLOG_INFO("Connection failed {0}", static_cast<int>(status));
                 stop_threads_ = true;
                 moq_example::terminate = true;
+                moq_example::termination_reason = "Connection failed";
                 break;
         }
     }
@@ -115,7 +116,6 @@ do_publisher(const moq::FullTrackName& full_track_name,
              const std::shared_ptr<moq::Client>& client,
              const bool& stop)
 {
-#if 1
     auto track_handler = std::make_shared<MyPublishTrackHandler>(
       full_track_name, moq::TrackMode::kStreamPerGroup /*mode*/, 2 /*prirority*/, 3000 /*ttl*/);
 
@@ -166,8 +166,8 @@ do_publisher(const moq::FullTrackName& full_track_name,
             group_id++;
         }
 
-        moq::ObjectHeaders obj_headers = { group_id,       object_id++,    msg.size(),
-                                           2 /*priority*/, 3000 /* ttl */, {} /*extentions*/ };
+        moq::ObjectHeaders obj_headers = { group_id,       object_id++,  msg.size(),  2 /*priority*/,
+                                           3000 /* ttl */, std::nullopt, std::nullopt };
 
         track_handler->PublishObject(obj_headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
     }
@@ -176,7 +176,6 @@ do_publisher(const moq::FullTrackName& full_track_name,
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     SPDLOG_INFO("Publisher done track");
-#endif
 }
 
 /* -------------------------------------------------------------------------------------------------

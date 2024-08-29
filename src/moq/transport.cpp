@@ -131,7 +131,9 @@ namespace moq {
 
 
            auto conn_id = quic_transport_->Start(nullptr, nullptr);
-           
+
+           SetConnectionHandle(conn_id);
+
            status_ = Status::kConnecting;
            StatusChanged(status_);
 

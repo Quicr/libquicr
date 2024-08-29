@@ -218,6 +218,11 @@ namespace moq {
         virtual bool ProcessStreamDataMessage(ConnectionContext& conn_ctx,
                                               std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
+        void SetConnectionHandle(ConnectionHandle connection_handle) override
+        {
+            connection_handle_ = connection_handle;
+        }
+
         void SetStatus(Status status)
         {
             status_ = status;

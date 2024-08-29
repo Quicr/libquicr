@@ -109,12 +109,12 @@ class MySubscribeTrackHandler : public moq::SubscribeTrackHandler
         auto sub_it = qserver_vars::subscribes.find(track_alias.value());
 
         if (sub_it == qserver_vars::subscribes.end()) {
-            SPDLOG_DEBUG("No subscribes, not relaying data size: {0} ", object.size());
+            SPDLOG_INFO("No subscribes, not relaying data size: {0} ", data.size());
             return;
         }
 
         for (const auto& [conn_id, pth] : sub_it->second) {
-            SPDLOG_DEBUG("Relaying track_alias:  data size: {0}", object.size());
+            SPDLOG_INFO("Relaying track_alias:  data size: {0}", data.size());
 
             pth->PublishObject(object_headers, data);
         }
