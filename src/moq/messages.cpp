@@ -5,7 +5,7 @@ namespace moq::messages {
 //
 // Utility
 //
-static bool parse_uintV_field(qtransport::StreamBuffer<uint8_t> &buffer, uint64_t& field) {
+static bool ParseUintVField(qtransport::StreamBuffer<uint8_t> &buffer, uint64_t& field) {
   auto val = buffer.DecodeUintV();
   if (!val) {
     return false;
@@ -15,7 +15,7 @@ static bool parse_uintV_field(qtransport::StreamBuffer<uint8_t> &buffer, uint64_
 }
 
 
-static bool parse_bytes_field(qtransport::StreamBuffer<uint8_t> &buffer, Bytes& field) {
+static bool ParseBytesField(qtransport::StreamBuffer<uint8_t> &buffer, Bytes& field) {
   auto val = buffer.DecodeBytes();
   if (!val) {
     return false;
@@ -92,11 +92,11 @@ MessageBuffer& operator>>(MessageBuffer& buffer, std::optional<T>& val) {
 
 
 //
-// MoqtParameter
+// MoqParameter
 //
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtParameter& param){
+           const MoqParameter& param){
 
   buffer.Push(qtransport::ToUintV(param.type));
   buffer.Push(qtransport::ToUintV(param.length));
@@ -106,13 +106,13 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtParameter &param) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqParameter &param) {
 
-  if(!parse_uintV_field(buffer, param.type)) {
+  if(!ParseUintVField(buffer, param.type)) {
     return false;
   }
 
-  if(!parse_uintV_field(buffer, param.length)) {
+  if(!ParseUintVField(buffer, param.length)) {
     return false;
   }
 
@@ -128,7 +128,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtParameter &param)
 }
 
 
-MessageBuffer& operator<<(MessageBuffer &buffer, const MoqtParameter &param) {
+MessageBuffer& operator<<(MessageBuffer &buffer, const MoqParameter &param) {
   buffer <<  param.type;
   buffer << param.length;
   if (param.length) {
@@ -138,7 +138,7 @@ MessageBuffer& operator<<(MessageBuffer &buffer, const MoqtParameter &param) {
   return buffer;
 }
 
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqtParameter &param) {
+MessageBuffer& operator>>(MessageBuffer &buffer, MoqParameter &param) {
   buffer >> param.type;
   buffer >> param.length;
   if (static_cast<uint64_t>(param.length) > 0) {
@@ -151,8 +151,8 @@ MessageBuffer& operator>>(MessageBuffer &buffer, MoqtParameter &param) {
 // Track Status
 //
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                              const MoqtTrackStatus& msg) {
-    buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::TRACK_STATUS)));
+                                              const MoqTrackStatus& msg) {
+    buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::TRACK_STATUS)));
     buffer.PushLv(msg.track_namespace);
     buffer.PushLv(msg.track_name);
     buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(msg.status_code)));
@@ -162,18 +162,18 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
     return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtTrackStatus &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqTrackStatus &msg) {
 
     switch (msg.current_pos) {
         case 0: {
-            if(!parse_bytes_field(buffer, msg.track_namespace)) {
+            if(!ParseBytesField(buffer, msg.track_namespace)) {
                 return false;
             }
             msg.current_pos += 1;
             [[fallthrough]];
         }
         case 1: {
-            if(!parse_bytes_field(buffer, msg.track_name)) {
+            if(!ParseBytesField(buffer, msg.track_name)) {
                 return false;
             }
             msg.current_pos += 1;
@@ -189,7 +189,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtTrackStatus &msg)
             [[fallthrough]];
         }
         case 3: {
-            if (!parse_uintV_field(buffer, msg.last_group_id)) {
+            if (!ParseUintVField(buffer, msg.last_group_id)) {
                 return false;
             }
             msg.current_pos += 1;
@@ -197,7 +197,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtTrackStatus &msg)
             [[fallthrough]];
         }
         case 4: {
-            if (!parse_uintV_field(buffer, msg.last_object_id)) {
+            if (!ParseUintVField(buffer, msg.last_object_id)) {
                 return false;
             }
             msg.current_pos += 1;
@@ -218,26 +218,26 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtTrackStatus &msg)
 }
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                              const MoqtTrackStatusRequest& msg){
-    buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::TRACK_STATUS_REQUEST)));
+                                              const MoqTrackStatusRequest& msg){
+    buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::TRACK_STATUS_REQUEST)));
     buffer.PushLv(msg.track_namespace);
     buffer.PushLv(msg.track_name);
 
     return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtTrackStatusRequest &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqTrackStatusRequest &msg) {
 
     switch (msg.current_pos) {
         case 0: {
-            if (!parse_bytes_field(buffer, msg.track_namespace)) {
+            if (!ParseBytesField(buffer, msg.track_namespace)) {
                 return false;
             }
             msg.current_pos += 1;
             [[fallthrough]];
         }
         case 1: {
-            if (!parse_bytes_field(buffer, msg.track_name)) {
+            if (!ParseBytesField(buffer, msg.track_name)) {
                 return false;
             }
             msg.current_pos += 1;
@@ -261,8 +261,8 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtTrackStatusReques
 //
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtSubscribe& msg){
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::SUBSCRIBE)));
+           const MoqSubscribe& msg){
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE)));
   buffer.Push(qtransport::ToUintV(msg.subscribe_id));
   buffer.Push(qtransport::ToUintV(msg.track_alias));
   buffer.PushLv(msg.track_namespace);
@@ -296,32 +296,32 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribe &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg) {
 
   switch (msg.current_pos) {
     case 0: {
-      if(!parse_uintV_field(buffer, msg.subscribe_id)) {
+      if(!ParseUintVField(buffer, msg.subscribe_id)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 1: {
-      if(!parse_uintV_field(buffer, msg.track_alias)) {
+      if(!ParseUintVField(buffer, msg.track_alias)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 2: {
-      if(!parse_bytes_field(buffer, msg.track_namespace)) {
+      if(!ParseBytesField(buffer, msg.track_namespace)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 3: {
-      if(!parse_bytes_field(buffer, msg.track_name)) {
+      if(!ParseBytesField(buffer, msg.track_name)) {
         return false;
       }
       msg.current_pos += 1;
@@ -346,7 +346,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribe &msg) {
     case 5: {
       if (msg.filter_type == FilterType::AbsoluteStart
           || msg.filter_type == FilterType::AbsoluteRange) {
-        if (!parse_uintV_field(buffer, msg.start_group)) {
+        if (!ParseUintVField(buffer, msg.start_group)) {
           return false;
         }
         msg.current_pos += 1;
@@ -356,7 +356,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribe &msg) {
     case 6: {
       if (msg.filter_type == FilterType::AbsoluteStart
           || msg.filter_type == FilterType::AbsoluteRange) {
-        if (!parse_uintV_field(buffer, msg.start_object)) {
+        if (!ParseUintVField(buffer, msg.start_object)) {
           return false;
         }
 
@@ -370,7 +370,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribe &msg) {
     }
     case 7: {
       if (msg.filter_type == FilterType::AbsoluteRange) {
-        if (!parse_uintV_field(buffer, msg.end_group)) {
+        if (!ParseUintVField(buffer, msg.end_group)) {
           return false;
         }
         msg.current_pos += 1;
@@ -380,7 +380,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribe &msg) {
     }
     case 8: {
       if (msg.filter_type == FilterType::AbsoluteRange) {
-        if (!parse_uintV_field(buffer, msg.end_object)) {
+        if (!ParseUintVField(buffer, msg.end_object)) {
           return false;
         }
         msg.current_pos += 1;
@@ -390,7 +390,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribe &msg) {
     case 9: {
       if (!msg.num_params.has_value()) {
         uint64_t num = 0;
-        if (!parse_uintV_field(buffer, num)) {
+        if (!ParseUintVField(buffer, num)) {
           return false;
         }
 
@@ -400,11 +400,11 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribe &msg) {
       while (*msg.num_params > 0) {
         if (!msg.current_param.has_value()) {
           uint64_t type {0};
-          if (!parse_uintV_field(buffer, type)) {
+          if (!ParseUintVField(buffer, type)) {
             return false;
           }
 
-          msg.current_param = MoqtParameter{};
+          msg.current_param = MoqParameter{};
           msg.current_param->type = type;
         }
 
@@ -437,20 +437,20 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribe &msg) {
 
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtUnsubscribe& msg){
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::UNSUBSCRIBE)));
+           const MoqUnsubscribe& msg){
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::UNSUBSCRIBE)));
   buffer.Push(qtransport::ToUintV(msg.subscribe_id));
   return buffer;
 }
 
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtUnsubscribe &msg) {
-  return parse_uintV_field(buffer, msg.subscribe_id);
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqUnsubscribe &msg) {
+  return ParseUintVField(buffer, msg.subscribe_id);
 }
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtSubscribeDone& msg){
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::SUBSCRIBE_DONE)));
+           const MoqSubscribeDone& msg){
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_DONE)));
   buffer.Push(qtransport::ToUintV(msg.subscribe_id));
   buffer.Push(qtransport::ToUintV(msg.status_code));
   buffer.PushLv(msg.reason_phrase);
@@ -464,18 +464,18 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
 }
 
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribeDone &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeDone &msg) {
 
   switch (msg.current_pos) {
     case 0: {
-      if(!parse_uintV_field(buffer, msg.subscribe_id)) {
+      if(!ParseUintVField(buffer, msg.subscribe_id)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 1: {
-      if(!parse_uintV_field(buffer, msg.status_code)) {
+      if(!ParseUintVField(buffer, msg.status_code)) {
         return false;
       }
       msg.current_pos += 1;
@@ -505,14 +505,14 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribeDone &ms
       [[fallthrough]];
     }
     case 4: {
-      if(!parse_uintV_field(buffer, msg.final_group_id)) {
+      if(!ParseUintVField(buffer, msg.final_group_id)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 5: {
-      if(!parse_uintV_field(buffer, msg.final_object_id)) {
+      if(!ParseUintVField(buffer, msg.final_object_id)) {
         return false;
       }
       msg.current_pos += 1;
@@ -529,8 +529,8 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribeDone &ms
 }
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtSubscribeOk& msg){
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::SUBSCRIBE_OK)));
+           const MoqSubscribeOk& msg){
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_OK)));
   buffer.Push(qtransport::ToUintV(msg.subscribe_id));
   buffer.Push(qtransport::ToUintV(msg.expires));
   msg.content_exists ? buffer.Push(static_cast<uint8_t>(1)) : buffer.Push(static_cast<uint8_t>(0));
@@ -542,19 +542,19 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
 }
 
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribeOk &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeOk &msg) {
 
   switch (msg.current_pos) {
     case 0:
     {
-      if(!parse_uintV_field(buffer, msg.subscribe_id)) {
+      if(!ParseUintVField(buffer, msg.subscribe_id)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 1: {
-      if(!parse_uintV_field(buffer, msg.expires)) {
+      if(!ParseUintVField(buffer, msg.expires)) {
         return false;
       }
       msg.current_pos += 1;
@@ -575,14 +575,14 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribeOk &msg)
       [[fallthrough]];
     }
     case 3: {
-      if(!parse_uintV_field(buffer, msg.largest_group)) {
+      if(!ParseUintVField(buffer, msg.largest_group)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 4: {
-      if(!parse_uintV_field(buffer, msg.largest_object)) {
+      if(!ParseUintVField(buffer, msg.largest_object)) {
         return false;
       }
       msg.current_pos += 1;
@@ -600,8 +600,8 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribeOk &msg)
 
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtSubscribeError& msg){
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::SUBSCRIBE_ERROR)));
+           const MoqSubscribeError& msg){
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ERROR)));
   buffer.Push(qtransport::ToUintV(msg.subscribe_id));
   buffer.Push(qtransport::ToUintV(msg.err_code));
   buffer.PushLv(msg.reason_phrase);
@@ -610,19 +610,19 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
 }
 
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribeError &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeError &msg) {
 
   switch (msg.current_pos) {
     case 0:
     {
-      if(!parse_uintV_field(buffer, msg.subscribe_id)) {
+      if(!ParseUintVField(buffer, msg.subscribe_id)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 1: {
-      if(!parse_uintV_field(buffer, msg.err_code)) {
+      if(!ParseUintVField(buffer, msg.err_code)) {
         return false;
       }
       msg.current_pos += 1;
@@ -638,7 +638,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribeError &m
       [[fallthrough]];
     }
     case 3: {
-      if(!parse_uintV_field(buffer, msg.track_alias)) {
+      if(!ParseUintVField(buffer, msg.track_alias)) {
         return false;
       }
       msg.current_pos += 1;
@@ -664,15 +664,15 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribeError &m
 
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtAnnounce& msg){
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::ANNOUNCE)));
+           const MoqAnnounce& msg){
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::ANNOUNCE)));
   buffer.PushLv(msg.track_namespace);
   buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(0)));
   return buffer;
 }
 
 bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer,
-           MoqtAnnounce &msg) {
+           MoqAnnounce &msg) {
 
   // read namespace
   if (msg.track_namespace.empty())
@@ -696,7 +696,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer,
   while (msg.num_params > 0) {
     if (!msg.current_param.type) {
       uint64_t type {0};
-      if (!parse_uintV_field(buffer, type)) {
+      if (!ParseUintVField(buffer, type)) {
         return false;
       }
 
@@ -721,13 +721,13 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer,
 }
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtAnnounceOk& msg){
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::ANNOUNCE_OK)));
+           const MoqAnnounceOk& msg){
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_OK)));
   buffer.PushLv(msg.track_namespace);
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtAnnounceOk &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceOk &msg) {
 
   // read namespace
   if (msg.track_namespace.empty())
@@ -743,15 +743,15 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtAnnounceOk &msg) 
 
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtAnnounceError& msg){
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::ANNOUNCE_ERROR)));
+           const MoqAnnounceError& msg){
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_ERROR)));
   buffer.PushLv(msg.track_namespace.value());
   buffer.Push(qtransport::ToUintV(msg.err_code.value()));
   buffer.PushLv(msg.reason_phrase.value());
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtAnnounceError &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceError &msg) {
 
   // read namespace
   if (!msg.track_namespace)
@@ -783,13 +783,13 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtAnnounceError &ms
 }
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtUnannounce& msg){
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::UNANNOUNCE)));
+           const MoqUnannounce& msg){
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::UNANNOUNCE)));
   buffer.PushLv(msg.track_namespace);
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtUnannounce &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqUnannounce &msg) {
 
   // read namespace
   if (msg.track_namespace.empty())
@@ -804,13 +804,13 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtUnannounce &msg) 
 }
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtAnnounceCancel& msg){
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::ANNOUNCE_CANCEL)));
+           const MoqAnnounceCancel& msg){
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_CANCEL)));
   buffer.PushLv(msg.track_namespace);
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtAnnounceCancel &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceCancel &msg) {
 
   // read namespace
   if (msg.track_namespace.empty())
@@ -829,14 +829,14 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtAnnounceCancel &m
 //
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtGoaway& msg){
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::GOAWAY)));
+           const MoqGoaway& msg){
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::GOAWAY)));
   buffer.PushLv(msg.new_session_uri);
   return buffer;
 }
 
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtGoaway &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqGoaway &msg) {
 
   const auto val = buffer.DecodeBytes();
   if (!val) {
@@ -847,14 +847,14 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtGoaway &msg) {
 }
 
 MessageBuffer &
-operator<<(MessageBuffer &buffer, const MoqtGoaway &msg) {
-  buffer << static_cast<uint8_t>(MoqtMessageType::GOAWAY);
+operator<<(MessageBuffer &buffer, const MoqGoaway &msg) {
+  buffer << static_cast<uint8_t>(MoqMessageType::GOAWAY);
   buffer << msg.new_session_uri;
   return buffer;
 }
 
 MessageBuffer &
-operator>>(MessageBuffer &buffer, MoqtGoaway &msg) {
+operator>>(MessageBuffer &buffer, MoqGoaway &msg) {
   buffer >> msg.new_session_uri;
   return buffer;
 }
@@ -864,9 +864,9 @@ operator>>(MessageBuffer &buffer, MoqtGoaway &msg) {
 //
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtObjectStream& msg){
+           const MoqObjectStream& msg){
 
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::OBJECT_STREAM)));
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::OBJECT_STREAM)));
   buffer.Push(qtransport::ToUintV(msg.subscribe_id));
   buffer.Push(qtransport::ToUintV(msg.track_alias));
   buffer.Push(qtransport::ToUintV(msg.group_id));
@@ -876,39 +876,39 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtObjectStream &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqObjectStream &msg) {
 
   switch (msg.current_pos) {
     case 0: {
-      if(!parse_uintV_field(buffer, msg.subscribe_id)) {
+      if(!ParseUintVField(buffer, msg.subscribe_id)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 1: {
-      if(!parse_uintV_field(buffer, msg.track_alias)) {
+      if(!ParseUintVField(buffer, msg.track_alias)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 2: {
-      if(!parse_uintV_field(buffer, msg.group_id)) {
+      if(!ParseUintVField(buffer, msg.group_id)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 3: {
-      if(!parse_uintV_field(buffer, msg.object_id)) {
+      if(!ParseUintVField(buffer, msg.object_id)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 4: {
-      if(!parse_uintV_field(buffer, msg.priority)) {
+      if(!ParseUintVField(buffer, msg.priority)) {
         return false;
       }
       msg.current_pos += 1;
@@ -936,9 +936,9 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtObjectStream &msg
 
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtObjectDatagram& msg){
+           const MoqObjectDatagram& msg){
 
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::OBJECT_DATAGRAM)));
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::OBJECT_DATAGRAM)));
   buffer.Push(qtransport::ToUintV(msg.subscribe_id));
   buffer.Push(qtransport::ToUintV(msg.track_alias));
   buffer.Push(qtransport::ToUintV(msg.group_id));
@@ -948,39 +948,39 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtObjectDatagram &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqObjectDatagram &msg) {
 
   switch (msg.current_pos) {
     case 0: {
-      if(!parse_uintV_field(buffer, msg.subscribe_id)) {
+      if(!ParseUintVField(buffer, msg.subscribe_id)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 1: {
-      if(!parse_uintV_field(buffer, msg.track_alias)) {
+      if(!ParseUintVField(buffer, msg.track_alias)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 2: {
-      if(!parse_uintV_field(buffer, msg.group_id)) {
+      if(!ParseUintVField(buffer, msg.group_id)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 3: {
-      if(!parse_uintV_field(buffer, msg.object_id)) {
+      if(!ParseUintVField(buffer, msg.object_id)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 4: {
-      if(!parse_uintV_field(buffer, msg.priority)) {
+      if(!ParseUintVField(buffer, msg.priority)) {
         return false;
       }
       msg.current_pos += 1;
@@ -1008,34 +1008,34 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtObjectDatagram &m
 
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtStreamHeaderTrack& msg){
+           const MoqStreamHeaderTrack& msg){
 
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::STREAM_HEADER_TRACK)));
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_TRACK)));
   buffer.Push(qtransport::ToUintV(msg.subscribe_id));
   buffer.Push(qtransport::ToUintV(msg.track_alias));
   buffer.Push(qtransport::ToUintV(msg.priority));
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtStreamHeaderTrack &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamHeaderTrack &msg) {
 
   switch (msg.current_pos) {
     case 0: {
-      if(!parse_uintV_field(buffer, msg.subscribe_id)) {
+      if(!ParseUintVField(buffer, msg.subscribe_id)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 1: {
-      if(!parse_uintV_field(buffer, msg.track_alias)) {
+      if(!ParseUintVField(buffer, msg.track_alias)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 2: {
-      if(!parse_uintV_field(buffer, msg.priority)) {
+      if(!ParseUintVField(buffer, msg.priority)) {
         return false;
       }
       msg.current_pos += 1;
@@ -1053,7 +1053,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtStreamHeaderTrack
 }
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtStreamTrackObject& msg){
+           const MoqStreamTrackObject& msg){
 
   buffer.Push(qtransport::ToUintV(msg.group_id));
   buffer.Push(qtransport::ToUintV(msg.object_id));
@@ -1061,18 +1061,18 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtStreamTrackObject &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamTrackObject &msg) {
 
   switch (msg.current_pos) {
     case 0: {
-      if(!parse_uintV_field(buffer, msg.group_id)) {
+      if(!ParseUintVField(buffer, msg.group_id)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 1: {
-      if(!parse_uintV_field(buffer, msg.object_id)) {
+      if(!ParseUintVField(buffer, msg.object_id)) {
         return false;
       }
       msg.current_pos += 1;
@@ -1100,9 +1100,9 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtStreamTrackObject
 
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtStreamHeaderGroup& msg){
+           const MoqStreamHeaderGroup& msg){
 
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::STREAM_HEADER_GROUP)));
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_GROUP)));
   buffer.Push(qtransport::ToUintV(msg.subscribe_id));
   buffer.Push(qtransport::ToUintV(msg.track_alias));
   buffer.Push(qtransport::ToUintV(msg.group_id));
@@ -1110,31 +1110,31 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtStreamHeaderGroup &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamHeaderGroup &msg) {
   switch (msg.current_pos) {
     case 0: {
-      if(!parse_uintV_field(buffer, msg.subscribe_id)) {
+      if(!ParseUintVField(buffer, msg.subscribe_id)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 1: {
-      if(!parse_uintV_field(buffer, msg.track_alias)) {
+      if(!ParseUintVField(buffer, msg.track_alias)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 2: {
-      if(!parse_uintV_field(buffer, msg.group_id)) {
+      if(!ParseUintVField(buffer, msg.group_id)) {
         return false;
       }
       msg.current_pos += 1;
       [[fallthrough]];
     }
     case 3: {
-      if(!parse_uintV_field(buffer, msg.priority)) {
+      if(!ParseUintVField(buffer, msg.priority)) {
         return false;
       }
       msg.current_pos += 1;
@@ -1153,18 +1153,18 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtStreamHeaderGroup
 }
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtStreamGroupObject& msg){
+           const MoqStreamGroupObject& msg){
 
   buffer.Push(qtransport::ToUintV(msg.object_id));
   buffer.PushLv(msg.payload);
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtStreamGroupObject &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamGroupObject &msg) {
 
   switch (msg.current_pos) {
     case 0: {
-      if(!parse_uintV_field(buffer, msg.object_id)) {
+      if(!ParseUintVField(buffer, msg.object_id)) {
         return false;
       }
       msg.current_pos += 1;
@@ -1192,9 +1192,9 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtStreamGroupObject
 
 // Client Setup message
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtClientSetup& msg){
+           const MoqClientSetup& msg){
 
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::CLIENT_SETUP)));
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::CLIENT_SETUP)));
   buffer.Push(qtransport::ToUintV(msg.supported_versions.size()));
   // versions
   for (const auto& ver: msg.supported_versions) {
@@ -1204,7 +1204,7 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
   /// num params
   buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(2)));
   // role param
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(msg.role_parameter.type)));
+  buffer.Push(qtransport::ToUintV(msg.role_parameter.type));
   buffer.PushLv(msg.role_parameter.value);
   // endpoint_id param
   buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(ParameterType::EndpointId)));
@@ -1213,10 +1213,10 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtClientSetup &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqClientSetup &msg) {
   switch (msg.current_pos) {
     case 0: {
-      if(!parse_uintV_field(buffer, msg.num_versions)) {
+      if(!ParseUintVField(buffer, msg.num_versions)) {
         return false;
       }
       msg.current_pos += 1;
@@ -1225,7 +1225,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtClientSetup &msg)
     case 1: {
       while (msg.num_versions > 0) {
         uint64_t version{ 0 };
-        if (!parse_uintV_field(buffer, version)) {
+        if (!ParseUintVField(buffer, version)) {
           return false;
         }
         msg.supported_versions.push_back(version);
@@ -1237,7 +1237,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtClientSetup &msg)
     case 2: {
       if(!msg.num_params.has_value()) {
         auto params = uint64_t {0};
-        if (!parse_uintV_field(buffer, params)) {
+        if (!ParseUintVField(buffer, params)) {
           return false;
         }
         msg.num_params = params;
@@ -1245,11 +1245,11 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtClientSetup &msg)
       while (msg.num_params > 0) {
           if (!msg.current_param.has_value()) {
               uint64_t type{ 0 };
-              if (!parse_uintV_field(buffer, type)) {
+              if (!ParseUintVField(buffer, type)) {
                   return false;
               }
 
-              msg.current_param = MoqtParameter{};
+              msg.current_param = MoqParameter{};
               msg.current_param->type = type;
           }
 
@@ -1297,9 +1297,9 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtClientSetup &msg)
 // Server Setup message
 
 qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-           const MoqtServerSetup& msg){
+           const MoqServerSetup& msg){
 
-  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqtMessageType::SERVER_SETUP)));
+  buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::SERVER_SETUP)));
   buffer.Push(qtransport::ToUintV(msg.selection_version));
 
   /// num params
@@ -1315,10 +1315,10 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
   return buffer;
 }
 
-bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtServerSetup &msg) {
+bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqServerSetup &msg) {
   switch (msg.current_pos) {
     case 0: {
-      if(!parse_uintV_field(buffer, msg.selection_version)) {
+      if(!ParseUintVField(buffer, msg.selection_version)) {
         return false;
       }
       msg.current_pos += 1;
@@ -1327,7 +1327,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtServerSetup &msg)
     case 1: {
       if(!msg.num_params.has_value()) {
         auto params = uint64_t {0};
-        if (!parse_uintV_field(buffer, params)) {
+        if (!ParseUintVField(buffer, params)) {
           return false;
         }
         msg.num_params = params;
@@ -1335,11 +1335,11 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtServerSetup &msg)
       while (msg.num_params > 0) {
         if (!msg.current_param.has_value()) {
           uint64_t type {0};
-          if (!parse_uintV_field(buffer, type)) {
+          if (!ParseUintVField(buffer, type)) {
               return false;
           }
 
-          msg.current_param = MoqtParameter{};
+          msg.current_param = MoqParameter{};
           msg.current_param->type = type;
         }
 

@@ -22,7 +22,7 @@ using TrackAlias = uint64_t;
 using ParamType = uint64_t;
 
 
-enum class MoqtTerminationReason : uint64_t
+enum class MoqTerminationReason : uint64_t
 {
   NO_ERROR = 0x0,
   INTERNAL_ERROR,
@@ -35,7 +35,7 @@ enum class MoqtTerminationReason : uint64_t
 };
 
 // Ref: https://moq-wg.github.io/moq-transport/draft-ietf-moq-transport.html#name-messages
-enum class MoqtMessageType : uint64_t
+enum class MoqMessageType : uint64_t
 {
     OBJECT_STREAM = 0x0,
     OBJECT_DATAGRAM,
@@ -92,51 +92,51 @@ enum struct ParameterType : uint8_t {
   Invalid = 0xFF, // used internally.
 };
 
-struct MoqtParameter {
+struct MoqParameter {
   uint64_t type{0};
   uint64_t length{0};
   Bytes value;
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtParameter &msg);
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqParameter &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtParameter& msg);
+                                                       const MoqParameter& msg);
 };
 
-MessageBuffer& operator<<(MessageBuffer &buffer, const MoqtParameter &param);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqtParameter &param);
+MessageBuffer& operator<<(MessageBuffer &buffer, const MoqParameter &param);
+MessageBuffer& operator>>(MessageBuffer &buffer, MoqParameter &param);
 
 //
 // Setup
 //
 
-struct MoqtClientSetup {
+struct MoqClientSetup {
   uint64_t num_versions {0};
   std::vector<Version> supported_versions;
-  MoqtParameter role_parameter;
-  MoqtParameter path_parameter;
-  MoqtParameter endpoint_id_parameter;
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtClientSetup &msg);
+  MoqParameter role_parameter;
+  MoqParameter path_parameter;
+  MoqParameter endpoint_id_parameter;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqClientSetup &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtClientSetup& msg);
+                                                       const MoqClientSetup& msg);
 private:
   size_t current_pos {0};
   std::optional<uint64_t> num_params;
-  std::optional<MoqtParameter> current_param {};
+  std::optional<MoqParameter> current_param {};
   bool parse_completed { false };
 };
 
-struct MoqtServerSetup {
+struct MoqServerSetup {
   Version selection_version;
-  MoqtParameter role_parameter;
-  MoqtParameter path_parameter;
-  MoqtParameter endpoint_id_parameter;
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtServerSetup &msg);
+  MoqParameter role_parameter;
+  MoqParameter path_parameter;
+  MoqParameter endpoint_id_parameter;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqServerSetup &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtServerSetup& msg);
+                                                       const MoqServerSetup& msg);
 private:
   size_t current_pos {0};
   std::optional<uint64_t> num_params;
   bool parse_completed { false };
-  std::optional<MoqtParameter> current_param {};
+  std::optional<MoqParameter> current_param {};
 
 };
 
@@ -151,7 +151,7 @@ enum struct FilterType: uint64_t {
   AbsoluteRange
 };
 
-struct MoqtSubscribe {
+struct MoqSubscribe {
   uint64_t subscribe_id;
   uint64_t track_alias;
   TrackNamespace track_namespace;
@@ -162,52 +162,52 @@ struct MoqtSubscribe {
   uint64_t start_object {0};
   uint64_t end_object {0};
   std::optional<uint64_t> num_params;
-  std::vector<MoqtParameter> track_params;
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribe &msg);
+  std::vector<MoqParameter> track_params;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtSubscribe& msg);
+                                                       const MoqSubscribe& msg);
 private:
-  std::optional<MoqtParameter> current_param{};
+  std::optional<MoqParameter> current_param{};
   size_t current_pos {0};
   bool parsing_completed { false };
 };
 
-struct MoqtSubscribeOk {
+struct MoqSubscribeOk {
   SubscribeId subscribe_id;
   uint64_t expires;
   bool content_exists;
   uint64_t largest_group {0};
   uint64_t largest_object {0};
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribeOk &msg);
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeOk &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtSubscribeOk& msg);
+                                                       const MoqSubscribeOk& msg);
 private:
   size_t current_pos {0};
   size_t MAX_FIELDS {5};
 };
 
 
-struct MoqtSubscribeError {
+struct MoqSubscribeError {
   uint64_t subscribe_id;
   ErrorCode err_code;
   ReasonPhrase reason_phrase;
   uint64_t track_alias;
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribeError &msg);
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeError &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtSubscribeError& msg);
+                                                       const MoqSubscribeError& msg);
 private:
   size_t current_pos {0};
   size_t MAX_FIELDS {4};
 };
 
-struct MoqtUnsubscribe {
+struct MoqUnsubscribe {
   SubscribeId  subscribe_id;
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtUnsubscribe &msg);
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqUnsubscribe &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtUnsubscribe& msg);
+                                                       const MoqUnsubscribe& msg);
 };
 
-struct MoqtSubscribeDone
+struct MoqSubscribeDone
 {
   uint64_t subscribe_id;
   uint64_t status_code;
@@ -215,9 +215,9 @@ struct MoqtSubscribeDone
   bool content_exists;
   uint64_t final_group_id;
   uint64_t final_object_id;
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtSubscribeDone &msg);
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeDone &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtSubscribeDone& msg);
+                                                       const MoqSubscribeDone& msg);
 private:
   size_t current_pos {0};
   size_t MAX_FIELDS = {6};
@@ -226,12 +226,12 @@ private:
 //
 // Track Status
 //
-struct MoqtTrackStatusRequest {
+struct MoqTrackStatusRequest {
     TrackNamespace track_namespace;
     TrackName track_name;
-    friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtTrackStatusRequest &msg);
+    friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqTrackStatusRequest &msg);
     friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                         const MoqtTrackStatusRequest& msg);
+                                                         const MoqTrackStatusRequest& msg);
   private:
     size_t current_pos {0};
     bool parsing_completed { false };
@@ -244,15 +244,15 @@ enum class TrackStatus : uint64_t {
     FINISHED,
     UNKNOWN
 };
-struct MoqtTrackStatus {
+struct MoqTrackStatus {
     TrackNamespace track_namespace;
     TrackName track_name;
     TrackStatus status_code;
     uint64_t last_group_id {0};
     uint64_t last_object_id {0};
-    friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtTrackStatus &msg);
+    friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqTrackStatus &msg);
     friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                         const MoqtTrackStatus& msg);
+                                                         const MoqTrackStatus& msg);
   private:
     size_t current_pos {0};
     bool parsing_completed { false };
@@ -263,141 +263,141 @@ struct MoqtTrackStatus {
 // Announce
 //
 
-struct MoqtAnnounce {
+struct MoqAnnounce {
   TrackNamespace track_namespace;
-  std::vector<MoqtParameter> params;
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtAnnounce &msg);
+  std::vector<MoqParameter> params;
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounce &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtAnnounce& msg);
+                                                       const MoqAnnounce& msg);
 private:
   uint64_t num_params {0};
-  MoqtParameter current_param{};
+  MoqParameter current_param{};
 };
 
-struct MoqtAnnounceOk {
+struct MoqAnnounceOk {
   TrackNamespace track_namespace;
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtAnnounceOk &msg);
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceOk &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtAnnounceOk& msg);
+                                                       const MoqAnnounceOk& msg);
 };
 
-struct MoqtAnnounceError {
+struct MoqAnnounceError {
   std::optional<TrackNamespace> track_namespace;
   std::optional<ErrorCode> err_code;
   std::optional<ReasonPhrase> reason_phrase;
 
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtAnnounceError &msg);
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceError &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtAnnounceError& msg);
+                                                       const MoqAnnounceError& msg);
 };
 
-struct MoqtUnannounce {
+struct MoqUnannounce {
   TrackNamespace track_namespace;
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtUnannounce &msg);
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqUnannounce &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtUnannounce& msg);
+                                                       const MoqUnannounce& msg);
 };
 
-struct MoqtAnnounceCancel {
+struct MoqAnnounceCancel {
   TrackNamespace track_namespace;
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtAnnounceCancel &msg);
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceCancel &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtAnnounceCancel& msg);
+                                                       const MoqAnnounceCancel& msg);
 };
 
 
 //
 // GoAway
 //
-struct MoqtGoaway {
+struct MoqGoaway {
   Bytes new_session_uri;
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtGoaway &msg);
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqGoaway &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtGoaway& msg);
+                                                       const MoqGoaway& msg);
 };
 
-MessageBuffer& operator<<(MessageBuffer& buffer, const MoqtGoaway& msg);
-MessageBuffer& operator>>(MessageBuffer &buffer, MoqtGoaway &msg);
+MessageBuffer& operator<<(MessageBuffer& buffer, const MoqGoaway& msg);
+MessageBuffer& operator>>(MessageBuffer &buffer, MoqGoaway &msg);
 
 
 //
 // Object
 //
-struct MoqtObjectStream {
+struct MoqObjectStream {
   SubscribeId subscribe_id;
   TrackAlias track_alias;
   GroupId group_id;
   ObjectId object_id;
   ObjectPriority priority;
   Bytes payload;
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtObjectStream &msg);
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqObjectStream &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtObjectStream& msg);
+                                                       const MoqObjectStream& msg);
 private:
   uint64_t current_pos {0};
   bool parse_completed { false };
 };
 
-struct MoqtObjectDatagram {
+struct MoqObjectDatagram {
   SubscribeId subscribe_id;
   TrackAlias track_alias;
   GroupId group_id;
   ObjectId object_id;
   ObjectPriority priority;
   Bytes payload;
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtObjectDatagram &msg);
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqObjectDatagram &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtObjectDatagram& msg);
+                                                       const MoqObjectDatagram& msg);
 private:
   uint64_t current_pos {0};
   bool parse_completed { false };
 };
 
 
-struct MoqtStreamHeaderTrack {
+struct MoqStreamHeaderTrack {
   SubscribeId subscribe_id;
   TrackAlias track_alias;
   ObjectPriority priority;
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtStreamHeaderTrack &msg);
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamHeaderTrack &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtStreamHeaderTrack& msg);
+                                                       const MoqStreamHeaderTrack& msg);
 private:
   uint64_t current_pos {0};
   bool parse_completed { false };
 };
 
-struct MoqtStreamTrackObject {
+struct MoqStreamTrackObject {
   GroupId  group_id;
   ObjectId object_id;
   Bytes payload;
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtStreamTrackObject &msg);
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamTrackObject &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtStreamTrackObject& msg);
+                                                       const MoqStreamTrackObject& msg);
 private:
   uint64_t current_pos {0};
   bool parse_completed { false };
 };
 
 
-struct MoqtStreamHeaderGroup {
+struct MoqStreamHeaderGroup {
   SubscribeId subscribe_id;
   TrackAlias track_alias;
   GroupId group_id;
   ObjectPriority priority;
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtStreamHeaderGroup &msg);
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamHeaderGroup &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtStreamHeaderGroup& msg);
+                                                       const MoqStreamHeaderGroup& msg);
 private:
   uint64_t current_pos {0};
   bool parse_completed { false };
 };
 
-struct MoqtStreamGroupObject {
+struct MoqStreamGroupObject {
   ObjectId object_id;
   Bytes payload;
-  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqtStreamGroupObject &msg);
+  friend bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamGroupObject &msg);
   friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                       const MoqtStreamGroupObject& msg);
+                                                       const MoqStreamGroupObject& msg);
 private:
   uint64_t current_pos {0};
   bool parse_completed { false };

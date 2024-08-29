@@ -1,1 +1,1 @@
-add_subdirectory(moq-example)
+add_subdirectory(examples)

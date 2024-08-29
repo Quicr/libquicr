@@ -11,11 +11,11 @@ namespace moq {
     void PublishTrackHandler::MetricsSampled(const PublishTrackMetrics&&) {}
 
     PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(
-      const moq::ObjectHeaders& object_headers,
+      const ObjectHeaders& object_headers,
       moq::BytesSpan data)
     {
         bool is_stream_header_needed{ false };
-        switch (track_mode_) {
+        switch (default_track_mode_) {
             case TrackMode::kDatagram:
                 break;
             case TrackMode::kStreamPerGroup:
@@ -47,4 +47,4 @@ namespace moq {
         }
     }
 
-} // namespace quicr
+} // namespace moq

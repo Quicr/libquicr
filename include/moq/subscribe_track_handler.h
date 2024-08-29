@@ -22,8 +22,6 @@ namespace moq {
     class SubscribeTrackHandler : public BaseTrackHandler
     {
       public:
-        friend class Transport;
-
         /**
          * @brief Receive status codes
          */
@@ -46,10 +44,10 @@ namespace moq {
             kNotAuthorized,
             kNotSubscribed,
             kPendingSubscribeResponse,
-            kSendingUnsubscribe                 ///< In this state, callbacks will not be called
+            kSendingUnsubscribe ///< In this state, callbacks will not be called
         };
 
-      private:
+      protected:
         /**
          * @brief Subscribe track handler constructor
          *
@@ -92,7 +90,10 @@ namespace moq {
          * @param object_headers    Object headers, must include group and object Ids
          * @param data              Object payload data received, **MUST** match ObjectHeaders::payload_length.
          */
-        virtual void ObjectReceived(const ObjectHeaders& object_headers, Span<uint8_t> data) {}
+        virtual void ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
+                                    [[maybe_unused]] Span<uint8_t> data)
+        {
+        }
 
         /**
          * @brief Notification of a partial object received data object
@@ -104,7 +105,10 @@ namespace moq {
          * @param object_headers    Object headers, must include group and object Ids
          * @param data              Object payload data received, can be <= ObjectHeaders::payload_length
          */
-        virtual void PartialObjectReceived(const ObjectHeaders& object_headers, Span<uint8_t> data) {}
+        virtual void PartialObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
+                                           [[maybe_unused]] Span<uint8_t> data)
+        {
+        }
 
         /**
          * @brief Notification of subscribe status
@@ -113,7 +117,7 @@ namespace moq {
          *
          * @param status        Indicates status of the subscribe
          */
-        virtual void StatusChanged(Status status) {}
+        virtual void StatusChanged([[maybe_unused]] Status status) {}
 
         /**
          * @brief Notification callback to provide sampled metrics
@@ -124,7 +128,7 @@ namespace moq {
          *
          * @param metrics           Copy of the subscribed metrics for the sample period
          */
-        virtual void MetricsSampled(const SubscribeTrackMetrics&& metrics) {}
+        virtual void MetricsSampled([[maybe_unused]] const SubscribeTrackMetrics&& metrics) {}
 
         // --------------------------------------------------------------------------
         // Metrics
@@ -146,12 +150,16 @@ namespace moq {
          * @brief Set the subscribe status
          * @param status                Status of the subscribe
          */
-        void SetStatus(Status status) noexcept { status_ = status; }
+        void SetStatus(Status status) noexcept { status_ = status; StatusChanged(status); }
 
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
         Status status_{ Status::kNotSubscribed };
+
+        friend class Transport;
+        friend class Client;
+        friend class Server;
     };
 
 } // namespace moq

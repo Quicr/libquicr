@@ -7,6 +7,7 @@
 
 #include <functional>
 #include <moq/detail/base_track_handler.h>
+#include <moq/object.h>
 #include <moq/metrics.h>
 
 namespace moq {
@@ -19,11 +20,9 @@ namespace moq {
      *
      *  This extends the base track handler to add publish (aka send) handling
      */
-    class PublishTrackHandler : protected BaseTrackHandler
+    class PublishTrackHandler : public BaseTrackHandler
     {
       public:
-        friend class Transport;
-
         /**
          * @brief Publish status codes
          */
@@ -40,7 +39,7 @@ namespace moq {
             kNoPreviousObject,
             kObjectDataComplete,
             kObjectContinuationDataNeeded,
-            kObjectDataIncomplete,              ///< PublishObject() was called when continuation data remains
+            kObjectDataIncomplete, ///< PublishObject() was called when continuation data remains
 
             /// Indicates that the published object data is too large based on the object header payload size plus
             /// any/all data that was sent already.
@@ -60,16 +59,16 @@ namespace moq {
          */
         enum class Status : uint8_t
         {
-            kOK = 0,
+            kOk = 0,
             kNotConnected,
             kNotAnnounced,
             kPendingAnnounceResponse,
             kAnnounceNotAuthorized,
             kNoSubscribers,
-            kSendingUnannounce,         ///< In this state, callbacks will not be called
+            kSendingUnannounce, ///< In this state, callbacks will not be called
         };
 
-      private:
+      protected:
         /**
          * @brief Publish track handler constructor
          *
@@ -83,7 +82,7 @@ namespace moq {
                             uint8_t default_priority,
                             uint32_t default_ttl)
           : BaseTrackHandler(full_track_name)
-          , track_mode_(track_mode)
+          , default_track_mode_(track_mode)
           , default_priority_(default_priority)
           , default_ttl_(default_ttl)
         {
@@ -143,6 +142,11 @@ namespace moq {
          * @brief set/update the default TTL expiry for published objects
          */
         void SetDefaultTTL(const uint32_t ttl) noexcept { default_ttl_ = ttl; }
+
+        /**
+         * @brief set/update the default track mode for objects
+         */
+        void SetDefaultTrackMode(const TrackMode track_mode) noexcept { default_track_mode_ = track_mode; }
 
         /**
          * @brief Get the publish status
@@ -262,32 +266,31 @@ namespace moq {
          */
         constexpr uint64_t GetDataContextId() const noexcept { return publish_data_ctx_id_; };
 
-        void SetPublishObjectFunction(PublishObjFunction&& publish_func)
-        {
-            publish_object_func_ = std::move(publish_func);
-        }
-
         /**
          * @brief Set the publish status
          * @param status                Status of publishing (aka publish objects)
          */
-        void SetStatus(Status status) noexcept { publish_status_ = status; }
+        void SetStatus(Status status) noexcept { publish_status_ = status; StatusChanged(status); }
 
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
         Status publish_status_{ Status::kNotAnnounced };
-        TrackMode track_mode_;
-        uint8_t default_priority_;              // Set by caller and is used when priority is not specified
-        uint32_t default_ttl_;                  // Set by caller and is used when TTL is not specified
+        TrackMode default_track_mode_;
+        uint8_t default_priority_; // Set by caller and is used when priority is not specified
+        uint32_t default_ttl_;     // Set by caller and is used when TTL is not specified
 
-        uint64_t publish_data_ctx_id_;      // publishing data context ID
-        PublishObjFunction publish_object_func_;
+        uint64_t publish_data_ctx_id_;           // set byte the transport; publishing data context ID
+        PublishObjFunction publish_object_func_; // set by the transport
 
         uint64_t prev_object_group_id_{ 0 };
         uint64_t prev_object_id_{ 0 };
-        uint64_t object_payload_remaining_length_ { 0 };
-        bool sent_track_header_ { false };  // Used only in stream per track mode
+        uint64_t object_payload_remaining_length_{ 0 };
+        bool sent_track_header_{ false }; // Used only in stream per track mode
+
+        friend class Transport;
+        friend class Client;
+        friend class Server;
     };
 
 } // namespace moq

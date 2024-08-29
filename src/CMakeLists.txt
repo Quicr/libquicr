@@ -4,8 +4,10 @@ add_library(quicr)
 target_sources(quicr PRIVATE
         message_buffer.cpp
         moq/messages.cpp
-        moq/publish_track_handler_base.cpp
-        #moqt/transport.cpp
+        moq/publish_track_handler.cpp
+        moq/transport.cpp
+        moq/server.cpp
+        moq/client.cpp
 )
 
 # Suppress external lib warnings
@@ -22,10 +24,6 @@ set_target_properties(quicr
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS OFF)
 
-if(CLANG_TIDY_EXE)
-    set_target_properties(quicr PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
-endif()
-
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_compile_options(quicr PRIVATE -Wall -pedantic -Wextra -Werror -Wmissing-declarations)
 endif()
@@ -33,6 +31,11 @@ endif()
 if(MSVC)
     target_compile_options(quicr PRIVATE /W4 /WX)
     target_compile_definitions(quicr _CRT_SECURE_NO_WARNINGS)
+endif()
+
+if(LINT)
+    include(Lint)
+    lint(quicr)
 endif()
 
 target_link_libraries(quicr

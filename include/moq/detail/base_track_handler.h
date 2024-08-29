@@ -9,10 +9,45 @@
 #include <transport/span.h>
 #include <moq/common.h>
 #include <moq/track_name.h>
-#include <moq/object.h>
 #include <vector>
 
 namespace moq {
+
+    /**
+     * @brief Track mode object of object published or received
+     *
+     * @details QUIC stream handling mode used to send objects or how object was received
+     */
+    enum class TrackMode : uint8_t
+    {
+        kDatagram,
+        kStreamPerObject,
+        kStreamPerGroup,
+        kStreamPerTrack
+    };
+
+    /**
+     * @brief Response to received MOQT Subscribe message
+     */
+    struct SubscribeResponse
+    {
+        /**
+         * @details **kOK** indicates that the subscribe is accepted and OK should be sent. Any other
+         *       value indicates that the subscribe is not accepted and the reason code and other
+         *       fields will be set.
+         */
+        enum class ReasonCode : uint8_t
+        {
+            kOk = 0,
+            kInternalError,
+            kInvalidRange,
+            kRetryTrackAlias,
+        };
+        ReasonCode reason_code;
+
+        std::optional<Bytes> reason_phrase;
+        std::optional<uint64_t> track_alias; ///< Set only when ResponseCode is kRetryTrackAlias
+    };
 
     /**
      * @brief MoQ track base handler for tracks (subscribe/publish)
@@ -24,18 +59,6 @@ namespace moq {
       public:
         friend class Transport;
 
-        /**
-         * @brief Track mode object of object published or received
-         *
-         * @details QUIC stream handling mode used to send objects or how object was received
-         */
-        enum class TrackMode : uint8_t
-        {
-            kDatagram,
-            kStreamPerObject,
-            kStreamPerGroup,
-            kStreamPerTrack
-        };
 
         virtual ~BaseTrackHandler() = default;
 
@@ -54,6 +77,7 @@ namespace moq {
         BaseTrackHandler(const FullTrackName& full_track_name)
           : full_track_name_(full_track_name)
         {
+
         }
 
         // --------------------------------------------------------------------------
@@ -84,7 +108,7 @@ namespace moq {
          *
          * @param subscribe_id          62bit subscribe ID
          */
-        void GetSubscribeId(std::optional<uint64_t> subscribe_id) { subscribe_id_ = subscribe_id; }
+        void SetSubscribeId(std::optional<uint64_t> subscribe_id) { subscribe_id_ = subscribe_id; }
 
         /**
          * @brief Get the subscribe ID
@@ -123,7 +147,9 @@ namespace moq {
         // --------------------------------------------------------------------------
 
         FullTrackName full_track_name_;
-        ConnectionHandle connection_handle_;
+
+        ConnectionHandle connection_handle_;    // QUIC transport connection ID
+        uint64_t data_context_id_;              // QUIC transport data context ID
 
         /**
          * subscribe_id_ is the primary index/key for subscribe subscribe context/delegate storage.
