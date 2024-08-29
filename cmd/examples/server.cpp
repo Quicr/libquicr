@@ -116,8 +116,6 @@ class MySubscribeTrackHandler : public moq::SubscribeTrackHandler
         }
 
         for (const auto& [conn_id, pth] : sub_it->second) {
-            SPDLOG_INFO("Relaying track_alias:  data size: {0}", data.size());
-
             pth->PublishObject(object_headers, data);
         }
     }

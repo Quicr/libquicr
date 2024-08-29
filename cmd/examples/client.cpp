@@ -120,7 +120,7 @@ do_publisher(const moq::FullTrackName& full_track_name,
              const bool& stop)
 {
     auto track_handler = std::make_shared<MyPublishTrackHandler>(
-      full_track_name, moq::TrackMode::kStreamPerGroup /*mode*/, 2 /*prirority*/, 3000 /*ttl*/);
+      full_track_name, moq::TrackMode::kStreamPerObject /*mode*/, 2 /*prirority*/, 3000 /*ttl*/);
 
     SPDLOG_INFO("Started publisher track");
 
@@ -159,6 +159,10 @@ do_publisher(const moq::FullTrackName& full_track_name,
             std::this_thread::sleep_for(std::chrono::milliseconds(999));
             msg = moq::example::GetTimeStr();
             SPDLOG_INFO(msg);
+            for (int i=0; i < 2000; i++) {
+                msg.append("a");
+            }
+            msg.append("--END");
         } else { // stdin
             getline(std::cin, msg);
             SPDLOG_INFO("Send message: {0}", msg);
