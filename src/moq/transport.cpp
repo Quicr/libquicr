@@ -74,7 +74,7 @@ namespace moq {
                std::advance(it, port_str.length());
                port = stoi(port_str, nullptr);
                it++;
-               continue;
+               break;
            }
 
        } while (it != connect_uri.end());
