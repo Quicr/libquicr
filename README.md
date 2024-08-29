@@ -45,7 +45,7 @@ are the steps to create a self-signed certificate and private ey.
 ### OpenSSL/BorningSSL
 
 ```
-cd build/cmd/moq-example
+cd build/cmd/examples
 openssl req -nodes -x509 -newkey rsa:2048 -days 365 \
     -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org" \
     -keyout server-key.pem -out server-cert.pem
@@ -67,6 +67,9 @@ openssl req -nodes -x509 -newkey ec:<(openssl ecparam -name prime256v1) -days 36
 
 ```
 
+## Example
+Please see cmd/examples for a sample client and server implementation showing chat and clock
+applications
 
 ## Generate documentation
 API documentation can be generated using `make doc`
