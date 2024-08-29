@@ -10,8 +10,7 @@ namespace moq {
 
     Client::Status Client::Connect()
     {
-        Transport::Start();
-        return Status::kConnecting;
+        return Transport::Start();
     }
 
     Client::Status Client::Disconnect()

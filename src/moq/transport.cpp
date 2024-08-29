@@ -112,8 +112,6 @@ namespace moq {
 
    void Transport::Init()
    {
-
-       LOGGER_INFO(logger_, "Starting metrics exporter");
    }
 
    Transport::Status Transport::Start()
