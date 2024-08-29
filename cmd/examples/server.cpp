@@ -203,31 +203,37 @@ class MyServer : public moq::Server
 #endif
     }
 
-#if 0
-  virtual AnnounceResponse AnnounceReceived(moq::ConnectionHandle connection_handle,
+  virtual void AnnounceReceived(moq::ConnectionHandle connection_handle,
                                             const moq::TrackNamespace& track_namespace,
                                             const moq::PublishAnnounceAttributes& publish_announce_attributes) {
     
     // TODO - sort out hash hash of namespace works ?
-    uint64_t track_namespace_hash;
+    uint64_t track_namespace_hash = 777;
     
-        SPDLOG_DEBUG( "Received announce from conn_id: {0} for namespace: {1}", conn_id, track_namespace );
+    
+        SPDLOG_DEBUG( "Received announce from conn_id: {0} for namespace_hash: {1}",
+                      connection_handle, track_namespace_hash );
+
 
         // Add to state if not exist
-        auto [anno_conn_it, is_new] = qserver_vars::announce_active[track_namespace_hash].try_emplace(conn_id);
+        auto [anno_conn_it, is_new] = qserver_vars::announce_active[track_namespace_hash].try_emplace( connection_handle );
 
         if (!is_new) {
             SPDLOG_INFO( "Received announce from conn_id: {0} for namespace_hash: {0} is duplicate, ignoring",
-                         conn_id, track_namespace_hash);
-            return true;
+                          connection_handle, track_namespace_hash);
+            return;
         }
 
      
-        AnnounceResponse ret;
-        // TODO fill in and call correct returns
-        
+        AnnounceResponse announce_response;
+        announce_response.reason_code = moq::Server::AnnounceResponse::ReasonCode::kOk;
+        ResolveAnnounce( connection_handle,
+                         track_namespace,
+                         announce_response);
+         
 
-        auto& anno_tracks = qserver_vars::announce_active[track_namespace_hash][conn_id];
+
+        auto& anno_tracks = qserver_vars::announce_active[track_namespace_hash][connection_handle];
 
         // Check if there are any subscribes. If so, send subscribe to announce for all tracks matching namespace
         const auto sub_active_it = qserver_vars::subscribe_active.find(track_namespace_hash);
@@ -237,13 +243,16 @@ class MyServer : public moq::Server
                     auto& a_who = *who.begin();
                     if (anno_tracks.find(a_who.track_alias) == anno_tracks.end()) {
                         SPDLOG_INFO( "Sending subscribe to announcer conn_id: {0} subscribe track_alias: {1}",
-                                     conn_id, a_who.track_alias);
+                                     connection_handle, a_who.track_alias);
 
                         anno_tracks.insert(a_who.track_alias); // Add track to state
 
                         const auto sub_track_delegate = qserver_vars::subscribes[a_who.track_alias][a_who.conn_id];
+                        
+#if 0
                         std::string t_namespace {sub_track_delegate->getTrackNamespace().begin(),
                                                  sub_track_delegate->getTrackNamespace().end()};
+                        
                         std::string t_name { sub_track_delegate->getTrackName().begin(),
                                              sub_track_delegate->getTrackName().end()};
 
@@ -253,30 +262,31 @@ class MyServer : public moq::Server
                                                              2,
                                                              3000);
 
-                        _moq_instance.lock()->subscribeTrack(conn_id, pub_track_delegate);
-                        qserver_vars::pub_subscribes[a_who.track_alias][conn_id] = pub_track_delegate;
+                        _moq_instance.lock()->subscribeTrack(connection_handle, pub_track_delegate);
+                        qserver_vars::pub_subscribes[a_who.track_alias][connection_handle] = pub_track_delegate;
+#endif
                     }
                 }
             }
         }
     }
-#endif
 
 
   virtual void ConnectionStatusChanged( moq::ConnectionHandle connection_handle, ConnectionStatus status){
-#if 0 
+#if 0
       if (status == qtransport::TransportStatus::kReady) {
-            SPDLOG_DEBUG( "Connection ready conn_id: {0} ", connection_handle );
+            SPDLOG_DEBUG( "Connection ready connection_handle: {0} ", connection_handle );
       }
 #endif
   }
   
 
-  // TODO - move new API 
   virtual ClientSetupResponse ClientSetupReceived( moq::ConnectionHandle connection_handle,
                                                    const moq::ClientSetupAttributes& client_setup_attributes){
-     // TODO form ClientSetupResponse and send 
-   }
+    ClientSetupResponse client_setup_response;
+    
+    return  client_setup_response;;
+  }
 
   
 
@@ -285,17 +295,17 @@ class MyServer : public moq::Server
 #if 0
      //void cb_unsubscribe(qtransport::TransportConnId conn_id,
      //                   uint64_t subscribe_id) override {
-        SPDLOG_INFO( "Unsubscribe conn_id: {0} subscribe_id: {1}", conn_id, subscribe_id);
+        SPDLOG_INFO( "Unsubscribe connection_handle: {0} subscribe_id: {1}", connection_handle, subscribe_id);
 
-        auto ta_conn_it = qserver_vars::subscribe_alias_sub_id.find(conn_id);
+        auto ta_conn_it = qserver_vars::subscribe_alias_sub_id.find(connection_handle);
         if (ta_conn_it == qserver_vars::subscribe_alias_sub_id.end()) {
-            SPDLOG_WARN( "Unable to find track alias connection for conn_id: {0} subscribe_id: {1}", conn_id, subscribe_id);
+            SPDLOG_WARN( "Unable to find track alias connection for connection_handle: {0} subscribe_id: {1}", connection_handle, subscribe_id);
             return;
         }
 
         auto ta_it = ta_conn_it->second.find(subscribe_id);
         if (ta_it == ta_conn_it->second.end()) {
-            SPDLOG_WARN( "Unable to find track alias for conn_id: {0} subscribe_id: {1}", conn_id, subscribe_id);
+            SPDLOG_WARN( "Unable to find track alias for connection_handle: {0} subscribe_id: {1}", connection_handle, subscribe_id);
             return;
         }
 
@@ -309,17 +319,17 @@ class MyServer : public moq::Server
         }
 
 
-        auto& track_delegate = qserver_vars::subscribes[track_alias][conn_id];
+        auto& track_delegate = qserver_vars::subscribes[track_alias][connection_handle];
 
         if (track_delegate == nullptr) {
-            SPDLOG_WARN( "Unsubscribe unable to find track delegate for conn_id: {0} subscribe_id: {1}", conn_id, subscribe_id);
+            SPDLOG_WARN( "Unsubscribe unable to find track delegate for connection_handle: {0} subscribe_id: {1}", connection_handle, subscribe_id);
             return;
         }
 
         auto tfn = quicr::MoQInstance::TrackFullName{ track_delegate->getTrackNamespace(), track_delegate->getTrackName() };
         auto th = quicr::MoQInstance::TrackHash(tfn);
 
-        qserver_vars::subscribes[track_alias].erase(conn_id);
+        qserver_vars::subscribes[track_alias].erase(connection_handle);
         bool unsub_pub { false };
         if (!qserver_vars::subscribes[track_alias].size()) {
             unsub_pub = true;
@@ -327,7 +337,7 @@ class MyServer : public moq::Server
         }
 
         qserver_vars::subscribe_active[th.track_namespace_hash][th.track_name_hash].erase(qserver_vars::SubscribeWho{
-          .conn_id = conn_id, .subscribe_id = subscribe_id, .track_alias = th.track_fullname_hash });
+          .conn_id = connection_handle, .subscribe_id = subscribe_id, .track_alias = th.track_fullname_hash });
 
         if (!qserver_vars::subscribe_active[th.track_namespace_hash][th.track_name_hash].size()) {
             qserver_vars::subscribe_active[th.track_namespace_hash].erase(th.track_name_hash);
@@ -345,16 +355,16 @@ class MyServer : public moq::Server
                 return;
             }
 
-            for (auto& [conn_id, tracks]: anno_ns_it->second) {
+            for (auto& [connection_handle, tracks]: anno_ns_it->second) {
                 if (tracks.find(th.track_fullname_hash) == tracks.end()) {
-                    SPDLOG_INFO( "Unsubscribe to announcer conn_id: {0} subscribe track_alias: {1}",
-                                 conn_id, th.track_fullname_hash);
+                    SPDLOG_INFO( "Unsubscribe to announcer connection_handle: {0} subscribe track_alias: {1}",
+                                 connection_handle, th.track_fullname_hash);
 
                     tracks.erase(th.track_fullname_hash); // Add track alias to state
 
-                    auto pub_delegate = qserver_vars::pub_subscribes[th.track_fullname_hash][conn_id];
+                    auto pub_delegate = qserver_vars::pub_subscribes[th.track_fullname_hash][connection_handle];
                     if (pub_delegate != nullptr) {
-                        _moq_instance.lock()->unsubscribeTrack(conn_id, pub_delegate);
+                        _moq_instance.lock()->unsubscribeTrack(connection_handle, pub_delegate);
                     }
                 }
             }
@@ -375,8 +385,8 @@ class MyServer : public moq::Server
         std::string const t_namespace(name_space.begin(), name_space.end());
         std::string const t_name(name.begin(), name.end());
 
-        SPDLOG_INFO( "New subscribe conn_id: {0} subscribe_id: {1} track: {2}/{3}",
-                     conn_id,
+        SPDLOG_INFO( "New subscribe connection_handle: {0} subscribe_id: {1} track: {2}/{3}",
+                     connection_handle,
                      subscribe_id,
                      t_namespace,
                      t_name);
@@ -384,17 +394,17 @@ class MyServer : public moq::Server
         auto track_delegate = std::make_shared<subTrackDelegate>(t_namespace, t_name, 2, 3000);
         auto tfn = quicr::MoQInstance::TrackFullName{ name_space, name };
         auto th = quicr::MoQInstance::TrackHash(tfn);
-        qserver_vars::subscribes[th.track_fullname_hash][conn_id] = track_delegate;
-        qserver_vars::subscribe_alias_sub_id[conn_id][subscribe_id] = th.track_fullname_hash;
+        qserver_vars::subscribes[th.track_fullname_hash][connection_handle] = track_delegate;
+        qserver_vars::subscribe_alias_sub_id[connection_handle][subscribe_id] = th.track_fullname_hash;
 
         // record subscribe as active from this subscriber
         qserver_vars::subscribe_active[th.track_namespace_hash][th.track_name_hash].emplace(
-          qserver_vars::SubscribeWho{ .conn_id = conn_id,
+          qserver_vars::SubscribeWho{ .conn_id = connection_handle,
                                       .subscribe_id = subscribe_id,
                                       .track_alias = th.track_fullname_hash});
 
         // Create a subscribe track that will be used by the relay to send to subscriber for matching objects
-        _moq_instance.lock()->bindSubscribeTrack(conn_id, subscribe_id, track_delegate);
+        _moq_instance.lock()->bindSubscribeTrack(connection_handle, subscribe_id, track_delegate);
 
         // Subscribe to announcer if announcer is active
         auto anno_ns_it = qserver_vars::announce_active.find(th.track_namespace_hash);
@@ -403,16 +413,16 @@ class MyServer : public moq::Server
             return true;
         }
 
-        for (auto& [conn_id, tracks]: anno_ns_it->second) {
+        for (auto& [connection_handle, tracks]: anno_ns_it->second) {
             if (tracks.find(th.track_fullname_hash) == tracks.end()) {
-                SPDLOG_INFO( "Sending subscribe to announcer conn_id: {0} subscribe track_alias: {1}",
-                             conn_id, th.track_fullname_hash);
+                SPDLOG_INFO( "Sending subscribe to announcer connection_handle: {0} subscribe track_alias: {1}",
+                             connection_handle, th.track_fullname_hash);
 
                 tracks.insert(th.track_fullname_hash); // Add track alias to state
 
                 auto pub_track_delegate = std::make_shared<subTrackDelegate>(t_namespace, t_name, 2, 3000 );
-                _moq_instance.lock()->subscribeTrack(conn_id, pub_track_delegate);
-                qserver_vars::pub_subscribes[th.track_fullname_hash][conn_id] = pub_track_delegate;
+                _moq_instance.lock()->subscribeTrack(connection_handle, pub_track_delegate);
+                qserver_vars::pub_subscribes[th.track_fullname_hash][connection_handle] = pub_track_delegate;
             }
         }
 
