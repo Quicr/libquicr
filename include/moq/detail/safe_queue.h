@@ -1,6 +1,6 @@
-/*
- * Copyright (c) 2023 Cisco Systems, Inc. and others.  All rights reserved.
- */
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #pragma once
 
 #include <mutex>

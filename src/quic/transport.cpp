@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #include <moq/detail/quic_transport.h>
 #include "transport_picoquic.h"
 #include <memory>

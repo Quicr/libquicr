@@ -1,9 +1,8 @@
+// SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 /**
  *  time_queue.h
- *
- *  Copyright (C) 2023
- *  Cisco Systems, Inc.
- *  All Rights Reserved.
  *
  *  Description:
  *      A time based queue, where the length of the queue is a duration,
