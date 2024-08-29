@@ -101,6 +101,7 @@ class MyClient : public moq::Client
                 stop_threads_ = true;
                 moq_example::terminate = true;
                 moq_example::termination_reason = "Connection failed";
+                moq_example::cv.notify_all();
                 break;
         }
     }
@@ -164,7 +165,7 @@ do_publisher(const moq::FullTrackName& full_track_name,
             SPDLOG_INFO("Send message: {0}", msg);
         }
 
-        if (object_id % 5 == 0) { // Set new group
+        if (object_id % 10 == 0) { // Set new group
             object_id = 0;
             group_id++;
         }

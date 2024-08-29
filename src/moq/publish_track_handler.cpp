@@ -9,8 +9,12 @@ namespace moq {
 
     PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(
       const ObjectHeaders& object_headers,
-      moq::BytesSpan data)
+      BytesSpan data)
     {
+        if (object_headers.track_mode.has_value() && object_headers.track_mode != default_track_mode_) {
+            SetDefaultTrackMode(*object_headers.track_mode);
+        }
+
         bool is_stream_header_needed{ false };
         switch (default_track_mode_) {
             case TrackMode::kDatagram:

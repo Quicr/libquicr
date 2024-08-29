@@ -67,7 +67,7 @@ signalHandler(int signal_number)
     }
 
     // Notify the main execution thread to terminate
-    moq_example::cv.notify_one();
+    moq_example::cv.notify_all();
 }
 
 /*
