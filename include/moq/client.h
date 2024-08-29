@@ -59,21 +59,6 @@ namespace moq {
         Status Disconnect();
 
         /**
-         * @brief Callback notification for connection status/state change
-         * @details Callback notification indicates state change of connection, such as disconnected
-         *
-         * @param status           Status change
-         */
-        virtual void StatusChanged(Status status);
-
-         /**
-         * @brief Get the status of the Client
-         *
-         * @return Status of the Client
-         */
-         Status GetStatus() const noexcept { return status_; }
-
-        /**
          * @brief Callback on server setup message
          *
          * @details Server will send sever setup in response to client setup message sent. This callback is called

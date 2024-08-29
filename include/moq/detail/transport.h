@@ -69,6 +69,7 @@ namespace moq {
         enum class ConnectionStatus : uint8_t
         {
             kNotConnected = 0,
+            kConnecting,
             kConnected,
             kIdleTimeout,
             kClosedByRemote
@@ -151,11 +152,19 @@ namespace moq {
                                 std::shared_ptr<PublishTrackHandler> track_handler);
 
         /**
-         * @brief Get the instance status
+         * @brief Get the status of the Client
          *
-         * @return Status indicating the state/status of the instance
+         * @return Status of the Client
          */
-        Status GetStatus();
+        Status GetStatus() const noexcept { return status_; }
+
+        /**
+         * @brief Callback notification for status/state change
+         * @details Callback notification indicates state change of connection, such as disconnected
+         *
+         * @param status           Status change
+         */
+        virtual void StatusChanged(Status) {}
 
         // --------------------------------------------------------------------------
         // Metrics
@@ -262,6 +271,7 @@ namespace moq {
                                            const ConnectionRemoteInfo&) {};
 
         virtual void ConnectionStatusChanged(ConnectionHandle, ConnectionStatus) {};
+
 
         // -------------------------------------------------------------------------------------------------
 

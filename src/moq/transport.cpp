@@ -76,7 +76,7 @@ namespace moq {
            auto conn_id = quic_transport_->Start(nullptr, nullptr);
 
            status_ = Status::kConnecting;
-           ConnectionStatus(Status::kConnecting);
+           StatusChanged(status_);
 
            LOGGER_INFO(logger_, "Connecting session conn_id: {0}...", conn_id);
            auto [conn_ctx, _] = connections_.try_emplace(conn_id, ConnectionContext{});
@@ -306,11 +306,6 @@ namespace moq {
                     reason);
 
        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
-   }
-
-   Transport::Status Transport::GetStatus()
-   {
-       return status_;
    }
 
    void Transport::SubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
@@ -698,24 +693,31 @@ namespace moq {
            }
 
            case TransportStatus::kConnecting:
-               status_ = Status::kConnecting;
+               if (client_mode_) {
+                   status_ = Status::kConnecting;
+               }
+               ConnectionStatusChanged(conn_id, ConnectionStatus::kConnecting);
                break;
            case TransportStatus::kRemoteRequestClose:
                [[fallthrough]];
 
            case TransportStatus::kDisconnected: {
-
                // Clean up publish and subscribe tracks
                std::lock_guard<std::mutex> _(state_mutex_);
                auto conn_it = connections_.find(conn_id);
 
                if (conn_it == connections_.end()) {
-                   return;
+                   break;;
                }
+
+               if (client_mode_) {
+                   status_ = Status::kNotConnected;
+               }
+
+               ConnectionStatusChanged(conn_id, ConnectionStatus::kClosedByRemote);
 
                // Notify the subscriber handlers of disconnect
                for (const auto& [sub_id, handler] : conn_it->second.tracks_by_sub_id) {
-                   ConnectionStatusChanged(conn_id, ConnectionStatus::kClosedByRemote);
                    RemoveSubscribeTrack(conn_it->second, *handler);
                    handler->SetStatus(
                      SubscribeTrackHandler::Status::kNotConnected); // Set after remove subscribe track
@@ -740,8 +742,11 @@ namespace moq {
            }
            case TransportStatus::kShutdown:
                status_ = Status::kNotReady;
+               ConnectionStatusChanged(conn_id, ConnectionStatus::kNotConnected);
                break;
        }
+
+       StatusChanged(status_);
    }
 
    void Transport::OnNewConnection(const TransportConnId& conn_id, const TransportRemote& remote)

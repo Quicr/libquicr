@@ -20,8 +20,6 @@ namespace moq {
         return Status::kDisconnecting;
     }
 
-    void Client::StatusChanged(Status) {}
-
     void Client::ServerSetupReceived(const ServerSetupAttributes&) {}
 
     void Client::AnnounceStatusChanged(const TrackNamespace&, const PublishAnnounceStatus) {}
