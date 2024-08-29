@@ -4,6 +4,7 @@
 
 # Build at a known-good commit
 echo "In update script"
+
 if [ -d "./contrib/picoquic" ]
 then
   echo "changing commit for picoquic"

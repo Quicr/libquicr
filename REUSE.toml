@@ -12,7 +12,6 @@ precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright (c) 2024 Cisco"
 SPDX-License-Identifier = "CC-BY-4.0"
 
-
 [[annotations]]
 path = "certs/**"
 precedence = "aggregate"
