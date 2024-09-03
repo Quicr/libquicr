@@ -396,10 +396,6 @@ namespace moq {
            return;
        }
 
-       // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
-       // TODO(trigaux): If this following line is reintroduced, then pass track_handler by value instead of const-ref.
-       // TODO(tievens) - revisit -- conn_it->second.tracks_by_sub_id[subscribe_id] = std::move(track_handler);
-
        track_handler->SetSubscribeId(subscribe_id);
 
        track_handler->connection_handle_ = conn_id;
@@ -421,6 +417,10 @@ namespace moq {
            Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
            return SendObject(track_handler, priority, ttl, stream_header_needed, group_id, object_id, data);
        };
+
+       // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
+       // TODO(trigaux): If this following line is reintroduced, then pass track_handler by value instead of const-ref.
+       // TODO(tievens) - revisit -- conn_it->second.tracks_by_sub_id[subscribe_id] = std::move(track_handler);
    }
 
    void Transport::UnsubscribeTrack(qtransport::TransportConnId conn_id,
