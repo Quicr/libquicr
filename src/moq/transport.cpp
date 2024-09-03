@@ -8,82 +8,62 @@
 
 #include <sstream>
 
-#define LOGGER_TRACE(logger, ...)                                                                                      \
-   if (logger)                                                                                                        \
-   SPDLOG_LOGGER_TRACE(logger, __VA_ARGS__)
-#define LOGGER_DEBUG(logger, ...)                                                                                      \
-   if (logger)                                                                                                        \
-   SPDLOG_LOGGER_DEBUG(logger, __VA_ARGS__)
-#define LOGGER_INFO(logger, ...)                                                                                       \
-   if (logger)                                                                                                        \
-   SPDLOG_LOGGER_INFO(logger, __VA_ARGS__)
-#define LOGGER_WARN(logger, ...)                                                                                       \
-   if (logger)                                                                                                        \
-   SPDLOG_LOGGER_WARN(logger, __VA_ARGS__)
-#define LOGGER_ERROR(logger, ...)                                                                                      \
-   if (logger)                                                                                                        \
-   SPDLOG_LOGGER_ERROR(logger, __VA_ARGS__)
-#define LOGGER_CRITICAL(logger, ...)                                                                                   \
-   if (logger)                                                                                                        \
-   SPDLOG_LOGGER_CRITICAL(logger, __VA_ARGS__)
-
 namespace moq {
 
    using namespace moq::messages;
 
-   static std::optional<std::tuple<std::string, uint16_t>> parse_connect_uri(const std::string& connect_uri) {
-       // moq://domain:port/<dont-care>
-       const std::string proto = "moq://";
-       auto it =
-         std::search(connect_uri.begin(), connect_uri.end(), proto.begin(), proto.end());
+    static std::optional<std::tuple<std::string, uint16_t>> ParseConnectUri(const std::string& connect_uri)
+    {
+        // moq://domain:port/<dont-care>
+        const std::string proto = "moq://";
+        auto it = std::search(connect_uri.begin(), connect_uri.end(), proto.begin(), proto.end());
 
-       if (it == connect_uri.end()) {
-           return std::nullopt;
-       }
+        if (it == connect_uri.end()) {
+            return std::nullopt;
+        }
 
-       // move to end for moq://
-       std::advance(it, proto.length());
+        // move to end for moq://
+        std::advance(it, proto.length());
 
-       std::string address_str;
-       std::string port_str;
-       uint16_t port = 0;
+        std::string address_str;
+        std::string port_str;
+        uint16_t port = 0;
 
-       do {
-           auto colon = std::find(it, connect_uri.end(), ':');
-           if (address_str.empty() && colon == connect_uri.end()) {
-               break;
-           }
+        do {
+            auto colon = std::find(it, connect_uri.end(), ':');
+            if (address_str.empty() && colon == connect_uri.end()) {
+                break;
+            }
 
-           if (address_str.empty()) {
-               // parse resource id
-               address_str.reserve(distance(it, colon));
-               address_str.assign(it, colon);
-               std::advance(it, address_str.length());
-               it++;
-               continue;
-           }
+            if (address_str.empty()) {
+                // parse resource id
+                address_str.reserve(distance(it, colon));
+                address_str.assign(it, colon);
+                std::advance(it, address_str.length());
+                it++;
+                continue;
+            }
 
-           auto slash = std::find(it, connect_uri.end(), '/');
+            auto slash = std::find(it, connect_uri.end(), '/');
 
-           if (port_str.empty()) {
-               // parse client/sender id
-               port_str.reserve(distance(it, slash));
-               port_str.assign(it, slash);
-               std::advance(it, port_str.length());
-               port = stoi(port_str, nullptr);
-               it++;
-               break;
-           }
+            if (port_str.empty()) {
+                // parse client/sender id
+                port_str.reserve(distance(it, slash));
+                port_str.assign(it, slash);
+                std::advance(it, port_str.length());
+                port = stoi(port_str, nullptr);
+                it++;
+                break;
+            }
 
-       } while (it != connect_uri.end());
+        } while (it != connect_uri.end());
 
-       if (address_str.empty() || port_str.empty()) {
-           return std::nullopt;
-       }
+        if (address_str.empty() || port_str.empty()) {
+            return std::nullopt;
+        }
 
-       return std::make_tuple(address_str, port);
-   }
-
+        return std::make_tuple(address_str, port);
+    }
 
    Transport::Transport(const ClientConfig& cfg)
      : client_mode_(true)
@@ -92,7 +72,7 @@ namespace moq {
      , client_config_(cfg)
      , quic_transport_({})
    {
-       LOGGER_INFO(logger_, "Created Moq instance in client mode connecting to {0}", cfg.connect_uri);
+       SPDLOG_LOGGER_INFO(logger_, "Created Moq instance in client mode connecting to {0}", cfg.connect_uri);
        Init();
    }
 
@@ -103,7 +83,7 @@ namespace moq {
      , client_config_({})
      , quic_transport_({})
    {
-       LOGGER_INFO(
+       SPDLOG_LOGGER_INFO(
          logger_, "Created Moq instance in server mode listening on {0}:{1}", cfg.server_bind_ip, cfg.server_port);
        Init();
    }
@@ -116,7 +96,7 @@ namespace moq {
    {
        if (client_mode_) {
            TransportRemote relay;
-           auto parse_result = parse_connect_uri(client_config_.connect_uri);
+           auto parse_result = ParseConnectUri(client_config_.connect_uri);
            if (!parse_result) {
                return Status::kInvalidParams;
            }
@@ -135,7 +115,7 @@ namespace moq {
            status_ = Status::kConnecting;
            StatusChanged(status_);
 
-           LOGGER_INFO(logger_, "Connecting session conn_id: {0}...", conn_id);
+           SPDLOG_LOGGER_INFO(logger_, "Connecting session conn_id: {0}...", conn_id);
            auto [conn_ctx, _] = connections_.try_emplace(conn_id, ConnectionContext{});
            conn_ctx->second.connection_handle = conn_id;
 
@@ -213,7 +193,7 @@ namespace moq {
 
        buffer << server_setup;
 
-       LOGGER_DEBUG(logger_, "Sending SERVER_SETUP to conn_id: {0}", conn_ctx.connection_handle);
+       SPDLOG_LOGGER_DEBUG(logger_, "Sending SERVER_SETUP to conn_id: {0}", conn_ctx.connection_handle);
 
        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
    }
@@ -227,7 +207,7 @@ namespace moq {
        announce.params = {};
        buffer << announce;
 
-       LOGGER_DEBUG(logger_, "Sending ANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
+       SPDLOG_LOGGER_DEBUG(logger_, "Sending ANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
 
        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
    }
@@ -240,7 +220,7 @@ namespace moq {
        announce_ok.track_namespace.assign(track_namespace.begin(), track_namespace.end());
        buffer << announce_ok;
 
-       LOGGER_DEBUG(logger_, "Sending ANNOUNCE OK to conn_id: {0}", conn_ctx.connection_handle);
+       SPDLOG_LOGGER_DEBUG(logger_, "Sending ANNOUNCE OK to conn_id: {0}", conn_ctx.connection_handle);
 
        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
    }
@@ -253,7 +233,7 @@ namespace moq {
        unannounce.track_namespace.assign(track_namespace.begin(), track_namespace.end());
        buffer << unannounce;
 
-       LOGGER_DEBUG(logger_, "Sending UNANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
+       SPDLOG_LOGGER_DEBUG(logger_, "Sending UNANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
 
        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
    }
@@ -275,7 +255,7 @@ namespace moq {
 
        buffer << subscribe;
 
-       LOGGER_DEBUG(logger_,
+       SPDLOG_LOGGER_DEBUG(logger_,
                     "Sending SUBSCRIBE to conn_id: {0} subscribe_id: {1} track namespace hash: {2} name hash: {3}",
                     conn_ctx.connection_handle,
                     subscribe_id,
@@ -298,7 +278,7 @@ namespace moq {
        subscribe_ok.content_exists = content_exists;
        buffer << subscribe_ok;
 
-       LOGGER_DEBUG(
+       SPDLOG_LOGGER_DEBUG(
          logger_, "Sending SUBSCRIBE OK to conn_id: {0} subscribe_id: {1}", conn_ctx.connection_handle, subscribe_id);
 
        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
@@ -314,7 +294,7 @@ namespace moq {
        subscribe_done.content_exists = false;
        buffer << subscribe_done;
 
-       LOGGER_DEBUG(logger_,
+       SPDLOG_LOGGER_DEBUG(logger_,
                     "Sending SUBSCRIBE DONE to conn_id: {0} subscribe_id: {1}",
                     conn_ctx.connection_handle,
                     subscribe_id);
@@ -330,7 +310,7 @@ namespace moq {
        unsubscribe.subscribe_id = subscribe_id;
        buffer << unsubscribe;
 
-       LOGGER_DEBUG(
+       SPDLOG_LOGGER_DEBUG(
          logger_, "Sending UNSUBSCRIBE to conn_id: {0} subscribe_id: {1}", conn_ctx.connection_handle, subscribe_id);
 
        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
@@ -352,7 +332,7 @@ namespace moq {
 
        buffer << subscribe_err;
 
-       LOGGER_DEBUG(logger_,
+       SPDLOG_LOGGER_DEBUG(logger_,
                     "Sending SUBSCRIBE ERROR to conn_id: {0} subscribe_id: {1} error code: {2} reason: {3}",
                     conn_ctx.connection_handle,
                     subscribe_id,
@@ -372,23 +352,23 @@ namespace moq {
 
        track_handler->SetTrackAlias(th.track_fullname_hash);
 
-       LOGGER_INFO(logger_, "Subscribe track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
+       SPDLOG_LOGGER_INFO(logger_, "Subscribe track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
 
        std::lock_guard<std::mutex> _(state_mutex_);
        auto conn_it = connections_.find(conn_id);
        if (conn_it == connections_.end()) {
-           LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_id);
+           SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_id);
            return;
        }
 
        auto sid = conn_it->second.current_subscribe_id++;
 
-       LOGGER_DEBUG(logger_, "subscribe id to add to memory: {0}", sid);
-
-       // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
-       conn_it->second.tracks_by_sub_id[sid] = track_handler;
+       SPDLOG_LOGGER_DEBUG(logger_, "subscribe id to add to memory: {0}", sid);
 
        track_handler->SetSubscribeId(sid);
+
+       // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
+       conn_it->second.tracks_by_sub_id[sid] = std::move(track_handler);
 
        SendSubscribe(conn_it->second, sid, tfn, th);
 
@@ -397,7 +377,7 @@ namespace moq {
 
    void Transport::BindPublisherTrack(TransportConnId conn_id,
                                       uint64_t subscribe_id,
-                                      std::shared_ptr<PublishTrackHandler> track_handler)
+                                      const std::shared_ptr<PublishTrackHandler>& track_handler)
    {
        // Generate track alias
        const auto& tfn = track_handler->GetFullTrackName();
@@ -407,17 +387,18 @@ namespace moq {
 
        track_handler->SetTrackAlias(th.track_fullname_hash);
 
-       LOGGER_INFO(logger_, "Bind subscribe track handler conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
+       SPDLOG_LOGGER_INFO(logger_, "Bind subscribe track handler conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
 
        std::lock_guard<std::mutex> _(state_mutex_);
        auto conn_it = connections_.find(conn_id);
        if (conn_it == connections_.end()) {
-           LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_id);
+           SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_id);
            return;
        }
 
        // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
-       // TODO(tievens) - revisit -- conn_it->second.tracks_by_sub_id[subscribe_id] = track_handler;
+       // TODO(trigaux): If this following line is reintroduced, then pass track_handler by value instead of const-ref.
+       // TODO(tievens) - revisit -- conn_it->second.tracks_by_sub_id[subscribe_id] = std::move(track_handler);
 
        track_handler->SetSubscribeId(subscribe_id);
 
@@ -443,7 +424,7 @@ namespace moq {
    }
 
    void Transport::UnsubscribeTrack(qtransport::TransportConnId conn_id,
-                                    std::shared_ptr<SubscribeTrackHandler> track_handler)
+                                    const std::shared_ptr<SubscribeTrackHandler>& track_handler)
    {
        auto& conn_ctx = connections_[conn_id];
        if (track_handler->GetSubscribeId().has_value()) {
@@ -464,7 +445,7 @@ namespace moq {
 
            SendUnsubscribe(conn_ctx, *subscribe_id);
 
-           LOGGER_DEBUG(logger_, "remove subscribe id: {0}", *subscribe_id);
+           SPDLOG_LOGGER_DEBUG(logger_, "remove subscribe id: {0}", *subscribe_id);
 
            if (remove_handler) {
                std::lock_guard<std::mutex> _(state_mutex_);
@@ -473,19 +454,19 @@ namespace moq {
        }
    }
 
-   void Transport::UnpublishTrack(TransportConnId conn_id, std::shared_ptr<PublishTrackHandler> track_handler)
+   void Transport::UnpublishTrack(TransportConnId conn_id, const std::shared_ptr<PublishTrackHandler>& track_handler)
    {
        // Generate track alias
        auto tfn = track_handler->GetFullTrackName();
        auto th = TrackHash(tfn);
 
-       LOGGER_INFO(logger_, "Unpublish track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
+       SPDLOG_LOGGER_INFO(logger_, "Unpublish track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
 
        std::lock_guard<std::mutex> _(state_mutex_);
 
        auto conn_it = connections_.find(conn_id);
        if (conn_it == connections_.end()) {
-           LOGGER_ERROR(logger_, "Unpublish track conn_id: {0} does not exist.", conn_id);
+           SPDLOG_LOGGER_ERROR(logger_, "Unpublish track conn_id: {0} does not exist.", conn_id);
            return;
        }
 
@@ -498,7 +479,7 @@ namespace moq {
                // Send subscribe done if track has subscriber and is sending
                if (pub_n_it->second->GetStatus() == PublishTrackHandler::Status::kOk &&
                    pub_n_it->second->GetSubscribeId().has_value()) {
-                   LOGGER_INFO(logger_,
+                   SPDLOG_LOGGER_INFO(logger_,
                                "Unpublish track namespace hash: {0} track_name_hash: {1} track_alias: {2}, sending "
                                "subscribe_done",
                                th.track_namespace_hash,
@@ -506,7 +487,7 @@ namespace moq {
                                th.track_fullname_hash);
                    SendSubscribeDone(conn_it->second, *pub_n_it->second->GetSubscribeId(), "Unpublish track");
                } else {
-                   LOGGER_INFO(logger_,
+                   SPDLOG_LOGGER_INFO(logger_,
                                "Unpublish track namespace hash: {0} track_name_hash: {1} track_alias: {2}",
                                th.track_namespace_hash,
                                th.track_name_hash,
@@ -520,7 +501,7 @@ namespace moq {
            }
 
            if (!pub_ns_it->second.size()) {
-               LOGGER_INFO(
+               SPDLOG_LOGGER_INFO(
                  logger_, "Unpublish namespace hash: {0}, has no tracks, sending unannounce", th.track_namespace_hash);
                SendUnannounce(conn_it->second, tfn.name_space);
                conn_it->second.pub_tracks_by_name.erase(pub_ns_it);
@@ -539,20 +520,20 @@ namespace moq {
 
        track_handler->SetTrackAlias(th.track_fullname_hash);
 
-       LOGGER_INFO(logger_, "Publish track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
+       SPDLOG_LOGGER_INFO(logger_, "Publish track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
 
        std::lock_guard<std::mutex> _(state_mutex_);
 
        auto conn_it = connections_.find(conn_id);
        if (conn_it == connections_.end()) {
-           LOGGER_ERROR(logger_, "Publish track conn_id: {0} does not exist.", conn_id);
+           SPDLOG_LOGGER_ERROR(logger_, "Publish track conn_id: {0} does not exist.", conn_id);
            return;
        }
 
        // Check if this published track is a new namespace or existing.
        auto pub_ns_it = conn_it->second.pub_tracks_by_name.find(th.track_namespace_hash);
        if (pub_ns_it == conn_it->second.pub_tracks_by_name.end()) {
-           LOGGER_INFO(
+           SPDLOG_LOGGER_INFO(
              logger_, "Publish track has new namespace hash: {0} sending ANNOUNCE message", th.track_namespace_hash);
 
            track_handler->SetStatus(PublishTrackHandler::Status::kPendingAnnounceResponse);
@@ -561,15 +542,12 @@ namespace moq {
        } else {
            auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
            if (pub_n_it == pub_ns_it->second.end()) {
-               LOGGER_INFO(logger_,
+               SPDLOG_LOGGER_INFO(logger_,
                            "Publish track has new track namespace hash: {0} name hash: {1}",
                            th.track_namespace_hash,
                            th.track_name_hash);
            }
        }
-
-       // Set the track handler for pub/sub
-       conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
 
        track_handler->connection_handle_ = conn_id;
        track_handler->publish_data_ctx_id_ =
@@ -589,9 +567,12 @@ namespace moq {
            Span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
            return SendObject(track_handler, priority, ttl, stream_header_needed, group_id, object_id, data);
        };
+       // Set the track handler for pub/sub
+
+       conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = std::move(track_handler);
    }
 
-   PublishTrackHandler::PublishObjectStatus Transport::SendObject(std::weak_ptr<PublishTrackHandler> track_handler,
+   PublishTrackHandler::PublishObjectStatus Transport::SendObject(const std::shared_ptr<PublishTrackHandler>& track_handler,
                                                                   uint8_t priority,
                                                                   uint32_t ttl,
                                                                   bool stream_header_needed,
@@ -599,14 +580,11 @@ namespace moq {
                                                                   uint64_t object_id,
                                                                   BytesSpan data)
    {
-
-       auto td = track_handler.lock();
-
-       if (!td->GetTrackAlias().has_value()) {
+       if (!track_handler->GetTrackAlias().has_value()) {
            return PublishTrackHandler::PublishObjectStatus::kNotAnnounced;
        }
 
-       if (!td->GetSubscribeId().has_value()) {
+       if (!track_handler->GetSubscribeId().has_value()) {
            return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
        }
 
@@ -614,14 +592,14 @@ namespace moq {
 
        StreamBuffer<uint8_t> buffer;
 
-       switch (td->default_track_mode_) {
+       switch (track_handler->default_track_mode_) {
            case TrackMode::kDatagram: {
                MoqObjectDatagram object;
                object.group_id = group_id;
                object.object_id = object_id;
                object.priority = priority;
-               object.subscribe_id = *td->GetSubscribeId();
-               object.track_alias = *td->GetTrackAlias();
+               object.subscribe_id = *track_handler->GetSubscribeId();
+               object.track_alias = *track_handler->GetTrackAlias();
                object.payload.assign(data.begin(), data.end());
                buffer << object;
                break;
@@ -634,8 +612,8 @@ namespace moq {
                object.group_id = group_id;
                object.object_id = object_id;
                object.priority = priority;
-               object.subscribe_id = *td->GetSubscribeId();
-               object.track_alias = *td->GetTrackAlias();
+               object.subscribe_id = *track_handler->GetSubscribeId();
+               object.track_alias = *track_handler->GetTrackAlias();
                object.payload.assign(data.begin(), data.end());
                buffer << object;
 
@@ -653,8 +631,8 @@ namespace moq {
                    MoqStreamHeaderGroup group_hdr;
                    group_hdr.group_id = group_id;
                    group_hdr.priority = priority;
-                   group_hdr.subscribe_id = *td->GetSubscribeId();
-                   group_hdr.track_alias = *td->GetTrackAlias();
+                   group_hdr.subscribe_id = *track_handler->GetSubscribeId();
+                   group_hdr.track_alias = *track_handler->GetTrackAlias();
                    buffer << group_hdr;
                }
 
@@ -673,8 +651,8 @@ namespace moq {
 
                    MoqStreamHeaderTrack track_hdr;
                    track_hdr.priority = priority;
-                   track_hdr.subscribe_id = *td->GetSubscribeId();
-                   track_hdr.track_alias = *td->GetTrackAlias();
+                   track_hdr.subscribe_id = *track_handler->GetSubscribeId();
+                   track_hdr.track_alias = *track_handler->GetTrackAlias();
                    buffer << track_hdr;
                }
 
@@ -691,8 +669,8 @@ namespace moq {
        // TODO(tievens): Add M10x specific chunking... lacking in the draft
        std::vector<uint8_t> serialized_data = buffer.Front(buffer.Size());
 
-       quic_transport_->Enqueue(td->connection_handle_,
-                                td->publish_data_ctx_id_,
+       quic_transport_->Enqueue(track_handler->connection_handle_,
+                                track_handler->publish_data_ctx_id_,
                                 std::move(serialized_data),
                                 { MethodTraceItem{} },
                                 priority,
@@ -725,13 +703,13 @@ namespace moq {
 
    void Transport::OnConnectionStatus(const TransportConnId& conn_id, const TransportStatus status)
    {
-       LOGGER_DEBUG(logger_, "Connection status conn_id: {0} status: {1}", conn_id, static_cast<int>(status));
+       SPDLOG_LOGGER_DEBUG(logger_, "Connection status conn_id: {0} status: {1}", conn_id, static_cast<int>(status));
 
        switch (status) {
            case TransportStatus::kReady: {
                if (client_mode_) {
                    auto& conn_ctx = connections_[conn_id];
-                   LOGGER_INFO(logger_, "Connection established, creating bi-dir stream and sending CLIENT_SETUP");
+                   SPDLOG_LOGGER_INFO(logger_, "Connection established, creating bi-dir stream and sending CLIENT_SETUP");
 
                    conn_ctx.ctrl_data_ctx_id = quic_transport_->CreateDataContext(conn_id, true, 0, true);
 
@@ -884,7 +862,7 @@ namespace moq {
 
                auto msg_type = buffer.DecodeUintV();
                if (!msg_type || static_cast<MoqMessageType>(*msg_type) != MoqMessageType::OBJECT_DATAGRAM) {
-                   LOGGER_WARN(logger_, "Received datagram that is not message type OBJECT_DATAGRAM, dropping");
+                   SPDLOG_LOGGER_WARN(logger_, "Received datagram that is not message type OBJECT_DATAGRAM, dropping");
                    continue;
                }
 
@@ -896,7 +874,7 @@ namespace moq {
                    auto& conn_ctx = connections_[conn_id];
                    auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
                    if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                       LOGGER_WARN(logger_,
+                       SPDLOG_LOGGER_WARN(logger_,
                                    "Received datagram to unknown subscribe track subscribe_id: {0}, ignored",
                                    msg.subscribe_id);
 
@@ -905,7 +883,7 @@ namespace moq {
                        continue;
                    }
 
-                   LOGGER_DEBUG(logger_,
+                   SPDLOG_LOGGER_DEBUG(logger_,
                                 "Received object datagram conn_id: {0} data_ctx_id: {1} subscriber_id: {2} "
                                 "track_alias: {3} group_id: {4} object_id: {5} data size: {6}",
                                 conn_id,
@@ -926,7 +904,7 @@ namespace moq {
                                                   msg.payload);
 
                } else {
-                   LOGGER_WARN(logger_,
+                   SPDLOG_LOGGER_WARN(logger_,
                                "Failed to decode datagram conn_id: {0} data_ctx_id: {1}",
                                conn_id,
                                (data_ctx_id ? *data_ctx_id : 0));
@@ -965,12 +943,12 @@ namespace moq {
                break;
        }
 
-       LOGGER_INFO(logger_, log_msg.str());
+       SPDLOG_LOGGER_INFO(logger_, log_msg.str());
 
        quic_transport_->Close(conn_id, static_cast<uint64_t>(reason));
 
        if (client_mode_) {
-           LOGGER_INFO(logger_, "Client connection closed, stopping client");
+           SPDLOG_LOGGER_INFO(logger_, "Client connection closed, stopping client");
            stop_ = true;
        }
    }
@@ -1000,191 +978,146 @@ namespace moq {
            case messages::MoqMessageType::OBJECT_STREAM: {
                auto&& [msg, parsed] =
                  ParseDataMessage<messages::MoqObjectStream>(stream_buffer, messages::MoqMessageType::OBJECT_STREAM);
-               if (parsed) {
+               if (!parsed) {
+                   break;
+               }
+
+               auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+               if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                   SPDLOG_LOGGER_WARN(logger_,
+                                      "Received stream_object to unknown subscribe track subscribe_id: {0}, ignored",
+                                      msg.subscribe_id);
+
+                   // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+
+                   return true;
+               }
+
+               SPDLOG_LOGGER_TRACE(logger_,
+                                   "Received stream_object subscribe_id: {0} priority: {1} track_alias: {2} group_id: "
+                                   "{3} object_id: {4} data size: {5}",
+                                   msg.subscribe_id,
+                                   msg.priority,
+                                   msg.track_alias,
+                                   msg.group_id,
+                                   msg.object_id,
+                                   msg.payload.size());
+
+               sub_it->second->ObjectReceived({ msg.group_id,
+                                                msg.object_id,
+                                                msg.payload.size(),
+                                                msg.priority,
+                                                std::nullopt,
+                                                TrackMode::kStreamPerObject,
+                                                std::nullopt },
+                                              msg.payload);
+               stream_buffer->ResetAny();
+               return true;
+               break;
+           }
+           case messages::MoqMessageType::STREAM_HEADER_TRACK: {
+               auto&& [msg, parsed] = ParseStreamData<MoqStreamHeaderTrack, MoqStreamTrackObject>(
+                 stream_buffer, MoqMessageType::STREAM_HEADER_TRACK);
+
+               if (!parsed) {
+                   break;
+               }
+
+               auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+               if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                   SPDLOG_LOGGER_WARN(
+                     logger_,
+                     "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
+                     msg.subscribe_id);
+
+                   // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+                   stream_buffer->ResetAnyB<MoqStreamGroupObject>();
+                   return true;
+               }
+
+               auto& obj = stream_buffer->GetAnyB<MoqStreamTrackObject>();
+               if (*stream_buffer >> obj) {
                    auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
                    if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
                        SPDLOG_LOGGER_WARN(
                          logger_,
-                         "Received stream_object to unknown subscribe track subscribe_id: {0}, ignored",
+                         "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
                          msg.subscribe_id);
 
                        // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
-
+                       stream_buffer->ResetAnyB();
                        return true;
                    }
 
-                   SPDLOG_LOGGER_TRACE(
-                     logger_,
-                     "Received stream_object subscribe_id: {0} priority: {1} track_alias: {2} group_id: "
-                     "{3} object_id: {4} data size: {5}",
-                     msg.subscribe_id,
-                     msg.priority,
-                     msg.track_alias,
-                     msg.group_id,
-                     msg.object_id,
-                     msg.payload.size());
+                   SPDLOG_LOGGER_DEBUG(logger_,
+                                       "Received stream_track_object subscribe_id: {0} priority: {1} track_alias: {2} "
+                                       "group_id: {3} object_id: {4} data size: {5}",
+                                       msg.subscribe_id,
+                                       msg.priority,
+                                       msg.track_alias,
+                                       obj.group_id,
+                                       obj.object_id,
+                                       obj.payload.size());
 
-                   sub_it->second->ObjectReceived({ msg.group_id,
-                                                    msg.object_id,
-                                                    msg.payload.size(),
+                   sub_it->second->ObjectReceived({ obj.group_id,
+                                                    obj.object_id,
+                                                    obj.payload.size(),
                                                     msg.priority,
                                                     std::nullopt,
-                                                    TrackMode::kStreamPerObject,
+                                                    TrackMode::kStreamPerTrack,
                                                     std::nullopt },
-                                                  msg.payload);
-                   stream_buffer->ResetAny();
+                                                  obj.payload);
+
+                   stream_buffer->ResetAnyB<MoqStreamTrackObject>();
+
                    return true;
                }
                break;
            }
+           case messages::MoqMessageType::STREAM_HEADER_GROUP: {
+               auto&& [msg, parsed] = ParseStreamData<MoqStreamHeaderGroup, MoqStreamGroupObject>(
+                 stream_buffer, MoqMessageType::STREAM_HEADER_GROUP);
 
-           case messages::MoqMessageType::STREAM_HEADER_TRACK:
-               {
-               if (not stream_buffer->AnyHasValue()) {
-                   LOGGER_DEBUG(logger_, "Received stream header track, init stream buffer");
-                   stream_buffer->InitAny<MoqStreamHeaderTrack>(
-                     static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_TRACK));
+               if (!parsed) {
+                   break;
                }
 
-               auto& msg = stream_buffer->GetAny<MoqStreamHeaderTrack>();
-               if (!stream_buffer->AnyHasValueB() && *stream_buffer >> msg) {
-                   auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-                   if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                       LOGGER_WARN(logger_,
-                                   "Received stream_header_track to unknown subscribe track subscribe_id: {0}, ignored",
-                                   msg.subscribe_id);
+               auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+               if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                   SPDLOG_LOGGER_WARN(
+                     logger_,
+                     "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
+                     msg.subscribe_id);
 
-                       // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+                   // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+                   stream_buffer->ResetAnyB<MoqStreamGroupObject>();
+                   return true;
+               }
 
-                       return true;
-                   }
-                   // Init second working buffer to read data object
-                   stream_buffer->InitAnyB<MoqStreamTrackObject>();
+               auto& obj = stream_buffer->GetAnyB<MoqStreamGroupObject>();
+               if (*stream_buffer >> obj) {
 
                    SPDLOG_LOGGER_DEBUG(logger_,
-                                       "Received stream_header_track subscribe_id: {0} priority: {1} track_alias: {2}",
+                                       "Received stream_group_object subscribe_id: {0} priority: {1} track_alias: {2} "
+                                       "group_id: {3} object_id: {4} data size: {5}",
                                        msg.subscribe_id,
                                        msg.priority,
-                                       msg.track_alias);
-               }
+                                       msg.track_alias,
+                                       msg.group_id,
+                                       obj.object_id,
+                                       obj.payload.size());
 
-               if (stream_buffer->AnyHasValueB()) {
-                   auto& obj = stream_buffer->GetAnyB<MoqStreamTrackObject>();
-                   if (*stream_buffer >> obj) {
-                       auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-                       if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                           SPDLOG_LOGGER_WARN(
-                             logger_,
-                             "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
-                             msg.subscribe_id);
+                   sub_it->second->ObjectReceived({ msg.group_id,
+                                                    obj.object_id,
+                                                    obj.payload.size(),
+                                                    msg.priority,
+                                                    std::nullopt,
+                                                    TrackMode::kStreamPerGroup,
+                                                    std::nullopt },
+                                                  obj.payload);
 
-                           // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
-                           stream_buffer->ResetAnyB();
-                           return true;
-                       }
-
-                       SPDLOG_LOGGER_DEBUG(
-                         logger_,
-                         "Received stream_track_object subscribe_id: {0} priority: {1} track_alias: {2} "
-                         "group_id: {3} object_id: {4} data size: {5}",
-                         msg.subscribe_id,
-                         msg.priority,
-                         msg.track_alias,
-                         obj.group_id,
-                         obj.object_id,
-                         obj.payload.size());
-
-
-                       sub_it->second->ObjectReceived({ obj.group_id,
-                                                        obj.object_id,
-                                                        obj.payload.size(),
-                                                        msg.priority,
-                                                        std::nullopt,
-                                                        TrackMode::kStreamPerTrack,
-                                                        std::nullopt },
-                                                      obj.payload);
-
-                       stream_buffer->ResetAnyB();
-                       stream_buffer->InitAnyB<MoqStreamTrackObject>();
-
-                       return true;
-                   }
-               }
-               break;
-           }
-           case messages::MoqMessageType::STREAM_HEADER_GROUP: {
-               if (not stream_buffer->AnyHasValue()) {
-                   LOGGER_DEBUG(logger_, "Received stream header group, init stream buffer");
-                   stream_buffer->InitAny<MoqStreamHeaderGroup>(
-                     static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_GROUP));
-               }
-
-               auto& msg = stream_buffer->GetAny<MoqStreamHeaderGroup>();
-               if (!stream_buffer->AnyHasValueB() && *stream_buffer >> msg) {
-                   auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-                   if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                       LOGGER_WARN(logger_,
-                                   "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
-                                   msg.subscribe_id);
-
-                       // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
-
-                       return true;
-                   }
-
-                   // Init second working buffer to read data object
-                   stream_buffer->InitAnyB<MoqStreamGroupObject>();
-
-
-                   LOGGER_DEBUG(
-                     logger_,
-                     "Received stream_header_group subscribe_id: {0} priority: {1} track_alias: {2} group_id: {3}",
-                     msg.subscribe_id,
-                     msg.priority,
-                     msg.track_alias,
-                     msg.group_id);
-               }
-
-               if (stream_buffer->AnyHasValueB()) {
-                   auto& obj = stream_buffer->GetAnyB<MoqStreamGroupObject>();
-                   if (*stream_buffer >> obj) {
-                       auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-                       if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                           SPDLOG_LOGGER_WARN(
-                             logger_,
-                             "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
-                             msg.subscribe_id);
-
-                           // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
-                           stream_buffer->ResetAnyB();
-                           stream_buffer->InitAnyB<MoqStreamGroupObject>();
-                           return true;
-                       }
-
-                       SPDLOG_LOGGER_DEBUG(
-                         logger_,
-                         "Received stream_group_object subscribe_id: {0} priority: {1} track_alias: {2} "
-                         "group_id: {3} object_id: {4} data size: {5}",
-                         msg.subscribe_id,
-                         msg.priority,
-                         msg.track_alias,
-                         msg.group_id,
-                         obj.object_id,
-                         obj.payload.size());
-
-                       sub_it->second->ObjectReceived({ msg.group_id,
-                                                        obj.object_id,
-                                                        obj.payload.size(),
-                                                        msg.priority,
-                                                        std::nullopt,
-                                                        TrackMode::kStreamPerGroup,
-                                                        std::nullopt },
-                                                      obj.payload);
-
-                       stream_buffer->ResetAnyB();
-                       stream_buffer->InitAnyB<MoqStreamGroupObject>();
-                       return true;
-                   }
+                   stream_buffer->ResetAnyB<MoqStreamGroupObject>();
+                   return true;
                }
                break;
            }
@@ -1236,27 +1169,16 @@ namespace moq {
    }
 
    template<class HeaderType, class MessageType>
-   std::pair<HeaderType&, bool> Transport::ParseStreamData(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
-                                                           MoqMessageType msg_type,
-                                                           const ConnectionContext& conn_ctx)
+   std::pair<HeaderType&, bool> Transport::ParseStreamData(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer, MoqMessageType msg_type)
    {
        if (!stream_buffer->AnyHasValue()) {
-           LOGGER_DEBUG(
+           SPDLOG_LOGGER_DEBUG(
              logger_, "Received stream header (type = {0}), init stream buffer", static_cast<std::uint64_t>(msg_type));
            stream_buffer->InitAny<HeaderType>(static_cast<uint64_t>(msg_type));
        }
 
        auto& msg = stream_buffer->GetAny<HeaderType>();
        if (!stream_buffer->AnyHasValueB() && *stream_buffer >> msg) {
-           auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-           if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-               SPDLOG_LOGGER_WARN(logger_,
-                                  "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
-                                  msg.subscribe_id);
-               return { msg, true };
-           }
-
-           // Init second working buffer to read data object
            stream_buffer->InitAnyB<MessageType>();
            return { msg, true };
        }
@@ -1312,12 +1234,10 @@ namespace moq {
    template std::pair<messages::MoqStreamHeaderTrack&, bool>
    Transport::ParseStreamData<messages::MoqStreamHeaderTrack, messages::MoqStreamTrackObject>(
      std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
-     MoqMessageType msg_type,
-     const ConnectionContext& conn_ctx);
+     MoqMessageType msg_type);
    template std::pair<messages::MoqStreamHeaderGroup&, bool>
    Transport::ParseStreamData<messages::MoqStreamHeaderGroup, messages::MoqStreamGroupObject>(
      std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
-     MoqMessageType msg_type,
-     const ConnectionContext& conn_ctx);
+     MoqMessageType msg_type);
 
 } // namespace moq

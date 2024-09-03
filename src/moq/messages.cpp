@@ -120,7 +120,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqParameter &param) 
   }
 
   if(param.length) {
-    const auto val = buffer.DecodeBytes();
+    auto val = buffer.DecodeBytes();
     if (!val) {
       return false;
     }
@@ -183,7 +183,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqTrackStatus &msg) 
             [[fallthrough]];
         }
         case 2: {
-            const auto val = buffer.DecodeUintV();
+            auto val = buffer.DecodeUintV();
             if (!val) {
                 return false;
             }
@@ -331,7 +331,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribe &msg) {
       [[fallthrough]];
     }
     case 4: {
-      const auto val = buffer.DecodeUintV();
+      auto val = buffer.DecodeUintV();
       if (!val) {
         return false;
       }
@@ -485,7 +485,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeDone &msg
       [[fallthrough]];
     }
     case 2: {
-      const auto val = buffer.DecodeBytes();
+      auto val = buffer.DecodeBytes();
       if (!val) {
         return false;
       }
@@ -494,7 +494,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeDone &msg
       [[fallthrough]];
     }
     case 3: {
-      const auto val = buffer.Front();
+      auto val = buffer.Front();
       if (!val) {
         return false;
       }
@@ -564,7 +564,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeOk &msg) 
       [[fallthrough]];
     }
     case 2: {
-      const auto val = buffer.Front();
+      auto val = buffer.Front();
       if (!val) {
         return false;
       }
@@ -632,7 +632,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqSubscribeError &ms
       [[fallthrough]];
     }
     case 2: {
-      const auto val = buffer.DecodeBytes();
+      auto val = buffer.DecodeBytes();
       if (!val) {
         return false;
       }
@@ -680,7 +680,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer,
   // read namespace
   if (msg.track_namespace.empty())
   {
-    const auto val = buffer.DecodeBytes();
+    auto val = buffer.DecodeBytes();
     if (!val) {
       return false;
     }
@@ -688,7 +688,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer,
   }
 
   if (!msg.num_params) {
-    const auto val = buffer.DecodeUintV();
+    auto val = buffer.DecodeUintV();
     if (!val) {
       return false;
     }
@@ -735,7 +735,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceOk &msg) {
   // read namespace
   if (msg.track_namespace.empty())
   {
-    const auto val = buffer.DecodeBytes();
+    auto val = buffer.DecodeBytes();
     if (!val) {
       return false;
     }
@@ -759,7 +759,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceError &msg
   // read namespace
   if (!msg.track_namespace)
   {
-    const auto val = buffer.DecodeBytes();
+    auto val = buffer.DecodeBytes();
     if (!val) {
       return false;
     }
@@ -767,7 +767,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceError &msg
   }
 
   if (!msg.err_code) {
-    const auto val = buffer.DecodeUintV();
+    auto val = buffer.DecodeUintV();
     if (!val) {
       return false;
     }
@@ -797,7 +797,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqUnannounce &msg) {
   // read namespace
   if (msg.track_namespace.empty())
   {
-    const auto val = buffer.DecodeBytes();
+    auto val = buffer.DecodeBytes();
     if (!val) {
       return false;
     }
@@ -818,7 +818,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqAnnounceCancel &ms
   // read namespace
   if (msg.track_namespace.empty())
   {
-    const auto val = buffer.DecodeBytes();
+    auto val = buffer.DecodeBytes();
     if (!val) {
       return false;
     }
@@ -841,7 +841,7 @@ qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>&
 
 bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqGoaway &msg) {
 
-  const auto val = buffer.DecodeBytes();
+  auto val = buffer.DecodeBytes();
   if (!val) {
     return false;
   }
@@ -918,7 +918,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqObjectStream &msg)
       [[fallthrough]];
     }
     case 5: {
-      const auto val = buffer.DecodeBytes();
+      auto val = buffer.DecodeBytes();
       if (!val) {
         return false;
       }
@@ -990,7 +990,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqObjectDatagram &ms
       [[fallthrough]];
     }
     case 5: {
-      const auto val = buffer.DecodeBytes();
+      auto val = buffer.DecodeBytes();
       if (!val) {
         return false;
       }
@@ -1082,7 +1082,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamTrackObject 
       [[fallthrough]];
     }
     case 2: {
-      const auto val = buffer.DecodeBytes();
+      auto val = buffer.DecodeBytes();
       if(!val) {
         return false;
       }
@@ -1174,7 +1174,7 @@ bool operator>>(qtransport::StreamBuffer<uint8_t> &buffer, MoqStreamGroupObject 
       [[fallthrough]];
     }
     case 1: {
-      const auto val = buffer.DecodeBytes();
+      auto val = buffer.DecodeBytes();
       if (!val) {
         return false;
       }

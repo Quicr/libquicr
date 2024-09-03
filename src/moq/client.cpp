@@ -25,7 +25,7 @@ namespace moq {
         // TODO: add the default response
     }
 
-    void Client::ResolveSubscribe(ConnectionHandle, uint64_t, SubscribeResponse) {}
+    void Client::ResolveSubscribe(ConnectionHandle, uint64_t, const SubscribeResponse&) {}
 
     void Client::MetricsSampled(const ConnectionMetrics&&) {}
 

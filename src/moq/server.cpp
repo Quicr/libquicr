@@ -26,7 +26,7 @@ namespace moq {
 
     void Server::AnnounceReceived(ConnectionHandle, const TrackNamespace&, const PublishAnnounceAttributes&) {}
 
-    void Server::ResolveAnnounce(ConnectionHandle, const TrackNamespace&, AnnounceResponse) {}
+    void Server::ResolveAnnounce(ConnectionHandle, const TrackNamespace&, const AnnounceResponse&) {}
 
     void Server::SubscribeReceived(ConnectionHandle,
                                    uint64_t,
@@ -36,7 +36,7 @@ namespace moq {
     {
     }
 
-    void Server::ResolveSubscribe(ConnectionHandle, uint64_t, SubscribeResponse) {}
+    void Server::ResolveSubscribe(ConnectionHandle, uint64_t, const SubscribeResponse&) {}
 
     bool Server::ProcessCtrlMessage(ConnectionContext& conn_ctx, std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer)
     {

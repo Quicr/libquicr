@@ -116,7 +116,7 @@ namespace moq {
          * @param connection_handle         Connection ID to send subscribe
          * @param track_handler             Track handler to use for track related functions and callbacks
          */
-        void UnsubscribeTrack(ConnectionHandle connection_handle, std::shared_ptr<SubscribeTrackHandler> track_handler);
+        void UnsubscribeTrack(ConnectionHandle connection_handle, const std::shared_ptr<SubscribeTrackHandler>& track_handler);
 
         /**
          * @brief Publish to a track
@@ -133,7 +133,7 @@ namespace moq {
          * @param connection_handle           Connection ID from transport for the QUIC connection context
          * @param track_handler    Track handler used when published track
          */
-        void UnpublishTrack(ConnectionHandle connection_handle, std::shared_ptr<PublishTrackHandler> track_handler);
+        void UnpublishTrack(ConnectionHandle connection_handle, const std::shared_ptr<PublishTrackHandler>& track_handler);
 
         /**
          * @brief Bind a server publish track handler based on a subscribe
@@ -147,7 +147,7 @@ namespace moq {
          */
         void BindPublisherTrack(ConnectionHandle connection_handle,
                                 uint64_t subscribe_id,
-                                std::shared_ptr<PublishTrackHandler> track_handler);
+                                const std::shared_ptr<PublishTrackHandler>& track_handler);
 
         /**
          * @brief Get the status of the Client
@@ -228,7 +228,7 @@ namespace moq {
 
         void Init();
 
-        PublishTrackHandler::PublishObjectStatus SendObject(std::weak_ptr<PublishTrackHandler> track_handler,
+        PublishTrackHandler::PublishObjectStatus SendObject(const std::shared_ptr<PublishTrackHandler>& track_handler,
                                                             uint8_t priority,
                                                             uint32_t ttl,
                                                             bool stream_header_needed,
@@ -291,10 +291,7 @@ namespace moq {
         std::pair<MessageType&, bool> ParseDataMessage(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer, messages::MoqMessageType msg_type);
 
         template<class HeaderType, class MessageType>
-        std::pair<HeaderType&, bool> ParseStreamData(
-          std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
-          messages::MoqMessageType msg_type,
-          const ConnectionContext& conn_ctx);
+        std::pair<HeaderType&, bool> ParseStreamData(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer, messages::MoqMessageType msg_type);
 
       private:
         // -------------------------------------------------------------------------------------------------

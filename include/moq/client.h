@@ -108,7 +108,7 @@ namespace moq {
          */
         virtual void ResolveSubscribe(ConnectionHandle connection_handle,
                                       uint64_t subscribe_id,
-                                      SubscribeResponse subscribe_response);
+                                      const SubscribeResponse& subscribe_response);
 
 
         /**
