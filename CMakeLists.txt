@@ -18,7 +18,7 @@ project(quicr
         LANGUAGES CXX)
 
 option(LINT "Perform linting with clang-tidy" OFF)
-
+option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(PLATFORM_ESP_IDF "Enabble support for esp-idf (Default OFF)" OFF)
 option(USE_MBEDTLS OFF)
 
