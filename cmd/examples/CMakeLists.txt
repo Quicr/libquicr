@@ -16,6 +16,7 @@ set_target_properties(qclient
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS OFF)
 
+target_compile_definitions(qclient PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
 
 if(CLANG_TIDY_EXE)
   set_target_properties(quicr PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
@@ -38,3 +39,5 @@ set_target_properties(qserver
         CXX_STANDARD 17
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS ON)
+
+target_compile_definitions(qserver PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)

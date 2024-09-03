@@ -97,7 +97,7 @@ namespace moq {
          * @returns Track alias as an optional. Track alias may not be set yet. If not
          *   set, nullopt will be returned.
          */
-        std::optional<uint64_t> GetTrackAlias() { return full_track_name_.track_alias; }
+        std::optional<uint64_t> GetTrackAlias() const noexcept { return full_track_name_.track_alias; }
 
         /**
          * @brief Sets the subscribe ID
@@ -113,7 +113,7 @@ namespace moq {
          *
          * @return nullopt if not subscribed, otherwise the subscribe ID
          */
-        std::optional<uint64_t> GetSubscribeId() { return subscribe_id_; }
+        std::optional<uint64_t> GetSubscribeId() const noexcept { return subscribe_id_; }
 
         /**
          * @brief Get the full track name
@@ -122,12 +122,12 @@ namespace moq {
          *
          * @return FullTrackName
          */
-        FullTrackName GetFullTrackName() { return { full_track_name_ }; }
+        FullTrackName GetFullTrackName() const noexcept { return { full_track_name_ }; }
 
         /**
          * @brief Get the connection ID
          */
-        uint64_t GetConnectionId() { return connection_handle_; };
+        uint64_t GetConnectionId() const noexcept { return connection_handle_; };
 
         // --------------------------------------------------------------------------
         // Internal

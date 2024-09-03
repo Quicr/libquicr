@@ -81,7 +81,7 @@ namespace moq {
          * @param connection_handle          Transport connection ID
          * @param remote                     Transport remote connection information
          */
-         void NewConnectionAccepted(ConnectionHandle connection_handle, const ConnectionRemoteInfo& remote);
+         void NewConnectionAccepted(ConnectionHandle connection_handle, const ConnectionRemoteInfo& remote) override;
 
         /**
          * @brief Callback notification for connection status/state change
@@ -90,7 +90,7 @@ namespace moq {
          * @param connection_handle          Transport connection ID
          * @param status                     ConnectionStatus of connection id
          */
-         void ConnectionStatusChanged(ConnectionHandle connection_handle, ConnectionStatus status);
+         void ConnectionStatusChanged(ConnectionHandle connection_handle, ConnectionStatus status) override;
 
         /**
          * @brief Callback on client setup message
@@ -131,7 +131,7 @@ namespace moq {
          */
         void ResolveAnnounce(ConnectionHandle connection_handle,
                             const TrackNamespace& track_namespace,
-                            AnnounceResponse announce_response);
+                            const AnnounceResponse& announce_response);
 
         /**
          * @brief Callback notification for unannounce received
@@ -173,7 +173,7 @@ namespace moq {
          */
         virtual void ResolveSubscribe(ConnectionHandle connection_handle,
                                       uint64_t subscribe_id,
-                                      SubscribeResponse subscribe_response);
+                                      const SubscribeResponse& subscribe_response);
 
         /**
          * @brief Callback notification on unsubscribe received
