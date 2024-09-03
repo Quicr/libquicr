@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-
 #include <moq/server.h>
 
 namespace moq {
@@ -61,7 +60,7 @@ namespace moq {
                     }
 
                     // TODO(tievens): add filter type when caching supports it
-                    SubscribeReceived(conn_ctx.connection_handle, msg.subscribe_id, msg.track_alias,  tfn, {});
+                    SubscribeReceived(conn_ctx.connection_handle, msg.subscribe_id, msg.track_alias, tfn, {});
 
                     // TODO(tievens): Delay the subscribe OK till ResolveSubscribe() is called
                     SendSubscribeOk(conn_ctx, msg.subscribe_id, kSubscribeExpires, false);
@@ -142,7 +141,7 @@ namespace moq {
                 if (parsed) {
                     if (msg.track_namespace) {
                         std::string reason = "unknown";
-                        auto tfn = FullTrackName{ *msg.track_namespace, {}, std::nullopt};
+                        auto tfn = FullTrackName{ *msg.track_namespace, {}, std::nullopt };
                         auto th = TrackHash(tfn);
 
                         if (msg.reason_phrase) {
@@ -166,7 +165,7 @@ namespace moq {
                 auto&& [msg, parsed] = ParseControlMessage<messages::MoqUnannounce>(stream_buffer);
                 if (parsed) {
 
-                    auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt};
+                    auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
                     auto th = TrackHash(tfn);
 
                     SPDLOG_LOGGER_INFO(logger_, "Received unannounce for namespace_hash: {0}", th.track_namespace_hash);
@@ -248,7 +247,7 @@ namespace moq {
             case messages::MoqMessageType::TRACK_STATUS_REQUEST: {
                 auto&& [msg, parsed] = ParseControlMessage<messages::MoqTrackStatusRequest>(stream_buffer);
                 if (parsed) {
-                    auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt};
+                    auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
                     auto th = TrackHash(tfn);
 
                     SPDLOG_LOGGER_INFO(logger_,
@@ -263,7 +262,7 @@ namespace moq {
             case messages::MoqMessageType::TRACK_STATUS: {
                 auto&& [msg, parsed] = ParseControlMessage<messages::MoqTrackStatus>(stream_buffer);
                 if (parsed) {
-                    auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt};
+                    auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
                     auto th = TrackHash(tfn);
 
                     SPDLOG_LOGGER_INFO(logger_,

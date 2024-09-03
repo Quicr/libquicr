@@ -3,10 +3,10 @@
 
 #pragma once
 
-#include <optional>
-#include <moq/detail/span.h>
 #include <moq/common.h>
+#include <moq/detail/span.h>
 #include <moq/track_name.h>
+#include <optional>
 #include <vector>
 
 namespace moq {
@@ -57,7 +57,6 @@ namespace moq {
       public:
         friend class Transport;
 
-
         virtual ~BaseTrackHandler() = default;
 
         // --------------------------------------------------------------------------
@@ -75,7 +74,6 @@ namespace moq {
         BaseTrackHandler(const FullTrackName& full_track_name)
           : full_track_name_(full_track_name)
         {
-
         }
 
         // --------------------------------------------------------------------------
@@ -146,7 +144,7 @@ namespace moq {
 
         FullTrackName full_track_name_;
 
-        ConnectionHandle connection_handle_;    // QUIC transport connection ID
+        ConnectionHandle connection_handle_; // QUIC transport connection ID
 
         /**
          * subscribe_id_ is the primary index/key for subscribe subscribe context/delegate storage.

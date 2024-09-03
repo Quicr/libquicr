@@ -153,7 +153,7 @@ namespace moq {
             case messages::MoqMessageType::ANNOUNCE_OK: {
                 auto&& [msg, parsed] = ParseControlMessage<messages::MoqAnnounceOk>(stream_buffer);
                 if (parsed) {
-                    auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt};
+                    auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
                     auto th = TrackHash(tfn);
                     SPDLOG_LOGGER_DEBUG(logger_,
                                         "Received announce ok, conn_id: {0} namespace_hash: {1}",
@@ -176,7 +176,7 @@ namespace moq {
                 if (parsed) {
                     if (msg.track_namespace) {
                         std::string reason = "unknown";
-                        auto tfn = FullTrackName{ *msg.track_namespace, {}, std::nullopt};
+                        auto tfn = FullTrackName{ *msg.track_namespace, {}, std::nullopt };
                         auto th = TrackHash(tfn);
 
                         if (msg.reason_phrase) {
@@ -262,7 +262,7 @@ namespace moq {
             case messages::MoqMessageType::ANNOUNCE_CANCEL: {
                 auto&& [msg, parsed] = ParseControlMessage<messages::MoqAnnounceCancel>(stream_buffer);
                 if (parsed) {
-                    auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt};
+                    auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
                     auto th = TrackHash(tfn);
 
                     SPDLOG_LOGGER_INFO(
@@ -277,7 +277,7 @@ namespace moq {
             case messages::MoqMessageType::TRACK_STATUS_REQUEST: {
                 auto&& [msg, parsed] = ParseControlMessage<messages::MoqTrackStatusRequest>(stream_buffer);
                 if (parsed) {
-                    auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt};
+                    auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
                     auto th = TrackHash(tfn);
 
                     SPDLOG_LOGGER_INFO(logger_,
@@ -292,7 +292,7 @@ namespace moq {
             case messages::MoqMessageType::TRACK_STATUS: {
                 auto&& [msg, parsed] = ParseControlMessage<messages::MoqTrackStatus>(stream_buffer);
                 if (parsed) {
-                    auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt};
+                    auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
                     auto th = TrackHash(tfn);
 
                     SPDLOG_LOGGER_INFO(logger_,

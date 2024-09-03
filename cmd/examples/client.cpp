@@ -116,9 +116,7 @@ class MyClient : public moq::Client
  */
 
 void
-do_publisher(const moq::FullTrackName& full_track_name,
-             const std::shared_ptr<moq::Client>& client,
-             const bool& stop)
+do_publisher(const moq::FullTrackName& full_track_name, const std::shared_ptr<moq::Client>& client, const bool& stop)
 {
     auto track_handler = std::make_shared<MyPublishTrackHandler>(
       full_track_name, moq::TrackMode::kStreamPerGroup /*mode*/, 2 /*prirority*/, 3000 /*ttl*/);
@@ -187,9 +185,7 @@ do_publisher(const moq::FullTrackName& full_track_name,
  * -------------------------------------------------------------------------------------------------
  */
 void
-do_subscriber(const moq::FullTrackName& full_track_name,
-              const std::shared_ptr<moq::Client>& client,
-              const bool& stop)
+do_subscriber(const moq::FullTrackName& full_track_name, const std::shared_ptr<moq::Client>& client, const bool& stop)
 {
     auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name);
 

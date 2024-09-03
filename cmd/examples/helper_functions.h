@@ -3,10 +3,10 @@
 
 #pragma once
 
-#include <string>
 #include <chrono>
 #include <iomanip>
 #include <ostream>
+#include <string>
 
 namespace moq::example {
 
@@ -40,8 +40,8 @@ namespace moq::example {
      * @return moq::FullTrackName of the params
      */
     static FullTrackName const MakeFullTrackName(const std::string& track_namespace,
-                                                  const std::string& track_name,
-                                                  const std::optional<uint64_t> track_alias) noexcept
+                                                 const std::string& track_name,
+                                                 const std::optional<uint64_t> track_alias) noexcept
     {
 
         FullTrackName full_track_name{ { track_namespace.begin(), track_namespace.end() },

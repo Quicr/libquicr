@@ -148,7 +148,11 @@ namespace moq {
          * @brief Set the subscribe status
          * @param status                Status of the subscribe
          */
-        void SetStatus(Status status) noexcept { status_ = status; StatusChanged(status); }
+        void SetStatus(Status status) noexcept
+        {
+            status_ = status;
+            StatusChanged(status);
+        }
 
         // --------------------------------------------------------------------------
         // Member variables
