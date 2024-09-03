@@ -1013,7 +1013,6 @@ namespace moq {
                                               msg.payload);
                stream_buffer->ResetAny();
                return true;
-               break;
            }
            case messages::MoqMessageType::STREAM_HEADER_TRACK: {
                auto&& [msg, parsed] = ParseStreamData<MoqStreamHeaderTrack, MoqStreamTrackObject>(
