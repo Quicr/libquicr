@@ -415,7 +415,7 @@ namespace moq {
            uint64_t group_id,
            uint64_t object_id,
            Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
-           return SendObject(track_handler, priority, ttl, stream_header_needed, group_id, object_id, data);
+           return SendObject(*track_handler, priority, ttl, stream_header_needed, group_id, object_id, data);
        };
 
        // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
@@ -565,14 +565,14 @@ namespace moq {
            uint64_t group_id,
            uint64_t object_id,
            Span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
-           return SendObject(track_handler, priority, ttl, stream_header_needed, group_id, object_id, data);
+           return SendObject(*track_handler, priority, ttl, stream_header_needed, group_id, object_id, data);
        };
        // Set the track handler for pub/sub
 
        conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = std::move(track_handler);
    }
 
-   PublishTrackHandler::PublishObjectStatus Transport::SendObject(const std::shared_ptr<PublishTrackHandler>& track_handler,
+   PublishTrackHandler::PublishObjectStatus Transport::SendObject(const PublishTrackHandler& track_handler,
                                                                   uint8_t priority,
                                                                   uint32_t ttl,
                                                                   bool stream_header_needed,
@@ -580,11 +580,11 @@ namespace moq {
                                                                   uint64_t object_id,
                                                                   BytesSpan data)
    {
-       if (!track_handler->GetTrackAlias().has_value()) {
+       if (!track_handler.GetTrackAlias().has_value()) {
            return PublishTrackHandler::PublishObjectStatus::kNotAnnounced;
        }
 
-       if (!track_handler->GetSubscribeId().has_value()) {
+       if (!track_handler.GetSubscribeId().has_value()) {
            return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
        }
 
@@ -592,14 +592,14 @@ namespace moq {
 
        StreamBuffer<uint8_t> buffer;
 
-       switch (track_handler->default_track_mode_) {
+       switch (track_handler.default_track_mode_) {
            case TrackMode::kDatagram: {
                MoqObjectDatagram object;
                object.group_id = group_id;
                object.object_id = object_id;
                object.priority = priority;
-               object.subscribe_id = *track_handler->GetSubscribeId();
-               object.track_alias = *track_handler->GetTrackAlias();
+               object.subscribe_id = *track_handler.GetSubscribeId();
+               object.track_alias = *track_handler.GetTrackAlias();
                object.payload.assign(data.begin(), data.end());
                buffer << object;
                break;
@@ -612,8 +612,8 @@ namespace moq {
                object.group_id = group_id;
                object.object_id = object_id;
                object.priority = priority;
-               object.subscribe_id = *track_handler->GetSubscribeId();
-               object.track_alias = *track_handler->GetTrackAlias();
+               object.subscribe_id = *track_handler.GetSubscribeId();
+               object.track_alias = *track_handler.GetTrackAlias();
                object.payload.assign(data.begin(), data.end());
                buffer << object;
 
@@ -631,8 +631,8 @@ namespace moq {
                    MoqStreamHeaderGroup group_hdr;
                    group_hdr.group_id = group_id;
                    group_hdr.priority = priority;
-                   group_hdr.subscribe_id = *track_handler->GetSubscribeId();
-                   group_hdr.track_alias = *track_handler->GetTrackAlias();
+                   group_hdr.subscribe_id = *track_handler.GetSubscribeId();
+                   group_hdr.track_alias = *track_handler.GetTrackAlias();
                    buffer << group_hdr;
                }
 
@@ -651,8 +651,8 @@ namespace moq {
 
                    MoqStreamHeaderTrack track_hdr;
                    track_hdr.priority = priority;
-                   track_hdr.subscribe_id = *track_handler->GetSubscribeId();
-                   track_hdr.track_alias = *track_handler->GetTrackAlias();
+                   track_hdr.subscribe_id = *track_handler.GetSubscribeId();
+                   track_hdr.track_alias = *track_handler.GetTrackAlias();
                    buffer << track_hdr;
                }
 
@@ -669,8 +669,8 @@ namespace moq {
        // TODO(tievens): Add M10x specific chunking... lacking in the draft
        std::vector<uint8_t> serialized_data = buffer.Front(buffer.Size());
 
-       quic_transport_->Enqueue(track_handler->connection_handle_,
-                                track_handler->publish_data_ctx_id_,
+       quic_transport_->Enqueue(track_handler.connection_handle_,
+                                track_handler.publish_data_ctx_id_,
                                 std::move(serialized_data),
                                 { MethodTraceItem{} },
                                 priority,

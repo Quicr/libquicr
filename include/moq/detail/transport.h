@@ -228,7 +228,7 @@ namespace moq {
 
         void Init();
 
-        PublishTrackHandler::PublishObjectStatus SendObject(const std::shared_ptr<PublishTrackHandler>& track_handler,
+        PublishTrackHandler::PublishObjectStatus SendObject(const PublishTrackHandler& track_handler,
                                                             uint8_t priority,
                                                             uint32_t ttl,
                                                             bool stream_header_needed,
