@@ -1,7 +1,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 # SPDX-License-Identifier: BSD-2-Clause
 
-add_library(quicr)
+if (${QUICR_BUILD_SHARED})
+    add_library(quicr SHARED)
+else()
+    add_library(quicr)
+endif()
 target_sources (quicr PRIVATE
         message_buffer.cpp
         quic/transport.cpp

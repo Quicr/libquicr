@@ -118,7 +118,7 @@ namespace moq::messages {
         }
 
         if (param.length) {
-            const auto val = buffer.DecodeBytes();
+            auto val = buffer.DecodeBytes();
             if (!val) {
                 return false;
             }
@@ -183,7 +183,7 @@ namespace moq::messages {
                 [[fallthrough]];
             }
             case 2: {
-                const auto val = buffer.DecodeUintV();
+                auto val = buffer.DecodeUintV();
                 if (!val) {
                     return false;
                 }
@@ -332,7 +332,7 @@ namespace moq::messages {
                 [[fallthrough]];
             }
             case 4: {
-                const auto val = buffer.DecodeUintV();
+                auto val = buffer.DecodeUintV();
                 if (!val) {
                     return false;
                 }
@@ -483,7 +483,7 @@ namespace moq::messages {
                 [[fallthrough]];
             }
             case 2: {
-                const auto val = buffer.DecodeBytes();
+                auto val = buffer.DecodeBytes();
                 if (!val) {
                     return false;
                 }
@@ -492,7 +492,7 @@ namespace moq::messages {
                 [[fallthrough]];
             }
             case 3: {
-                const auto val = buffer.Front();
+                auto val = buffer.Front();
                 if (!val) {
                     return false;
                 }
@@ -561,7 +561,7 @@ namespace moq::messages {
                 [[fallthrough]];
             }
             case 2: {
-                const auto val = buffer.Front();
+                auto val = buffer.Front();
                 if (!val) {
                     return false;
                 }
@@ -628,7 +628,7 @@ namespace moq::messages {
                 [[fallthrough]];
             }
             case 2: {
-                const auto val = buffer.DecodeBytes();
+                auto val = buffer.DecodeBytes();
                 if (!val) {
                     return false;
                 }
@@ -670,7 +670,7 @@ namespace moq::messages {
 
         // read namespace
         if (msg.track_namespace.empty()) {
-            const auto val = buffer.DecodeBytes();
+            auto val = buffer.DecodeBytes();
             if (!val) {
                 return false;
             }
@@ -678,7 +678,7 @@ namespace moq::messages {
         }
 
         if (!msg.num_params) {
-            const auto val = buffer.DecodeUintV();
+            auto val = buffer.DecodeUintV();
             if (!val) {
                 return false;
             }
@@ -725,7 +725,7 @@ namespace moq::messages {
 
         // read namespace
         if (msg.track_namespace.empty()) {
-            const auto val = buffer.DecodeBytes();
+            auto val = buffer.DecodeBytes();
             if (!val) {
                 return false;
             }
@@ -749,7 +749,7 @@ namespace moq::messages {
 
         // read namespace
         if (!msg.track_namespace) {
-            const auto val = buffer.DecodeBytes();
+            auto val = buffer.DecodeBytes();
             if (!val) {
                 return false;
             }
@@ -757,7 +757,7 @@ namespace moq::messages {
         }
 
         if (!msg.err_code) {
-            const auto val = buffer.DecodeUintV();
+            auto val = buffer.DecodeUintV();
             if (!val) {
                 return false;
             }
@@ -787,7 +787,7 @@ namespace moq::messages {
 
         // read namespace
         if (msg.track_namespace.empty()) {
-            const auto val = buffer.DecodeBytes();
+            auto val = buffer.DecodeBytes();
             if (!val) {
                 return false;
             }
@@ -809,7 +809,7 @@ namespace moq::messages {
 
         // read namespace
         if (msg.track_namespace.empty()) {
-            const auto val = buffer.DecodeBytes();
+            auto val = buffer.DecodeBytes();
             if (!val) {
                 return false;
             }
@@ -832,7 +832,7 @@ namespace moq::messages {
     bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqGoaway& msg)
     {
 
-        const auto val = buffer.DecodeBytes();
+        auto val = buffer.DecodeBytes();
         if (!val) {
             return false;
         }
@@ -910,7 +910,7 @@ namespace moq::messages {
                 [[fallthrough]];
             }
             case 5: {
-                const auto val = buffer.DecodeBytes();
+                auto val = buffer.DecodeBytes();
                 if (!val) {
                     return false;
                 }
@@ -983,7 +983,7 @@ namespace moq::messages {
                 [[fallthrough]];
             }
             case 5: {
-                const auto val = buffer.DecodeBytes();
+                auto val = buffer.DecodeBytes();
                 if (!val) {
                     return false;
                 }
@@ -1078,7 +1078,7 @@ namespace moq::messages {
                 [[fallthrough]];
             }
             case 2: {
-                const auto val = buffer.DecodeBytes();
+                auto val = buffer.DecodeBytes();
                 if (!val) {
                     return false;
                 }
@@ -1172,7 +1172,7 @@ namespace moq::messages {
                 [[fallthrough]];
             }
             case 1: {
-                const auto val = buffer.DecodeBytes();
+                auto val = buffer.DecodeBytes();
                 if (!val) {
                     return false;
                 }

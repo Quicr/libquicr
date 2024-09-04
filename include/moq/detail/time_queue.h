@@ -358,7 +358,7 @@ namespace qtransport {
                 return current_ticks_;
             }
 
-            for (int i = 0; i < delta; ++i) {
+            for (TickType i = 0; i < delta; ++i) {
                 buckets_[(bucket_index_ + i) % total_buckets_].clear();
             }
 

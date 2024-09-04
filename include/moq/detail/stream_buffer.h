@@ -93,6 +93,13 @@ namespace qtransport {
 
         void ResetAnyB() { parsed_dataB_.reset(); }
 
+        template<class D>
+        void ResetAnyB()
+        {
+            ResetAnyB();
+            InitAnyB<D>();
+        }
+
         bool AnyHasValue() { return parsed_data_.has_value(); }
 
         bool AnyHasValueB() { return parsed_dataB_.has_value(); }
