@@ -19,6 +19,7 @@ jobs:
       - uses: jidicula/clang-format-action@v4.13.0
         with:
           clang-format-version: '18'
+          exclude-regex: '(dependencies)'
 
   build:
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
