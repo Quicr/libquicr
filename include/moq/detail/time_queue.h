@@ -22,15 +22,15 @@
 
 #include <algorithm>
 #include <array>
-#include <iostream>
 #include <atomic>
 #include <chrono>
+#include <iostream>
 #include <memory>
 #include <mutex>
+#include <sys/select.h>
 #include <thread>
 #include <type_traits>
 #include <vector>
-#include <sys/select.h>
 
 namespace qtransport {
 
@@ -46,10 +46,11 @@ namespace qtransport {
     };
 
     template<typename T>
-    struct TimeQueueElement {
-        bool has_value { false };           /// Indicates if value was set/returned in front access
-        uint32_t expired_count { 0 };       /// Number of items expired before on this front access
-        T value;                            /// Value of front object
+    struct TimeQueueElement
+    {
+        bool has_value{ false };     /// Indicates if value was set/returned in front access
+        uint32_t expired_count{ 0 }; /// Number of items expired before on this front access
+        T value;                     /// Value of front object
     };
 
     /**
@@ -100,7 +101,7 @@ namespace qtransport {
         {
             const int interval_us = interval_.count();
 
-            timeval sleep_time = {.tv_sec = 0, .tv_usec = interval_us};
+            timeval sleep_time = { .tv_sec = 0, .tv_usec = interval_us };
             while (!stop_) {
                 select(0, NULL, NULL, NULL, &sleep_time);
                 sleep_time.tv_usec = interval_us;
@@ -217,9 +218,9 @@ namespace qtransport {
          * null.
          */
         TimeQueue(size_t duration,
-                   size_t interval,
-                   const std::shared_ptr<TickService>& tick_service,
-                   size_t initial_queue_size)
+                  size_t interval,
+                  const std::shared_ptr<TickService>& tick_service,
+                  size_t initial_queue_size)
           : TimeQueue(duration, interval, tick_service)
         {
             queue_.reserve(initial_queue_size);
@@ -242,10 +243,7 @@ namespace qtransport {
          *
          * @throws std::invalid_argument If ttl is greater than duration.
          */
-        void Push(const T& value, size_t ttl, size_t delay_ttl=0)
-        {
-            InternalPush(value, ttl, delay_ttl);
-        }
+        void Push(const T& value, size_t ttl, size_t delay_ttl = 0) { InternalPush(value, ttl, delay_ttl); }
 
         /**
          * @brief Pushes a new value onto the queue with a time-to-live.
@@ -257,10 +255,7 @@ namespace qtransport {
          *
          * @throws std::invalid_argument If ttl is greater than duration.
          */
-        void Push(T&& value, size_t ttl, size_t delay_ttl=0)
-        {
-            InternalPush(std::move(value), ttl, delay_ttl);
-        }
+        void Push(T&& value, size_t ttl, size_t delay_ttl = 0) { InternalPush(std::move(value), ttl, delay_ttl); }
 
         /**
          * @brief Pop (increment) front
@@ -342,7 +337,7 @@ namespace qtransport {
             }
         }
 
-    private:
+      private:
         /**
          * @brief Based on current time, adjust and move the bucket index with time
          *        (sliding window)

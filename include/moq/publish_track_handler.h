@@ -5,8 +5,8 @@
 
 #include <functional>
 #include <moq/detail/base_track_handler.h>
-#include <moq/object.h>
 #include <moq/metrics.h>
+#include <moq/object.h>
 
 namespace moq {
 
@@ -268,7 +268,11 @@ namespace moq {
          * @brief Set the publish status
          * @param status                Status of publishing (aka publish objects)
          */
-        void SetStatus(Status status) noexcept { publish_status_ = status; StatusChanged(status); }
+        void SetStatus(Status status) noexcept
+        {
+            publish_status_ = status;
+            StatusChanged(status);
+        }
 
         // --------------------------------------------------------------------------
         // Member variables

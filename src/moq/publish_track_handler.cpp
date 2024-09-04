@@ -7,9 +7,8 @@ namespace moq {
     void PublishTrackHandler::StatusChanged(Status) {}
     void PublishTrackHandler::MetricsSampled(const PublishTrackMetrics&&) {}
 
-    PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(
-      const ObjectHeaders& object_headers,
-      BytesSpan data)
+    PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(const ObjectHeaders& object_headers,
+                                                                                BytesSpan data)
     {
         if (object_headers.track_mode.has_value() && object_headers.track_mode != default_track_mode_) {
             SetDefaultTrackMode(*object_headers.track_mode);

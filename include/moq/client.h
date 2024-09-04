@@ -1,15 +1,14 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-
 #pragma once
 
-#include <optional>
-#include <moq/config.h>
 #include <moq/common.h>
-#include <moq/track_name.h>
-#include <moq/object.h>
+#include <moq/config.h>
 #include <moq/detail/transport.h>
+#include <moq/object.h>
+#include <moq/track_name.h>
+#include <optional>
 
 namespace moq {
     using namespace qtransport;
@@ -110,7 +109,6 @@ namespace moq {
                                       uint64_t subscribe_id,
                                       const SubscribeResponse& subscribe_response);
 
-
         /**
          * @brief Notification callback to provide sampled metrics
          *
@@ -135,7 +133,8 @@ namespace moq {
          *
          * @param track_handler    Track handler to use for track related functions and callbacks
          */
-        void SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler) {
+        void SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler)
+        {
             if (connection_handle_) {
                 Transport::SubscribeTrack(*connection_handle_, std::move(track_handler));
             }
@@ -146,7 +145,8 @@ namespace moq {
          *
          * @param track_handler    Track handler to use for track related functions and callbacks
          */
-        void UnsubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler) {
+        void UnsubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler)
+        {
             if (connection_handle_) {
                 Transport::UnsubscribeTrack(*connection_handle_, std::move(track_handler));
             }
@@ -159,8 +159,8 @@ namespace moq {
          *      be reflected in the Status() of the PublishTrackHandler passed. This method can be called at any time,
          *      but normally it would be called before publishing any tracks to the same namespace.
          *
-         *      If this method is called after a publish track with a matching namespace that already exists or if called
-         *      more than once, this will result in this track handler being added to the active state of the
+         *      If this method is called after a publish track with a matching namespace that already exists or if
+         * called more than once, this will result in this track handler being added to the active state of the
          *      announce, but it will not result in a repeated announce being sent. Adding track handler to
          *      the announce state ensures that the announce will remain active if the other tracks are
          *      removed.
@@ -191,7 +191,8 @@ namespace moq {
          * @param track_handler    Track handler to use for track related functions
          *                          and callbacks
          */
-        void PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler) {
+        void PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler)
+        {
             if (connection_handle_) {
                 Transport::PublishTrack(*connection_handle_, std::move(track_handler));
             }
@@ -204,7 +205,8 @@ namespace moq {
          *
          * @param track_handler    Track handler used when published track
          */
-        void UnpublishTrack(std::shared_ptr<PublishTrackHandler> track_handler) {
+        void UnpublishTrack(std::shared_ptr<PublishTrackHandler> track_handler)
+        {
             if (connection_handle_) {
                 Transport::UnpublishTrack(*connection_handle_, std::move(track_handler));
             }
@@ -225,7 +227,7 @@ namespace moq {
             StatusChanged(status);
         }
 
-        std::optional<ConnectionHandle> connection_handle_;               ///< Connection ID for the client
+        std::optional<ConnectionHandle> connection_handle_; ///< Connection ID for the client
     };
 
 } // namespace moq

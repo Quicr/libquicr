@@ -3,12 +3,12 @@
 
 #pragma once
 
+#include "span.h"
 #include <algorithm>
 #include <any>
 #include <deque>
 #include <mutex>
 #include <optional>
-#include "span.h"
 
 #include "uintvar.h"
 
@@ -91,10 +91,7 @@ namespace qtransport {
             parsed_data_type_ = std::nullopt;
         }
 
-        void ResetAnyB()
-        {
-            parsed_dataB_.reset();
-        }
+        void ResetAnyB() { parsed_dataB_.reset(); }
 
         template<class D>
         void ResetAnyB()
@@ -103,15 +100,9 @@ namespace qtransport {
             InitAnyB<D>();
         }
 
-        bool AnyHasValue()
-        {
-            return parsed_data_.has_value();
-        }
+        bool AnyHasValue() { return parsed_data_.has_value(); }
 
-        bool AnyHasValueB()
-        {
-            return parsed_dataB_.has_value();
-        }
+        bool AnyHasValueB() { return parsed_dataB_.has_value(); }
 
         bool Empty() const noexcept { return buffer_.empty(); }
 
@@ -273,8 +264,8 @@ namespace qtransport {
       private:
         BufferT buffer_;
         std::mutex rwLock_;
-        std::any parsed_data_; /// Working buffer for parsed data
-        std::any parsed_dataB_; /// Second Working buffer for parsed data
+        std::any parsed_data_;                     /// Working buffer for parsed data
+        std::any parsed_dataB_;                    /// Second Working buffer for parsed data
         std::optional<uint64_t> parsed_data_type_; /// working buffer type value
     };
 }

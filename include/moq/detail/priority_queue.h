@@ -4,11 +4,11 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <forward_list>
 #include <numeric>
 #include <optional>
-#include <array>
 
 #include "time_queue.h"
 
@@ -42,8 +42,7 @@ namespace qtransport {
         };
 
       public:
-        ~PriorityQueue() {
-        }
+        ~PriorityQueue() {}
 
         /**
          * Construct a priority queue
@@ -63,9 +62,9 @@ namespace qtransport {
          * @param initial_queue_size    Number of default fifo queue size (reserve)
          */
         PriorityQueue(size_t duration,
-                       size_t interval,
-                       const std::shared_ptr<TickService>& tick_service,
-                       size_t initial_queue_size)
+                      size_t interval,
+                      const std::shared_ptr<TickService>& tick_service,
+                      size_t initial_queue_size)
           : tick_service_(tick_service)
         {
 
@@ -86,7 +85,7 @@ namespace qtransport {
          * @param priority  The priority of the value (range is 0 - PMAX)
          * @param delay_ttl Delay POP by this ttl value in milliseconds
          */
-        void Push(DataType& value, uint32_t ttl, uint8_t priority = 0, uint32_t delay_ttl=0)
+        void Push(DataType& value, uint32_t ttl, uint8_t priority = 0, uint32_t delay_ttl = 0)
         {
             std::lock_guard<std::mutex> _(mutex_);
 
@@ -102,7 +101,8 @@ namespace qtransport {
          * @param priority  The priority of the value (range is 0 - PMAX)
          * @param delay_ttl Delay POP by this ttl value in milliseconds
          */
-        void Push(DataType&& value, uint32_t ttl, uint8_t priority = 0, uint32_t delay_ttl=0) {
+        void Push(DataType&& value, uint32_t ttl, uint8_t priority = 0, uint32_t delay_ttl = 0)
+        {
             std::lock_guard<std::mutex> _(mutex_);
 
             auto& queue = GetQueueByPriority(priority);
@@ -163,7 +163,7 @@ namespace qtransport {
         /**
          * @brief Clear queue
          */
-         void Clear()
+        void Clear()
         {
             std::lock_guard<std::mutex> _(mutex_);
 
@@ -207,7 +207,8 @@ namespace qtransport {
             }
 
             if (!queue_[priority]) {
-                queue_[priority] = std::make_unique<TimeQueueType>(duration_ms_, interval_ms_, tick_service_, initial_queue_size_);
+                queue_[priority] =
+                  std::make_unique<TimeQueueType>(duration_ms_, interval_ms_, tick_service_, initial_queue_size_);
             }
 
             return queue_[priority];

@@ -1,18 +1,17 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-
 #pragma once
 
 #include <moq/detail/messages.h>
 
 #include "quic_transport.h"
 
+#include "span.h"
 #include <moq/common.h>
 #include <moq/config.h>
 #include <moq/metrics.h>
 #include <moq/publish_track_handler.h>
-#include "span.h"
 #include <moq/subscribe_track_handler.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
@@ -78,8 +77,8 @@ namespace moq {
          */
         struct ConnectionRemoteInfo
         {
-            std::string ip;         ///< remote IPv4/v6 address
-            uint16_t port;          ///< remote port
+            std::string ip; ///< remote IPv4/v6 address
+            uint16_t port;  ///< remote port
         };
 
         /**
@@ -116,7 +115,8 @@ namespace moq {
          * @param connection_handle         Connection ID to send subscribe
          * @param track_handler             Track handler to use for track related functions and callbacks
          */
-        void UnsubscribeTrack(ConnectionHandle connection_handle, const std::shared_ptr<SubscribeTrackHandler>& track_handler);
+        void UnsubscribeTrack(ConnectionHandle connection_handle,
+                              const std::shared_ptr<SubscribeTrackHandler>& track_handler);
 
         /**
          * @brief Publish to a track
@@ -133,7 +133,8 @@ namespace moq {
          * @param connection_handle           Connection ID from transport for the QUIC connection context
          * @param track_handler    Track handler used when published track
          */
-        void UnpublishTrack(ConnectionHandle connection_handle, const std::shared_ptr<PublishTrackHandler>& track_handler);
+        void UnpublishTrack(ConnectionHandle connection_handle,
+                            const std::shared_ptr<PublishTrackHandler>& track_handler);
 
         /**
          * @brief Bind a server publish track handler based on a subscribe
@@ -265,12 +266,11 @@ namespace moq {
         // -------------------------------------------------------------------------------------------------
         // Private member functions that will be implemented by Server class
         // -------------------------------------------------------------------------------------------------
-        virtual void NewConnectionAccepted(ConnectionHandle,
-                                           const ConnectionRemoteInfo&) {};
+        virtual void NewConnectionAccepted(ConnectionHandle, const ConnectionRemoteInfo&) {};
 
-        virtual void ConnectionStatusChanged(ConnectionHandle, ConnectionStatus) {};
+        virtual void ConnectionStatusChanged(ConnectionHandle, ConnectionStatus){};
 
-        virtual void SetConnectionHandle(ConnectionHandle) {};
+        virtual void SetConnectionHandle(ConnectionHandle){};
 
         // -------------------------------------------------------------------------------------------------
 
@@ -288,10 +288,12 @@ namespace moq {
         std::pair<MessageType&, bool> ParseControlMessage(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
         template<class MessageType>
-        std::pair<MessageType&, bool> ParseDataMessage(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer, messages::MoqMessageType msg_type);
+        std::pair<MessageType&, bool> ParseDataMessage(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
+                                                       messages::MoqMessageType msg_type);
 
         template<class HeaderType, class MessageType>
-        std::pair<HeaderType&, bool> ParseStreamData(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer, messages::MoqMessageType msg_type);
+        std::pair<HeaderType&, bool> ParseStreamData(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
+                                                     messages::MoqMessageType msg_type);
 
       private:
         // -------------------------------------------------------------------------------------------------

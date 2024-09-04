@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-
 #pragma once
 
 #include <cstdint>
@@ -44,7 +43,7 @@ namespace moq {
           , track_name_hash{ std::hash<std::string_view>{}(
               { reinterpret_cast<const char*>(ftn.name.data()), ftn.name.size() }) }
         {
-          track_fullname_hash = (track_namespace_hash ^ (track_name_hash << 1)) << 1 >> 2;
+            track_fullname_hash = (track_namespace_hash ^ (track_name_hash << 1)) << 1 >> 2;
         }
     };
 
