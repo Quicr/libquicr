@@ -5,7 +5,7 @@
 
 namespace moq {
     void PublishTrackHandler::StatusChanged(Status) {}
-    void PublishTrackHandler::MetricsSampled(const PublishTrackMetrics&&) {}
+    void PublishTrackHandler::MetricsSampled(const PublishTrackMetrics&) {}
 
     PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(const ObjectHeaders& object_headers,
                                                                                 BytesSpan data)
@@ -33,6 +33,9 @@ namespace moq {
         }
 
         prev_object_group_id_ = object_headers.group_id;
+
+        publish_track_metrics_.bytes_published += data.size();
+        publish_track_metrics_.objects_published++;
 
         if (publish_object_func_ != nullptr) {
             return publish_object_func_(object_headers.priority.has_value() ? object_headers.priority.value()

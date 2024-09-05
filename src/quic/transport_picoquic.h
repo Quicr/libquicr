@@ -212,8 +212,7 @@ namespace qtransport {
         virtual ~PicoQuicTransport();
 
         TransportStatus Status() const override;
-        TransportConnId Start(std::shared_ptr<SafeQueue<MetricsConnSample>> metrics_conn_samples,
-                              std::shared_ptr<SafeQueue<MetricsDataSample>> metrics_data_samples) override;
+        TransportConnId Start() override;
         void Close(const TransportConnId& conn_id, uint64_t app_reason_code = 0) override;
 
         virtual bool GetPeerAddrInfo(const TransportConnId& conn_id, sockaddr_storage* addr) override;

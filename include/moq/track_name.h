@@ -9,6 +9,8 @@
 
 namespace moq {
     using TrackNamespace = std::vector<uint8_t>;
+    using TrackNamespaceHash = uint64_t;
+    using TrackNameHash = uint64_t;
 
     /**
      * @brief Full track name struct
@@ -25,8 +27,8 @@ namespace moq {
 
     struct TrackHash
     {
-        uint64_t track_namespace_hash = 0; // 64bit hash of namespace
-        uint64_t track_name_hash = 0;      // 64bit hash of name
+        TrackNamespaceHash track_namespace_hash = 0; // 64bit hash of namespace
+        TrackNameHash track_name_hash = 0;           // 64bit hash of name
 
         uint64_t track_fullname_hash = 0; // 62bit of namespace+name
 

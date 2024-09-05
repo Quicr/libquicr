@@ -126,7 +126,7 @@ namespace moq {
          *
          * @param metrics           Copy of the subscribed metrics for the sample period
          */
-        virtual void MetricsSampled([[maybe_unused]] const SubscribeTrackMetrics&& metrics) {}
+        virtual void MetricsSampled([[maybe_unused]] const SubscribeTrackMetrics& metrics) {}
 
         // --------------------------------------------------------------------------
         // Metrics

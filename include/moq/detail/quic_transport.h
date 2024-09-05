@@ -216,6 +216,39 @@ namespace qtransport {
                                       uint64_t stream_id,
                                       std::optional<DataContextId> data_ctx_id,
                                       bool is_bidir = false) = 0;
+
+            /**
+             * @brief callback notification on connection metrics sampled
+             *
+             * @details This callback will be called when the connection metrics are sampled per connection
+             *
+             * @param sample_time                    Sample time in microseconds
+             * @param conn_id                        Connection ID for the metrics
+             * @param quic_connection_metrics        Connection specific metrics for sample period
+             */
+            virtual void OnConnectionMetricsSampled(
+              [[maybe_unused]] const TimeStampUs sample_time,
+              [[maybe_unused]] const TransportConnId conn_id,
+              [[maybe_unused]] const QuicConnectionMetrics& quic_connection_metrics)
+            {
+            }
+
+            /**
+             * @brief callback notification on data context metrics sampled
+             *
+             * @details This callback will be called when the data context metrics are sampled
+             *
+             * @param sample_time                   Sample time in microseconds
+             * @param conn_id                       Connection ID for metrics
+             * @param data_ctx_id                   Data context ID for metrics
+             * @param quic_data_context_metrics     Data context metrics for sample period
+             */
+            virtual void OnDataMetricsStampled([[maybe_unused]] const TimeStampUs sample_time,
+                                               [[maybe_unused]] const TransportConnId conn_id,
+                                               [[maybe_unused]] const DataContextId data_ctx_id,
+                                               [[maybe_unused]] const QuicDataContextMetrics& quic_data_context_metrics)
+            {
+            }
         };
 
         /* Factory APIs */
@@ -275,8 +308,7 @@ namespace qtransport {
          *
          * @return TransportContextId: identifying the connection
          */
-        virtual TransportConnId Start(std::shared_ptr<SafeQueue<MetricsConnSample>> metrics_conn_samples,
-                                      std::shared_ptr<SafeQueue<MetricsDataSample>> metrics_data_samples) = 0;
+        virtual TransportConnId Start() = 0;
 
         /**
          * @brief Create a data context
@@ -412,10 +444,5 @@ namespace qtransport {
          * @param[in] stream_id               Stream ID of stream buffer
          */
         virtual std::shared_ptr<StreamBuffer<uint8_t>> GetStreamBuffer(TransportConnId conn_id, uint64_t stream_id) = 0;
-
-        /// Metrics samples to be written to TSDB. When full the buffer will remove the oldest
-        std::shared_ptr<SafeQueue<MetricsConnSample>> metrics_conn_samples;
-        std::shared_ptr<SafeQueue<MetricsDataSample>> metrics_data_samples;
     };
-
 } // namespace qtransport

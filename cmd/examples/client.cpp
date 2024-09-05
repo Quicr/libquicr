@@ -116,7 +116,7 @@ class MyClient : public moq::Client
  */
 
 void
-do_publisher(const moq::FullTrackName& full_track_name, const std::shared_ptr<moq::Client>& client, const bool& stop)
+DoPublisher(const moq::FullTrackName& full_track_name, const std::shared_ptr<moq::Client>& client, const bool& stop)
 {
     auto track_handler = std::make_shared<MyPublishTrackHandler>(
       full_track_name, moq::TrackMode::kStreamPerGroup /*mode*/, 2 /*prirority*/, 3000 /*ttl*/);
@@ -185,7 +185,7 @@ do_publisher(const moq::FullTrackName& full_track_name, const std::shared_ptr<mo
  * -------------------------------------------------------------------------------------------------
  */
 void
-do_subscriber(const moq::FullTrackName& full_track_name, const std::shared_ptr<moq::Client>& client, const bool& stop)
+DoSubscriber(const moq::FullTrackName& full_track_name, const std::shared_ptr<moq::Client>& client, const bool& stop)
 {
     auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name);
 
@@ -214,7 +214,7 @@ do_subscriber(const moq::FullTrackName& full_track_name, const std::shared_ptr<m
  * -------------------------------------------------------------------------------------------------
  */
 moq::ClientConfig
-init_config(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub)
+InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub)
 {
     moq::ClientConfig config;
 
@@ -296,7 +296,7 @@ main(int argc, char* argv[])
 
     bool enable_pub{ false };
     bool enable_sub{ false };
-    moq::ClientConfig config = init_config(result, enable_pub, enable_sub);
+    moq::ClientConfig config = InitConfig(result, enable_pub, enable_sub);
 
     try {
         bool stop_threads{ false };
@@ -313,13 +313,13 @@ main(int argc, char* argv[])
             const auto& pub_track_name = moq::example::MakeFullTrackName(
               result["pub_namespace"].as<std::string>(), result["pub_name"].as<std::string>(), 1001);
 
-            pub_thread = std::thread(do_publisher, pub_track_name, client, std::ref(stop_threads));
+            pub_thread = std::thread(DoPublisher, pub_track_name, client, std::ref(stop_threads));
         }
         if (enable_sub) {
             const auto& sub_track_name = moq::example::MakeFullTrackName(
               result["sub_namespace"].as<std::string>(), result["sub_name"].as<std::string>(), 2001);
 
-            sub_thread = std::thread(do_subscriber, sub_track_name, client, std::ref(stop_threads));
+            sub_thread = std::thread(DoSubscriber, sub_track_name, client, std::ref(stop_threads));
         }
 
         // Wait until told to terminate

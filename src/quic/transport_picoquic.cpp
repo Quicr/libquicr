@@ -435,12 +435,8 @@ PicoQuicTransport::Status() const
 }
 
 TransportConnId
-PicoQuicTransport::Start(std::shared_ptr<SafeQueue<MetricsConnSample>> metrics_conn_samples,
-                         std::shared_ptr<SafeQueue<MetricsDataSample>> metrics_data_samples)
+PicoQuicTransport::Start()
 {
-    this->metrics_conn_samples = std::move(metrics_conn_samples);
-    this->metrics_data_samples = std::move(metrics_data_samples);
-
     uint64_t current_time = picoquic_current_time();
 
     if (debug) {
@@ -1397,15 +1393,10 @@ PicoQuicTransport::EmitMetrics()
         const auto sample_time =
           std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::steady_clock::now());
 
-        if (metrics_conn_samples) {
-            metrics_conn_samples->Push({ sample_time, conn_id, conn_ctx.metrics });
-        }
+        delegate_.OnConnectionMetricsSampled(sample_time, conn_id, conn_ctx.metrics);
 
         for (auto& [data_ctx_id, data_ctx] : conn_ctx.active_data_contexts) {
-
-            if (metrics_data_samples) {
-                metrics_data_samples->Push({ sample_time, conn_id, data_ctx_id, data_ctx.metrics });
-            }
+            delegate_.OnDataMetricsStampled(sample_time, conn_id, data_ctx_id, data_ctx.metrics);
             data_ctx.metrics.ResetPeriod();
         }
 

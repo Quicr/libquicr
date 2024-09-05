@@ -48,7 +48,8 @@ namespace qserver_vars {
      * @example
      *      track_alias = subscribe_alias_sub_id[conn_id][subscribe_id]
      */
-    std::unordered_map<uint64_t, std::unordered_map<uint64_t, uint64_t>> subscribe_alias_sub_id;
+    std::unordered_map<moq::ConnectionHandle, std::unordered_map<moq::messages::SubscribeId, moq::messages::TrackAlias>>
+      subscribe_alias_sub_id;
 
     /**
      * Map of subscribes set by namespace and track name hash
@@ -199,6 +200,22 @@ class MyPublishTrackHandler : public moq::PublishTrackHandler
             SPDLOG_INFO("Publish track alias: {0} not ready, reason: {1}", GetTrackAlias().value(), reason);
         }
     }
+
+    void MetricsSampled(const moq::PublishTrackMetrics& metrics) override
+    {
+        SPDLOG_DEBUG("Metrics track_alias: {0}"
+                     " objects sent: {1}"
+                     " bytes sent: {2}"
+                     " object duration us: {3}"
+                     " queue discards: {4}"
+                     " queue size: {5}",
+                     GetTrackAlias().value(),
+                     metrics.objects_published,
+                     metrics.bytes_published,
+                     metrics.quic.tx_object_duration_us.avg,
+                     metrics.quic.tx_queue_discards,
+                     metrics.quic.tx_queue_size.avg);
+    }
 };
 
 /**
@@ -213,9 +230,7 @@ class MyServer : public moq::Server
     {
     }
 
-    void MetricsSampled(moq::ConnectionHandle, const moq::ConnectionMetrics&&) override {};
-
-    void NewConnectionAccepted(moq::ConnectionHandle, const ConnectionRemoteInfo& remote) override
+    void NewConnectionAccepted(moq::ConnectionHandle connection_handle, const ConnectionRemoteInfo& remote) override
     {
         SPDLOG_INFO("New connection accepted from {0}:{1}", remote.ip, remote.port);
     }
@@ -408,7 +423,7 @@ class MyServer : public moq::Server
 
     void SubscribeReceived(moq::ConnectionHandle connection_handle,
                            uint64_t subscribe_id,
-                           uint64_t,
+                           [[maybe_unused]] uint64_t proposed_track_alias,
                            const moq::FullTrackName& track_full_name,
                            const moq::SubscribeAttributes&) override
     {
@@ -453,6 +468,20 @@ class MyServer : public moq::Server
             }
         }
     }
+
+    void MetricsSampled(const moq::ConnectionHandle connection_handle, const moq::ConnectionMetrics& metrics) override
+    {
+        SPDLOG_DEBUG("Metrics connection handle: {0}"
+                     " rtt_us: {1}"
+                     " srtt_us: {2}"
+                     " rate_bps: {3}"
+                     " lost pkts: {4}",
+                     connection_handle,
+                     metrics.quic.rtt_us.max,
+                     metrics.quic.srtt_us.max,
+                     metrics.quic.tx_rate_bps.max,
+                     metrics.quic.tx_lost_pkts);
+    }
 };
 
 /* -------------------------------------------------------------------------------------------------
@@ -460,7 +489,7 @@ class MyServer : public moq::Server
  * -------------------------------------------------------------------------------------------------
  */
 moq::ServerConfig
-init_config(cxxopts::ParseResult& cli_opts)
+InitConfig(cxxopts::ParseResult& cli_opts)
 {
     moq::ServerConfig config;
 
@@ -471,6 +500,7 @@ init_config(cxxopts::ParseResult& cli_opts)
 
     if (cli_opts.count("debug") && cli_opts["debug"].as<bool>() == true) {
         SPDLOG_INFO("setting debug level");
+        spdlog::default_logger()->set_level(spdlog::level::debug);
     }
 
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
@@ -516,7 +546,7 @@ main(int argc, char* argv[])
     // Lock the mutex so that main can then wait on it
     std::unique_lock<std::mutex> lock(moq_example::main_mutex);
 
-    moq::ServerConfig config = init_config(result);
+    moq::ServerConfig config = InitConfig(result);
 
     try {
         auto server = std::make_shared<MyServer>(config);
