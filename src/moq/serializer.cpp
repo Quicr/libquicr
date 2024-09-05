@@ -16,9 +16,7 @@ namespace moq {
 
     void Serializer::Push(BytesSpan data)
     {
-        const auto length = buffer_.size();
-        buffer_.resize(length + data.size());
-        std::memcpy(buffer_.data() + length, data.data(), data.size());
+        buffer_.insert(buffer_.end(), data.begin(), data.end());
     }
 
     void Serializer::PushLengthBytes(BytesSpan data)
