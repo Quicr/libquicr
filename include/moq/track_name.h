@@ -28,7 +28,7 @@ namespace moq {
     struct TrackHash
     {
         TrackNamespaceHash track_namespace_hash = 0; // 64bit hash of namespace
-        TrackNameHash track_name_hash = 0; // 64bit hash of name
+        TrackNameHash track_name_hash = 0;           // 64bit hash of name
 
         uint64_t track_fullname_hash = 0; // 62bit of namespace+name
 

@@ -417,7 +417,6 @@ namespace moq {
         // Hold onto track handler
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
-
     }
 
     void Transport::UnsubscribeTrack(qtransport::TransportConnId conn_id,
@@ -504,7 +503,6 @@ namespace moq {
                   logger_, "Unpublish namespace hash: {0}, has no tracks, sending unannounce", th.track_namespace_hash);
                 SendUnannounce(conn_it->second, tfn.name_space);
                 conn_it->second.pub_tracks_by_name.erase(pub_ns_it);
-
             }
         }
     }
@@ -916,11 +914,12 @@ namespace moq {
         }
     }
 
-    void Transport::OnConnectionMetricsSampled(
-        const TimeStampUs sample_time, const TransportConnId conn_id,
-        QuicConnectionMetrics quic_connection_metrics) {
+    void Transport::OnConnectionMetricsSampled(const TimeStampUs sample_time,
+                                               const TransportConnId conn_id,
+                                               QuicConnectionMetrics quic_connection_metrics)
+    {
         // TODO: doesn't require lock right now, but might need to add lock
-        auto &conn = connections_[conn_id];
+        auto& conn = connections_[conn_id];
 
         conn.metrics.last_sample_time = sample_time;
         conn.metrics.quic = quic_connection_metrics;
@@ -935,7 +934,8 @@ namespace moq {
     void Transport::OnDataMetricsStampled(const TimeStampUs sample_time,
                                           const TransportConnId conn_id,
                                           const DataContextId data_ctx_id,
-                                          QuicDataContextMetrics quic_data_context_metrics) {
+                                          QuicDataContextMetrics quic_data_context_metrics)
+    {
 
         const auto& conn = connections_[conn_id];
         const auto& pub_th_it = conn.pub_tracks_by_data_ctx_id.find(data_ctx_id);

@@ -201,19 +201,20 @@ class MyPublishTrackHandler : public moq::PublishTrackHandler
         }
     }
 
-    void MetricsSampled(moq::PublishTrackMetrics metrics) override {
+    void MetricsSampled(moq::PublishTrackMetrics metrics) override
+    {
         SPDLOG_DEBUG("Metrics track_alias: {0}"
-                    " objects sent: {1}"
-                    " bytes sent: {2}"
-                    " object duration us: {3}"
-                    " queue discards: {4}"
-                    " queue size: {5}",
-                    GetTrackAlias().value(),
-                    metrics.objects_published,
-                    metrics.bytes_published,
-                    metrics.quic.tx_object_duration_us.avg,
-                    metrics.quic.tx_queue_discards,
-                    metrics.quic.tx_queue_size.avg);
+                     " objects sent: {1}"
+                     " bytes sent: {2}"
+                     " object duration us: {3}"
+                     " queue discards: {4}"
+                     " queue size: {5}",
+                     GetTrackAlias().value(),
+                     metrics.objects_published,
+                     metrics.bytes_published,
+                     metrics.quic.tx_object_duration_us.avg,
+                     metrics.quic.tx_queue_discards,
+                     metrics.quic.tx_queue_size.avg);
     }
 };
 
@@ -468,19 +469,19 @@ class MyServer : public moq::Server
         }
     }
 
-    void MetricsSampled(const moq::ConnectionHandle connection_handle, const moq::ConnectionMetrics metrics) override {
+    void MetricsSampled(const moq::ConnectionHandle connection_handle, const moq::ConnectionMetrics metrics) override
+    {
         SPDLOG_DEBUG("Metrics connection handle: {0}"
                      " rtt_us: {1}"
                      " srtt_us: {2}"
                      " rate_bps: {3}"
-                     " lost pkts: {4}"
-                     , connection_handle,
+                     " lost pkts: {4}",
+                     connection_handle,
                      metrics.quic.rtt_us.max,
                      metrics.quic.srtt_us.max,
                      metrics.quic.tx_rate_bps.max,
                      metrics.quic.tx_lost_pkts);
     }
-
 };
 
 /* -------------------------------------------------------------------------------------------------

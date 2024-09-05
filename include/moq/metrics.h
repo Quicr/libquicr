@@ -10,12 +10,11 @@ namespace moq {
     using namespace qtransport;
     using MetricsTimeStampUs = std::chrono::time_point<std::chrono::steady_clock, std::chrono::microseconds>;
 
-
     struct ConnectionMetrics
     {
         MetricsTimeStampUs last_sample_time; ///< Last sampled time in microseconds
 
-        QuicConnectionMetrics quic;         ///< QUIC connection metrics
+        QuicConnectionMetrics quic; ///< QUIC connection metrics
     };
 
     struct SubscribeTrackMetrics

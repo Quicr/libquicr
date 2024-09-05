@@ -191,7 +191,8 @@ namespace moq {
                                         QuicConnectionMetrics quic_connection_metrics) override;
 
         void OnDataMetricsStampled(TimeStampUs sample_time,
-                                   TransportConnId conn_id, DataContextId data_ctx_id,
+                                   TransportConnId conn_id,
+                                   DataContextId data_ctx_id,
                                    QuicDataContextMetrics quic_data_context_metrics) override;
 
         // -------------------------------------------------------------------------------------------------
@@ -217,12 +218,13 @@ namespace moq {
             std::map<messages::SubscribeId, std::shared_ptr<SubscribeTrackHandler>> tracks_by_sub_id;
 
             /// Publish tracks by namespace and name. map[track namespace][track name] = track handler
-            std::map<TrackNamespaceHash, std::map<TrackNameHash, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_name;
+            std::map<TrackNamespaceHash, std::map<TrackNameHash, std::shared_ptr<PublishTrackHandler>>>
+              pub_tracks_by_name;
 
             /// Published tracks by quic transport data context ID.
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
 
-            ConnectionMetrics metrics;         ///< Connection metrics
+            ConnectionMetrics metrics; ///< Connection metrics
         };
 
         // -------------------------------------------------------------------------------------------------
@@ -270,9 +272,9 @@ namespace moq {
         // -------------------------------------------------------------------------------------------------
         virtual void NewConnectionAccepted(ConnectionHandle, const ConnectionRemoteInfo&) {}
 
-        virtual void ConnectionStatusChanged(ConnectionHandle, ConnectionStatus){}
+        virtual void ConnectionStatusChanged(ConnectionHandle, ConnectionStatus) {}
 
-        virtual void SetConnectionHandle(ConnectionHandle){}
+        virtual void SetConnectionHandle(ConnectionHandle) {}
 
         virtual void MetricsSampled(ConnectionHandle connection_handle, const ConnectionMetrics metrics) {}
 
@@ -280,7 +282,6 @@ namespace moq {
         // Private member functions that will be implemented by Client class
         // -------------------------------------------------------------------------------------------------
         virtual void MetricsSampled(const ConnectionMetrics metrics) {}
-
 
         // -------------------------------------------------------------------------------------------------
 

@@ -1392,7 +1392,6 @@ PicoQuicTransport::EmitMetrics()
         const auto sample_time =
           std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::steady_clock::now());
 
-
         delegate_.OnConnectionMetricsSampled(sample_time, conn_id, conn_ctx.metrics);
 
         for (auto& [data_ctx_id, data_ctx] : conn_ctx.active_data_contexts) {
