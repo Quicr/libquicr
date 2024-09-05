@@ -213,9 +213,9 @@ class MyServer : public moq::Server
     {
     }
 
-    void MetricsSampled(moq::ConnectionHandle connection_handle, const moq::ConnectionMetrics&& metrics) override {};
+    void MetricsSampled(moq::ConnectionHandle, const moq::ConnectionMetrics&&) override {};
 
-    void NewConnectionAccepted(moq::ConnectionHandle connection_handle, const ConnectionRemoteInfo& remote) override
+    void NewConnectionAccepted(moq::ConnectionHandle, const ConnectionRemoteInfo& remote) override
     {
         SPDLOG_INFO("New connection accepted from {0}:{1}", remote.ip, remote.port);
     }
@@ -255,7 +255,7 @@ class MyServer : public moq::Server
 
     void AnnounceReceived(moq::ConnectionHandle connection_handle,
                           const moq::TrackNamespace& track_namespace,
-                          const moq::PublishAnnounceAttributes& publish_announce_attributes) override
+                          const moq::PublishAnnounceAttributes&) override
     {
         auto th = moq::TrackHash({ track_namespace, {}, std::nullopt });
 
@@ -313,7 +313,7 @@ class MyServer : public moq::Server
         }
     }
 
-    ClientSetupResponse ClientSetupReceived(moq::ConnectionHandle connection_handle,
+    ClientSetupResponse ClientSetupReceived(moq::ConnectionHandle,
                                             const moq::ClientSetupAttributes& client_setup_attributes) override
     {
         ClientSetupResponse client_setup_response;
@@ -408,9 +408,9 @@ class MyServer : public moq::Server
 
     void SubscribeReceived(moq::ConnectionHandle connection_handle,
                            uint64_t subscribe_id,
-                           uint64_t proposed_track_alias,
+                           uint64_t,
                            const moq::FullTrackName& track_full_name,
-                           const moq::SubscribeAttributes& subscribe_attributes) override
+                           const moq::SubscribeAttributes&) override
     {
         auto th = moq::TrackHash(track_full_name);
 
