@@ -12,7 +12,8 @@ static void
 Serializer_Construct(benchmark::State& state)
 {
     for ([[maybe_unused]] const auto& _ : state) {
-        const [[maybe_unused]] const auto& __ = moq::Serializer(1000);
+        auto serializer = moq::Serializer(1000);
+        benchmark::DoNotOptimize(serializer);
     }
 }
 
