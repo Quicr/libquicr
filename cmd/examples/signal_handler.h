@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #pragma once
 
 #include <condition_variable>
@@ -64,7 +67,7 @@ signalHandler(int signal_number)
     }
 
     // Notify the main execution thread to terminate
-    moq_example::cv.notify_one();
+    moq_example::cv.notify_all();
 }
 
 /*

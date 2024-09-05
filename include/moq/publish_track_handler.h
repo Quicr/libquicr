@@ -1,14 +1,12 @@
-/*
- *  Copyright (C) 2024
- *  Cisco Systems, Inc.
- *  All Rights Reserved
- */
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #pragma once
 
 #include <functional>
 #include <moq/detail/base_track_handler.h>
-#include <moq/object.h>
 #include <moq/metrics.h>
+#include <moq/object.h>
 
 namespace moq {
 
@@ -128,7 +126,7 @@ namespace moq {
          *
          * @param metrics           Copy of the published metrics for the sample period
          */
-        virtual void MetricsSampled(const PublishTrackMetrics&& metrics);
+        virtual void MetricsSampled(const PublishTrackMetrics& metrics);
 
         // --------------------------------------------------------------------------
         // Various getter/setters
@@ -270,7 +268,11 @@ namespace moq {
          * @brief Set the publish status
          * @param status                Status of publishing (aka publish objects)
          */
-        void SetStatus(Status status) noexcept { publish_status_ = status; StatusChanged(status); }
+        void SetStatus(Status status) noexcept
+        {
+            publish_status_ = status;
+            StatusChanged(status);
+        }
 
         // --------------------------------------------------------------------------
         // Member variables

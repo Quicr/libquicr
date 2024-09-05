@@ -1,19 +1,19 @@
-/*
- *  Copyright (C) 2024
- *  Cisco Systems, Inc.
- *  All Rights Reserved
- */
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
 
 #include <moq/publish_track_handler.h>
 
 namespace moq {
     void PublishTrackHandler::StatusChanged(Status) {}
-    void PublishTrackHandler::MetricsSampled(const PublishTrackMetrics&&) {}
+    void PublishTrackHandler::MetricsSampled(const PublishTrackMetrics&) {}
 
-    PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(
-      const ObjectHeaders& object_headers,
-      moq::BytesSpan data)
+    PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(const ObjectHeaders& object_headers,
+                                                                                BytesSpan data)
     {
+        if (object_headers.track_mode.has_value() && object_headers.track_mode != default_track_mode_) {
+            SetDefaultTrackMode(*object_headers.track_mode);
+        }
+
         bool is_stream_header_needed{ false };
         switch (default_track_mode_) {
             case TrackMode::kDatagram:
@@ -33,6 +33,9 @@ namespace moq {
         }
 
         prev_object_group_id_ = object_headers.group_id;
+
+        publish_track_metrics_.bytes_published += data.size();
+        publish_track_metrics_.objects_published++;
 
         if (publish_object_func_ != nullptr) {
             return publish_object_func_(object_headers.priority.has_value() ? object_headers.priority.value()

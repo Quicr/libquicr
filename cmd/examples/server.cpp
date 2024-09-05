@@ -1,300 +1,378 @@
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
 
-#include <unordered_map>
-#include <set>
 #include <condition_variable>
 #include <oss/cxxopts.hpp>
-#include <spdlog/spdlog.h>
+#include <set>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
+#include <unordered_map>
 
 #include <moq/server.h>
 
 #include "signal_handler.h"
 
+using TrackNamespaceHash = uint64_t;
+using TrackNameHash = uint64_t;
+using FullTrackNameHash = uint64_t;
 
 namespace qserver_vars {
-    std::mutex _state_mutex;
+    std::mutex state_mutex;
 
-    /*
+    /**
      * Map of subscribes (e.g., track alias) sent to announcements
-     *      track_alias_set = announce_active[track_namespace][conn_id]
+     *
+     * @example
+     *      track_alias_set = announce_active[track_namespace_hash][connection_handle]
      */
-    std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::set<uint64_t>>> announce_active;
+    std::unordered_map<TrackNamespaceHash,
+                       std::unordered_map<moq::ConnectionHandle, std::set<moq::messages::TrackAlias>>>
+      announce_active;
 
-    /*
-     * Active subscribes for a given track, indexed (keyed) by track_alias,conn_id
-     *     NOTE: This indexing intentionally prohibits per connection having more
+    /**
+     * Active subscriber publish tracks for a given track, indexed (keyed) by track_alias, connection handle
+     *
+     * @note This indexing intentionally prohibits per connection having more
      *           than one subscribe to a full track name.
      *
-     *     Example: track_delegate = subscribes[track_alias][conn_id]
+     * @example track_delegate = subscribes[track_alias][connection_handle]
      */
-    std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::shared_ptr<moq::ServerPublishTrackHandler>>> subscribes;
+    std::unordered_map<moq::messages::TrackAlias,
+                       std::unordered_map<moq::ConnectionHandle, std::shared_ptr<moq::PublishTrackHandler>>>
+      subscribes;
 
-    /*
+    /**
      * Subscribe ID to alias mapping
      *      Used to lookup the track alias for a given subscribe ID
      *
+     * @example
      *      track_alias = subscribe_alias_sub_id[conn_id][subscribe_id]
      */
-    std::unordered_map<uint64_t, std::unordered_map<uint64_t, uint64_t>> subscribe_alias_sub_id;
+    std::unordered_map<moq::ConnectionHandle, std::unordered_map<moq::messages::SubscribeId, moq::messages::TrackAlias>>
+      subscribe_alias_sub_id;
 
-    /*
+    /**
      * Map of subscribes set by namespace and track name hash
      *      Set<subscribe_who> = subscribe_active[track_namespace_hash][track_name_hash]
      */
-    struct SubscribeWho {
-        uint64_t conn_id;
+    struct SubscribeWho
+    {
+        uint64_t connection_handle;
         uint64_t subscribe_id;
         uint64_t track_alias;
 
-        bool operator<(const SubscribeWho& other) const {
-            return conn_id < other.conn_id && subscribe_id << other.subscribe_id;
+        bool operator<(const SubscribeWho& other) const
+        {
+            return connection_handle < other.connection_handle && subscribe_id << other.subscribe_id;
         }
-        bool operator==(const SubscribeWho& other) const {
-            return conn_id == other.conn_id && subscribe_id == other.subscribe_id;
+        bool operator==(const SubscribeWho& other) const
+        {
+            return connection_handle == other.connection_handle && subscribe_id == other.subscribe_id;
         }
-        bool operator>(const SubscribeWho& other) const {
-            return conn_id > other.conn_id && subscribe_id > other.subscribe_id;
+        bool operator>(const SubscribeWho& other) const
+        {
+            return connection_handle > other.connection_handle && subscribe_id > other.subscribe_id;
         }
     };
     std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::set<SubscribeWho>>> subscribe_active;
 
-    /*
+    /**
      * Active publisher/announce subscribes that this relay has made to receive objects from publisher.
      *
-     * track_delegate = pub_subscribes[track_alias][conn_id]
+     * @example
+     *      track_delegate = pub_subscribes[track_alias][conn_id]
      */
-    std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::shared_ptr<moq::ServerPublishTrackHandler>>> pub_subscribes;
+    std::unordered_map<moq::messages::TrackAlias,
+                       std::unordered_map<moq::ConnectionHandle, std::shared_ptr<moq::SubscribeTrackHandler>>>
+      pub_subscribes;
 }
 
-/* -------------------------------------------------------------------------------------------------
- * Subscribe Track Delegate - Relay runs on subscribes and uses subscribe delegate to send data
- *      to subscriber
- * -------------------------------------------------------------------------------------------------
+/**
+ * @brief  Subscribe track handler
+ * @details Subscribe track handler used for the subscribe command line option.
  */
 class MySubscribeTrackHandler : public moq::SubscribeTrackHandler
 {
   public:
-  MySubscribeTrackHandler(const moq::FullTrackName& full_track_name)
-      : SubscribeTrackHandler( full_track_name)
+    MySubscribeTrackHandler(const moq::FullTrackName& full_track_name)
+      : SubscribeTrackHandler(full_track_name)
     {
     }
 
-    virtual ~MySubscribeTrackHandler() = default;
-
-    // TODO: Add prioirty and TTL
-    virtual void ObjectReceived(const moq::ObjectHeaders& headers, Span<uint8_t> data) {
-        std::lock_guard<std::mutex> _(qserver_vars::_state_mutex);
+    void ObjectReceived(const moq::ObjectHeaders& object_headers, moq::BytesSpan data) override
+    {
+        std::lock_guard<std::mutex> _(qserver_vars::state_mutex);
 
         auto track_alias = GetTrackAlias();
-        if ( !track_alias.has_value() ) {
-            SPDLOG_DEBUG( "Data without valid track alias");
+        if (!track_alias.has_value()) {
+            SPDLOG_DEBUG("Data without valid track alias");
             return;
         }
-        
-        auto sub_it = qserver_vars::subscribes.find( track_alias.value());
+
+        auto sub_it = qserver_vars::subscribes.find(track_alias.value());
 
         if (sub_it == qserver_vars::subscribes.end()) {
-            SPDLOG_DEBUG( "No subscribes, not relaying data size: {0} ", object.size());
+            SPDLOG_INFO("No subscribes, not relaying data size: {0} ", data.size());
             return;
         }
 
-        for (const auto& [conn_id, td]: sub_it->second) {
-            SPDLOG_DEBUG( "Relaying track_alias:  data size: {0}", object.size());
-
-            td->PublishObject(headers,data);
+        for (const auto& [conn_id, pth] : sub_it->second) {
+            pth->PublishObject(object_headers, data);
         }
     }
 
-
-   virtual void StatusChanged(Status status) {
-     if ( status == Status::kOk ) {
-       SPDLOG_INFO( "Track alias: is subscribed" );
-     }
-     else {
-       std::string reason = "";
-       switch (status) {
-       case Status::kNotConnected:
-         reason = "not connected";
-         break;
-       case Status::kSubscribeError:
-         reason = "subscribe error";
-         break;
-       case Status::kNotAuthorized:
-         reason = "not authorized";
-         break;
-       case Status::kNotSubscribed:
-         reason = "not subscribed";
-         break;
-       case Status::kPendingSubscribeResponse:
-         reason = "pending subscribe response";
-         break;
-       case Status::kSendingUnsubscribe:
-         reason = "unsubscribing";
-         break;
-       default:
-         break;
-       }
-       
-       SPDLOG_INFO( "Track is NOT ready, status: {0}",  reason);
-     }
-   }
-  
+    void StatusChanged(Status status) override
+    {
+        if (status == Status::kOk) {
+            SPDLOG_INFO("Track alias: {0} is subscribed", GetTrackAlias().value());
+        } else {
+            std::string reason = "";
+            switch (status) {
+                case Status::kNotConnected:
+                    reason = "not connected";
+                    break;
+                case Status::kSubscribeError:
+                    reason = "subscribe error";
+                    break;
+                case Status::kNotAuthorized:
+                    reason = "not authorized";
+                    break;
+                case Status::kNotSubscribed:
+                    reason = "not subscribed";
+                    break;
+                case Status::kPendingSubscribeResponse:
+                    reason = "pending subscribe response";
+                    break;
+                case Status::kSendingUnsubscribe:
+                    reason = "unsubscribing";
+                    break;
+                default:
+                    break;
+            }
+            SPDLOG_INFO("Track alias: {0} failed to subscribe reason: {1}", GetTrackAlias().value(), reason);
+        }
+    }
 };
 
+/**
+ * @brief Publish track handler
+ * @details Publish track handler used for the publish command line option
+ */
+class MyPublishTrackHandler : public moq::PublishTrackHandler
+{
+  public:
+    MyPublishTrackHandler(const moq::FullTrackName& full_track_name,
+                          moq::TrackMode track_mode,
+                          uint8_t default_priority,
+                          uint32_t default_ttl)
+      : moq::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl)
+    {
+    }
 
-/* -------------------------------------------------------------------------------------------------
- * Server delegate is the instance delegate for connection handling
- * -------------------------------------------------------------------------------------------------
+    void StatusChanged(Status status) override
+    {
+        if (status == Status::kOk) {
+            SPDLOG_INFO("Publish track alias {0} has subscribers", GetTrackAlias().value());
+        } else {
+            std::string reason = "";
+            switch (status) {
+                case Status::kNotConnected:
+                    reason = "not connected";
+                    break;
+                case Status::kNotAnnounced:
+                    reason = "not announced";
+                    break;
+                case Status::kAnnounceNotAuthorized:
+                    reason = "not authorized";
+                    break;
+                case Status::kPendingAnnounceResponse:
+                    reason = "pending announce response";
+                    break;
+                case Status::kNoSubscribers:
+                    reason = "no subscribers";
+                    break;
+                case Status::kSendingUnannounce:
+                    reason = "sending unannounce";
+                    break;
+                default:
+                    break;
+            }
+            SPDLOG_INFO("Publish track alias: {0} not ready, reason: {1}", GetTrackAlias().value(), reason);
+        }
+    }
+
+    void MetricsSampled(const moq::PublishTrackMetrics& metrics) override
+    {
+        SPDLOG_DEBUG("Metrics track_alias: {0}"
+                     " objects sent: {1}"
+                     " bytes sent: {2}"
+                     " object duration us: {3}"
+                     " queue discards: {4}"
+                     " queue size: {5}",
+                     GetTrackAlias().value(),
+                     metrics.objects_published,
+                     metrics.bytes_published,
+                     metrics.quic.tx_object_duration_us.avg,
+                     metrics.quic.tx_queue_discards,
+                     metrics.quic.tx_queue_size.avg);
+    }
+};
+
+/**
+ * @brief MoQ Server
+ * @details Implementation of the MoQ Server
  */
 class MyServer : public moq::Server
 {
   public:
-    MyServer(const moq::ServerConfig& cfg) : moq::Server( cfg ){}
-
-    virtual ~MyServer() = default;
-   
-    virtual void NewConnectionAccepted(moq::ConnectionHandle connection_handle,
-                                       const moq::Server::ConnectionRemoteInfo& remote) { }
-   
-  virtual void UnannounceReceived(moq::ConnectionHandle connection_handle,
-                                  const moq::TrackNamespace& track_namespace){
-#if 0
-     //void cb_unannounce(qtransport::TransportConnId conn_id,
-     //                  uint64_t track_namespace_hash,
-     //                  std::optional<uint64_t> track_name_hash) override {
-
-        if (track_name_hash.has_value()) { // subscribe done received
-          SPDLOG_INFO( "Received subscribe done from conn_id: {0} for namespace hash: {1} name hash: {2}, "
-                       "informational update only",
-                       conn_id,
-                       track_namespace_hash,
-                       *track_name_hash);
-        } else {
-          SPDLOG_DEBUG( "Received unannounce from conn_id: {0}  for namespace hash: {1}, removing all tracks "
-                        "associated with namespace",
-                        conn_id,
-                        track_namespace_hash);
-          
-            for (auto track_alias: qserver_vars::announce_active[track_namespace_hash][conn_id]) {
-                auto ptd = qserver_vars::pub_subscribes[track_alias][conn_id];
-                if (ptd != nullptr) {
-                    SPDLOG_INFO( 
-                      "Received unannounce from conn_id: {0} for namespace hash: {1}, removing track alias: {2}",
-                      conn_id,
-                      track_namespace_hash,
-                      track_alias);
-
-                    _moq_instance.lock()->unsubscribeTrack(conn_id, ptd);
-                }
-                qserver_vars::pub_subscribes[track_alias].erase(conn_id);
-                if (qserver_vars::pub_subscribes[track_alias].empty()) {
-                    qserver_vars::pub_subscribes.erase(track_alias);
-                }
-            }
-
-            qserver_vars::announce_active[track_namespace_hash].erase(conn_id);
-            if (qserver_vars::announce_active[track_namespace_hash].empty()) {
-                qserver_vars::announce_active.erase(track_namespace_hash);
-            }
-        }
-#endif
+    MyServer(const moq::ServerConfig& cfg)
+      : moq::Server(cfg)
+    {
     }
 
-#if 0
-  virtual AnnounceResponse AnnounceReceived(moq::ConnectionHandle connection_handle,
-                                            const moq::TrackNamespace& track_namespace,
-                                            const moq::PublishAnnounceAttributes& publish_announce_attributes) {
-    
-    // TODO - sort out hash hash of namespace works ?
-    uint64_t track_namespace_hash;
-    
-        SPDLOG_DEBUG( "Received announce from conn_id: {0} for namespace: {1}", conn_id, track_namespace );
+    void NewConnectionAccepted(moq::ConnectionHandle connection_handle, const ConnectionRemoteInfo& remote) override
+    {
+        SPDLOG_INFO("New connection handle {0} accepted from {1}:{2}", connection_handle, remote.ip, remote.port);
+    }
 
-        // Add to state if not exist
-        auto [anno_conn_it, is_new] = qserver_vars::announce_active[track_namespace_hash].try_emplace(conn_id);
+    void MetricsSampled(moq::ConnectionHandle connection_handle, const moq::ConnectionMetrics& metrics) override
+    {
+        SPDLOG_DEBUG("Metrics connection handle: {0}"
+                     " rtt_us: {1}"
+                     " srtt_us: {2}"
+                     " rate_bps: {3}"
+                     " lost pkts: {4}",
+                     connection_handle,
+                     metrics.quic.rtt_us.max,
+                     metrics.quic.srtt_us.max,
+                     metrics.quic.tx_rate_bps.max,
+                     metrics.quic.tx_lost_pkts);
+    }
 
-        if (!is_new) {
-            SPDLOG_INFO( "Received announce from conn_id: {0} for namespace_hash: {0} is duplicate, ignoring",
-                         conn_id, track_namespace_hash);
-            return true;
+    void UnannounceReceived(moq::ConnectionHandle connection_handle,
+                            const moq::TrackNamespace& track_namespace) override
+    {
+        auto th = moq::TrackHash({ track_namespace, {}, std::nullopt });
+
+        SPDLOG_DEBUG("Received unannounce from connection handle: {0} for namespace hash: {1}, removing all tracks "
+                     "associated with namespace",
+                     connection_handle,
+                     th.track_namespace_hash);
+
+        for (auto track_alias : qserver_vars::announce_active[th.track_namespace_hash][connection_handle]) {
+            auto ptd = qserver_vars::pub_subscribes[track_alias][connection_handle];
+            if (ptd != nullptr) {
+                SPDLOG_INFO(
+                  "Received unannounce from connection handle: {0} for namespace hash: {1}, removing track alias: {2}",
+                  connection_handle,
+                  th.track_namespace_hash,
+                  track_alias);
+
+                UnsubscribeTrack(connection_handle, ptd);
+            }
+            qserver_vars::pub_subscribes[track_alias].erase(connection_handle);
+            if (qserver_vars::pub_subscribes[track_alias].empty()) {
+                qserver_vars::pub_subscribes.erase(track_alias);
+            }
         }
 
-     
-        AnnounceResponse ret;
-        // TODO fill in and call correct returns
-        
+        qserver_vars::announce_active[th.track_namespace_hash].erase(connection_handle);
+        if (qserver_vars::announce_active[th.track_namespace_hash].empty()) {
+            qserver_vars::announce_active.erase(th.track_namespace_hash);
+        }
+    }
 
-        auto& anno_tracks = qserver_vars::announce_active[track_namespace_hash][conn_id];
+    void AnnounceReceived(moq::ConnectionHandle connection_handle,
+                          const moq::TrackNamespace& track_namespace,
+                          const moq::PublishAnnounceAttributes&) override
+    {
+        auto th = moq::TrackHash({ track_namespace, {}, std::nullopt });
+
+        SPDLOG_INFO("Received announce from connection handle: {0} for namespace_hash: {1}",
+                    connection_handle,
+                    th.track_namespace_hash);
+
+        // Add to state if not exist
+        auto [anno_conn_it, is_new] =
+          qserver_vars::announce_active[th.track_namespace_hash].try_emplace(connection_handle);
+
+        if (!is_new) {
+            SPDLOG_INFO("Received announce from connection handle: {0} for namespace hash: {0} is duplicate, ignoring",
+                        connection_handle,
+                        th.track_namespace_hash);
+            return;
+        }
+
+        AnnounceResponse announce_response;
+        announce_response.reason_code = moq::Server::AnnounceResponse::ReasonCode::kOk;
+        ResolveAnnounce(connection_handle, track_namespace, announce_response);
+
+        auto& anno_tracks = qserver_vars::announce_active[th.track_namespace_hash][connection_handle];
 
         // Check if there are any subscribes. If so, send subscribe to announce for all tracks matching namespace
-        const auto sub_active_it = qserver_vars::subscribe_active.find(track_namespace_hash);
+        const auto sub_active_it = qserver_vars::subscribe_active.find(th.track_namespace_hash);
         if (sub_active_it != qserver_vars::subscribe_active.end()) {
-            for (const auto& [track_name, who]: sub_active_it->second) {
+            for (const auto& [track_name, who] : sub_active_it->second) {
                 if (who.size()) { // Have subscribes
                     auto& a_who = *who.begin();
                     if (anno_tracks.find(a_who.track_alias) == anno_tracks.end()) {
-                        SPDLOG_INFO( "Sending subscribe to announcer conn_id: {0} subscribe track_alias: {1}",
-                                     conn_id, a_who.track_alias);
+                        SPDLOG_INFO("Sending subscribe to announcer connection handle: {0} subscribe track_alias: {1}",
+                                    connection_handle,
+                                    a_who.track_alias);
 
                         anno_tracks.insert(a_who.track_alias); // Add track to state
 
-                        const auto sub_track_delegate = qserver_vars::subscribes[a_who.track_alias][a_who.conn_id];
-                        std::string t_namespace {sub_track_delegate->getTrackNamespace().begin(),
-                                                 sub_track_delegate->getTrackNamespace().end()};
-                        std::string t_name { sub_track_delegate->getTrackName().begin(),
-                                             sub_track_delegate->getTrackName().end()};
+                        const auto pub_track_h = qserver_vars::subscribes[a_who.track_alias][a_who.connection_handle];
 
-                        auto pub_track_delegate =
-                          std::make_shared<subTrackDelegate>(t_namespace,
-                                                             t_name,
-                                                             2,
-                                                             3000);
+                        auto sub_track_handler =
+                          std::make_shared<MySubscribeTrackHandler>(pub_track_h->GetFullTrackName());
 
-                        _moq_instance.lock()->subscribeTrack(conn_id, pub_track_delegate);
-                        qserver_vars::pub_subscribes[a_who.track_alias][conn_id] = pub_track_delegate;
+                        SubscribeTrack(connection_handle, sub_track_handler);
+                        qserver_vars::pub_subscribes[a_who.track_alias][connection_handle] = sub_track_handler;
                     }
                 }
             }
         }
     }
-#endif
 
+    void ConnectionStatusChanged(moq::ConnectionHandle connection_handle, ConnectionStatus status) override
+    {
+        if (status == ConnectionStatus::kConnected) {
+            SPDLOG_DEBUG("Connection ready connection_handle: {0} ", connection_handle);
+        }
+    }
 
-  virtual void ConnectionStatusChanged( moq::ConnectionHandle connection_handle, ConnectionStatus status){
-      if (status == qtransport::TransportStatus::kReady) {
-            SPDLOG_DEBUG( "Connection ready conn_id: {0} ", connection_handle );
-      }
-  }
-  
+    ClientSetupResponse ClientSetupReceived(moq::ConnectionHandle,
+                                            const moq::ClientSetupAttributes& client_setup_attributes) override
+    {
+        ClientSetupResponse client_setup_response;
 
-  // TODO - move new API 
-  virtual ClientSetupResponse ClientSetupReceived( moq::ConnectionHandle connection_handle,
-                                                   const moq::ClientSetupAttributes& client_setup_attributes){
-     // TODO form ClientSetupResponse and send 
-   }
+        SPDLOG_INFO("Client setup received from endpoint_id: {0}", client_setup_attributes.endpoint_id);
 
-  
+        return client_setup_response;
+    }
 
-  virtual void UnsubscribeReceived(moq::ConnectionHandle connection_handle,
-                                    uint64_t subscribe_id) {
-#if 0
-     //void cb_unsubscribe(qtransport::TransportConnId conn_id,
-     //                   uint64_t subscribe_id) override {
-        SPDLOG_INFO( "Unsubscribe conn_id: {0} subscribe_id: {1}", conn_id, subscribe_id);
+    void UnsubscribeReceived(moq::ConnectionHandle connection_handle, uint64_t subscribe_id) override
+    {
+        SPDLOG_INFO("Unsubscribe connection handle: {0} subscribe_id: {1}", connection_handle, subscribe_id);
 
-        auto ta_conn_it = qserver_vars::subscribe_alias_sub_id.find(conn_id);
+        auto ta_conn_it = qserver_vars::subscribe_alias_sub_id.find(connection_handle);
         if (ta_conn_it == qserver_vars::subscribe_alias_sub_id.end()) {
-            SPDLOG_WARN( "Unable to find track alias connection for conn_id: {0} subscribe_id: {1}", conn_id, subscribe_id);
+            SPDLOG_WARN("Unable to find track alias connection for connection handle: {0} subscribe_id: {1}",
+                        connection_handle,
+                        subscribe_id);
             return;
         }
 
         auto ta_it = ta_conn_it->second.find(subscribe_id);
         if (ta_it == ta_conn_it->second.end()) {
-            SPDLOG_WARN( "Unable to find track alias for conn_id: {0} subscribe_id: {1}", conn_id, subscribe_id);
+            SPDLOG_WARN("Unable to find track alias for connection handle: {0} subscribe_id: {1}",
+                        connection_handle,
+                        subscribe_id);
             return;
         }
 
-        std::lock_guard<std::mutex> _(qserver_vars::_state_mutex);
+        std::lock_guard<std::mutex> _(qserver_vars::state_mutex);
 
         auto track_alias = ta_it->second;
 
@@ -303,26 +381,26 @@ class MyServer : public moq::Server
             qserver_vars::subscribe_alias_sub_id.erase(ta_conn_it);
         }
 
+        auto& track_h = qserver_vars::subscribes[track_alias][connection_handle];
 
-        auto& track_delegate = qserver_vars::subscribes[track_alias][conn_id];
-
-        if (track_delegate == nullptr) {
-            SPDLOG_WARN( "Unsubscribe unable to find track delegate for conn_id: {0} subscribe_id: {1}", conn_id, subscribe_id);
+        if (track_h == nullptr) {
+            SPDLOG_WARN("Unsubscribe unable to find track delegate for connection handle: {0} subscribe_id: {1}",
+                        connection_handle,
+                        subscribe_id);
             return;
         }
 
-        auto tfn = quicr::MoQInstance::TrackFullName{ track_delegate->getTrackNamespace(), track_delegate->getTrackName() };
-        auto th = quicr::MoQInstance::TrackHash(tfn);
+        auto th = moq::TrackHash(track_h->GetFullTrackName());
 
-        qserver_vars::subscribes[track_alias].erase(conn_id);
-        bool unsub_pub { false };
+        qserver_vars::subscribes[track_alias].erase(connection_handle);
+        bool unsub_pub{ false };
         if (!qserver_vars::subscribes[track_alias].size()) {
             unsub_pub = true;
             qserver_vars::subscribes.erase(track_alias);
         }
 
-        qserver_vars::subscribe_active[th.track_namespace_hash][th.track_name_hash].erase(qserver_vars::SubscribeWho{
-          .conn_id = conn_id, .subscribe_id = subscribe_id, .track_alias = th.track_fullname_hash });
+        qserver_vars::subscribe_active[th.track_namespace_hash][th.track_name_hash].erase(
+          qserver_vars::SubscribeWho{ connection_handle, subscribe_id, th.track_fullname_hash });
 
         if (!qserver_vars::subscribe_active[th.track_namespace_hash][th.track_name_hash].size()) {
             qserver_vars::subscribe_active[th.track_namespace_hash].erase(th.track_name_hash);
@@ -333,94 +411,85 @@ class MyServer : public moq::Server
         }
 
         if (unsub_pub) {
-            SPDLOG_INFO( "No subscribers left, unsubscribe publisher track_alias: {0}", track_alias);
+            SPDLOG_INFO("No subscribers left, unsubscribe publisher track_alias: {0}", track_alias);
 
             auto anno_ns_it = qserver_vars::announce_active.find(th.track_namespace_hash);
             if (anno_ns_it == qserver_vars::announce_active.end()) {
                 return;
             }
 
-            for (auto& [conn_id, tracks]: anno_ns_it->second) {
+            for (auto& [connection_handler, tracks] : anno_ns_it->second) {
                 if (tracks.find(th.track_fullname_hash) == tracks.end()) {
-                    SPDLOG_INFO( "Unsubscribe to announcer conn_id: {0} subscribe track_alias: {1}",
-                                 conn_id, th.track_fullname_hash);
+                    SPDLOG_INFO("Unsubscribe to announcer conn_id: {0} subscribe track_alias: {1}",
+                                connection_handler,
+                                th.track_fullname_hash);
 
                     tracks.erase(th.track_fullname_hash); // Add track alias to state
 
-                    auto pub_delegate = qserver_vars::pub_subscribes[th.track_fullname_hash][conn_id];
-                    if (pub_delegate != nullptr) {
-                        _moq_instance.lock()->unsubscribeTrack(conn_id, pub_delegate);
+                    auto sub_track_h = qserver_vars::pub_subscribes[th.track_fullname_hash][connection_handler];
+                    if (sub_track_h != nullptr) {
+                        UnsubscribeTrack(connection_handle, sub_track_h);
                     }
                 }
             }
         }
-#endif
     }
 
-  virtual SubscribeResponse SubscribeReceived(moq::ConnectionHandle connection_handle,
-                                                uint64_t subscribe_id,
-                                                uint64_t proposed_track_alias,
-                                                const moq::FullTrackName& track_full_name,
-                                                const moq::SubscribeAttributes& subscribe_attributes){
-      // bool cb_subscribe(qtransport::TransportConnId conn_id,
-      //                uint64_t subscribe_id,
-      //                Span<uint8_t const> name_space,
-      //                Span<uint8_t const> name) override
-#if 1
-        std::string const t_namespace(name_space.begin(), name_space.end());
-        std::string const t_name(name.begin(), name.end());
+    void SubscribeReceived(moq::ConnectionHandle connection_handle,
+                           uint64_t subscribe_id,
+                           [[maybe_unused]] uint64_t proposed_track_alias,
+                           const moq::FullTrackName& track_full_name,
+                           const moq::SubscribeAttributes&) override
+    {
+        auto th = moq::TrackHash(track_full_name);
 
-        SPDLOG_INFO( "New subscribe conn_id: {0} subscribe_id: {1} track: {2}/{3}",
-                     conn_id,
-                     subscribe_id,
-                     t_namespace,
-                     t_name);
-        
-        auto track_delegate = std::make_shared<subTrackDelegate>(t_namespace, t_name, 2, 3000);
-        auto tfn = quicr::MoQInstance::TrackFullName{ name_space, name };
-        auto th = quicr::MoQInstance::TrackHash(tfn);
-        qserver_vars::subscribes[th.track_fullname_hash][conn_id] = track_delegate;
-        qserver_vars::subscribe_alias_sub_id[conn_id][subscribe_id] = th.track_fullname_hash;
+        SPDLOG_INFO("New subscribe connection handle: {0} subscribe_id: {1} track alias: {2}",
+                    connection_handle,
+                    subscribe_id,
+                    th.track_fullname_hash);
+
+        auto pub_track_h =
+          std::make_shared<MyPublishTrackHandler>(track_full_name, moq::TrackMode::kStreamPerGroup, 2, 5000);
+        qserver_vars::subscribes[th.track_fullname_hash][connection_handle] = pub_track_h;
+        qserver_vars::subscribe_alias_sub_id[connection_handle][subscribe_id] = th.track_fullname_hash;
 
         // record subscribe as active from this subscriber
         qserver_vars::subscribe_active[th.track_namespace_hash][th.track_name_hash].emplace(
-          qserver_vars::SubscribeWho{ .conn_id = conn_id,
-                                      .subscribe_id = subscribe_id,
-                                      .track_alias = th.track_fullname_hash});
+          qserver_vars::SubscribeWho{ connection_handle, subscribe_id, th.track_fullname_hash });
 
         // Create a subscribe track that will be used by the relay to send to subscriber for matching objects
-        _moq_instance.lock()->bindSubscribeTrack(conn_id, subscribe_id, track_delegate);
+        BindPublisherTrack(connection_handle, subscribe_id, pub_track_h);
 
         // Subscribe to announcer if announcer is active
         auto anno_ns_it = qserver_vars::announce_active.find(th.track_namespace_hash);
         if (anno_ns_it == qserver_vars::announce_active.end()) {
-            SPDLOG_INFO( "Subscribe to track namespace: {0}, does not have any announcements.", t_namespace);
-            return true;
+            SPDLOG_INFO("Subscribe to track namespace hash: {0}, does not have any announcements.",
+                        th.track_namespace_hash);
+            return;
         }
 
-        for (auto& [conn_id, tracks]: anno_ns_it->second) {
+        for (auto& [conn_h, tracks] : anno_ns_it->second) {
             if (tracks.find(th.track_fullname_hash) == tracks.end()) {
-                SPDLOG_INFO( "Sending subscribe to announcer conn_id: {0} subscribe track_alias: {1}",
-                             conn_id, th.track_fullname_hash);
+                SPDLOG_INFO("Sending subscribe to announcer connection handler: {0} subscribe track_alias: {1}",
+                            conn_h,
+                            th.track_fullname_hash);
 
                 tracks.insert(th.track_fullname_hash); // Add track alias to state
 
-                auto pub_track_delegate = std::make_shared<subTrackDelegate>(t_namespace, t_name, 2, 3000 );
-                _moq_instance.lock()->subscribeTrack(conn_id, pub_track_delegate);
-                qserver_vars::pub_subscribes[th.track_fullname_hash][conn_id] = pub_track_delegate;
+                auto sub_track_h = std::make_shared<MySubscribeTrackHandler>(track_full_name);
+                SubscribeTrack(conn_h, sub_track_h);
+                qserver_vars::pub_subscribes[th.track_fullname_hash][conn_h] = sub_track_h;
             }
         }
-#endif
     }
-
-
 };
 
 /* -------------------------------------------------------------------------------------------------
  * Main program
  * -------------------------------------------------------------------------------------------------
  */
-moq::ServerConfig init_config(cxxopts::ParseResult& cli_opts )
+moq::ServerConfig
+InitConfig(cxxopts::ParseResult& cli_opts)
 {
     moq::ServerConfig config;
 
@@ -429,18 +498,15 @@ moq::ServerConfig init_config(cxxopts::ParseResult& cli_opts )
         qlog_path = cli_opts["qlog"].as<std::string>();
     }
 
-#if 0
     if (cli_opts.count("debug") && cli_opts["debug"].as<bool>() == true) {
-        SPDLOG_INFO(logger, "setting debug level");
-        logger->set_level(spdlog::level::debug);
+        SPDLOG_INFO("setting debug level");
+        spdlog::default_logger()->set_level(spdlog::level::debug);
     }
-#endif
-    
+
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
 
     config.server_bind_ip = cli_opts["bind_ip"].as<std::string>();
     config.server_port = cli_opts["port"].as<uint16_t>();
-    //config.server_proto = qtransport::TransportProtocol::QUIC;
 
     config.transport_config.debug = cli_opts["debug"].as<bool>();
     config.transport_config.tls_cert_filename = cli_opts["cert"].as<std::string>();
@@ -452,33 +518,25 @@ moq::ServerConfig init_config(cxxopts::ParseResult& cli_opts )
     return config;
 }
 
-
 int
 main(int argc, char* argv[])
 {
     int result_code = EXIT_SUCCESS;
 
     cxxopts::Options options("qclient", "MOQ Example Client");
-    options
-      .set_width(75)
-      .set_tab_expansion()
-      .allow_unrecognised_options()
-      .add_options()
-        ("h,help", "Print help")
-          ("d,debug", "Enable debugging") // a bool parameter
-      ("b,bind_ip", "Bind IP", cxxopts::value<std::string>()->default_value("127.0.0.1"))
-        ("p,port", "Listening port", cxxopts::value<uint16_t>()->default_value("1234"))
-          ("e,endpoint_id", "This relay/server endpoint ID", cxxopts::value<std::string>()->default_value("moq-server"))
-            ("c,cert", "Certificate file", cxxopts::value<std::string>()->default_value("./server-cert.pem"))
-              ("k,key", "Certificate key file", cxxopts::value<std::string>()->default_value("./server-key.pem"))
-                ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
-      ; // end of options
+    options.set_width(75).set_tab_expansion().allow_unrecognised_options().add_options()("h,help", "Print help")(
+      "d,debug", "Enable debugging") // a bool parameter
+      ("b,bind_ip", "Bind IP", cxxopts::value<std::string>()->default_value("127.0.0.1"))(
+        "p,port", "Listening port", cxxopts::value<uint16_t>()->default_value("1234"))(
+        "e,endpoint_id", "This relay/server endpoint ID", cxxopts::value<std::string>()->default_value("moq-server"))(
+        "c,cert", "Certificate file", cxxopts::value<std::string>()->default_value("./server-cert.pem"))(
+        "k,key", "Certificate key file", cxxopts::value<std::string>()->default_value("./server-key.pem"))(
+        "q,qlog", "Enable qlog using path", cxxopts::value<std::string>()); // end of options
 
     auto result = options.parse(argc, argv);
 
-    if (result.count("help"))
-    {
-        std::cout << options.help({""}) << std::endl;
+    if (result.count("help")) {
+        std::cout << options.help({ "" }) << std::endl;
         return EXIT_SUCCESS;
     }
 
@@ -488,13 +546,14 @@ main(int argc, char* argv[])
     // Lock the mutex so that main can then wait on it
     std::unique_lock<std::mutex> lock(moq_example::main_mutex);
 
-    moq::ServerConfig config = init_config(result);
-
-    auto delegate = std::make_shared<MyServer>();
+    moq::ServerConfig config = InitConfig(result);
 
     try {
-        auto moqInstance = std::make_shared<MyServer>(config);
-        moqInstance->Start();
+        auto server = std::make_shared<MyServer>(config);
+        if (server->Start() != moq::Transport::Status::kReady) {
+            SPDLOG_ERROR("Server failed to start");
+            exit(-2);
+        }
 
         // Wait until told to terminate
         moq_example::cv.wait(lock, [&]() { return moq_example::terminate; });

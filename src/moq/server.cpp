@@ -1,8 +1,5 @@
-/*
- *  Copyright (C) 2024
- *  Cisco Systems, Inc.
- *  All Rights Reserved
- */
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
 
 #include <moq/server.h>
 
@@ -20,15 +17,17 @@ namespace moq {
 
     void Server::NewConnectionAccepted(moq::ConnectionHandle connection_handle, const ConnectionRemoteInfo& remote)
     {
-        SPDLOG_LOGGER_INFO(
+        SPDLOG_LOGGER_DEBUG(
           logger_, "New connection conn_id: {0} remote ip: {1} port: {2}", connection_handle, remote.ip, remote.port);
     }
 
     void Server::ConnectionStatusChanged(ConnectionHandle, ConnectionStatus) {}
 
+    void Server::MetricsSampled(ConnectionHandle, const ConnectionMetrics&) {}
+
     void Server::AnnounceReceived(ConnectionHandle, const TrackNamespace&, const PublishAnnounceAttributes&) {}
 
-    void Server::ResolveAnnounce(ConnectionHandle, const TrackNamespace&, AnnounceResponse) {}
+    void Server::ResolveAnnounce(ConnectionHandle, const TrackNamespace&, const AnnounceResponse&) {}
 
     void Server::SubscribeReceived(ConnectionHandle,
                                    uint64_t,
@@ -38,23 +37,17 @@ namespace moq {
     {
     }
 
-    void Server::ResolveSubscribe(ConnectionHandle, uint64_t, SubscribeResponse) {}
+    void Server::ResolveSubscribe(ConnectionHandle, uint64_t, const SubscribeResponse&) {}
 
     bool Server::ProcessCtrlMessage(ConnectionContext& conn_ctx, std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer)
     {
-        if (stream_buffer->Size() == 0) { // should never happen
-            CloseConnection(conn_ctx.connection_handle,
-                            messages::MoqTerminationReason::INTERNAL_ERROR,
-                            "Stream buffer cannot be zero when parsing message type");
+        if (stream_buffer->Empty()) { // should never happen
+            SPDLOG_LOGGER_ERROR(logger_, "Stream buffer cannot be zero when parsing message type, bad stream");
             return false;
         }
 
         if (not conn_ctx.ctrl_msg_type_received) { // should never happen
-
-            CloseConnection(conn_ctx.connection_handle,
-                            messages::MoqTerminationReason::INTERNAL_ERROR,
-                            "Process recv message connection context is missing message type");
-
+            SPDLOG_LOGGER_ERROR(logger_, "Process receive message connection context is missing, bad stream");
             return false;
         }
 
@@ -63,13 +56,16 @@ namespace moq {
                 auto&& [msg, parsed] = ParseControlMessage<messages::MoqSubscribe>(stream_buffer);
                 if (parsed) {
                     auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+                    auto th = TrackHash(tfn);
+
+                    conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
 
                     if (msg.subscribe_id > conn_ctx.current_subscribe_id) {
                         conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
                     }
 
                     // TODO(tievens): add filter type when caching supports it
-                    SubscribeReceived(conn_ctx.connection_handle, msg.subscribe_id, msg.track_alias,  tfn, {});
+                    SubscribeReceived(conn_ctx.connection_handle, msg.subscribe_id, msg.track_alias, tfn, {});
 
                     // TODO(tievens): Delay the subscribe OK till ResolveSubscribe() is called
                     SendSubscribeOk(conn_ctx, msg.subscribe_id, kSubscribeExpires, false);
@@ -150,7 +146,7 @@ namespace moq {
                 if (parsed) {
                     if (msg.track_namespace) {
                         std::string reason = "unknown";
-                        auto tfn = FullTrackName{ *msg.track_namespace, {}, std::nullopt};
+                        auto tfn = FullTrackName{ *msg.track_namespace, {}, std::nullopt };
                         auto th = TrackHash(tfn);
 
                         if (msg.reason_phrase) {
@@ -174,7 +170,7 @@ namespace moq {
                 auto&& [msg, parsed] = ParseControlMessage<messages::MoqUnannounce>(stream_buffer);
                 if (parsed) {
 
-                    auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt};
+                    auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
                     auto th = TrackHash(tfn);
 
                     SPDLOG_LOGGER_INFO(logger_, "Received unannounce for namespace_hash: {0}", th.track_namespace_hash);
@@ -256,7 +252,7 @@ namespace moq {
             case messages::MoqMessageType::TRACK_STATUS_REQUEST: {
                 auto&& [msg, parsed] = ParseControlMessage<messages::MoqTrackStatusRequest>(stream_buffer);
                 if (parsed) {
-                    auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt};
+                    auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
                     auto th = TrackHash(tfn);
 
                     SPDLOG_LOGGER_INFO(logger_,
@@ -271,7 +267,7 @@ namespace moq {
             case messages::MoqMessageType::TRACK_STATUS: {
                 auto&& [msg, parsed] = ParseControlMessage<messages::MoqTrackStatus>(stream_buffer);
                 if (parsed) {
-                    auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt};
+                    auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
                     auto th = TrackHash(tfn);
 
                     SPDLOG_LOGGER_INFO(logger_,
@@ -321,11 +317,12 @@ namespace moq {
                       msg.supported_versions.front());
 
                     conn_ctx.client_version = msg.supported_versions.front();
-                    stream_buffer->ResetAny();
 
                     // TODO(tievens): Revisit sending sever setup immediately or wait for something else from server
                     SendServerSetup(conn_ctx);
                     conn_ctx.setup_complete = true;
+
+                    stream_buffer->ResetAny();
                     return true;
                 }
                 break;
@@ -333,22 +330,12 @@ namespace moq {
 
             default:
                 SPDLOG_LOGGER_ERROR(logger_,
-                                    "Unsupported MOQT message type: {0}",
+                                    "Unsupported MOQT message type: {0}, bad stream",
                                     static_cast<uint64_t>(*conn_ctx.ctrl_msg_type_received));
-
-                CloseConnection(conn_ctx.connection_handle,
-                                messages::MoqTerminationReason::PROTOCOL_VIOLATION,
-                                "Unsupported MOQT message type");
-                return true;
+                return false;
 
         } // End of switch(msg type)
 
-        SPDLOG_LOGGER_DEBUG(logger_,
-                            "type: {0} sbuf_size: {1}",
-                            static_cast<int>(*conn_ctx.ctrl_msg_type_received),
-                            stream_buffer->Size());
-
         return false;
     }
-
 } // namespace moq

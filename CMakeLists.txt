@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+# SPDX-License-Identifier: BSD-2-Clause
+
 cmake_minimum_required(VERSION 3.13)
 
 # Build tests by default only if not a sub-project
@@ -15,7 +18,7 @@ project(quicr
         LANGUAGES CXX)
 
 option(LINT "Perform linting with clang-tidy" OFF)
-
+option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(PLATFORM_ESP_IDF "Enabble support for esp-idf (Default OFF)" OFF)
 option(USE_MBEDTLS OFF)
 
@@ -56,13 +59,13 @@ if(BUILD_TESTING AND QUICR_BUILD_TESTS)
     add_subdirectory(test)
 endif()
 
+if (BUILD_BENCHMARKING AND quicr_BUILD_BENCHMARKS)
+   add_subdirectory(benchmark)
+endif()
+
 ###
 ### Applications
 ###
 if(BUILD_TESTING AND QUICR_BUILD_TESTS)
- # add_subdirectory(cmd)
-endif()
-
-if (BUILD_BENCHMARKING AND quicr_BUILD_BENCHMARKS)
-   add_subdirectory(benchmark)
+   add_subdirectory(cmd)
 endif()

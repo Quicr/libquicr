@@ -1,17 +1,13 @@
-/*
- *  Copyright (C) 2024
- *  Cisco Systems, Inc.
- *  All Rights Reserved
- */
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
 
 #pragma once
 
-#include <optional>
-#include <moq/config.h>
 #include <moq/common.h>
-#include <moq/track_name.h>
-#include <moq/object.h>
+#include <moq/config.h>
 #include <moq/detail/transport.h>
+#include <moq/track_name.h>
+#include <optional>
 
 namespace moq {
     using namespace qtransport;
@@ -57,21 +53,6 @@ namespace moq {
          * @return Status of kDisconnecting
          */
         Status Disconnect();
-
-        /**
-         * @brief Callback notification for connection status/state change
-         * @details Callback notification indicates state change of connection, such as disconnected
-         *
-         * @param status           Status change
-         */
-        virtual void StatusChanged(Status status);
-
-         /**
-         * @brief Get the status of the Client
-         *
-         * @return Status of the Client
-         */
-         Status GetStatus() const noexcept { return status_; }
 
         /**
          * @brief Callback on server setup message
@@ -125,8 +106,7 @@ namespace moq {
          */
         virtual void ResolveSubscribe(ConnectionHandle connection_handle,
                                       uint64_t subscribe_id,
-                                      SubscribeResponse subscribe_response);
-
+                                      const SubscribeResponse& subscribe_response);
 
         /**
          * @brief Notification callback to provide sampled metrics
@@ -137,7 +117,7 @@ namespace moq {
          *
          * @param metrics           Copy of the connection metrics for the sample period
          */
-        virtual void MetricsSampled(const ConnectionMetrics&& metrics);
+        void MetricsSampled(const ConnectionMetrics& metrics) override;
 
         /**
          * @brief Get announce status for namespace
@@ -152,7 +132,8 @@ namespace moq {
          *
          * @param track_handler    Track handler to use for track related functions and callbacks
          */
-        void SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler) {
+        void SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler)
+        {
             if (connection_handle_) {
                 Transport::SubscribeTrack(*connection_handle_, std::move(track_handler));
             }
@@ -163,7 +144,8 @@ namespace moq {
          *
          * @param track_handler    Track handler to use for track related functions and callbacks
          */
-        void UnsubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler) {
+        void UnsubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler)
+        {
             if (connection_handle_) {
                 Transport::UnsubscribeTrack(*connection_handle_, std::move(track_handler));
             }
@@ -176,8 +158,8 @@ namespace moq {
          *      be reflected in the Status() of the PublishTrackHandler passed. This method can be called at any time,
          *      but normally it would be called before publishing any tracks to the same namespace.
          *
-         *      If this method is called after a publish track with a matching namespace that already exists or if called
-         *      more than once, this will result in this track handler being added to the active state of the
+         *      If this method is called after a publish track with a matching namespace that already exists or if
+         * called more than once, this will result in this track handler being added to the active state of the
          *      announce, but it will not result in a repeated announce being sent. Adding track handler to
          *      the announce state ensures that the announce will remain active if the other tracks are
          *      removed.
@@ -208,7 +190,8 @@ namespace moq {
          * @param track_handler    Track handler to use for track related functions
          *                          and callbacks
          */
-        void PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler) {
+        void PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler)
+        {
             if (connection_handle_) {
                 Transport::PublishTrack(*connection_handle_, std::move(track_handler));
             }
@@ -221,17 +204,21 @@ namespace moq {
          *
          * @param track_handler    Track handler used when published track
          */
-        void UnpublishTrack(std::shared_ptr<PublishTrackHandler> track_handler) {
+        void UnpublishTrack(std::shared_ptr<PublishTrackHandler> track_handler)
+        {
             if (connection_handle_) {
                 Transport::UnpublishTrack(*connection_handle_, std::move(track_handler));
             }
         }
 
       private:
-        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                        std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
-        virtual bool ProcessStreamDataMessage(ConnectionContext& conn_ctx,
-                                              std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+        bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
+                                std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer) override;
+
+        void SetConnectionHandle(ConnectionHandle connection_handle) override
+        {
+            connection_handle_ = connection_handle;
+        }
 
         void SetStatus(Status status)
         {
@@ -239,7 +226,7 @@ namespace moq {
             StatusChanged(status);
         }
 
-        std::optional<ConnectionHandle> connection_handle_;               ///< Connection ID for the client
+        std::optional<ConnectionHandle> connection_handle_; ///< Connection ID for the client
     };
 
 } // namespace moq

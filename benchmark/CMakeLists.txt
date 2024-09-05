@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+# SPDX-License-Identifier: BSD-2-Clause
+
 find_package(benchmark)
 if (NOT benchmark_FOUND)
     set(BENCHMARK_USE_BUNDLED_GTEST OFF)
@@ -13,7 +16,8 @@ if (NOT benchmark_FOUND)
 endif()
 
 add_executable(quicr_benchmark
-                message_buffer.cpp)
+    serializer.cpp
+)
 
 target_link_libraries(quicr_benchmark PRIVATE quicr benchmark::benchmark_main)
 target_include_directories(quicr_benchmark PRIVATE ${PROJECT_SOURCE_DIR}/src)

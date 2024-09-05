@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+# SPDX-License-Identifier: BSD-2-Clause
+
+version = 1
+
+[[annotations]]
+path = "cmd/dependencies/oss/cxxopts.hpp"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright (c) 2014-2022 Jarryd Beck"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "docs/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright (c) 2024 Cisco"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = "certs/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright (c) 2024 Cisco"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = [
+  ".clang-format",
+  ".clang-tidy",
+  ".github/workflows/cmake.yml",
+  ".gitignore",
+  ".gitmodules",
+  "AUTHORS.md",
+  "README.md"
+]
+SPDX-FileCopyrightText = "NONE"
+SPDX-License-Identifier = "BSD-2-Clause"

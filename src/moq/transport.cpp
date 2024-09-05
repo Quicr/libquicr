@@ -1,34 +1,68 @@
-/*
- *  Copyright (C) 2024
- *  Cisco Systems, Inc.
- *  All Rights Reserved
- */
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
 
 #include "moq/detail/transport.h"
-#include <sstream>
 
-#define LOGGER_TRACE(logger, ...)                                                                                      \
-    if (logger)                                                                                                        \
-    SPDLOG_LOGGER_TRACE(logger, __VA_ARGS__)
-#define LOGGER_DEBUG(logger, ...)                                                                                      \
-    if (logger)                                                                                                        \
-    SPDLOG_LOGGER_DEBUG(logger, __VA_ARGS__)
-#define LOGGER_INFO(logger, ...)                                                                                       \
-    if (logger)                                                                                                        \
-    SPDLOG_LOGGER_INFO(logger, __VA_ARGS__)
-#define LOGGER_WARN(logger, ...)                                                                                       \
-    if (logger)                                                                                                        \
-    SPDLOG_LOGGER_WARN(logger, __VA_ARGS__)
-#define LOGGER_ERROR(logger, ...)                                                                                      \
-    if (logger)                                                                                                        \
-    SPDLOG_LOGGER_ERROR(logger, __VA_ARGS__)
-#define LOGGER_CRITICAL(logger, ...)                                                                                   \
-    if (logger)                                                                                                        \
-    SPDLOG_LOGGER_CRITICAL(logger, __VA_ARGS__)
+#include "../../dependencies/boringssl/tool/transport_common.h"
+
+#include <sstream>
 
 namespace moq {
 
     using namespace moq::messages;
+
+    static std::optional<std::tuple<std::string, uint16_t>> ParseConnectUri(const std::string& connect_uri)
+    {
+        // moq://domain:port/<dont-care>
+        const std::string proto = "moq://";
+        auto it = std::search(connect_uri.begin(), connect_uri.end(), proto.begin(), proto.end());
+
+        if (it == connect_uri.end()) {
+            return std::nullopt;
+        }
+
+        // move to end for moq://
+        std::advance(it, proto.length());
+
+        std::string address_str;
+        std::string port_str;
+        uint16_t port = 0;
+
+        do {
+            auto colon = std::find(it, connect_uri.end(), ':');
+            if (address_str.empty() && colon == connect_uri.end()) {
+                break;
+            }
+
+            if (address_str.empty()) {
+                // parse resource id
+                address_str.reserve(distance(it, colon));
+                address_str.assign(it, colon);
+                std::advance(it, address_str.length());
+                it++;
+                continue;
+            }
+
+            auto slash = std::find(it, connect_uri.end(), '/');
+
+            if (port_str.empty()) {
+                // parse client/sender id
+                port_str.reserve(distance(it, slash));
+                port_str.assign(it, slash);
+                std::advance(it, port_str.length());
+                port = stoi(port_str, nullptr);
+                it++;
+                break;
+            }
+
+        } while (it != connect_uri.end());
+
+        if (address_str.empty() || port_str.empty()) {
+            return std::nullopt;
+        }
+
+        return std::make_tuple(address_str, port);
+    }
 
     Transport::Transport(const ClientConfig& cfg)
       : client_mode_(true)
@@ -37,7 +71,7 @@ namespace moq {
       , client_config_(cfg)
       , quic_transport_({})
     {
-        LOGGER_INFO(logger_, "Created Moq instance in client mode listening on {0}", cfg.connect_uri);
+        SPDLOG_LOGGER_INFO(logger_, "Created Moq instance in client mode connecting to {0}", cfg.connect_uri);
         Init();
     }
 
@@ -48,32 +82,36 @@ namespace moq {
       , client_config_({})
       , quic_transport_({})
     {
-        LOGGER_INFO(
+        SPDLOG_LOGGER_INFO(
           logger_, "Created Moq instance in server mode listening on {0}:{1}", cfg.server_bind_ip, cfg.server_port);
         Init();
     }
 
-    void Transport::Init()
-    {
-
-        LOGGER_INFO(logger_, "Starting metrics exporter");
-    }
+    void Transport::Init() {}
 
     Transport::Status Transport::Start()
     {
         if (client_mode_) {
             TransportRemote relay;
-            relay.host_or_ip = client_config_.connect_uri;
-            //    relay.port = client_config_.server_port; // TODO: Break out port form connect uri
+            auto parse_result = ParseConnectUri(client_config_.connect_uri);
+            if (!parse_result) {
+                return Status::kInvalidParams;
+            }
+            auto [address, port] = parse_result.value();
+            relay.host_or_ip = address;
+            relay.port = port; // TODO: Add URI parser
             relay.proto = TransportProtocol::kQuic;
 
             quic_transport_ = ITransport::MakeClientTransport(relay, client_config_.transport_config, *this, logger_);
 
+            auto conn_id = quic_transport_->Start();
+
+            SetConnectionHandle(conn_id);
+
             status_ = Status::kConnecting;
+            StatusChanged(status_);
 
-            auto conn_id = quic_transport_->Start(nullptr, nullptr);
-
-            LOGGER_INFO(logger_, "Connecting session conn_id: {0}...", conn_id);
+            SPDLOG_LOGGER_INFO(logger_, "Connecting session conn_id: {0}...", conn_id);
             auto [conn_ctx, _] = connections_.try_emplace(conn_id, ConnectionContext{});
             conn_ctx->second.connection_handle = conn_id;
 
@@ -85,13 +123,10 @@ namespace moq {
             server.proto = TransportProtocol::kQuic;
 
             quic_transport_ = ITransport::MakeServerTransport(server, server_config_.transport_config, *this, logger_);
+            quic_transport_->Start();
 
-            switch (quic_transport_->Status()) {
-                case TransportStatus::kReady:
-                    return Status::kReady;
-                default:
-                    return Status::kNotReady;
-            }
+            status_ = Status::kReady;
+            return status_;
         }
     }
 
@@ -100,9 +135,7 @@ namespace moq {
         return Status();
     }
 
-    void Transport::OnNewDataContext(const ConnectionHandle&, const DataContextId&) {}
-
-    void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, std::vector<uint8_t>&& data)
+    void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data)
     {
         if (not conn_ctx.ctrl_data_ctx_id) {
             CloseConnection(
@@ -122,7 +155,7 @@ namespace moq {
 
     void Transport::SendClientSetup()
     {
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
         auto client_setup = MoqClientSetup{};
 
         client_setup.num_versions = 1; // NOTE: Not used for encode, verison vector size is used
@@ -137,12 +170,12 @@ namespace moq {
 
         auto& conn_ctx = connections_.begin()->second;
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SendServerSetup(ConnectionContext& conn_ctx)
     {
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
         auto server_setup = MoqServerSetup{};
 
         server_setup.selection_version = { conn_ctx.client_version };
@@ -154,49 +187,49 @@ namespace moq {
 
         buffer << server_setup;
 
-        LOGGER_DEBUG(logger_, "Sending SERVER_SETUP to conn_id: {0}", conn_ctx.connection_handle);
+        SPDLOG_LOGGER_DEBUG(logger_, "Sending SERVER_SETUP to conn_id: {0}", conn_ctx.connection_handle);
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SendAnnounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
     {
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
         auto announce = MoqAnnounce{};
 
         announce.track_namespace.assign(track_namespace.begin(), track_namespace.end());
         announce.params = {};
         buffer << announce;
 
-        LOGGER_DEBUG(logger_, "Sending ANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
+        SPDLOG_LOGGER_DEBUG(logger_, "Sending ANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SendAnnounceOk(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
     {
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
         auto announce_ok = MoqAnnounceOk{};
 
         announce_ok.track_namespace.assign(track_namespace.begin(), track_namespace.end());
         buffer << announce_ok;
 
-        LOGGER_DEBUG(logger_, "Sending ANNOUNCE OK to conn_id: {0}", conn_ctx.connection_handle);
+        SPDLOG_LOGGER_DEBUG(logger_, "Sending ANNOUNCE OK to conn_id: {0}", conn_ctx.connection_handle);
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SendUnannounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
     {
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
         auto unannounce = MoqUnannounce{};
 
         unannounce.track_namespace.assign(track_namespace.begin(), track_namespace.end());
         buffer << unannounce;
 
-        LOGGER_DEBUG(logger_, "Sending UNANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
+        SPDLOG_LOGGER_DEBUG(logger_, "Sending UNANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SendSubscribe(ConnectionContext& conn_ctx,
@@ -204,7 +237,7 @@ namespace moq {
                                   const FullTrackName& tfn,
                                   TrackHash th)
     {
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
 
         auto subscribe = MoqSubscribe{};
         subscribe.subscribe_id = subscribe_id;
@@ -216,14 +249,15 @@ namespace moq {
 
         buffer << subscribe;
 
-        LOGGER_DEBUG(logger_,
-                     "Sending SUBSCRIBE to conn_id: {0} subscribe_id: {1} track namespace hash: {2} name hash: {3}",
-                     conn_ctx.connection_handle,
-                     subscribe_id,
-                     th.track_namespace_hash,
-                     th.track_name_hash);
+        SPDLOG_LOGGER_DEBUG(
+          logger_,
+          "Sending SUBSCRIBE to conn_id: {0} subscribe_id: {1} track namespace hash: {2} name hash: {3}",
+          conn_ctx.connection_handle,
+          subscribe_id,
+          th.track_namespace_hash,
+          th.track_name_hash);
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SendSubscribeOk(ConnectionContext& conn_ctx,
@@ -231,7 +265,7 @@ namespace moq {
                                     uint64_t expires,
                                     bool content_exists)
     {
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
 
         auto subscribe_ok = MoqSubscribeOk{};
         subscribe_ok.subscribe_id = subscribe_id;
@@ -239,15 +273,15 @@ namespace moq {
         subscribe_ok.content_exists = content_exists;
         buffer << subscribe_ok;
 
-        LOGGER_DEBUG(
+        SPDLOG_LOGGER_DEBUG(
           logger_, "Sending SUBSCRIBE OK to conn_id: {0} subscribe_id: {1}", conn_ctx.connection_handle, subscribe_id);
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason)
     {
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
 
         auto subscribe_done = MoqSubscribeDone{};
         subscribe_done.subscribe_id = subscribe_id;
@@ -255,26 +289,26 @@ namespace moq {
         subscribe_done.content_exists = false;
         buffer << subscribe_done;
 
-        LOGGER_DEBUG(logger_,
-                     "Sending SUBSCRIBE DONE to conn_id: {0} subscribe_id: {1}",
-                     conn_ctx.connection_handle,
-                     subscribe_id);
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending SUBSCRIBE DONE to conn_id: {0} subscribe_id: {1}",
+                            conn_ctx.connection_handle,
+                            subscribe_id);
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id)
     {
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
 
         auto unsubscribe = MoqUnsubscribe{};
         unsubscribe.subscribe_id = subscribe_id;
         buffer << unsubscribe;
 
-        LOGGER_DEBUG(
+        SPDLOG_LOGGER_DEBUG(
           logger_, "Sending UNSUBSCRIBE to conn_id: {0} subscribe_id: {1}", conn_ctx.connection_handle, subscribe_id);
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SendSubscribeError(ConnectionContext& conn_ctx,
@@ -283,7 +317,7 @@ namespace moq {
                                        SubscribeError error,
                                        const std::string& reason)
     {
-        qtransport::StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
 
         auto subscribe_err = MoqSubscribeError{};
         subscribe_err.subscribe_id = 0x1;
@@ -293,19 +327,14 @@ namespace moq {
 
         buffer << subscribe_err;
 
-        LOGGER_DEBUG(logger_,
-                     "Sending SUBSCRIBE ERROR to conn_id: {0} subscribe_id: {1} error code: {2} reason: {3}",
-                     conn_ctx.connection_handle,
-                     subscribe_id,
-                     static_cast<int>(error),
-                     reason);
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending SUBSCRIBE ERROR to conn_id: {0} subscribe_id: {1} error code: {2} reason: {3}",
+                            conn_ctx.connection_handle,
+                            subscribe_id,
+                            static_cast<int>(error),
+                            reason);
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
-    }
-
-    Transport::Status Transport::GetStatus()
-    {
-        return status_;
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
@@ -318,23 +347,23 @@ namespace moq {
 
         track_handler->SetTrackAlias(th.track_fullname_hash);
 
-        LOGGER_INFO(logger_, "Subscribe track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
+        SPDLOG_LOGGER_INFO(logger_, "Subscribe track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
 
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
-            LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_id);
+            SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_id);
             return;
         }
 
         auto sid = conn_it->second.current_subscribe_id++;
 
-        LOGGER_DEBUG(logger_, "subscribe id to add to memory: {0}", sid);
-
-        // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
-        conn_it->second.tracks_by_sub_id[sid] = track_handler;
+        SPDLOG_LOGGER_DEBUG(logger_, "subscribe id to add to memory: {0}", sid);
 
         track_handler->SetSubscribeId(sid);
+
+        // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
+        conn_it->second.tracks_by_sub_id[sid] = std::move(track_handler);
 
         SendSubscribe(conn_it->second, sid, tfn, th);
 
@@ -343,7 +372,7 @@ namespace moq {
 
     void Transport::BindPublisherTrack(TransportConnId conn_id,
                                        uint64_t subscribe_id,
-                                       std::shared_ptr<PublishTrackHandler> track_handler)
+                                       const std::shared_ptr<PublishTrackHandler>& track_handler)
     {
         // Generate track alias
         const auto& tfn = track_handler->GetFullTrackName();
@@ -353,17 +382,15 @@ namespace moq {
 
         track_handler->SetTrackAlias(th.track_fullname_hash);
 
-        LOGGER_INFO(logger_, "Bind subscribe track handler conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
+        SPDLOG_LOGGER_INFO(
+          logger_, "Bind subscribe track handler conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
 
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
-            LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_id);
+            SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_id);
             return;
         }
-
-        // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
-        // TODO(tievens) - revisit -- conn_it->second.tracks_by_sub_id[subscribe_id] = track_handler;
 
         track_handler->SetSubscribeId(subscribe_id);
 
@@ -384,12 +411,16 @@ namespace moq {
             uint64_t group_id,
             uint64_t object_id,
             Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
-            return SendObject(track_handler, priority, ttl, stream_header_needed, group_id, object_id, data);
+            return SendObject(*track_handler, priority, ttl, stream_header_needed, group_id, object_id, data);
         };
+
+        // Hold onto track handler
+        conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
+        conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
     }
 
     void Transport::UnsubscribeTrack(qtransport::TransportConnId conn_id,
-                                     std::shared_ptr<SubscribeTrackHandler> track_handler)
+                                     const std::shared_ptr<SubscribeTrackHandler>& track_handler)
     {
         auto& conn_ctx = connections_[conn_id];
         if (track_handler->GetSubscribeId().has_value()) {
@@ -410,11 +441,7 @@ namespace moq {
 
             SendUnsubscribe(conn_ctx, *subscribe_id);
 
-            LOGGER_DEBUG(logger_, "remove subscribe id: {0}", *subscribe_id);
-
-            quic_transport_->DeleteDataContext(conn_ctx.connection_handle, handler.data_context_id_);
-
-            handler.data_context_id_ = 0;
+            SPDLOG_LOGGER_DEBUG(logger_, "remove subscribe id: {0}", *subscribe_id);
 
             if (remove_handler) {
                 std::lock_guard<std::mutex> _(state_mutex_);
@@ -423,19 +450,19 @@ namespace moq {
         }
     }
 
-    void Transport::UnpublishTrack(TransportConnId conn_id, std::shared_ptr<PublishTrackHandler> track_handler)
+    void Transport::UnpublishTrack(TransportConnId conn_id, const std::shared_ptr<PublishTrackHandler>& track_handler)
     {
         // Generate track alias
         auto tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
 
-        LOGGER_INFO(logger_, "Unpublish track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
+        SPDLOG_LOGGER_INFO(logger_, "Unpublish track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
 
         std::lock_guard<std::mutex> _(state_mutex_);
 
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
-            LOGGER_ERROR(logger_, "Unpublish track conn_id: {0} does not exist.", conn_id);
+            SPDLOG_LOGGER_ERROR(logger_, "Unpublish track conn_id: {0} does not exist.", conn_id);
             return;
         }
 
@@ -448,29 +475,30 @@ namespace moq {
                 // Send subscribe done if track has subscriber and is sending
                 if (pub_n_it->second->GetStatus() == PublishTrackHandler::Status::kOk &&
                     pub_n_it->second->GetSubscribeId().has_value()) {
-                    LOGGER_INFO(logger_,
-                                "Unpublish track namespace hash: {0} track_name_hash: {1} track_alias: {2}, sending "
-                                "subscribe_done",
-                                th.track_namespace_hash,
-                                th.track_name_hash,
-                                th.track_fullname_hash);
+                    SPDLOG_LOGGER_INFO(
+                      logger_,
+                      "Unpublish track namespace hash: {0} track_name_hash: {1} track_alias: {2}, sending "
+                      "subscribe_done",
+                      th.track_namespace_hash,
+                      th.track_name_hash,
+                      th.track_fullname_hash);
                     SendSubscribeDone(conn_it->second, *pub_n_it->second->GetSubscribeId(), "Unpublish track");
                 } else {
-                    LOGGER_INFO(logger_,
-                                "Unpublish track namespace hash: {0} track_name_hash: {1} track_alias: {2}",
-                                th.track_namespace_hash,
-                                th.track_name_hash,
-                                th.track_fullname_hash);
+                    SPDLOG_LOGGER_INFO(logger_,
+                                       "Unpublish track namespace hash: {0} track_name_hash: {1} track_alias: {2}",
+                                       th.track_namespace_hash,
+                                       th.track_name_hash,
+                                       th.track_fullname_hash);
                 }
 
-                pub_n_it->second->data_context_id_ = 0;
+                pub_n_it->second->publish_data_ctx_id_ = 0;
 
                 pub_n_it->second->SetStatus(PublishTrackHandler::Status::kNotAnnounced);
                 pub_ns_it->second.erase(pub_n_it);
             }
 
             if (!pub_ns_it->second.size()) {
-                LOGGER_INFO(
+                SPDLOG_LOGGER_INFO(
                   logger_, "Unpublish namespace hash: {0}, has no tracks, sending unannounce", th.track_namespace_hash);
                 SendUnannounce(conn_it->second, tfn.name_space);
                 conn_it->second.pub_tracks_by_name.erase(pub_ns_it);
@@ -489,20 +517,20 @@ namespace moq {
 
         track_handler->SetTrackAlias(th.track_fullname_hash);
 
-        LOGGER_INFO(logger_, "Publish track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
+        SPDLOG_LOGGER_INFO(logger_, "Publish track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
 
         std::lock_guard<std::mutex> _(state_mutex_);
 
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
-            LOGGER_ERROR(logger_, "Publish track conn_id: {0} does not exist.", conn_id);
+            SPDLOG_LOGGER_ERROR(logger_, "Publish track conn_id: {0} does not exist.", conn_id);
             return;
         }
 
         // Check if this published track is a new namespace or existing.
         auto pub_ns_it = conn_it->second.pub_tracks_by_name.find(th.track_namespace_hash);
         if (pub_ns_it == conn_it->second.pub_tracks_by_name.end()) {
-            LOGGER_INFO(
+            SPDLOG_LOGGER_INFO(
               logger_, "Publish track has new namespace hash: {0} sending ANNOUNCE message", th.track_namespace_hash);
 
             track_handler->SetStatus(PublishTrackHandler::Status::kPendingAnnounceResponse);
@@ -511,18 +539,15 @@ namespace moq {
         } else {
             auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
             if (pub_n_it == pub_ns_it->second.end()) {
-                LOGGER_INFO(logger_,
-                            "Publish track has new track namespace hash: {0} name hash: {1}",
-                            th.track_namespace_hash,
-                            th.track_name_hash);
+                SPDLOG_LOGGER_INFO(logger_,
+                                   "Publish track has new track namespace hash: {0} name hash: {1}",
+                                   th.track_namespace_hash,
+                                   th.track_name_hash);
             }
         }
 
-        // Set the track handler for pub/sub
-        conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
-
         track_handler->connection_handle_ = conn_id;
-        track_handler->data_context_id_ =
+        track_handler->publish_data_ctx_id_ =
           quic_transport_->CreateDataContext(conn_id,
                                              track_handler->default_track_mode_ == TrackMode::kDatagram ? false : true,
                                              track_handler->default_priority_,
@@ -537,11 +562,15 @@ namespace moq {
             uint64_t group_id,
             uint64_t object_id,
             Span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
-            return SendObject(track_handler, priority, ttl, stream_header_needed, group_id, object_id, data);
+            return SendObject(*track_handler, priority, ttl, stream_header_needed, group_id, object_id, data);
         };
+
+        // Hold ref to track handler
+        conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
+        conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
     }
 
-    PublishTrackHandler::PublishObjectStatus Transport::SendObject(std::weak_ptr<PublishTrackHandler> track_handler,
+    PublishTrackHandler::PublishObjectStatus Transport::SendObject(const PublishTrackHandler& track_handler,
                                                                    uint8_t priority,
                                                                    uint32_t ttl,
                                                                    bool stream_header_needed,
@@ -549,29 +578,26 @@ namespace moq {
                                                                    uint64_t object_id,
                                                                    BytesSpan data)
     {
-
-        auto td = track_handler.lock();
-
-        if (!td->GetTrackAlias().has_value()) {
+        if (!track_handler.GetTrackAlias().has_value()) {
             return PublishTrackHandler::PublishObjectStatus::kNotAnnounced;
         }
 
-        if (!td->GetSubscribeId().has_value()) {
+        if (!track_handler.GetSubscribeId().has_value()) {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
 
         ITransport::EnqueueFlags eflags;
 
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
 
-        switch (td->default_track_mode_) {
+        switch (track_handler.default_track_mode_) {
             case TrackMode::kDatagram: {
                 MoqObjectDatagram object;
                 object.group_id = group_id;
                 object.object_id = object_id;
                 object.priority = priority;
-                object.subscribe_id = *td->GetSubscribeId();
-                object.track_alias = *td->GetTrackAlias();
+                object.subscribe_id = *track_handler.GetSubscribeId();
+                object.track_alias = *track_handler.GetTrackAlias();
                 object.payload.assign(data.begin(), data.end());
                 buffer << object;
                 break;
@@ -584,8 +610,8 @@ namespace moq {
                 object.group_id = group_id;
                 object.object_id = object_id;
                 object.priority = priority;
-                object.subscribe_id = *td->GetSubscribeId();
-                object.track_alias = *td->GetTrackAlias();
+                object.subscribe_id = *track_handler.GetSubscribeId();
+                object.track_alias = *track_handler.GetTrackAlias();
                 object.payload.assign(data.begin(), data.end());
                 buffer << object;
 
@@ -603,8 +629,8 @@ namespace moq {
                     MoqStreamHeaderGroup group_hdr;
                     group_hdr.group_id = group_id;
                     group_hdr.priority = priority;
-                    group_hdr.subscribe_id = *td->GetSubscribeId();
-                    group_hdr.track_alias = *td->GetTrackAlias();
+                    group_hdr.subscribe_id = *track_handler.GetSubscribeId();
+                    group_hdr.track_alias = *track_handler.GetTrackAlias();
                     buffer << group_hdr;
                 }
 
@@ -623,8 +649,8 @@ namespace moq {
 
                     MoqStreamHeaderTrack track_hdr;
                     track_hdr.priority = priority;
-                    track_hdr.subscribe_id = *td->GetSubscribeId();
-                    track_hdr.track_alias = *td->GetTrackAlias();
+                    track_hdr.subscribe_id = *track_handler.GetSubscribeId();
+                    track_hdr.track_alias = *track_handler.GetTrackAlias();
                     buffer << track_hdr;
                 }
 
@@ -639,10 +665,10 @@ namespace moq {
         }
 
         // TODO(tievens): Add M10x specific chunking... lacking in the draft
-        std::vector<uint8_t> serialized_data = buffer.Front(buffer.Size());
+        std::vector<uint8_t> serialized_data = std::move(buffer.Take());
 
-        quic_transport_->Enqueue(td->connection_handle_,
-                                 td->publish_data_ctx_id_,
+        quic_transport_->Enqueue(track_handler.connection_handle_,
+                                 track_handler.publish_data_ctx_id_,
                                  std::move(serialized_data),
                                  { MethodTraceItem{} },
                                  priority,
@@ -675,13 +701,14 @@ namespace moq {
 
     void Transport::OnConnectionStatus(const TransportConnId& conn_id, const TransportStatus status)
     {
-        LOGGER_DEBUG(logger_, "Connection status conn_id: {0} status: {1}", conn_id, static_cast<int>(status));
+        SPDLOG_LOGGER_DEBUG(logger_, "Connection status conn_id: {0} status: {1}", conn_id, static_cast<int>(status));
 
         switch (status) {
             case TransportStatus::kReady: {
                 if (client_mode_) {
                     auto& conn_ctx = connections_[conn_id];
-                    LOGGER_INFO(logger_, "Connection established, creating bi-dir stream and sending CLIENT_SETUP");
+                    SPDLOG_LOGGER_INFO(logger_,
+                                       "Connection established, creating bi-dir stream and sending CLIENT_SETUP");
 
                     conn_ctx.ctrl_data_ctx_id = quic_transport_->CreateDataContext(conn_id, true, 0, true);
 
@@ -693,24 +720,32 @@ namespace moq {
             }
 
             case TransportStatus::kConnecting:
-                status_ = Status::kConnecting;
+                if (client_mode_) {
+                    status_ = Status::kConnecting;
+                }
+                ConnectionStatusChanged(conn_id, ConnectionStatus::kConnecting);
                 break;
             case TransportStatus::kRemoteRequestClose:
                 [[fallthrough]];
 
             case TransportStatus::kDisconnected: {
-
                 // Clean up publish and subscribe tracks
                 std::lock_guard<std::mutex> _(state_mutex_);
                 auto conn_it = connections_.find(conn_id);
 
                 if (conn_it == connections_.end()) {
-                    return;
+                    break;
+                    ;
                 }
+
+                if (client_mode_) {
+                    status_ = Status::kNotConnected;
+                }
+
+                ConnectionStatusChanged(conn_id, ConnectionStatus::kClosedByRemote);
 
                 // Notify the subscriber handlers of disconnect
                 for (const auto& [sub_id, handler] : conn_it->second.tracks_by_sub_id) {
-                    ConnectionStatusChanged(conn_id, ConnectionStatus::kClosedByRemote);
                     RemoveSubscribeTrack(conn_it->second, *handler);
                     handler->SetStatus(
                       SubscribeTrackHandler::Status::kNotConnected); // Set after remove subscribe track
@@ -735,8 +770,11 @@ namespace moq {
             }
             case TransportStatus::kShutdown:
                 status_ = Status::kNotReady;
+                ConnectionStatusChanged(conn_id, ConnectionStatus::kNotConnected);
                 break;
         }
+
+        StatusChanged(status_);
     }
 
     void Transport::OnNewConnection(const TransportConnId& conn_id, const TransportRemote& remote)
@@ -771,10 +809,21 @@ namespace moq {
             conn_ctx.ctrl_data_ctx_id = data_ctx_id;
         }
 
+        /*
+         * Loop  any times to continue to read objects. This loop should only continue if the current object is read
+         *       and has been completed and there is more data. If there isn't enough data to parse the message, the
+         *       loop should be stopped.  The ProcessCtrlMessage() and ProcessStreamDataMessage() methods return
+         *       **true** to indicate that the loop should continue.  They return **false** to indicate that
+         *       there wasn't enough data and more data should be provided.
+         */
         for (int i = 0; i < kReadLoopMaxPerStream; i++) { // don't loop forever, especially on bad stream
+            if (stream_buf->Empty()) {                    // done
+                break;
+            }
+
             // bidir is Control stream, data streams are unidirectional
             if (is_bidir) {
-                if (not conn_ctx.ctrl_msg_type_received) {
+                if (not conn_ctx.ctrl_msg_type_received.has_value()) {
                     auto msg_type = stream_buf->DecodeUintV();
 
                     if (msg_type) {
@@ -784,23 +833,20 @@ namespace moq {
                     }
                 }
 
-                if (conn_ctx.ctrl_msg_type_received) {
-                    if (ProcessCtrlMessage(conn_ctx, stream_buf)) {
-                        conn_ctx.ctrl_msg_type_received = std::nullopt;
-                        break;
-                    }
+                if (ProcessCtrlMessage(conn_ctx, stream_buf)) {
+                    conn_ctx.ctrl_msg_type_received = std::nullopt; // Clear current type now that it's complete
+
+                } else {
+                    break; // More data is needed, wait for next callback
                 }
+
             }
 
             // Data stream, unidirectional
             else {
-                if (ProcessStreamDataMessage(conn_ctx, stream_buf)) {
-                    break;
+                if (!ProcessStreamDataMessage(conn_ctx, stream_buf)) {
+                    break; // More data is needed, wait for next callback
                 }
-            }
-
-            if (!stream_buf->Size()) { // done
-                break;
             }
         }
     }
@@ -816,7 +862,7 @@ namespace moq {
 
                 auto msg_type = buffer.DecodeUintV();
                 if (!msg_type || static_cast<MoqMessageType>(*msg_type) != MoqMessageType::OBJECT_DATAGRAM) {
-                    LOGGER_WARN(logger_, "Received datagram that is not message type OBJECT_DATAGRAM, dropping");
+                    SPDLOG_LOGGER_WARN(logger_, "Received datagram that is not message type OBJECT_DATAGRAM, dropping");
                     continue;
                 }
 
@@ -828,25 +874,25 @@ namespace moq {
                     auto& conn_ctx = connections_[conn_id];
                     auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
                     if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                        LOGGER_WARN(logger_,
-                                    "Received datagram to unknown subscribe track subscribe_id: {0}, ignored",
-                                    msg.subscribe_id);
+                        SPDLOG_LOGGER_WARN(logger_,
+                                           "Received datagram to unknown subscribe track subscribe_id: {0}, ignored",
+                                           msg.subscribe_id);
 
                         // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
 
                         continue;
                     }
 
-                    LOGGER_DEBUG(logger_,
-                                 "Received object datagram conn_id: {0} data_ctx_id: {1} subscriber_id: {2} "
-                                 "track_alias: {3} group_id: {4} object_id: {5} data size: {6}",
-                                 conn_id,
-                                 (data_ctx_id ? *data_ctx_id : 0),
-                                 msg.subscribe_id,
-                                 msg.track_alias,
-                                 msg.group_id,
-                                 msg.object_id,
-                                 msg.payload.size());
+                    SPDLOG_LOGGER_DEBUG(logger_,
+                                        "Received object datagram conn_id: {0} data_ctx_id: {1} subscriber_id: {2} "
+                                        "track_alias: {3} group_id: {4} object_id: {5} data size: {6}",
+                                        conn_id,
+                                        (data_ctx_id ? *data_ctx_id : 0),
+                                        msg.subscribe_id,
+                                        msg.track_alias,
+                                        msg.group_id,
+                                        msg.object_id,
+                                        msg.payload.size());
 
                     sub_it->second->ObjectReceived({ msg.group_id,
                                                      msg.object_id,
@@ -858,14 +904,59 @@ namespace moq {
                                                    msg.payload);
 
                 } else {
-                    LOGGER_WARN(logger_,
-                                "Failed to decode datagram conn_id: {0} data_ctx_id: {1}",
-                                conn_id,
-                                (data_ctx_id ? *data_ctx_id : 0));
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Failed to decode datagram conn_id: {0} data_ctx_id: {1}",
+                                       conn_id,
+                                       (data_ctx_id ? *data_ctx_id : 0));
                 }
             }
         }
     }
+
+    void Transport::OnConnectionMetricsSampled(const TimeStampUs sample_time,
+                                               const TransportConnId conn_id,
+                                               const QuicConnectionMetrics& quic_connection_metrics)
+    {
+        // TODO: doesn't require lock right now, but might need to add lock
+        auto& conn = connections_[conn_id];
+
+        conn.metrics.last_sample_time = sample_time;
+        conn.metrics.quic = quic_connection_metrics;
+
+        if (client_mode_) {
+            MetricsSampled(conn.metrics);
+        } else {
+            MetricsSampled(conn_id, conn.metrics);
+        }
+    }
+
+    void Transport::OnDataMetricsStampled(const TimeStampUs sample_time,
+                                          const TransportConnId conn_id,
+                                          const DataContextId data_ctx_id,
+                                          const QuicDataContextMetrics& quic_data_context_metrics)
+    {
+
+        const auto& conn = connections_[conn_id];
+        const auto& pub_th_it = conn.pub_tracks_by_data_ctx_id.find(data_ctx_id);
+
+        if (pub_th_it != conn.pub_tracks_by_data_ctx_id.end()) {
+            auto& pub_h = pub_th_it->second;
+            pub_h->publish_track_metrics_.last_sample_time = sample_time;
+
+            pub_h->publish_track_metrics_.quic.tx_buffer_drops = quic_data_context_metrics.tx_buffer_drops;
+            pub_h->publish_track_metrics_.quic.tx_callback_ms = quic_data_context_metrics.tx_callback_ms;
+            pub_h->publish_track_metrics_.quic.tx_delayed_callback = quic_data_context_metrics.tx_delayed_callback;
+            pub_h->publish_track_metrics_.quic.tx_object_duration_us = quic_data_context_metrics.tx_object_duration_us;
+            pub_h->publish_track_metrics_.quic.tx_queue_discards = quic_data_context_metrics.tx_queue_discards;
+            pub_h->publish_track_metrics_.quic.tx_queue_expired = quic_data_context_metrics.tx_queue_expired;
+            pub_h->publish_track_metrics_.quic.tx_queue_size = quic_data_context_metrics.tx_queue_size;
+            pub_h->publish_track_metrics_.quic.tx_reset_wait = quic_data_context_metrics.tx_reset_wait;
+
+            pub_h->MetricsSampled(pub_h->publish_track_metrics_);
+        }
+    }
+
+    void Transport::OnNewDataContext(const ConnectionHandle&, const DataContextId&) {}
 
     void Transport::CloseConnection(TransportConnId conn_id,
                                     messages::MoqTerminationReason reason,
@@ -897,23 +988,191 @@ namespace moq {
                 break;
         }
 
-        LOGGER_INFO(logger_, log_msg.str());
+        SPDLOG_LOGGER_INFO(logger_, log_msg.str());
 
         quic_transport_->Close(conn_id, static_cast<uint64_t>(reason));
 
         if (client_mode_) {
-            LOGGER_INFO(logger_, "Client connection closed, stopping client");
+            SPDLOG_LOGGER_INFO(logger_, "Client connection closed, stopping client");
             stop_ = true;
         }
     }
 
-    bool Transport::ProcessCtrlMessage(Transport::ConnectionContext&, std::shared_ptr<StreamBuffer<uint8_t>>&)
+    bool Transport::ProcessStreamDataMessage(ConnectionContext& conn_ctx,
+                                             std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer)
     {
-        return false;
-    }
+        if (stream_buffer->Empty()) { // should never happen
+            SPDLOG_LOGGER_ERROR(logger_, "Stream buffer cannot be zero when parsing message type, bad stream");
 
-    bool Transport::ProcessStreamDataMessage(ConnectionContext&, std::shared_ptr<StreamBuffer<uint8_t>>&)
-    {
+            return false;
+        }
+
+        // Header not set, get the header for this stream or datagram
+        MoqMessageType data_type;
+
+        auto dt = stream_buffer->GetAnyType();
+        if (dt.has_value()) {
+            data_type = static_cast<MoqMessageType>(*dt);
+        } else {
+            auto val = stream_buffer->DecodeUintV();
+            data_type = static_cast<MoqMessageType>(*val);
+            stream_buffer->SetAnyType(*val);
+        }
+
+        switch (data_type) {
+            case messages::MoqMessageType::OBJECT_STREAM: {
+                auto&& [msg, parsed] =
+                  ParseDataMessage<messages::MoqObjectStream>(stream_buffer, messages::MoqMessageType::OBJECT_STREAM);
+                if (!parsed) {
+                    break;
+                }
+
+                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received stream_object to unknown subscribe track subscribe_id: {0}, ignored",
+                                       msg.subscribe_id);
+
+                    // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+
+                    return true;
+                }
+
+                SPDLOG_LOGGER_TRACE(logger_,
+                                    "Received stream_object subscribe_id: {0} priority: {1} track_alias: {2} group_id: "
+                                    "{3} object_id: {4} data size: {5}",
+                                    msg.subscribe_id,
+                                    msg.priority,
+                                    msg.track_alias,
+                                    msg.group_id,
+                                    msg.object_id,
+                                    msg.payload.size());
+
+                sub_it->second->ObjectReceived({ msg.group_id,
+                                                 msg.object_id,
+                                                 msg.payload.size(),
+                                                 msg.priority,
+                                                 std::nullopt,
+                                                 TrackMode::kStreamPerObject,
+                                                 std::nullopt },
+                                               msg.payload);
+                stream_buffer->ResetAny();
+                return true;
+            }
+            case messages::MoqMessageType::STREAM_HEADER_TRACK: {
+                auto&& [msg, parsed] = ParseStreamData<MoqStreamHeaderTrack, MoqStreamTrackObject>(
+                  stream_buffer, MoqMessageType::STREAM_HEADER_TRACK);
+
+                if (!parsed) {
+                    break;
+                }
+
+                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
+                      msg.subscribe_id);
+
+                    // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+                    stream_buffer->ResetAnyB<MoqStreamGroupObject>();
+                    return true;
+                }
+
+                auto& obj = stream_buffer->GetAnyB<MoqStreamTrackObject>();
+                if (*stream_buffer >> obj) {
+                    auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                    if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                        SPDLOG_LOGGER_WARN(
+                          logger_,
+                          "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
+                          msg.subscribe_id);
+
+                        // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+                        stream_buffer->ResetAnyB();
+                        return true;
+                    }
+
+                    SPDLOG_LOGGER_DEBUG(logger_,
+                                        "Received stream_track_object subscribe_id: {0} priority: {1} track_alias: {2} "
+                                        "group_id: {3} object_id: {4} data size: {5}",
+                                        msg.subscribe_id,
+                                        msg.priority,
+                                        msg.track_alias,
+                                        obj.group_id,
+                                        obj.object_id,
+                                        obj.payload.size());
+
+                    sub_it->second->ObjectReceived({ obj.group_id,
+                                                     obj.object_id,
+                                                     obj.payload.size(),
+                                                     msg.priority,
+                                                     std::nullopt,
+                                                     TrackMode::kStreamPerTrack,
+                                                     std::nullopt },
+                                                   obj.payload);
+
+                    stream_buffer->ResetAnyB<MoqStreamTrackObject>();
+
+                    return true;
+                }
+                break;
+            }
+            case messages::MoqMessageType::STREAM_HEADER_GROUP: {
+                auto&& [msg, parsed] = ParseStreamData<MoqStreamHeaderGroup, MoqStreamGroupObject>(
+                  stream_buffer, MoqMessageType::STREAM_HEADER_GROUP);
+
+                if (!parsed) {
+                    break;
+                }
+
+                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
+                      msg.subscribe_id);
+
+                    // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+                    stream_buffer->ResetAnyB<MoqStreamGroupObject>();
+                    return true;
+                }
+
+                auto& obj = stream_buffer->GetAnyB<MoqStreamGroupObject>();
+                if (*stream_buffer >> obj) {
+
+                    SPDLOG_LOGGER_DEBUG(logger_,
+                                        "Received stream_group_object subscribe_id: {0} priority: {1} track_alias: {2} "
+                                        "group_id: {3} object_id: {4} data size: {5}",
+                                        msg.subscribe_id,
+                                        msg.priority,
+                                        msg.track_alias,
+                                        msg.group_id,
+                                        obj.object_id,
+                                        obj.payload.size());
+
+                    sub_it->second->ObjectReceived({ msg.group_id,
+                                                     obj.object_id,
+                                                     obj.payload.size(),
+                                                     msg.priority,
+                                                     std::nullopt,
+                                                     TrackMode::kStreamPerGroup,
+                                                     std::nullopt },
+                                                   obj.payload);
+
+                    stream_buffer->ResetAnyB<MoqStreamGroupObject>();
+                    return true;
+                }
+                break;
+            }
+
+            default:
+                // Process the stream object type
+                SPDLOG_LOGGER_ERROR(
+                  logger_, "Unsupported MOQT data message type: {0}, bad stream", static_cast<uint64_t>(data_type));
+                return false;
+        }
+
         return false;
     }
 
@@ -954,31 +1213,21 @@ namespace moq {
 
     template<class HeaderType, class MessageType>
     std::pair<HeaderType&, bool> Transport::ParseStreamData(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
-                                                            MoqMessageType msg_type,
-                                                            const ConnectionContext& conn_ctx)
+                                                            MoqMessageType msg_type)
     {
         if (!stream_buffer->AnyHasValue()) {
-            LOGGER_DEBUG(
+            SPDLOG_LOGGER_DEBUG(
               logger_, "Received stream header (type = {0}), init stream buffer", static_cast<std::uint64_t>(msg_type));
             stream_buffer->InitAny<HeaderType>(static_cast<uint64_t>(msg_type));
         }
 
         auto& msg = stream_buffer->GetAny<HeaderType>();
         if (!stream_buffer->AnyHasValueB() && *stream_buffer >> msg) {
-            auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-            if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                SPDLOG_LOGGER_WARN(logger_,
-                                   "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
-                                   msg.subscribe_id);
-                return { msg, true };
-            }
-
-            // Init second working buffer to read data object
             stream_buffer->InitAnyB<MessageType>();
             return { msg, true };
         }
 
-        return { msg, false };
+        return { msg, stream_buffer->AnyHasValueB() };
     }
 
     template std::pair<messages::MoqSubscribe&, bool> Transport::ParseControlMessage<messages::MoqSubscribe>(
@@ -1029,12 +1278,10 @@ namespace moq {
     template std::pair<messages::MoqStreamHeaderTrack&, bool>
     Transport::ParseStreamData<messages::MoqStreamHeaderTrack, messages::MoqStreamTrackObject>(
       std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
-      MoqMessageType msg_type,
-      const ConnectionContext& conn_ctx);
+      MoqMessageType msg_type);
     template std::pair<messages::MoqStreamHeaderGroup&, bool>
     Transport::ParseStreamData<messages::MoqStreamHeaderGroup, messages::MoqStreamGroupObject>(
       std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
-      MoqMessageType msg_type,
-      const ConnectionContext& conn_ctx);
+      MoqMessageType msg_type);
 
 } // namespace moq

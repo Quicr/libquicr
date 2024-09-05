@@ -1,14 +1,12 @@
-/*
- *  Copyright (C) 2024
- *  Cisco Systems, Inc.
- *  All Rights Reserved
- */
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #pragma once
 
-#include <optional>
-#include <transport/span.h>
 #include <moq/common.h>
+#include <moq/detail/span.h>
 #include <moq/track_name.h>
+#include <optional>
 #include <vector>
 
 namespace moq {
@@ -59,7 +57,6 @@ namespace moq {
       public:
         friend class Transport;
 
-
         virtual ~BaseTrackHandler() = default;
 
         // --------------------------------------------------------------------------
@@ -77,7 +74,6 @@ namespace moq {
         BaseTrackHandler(const FullTrackName& full_track_name)
           : full_track_name_(full_track_name)
         {
-
         }
 
         // --------------------------------------------------------------------------
@@ -99,7 +95,7 @@ namespace moq {
          * @returns Track alias as an optional. Track alias may not be set yet. If not
          *   set, nullopt will be returned.
          */
-        std::optional<uint64_t> GetTrackAlias() { return full_track_name_.track_alias; }
+        std::optional<uint64_t> GetTrackAlias() const noexcept { return full_track_name_.track_alias; }
 
         /**
          * @brief Sets the subscribe ID
@@ -115,7 +111,7 @@ namespace moq {
          *
          * @return nullopt if not subscribed, otherwise the subscribe ID
          */
-        std::optional<uint64_t> GetSubscribeId() { return subscribe_id_; }
+        std::optional<uint64_t> GetSubscribeId() const noexcept { return subscribe_id_; }
 
         /**
          * @brief Get the full track name
@@ -124,12 +120,12 @@ namespace moq {
          *
          * @return FullTrackName
          */
-        FullTrackName GetFullTrackName() { return { full_track_name_ }; }
+        FullTrackName GetFullTrackName() const noexcept { return { full_track_name_ }; }
 
         /**
          * @brief Get the connection ID
          */
-        uint64_t GetConnectionId() { return connection_handle_; };
+        uint64_t GetConnectionId() const noexcept { return connection_handle_; };
 
         // --------------------------------------------------------------------------
         // Internal
@@ -148,8 +144,7 @@ namespace moq {
 
         FullTrackName full_track_name_;
 
-        ConnectionHandle connection_handle_;    // QUIC transport connection ID
-        uint64_t data_context_id_;              // QUIC transport data context ID
+        ConnectionHandle connection_handle_; // QUIC transport connection ID
 
         /**
          * subscribe_id_ is the primary index/key for subscribe subscribe context/delegate storage.

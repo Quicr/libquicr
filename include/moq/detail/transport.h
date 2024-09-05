@@ -1,22 +1,21 @@
-/*
- *  Copyright (C) 2024
- *  Cisco Systems, Inc.
- *  All Rights Reserved recieve receive
- */
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
 
 #pragma once
 
-#include <transport/transport.h>
+#include <moq/detail/messages.h>
 
+#include "quic_transport.h"
+
+#include "span.h"
+#include <chrono>
 #include <moq/common.h>
 #include <moq/config.h>
-#include <moq/detail/messages.h>
 #include <moq/metrics.h>
 #include <moq/publish_track_handler.h>
 #include <moq/subscribe_track_handler.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
-#include <transport/span.h>
 
 #include <map>
 #include <string>
@@ -68,6 +67,7 @@ namespace moq {
         enum class ConnectionStatus : uint8_t
         {
             kNotConnected = 0,
+            kConnecting,
             kConnected,
             kIdleTimeout,
             kClosedByRemote
@@ -78,8 +78,8 @@ namespace moq {
          */
         struct ConnectionRemoteInfo
         {
-            std::string ip;         ///< remote IPv4/v6 address
-            uint16_t port;          ///< remote port
+            std::string ip; ///< remote IPv4/v6 address
+            uint16_t port;  ///< remote port
         };
 
         /**
@@ -116,7 +116,8 @@ namespace moq {
          * @param connection_handle         Connection ID to send subscribe
          * @param track_handler             Track handler to use for track related functions and callbacks
          */
-        void UnsubscribeTrack(ConnectionHandle connection_handle, std::shared_ptr<SubscribeTrackHandler> track_handler);
+        void UnsubscribeTrack(ConnectionHandle connection_handle,
+                              const std::shared_ptr<SubscribeTrackHandler>& track_handler);
 
         /**
          * @brief Publish to a track
@@ -133,7 +134,8 @@ namespace moq {
          * @param connection_handle           Connection ID from transport for the QUIC connection context
          * @param track_handler    Track handler used when published track
          */
-        void UnpublishTrack(ConnectionHandle connection_handle, std::shared_ptr<PublishTrackHandler> track_handler);
+        void UnpublishTrack(ConnectionHandle connection_handle,
+                            const std::shared_ptr<PublishTrackHandler>& track_handler);
 
         /**
          * @brief Bind a server publish track handler based on a subscribe
@@ -147,26 +149,22 @@ namespace moq {
          */
         void BindPublisherTrack(ConnectionHandle connection_handle,
                                 uint64_t subscribe_id,
-                                std::shared_ptr<PublishTrackHandler> track_handler);
+                                const std::shared_ptr<PublishTrackHandler>& track_handler);
 
         /**
-         * @brief Get the instance status
+         * @brief Get the status of the Client
          *
-         * @return Status indicating the state/status of the instance
+         * @return Status of the Client
          */
-        Status GetStatus();
-
-        // --------------------------------------------------------------------------
-        // Metrics
-        // --------------------------------------------------------------------------
+        Status GetStatus() const noexcept { return status_; }
 
         /**
-         * @brief Connection metrics for server accepted connections
+         * @brief Callback notification for status/state change
+         * @details Callback notification indicates state change of connection, such as disconnected
          *
-         * @details Connection metrics are updated real-time and transport quic metrics on
-         *      Config::metrics_sample_ms period
+         * @param status           Status change
          */
-        std::map<ConnectionHandle, ConnectionMetrics> connection_metrics_;
+        virtual void StatusChanged(Status) {}
 
       protected:
         Status Start();
@@ -188,6 +186,15 @@ namespace moq {
                           const bool is_bidir = false) override;
         void OnRecvDgram(const ConnectionHandle& connection_handle, std::optional<DataContextId> data_ctx_id) override;
 
+        void OnConnectionMetricsSampled(TimeStampUs sample_time,
+                                        TransportConnId conn_id,
+                                        const QuicConnectionMetrics& quic_connection_metrics) override;
+
+        void OnDataMetricsStampled(TimeStampUs sample_time,
+                                   TransportConnId conn_id,
+                                   DataContextId data_ctx_id,
+                                   const QuicDataContextMetrics& quic_data_context_metrics) override;
+
         // -------------------------------------------------------------------------------------------------
         // End of transport handler/callback functions
         // -------------------------------------------------------------------------------------------------
@@ -205,13 +212,19 @@ namespace moq {
 
             /// Track namespace/name by received subscribe IDs
             /// Used to map published tracks to subscribes in client mode
-            std::map<uint64_t, std::pair<uint64_t, uint64_t>> recv_sub_id;
+            std::map<messages::SubscribeId, std::pair<TrackNamespaceHash, TrackNameHash>> recv_sub_id;
 
             /// Tracks by subscribe ID
-            std::map<uint64_t, std::shared_ptr<SubscribeTrackHandler>> tracks_by_sub_id;
+            std::map<messages::SubscribeId, std::shared_ptr<SubscribeTrackHandler>> tracks_by_sub_id;
 
             /// Publish tracks by namespace and name. map[track namespace][track name] = track handler
-            std::map<uint64_t, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_name;
+            std::map<TrackNamespaceHash, std::map<TrackNameHash, std::shared_ptr<PublishTrackHandler>>>
+              pub_tracks_by_name;
+
+            /// Published tracks by quic transport data context ID.
+            std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
+
+            ConnectionMetrics metrics; ///< Connection metrics
         };
 
         // -------------------------------------------------------------------------------------------------
@@ -220,7 +233,7 @@ namespace moq {
 
         void Init();
 
-        PublishTrackHandler::PublishObjectStatus SendObject(std::weak_ptr<PublishTrackHandler> track_handler,
+        PublishTrackHandler::PublishObjectStatus SendObject(const PublishTrackHandler& track_handler,
                                                             uint8_t priority,
                                                             uint32_t ttl,
                                                             bool stream_header_needed,
@@ -228,12 +241,12 @@ namespace moq {
                                                             uint64_t object_id,
                                                             BytesSpan data);
 
-        void SendCtrlMsg(const ConnectionContext& conn_ctx, std::vector<uint8_t>&& data);
+        void SendCtrlMsg(const ConnectionContext& conn_ctx, Span<const uint8_t> data);
         void SendClientSetup();
         void SendServerSetup(ConnectionContext& conn_ctx);
-        void SendAnnounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace);
-        void SendAnnounceOk(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace);
-        void SendUnannounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace);
+        void SendAnnounce(ConnectionContext& conn_ctx, Span<const uint8_t> track_namespace);
+        void SendAnnounceOk(ConnectionContext& conn_ctx, Span<const uint8_t> track_namespace);
+        void SendUnannounce(ConnectionContext& conn_ctx, Span<const uint8_t> track_namespace);
         void SendSubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id, const FullTrackName& tfn, TrackHash th);
         void SendSubscribeOk(ConnectionContext& conn_ctx, uint64_t subscribe_id, uint64_t expires, bool content_exists);
         void SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id);
@@ -257,10 +270,18 @@ namespace moq {
         // -------------------------------------------------------------------------------------------------
         // Private member functions that will be implemented by Server class
         // -------------------------------------------------------------------------------------------------
-        virtual void NewConnectionAccepted(ConnectionHandle,
-                                           const ConnectionRemoteInfo&) {};
+        virtual void NewConnectionAccepted(ConnectionHandle, const ConnectionRemoteInfo&) {}
 
-        virtual void ConnectionStatusChanged(ConnectionHandle, ConnectionStatus) {};
+        virtual void ConnectionStatusChanged(ConnectionHandle, ConnectionStatus) {}
+
+        virtual void SetConnectionHandle(ConnectionHandle) {}
+
+        virtual void MetricsSampled(ConnectionHandle, const ConnectionMetrics&) {}
+
+        // -------------------------------------------------------------------------------------------------
+        // Private member functions that will be implemented by Client class
+        // -------------------------------------------------------------------------------------------------
+        virtual void MetricsSampled(const ConnectionMetrics&) {}
 
         // -------------------------------------------------------------------------------------------------
 
@@ -269,22 +290,21 @@ namespace moq {
         // Private member functions that will be implemented by both Server and Client
         // ------------------------------------------------------------------------------------------------
         virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                        std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+                                        std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer) = 0;
 
-        virtual bool ProcessStreamDataMessage(ConnectionContext& conn_ctx,
-                                              std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+        bool ProcessStreamDataMessage(ConnectionContext& conn_ctx,
+                                      std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
         template<class MessageType>
         std::pair<MessageType&, bool> ParseControlMessage(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
 
         template<class MessageType>
-        std::pair<MessageType&, bool> ParseDataMessage(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer, messages::MoqMessageType msg_type);
+        std::pair<MessageType&, bool> ParseDataMessage(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
+                                                       messages::MoqMessageType msg_type);
 
         template<class HeaderType, class MessageType>
-        std::pair<HeaderType&, bool> ParseStreamData(
-          std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
-          messages::MoqMessageType msg_type,
-          const ConnectionContext& conn_ctx);
+        std::pair<HeaderType&, bool> ParseStreamData(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
+                                                     messages::MoqMessageType msg_type);
 
       private:
         // -------------------------------------------------------------------------------------------------

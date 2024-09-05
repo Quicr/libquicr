@@ -11,6 +11,16 @@ env:
   BUILD_TYPE: Release
 
 jobs:
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jidicula/clang-format-action@v4.13.0
+        with:
+          clang-format-version: '18'
+          exclude-regex: '(dependencies)'
+
   build:
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
     # You can convert this to a matrix build if you need cross-platform coverage.
@@ -36,7 +46,7 @@ jobs:
 
     - name: Install Packages (Ubuntu)
       run: |
-        sudo apt-get install -y clang-tidy 
+        sudo apt-get install -y clang-tidy
       if: matrix.os == 'ubuntu-latest'
 
     - name: Configure CMake
@@ -56,5 +66,3 @@ jobs:
 
     - name: Benchmark
       run: ${{github.workspace}}/build/benchmark/quicr_benchmark
-
-

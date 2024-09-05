@@ -1,15 +1,12 @@
-/*
- *  Copyright (C) 2024
- *  Cisco Systems, Inc.
- *  All Rights Reserved
- */
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
 
 #pragma once
 
 #include <cstdint>
-#include <optional>
 #include <map>
 #include <moq/detail/base_track_handler.h>
+#include <optional>
 
 namespace moq {
     using Extensions = std::map<uint64_t, std::vector<uint8_t>>;

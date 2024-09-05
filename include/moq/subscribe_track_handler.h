@@ -1,8 +1,6 @@
-/*
- *  Copyright (C) 2024
- *  Cisco Systems, Inc.
- *  All Rights Reserved
- */
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #pragma once
 
 #include <moq/detail/base_track_handler.h>
@@ -91,7 +89,7 @@ namespace moq {
          * @param data              Object payload data received, **MUST** match ObjectHeaders::payload_length.
          */
         virtual void ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
-                                    [[maybe_unused]] Span<uint8_t> data)
+                                    [[maybe_unused]] BytesSpan data)
         {
         }
 
@@ -106,7 +104,7 @@ namespace moq {
          * @param data              Object payload data received, can be <= ObjectHeaders::payload_length
          */
         virtual void PartialObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
-                                           [[maybe_unused]] Span<uint8_t> data)
+                                           [[maybe_unused]] BytesSpan data)
         {
         }
 
@@ -128,7 +126,7 @@ namespace moq {
          *
          * @param metrics           Copy of the subscribed metrics for the sample period
          */
-        virtual void MetricsSampled([[maybe_unused]] const SubscribeTrackMetrics&& metrics) {}
+        virtual void MetricsSampled([[maybe_unused]] const SubscribeTrackMetrics& metrics) {}
 
         // --------------------------------------------------------------------------
         // Metrics
@@ -150,7 +148,11 @@ namespace moq {
          * @brief Set the subscribe status
          * @param status                Status of the subscribe
          */
-        void SetStatus(Status status) noexcept { status_ = status; StatusChanged(status); }
+        void SetStatus(Status status) noexcept
+        {
+            status_ = status;
+            StatusChanged(status);
+        }
 
         // --------------------------------------------------------------------------
         // Member variables

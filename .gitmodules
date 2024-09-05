@@ -1,6 +1,18 @@
-[submodule "dependencies/transport"]
-	path = dependencies/transport
-	url = https://github.com/Quicr/transport.git
 [submodule "dependencies/doctest"]
 	path = dependencies/doctest
 	url = https://github.com/doctest/doctest.git
+[submodule "dependencies/boringssl"]
+	path = dependencies/boringssl
+	url = https://github.com/quicr/boringssl
+[submodule "dependencies/picotls"]
+	path = dependencies/picotls
+	url = https://github.com/quicr/picotls
+[submodule "dependencies/picoquic"]
+	path = dependencies/picoquic
+	url = https://github.com/quicr/picoquic
+[submodule "dependencies/mbedtls"]
+	path = dependencies/mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls.git
+[submodule "dependencies/spdlog"]
+	path = dependencies/spdlog
+	url = https://github.com/gabime/spdlog.git

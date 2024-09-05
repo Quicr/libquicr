@@ -1,16 +1,13 @@
-/*
- *  Copyright (C) 2024
- *  Cisco Systems, Inc.
- *  All Rights Reserved
- */
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
 
 #pragma once
 
+#include "moq/detail/messages.h"
 #include <moq/config.h>
-#include <moq/detail/messages.h>
-#include <moq/track_name.h>
-#include <moq/object.h>
 #include <moq/detail/transport.h>
+#include <moq/object.h>
+#include <moq/track_name.h>
 
 namespace moq {
     using namespace qtransport;
@@ -26,19 +23,21 @@ namespace moq {
         /**
          * @brief Response to received MOQT ClientSetup message
          */
-        struct ClientSetupResponse {};
-
+        struct ClientSetupResponse
+        {};
 
         /**
          * @brief Response to received MOQT Announce message
          */
-        struct AnnounceResponse {
+        struct AnnounceResponse
+        {
             /**
              * @details **kOK** indicates that the announce is accepted and OK should be sent. Any other
              *       value indicates that the announce is not accepted and the reason code and other
              *       fields will be set.
              */
-            enum class ReasonCode: uint8_t {
+            enum class ReasonCode : uint8_t
+            {
                 kOk = 0,
                 kInternalError
             };
@@ -46,7 +45,6 @@ namespace moq {
 
             std::optional<Bytes> reason_phrase;
         };
-
 
         /**
          * @brief MoQ Server constructor to create the MOQ server mode instance
@@ -83,7 +81,7 @@ namespace moq {
          * @param connection_handle          Transport connection ID
          * @param remote                     Transport remote connection information
          */
-         void NewConnectionAccepted(ConnectionHandle connection_handle, const ConnectionRemoteInfo& remote);
+        void NewConnectionAccepted(ConnectionHandle connection_handle, const ConnectionRemoteInfo& remote) override;
 
         /**
          * @brief Callback notification for connection status/state change
@@ -92,7 +90,19 @@ namespace moq {
          * @param connection_handle          Transport connection ID
          * @param status                     ConnectionStatus of connection id
          */
-         void ConnectionStatusChanged(ConnectionHandle connection_handle, ConnectionStatus status);
+        void ConnectionStatusChanged(ConnectionHandle connection_handle, ConnectionStatus status) override;
+
+        /**
+         * @brief Notification callback to provide sampled metrics
+         *
+         * @details Callback will be triggered on Config::metrics_sample_ms to provide the sampled data based
+         *      on the sample period.  After this callback, the period/sample based metrics will reset and start over
+         *      for the new period.
+         *
+         * @param connection_handle           Source connection ID
+         * @param metrics                     Copy of the connection metrics for the sample period
+         */
+        void MetricsSampled(ConnectionHandle connection_handle, const ConnectionMetrics& metrics) override;
 
         /**
          * @brief Callback on client setup message
@@ -132,8 +142,8 @@ namespace moq {
          * @param announce_response        response to for the announcement
          */
         void ResolveAnnounce(ConnectionHandle connection_handle,
-                            const TrackNamespace& track_namespace,
-                            AnnounceResponse announce_response);
+                             const TrackNamespace& track_namespace,
+                             const AnnounceResponse& announce_response);
 
         /**
          * @brief Callback notification for unannounce received
@@ -142,8 +152,7 @@ namespace moq {
          * @param track_namespace           Track namespace
          *
          */
-        virtual void UnannounceReceived(ConnectionHandle connection_handle,
-                                        const TrackNamespace& track_namespace) = 0;
+        virtual void UnannounceReceived(ConnectionHandle connection_handle, const TrackNamespace& track_namespace) = 0;
 
         /**
          * @brief Callback notification for new subscribe received
@@ -175,7 +184,7 @@ namespace moq {
          */
         virtual void ResolveSubscribe(ConnectionHandle connection_handle,
                                       uint64_t subscribe_id,
-                                      SubscribeResponse subscribe_response);
+                                      const SubscribeResponse& subscribe_response);
 
         /**
          * @brief Callback notification on unsubscribe received
@@ -183,25 +192,11 @@ namespace moq {
          * @param connection_handle             Source connection ID
          * @param subscribe_id        Subscribe ID received
          */
-        virtual void UnsubscribeReceived(ConnectionHandle connection_handle,
-                                         uint64_t subscribe_id) = 0;
-
-        /**
-         * @brief Notification callback to provide sampled metrics
-         *
-         * @details Callback will be triggered on Config::metrics_sample_ms to provide the sampled data based
-         *      on the sample period.  After this callback, the period/sample based metrics will reset and start over
-         *      for the new period.
-         *
-         * @param connection_handle           Source connection ID
-         * @param metrics           Copy of the connection metrics for the sample period
-         */
-        virtual void MetricsSampled(ConnectionHandle connection_handle, const ConnectionMetrics&& metrics)  = 0;
+        virtual void UnsubscribeReceived(ConnectionHandle connection_handle, uint64_t subscribe_id) = 0;
 
       private:
-        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                        std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
-
+        bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
+                                std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer) override;
 
         bool stop_{ false };
     };

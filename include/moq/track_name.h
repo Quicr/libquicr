@@ -1,8 +1,5 @@
-/*
- *  Copyright (C) 2024
- *  Cisco Systems, Inc.
- *  All Rights Reserved
- */
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
 
 #pragma once
 
@@ -12,6 +9,8 @@
 
 namespace moq {
     using TrackNamespace = std::vector<uint8_t>;
+    using TrackNamespaceHash = uint64_t;
+    using TrackNameHash = uint64_t;
 
     /**
      * @brief Full track name struct
@@ -28,26 +27,25 @@ namespace moq {
 
     struct TrackHash
     {
-        uint64_t track_namespace_hash; // 64bit hash of namespace
-        uint64_t track_name_hash;      // 64bit hash of name
+        TrackNamespaceHash track_namespace_hash = 0; // 64bit hash of namespace
+        TrackNameHash track_name_hash = 0;           // 64bit hash of name
 
-        uint64_t track_fullname_hash; // 62bit of namespace+name
+        uint64_t track_fullname_hash = 0; // 62bit of namespace+name
 
-        TrackHash(const uint64_t name_space, const uint64_t name)
+        constexpr TrackHash(const uint64_t name_space, const uint64_t name) noexcept
+          : track_namespace_hash{ name_space }
+          , track_name_hash{ name }
+          , track_fullname_hash{ (name_space ^ (name << 1)) << 1 >> 2 }
         {
-            track_namespace_hash = name_space;
-            track_name_hash = name;
         }
 
         TrackHash(const FullTrackName& ftn) noexcept
+          : track_namespace_hash{ std::hash<std::string_view>{}(
+              { reinterpret_cast<const char*>(ftn.name_space.data()), ftn.name_space.size() }) }
+          , track_name_hash{ std::hash<std::string_view>{}(
+              { reinterpret_cast<const char*>(ftn.name.data()), ftn.name.size() }) }
         {
-            track_namespace_hash = std::hash<std::string_view>{}(
-              { reinterpret_cast<const char*>(ftn.name_space.data()), ftn.name_space.size() });
-            track_name_hash =
-              std::hash<std::string_view>{}({ reinterpret_cast<const char*>(ftn.name.data()), ftn.name.size() });
-
-            track_fullname_hash =
-              (track_namespace_hash ^ (track_name_hash << 1)) << 1 >> 2; // combine and convert to 62 bits for uintVar
+            track_fullname_hash = (track_namespace_hash ^ (track_name_hash << 1)) << 1 >> 2;
         }
     };
 

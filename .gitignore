@@ -50,3 +50,4 @@ cmake-build-debug
 
 # Other
 .tmp.dprobes.h
+libquicr.spdx

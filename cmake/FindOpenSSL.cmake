@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+# SPDX-License-Identifier: BSD-2-Clause
 
 if (NOT ${USE_MBEDTLS})
 
@@ -19,7 +21,7 @@ if (NOT ${USE_MBEDTLS})
             NAMES
             openssl/opensslv.h
             HINTS
-            ${CMAKE_CURRENT_SOURCE_DIR}/transport/dependencies/boringssl/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/boringssl/include
     )
 
     mark_as_advanced(OPENSSL_INCLUDE_DIR OPENSSL_LIBRARIES OPENSSL_CRYPTO_LIBRARY OPENSSL_SSL_LIBRARY)

@@ -1,13 +1,10 @@
-/*
- *  Copyright (C) 2024
- *  Cisco Systems, Inc.
- *  All Rights Reserved
- */
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
 
 #pragma once
 
+#include "detail/quic_transport.h"
 #include <string>
-#include <transport/transport.h>
 
 namespace moq {
 
@@ -17,8 +14,9 @@ namespace moq {
 
     using namespace qtransport;
 
-    using Bytes = std::vector<uint8_t>;
-    using BytesSpan = Span<uint8_t const>;
+    using Byte = uint8_t;
+    using Bytes = std::vector<Byte>;
+    using BytesSpan = Span<const Byte>;
     using ConnectionHandle = uint64_t;
 
     /**
