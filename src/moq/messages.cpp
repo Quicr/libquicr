@@ -28,69 +28,6 @@ namespace moq::messages {
         return true;
     }
 
-    MessageBuffer& operator<<(MessageBuffer& msg, Span<const uint8_t> val)
-    {
-        msg.push(qtransport::ToUintV(val.size()));
-        msg.push(val);
-        return msg;
-    }
-
-    MessageBuffer& operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val)
-    {
-        msg.push(qtransport::ToUintV(val.size()));
-        msg.push(std::move(val));
-        return msg;
-    }
-
-    MessageBuffer& operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
-    {
-        std::size_t size = qtransport::UintVSize(msg.front());
-        std::size_t vec_size = qtransport::ToUint64(msg.pop_front(size));
-
-        val = msg.pop_front(vec_size);
-        return msg;
-    }
-
-    MessageBuffer& operator<<(MessageBuffer& msg, const std::string& val)
-    {
-        std::vector<uint8_t> v(val.begin(), val.end());
-        msg << v;
-        return msg;
-    }
-
-    MessageBuffer& operator>>(MessageBuffer& msg, std::string& val)
-    {
-        std::size_t size = qtransport::UintVSize(msg.front());
-        std::size_t vec_size = qtransport::ToUint64(msg.pop_front(size));
-
-        const auto val_vec = msg.pop_front(vec_size);
-        val.assign(val_vec.begin(), val_vec.end());
-
-        return msg;
-    }
-
-    //
-    // Optional
-    //
-
-    template<typename T>
-    MessageBuffer& operator<<(MessageBuffer& buffer, const std::optional<T>& val)
-    {
-        if (val.has_value()) {
-            buffer << val.value();
-        }
-        return buffer;
-    }
-
-    template<typename T>
-    MessageBuffer& operator>>(MessageBuffer& buffer, std::optional<T>& val)
-    {
-        T val_in{};
-        buffer >> val_in;
-        val = val_in;
-        return buffer;
-    }
-
     //
     // MoqParameter
     //
@@ -126,27 +63,6 @@ namespace moq::messages {
         }
 
         return true;
-    }
-
-    MessageBuffer& operator<<(MessageBuffer& buffer, const MoqParameter& param)
-    {
-        buffer << param.type;
-        buffer << param.length;
-        if (param.length) {
-            buffer << param.value;
-        }
-
-        return buffer;
-    }
-
-    MessageBuffer& operator>>(MessageBuffer& buffer, MoqParameter& param)
-    {
-        buffer >> param.type;
-        buffer >> param.length;
-        if (static_cast<uint64_t>(param.length) > 0) {
-            buffer >> param.value;
-        }
-        return buffer;
     }
 
     //
@@ -838,19 +754,6 @@ namespace moq::messages {
         }
         msg.new_session_uri = std::move(val.value());
         return true;
-    }
-
-    MessageBuffer& operator<<(MessageBuffer& buffer, const MoqGoaway& msg)
-    {
-        buffer << static_cast<uint8_t>(MoqMessageType::GOAWAY);
-        buffer << msg.new_session_uri;
-        return buffer;
-    }
-
-    MessageBuffer& operator>>(MessageBuffer& buffer, MoqGoaway& msg)
-    {
-        buffer >> msg.new_session_uri;
-        return buffer;
     }
 
     //

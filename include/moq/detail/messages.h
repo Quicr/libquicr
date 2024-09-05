@@ -5,7 +5,7 @@
 
 #include "moq/common.h"
 #include "stream_buffer.h"
-#include <moq/message_buffer.h>
+
 #include <string>
 #include <vector>
 
@@ -105,9 +105,6 @@ namespace moq::messages {
         friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
                                                              const MoqParameter& msg);
     };
-
-    MessageBuffer& operator<<(MessageBuffer& buffer, const MoqParameter& param);
-    MessageBuffer& operator>>(MessageBuffer& buffer, MoqParameter& param);
 
     //
     // Setup
@@ -341,9 +338,6 @@ namespace moq::messages {
         friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
                                                              const MoqGoaway& msg);
     };
-
-    MessageBuffer& operator<<(MessageBuffer& buffer, const MoqGoaway& msg);
-    MessageBuffer& operator>>(MessageBuffer& buffer, MoqGoaway& msg);
 
     //
     // Object

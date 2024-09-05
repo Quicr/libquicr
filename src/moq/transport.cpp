@@ -137,7 +137,7 @@ namespace moq {
 
     void Transport::OnNewDataContext(const ConnectionHandle&, const DataContextId&) {}
 
-    void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, std::vector<uint8_t>&& data)
+    void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data)
     {
         if (not conn_ctx.ctrl_data_ctx_id) {
             CloseConnection(

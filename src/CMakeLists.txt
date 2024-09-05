@@ -7,7 +7,6 @@ else()
     add_library(quicr)
 endif()
 target_sources (quicr PRIVATE
-        message_buffer.cpp
         quic/transport.cpp
         quic/transport_picoquic.cpp
         moq/messages.cpp
