@@ -232,7 +232,21 @@ class MyServer : public moq::Server
 
     void NewConnectionAccepted(moq::ConnectionHandle connection_handle, const ConnectionRemoteInfo& remote) override
     {
-        SPDLOG_INFO("New connection accepted from {0}:{1}", remote.ip, remote.port);
+        SPDLOG_INFO("New connection handle {0} accepted from {1}:{2}", connection_handle, remote.ip, remote.port);
+    }
+
+    void MetricsSampled(moq::ConnectionHandle connection_handle, const moq::ConnectionMetrics& metrics) override
+    {
+        SPDLOG_DEBUG("Metrics connection handle: {0}"
+                     " rtt_us: {1}"
+                     " srtt_us: {2}"
+                     " rate_bps: {3}"
+                     " lost pkts: {4}",
+                     connection_handle,
+                     metrics.quic.rtt_us.max,
+                     metrics.quic.srtt_us.max,
+                     metrics.quic.tx_rate_bps.max,
+                     metrics.quic.tx_lost_pkts);
     }
 
     void UnannounceReceived(moq::ConnectionHandle connection_handle,
@@ -467,20 +481,6 @@ class MyServer : public moq::Server
                 qserver_vars::pub_subscribes[th.track_fullname_hash][conn_h] = sub_track_h;
             }
         }
-    }
-
-    void MetricsSampled(const moq::ConnectionHandle connection_handle, const moq::ConnectionMetrics& metrics) override
-    {
-        SPDLOG_DEBUG("Metrics connection handle: {0}"
-                     " rtt_us: {1}"
-                     " srtt_us: {2}"
-                     " rate_bps: {3}"
-                     " lost pkts: {4}",
-                     connection_handle,
-                     metrics.quic.rtt_us.max,
-                     metrics.quic.srtt_us.max,
-                     metrics.quic.tx_rate_bps.max,
-                     metrics.quic.tx_lost_pkts);
     }
 };
 

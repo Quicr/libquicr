@@ -93,6 +93,18 @@ namespace moq {
         void ConnectionStatusChanged(ConnectionHandle connection_handle, ConnectionStatus status) override;
 
         /**
+         * @brief Notification callback to provide sampled metrics
+         *
+         * @details Callback will be triggered on Config::metrics_sample_ms to provide the sampled data based
+         *      on the sample period.  After this callback, the period/sample based metrics will reset and start over
+         *      for the new period.
+         *
+         * @param connection_handle           Source connection ID
+         * @param metrics                     Copy of the connection metrics for the sample period
+         */
+        void MetricsSampled(ConnectionHandle connection_handle, const ConnectionMetrics& metrics) override;
+
+        /**
          * @brief Callback on client setup message
          * @details In server mode, client will send a setup message on new connection.
          *         Server responds with server setup.
@@ -181,18 +193,6 @@ namespace moq {
          * @param subscribe_id        Subscribe ID received
          */
         virtual void UnsubscribeReceived(ConnectionHandle connection_handle, uint64_t subscribe_id) = 0;
-
-        /**
-         * @brief Notification callback to provide sampled metrics
-         *
-         * @details Callback will be triggered on Config::metrics_sample_ms to provide the sampled data based
-         *      on the sample period.  After this callback, the period/sample based metrics will reset and start over
-         *      for the new period.
-         *
-         * @param connection_handle           Source connection ID
-         * @param metrics           Copy of the connection metrics for the sample period
-         */
-        virtual void MetricsSampled(ConnectionHandle connection_handle, const ConnectionMetrics& metrics) = 0;
 
       private:
         bool ProcessCtrlMessage(ConnectionContext& conn_ctx,

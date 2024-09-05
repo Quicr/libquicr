@@ -17,11 +17,13 @@ namespace moq {
 
     void Server::NewConnectionAccepted(moq::ConnectionHandle connection_handle, const ConnectionRemoteInfo& remote)
     {
-        SPDLOG_LOGGER_INFO(
+        SPDLOG_LOGGER_DEBUG(
           logger_, "New connection conn_id: {0} remote ip: {1} port: {2}", connection_handle, remote.ip, remote.port);
     }
 
     void Server::ConnectionStatusChanged(ConnectionHandle, ConnectionStatus) {}
+
+    void Server::MetricsSampled(ConnectionHandle, const ConnectionMetrics&) {}
 
     void Server::AnnounceReceived(ConnectionHandle, const TrackNamespace&, const PublishAnnounceAttributes&) {}
 

@@ -6,7 +6,6 @@
 #include <moq/common.h>
 #include <moq/config.h>
 #include <moq/detail/transport.h>
-#include <moq/object.h>
 #include <moq/track_name.h>
 #include <optional>
 
@@ -118,7 +117,7 @@ namespace moq {
          *
          * @param metrics           Copy of the connection metrics for the sample period
          */
-        virtual void MetricsSampled(const ConnectionMetrics& metrics);
+        void MetricsSampled(const ConnectionMetrics& metrics) override;
 
         /**
          * @brief Get announce status for namespace
