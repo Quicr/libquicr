@@ -101,7 +101,7 @@ namespace qtransport {
         {
             const int interval_us = interval_.count();
 
-            timeval sleep_time = { .tv_sec = 0, .tv_usec = interval_us };
+            timeval sleep_time = { 0, interval_us };
             while (!stop_) {
                 select(0, NULL, NULL, NULL, &sleep_time);
                 sleep_time.tv_usec = interval_us;
@@ -283,7 +283,7 @@ namespace qtransport {
                 Pop();
             }
 
-            return std::move(obj);
+            return obj;
         }
 
         /**
@@ -296,7 +296,7 @@ namespace qtransport {
             TimeQueueElement<T> elem;
 
             if (queue_.empty())
-                return std::move(elem);
+                return elem;
 
             while (queue_index_ < queue_.size()) {
                 auto& [bucket, value_index, expiry_tick, pop_wait_ttl] = queue_.at(queue_index_);
@@ -308,17 +308,17 @@ namespace qtransport {
                 }
 
                 if (pop_wait_ttl > ticks) {
-                    return std::move(elem);
+                    return elem;
                 }
 
                 elem.has_value = true;
                 elem.value = bucket.at(value_index);
-                return std::move(elem);
+                return elem;
             }
 
             Clear();
 
-            return std::move(elem);
+            return elem;
         }
 
         size_t Size() const noexcept { return queue_.size() - queue_index_; }

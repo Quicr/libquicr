@@ -12,7 +12,7 @@
 class TestPublishTrackHandler : public moq::PublishTrackHandler
 {
     TestPublishTrackHandler()
-      : PublishTrackHandler({ .name{}, .name_space{} }, moq::TrackMode::kStreamPerGroup, 0, 0)
+      : PublishTrackHandler({ {}, {}, std::nullopt }, moq::TrackMode::kStreamPerGroup, 0, 0)
     {
     }
 
@@ -25,6 +25,6 @@ class TestPublishTrackHandler : public moq::PublishTrackHandler
 
 TEST_CASE("Create Track Handler")
 {
-    CHECK_NOTHROW(moq::PublishTrackHandler::Create({ .name{}, .name_space{} }, moq::TrackMode::kStreamPerGroup, 0, 0));
+    CHECK_NOTHROW(moq::PublishTrackHandler::Create({ {}, {}, std::nullopt }, moq::TrackMode::kStreamPerGroup, 0, 0));
     CHECK_NOTHROW(TestPublishTrackHandler::Create());
 }
