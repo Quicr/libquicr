@@ -118,7 +118,7 @@ namespace moq {
          *
          * @param metrics           Copy of the connection metrics for the sample period
          */
-        virtual void MetricsSampled(const ConnectionMetrics&& metrics);
+        virtual void MetricsSampled(const ConnectionMetrics metrics);
 
         /**
          * @brief Get announce status for namespace

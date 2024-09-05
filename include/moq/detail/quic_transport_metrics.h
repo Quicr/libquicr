@@ -66,30 +66,31 @@ namespace qtransport {
      */
     struct QuicConnectionMetrics
     {
-        uint64_t cwin_congested{ 0 };      /// CC: Number of times CWIN is low or zero (congested)
-        uint64_t prev_cwin_congested{ 0 }; /// Previous number of times CWIN is congested
-        uint64_t tx_congested{ 0 };        /// count of times transmit connection is considered congested
+        uint64_t cwin_congested{ 0 };      ///< Number of times CWIN is low or zero (congested)
+        uint64_t prev_cwin_congested{ 0 }; ///< Previous number of times CWIN is congested
 
-        MinMaxAvg tx_rate_bps;         /// Rate in bits per second in period
-        MinMaxAvg rx_rate_bps;         /// Estimated rate in bits per second in period
-        MinMaxAvg tx_cwin_bytes;       /// Congestion window bytes in period
-        MinMaxAvg tx_in_transit_bytes; /// Number of bytes in transit
-        MinMaxAvg rtt_us;              /// Round trip time in microseconds in period
-        MinMaxAvg srtt_us;             /// Smooth Round trip time in microseconds in period
+        uint64_t tx_congested{ 0 }; ///< count of times transmit connection is considered congested
 
-        uint64_t tx_retransmits{ 0 };     /// count of retransmits
-        uint64_t tx_lost_pkts{ 0 };       /// Number of lost packets sent
-        uint64_t tx_timer_losses{ 0 };    /// Packet losses detected due to timer expiring
-        uint64_t tx_spurious_losses{ 0 }; /// Number of packet lost that were later acked
+        MinMaxAvg tx_rate_bps;         ///< Rate in bits per second in period
+        MinMaxAvg rx_rate_bps;         ///< Estimated rate in bits per second in period
+        MinMaxAvg tx_cwin_bytes;       ///< Congestion window bytes in period
+        MinMaxAvg tx_in_transit_bytes; ///< Number of bytes in transit
+        MinMaxAvg rtt_us;              ///< Round trip time in microseconds in period
+        MinMaxAvg srtt_us;             ///< Smooth Round trip time in microseconds in period
 
-        uint64_t rx_dgrams{ 0 };       /// count of datagrams received
-        uint64_t rx_dgrams_bytes{ 0 }; /// Number of receive datagram bytes
+        uint64_t tx_retransmits{ 0 };     ///< count of retransmits
+        uint64_t tx_lost_pkts{ 0 };       ///< Number of lost packets sent
+        uint64_t tx_timer_losses{ 0 };    ///< Packet losses detected due to timer expiring
+        uint64_t tx_spurious_losses{ 0 }; ///< Number of packet lost that were later acked
 
-        uint64_t tx_dgram_cb{ 0 };       /// count of picoquic callback for datagram can be sent
-        uint64_t tx_dgram_ack{ 0 };      /// count of picoquic callback for acked datagrams
-        uint64_t tx_dgram_lost{ 0 };     /// count of picoquic callback for lost datagrams
-        uint64_t tx_dgram_spurious{ 0 }; /// count of picoquic callback for late/delayed dgram acks
-        uint64_t tx_dgram_drops{ 0 };    /// count of drops due to data context missing
+        uint64_t rx_dgrams{ 0 };       ///< count of datagrams received
+        uint64_t rx_dgrams_bytes{ 0 }; ///< Number of receive datagram bytes
+
+        uint64_t tx_dgram_cb{ 0 };       ///< count of picoquic callback for datagram can be sent
+        uint64_t tx_dgram_ack{ 0 };      ///< count of picoquic callback for acked datagrams
+        uint64_t tx_dgram_lost{ 0 };     ///< count of picoquic callback for lost datagrams
+        uint64_t tx_dgram_spurious{ 0 }; ///< count of picoquic callback for late/delayed dgram acks
+        uint64_t tx_dgram_drops{ 0 };    ///< count of drops due to data context missing
 
 #if __cplusplus >= 202002L
         auto operator<=>(const QuicConnectionMetrics&) const = default;

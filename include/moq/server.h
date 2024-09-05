@@ -192,7 +192,7 @@ namespace moq {
          * @param connection_handle           Source connection ID
          * @param metrics           Copy of the connection metrics for the sample period
          */
-        virtual void MetricsSampled(ConnectionHandle connection_handle, const ConnectionMetrics&& metrics) = 0;
+        virtual void MetricsSampled(ConnectionHandle connection_handle, ConnectionMetrics metrics) = 0;
 
       private:
         bool ProcessCtrlMessage(ConnectionContext& conn_ctx,

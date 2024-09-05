@@ -27,7 +27,7 @@ namespace moq {
 
     void Client::ResolveSubscribe(ConnectionHandle, uint64_t, const SubscribeResponse&) {}
 
-    void Client::MetricsSampled(const ConnectionMetrics&&) {}
+    void Client::MetricsSampled(const ConnectionMetrics) {}
 
     PublishAnnounceStatus Client::GetAnnounceStatus(const TrackNamespace&)
     {
@@ -60,6 +60,8 @@ namespace moq {
                     if (msg.subscribe_id > conn_ctx.current_subscribe_id) {
                         conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
                     }
+
+                    conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
 
                     // For client/publisher, notify track that there is a subscriber
                     auto ptd = GetPubTrackHandler(conn_ctx, th);

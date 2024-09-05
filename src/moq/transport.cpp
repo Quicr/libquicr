@@ -104,7 +104,7 @@ namespace moq {
 
             quic_transport_ = ITransport::MakeClientTransport(relay, client_config_.transport_config, *this, logger_);
 
-            auto conn_id = quic_transport_->Start(nullptr, nullptr);
+            auto conn_id = quic_transport_->Start();
 
             SetConnectionHandle(conn_id);
 
@@ -123,7 +123,7 @@ namespace moq {
             server.proto = TransportProtocol::kQuic;
 
             quic_transport_ = ITransport::MakeServerTransport(server, server_config_.transport_config, *this, logger_);
-            quic_transport_->Start(nullptr, nullptr);
+            quic_transport_->Start();
 
             status_ = Status::kReady;
             return status_;
@@ -134,8 +134,6 @@ namespace moq {
     {
         return Status();
     }
-
-    void Transport::OnNewDataContext(const ConnectionHandle&, const DataContextId&) {}
 
     void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, std::vector<uint8_t>&& data)
     {
@@ -416,9 +414,10 @@ namespace moq {
             return SendObject(*track_handler, priority, ttl, stream_header_needed, group_id, object_id, data);
         };
 
-        // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
-        // TODO(trigaux): If this following line is reintroduced, then pass track_handler by value instead of const-ref.
-        // TODO(tievens) - revisit -- conn_it->second.tracks_by_sub_id[subscribe_id] = std::move(track_handler);
+        // Hold onto track handler
+        conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
+        conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
+
     }
 
     void Transport::UnsubscribeTrack(qtransport::TransportConnId conn_id,
@@ -496,6 +495,7 @@ namespace moq {
                 pub_n_it->second->publish_data_ctx_id_ = 0;
 
                 pub_n_it->second->SetStatus(PublishTrackHandler::Status::kNotAnnounced);
+                conn_it->second.pub_tracks_by_data_ctx_id.erase(pub_n_it->second->GetDataContextId());
                 pub_ns_it->second.erase(pub_n_it);
             }
 
@@ -504,6 +504,7 @@ namespace moq {
                   logger_, "Unpublish namespace hash: {0}, has no tracks, sending unannounce", th.track_namespace_hash);
                 SendUnannounce(conn_it->second, tfn.name_space);
                 conn_it->second.pub_tracks_by_name.erase(pub_ns_it);
+
             }
         }
     }
@@ -566,9 +567,10 @@ namespace moq {
             Span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
             return SendObject(*track_handler, priority, ttl, stream_header_needed, group_id, object_id, data);
         };
-        // Set the track handler for pub/sub
 
-        conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = std::move(track_handler);
+        // Hold ref to track handler
+        conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
+        conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
     }
 
     PublishTrackHandler::PublishObjectStatus Transport::SendObject(const PublishTrackHandler& track_handler,
@@ -913,6 +915,49 @@ namespace moq {
             }
         }
     }
+
+    void Transport::OnConnectionMetricsSampled(
+        const TimeStampUs sample_time, const TransportConnId conn_id,
+        QuicConnectionMetrics quic_connection_metrics) {
+        // TODO: doesn't require lock right now, but might need to add lock
+        auto &conn = connections_[conn_id];
+
+        conn.metrics.last_sample_time = sample_time;
+        conn.metrics.quic = quic_connection_metrics;
+
+        if (client_mode_) {
+            MetricsSampled(conn.metrics);
+        } else {
+            MetricsSampled(conn_id, conn.metrics);
+        }
+    }
+
+    void Transport::OnDataMetricsStampled(const TimeStampUs sample_time,
+                                          const TransportConnId conn_id,
+                                          const DataContextId data_ctx_id,
+                                          QuicDataContextMetrics quic_data_context_metrics) {
+
+        const auto& conn = connections_[conn_id];
+        const auto& pub_th_it = conn.pub_tracks_by_data_ctx_id.find(data_ctx_id);
+
+        if (pub_th_it != conn.pub_tracks_by_data_ctx_id.end()) {
+            auto& pub_h = pub_th_it->second;
+            pub_h->publish_track_metrics_.last_sample_time = sample_time;
+
+            pub_h->publish_track_metrics_.quic.tx_buffer_drops = quic_data_context_metrics.tx_buffer_drops;
+            pub_h->publish_track_metrics_.quic.tx_callback_ms = quic_data_context_metrics.tx_callback_ms;
+            pub_h->publish_track_metrics_.quic.tx_delayed_callback = quic_data_context_metrics.tx_delayed_callback;
+            pub_h->publish_track_metrics_.quic.tx_object_duration_us = quic_data_context_metrics.tx_object_duration_us;
+            pub_h->publish_track_metrics_.quic.tx_queue_discards = quic_data_context_metrics.tx_queue_discards;
+            pub_h->publish_track_metrics_.quic.tx_queue_expired = quic_data_context_metrics.tx_queue_expired;
+            pub_h->publish_track_metrics_.quic.tx_queue_size = quic_data_context_metrics.tx_queue_size;
+            pub_h->publish_track_metrics_.quic.tx_reset_wait = quic_data_context_metrics.tx_reset_wait;
+
+            pub_h->MetricsSampled(pub_h->publish_track_metrics_);
+        }
+    }
+
+    void Transport::OnNewDataContext(const ConnectionHandle&, const DataContextId&) {}
 
     void Transport::CloseConnection(TransportConnId conn_id,
                                     messages::MoqTerminationReason reason,

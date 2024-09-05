@@ -54,6 +54,9 @@ namespace moq {
                 auto&& [msg, parsed] = ParseControlMessage<messages::MoqSubscribe>(stream_buffer);
                 if (parsed) {
                     auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+                    auto th = TrackHash(tfn);
+
+                    conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
 
                     if (msg.subscribe_id > conn_ctx.current_subscribe_id) {
                         conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
