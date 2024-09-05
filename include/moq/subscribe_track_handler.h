@@ -89,7 +89,7 @@ namespace moq {
          * @param data              Object payload data received, **MUST** match ObjectHeaders::payload_length.
          */
         virtual void ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
-                                    [[maybe_unused]] Span<const uint8_t> data)
+                                    [[maybe_unused]] BytesSpan data)
         {
         }
 
@@ -104,7 +104,7 @@ namespace moq {
          * @param data              Object payload data received, can be <= ObjectHeaders::payload_length
          */
         virtual void PartialObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
-                                           [[maybe_unused]] Span<const uint8_t> data)
+                                           [[maybe_unused]] BytesSpan data)
         {
         }
 

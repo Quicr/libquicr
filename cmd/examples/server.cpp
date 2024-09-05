@@ -98,7 +98,7 @@ class MySubscribeTrackHandler : public moq::SubscribeTrackHandler
     {
     }
 
-    void ObjectReceived(const moq::ObjectHeaders& object_headers, Span<const uint8_t> data) override
+    void ObjectReceived(const moq::ObjectHeaders& object_headers, moq::BytesSpan data) override
     {
         std::lock_guard<std::mutex> _(qserver_vars::state_mutex);
 

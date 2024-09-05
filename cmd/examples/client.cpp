@@ -26,7 +26,7 @@ class MySubscribeTrackHandler : public moq::SubscribeTrackHandler
     {
     }
 
-    void ObjectReceived(const moq::ObjectHeaders& object_headers, Span<const uint8_t> data) override
+    void ObjectReceived(const moq::ObjectHeaders& object_headers, moq::BytesSpan data) override
     {
         std::string msg(data.begin(), data.end());
         SPDLOG_INFO("Received message: {0}", msg);
