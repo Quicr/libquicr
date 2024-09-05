@@ -24,11 +24,13 @@
 #include <picoquic_packet_loop.h>
 #include <spdlog/spdlog.h>
 
-#include <moq/detail/priority_queue.h>
-#include <moq/detail/quic_transport_metrics.h>
-#include <moq/detail/safe_queue.h>
-#include <moq/detail/stream_buffer.h>
-#include <moq/detail/time_queue.h>
+#include "moq/detail/priority_queue.h"
+#include "moq/detail/quic_transport_metrics.h"
+#include "moq/detail/safe_queue.h"
+#include "moq/detail/span.h"
+#include "moq/detail/stream_buffer.h"
+#include "moq/detail/time_queue.h"
+
 namespace qtransport {
 
     constexpr int kPqLoopMaxDelayUs = 500;    /// The max microseconds that pq_loop will be ran again
@@ -226,7 +228,7 @@ namespace qtransport {
 
         TransportError Enqueue(const TransportConnId& conn_id,
                                const DataContextId& data_ctx_id,
-                               std::vector<uint8_t>&& bytes,
+                               Span<const uint8_t> bytes,
                                std::vector<qtransport::MethodTraceItem>&& trace,
                                uint8_t priority,
                                uint32_t ttl_ms,

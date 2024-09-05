@@ -16,7 +16,8 @@ if (NOT benchmark_FOUND)
 endif()
 
 add_executable(quicr_benchmark
-                message_buffer.cpp)
+    serializer.cpp
+)
 
 target_link_libraries(quicr_benchmark PRIVATE quicr benchmark::benchmark_main)
 target_include_directories(quicr_benchmark PRIVATE ${PROJECT_SOURCE_DIR}/src)

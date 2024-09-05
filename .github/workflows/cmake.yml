@@ -46,7 +46,7 @@ jobs:
 
     - name: Install Packages (Ubuntu)
       run: |
-        sudo apt-get install -y clang-tidy 
+        sudo apt-get install -y clang-tidy
       if: matrix.os == 'ubuntu-latest'
 
     - name: Configure CMake
@@ -66,5 +66,3 @@ jobs:
 
     - name: Benchmark
       run: ${{github.workspace}}/build/benchmark/quicr_benchmark
-
-

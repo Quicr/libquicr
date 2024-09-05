@@ -14,8 +14,9 @@ namespace moq {
 
     using namespace qtransport;
 
-    using Bytes = std::vector<uint8_t>;
-    using BytesSpan = Span<uint8_t const>;
+    using Byte = uint8_t;
+    using Bytes = std::vector<Byte>;
+    using BytesSpan = Span<const Byte>;
     using ConnectionHandle = uint64_t;
 
     /**

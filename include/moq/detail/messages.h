@@ -4,8 +4,9 @@
 #pragma once
 
 #include "moq/common.h"
+#include "moq/detail/serializer.h"
 #include "stream_buffer.h"
-#include <moq/message_buffer.h>
+
 #include <string>
 #include <vector>
 
@@ -102,12 +103,8 @@ namespace moq::messages {
         uint64_t length{ 0 };
         Bytes value;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqParameter& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqParameter& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqParameter& msg);
     };
-
-    MessageBuffer& operator<<(MessageBuffer& buffer, const MoqParameter& param);
-    MessageBuffer& operator>>(MessageBuffer& buffer, MoqParameter& param);
 
     //
     // Setup
@@ -121,8 +118,7 @@ namespace moq::messages {
         MoqParameter path_parameter;
         MoqParameter endpoint_id_parameter;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqClientSetup& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqClientSetup& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqClientSetup& msg);
 
       private:
         size_t current_pos{ 0 };
@@ -138,8 +134,7 @@ namespace moq::messages {
         MoqParameter path_parameter;
         MoqParameter endpoint_id_parameter;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqServerSetup& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqServerSetup& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqServerSetup& msg);
 
       private:
         size_t current_pos{ 0 };
@@ -174,8 +169,7 @@ namespace moq::messages {
         std::optional<uint64_t> num_params;
         std::vector<MoqParameter> track_params;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqSubscribe& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqSubscribe& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqSubscribe& msg);
 
       private:
         std::optional<MoqParameter> current_param{};
@@ -191,8 +185,7 @@ namespace moq::messages {
         uint64_t largest_group{ 0 };
         uint64_t largest_object{ 0 };
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqSubscribeOk& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqSubscribeOk& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqSubscribeOk& msg);
 
       private:
         size_t current_pos{ 0 };
@@ -206,8 +199,7 @@ namespace moq::messages {
         ReasonPhrase reason_phrase;
         uint64_t track_alias;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqSubscribeError& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqSubscribeError& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqSubscribeError& msg);
 
       private:
         size_t current_pos{ 0 };
@@ -218,8 +210,7 @@ namespace moq::messages {
     {
         SubscribeId subscribe_id;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqUnsubscribe& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqUnsubscribe& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqUnsubscribe& msg);
     };
 
     struct MoqSubscribeDone
@@ -231,8 +222,7 @@ namespace moq::messages {
         uint64_t final_group_id;
         uint64_t final_object_id;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqSubscribeDone& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqSubscribeDone& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqSubscribeDone& msg);
 
       private:
         size_t current_pos{ 0 };
@@ -247,8 +237,7 @@ namespace moq::messages {
         TrackNamespace track_namespace;
         TrackName track_name;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqTrackStatusRequest& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqTrackStatusRequest& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqTrackStatusRequest& msg);
 
       private:
         size_t current_pos{ 0 };
@@ -271,8 +260,7 @@ namespace moq::messages {
         uint64_t last_group_id{ 0 };
         uint64_t last_object_id{ 0 };
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqTrackStatus& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqTrackStatus& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqTrackStatus& msg);
 
       private:
         size_t current_pos{ 0 };
@@ -288,8 +276,7 @@ namespace moq::messages {
         TrackNamespace track_namespace;
         std::vector<MoqParameter> params;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqAnnounce& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqAnnounce& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqAnnounce& msg);
 
       private:
         uint64_t num_params{ 0 };
@@ -300,8 +287,7 @@ namespace moq::messages {
     {
         TrackNamespace track_namespace;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqAnnounceOk& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqAnnounceOk& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqAnnounceOk& msg);
     };
 
     struct MoqAnnounceError
@@ -311,24 +297,21 @@ namespace moq::messages {
         std::optional<ReasonPhrase> reason_phrase;
 
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqAnnounceError& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqAnnounceError& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqAnnounceError& msg);
     };
 
     struct MoqUnannounce
     {
         TrackNamespace track_namespace;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqUnannounce& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqUnannounce& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqUnannounce& msg);
     };
 
     struct MoqAnnounceCancel
     {
         TrackNamespace track_namespace;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqAnnounceCancel& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqAnnounceCancel& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqAnnounceCancel& msg);
     };
 
     //
@@ -338,12 +321,8 @@ namespace moq::messages {
     {
         Bytes new_session_uri;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqGoaway& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqGoaway& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqGoaway& msg);
     };
-
-    MessageBuffer& operator<<(MessageBuffer& buffer, const MoqGoaway& msg);
-    MessageBuffer& operator>>(MessageBuffer& buffer, MoqGoaway& msg);
 
     //
     // Object
@@ -357,8 +336,7 @@ namespace moq::messages {
         ObjectPriority priority;
         Bytes payload;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqObjectStream& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqObjectStream& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqObjectStream& msg);
 
       private:
         uint64_t current_pos{ 0 };
@@ -374,8 +352,7 @@ namespace moq::messages {
         ObjectPriority priority;
         Bytes payload;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqObjectDatagram& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqObjectDatagram& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqObjectDatagram& msg);
 
       private:
         uint64_t current_pos{ 0 };
@@ -388,8 +365,7 @@ namespace moq::messages {
         TrackAlias track_alias;
         ObjectPriority priority;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqStreamHeaderTrack& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqStreamHeaderTrack& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqStreamHeaderTrack& msg);
 
       private:
         uint64_t current_pos{ 0 };
@@ -402,8 +378,7 @@ namespace moq::messages {
         ObjectId object_id;
         Bytes payload;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqStreamTrackObject& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqStreamTrackObject& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqStreamTrackObject& msg);
 
       private:
         uint64_t current_pos{ 0 };
@@ -417,8 +392,7 @@ namespace moq::messages {
         GroupId group_id;
         ObjectPriority priority;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqStreamHeaderGroup& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqStreamHeaderGroup& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqStreamHeaderGroup& msg);
 
       private:
         uint64_t current_pos{ 0 };
@@ -430,8 +404,7 @@ namespace moq::messages {
         ObjectId object_id;
         Bytes payload;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqStreamGroupObject& msg);
-        friend qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                             const MoqStreamGroupObject& msg);
+        friend Serializer& operator<<(Serializer& buffer, const MoqStreamGroupObject& msg);
 
       private:
         uint64_t current_pos{ 0 };
