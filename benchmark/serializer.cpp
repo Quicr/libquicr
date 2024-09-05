@@ -11,8 +11,8 @@
 static void
 Serializer_Construct(benchmark::State& state)
 {
-    for (const auto& _ : state) {
-        const auto __ = moq::Serializer(1000);
+    for ([[maybe_unused]] const auto& _ : state) {
+        const [[maybe_unused]] const auto& __ = moq::Serializer(1000);
     }
 }
 
@@ -20,7 +20,7 @@ static void
 Serializer_Push(benchmark::State& state)
 {
     moq::Serializer buffer;
-    for (auto _ : state) {
+    for ([[maybe_unused]] const auto& _ : state) {
         buffer << std::numeric_limits<std::uint8_t>::max();
     }
 }
@@ -29,7 +29,7 @@ static void
 Serializer_Push16(benchmark::State& state)
 {
     moq::Serializer buffer;
-    for (auto _ : state) {
+    for ([[maybe_unused]] const auto& _ : state) {
         buffer << std::numeric_limits<std::uint16_t>::max();
     }
 }
@@ -38,7 +38,7 @@ static void
 Serializer_Push32(benchmark::State& state)
 {
     moq::Serializer buffer;
-    for (auto _ : state) {
+    for ([[maybe_unused]] const auto& _ : state) {
         buffer << std::numeric_limits<std::uint32_t>::max();
     }
 }
@@ -47,7 +47,7 @@ static void
 Serializer_Push64(benchmark::State& state)
 {
     moq::Serializer buffer;
-    for (auto _ : state) {
+    for ([[maybe_unused]] const auto& _ : state) {
         buffer << std::numeric_limits<std::uint64_t>::max();
     }
 }
@@ -58,7 +58,7 @@ Serializer_PushBytes(benchmark::State& state)
     std::vector<uint8_t> buf(1280, 0);
 
     moq::Serializer buffer;
-    for (auto _ : state) {
+    for ([[maybe_unused]] const auto& _ : state) {
         buffer.Push(buf);
     }
 }
@@ -69,7 +69,7 @@ Serializer_PushBytesReserved(benchmark::State& state)
     std::vector<uint8_t> buf(1280, 0);
 
     moq::Serializer buffer(100000000);
-    for (auto _ : state) {
+    for ([[maybe_unused]] const auto& _ : state) {
         buffer.Push(buf);
     }
 }
@@ -80,7 +80,7 @@ Serializer_PushLengthBytes(benchmark::State& state)
     std::vector<uint8_t> buf(1280, 0);
 
     moq::Serializer buffer;
-    for (auto _ : state) {
+    for ([[maybe_unused]] const auto& _ : state) {
         buffer.PushLengthBytes(buf);
     }
 }
