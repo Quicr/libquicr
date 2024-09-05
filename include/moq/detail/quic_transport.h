@@ -3,18 +3,26 @@
 
 #pragma once
 
+#include "quic_transport_metrics.h"
+#include "safe_queue.h"
+#include "span.h"
+#include "stream_buffer.h"
+#include "uintvar.h"
+
+#include <spdlog/spdlog.h>
+
+#include <array>
 #include <chrono>
+#include <memory>
+#include <mutex>
 #include <optional>
+#include <queue>
 #include <string>
 #include <sys/socket.h>
 #include <vector>
 
-#include "quic_transport_metrics.h"
-#include "safe_queue.h"
-#include "stream_buffer.h"
-#include <spdlog/spdlog.h>
-
 namespace qtransport {
+
     using TransportConnId = uint64_t; ///< Connection Id is a 64bit number that is used as a key to maps
     using DataContextId = uint64_t;   ///< Data Context 64bit number that identifies a data flow/track/stream
     /**
@@ -407,7 +415,7 @@ namespace qtransport {
          */
         virtual TransportError Enqueue(const TransportConnId& context_id,
                                        const DataContextId& data_ctx_id,
-                                       std::vector<uint8_t>&& bytes,
+                                       Span<const uint8_t> bytes,
                                        std::vector<MethodTraceItem>&& trace = { MethodTraceItem{} },
                                        uint8_t priority = 1,
                                        uint32_t ttl_ms = 350,

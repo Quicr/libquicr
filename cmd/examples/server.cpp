@@ -270,7 +270,7 @@ class MyServer : public moq::Server
 
     void AnnounceReceived(moq::ConnectionHandle connection_handle,
                           const moq::TrackNamespace& track_namespace,
-                          const moq::PublishAnnounceAttributes& publish_announce_attributes) override
+                          const moq::PublishAnnounceAttributes&) override
     {
         auto th = moq::TrackHash({ track_namespace, {}, std::nullopt });
 
@@ -328,7 +328,7 @@ class MyServer : public moq::Server
         }
     }
 
-    ClientSetupResponse ClientSetupReceived(moq::ConnectionHandle connection_handle,
+    ClientSetupResponse ClientSetupReceived(moq::ConnectionHandle,
                                             const moq::ClientSetupAttributes& client_setup_attributes) override
     {
         ClientSetupResponse client_setup_response;
@@ -423,9 +423,9 @@ class MyServer : public moq::Server
 
     void SubscribeReceived(moq::ConnectionHandle connection_handle,
                            uint64_t subscribe_id,
-                           uint64_t proposed_track_alias,
+                           [[maybe_unused]] uint64_t proposed_track_alias,
                            const moq::FullTrackName& track_full_name,
-                           const moq::SubscribeAttributes& subscribe_attributes) override
+                           const moq::SubscribeAttributes&) override
     {
         auto th = moq::TrackHash(track_full_name);
 

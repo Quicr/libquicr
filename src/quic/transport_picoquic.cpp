@@ -539,7 +539,7 @@ PicoQuicTransport::GetPeerAddrInfo(const TransportConnId& conn_id, sockaddr_stor
 TransportError
 PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
                            const DataContextId& data_ctx_id,
-                           std::vector<uint8_t>&& bytes,
+                           Span<const uint8_t> bytes,
                            std::vector<MethodTraceItem>&& trace,
                            const uint8_t priority,
                            const uint32_t ttl_ms,
@@ -570,7 +570,8 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
 
     data_ctx_it->second.metrics.enqueued_objs++;
 
-    ConnData cd{ conn_id, data_ctx_id, priority, std::move(bytes), std::move(trace) };
+    ConnData cd{ conn_id, data_ctx_id, priority, {}, std::move(trace) };
+    cd.data.assign(bytes.begin(), bytes.end());
 
     if (flags.use_reliable) {
         if (flags.new_stream) {

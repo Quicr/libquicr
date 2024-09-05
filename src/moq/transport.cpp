@@ -155,7 +155,7 @@ namespace moq {
 
     void Transport::SendClientSetup()
     {
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
         auto client_setup = MoqClientSetup{};
 
         client_setup.num_versions = 1; // NOTE: Not used for encode, verison vector size is used
@@ -170,12 +170,12 @@ namespace moq {
 
         auto& conn_ctx = connections_.begin()->second;
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SendServerSetup(ConnectionContext& conn_ctx)
     {
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
         auto server_setup = MoqServerSetup{};
 
         server_setup.selection_version = { conn_ctx.client_version };
@@ -189,12 +189,12 @@ namespace moq {
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending SERVER_SETUP to conn_id: {0}", conn_ctx.connection_handle);
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SendAnnounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
     {
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
         auto announce = MoqAnnounce{};
 
         announce.track_namespace.assign(track_namespace.begin(), track_namespace.end());
@@ -203,12 +203,12 @@ namespace moq {
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending ANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SendAnnounceOk(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
     {
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
         auto announce_ok = MoqAnnounceOk{};
 
         announce_ok.track_namespace.assign(track_namespace.begin(), track_namespace.end());
@@ -216,12 +216,12 @@ namespace moq {
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending ANNOUNCE OK to conn_id: {0}", conn_ctx.connection_handle);
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SendUnannounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
     {
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
         auto unannounce = MoqUnannounce{};
 
         unannounce.track_namespace.assign(track_namespace.begin(), track_namespace.end());
@@ -229,7 +229,7 @@ namespace moq {
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending UNANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SendSubscribe(ConnectionContext& conn_ctx,
@@ -237,7 +237,7 @@ namespace moq {
                                   const FullTrackName& tfn,
                                   TrackHash th)
     {
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
 
         auto subscribe = MoqSubscribe{};
         subscribe.subscribe_id = subscribe_id;
@@ -257,7 +257,7 @@ namespace moq {
           th.track_namespace_hash,
           th.track_name_hash);
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SendSubscribeOk(ConnectionContext& conn_ctx,
@@ -265,7 +265,7 @@ namespace moq {
                                     uint64_t expires,
                                     bool content_exists)
     {
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
 
         auto subscribe_ok = MoqSubscribeOk{};
         subscribe_ok.subscribe_id = subscribe_id;
@@ -276,12 +276,12 @@ namespace moq {
         SPDLOG_LOGGER_DEBUG(
           logger_, "Sending SUBSCRIBE OK to conn_id: {0} subscribe_id: {1}", conn_ctx.connection_handle, subscribe_id);
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason)
     {
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
 
         auto subscribe_done = MoqSubscribeDone{};
         subscribe_done.subscribe_id = subscribe_id;
@@ -294,12 +294,12 @@ namespace moq {
                             conn_ctx.connection_handle,
                             subscribe_id);
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id)
     {
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
 
         auto unsubscribe = MoqUnsubscribe{};
         unsubscribe.subscribe_id = subscribe_id;
@@ -308,7 +308,7 @@ namespace moq {
         SPDLOG_LOGGER_DEBUG(
           logger_, "Sending UNSUBSCRIBE to conn_id: {0} subscribe_id: {1}", conn_ctx.connection_handle, subscribe_id);
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SendSubscribeError(ConnectionContext& conn_ctx,
@@ -317,7 +317,7 @@ namespace moq {
                                        SubscribeError error,
                                        const std::string& reason)
     {
-        qtransport::StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
 
         auto subscribe_err = MoqSubscribeError{};
         subscribe_err.subscribe_id = 0x1;
@@ -334,7 +334,7 @@ namespace moq {
                             static_cast<int>(error),
                             reason);
 
-        SendCtrlMsg(conn_ctx, buffer.Front(buffer.Size()));
+        SendCtrlMsg(conn_ctx, buffer.View());
     }
 
     void Transport::SubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
@@ -494,7 +494,6 @@ namespace moq {
                 pub_n_it->second->publish_data_ctx_id_ = 0;
 
                 pub_n_it->second->SetStatus(PublishTrackHandler::Status::kNotAnnounced);
-                conn_it->second.pub_tracks_by_data_ctx_id.erase(pub_n_it->second->GetDataContextId());
                 pub_ns_it->second.erase(pub_n_it);
             }
 
@@ -589,7 +588,7 @@ namespace moq {
 
         ITransport::EnqueueFlags eflags;
 
-        StreamBuffer<uint8_t> buffer;
+        Serializer buffer;
 
         switch (track_handler.default_track_mode_) {
             case TrackMode::kDatagram: {
@@ -666,7 +665,7 @@ namespace moq {
         }
 
         // TODO(tievens): Add M10x specific chunking... lacking in the draft
-        std::vector<uint8_t> serialized_data = buffer.Front(buffer.Size());
+        std::vector<uint8_t> serialized_data = std::move(buffer.Take());
 
         quic_transport_->Enqueue(track_handler.connection_handle_,
                                  track_handler.publish_data_ctx_id_,

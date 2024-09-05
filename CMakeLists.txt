@@ -59,13 +59,13 @@ if(BUILD_TESTING AND QUICR_BUILD_TESTS)
     add_subdirectory(test)
 endif()
 
+if (BUILD_BENCHMARKING AND quicr_BUILD_BENCHMARKS)
+   add_subdirectory(benchmark)
+endif()
+
 ###
 ### Applications
 ###
 if(BUILD_TESTING AND QUICR_BUILD_TESTS)
    add_subdirectory(cmd)
-endif()
-
-if (BUILD_BENCHMARKING AND quicr_BUILD_BENCHMARKS)
-   add_subdirectory(benchmark)
 endif()

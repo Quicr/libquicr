@@ -114,12 +114,12 @@ namespace qtransport {
          */
         std::optional<T> Front() noexcept
         {
-            if (buffer_.size()) {
-                std::lock_guard<std::mutex> _(rwLock_);
-                return buffer_.front();
+            if (buffer_.empty()) {
+                return std::nullopt;
             }
 
-            return std::nullopt;
+            std::lock_guard<std::mutex> _(rwLock_);
+            return buffer_.front();
         }
 
         /**
@@ -131,29 +131,32 @@ namespace qtransport {
          */
         std::vector<T> Front(std::uint32_t length) noexcept
         {
-
-            if (!buffer_.empty()) {
-                std::lock_guard<std::mutex> _(rwLock_);
-
-                std::vector<T> result(length);
-                std::copy_n(buffer_.begin(), length, result.begin());
-                return result;
+            if (buffer_.empty()) {
+                return std::vector<T>();
             }
-            return std::vector<T>();
+
+            std::lock_guard<std::mutex> _(rwLock_);
+
+            std::vector<T> result(length);
+            std::copy_n(buffer_.begin(), length, result.begin());
+            return result;
         }
 
         void Pop()
         {
-            if (buffer_.size()) {
-                std::lock_guard<std::mutex> _(rwLock_);
-                buffer_.pop_front();
+            if (buffer_.empty()) {
+                return;
             }
+
+            std::lock_guard<std::mutex> _(rwLock_);
+            buffer_.pop_front();
         }
 
         void Pop(std::uint32_t length)
         {
-            if (!length || buffer_.empty())
+            if (length == 0 || buffer_.empty()) {
                 return;
+            }
 
             std::lock_guard<std::mutex> _(rwLock_);
 
@@ -165,7 +168,7 @@ namespace qtransport {
         }
 
         /**
-         * @brief Checks if lenght bytes are avaialble for front
+         * @brief Checks if length bytes are available for front
          *
          * @param length        length of bytes needed
          *
@@ -186,12 +189,6 @@ namespace qtransport {
         }
 
         void Push(const Span<const T>& value)
-        {
-            std::lock_guard<std::mutex> _(rwLock_);
-            buffer_.insert(buffer_.end(), value.begin(), value.end());
-        }
-
-        void Push(std::initializer_list<T> value)
         {
             std::lock_guard<std::mutex> _(rwLock_);
             buffer_.insert(buffer_.end(), value.begin(), value.end());

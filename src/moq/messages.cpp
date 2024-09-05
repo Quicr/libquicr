@@ -28,80 +28,17 @@ namespace moq::messages {
         return true;
     }
 
-    MessageBuffer& operator<<(MessageBuffer& msg, Span<const uint8_t> val)
-    {
-        msg.push(qtransport::ToUintV(val.size()));
-        msg.push(val);
-        return msg;
-    }
-
-    MessageBuffer& operator<<(MessageBuffer& msg, std::vector<uint8_t>&& val)
-    {
-        msg.push(qtransport::ToUintV(val.size()));
-        msg.push(std::move(val));
-        return msg;
-    }
-
-    MessageBuffer& operator>>(MessageBuffer& msg, std::vector<uint8_t>& val)
-    {
-        std::size_t size = qtransport::UintVSize(msg.front());
-        std::size_t vec_size = qtransport::ToUint64(msg.pop_front(size));
-
-        val = msg.pop_front(vec_size);
-        return msg;
-    }
-
-    MessageBuffer& operator<<(MessageBuffer& msg, const std::string& val)
-    {
-        std::vector<uint8_t> v(val.begin(), val.end());
-        msg << v;
-        return msg;
-    }
-
-    MessageBuffer& operator>>(MessageBuffer& msg, std::string& val)
-    {
-        std::size_t size = qtransport::UintVSize(msg.front());
-        std::size_t vec_size = qtransport::ToUint64(msg.pop_front(size));
-
-        const auto val_vec = msg.pop_front(vec_size);
-        val.assign(val_vec.begin(), val_vec.end());
-
-        return msg;
-    }
-
-    //
-    // Optional
-    //
-
-    template<typename T>
-    MessageBuffer& operator<<(MessageBuffer& buffer, const std::optional<T>& val)
-    {
-        if (val.has_value()) {
-            buffer << val.value();
-        }
-        return buffer;
-    }
-
-    template<typename T>
-    MessageBuffer& operator>>(MessageBuffer& buffer, std::optional<T>& val)
-    {
-        T val_in{};
-        buffer >> val_in;
-        val = val_in;
-        return buffer;
-    }
-
     //
     // MoqParameter
     //
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer, const MoqParameter& param)
+    Serializer& operator<<(Serializer& buffer, const MoqParameter& param)
     {
 
         buffer.Push(qtransport::ToUintV(param.type));
         buffer.Push(qtransport::ToUintV(param.length));
         if (param.length) {
-            buffer.PushLv(param.value);
+            buffer.PushLengthBytes(param.value);
         }
         return buffer;
     }
@@ -128,35 +65,14 @@ namespace moq::messages {
         return true;
     }
 
-    MessageBuffer& operator<<(MessageBuffer& buffer, const MoqParameter& param)
-    {
-        buffer << param.type;
-        buffer << param.length;
-        if (param.length) {
-            buffer << param.value;
-        }
-
-        return buffer;
-    }
-
-    MessageBuffer& operator>>(MessageBuffer& buffer, MoqParameter& param)
-    {
-        buffer >> param.type;
-        buffer >> param.length;
-        if (static_cast<uint64_t>(param.length) > 0) {
-            buffer >> param.value;
-        }
-        return buffer;
-    }
-
     //
     // Track Status
     //
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer, const MoqTrackStatus& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqTrackStatus& msg)
     {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::TRACK_STATUS)));
-        buffer.PushLv(msg.track_namespace);
-        buffer.PushLv(msg.track_name);
+        buffer.PushLengthBytes(msg.track_namespace);
+        buffer.PushLengthBytes(msg.track_name);
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(msg.status_code)));
         buffer.Push(qtransport::ToUintV(msg.last_group_id));
         buffer.Push(qtransport::ToUintV(msg.last_object_id));
@@ -220,12 +136,11 @@ namespace moq::messages {
         return true;
     }
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                  const MoqTrackStatusRequest& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqTrackStatusRequest& msg)
     {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::TRACK_STATUS_REQUEST)));
-        buffer.PushLv(msg.track_namespace);
-        buffer.PushLv(msg.track_name);
+        buffer.PushLengthBytes(msg.track_namespace);
+        buffer.PushLengthBytes(msg.track_name);
 
         return buffer;
     }
@@ -264,13 +179,13 @@ namespace moq::messages {
     // Subscribe
     //
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer, const MoqSubscribe& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqSubscribe& msg)
     {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE)));
         buffer.Push(qtransport::ToUintV(msg.subscribe_id));
         buffer.Push(qtransport::ToUintV(msg.track_alias));
-        buffer.PushLv(msg.track_namespace);
-        buffer.PushLv(msg.track_name);
+        buffer.PushLengthBytes(msg.track_namespace);
+        buffer.PushLengthBytes(msg.track_name);
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(msg.filter_type)));
 
         switch (msg.filter_type) {
@@ -293,7 +208,7 @@ namespace moq::messages {
         buffer.Push(qtransport::ToUintV(msg.track_params.size()));
         for (const auto& param : msg.track_params) {
             buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(param.type)));
-            buffer.PushLv(param.value);
+            buffer.PushLengthBytes(param.value);
         }
 
         return buffer;
@@ -436,7 +351,7 @@ namespace moq::messages {
         return true;
     }
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer, const MoqUnsubscribe& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqUnsubscribe& msg)
     {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::UNSUBSCRIBE)));
         buffer.Push(qtransport::ToUintV(msg.subscribe_id));
@@ -448,13 +363,12 @@ namespace moq::messages {
         return ParseUintVField(buffer, msg.subscribe_id);
     }
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                  const MoqSubscribeDone& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqSubscribeDone& msg)
     {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_DONE)));
         buffer.Push(qtransport::ToUintV(msg.subscribe_id));
         buffer.Push(qtransport::ToUintV(msg.status_code));
-        buffer.PushLv(msg.reason_phrase);
+        buffer.PushLengthBytes(msg.reason_phrase);
         msg.content_exists ? buffer.Push(static_cast<uint8_t>(1)) : buffer.Push(static_cast<uint8_t>(0));
         if (msg.content_exists) {
             buffer.Push(qtransport::ToUintV(msg.final_group_id));
@@ -529,7 +443,7 @@ namespace moq::messages {
         return true;
     }
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer, const MoqSubscribeOk& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqSubscribeOk& msg)
     {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_OK)));
         buffer.Push(qtransport::ToUintV(msg.subscribe_id));
@@ -598,13 +512,12 @@ namespace moq::messages {
         return true;
     }
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                  const MoqSubscribeError& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqSubscribeError& msg)
     {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ERROR)));
         buffer.Push(qtransport::ToUintV(msg.subscribe_id));
         buffer.Push(qtransport::ToUintV(msg.err_code));
-        buffer.PushLv(msg.reason_phrase);
+        buffer.PushLengthBytes(msg.reason_phrase);
         buffer.Push(qtransport::ToUintV(msg.track_alias));
         return buffer;
     }
@@ -657,10 +570,10 @@ namespace moq::messages {
     // Announce
     //
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer, const MoqAnnounce& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqAnnounce& msg)
     {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::ANNOUNCE)));
-        buffer.PushLv(msg.track_namespace);
+        buffer.PushLengthBytes(msg.track_namespace);
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(0)));
         return buffer;
     }
@@ -713,10 +626,10 @@ namespace moq::messages {
         return true;
     }
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer, const MoqAnnounceOk& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqAnnounceOk& msg)
     {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_OK)));
-        buffer.PushLv(msg.track_namespace);
+        buffer.PushLengthBytes(msg.track_namespace);
         return buffer;
     }
 
@@ -734,13 +647,12 @@ namespace moq::messages {
         return true;
     }
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                  const MoqAnnounceError& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqAnnounceError& msg)
     {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_ERROR)));
-        buffer.PushLv(msg.track_namespace.value());
+        buffer.PushLengthBytes(msg.track_namespace.value());
         buffer.Push(qtransport::ToUintV(msg.err_code.value()));
-        buffer.PushLv(msg.reason_phrase.value());
+        buffer.PushLengthBytes(msg.reason_phrase.value());
         return buffer;
     }
 
@@ -775,10 +687,10 @@ namespace moq::messages {
         return true;
     }
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer, const MoqUnannounce& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqUnannounce& msg)
     {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::UNANNOUNCE)));
-        buffer.PushLv(msg.track_namespace);
+        buffer.PushLengthBytes(msg.track_namespace);
         return buffer;
     }
 
@@ -796,11 +708,10 @@ namespace moq::messages {
         return true;
     }
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                  const MoqAnnounceCancel& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqAnnounceCancel& msg)
     {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_CANCEL)));
-        buffer.PushLv(msg.track_namespace);
+        buffer.PushLengthBytes(msg.track_namespace);
         return buffer;
     }
 
@@ -822,10 +733,10 @@ namespace moq::messages {
     // Goaway
     //
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer, const MoqGoaway& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqGoaway& msg)
     {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::GOAWAY)));
-        buffer.PushLv(msg.new_session_uri);
+        buffer.PushLengthBytes(msg.new_session_uri);
         return buffer;
     }
 
@@ -840,24 +751,11 @@ namespace moq::messages {
         return true;
     }
 
-    MessageBuffer& operator<<(MessageBuffer& buffer, const MoqGoaway& msg)
-    {
-        buffer << static_cast<uint8_t>(MoqMessageType::GOAWAY);
-        buffer << msg.new_session_uri;
-        return buffer;
-    }
-
-    MessageBuffer& operator>>(MessageBuffer& buffer, MoqGoaway& msg)
-    {
-        buffer >> msg.new_session_uri;
-        return buffer;
-    }
-
     //
     // Object
     //
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer, const MoqObjectStream& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqObjectStream& msg)
     {
 
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::OBJECT_STREAM)));
@@ -866,7 +764,7 @@ namespace moq::messages {
         buffer.Push(qtransport::ToUintV(msg.group_id));
         buffer.Push(qtransport::ToUintV(msg.object_id));
         buffer.Push(qtransport::ToUintV(msg.priority));
-        buffer.PushLv(msg.payload);
+        buffer.PushLengthBytes(msg.payload);
         return buffer;
     }
 
@@ -929,8 +827,7 @@ namespace moq::messages {
         return true;
     }
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                  const MoqObjectDatagram& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqObjectDatagram& msg)
     {
 
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::OBJECT_DATAGRAM)));
@@ -939,7 +836,7 @@ namespace moq::messages {
         buffer.Push(qtransport::ToUintV(msg.group_id));
         buffer.Push(qtransport::ToUintV(msg.object_id));
         buffer.Push(qtransport::ToUintV(msg.priority));
-        buffer.PushLv(msg.payload);
+        buffer.PushLengthBytes(msg.payload);
         return buffer;
     }
 
@@ -1002,8 +899,7 @@ namespace moq::messages {
         return true;
     }
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                  const MoqStreamHeaderTrack& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqStreamHeaderTrack& msg)
     {
 
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_TRACK)));
@@ -1049,13 +945,12 @@ namespace moq::messages {
         return true;
     }
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                  const MoqStreamTrackObject& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqStreamTrackObject& msg)
     {
 
         buffer.Push(qtransport::ToUintV(msg.group_id));
         buffer.Push(qtransport::ToUintV(msg.object_id));
-        buffer.PushLv(msg.payload);
+        buffer.PushLengthBytes(msg.payload);
         return buffer;
     }
 
@@ -1096,8 +991,7 @@ namespace moq::messages {
         return true;
     }
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                  const MoqStreamHeaderGroup& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqStreamHeaderGroup& msg)
     {
 
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_GROUP)));
@@ -1151,12 +1045,11 @@ namespace moq::messages {
         return true;
     }
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer,
-                                                  const MoqStreamGroupObject& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqStreamGroupObject& msg)
     {
 
         buffer.Push(qtransport::ToUintV(msg.object_id));
-        buffer.PushLv(msg.payload);
+        buffer.PushLengthBytes(msg.payload);
         return buffer;
     }
 
@@ -1192,7 +1085,7 @@ namespace moq::messages {
     }
 
     // Client Setup message
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer, const MoqClientSetup& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqClientSetup& msg)
     {
 
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::CLIENT_SETUP)));
@@ -1206,10 +1099,10 @@ namespace moq::messages {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(2)));
         // role param
         buffer.Push(qtransport::ToUintV(msg.role_parameter.type));
-        buffer.PushLv(msg.role_parameter.value);
+        buffer.PushLengthBytes(msg.role_parameter.value);
         // endpoint_id param
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(ParameterType::EndpointId)));
-        buffer.PushLv(msg.endpoint_id_parameter.value);
+        buffer.PushLengthBytes(msg.endpoint_id_parameter.value);
 
         return buffer;
     }
@@ -1296,7 +1189,7 @@ namespace moq::messages {
 
     // Server Setup message
 
-    qtransport::StreamBuffer<uint8_t>& operator<<(qtransport::StreamBuffer<uint8_t>& buffer, const MoqServerSetup& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqServerSetup& msg)
     {
 
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::SERVER_SETUP)));
@@ -1306,11 +1199,11 @@ namespace moq::messages {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(2)));
         // role param
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(msg.role_parameter.type)));
-        buffer.PushLv(msg.role_parameter.value);
+        buffer.PushLengthBytes(msg.role_parameter.value);
 
         // endpoint_id param
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(ParameterType::EndpointId)));
-        buffer.PushLv(msg.endpoint_id_parameter.value);
+        buffer.PushLengthBytes(msg.endpoint_id_parameter.value);
 
         return buffer;
     }
