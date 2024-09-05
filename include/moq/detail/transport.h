@@ -276,12 +276,12 @@ namespace moq {
 
         virtual void SetConnectionHandle(ConnectionHandle) {}
 
-        virtual void MetricsSampled(ConnectionHandle connection_handle, const ConnectionMetrics metrics) {}
+        virtual void MetricsSampled(ConnectionHandle, const ConnectionMetrics&) {}
 
         // -------------------------------------------------------------------------------------------------
         // Private member functions that will be implemented by Client class
         // -------------------------------------------------------------------------------------------------
-        virtual void MetricsSampled(const ConnectionMetrics metrics) {}
+        virtual void MetricsSampled(const ConnectionMetrics&) {}
 
         // -------------------------------------------------------------------------------------------------
 
