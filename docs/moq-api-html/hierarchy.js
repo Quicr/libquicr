@@ -15,7 +15,6 @@ var hierarchy =
     [ "moq::ObjectHeaders", "structmoq_1_1_object_headers.html", null ],
     [ "moq::PublishAnnounceAttributes", "structmoq_1_1_publish_announce_attributes.html", null ],
     [ "moq::PublishTrackMetrics", "structmoq_1_1_publish_track_metrics.html", null ],
-    [ "moq::ConnectionMetrics::Quic", "structmoq_1_1_connection_metrics_1_1_quic.html", null ],
     [ "moq::PublishTrackMetrics::Quic", "structmoq_1_1_publish_track_metrics_1_1_quic.html", null ],
     [ "moq::ServerSetupAttributes", "structmoq_1_1_server_setup_attributes.html", null ],
     [ "moq::SubscribeAttributes", "structmoq_1_1_subscribe_attributes.html", null ],

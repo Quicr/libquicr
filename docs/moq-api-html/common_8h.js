@@ -4,8 +4,9 @@ var common_8h =
     [ "moq::PublishAnnounceAttributes", "structmoq_1_1_publish_announce_attributes.html", null ],
     [ "moq::ClientSetupAttributes", "structmoq_1_1_client_setup_attributes.html", "structmoq_1_1_client_setup_attributes" ],
     [ "moq::ServerSetupAttributes", "structmoq_1_1_server_setup_attributes.html", "structmoq_1_1_server_setup_attributes" ],
-    [ "Bytes", "common_8h.html#a81214e5a1abfff300faa7c66a3de272e", null ],
-    [ "BytesSpan", "common_8h.html#ab303fd3ef64c30c643a089f4cf17d219", null ],
+    [ "Byte", "common_8h.html#ab7e5d74eee7d091a27dad9ddab207809", null ],
+    [ "Bytes", "common_8h.html#a7b42d6a983bfea2a091fa714ae007735", null ],
+    [ "BytesSpan", "common_8h.html#a2dc0c64e553db9badfce69b308764b25", null ],
     [ "ConnectionHandle", "common_8h.html#a2ccd8731ed01c572668516fce2d9d7aa", null ],
     [ "PublishAnnounceStatus", "common_8h.html#a0defea81133ed8384691f635e1a51ee6", [
       [ "kOK", "common_8h.html#a0defea81133ed8384691f635e1a51ee6ab8c5bbba307a5b38f6a1474fbf23dddd", null ],

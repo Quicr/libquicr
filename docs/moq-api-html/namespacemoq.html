@@ -150,12 +150,16 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="typedef-members" name="typedef-members"></a>
 Typedefs</h2></td></tr>
-<tr class="memitem:a81214e5a1abfff300faa7c66a3de272e" id="r_a81214e5a1abfff300faa7c66a3de272e"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a81214e5a1abfff300faa7c66a3de272e">Bytes</a> = std::vector&lt;uint8_t&gt;</td></tr>
-<tr class="separator:a81214e5a1abfff300faa7c66a3de272e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab303fd3ef64c30c643a089f4cf17d219" id="r_ab303fd3ef64c30c643a089f4cf17d219"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab303fd3ef64c30c643a089f4cf17d219">BytesSpan</a> = Span&lt;uint8_t const&gt;</td></tr>
-<tr class="separator:ab303fd3ef64c30c643a089f4cf17d219"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab7e5d74eee7d091a27dad9ddab207809" id="r_ab7e5d74eee7d091a27dad9ddab207809"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab7e5d74eee7d091a27dad9ddab207809">Byte</a> = uint8_t</td></tr>
+<tr class="separator:ab7e5d74eee7d091a27dad9ddab207809"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7b42d6a983bfea2a091fa714ae007735" id="r_a7b42d6a983bfea2a091fa714ae007735"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a7b42d6a983bfea2a091fa714ae007735">Bytes</a> = std::vector&lt;<a class="el" href="#ab7e5d74eee7d091a27dad9ddab207809">Byte</a>&gt;</td></tr>
+<tr class="separator:a7b42d6a983bfea2a091fa714ae007735"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2dc0c64e553db9badfce69b308764b25" id="r_a2dc0c64e553db9badfce69b308764b25"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a2dc0c64e553db9badfce69b308764b25">BytesSpan</a> = Span&lt;const <a class="el" href="#ab7e5d74eee7d091a27dad9ddab207809">Byte</a>&gt;</td></tr>
+<tr class="separator:a2dc0c64e553db9badfce69b308764b25"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2ccd8731ed01c572668516fce2d9d7aa" id="r_a2ccd8731ed01c572668516fce2d9d7aa"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a> = uint64_t</td></tr>
 <tr class="separator:a2ccd8731ed01c572668516fce2d9d7aa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9bfd6888bd25f9329572448cddbe8937" id="r_a9bfd6888bd25f9329572448cddbe8937"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9bfd6888bd25f9329572448cddbe8937">MetricsTimeStampUs</a> = std::chrono::time_point&lt;std::chrono::steady_clock, std::chrono::microseconds&gt;</td></tr>
+<tr class="separator:a9bfd6888bd25f9329572448cddbe8937"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0557bd52ce9d092661dea06ef9639389" id="r_a0557bd52ce9d092661dea06ef9639389"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a0557bd52ce9d092661dea06ef9639389">Extensions</a> = std::map&lt;uint64_t, std::vector&lt;uint8_t&gt;&gt;</td></tr>
 <tr class="separator:a0557bd52ce9d092661dea06ef9639389"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -187,28 +191,42 @@ Variables</h2></td></tr>
 <tr class="separator:a7f1487e024b511024b0dd53af85a5edb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Typedef Documentation</h2>
-<a id="a81214e5a1abfff300faa7c66a3de272e" name="a81214e5a1abfff300faa7c66a3de272e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a81214e5a1abfff300faa7c66a3de272e">&#9670;&#160;</a></span>Bytes</h2>
+<a id="ab7e5d74eee7d091a27dad9ddab207809" name="ab7e5d74eee7d091a27dad9ddab207809"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab7e5d74eee7d091a27dad9ddab207809">&#9670;&#160;</a></span>Byte</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">using <a class="el" href="#a81214e5a1abfff300faa7c66a3de272e">moq::Bytes</a> = std::vector&lt;uint8_t&gt;</td>
+          <td class="memname">using <a class="el" href="#ab7e5d74eee7d091a27dad9ddab207809">moq::Byte</a> = uint8_t</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
 </div>
 </div>
-<a id="ab303fd3ef64c30c643a089f4cf17d219" name="ab303fd3ef64c30c643a089f4cf17d219"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab303fd3ef64c30c643a089f4cf17d219">&#9670;&#160;</a></span>BytesSpan</h2>
+<a id="a7b42d6a983bfea2a091fa714ae007735" name="a7b42d6a983bfea2a091fa714ae007735"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7b42d6a983bfea2a091fa714ae007735">&#9670;&#160;</a></span>Bytes</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">using <a class="el" href="#ab303fd3ef64c30c643a089f4cf17d219">moq::BytesSpan</a> = Span&lt;uint8_t const&gt;</td>
+          <td class="memname">using <a class="el" href="#a7b42d6a983bfea2a091fa714ae007735">moq::Bytes</a> = std::vector&lt;<a class="el" href="#ab7e5d74eee7d091a27dad9ddab207809">Byte</a>&gt;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a2dc0c64e553db9badfce69b308764b25" name="a2dc0c64e553db9badfce69b308764b25"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2dc0c64e553db9badfce69b308764b25">&#9670;&#160;</a></span>BytesSpan</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="#a2dc0c64e553db9badfce69b308764b25">moq::BytesSpan</a> = Span&lt;const <a class="el" href="#ab7e5d74eee7d091a27dad9ddab207809">Byte</a>&gt;</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -237,6 +255,20 @@ Variables</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">using <a class="el" href="#a0557bd52ce9d092661dea06ef9639389">moq::Extensions</a> = std::map&lt;uint64_t, std::vector&lt;uint8_t&gt;&gt;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a9bfd6888bd25f9329572448cddbe8937" name="a9bfd6888bd25f9329572448cddbe8937"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9bfd6888bd25f9329572448cddbe8937">&#9670;&#160;</a></span>MetricsTimeStampUs</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="#a9bfd6888bd25f9329572448cddbe8937">moq::MetricsTimeStampUs</a> = std::chrono::time_point&lt;std::chrono::steady_clock, std::chrono::microseconds&gt;</td>
         </tr>
       </table>
 </div><div class="memdoc">

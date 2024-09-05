@@ -162,9 +162,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a43781943bf95f82a6891f0cadbe105ed" id="r_a43781943bf95f82a6891f0cadbe105ed"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a43781943bf95f82a6891f0cadbe105ed">StatusChanged</a> (<a class="el" href="#a95430826d3fdcf1d3bd249af5c6236ab">Status</a> status)</td></tr>
 <tr class="memdesc:a43781943bf95f82a6891f0cadbe105ed"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification of publish track status change.  <br /></td></tr>
 <tr class="separator:a43781943bf95f82a6891f0cadbe105ed"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a360e359a5ad9c709008d754b2131f205" id="r_a360e359a5ad9c709008d754b2131f205"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a360e359a5ad9c709008d754b2131f205">MetricsSampled</a> (const <a class="el" href="structmoq_1_1_publish_track_metrics.html">PublishTrackMetrics</a> &amp;&amp;metrics)</td></tr>
-<tr class="memdesc:a360e359a5ad9c709008d754b2131f205"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification callback to provide sampled metrics.  <br /></td></tr>
-<tr class="separator:a360e359a5ad9c709008d754b2131f205"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5baddc16577759daceeca95da2578ef3" id="r_a5baddc16577759daceeca95da2578ef3"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a5baddc16577759daceeca95da2578ef3">MetricsSampled</a> (const <a class="el" href="structmoq_1_1_publish_track_metrics.html">PublishTrackMetrics</a> &amp;metrics)</td></tr>
+<tr class="memdesc:a5baddc16577759daceeca95da2578ef3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification callback to provide sampled metrics.  <br /></td></tr>
+<tr class="separator:a5baddc16577759daceeca95da2578ef3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3b42ae4e15ba1442d1a9e7a364be6e35" id="r_a3b42ae4e15ba1442d1a9e7a364be6e35"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a3b42ae4e15ba1442d1a9e7a364be6e35">SetDefaultPriority</a> (const uint8_t priority) noexcept</td></tr>
 <tr class="memdesc:a3b42ae4e15ba1442d1a9e7a364be6e35"><td class="mdescLeft">&#160;</td><td class="mdescRight">set/update the default priority for published objects  <br /></td></tr>
 <tr class="separator:a3b42ae4e15ba1442d1a9e7a364be6e35"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -177,10 +177,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a7180b4eb6f0dd55e0877654c4a5b175f" id="r_a7180b4eb6f0dd55e0877654c4a5b175f"><td class="memItemLeft" align="right" valign="top">constexpr <a class="el" href="#a95430826d3fdcf1d3bd249af5c6236ab">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a7180b4eb6f0dd55e0877654c4a5b175f">GetStatus</a> () const noexcept</td></tr>
 <tr class="memdesc:a7180b4eb6f0dd55e0877654c4a5b175f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the publish status.  <br /></td></tr>
 <tr class="separator:a7180b4eb6f0dd55e0877654c4a5b175f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a687afe334e36c82ee9d9330424fe826d" id="r_a687afe334e36c82ee9d9330424fe826d"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#a30b4175fceffdb5445858f6c0b3b5b02">PublishObjectStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a687afe334e36c82ee9d9330424fe826d">PublishObject</a> (const <a class="el" href="structmoq_1_1_object_headers.html">ObjectHeaders</a> &amp;object_headers, <a class="el" href="namespacemoq.html#ab303fd3ef64c30c643a089f4cf17d219">BytesSpan</a> data)</td></tr>
+<tr class="memitem:a687afe334e36c82ee9d9330424fe826d" id="r_a687afe334e36c82ee9d9330424fe826d"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#a30b4175fceffdb5445858f6c0b3b5b02">PublishObjectStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a687afe334e36c82ee9d9330424fe826d">PublishObject</a> (const <a class="el" href="structmoq_1_1_object_headers.html">ObjectHeaders</a> &amp;object_headers, <a class="el" href="namespacemoq.html#a2dc0c64e553db9badfce69b308764b25">BytesSpan</a> data)</td></tr>
 <tr class="memdesc:a687afe334e36c82ee9d9330424fe826d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish [full] object.  <br /></td></tr>
 <tr class="separator:a687afe334e36c82ee9d9330424fe826d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adb4a486c37ab16be4436150e14c0d5b6" id="r_adb4a486c37ab16be4436150e14c0d5b6"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#a30b4175fceffdb5445858f6c0b3b5b02">PublishObjectStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#adb4a486c37ab16be4436150e14c0d5b6">PublishPartialObject</a> (const <a class="el" href="structmoq_1_1_object_headers.html">ObjectHeaders</a> &amp;object_headers, <a class="el" href="namespacemoq.html#ab303fd3ef64c30c643a089f4cf17d219">BytesSpan</a> data)</td></tr>
+<tr class="memitem:adb4a486c37ab16be4436150e14c0d5b6" id="r_adb4a486c37ab16be4436150e14c0d5b6"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#a30b4175fceffdb5445858f6c0b3b5b02">PublishObjectStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#adb4a486c37ab16be4436150e14c0d5b6">PublishPartialObject</a> (const <a class="el" href="structmoq_1_1_object_headers.html">ObjectHeaders</a> &amp;object_headers, <a class="el" href="namespacemoq.html#a2dc0c64e553db9badfce69b308764b25">BytesSpan</a> data)</td></tr>
 <tr class="memdesc:adb4a486c37ab16be4436150e14c0d5b6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish object to the announced track.  <br /></td></tr>
 <tr class="separator:adb4a486c37ab16be4436150e14c0d5b6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -415,8 +415,8 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a360e359a5ad9c709008d754b2131f205" name="a360e359a5ad9c709008d754b2131f205"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a360e359a5ad9c709008d754b2131f205">&#9670;&#160;</a></span>MetricsSampled()</h2>
+<a id="a5baddc16577759daceeca95da2578ef3" name="a5baddc16577759daceeca95da2578ef3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5baddc16577759daceeca95da2578ef3">&#9670;&#160;</a></span>MetricsSampled()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -427,7 +427,7 @@ Protected Member Functions</h2></td></tr>
         <tr>
           <td class="memname">virtual void moq::PublishTrackHandler::MetricsSampled </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="structmoq_1_1_publish_track_metrics.html">PublishTrackMetrics</a> &amp;&amp;</td>          <td class="paramname"><span class="paramname"><em>metrics</em></span></td><td>)</td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1_publish_track_metrics.html">PublishTrackMetrics</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>metrics</em></span></td><td>)</td>
           <td></td>
         </tr>
       </table>
@@ -463,7 +463,7 @@ Protected Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="namespacemoq.html#ab303fd3ef64c30c643a089f4cf17d219">BytesSpan</a></td>          <td class="paramname"><span class="paramname"><em>data</em></span>&#160;)</td>
+          <td class="paramtype"><a class="el" href="namespacemoq.html#a2dc0c64e553db9badfce69b308764b25">BytesSpan</a></td>          <td class="paramname"><span class="paramname"><em>data</em></span>&#160;)</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -501,7 +501,7 @@ Protected Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="namespacemoq.html#ab303fd3ef64c30c643a089f4cf17d219">BytesSpan</a></td>          <td class="paramname"><span class="paramname"><em>data</em></span>&#160;)</td>
+          <td class="paramtype"><a class="el" href="namespacemoq.html#a2dc0c64e553db9badfce69b308764b25">BytesSpan</a></td>          <td class="paramname"><span class="paramname"><em>data</em></span>&#160;)</td>
         </tr>
       </table>
 </div><div class="memdoc">

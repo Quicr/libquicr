@@ -128,12 +128,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a6093c86205bfc5413418583a33eab47a" id="r_a6093c86205bfc5413418583a33eab47a"><td class="memItemLeft" align="right" valign="top">Status&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a6093c86205bfc5413418583a33eab47a">Disconnect</a> ()</td></tr>
 <tr class="memdesc:a6093c86205bfc5413418583a33eab47a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Disconnect the client connection gracefully.  <br /></td></tr>
 <tr class="separator:a6093c86205bfc5413418583a33eab47a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae0da20b0802e47de0aa28b01e4d9299c" id="r_ae0da20b0802e47de0aa28b01e4d9299c"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae0da20b0802e47de0aa28b01e4d9299c">StatusChanged</a> (Status status)</td></tr>
-<tr class="memdesc:ae0da20b0802e47de0aa28b01e4d9299c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for connection status/state change.  <br /></td></tr>
-<tr class="separator:ae0da20b0802e47de0aa28b01e4d9299c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae9d05037b75c8c29e8d8db39db8beb40" id="r_ae9d05037b75c8c29e8d8db39db8beb40"><td class="memItemLeft" align="right" valign="top">Status&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae9d05037b75c8c29e8d8db39db8beb40">GetStatus</a> () const noexcept</td></tr>
-<tr class="memdesc:ae9d05037b75c8c29e8d8db39db8beb40"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the status of the <a class="el" href="classmoq_1_1_client.html" title="MoQ Client.">Client</a>.  <br /></td></tr>
-<tr class="separator:ae9d05037b75c8c29e8d8db39db8beb40"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad99edf91aebfe14dcfd9773c43068414" id="r_ad99edf91aebfe14dcfd9773c43068414"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad99edf91aebfe14dcfd9773c43068414">ServerSetupReceived</a> (const <a class="el" href="structmoq_1_1_server_setup_attributes.html">ServerSetupAttributes</a> &amp;server_setup_attributes)</td></tr>
 <tr class="memdesc:ad99edf91aebfe14dcfd9773c43068414"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on server setup message.  <br /></td></tr>
 <tr class="separator:ad99edf91aebfe14dcfd9773c43068414"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -143,12 +137,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a871834e420f17ac3df06dd174d0cd51f" id="r_a871834e420f17ac3df06dd174d0cd51f"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a871834e420f17ac3df06dd174d0cd51f">UnpublishedSubscribeReceived</a> (const FullTrackName &amp;track_full_name, const <a class="el" href="structmoq_1_1_subscribe_attributes.html">SubscribeAttributes</a> &amp;subscribe_attributes)</td></tr>
 <tr class="memdesc:a871834e420f17ac3df06dd174d0cd51f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new subscribe received that doesn't match an existing publish track.  <br /></td></tr>
 <tr class="separator:a871834e420f17ac3df06dd174d0cd51f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad836c5d20f46f70c44efcf8eff41844c" id="r_ad836c5d20f46f70c44efcf8eff41844c"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad836c5d20f46f70c44efcf8eff41844c">ResolveSubscribe</a> (<a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a> connection_handle, uint64_t subscribe_id, SubscribeResponse subscribe_response)</td></tr>
-<tr class="memdesc:ad836c5d20f46f70c44efcf8eff41844c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Accept or reject an subscribe that was received.  <br /></td></tr>
-<tr class="separator:ad836c5d20f46f70c44efcf8eff41844c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6ebd9709377683f5a097a8e6cdf9d7d8" id="r_a6ebd9709377683f5a097a8e6cdf9d7d8"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a6ebd9709377683f5a097a8e6cdf9d7d8">MetricsSampled</a> (const <a class="el" href="structmoq_1_1_connection_metrics.html">ConnectionMetrics</a> &amp;&amp;metrics)</td></tr>
-<tr class="memdesc:a6ebd9709377683f5a097a8e6cdf9d7d8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification callback to provide sampled metrics.  <br /></td></tr>
-<tr class="separator:a6ebd9709377683f5a097a8e6cdf9d7d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5a58de967c186518975e954a62ea3c09" id="r_a5a58de967c186518975e954a62ea3c09"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a5a58de967c186518975e954a62ea3c09">ResolveSubscribe</a> (<a class="el" href="namespacemoq.html#a2ccd8731ed01c572668516fce2d9d7aa">ConnectionHandle</a> connection_handle, uint64_t subscribe_id, const SubscribeResponse &amp;subscribe_response)</td></tr>
+<tr class="memdesc:a5a58de967c186518975e954a62ea3c09"><td class="mdescLeft">&#160;</td><td class="mdescRight">Accept or reject an subscribe that was received.  <br /></td></tr>
+<tr class="separator:a5a58de967c186518975e954a62ea3c09"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5a4f4cc9ef05700822b0092c9e794f18" id="r_a5a4f4cc9ef05700822b0092c9e794f18"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a5a4f4cc9ef05700822b0092c9e794f18">MetricsSampled</a> (const <a class="el" href="structmoq_1_1_connection_metrics.html">ConnectionMetrics</a> &amp;metrics) override</td></tr>
+<tr class="memdesc:a5a4f4cc9ef05700822b0092c9e794f18"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification callback to provide sampled metrics.  <br /></td></tr>
+<tr class="separator:a5a4f4cc9ef05700822b0092c9e794f18"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3395920608b29aad960efb3d8b13bdb1" id="r_a3395920608b29aad960efb3d8b13bdb1"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacemoq.html#a0defea81133ed8384691f635e1a51ee6">PublishAnnounceStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a3395920608b29aad960efb3d8b13bdb1">GetAnnounceStatus</a> (const TrackNamespace &amp;track_namespace)</td></tr>
 <tr class="memdesc:a3395920608b29aad960efb3d8b13bdb1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get announce status for namespace.  <br /></td></tr>
 <tr class="separator:a3395920608b29aad960efb3d8b13bdb1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -341,8 +335,8 @@ Public Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="ae9d05037b75c8c29e8d8db39db8beb40" name="ae9d05037b75c8c29e8d8db39db8beb40"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae9d05037b75c8c29e8d8db39db8beb40">&#9670;&#160;</a></span>GetStatus()</h2>
+<a id="a5a4f4cc9ef05700822b0092c9e794f18" name="a5a4f4cc9ef05700822b0092c9e794f18"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5a4f4cc9ef05700822b0092c9e794f18">&#9670;&#160;</a></span>MetricsSampled()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -351,43 +345,15 @@ Public Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">Status moq::Client::GetStatus </td>
+          <td class="memname">void moq::Client::MetricsSampled </td>
           <td>(</td>
-          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">noexcept</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Get the status of the <a class="el" href="classmoq_1_1_client.html" title="MoQ Client.">Client</a>. </p>
-<dl class="section return"><dt>Returns</dt><dd>Status of the <a class="el" href="classmoq_1_1_client.html" title="MoQ Client.">Client</a> </dd></dl>
-
-</div>
-</div>
-<a id="a6ebd9709377683f5a097a8e6cdf9d7d8" name="a6ebd9709377683f5a097a8e6cdf9d7d8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6ebd9709377683f5a097a8e6cdf9d7d8">&#9670;&#160;</a></span>MetricsSampled()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">virtual void moq::Client::MetricsSampled </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structmoq_1_1_connection_metrics.html">ConnectionMetrics</a> &amp;&amp;</td>          <td class="paramname"><span class="paramname"><em>metrics</em></span></td><td>)</td>
+          <td class="paramtype">const <a class="el" href="structmoq_1_1_connection_metrics.html">ConnectionMetrics</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>metrics</em></span></td><td>)</td>
           <td></td>
         </tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+<span class="mlabels"><span class="mlabel">override</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -490,8 +456,8 @@ Public Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="ad836c5d20f46f70c44efcf8eff41844c" name="ad836c5d20f46f70c44efcf8eff41844c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad836c5d20f46f70c44efcf8eff41844c">&#9670;&#160;</a></span>ResolveSubscribe()</h2>
+<a id="a5a58de967c186518975e954a62ea3c09" name="a5a58de967c186518975e954a62ea3c09"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5a58de967c186518975e954a62ea3c09">&#9670;&#160;</a></span>ResolveSubscribe()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -512,7 +478,7 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">SubscribeResponse</td>          <td class="paramname"><span class="paramname"><em>subscribe_response</em></span>&#160;)</td>
+          <td class="paramtype">const SubscribeResponse &amp;</td>          <td class="paramname"><span class="paramname"><em>subscribe_response</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -563,40 +529,6 @@ Public Member Functions</h2></td></tr>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">server_setup_attributes</td><td><a class="el" href="classmoq_1_1_server.html" title="MoQ Server.">Server</a> setup attributes received </td></tr>
-  </table>
-  </dd>
-</dl>
-
-</div>
-</div>
-<a id="ae0da20b0802e47de0aa28b01e4d9299c" name="ae0da20b0802e47de0aa28b01e4d9299c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae0da20b0802e47de0aa28b01e4d9299c">&#9670;&#160;</a></span>StatusChanged()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">virtual void moq::Client::StatusChanged </td>
-          <td>(</td>
-          <td class="paramtype">Status</td>          <td class="paramname"><span class="paramname"><em>status</em></span></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Callback notification for connection status/state change. </p>
-<p>Callback notification indicates state change of connection, such as disconnected</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">status</td><td>Status change </td></tr>
   </table>
   </dd>
 </dl>
@@ -665,7 +597,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Callback notification for new subscribe received that doesn't match an existing publish track. </p>
 <p>When a new subscribe is received that doesn't match any existing publish track, this method will be called to signal the client application that there is a new subscribe full track name. The client app should <a class="el" href="#aa2c00bc16bac132921df9fb198e1e5a5" title="Publish to a track.">PublishTrack()</a> within this callback (or afterwards) and return <b>true</b> if the subscribe is accepted and publishing will commence. If the subscribe is rejected and a publish track will not begin, then <b>false</b> should be returned. The Transport will send the appropriate message to indicate the accept/reject.</p>
-<dl class="section note"><dt>Note</dt><dd>The caller <b>MUST</b> respond to this via <a class="el" href="#ad836c5d20f46f70c44efcf8eff41844c" title="Accept or reject an subscribe that was received.">ResolveSubscribe()</a>. If the caller does not override this method, the default will call <a class="el" href="#ad836c5d20f46f70c44efcf8eff41844c" title="Accept or reject an subscribe that was received.">ResolveSubscribe()</a> with the status of error as not exists.</dd></dl>
+<dl class="section note"><dt>Note</dt><dd>The caller <b>MUST</b> respond to this via <a class="el" href="#a5a58de967c186518975e954a62ea3c09" title="Accept or reject an subscribe that was received.">ResolveSubscribe()</a>. If the caller does not override this method, the default will call <a class="el" href="#a5a58de967c186518975e954a62ea3c09" title="Accept or reject an subscribe that was received.">ResolveSubscribe()</a> with the status of error as not exists.</dd></dl>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">track_full_name</td><td>Track full name </td></tr>
