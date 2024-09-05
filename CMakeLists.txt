@@ -6,8 +6,10 @@ cmake_minimum_required(VERSION 3.13)
 # Build tests by default only if not a sub-project
 if(DEFINED PROJECT_NAME)
     option(QUICR_BUILD_TESTS "Build tests for quicr" OFF)
+    option(quicr_BUILD_BENCHMARKS "Build benchmarks for quicr" OFF)
 else()
     option(QUICR_BUILD_TESTS "Build tests for quicr" ON)
+    option(quicr_BUILD_BENCHMARKS "Build benchmarks for quicr" ON)
 endif()
 
 project(quicr

@@ -136,8 +136,7 @@ namespace moq::messages {
         return true;
     }
 
-    Serializer& operator<<(Serializer& buffer,
-                                                  const MoqTrackStatusRequest& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqTrackStatusRequest& msg)
     {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::TRACK_STATUS_REQUEST)));
         buffer.PushLengthBytes(msg.track_namespace);
@@ -364,8 +363,7 @@ namespace moq::messages {
         return ParseUintVField(buffer, msg.subscribe_id);
     }
 
-    Serializer& operator<<(Serializer& buffer,
-                                                  const MoqSubscribeDone& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqSubscribeDone& msg)
     {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_DONE)));
         buffer.Push(qtransport::ToUintV(msg.subscribe_id));
@@ -514,8 +512,7 @@ namespace moq::messages {
         return true;
     }
 
-    Serializer& operator<<(Serializer& buffer,
-                                                  const MoqSubscribeError& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqSubscribeError& msg)
     {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ERROR)));
         buffer.Push(qtransport::ToUintV(msg.subscribe_id));
@@ -650,8 +647,7 @@ namespace moq::messages {
         return true;
     }
 
-    Serializer& operator<<(Serializer& buffer,
-                                                  const MoqAnnounceError& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqAnnounceError& msg)
     {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_ERROR)));
         buffer.PushLengthBytes(msg.track_namespace.value());
@@ -712,8 +708,7 @@ namespace moq::messages {
         return true;
     }
 
-    Serializer& operator<<(Serializer& buffer,
-                                                  const MoqAnnounceCancel& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqAnnounceCancel& msg)
     {
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_CANCEL)));
         buffer.PushLengthBytes(msg.track_namespace);
@@ -832,8 +827,7 @@ namespace moq::messages {
         return true;
     }
 
-    Serializer& operator<<(Serializer& buffer,
-                                                  const MoqObjectDatagram& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqObjectDatagram& msg)
     {
 
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::OBJECT_DATAGRAM)));
@@ -905,8 +899,7 @@ namespace moq::messages {
         return true;
     }
 
-    Serializer& operator<<(Serializer& buffer,
-                                                  const MoqStreamHeaderTrack& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqStreamHeaderTrack& msg)
     {
 
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_TRACK)));
@@ -952,8 +945,7 @@ namespace moq::messages {
         return true;
     }
 
-    Serializer& operator<<(Serializer& buffer,
-                                                  const MoqStreamTrackObject& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqStreamTrackObject& msg)
     {
 
         buffer.Push(qtransport::ToUintV(msg.group_id));
@@ -999,8 +991,7 @@ namespace moq::messages {
         return true;
     }
 
-    Serializer& operator<<(Serializer& buffer,
-                                                  const MoqStreamHeaderGroup& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqStreamHeaderGroup& msg)
     {
 
         buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_GROUP)));
@@ -1054,8 +1045,7 @@ namespace moq::messages {
         return true;
     }
 
-    Serializer& operator<<(Serializer& buffer,
-                                                  const MoqStreamGroupObject& msg)
+    Serializer& operator<<(Serializer& buffer, const MoqStreamGroupObject& msg)
     {
 
         buffer.Push(qtransport::ToUintV(msg.object_id));
