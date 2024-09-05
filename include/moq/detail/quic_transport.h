@@ -226,9 +226,10 @@ namespace qtransport {
              * @param conn_id                        Connection ID for the metrics
              * @param quic_connection_metrics        Connection specific metrics for sample period
              */
-            virtual void OnConnectionMetricsSampled([[maybe_unused]] const TimeStampUs sample_time,
-                                                    [[maybe_unused]] const TransportConnId conn_id,
-                                                    [[maybe_unused]] QuicConnectionMetrics quic_connection_metrics)
+            virtual void OnConnectionMetricsSampled(
+              [[maybe_unused]] const TimeStampUs sample_time,
+              [[maybe_unused]] const TransportConnId conn_id,
+              [[maybe_unused]] const QuicConnectionMetrics& quic_connection_metrics)
             {
             }
 
@@ -245,7 +246,7 @@ namespace qtransport {
             virtual void OnDataMetricsStampled([[maybe_unused]] const TimeStampUs sample_time,
                                                [[maybe_unused]] const TransportConnId conn_id,
                                                [[maybe_unused]] const DataContextId data_ctx_id,
-                                               [[maybe_unused]] QuicDataContextMetrics quic_data_context_metrics)
+                                               [[maybe_unused]] const QuicDataContextMetrics& quic_data_context_metrics)
             {
             }
         };

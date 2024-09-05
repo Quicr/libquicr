@@ -201,7 +201,7 @@ class MyPublishTrackHandler : public moq::PublishTrackHandler
         }
     }
 
-    void MetricsSampled(moq::PublishTrackMetrics metrics) override
+    void MetricsSampled(const moq::PublishTrackMetrics& metrics) override
     {
         SPDLOG_DEBUG("Metrics track_alias: {0}"
                      " objects sent: {1}"
@@ -469,7 +469,7 @@ class MyServer : public moq::Server
         }
     }
 
-    void MetricsSampled(const moq::ConnectionHandle connection_handle, const moq::ConnectionMetrics metrics) override
+    void MetricsSampled(const moq::ConnectionHandle connection_handle, const moq::ConnectionMetrics& metrics) override
     {
         SPDLOG_DEBUG("Metrics connection handle: {0}"
                      " rtt_us: {1}"

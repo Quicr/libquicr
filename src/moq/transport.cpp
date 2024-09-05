@@ -135,7 +135,7 @@ namespace moq {
         return Status();
     }
 
-    void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, std::vector<uint8_t>&& data)
+    void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data)
     {
         if (not conn_ctx.ctrl_data_ctx_id) {
             CloseConnection(
@@ -915,7 +915,7 @@ namespace moq {
 
     void Transport::OnConnectionMetricsSampled(const TimeStampUs sample_time,
                                                const TransportConnId conn_id,
-                                               QuicConnectionMetrics quic_connection_metrics)
+                                               const QuicConnectionMetrics& quic_connection_metrics)
     {
         // TODO: doesn't require lock right now, but might need to add lock
         auto& conn = connections_[conn_id];
@@ -933,7 +933,7 @@ namespace moq {
     void Transport::OnDataMetricsStampled(const TimeStampUs sample_time,
                                           const TransportConnId conn_id,
                                           const DataContextId data_ctx_id,
-                                          QuicDataContextMetrics quic_data_context_metrics)
+                                          const QuicDataContextMetrics& quic_data_context_metrics)
     {
 
         const auto& conn = connections_[conn_id];

@@ -5,7 +5,7 @@
 
 namespace moq {
     void PublishTrackHandler::StatusChanged(Status) {}
-    void PublishTrackHandler::MetricsSampled(PublishTrackMetrics) {}
+    void PublishTrackHandler::MetricsSampled(const PublishTrackMetrics&) {}
 
     PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(const ObjectHeaders& object_headers,
                                                                                 BytesSpan data)

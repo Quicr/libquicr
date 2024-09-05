@@ -126,7 +126,7 @@ namespace moq {
          *
          * @param metrics           Copy of the published metrics for the sample period
          */
-        virtual void MetricsSampled(PublishTrackMetrics metrics);
+        virtual void MetricsSampled(const PublishTrackMetrics& metrics);
 
         // --------------------------------------------------------------------------
         // Various getter/setters

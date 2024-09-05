@@ -188,12 +188,12 @@ namespace moq {
 
         void OnConnectionMetricsSampled(TimeStampUs sample_time,
                                         TransportConnId conn_id,
-                                        QuicConnectionMetrics quic_connection_metrics) override;
+                                        const QuicConnectionMetrics& quic_connection_metrics) override;
 
         void OnDataMetricsStampled(TimeStampUs sample_time,
                                    TransportConnId conn_id,
                                    DataContextId data_ctx_id,
-                                   QuicDataContextMetrics quic_data_context_metrics) override;
+                                   const QuicDataContextMetrics& quic_data_context_metrics) override;
 
         // -------------------------------------------------------------------------------------------------
         // End of transport handler/callback functions

@@ -27,7 +27,7 @@ namespace moq {
 
     void Client::ResolveSubscribe(ConnectionHandle, uint64_t, const SubscribeResponse&) {}
 
-    void Client::MetricsSampled(const ConnectionMetrics) {}
+    void Client::MetricsSampled(const ConnectionMetrics&) {}
 
     PublishAnnounceStatus Client::GetAnnounceStatus(const TrackNamespace&)
     {
