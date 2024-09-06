@@ -137,9 +137,7 @@ namespace moq {
 
             std::lock_guard<std::mutex> _(rwLock_);
 
-            std::vector<T> result(length);
-            std::copy_n(buffer_.begin(), length, result.begin());
-            return result;
+            return FrontInternal(length);
         }
 
         void Pop()
@@ -159,12 +157,7 @@ namespace moq {
             }
 
             std::lock_guard<std::mutex> _(rwLock_);
-
-            if (length >= buffer_.size()) {
-                buffer_.clear();
-            } else {
-                buffer_.erase(buffer_.begin(), buffer_.begin() + length);
-            }
+            PopInternal(length);
         }
 
         /**
@@ -214,14 +207,21 @@ namespace moq {
          */
         std::optional<uint64_t> DecodeUintV()
         {
-            if (const auto uv_msb = Front()) {
-                uint64_t uv_len = SizeofUintV(*uv_msb);
-                if (Available(uv_len)) {
-                    auto val = ToUint64(Front(uv_len));
-                    Pop(uv_len);
+            if (buffer_.empty()) {
+                return std::nullopt;
+            }
 
-                    return val;
-                }
+            std::lock_guard<std::mutex> _(rwLock_);
+
+            const auto& uv_msb = buffer_.front();
+            uint64_t uv_len = SizeofUintV(uv_msb);
+
+            if (Available(uv_len)) {
+
+                auto val = ToUint64(FrontInternal(uv_len));
+                PopInternal(uv_len);
+
+                return val;
             }
 
             return std::nullopt;
@@ -239,22 +239,45 @@ namespace moq {
          */
         std::optional<std::vector<uint8_t>> DecodeBytes()
         {
-            if (const auto uv_msb = Front()) {
-                uint64_t uv_len = SizeofUintV(*uv_msb);
-                if (Available(uv_len)) {
-                    auto len = ToUint64(Front(uv_len));
+            if (buffer_.empty()) {
+                return std::nullopt;
+            }
 
-                    if (buffer_.size() >= uv_len + len) {
-                        Pop(uv_len);
-                        auto v = Front(len);
-                        Pop(len);
+            std::lock_guard<std::mutex> _(rwLock_);
 
-                        return v;
-                    }
+            const auto& uv_msb = buffer_.front();
+            uint64_t uv_len = SizeofUintV(uv_msb);
+
+            if (Available(uv_len)) {
+                auto len = ToUint64(FrontInternal(uv_len));
+                if (buffer_.size() >= uv_len + len) {
+
+                    PopInternal(uv_len);
+                    auto v = FrontInternal(len);
+                    PopInternal(len);
+
+                    return v;
                 }
             }
 
             return std::nullopt;
+        }
+
+      private:
+        inline std::vector<T> FrontInternal(std::uint32_t length) noexcept
+        {
+            std::vector<T> result(length);
+            std::copy_n(buffer_.begin(), length, result.begin());
+            return result;
+        }
+
+        inline void PopInternal(std::uint32_t length)
+        {
+            if (length >= buffer_.size()) {
+                buffer_.clear();
+            } else {
+                buffer_.erase(buffer_.begin(), buffer_.begin() + length);
+            }
         }
 
       private:
