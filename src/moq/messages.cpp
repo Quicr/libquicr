@@ -36,12 +36,14 @@ namespace moq::messages {
             if (current_tag == std::nullopt) {
                 uint64_t tag{ 0 };
                 if (!ParseUintVField(buffer, tag)) {
+                    count -= completed;
                     return false;
                 }
                 current_tag = tag;
             }
             auto val = buffer.DecodeBytes();
             if (!val) {
+                count -= completed;
                 return false;
             }
             extensions.value()[current_tag.value()] = std::move(val.value());
