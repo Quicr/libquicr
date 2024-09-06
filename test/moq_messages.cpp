@@ -22,6 +22,8 @@ from_ascii(const std::string& ascii)
 const Bytes TRACK_NAMESPACE_CONF = from_ascii("moqt://conf.example.com/conf/1");
 const Bytes TRACK_NAME_ALICE_VIDEO = from_ascii("alice/video");
 const UintVT TRACK_ALIAS_ALICE_VIDEO{ ToUintV(0xA11CE) };
+const Extensions EXAMPLE_EXTENSIONS = { { 0x1, { 0x1, 0x2 } } };
+const std::optional<Extensions> OPTIONAL_EXTENSIONS = EXAMPLE_EXTENSIONS;
 
 template<typename T>
 bool
@@ -573,7 +575,8 @@ TEST_CASE("ServerSetup  Message encode/decode")
     CHECK_EQ(server_setup.endpoint_id_parameter.value, server_setup_out.endpoint_id_parameter.value);
 }
 
-TEST_CASE("ObjectStream  Message encode/decode")
+static void
+ObjectStreamEncodeDecode(bool extensions)
 {
     Serializer buffer;
     auto object_stream = MoqObjectStream{};
@@ -582,6 +585,7 @@ TEST_CASE("ObjectStream  Message encode/decode")
     object_stream.group_id = 0x1000;
     object_stream.object_id = 0xFF;
     object_stream.priority = 0xA;
+    object_stream.extensions = extensions ? OPTIONAL_EXTENSIONS : std::nullopt;
     object_stream.payload = { 0x1, 0x2, 0x3, 0x5, 0x6 };
 
     buffer << object_stream;
@@ -595,10 +599,18 @@ TEST_CASE("ObjectStream  Message encode/decode")
     CHECK_EQ(object_stream.group_id, object_stream_out.group_id);
     CHECK_EQ(object_stream.object_id, object_stream_out.object_id);
     CHECK_EQ(object_stream.priority, object_stream_out.priority);
+    CHECK_EQ(object_stream.extensions, object_stream_out.extensions);
     CHECK_EQ(object_stream.payload, object_stream_out.payload);
 }
 
-TEST_CASE("ObjectDatagram  Message encode/decode")
+TEST_CASE("ObjectStream  Message encode/decode")
+{
+    ObjectStreamEncodeDecode(true);
+    ObjectStreamEncodeDecode(false);
+}
+
+static void
+ObjectDatagramEncodeDecode(bool extensions)
 {
     Serializer buffer;
     auto object_datagram = MoqObjectDatagram{};
@@ -607,6 +619,7 @@ TEST_CASE("ObjectDatagram  Message encode/decode")
     object_datagram.group_id = 0x1000;
     object_datagram.object_id = 0xFF;
     object_datagram.priority = 0xA;
+    object_datagram.extensions = extensions ? OPTIONAL_EXTENSIONS : std::nullopt;
     object_datagram.payload = { 0x1, 0x2, 0x3, 0x5, 0x6 };
 
     buffer << object_datagram;
@@ -620,10 +633,18 @@ TEST_CASE("ObjectDatagram  Message encode/decode")
     CHECK_EQ(object_datagram.group_id, object_datagram_out.group_id);
     CHECK_EQ(object_datagram.object_id, object_datagram_out.object_id);
     CHECK_EQ(object_datagram.priority, object_datagram_out.priority);
+    CHECK_EQ(object_datagram.extensions, object_datagram_out.extensions);
     CHECK_EQ(object_datagram.payload, object_datagram_out.payload);
 }
 
-TEST_CASE("StreamPerGroup Object  Message encode/decode")
+TEST_CASE("ObjectDatagram  Message encode/decode")
+{
+    ObjectDatagramEncodeDecode(false);
+    ObjectDatagramEncodeDecode(true);
+}
+
+static void
+StreamPerGroupObjectEncodeDecode(bool extensions)
 {
     Serializer buffer;
     auto hdr_grp = MoqStreamHeaderGroup{};
@@ -648,6 +669,7 @@ TEST_CASE("StreamPerGroup Object  Message encode/decode")
     for (size_t i = 0; i < 1000; i++) {
         auto obj = MoqStreamGroupObject{};
         obj.object_id = i;
+        obj.extensions = extensions ? OPTIONAL_EXTENSIONS : std::nullopt;
         obj.payload = { 0x1, 0x2, 0x3, 0x4, 0x5 };
         objects.push_back(obj);
         buffer << obj;
@@ -664,6 +686,7 @@ TEST_CASE("StreamPerGroup Object  Message encode/decode")
         done = in_buffer >> obj_out;
         if (done) {
             CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
+            CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
             CHECK_EQ(obj_out.payload, objects[object_count].payload);
             // got one object
             object_count++;
@@ -675,7 +698,14 @@ TEST_CASE("StreamPerGroup Object  Message encode/decode")
     CHECK_EQ(object_count, 1000);
 }
 
-TEST_CASE("StreamPerTrack Object  Message encode/decode")
+TEST_CASE("StreamPerGroup Object  Message encode/decode")
+{
+    StreamPerGroupObjectEncodeDecode(false);
+    StreamPerGroupObjectEncodeDecode(true);
+}
+
+static void
+StreamPerTrackObjectEncodeDecode(bool extensions)
 {
     Serializer buffer;
     auto hdr = MoqStreamHeaderTrack{};
@@ -705,6 +735,7 @@ TEST_CASE("StreamPerTrack Object  Message encode/decode")
             obj.object_id = i;
         }
 
+        obj.extensions = extensions ? OPTIONAL_EXTENSIONS : std::nullopt;
         obj.payload = { 0x1, 0x2, 0x3, 0x4, 0x5 };
         objects.push_back(obj);
         buffer << obj;
@@ -722,6 +753,7 @@ TEST_CASE("StreamPerTrack Object  Message encode/decode")
         if (done) {
             CHECK_EQ(obj_out.group_id, objects[object_count].group_id);
             CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
+            CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
             CHECK_EQ(obj_out.payload, objects[object_count].payload);
             // got one object
             object_count++;
@@ -731,6 +763,12 @@ TEST_CASE("StreamPerTrack Object  Message encode/decode")
     }
 
     CHECK_EQ(object_count, 1000);
+}
+
+TEST_CASE("StreamPerTrack Object  Message encode/decode")
+{
+    StreamPerTrackObjectEncodeDecode(false);
+    StreamPerTrackObjectEncodeDecode(true);
 }
 
 TEST_CASE("MoqGoaway Message encode/decode")
