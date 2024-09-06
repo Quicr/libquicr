@@ -239,6 +239,7 @@ namespace moq {
                                                             bool stream_header_needed,
                                                             uint64_t group_id,
                                                             uint64_t object_id,
+                                                            std::optional<Extensions> extensions,
                                                             BytesSpan data);
 
         void SendCtrlMsg(const ConnectionContext& conn_ctx, Span<const uint8_t> data);

@@ -410,8 +410,10 @@ namespace moq {
             bool stream_header_needed,
             uint64_t group_id,
             uint64_t object_id,
+            std::optional<Extensions> extensions,
             Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
-            return SendObject(*track_handler, priority, ttl, stream_header_needed, group_id, object_id, data);
+            return SendObject(
+              *track_handler, priority, ttl, stream_header_needed, group_id, object_id, extensions, data);
         };
 
         // Hold onto track handler
@@ -561,8 +563,10 @@ namespace moq {
             bool stream_header_needed,
             uint64_t group_id,
             uint64_t object_id,
+            std::optional<Extensions> extensions,
             Span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
-            return SendObject(*track_handler, priority, ttl, stream_header_needed, group_id, object_id, data);
+            return SendObject(
+              *track_handler, priority, ttl, stream_header_needed, group_id, object_id, extensions, data);
         };
 
         // Hold ref to track handler
@@ -576,6 +580,7 @@ namespace moq {
                                                                    bool stream_header_needed,
                                                                    uint64_t group_id,
                                                                    uint64_t object_id,
+                                                                   std::optional<Extensions> extensions,
                                                                    BytesSpan data)
     {
         if (!track_handler.GetTrackAlias().has_value()) {
@@ -598,6 +603,7 @@ namespace moq {
                 object.priority = priority;
                 object.subscribe_id = *track_handler.GetSubscribeId();
                 object.track_alias = *track_handler.GetTrackAlias();
+                object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
                 buffer << object;
                 break;
@@ -612,6 +618,7 @@ namespace moq {
                 object.priority = priority;
                 object.subscribe_id = *track_handler.GetSubscribeId();
                 object.track_alias = *track_handler.GetTrackAlias();
+                object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
                 buffer << object;
 
@@ -636,6 +643,7 @@ namespace moq {
 
                 MoqStreamGroupObject object;
                 object.object_id = object_id;
+                object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
                 buffer << object;
 
@@ -657,6 +665,7 @@ namespace moq {
                 MoqStreamTrackObject object;
                 object.group_id = group_id;
                 object.object_id = object_id;
+                object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
                 buffer << object;
 
@@ -894,14 +903,17 @@ namespace moq {
                                         msg.object_id,
                                         msg.payload.size());
 
-                    sub_it->second->ObjectReceived({ msg.group_id,
-                                                     msg.object_id,
-                                                     msg.payload.size(),
-                                                     msg.priority,
-                                                     std::nullopt,
-                                                     TrackMode::kDatagram,
-                                                     std::nullopt },
-                                                   msg.payload);
+                    sub_it->second->ObjectReceived(
+                      {
+                        msg.group_id,
+                        msg.object_id,
+                        msg.payload.size(),
+                        msg.priority,
+                        std::nullopt,
+                        TrackMode::kDatagram,
+                        msg.extensions,
+                      },
+                      msg.payload);
 
                 } else {
                     SPDLOG_LOGGER_WARN(logger_,
@@ -1054,7 +1066,7 @@ namespace moq {
                                                  msg.priority,
                                                  std::nullopt,
                                                  TrackMode::kStreamPerObject,
-                                                 std::nullopt },
+                                                 msg.extensions },
                                                msg.payload);
                 stream_buffer->ResetAny();
                 return true;
@@ -1109,7 +1121,7 @@ namespace moq {
                                                      msg.priority,
                                                      std::nullopt,
                                                      TrackMode::kStreamPerTrack,
-                                                     std::nullopt },
+                                                     obj.extensions },
                                                    obj.payload);
 
                     stream_buffer->ResetAnyB<MoqStreamTrackObject>();
@@ -1157,7 +1169,7 @@ namespace moq {
                                                      msg.priority,
                                                      std::nullopt,
                                                      TrackMode::kStreamPerGroup,
-                                                     std::nullopt },
+                                                     obj.extensions },
                                                    obj.payload);
 
                     stream_buffer->ResetAnyB<MoqStreamGroupObject>();

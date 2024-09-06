@@ -7,6 +7,7 @@
 #include "moq/detail/serializer.h"
 #include "stream_buffer.h"
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -24,6 +25,7 @@ namespace moq::messages {
     using SubscribeId = uint64_t;
     using TrackAlias = uint64_t;
     using ParamType = uint64_t;
+    using Extensions = std::map<uint64_t, std::vector<uint8_t>>;
 
     enum class MoqTerminationReason : uint64_t
     {
@@ -334,11 +336,14 @@ namespace moq::messages {
         GroupId group_id;
         ObjectId object_id;
         ObjectPriority priority;
+        std::optional<Extensions> extensions;
         Bytes payload;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqObjectStream& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqObjectStream& msg);
 
       private:
+        uint64_t num_extensions{ 0 };
+        std::optional<uint64_t> current_tag{};
         uint64_t current_pos{ 0 };
         bool parse_completed{ false };
     };
@@ -350,11 +355,14 @@ namespace moq::messages {
         GroupId group_id;
         ObjectId object_id;
         ObjectPriority priority;
+        std::optional<Extensions> extensions;
         Bytes payload;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqObjectDatagram& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqObjectDatagram& msg);
 
       private:
+        uint64_t num_extensions{ 0 };
+        std::optional<uint64_t> current_tag{};
         uint64_t current_pos{ 0 };
         bool parse_completed{ false };
     };
@@ -376,11 +384,14 @@ namespace moq::messages {
     {
         GroupId group_id;
         ObjectId object_id;
+        std::optional<Extensions> extensions;
         Bytes payload;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqStreamTrackObject& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqStreamTrackObject& msg);
 
       private:
+        uint64_t num_extensions{ 0 };
+        std::optional<uint64_t> current_tag{};
         uint64_t current_pos{ 0 };
         bool parse_completed{ false };
     };
@@ -402,11 +413,14 @@ namespace moq::messages {
     struct MoqStreamGroupObject
     {
         ObjectId object_id;
+        std::optional<Extensions> extensions;
         Bytes payload;
         friend bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqStreamGroupObject& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqStreamGroupObject& msg);
 
       private:
+        uint64_t num_extensions{ 0 };
+        std::optional<uint64_t> current_tag{};
         uint64_t current_pos{ 0 };
         bool parse_completed{ false };
     };

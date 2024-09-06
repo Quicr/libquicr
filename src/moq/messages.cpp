@@ -18,6 +18,40 @@ namespace moq::messages {
         return true;
     }
 
+    static bool ParseExtensions(qtransport::StreamBuffer<uint8_t>& buffer,
+                                uint64_t& count,
+                                std::optional<Extensions>& extensions,
+                                std::optional<uint64_t>& current_tag)
+    {
+        if (count == 0) {
+            return true;
+        }
+
+        if (extensions == std::nullopt) {
+            extensions = Extensions();
+        }
+
+        size_t completed = 0;
+        for (size_t extension = 0; extension < count; extension++) {
+            if (current_tag == std::nullopt) {
+                uint64_t tag{ 0 };
+                if (!ParseUintVField(buffer, tag)) {
+                    return false;
+                }
+                current_tag = tag;
+            }
+            auto val = buffer.DecodeBytes();
+            if (!val) {
+                return false;
+            }
+            extensions.value()[current_tag.value()] = std::move(val.value());
+            current_tag = std::nullopt;
+            completed++;
+        }
+        count -= completed;
+        return true;
+    }
+
     static bool ParseBytesField(qtransport::StreamBuffer<uint8_t>& buffer, Bytes& field)
     {
         auto val = buffer.DecodeBytes();
@@ -26,6 +60,20 @@ namespace moq::messages {
         }
         field = std::move(val.value());
         return true;
+    }
+
+    static void PushExtensions(Serializer& buffer, const std::optional<Extensions>& extensions)
+    {
+        if (!extensions.has_value()) {
+            buffer.Push(qtransport::ToUintV(0));
+            return;
+        }
+
+        buffer.Push(qtransport::ToUintV(extensions.value().size()));
+        for (const auto& extension : extensions.value()) {
+            buffer.Push(qtransport::ToUintV(extension.first));
+            buffer.PushLengthBytes(extension.second);
+        }
     }
 
     //
@@ -764,13 +812,13 @@ namespace moq::messages {
         buffer.Push(qtransport::ToUintV(msg.group_id));
         buffer.Push(qtransport::ToUintV(msg.object_id));
         buffer.Push(qtransport::ToUintV(msg.priority));
+        PushExtensions(buffer, msg.extensions);
         buffer.PushLengthBytes(msg.payload);
         return buffer;
     }
 
     bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqObjectStream& msg)
     {
-
         switch (msg.current_pos) {
             case 0: {
                 if (!ParseUintVField(buffer, msg.subscribe_id)) {
@@ -807,7 +855,19 @@ namespace moq::messages {
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 5: {
+            case 5:
+                if (!ParseUintVField(buffer, msg.num_extensions)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            case 6:
+                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            case 7: {
                 auto val = buffer.DecodeBytes();
                 if (!val) {
                     return false;
@@ -836,6 +896,7 @@ namespace moq::messages {
         buffer.Push(qtransport::ToUintV(msg.group_id));
         buffer.Push(qtransport::ToUintV(msg.object_id));
         buffer.Push(qtransport::ToUintV(msg.priority));
+        PushExtensions(buffer, msg.extensions);
         buffer.PushLengthBytes(msg.payload);
         return buffer;
     }
@@ -880,6 +941,19 @@ namespace moq::messages {
                 [[fallthrough]];
             }
             case 5: {
+                if (!ParseUintVField(buffer, msg.num_extensions)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 6:
+                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            case 7: {
                 auto val = buffer.DecodeBytes();
                 if (!val) {
                     return false;
@@ -950,6 +1024,7 @@ namespace moq::messages {
 
         buffer.Push(qtransport::ToUintV(msg.group_id));
         buffer.Push(qtransport::ToUintV(msg.object_id));
+        PushExtensions(buffer, msg.extensions);
         buffer.PushLengthBytes(msg.payload);
         return buffer;
     }
@@ -973,6 +1048,20 @@ namespace moq::messages {
                 [[fallthrough]];
             }
             case 2: {
+                if (!ParseUintVField(buffer, msg.num_extensions)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 3: {
+                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 4: {
                 auto val = buffer.DecodeBytes();
                 if (!val) {
                     return false;
@@ -1049,13 +1138,13 @@ namespace moq::messages {
     {
 
         buffer.Push(qtransport::ToUintV(msg.object_id));
+        PushExtensions(buffer, msg.extensions);
         buffer.PushLengthBytes(msg.payload);
         return buffer;
     }
 
     bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqStreamGroupObject& msg)
     {
-
         switch (msg.current_pos) {
             case 0: {
                 if (!ParseUintVField(buffer, msg.object_id)) {
@@ -1065,6 +1154,20 @@ namespace moq::messages {
                 [[fallthrough]];
             }
             case 1: {
+                if (!ParseUintVField(buffer, msg.num_extensions)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 2: {
+                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 3: {
                 auto val = buffer.DecodeBytes();
                 if (!val) {
                     return false;

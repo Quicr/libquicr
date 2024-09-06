@@ -251,6 +251,7 @@ namespace moq {
                                                                      bool stream_header_needed,
                                                                      uint64_t group_id,
                                                                      uint64_t object_id,
+                                                                     std::optional<Extensions> extensions,
                                                                      BytesSpan data)>;
         /**
          * @brief Set the Data context ID

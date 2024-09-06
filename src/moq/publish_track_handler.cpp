@@ -44,6 +44,7 @@ namespace moq {
                                         is_stream_header_needed,
                                         object_headers.group_id,
                                         object_headers.object_id,
+                                        object_headers.extensions,
                                         data);
         } else {
             return PublishObjectStatus::kInternalError;
