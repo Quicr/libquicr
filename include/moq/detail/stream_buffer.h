@@ -12,7 +12,7 @@
 
 #include "uintvar.h"
 
-namespace qtransport {
+namespace moq {
     template<typename T, class Allocator = std::allocator<T>>
     class StreamBuffer
     {
@@ -188,13 +188,13 @@ namespace qtransport {
             buffer_.push_back(std::move(value));
         }
 
-        void Push(const Span<const T>& value)
+        void Push(Span<const T> value)
         {
             std::lock_guard<std::mutex> _(rwLock_);
             buffer_.insert(buffer_.end(), value.begin(), value.end());
         }
 
-        void PushLv(const Span<const T>& value)
+        void PushLengthBytes(Span<const T> value)
         {
             std::lock_guard<std::mutex> _(rwLock_);
             const auto len = ToUintV(static_cast<uint64_t>(value.size()));
@@ -215,10 +215,9 @@ namespace qtransport {
         std::optional<uint64_t> DecodeUintV()
         {
             if (const auto uv_msb = Front()) {
-                if (Available(UintVSize(*uv_msb))) {
-                    uint64_t uv_len = UintVSize(*uv_msb);
+                uint64_t uv_len = SizeofUintV(*uv_msb);
+                if (Available(uv_len)) {
                     auto val = ToUint64(Front(uv_len));
-
                     Pop(uv_len);
 
                     return val;
@@ -241,8 +240,8 @@ namespace qtransport {
         std::optional<std::vector<uint8_t>> DecodeBytes()
         {
             if (const auto uv_msb = Front()) {
-                if (Available(UintVSize(*uv_msb))) {
-                    uint64_t uv_len = UintVSize(*uv_msb);
+                uint64_t uv_len = SizeofUintV(*uv_msb);
+                if (Available(uv_len)) {
                     auto len = ToUint64(Front(uv_len));
 
                     if (buffer_.size() >= uv_len + len) {

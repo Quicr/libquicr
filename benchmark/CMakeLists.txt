@@ -17,6 +17,7 @@ endif()
 
 add_executable(quicr_benchmark
     serializer.cpp
+    stream_buffer.cpp
 )
 
 target_link_libraries(quicr_benchmark PRIVATE quicr benchmark::benchmark_main)
