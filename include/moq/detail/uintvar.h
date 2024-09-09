@@ -13,7 +13,7 @@ namespace moq {
 #if __cplusplus >= 202002L
             return std::endian::native == std::endian::big;
 #else
-            return static_cast<const std::uint8_t>(0x0001) == 0x00;
+            return static_cast<const std::uint8_t&>(0x0001) == 0x00;
 #endif
         }
 
