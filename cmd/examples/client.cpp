@@ -83,7 +83,7 @@ class MyClient : public moq::Client
 {
   public:
     MyClient(const moq::ClientConfig& cfg, bool& stop_threads)
-      : moq::Client(cfg)
+      : moq::Client(cfg, spdlog::stderr_color_mt("QCLIENT"))
       , stop_threads_(stop_threads)
     {
     }

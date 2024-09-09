@@ -64,9 +64,9 @@ namespace moq {
         return std::make_tuple(address_str, port);
     }
 
-    Transport::Transport(const ClientConfig& cfg)
+    Transport::Transport(const ClientConfig& cfg, std::shared_ptr<spdlog::logger> logger)
       : client_mode_(true)
-      , logger_(spdlog::stderr_color_mt("MTC"))
+      , logger_(std::move(logger))
       , server_config_({})
       , client_config_(cfg)
       , quic_transport_({})
@@ -75,9 +75,9 @@ namespace moq {
         Init();
     }
 
-    Transport::Transport(const ServerConfig& cfg)
+    Transport::Transport(const ServerConfig& cfg, std::shared_ptr<spdlog::logger> logger)
       : client_mode_(false)
-      , logger_(spdlog::stderr_color_mt("MTS"))
+      , logger_(std::move(logger))
       , server_config_(cfg)
       , client_config_({})
       , quic_transport_({})

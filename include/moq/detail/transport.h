@@ -14,7 +14,6 @@
 #include <moq/metrics.h>
 #include <moq/publish_track_handler.h>
 #include <moq/subscribe_track_handler.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
 #include <map>
@@ -87,14 +86,14 @@ namespace moq {
          *
          * @param cfg       MoQ Instance Client Configuration
          */
-        Transport(const ClientConfig& cfg);
+        Transport(const ClientConfig& cfg, std::shared_ptr<spdlog::logger> logger);
 
         /**
          * @brief Server mode Constructor to create the MOQ instance
          *
          * @param cfg        MoQ Server Configuration
          */
-        Transport(const ServerConfig& cfg);
+        Transport(const ServerConfig& cfg, std::shared_ptr<spdlog::logger> logger);
 
         ~Transport() = default;
 

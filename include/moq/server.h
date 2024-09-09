@@ -51,8 +51,8 @@ namespace moq {
          *
          * @param cfg           MoQ Server Configuration
          */
-        Server(const ServerConfig& cfg)
-          : Transport(cfg)
+        Server(const ServerConfig& cfg, std::shared_ptr<spdlog::logger> logger)
+          : Transport(cfg, std::move(logger))
         {
         }
 

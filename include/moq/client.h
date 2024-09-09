@@ -25,8 +25,8 @@ namespace moq {
          *
          * @param cfg           MoQ Client Configuration
          */
-        Client(const ClientConfig& cfg)
-          : Transport(cfg)
+        Client(const ClientConfig& cfg, std::shared_ptr<spdlog::logger> logger)
+          : Transport(cfg, std::move(logger))
         {
         }
 

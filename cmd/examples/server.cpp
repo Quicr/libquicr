@@ -226,7 +226,7 @@ class MyServer : public moq::Server
 {
   public:
     MyServer(const moq::ServerConfig& cfg)
-      : moq::Server(cfg)
+      : moq::Server(cfg, spdlog::stderr_color_mt("QSERVER"))
     {
     }
 
