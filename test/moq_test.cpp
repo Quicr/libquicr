@@ -15,7 +15,8 @@
 
 using namespace moq;
 
-TEST_CASE("Client Constructor") {
+TEST_CASE("Client Constructor")
+{
     auto logger = spdlog::stderr_color_mt("TEST");
     auto client = std::make_shared<moq::Client>(moq::ClientConfig{}, logger);
     client.reset(new Client({}, logger));
