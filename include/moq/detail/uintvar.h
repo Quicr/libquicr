@@ -44,16 +44,6 @@ namespace moq {
                    ((value << 8) & 0x000000FF00000000) | ((value << 24) & 0x0000FF0000000000) |
                    ((value << 40) & 0x00FF000000000000) | ((value << 56) & 0xFF00000000000000);
         }
-
-        constexpr std::uint64_t ToNetByteOrder(const std::uint64_t value)
-        {
-            return SwapBytes(value);
-        }
-
-        constexpr std::uint64_t ToHostByteOrder(const std::uint64_t value)
-        {
-            return SwapBytes(value);
-        }
     }
 
     using UintV = std::vector<uint8_t>;
@@ -94,26 +84,25 @@ namespace moq {
         constexpr uint64_t kLen2 = (static_cast<uint64_t>(-1) << (64 - 14) >> (64 - 14));
         constexpr uint64_t kLen4 = (static_cast<uint64_t>(-1) << (64 - 30) >> (64 - 30));
 
-        value = ToNetByteOrder(value);
-
-        std::vector<uint8_t> net_bytes(sizeof(uint64_t), 0);
-        std::memcpy(net_bytes.data(), &value, sizeof(uint64_t));
-
-        if (net_bytes[0] & 0xC0) { // Check if invalid
+        if (value & (0xC0ull << 56)) { // Check if invalid
             return {};
         }
 
+        std::size_t length = sizeof(uint8_t);
         if (value > kLen4) { // 62 bit encoding (8 bytes)
-            net_bytes[0] |= 0xC0;
+            value |= (0xC0ull << 56);
+            length = sizeof(uint64_t);
         } else if (value > kLen2) { // 30 bit encoding (4 bytes)
-            net_bytes[0] |= 0x80;
-            net_bytes.resize(4);
+            value |= (0x80u << 24);
+            length = sizeof(uint32_t);
         } else if (value > kLen1) { // 14 bit encoding (2 bytes)
-            net_bytes[0] |= 0x40;
-            net_bytes.resize(2);
-        } else {
-            net_bytes.resize(1);
+            value |= (0x40u << 8);
+            length = sizeof(uint16_t);
         }
+
+        uint64_t net_value = SwapBytes(value);
+        UintV net_bytes(length, 0);
+        std::memcpy(net_bytes.data(), reinterpret_cast<uint8_t*>(&net_value) + (sizeof(uint64_t) - length), length);
 
         return net_bytes;
     }
@@ -137,6 +126,18 @@ namespace moq {
 
         byte_value[0] &= 0x3f; // Zero MSB length bits
 
-        return ToHostByteOrder(value);
+        if (uint_v.size() == sizeof(uint8_t)) {
+            return value;
+        }
+
+        if (uint_v.size() == sizeof(uint16_t)) {
+            return SwapBytes(static_cast<uint16_t>(value));
+        }
+
+        if (uint_v.size() == sizeof(uint32_t)) {
+            return SwapBytes(static_cast<uint32_t>(value));
+        }
+
+        return SwapBytes(value);
     }
 }
