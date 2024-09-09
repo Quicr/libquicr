@@ -237,7 +237,8 @@ namespace qtransport {
         std::optional<std::vector<uint8_t>> Dequeue(TransportConnId conn_id,
                                                     std::optional<DataContextId> data_ctx_id) override;
 
-        std::shared_ptr<moq::StreamBuffer<uint8_t>> GetStreamBuffer(TransportConnId conn_id, uint64_t stream_id) override;
+        std::shared_ptr<moq::StreamBuffer<uint8_t>> GetStreamBuffer(TransportConnId conn_id,
+                                                                    uint64_t stream_id) override;
 
         void SetRemoteDataCtxId(TransportConnId conn_id,
                                 DataContextId data_ctx_id,

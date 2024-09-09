@@ -166,7 +166,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
             }
 
             if (auto conn_ctx = transport->GetConnContext(conn_id)) {
-                transport->OnRecvStreamBytes(conn_ctx, data_ctx, stream_id, Span{bytes, length});
+                transport->OnRecvStreamBytes(conn_ctx, data_ctx, stream_id, Span{ bytes, length });
 
                 if (is_fin) {
                     SPDLOG_LOGGER_INFO(transport->logger, "Received FIN for stream {0}", stream_id);
