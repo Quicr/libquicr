@@ -1187,7 +1187,8 @@ namespace moq {
     }
 
     template<class MessageType>
-    std::pair<MessageType&, bool> Transport::ParseControlMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer)
+    std::pair<MessageType&, bool> Transport::ParseControlMessage(
+      std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer)
     {
         if (!stream_buffer->AnyHasValue()) {
             SPDLOG_LOGGER_DEBUG(logger_, "Received control message, init stream buffer");
