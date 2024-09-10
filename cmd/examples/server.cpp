@@ -48,7 +48,8 @@ namespace qserver_vars {
      * @example
      *      track_alias = subscribe_alias_sub_id[conn_id][subscribe_id]
      */
-    std::unordered_map<quicr::ConnectionHandle, std::unordered_map<quicr::messages::SubscribeId, quicr::messages::TrackAlias>>
+    std::unordered_map<quicr::ConnectionHandle,
+                       std::unordered_map<quicr::messages::SubscribeId, quicr::messages::TrackAlias>>
       subscribe_alias_sub_id;
 
     /**

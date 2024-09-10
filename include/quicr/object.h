@@ -5,8 +5,8 @@
 
 #include <cstdint>
 #include <map>
-#include <quicr/detail/base_track_handler.h>
 #include <optional>
+#include <quicr/detail/base_track_handler.h>
 
 namespace quicr {
     using Extensions = std::map<uint64_t, std::vector<uint8_t>>;

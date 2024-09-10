@@ -169,7 +169,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
         }
 
         quicr::ObjectHeaders obj_headers = { group_id,       object_id++,  msg.size(),  2 /*priority*/,
-                                           3000 /* ttl */, std::nullopt, std::nullopt };
+                                             3000 /* ttl */, std::nullopt, std::nullopt };
 
         track_handler->PublishObject(obj_headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
     }
@@ -185,7 +185,9 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
  * -------------------------------------------------------------------------------------------------
  */
 void
-DoSubscriber(const quicr::FullTrackName& full_track_name, const std::shared_ptr<quicr::Client>& client, const bool& stop)
+DoSubscriber(const quicr::FullTrackName& full_track_name,
+             const std::shared_ptr<quicr::Client>& client,
+             const bool& stop)
 {
     auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name);
 

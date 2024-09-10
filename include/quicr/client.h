@@ -3,11 +3,11 @@
 
 #pragma once
 
+#include <optional>
 #include <quicr/common.h>
 #include <quicr/config.h>
 #include <quicr/detail/transport.h>
 #include <quicr/track_name.h>
-#include <optional>
 
 namespace quicr {
     using namespace quicr;

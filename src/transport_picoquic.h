@@ -18,10 +18,10 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#include <quicr/detail/quic_transport.h>
 #include <picoquic.h>
 #include <picoquic_config.h>
 #include <picoquic_packet_loop.h>
+#include <quicr/detail/quic_transport.h>
 #include <spdlog/spdlog.h>
 
 #include "quicr/detail/priority_queue.h"
@@ -238,7 +238,7 @@ namespace quicr {
                                                     std::optional<DataContextId> data_ctx_id) override;
 
         std::shared_ptr<SafeStreamBuffer<uint8_t>> GetStreamBuffer(TransportConnId conn_id,
-                                                                        uint64_t stream_id) override;
+                                                                   uint64_t stream_id) override;
 
         void SetRemoteDataCtxId(TransportConnId conn_id,
                                 DataContextId data_ctx_id,

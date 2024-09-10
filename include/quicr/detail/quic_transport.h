@@ -444,6 +444,6 @@ namespace quicr {
          * @param[in] stream_id               Stream ID of stream buffer
          */
         virtual std::shared_ptr<SafeStreamBuffer<uint8_t>> GetStreamBuffer(TransportConnId conn_id,
-                                                                                uint64_t stream_id) = 0;
+                                                                           uint64_t stream_id) = 0;
     };
 } // namespace quicr
