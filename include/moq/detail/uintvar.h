@@ -101,11 +101,9 @@ namespace moq {
             length = sizeof(uint16_t);
         }
 
-        uint64_t net_value = SwapBytes(value);
-        UintV net_bytes(length, 0);
-        std::memcpy(net_bytes.data(), reinterpret_cast<uint8_t*>(&net_value) + (sizeof(uint64_t) - length), length);
-
-        return net_bytes;
+        value = SwapBytes(value);
+        const auto* bytes = reinterpret_cast<uint8_t*>(&value);
+        return {bytes + (sizeof(uint64_t) - length), bytes + sizeof(uint64_t)};
     }
 
     /**
