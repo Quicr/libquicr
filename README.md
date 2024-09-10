@@ -23,7 +23,7 @@ sudo apt-get update && sudo apt-get install -y gcc g++ golang pkgconf cmake make
 Both Apple Intel and Silicon are supported. 
 
 
-> #### (1) Install Xcode
+#### (1) Install Xcode
 
 > [!NOTE]
 > You **MUST** install xcode from Apple in order to get the base development programs.
