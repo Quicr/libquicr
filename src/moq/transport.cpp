@@ -87,6 +87,11 @@ namespace moq {
         Init();
     }
 
+    Transport::~Transport()
+    {
+        spdlog::drop(logger_->name());
+    }
+
     void Transport::Init() {}
 
     Transport::Status Transport::Start()
