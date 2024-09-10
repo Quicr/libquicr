@@ -13,7 +13,14 @@
 #include "uintvar.h"
 
 namespace moq {
-    template<typename T, class Allocator = std::allocator<T>>
+    struct NullMutex
+    {
+        constexpr void lock() {}
+        constexpr void unlock() {}
+        constexpr bool try_lock() { return true; }
+    };
+
+    template<typename T, class Mutex = NullMutex, class Allocator = std::allocator<T>>
     class StreamBuffer
     {
         using BufferT = std::deque<T, Allocator>;
@@ -118,7 +125,7 @@ namespace moq {
                 return std::nullopt;
             }
 
-            std::lock_guard<std::mutex> _(rwLock_);
+            std::lock_guard _(rw_lock_);
             return buffer_.front();
         }
 
@@ -135,7 +142,7 @@ namespace moq {
                 return std::vector<T>();
             }
 
-            std::lock_guard<std::mutex> _(rwLock_);
+            std::lock_guard _(rw_lock_);
 
             return FrontInternal(length);
         }
@@ -146,7 +153,7 @@ namespace moq {
                 return;
             }
 
-            std::lock_guard<std::mutex> _(rwLock_);
+            std::lock_guard _(rw_lock_);
             buffer_.pop_front();
         }
 
@@ -156,7 +163,7 @@ namespace moq {
                 return;
             }
 
-            std::lock_guard<std::mutex> _(rwLock_);
+            std::lock_guard _(rw_lock_);
             PopInternal(length);
         }
 
@@ -171,25 +178,25 @@ namespace moq {
 
         void Push(const T& value)
         {
-            std::lock_guard<std::mutex> _(rwLock_);
+            std::lock_guard _(rw_lock_);
             buffer_.push_back(value);
         }
 
         void Push(T&& value)
         {
-            std::lock_guard<std::mutex> _(rwLock_);
+            std::lock_guard _(rw_lock_);
             buffer_.push_back(std::move(value));
         }
 
         void Push(Span<const T> value)
         {
-            std::lock_guard<std::mutex> _(rwLock_);
+            std::lock_guard _(rw_lock_);
             buffer_.insert(buffer_.end(), value.begin(), value.end());
         }
 
         void PushLengthBytes(Span<const T> value)
         {
-            std::lock_guard<std::mutex> _(rwLock_);
+            std::lock_guard _(rw_lock_);
             const auto len = ToUintV(static_cast<uint64_t>(value.size()));
             buffer_.insert(buffer_.end(), len.begin(), len.end());
             buffer_.insert(buffer_.end(), value.begin(), value.end());
@@ -211,7 +218,7 @@ namespace moq {
                 return std::nullopt;
             }
 
-            std::lock_guard<std::mutex> _(rwLock_);
+            std::lock_guard _(rw_lock_);
 
             const auto& uv_msb = buffer_.front();
             uint64_t uv_len = SizeofUintV(uv_msb);
@@ -243,7 +250,7 @@ namespace moq {
                 return std::nullopt;
             }
 
-            std::lock_guard<std::mutex> _(rwLock_);
+            std::lock_guard _(rw_lock_);
 
             const auto& uv_msb = buffer_.front();
             uint64_t uv_len = SizeofUintV(uv_msb);
@@ -282,9 +289,12 @@ namespace moq {
 
       private:
         BufferT buffer_;
-        std::mutex rwLock_;
+        Mutex rw_lock_;
         std::any parsed_data_;                     /// Working buffer for parsed data
         std::any parsed_dataB_;                    /// Second Working buffer for parsed data
         std::optional<uint64_t> parsed_data_type_; /// working buffer type value
     };
+
+    template<class T, class Allocator = std::allocator<T>>
+    using SafeStreamBuffer = StreamBuffer<T, std::mutex, Allocator>;
 }

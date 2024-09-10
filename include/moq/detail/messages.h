@@ -104,7 +104,8 @@ namespace moq::messages {
         uint64_t type{ 0 };
         uint64_t length{ 0 };
         Bytes value;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqParameter& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqParameter& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqParameter& msg);
     };
 
@@ -119,7 +120,8 @@ namespace moq::messages {
         MoqParameter role_parameter;
         MoqParameter path_parameter;
         MoqParameter endpoint_id_parameter;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqClientSetup& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqClientSetup& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqClientSetup& msg);
 
       private:
@@ -135,7 +137,8 @@ namespace moq::messages {
         MoqParameter role_parameter;
         MoqParameter path_parameter;
         MoqParameter endpoint_id_parameter;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqServerSetup& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqServerSetup& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqServerSetup& msg);
 
       private:
@@ -170,7 +173,8 @@ namespace moq::messages {
         uint64_t end_object{ 0 };
         std::optional<uint64_t> num_params;
         std::vector<MoqParameter> track_params;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqSubscribe& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqSubscribe& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqSubscribe& msg);
 
       private:
@@ -186,7 +190,8 @@ namespace moq::messages {
         bool content_exists;
         uint64_t largest_group{ 0 };
         uint64_t largest_object{ 0 };
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqSubscribeOk& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqSubscribeOk& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqSubscribeOk& msg);
 
       private:
@@ -200,7 +205,8 @@ namespace moq::messages {
         ErrorCode err_code;
         ReasonPhrase reason_phrase;
         uint64_t track_alias;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqSubscribeError& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqSubscribeError& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqSubscribeError& msg);
 
       private:
@@ -211,7 +217,8 @@ namespace moq::messages {
     struct MoqUnsubscribe
     {
         SubscribeId subscribe_id;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqUnsubscribe& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqUnsubscribe& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqUnsubscribe& msg);
     };
 
@@ -223,7 +230,8 @@ namespace moq::messages {
         bool content_exists;
         uint64_t final_group_id;
         uint64_t final_object_id;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqSubscribeDone& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqSubscribeDone& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqSubscribeDone& msg);
 
       private:
@@ -238,7 +246,8 @@ namespace moq::messages {
     {
         TrackNamespace track_namespace;
         TrackName track_name;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqTrackStatusRequest& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqTrackStatusRequest& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqTrackStatusRequest& msg);
 
       private:
@@ -261,7 +270,8 @@ namespace moq::messages {
         TrackStatus status_code;
         uint64_t last_group_id{ 0 };
         uint64_t last_object_id{ 0 };
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqTrackStatus& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqTrackStatus& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqTrackStatus& msg);
 
       private:
@@ -277,7 +287,8 @@ namespace moq::messages {
     {
         TrackNamespace track_namespace;
         std::vector<MoqParameter> params;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqAnnounce& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqAnnounce& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqAnnounce& msg);
 
       private:
@@ -288,7 +299,8 @@ namespace moq::messages {
     struct MoqAnnounceOk
     {
         TrackNamespace track_namespace;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqAnnounceOk& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqAnnounceOk& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqAnnounceOk& msg);
     };
 
@@ -298,21 +310,24 @@ namespace moq::messages {
         std::optional<ErrorCode> err_code;
         std::optional<ReasonPhrase> reason_phrase;
 
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqAnnounceError& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqAnnounceError& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqAnnounceError& msg);
     };
 
     struct MoqUnannounce
     {
         TrackNamespace track_namespace;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqUnannounce& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqUnannounce& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqUnannounce& msg);
     };
 
     struct MoqAnnounceCancel
     {
         TrackNamespace track_namespace;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqAnnounceCancel& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqAnnounceCancel& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqAnnounceCancel& msg);
     };
 
@@ -322,7 +337,8 @@ namespace moq::messages {
     struct MoqGoaway
     {
         Bytes new_session_uri;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqGoaway& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqGoaway& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqGoaway& msg);
     };
 
@@ -338,7 +354,8 @@ namespace moq::messages {
         ObjectPriority priority;
         std::optional<Extensions> extensions;
         Bytes payload;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqObjectStream& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqObjectStream& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqObjectStream& msg);
 
       private:
@@ -357,7 +374,8 @@ namespace moq::messages {
         ObjectPriority priority;
         std::optional<Extensions> extensions;
         Bytes payload;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqObjectDatagram& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqObjectDatagram& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqObjectDatagram& msg);
 
       private:
@@ -372,7 +390,8 @@ namespace moq::messages {
         SubscribeId subscribe_id;
         TrackAlias track_alias;
         ObjectPriority priority;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqStreamHeaderTrack& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqStreamHeaderTrack& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqStreamHeaderTrack& msg);
 
       private:
@@ -386,7 +405,8 @@ namespace moq::messages {
         ObjectId object_id;
         std::optional<Extensions> extensions;
         Bytes payload;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqStreamTrackObject& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqStreamTrackObject& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqStreamTrackObject& msg);
 
       private:
@@ -402,7 +422,8 @@ namespace moq::messages {
         TrackAlias track_alias;
         GroupId group_id;
         ObjectPriority priority;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqStreamHeaderGroup& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqStreamHeaderGroup& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqStreamHeaderGroup& msg);
 
       private:
@@ -415,7 +436,8 @@ namespace moq::messages {
         ObjectId object_id;
         std::optional<Extensions> extensions;
         Bytes payload;
-        friend bool operator>>(StreamBuffer<uint8_t>& buffer, MoqStreamGroupObject& msg);
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqStreamGroupObject& msg);
         friend Serializer& operator<<(Serializer& buffer, const MoqStreamGroupObject& msg);
 
       private:

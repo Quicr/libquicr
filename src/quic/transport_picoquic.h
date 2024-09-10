@@ -137,11 +137,11 @@ namespace qtransport {
              */
             struct RxStreamBuffer
             {
-                std::shared_ptr<moq::StreamBuffer<uint8_t>> buf;
+                std::shared_ptr<moq::SafeStreamBuffer<uint8_t>> buf;
                 bool closed{ false };       /// Indicates if stream is active or in closed state
                 bool checked_once{ false }; /// True if closed and checked once to close
 
-                RxStreamBuffer() { buf = std::make_shared<moq::StreamBuffer<uint8_t>>(); }
+                RxStreamBuffer() { buf = std::make_shared<moq::SafeStreamBuffer<uint8_t>>(); }
             };
             std::map<uint64_t, RxStreamBuffer> rx_stream_buffer; /// Map of stream receive buffers, key is stream_id
 
@@ -237,8 +237,8 @@ namespace qtransport {
         std::optional<std::vector<uint8_t>> Dequeue(TransportConnId conn_id,
                                                     std::optional<DataContextId> data_ctx_id) override;
 
-        std::shared_ptr<moq::StreamBuffer<uint8_t>> GetStreamBuffer(TransportConnId conn_id,
-                                                                    uint64_t stream_id) override;
+        std::shared_ptr<moq::SafeStreamBuffer<uint8_t>> GetStreamBuffer(TransportConnId conn_id,
+                                                                        uint64_t stream_id) override;
 
         void SetRemoteDataCtxId(TransportConnId conn_id,
                                 DataContextId data_ctx_id,

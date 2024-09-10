@@ -213,7 +213,7 @@ namespace moq {
 
       private:
         bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer) override;
+                                std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer) override;
 
         void SetConnectionHandle(ConnectionHandle connection_handle) override
         {

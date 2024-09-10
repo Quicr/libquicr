@@ -608,7 +608,7 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
     return TransportError::kNone;
 }
 
-std::shared_ptr<moq::StreamBuffer<uint8_t>>
+std::shared_ptr<moq::SafeStreamBuffer<uint8_t>>
 PicoQuicTransport::GetStreamBuffer(TransportConnId conn_id, uint64_t stream_id)
 {
     std::lock_guard<std::mutex> _(state_mutex_);
