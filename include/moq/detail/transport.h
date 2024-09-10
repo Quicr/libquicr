@@ -96,7 +96,7 @@ namespace moq {
          */
         Transport(const ServerConfig& cfg);
 
-        ~Transport() = default;
+        ~Transport();
 
         // -------------------------------------------------------------------------------------------------
         // Public API MoQ Instance API methods
