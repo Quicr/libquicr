@@ -272,8 +272,8 @@ main(int argc, char* argv[])
       .set_tab_expansion()
       //.allow_unrecognised_options()
       .add_options()("h,help", "Print help")("d,debug", "Enable debugging") // a bool parameter
-      ("r,url", "Relay URL", cxxopts::value<std::string>()->default_value("quicr://localhost:1234"))(
-        "e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("quicr-client"))(
+      ("r,url", "Relay URL", cxxopts::value<std::string>()->default_value("moq://localhost:1234"))(
+        "e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))(
         "q,qlog", "Enable qlog using path", cxxopts::value<std::string>()); // end of options
 
     options.add_options("Publisher")("pub_namespace", "Track namespace", cxxopts::value<std::string>())(

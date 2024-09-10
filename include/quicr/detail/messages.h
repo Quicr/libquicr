@@ -39,7 +39,7 @@ namespace quicr::messages {
         GOAWAY_TIMEOUT = 0x10,
     };
 
-    // Ref: https://quicr-wg.github.io/quicr-transport/draft-ietf-quicr-transport.html#name-messages
+    // Ref: https://moq-wg.github.io/moq-transport/draft-ietf-moq-transport.html#name-messages
     enum class MoqMessageType : uint64_t
     {
         OBJECT_STREAM = 0x0,
