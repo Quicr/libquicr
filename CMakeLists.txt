@@ -13,9 +13,23 @@ else()
 endif()
 
 project(quicr
-        VERSION 1.0.0.0
-        DESCRIPTION "quicr library"
+        VERSION 0.1.0
+        DESCRIPTION "QuicR, a Media Over QUIC Library"
         LANGUAGES CXX)
+
+configure_file( src/version.h.in ${CMAKE_BINARY_DIR}/include/quicr/version.h )
+include_directories(${CMAKE_BINARY_DIR}/include )
+
+IF (NOT LINUX AND NOT APPLE)
+    message(FATAL_ERROR "Unsupported platform, Linux and Apple are the only supported platforms")
+endif ()
+
+set (supported_archs arm624 x86_64)
+if (NOT ${CMAKE_SYSTEM_PROCESSOR} IN_LIST supported_archs)
+    message(FATAL_ERROR "Unsupported system architecture '${CMAKE_SYSTEM_PROCESSOR}'. Supported is arm64 and x86_64")
+endif()
+
+message(STATUS "Building for ${CMAKE_SYSTEM_PROCESSOR}")
 
 option(LINT "Perform linting with clang-tidy" OFF)
 option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)

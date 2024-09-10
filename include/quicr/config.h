@@ -5,6 +5,7 @@
 
 #include <quicr/detail/quic_transport.h>
 #include <string>
+#include "quicr/version.h"
 
 namespace quicr {
 
