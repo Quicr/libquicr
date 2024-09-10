@@ -120,22 +120,10 @@ namespace moq {
         }
 
         uint64_t value{ 0 };
-        uint8_t* byte_value = reinterpret_cast<uint8_t*>(&value);
+        uint8_t* byte_value = reinterpret_cast<uint8_t*>(&value) + (sizeof(uint64_t) - uint_v.size());
         std::memcpy(byte_value, uint_v.data(), uint_v.size());
 
         byte_value[0] &= 0x3f; // Zero MSB length bits
-
-        if (uint_v.size() == sizeof(uint8_t)) {
-            return value;
-        }
-
-        if (uint_v.size() == sizeof(uint16_t)) {
-            return SwapBytes(static_cast<uint16_t>(value));
-        }
-
-        if (uint_v.size() == sizeof(uint32_t)) {
-            return SwapBytes(static_cast<uint32_t>(value));
-        }
 
         return SwapBytes(value);
     }
