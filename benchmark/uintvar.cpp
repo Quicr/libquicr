@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <moq/detail/uintvar.h>
+#include <quicr/detail/uintvar.h>
 
 #include <benchmark/benchmark.h>
 
@@ -11,7 +11,7 @@ static void
 UInt64_ToUintVar(benchmark::State& state)
 {
     for ([[maybe_unused]] const auto& _ : state) {
-        auto value = moq::ToUintV(0x123456789);
+        auto value = quicr::ToUintV(0x123456789);
         benchmark::DoNotOptimize(value);
         benchmark::ClobberMemory();
     }
@@ -20,9 +20,9 @@ UInt64_ToUintVar(benchmark::State& state)
 static void
 UInt64_FromUintVar(benchmark::State& state)
 {
-    auto var_int = moq::ToUintV(0x123456789);
+    auto var_int = quicr::ToUintV(0x123456789);
     for ([[maybe_unused]] const auto& _ : state) {
-        auto value = moq::ToUint64(var_int);
+        auto value = quicr::ToUint64(var_int);
         benchmark::DoNotOptimize(value);
         benchmark::ClobberMemory();
     }

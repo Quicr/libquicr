@@ -3,16 +3,16 @@
 
 #include <doctest/doctest.h>
 
-#include <moq/client.h>
-#include <moq/common.h>
-#include <moq/publish_track_handler.h>
-#include <moq/server.h>
-#include <moq/subscribe_track_handler.h>
+#include <quicr/client.h>
+#include <quicr/common.h>
+#include <quicr/publish_track_handler.h>
+#include <quicr/server.h>
+#include <quicr/subscribe_track_handler.h>
 
-class TestPublishTrackHandler : public moq::PublishTrackHandler
+class TestPublishTrackHandler : public quicr::PublishTrackHandler
 {
     TestPublishTrackHandler()
-      : PublishTrackHandler({ {}, {}, std::nullopt }, moq::TrackMode::kStreamPerGroup, 0, 0)
+      : PublishTrackHandler({ {}, {}, std::nullopt }, quicr::TrackMode::kStreamPerGroup, 0, 0)
     {
     }
 
@@ -25,6 +25,6 @@ class TestPublishTrackHandler : public moq::PublishTrackHandler
 
 TEST_CASE("Create Track Handler")
 {
-    CHECK_NOTHROW(moq::PublishTrackHandler::Create({ {}, {}, std::nullopt }, moq::TrackMode::kStreamPerGroup, 0, 0));
+    CHECK_NOTHROW(quicr::PublishTrackHandler::Create({ {}, {}, std::nullopt }, quicr::TrackMode::kStreamPerGroup, 0, 0));
     CHECK_NOTHROW(TestPublishTrackHandler::Create());
 }

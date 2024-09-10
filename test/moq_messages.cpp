@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "moq/detail/messages.h"
-#include "moq/detail/serializer.h"
+#include "quicr/detail/messages.h"
+#include "quicr/detail/serializer.h"
 
 #include <any>
 #include <doctest/doctest.h>
@@ -10,8 +10,8 @@
 #include <string>
 #include <sys/socket.h>
 
-using namespace moq;
-using namespace moq::messages;
+using namespace quicr;
+using namespace quicr::messages;
 
 static Bytes
 from_ascii(const std::string& ascii)

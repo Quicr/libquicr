@@ -953,17 +953,17 @@ WARN_LOGFILE           =
 # Note: If this tag is empty the current directory is searched.
 
 INPUT                  =  docs/moq-api-main.md \
-                          include/moq/core/transport.h \
-                          include/moq/common.h \
-                          include/moq/config.h \
-                          include/moq/client.h \
-                          include/moq/metrics.h \
-                          include/moq/object.h \
-                          include/moq/server.h \
-                          include/moq/server_publish_track_handler.h \
-                          include/moq/subscribe_track_handler.h \
-                          include/moq/publish_track_handler.h \
-                          include/moq/core/base_track_handler.h
+                          include/quicr/core/transport.h \
+                          include/quicr/common.h \
+                          include/quicr/config.h \
+                          include/quicr/client.h \
+                          include/quicr/metrics.h \
+                          include/quicr/object.h \
+                          include/quicr/server.h \
+                          include/quicr/server_publish_track_handler.h \
+                          include/quicr/subscribe_track_handler.h \
+                          include/quicr/publish_track_handler.h \
+                          include/quicr/core/base_track_handler.h
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses

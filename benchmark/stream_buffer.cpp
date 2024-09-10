@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <moq/detail/stream_buffer.h>
+#include <quicr/detail/stream_buffer.h>
 
 #include <benchmark/benchmark.h>
 
@@ -12,7 +12,7 @@ static void
 StreamBuffer_Construct(benchmark::State& state)
 {
     for ([[maybe_unused]] const auto& _ : state) {
-        auto __ = moq::StreamBuffer<std::uint8_t>();
+        auto __ = quicr::StreamBuffer<std::uint8_t>();
         benchmark::DoNotOptimize(__);
         benchmark::ClobberMemory();
     }
@@ -21,7 +21,7 @@ StreamBuffer_Construct(benchmark::State& state)
 static void
 StreamBuffer_Push(benchmark::State& state)
 {
-    moq::StreamBuffer<std::uint8_t> buffer;
+    quicr::StreamBuffer<std::uint8_t> buffer;
     for ([[maybe_unused]] const auto& _ : state) {
         buffer.Push(std::numeric_limits<std::uint8_t>::max());
     }
@@ -32,7 +32,7 @@ StreamBuffer_PushBytes(benchmark::State& state)
 {
     std::vector<uint8_t> buf(1280, 0);
 
-    moq::StreamBuffer<std::uint8_t> buffer;
+    quicr::StreamBuffer<std::uint8_t> buffer;
     for ([[maybe_unused]] const auto& _ : state) {
         buffer.Push(buf);
     }
@@ -43,7 +43,7 @@ StreamBuffer_PushLengthBytes(benchmark::State& state)
 {
     std::vector<uint8_t> buf(1280, 0);
 
-    moq::StreamBuffer<std::uint8_t> buffer;
+    quicr::StreamBuffer<std::uint8_t> buffer;
     for ([[maybe_unused]] const auto& _ : state) {
         buffer.PushLengthBytes(buf);
     }
@@ -52,7 +52,7 @@ StreamBuffer_PushLengthBytes(benchmark::State& state)
 static void
 StreamBuffer_Front(benchmark::State& state)
 {
-    moq::StreamBuffer<std::uint8_t> buffer;
+    quicr::StreamBuffer<std::uint8_t> buffer;
     std::vector<uint8_t> bytes(1280, 0);
     buffer.Push(bytes);
 
@@ -67,7 +67,7 @@ static void
 SafeStreamBuffer_Construct(benchmark::State& state)
 {
     for ([[maybe_unused]] const auto& _ : state) {
-        auto __ = moq::SafeStreamBuffer<std::uint8_t>();
+        auto __ = quicr::SafeStreamBuffer<std::uint8_t>();
         benchmark::DoNotOptimize(__);
         benchmark::ClobberMemory();
     }
@@ -76,7 +76,7 @@ SafeStreamBuffer_Construct(benchmark::State& state)
 static void
 SafeStreamBuffer_Push(benchmark::State& state)
 {
-    moq::SafeStreamBuffer<std::uint8_t> buffer;
+    quicr::SafeStreamBuffer<std::uint8_t> buffer;
     for ([[maybe_unused]] const auto& _ : state) {
         buffer.Push(std::numeric_limits<std::uint8_t>::max());
     }
@@ -87,7 +87,7 @@ SafeStreamBuffer_PushBytes(benchmark::State& state)
 {
     std::vector<uint8_t> buf(1280, 0);
 
-    moq::SafeStreamBuffer<std::uint8_t> buffer;
+    quicr::SafeStreamBuffer<std::uint8_t> buffer;
     for ([[maybe_unused]] const auto& _ : state) {
         buffer.Push(buf);
     }
@@ -98,7 +98,7 @@ SafeStreamBuffer_PushLengthBytes(benchmark::State& state)
 {
     std::vector<uint8_t> buf(1280, 0);
 
-    moq::SafeStreamBuffer<std::uint8_t> buffer;
+    quicr::SafeStreamBuffer<std::uint8_t> buffer;
     for ([[maybe_unused]] const auto& _ : state) {
         buffer.PushLengthBytes(buf);
     }
@@ -107,7 +107,7 @@ SafeStreamBuffer_PushLengthBytes(benchmark::State& state)
 static void
 SafeStreamBuffer_Front(benchmark::State& state)
 {
-    moq::SafeStreamBuffer<std::uint8_t> buffer;
+    quicr::SafeStreamBuffer<std::uint8_t> buffer;
     std::vector<uint8_t> bytes(1280, 0);
     buffer.Push(bytes);
 

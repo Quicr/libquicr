@@ -8,7 +8,7 @@
 #include <ostream>
 #include <string>
 
-namespace moq::example {
+namespace quicr::example {
 
     /**
      * @brief Get UTC timestamp as a string
@@ -37,7 +37,7 @@ namespace moq::example {
      * @param track_namespace           track namespace as a string
      * @param track_name                track name as a string
      * @param track_alias               track alias as optional
-     * @return moq::FullTrackName of the params
+     * @return quicr::FullTrackName of the params
      */
     static FullTrackName const MakeFullTrackName(const std::string& track_namespace,
                                                  const std::string& track_name,
