@@ -4,12 +4,12 @@
 #include <doctest/doctest.h>
 
 #include <memory>
-#include <moq/client.h>
-#include <moq/config.h>
+#include <quicr/client.h>
+#include <quicr/config.h>
 
 TEST_CASE("Multiple client creation")
 {
-    auto client = std::make_shared<moq::Client>(moq::ClientConfig());
+    auto client = std::make_shared<quicr::Client>(quicr::ClientConfig());
     client = nullptr;
-    client = std::make_shared<moq::Client>(moq::ClientConfig());
+    client = std::make_shared<quicr::Client>(quicr::ClientConfig());
 }

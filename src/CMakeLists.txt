@@ -7,14 +7,14 @@ else()
     add_library(quicr)
 endif()
 target_sources (quicr PRIVATE
-    moq/client.cpp
-    moq/messages.cpp
-    moq/serializer.cpp
-    moq/publish_track_handler.cpp
-    moq/server.cpp
-    moq/transport.cpp
-    quic/transport.cpp
-    quic/transport_picoquic.cpp
+    client.cpp
+    messages.cpp
+    serializer.cpp
+    publish_track_handler.cpp
+    server.cpp
+    quic_transport.cpp
+    transport.cpp
+    transport_picoquic.cpp
 )
 
 # Suppress external lib warnings
