@@ -13,8 +13,8 @@ else()
 endif()
 
 project(quicr
-        VERSION 0.1.0
-        DESCRIPTION "QuicR, a Media Over QUIC Library"
+        VERSION 1.0.0
+        DESCRIPTION "QuicR, a Media over QUIC Library"
         LANGUAGES CXX)
 
 configure_file( src/version.h.in ${CMAKE_BINARY_DIR}/include/quicr/version.h )
