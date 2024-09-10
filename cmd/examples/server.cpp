@@ -504,6 +504,11 @@ InitConfig(cxxopts::ParseResult& cli_opts)
         spdlog::default_logger()->set_level(spdlog::level::debug);
     }
 
+    if (cli_opts.count("version") && cli_opts["version"].as<bool>() == true) {
+        SPDLOG_INFO("QuicR library version: {}", QUICR_VERSION);
+        exit(0);
+    }
+
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
 
     config.server_bind_ip = cli_opts["bind_ip"].as<std::string>();
@@ -524,9 +529,11 @@ main(int argc, char* argv[])
 {
     int result_code = EXIT_SUCCESS;
 
-    cxxopts::Options options("qclient", "MOQ Example Client");
+    cxxopts::Options options("qclient",
+                             std::string("MOQ Example Server using QuicR Version: ") + std::string(QUICR_VERSION));
     options.set_width(75).set_tab_expansion().allow_unrecognised_options().add_options()("h,help", "Print help")(
       "d,debug", "Enable debugging") // a bool parameter
+      ("v,version", "QuicR Version") // a bool parameter
       ("b,bind_ip", "Bind IP", cxxopts::value<std::string>()->default_value("127.0.0.1"))(
         "p,port", "Listening port", cxxopts::value<uint16_t>()->default_value("1234"))(
         "e,endpoint_id", "This relay/server endpoint ID", cxxopts::value<std::string>()->default_value("moq-server"))(

@@ -230,6 +230,11 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub)
         spdlog::set_level(spdlog::level::debug);
     }
 
+    if (cli_opts.count("version") && cli_opts["version"].as<bool>() == true) {
+        SPDLOG_INFO("QuicR library version: {}", QUICR_VERSION);
+        exit(0);
+    }
+
     if (cli_opts.count("pub_namespace") && cli_opts.count("pub_name")) {
         enable_pub = true;
         SPDLOG_INFO("Publisher enabled using track namespace: {0} name: {1}",
@@ -267,14 +272,16 @@ main(int argc, char* argv[])
 {
     int result_code = EXIT_SUCCESS;
 
-    cxxopts::Options options("qclient", "MOQ Example Client");
+    cxxopts::Options options("qclient",
+                             std::string("MOQ Example Client using QuicR Version: ") + std::string(QUICR_VERSION));
     options.set_width(75)
       .set_tab_expansion()
       //.allow_unrecognised_options()
       .add_options()("h,help", "Print help")("d,debug", "Enable debugging") // a bool parameter
+      ("v,version", "QuicR Version")                                        // a bool parameter
       ("r,url", "Relay URL", cxxopts::value<std::string>()->default_value("moq://localhost:1234"))(
         "e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))(
-        "q,qlog", "Enable qlog using path", cxxopts::value<std::string>()); // end of options
+        "q,qlog", "Enable qlog using path", cxxopts::value<std::string>());
 
     options.add_options("Publisher")("pub_namespace", "Track namespace", cxxopts::value<std::string>())(
       "pub_name", "Track name", cxxopts::value<std::string>())(
