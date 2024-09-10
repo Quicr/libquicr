@@ -272,18 +272,16 @@ main(int argc, char* argv[])
 {
     int result_code = EXIT_SUCCESS;
 
-    cxxopts::Options options(
-        "qclient", std::string("MOQ Example Client using QuicR Version: ") + std::string(QUICR_VERSION));
+    cxxopts::Options options("qclient",
+                             std::string("MOQ Example Client using QuicR Version: ") + std::string(QUICR_VERSION));
     options.set_width(75)
       .set_tab_expansion()
       //.allow_unrecognised_options()
-      .add_options()
-      ("h,help", "Print help")
-      ("d,debug", "Enable debugging") // a bool parameter
-      ("v,version", "QuicR Version") // a bool parameter
-      ("r,url", "Relay URL", cxxopts::value<std::string>()->default_value("moq://localhost:1234"))
-      ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))
-      ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>());
+      .add_options()("h,help", "Print help")("d,debug", "Enable debugging") // a bool parameter
+      ("v,version", "QuicR Version")                                        // a bool parameter
+      ("r,url", "Relay URL", cxxopts::value<std::string>()->default_value("moq://localhost:1234"))(
+        "e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))(
+        "q,qlog", "Enable qlog using path", cxxopts::value<std::string>());
 
     options.add_options("Publisher")("pub_namespace", "Track namespace", cxxopts::value<std::string>())(
       "pub_name", "Track name", cxxopts::value<std::string>())(

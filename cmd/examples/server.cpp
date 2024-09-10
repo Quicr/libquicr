@@ -529,18 +529,17 @@ main(int argc, char* argv[])
 {
     int result_code = EXIT_SUCCESS;
 
-    cxxopts::Options options(
-        "qclient", std::string("MOQ Example Server using QuicR Version: ") + std::string(QUICR_VERSION));
-    options.set_width(75).set_tab_expansion().allow_unrecognised_options().add_options()("h,help", "Print help")
-            ("d,debug", "Enable debugging") // a bool parameter
-            ("v,version", "QuicR Version") // a bool parameter
-            ("b,bind_ip", "Bind IP", cxxopts::value<std::string>()->default_value("127.0.0.1"))
-            ("p,port", "Listening port", cxxopts::value<uint16_t>()->default_value("1234"))
-            ("e,endpoint_id", "This relay/server endpoint ID",
-             cxxopts::value<std::string>()->default_value("moq-server"))
-            ("c,cert", "Certificate file", cxxopts::value<std::string>()->default_value("./server-cert.pem"))
-            ("k,key", "Certificate key file", cxxopts::value<std::string>()->default_value("./server-key.pem"))
-            ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>()); // end of options
+    cxxopts::Options options("qclient",
+                             std::string("MOQ Example Server using QuicR Version: ") + std::string(QUICR_VERSION));
+    options.set_width(75).set_tab_expansion().allow_unrecognised_options().add_options()("h,help", "Print help")(
+      "d,debug", "Enable debugging") // a bool parameter
+      ("v,version", "QuicR Version") // a bool parameter
+      ("b,bind_ip", "Bind IP", cxxopts::value<std::string>()->default_value("127.0.0.1"))(
+        "p,port", "Listening port", cxxopts::value<uint16_t>()->default_value("1234"))(
+        "e,endpoint_id", "This relay/server endpoint ID", cxxopts::value<std::string>()->default_value("moq-server"))(
+        "c,cert", "Certificate file", cxxopts::value<std::string>()->default_value("./server-cert.pem"))(
+        "k,key", "Certificate key file", cxxopts::value<std::string>()->default_value("./server-key.pem"))(
+        "q,qlog", "Enable qlog using path", cxxopts::value<std::string>()); // end of options
 
     auto result = options.parse(argc, argv);
 
