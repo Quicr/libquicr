@@ -291,20 +291,20 @@ namespace moq {
         // Private member functions that will be implemented by both Server and Client
         // ------------------------------------------------------------------------------------------------
         virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                        std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer) = 0;
+                                        std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer) = 0;
 
         bool ProcessStreamDataMessage(ConnectionContext& conn_ctx,
-                                      std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+                                      std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer);
 
         template<class MessageType>
-        std::pair<MessageType&, bool> ParseControlMessage(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer);
+        std::pair<MessageType&, bool> ParseControlMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer);
 
         template<class MessageType>
-        std::pair<MessageType&, bool> ParseDataMessage(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
+        std::pair<MessageType&, bool> ParseDataMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
                                                        messages::MoqMessageType msg_type);
 
         template<class HeaderType, class MessageType>
-        std::pair<HeaderType&, bool> ParseStreamData(std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer,
+        std::pair<HeaderType&, bool> ParseStreamData(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
                                                      messages::MoqMessageType msg_type);
 
       private:

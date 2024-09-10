@@ -38,7 +38,8 @@ namespace moq {
 
     void Client::PublishUnannounce(const TrackNamespace&) {}
 
-    bool Client::ProcessCtrlMessage(ConnectionContext& conn_ctx, std::shared_ptr<StreamBuffer<uint8_t>>& stream_buffer)
+    bool Client::ProcessCtrlMessage(ConnectionContext& conn_ctx,
+                                    std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer)
     {
         if (stream_buffer->Empty()) { // should never happen
             SPDLOG_LOGGER_ERROR(logger_, "Stream buffer cannot be zero when parsing message type, bad stream");

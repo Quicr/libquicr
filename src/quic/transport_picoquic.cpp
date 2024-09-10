@@ -166,7 +166,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
             }
 
             if (auto conn_ctx = transport->GetConnContext(conn_id)) {
-                transport->OnRecvStreamBytes(conn_ctx, data_ctx, stream_id, bytes, length);
+                transport->OnRecvStreamBytes(conn_ctx, data_ctx, stream_id, Span{ bytes, length });
 
                 if (is_fin) {
                     SPDLOG_LOGGER_INFO(transport->logger, "Received FIN for stream {0}", stream_id);
@@ -608,7 +608,7 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
     return TransportError::kNone;
 }
 
-std::shared_ptr<StreamBuffer<uint8_t>>
+std::shared_ptr<moq::SafeStreamBuffer<uint8_t>>
 PicoQuicTransport::GetStreamBuffer(TransportConnId conn_id, uint64_t stream_id)
 {
     std::lock_guard<std::mutex> _(state_mutex_);
@@ -1331,33 +1331,20 @@ void
 PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
                                      DataContext* data_ctx,
                                      uint64_t stream_id,
-                                     uint8_t* bytes,
-                                     size_t length)
+                                     Span<const uint8_t> bytes)
 {
-    if (length == 0) {
+    if (bytes.empty()) {
         SPDLOG_LOGGER_DEBUG(logger, "on_recv_stream_bytes length is ZERO");
         return;
     }
 
-    auto rx_buf_it = conn_ctx->rx_stream_buffer.find(stream_id);
-    if (rx_buf_it == conn_ctx->rx_stream_buffer.end()) {
-        std::lock_guard<std::mutex> l(state_mutex_);
-
-        SPDLOG_LOGGER_DEBUG(
-          logger, "Adding received conn_id: {0} stream_id: {1} into RX buffer", conn_ctx->conn_id, stream_id);
-
-        auto [it, _] = conn_ctx->rx_stream_buffer.try_emplace(stream_id);
-        rx_buf_it = it;
-    }
-
-    Span<uint8_t> bytes_a(bytes, length);
-    auto& rx_buf = rx_buf_it->second;
-
-    rx_buf.buf->Push(bytes_a);
+    std::lock_guard<std::mutex> l(state_mutex_);
+    auto& rx_buf = conn_ctx->rx_stream_buffer[stream_id];
+    rx_buf.buf->Push(bytes);
 
     if (data_ctx != nullptr) {
         data_ctx->metrics.rx_stream_cb++;
-        data_ctx->metrics.rx_stream_bytes += length;
+        data_ctx->metrics.rx_stream_bytes += bytes.size();
 
 #if __cplusplus >= 202002L
         if (!_cbNotifyQueue.push([=, this]() {

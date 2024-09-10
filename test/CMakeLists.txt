@@ -6,6 +6,7 @@ add_executable(quicr_test
     moq_messages.cpp
     moq_test.cpp
     track_handlers.cpp
+    uintvar.cpp
     client.cpp
 )
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)

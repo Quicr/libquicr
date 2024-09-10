@@ -8,7 +8,8 @@ namespace moq::messages {
     //
     // Utility
     //
-    static bool ParseUintVField(qtransport::StreamBuffer<uint8_t>& buffer, uint64_t& field)
+    template<class StreamBufferType>
+    static bool ParseUintVField(StreamBufferType& buffer, uint64_t& field)
     {
         auto val = buffer.DecodeUintV();
         if (!val) {
@@ -18,7 +19,8 @@ namespace moq::messages {
         return true;
     }
 
-    static bool ParseExtensions(qtransport::StreamBuffer<uint8_t>& buffer,
+    template<class StreamBufferType>
+    static bool ParseExtensions(StreamBufferType& buffer,
                                 uint64_t& count,
                                 std::optional<Extensions>& extensions,
                                 std::optional<uint64_t>& current_tag)
@@ -54,7 +56,8 @@ namespace moq::messages {
         return true;
     }
 
-    static bool ParseBytesField(qtransport::StreamBuffer<uint8_t>& buffer, Bytes& field)
+    template<class StreamBufferType>
+    static bool ParseBytesField(StreamBufferType& buffer, Bytes& field)
     {
         auto val = buffer.DecodeBytes();
         if (!val) {
@@ -67,13 +70,13 @@ namespace moq::messages {
     static void PushExtensions(Serializer& buffer, const std::optional<Extensions>& extensions)
     {
         if (!extensions.has_value()) {
-            buffer.Push(qtransport::ToUintV(0));
+            buffer.Push(ToUintV(0));
             return;
         }
 
-        buffer.Push(qtransport::ToUintV(extensions.value().size()));
+        buffer.Push(ToUintV(extensions.value().size()));
         for (const auto& extension : extensions.value()) {
-            buffer.Push(qtransport::ToUintV(extension.first));
+            buffer.Push(ToUintV(extension.first));
             buffer.PushLengthBytes(extension.second);
         }
     }
@@ -85,15 +88,16 @@ namespace moq::messages {
     Serializer& operator<<(Serializer& buffer, const MoqParameter& param)
     {
 
-        buffer.Push(qtransport::ToUintV(param.type));
-        buffer.Push(qtransport::ToUintV(param.length));
+        buffer.Push(ToUintV(param.type));
+        buffer.Push(ToUintV(param.length));
         if (param.length) {
             buffer.PushLengthBytes(param.value);
         }
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqParameter& param)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqParameter& param)
     {
 
         if (!ParseUintVField(buffer, param.type)) {
@@ -115,22 +119,26 @@ namespace moq::messages {
         return true;
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqParameter&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqParameter&);
+
     //
     // Track Status
     //
     Serializer& operator<<(Serializer& buffer, const MoqTrackStatus& msg)
     {
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::TRACK_STATUS)));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::TRACK_STATUS)));
         buffer.PushLengthBytes(msg.track_namespace);
         buffer.PushLengthBytes(msg.track_name);
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(msg.status_code)));
-        buffer.Push(qtransport::ToUintV(msg.last_group_id));
-        buffer.Push(qtransport::ToUintV(msg.last_object_id));
+        buffer.Push(ToUintV(static_cast<uint64_t>(msg.status_code)));
+        buffer.Push(ToUintV(msg.last_group_id));
+        buffer.Push(ToUintV(msg.last_object_id));
 
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqTrackStatus& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqTrackStatus& msg)
     {
 
         switch (msg.current_pos) {
@@ -186,16 +194,20 @@ namespace moq::messages {
         return true;
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqTrackStatus&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqTrackStatus&);
+
     Serializer& operator<<(Serializer& buffer, const MoqTrackStatusRequest& msg)
     {
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::TRACK_STATUS_REQUEST)));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::TRACK_STATUS_REQUEST)));
         buffer.PushLengthBytes(msg.track_namespace);
         buffer.PushLengthBytes(msg.track_name);
 
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqTrackStatusRequest& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqTrackStatusRequest& msg)
     {
 
         switch (msg.current_pos) {
@@ -225,18 +237,21 @@ namespace moq::messages {
         return true;
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqTrackStatusRequest&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqTrackStatusRequest&);
+
     //
     // Subscribe
     //
 
     Serializer& operator<<(Serializer& buffer, const MoqSubscribe& msg)
     {
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE)));
-        buffer.Push(qtransport::ToUintV(msg.subscribe_id));
-        buffer.Push(qtransport::ToUintV(msg.track_alias));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE)));
+        buffer.Push(ToUintV(msg.subscribe_id));
+        buffer.Push(ToUintV(msg.track_alias));
         buffer.PushLengthBytes(msg.track_namespace);
         buffer.PushLengthBytes(msg.track_name);
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(msg.filter_type)));
+        buffer.Push(ToUintV(static_cast<uint64_t>(msg.filter_type)));
 
         switch (msg.filter_type) {
             case FilterType::None:
@@ -244,27 +259,28 @@ namespace moq::messages {
             case FilterType::LatestObject:
                 break;
             case FilterType::AbsoluteStart: {
-                buffer.Push(qtransport::ToUintV(msg.start_group));
-                buffer.Push(qtransport::ToUintV(msg.start_object));
+                buffer.Push(ToUintV(msg.start_group));
+                buffer.Push(ToUintV(msg.start_object));
             } break;
             case FilterType::AbsoluteRange:
-                buffer.Push(qtransport::ToUintV(msg.start_group));
-                buffer.Push(qtransport::ToUintV(msg.start_object));
-                buffer.Push(qtransport::ToUintV(msg.end_group));
-                buffer.Push(qtransport::ToUintV(msg.end_object));
+                buffer.Push(ToUintV(msg.start_group));
+                buffer.Push(ToUintV(msg.start_object));
+                buffer.Push(ToUintV(msg.end_group));
+                buffer.Push(ToUintV(msg.end_object));
                 break;
         }
 
-        buffer.Push(qtransport::ToUintV(msg.track_params.size()));
+        buffer.Push(ToUintV(msg.track_params.size()));
         for (const auto& param : msg.track_params) {
-            buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(param.type)));
+            buffer.Push(ToUintV(static_cast<uint64_t>(param.type)));
             buffer.PushLengthBytes(param.value);
         }
 
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqSubscribe& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqSubscribe& msg)
     {
 
         switch (msg.current_pos) {
@@ -401,36 +417,43 @@ namespace moq::messages {
         return true;
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqSubscribe&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqSubscribe&);
+
     Serializer& operator<<(Serializer& buffer, const MoqUnsubscribe& msg)
     {
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::UNSUBSCRIBE)));
-        buffer.Push(qtransport::ToUintV(msg.subscribe_id));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::UNSUBSCRIBE)));
+        buffer.Push(ToUintV(msg.subscribe_id));
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqUnsubscribe& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqUnsubscribe& msg)
     {
         return ParseUintVField(buffer, msg.subscribe_id);
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqUnsubscribe&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqUnsubscribe&);
+
     Serializer& operator<<(Serializer& buffer, const MoqSubscribeDone& msg)
     {
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_DONE)));
-        buffer.Push(qtransport::ToUintV(msg.subscribe_id));
-        buffer.Push(qtransport::ToUintV(msg.status_code));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_DONE)));
+        buffer.Push(ToUintV(msg.subscribe_id));
+        buffer.Push(ToUintV(msg.status_code));
         buffer.PushLengthBytes(msg.reason_phrase);
         msg.content_exists ? buffer.Push(static_cast<uint8_t>(1)) : buffer.Push(static_cast<uint8_t>(0));
         if (msg.content_exists) {
-            buffer.Push(qtransport::ToUintV(msg.final_group_id));
-            buffer.Push(qtransport::ToUintV(msg.final_object_id));
+            buffer.Push(ToUintV(msg.final_group_id));
+            buffer.Push(ToUintV(msg.final_object_id));
         }
 
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqSubscribeDone& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqSubscribeDone& msg)
     {
-
         switch (msg.current_pos) {
             case 0: {
                 if (!ParseUintVField(buffer, msg.subscribe_id)) {
@@ -493,22 +516,25 @@ namespace moq::messages {
         return true;
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqSubscribeDone&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqSubscribeDone&);
+
     Serializer& operator<<(Serializer& buffer, const MoqSubscribeOk& msg)
     {
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_OK)));
-        buffer.Push(qtransport::ToUintV(msg.subscribe_id));
-        buffer.Push(qtransport::ToUintV(msg.expires));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_OK)));
+        buffer.Push(ToUintV(msg.subscribe_id));
+        buffer.Push(ToUintV(msg.expires));
         msg.content_exists ? buffer.Push(static_cast<uint8_t>(1)) : buffer.Push(static_cast<uint8_t>(0));
         if (msg.content_exists) {
-            buffer.Push(qtransport::ToUintV(msg.largest_group));
-            buffer.Push(qtransport::ToUintV(msg.largest_object));
+            buffer.Push(ToUintV(msg.largest_group));
+            buffer.Push(ToUintV(msg.largest_object));
         }
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqSubscribeOk& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqSubscribeOk& msg)
     {
-
         switch (msg.current_pos) {
             case 0: {
                 if (!ParseUintVField(buffer, msg.subscribe_id)) {
@@ -562,17 +588,21 @@ namespace moq::messages {
         return true;
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqSubscribeOk&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqSubscribeOk&);
+
     Serializer& operator<<(Serializer& buffer, const MoqSubscribeError& msg)
     {
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ERROR)));
-        buffer.Push(qtransport::ToUintV(msg.subscribe_id));
-        buffer.Push(qtransport::ToUintV(msg.err_code));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ERROR)));
+        buffer.Push(ToUintV(msg.subscribe_id));
+        buffer.Push(ToUintV(msg.err_code));
         buffer.PushLengthBytes(msg.reason_phrase);
-        buffer.Push(qtransport::ToUintV(msg.track_alias));
+        buffer.Push(ToUintV(msg.track_alias));
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqSubscribeError& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqSubscribeError& msg)
     {
 
         switch (msg.current_pos) {
@@ -616,19 +646,23 @@ namespace moq::messages {
         return true;
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqSubscribeError&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqSubscribeError&);
+
     //
     // Announce
     //
 
     Serializer& operator<<(Serializer& buffer, const MoqAnnounce& msg)
     {
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::ANNOUNCE)));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::ANNOUNCE)));
         buffer.PushLengthBytes(msg.track_namespace);
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(0)));
+        buffer.Push(ToUintV(static_cast<uint64_t>(0)));
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqAnnounce& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqAnnounce& msg)
     {
 
         // read namespace
@@ -676,14 +710,18 @@ namespace moq::messages {
         return true;
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqAnnounce&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqAnnounce&);
+
     Serializer& operator<<(Serializer& buffer, const MoqAnnounceOk& msg)
     {
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_OK)));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_OK)));
         buffer.PushLengthBytes(msg.track_namespace);
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqAnnounceOk& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqAnnounceOk& msg)
     {
 
         // read namespace
@@ -697,16 +735,20 @@ namespace moq::messages {
         return true;
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqAnnounceOk&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqAnnounceOk&);
+
     Serializer& operator<<(Serializer& buffer, const MoqAnnounceError& msg)
     {
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_ERROR)));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_ERROR)));
         buffer.PushLengthBytes(msg.track_namespace.value());
-        buffer.Push(qtransport::ToUintV(msg.err_code.value()));
+        buffer.Push(ToUintV(msg.err_code.value()));
         buffer.PushLengthBytes(msg.reason_phrase.value());
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqAnnounceError& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqAnnounceError& msg)
     {
 
         // read namespace
@@ -737,14 +779,18 @@ namespace moq::messages {
         return true;
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqAnnounceError&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqAnnounceError&);
+
     Serializer& operator<<(Serializer& buffer, const MoqUnannounce& msg)
     {
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::UNANNOUNCE)));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::UNANNOUNCE)));
         buffer.PushLengthBytes(msg.track_namespace);
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqUnannounce& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqUnannounce& msg)
     {
 
         // read namespace
@@ -757,15 +803,19 @@ namespace moq::messages {
         }
         return true;
     }
+
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqUnannounce&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqUnannounce&);
 
     Serializer& operator<<(Serializer& buffer, const MoqAnnounceCancel& msg)
     {
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_CANCEL)));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_CANCEL)));
         buffer.PushLengthBytes(msg.track_namespace);
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqAnnounceCancel& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqAnnounceCancel& msg)
     {
 
         // read namespace
@@ -778,6 +828,9 @@ namespace moq::messages {
         }
         return true;
     }
+
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqAnnounceCancel&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqAnnounceCancel&);
 
     //
     // Goaway
@@ -785,12 +838,13 @@ namespace moq::messages {
 
     Serializer& operator<<(Serializer& buffer, const MoqGoaway& msg)
     {
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::GOAWAY)));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::GOAWAY)));
         buffer.PushLengthBytes(msg.new_session_uri);
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqGoaway& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqGoaway& msg)
     {
 
         auto val = buffer.DecodeBytes();
@@ -801,6 +855,9 @@ namespace moq::messages {
         return true;
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqGoaway&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqGoaway&);
+
     //
     // Object
     //
@@ -808,18 +865,19 @@ namespace moq::messages {
     Serializer& operator<<(Serializer& buffer, const MoqObjectStream& msg)
     {
 
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::OBJECT_STREAM)));
-        buffer.Push(qtransport::ToUintV(msg.subscribe_id));
-        buffer.Push(qtransport::ToUintV(msg.track_alias));
-        buffer.Push(qtransport::ToUintV(msg.group_id));
-        buffer.Push(qtransport::ToUintV(msg.object_id));
-        buffer.Push(qtransport::ToUintV(msg.priority));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::OBJECT_STREAM)));
+        buffer.Push(ToUintV(msg.subscribe_id));
+        buffer.Push(ToUintV(msg.track_alias));
+        buffer.Push(ToUintV(msg.group_id));
+        buffer.Push(ToUintV(msg.object_id));
+        buffer.Push(ToUintV(msg.priority));
         PushExtensions(buffer, msg.extensions);
         buffer.PushLengthBytes(msg.payload);
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqObjectStream& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqObjectStream& msg)
     {
         switch (msg.current_pos) {
             case 0: {
@@ -889,23 +947,25 @@ namespace moq::messages {
         return true;
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqObjectStream&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqObjectStream&);
+
     Serializer& operator<<(Serializer& buffer, const MoqObjectDatagram& msg)
     {
-
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::OBJECT_DATAGRAM)));
-        buffer.Push(qtransport::ToUintV(msg.subscribe_id));
-        buffer.Push(qtransport::ToUintV(msg.track_alias));
-        buffer.Push(qtransport::ToUintV(msg.group_id));
-        buffer.Push(qtransport::ToUintV(msg.object_id));
-        buffer.Push(qtransport::ToUintV(msg.priority));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::OBJECT_DATAGRAM)));
+        buffer.Push(ToUintV(msg.subscribe_id));
+        buffer.Push(ToUintV(msg.track_alias));
+        buffer.Push(ToUintV(msg.group_id));
+        buffer.Push(ToUintV(msg.object_id));
+        buffer.Push(ToUintV(msg.priority));
         PushExtensions(buffer, msg.extensions);
         buffer.PushLengthBytes(msg.payload);
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqObjectDatagram& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqObjectDatagram& msg)
     {
-
         switch (msg.current_pos) {
             case 0: {
                 if (!ParseUintVField(buffer, msg.subscribe_id)) {
@@ -975,19 +1035,22 @@ namespace moq::messages {
         return true;
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqObjectDatagram&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqObjectDatagram&);
+
     Serializer& operator<<(Serializer& buffer, const MoqStreamHeaderTrack& msg)
     {
 
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_TRACK)));
-        buffer.Push(qtransport::ToUintV(msg.subscribe_id));
-        buffer.Push(qtransport::ToUintV(msg.track_alias));
-        buffer.Push(qtransport::ToUintV(msg.priority));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_TRACK)));
+        buffer.Push(ToUintV(msg.subscribe_id));
+        buffer.Push(ToUintV(msg.track_alias));
+        buffer.Push(ToUintV(msg.priority));
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqStreamHeaderTrack& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqStreamHeaderTrack& msg)
     {
-
         switch (msg.current_pos) {
             case 0: {
                 if (!ParseUintVField(buffer, msg.subscribe_id)) {
@@ -1021,19 +1084,21 @@ namespace moq::messages {
         return true;
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamHeaderTrack&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamHeaderTrack&);
+
     Serializer& operator<<(Serializer& buffer, const MoqStreamTrackObject& msg)
     {
-
-        buffer.Push(qtransport::ToUintV(msg.group_id));
-        buffer.Push(qtransport::ToUintV(msg.object_id));
+        buffer.Push(ToUintV(msg.group_id));
+        buffer.Push(ToUintV(msg.object_id));
         PushExtensions(buffer, msg.extensions);
         buffer.PushLengthBytes(msg.payload);
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqStreamTrackObject& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqStreamTrackObject& msg)
     {
-
         switch (msg.current_pos) {
             case 0: {
                 if (!ParseUintVField(buffer, msg.group_id)) {
@@ -1082,18 +1147,21 @@ namespace moq::messages {
         return true;
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamTrackObject&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamTrackObject&);
+
     Serializer& operator<<(Serializer& buffer, const MoqStreamHeaderGroup& msg)
     {
-
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_GROUP)));
-        buffer.Push(qtransport::ToUintV(msg.subscribe_id));
-        buffer.Push(qtransport::ToUintV(msg.track_alias));
-        buffer.Push(qtransport::ToUintV(msg.group_id));
-        buffer.Push(qtransport::ToUintV(msg.priority));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_GROUP)));
+        buffer.Push(ToUintV(msg.subscribe_id));
+        buffer.Push(ToUintV(msg.track_alias));
+        buffer.Push(ToUintV(msg.group_id));
+        buffer.Push(ToUintV(msg.priority));
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqStreamHeaderGroup& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqStreamHeaderGroup& msg)
     {
         switch (msg.current_pos) {
             case 0: {
@@ -1136,16 +1204,19 @@ namespace moq::messages {
         return true;
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamHeaderGroup&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamHeaderGroup&);
+
     Serializer& operator<<(Serializer& buffer, const MoqStreamGroupObject& msg)
     {
-
-        buffer.Push(qtransport::ToUintV(msg.object_id));
+        buffer.Push(ToUintV(msg.object_id));
         PushExtensions(buffer, msg.extensions);
         buffer.PushLengthBytes(msg.payload);
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqStreamGroupObject& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqStreamGroupObject& msg)
     {
         switch (msg.current_pos) {
             case 0: {
@@ -1189,30 +1260,33 @@ namespace moq::messages {
         return true;
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamGroupObject&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamGroupObject&);
+
     // Client Setup message
     Serializer& operator<<(Serializer& buffer, const MoqClientSetup& msg)
     {
-
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::CLIENT_SETUP)));
-        buffer.Push(qtransport::ToUintV(msg.supported_versions.size()));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::CLIENT_SETUP)));
+        buffer.Push(ToUintV(msg.supported_versions.size()));
         // versions
         for (const auto& ver : msg.supported_versions) {
-            buffer.Push(qtransport::ToUintV(ver));
+            buffer.Push(ToUintV(ver));
         }
 
         /// num params
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(2)));
+        buffer.Push(ToUintV(static_cast<uint64_t>(2)));
         // role param
-        buffer.Push(qtransport::ToUintV(msg.role_parameter.type));
+        buffer.Push(ToUintV(msg.role_parameter.type));
         buffer.PushLengthBytes(msg.role_parameter.value);
         // endpoint_id param
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(ParameterType::EndpointId)));
+        buffer.Push(ToUintV(static_cast<uint64_t>(ParameterType::EndpointId)));
         buffer.PushLengthBytes(msg.endpoint_id_parameter.value);
 
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqClientSetup& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqClientSetup& msg)
     {
         switch (msg.current_pos) {
             case 0: {
@@ -1292,28 +1366,32 @@ namespace moq::messages {
         return true;
     }
 
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqClientSetup&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqClientSetup&);
+
     // Server Setup message
 
     Serializer& operator<<(Serializer& buffer, const MoqServerSetup& msg)
     {
 
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(MoqMessageType::SERVER_SETUP)));
-        buffer.Push(qtransport::ToUintV(msg.selection_version));
+        buffer.Push(ToUintV(static_cast<uint64_t>(MoqMessageType::SERVER_SETUP)));
+        buffer.Push(ToUintV(msg.selection_version));
 
         /// num params
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(2)));
+        buffer.Push(ToUintV(static_cast<uint64_t>(2)));
         // role param
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(msg.role_parameter.type)));
+        buffer.Push(ToUintV(static_cast<uint64_t>(msg.role_parameter.type)));
         buffer.PushLengthBytes(msg.role_parameter.value);
 
         // endpoint_id param
-        buffer.Push(qtransport::ToUintV(static_cast<uint64_t>(ParameterType::EndpointId)));
+        buffer.Push(ToUintV(static_cast<uint64_t>(ParameterType::EndpointId)));
         buffer.PushLengthBytes(msg.endpoint_id_parameter.value);
 
         return buffer;
     }
 
-    bool operator>>(qtransport::StreamBuffer<uint8_t>& buffer, MoqServerSetup& msg)
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqServerSetup& msg)
     {
         switch (msg.current_pos) {
             case 0: {
@@ -1379,5 +1457,8 @@ namespace moq::messages {
 
         return true;
     }
+
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqServerSetup&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqServerSetup&);
 
 }

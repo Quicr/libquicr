@@ -12,8 +12,15 @@
 
 #include "uintvar.h"
 
-namespace qtransport {
-    template<typename T, class Allocator = std::allocator<T>>
+namespace moq {
+    struct NullMutex
+    {
+        constexpr void lock() {}
+        constexpr void unlock() {}
+        constexpr bool try_lock() { return true; }
+    };
+
+    template<typename T, class Mutex = NullMutex, class Allocator = std::allocator<T>>
     class StreamBuffer
     {
         using BufferT = std::deque<T, Allocator>;
@@ -118,7 +125,7 @@ namespace qtransport {
                 return std::nullopt;
             }
 
-            std::lock_guard<std::mutex> _(rwLock_);
+            std::lock_guard _(rw_lock_);
             return buffer_.front();
         }
 
@@ -135,11 +142,9 @@ namespace qtransport {
                 return std::vector<T>();
             }
 
-            std::lock_guard<std::mutex> _(rwLock_);
+            std::lock_guard _(rw_lock_);
 
-            std::vector<T> result(length);
-            std::copy_n(buffer_.begin(), length, result.begin());
-            return result;
+            return FrontInternal(length);
         }
 
         void Pop()
@@ -148,7 +153,7 @@ namespace qtransport {
                 return;
             }
 
-            std::lock_guard<std::mutex> _(rwLock_);
+            std::lock_guard _(rw_lock_);
             buffer_.pop_front();
         }
 
@@ -158,13 +163,8 @@ namespace qtransport {
                 return;
             }
 
-            std::lock_guard<std::mutex> _(rwLock_);
-
-            if (length >= buffer_.size()) {
-                buffer_.clear();
-            } else {
-                buffer_.erase(buffer_.begin(), buffer_.begin() + length);
-            }
+            std::lock_guard _(rw_lock_);
+            PopInternal(length);
         }
 
         /**
@@ -178,25 +178,25 @@ namespace qtransport {
 
         void Push(const T& value)
         {
-            std::lock_guard<std::mutex> _(rwLock_);
+            std::lock_guard _(rw_lock_);
             buffer_.push_back(value);
         }
 
         void Push(T&& value)
         {
-            std::lock_guard<std::mutex> _(rwLock_);
+            std::lock_guard _(rw_lock_);
             buffer_.push_back(std::move(value));
         }
 
-        void Push(const Span<const T>& value)
+        void Push(Span<const T> value)
         {
-            std::lock_guard<std::mutex> _(rwLock_);
+            std::lock_guard _(rw_lock_);
             buffer_.insert(buffer_.end(), value.begin(), value.end());
         }
 
-        void PushLv(const Span<const T>& value)
+        void PushLengthBytes(Span<const T> value)
         {
-            std::lock_guard<std::mutex> _(rwLock_);
+            std::lock_guard _(rw_lock_);
             const auto len = ToUintV(static_cast<uint64_t>(value.size()));
             buffer_.insert(buffer_.end(), len.begin(), len.end());
             buffer_.insert(buffer_.end(), value.begin(), value.end());
@@ -214,15 +214,21 @@ namespace qtransport {
          */
         std::optional<uint64_t> DecodeUintV()
         {
-            if (const auto uv_msb = Front()) {
-                if (Available(UintVSize(*uv_msb))) {
-                    uint64_t uv_len = UintVSize(*uv_msb);
-                    auto val = ToUint64(Front(uv_len));
+            if (buffer_.empty()) {
+                return std::nullopt;
+            }
 
-                    Pop(uv_len);
+            std::lock_guard _(rw_lock_);
 
-                    return val;
-                }
+            const auto& uv_msb = buffer_.front();
+            uint64_t uv_len = SizeofUintV(uv_msb);
+
+            if (Available(uv_len)) {
+
+                auto val = ToUint64(FrontInternal(uv_len));
+                PopInternal(uv_len);
+
+                return val;
             }
 
             return std::nullopt;
@@ -240,18 +246,24 @@ namespace qtransport {
          */
         std::optional<std::vector<uint8_t>> DecodeBytes()
         {
-            if (const auto uv_msb = Front()) {
-                if (Available(UintVSize(*uv_msb))) {
-                    uint64_t uv_len = UintVSize(*uv_msb);
-                    auto len = ToUint64(Front(uv_len));
+            if (buffer_.empty()) {
+                return std::nullopt;
+            }
 
-                    if (buffer_.size() >= uv_len + len) {
-                        Pop(uv_len);
-                        auto v = Front(len);
-                        Pop(len);
+            std::lock_guard _(rw_lock_);
 
-                        return v;
-                    }
+            const auto& uv_msb = buffer_.front();
+            uint64_t uv_len = SizeofUintV(uv_msb);
+
+            if (Available(uv_len)) {
+                auto len = ToUint64(FrontInternal(uv_len));
+                if (buffer_.size() >= uv_len + len) {
+
+                    PopInternal(uv_len);
+                    auto v = FrontInternal(len);
+                    PopInternal(len);
+
+                    return v;
                 }
             }
 
@@ -259,10 +271,30 @@ namespace qtransport {
         }
 
       private:
+        inline std::vector<T> FrontInternal(std::uint32_t length) noexcept
+        {
+            std::vector<T> result(length);
+            std::copy_n(buffer_.begin(), length, result.begin());
+            return result;
+        }
+
+        inline void PopInternal(std::uint32_t length)
+        {
+            if (length >= buffer_.size()) {
+                buffer_.clear();
+            } else {
+                buffer_.erase(buffer_.begin(), buffer_.begin() + length);
+            }
+        }
+
+      private:
         BufferT buffer_;
-        std::mutex rwLock_;
+        Mutex rw_lock_;
         std::any parsed_data_;                     /// Working buffer for parsed data
         std::any parsed_dataB_;                    /// Second Working buffer for parsed data
         std::optional<uint64_t> parsed_data_type_; /// working buffer type value
     };
+
+    template<class T, class Allocator = std::allocator<T>>
+    using SafeStreamBuffer = StreamBuffer<T, std::mutex, Allocator>;
 }

@@ -21,7 +21,7 @@ from_ascii(const std::string& ascii)
 
 const Bytes TRACK_NAMESPACE_CONF = from_ascii("moqt://conf.example.com/conf/1");
 const Bytes TRACK_NAME_ALICE_VIDEO = from_ascii("alice/video");
-const UintVT TRACK_ALIAS_ALICE_VIDEO{ ToUintV(0xA11CE) };
+const UintV TRACK_ALIAS_ALICE_VIDEO{ ToUintV(0xA11CE) };
 const Extensions EXAMPLE_EXTENSIONS = { { 0x1, { 0x1, 0x2 } } };
 const std::optional<Extensions> OPTIONAL_EXTENSIONS = EXAMPLE_EXTENSIONS;
 
@@ -30,7 +30,7 @@ bool
 verify(std::vector<uint8_t>& net_data, uint64_t message_type, T& message, [[maybe_unused]] size_t slice_depth = 1)
 {
     // TODO: support Size_depth > 1, if needed
-    qtransport::StreamBuffer<uint8_t> in_buffer;
+    StreamBuffer<uint8_t> in_buffer;
     in_buffer.InitAny<T>(); // Set parsed data to be of this type using out param
 
     std::optional<uint64_t> msg_type;
@@ -679,7 +679,7 @@ StreamPerGroupObjectEncodeDecode(bool extensions)
     net_data = std::move(buffer.Take());
     auto obj_out = MoqStreamGroupObject{};
     size_t object_count = 0;
-    qtransport::StreamBuffer<uint8_t> in_buffer;
+    StreamBuffer<uint8_t> in_buffer;
     for (size_t i = 0; i < net_data.size(); i++) {
         in_buffer.Push(net_data.at(i));
         bool done;
@@ -745,7 +745,7 @@ StreamPerTrackObjectEncodeDecode(bool extensions)
     net_data = std::move(buffer.Take());
     auto obj_out = MoqStreamTrackObject{};
     size_t object_count = 0;
-    qtransport::StreamBuffer<uint8_t> in_buffer;
+    StreamBuffer<uint8_t> in_buffer;
     for (size_t i = 0; i < net_data.size(); i++) {
         in_buffer.Push(net_data.at(i));
         bool done;
