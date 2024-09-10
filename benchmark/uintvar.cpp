@@ -8,7 +8,7 @@
 #include <cstdint>
 
 static void
-Serializer_ToUintVar(benchmark::State& state)
+UInt64_ToUintVar(benchmark::State& state)
 {
     for ([[maybe_unused]] const auto& _ : state) {
         auto value = moq::ToUintV(0x123456789);
@@ -18,7 +18,7 @@ Serializer_ToUintVar(benchmark::State& state)
 }
 
 static void
-Serializer_FromUintVar(benchmark::State& state)
+UInt64_FromUintVar(benchmark::State& state)
 {
     auto var_int = moq::ToUintV(0x123456789);
     for ([[maybe_unused]] const auto& _ : state) {
@@ -28,5 +28,5 @@ Serializer_FromUintVar(benchmark::State& state)
     }
 }
 
-BENCHMARK(Serializer_ToUintVar);
-BENCHMARK(Serializer_FromUintVar);
+BENCHMARK(UInt64_ToUintVar);
+BENCHMARK(UInt64_FromUintVar);
