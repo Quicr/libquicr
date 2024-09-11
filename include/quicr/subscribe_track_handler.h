@@ -77,6 +77,9 @@ namespace quicr {
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
         // --------------------------------------------------------------------------
+        /** @name Calbacks
+         */
+        ///@{
 
         /**
          * @brief Notification of received [full] data object
@@ -127,6 +130,8 @@ namespace quicr {
          * @param metrics           Copy of the subscribed metrics for the sample period
          */
         virtual void MetricsSampled([[maybe_unused]] const SubscribeTrackMetrics& metrics) {}
+
+        ///@}
 
         // --------------------------------------------------------------------------
         // Metrics
