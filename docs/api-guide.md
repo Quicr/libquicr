@@ -1,10 +1,9 @@
-MOQT Process Flows
-==================
+API Overview
+============
 
 The API aims to be a simple API wrapper to [MOQT draft-ietf-moq-transport-05](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-05). 
 The various MOQT protocol interactions with the state machine, state tracking, and underlining native QUIC transport is 
 abstracted to provide a simple flexible and scalable Media Over Quic Transport (MOQT) interface for developers.
-Supported implementation uses [MOQT draft-ietf-moq-transport-04](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-04)
 
 ## High Level Background
 
@@ -64,6 +63,3 @@ flowchart TD
 
 ## API
 
-### Client
-
-<img src="images/client-api.png" alt="Client Process Flow" style="height: auto; width:80%"/>
