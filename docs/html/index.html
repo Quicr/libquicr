@@ -100,7 +100,7 @@ $(function(){initNavTree('index.html',''); initResizable(true); });
   <div class="headertitle"><div class="title">Media over QUIC (MoQ) Publisher/Subscriber API </div></div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p><a class="anchor" id="md_docs_2api-main"></a> This library provides a publisher and subscriber API using MoQ. It provides a class for <a class="el" href="classquicr_1_1_client.html">Client</a> and <a class="el" href="classquicr_1_1_server.html">Server</a> that will handle all MoQ protocol state machine functions. Both classes contain pure virtual methods (e.g., callbacks) that <b>MUST</b> be implemented.</p>
+<div class="textblock"><p><a class="anchor" id="md_docs_2api-main"></a> This library provides a publisher and subscriber API using MoQ. It provides a class for <a class="el" href="classquicr_1_1_client.html">Client</a> and <a class="el" href="classquicr_1_1_server.html">Server</a> that will handle all MoQ protocol state machine functions. Both classes contain virtual methods (e.g., callbacks) that <b>SHOULD</b> be implemented.</p>
 <p>Subscriptions and publications are handled via <a class="el" href="classquicr_1_1_subscribe_track_handler.html">Subscribe Track Handler</a> and <a class="el" href="classquicr_1_1_publish_track_handler.html">Publish Track Handler</a>. Both classes contain pure virtual methods (e.g., callbacks) that <b>MUST</b> be implemented.</p>
 <h1><a class="anchor" id="autotoc_md1"></a>
 Client</h1>
@@ -124,7 +124,7 @@ Server</h1>
 </table>
 <h1><a class="anchor" id="autotoc_md3"></a>
 Track Handlers</h1>
-<p>Both client and server provide quicr::PublishTrack() and quicr::SubscribeTrack() methods to start a new subscription and/or publication. Use the below handler classes when calling the methods. Each track handler is constructed for a single full track name (e.g., namespace and name).</p>
+<p>Both client and server provide <a class="el" href="classquicr_1_1_transport.html#aa954eee8c9e305afea8e078631a610f0" title="Publish to a track.">quicr::Transport::PublishTrack()</a> and <a class="el" href="classquicr_1_1_transport.html#a40dd0c703c1d342b51670195bce425c3" title="Subscribe to a track.">quicr::Transport::SubscribeTrack()</a> methods to start a new subscription and/or publication. Use the below handler classes when calling the methods. Each track handler is constructed for a single full track name (e.g., namespace and name).</p>
 <table class="markdownTable">
 <tr class="markdownTableHead">
 <th class="markdownTableHeadNone">Class   </th><th class="markdownTableHeadNone">Description    </th></tr>
