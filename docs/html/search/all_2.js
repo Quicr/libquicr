@@ -1,0 +1,23 @@
+var searchData=
+[
+  ['clear_0',['Clear',['../structquicr_1_1_min_max_avg.html#aa2ad23442ebc50986270268ca1204482',1,'quicr::MinMaxAvg']]],
+  ['client_1',['Client',['../classquicr_1_1_client.html',1,'quicr::Client'],['../classquicr_1_1_client.html#ab3d3baf373db19be4e7adf7f391385ca',1,'quicr::Client::Client()'],['../index.html#autotoc_md1',1,'Client']]],
+  ['client_2eh_2',['client.h',['../client_8h.html',1,'']]],
+  ['clientconfig_3',['ClientConfig',['../structquicr_1_1_client_config.html',1,'quicr']]],
+  ['clientsetupattributes_4',['ClientSetupAttributes',['../structquicr_1_1_client_setup_attributes.html',1,'quicr']]],
+  ['clientsetupreceived_5',['ClientSetupReceived',['../classquicr_1_1_server.html#a8b9d7987020d6d2703f096dc1a2b044f',1,'quicr::Server']]],
+  ['clientsetupresponse_6',['ClientSetupResponse',['../structquicr_1_1_server_1_1_client_setup_response.html',1,'quicr::Server']]],
+  ['common_2eh_7',['common.h',['../common_8h.html',1,'']]],
+  ['config_8',['Config',['../structquicr_1_1_config.html',1,'quicr']]],
+  ['config_2eh_9',['config.h',['../config_8h.html',1,'']]],
+  ['connect_10',['Connect',['../classquicr_1_1_client.html#afe0f8545b074ff9165f881db356ebe1f',1,'quicr::Client']]],
+  ['connect_5furi_11',['connect_uri',['../structquicr_1_1_client_config.html#aa6b0b5406607428025ea40d64f18d570',1,'quicr::ClientConfig']]],
+  ['connectionhandle_12',['ConnectionHandle',['../namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc',1,'quicr']]],
+  ['connectionmetrics_13',['ConnectionMetrics',['../structquicr_1_1_connection_metrics.html',1,'quicr']]],
+  ['connectionremoteinfo_14',['ConnectionRemoteInfo',['../structquicr_1_1_transport_1_1_connection_remote_info.html',1,'quicr::Transport']]],
+  ['connectionstatus_15',['ConnectionStatus',['../classquicr_1_1_transport.html#ae5adbdfe900741b6fb2adc0158203389',1,'quicr::Transport']]],
+  ['connectionstatuschanged_16',['ConnectionStatusChanged',['../classquicr_1_1_server.html#acbe2d96fa3623a576f2f4426610d40a7',1,'quicr::Server']]],
+  ['controlmessagestatus_17',['ControlMessageStatus',['../classquicr_1_1_transport.html#a824a203adc5f06ce584b93213d667909',1,'quicr::Transport']]],
+  ['create_18',['Create',['../classquicr_1_1_subscribe_track_handler.html#ab68abe464d5df71d9fd11c2e7e0cef94',1,'quicr::SubscribeTrackHandler::Create()'],['../classquicr_1_1_publish_track_handler.html#a4b15e2d372f5f53eeb3deb73113e7381',1,'quicr::PublishTrackHandler::Create()']]],
+  ['cwin_5fcongested_19',['cwin_congested',['../structquicr_1_1_quic_connection_metrics.html#abf5e8d6a1d4ce19c7c1acb615c3151d4',1,'quicr::QuicConnectionMetrics']]]
+];
