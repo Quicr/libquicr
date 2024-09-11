@@ -6,8 +6,8 @@ will handle all MoQ protocol state machine functions. Both classes contain virtu
 that **SHOULD** be implemented.
 
 Subscriptions and publications are handled via [Subscribe Track Handler](#quicr::SubscribeTrackHandler)
-and [Publish Track Handler](#quicr::PublishTrackHandler). Both classes contain pure virtual methods
-(e.g., callbacks) that **MUST** be implemented.
+and [Publish Track Handler](#quicr::PublishTrackHandler). Both classes contain virtual methods
+(e.g., callbacks) that **SHOULD** be implemented.
 
 ## Client
 
