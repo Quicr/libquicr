@@ -174,7 +174,7 @@ ALWAYS_DETAILED_SEC    = NO
 # operators of the base classes will not be shown.
 # The default value is: NO.
 
-INLINE_INHERITED_MEMB  = NO
+INLINE_INHERITED_MEMB  = YES
 
 # If the FULL_PATH_NAMES tag is set to YES, doxygen will prepend the full path
 # before files name in the file list and in the header files. If set to NO the
@@ -952,18 +952,20 @@ WARN_LOGFILE           =
 # spaces. See also FILE_PATTERNS and EXTENSION_MAPPING
 # Note: If this tag is empty the current directory is searched.
 
-INPUT                  =  docs/moq-api-main.md \
-                          include/moq/core/transport.h \
-                          include/moq/common.h \
-                          include/moq/config.h \
-                          include/moq/client.h \
-                          include/moq/metrics.h \
-                          include/moq/object.h \
-                          include/moq/server.h \
-                          include/moq/server_publish_track_handler.h \
-                          include/moq/subscribe_track_handler.h \
-                          include/moq/publish_track_handler.h \
-                          include/moq/core/base_track_handler.h
+INPUT                  =  docs/api-main.md \
+                          include/quicr/core/transport.h \
+                          include/quicr/common.h \
+                          include/quicr/config.h \
+                          include/quicr/client.h \
+                          include/quicr/metrics.h \
+                          include/quicr/object.h \
+                          include/quicr/server.h \
+                          include/quicr/server_publish_track_handler.h \
+                          include/quicr/subscribe_track_handler.h \
+                          include/quicr/publish_track_handler.h \
+                          include/quicr/core/base_track_handler.h \
+                          include/quicr/detail/transport.h \
+                          include/quicr/detail/quic_transport_metrics.h
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses
@@ -1098,7 +1100,7 @@ EXCLUDE_SYMBOLS        =
 # that contain example code fragments that are included (see the \include
 # command).
 
-EXAMPLE_PATH           =
+EXAMPLE_PATH           = cmd/examples/
 
 # If the value of the EXAMPLE_PATH tag contains directories, you can use the
 # EXAMPLE_PATTERNS tag to specify one or more wildcard pattern (like *.cpp and
@@ -1179,7 +1181,7 @@ FILTER_SOURCE_PATTERNS =
 # (index.html). This can be useful if you have a project on for instance GitHub
 # and want to reuse the introduction page also for the doxygen output.
 
-USE_MDFILE_AS_MAINPAGE = docs/moq-api-main.md
+USE_MDFILE_AS_MAINPAGE = docs/api-main.md
 
 # The Fortran standard specifies that for fixed formatted Fortran code all
 # characters from position 72 are to be considered as comment. A common
@@ -1312,7 +1314,7 @@ GENERATE_HTML          = YES
 # The default directory is: html.
 # This tag requires that the tag GENERATE_HTML is set to YES.
 
-HTML_OUTPUT            = moq-api-html
+HTML_OUTPUT            = html
 
 # The HTML_FILE_EXTENSION tag can be used to specify the file extension for each
 # generated HTML page (for example: .htm, .php, .asp).
@@ -1978,7 +1980,7 @@ GENERATE_LATEX         = no
 # The default directory is: latex.
 # This tag requires that the tag GENERATE_LATEX is set to YES.
 
-LATEX_OUTPUT           = moq-api-latex
+LATEX_OUTPUT           = api-latex
 
 # The LATEX_CMD_NAME tag can be used to specify the LaTeX command name to be
 # invoked.

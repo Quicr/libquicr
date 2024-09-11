@@ -5,7 +5,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
-#include <moq/client.h>
+#include <quicr/client.h>
 
 #include "helper_functions.h"
 #include "signal_handler.h"
@@ -18,15 +18,15 @@ namespace qclient_vars {
  * @brief  Subscribe track handler
  * @details Subscribe track handler used for the subscribe command line option.
  */
-class MySubscribeTrackHandler : public moq::SubscribeTrackHandler
+class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 {
   public:
-    MySubscribeTrackHandler(const moq::FullTrackName& full_track_name)
+    MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name)
       : SubscribeTrackHandler(full_track_name)
     {
     }
 
-    void ObjectReceived(const moq::ObjectHeaders&, moq::BytesSpan data) override
+    void ObjectReceived(const quicr::ObjectHeaders&, quicr::BytesSpan data) override
     {
         std::string msg(data.begin(), data.end());
         SPDLOG_INFO("Received message: {0}", msg);
@@ -50,14 +50,14 @@ class MySubscribeTrackHandler : public moq::SubscribeTrackHandler
  * @brief Publish track handler
  * @details Publish track handler used for the publish command line option
  */
-class MyPublishTrackHandler : public moq::PublishTrackHandler
+class MyPublishTrackHandler : public quicr::PublishTrackHandler
 {
   public:
-    MyPublishTrackHandler(const moq::FullTrackName& full_track_name,
-                          moq::TrackMode track_mode,
+    MyPublishTrackHandler(const quicr::FullTrackName& full_track_name,
+                          quicr::TrackMode track_mode,
                           uint8_t default_priority,
                           uint32_t default_ttl)
-      : moq::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl)
+      : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl)
     {
     }
 
@@ -79,11 +79,11 @@ class MyPublishTrackHandler : public moq::PublishTrackHandler
  * @brief MoQ client
  * @details Implementation of the MoQ Client
  */
-class MyClient : public moq::Client
+class MyClient : public quicr::Client
 {
   public:
-    MyClient(const moq::ClientConfig& cfg, bool& stop_threads)
-      : moq::Client(cfg)
+    MyClient(const quicr::ClientConfig& cfg, bool& stop_threads)
+      : quicr::Client(cfg)
       , stop_threads_(stop_threads)
     {
     }
@@ -116,10 +116,10 @@ class MyClient : public moq::Client
  */
 
 void
-DoPublisher(const moq::FullTrackName& full_track_name, const std::shared_ptr<moq::Client>& client, const bool& stop)
+DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<quicr::Client>& client, const bool& stop)
 {
     auto track_handler = std::make_shared<MyPublishTrackHandler>(
-      full_track_name, moq::TrackMode::kStreamPerGroup /*mode*/, 2 /*prirority*/, 3000 /*ttl*/);
+      full_track_name, quicr::TrackMode::kStreamPerGroup /*mode*/, 2 /*prirority*/, 3000 /*ttl*/);
 
     SPDLOG_INFO("Started publisher track");
 
@@ -156,7 +156,7 @@ DoPublisher(const moq::FullTrackName& full_track_name, const std::shared_ptr<moq
         std::string msg;
         if (qclient_vars::publish_clock) {
             std::this_thread::sleep_for(std::chrono::milliseconds(999));
-            msg = moq::example::GetTimeStr();
+            msg = quicr::example::GetTimeStr();
             SPDLOG_INFO(msg);
         } else { // stdin
             getline(std::cin, msg);
@@ -168,8 +168,8 @@ DoPublisher(const moq::FullTrackName& full_track_name, const std::shared_ptr<moq
             group_id++;
         }
 
-        moq::ObjectHeaders obj_headers = { group_id,       object_id++,  msg.size(),  2 /*priority*/,
-                                           3000 /* ttl */, std::nullopt, std::nullopt };
+        quicr::ObjectHeaders obj_headers = { group_id,       object_id++,  msg.size(),  2 /*priority*/,
+                                             3000 /* ttl */, std::nullopt, std::nullopt };
 
         track_handler->PublishObject(obj_headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
     }
@@ -185,7 +185,9 @@ DoPublisher(const moq::FullTrackName& full_track_name, const std::shared_ptr<moq
  * -------------------------------------------------------------------------------------------------
  */
 void
-DoSubscriber(const moq::FullTrackName& full_track_name, const std::shared_ptr<moq::Client>& client, const bool& stop)
+DoSubscriber(const quicr::FullTrackName& full_track_name,
+             const std::shared_ptr<quicr::Client>& client,
+             const bool& stop)
 {
     auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name);
 
@@ -213,10 +215,10 @@ DoSubscriber(const moq::FullTrackName& full_track_name, const std::shared_ptr<mo
  * Main program
  * -------------------------------------------------------------------------------------------------
  */
-moq::ClientConfig
+quicr::ClientConfig
 InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub)
 {
-    moq::ClientConfig config;
+    quicr::ClientConfig config;
 
     std::string qlog_path;
     if (cli_opts.count("qlog")) {
@@ -226,6 +228,11 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub)
     if (cli_opts.count("debug") && cli_opts["debug"].as<bool>() == true) {
         SPDLOG_INFO("setting debug level");
         spdlog::set_level(spdlog::level::debug);
+    }
+
+    if (cli_opts.count("version") && cli_opts["version"].as<bool>() == true) {
+        SPDLOG_INFO("QuicR library version: {}", QUICR_VERSION);
+        exit(0);
     }
 
     if (cli_opts.count("pub_namespace") && cli_opts.count("pub_name")) {
@@ -265,14 +272,16 @@ main(int argc, char* argv[])
 {
     int result_code = EXIT_SUCCESS;
 
-    cxxopts::Options options("qclient", "MOQ Example Client");
+    cxxopts::Options options("qclient",
+                             std::string("MOQ Example Client using QuicR Version: ") + std::string(QUICR_VERSION));
     options.set_width(75)
       .set_tab_expansion()
       //.allow_unrecognised_options()
       .add_options()("h,help", "Print help")("d,debug", "Enable debugging") // a bool parameter
+      ("v,version", "QuicR Version")                                        // a bool parameter
       ("r,url", "Relay URL", cxxopts::value<std::string>()->default_value("moq://localhost:1234"))(
         "e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))(
-        "q,qlog", "Enable qlog using path", cxxopts::value<std::string>()); // end of options
+        "q,qlog", "Enable qlog using path", cxxopts::value<std::string>());
 
     options.add_options("Publisher")("pub_namespace", "Track namespace", cxxopts::value<std::string>())(
       "pub_name", "Track name", cxxopts::value<std::string>())(
@@ -296,13 +305,13 @@ main(int argc, char* argv[])
 
     bool enable_pub{ false };
     bool enable_sub{ false };
-    moq::ClientConfig config = InitConfig(result, enable_pub, enable_sub);
+    quicr::ClientConfig config = InitConfig(result, enable_pub, enable_sub);
 
     try {
         bool stop_threads{ false };
         auto client = std::make_shared<MyClient>(config, stop_threads);
 
-        if (client->Connect() != moq::Transport::Status::kConnecting) {
+        if (client->Connect() != quicr::Transport::Status::kConnecting) {
             SPDLOG_ERROR("Failed to connect to server due to invalid params, check URI");
             exit(-1);
         }
@@ -310,13 +319,13 @@ main(int argc, char* argv[])
         std::thread pub_thread, sub_thread;
 
         if (enable_pub) {
-            const auto& pub_track_name = moq::example::MakeFullTrackName(
+            const auto& pub_track_name = quicr::example::MakeFullTrackName(
               result["pub_namespace"].as<std::string>(), result["pub_name"].as<std::string>(), 1001);
 
             pub_thread = std::thread(DoPublisher, pub_track_name, client, std::ref(stop_threads));
         }
         if (enable_sub) {
-            const auto& sub_track_name = moq::example::MakeFullTrackName(
+            const auto& sub_track_name = quicr::example::MakeFullTrackName(
               result["sub_namespace"].as<std::string>(), result["sub_name"].as<std::string>(), 2001);
 
             sub_thread = std::thread(DoSubscriber, sub_track_name, client, std::ref(stop_threads));

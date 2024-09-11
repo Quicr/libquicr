@@ -3,11 +3,11 @@
 
 #include <doctest/doctest.h>
 
-#include <moq/client.h>
-#include <moq/common.h>
-#include <moq/publish_track_handler.h>
-#include <moq/server.h>
-#include <moq/subscribe_track_handler.h>
-using namespace moq;
+#include <quicr/client.h>
+#include <quicr/common.h>
+#include <quicr/publish_track_handler.h>
+#include <quicr/server.h>
+#include <quicr/subscribe_track_handler.h>
+using namespace quicr;
 
 TEST_CASE("Track Handler") {}

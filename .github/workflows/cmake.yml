@@ -33,13 +33,13 @@ jobs:
     continue-on-error: true
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
 
     - name: Install Packages (macOS)
       run: |
-        brew install pkg-config llvm go
+        brew install llvm go
         ln -s "$(brew --prefix llvm)/bin/clang-tidy" "/usr/local/bin/clang-tidy"
         brew install google-benchmark
       if: matrix.os == 'macos-latest'
