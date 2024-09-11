@@ -210,7 +210,7 @@ main(int argc, char** argv)
         ("p,priority",      "Priority for sending publish messages",                 cxxopts::value<std::uint8_t>()->default_value("1"))
         ("e,expiry_age",    "Expiry age of objects in ms",                           cxxopts::value<std::uint16_t>()->default_value("5000"))
         ("reliable",        "Should use reliable per group",                         cxxopts::value<bool>())
-        ("delay",           "Startup delay in ms",                                   cxxopts::value<std::uint32_t>()->default_value("1000"))
+        ("g,group_size",    "Size before group index changes",                       cxxopts::value<std::uint16_t>()->default_value("0"))
         ("h,help",          "Print usage");
     // clang-format on
 
@@ -235,7 +235,8 @@ main(int argc, char** argv)
     const std::chrono::microseconds interval(result["interval"].as<std::uint32_t>());
     const std::chrono::seconds duration(result["duration"].as<std::uint32_t>());
     const bool reliable = result["reliable"].as<bool>();
-    const std::chrono::milliseconds delay(result["delay"].as<std::uint32_t>());
+    const std::uint16_t group_size = result["group_size"].as<std::uint16_t>();
+    const quicr::TrackMode track_mode = reliable ? quicr::TrackMode::kStreamPerGroup : quicr::TrackMode::kDatagram;
 
     const quicr::TransportConfig config{
         .tls_cert_filename = "",
@@ -286,12 +287,9 @@ main(int argc, char** argv)
     std::vector<std::shared_ptr<PerfPublishTrackHandler>> track_handlers;
     std::vector<std::shared_ptr<PerfSubscribeTrackHandler>> sub_track_handlers;
     for (std::uint16_t i = 0; i < tracks; ++i) {
-        auto full_track_name = MakeFullTrackName("perf/" + std::to_string(i), "something");
+        auto full_track_name = MakeFullTrackName("perf/" + std::to_string(i), "0");
         auto pub_handler = track_handlers.emplace_back(
-          PerfPublishTrackHandler::Create(full_track_name,
-                                          reliable ? quicr::TrackMode::kStreamPerGroup : quicr::TrackMode::kDatagram,
-                                          priority,
-                                          expiry_age));
+          PerfPublishTrackHandler::Create(full_track_name, track_mode, priority, expiry_age));
         client->PublishTrack(pub_handler);
 
         cleanup_queue.Push([=] { client->UnpublishTrack(pub_handler); });
@@ -321,12 +319,10 @@ main(int argc, char** argv)
         return EXIT_SUCCESS;
     }
 
-    std::this_thread::sleep_for(delay);
-
     SPDLOG_LOGGER_INFO(logger, "+==========================================+");
     SPDLOG_LOGGER_INFO(logger, "| Starting test of duration {0} seconds", duration.count());
     SPDLOG_LOGGER_INFO(logger, "+-------------------------------------------");
-    SPDLOG_LOGGER_INFO(logger, "| *                Streams: {0}", tracks);
+    SPDLOG_LOGGER_INFO(logger, "| *                 Tracks: {0}", tracks);
 
     if (interval != std::chrono::microseconds::zero()) {
         const std::uint64_t bitrate = (msg_size * 8) / (interval.count() / 1e6);
@@ -351,16 +347,22 @@ main(int argc, char** argv)
         threads.emplace_back([&] {
             std::size_t group = 0;
             std::size_t objects = 0;
-            quicr::ObjectHeaders header = {
-                .group_id = group,
-                .object_id = objects,
-                .payload_length = data.size(),
-                .priority = priority,
-                .ttl = expiry_age,
-                .track_mode = reliable ? quicr::TrackMode::kStreamPerGroup : quicr::TrackMode::kDatagram,
-            };
 
             ::LoopFor(duration, interval, [&] {
+                if (objects++ == group_size) {
+                    ++group;
+                    objects = 0;
+                }
+
+                quicr::ObjectHeaders header = {
+                    .group_id = group,
+                    .object_id = objects,
+                    .payload_length = data.size(),
+                    .priority = priority,
+                    .ttl = expiry_age,
+                    .track_mode = track_mode,
+                };
+
                 handler->PublishObject(header, data);
                 ++total_objects_published;
             });
@@ -369,26 +371,22 @@ main(int argc, char** argv)
             cv.notify_one();
         });
     }
+    cv.wait_for(lock, duration);
+    terminate = true;
 
-    cv.wait(lock, [&] { return terminate.load() || finished_publishers.load() == tracks; });
+    for (auto& thread : threads) {
+        thread.join();
+    }
 
     const auto end = std::chrono::high_resolution_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(end - start);
 
     SPDLOG_LOGGER_INFO(logger, "+==========================================+");
-    if (terminate) {
-        SPDLOG_LOGGER_INFO(logger, "| Received interrupt, exiting early");
-    } else {
-        SPDLOG_LOGGER_INFO(logger, "| Test complete");
-    }
+    SPDLOG_LOGGER_INFO(logger, "| Test complete");
     SPDLOG_LOGGER_INFO(logger, "+-------------------------------------------");
     SPDLOG_LOGGER_INFO(logger, "| *          Duration: {0} seconds", elapsed.count());
     SPDLOG_LOGGER_INFO(logger, "| * Published Objects: {0}", total_objects_published.load());
     SPDLOG_LOGGER_INFO(logger, "+==========================================+");
-
-    for (auto& thread : threads) {
-        thread.join();
-    }
 
     return EXIT_SUCCESS;
 }
