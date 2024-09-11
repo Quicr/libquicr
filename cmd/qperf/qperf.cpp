@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #include <oss/cxxopts.hpp>
 #include <quicr/client.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -8,6 +11,8 @@
 #include <condition_variable>
 #include <csignal>
 #include <cstdlib>
+#include <functional>
+#include <stack>
 #include <thread>
 
 namespace {
@@ -163,12 +168,31 @@ namespace {
             }
         }
     };
+
+    class CleanupQueue
+    {
+      public:
+        CleanupQueue() = default;
+        ~CleanupQueue()
+        {
+            while (!cleanup_queue.empty()) {
+                cleanup_queue.top()();
+                cleanup_queue.pop();
+            }
+        }
+
+        void Push(const std::function<void()>& func) { cleanup_queue.push(func); }
+
+      private:
+        std::stack<std::function<void()>> cleanup_queue;
+    };
 }
 
 void
 HandleTerminateSignal(int)
 {
     terminate = true;
+    cv.notify_all();
 }
 
 int
@@ -231,17 +255,20 @@ main(int argc, char** argv)
     };
 
     const auto logger = spdlog::stderr_color_mt("PERF");
-    PerfClient client(client_config);
+
+    CleanupQueue cleanup_queue;
+
+    auto client = std::make_shared<PerfClient>(client_config);
 
     std::signal(SIGINT, HandleTerminateSignal);
 
     try {
         std::unique_lock lock(mutex);
-        client.Connect();
+        client->Connect();
 
         cv.wait_for(lock, std::chrono::seconds(30));
 
-        if (client.GetStatus() != quicr::Client::Status::kReady) {
+        if (client->GetStatus() != quicr::Client::Status::kReady) {
             SPDLOG_LOGGER_CRITICAL(logger, "Failed to connect to relay '{0}'", client_config.connect_uri);
             return EXIT_FAILURE;
         }
@@ -254,6 +281,8 @@ main(int argc, char** argv)
         return EXIT_FAILURE;
     }
 
+    cleanup_queue.Push([=] { client->Disconnect(); });
+
     std::vector<std::shared_ptr<PerfPublishTrackHandler>> track_handlers;
     std::vector<std::shared_ptr<PerfSubscribeTrackHandler>> sub_track_handlers;
     for (std::uint16_t i = 0; i < tracks; ++i) {
@@ -263,10 +292,14 @@ main(int argc, char** argv)
                                           reliable ? quicr::TrackMode::kStreamPerGroup : quicr::TrackMode::kDatagram,
                                           priority,
                                           expiry_age));
-        client.PublishTrack(pub_handler);
+        client->PublishTrack(pub_handler);
+
+        cleanup_queue.Push([=] { client->UnpublishTrack(pub_handler); });
 
         auto sub_handler = sub_track_handlers.emplace_back(PerfSubscribeTrackHandler::Create(full_track_name));
-        client.SubscribeTrack(sub_handler);
+        client->SubscribeTrack(sub_handler);
+
+        cleanup_queue.Push([=] { client->UnsubscribeTrack(sub_handler); });
     }
 
     std::unique_lock lock(mutex);
@@ -290,18 +323,21 @@ main(int argc, char** argv)
 
     std::this_thread::sleep_for(delay);
 
-    const std::uint64_t bitrate = (msg_size * 8) / (interval.count() / 1e6);
-    const std::uint64_t expected_objects = 1e6 / interval.count();
-
     SPDLOG_LOGGER_INFO(logger, "+==========================================+");
     SPDLOG_LOGGER_INFO(logger, "| Starting test of duration {0} seconds", duration.count());
     SPDLOG_LOGGER_INFO(logger, "+-------------------------------------------");
     SPDLOG_LOGGER_INFO(logger, "| *                Streams: {0}", tracks);
-    SPDLOG_LOGGER_INFO(logger, "| *         Approx bitrate: {0}", FormatBitrate(bitrate));
-    SPDLOG_LOGGER_INFO(logger, "| *          Total bitrate: {0}", FormatBitrate(bitrate * tracks));
-    SPDLOG_LOGGER_INFO(logger, "| *     Expected Objects/s: {0}", expected_objects);
-    SPDLOG_LOGGER_INFO(logger, "| *        Total Objects/s: {0}", (expected_objects * tracks));
-    SPDLOG_LOGGER_INFO(logger, "| * Total Expected Objects: {0}", (expected_objects * tracks * duration.count()));
+
+    if (interval != std::chrono::microseconds::zero()) {
+        const std::uint64_t bitrate = (msg_size * 8) / (interval.count() / 1e6);
+        const std::uint64_t expected_objects = 1e6 / interval.count();
+        SPDLOG_LOGGER_INFO(logger, "| *         Approx bitrate: {0}", FormatBitrate(bitrate));
+        SPDLOG_LOGGER_INFO(logger, "| *          Total bitrate: {0}", FormatBitrate(bitrate * tracks));
+        SPDLOG_LOGGER_INFO(logger, "| *     Expected Objects/s: {0}", expected_objects);
+        SPDLOG_LOGGER_INFO(logger, "| *        Total Objects/s: {0}", (expected_objects * tracks));
+        SPDLOG_LOGGER_INFO(logger, "| * Total Expected Objects: {0}", (expected_objects * tracks * duration.count()));
+    }
+
     SPDLOG_LOGGER_INFO(logger, "+==========================================+");
 
     std::atomic_size_t finished_publishers = 0;
@@ -334,7 +370,7 @@ main(int argc, char** argv)
         });
     }
 
-    cv.wait(lock, [&] { return terminate.load() || finished_publishers == tracks; });
+    cv.wait(lock, [&] { return terminate.load() || finished_publishers.load() == tracks; });
 
     const auto end = std::chrono::high_resolution_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(end - start);
@@ -353,16 +389,6 @@ main(int argc, char** argv)
     for (auto& thread : threads) {
         thread.join();
     }
-
-    for (const auto& handler : sub_track_handlers) {
-        client.UnsubscribeTrack(handler);
-    }
-
-    for (const auto& handler : track_handlers) {
-        client.UnpublishTrack(handler);
-    }
-
-    client.Disconnect();
 
     return EXIT_SUCCESS;
 }
