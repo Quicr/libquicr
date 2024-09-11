@@ -1,3 +1,8 @@
+---
+title:  'QuicR API Guide'
+...
+
+
 API Overview
 ============
 
