@@ -2,8 +2,8 @@
 
 This library provides a publisher and subscriber API using MoQ. It provides
 a class for [Client](#quicr::Client) and [Server](#quicr::Server) that
-will handle all MoQ protocol state machine functions. Both classes contain pure virtual methods (e.g., callbacks)
-that **MUST** be implemented.
+will handle all MoQ protocol state machine functions. Both classes contain virtual methods (e.g., callbacks)
+that **SHOULD** be implemented.
 
 Subscriptions and publications are handled via [Subscribe Track Handler](#quicr::SubscribeTrackHandler)
 and [Publish Track Handler](#quicr::PublishTrackHandler). Both classes contain pure virtual methods
@@ -25,7 +25,7 @@ and [Publish Track Handler](#quicr::PublishTrackHandler). Both classes contain p
 
 ## Track Handlers
 
-Both client and server provide quicr::PublishTrack() and quicr::SubscribeTrack()
+Both client and server provide quicr::Transport::PublishTrack() and quicr::Transport::SubscribeTrack()
 methods to start a new subscription and/or publication. Use the below handler classes when calling
 the methods. Each track handler is constructed for a single full track name (e.g., namespace and name).
 
