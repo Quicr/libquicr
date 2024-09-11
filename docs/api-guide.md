@@ -1,7 +1,7 @@
 ---
 title:  'QuicR API Guide'
+date: 2024-SEP-11
 ...
-
 
 API Overview
 ============
