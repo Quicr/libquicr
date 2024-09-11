@@ -52,7 +52,7 @@ namespace quicr {
         };
 
         /**
-         * @brief Controll message status codes
+         * @brief Control message status codes
          */
         enum class ControlMessageStatus : uint8_t
         {
