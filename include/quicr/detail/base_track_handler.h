@@ -56,6 +56,7 @@ namespace quicr {
     {
       public:
         friend class Transport;
+        friend class Server;
 
         virtual ~BaseTrackHandler() = default;
 

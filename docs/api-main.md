@@ -35,12 +35,12 @@ the methods. Each track handler is constructed for a single full track name (e.g
  quicr::PublishTrackHandler       | Publish track handler for publish related operations and callbacks
 
 ## Client Flow
-<img src="../images/MoQ-client-api.png" alt="Client Process Flow" style="height: auto; width:80%"/>
+<img src="../images/client-api.png" alt="Client Flow" style="height: auto; width:80%"/>
 
 ## Server Flow
 
 ## Documentation Links
 
-* [API Process Flows](../MoQ-api-process-flows.html)
-* [MoQ Implementation Details](https://github.com/Quicr/libquicr/blob/main/docs/moq-implementation.md)
+* [API Guide](api-guide.html)
+* [Implementation Details](implementation.html)
 * Quick Start

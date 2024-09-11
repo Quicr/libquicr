@@ -140,4 +140,4 @@ Example on MacOS:
 
 ### MOQ Implementation Documentation
 
-See [MOQ Implementation](docs/moq-implementation.md)
+See [MOQ Implementation](docs/implementation)
