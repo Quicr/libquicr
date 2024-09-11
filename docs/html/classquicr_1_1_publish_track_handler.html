@@ -159,12 +159,6 @@ Public Types</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a85d2310272db252df775a681cc8b8884" id="r_a85d2310272db252df775a681cc8b8884"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a85d2310272db252df775a681cc8b8884">StatusChanged</a> (<a class="el" href="#af50c21bea085782c5c0c8f2958a921f7">Status</a> status)</td></tr>
-<tr class="memdesc:a85d2310272db252df775a681cc8b8884"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification of publish track status change.  <br /></td></tr>
-<tr class="separator:a85d2310272db252df775a681cc8b8884"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa0e5f4b4173834d38929f71dace54c8c" id="r_aa0e5f4b4173834d38929f71dace54c8c"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa0e5f4b4173834d38929f71dace54c8c">MetricsSampled</a> (const <a class="el" href="structquicr_1_1_publish_track_metrics.html">PublishTrackMetrics</a> &amp;metrics)</td></tr>
-<tr class="memdesc:aa0e5f4b4173834d38929f71dace54c8c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification callback to provide sampled metrics.  <br /></td></tr>
-<tr class="separator:aa0e5f4b4173834d38929f71dace54c8c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a568e1b473042f10396e81b64a5942ba4" id="r_a568e1b473042f10396e81b64a5942ba4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a568e1b473042f10396e81b64a5942ba4">SetDefaultPriority</a> (const uint8_t priority) noexcept</td></tr>
 <tr class="memdesc:a568e1b473042f10396e81b64a5942ba4"><td class="mdescLeft">&#160;</td><td class="mdescRight">set/update the default priority for published objects  <br /></td></tr>
 <tr class="separator:a568e1b473042f10396e81b64a5942ba4"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -183,6 +177,13 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a4cc6faa161871429b1dee50fea209ee8" id="r_a4cc6faa161871429b1dee50fea209ee8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#af4b42f9237fde47f666b9360ae337654">PublishObjectStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4cc6faa161871429b1dee50fea209ee8">PublishPartialObject</a> (const <a class="el" href="structquicr_1_1_object_headers.html">ObjectHeaders</a> &amp;object_headers, <a class="el" href="namespacequicr.html#ae1ac30988d32dc3d91fb37721fa99dcb">BytesSpan</a> data)</td></tr>
 <tr class="memdesc:a4cc6faa161871429b1dee50fea209ee8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish object to the announced track.  <br /></td></tr>
 <tr class="separator:a4cc6faa161871429b1dee50fea209ee8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr><td colspan="2"><div class="groupHeader">Calbacks</div></td></tr>
+<tr class="memitem:a85d2310272db252df775a681cc8b8884" id="r_a85d2310272db252df775a681cc8b8884"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a85d2310272db252df775a681cc8b8884">StatusChanged</a> (<a class="el" href="#af50c21bea085782c5c0c8f2958a921f7">Status</a> status)</td></tr>
+<tr class="memdesc:a85d2310272db252df775a681cc8b8884"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification of publish track status change.  <br /></td></tr>
+<tr class="separator:a85d2310272db252df775a681cc8b8884"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa0e5f4b4173834d38929f71dace54c8c" id="r_aa0e5f4b4173834d38929f71dace54c8c"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa0e5f4b4173834d38929f71dace54c8c">MetricsSampled</a> (const <a class="el" href="structquicr_1_1_publish_track_metrics.html">PublishTrackMetrics</a> &amp;metrics)</td></tr>
+<tr class="memdesc:aa0e5f4b4173834d38929f71dace54c8c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification callback to provide sampled metrics.  <br /></td></tr>
+<tr class="separator:aa0e5f4b4173834d38929f71dace54c8c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-static-methods" name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
