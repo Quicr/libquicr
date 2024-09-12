@@ -507,15 +507,14 @@ namespace quicr {
                                              false);
 
         // Setup the function for the track handler to use to send objects with thread safety
-        track_handler->publish_object_func_ =
-          [&, track_handler, subscribe_id = track_handler->GetSubscribeId()](
-            uint8_t priority,
-            uint32_t ttl,
-            bool stream_header_needed,
-            uint64_t group_id,
-            uint64_t object_id,
-            std::optional<Extensions> extensions,
-            Span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
+        track_handler->publish_object_func_ = [&, track_handler, subscribe_id = track_handler->GetSubscribeId()](
+                                                uint8_t priority,
+                                                uint32_t ttl,
+                                                bool stream_header_needed,
+                                                uint64_t group_id,
+                                                uint64_t object_id,
+                                                std::optional<Extensions> extensions,
+                                                Span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
             return SendObject(
               *track_handler, priority, ttl, stream_header_needed, group_id, object_id, extensions, data);
         };
@@ -660,8 +659,7 @@ namespace quicr {
         // clean up subscriber handlers of disconnect
         for (const auto& [sub_id, handler] : conn_ctx.tracks_by_sub_id) {
             RemoveSubscribeTrack(conn_ctx, *handler);
-            handler->SetStatus(
-              SubscribeTrackHandler::Status::kNotConnected); // Set after remove subscribe track
+            handler->SetStatus(SubscribeTrackHandler::Status::kNotConnected); // Set after remove subscribe track
         }
 
         // Notify publish handlers of disconnect

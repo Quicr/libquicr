@@ -222,8 +222,8 @@ namespace quicr {
                                         conn_ctx.connection_handle,
                                         msg.subscribe_id);
 
-
-                    const auto pub_track_ns_it = conn_ctx.pub_tracks_by_name.find(th_it->second.first); // Find namespace
+                    const auto pub_track_ns_it =
+                      conn_ctx.pub_tracks_by_name.find(th_it->second.first); // Find namespace
                     if (pub_track_ns_it != conn_ctx.pub_tracks_by_name.end()) {
                         const auto pub_track_n_it = pub_track_ns_it->second.find(th_it->second.second); // Find name
                         if (pub_track_n_it != pub_track_ns_it->second.end()) {

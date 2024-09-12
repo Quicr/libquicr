@@ -398,7 +398,6 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
                 return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
             }
 
-
             if (transport->Status() == TransportStatus::kShuttingDown) {
                 SPDLOG_LOGGER_INFO(transport->logger, "picoquic is shutting down");
 
@@ -727,8 +726,6 @@ PicoQuicTransport::Close(const TransportConnId& conn_id, uint64_t app_reason_cod
             OnConnectionStatus(conn_id, TransportStatus::kDisconnected);
             break;
     }
-
-
 
     if (not is_server_mode) {
         SetStatus(TransportStatus::kShutdown);
