@@ -340,6 +340,9 @@ class MyServer : public quicr::Server
     {
         if (status == ConnectionStatus::kConnected) {
             SPDLOG_DEBUG("Connection ready connection_handle: {0} ", connection_handle);
+        } else {
+            SPDLOG_INFO(
+              "Connection changed connection_handle: {0} status: {1}", connection_handle, static_cast<int>(status));
         }
     }
 

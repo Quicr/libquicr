@@ -34,7 +34,9 @@ namespace quicr {
         kConnecting,
         kRemoteRequestClose,
         kDisconnected,
-        kShutdown
+        kShuttingDown,
+        kShutdown,
+        kIdleTimeout,
     };
 
     /**
