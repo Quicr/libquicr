@@ -55,7 +55,7 @@ namespace quicr {
         Status Disconnect();
 
         // --BEGIN CALLBACKS ----------------------------------------------------------------------------------
-        /** @name Client Calbacks
+        /** @name Client Callbacks
          *      client transport specific callbacks
          */
         ///@{
