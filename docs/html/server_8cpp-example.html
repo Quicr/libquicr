@@ -399,6 +399,9 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line"><span class="keyword">    </span>{</div>
 <div class="line">        <span class="keywordflow">if</span> (status == ConnectionStatus::kConnected) {</div>
 <div class="line">            SPDLOG_DEBUG(<span class="stringliteral">&quot;Connection ready connection_handle: {0} &quot;</span>, connection_handle);</div>
+<div class="line">        } <span class="keywordflow">else</span> {</div>
+<div class="line">            SPDLOG_INFO(</div>
+<div class="line">              <span class="stringliteral">&quot;Connection changed connection_handle: {0} status: {1}&quot;</span>, connection_handle, <span class="keyword">static_cast&lt;</span><span class="keywordtype">int</span><span class="keyword">&gt;</span>(status));</div>
 <div class="line">        }</div>
 <div class="line">    }</div>
 <div class="line"> </div>
