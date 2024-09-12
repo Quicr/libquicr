@@ -656,6 +656,29 @@ namespace quicr {
         }
     }
 
+    void Transport::RemoveAllTracksByConnection(ConnectionContext& conn_ctx)
+    {
+        // Notify the subscriber handlers of disconnect
+        for (const auto& [sub_id, handler] : conn_ctx.tracks_by_sub_id) {
+            RemoveSubscribeTrack(conn_ctx, *handler);
+            handler->SetStatus(
+              SubscribeTrackHandler::Status::kNotConnected); // Set after remove subscribe track
+        }
+
+        // Notify publish handlers of disconnect
+        for (const auto& [name_space, track] : conn_ctx.recv_sub_id) {
+            TrackHash th(track.first, track.second);
+            if (auto pdt = GetPubTrackHandler(conn_ctx, th)) {
+                pdt->lock()->SetStatus(PublishTrackHandler::Status::kNotConnected);
+            }
+        }
+
+        conn_ctx.recv_sub_id.clear();
+        conn_ctx.tracks_by_sub_id.clear();
+
+        // TODO(tievens): Clean up publish tracks
+    }
+
     // ---------------------------------------------------------------------------------------
     // Transport handler callbacks
     // ---------------------------------------------------------------------------------------
@@ -663,6 +686,7 @@ namespace quicr {
     void Transport::OnConnectionStatus(const TransportConnId& conn_id, const TransportStatus status)
     {
         SPDLOG_LOGGER_DEBUG(logger_, "Connection status conn_id: {0} status: {1}", conn_id, static_cast<int>(status));
+        ConnectionStatus conn_status = ConnectionStatus::kConnected;
 
         switch (status) {
             case TransportStatus::kReady: {
@@ -676,6 +700,7 @@ namespace quicr {
                     SendClientSetup();
 
                     status_ = Status::kReady;
+                    conn_status = ConnectionStatus::kConnected;
                 }
                 break;
             }
@@ -684,15 +709,20 @@ namespace quicr {
                 if (client_mode_) {
                     status_ = Status::kConnecting;
                 }
-                ConnectionStatusChanged(conn_id, ConnectionStatus::kConnecting);
+
+                conn_status = ConnectionStatus::kConnected;
                 break;
             case TransportStatus::kRemoteRequestClose:
+                conn_status = ConnectionStatus::kClosedByRemote;
                 [[fallthrough]];
 
             case TransportStatus::kIdleTimeout:
+                conn_status = ConnectionStatus::kIdleTimeout;
                 [[fallthrough]];
 
             case TransportStatus::kDisconnected: {
+                conn_status = ConnectionStatus::kNotConnected;
+
                 // Clean up publish and subscribe tracks
                 std::lock_guard<std::mutex> _(state_mutex_);
                 auto conn_it = connections_.find(conn_id);
@@ -705,27 +735,7 @@ namespace quicr {
                     status_ = Status::kNotConnected;
                 }
 
-                ConnectionStatusChanged(conn_id, ConnectionStatus::kClosedByRemote);
-
-                // Notify the subscriber handlers of disconnect
-                for (const auto& [sub_id, handler] : conn_it->second.tracks_by_sub_id) {
-                    RemoveSubscribeTrack(conn_it->second, *handler);
-                    handler->SetStatus(
-                      SubscribeTrackHandler::Status::kNotConnected); // Set after remove subscribe track
-                }
-
-                // Notify publish handlers of disconnect
-                for (const auto& [name_space, track] : conn_it->second.recv_sub_id) {
-                    TrackHash th(track.first, track.second);
-                    if (auto pdt = GetPubTrackHandler(conn_it->second, th)) {
-                        pdt->lock()->SetStatus(PublishTrackHandler::Status::kNotConnected);
-                    }
-                }
-
-                conn_it->second.recv_sub_id.clear();
-                conn_it->second.tracks_by_sub_id.clear();
-
-                // TODO(tievens): Clean up publish tracks
+                RemoveAllTracksByConnection(conn_it->second);
 
                 connections_.erase(conn_it);
 
@@ -733,14 +743,16 @@ namespace quicr {
             }
 
             case TransportStatus::kShuttingDown:
+                conn_status = ConnectionStatus::kNotConnected;
                 [[fallthrough]];
 
             case TransportStatus::kShutdown:
+                conn_status = ConnectionStatus::kNotConnected;
                 status_ = Status::kNotReady;
-                ConnectionStatusChanged(conn_id, ConnectionStatus::kNotConnected);
                 break;
         }
 
+        ConnectionStatusChanged(conn_id, conn_status);
         StatusChanged(status_);
     }
 
