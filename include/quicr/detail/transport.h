@@ -33,6 +33,9 @@ namespace quicr {
       public:
         Transport() = delete;
 
+        /**
+         * @brief Status of the transport
+         */
         enum class Status : uint8_t
         {
             kReady = 0,
@@ -48,6 +51,9 @@ namespace quicr {
             kFailedToConnect
         };
 
+        /**
+         * @brief Control message status codes
+         */
         enum class ControlMessageStatus : uint8_t
         {
             kMessageIncomplete,        ///< control message is incomplete and more data is needed
@@ -138,37 +144,32 @@ namespace quicr {
                             const std::shared_ptr<PublishTrackHandler>& track_handler);
 
         /**
-         * @brief Bind a server publish track handler based on a subscribe
-         *
-         * @details The server will create a server publish track handler based on a received
-         *      subscribe. It will use this handler to send objects to subscriber.
-         *
-         * @param connection_handle                   Connection ID of the client/subscriber
-         * @param subscribe_id              Subscribe ID from the received subscribe
-         * @param track_handler             Server publish track handler
-         */
-        void BindPublisherTrack(ConnectionHandle connection_handle,
-                                uint64_t subscribe_id,
-                                const std::shared_ptr<PublishTrackHandler>& track_handler);
-
-        /**
          * @brief Get the status of the Client
          *
          * @return Status of the Client
          */
         Status GetStatus() const noexcept { return status_; }
 
+        /** @name Base Calbacks
+         *  Both client and server implement the same transport base callbacks
+         */
+        ///@{
         /**
          * @brief Callback notification for status/state change
          * @details Callback notification indicates state change of connection, such as disconnected
          *
-         * @param status           Status change
+         * @param status           Changed Status value
          */
-        virtual void StatusChanged(Status) {}
+        virtual void StatusChanged([[maybe_unused]] Status status) {}
+        ///@}
 
+        /// @cond
       protected:
         Status Start();
+
         Status Stop();
+
+        /// @endcond
 
       private:
         // -------------------------------------------------------------------------------------------------

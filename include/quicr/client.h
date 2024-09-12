@@ -54,6 +54,12 @@ namespace quicr {
          */
         Status Disconnect();
 
+        // --BEGIN CALLBACKS ----------------------------------------------------------------------------------
+        /** @name Client Callbacks
+         *      client transport specific callbacks
+         */
+        ///@{
+
         /**
          * @brief Callback on server setup message
          *
@@ -118,6 +124,9 @@ namespace quicr {
          * @param metrics           Copy of the connection metrics for the sample period
          */
         void MetricsSampled(const ConnectionMetrics& metrics) override;
+
+        ///@}
+        // --END OF CALLBACKS ----------------------------------------------------------------------------------
 
         /**
          * @brief Get announce status for namespace

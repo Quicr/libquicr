@@ -44,8 +44,8 @@ doc:
 	@echo "Creating Doxygen Docs"
 	@doxygen
 	@echo "Creating implementation doc HTML"
-	@pandoc docs/moqt-api-process-flows.md -f markdown -o docs/moqt-api-process-flows.html --filter=mermaid-filter
-
+	@pandoc docs/api-guide.md -f markdown --to=html5 -o docs/html/api-guide.html --filter=mermaid-filter \
+ 			--template=docs/pandoc-theme/elegant_bootstrap_menu.html --toc
 
 format:
 	find include -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}

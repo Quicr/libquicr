@@ -39,6 +39,57 @@ namespace quicr {
 
     void Server::ResolveSubscribe(ConnectionHandle, uint64_t, const SubscribeResponse&) {}
 
+    void Server::BindPublisherTrack(TransportConnId conn_id,
+                                    uint64_t subscribe_id,
+                                    const std::shared_ptr<PublishTrackHandler>& track_handler)
+    {
+        // Generate track alias
+        const auto& tfn = track_handler->GetFullTrackName();
+
+        // Track hash is the track alias for now.
+        auto th = TrackHash(tfn);
+
+        track_handler->SetTrackAlias(th.track_fullname_hash);
+
+        SPDLOG_LOGGER_INFO(
+          logger_, "Bind subscribe track handler conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
+
+        std::lock_guard<std::mutex> _(state_mutex_);
+        auto conn_it = connections_.find(conn_id);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_id);
+            return;
+        }
+
+        track_handler->SetSubscribeId(subscribe_id);
+
+        track_handler->connection_handle_ = conn_id;
+
+        track_handler->publish_data_ctx_id_ =
+          quic_transport_->CreateDataContext(conn_id,
+                                             track_handler->default_track_mode_ == TrackMode::kDatagram ? false : true,
+                                             track_handler->default_priority_,
+                                             false);
+
+        // Setup the function for the track handler to use to send objects with thread safety
+        track_handler->publish_object_func_ =
+          [&, track_handler = track_handler, subscribe_id = track_handler->GetSubscribeId()](
+            uint8_t priority,
+            uint32_t ttl,
+            bool stream_header_needed,
+            uint64_t group_id,
+            uint64_t object_id,
+            std::optional<Extensions> extensions,
+            Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
+            return SendObject(
+              *track_handler, priority, ttl, stream_header_needed, group_id, object_id, extensions, data);
+        };
+
+        // Hold onto track handler
+        conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
+        conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
+    }
+
     bool Server::ProcessCtrlMessage(ConnectionContext& conn_ctx,
                                     std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer)
     {
