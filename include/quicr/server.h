@@ -75,6 +75,40 @@ namespace quicr {
         void Stop();
 
         /**
+         * @brief Bind a server publish track handler based on a subscribe
+         *
+         * @details The server will create a server publish track handler based on a received
+         *      subscribe. It will use this handler to send objects to subscriber.
+         *
+         * @param connection_handle                   Connection ID of the client/subscriber
+         * @param subscribe_id              Subscribe ID from the received subscribe
+         * @param track_handler             Server publish track handler
+         */
+        void BindPublisherTrack(ConnectionHandle connection_handle,
+                                uint64_t subscribe_id,
+                                const std::shared_ptr<PublishTrackHandler>& track_handler);
+
+        /**
+         * @brief Accept or reject an subscribe that was received
+         *
+         * @details Accept or reject an subscribe received via SubscribeReceived(). The MoQ Transport
+         *      will send the protocol message based on the SubscribeResponse
+         *
+         * @param connection_handle        source connection ID
+         * @param subscribe_id             subscribe ID
+         * @param subscribe_response       response to for the subscribe
+         */
+        virtual void ResolveSubscribe(ConnectionHandle connection_handle,
+                                      uint64_t subscribe_id,
+                                      const SubscribeResponse& subscribe_response);
+
+        // --BEGIN CALLBACKS ----------------------------------------------------------------------------------
+        /** @name Server Calbacks
+         *      slient transport specific callbacks
+         */
+        ///@{
+
+        /**
          * @brief Callback notification on new connection
          * @details Callback notification that a new connection has been accepted
          *
@@ -173,26 +207,15 @@ namespace quicr {
                                        const SubscribeAttributes& subscribe_attributes);
 
         /**
-         * @brief Accept or reject an subscribe that was received
-         *
-         * @details Accept or reject an subscribe received via SubscribeReceived(). The MoQ Transport
-         *      will send the protocol message based on the SubscribeResponse
-         *
-         * @param connection_handle        source connection ID
-         * @param subscribe_id             subscribe ID
-         * @param subscribe_response       response to for the subscribe
-         */
-        virtual void ResolveSubscribe(ConnectionHandle connection_handle,
-                                      uint64_t subscribe_id,
-                                      const SubscribeResponse& subscribe_response);
-
-        /**
          * @brief Callback notification on unsubscribe received
          *
          * @param connection_handle   Source connection ID
          * @param subscribe_id        Subscribe ID received
          */
         virtual void UnsubscribeReceived(ConnectionHandle connection_handle, uint64_t subscribe_id) = 0;
+
+        ///@}
+        // --END OF CALLBACKS ----------------------------------------------------------------------------------
 
       private:
         bool ProcessCtrlMessage(ConnectionContext& conn_ctx,

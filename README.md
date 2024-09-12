@@ -15,7 +15,7 @@ API documentation can be found under https://quicr.github.io/libquicr
 #### Linux
 
 ```
-sudo apt-get update && sudo apt-get install -y gcc g++ golang pkgconf cmake make 
+sudo apt-get update && sudo apt-get install -y gcc g++ golang pkgconf cmake make git
 ```
 
 ### Apple/Mac
@@ -140,4 +140,4 @@ Example on MacOS:
 
 ### MOQ Implementation Documentation
 
-See [MOQ Implementation](docs/moq-implementation.md)
+See [MOQ Implementation](docs/implementation)

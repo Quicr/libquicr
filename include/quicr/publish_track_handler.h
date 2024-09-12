@@ -107,6 +107,9 @@ namespace quicr {
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
         // --------------------------------------------------------------------------
+        /** @name Callbacks
+         */
+        ///@{
 
         /**
          * @brief Notification of publish track status change
@@ -127,6 +130,8 @@ namespace quicr {
          * @param metrics           Copy of the published metrics for the sample period
          */
         virtual void MetricsSampled(const PublishTrackMetrics& metrics);
+
+        ///@}
 
         // --------------------------------------------------------------------------
         // Various getter/setters
