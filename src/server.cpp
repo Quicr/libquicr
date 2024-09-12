@@ -73,7 +73,7 @@ namespace quicr {
 
         // Setup the function for the track handler to use to send objects with thread safety
         track_handler->publish_object_func_ =
-          [&, track_handler = track_handler, subscribe_id = track_handler->GetSubscribeId()](
+          [&, track_handler, subscribe_id = track_handler->GetSubscribeId()](
             uint8_t priority,
             uint32_t ttl,
             bool stream_header_needed,

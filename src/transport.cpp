@@ -377,9 +377,6 @@ namespace quicr {
                                      const std::shared_ptr<SubscribeTrackHandler>& track_handler)
     {
         auto& conn_ctx = connections_[conn_id];
-        if (track_handler->GetSubscribeId().has_value()) {
-            SendUnsubscribe(conn_ctx, *track_handler->GetSubscribeId());
-        }
         RemoveSubscribeTrack(conn_ctx, *track_handler);
     }
 
@@ -388,14 +385,16 @@ namespace quicr {
                                          bool remove_handler)
     {
         handler.SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
-        handler.SetSubscribeId(std::nullopt);
 
         auto subscribe_id = handler.GetSubscribeId();
+
+        handler.SetSubscribeId(std::nullopt);
+
         if (subscribe_id.has_value()) {
 
             SendUnsubscribe(conn_ctx, *subscribe_id);
 
-            SPDLOG_LOGGER_DEBUG(logger_, "remove subscribe id: {0}", *subscribe_id);
+            SPDLOG_LOGGER_DEBUG(logger_, "Removed subscribe track subscribe id: {0}", *subscribe_id);
 
             if (remove_handler) {
                 std::lock_guard<std::mutex> _(state_mutex_);
@@ -509,7 +508,7 @@ namespace quicr {
 
         // Setup the function for the track handler to use to send objects with thread safety
         track_handler->publish_object_func_ =
-          [&, track_handler = track_handler, subscribe_id = track_handler->GetSubscribeId()](
+          [&, track_handler, subscribe_id = track_handler->GetSubscribeId()](
             uint8_t priority,
             uint32_t ttl,
             bool stream_header_needed,
@@ -656,9 +655,9 @@ namespace quicr {
         }
     }
 
-    void Transport::RemoveAllTracksByConnection(ConnectionContext& conn_ctx)
+    void Transport::RemoveAllTracksForConnectionClose(ConnectionContext& conn_ctx)
     {
-        // Notify the subscriber handlers of disconnect
+        // clean up subscriber handlers of disconnect
         for (const auto& [sub_id, handler] : conn_ctx.tracks_by_sub_id) {
             RemoveSubscribeTrack(conn_ctx, *handler);
             handler->SetStatus(
@@ -666,17 +665,15 @@ namespace quicr {
         }
 
         // Notify publish handlers of disconnect
-        for (const auto& [name_space, track] : conn_ctx.recv_sub_id) {
-            TrackHash th(track.first, track.second);
-            if (auto pdt = GetPubTrackHandler(conn_ctx, th)) {
-                pdt->lock()->SetStatus(PublishTrackHandler::Status::kNotConnected);
-            }
+        for (const auto& [data_ctx_id, handler] : conn_ctx.pub_tracks_by_data_ctx_id) {
+            handler->SetStatus(PublishTrackHandler::Status::kNotConnected);
+            handler->SetSubscribeId(std::nullopt);
         }
 
+        conn_ctx.pub_tracks_by_data_ctx_id.clear();
+        conn_ctx.pub_tracks_by_name.clear();
         conn_ctx.recv_sub_id.clear();
         conn_ctx.tracks_by_sub_id.clear();
-
-        // TODO(tievens): Clean up publish tracks
     }
 
     // ---------------------------------------------------------------------------------------
@@ -735,7 +732,7 @@ namespace quicr {
                     status_ = Status::kNotConnected;
                 }
 
-                RemoveAllTracksByConnection(conn_it->second);
+                RemoveAllTracksForConnectionClose(conn_it->second);
 
                 connections_.erase(conn_it);
 
@@ -1108,7 +1105,7 @@ namespace quicr {
 
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
                 if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                    SPDLOG_LOGGER_WARN(
+                    SPDLOG_LOGGER_DEBUG(
                       logger_,
                       "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
                       msg.subscribe_id);

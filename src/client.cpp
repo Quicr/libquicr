@@ -201,8 +201,10 @@ namespace quicr {
             case messages::MoqMessageType::UNSUBSCRIBE: {
                 auto&& [msg, parsed] = ParseControlMessage<messages::MoqUnsubscribe>(stream_buffer);
                 if (parsed) {
-                    auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-                    if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+
+                    const auto& th_it = conn_ctx.recv_sub_id.find(msg.subscribe_id);
+
+                    if (th_it == conn_ctx.recv_sub_id.end()) {
                         SPDLOG_LOGGER_WARN(
                           logger_,
                           "Received unsubscribe to unknown subscribe_id conn_id: {0} subscribe_id: {1}, ignored",
@@ -219,9 +221,15 @@ namespace quicr {
                                         "Received unsubscribe conn_id: {0} subscribe_id: {1}",
                                         conn_ctx.connection_handle,
                                         msg.subscribe_id);
-                    sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
 
-                    RemoveSubscribeTrack(conn_ctx, *sub_it->second);
+
+                    const auto pub_track_ns_it = conn_ctx.pub_tracks_by_name.find(th_it->second.first); // Find namespace
+                    if (pub_track_ns_it != conn_ctx.pub_tracks_by_name.end()) {
+                        const auto pub_track_n_it = pub_track_ns_it->second.find(th_it->second.second); // Find name
+                        if (pub_track_n_it != pub_track_ns_it->second.end()) {
+                            pub_track_n_it->second->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
+                        }
+                    }
 
                     stream_buffer->ResetAny();
                     return true;
