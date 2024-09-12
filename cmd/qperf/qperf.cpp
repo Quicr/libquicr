@@ -3,6 +3,7 @@
 
 #include <oss/cxxopts.hpp>
 #include <quicr/client.h>
+#include <quicr/detail/defer.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
@@ -168,24 +169,6 @@ namespace {
             }
         }
     };
-
-    class CleanupQueue
-    {
-      public:
-        CleanupQueue() = default;
-        ~CleanupQueue()
-        {
-            while (!cleanup_queue.empty()) {
-                cleanup_queue.top()();
-                cleanup_queue.pop();
-            }
-        }
-
-        void Push(const std::function<void()>& func) { cleanup_queue.push(func); }
-
-      private:
-        std::stack<std::function<void()>> cleanup_queue;
-    };
 }
 
 void
@@ -257,8 +240,6 @@ main(int argc, char** argv)
 
     const auto logger = spdlog::stderr_color_mt("PERF");
 
-    CleanupQueue cleanup_queue;
-
     auto client = std::make_shared<PerfClient>(client_config);
 
     std::signal(SIGINT, HandleTerminateSignal);
@@ -282,7 +263,7 @@ main(int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    cleanup_queue.Push([=] { client->Disconnect(); });
+    defer(client->Disconnect());
 
     std::vector<std::shared_ptr<PerfPublishTrackHandler>> track_handlers;
     std::vector<std::shared_ptr<PerfSubscribeTrackHandler>> sub_track_handlers;
@@ -292,13 +273,16 @@ main(int argc, char** argv)
           PerfPublishTrackHandler::Create(full_track_name, track_mode, priority, expiry_age));
         client->PublishTrack(pub_handler);
 
-        cleanup_queue.Push([=] { client->UnpublishTrack(pub_handler); });
-
         auto sub_handler = sub_track_handlers.emplace_back(PerfSubscribeTrackHandler::Create(full_track_name));
         client->SubscribeTrack(sub_handler);
-
-        cleanup_queue.Push([=] { client->UnsubscribeTrack(sub_handler); });
     }
+
+    defer({
+        for (const auto& handler : track_handlers)
+            client->UnpublishTrack(handler);
+        for (const auto& handler : sub_track_handlers)
+            client->UnsubscribeTrack(handler);
+    });
 
     std::unique_lock lock(mutex);
 
@@ -338,8 +322,10 @@ main(int argc, char** argv)
 
     std::atomic_size_t finished_publishers = 0;
     std::atomic_size_t total_objects_published = 0;
-    std::vector<std::thread> threads;
     quicr::Bytes data(msg_size, 0);
+
+    std::vector<std::thread> threads;
+    defer(for (auto& thread : threads) { thread.join(); });
 
     const auto start = std::chrono::high_resolution_clock::now();
 
@@ -373,10 +359,6 @@ main(int argc, char** argv)
     }
     cv.wait_for(lock, duration);
     terminate = true;
-
-    for (auto& thread : threads) {
-        thread.join();
-    }
 
     const auto end = std::chrono::high_resolution_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(end - start);

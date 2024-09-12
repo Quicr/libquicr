@@ -71,7 +71,7 @@ namespace quicr {
       , client_config_(cfg)
       , quic_transport_({})
     {
-        SPDLOG_LOGGER_INFO(logger_, "Created Moq instance in client mode connecting to {0}", cfg.connect_uri);
+        SPDLOG_LOGGER_TRACE(logger_, "Created Moq instance in client mode connecting to {0}", cfg.connect_uri);
         Init();
     }
 
