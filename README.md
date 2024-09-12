@@ -15,7 +15,7 @@ API documentation can be found under https://quicr.github.io/libquicr
 #### Linux
 
 ```
-sudo apt-get update && sudo apt-get install -y gcc g++ golang pkgconf cmake make git
+sudo apt-get update && sudo apt-get install -y gcc g++ golang pkgconf cmake make 
 ```
 
 ### Apple/Mac
