@@ -102,7 +102,7 @@ namespace quicr {
                                       uint64_t subscribe_id,
                                       const SubscribeResponse& subscribe_response);
 
-        // --BEGIN ALLBACKS ----------------------------------------------------------------------------------
+        // --BEGIN CALLBACKS ----------------------------------------------------------------------------------
         /** @name Server Calbacks
          *      slient transport specific callbacks
          */
