@@ -224,8 +224,7 @@ namespace quicr {
                                         conn_ctx.connection_handle,
                                         msg.subscribe_id);
 
-                    const auto pub_track_ns_it =
-                      conn_ctx.pub_tracks_by_name.find(ns_hash); // Find namespace
+                    const auto pub_track_ns_it = conn_ctx.pub_tracks_by_name.find(ns_hash); // Find namespace
                     if (pub_track_ns_it != conn_ctx.pub_tracks_by_name.end()) {
                         const auto& [_, handlers] = *pub_track_ns_it;
                         const auto pub_track_n_it = handlers.find(name_hash); // Find name
