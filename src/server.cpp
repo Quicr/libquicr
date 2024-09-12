@@ -194,6 +194,7 @@ namespace quicr {
                         pdt->lock()->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
                     }
 
+                    UnsubscribeReceived(conn_ctx.connection_handle, msg.subscribe_id);
                     conn_ctx.recv_sub_id.erase(msg.subscribe_id);
 
                     stream_buffer->ResetAny();
