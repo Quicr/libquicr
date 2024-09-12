@@ -386,7 +386,7 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
                 transport->pq_loop_metrics_prev_time = targ->current_time;
             }
 
-            if (targ->current_time - transport->pq_loop_prev_time > 100'000) {
+            if (targ->current_time - transport->pq_loop_prev_time > kCongestionCheckInterval) {
 
                 transport->CheckConnsForCongestion();
 
