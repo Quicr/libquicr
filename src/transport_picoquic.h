@@ -213,7 +213,7 @@ namespace quicr {
 
         TransportStatus Status() const override;
         TransportConnId Start() override;
-        void Close(const TransportConnId& conn_id, uint64_t app_reason_code = 100) override;
+        void Close(const TransportConnId& conn_id, uint64_t app_reason_code = 0) override;
 
         virtual bool GetPeerAddrInfo(const TransportConnId& conn_id, sockaddr_storage* addr) override;
 

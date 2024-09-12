@@ -261,14 +261,12 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
             SPDLOG_LOGGER_INFO(transport->logger, "Application closed conn_id: {0}", conn_id);
             [[fallthrough]];
         case picoquic_callback_close: {
-            uint64_t app_reason_code = 0;
             std::ostringstream log_msg;
             log_msg << "Closing connection conn_id: " << conn_id << " stream_id: " << stream_id;
 
             switch (picoquic_get_local_error(pq_cnx)) {
                 case PICOQUIC_ERROR_IDLE_TIMEOUT:
                     log_msg << " Idle timeout";
-                    app_reason_code = 1;
                     break;
 
                 default:
@@ -285,7 +283,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
 
             SPDLOG_LOGGER_INFO(transport->logger, log_msg.str());
 
-            transport->Close(conn_id, app_reason_code);
+            transport->Close(conn_id);
 
             if (not transport->is_server_mode) {
                 // TODO: Fix picoquic. Apparently picoquic is not processing return values for this callback
@@ -327,104 +325,99 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
     if (transport == NULL) {
         std::cerr << "picoquic transport was called with NULL transport" << '\n';
         return PICOQUIC_ERROR_UNEXPECTED_ERROR;
-    }
 
-    if (transport->Status() == TransportStatus::kDisconnected) {
+    } else if (transport->Status() == TransportStatus::kDisconnected) {
         return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
-    }
 
-    transport->PqRunner();
+    } else {
+        transport->PqRunner();
 
-    switch (cb_mode) {
-        case picoquic_packet_loop_ready: {
-            SPDLOG_LOGGER_INFO(transport->logger, "packet_loop_ready, waiting for packets");
+        switch (cb_mode) {
+            case picoquic_packet_loop_ready: {
+                SPDLOG_LOGGER_INFO(transport->logger, "packet_loop_ready, waiting for packets");
 
-            if (transport->is_server_mode)
-                transport->SetStatus(TransportStatus::kReady);
+                if (transport->is_server_mode)
+                    transport->SetStatus(TransportStatus::kReady);
 
-            if (callback_arg != nullptr) {
-                auto* options = static_cast<picoquic_packet_loop_options_t*>(callback_arg);
-                options->do_time_check = 1;
-            }
-
-            break;
-        }
-
-        case picoquic_packet_loop_after_receive:
-            //        log_msg << "packet_loop_after_receive";
-            //        transport->logger.log(LogLevel::debug, log_msg.str());
-            break;
-
-        case picoquic_packet_loop_after_send:
-            //        log_msg << "packet_loop_after_send";
-            //        transport->logger.log(LogLevel::debug, log_msg.str());
-            break;
-
-        case picoquic_packet_loop_port_update:
-            SPDLOG_LOGGER_DEBUG(transport->logger, "packet_loop_port_update");
-            break;
-
-        case picoquic_packet_loop_time_check: {
-            packet_loop_time_check_arg_t* targ = static_cast<packet_loop_time_check_arg_t*>(callback_arg);
-
-            if (targ->delta_t > kPqLoopMaxDelayUs) {
-                targ->delta_t = kPqLoopMaxDelayUs;
-            }
-
-            if (!transport->pq_loop_prev_time) {
-                transport->pq_loop_prev_time = targ->current_time;
-            }
-
-            if (targ->current_time - transport->pq_loop_metrics_prev_time >= kMetricsIntervalUs) {
-                // Use this time to clean up streams that have been closed
-                transport->RemoveClosedStreams();
-
-                if (transport->pq_loop_metrics_prev_time) {
-                    transport->EmitMetrics();
+                if (callback_arg != nullptr) {
+                    auto* options = static_cast<picoquic_packet_loop_options_t*>(callback_arg);
+                    options->do_time_check = 1;
                 }
 
-                transport->pq_loop_metrics_prev_time = targ->current_time;
+                break;
             }
 
-            if (targ->current_time - transport->pq_loop_prev_time > 100'000) {
+            case picoquic_packet_loop_after_receive:
+                //        log_msg << "packet_loop_after_receive";
+                //        transport->logger.log(LogLevel::debug, log_msg.str());
+                break;
 
-                transport->CheckConnsForCongestion();
+            case picoquic_packet_loop_after_send:
+                //        log_msg << "packet_loop_after_send";
+                //        transport->logger.log(LogLevel::debug, log_msg.str());
+                break;
 
-                transport->pq_loop_prev_time = targ->current_time;
-            }
+            case picoquic_packet_loop_port_update:
+                SPDLOG_LOGGER_DEBUG(transport->logger, "packet_loop_port_update");
+                break;
 
-            // Stop loop if done shutting down
-            if (transport->Status() == TransportStatus::kShutdown) {
-                return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
-            }
+            case picoquic_packet_loop_time_check: {
+                packet_loop_time_check_arg_t* targ = static_cast<packet_loop_time_check_arg_t*>(callback_arg);
 
+                if (targ->delta_t > kPqLoopMaxDelayUs) {
+                    targ->delta_t = kPqLoopMaxDelayUs;
+                }
 
-            if (transport->Status() == TransportStatus::kShuttingDown) {
-                SPDLOG_LOGGER_INFO(transport->logger, "picoquic is shutting down");
+                if (!transport->pq_loop_prev_time) {
+                    transport->pq_loop_prev_time = targ->current_time;
+                }
 
-                picoquic_cnx_t* close_cnx = picoquic_get_first_cnx(quic);
+                if (targ->current_time - transport->pq_loop_metrics_prev_time >= kMetricsIntervalUs) {
+                    // Use this time to clean up streams that have been closed
+                    transport->RemoveClosedStreams();
 
-                if (close_cnx == NULL) {
+                    if (transport->pq_loop_metrics_prev_time) {
+                        transport->EmitMetrics();
+                    }
+
+                    transport->pq_loop_metrics_prev_time = targ->current_time;
+                }
+
+                if (targ->current_time - transport->pq_loop_prev_time > 100'000) {
+
+                    transport->CheckConnsForCongestion();
+
+                    transport->pq_loop_prev_time = targ->current_time;
+                }
+
+                // Stop loop if shutting down
+                if (transport->Status() == TransportStatus::kShutdown) {
+                    SPDLOG_LOGGER_INFO(transport->logger, "picoquic is shutting down");
+
+                    picoquic_cnx_t* close_cnx = picoquic_get_first_cnx(quic);
+
+                    if (close_cnx == NULL) {
+                        return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
+                    }
+
+                    while (close_cnx != NULL) {
+                        SPDLOG_LOGGER_INFO(
+                          transport->logger, "Closing connection id {0}", reinterpret_cast<uint64_t>(close_cnx));
+                        picoquic_close(close_cnx, 0);
+                        close_cnx = picoquic_get_next_cnx(close_cnx);
+                    }
+
                     return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
                 }
 
-                while (close_cnx != NULL) {
-                    SPDLOG_LOGGER_INFO(
-                      transport->logger, "Closing connection id {0}", reinterpret_cast<uint64_t>(close_cnx));
-                    transport->Close(reinterpret_cast<uint64_t>(close_cnx));
-                    close_cnx = picoquic_get_next_cnx(close_cnx);
-                }
-
-                transport->SetStatus(TransportStatus::kShutdown);
+                break;
             }
 
-            break;
+            default:
+                // ret = PICOQUIC_ERROR_UNEXPECTED_ERROR;
+                SPDLOG_LOGGER_WARN(transport->logger, "pq_loop_cb() does not implement ", std::to_string(cb_mode));
+                break;
         }
-
-        default:
-            // ret = PICOQUIC_ERROR_UNEXPECTED_ERROR;
-            SPDLOG_LOGGER_WARN(transport->logger, "pq_loop_cb() does not implement ", std::to_string(cb_mode));
-            break;
     }
 
     return ret;
@@ -713,22 +706,9 @@ PicoQuicTransport::Close(const TransportConnId& conn_id, uint64_t app_reason_cod
     }
 
     // Only one datagram context is per connection, if it's deleted, then the connection is to be terminated
-    switch (app_reason_code) {
-        case 1: // idle timeout
-            OnConnectionStatus(conn_id, TransportStatus::kIdleTimeout);
-            break;
+    OnConnectionStatus(conn_id, TransportStatus::kDisconnected);
 
-        case 100: // Client shutting down connection
-            OnConnectionStatus(conn_id, TransportStatus::kShutdown);
-            picoquic_close(conn_it->second.pq_cnx, app_reason_code);
-            break;
-
-        default:
-            OnConnectionStatus(conn_id, TransportStatus::kDisconnected);
-            break;
-    }
-
-
+    picoquic_close(conn_it->second.pq_cnx, app_reason_code);
 
     if (not is_server_mode) {
         SetStatus(TransportStatus::kShutdown);
@@ -896,7 +876,7 @@ PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
 
 PicoQuicTransport::~PicoQuicTransport()
 {
-    SetStatus(TransportStatus::kShuttingDown);
+    SetStatus(TransportStatus::kShutdown);
     Shutdown();
 }
 

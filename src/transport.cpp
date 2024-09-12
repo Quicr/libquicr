@@ -689,9 +689,6 @@ namespace quicr {
             case TransportStatus::kRemoteRequestClose:
                 [[fallthrough]];
 
-            case TransportStatus::kIdleTimeout:
-                [[fallthrough]];
-
             case TransportStatus::kDisconnected: {
                 // Clean up publish and subscribe tracks
                 std::lock_guard<std::mutex> _(state_mutex_);
@@ -699,6 +696,7 @@ namespace quicr {
 
                 if (conn_it == connections_.end()) {
                     break;
+                    ;
                 }
 
                 if (client_mode_) {
@@ -731,10 +729,6 @@ namespace quicr {
 
                 break;
             }
-
-            case TransportStatus::kShuttingDown:
-                [[fallthrough]];
-
             case TransportStatus::kShutdown:
                 status_ = Status::kNotReady;
                 ConnectionStatusChanged(conn_id, ConnectionStatus::kNotConnected);
