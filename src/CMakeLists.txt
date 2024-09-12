@@ -17,6 +17,8 @@ target_sources (quicr PRIVATE
     transport_picoquic.cpp
 )
 
+target_include_directories(quicr PUBLIC ${CMAKE_BINARY_DIR}/include )
+
 # Suppress external lib warnings
 set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)
 
