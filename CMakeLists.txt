@@ -13,7 +13,7 @@ else()
 endif()
 
 project(quicr
-        VERSION 1.0.0
+        VERSION 1.0.1
         DESCRIPTION "QuicR, a Media over QUIC Library"
         LANGUAGES CXX)
 
