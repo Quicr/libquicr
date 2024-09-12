@@ -644,14 +644,14 @@ namespace quicr {
         auto pub_ns_it = conn_ctx.pub_tracks_by_name.find(th.track_namespace_hash);
         if (pub_ns_it == conn_ctx.pub_tracks_by_name.end()) {
             return std::nullopt;
-        } else {
-            auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
-            if (pub_n_it == pub_ns_it->second.end()) {
-                return std::nullopt;
-            }
-
-            return pub_n_it->second;
         }
+
+        auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
+        if (pub_n_it == pub_ns_it->second.end()) {
+            return std::nullopt;
+        }
+
+        return pub_n_it->second;
     }
 
     void Transport::RemoveAllTracksForConnectionClose(ConnectionContext& conn_ctx)

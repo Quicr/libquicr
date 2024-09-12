@@ -95,6 +95,7 @@ namespace quicr {
                     // TODO(tievens): Maybe needs a delay as subscriber may have not received ok before data is sent
                     auto ptd_l = ptd->lock();
                     ptd_l->SetSubscribeId(msg.subscribe_id);
+                    ptd_l->SetTrackAlias(msg.track_alias);
                     ptd_l->SetStatus(PublishTrackHandler::Status::kOk);
 
                     conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
@@ -217,17 +218,20 @@ namespace quicr {
                         return true;
                     }
 
+                    const auto& [ns_hash, name_hash] = th_it->second;
                     SPDLOG_LOGGER_DEBUG(logger_,
                                         "Received unsubscribe conn_id: {0} subscribe_id: {1}",
                                         conn_ctx.connection_handle,
                                         msg.subscribe_id);
 
                     const auto pub_track_ns_it =
-                      conn_ctx.pub_tracks_by_name.find(th_it->second.first); // Find namespace
+                      conn_ctx.pub_tracks_by_name.find(ns_hash); // Find namespace
                     if (pub_track_ns_it != conn_ctx.pub_tracks_by_name.end()) {
-                        const auto pub_track_n_it = pub_track_ns_it->second.find(th_it->second.second); // Find name
-                        if (pub_track_n_it != pub_track_ns_it->second.end()) {
-                            pub_track_n_it->second->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
+                        const auto& [_, handlers] = *pub_track_ns_it;
+                        const auto pub_track_n_it = handlers.find(name_hash); // Find name
+                        if (pub_track_n_it != handlers.end()) {
+                            const auto& [_, handler] = *pub_track_n_it;
+                            handler->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
                         }
                     }
 
