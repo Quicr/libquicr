@@ -69,7 +69,7 @@ namespace quicr {
 
                 // For client/publisher, notify track that there is a subscriber
                 auto ptd = GetPubTrackHandler(conn_ctx, th);
-                if (not ptd.has_value()) {
+                if (ptd == nullptr) {
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received subscribe unknown publish track conn_id: {0} namespace hash: {1} "
                                        "name hash: {2}",
@@ -95,10 +95,9 @@ namespace quicr {
 
                 // Indicate send is ready upon subscribe
                 // TODO(tievens): Maybe needs a delay as subscriber may have not received ok before data is sent
-                auto ptd_l = ptd->lock();
-                ptd_l->SetSubscribeId(msg.subscribe_id);
-                ptd_l->SetTrackAlias(msg.track_alias);
-                ptd_l->SetStatus(PublishTrackHandler::Status::kOk);
+                ptd->SetSubscribeId(msg.subscribe_id);
+                ptd->SetTrackAlias(msg.track_alias);
+                ptd->SetStatus(PublishTrackHandler::Status::kOk);
 
                 conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
                 stream_buffer->ResetAny();

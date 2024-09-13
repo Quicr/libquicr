@@ -638,17 +638,16 @@ namespace quicr {
         return PublishTrackHandler::PublishObjectStatus::kOk;
     }
 
-    std::optional<std::weak_ptr<PublishTrackHandler>> Transport::GetPubTrackHandler(ConnectionContext& conn_ctx,
-                                                                                    TrackHash& th)
+    std::shared_ptr<PublishTrackHandler> Transport::GetPubTrackHandler(ConnectionContext& conn_ctx, TrackHash& th)
     {
         auto pub_ns_it = conn_ctx.pub_tracks_by_name.find(th.track_namespace_hash);
         if (pub_ns_it == conn_ctx.pub_tracks_by_name.end()) {
-            return std::nullopt;
+            return nullptr;
         }
 
         auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
         if (pub_n_it == pub_ns_it->second.end()) {
-            return std::nullopt;
+            return nullptr;
         }
 
         return pub_n_it->second;
