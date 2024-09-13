@@ -398,6 +398,7 @@ namespace quicr {
 
             if (remove_handler) {
                 std::lock_guard<std::mutex> _(state_mutex_);
+                handler.SetStatus(SubscribeTrackHandler::Status::kNotConnected); // Set after remove subscribe track
                 conn_ctx.tracks_by_sub_id.erase(*subscribe_id);
             }
         }
@@ -657,8 +658,7 @@ namespace quicr {
     {
         // clean up subscriber handlers of disconnect
         for (const auto& [sub_id, handler] : conn_ctx.tracks_by_sub_id) {
-            RemoveSubscribeTrack(conn_ctx, *handler);
-            handler->SetStatus(SubscribeTrackHandler::Status::kNotConnected); // Set after remove subscribe track
+            RemoveSubscribeTrack(conn_ctx, *handler, false);
         }
 
         // Notify publish handlers of disconnect
@@ -723,7 +723,6 @@ namespace quicr {
                 conn_status = ConnectionStatus::kNotConnected;
 
                 // Clean up publish and subscribe tracks
-                std::lock_guard<std::mutex> _(state_mutex_);
                 auto conn_it = connections_.find(conn_id);
 
                 if (conn_it == connections_.end()) {
@@ -736,6 +735,7 @@ namespace quicr {
 
                 RemoveAllTracksForConnectionClose(conn_it->second);
 
+                std::lock_guard<std::mutex> _(state_mutex_);
                 connections_.erase(conn_it);
 
                 break;
