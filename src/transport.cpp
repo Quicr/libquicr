@@ -694,7 +694,12 @@ namespace quicr {
 
                     SendClientSetup();
 
-                    status_ = Status::kReady;
+                    if (client_mode_) {
+                        status_ = Status::kPendingSeverSetup;
+                    } else {
+                        status_ = Status::kReady;
+                    }
+
                     conn_status = ConnectionStatus::kConnected;
                 }
                 break;

@@ -48,7 +48,8 @@ namespace quicr {
             kConnecting,
             kDisconnecting,
             kNotConnected,
-            kFailedToConnect
+            kFailedToConnect,
+            kPendingSeverSetup,
         };
 
         /**
