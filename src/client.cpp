@@ -334,6 +334,7 @@ namespace quicr {
                     std::string server_endpoint_id(msg.endpoint_id_parameter.value.begin(),
                                                    msg.endpoint_id_parameter.value.end());
 
+                    ServerSetupReceived({ msg.selection_version, server_endpoint_id });
                     SetStatus(Status::kReady);
 
                     SPDLOG_LOGGER_INFO(logger_,
