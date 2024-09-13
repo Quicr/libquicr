@@ -266,8 +266,7 @@ namespace quicr {
                                   SubscribeTrackHandler& handler,
                                   bool remove_handler = true);
 
-        std::optional<std::weak_ptr<PublishTrackHandler>> GetPubTrackHandler(ConnectionContext& conn_ctx,
-                                                                             TrackHash& th);
+        std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(ConnectionContext& conn_ctx, TrackHash& th);
 
         void RemoveAllTracksForConnectionClose(ConnectionContext& conn_ctx);
 

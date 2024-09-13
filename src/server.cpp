@@ -241,7 +241,7 @@ namespace quicr {
                     const auto& [name_space, name] = conn_ctx.recv_sub_id[msg.subscribe_id];
                     TrackHash th(name_space, name);
                     if (auto pdt = GetPubTrackHandler(conn_ctx, th)) {
-                        pdt->lock()->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
+                        pdt->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
                     }
 
                     UnsubscribeReceived(conn_ctx.connection_handle, msg.subscribe_id);
