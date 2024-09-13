@@ -35,7 +35,7 @@ namespace qserver_vars {
      * @note This indexing intentionally prohibits per connection having more
      *           than one subscribe to a full track name.
      *
-     * @example track_delegate = subscribes[track_alias][connection_handle]
+     * @example track_handler = subscribes[track_alias][connection_handle]
      */
     std::unordered_map<quicr::messages::TrackAlias,
                        std::unordered_map<quicr::ConnectionHandle, std::shared_ptr<quicr::PublishTrackHandler>>>
@@ -340,6 +340,9 @@ class MyServer : public quicr::Server
     {
         if (status == ConnectionStatus::kConnected) {
             SPDLOG_DEBUG("Connection ready connection_handle: {0} ", connection_handle);
+        } else {
+            SPDLOG_DEBUG(
+              "Connection changed connection_handle: {0} status: {1}", connection_handle, static_cast<int>(status));
         }
     }
 
@@ -419,17 +422,17 @@ class MyServer : public quicr::Server
                 return;
             }
 
-            for (auto& [connection_handler, tracks] : anno_ns_it->second) {
-                if (tracks.find(th.track_fullname_hash) == tracks.end()) {
+            for (auto& [pub_connection_handle, tracks] : anno_ns_it->second) {
+                if (tracks.find(th.track_fullname_hash) != tracks.end()) {
                     SPDLOG_INFO("Unsubscribe to announcer conn_id: {0} subscribe track_alias: {1}",
-                                connection_handler,
+                                pub_connection_handle,
                                 th.track_fullname_hash);
 
                     tracks.erase(th.track_fullname_hash); // Add track alias to state
 
-                    auto sub_track_h = qserver_vars::pub_subscribes[th.track_fullname_hash][connection_handler];
+                    auto sub_track_h = qserver_vars::pub_subscribes[th.track_fullname_hash][pub_connection_handle];
                     if (sub_track_h != nullptr) {
-                        UnsubscribeTrack(connection_handle, sub_track_h);
+                        UnsubscribeTrack(pub_connection_handle, sub_track_h);
                     }
                 }
             }

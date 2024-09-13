@@ -33,9 +33,10 @@
 
 namespace quicr {
 
-    constexpr int kPqLoopMaxDelayUs = 500;    /// The max microseconds that pq_loop will be ran again
-    constexpr int kPqRestWaitMinPriority = 4; /// Minimum priority value to consider for RESET and WAIT
-    constexpr int kPqCcLowCwin = 4000;        /// Bytes less than this value are considered a low/congested CWIN
+    constexpr int kPqLoopMaxDelayUs = 500;            /// The max microseconds that pq_loop will be ran again
+    constexpr int kPqRestWaitMinPriority = 4;         /// Minimum priority value to consider for RESET and WAIT
+    constexpr int kPqCcLowCwin = 4000;                /// Bytes less than this value are considered a low/congested CWIN
+    constexpr int kCongestionCheckInterval = 100'000; /// Congestion check interval in microseconds
 
     class PicoQuicTransport : public ITransport
     {
@@ -213,7 +214,7 @@ namespace quicr {
 
         TransportStatus Status() const override;
         TransportConnId Start() override;
-        void Close(const TransportConnId& conn_id, uint64_t app_reason_code = 0) override;
+        void Close(const TransportConnId& conn_id, uint64_t app_reason_code = 100) override;
 
         virtual bool GetPeerAddrInfo(const TransportConnId& conn_id, sockaddr_storage* addr) override;
 

@@ -269,6 +269,8 @@ namespace quicr {
         std::optional<std::weak_ptr<PublishTrackHandler>> GetPubTrackHandler(ConnectionContext& conn_ctx,
                                                                              TrackHash& th);
 
+        void RemoveAllTracksForConnectionClose(ConnectionContext& conn_ctx);
+
         // -------------------------------------------------------------------------------------------------
         // Private member functions that will be implemented by Server class
         // -------------------------------------------------------------------------------------------------

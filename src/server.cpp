@@ -72,15 +72,14 @@ namespace quicr {
                                              false);
 
         // Setup the function for the track handler to use to send objects with thread safety
-        track_handler->publish_object_func_ =
-          [&, track_handler = track_handler, subscribe_id = track_handler->GetSubscribeId()](
-            uint8_t priority,
-            uint32_t ttl,
-            bool stream_header_needed,
-            uint64_t group_id,
-            uint64_t object_id,
-            std::optional<Extensions> extensions,
-            Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
+        track_handler->publish_object_func_ = [&, track_handler, subscribe_id = track_handler->GetSubscribeId()](
+                                                uint8_t priority,
+                                                uint32_t ttl,
+                                                bool stream_header_needed,
+                                                uint64_t group_id,
+                                                uint64_t object_id,
+                                                std::optional<Extensions> extensions,
+                                                Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
             return SendObject(
               *track_handler, priority, ttl, stream_header_needed, group_id, object_id, extensions, data);
         };
@@ -245,6 +244,7 @@ namespace quicr {
                         pdt->lock()->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
                     }
 
+                    UnsubscribeReceived(conn_ctx.connection_handle, msg.subscribe_id);
                     conn_ctx.recv_sub_id.erase(msg.subscribe_id);
 
                     stream_buffer->ResetAny();

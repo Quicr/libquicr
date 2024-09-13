@@ -13,12 +13,11 @@ else()
 endif()
 
 project(quicr
-        VERSION 1.0.0
+        VERSION 1.0.1
         DESCRIPTION "QuicR, a Media over QUIC Library"
         LANGUAGES CXX)
 
 configure_file( src/version.h.in ${CMAKE_BINARY_DIR}/include/quicr/version.h )
-include_directories(${CMAKE_BINARY_DIR}/include )
 
 IF (NOT LINUX AND NOT APPLE)
     message(FATAL_ERROR "Unsupported platform, Linux and Apple are the only supported platforms")

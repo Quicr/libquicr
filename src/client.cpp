@@ -95,6 +95,7 @@ namespace quicr {
                     // TODO(tievens): Maybe needs a delay as subscriber may have not received ok before data is sent
                     auto ptd_l = ptd->lock();
                     ptd_l->SetSubscribeId(msg.subscribe_id);
+                    ptd_l->SetTrackAlias(msg.track_alias);
                     ptd_l->SetStatus(PublishTrackHandler::Status::kOk);
 
                     conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
@@ -201,8 +202,10 @@ namespace quicr {
             case messages::MoqMessageType::UNSUBSCRIBE: {
                 auto&& [msg, parsed] = ParseControlMessage<messages::MoqUnsubscribe>(stream_buffer);
                 if (parsed) {
-                    auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-                    if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+
+                    const auto& th_it = conn_ctx.recv_sub_id.find(msg.subscribe_id);
+
+                    if (th_it == conn_ctx.recv_sub_id.end()) {
                         SPDLOG_LOGGER_WARN(
                           logger_,
                           "Received unsubscribe to unknown subscribe_id conn_id: {0} subscribe_id: {1}, ignored",
@@ -215,13 +218,21 @@ namespace quicr {
                         return true;
                     }
 
+                    const auto& [ns_hash, name_hash] = th_it->second;
                     SPDLOG_LOGGER_DEBUG(logger_,
                                         "Received unsubscribe conn_id: {0} subscribe_id: {1}",
                                         conn_ctx.connection_handle,
                                         msg.subscribe_id);
-                    sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
 
-                    RemoveSubscribeTrack(conn_ctx, *sub_it->second);
+                    const auto pub_track_ns_it = conn_ctx.pub_tracks_by_name.find(ns_hash); // Find namespace
+                    if (pub_track_ns_it != conn_ctx.pub_tracks_by_name.end()) {
+                        const auto& [_, handlers] = *pub_track_ns_it;
+                        const auto pub_track_n_it = handlers.find(name_hash); // Find name
+                        if (pub_track_n_it != handlers.end()) {
+                            const auto& [_, handler] = *pub_track_n_it;
+                            handler->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
+                        }
+                    }
 
                     stream_buffer->ResetAny();
                     return true;

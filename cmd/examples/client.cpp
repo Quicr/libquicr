@@ -66,9 +66,16 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
         switch (status) {
             case Status::kOk: {
                 if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
-                    SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
+                    SPDLOG_INFO("Publish track alias: {0} is ready to send", track_alias.value());
                 }
-            } break;
+                break;
+            }
+            case Status::kNoSubscribers: {
+                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
+                    SPDLOG_INFO("Publish track alias: {0} has no subscribers", track_alias.value());
+                }
+                break;
+            }
             default:
                 break;
         }
@@ -162,7 +169,6 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
             getline(std::cin, msg);
             SPDLOG_INFO("Send message: {0}", msg);
         }
-
         if (object_id % 10 == 0) { // Set new group
             object_id = 0;
             group_id++;

@@ -209,7 +209,7 @@ namespace quicr {
         /**
          * @brief Callback notification on unsubscribe received
          *
-         * @param connection_handle             Source connection ID
+         * @param connection_handle   Source connection ID
          * @param subscribe_id        Subscribe ID received
          */
         virtual void UnsubscribeReceived(ConnectionHandle connection_handle, uint64_t subscribe_id) = 0;
