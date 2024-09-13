@@ -160,6 +160,8 @@ namespace {
                     cv.notify_all();
                     break;
                 case Status::kConnecting:
+                    [[fallthrough]];
+                case Status::kPendingSeverSetup:
                     break;
                 default:
                     SPDLOG_INFO("Connection failed {0}", static_cast<int>(status));
