@@ -8,6 +8,49 @@ The API supports both client and server. Server is intended to be implemented as
 
 API documentation can be found under https://quicr.github.io/libquicr
 
+## Build
+
+### Dependencies
+
+#### Linux
+
+```
+sudo apt-get update && sudo apt-get install -y gcc g++ golang pkgconf cmake make git
+```
+
+### Apple/Mac
+
+Both Apple Intel and Silicon are supported. 
+
+
+#### (1) Install Xcode
+
+> [!NOTE]
+> You **MUST** install xcode from Apple in order to get the base development programs.
+
+
+Open the **App Store** and search for **Xcode** and install. 
+
+#### (2) Install Xcode Command Line Tools
+
+You can install them via xcode UI or you can install them using `xcode-select --install` from a shell/terminal.
+
+
+#### (3) Install Homebrew
+
+Install via https://brew.sh instructions.  
+
+#### (4) Install packages via brew
+
+```
+brew install cmake clang-format 
+```
+
+#### (5) Install GoLang
+Golang is required for BoringSSL build.  Install via https://go.dev/doc/install instructions. 
+
+---
+
 ## Example
 [cmd/examples](https://github.com/Quicr/libquicr/tree/main/cmd/examples) has an example client and server implementation showing chat and clock
 applications.
@@ -65,49 +108,6 @@ Use `qclient -h` to get help.
 ```
 ./qclient --sub_namespace clock --sub_name second
 ```
-
----
-
-## Build
-
-### Dependencies
-
-#### Linux
-
-```
-sudo apt-get update && sudo apt-get install -y gcc g++ golang pkgconf cmake make git
-```
-
-### Apple/Mac
-
-Both Apple Intel and Silicon are supported. 
-
-
-#### (1) Install Xcode
-
-> [!NOTE]
-> You **MUST** install xcode from Apple in order to get the base development programs.
-
-
-Open the **App Store** and search for **Xcode** and install. 
-
-#### (2) Install Xcode Command Line Tools
-
-You can install them via xcode UI or you can install them using `xcode-select --install` from a shell/terminal.
-
-
-#### (3) Install Homebrew
-
-Install via https://brew.sh instructions.  
-
-#### (4) Install packages via brew
-
-```
-brew install cmake clang-format 
-```
-
-#### (5) Install GoLang
-Golang is required for BoringSSL build.  Install via https://go.dev/doc/install instructions. 
 
 ---
 
