@@ -87,6 +87,8 @@ namespace quicr {
         // Hold onto track handler
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
+
+        track_handler->SetStatus(PublishTrackHandler::Status::kOk);
     }
 
     bool Server::ProcessCtrlMessage(ConnectionContext& conn_ctx,

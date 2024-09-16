@@ -77,6 +77,9 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 break;
             }
             default:
+                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
+                    SPDLOG_INFO("Publish track alias: {0} status {1}", track_alias.value(), static_cast<int>(status));
+                }
                 break;
         }
     }
