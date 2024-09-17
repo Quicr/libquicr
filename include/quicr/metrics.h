@@ -40,6 +40,8 @@ namespace quicr {
         uint64_t bytes_published{ 0 };   ///< sum of payload bytes published
         uint64_t objects_published{ 0 }; ///< count of objects published
 
+        uint64_t objects_dropped_not_ok{ 0 }; ///< Objects dropped upon publish object call due to status not being OK
+
         struct Quic
         {
             uint64_t tx_buffer_drops{ 0 };   ///< count of write buffer drops of data due to RESET request
