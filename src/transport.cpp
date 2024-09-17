@@ -838,7 +838,9 @@ namespace quicr {
 
                 auto msg_type = buffer.DecodeUintV();
                 if (!msg_type || static_cast<MoqMessageType>(*msg_type) != MoqMessageType::OBJECT_DATAGRAM) {
-                    SPDLOG_LOGGER_WARN(logger_, "Received datagram that is not message type OBJECT_DATAGRAM, dropping");
+                    SPDLOG_LOGGER_DEBUG(logger_, "Received datagram that is not message type OBJECT_DATAGRAM, dropping");
+                    auto& conn_ctx = connections_[conn_id];
+                    conn_ctx.metrics.rx_dgram_invalid_type++;
                     continue;
                 }
 
@@ -850,7 +852,10 @@ namespace quicr {
                     auto& conn_ctx = connections_[conn_id];
                     auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
                     if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                        SPDLOG_LOGGER_WARN(logger_,
+
+                        conn_ctx.metrics.rx_dgram_unknown_subscribe_id++;
+
+                        SPDLOG_LOGGER_DEBUG(logger_,
                                            "Received datagram to unknown subscribe track subscribe_id: {0}, ignored",
                                            msg.subscribe_id);
 
@@ -859,7 +864,7 @@ namespace quicr {
                         continue;
                     }
 
-                    SPDLOG_LOGGER_DEBUG(logger_,
+                    SPDLOG_LOGGER_TRACE(logger_,
                                         "Received object datagram conn_id: {0} data_ctx_id: {1} subscriber_id: {2} "
                                         "track_alias: {3} group_id: {4} object_id: {5} data size: {6}",
                                         conn_id,
@@ -883,7 +888,10 @@ namespace quicr {
                       msg.payload);
 
                 } else {
-                    SPDLOG_LOGGER_WARN(logger_,
+                    auto& conn_ctx = connections_[conn_id];
+                    conn_ctx.metrics.rx_dgram_decode_failed++;
+
+                    SPDLOG_LOGGER_DEBUG(logger_,
                                        "Failed to decode datagram conn_id: {0} data_ctx_id: {1}",
                                        conn_id,
                                        (data_ctx_id ? *data_ctx_id : 0));
@@ -981,7 +989,8 @@ namespace quicr {
                                              std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer)
     {
         if (stream_buffer->Empty()) { // should never happen
-            SPDLOG_LOGGER_ERROR(logger_, "Stream buffer cannot be zero when parsing message type, bad stream");
+            conn_ctx.metrics.rx_stream_buffer_error++;
+            SPDLOG_LOGGER_DEBUG(logger_, "Stream buffer cannot be zero when parsing message type, bad stream");
 
             return false;
         }
@@ -1008,7 +1017,9 @@ namespace quicr {
 
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
                 if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                    SPDLOG_LOGGER_WARN(logger_,
+
+                    conn_ctx.metrics.rx_stream_unknown_subscribe_id++;
+                    SPDLOG_LOGGER_DEBUG(logger_,
                                        "Received stream_object to unknown subscribe track subscribe_id: {0}, ignored",
                                        msg.subscribe_id);
 
@@ -1048,7 +1059,9 @@ namespace quicr {
 
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
                 if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                    SPDLOG_LOGGER_WARN(
+                    conn_ctx.metrics.rx_dgram_unknown_subscribe_id++;
+
+                    SPDLOG_LOGGER_DEBUG(
                       logger_,
                       "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
                       msg.subscribe_id);
@@ -1060,19 +1073,8 @@ namespace quicr {
 
                 auto& obj = stream_buffer->GetAnyB<MoqStreamTrackObject>();
                 if (*stream_buffer >> obj) {
-                    auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-                    if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                        SPDLOG_LOGGER_WARN(
-                          logger_,
-                          "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
-                          msg.subscribe_id);
 
-                        // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
-                        stream_buffer->ResetAnyB();
-                        return true;
-                    }
-
-                    SPDLOG_LOGGER_DEBUG(logger_,
+                    SPDLOG_LOGGER_TRACE(logger_,
                                         "Received stream_track_object subscribe_id: {0} priority: {1} track_alias: {2} "
                                         "group_id: {3} object_id: {4} data size: {5}",
                                         msg.subscribe_id,
@@ -1107,6 +1109,9 @@ namespace quicr {
 
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
                 if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+
+                    conn_ctx.metrics.rx_dgram_unknown_subscribe_id++;
+
                     SPDLOG_LOGGER_DEBUG(
                       logger_,
                       "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
@@ -1120,7 +1125,7 @@ namespace quicr {
                 auto& obj = stream_buffer->GetAnyB<MoqStreamGroupObject>();
                 if (*stream_buffer >> obj) {
 
-                    SPDLOG_LOGGER_DEBUG(logger_,
+                    SPDLOG_LOGGER_TRACE(logger_,
                                         "Received stream_group_object subscribe_id: {0} priority: {1} track_alias: {2} "
                                         "group_id: {3} object_id: {4} data size: {5}",
                                         msg.subscribe_id,
@@ -1147,7 +1152,9 @@ namespace quicr {
 
             default:
                 // Process the stream object type
-                SPDLOG_LOGGER_ERROR(
+                conn_ctx.metrics.rx_stream_invalid_type++;
+
+                SPDLOG_LOGGER_DEBUG(
                   logger_, "Unsupported MOQT data message type: {0}, bad stream", static_cast<uint64_t>(data_type));
                 return false;
         }
@@ -1177,7 +1184,7 @@ namespace quicr {
                                                               MoqMessageType msg_type)
     {
         if (!stream_buffer->AnyHasValue()) {
-            SPDLOG_LOGGER_INFO(logger_,
+            SPDLOG_LOGGER_DEBUG(logger_,
                                "Received stream message (type = {0}), init stream buffer",
                                static_cast<std::uint64_t>(msg_type));
             stream_buffer->InitAny<MessageType>(static_cast<uint64_t>(msg_type));

@@ -15,6 +15,14 @@ namespace quicr {
         MetricsTimeStampUs last_sample_time; ///< Last sampled time in microseconds
 
         QuicConnectionMetrics quic; ///< QUIC connection metrics
+
+        uint64_t rx_dgram_unknown_subscribe_id{ 0 }; ///< Received datagram with unknown subscribe ID
+        uint64_t rx_dgram_invalid_type{ 0 };         ///< Received datagram with invalid type of OBJECT_DATAGRAM
+        uint64_t rx_dgram_decode_failed{ 0 };        ///< Failed to decode datagram
+
+        uint64_t rx_stream_buffer_error{ 0 };         ///< Stream buffer error that results in bad parsing
+        uint64_t rx_stream_unknown_subscribe_id{ 0 }; ///< Received stream header with unknown subscribe ID
+        uint64_t rx_stream_invalid_type{ 0 };         ///< Invalid message type
     };
 
     struct SubscribeTrackMetrics
