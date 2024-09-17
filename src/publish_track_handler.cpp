@@ -10,22 +10,22 @@ namespace quicr {
     PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(const ObjectHeaders& object_headers,
                                                                                 BytesSpan data)
     {
-            switch (publish_status_) {
-                case Status::kOk:
-                    break;
-                case Status::kNoSubscribers:
-                    return PublishObjectStatus::kNoSubscribers;
-                case Status::kPendingAnnounceResponse:
-                    [[fallthrough]];
-                case Status::kNotAnnounced:
-                    [[fallthrough]];
-                case Status::kNotConnected:
-                    return PublishObjectStatus::kNotAnnounced;
-                case Status::kAnnounceNotAuthorized:
-                    return PublishObjectStatus::kNotAuthorized;
-                default:
-                    return PublishObjectStatus::kInternalError;
-            }
+        switch (publish_status_) {
+            case Status::kOk:
+                break;
+            case Status::kNoSubscribers:
+                return PublishObjectStatus::kNoSubscribers;
+            case Status::kPendingAnnounceResponse:
+                [[fallthrough]];
+            case Status::kNotAnnounced:
+                [[fallthrough]];
+            case Status::kNotConnected:
+                return PublishObjectStatus::kNotAnnounced;
+            case Status::kAnnounceNotAuthorized:
+                return PublishObjectStatus::kNotAuthorized;
+            default:
+                return PublishObjectStatus::kInternalError;
+        }
 
         if (object_headers.track_mode.has_value() && object_headers.track_mode != default_track_mode_) {
             SetDefaultTrackMode(*object_headers.track_mode);

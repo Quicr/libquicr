@@ -838,7 +838,8 @@ namespace quicr {
 
                 auto msg_type = buffer.DecodeUintV();
                 if (!msg_type || static_cast<MoqMessageType>(*msg_type) != MoqMessageType::OBJECT_DATAGRAM) {
-                    SPDLOG_LOGGER_DEBUG(logger_, "Received datagram that is not message type OBJECT_DATAGRAM, dropping");
+                    SPDLOG_LOGGER_DEBUG(logger_,
+                                        "Received datagram that is not message type OBJECT_DATAGRAM, dropping");
                     auto& conn_ctx = connections_[conn_id];
                     conn_ctx.metrics.rx_dgram_invalid_type++;
                     continue;
@@ -856,8 +857,8 @@ namespace quicr {
                         conn_ctx.metrics.rx_dgram_unknown_subscribe_id++;
 
                         SPDLOG_LOGGER_DEBUG(logger_,
-                                           "Received datagram to unknown subscribe track subscribe_id: {0}, ignored",
-                                           msg.subscribe_id);
+                                            "Received datagram to unknown subscribe track subscribe_id: {0}, ignored",
+                                            msg.subscribe_id);
 
                         // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
 
@@ -892,9 +893,9 @@ namespace quicr {
                     conn_ctx.metrics.rx_dgram_decode_failed++;
 
                     SPDLOG_LOGGER_DEBUG(logger_,
-                                       "Failed to decode datagram conn_id: {0} data_ctx_id: {1}",
-                                       conn_id,
-                                       (data_ctx_id ? *data_ctx_id : 0));
+                                        "Failed to decode datagram conn_id: {0} data_ctx_id: {1}",
+                                        conn_id,
+                                        (data_ctx_id ? *data_ctx_id : 0));
                 }
             }
         }
@@ -1020,8 +1021,8 @@ namespace quicr {
 
                     conn_ctx.metrics.rx_stream_unknown_subscribe_id++;
                     SPDLOG_LOGGER_DEBUG(logger_,
-                                       "Received stream_object to unknown subscribe track subscribe_id: {0}, ignored",
-                                       msg.subscribe_id);
+                                        "Received stream_object to unknown subscribe track subscribe_id: {0}, ignored",
+                                        msg.subscribe_id);
 
                     // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
 
@@ -1185,8 +1186,8 @@ namespace quicr {
     {
         if (!stream_buffer->AnyHasValue()) {
             SPDLOG_LOGGER_DEBUG(logger_,
-                               "Received stream message (type = {0}), init stream buffer",
-                               static_cast<std::uint64_t>(msg_type));
+                                "Received stream message (type = {0}), init stream buffer",
+                                static_cast<std::uint64_t>(msg_type));
             stream_buffer->InitAny<MessageType>(static_cast<uint64_t>(msg_type));
         }
 
