@@ -8,25 +8,49 @@
 #include <cstdint>
 
 static void
-UInt64_ToUintVar(benchmark::State& state)
+UIntVar_FromUint64(benchmark::State& state)
 {
     for ([[maybe_unused]] const auto& _ : state) {
-        auto value = quicr::ToUintV(0x123456789);
+        auto value = quicr::UintVar(0x123456789);
         benchmark::DoNotOptimize(value);
         benchmark::ClobberMemory();
     }
 }
 
 static void
-UInt64_FromUintVar(benchmark::State& state)
+UIntVar_ToUint64(benchmark::State& state)
 {
-    auto var_int = quicr::ToUintV(0x123456789);
+    auto var_int = quicr::UintVar(0x123456789);
     for ([[maybe_unused]] const auto& _ : state) {
-        auto value = quicr::ToUint64(var_int);
+        auto value = uint64_t(var_int);
         benchmark::DoNotOptimize(value);
         benchmark::ClobberMemory();
     }
 }
 
-BENCHMARK(UInt64_ToUintVar);
-BENCHMARK(UInt64_FromUintVar);
+static void
+UIntVar_ToBytes(benchmark::State& state)
+{
+    auto var_int = quicr::UintVar(0x123456789);
+    for ([[maybe_unused]] const auto& _ : state) {
+        auto bytes = var_int.Bytes();
+        benchmark::DoNotOptimize(bytes);
+        benchmark::ClobberMemory();
+    }
+}
+
+static void
+UIntVar_FromBytes(benchmark::State& state)
+{
+    auto var = quicr::UintVar(0x123456789);
+    for ([[maybe_unused]] const auto& _ : state) {
+        auto value = quicr::UintVar(var.Bytes());
+        benchmark::DoNotOptimize(value);
+        benchmark::ClobberMemory();
+    }
+}
+
+BENCHMARK(UIntVar_FromUint64);
+BENCHMARK(UIntVar_ToUint64);
+BENCHMARK(UIntVar_ToBytes);
+BENCHMARK(UIntVar_FromBytes);
