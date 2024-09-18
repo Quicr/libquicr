@@ -11,55 +11,28 @@ namespace quicr {
 
     using namespace quicr::messages;
 
-    static std::optional<std::tuple<std::string, uint16_t>> ParseConnectUri(const std::string& connect_uri)
+    static std::optional<std::tuple<std::string, uint16_t>> ParseConnectUri(std::string_view connect_uri)
     {
-        // moq://domain:port/<dont-care>
         const std::string proto = "moq://";
-        auto it = std::search(connect_uri.begin(), connect_uri.end(), proto.begin(), proto.end());
-
-        if (it == connect_uri.end()) {
+        if (connect_uri.find_first_of(proto) == std::string_view::npos) {
             return std::nullopt;
         }
 
-        // move to end for moq://
-        std::advance(it, proto.length());
+        connect_uri.remove_prefix(proto.length());
 
-        std::string address_str;
-        std::string port_str;
-        uint16_t port = 0;
-
-        do {
-            auto colon = std::find(it, connect_uri.end(), ':');
-            if (address_str.empty() && colon == connect_uri.end()) {
-                break;
-            }
-
-            if (address_str.empty()) {
-                // parse resource id
-                address_str.reserve(distance(it, colon));
-                address_str.assign(it, colon);
-                std::advance(it, address_str.length());
-                it++;
-                continue;
-            }
-
-            auto slash = std::find(it, connect_uri.end(), '/');
-
-            if (port_str.empty()) {
-                // parse client/sender id
-                port_str.reserve(distance(it, slash));
-                port_str.assign(it, slash);
-                std::advance(it, port_str.length());
-                port = stoi(port_str, nullptr);
-                it++;
-                break;
-            }
-
-        } while (it != connect_uri.end());
-
-        if (address_str.empty() || port_str.empty()) {
+        auto colon_pos = connect_uri.find_first_of(':');
+        if (colon_pos == std::string_view::npos) {
             return std::nullopt;
         }
+
+        std::string address_str{ connect_uri.substr(0, colon_pos) };
+        if (address_str.empty()) {
+            return std::nullopt;
+        }
+
+        connect_uri.remove_prefix(colon_pos + 1);
+
+        uint16_t port = std::stoi(std::string{ connect_uri });
 
         return std::make_tuple(address_str, port);
     }
