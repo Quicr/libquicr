@@ -79,8 +79,8 @@ namespace quicr {
         UintVar(Span<const uint8_t> bytes)
           : _value{ 0 }
         {
-            if (bytes.empty() || bytes.size() > sizeof(uint64_t)) {
-                throw std::invalid_argument("Invalid number of bytes for uintvar");
+            if (bytes.empty() || bytes.size() > sizeof(uint64_t) || bytes.size() != Size(bytes[0])) {
+                throw std::invalid_argument("Invalid bytes for uintvar");
             }
 
             std::memcpy(&_value, bytes.data(), bytes.size());
