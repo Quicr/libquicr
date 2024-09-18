@@ -88,7 +88,7 @@ namespace quicr {
 
         operator uint64_t() const noexcept
         {
-            return SwapBytes((_value & SwapBytes(~(~0x3Full << 56))) << (sizeof(uint64_t) - Size()) * 8);
+            return SwapBytes((_value & SwapBytes(uint64_t(~(~0x3Full << 56)))) << (sizeof(uint64_t) - Size()) * 8);
         }
 
         Span<const uint8_t> Bytes() const noexcept { return Span{ reinterpret_cast<const uint8_t*>(&_value), Size() }; }
@@ -106,7 +106,7 @@ namespace quicr {
             return sizeof(uint8_t);
         }
 
-        constexpr std::size_t Size() const noexcept { return UintVar::Size(static_cast<const uint8_t>(_value)); }
+        constexpr std::size_t Size() const noexcept { return UintVar::Size(static_cast<uint8_t>(_value)); }
 
       private:
         uint64_t _value;
