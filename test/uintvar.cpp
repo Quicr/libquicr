@@ -52,24 +52,20 @@ TEST_CASE("Validate UintVar from Known UintVar Bytes")
     const std::vector<uint8_t> four_byte = { 0x80, 0x12, 0x34, 0x56 };
     const std::vector<uint8_t> eight_byte = { 0xC0, 0, 0, 0x1, 0x23, 0x45, 0x67, 0x89 };
 
-    const auto v_one_byte = quicr::UintVar(var::kValue1Byte).Bytes();
-    const auto v_two_byte = quicr::UintVar(var::kValue2Byte).Bytes();
+    const auto v_one_byte = quicr::UintVar(var::kValue1Byte);
+    const auto v_two_byte = quicr::UintVar(var::kValue2Byte);
     const auto v_four_byte = quicr::UintVar(var::kValue4Byte);
-    const auto v_eight_byte = quicr::UintVar(var::kValue8Byte).Bytes();
+    const auto v_eight_byte = quicr::UintVar(var::kValue8Byte);
 
     CHECK_EQ(var::kValue1Byte, uint64_t(quicr::UintVar(one_byte)));
     CHECK_EQ(var::kValue2Byte, uint64_t(quicr::UintVar(two_byte)));
     CHECK_EQ(var::kValue4Byte, uint64_t(quicr::UintVar(four_byte)));
     CHECK_EQ(var::kValue8Byte, uint64_t(quicr::UintVar(eight_byte)));
 
-    for (int i = 0; i < 4; i++) {
-        std::cerr << "byte[" << i << "] = " << static_cast<int>(v_four_byte.Bytes().data()[i]) << std::endl;
-    }
-
-    CHECK(std::vector<uint8_t>(v_one_byte.begin(), v_one_byte.end()) == one_byte);
-    CHECK(std::vector<uint8_t>(v_two_byte.begin(), v_two_byte.end()) == two_byte);
+    CHECK(std::vector<uint8_t>(v_one_byte.Bytes().begin(), v_one_byte.Bytes().end()) == one_byte);
+    CHECK(std::vector<uint8_t>(v_two_byte.Bytes().begin(), v_two_byte.Bytes().end()) == two_byte);
     CHECK(std::vector<uint8_t>(v_four_byte.Bytes().begin(), v_four_byte.Bytes().end()) == four_byte);
-    CHECK(std::vector<uint8_t>(v_eight_byte.begin(), v_eight_byte.end()) == eight_byte);
+    CHECK(std::vector<uint8_t>(v_eight_byte.Bytes().begin(), v_eight_byte.Bytes().end()) == eight_byte);
 }
 
 TEST_CASE("UintVar Invalid Construction")
