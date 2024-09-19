@@ -47,7 +47,7 @@ TEST_CASE("Encode/Decode UintVar Bytes")
 TEST_CASE("Validate UintVar from Known UintVar Bytes")
 {
     const std::vector<uint8_t> one_byte = { 0x12 };
-    const std::vector<uint8_t> two_byte = { 0x52, 0x34};
+    const std::vector<uint8_t> two_byte = { 0x52, 0x34 };
     const std::vector<uint8_t> four_byte = { 0x80, 0x12, 0x34, 0x56 };
     const std::vector<uint8_t> eight_byte = { 0xC0, 0, 0, 0x1, 0x23, 0x45, 0x67, 0x89 };
 
@@ -66,7 +66,6 @@ TEST_CASE("Validate UintVar from Known UintVar Bytes")
     CHECK(std::equal(v_four_byte.begin(), v_four_byte.end(), four_byte.begin()));
     CHECK(std::equal(v_eight_byte.begin(), v_eight_byte.end(), eight_byte.begin()));
 }
-
 
 TEST_CASE("UintVar Invalid Construction")
 {
