@@ -53,45 +53,48 @@ namespace quicr {
     {
       public:
         constexpr UintVar(uint64_t value)
-          : _value{ SwapBytes(value) }
+          : be_value_{ SwapBytes(value) }
         {
             constexpr uint64_t kLen1 = (static_cast<uint64_t>(-1) << (64 - 6) >> (64 - 6));
             constexpr uint64_t kLen2 = (static_cast<uint64_t>(-1) << (64 - 14) >> (64 - 14));
             constexpr uint64_t kLen4 = (static_cast<uint64_t>(-1) << (64 - 30) >> (64 - 30));
 
-            if (static_cast<uint8_t>(_value) & 0xC0u) { // Check if invalid
+            if (static_cast<uint8_t>(be_value_) & 0xC0u) { // Check if invalid
                 throw std::invalid_argument("Value greater than uintvar maximum");
             }
 
             if (value > kLen4) { // 62 bit encoding (8 bytes)
-                _value |= 0xC0ull;
+                be_value_ |= 0xC0ull;
             } else if (value > kLen2) { // 30 bit encoding (4 bytes)
-                _value >>= 32;
-                _value |= 0x80ull;
+                be_value_ >>= 32;
+                be_value_ |= 0x80ull;
             } else if (value > kLen1) { // 14 bit encoding (2 bytes)
-                _value >>= 48;
-                _value |= 0x40ull;
+                be_value_ >>= 48;
+                be_value_ |= 0x40ull;
             } else {
-                _value >>= 56;
+                be_value_ >>= 56;
             }
         }
 
         UintVar(Span<const uint8_t> bytes)
-          : _value{ 0 }
+          : be_value_{ 0 }
         {
             if (bytes.empty() || bytes.size() > sizeof(uint64_t) || bytes.size() != Size(bytes[0])) {
                 throw std::invalid_argument("Invalid bytes for uintvar");
             }
 
-            std::memcpy(&_value, bytes.data(), bytes.size());
+            std::memcpy(&be_value_, bytes.data(), bytes.size());
         }
 
         operator uint64_t() const noexcept
         {
-            return SwapBytes((_value & SwapBytes(uint64_t(~(~0x3Full << 56)))) << (sizeof(uint64_t) - Size()) * 8);
+            return SwapBytes((be_value_ & SwapBytes(uint64_t(~(~0x3Full << 56)))) << (sizeof(uint64_t) - Size()) * 8);
         }
 
-        Span<const uint8_t> Bytes() const noexcept { return Span{ reinterpret_cast<const uint8_t*>(&_value), Size() }; }
+        Span<const uint8_t> Bytes() const noexcept
+        {
+            return Span{ reinterpret_cast<const uint8_t*>(&be_value_), Size() };
+        }
 
         static constexpr std::size_t Size(uint8_t msb_bytes) noexcept
         {
@@ -106,9 +109,9 @@ namespace quicr {
             return sizeof(uint8_t);
         }
 
-        constexpr std::size_t Size() const noexcept { return UintVar::Size(static_cast<uint8_t>(_value)); }
+        constexpr std::size_t Size() const noexcept { return UintVar::Size(static_cast<uint8_t>(be_value_)); }
 
       private:
-        uint64_t _value;
+        uint64_t be_value_;
     };
 }
