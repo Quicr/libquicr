@@ -62,7 +62,7 @@ TEST_CASE("Validate UintVar from Known UintVar Bytes")
     CHECK_EQ(var::kValue4Byte, uint64_t(quicr::UintVar(four_byte)));
     CHECK_EQ(var::kValue8Byte, uint64_t(quicr::UintVar(eight_byte)));
 
-    for (int i=0; i < 4; i++) {
+    for (int i = 0; i < 4; i++) {
         std::cerr << "byte[" << i << "] = " << static_cast<int>(v_four_byte.Bytes().data()[i]) << std::endl;
     }
 
