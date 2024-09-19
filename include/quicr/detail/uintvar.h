@@ -86,7 +86,7 @@ namespace quicr {
             std::memcpy(&be_value_, bytes.data(), bytes.size());
         }
 
-        operator uint64_t() const noexcept
+        constexpr operator uint64_t() const noexcept
         {
             return SwapBytes((be_value_ & SwapBytes(uint64_t(~(~0x3Full << 56)))) << (sizeof(uint64_t) - Size()) * 8);
         }

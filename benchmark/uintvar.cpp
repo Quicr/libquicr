@@ -20,7 +20,7 @@ UIntVar_FromUint64(benchmark::State& state)
 static void
 UIntVar_ToUint64(benchmark::State& state)
 {
-    auto var_int = quicr::UintVar(0x123456789);
+    constexpr auto var_int = quicr::UintVar(0x123456789);
     for ([[maybe_unused]] const auto& _ : state) {
         auto value = uint64_t(var_int);
         benchmark::DoNotOptimize(value);
@@ -31,7 +31,7 @@ UIntVar_ToUint64(benchmark::State& state)
 static void
 UIntVar_ToBytes(benchmark::State& state)
 {
-    auto var_int = quicr::UintVar(0x123456789);
+    constexpr auto var_int = quicr::UintVar(0x123456789);
     for ([[maybe_unused]] const auto& _ : state) {
         auto bytes = var_int.Bytes();
         benchmark::DoNotOptimize(bytes);
@@ -42,7 +42,7 @@ UIntVar_ToBytes(benchmark::State& state)
 static void
 UIntVar_FromBytes(benchmark::State& state)
 {
-    auto var = quicr::UintVar(0x123456789);
+    constexpr auto var = quicr::UintVar(0x123456789);
     auto&& bytes = var.Bytes();
     for ([[maybe_unused]] const auto& _ : state) {
         auto value = quicr::UintVar(bytes);
