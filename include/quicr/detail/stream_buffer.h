@@ -191,15 +191,14 @@ namespace quicr {
         void Push(Span<const T> value)
         {
             std::lock_guard _(rw_lock_);
-            buffer_.insert(buffer_.end(), value.begin(), value.end());
+            PushInternal(std::move(value));
         }
 
         void PushLengthBytes(Span<const T> value)
         {
             std::lock_guard _(rw_lock_);
-            const auto len = ToUintV(static_cast<uint64_t>(value.size()));
-            buffer_.insert(buffer_.end(), len.begin(), len.end());
-            buffer_.insert(buffer_.end(), value.begin(), value.end());
+            PushInternal(UintVar(static_cast<uint64_t>(value.size())).Bytes());
+            PushInternal(std::move(value));
         }
 
         /**
@@ -221,11 +220,11 @@ namespace quicr {
             std::lock_guard _(rw_lock_);
 
             const auto& uv_msb = buffer_.front();
-            uint64_t uv_len = SizeofUintV(uv_msb);
+            uint64_t uv_len = UintVar::Size(uv_msb);
 
             if (Available(uv_len)) {
 
-                auto val = ToUint64(FrontInternal(uv_len));
+                auto val = UintVar(FrontInternal(uv_len));
                 PopInternal(uv_len);
 
                 return val;
@@ -253,10 +252,10 @@ namespace quicr {
             std::lock_guard _(rw_lock_);
 
             const auto& uv_msb = buffer_.front();
-            uint64_t uv_len = SizeofUintV(uv_msb);
+            uint64_t uv_len = UintVar::Size(uv_msb);
 
             if (Available(uv_len)) {
-                auto len = ToUint64(FrontInternal(uv_len));
+                auto len = UintVar(FrontInternal(uv_len));
                 if (buffer_.size() >= uv_len + len) {
 
                     PopInternal(uv_len);
@@ -286,6 +285,8 @@ namespace quicr {
                 buffer_.erase(buffer_.begin(), buffer_.begin() + length);
             }
         }
+
+        inline void PushInternal(Span<const T> value) { buffer_.insert(buffer_.end(), value.begin(), value.end()); }
 
       private:
         BufferT buffer_;

@@ -15,14 +15,19 @@ namespace quicr {
     {
       public:
         Serializer() = default;
-        Serializer(std::size_t reserve_size);
+        Serializer(std::size_t reserve_size) { buffer_.reserve(reserve_size); }
 
         BytesSpan View() const noexcept { return buffer_; }
         Bytes&& Take() noexcept { return std::move(buffer_); }
 
-        void Push(Byte data);
-        void Push(BytesSpan data);
-        void PushLengthBytes(BytesSpan data);
+        void Push(Byte data) { buffer_.push_back(std::move(data)); }
+        void Push(BytesSpan data) { buffer_.insert(buffer_.end(), data.begin(), data.end()); }
+        void PushLengthBytes(BytesSpan data)
+        {
+            Push(UintVar(static_cast<uint64_t>(data.size())).Bytes());
+            Push(data);
+        }
+
         void Clear() noexcept { return buffer_.clear(); }
 
         inline Serializer& operator<<(Byte value)
