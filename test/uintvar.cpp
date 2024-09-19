@@ -54,7 +54,7 @@ TEST_CASE("Validate UintVar from Known UintVar Bytes")
 
     const auto v_one_byte = quicr::UintVar(var::kValue1Byte).Bytes();
     const auto v_two_byte = quicr::UintVar(var::kValue2Byte).Bytes();
-    const auto v_four_byte = quicr::UintVar(var::kValue4Byte).Bytes();
+    const auto v_four_byte = quicr::UintVar(var::kValue4Byte);
     const auto v_eight_byte = quicr::UintVar(var::kValue8Byte).Bytes();
 
     CHECK_EQ(var::kValue1Byte, uint64_t(quicr::UintVar(one_byte)));
@@ -63,12 +63,12 @@ TEST_CASE("Validate UintVar from Known UintVar Bytes")
     CHECK_EQ(var::kValue8Byte, uint64_t(quicr::UintVar(eight_byte)));
 
     for (int i=0; i < 4; i++) {
-        std::cerr << "byte[" << i << "] = " << static_cast<int>(v_four_byte.data()[i]) << std::endl;
+        std::cerr << "byte[" << i << "] = " << static_cast<int>(v_four_byte.Bytes().data()[i]) << std::endl;
     }
-    
+
     CHECK(std::vector<uint8_t>(v_one_byte.begin(), v_one_byte.end()) == one_byte);
     CHECK(std::vector<uint8_t>(v_two_byte.begin(), v_two_byte.end()) == two_byte);
-    CHECK(std::vector<uint8_t>(v_four_byte.begin(), v_four_byte.end()) == four_byte);
+    CHECK(std::vector<uint8_t>(v_four_byte.Bytes().begin(), v_four_byte.Bytes().end()) == four_byte);
     CHECK(std::vector<uint8_t>(v_eight_byte.begin(), v_eight_byte.end()) == eight_byte);
 }
 
