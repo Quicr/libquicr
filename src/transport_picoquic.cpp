@@ -1049,7 +1049,7 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
                 }
 
                 log_msg << " total_duration: " << out_data.value.trace.back().delta;
-                SPDLOG_LOGGER_INFO(logger, log_msg.str());
+                SPDLOG_LOGGER_TRACE(logger, log_msg.str());
             }
 
             data_ctx_it->second.metrics.tx_dgrams_bytes += out_data.value.data.size();

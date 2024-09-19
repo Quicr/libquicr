@@ -123,7 +123,7 @@ namespace {
             return std::shared_ptr<PerfSubscribeTrackHandler>(new PerfSubscribeTrackHandler(full_track_name));
         }
 
-        void ObjectReceived(const quicr::ObjectHeaders&, quicr::BytesSpan) override {}
+        void ObjectReceived(const quicr::ObjectHeaders&, quicr::BytesSpan) override { ++total_objects_received; }
 
         void StatusChanged(Status status) override
         {
@@ -138,7 +138,11 @@ namespace {
                     break;
             }
         }
+
+        static std::atomic_size_t total_objects_received;
     };
+
+    std::atomic_size_t PerfSubscribeTrackHandler::total_objects_received = 0;
 
     /**
      * @brief MoQ client
@@ -370,6 +374,7 @@ main(int argc, char** argv)
     SPDLOG_LOGGER_INFO(logger, "+-------------------------------------------");
     SPDLOG_LOGGER_INFO(logger, "| *          Duration: {0} seconds", elapsed.count());
     SPDLOG_LOGGER_INFO(logger, "| * Published Objects: {0}", total_objects_published.load());
+    SPDLOG_LOGGER_INFO(logger, "| *  Received Objects: {0}", PerfSubscribeTrackHandler::total_objects_received.load());
     SPDLOG_LOGGER_INFO(logger, "+==========================================+");
 
     return EXIT_SUCCESS;
