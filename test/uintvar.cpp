@@ -60,11 +60,10 @@ TEST_CASE("Validate UintVar from Known UintVar Bytes")
     CHECK_EQ(var::kValue4Byte, uint64_t(quicr::UintVar(four_byte)));
     CHECK_EQ(var::kValue8Byte, uint64_t(quicr::UintVar(eight_byte)));
 
-
-    CHECK(std::vector<uint8_t>(v_one_byte.begin(), v_one_byte.end()) ==  one_byte);
-    CHECK(std::vector<uint8_t>(v_two_byte.begin(), v_two_byte.end()) ==  two_byte);
-    CHECK(std::vector<uint8_t>(v_four_byte.begin(), v_four_byte.end()) ==  four_byte);
-    CHECK(std::vector<uint8_t>(v_eight_byte.begin(), v_eight_byte.end()) ==  eight_byte);
+    CHECK(std::vector<uint8_t>(v_one_byte.begin(), v_one_byte.end()) == one_byte);
+    CHECK(std::vector<uint8_t>(v_two_byte.begin(), v_two_byte.end()) == two_byte);
+    CHECK(std::vector<uint8_t>(v_four_byte.begin(), v_four_byte.end()) == four_byte);
+    CHECK(std::vector<uint8_t>(v_eight_byte.begin(), v_eight_byte.end()) == eight_byte);
 }
 
 TEST_CASE("UintVar Invalid Construction")
