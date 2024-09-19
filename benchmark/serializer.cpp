@@ -69,7 +69,7 @@ Serializer_PushBytesReserved(benchmark::State& state)
 {
     std::vector<uint8_t> buf(1280, 0);
 
-    quicr::Serializer buffer(100000 * buf.size());
+    quicr::Serializer buffer(1000000 * buf.size());
     for ([[maybe_unused]] const auto& _ : state) {
         buffer.Push(buf);
     }

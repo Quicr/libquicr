@@ -11,7 +11,7 @@ static void
 UIntVar_FromUint64(benchmark::State& state)
 {
     for ([[maybe_unused]] const auto& _ : state) {
-        auto value = quicr::UintVar(0x123456789);
+        auto value = quicr::UintVar(0x3FFFFFFFFFFFFFFF);
         benchmark::DoNotOptimize(value);
         benchmark::ClobberMemory();
     }

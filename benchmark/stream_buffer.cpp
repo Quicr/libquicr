@@ -64,6 +64,30 @@ StreamBuffer_Front(benchmark::State& state)
 }
 
 static void
+StreamBuffer_Pop(benchmark::State& state)
+{
+    quicr::StreamBuffer<std::uint8_t> buffer;
+    std::vector<uint8_t> bytes(1'000'000'000, 0);
+    buffer.Push(bytes);
+
+    for ([[maybe_unused]] const auto& _ : state) {
+        buffer.Pop();
+    }
+}
+
+static void
+StreamBuffer_PopBytes(benchmark::State& state)
+{
+    quicr::StreamBuffer<std::uint8_t> buffer;
+    std::vector<uint8_t> bytes(1'000'000'000, 0);
+    buffer.Push(bytes);
+
+    for ([[maybe_unused]] const auto& _ : state) {
+        buffer.Pop(10);
+    }
+}
+
+static void
 SafeStreamBuffer_Construct(benchmark::State& state)
 {
     for ([[maybe_unused]] const auto& _ : state) {
@@ -123,6 +147,8 @@ BENCHMARK(StreamBuffer_Push);
 BENCHMARK(StreamBuffer_PushBytes);
 BENCHMARK(StreamBuffer_PushLengthBytes);
 BENCHMARK(StreamBuffer_Front);
+BENCHMARK(StreamBuffer_Pop);
+BENCHMARK(StreamBuffer_PopBytes);
 BENCHMARK(SafeStreamBuffer_Construct);
 BENCHMARK(SafeStreamBuffer_Push);
 BENCHMARK(SafeStreamBuffer_PushBytes);

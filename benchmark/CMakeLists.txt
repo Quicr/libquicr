@@ -16,6 +16,7 @@ if (NOT benchmark_FOUND)
 endif()
 
 add_executable(quicr_benchmark
+    cache_buffer.cpp
     serializer.cpp
     stream_buffer.cpp
     uintvar.cpp
