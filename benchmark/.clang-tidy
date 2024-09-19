@@ -1,0 +1,5 @@
+---
+CheckOptions:
+  - { key: readability-identifier-naming.FunctionCase, value: aNy_CasE }
+
+InheritParentConfig: true
