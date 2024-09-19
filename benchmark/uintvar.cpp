@@ -43,8 +43,9 @@ static void
 UIntVar_FromBytes(benchmark::State& state)
 {
     auto var = quicr::UintVar(0x123456789);
+    auto&& bytes = var.Bytes();
     for ([[maybe_unused]] const auto& _ : state) {
-        auto value = quicr::UintVar(var.Bytes());
+        auto value = quicr::UintVar(bytes);
         benchmark::DoNotOptimize(value);
         benchmark::ClobberMemory();
     }
