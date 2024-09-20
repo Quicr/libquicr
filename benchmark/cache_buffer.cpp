@@ -10,7 +10,7 @@ static void
 CacheBuffer_Construct(benchmark::State& state)
 {
     for ([[maybe_unused]] const auto& _ : state) {
-        auto buffer = CacheBuffer();
+        auto buffer = quicr::CacheBuffer();
         benchmark::DoNotOptimize(buffer);
         benchmark::ClobberMemory();
     }
@@ -19,9 +19,9 @@ CacheBuffer_Construct(benchmark::State& state)
 static void
 CacheBuffer_Push(benchmark::State& state)
 {
-    CacheBuffer buffer;
+    quicr::CacheBuffer buffer;
     uint64_t value = 0;
-    Span<const uint8_t> bytes{ reinterpret_cast<uint8_t*>(&value), sizeof(uint64_t) };
+    auto bytes = quicr::AsBytes(value);
 
     for ([[maybe_unused]] const auto& _ : state) {
         buffer.Push(bytes);

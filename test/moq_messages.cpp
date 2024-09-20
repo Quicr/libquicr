@@ -141,7 +141,7 @@ TEST_CASE("Subscribe (LatestObject) Message encode/decode")
 
     auto subscribe = MoqSubscribe{};
     subscribe.subscribe_id = 0x1;
-    subscribe.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+    subscribe.track_alias = uint64_t(TRACK_ALIAS_ALICE_VIDEO);
     subscribe.track_namespace = TRACK_NAMESPACE_CONF;
     subscribe.track_name = TRACK_NAME_ALICE_VIDEO;
     subscribe.filter_type = FilterType::LatestObject;
@@ -167,7 +167,7 @@ TEST_CASE("Subscribe (LatestGroup) Message encode/decode")
 
     auto subscribe = MoqSubscribe{};
     subscribe.subscribe_id = 0x1;
-    subscribe.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+    subscribe.track_alias = uint64_t(TRACK_ALIAS_ALICE_VIDEO);
     subscribe.track_namespace = TRACK_NAMESPACE_CONF;
     subscribe.track_name = TRACK_NAME_ALICE_VIDEO;
     subscribe.filter_type = FilterType::LatestGroup;
@@ -193,7 +193,7 @@ TEST_CASE("Subscribe (AbsoluteStart) Message encode/decode")
 
     auto subscribe = MoqSubscribe{};
     subscribe.subscribe_id = 0x1;
-    subscribe.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+    subscribe.track_alias = uint64_t(TRACK_ALIAS_ALICE_VIDEO);
     subscribe.track_namespace = TRACK_NAMESPACE_CONF;
     subscribe.track_name = TRACK_NAME_ALICE_VIDEO;
     subscribe.filter_type = FilterType::AbsoluteStart;
@@ -223,7 +223,7 @@ TEST_CASE("Subscribe (AbsoluteRange) Message encode/decode")
 
     auto subscribe = MoqSubscribe{};
     subscribe.subscribe_id = 0x1;
-    subscribe.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+    subscribe.track_alias = uint64_t(TRACK_ALIAS_ALICE_VIDEO);
     subscribe.track_namespace = TRACK_NAMESPACE_CONF;
     subscribe.track_name = TRACK_NAME_ALICE_VIDEO;
     subscribe.filter_type = FilterType::AbsoluteRange;
@@ -261,7 +261,7 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
 
     auto subscribe = MoqSubscribe{};
     subscribe.subscribe_id = 0x1;
-    subscribe.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+    subscribe.track_alias = uint64_t(TRACK_ALIAS_ALICE_VIDEO);
     subscribe.track_namespace = TRACK_NAMESPACE_CONF;
     subscribe.track_name = TRACK_NAME_ALICE_VIDEO;
     subscribe.filter_type = FilterType::LatestObject;
@@ -299,7 +299,7 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 
     auto subscribe = MoqSubscribe{};
     subscribe.subscribe_id = 0x1;
-    subscribe.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+    subscribe.track_alias = uint64_t(TRACK_ALIAS_ALICE_VIDEO);
     subscribe.track_namespace = TRACK_NAMESPACE_CONF;
     subscribe.track_name = TRACK_NAME_ALICE_VIDEO;
     subscribe.filter_type = FilterType::LatestObject;
@@ -337,7 +337,7 @@ generate_subscribe(FilterType filter,
 {
     MoqSubscribe out;
     out.subscribe_id = 0xABCD;
-    out.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+    out.track_alias = uint64_t(TRACK_ALIAS_ALICE_VIDEO);
     out.track_namespace = TRACK_NAMESPACE_CONF;
     out.track_name = TRACK_NAME_ALICE_VIDEO;
     out.filter_type = filter;
@@ -454,7 +454,7 @@ TEST_CASE("Error  Message encode/decode")
     subscribe_err.subscribe_id = 0x1;
     subscribe_err.err_code = 0;
     subscribe_err.reason_phrase = Bytes{ 0x0, 0x1 };
-    subscribe_err.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+    subscribe_err.track_alias = uint64_t(TRACK_ALIAS_ALICE_VIDEO);
     buffer << subscribe_err;
 
     std::vector<uint8_t> net_data = std::move(buffer.Take());
@@ -581,7 +581,7 @@ ObjectStreamEncodeDecode(bool extensions)
     Serializer buffer;
     auto object_stream = MoqObjectStream{};
     object_stream.subscribe_id = 0x100;
-    object_stream.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+    object_stream.track_alias = uint64_t(TRACK_ALIAS_ALICE_VIDEO);
     object_stream.group_id = 0x1000;
     object_stream.object_id = 0xFF;
     object_stream.priority = 0xA;
@@ -615,7 +615,7 @@ ObjectDatagramEncodeDecode(bool extensions)
     Serializer buffer;
     auto object_datagram = MoqObjectDatagram{};
     object_datagram.subscribe_id = 0x100;
-    object_datagram.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+    object_datagram.track_alias = uint64_t(TRACK_ALIAS_ALICE_VIDEO);
     object_datagram.group_id = 0x1000;
     object_datagram.object_id = 0xFF;
     object_datagram.priority = 0xA;
@@ -649,7 +649,7 @@ StreamPerGroupObjectEncodeDecode(bool extensions)
     Serializer buffer;
     auto hdr_grp = MoqStreamHeaderGroup{};
     hdr_grp.subscribe_id = 0x100;
-    hdr_grp.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+    hdr_grp.track_alias = uint64_t(TRACK_ALIAS_ALICE_VIDEO);
     hdr_grp.group_id = 0x1000;
     hdr_grp.priority = 0xA;
 
@@ -710,7 +710,7 @@ StreamPerTrackObjectEncodeDecode(bool extensions)
     Serializer buffer;
     auto hdr = MoqStreamHeaderTrack{};
     hdr.subscribe_id = 0x100;
-    hdr.track_alias = TRACK_ALIAS_ALICE_VIDEO;
+    hdr.track_alias = uint64_t(TRACK_ALIAS_ALICE_VIDEO);
     hdr.priority = 0xA;
 
     buffer << hdr;

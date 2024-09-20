@@ -227,7 +227,7 @@ namespace quicr {
                 auto val = UintVar(FrontInternal(uv_len));
                 PopInternal(uv_len);
 
-                return val;
+                return uint64_t(val);
             }
 
             return std::nullopt;
@@ -256,11 +256,11 @@ namespace quicr {
 
             if (Available(uv_len)) {
                 auto len = UintVar(FrontInternal(uv_len));
-                if (buffer_.size() >= uv_len + len) {
+                if (buffer_.size() >= uv_len + uint64_t(len)) {
 
                     PopInternal(uv_len);
-                    auto v = FrontInternal(len);
-                    PopInternal(len);
+                    auto v = FrontInternal(uint64_t(len));
+                    PopInternal(uint64_t(len));
 
                     return v;
                 }
