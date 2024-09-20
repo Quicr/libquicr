@@ -1,13 +1,22 @@
 #include <doctest/doctest.h>
 
 #include "quicr/detail/uintvar.h"
+
 #include <iostream>
 
 namespace var {
+
+    // integer values for valdiation tests
     constexpr uint64_t kValue1Byte = 0x12;
     constexpr uint64_t kValue2Byte = 0x1234;
     constexpr uint64_t kValue4Byte = 0x123456;
     constexpr uint64_t kValue8Byte = 0x123456789;
+
+    // Encoded values of the above for validation tests
+    const std::vector<uint8_t> kValue1ByteEncoded{ 0x12 };
+    const std::vector<uint8_t> kValue2ByteEncoded{ 0x52, 0x34 };
+    const std::vector<uint8_t> kValue4ByteEncoded{ 0x80, 0x12, 0x34, 0x56 };
+    const std::vector<uint8_t> kValue8ByteEncoded = { 0xC0, 0, 0, 0x1, 0x23, 0x45, 0x67, 0x89 };
 }
 
 TEST_CASE("Encode/Decode UintVar Uint64")
@@ -42,6 +51,24 @@ TEST_CASE("Encode/Decode UintVar Bytes")
     CHECK_EQ(quicr::UintVar(quicr::UintVar(var::kValue2Byte).Bytes()), var::kValue2Byte);
     CHECK_EQ(quicr::UintVar(quicr::UintVar(var::kValue4Byte).Bytes()), var::kValue4Byte);
     CHECK_EQ(quicr::UintVar(quicr::UintVar(var::kValue8Byte).Bytes()), var::kValue8Byte);
+}
+
+TEST_CASE("Validate UintVar from Known UintVar Bytes")
+{
+    const auto v_one_byte = quicr::UintVar(var::kValue1Byte);
+    const auto v_two_byte = quicr::UintVar(var::kValue2Byte);
+    const auto v_four_byte = quicr::UintVar(var::kValue4Byte);
+    const auto v_eight_byte = quicr::UintVar(var::kValue8Byte);
+
+    CHECK_EQ(var::kValue1Byte, uint64_t(quicr::UintVar(var::kValue1ByteEncoded)));
+    CHECK_EQ(var::kValue2Byte, uint64_t(quicr::UintVar(var::kValue2ByteEncoded)));
+    CHECK_EQ(var::kValue4Byte, uint64_t(quicr::UintVar(var::kValue4ByteEncoded)));
+    CHECK_EQ(var::kValue8Byte, uint64_t(quicr::UintVar(var::kValue8ByteEncoded)));
+
+    CHECK(std::vector<uint8_t>(v_one_byte.Bytes().begin(), v_one_byte.Bytes().end()) == var::kValue1ByteEncoded);
+    CHECK(std::vector<uint8_t>(v_two_byte.Bytes().begin(), v_two_byte.Bytes().end()) == var::kValue2ByteEncoded);
+    CHECK(std::vector<uint8_t>(v_four_byte.Bytes().begin(), v_four_byte.Bytes().end()) == var::kValue4ByteEncoded);
+    CHECK(std::vector<uint8_t>(v_eight_byte.Bytes().begin(), v_eight_byte.Bytes().end()) == var::kValue8ByteEncoded);
 }
 
 TEST_CASE("UintVar Invalid Construction")
