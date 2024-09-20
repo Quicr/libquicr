@@ -24,7 +24,7 @@ namespace quicr {
         void Push(BytesSpan data) { buffer_.insert(buffer_.end(), data.begin(), data.end()); }
         void PushLengthBytes(BytesSpan data)
         {
-            Push(UintVar(static_cast<uint64_t>(data.size())).Bytes());
+            Push(Span{ UintVar(static_cast<uint64_t>(data.size())) });
             Push(data);
         }
 
