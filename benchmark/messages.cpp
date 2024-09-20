@@ -81,11 +81,10 @@ Moq_DecodeGroupHeader(benchmark::State& state)
     }
 }
 
-
 static void
 Moq_DecodeGroupObject(benchmark::State& state)
 {
-    const auto payload = std::vector<uint8_t>(1000,0);
+    const auto payload = std::vector<uint8_t>(1000, 0);
     quicr::Serializer buffer;
     auto hdr = quicr::messages::MoqStreamGroupObject{};
     hdr.object_id = 0x100;
@@ -104,8 +103,6 @@ Moq_DecodeGroupObject(benchmark::State& state)
         benchmark::ClobberMemory();
     }
 }
-
-
 
 BENCHMARK(Moq_EncodeGroupHeader);
 BENCHMARK(Moq_EncodeGroupObject1000Bytes);
