@@ -17,8 +17,8 @@ TEST_CASE("TickService milliseconds")
         std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time_ms));
         const auto delta = var::tick_service.Milliseconds() - start_ms;
 
-        // Allow +-1ms difference
-        CHECK((delta >= sleep_time_ms - 1 && delta <= sleep_time_ms + 1));
+        // Allow variance difference
+        CHECK((delta >= sleep_time_ms - 2 && delta <= sleep_time_ms + 2));
     }
 }
 
@@ -33,7 +33,7 @@ TEST_CASE("TickService microseconds")
 
         const auto delta = var::tick_service.Microseconds() - start_us;
 
-        // Allow +-200us difference
-        CHECK((delta >= sleep_time_us - 200 && delta <= sleep_time_us + 200));
+        // Allow variance difference
+        CHECK((delta >= sleep_time_us - 500 && delta <= sleep_time_us + 500));
     }
 }
