@@ -22,8 +22,6 @@ TEST_CASE("TickService milliseconds")
         const uint64_t delta_time =
           std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
 
-        std::cerr << "time delta: " << delta_time << " tick delta: " << delta_ticks << std::endl;
-
         // Allow variance difference
         CHECK((delta_ticks >= delta_time - 1 && delta_ticks <= delta_time + 1));
     }
@@ -33,7 +31,6 @@ TEST_CASE("TickService microseconds")
 {
     constexpr int sleep_time_us = 800;
 
-    auto prev_time = std::chrono::steady_clock::now();
     for (int i = 0; i < 10; i++) {
         const auto& start_time = std::chrono::steady_clock::now();
         const auto start_ticks = var::tick_service.Microseconds();
@@ -43,9 +40,7 @@ TEST_CASE("TickService microseconds")
         const auto delta_ticks = var::tick_service.Microseconds() - start_ticks;
         const uint64_t delta_time =
           std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start_time).count();
-
-        std::cerr << "time delta: " << delta_time << " tick delta: " << delta_ticks << std::endl;
-
+        
         // Allow variance difference
         CHECK((delta_ticks >= delta_time - 250 && delta_ticks <= delta_time + 250));
     }
