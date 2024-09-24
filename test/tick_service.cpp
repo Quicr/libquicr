@@ -40,7 +40,7 @@ TEST_CASE("TickService microseconds")
         const auto delta_ticks = var::tick_service.Microseconds() - start_ticks;
         const uint64_t delta_time =
           std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start_time).count();
-        
+
         // Allow variance difference
         CHECK((delta_ticks >= delta_time - 250 && delta_ticks <= delta_time + 250));
     }
