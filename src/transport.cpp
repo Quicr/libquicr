@@ -69,6 +69,7 @@ namespace quicr {
       , logger_(spdlog::stderr_color_mt("MTC"))
       , server_config_({})
       , client_config_(cfg)
+      , tick_service_(std::make_shared<ThreadedTickService>())
       , quic_transport_({})
     {
         SPDLOG_LOGGER_TRACE(logger_, "Created Moq instance in client mode connecting to {0}", cfg.connect_uri);
@@ -80,6 +81,7 @@ namespace quicr {
       , logger_(spdlog::stderr_color_mt("MTS"))
       , server_config_(cfg)
       , client_config_({})
+      , tick_service_(std::make_shared<ThreadedTickService>())
       , quic_transport_({})
     {
         SPDLOG_LOGGER_INFO(
@@ -107,7 +109,8 @@ namespace quicr {
             relay.port = port; // TODO: Add URI parser
             relay.proto = TransportProtocol::kQuic;
 
-            quic_transport_ = ITransport::MakeClientTransport(relay, client_config_.transport_config, *this, logger_);
+            quic_transport_ =
+              ITransport::MakeClientTransport(relay, client_config_.transport_config, *this, tick_service_, logger_);
 
             auto conn_id = quic_transport_->Start();
 
@@ -127,7 +130,8 @@ namespace quicr {
             server.port = server_config_.server_port;
             server.proto = TransportProtocol::kQuic;
 
-            quic_transport_ = ITransport::MakeServerTransport(server, server_config_.transport_config, *this, logger_);
+            quic_transport_ =
+              ITransport::MakeServerTransport(server, server_config_.transport_config, *this, tick_service_, logger_);
             quic_transport_->Start();
 
             status_ = Status::kReady;
@@ -151,7 +155,6 @@ namespace quicr {
         quic_transport_->Enqueue(conn_ctx.connection_handle,
                                  *conn_ctx.ctrl_data_ctx_id,
                                  std::move(data),
-                                 { MethodTraceItem{} },
                                  0,
                                  2000,
                                  0,
@@ -630,7 +633,6 @@ namespace quicr {
         quic_transport_->Enqueue(track_handler.connection_handle_,
                                  track_handler.publish_data_ctx_id_,
                                  std::move(serialized_data),
-                                 { MethodTraceItem{} },
                                  priority,
                                  ttl,
                                  0,
@@ -901,14 +903,14 @@ namespace quicr {
         }
     }
 
-    void Transport::OnConnectionMetricsSampled(const TimeStampUs sample_time,
+    void Transport::OnConnectionMetricsSampled(const MetricsTimeStamp sample_time,
                                                const TransportConnId conn_id,
                                                const QuicConnectionMetrics& quic_connection_metrics)
     {
         // TODO: doesn't require lock right now, but might need to add lock
         auto& conn = connections_[conn_id];
 
-        conn.metrics.last_sample_time = sample_time;
+        conn.metrics.last_sample_time = sample_time.time_since_epoch() / std::chrono::microseconds(1);
         conn.metrics.quic = quic_connection_metrics;
 
         if (client_mode_) {
@@ -918,7 +920,7 @@ namespace quicr {
         }
     }
 
-    void Transport::OnDataMetricsStampled(const TimeStampUs sample_time,
+    void Transport::OnDataMetricsStampled(const MetricsTimeStamp sample_time,
                                           const TransportConnId conn_id,
                                           const DataContextId data_ctx_id,
                                           const QuicDataContextMetrics& quic_data_context_metrics)
@@ -929,7 +931,8 @@ namespace quicr {
 
         if (pub_th_it != conn.pub_tracks_by_data_ctx_id.end()) {
             auto& pub_h = pub_th_it->second;
-            pub_h->publish_track_metrics_.last_sample_time = sample_time;
+            pub_h->publish_track_metrics_.last_sample_time =
+              sample_time.time_since_epoch() / std::chrono::microseconds(1);
 
             pub_h->publish_track_metrics_.quic.tx_buffer_drops = quic_data_context_metrics.tx_buffer_drops;
             pub_h->publish_track_metrics_.quic.tx_callback_ms = quic_data_context_metrics.tx_callback_ms;

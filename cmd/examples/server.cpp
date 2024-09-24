@@ -204,12 +204,14 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
 
     void MetricsSampled(const quicr::PublishTrackMetrics& metrics) override
     {
-        SPDLOG_DEBUG("Metrics track_alias: {0}"
-                     " objects sent: {1}"
-                     " bytes sent: {2}"
-                     " object duration us: {3}"
-                     " queue discards: {4}"
-                     " queue size: {5}",
+        SPDLOG_DEBUG("Metrics sample time: {0}"
+                     " track_alias: {1}"
+                     " objects sent: {2}"
+                     " bytes sent: {3}"
+                     " object duration us: {4}"
+                     " queue discards: {5}"
+                     " queue size: {6}",
+                     metrics.last_sample_time,
                      GetTrackAlias().value(),
                      metrics.objects_published,
                      metrics.bytes_published,
@@ -238,11 +240,13 @@ class MyServer : public quicr::Server
 
     void MetricsSampled(quicr::ConnectionHandle connection_handle, const quicr::ConnectionMetrics& metrics) override
     {
-        SPDLOG_DEBUG("Metrics connection handle: {0}"
-                     " rtt_us: {1}"
-                     " srtt_us: {2}"
-                     " rate_bps: {3}"
-                     " lost pkts: {4}",
+        SPDLOG_DEBUG("Metrics sample time: {0}"
+                     " connection handle: {1}"
+                     " rtt_us: {2}"
+                     " srtt_us: {3}"
+                     " rate_bps: {4}"
+                     " lost pkts: {5}",
+                     metrics.last_sample_time,
                      connection_handle,
                      metrics.quic.rtt_us.max,
                      metrics.quic.srtt_us.max,

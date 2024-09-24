@@ -546,7 +546,6 @@ TransportError
 PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
                            const DataContextId& data_ctx_id,
                            Span<const uint8_t> bytes,
-                           std::vector<MethodTraceItem>&& trace,
                            const uint8_t priority,
                            const uint32_t ttl_ms,
                            [[maybe_unused]] const uint32_t delay_ms,
@@ -558,11 +557,7 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
         return TransportError::kNone;
     }
 
-    trace.push_back({ "transport_quic:enqueue", trace.front().start_time });
-
     std::lock_guard<std::mutex> _(state_mutex_);
-
-    trace.push_back({ "transport_quic:enqueue:afterLock", trace.front().start_time });
 
     const auto conn_ctx_it = conn_context_.find(conn_id);
     if (conn_ctx_it == conn_context_.end()) {
@@ -576,7 +571,7 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
 
     data_ctx_it->second.metrics.enqueued_objs++;
 
-    ConnData cd{ conn_id, data_ctx_id, priority, {}, std::move(trace) };
+    ConnData cd{ conn_id, data_ctx_id, priority, {}, tick_service_->Microseconds() };
     cd.data.assign(bytes.begin(), bytes.end());
 
     if (flags.use_reliable) {
@@ -864,6 +859,7 @@ PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
                                      const TransportConfig& tcfg,
                                      TransportDelegate& delegate,
                                      bool is_server_mode,
+                                     std::shared_ptr<TickService> tick_service,
                                      std::shared_ptr<spdlog::logger> logger)
   : logger(std::move(logger))
   , is_server_mode(is_server_mode)
@@ -872,6 +868,7 @@ PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
   , serverInfo_(server)
   , delegate_(delegate)
   , tconfig_(tcfg)
+  , tick_service_(tick_service)
 {
     debug = tcfg.debug;
 
@@ -888,7 +885,6 @@ PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
             throw InvalidConfigException("Missing cert key filename");
         }
     }
-    tick_service_ = std::make_shared<ThreadedTickService>();
 }
 
 PicoQuicTransport::~PicoQuicTransport()
@@ -1035,23 +1031,8 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
         if (out_data.value.data.size() <= max_len) {
             conn_ctx->dgram_tx_data->Pop();
 
-            out_data.value.trace.push_back({ "transport_quic:send_dgram", out_data.value.trace.front().start_time });
-
-            data_ctx_it->second.metrics.tx_object_duration_us.AddValue(out_data.value.trace.back().delta);
-
-            if (out_data.value.trace.back().delta > 60000) {
-                std::ostringstream log_msg;
-                log_msg << "MethodTrace conn_id: " << conn_ctx->conn_id
-                        << " data_ctx_id: " << data_ctx_it->second.data_ctx_id
-                        << " priority: " << static_cast<int>(out_data.value.priority);
-                for (const auto& ti : out_data.value.trace) {
-                    log_msg << " " << ti.method << ": " << ti.delta << " ";
-                }
-
-                log_msg << " total_duration: " << out_data.value.trace.back().delta;
-                SPDLOG_LOGGER_INFO(logger, log_msg.str());
-            }
-
+            data_ctx_it->second.metrics.tx_object_duration_us.AddValue(tick_service_->Microseconds() -
+                                                                       out_data.value.tick_microseconds);
             data_ctx_it->second.metrics.tx_dgrams_bytes += out_data.value.data.size();
             data_ctx_it->second.metrics.tx_dgrams++;
 
@@ -1195,9 +1176,8 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
             }
 
             data_ctx->metrics.tx_stream_objects++;
-
-            obj.value.trace.push_back({ "transport_quic:send_stream", obj.value.trace.front().start_time });
-            data_ctx->metrics.tx_object_duration_us.AddValue(obj.value.trace.back().delta);
+            data_ctx->metrics.tx_object_duration_us.AddValue(tick_service_->Microseconds() -
+                                                             obj.value.tick_microseconds);
 
             data_ctx->stream_tx_object = new uint8_t[obj.value.data.size()];
             data_ctx->stream_tx_object_size = obj.value.data.size();
@@ -1394,8 +1374,7 @@ void
 PicoQuicTransport::EmitMetrics()
 {
     for (auto& [conn_id, conn_ctx] : conn_context_) {
-        const auto sample_time =
-          std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::steady_clock::now());
+        const auto sample_time = std::chrono::system_clock::now();
 
         delegate_.OnConnectionMetricsSampled(sample_time, conn_id, conn_ctx.metrics);
 
@@ -1744,7 +1723,7 @@ PicoQuicTransport::CheckCallbackDelta(DataContext* data_ctx, bool tx)
     if (!tx)
         return;
 
-    const auto current_tick = tick_service_->GetTicks(std::chrono::milliseconds(1));
+    const auto current_tick = tick_service_->Milliseconds();
 
     if (data_ctx->last_tx_tick == 0) {
         data_ctx->last_tx_tick = current_tick;
@@ -1764,29 +1743,6 @@ PicoQuicTransport::CheckCallbackDelta(DataContext* data_ctx, bool tx)
         if (const auto conn_it = GetConnContext(data_ctx->conn_id)) {
             picoquic_get_path_quality(conn_it->pq_cnx, conn_it->pq_cnx->path[0]->unique_path_id, &path_quality);
         }
-
-        /*
-        logger->info << "conn_id: " << data_ctx->conn_id
-                      << " data_ctx_id: " << data_ctx->data_ctx_id
-                      << " stream_id: " << data_ctx->current_stream_id
-                      << " pri: " << static_cast<int>(data_ctx->priority)
-                      << " CB TX delta " << delta_ms << " ms"
-                      << " cb_tx_count: " << data_ctx->metrics.tx_delayed_callback
-                      << " tx_queue_size: " << data_ctx->tx_data->size()
-                      << " expired_count: " << data_ctx->metrics.tx_queue_expired
-                      << " stream_cb_count: " << data_ctx->metrics.tx_stream_cb
-                      << " tx_reset_wait: " << data_ctx->metrics.tx_reset_wait
-                      << " tx_queue_discards: " << data_ctx->metrics.tx_queue_discards
-                      << " rate Kbps: " << path_quality.pacing_rate * 8 / 1000
-                      << " cwin_bytes: " << path_quality.cwin
-                      << " rtt_us: " << path_quality.rtt
-                      << " rtt_max: " << path_quality.rtt_max
-                      << " rtt_sample: " << path_quality.rtt_sample
-                      << " lost_pkts: " << path_quality.lost
-                      << " bytes_in_transit: " << path_quality.bytes_in_transit
-                      << " recv_rate_Kbps: " << path_quality.receive_rate_estimate * 8 / 1000
-                      << std::flush;
-        */
     }
 }
 

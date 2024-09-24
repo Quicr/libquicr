@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "quicr/detail/tick_service.h"
 #include <quicr/detail/messages.h>
 
 #include "quic_transport.h"
@@ -188,11 +189,11 @@ namespace quicr {
                           const bool is_bidir = false) override;
         void OnRecvDgram(const ConnectionHandle& connection_handle, std::optional<DataContextId> data_ctx_id) override;
 
-        void OnConnectionMetricsSampled(TimeStampUs sample_time,
+        void OnConnectionMetricsSampled(MetricsTimeStamp sample_time,
                                         TransportConnId conn_id,
                                         const QuicConnectionMetrics& quic_connection_metrics) override;
 
-        void OnDataMetricsStampled(TimeStampUs sample_time,
+        void OnDataMetricsStampled(MetricsTimeStamp sample_time,
                                    TransportConnId conn_id,
                                    DataContextId data_ctx_id,
                                    const QuicDataContextMetrics& quic_data_context_metrics) override;
@@ -325,6 +326,7 @@ namespace quicr {
 
         Status status_{ Status::kNotReady };
 
+        std::shared_ptr<TickService> tick_service_;
         std::shared_ptr<ITransport> quic_transport_; // **MUST** be last for proper order of destruction
 
         friend class Client;

@@ -208,6 +208,7 @@ namespace quicr {
                           const TransportConfig& tcfg,
                           TransportDelegate& delegate,
                           bool is_server_mode,
+                          std::shared_ptr<TickService> tick_service,
                           std::shared_ptr<spdlog::logger> logger);
 
         virtual ~PicoQuicTransport();
@@ -229,7 +230,6 @@ namespace quicr {
         TransportError Enqueue(const TransportConnId& conn_id,
                                const DataContextId& data_ctx_id,
                                Span<const uint8_t> bytes,
-                               std::vector<quicr::MethodTraceItem>&& trace,
                                uint8_t priority,
                                uint32_t ttl_ms,
                                uint32_t delay_ms,
