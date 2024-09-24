@@ -18,6 +18,8 @@ TEST_CASE("TickService milliseconds")
 
         const auto delta = var::tick_service.Milliseconds() - start;
 
+        std::cerr << "delta: " << delta << std::endl;
+
         // Allow variance difference
         CHECK((delta >= sleep_time_ms - 2 && delta <= sleep_time_ms + 2));
     }
@@ -34,6 +36,6 @@ TEST_CASE("TickService microseconds")
         const auto delta = var::tick_service.Microseconds() - start_us;
 
         // Allow variance difference
-        CHECK((delta >= sleep_time_us - 500 && delta <= sleep_time_us + 500));
+        CHECK((delta >= sleep_time_us - 250 && delta <= sleep_time_us + 250));
     }
 }
