@@ -87,7 +87,7 @@ namespace quicr {
             while (!stop_) {
                 const auto& now = ClockType::now();
                 const uint64_t delta = std::chrono::duration_cast<std::chrono::microseconds>(now - prev_time).count();
-                std::this_thread::sleep_for(std::chrono::microseconds(1));
+                std::this_thread::sleep_for(std::chrono::microseconds(sleep_delay_us_));
 
                 if (delta >= sleep_delay_us_) {
                     ticks_ += delta;
