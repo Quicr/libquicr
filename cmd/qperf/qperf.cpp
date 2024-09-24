@@ -104,6 +104,13 @@ namespace {
                     break;
             }
         }
+
+        void MetricsSampled(const quicr::PublishTrackMetrics& metrics) override { metrics_ = metrics; }
+
+        const quicr::PublishTrackMetrics& GetMetrics() const noexcept { return metrics_; }
+
+      private:
+        quicr::PublishTrackMetrics metrics_;
     };
 
     /**
@@ -123,7 +130,11 @@ namespace {
             return std::shared_ptr<PerfSubscribeTrackHandler>(new PerfSubscribeTrackHandler(full_track_name));
         }
 
-        void ObjectReceived(const quicr::ObjectHeaders&, quicr::BytesSpan) override { ++total_objects_received; }
+        void ObjectReceived(const quicr::ObjectHeaders&, quicr::BytesSpan data) override
+        {
+            metrics_.objects_received++;
+            metrics_.bytes_received += data.size();
+        }
 
         void StatusChanged(Status status) override
         {
@@ -133,16 +144,20 @@ namespace {
                         SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
                         cv.notify_one();
                     }
-                } break;
+                    break;
+                }
                 default:
                     break;
             }
         }
 
-        static std::atomic_size_t total_objects_received;
-    };
+        void MetricsSampled(const quicr::SubscribeTrackMetrics& metrics) override { metrics_ = metrics; }
 
-    std::atomic_size_t PerfSubscribeTrackHandler::total_objects_received = 0;
+        const quicr::SubscribeTrackMetrics& GetMetrics() const noexcept { return metrics_; }
+
+      private:
+        quicr::SubscribeTrackMetrics metrics_;
+    };
 
     /**
      * @brief MoQ client
@@ -174,6 +189,8 @@ namespace {
                     break;
             }
         }
+
+        void MetricsSampled(const quicr::ConnectionMetrics&) override {}
     };
 }
 
@@ -327,7 +344,7 @@ main(int argc, char** argv)
     SPDLOG_LOGGER_INFO(logger, "+==========================================+");
 
     std::atomic_size_t finished_publishers = 0;
-    std::atomic_size_t total_objects_published = 0;
+    std::atomic_size_t total_attempted_published_objects = 0;
     quicr::Bytes data(msg_size, 0);
 
     std::vector<std::thread> threads;
@@ -356,25 +373,46 @@ main(int argc, char** argv)
                 };
 
                 handler->PublishObject(header, data);
-                ++total_objects_published;
+                ++total_attempted_published_objects;
             });
 
             ++finished_publishers;
             cv.notify_one();
         });
     }
-    cv.wait_for(lock, duration);
-    terminate = true;
+
+    cv.wait(lock, [&] { return terminate.load() || finished_publishers.load() == tracks; });
 
     const auto end = std::chrono::high_resolution_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(end - start);
 
+    SPDLOG_LOGGER_INFO(logger, "| Test complete, collecting metrics...");
+    cv.wait_for(lock, std::chrono::seconds(30));
+
+    std::size_t total_objects_published = 0;
+    std::size_t total_bytes_published = 0;
+    std::size_t total_objects_received = 0;
+    std::size_t total_bytes_received = 0;
+
+    for (const auto& handler : track_handlers) {
+        total_objects_published += handler->GetMetrics().objects_published;
+        total_bytes_published += handler->GetMetrics().bytes_published;
+    }
+
+    for (const auto& handler : sub_track_handlers) {
+        total_objects_received += handler->GetMetrics().objects_received;
+        total_bytes_received += handler->GetMetrics().bytes_received;
+    }
+
     SPDLOG_LOGGER_INFO(logger, "+==========================================+");
-    SPDLOG_LOGGER_INFO(logger, "| Test complete");
+    SPDLOG_LOGGER_INFO(logger, "| Results");
     SPDLOG_LOGGER_INFO(logger, "+-------------------------------------------");
     SPDLOG_LOGGER_INFO(logger, "| *          Duration: {0} seconds", elapsed.count());
-    SPDLOG_LOGGER_INFO(logger, "| * Published Objects: {0}", total_objects_published.load());
-    SPDLOG_LOGGER_INFO(logger, "| *  Received Objects: {0}", PerfSubscribeTrackHandler::total_objects_received.load());
+    SPDLOG_LOGGER_INFO(logger, "| * Attempted Objects: {0}", total_attempted_published_objects.load());
+    SPDLOG_LOGGER_INFO(logger, "| * Published Objects: {0}", total_objects_published);
+    SPDLOG_LOGGER_INFO(logger, "| *  Received Objects: {0}", total_objects_received);
+    SPDLOG_LOGGER_INFO(logger, "| *   Published Bytes: {0}", total_bytes_published);
+    SPDLOG_LOGGER_INFO(logger, "| *    Received Bytes: {0}", total_bytes_received);
     SPDLOG_LOGGER_INFO(logger, "+==========================================+");
 
     return EXIT_SUCCESS;
