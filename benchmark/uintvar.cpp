@@ -42,8 +42,8 @@ UIntVar_ToBytes(benchmark::State& state)
 static void
 UIntVar_FromBytes(benchmark::State& state)
 {
-    constexpr auto var_int = quicr::UintVar(0x123456789);
-    auto&& bytes = var_int.Bytes();
+    constexpr auto var = quicr::UintVar(0x123456789);
+    auto&& bytes = var.Bytes();
     for ([[maybe_unused]] const auto& _ : state) {
         auto value = quicr::UintVar(bytes);
         benchmark::DoNotOptimize(value);
