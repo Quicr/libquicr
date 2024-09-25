@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "quicr/detail/tick_service.h"
-#include <quicr/detail/messages.h>
+#include "messages.h"
+#include "tick_service.h"
 
 #include "quic_transport.h"
 
