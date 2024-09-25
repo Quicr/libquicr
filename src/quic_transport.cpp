@@ -19,7 +19,7 @@ namespace quicr {
         switch (server.proto) {
             case TransportProtocol::kQuic:
                 return std::make_shared<PicoQuicTransport>(
-                  server, tcfg, delegate, false, tick_service, std::move(logger));
+                  server, tcfg, delegate, false, std::move(tick_service), std::move(logger));
             default:
                 throw std::runtime_error("make_client_transport: Protocol not implemented");
                 break;
