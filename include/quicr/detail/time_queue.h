@@ -31,7 +31,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "quicr/detail/tick_service.h"
+#include "tick_service.h"
 
 namespace quicr {
 
