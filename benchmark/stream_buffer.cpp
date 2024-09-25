@@ -12,8 +12,8 @@ static void
 StreamBuffer_Construct(benchmark::State& state)
 {
     for ([[maybe_unused]] const auto& _ : state) {
-        auto __ = quicr::StreamBuffer<std::uint8_t>();
-        benchmark::DoNotOptimize(__);
+        auto buffer = quicr::StreamBuffer<std::uint8_t>();
+        benchmark::DoNotOptimize(buffer);
         benchmark::ClobberMemory();
     }
 }
@@ -67,8 +67,8 @@ static void
 SafeStreamBuffer_Construct(benchmark::State& state)
 {
     for ([[maybe_unused]] const auto& _ : state) {
-        auto __ = quicr::SafeStreamBuffer<std::uint8_t>();
-        benchmark::DoNotOptimize(__);
+        auto buffer = quicr::SafeStreamBuffer<std::uint8_t>();
+        benchmark::DoNotOptimize(buffer);
         benchmark::ClobberMemory();
     }
 }
