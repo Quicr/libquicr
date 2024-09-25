@@ -876,7 +876,11 @@ namespace quicr {
                                         msg.object_id,
                                         msg.payload.size());
 
-                    sub_it->second->ObjectReceived(
+                    auto& handler = sub_it->second;
+
+                    handler->subscribe_track_metrics_.objects_received++;
+                    handler->subscribe_track_metrics_.bytes_received += msg.payload.size();
+                    handler->ObjectReceived(
                       {
                         msg.group_id,
                         msg.object_id,
