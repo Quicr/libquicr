@@ -942,6 +942,10 @@ namespace quicr {
 
             pub_h->MetricsSampled(pub_h->publish_track_metrics_);
         }
+
+        for (const auto& [_, sub_h] : conn.tracks_by_sub_id) {
+            sub_h->MetricsSampled(sub_h->subscribe_track_metrics_);
+        }
     }
 
     void Transport::OnNewDataContext(const ConnectionHandle&, const DataContextId&) {}
@@ -1039,14 +1043,18 @@ namespace quicr {
                                     msg.object_id,
                                     msg.payload.size());
 
-                sub_it->second->ObjectReceived({ msg.group_id,
-                                                 msg.object_id,
-                                                 msg.payload.size(),
-                                                 msg.priority,
-                                                 std::nullopt,
-                                                 TrackMode::kStreamPerObject,
-                                                 msg.extensions },
-                                               msg.payload);
+                auto& handler = sub_it->second;
+
+                handler->subscribe_track_metrics_.objects_received++;
+                handler->subscribe_track_metrics_.bytes_received += msg.payload.size();
+                handler->ObjectReceived({ msg.group_id,
+                                          msg.object_id,
+                                          msg.payload.size(),
+                                          msg.priority,
+                                          std::nullopt,
+                                          TrackMode::kStreamPerObject,
+                                          msg.extensions },
+                                        msg.payload);
                 stream_buffer->ResetAny();
                 return true;
             }
@@ -1085,14 +1093,18 @@ namespace quicr {
                                         obj.object_id,
                                         obj.payload.size());
 
-                    sub_it->second->ObjectReceived({ obj.group_id,
-                                                     obj.object_id,
-                                                     obj.payload.size(),
-                                                     msg.priority,
-                                                     std::nullopt,
-                                                     TrackMode::kStreamPerTrack,
-                                                     obj.extensions },
-                                                   obj.payload);
+                    auto& handler = sub_it->second;
+
+                    handler->subscribe_track_metrics_.objects_received++;
+                    handler->subscribe_track_metrics_.bytes_received += obj.payload.size();
+                    handler->ObjectReceived({ obj.group_id,
+                                              obj.object_id,
+                                              obj.payload.size(),
+                                              msg.priority,
+                                              std::nullopt,
+                                              TrackMode::kStreamPerTrack,
+                                              obj.extensions },
+                                            obj.payload);
 
                     stream_buffer->ResetAnyB<MoqStreamTrackObject>();
 
@@ -1136,14 +1148,18 @@ namespace quicr {
                                         obj.object_id,
                                         obj.payload.size());
 
-                    sub_it->second->ObjectReceived({ msg.group_id,
-                                                     obj.object_id,
-                                                     obj.payload.size(),
-                                                     msg.priority,
-                                                     std::nullopt,
-                                                     TrackMode::kStreamPerGroup,
-                                                     obj.extensions },
-                                                   obj.payload);
+                    auto& handler = sub_it->second;
+
+                    handler->subscribe_track_metrics_.objects_received++;
+                    handler->subscribe_track_metrics_.bytes_received += obj.payload.size();
+                    handler->ObjectReceived({ msg.group_id,
+                                              obj.object_id,
+                                              obj.payload.size(),
+                                              msg.priority,
+                                              std::nullopt,
+                                              TrackMode::kStreamPerGroup,
+                                              obj.extensions },
+                                            obj.payload);
 
                     stream_buffer->ResetAnyB<MoqStreamGroupObject>();
                     return true;

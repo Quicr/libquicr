@@ -130,11 +130,7 @@ namespace {
             return std::shared_ptr<PerfSubscribeTrackHandler>(new PerfSubscribeTrackHandler(full_track_name));
         }
 
-        void ObjectReceived(const quicr::ObjectHeaders&, quicr::BytesSpan data) override
-        {
-            metrics_.objects_received++;
-            metrics_.bytes_received += data.size();
-        }
+        void ObjectReceived(const quicr::ObjectHeaders&, quicr::BytesSpan) override {}
 
         void StatusChanged(Status status) override
         {
@@ -387,7 +383,7 @@ main(int argc, char** argv)
     const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(end - start);
 
     SPDLOG_LOGGER_INFO(logger, "| Test complete, collecting metrics...");
-    cv.wait_for(lock, std::chrono::seconds(30));
+    cv.wait_for(lock, std::chrono::seconds(10));
 
     std::size_t total_objects_published = 0;
     std::size_t total_bytes_published = 0;
