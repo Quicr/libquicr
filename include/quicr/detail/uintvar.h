@@ -11,18 +11,15 @@
 
 namespace quicr {
     namespace {
-        constexpr bool is_big_endian()
-        {
 #if __cplusplus >= 202002L
-            return std::endian::native == std::endian::big;
+        constexpr bool kIsBigEndian = std::endian::native == std::endian::big;
 #else
-            return static_cast<const std::uint8_t&>(0x0001) == 0x00;
+        constexpr bool kIsBigEndian = static_cast<const std::uint8_t&>(0x0001) == 0x00;
 #endif
-        }
 
         constexpr std::uint16_t SwapBytes(const std::uint16_t value)
         {
-            if constexpr (is_big_endian())
+            if constexpr (kIsBigEndian)
                 return value;
 
             return ((value >> 8) & 0x00FF) | ((value << 8) & 0xFF00);
@@ -30,7 +27,7 @@ namespace quicr {
 
         constexpr std::uint32_t SwapBytes(const std::uint32_t value)
         {
-            if constexpr (is_big_endian())
+            if constexpr (kIsBigEndian)
                 return value;
 
             return ((value >> 24) & 0x000000FF) | ((value >> 8) & 0x0000FF00) | ((value << 8) & 0x00FF0000) |
@@ -39,7 +36,7 @@ namespace quicr {
 
         constexpr std::uint64_t SwapBytes(const std::uint64_t value)
         {
-            if constexpr (is_big_endian())
+            if constexpr (kIsBigEndian)
                 return value;
 
             return ((value >> 56) & 0x00000000000000FF) | ((value >> 40) & 0x000000000000FF00) |
@@ -86,14 +83,9 @@ namespace quicr {
             std::memcpy(&be_value_, bytes.data(), bytes.size());
         }
 
-        constexpr operator uint64_t() const noexcept
+        explicit constexpr operator uint64_t() const noexcept
         {
             return SwapBytes((be_value_ & SwapBytes(uint64_t(~(~0x3Full << 56)))) << (sizeof(uint64_t) - Size()) * 8);
-        }
-
-        Span<const uint8_t> Bytes() const noexcept
-        {
-            return Span{ reinterpret_cast<const uint8_t*>(&be_value_), Size() };
         }
 
         static constexpr std::size_t Size(uint8_t msb_bytes) noexcept
@@ -110,6 +102,13 @@ namespace quicr {
         }
 
         constexpr std::size_t Size() const noexcept { return UintVar::Size(static_cast<uint8_t>(be_value_)); }
+
+        // NOLINTBEGIN(readability-identifier-naming)
+        auto data() const noexcept { return reinterpret_cast<const uint8_t*>(&be_value_); }
+        constexpr std::size_t size() const noexcept { return Size(); }
+        auto begin() const noexcept { return data(); }
+        auto end() const noexcept { return data() + Size(); }
+        // NOLINTEND(readability-identifier-naming)
 
       private:
         uint64_t be_value_;

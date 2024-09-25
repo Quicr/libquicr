@@ -197,7 +197,7 @@ namespace quicr {
         void PushLengthBytes(Span<const T> value)
         {
             std::lock_guard _(rw_lock_);
-            PushInternal(UintVar(static_cast<uint64_t>(value.size())).Bytes());
+            PushInternal(Span{ UintVar(static_cast<uint64_t>(value.size())) });
             PushInternal(std::move(value));
         }
 
@@ -227,7 +227,7 @@ namespace quicr {
                 auto val = UintVar(FrontInternal(uv_len));
                 PopInternal(uv_len);
 
-                return val;
+                return uint64_t(val);
             }
 
             return std::nullopt;
@@ -256,11 +256,11 @@ namespace quicr {
 
             if (Available(uv_len)) {
                 auto len = UintVar(FrontInternal(uv_len));
-                if (buffer_.size() >= uv_len + len) {
+                if (buffer_.size() >= uv_len + uint64_t(len)) {
 
                     PopInternal(uv_len);
-                    auto v = FrontInternal(len);
-                    PopInternal(len);
+                    auto v = FrontInternal(uint64_t(len));
+                    PopInternal(uint64_t(len));
 
                     return v;
                 }
