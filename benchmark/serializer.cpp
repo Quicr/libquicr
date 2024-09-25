@@ -86,6 +86,29 @@ Serializer_PushLengthBytes(benchmark::State& state)
     }
 }
 
+static void
+Serializer_ReuseAndPush(benchmark::State& state)
+{
+    std::vector<uint8_t> buf(1280, 0);
+
+    quicr::Serializer buffer(1280);
+    for ([[maybe_unused]] const auto& _ : state) {
+        buffer.Push(buf);
+        buffer.Clear();
+    }
+}
+
+static void
+Serializer_CreateAndPush(benchmark::State& state)
+{
+    std::vector<uint8_t> buf(1280, 0);
+
+    for ([[maybe_unused]] const auto& _ : state) {
+        quicr::Serializer buffer;
+        buffer.Push(buf);
+    }
+}
+
 BENCHMARK(Serializer_Construct);
 BENCHMARK(Serializer_Push);
 BENCHMARK(Serializer_Push16);
@@ -94,3 +117,5 @@ BENCHMARK(Serializer_Push64);
 BENCHMARK(Serializer_PushBytes);
 BENCHMARK(Serializer_PushBytesReserved);
 BENCHMARK(Serializer_PushLengthBytes);
+BENCHMARK(Serializer_ReuseAndPush);
+BENCHMARK(Serializer_CreateAndPush);

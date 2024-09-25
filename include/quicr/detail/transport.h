@@ -247,7 +247,7 @@ namespace quicr {
                                                             std::optional<Extensions> extensions,
                                                             BytesSpan data);
 
-        void SendCtrlMsg(const ConnectionContext& conn_ctx, Span<const uint8_t> data);
+        void SendCtrlMsg(const ConnectionContext& conn_ctx);
         void SendClientSetup();
         void SendServerSetup(ConnectionContext& conn_ctx);
         void SendAnnounce(ConnectionContext& conn_ctx, Span<const uint8_t> track_namespace);
@@ -330,6 +330,9 @@ namespace quicr {
 
         std::shared_ptr<TickService> tick_service_;
         std::shared_ptr<ITransport> quic_transport_; // **MUST** be last for proper order of destruction
+
+        Serializer ctrl_serial_buffer_{ 4096 };
+        Serializer datagram_serial_buffer_{ 1280 };
 
         friend class Client;
         friend class Server;
