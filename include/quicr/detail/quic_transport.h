@@ -234,10 +234,11 @@ namespace quicr {
         /**
          * @brief Create a new client transport based on the remote (server) host/ip
          *
-         * @param[in] server      Transport remote server information
-         * @param[in] tcfg        Transport configuration
-         * @param[in] delegate    Implemented callback methods
-         * @param[in] logger      Shared pointer to logger
+         * @param[in] server        Transport remote server information
+         * @param[in] tcfg          Transport configuration
+         * @param[in] delegate      Implemented callback methods
+         * @param[in] tick_service  Shared pointer to the tick service to use
+         * @param[in] logger        Shared pointer to logger
          *
          * @return shared_ptr for the under lining transport.
          */

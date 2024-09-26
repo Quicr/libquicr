@@ -64,24 +64,24 @@ namespace quicr {
         return std::make_tuple(address_str, port);
     }
 
-    Transport::Transport(const ClientConfig& cfg)
+    Transport::Transport(const ClientConfig& cfg, std::shared_ptr<TickService> tick_service)
       : client_mode_(true)
       , logger_(spdlog::stderr_color_mt("MTC"))
       , server_config_({})
       , client_config_(cfg)
-      , tick_service_(std::make_shared<ThreadedTickService>())
+      , tick_service_(std::move(tick_service))
       , quic_transport_({})
     {
         SPDLOG_LOGGER_TRACE(logger_, "Created Moq instance in client mode connecting to {0}", cfg.connect_uri);
         Init();
     }
 
-    Transport::Transport(const ServerConfig& cfg)
+    Transport::Transport(const ServerConfig& cfg, std::shared_ptr<TickService> tick_service)
       : client_mode_(false)
       , logger_(spdlog::stderr_color_mt("MTS"))
       , server_config_(cfg)
       , client_config_({})
-      , tick_service_(std::make_shared<ThreadedTickService>())
+      , tick_service_(std::move(tick_service))
       , quic_transport_({})
     {
         SPDLOG_LOGGER_INFO(

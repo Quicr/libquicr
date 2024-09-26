@@ -569,6 +569,8 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
         return TransportError::kInvalidDataContextId;
     }
 
+    data_ctx_it->second.priority = priority; // Match object priority for next stream create
+
     data_ctx_it->second.metrics.enqueued_objs++;
 
     ConnData cd{ conn_id, data_ctx_id, priority, {}, tick_service_->Microseconds() };

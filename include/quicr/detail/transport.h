@@ -93,16 +93,18 @@ namespace quicr {
         /**
          * @brief Client mode Constructor to create the MOQ instance
          *
-         * @param cfg       MoQ Instance Client Configuration
+         * @param cfg            MoQ Instance Client Configuration
+         * @param tick_service   Shared pointer to the tick service to use
          */
-        Transport(const ClientConfig& cfg);
+        Transport(const ClientConfig& cfg, std::shared_ptr<TickService> tick_service);
 
         /**
          * @brief Server mode Constructor to create the MOQ instance
          *
-         * @param cfg        MoQ Server Configuration
+         * @param cfg            MoQ Server Configuration
+         * @param tick_service   Shared pointer to the tick service to use
          */
-        Transport(const ServerConfig& cfg);
+        Transport(const ServerConfig& cfg, std::shared_ptr<TickService> tick_service);
 
         ~Transport();
 
