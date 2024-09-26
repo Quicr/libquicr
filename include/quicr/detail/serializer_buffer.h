@@ -11,11 +11,11 @@
 #include <vector>
 
 namespace quicr {
-    class Serializer
+    class SerialBuffer
     {
       public:
-        Serializer() = default;
-        Serializer(std::size_t reserve_size) { buffer_.reserve(reserve_size); }
+        SerialBuffer() = default;
+        SerialBuffer(std::size_t reserve_size) { buffer_.reserve(reserve_size); }
 
         Bytes&& Take() noexcept { return std::move(buffer_); }
 
@@ -29,14 +29,14 @@ namespace quicr {
 
         void Clear() noexcept { return buffer_.clear(); }
 
-        inline Serializer& operator<<(Byte value)
+        inline SerialBuffer& operator<<(Byte value)
         {
             Push(std::move(value));
             return *this;
         }
 
-        template<typename T, typename std::enable_if_t<std::is_standard_layout_v<T>, bool> = true>
-        inline Serializer& operator<<(T value)
+        template<typename T, typename std::enable_if_t<std::is_trivially_copyable_v<T>, bool> = true>
+        inline SerialBuffer& operator<<(T value)
         {
             if constexpr (std::is_integral_v<T>) {
                 value = SwapBytes(value);

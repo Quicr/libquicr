@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/detail/messages.h"
-#include "quicr/detail/serializer.h"
+#include "quicr/detail/serializer_buffer.h"
 
 #include <any>
 #include <doctest/doctest.h>
@@ -62,7 +62,7 @@ Verify(std::vector<uint8_t>& net_data, uint64_t message_type, T& message, [[mayb
 
 TEST_CASE("AnnounceOk Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
 
     auto announce_ok = MoqAnnounceOk{};
     announce_ok.track_namespace = kTrackNamespaceConf;
@@ -76,7 +76,7 @@ TEST_CASE("AnnounceOk Message encode/decode")
 
 TEST_CASE("Announce Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
 
     auto announce = MoqAnnounce{};
     announce.track_namespace = kTrackNamespaceConf;
@@ -91,7 +91,7 @@ TEST_CASE("Announce Message encode/decode")
 
 TEST_CASE("Unannounce Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
 
     auto unannounce = MoqUnannounce{};
     unannounce.track_namespace = kTrackNamespaceConf;
@@ -105,7 +105,7 @@ TEST_CASE("Unannounce Message encode/decode")
 
 TEST_CASE("AnnounceError Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
 
     auto announce_err = MoqAnnounceError{};
     announce_err.track_namespace = kTrackNamespaceConf;
@@ -123,7 +123,7 @@ TEST_CASE("AnnounceError Message encode/decode")
 
 TEST_CASE("AnnounceCancel Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
 
     auto announce_cancel = MoqAnnounceCancel{};
     announce_cancel.track_namespace = kTrackNamespaceConf;
@@ -137,7 +137,7 @@ TEST_CASE("AnnounceCancel Message encode/decode")
 
 TEST_CASE("Subscribe (LatestObject) Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
 
     auto subscribe = MoqSubscribe{};
     subscribe.subscribe_id = 0x1;
@@ -163,7 +163,7 @@ TEST_CASE("Subscribe (LatestObject) Message encode/decode")
 
 TEST_CASE("Subscribe (LatestGroup) Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
 
     auto subscribe = MoqSubscribe{};
     subscribe.subscribe_id = 0x1;
@@ -189,7 +189,7 @@ TEST_CASE("Subscribe (LatestGroup) Message encode/decode")
 
 TEST_CASE("Subscribe (AbsoluteStart) Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
 
     auto subscribe = MoqSubscribe{};
     subscribe.subscribe_id = 0x1;
@@ -219,7 +219,7 @@ TEST_CASE("Subscribe (AbsoluteStart) Message encode/decode")
 
 TEST_CASE("Subscribe (AbsoluteRange) Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
 
     auto subscribe = MoqSubscribe{};
     subscribe.subscribe_id = 0x1;
@@ -254,7 +254,7 @@ TEST_CASE("Subscribe (AbsoluteRange) Message encode/decode")
 
 TEST_CASE("Subscribe (Params) Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
     MoqParameter param;
     param.type = static_cast<uint64_t>(ParameterType::AuthorizationInfo), param.length = 0x2;
     param.value = { 0x1, 0x2 };
@@ -286,7 +286,7 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
 
 TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
     MoqParameter param1;
     param1.type = static_cast<uint64_t>(ParameterType::AuthorizationInfo);
     param1.length = 0x2;
@@ -385,7 +385,7 @@ TEST_CASE("Subscribe (Combo) Message encode/decode")
     };
 
     for (size_t i = 0; i < subscribes.size(); i++) {
-        Serializer buffer;
+        SerialBuffer buffer;
         buffer << subscribes[i];
         std::vector<uint8_t> net_data = std::move(buffer.Take());
         MoqSubscribe subscribe_out;
@@ -406,7 +406,7 @@ TEST_CASE("Subscribe (Combo) Message encode/decode")
 
 TEST_CASE("SubscribeOk Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
 
     auto subscribe_ok = MoqSubscribeOk{};
     subscribe_ok.subscribe_id = 0x1;
@@ -425,7 +425,7 @@ TEST_CASE("SubscribeOk Message encode/decode")
 
 TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
 
     auto subscribe_ok = MoqSubscribeOk{};
     subscribe_ok.subscribe_id = 0x1;
@@ -448,7 +448,7 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
 
 TEST_CASE("Error  Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
 
     auto subscribe_err = MoqSubscribeError{};
     subscribe_err.subscribe_id = 0x1;
@@ -469,7 +469,7 @@ TEST_CASE("Error  Message encode/decode")
 
 TEST_CASE("Unsubscribe  Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
 
     auto unsubscribe = MoqUnsubscribe{};
     unsubscribe.subscribe_id = 0x1;
@@ -484,7 +484,7 @@ TEST_CASE("Unsubscribe  Message encode/decode")
 
 TEST_CASE("SubscribeDone  Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
 
     auto subscribe_done = MoqSubscribeDone{};
     subscribe_done.subscribe_id = 0x1;
@@ -506,7 +506,7 @@ TEST_CASE("SubscribeDone  Message encode/decode")
 
 TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
 
     auto subscribe_done = MoqSubscribeDone{};
     subscribe_done.subscribe_id = 0x1;
@@ -532,7 +532,7 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
 
 TEST_CASE("ClientSetup  Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
     const std::string endpoint_id = "client test";
     auto client_setup = MoqClientSetup{};
     client_setup.num_versions = 2;
@@ -555,7 +555,7 @@ TEST_CASE("ClientSetup  Message encode/decode")
 
 TEST_CASE("ServerSetup  Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
     const std::string endpoint_id = "server_test";
     auto server_setup = MoqServerSetup{};
     server_setup.selection_version = { 0x1000 };
@@ -578,7 +578,7 @@ TEST_CASE("ServerSetup  Message encode/decode")
 static void
 ObjectStreamEncodeDecode(bool extensions)
 {
-    Serializer buffer;
+    SerialBuffer buffer;
     auto object_stream = MoqObjectStream{};
     object_stream.subscribe_id = 0x100;
     object_stream.track_alias = uint64_t(kTrackAliasAliceVideo);
@@ -612,7 +612,7 @@ TEST_CASE("ObjectStream  Message encode/decode")
 static void
 ObjectDatagramEncodeDecode(bool extensions)
 {
-    Serializer buffer;
+    SerialBuffer buffer;
     auto object_datagram = MoqObjectDatagram{};
     object_datagram.subscribe_id = 0x100;
     object_datagram.track_alias = uint64_t(kTrackAliasAliceVideo);
@@ -646,7 +646,7 @@ TEST_CASE("ObjectDatagram  Message encode/decode")
 static void
 StreamPerGroupObjectEncodeDecode(bool extensions)
 {
-    Serializer buffer;
+    SerialBuffer buffer;
     auto hdr_grp = MoqStreamHeaderGroup{};
     hdr_grp.subscribe_id = 0x100;
     hdr_grp.track_alias = uint64_t(kTrackAliasAliceVideo);
@@ -707,7 +707,7 @@ TEST_CASE("StreamPerGroup Object  Message encode/decode")
 static void
 StreamPerTrackObjectEncodeDecode(bool extensions)
 {
-    Serializer buffer;
+    SerialBuffer buffer;
     auto hdr = MoqStreamHeaderTrack{};
     hdr.subscribe_id = 0x100;
     hdr.track_alias = uint64_t(kTrackAliasAliceVideo);
@@ -773,7 +773,7 @@ TEST_CASE("StreamPerTrack Object  Message encode/decode")
 
 TEST_CASE("MoqGoaway Message encode/decode")
 {
-    Serializer buffer;
+    SerialBuffer buffer;
 
     auto goaway = MoqGoaway{};
     goaway.new_session_uri = FromASCII("go.away.now.no.return");

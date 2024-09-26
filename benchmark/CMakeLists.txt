@@ -17,7 +17,7 @@ endif()
 
 add_executable(quicr_benchmark
     cache_buffer.cpp
-    serializer.cpp
+    serializer_buffer.cpp
     stream_buffer.cpp
     uintvar.cpp
 )

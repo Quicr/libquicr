@@ -331,8 +331,8 @@ namespace quicr {
         std::shared_ptr<TickService> tick_service_;
         std::shared_ptr<ITransport> quic_transport_; // **MUST** be last for proper order of destruction
 
-        Serializer ctrl_serial_buffer_{ 4096 };
-        Serializer serial_buffer_{ 8192 };
+        SerialBuffer ctrl_serial_buffer_{ 4096 };
+        SerialBuffer serial_buffer_{ 8192 };
 
         friend class Client;
         friend class Server;
