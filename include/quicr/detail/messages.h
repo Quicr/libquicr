@@ -4,7 +4,7 @@
 #pragma once
 
 #include "quicr/common.h"
-#include "quicr/detail/serializer_buffer.h"
+#include "quicr/detail/serial_buffer.h"
 #include "stream_buffer.h"
 
 #include <map>

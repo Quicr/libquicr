@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/detail/messages.h"
-#include "quicr/detail/serializer_buffer.h"
+#include "quicr/detail/serial_buffer.h"
 
 #include <any>
 #include <doctest/doctest.h>
