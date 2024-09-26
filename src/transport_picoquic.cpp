@@ -870,7 +870,7 @@ PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
   , serverInfo_(server)
   , delegate_(delegate)
   , tconfig_(tcfg)
-  , tick_service_(tick_service)
+  , tick_service_(std::move(tick_service))
 {
     debug = tcfg.debug;
 
