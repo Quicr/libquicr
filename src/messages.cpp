@@ -5,6 +5,12 @@
 
 namespace quicr::messages {
 
+    Bytes& operator<<(Bytes& buffer, BytesSpan bytes)
+    {
+        buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+        return buffer;
+    }
+
     //
     // Utility
     //
@@ -67,17 +73,18 @@ namespace quicr::messages {
         return true;
     }
 
-    static void PushExtensions(SerialBuffer& buffer, const std::optional<Extensions>& extensions)
+    static void PushExtensions(Bytes& buffer, const std::optional<Extensions>& extensions)
     {
         if (!extensions.has_value()) {
-            buffer.Push(UintVar(0));
+            buffer.push_back(0);
             return;
         }
 
-        buffer.Push(UintVar(extensions.value().size()));
+        buffer << UintVar(extensions.value().size());
         for (const auto& extension : extensions.value()) {
-            buffer.Push(UintVar(extension.first));
-            buffer.PushLengthBytes(extension.second);
+            buffer << UintVar(extension.first);
+            buffer << UintVar(extension.second.size());
+            buffer << extension.second;
         }
     }
 
@@ -85,13 +92,13 @@ namespace quicr::messages {
     // MoqParameter
     //
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqParameter& param)
+    Bytes& operator<<(Bytes& buffer, const MoqParameter& param)
     {
 
-        buffer.Push(UintVar(param.type));
-        buffer.Push(UintVar(param.length));
+        buffer << UintVar(param.type);
+        buffer << UintVar(param.length);
         if (param.length) {
-            buffer.PushLengthBytes(param.value);
+            buffer << param.value;
         }
         return buffer;
     }
@@ -125,14 +132,16 @@ namespace quicr::messages {
     //
     // Track Status
     //
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqTrackStatus& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqTrackStatus& msg)
     {
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::TRACK_STATUS)));
-        buffer.PushLengthBytes(msg.track_namespace);
-        buffer.PushLengthBytes(msg.track_name);
-        buffer.Push(UintVar(static_cast<uint64_t>(msg.status_code)));
-        buffer.Push(UintVar(msg.last_group_id));
-        buffer.Push(UintVar(msg.last_object_id));
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::TRACK_STATUS));
+        buffer << UintVar(msg.track_namespace.size());
+        buffer << msg.track_namespace;
+        buffer << UintVar(msg.track_name.size());
+        buffer << msg.track_name;
+        buffer << UintVar(static_cast<uint64_t>(msg.status_code));
+        buffer << UintVar(msg.last_group_id);
+        buffer << UintVar(msg.last_object_id);
 
         return buffer;
     }
@@ -197,11 +206,13 @@ namespace quicr::messages {
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqTrackStatus&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqTrackStatus&);
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqTrackStatusRequest& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqTrackStatusRequest& msg)
     {
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::TRACK_STATUS_REQUEST)));
-        buffer.PushLengthBytes(msg.track_namespace);
-        buffer.PushLengthBytes(msg.track_name);
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::TRACK_STATUS_REQUEST));
+        buffer << UintVar(msg.track_namespace.size());
+        buffer << msg.track_namespace;
+        buffer << UintVar(msg.track_name.size());
+        buffer << msg.track_name;
 
         return buffer;
     }
@@ -244,14 +255,16 @@ namespace quicr::messages {
     // Subscribe
     //
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqSubscribe& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqSubscribe& msg)
     {
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE)));
-        buffer.Push(UintVar(msg.subscribe_id));
-        buffer.Push(UintVar(msg.track_alias));
-        buffer.PushLengthBytes(msg.track_namespace);
-        buffer.PushLengthBytes(msg.track_name);
-        buffer.Push(UintVar(static_cast<uint64_t>(msg.filter_type)));
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE));
+        buffer << UintVar(msg.subscribe_id);
+        buffer << UintVar(msg.track_alias);
+        buffer << UintVar(msg.track_namespace.size());
+        buffer << msg.track_namespace;
+        buffer << UintVar(msg.track_name.size());
+        buffer << msg.track_name;
+        buffer << UintVar(static_cast<uint64_t>(msg.filter_type));
 
         switch (msg.filter_type) {
             case FilterType::None:
@@ -259,21 +272,22 @@ namespace quicr::messages {
             case FilterType::LatestObject:
                 break;
             case FilterType::AbsoluteStart: {
-                buffer.Push(UintVar(msg.start_group));
-                buffer.Push(UintVar(msg.start_object));
+                buffer << UintVar(msg.start_group);
+                buffer << UintVar(msg.start_object);
             } break;
             case FilterType::AbsoluteRange:
-                buffer.Push(UintVar(msg.start_group));
-                buffer.Push(UintVar(msg.start_object));
-                buffer.Push(UintVar(msg.end_group));
-                buffer.Push(UintVar(msg.end_object));
+                buffer << UintVar(msg.start_group);
+                buffer << UintVar(msg.start_object);
+                buffer << UintVar(msg.end_group);
+                buffer << UintVar(msg.end_object);
                 break;
         }
 
-        buffer.Push(UintVar(msg.track_params.size()));
+        buffer << UintVar(msg.track_params.size());
         for (const auto& param : msg.track_params) {
-            buffer.Push(UintVar(static_cast<uint64_t>(param.type)));
-            buffer.PushLengthBytes(param.value);
+            buffer << UintVar(static_cast<uint64_t>(param.type));
+            buffer << UintVar(param.value.size());
+            buffer << param.value;
         }
 
         return buffer;
@@ -420,10 +434,10 @@ namespace quicr::messages {
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqSubscribe&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqSubscribe&);
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqUnsubscribe& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqUnsubscribe& msg)
     {
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::UNSUBSCRIBE)));
-        buffer.Push(UintVar(msg.subscribe_id));
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::UNSUBSCRIBE));
+        buffer << UintVar(msg.subscribe_id);
         return buffer;
     }
 
@@ -436,16 +450,17 @@ namespace quicr::messages {
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqUnsubscribe&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqUnsubscribe&);
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqSubscribeDone& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqSubscribeDone& msg)
     {
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_DONE)));
-        buffer.Push(UintVar(msg.subscribe_id));
-        buffer.Push(UintVar(msg.status_code));
-        buffer.PushLengthBytes(msg.reason_phrase);
-        msg.content_exists ? buffer.Push(static_cast<uint8_t>(1)) : buffer.Push(static_cast<uint8_t>(0));
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_DONE));
+        buffer << UintVar(msg.subscribe_id);
+        buffer << UintVar(msg.status_code);
+        buffer << UintVar(msg.reason_phrase.size());
+        buffer << msg.reason_phrase;
+        msg.content_exists ? buffer.push_back(static_cast<uint8_t>(1)) : buffer.push_back(static_cast<uint8_t>(0));
         if (msg.content_exists) {
-            buffer.Push(UintVar(msg.final_group_id));
-            buffer.Push(UintVar(msg.final_object_id));
+            buffer << UintVar(msg.final_group_id);
+            buffer << UintVar(msg.final_object_id);
         }
 
         return buffer;
@@ -519,15 +534,15 @@ namespace quicr::messages {
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqSubscribeDone&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqSubscribeDone&);
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqSubscribeOk& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqSubscribeOk& msg)
     {
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_OK)));
-        buffer.Push(UintVar(msg.subscribe_id));
-        buffer.Push(UintVar(msg.expires));
-        msg.content_exists ? buffer.Push(static_cast<uint8_t>(1)) : buffer.Push(static_cast<uint8_t>(0));
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_OK));
+        buffer << UintVar(msg.subscribe_id);
+        buffer << UintVar(msg.expires);
+        msg.content_exists ? buffer.push_back(static_cast<uint8_t>(1)) : buffer.push_back(static_cast<uint8_t>(0));
         if (msg.content_exists) {
-            buffer.Push(UintVar(msg.largest_group));
-            buffer.Push(UintVar(msg.largest_object));
+            buffer << UintVar(msg.largest_group);
+            buffer << UintVar(msg.largest_object);
         }
         return buffer;
     }
@@ -591,13 +606,14 @@ namespace quicr::messages {
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqSubscribeOk&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqSubscribeOk&);
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqSubscribeError& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqSubscribeError& msg)
     {
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ERROR)));
-        buffer.Push(UintVar(msg.subscribe_id));
-        buffer.Push(UintVar(msg.err_code));
-        buffer.PushLengthBytes(msg.reason_phrase);
-        buffer.Push(UintVar(msg.track_alias));
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ERROR));
+        buffer << UintVar(msg.subscribe_id);
+        buffer << UintVar(msg.err_code);
+        buffer << UintVar(msg.reason_phrase.size());
+        buffer << msg.reason_phrase;
+        buffer << UintVar(msg.track_alias);
         return buffer;
     }
 
@@ -653,11 +669,12 @@ namespace quicr::messages {
     // Announce
     //
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqAnnounce& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqAnnounce& msg)
     {
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE)));
-        buffer.PushLengthBytes(msg.track_namespace);
-        buffer.Push(UintVar(static_cast<uint64_t>(0)));
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE));
+        buffer << UintVar(msg.track_namespace.size());
+        buffer << msg.track_namespace;
+        buffer << UintVar(static_cast<uint64_t>(0));
         return buffer;
     }
 
@@ -713,10 +730,11 @@ namespace quicr::messages {
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqAnnounce&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqAnnounce&);
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqAnnounceOk& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqAnnounceOk& msg)
     {
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_OK)));
-        buffer.PushLengthBytes(msg.track_namespace);
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_OK));
+        buffer << UintVar(msg.track_namespace.size());
+        buffer << msg.track_namespace;
         return buffer;
     }
 
@@ -738,12 +756,14 @@ namespace quicr::messages {
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqAnnounceOk&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqAnnounceOk&);
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqAnnounceError& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqAnnounceError& msg)
     {
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_ERROR)));
-        buffer.PushLengthBytes(msg.track_namespace.value());
-        buffer.Push(UintVar(msg.err_code.value()));
-        buffer.PushLengthBytes(msg.reason_phrase.value());
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_ERROR));
+        buffer << UintVar(msg.track_namespace.value().size());
+        buffer << msg.track_namespace.value();
+        buffer << UintVar(msg.err_code.value());
+        buffer << UintVar(msg.reason_phrase.value().size());
+        buffer << msg.reason_phrase.value();
         return buffer;
     }
 
@@ -782,10 +802,11 @@ namespace quicr::messages {
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqAnnounceError&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqAnnounceError&);
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqUnannounce& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqUnannounce& msg)
     {
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::UNANNOUNCE)));
-        buffer.PushLengthBytes(msg.track_namespace);
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::UNANNOUNCE));
+        buffer << UintVar(msg.track_namespace.size());
+        buffer << msg.track_namespace;
         return buffer;
     }
 
@@ -807,10 +828,11 @@ namespace quicr::messages {
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqUnannounce&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqUnannounce&);
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqAnnounceCancel& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqAnnounceCancel& msg)
     {
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_CANCEL)));
-        buffer.PushLengthBytes(msg.track_namespace);
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_CANCEL));
+        buffer << UintVar(msg.track_namespace.size());
+        buffer << msg.track_namespace;
         return buffer;
     }
 
@@ -836,10 +858,11 @@ namespace quicr::messages {
     // Goaway
     //
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqGoaway& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqGoaway& msg)
     {
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::GOAWAY)));
-        buffer.PushLengthBytes(msg.new_session_uri);
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::GOAWAY));
+        buffer << UintVar(msg.new_session_uri.size());
+        buffer << msg.new_session_uri;
         return buffer;
     }
 
@@ -862,17 +885,18 @@ namespace quicr::messages {
     // Object
     //
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqObjectStream& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqObjectStream& msg)
     {
 
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::OBJECT_STREAM)));
-        buffer.Push(UintVar(msg.subscribe_id));
-        buffer.Push(UintVar(msg.track_alias));
-        buffer.Push(UintVar(msg.group_id));
-        buffer.Push(UintVar(msg.object_id));
-        buffer.Push(UintVar(msg.priority));
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::OBJECT_STREAM));
+        buffer << UintVar(msg.subscribe_id);
+        buffer << UintVar(msg.track_alias);
+        buffer << UintVar(msg.group_id);
+        buffer << UintVar(msg.object_id);
+        buffer << UintVar(msg.priority);
         PushExtensions(buffer, msg.extensions);
-        buffer.PushLengthBytes(msg.payload);
+        buffer << UintVar(msg.payload.size());
+        buffer << msg.payload;
         return buffer;
     }
 
@@ -950,16 +974,17 @@ namespace quicr::messages {
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqObjectStream&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqObjectStream&);
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqObjectDatagram& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqObjectDatagram& msg)
     {
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::OBJECT_DATAGRAM)));
-        buffer.Push(UintVar(msg.subscribe_id));
-        buffer.Push(UintVar(msg.track_alias));
-        buffer.Push(UintVar(msg.group_id));
-        buffer.Push(UintVar(msg.object_id));
-        buffer.Push(UintVar(msg.priority));
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::OBJECT_DATAGRAM));
+        buffer << UintVar(msg.subscribe_id);
+        buffer << UintVar(msg.track_alias);
+        buffer << UintVar(msg.group_id);
+        buffer << UintVar(msg.object_id);
+        buffer << UintVar(msg.priority);
         PushExtensions(buffer, msg.extensions);
-        buffer.PushLengthBytes(msg.payload);
+        buffer << UintVar(msg.payload.size());
+        buffer << msg.payload;
         return buffer;
     }
 
@@ -1038,13 +1063,13 @@ namespace quicr::messages {
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqObjectDatagram&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqObjectDatagram&);
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqStreamHeaderTrack& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderTrack& msg)
     {
 
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_TRACK)));
-        buffer.Push(UintVar(msg.subscribe_id));
-        buffer.Push(UintVar(msg.track_alias));
-        buffer.Push(UintVar(msg.priority));
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_TRACK));
+        buffer << UintVar(msg.subscribe_id);
+        buffer << UintVar(msg.track_alias);
+        buffer << UintVar(msg.priority);
         return buffer;
     }
 
@@ -1087,12 +1112,13 @@ namespace quicr::messages {
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamHeaderTrack&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamHeaderTrack&);
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqStreamTrackObject& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqStreamTrackObject& msg)
     {
-        buffer.Push(UintVar(msg.group_id));
-        buffer.Push(UintVar(msg.object_id));
+        buffer << UintVar(msg.group_id);
+        buffer << UintVar(msg.object_id);
         PushExtensions(buffer, msg.extensions);
-        buffer.PushLengthBytes(msg.payload);
+        buffer << UintVar(msg.payload.size());
+        buffer << msg.payload;
         return buffer;
     }
 
@@ -1150,13 +1176,13 @@ namespace quicr::messages {
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamTrackObject&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamTrackObject&);
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqStreamHeaderGroup& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderGroup& msg)
     {
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_GROUP)));
-        buffer.Push(UintVar(msg.subscribe_id));
-        buffer.Push(UintVar(msg.track_alias));
-        buffer.Push(UintVar(msg.group_id));
-        buffer.Push(UintVar(msg.priority));
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_GROUP));
+        buffer << UintVar(msg.subscribe_id);
+        buffer << UintVar(msg.track_alias);
+        buffer << UintVar(msg.group_id);
+        buffer << UintVar(msg.priority);
         return buffer;
     }
 
@@ -1207,11 +1233,12 @@ namespace quicr::messages {
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamHeaderGroup&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamHeaderGroup&);
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqStreamGroupObject& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqStreamGroupObject& msg)
     {
-        buffer.Push(UintVar(msg.object_id));
+        buffer << UintVar(msg.object_id);
         PushExtensions(buffer, msg.extensions);
-        buffer.PushLengthBytes(msg.payload);
+        buffer << UintVar(msg.payload.size());
+        buffer << msg.payload;
         return buffer;
     }
 
@@ -1264,23 +1291,25 @@ namespace quicr::messages {
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamGroupObject&);
 
     // Client Setup message
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqClientSetup& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqClientSetup& msg)
     {
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::CLIENT_SETUP)));
-        buffer.Push(UintVar(msg.supported_versions.size()));
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::CLIENT_SETUP));
+        buffer << UintVar(msg.supported_versions.size());
         // versions
         for (const auto& ver : msg.supported_versions) {
-            buffer.Push(UintVar(ver));
+            buffer << UintVar(ver);
         }
 
         /// num params
-        buffer.Push(UintVar(static_cast<uint64_t>(2)));
+        buffer << UintVar(static_cast<uint64_t>(2));
         // role param
-        buffer.Push(UintVar(msg.role_parameter.type));
-        buffer.PushLengthBytes(msg.role_parameter.value);
+        buffer << UintVar(msg.role_parameter.type);
+        buffer << UintVar(msg.role_parameter.value.size());
+        buffer << msg.role_parameter.value;
         // endpoint_id param
-        buffer.Push(UintVar(static_cast<uint64_t>(ParameterType::EndpointId)));
-        buffer.PushLengthBytes(msg.endpoint_id_parameter.value);
+        buffer << UintVar(static_cast<uint64_t>(ParameterType::EndpointId));
+        buffer << UintVar(msg.endpoint_id_parameter.value.size());
+        buffer << msg.endpoint_id_parameter.value;
 
         return buffer;
     }
@@ -1371,21 +1400,23 @@ namespace quicr::messages {
 
     // Server Setup message
 
-    SerialBuffer& operator<<(SerialBuffer& buffer, const MoqServerSetup& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqServerSetup& msg)
     {
 
-        buffer.Push(UintVar(static_cast<uint64_t>(MoqMessageType::SERVER_SETUP)));
-        buffer.Push(UintVar(msg.selection_version));
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SERVER_SETUP));
+        buffer << UintVar(msg.selection_version);
 
         /// num params
-        buffer.Push(UintVar(static_cast<uint64_t>(2)));
+        buffer << UintVar(static_cast<uint64_t>(2));
         // role param
-        buffer.Push(UintVar(static_cast<uint64_t>(msg.role_parameter.type)));
-        buffer.PushLengthBytes(msg.role_parameter.value);
+        buffer << UintVar(static_cast<uint64_t>(msg.role_parameter.type));
+        buffer << UintVar(msg.role_parameter.value.size());
+        buffer << msg.role_parameter.value;
 
         // endpoint_id param
-        buffer.Push(UintVar(static_cast<uint64_t>(ParameterType::EndpointId)));
-        buffer.PushLengthBytes(msg.endpoint_id_parameter.value);
+        buffer << UintVar(static_cast<uint64_t>(ParameterType::EndpointId));
+        buffer << UintVar(msg.endpoint_id_parameter.value.size());
+        buffer << msg.endpoint_id_parameter.value;
 
         return buffer;
     }

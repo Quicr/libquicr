@@ -4,7 +4,6 @@
 #pragma once
 
 #include "quicr/common.h"
-#include "quicr/detail/serial_buffer.h"
 #include "stream_buffer.h"
 
 #include <map>
@@ -99,6 +98,8 @@ namespace quicr::messages {
         Invalid = 0xFF,          // used internally.
     };
 
+    Bytes& operator<<(Bytes& buffer, BytesSpan bytes);
+
     struct MoqParameter
     {
         uint64_t type{ 0 };
@@ -106,7 +107,8 @@ namespace quicr::messages {
         Bytes value;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqParameter& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqParameter& msg);
+        friend bool operator>>(Bytes& buffer, MoqParameter& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqParameter& msg);
     };
 
     //
@@ -122,7 +124,8 @@ namespace quicr::messages {
         MoqParameter endpoint_id_parameter;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqClientSetup& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqClientSetup& msg);
+        friend bool operator>>(Bytes& buffer, MoqClientSetup& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqClientSetup& msg);
 
       private:
         size_t current_pos{ 0 };
@@ -139,7 +142,8 @@ namespace quicr::messages {
         MoqParameter endpoint_id_parameter;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqServerSetup& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqServerSetup& msg);
+        friend bool operator>>(Bytes& buffer, MoqServerSetup& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqServerSetup& msg);
 
       private:
         size_t current_pos{ 0 };
@@ -175,7 +179,8 @@ namespace quicr::messages {
         std::vector<MoqParameter> track_params;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqSubscribe& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqSubscribe& msg);
+        friend bool operator>>(Bytes& buffer, MoqSubscribe& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqSubscribe& msg);
 
       private:
         std::optional<MoqParameter> current_param{};
@@ -192,7 +197,8 @@ namespace quicr::messages {
         uint64_t largest_object{ 0 };
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqSubscribeOk& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqSubscribeOk& msg);
+        friend bool operator>>(Bytes& buffer, MoqSubscribeOk& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqSubscribeOk& msg);
 
       private:
         size_t current_pos{ 0 };
@@ -207,7 +213,8 @@ namespace quicr::messages {
         uint64_t track_alias;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqSubscribeError& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqSubscribeError& msg);
+        friend bool operator>>(Bytes& buffer, MoqSubscribeError& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqSubscribeError& msg);
 
       private:
         size_t current_pos{ 0 };
@@ -219,7 +226,8 @@ namespace quicr::messages {
         SubscribeId subscribe_id;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqUnsubscribe& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqUnsubscribe& msg);
+        friend bool operator>>(Bytes& buffer, MoqUnsubscribe& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqUnsubscribe& msg);
     };
 
     struct MoqSubscribeDone
@@ -232,7 +240,8 @@ namespace quicr::messages {
         uint64_t final_object_id;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqSubscribeDone& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqSubscribeDone& msg);
+        friend bool operator>>(Bytes& buffer, MoqSubscribeDone& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqSubscribeDone& msg);
 
       private:
         size_t current_pos{ 0 };
@@ -248,7 +257,8 @@ namespace quicr::messages {
         TrackName track_name;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqTrackStatusRequest& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqTrackStatusRequest& msg);
+        friend bool operator>>(Bytes& buffer, MoqTrackStatusRequest& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqTrackStatusRequest& msg);
 
       private:
         size_t current_pos{ 0 };
@@ -272,7 +282,8 @@ namespace quicr::messages {
         uint64_t last_object_id{ 0 };
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqTrackStatus& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqTrackStatus& msg);
+        friend bool operator>>(Bytes& buffer, MoqTrackStatus& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqTrackStatus& msg);
 
       private:
         size_t current_pos{ 0 };
@@ -289,7 +300,8 @@ namespace quicr::messages {
         std::vector<MoqParameter> params;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqAnnounce& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqAnnounce& msg);
+        friend bool operator>>(Bytes& buffer, MoqAnnounce& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqAnnounce& msg);
 
       private:
         uint64_t num_params{ 0 };
@@ -301,7 +313,8 @@ namespace quicr::messages {
         TrackNamespace track_namespace;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqAnnounceOk& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqAnnounceOk& msg);
+        friend bool operator>>(Bytes& buffer, MoqAnnounceOk& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqAnnounceOk& msg);
     };
 
     struct MoqAnnounceError
@@ -312,7 +325,8 @@ namespace quicr::messages {
 
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqAnnounceError& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqAnnounceError& msg);
+        friend bool operator>>(Bytes& buffer, MoqAnnounceError& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqAnnounceError& msg);
     };
 
     struct MoqUnannounce
@@ -320,7 +334,8 @@ namespace quicr::messages {
         TrackNamespace track_namespace;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqUnannounce& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqUnannounce& msg);
+        friend bool operator>>(Bytes& buffer, MoqUnannounce& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqUnannounce& msg);
     };
 
     struct MoqAnnounceCancel
@@ -328,7 +343,8 @@ namespace quicr::messages {
         TrackNamespace track_namespace;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqAnnounceCancel& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqAnnounceCancel& msg);
+        friend bool operator>>(Bytes& buffer, MoqAnnounceCancel& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqAnnounceCancel& msg);
     };
 
     //
@@ -339,7 +355,8 @@ namespace quicr::messages {
         Bytes new_session_uri;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqGoaway& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqGoaway& msg);
+        friend bool operator>>(Bytes& buffer, MoqGoaway& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqGoaway& msg);
     };
 
     //
@@ -356,7 +373,8 @@ namespace quicr::messages {
         Bytes payload;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqObjectStream& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqObjectStream& msg);
+        friend bool operator>>(Bytes& buffer, MoqObjectStream& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqObjectStream& msg);
 
       private:
         uint64_t num_extensions{ 0 };
@@ -376,7 +394,8 @@ namespace quicr::messages {
         Bytes payload;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqObjectDatagram& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqObjectDatagram& msg);
+        friend bool operator>>(Bytes& buffer, MoqObjectDatagram& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqObjectDatagram& msg);
 
       private:
         uint64_t num_extensions{ 0 };
@@ -392,7 +411,8 @@ namespace quicr::messages {
         ObjectPriority priority;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqStreamHeaderTrack& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqStreamHeaderTrack& msg);
+        friend bool operator>>(Bytes& buffer, MoqStreamHeaderTrack& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderTrack& msg);
 
       private:
         uint64_t current_pos{ 0 };
@@ -407,7 +427,8 @@ namespace quicr::messages {
         Bytes payload;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqStreamTrackObject& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqStreamTrackObject& msg);
+        friend bool operator>>(Bytes& buffer, MoqStreamTrackObject& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqStreamTrackObject& msg);
 
       private:
         uint64_t num_extensions{ 0 };
@@ -424,7 +445,8 @@ namespace quicr::messages {
         ObjectPriority priority;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqStreamHeaderGroup& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqStreamHeaderGroup& msg);
+        friend bool operator>>(Bytes& buffer, MoqStreamHeaderGroup& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderGroup& msg);
 
       private:
         uint64_t current_pos{ 0 };
@@ -438,7 +460,8 @@ namespace quicr::messages {
         Bytes payload;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, MoqStreamGroupObject& msg);
-        friend SerialBuffer& operator<<(SerialBuffer& buffer, const MoqStreamGroupObject& msg);
+        friend bool operator>>(Bytes& buffer, MoqStreamGroupObject& msg);
+        friend Bytes& operator<<(Bytes& buffer, const MoqStreamGroupObject& msg);
 
       private:
         uint64_t num_extensions{ 0 };

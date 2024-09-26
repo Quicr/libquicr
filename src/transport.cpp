@@ -94,7 +94,11 @@ namespace quicr {
         spdlog::drop(logger_->name());
     }
 
-    void Transport::Init() {}
+    void Transport::Init()
+    {
+        ctrl_serial_buffer_.reserve(4096);
+        serial_buffer_.reserve(8192);
+    }
 
     Transport::Status Transport::Start()
     {
@@ -160,7 +164,7 @@ namespace quicr {
                                  0,
                                  { true, false, false, false });
 
-        ctrl_serial_buffer_.Clear();
+        ctrl_serial_buffer_.clear();
     }
 
     void Transport::SendClientSetup()
@@ -625,7 +629,7 @@ namespace quicr {
                                  0,
                                  eflags);
 
-        serial_buffer_.Clear();
+        serial_buffer_.clear();
 
         return PublishTrackHandler::PublishObjectStatus::kOk;
     }
