@@ -94,7 +94,6 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const MoqParameter& param)
     {
-
         buffer << UintVar(param.type);
         buffer << UintVar(param.length);
         if (param.length) {
@@ -106,7 +105,6 @@ namespace quicr::messages {
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqParameter& param)
     {
-
         if (!ParseUintVField(buffer, param.type)) {
             return false;
         }
@@ -149,7 +147,6 @@ namespace quicr::messages {
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqTrackStatus& msg)
     {
-
         switch (msg.current_pos) {
             case 0: {
                 if (!ParseBytesField(buffer, msg.track_namespace)) {
@@ -220,7 +217,6 @@ namespace quicr::messages {
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqTrackStatusRequest& msg)
     {
-
         switch (msg.current_pos) {
             case 0: {
                 if (!ParseBytesField(buffer, msg.track_namespace)) {
@@ -296,7 +292,6 @@ namespace quicr::messages {
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqSubscribe& msg)
     {
-
         switch (msg.current_pos) {
             case 0: {
                 if (!ParseUintVField(buffer, msg.subscribe_id)) {
@@ -620,7 +615,6 @@ namespace quicr::messages {
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqSubscribeError& msg)
     {
-
         switch (msg.current_pos) {
             case 0: {
                 if (!ParseUintVField(buffer, msg.subscribe_id)) {
@@ -681,7 +675,6 @@ namespace quicr::messages {
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqAnnounce& msg)
     {
-
         // read namespace
         if (msg.track_namespace.empty()) {
             auto val = buffer.DecodeBytes();
@@ -741,7 +734,6 @@ namespace quicr::messages {
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqAnnounceOk& msg)
     {
-
         // read namespace
         if (msg.track_namespace.empty()) {
             auto val = buffer.DecodeBytes();
@@ -770,7 +762,6 @@ namespace quicr::messages {
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqAnnounceError& msg)
     {
-
         // read namespace
         if (!msg.track_namespace) {
             auto val = buffer.DecodeBytes();
@@ -813,7 +804,6 @@ namespace quicr::messages {
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqUnannounce& msg)
     {
-
         // read namespace
         if (msg.track_namespace.empty()) {
             auto val = buffer.DecodeBytes();
@@ -839,7 +829,6 @@ namespace quicr::messages {
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqAnnounceCancel& msg)
     {
-
         // read namespace
         if (msg.track_namespace.empty()) {
             auto val = buffer.DecodeBytes();
@@ -869,7 +858,6 @@ namespace quicr::messages {
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqGoaway& msg)
     {
-
         auto val = buffer.DecodeBytes();
         if (!val) {
             return false;
@@ -887,7 +875,6 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const MoqObjectStream& msg)
     {
-
         buffer << UintVar(static_cast<uint64_t>(MoqMessageType::OBJECT_STREAM));
         buffer << UintVar(msg.subscribe_id);
         buffer << UintVar(msg.track_alias);
@@ -1065,7 +1052,6 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderTrack& msg)
     {
-
         buffer << UintVar(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_TRACK));
         buffer << UintVar(msg.subscribe_id);
         buffer << UintVar(msg.track_alias);
@@ -1402,7 +1388,6 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const MoqServerSetup& msg)
     {
-
         buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SERVER_SETUP));
         buffer << UintVar(msg.selection_version);
 
