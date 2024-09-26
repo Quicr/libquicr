@@ -18,6 +18,7 @@ set_target_properties(qperf
 
 target_compile_definitions(qperf PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
 
-if(CLANG_TIDY_EXE)
-  set_target_properties(quicr PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
+if(LINT)
+        include(Lint)
+        Lint(qperf)
 endif()

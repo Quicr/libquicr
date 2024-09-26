@@ -25,10 +25,6 @@ set_target_properties(quicr_test
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS ON)
 
-if(CLANG_TIDY_EXE)
-    set_target_properties(quicr_test PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
-endif()
-
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_compile_options(quicr_test PRIVATE  -Wall -pedantic -Wextra)
 endif()
@@ -40,3 +36,8 @@ endif()
 
 include(${CMAKE_SOURCE_DIR}/dependencies/doctest/scripts/cmake/doctest.cmake)
 doctest_discover_tests(quicr_test)
+
+if (LINT)
+    include(Lint)
+    Lint(quicr_test)
+endif()

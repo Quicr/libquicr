@@ -1,8 +1,9 @@
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #include <doctest/doctest.h>
 
 #include "quicr/detail/uintvar.h"
-
-#include <iostream>
 
 namespace var {
 
@@ -27,6 +28,14 @@ TEST_CASE("Encode/Decode UintVar Uint64")
     CHECK_EQ(var::kValue8Byte, uint64_t(quicr::UintVar(var::kValue8Byte)));
 }
 
+TEST_CASE("Encode/Decode UintVar Bytes")
+{
+    CHECK_EQ(var::kValue1Byte, uint64_t(quicr::UintVar(Span{ quicr::UintVar(var::kValue1Byte) })));
+    CHECK_EQ(var::kValue2Byte, uint64_t(quicr::UintVar(Span{ quicr::UintVar(var::kValue2Byte) })));
+    CHECK_EQ(var::kValue4Byte, uint64_t(quicr::UintVar(Span{ quicr::UintVar(var::kValue4Byte) })));
+    CHECK_EQ(var::kValue8Byte, uint64_t(quicr::UintVar(Span{ quicr::UintVar(var::kValue8Byte) })));
+}
+
 TEST_CASE("Length of UintVar")
 {
     CHECK_EQ(1, quicr::UintVar(var::kValue1Byte).Size());
@@ -34,23 +43,10 @@ TEST_CASE("Length of UintVar")
     CHECK_EQ(4, quicr::UintVar(var::kValue4Byte).Size());
     CHECK_EQ(8, quicr::UintVar(var::kValue8Byte).Size());
 
-    CHECK_EQ(1, quicr::UintVar(var::kValue1Byte).Bytes().size());
-    CHECK_EQ(2, quicr::UintVar(var::kValue2Byte).Bytes().size());
-    CHECK_EQ(4, quicr::UintVar(var::kValue4Byte).Bytes().size());
-    CHECK_EQ(8, quicr::UintVar(var::kValue8Byte).Bytes().size());
-
-    CHECK_EQ(1, quicr::UintVar::Size(quicr::UintVar(var::kValue1Byte).Bytes()[0]));
-    CHECK_EQ(2, quicr::UintVar::Size(quicr::UintVar(var::kValue2Byte).Bytes()[0]));
-    CHECK_EQ(4, quicr::UintVar::Size(quicr::UintVar(var::kValue4Byte).Bytes()[0]));
-    CHECK_EQ(8, quicr::UintVar::Size(quicr::UintVar(var::kValue8Byte).Bytes()[0]));
-}
-
-TEST_CASE("Encode/Decode UintVar Bytes")
-{
-    CHECK_EQ(quicr::UintVar(quicr::UintVar(var::kValue1Byte).Bytes()), var::kValue1Byte);
-    CHECK_EQ(quicr::UintVar(quicr::UintVar(var::kValue2Byte).Bytes()), var::kValue2Byte);
-    CHECK_EQ(quicr::UintVar(quicr::UintVar(var::kValue4Byte).Bytes()), var::kValue4Byte);
-    CHECK_EQ(quicr::UintVar(quicr::UintVar(var::kValue8Byte).Bytes()), var::kValue8Byte);
+    CHECK_EQ(1, quicr::UintVar::Size(*quicr::UintVar(var::kValue1Byte).begin()));
+    CHECK_EQ(2, quicr::UintVar::Size(*quicr::UintVar(var::kValue2Byte).begin()));
+    CHECK_EQ(4, quicr::UintVar::Size(*quicr::UintVar(var::kValue4Byte).begin()));
+    CHECK_EQ(8, quicr::UintVar::Size(*quicr::UintVar(var::kValue8Byte).begin()));
 }
 
 TEST_CASE("Validate UintVar from Known UintVar Bytes")
@@ -65,10 +61,10 @@ TEST_CASE("Validate UintVar from Known UintVar Bytes")
     CHECK_EQ(var::kValue4Byte, uint64_t(quicr::UintVar(var::kValue4ByteEncoded)));
     CHECK_EQ(var::kValue8Byte, uint64_t(quicr::UintVar(var::kValue8ByteEncoded)));
 
-    CHECK(std::vector<uint8_t>(v_one_byte.Bytes().begin(), v_one_byte.Bytes().end()) == var::kValue1ByteEncoded);
-    CHECK(std::vector<uint8_t>(v_two_byte.Bytes().begin(), v_two_byte.Bytes().end()) == var::kValue2ByteEncoded);
-    CHECK(std::vector<uint8_t>(v_four_byte.Bytes().begin(), v_four_byte.Bytes().end()) == var::kValue4ByteEncoded);
-    CHECK(std::vector<uint8_t>(v_eight_byte.Bytes().begin(), v_eight_byte.Bytes().end()) == var::kValue8ByteEncoded);
+    CHECK(std::vector<uint8_t>(v_one_byte.begin(), v_one_byte.end()) == var::kValue1ByteEncoded);
+    CHECK(std::vector<uint8_t>(v_two_byte.begin(), v_two_byte.end()) == var::kValue2ByteEncoded);
+    CHECK(std::vector<uint8_t>(v_four_byte.begin(), v_four_byte.end()) == var::kValue4ByteEncoded);
+    CHECK(std::vector<uint8_t>(v_eight_byte.begin(), v_eight_byte.end()) == var::kValue8ByteEncoded);
 }
 
 TEST_CASE("UintVar Invalid Construction")
