@@ -54,7 +54,7 @@ namespace quicr {
         SPDLOG_LOGGER_INFO(
           logger_, "Bind subscribe track handler conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
 
-        std::lock_guard<std::mutex> _(state_mutex_);
+        std::unique_lock<std::mutex> lock(state_mutex_);
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
             SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_id);
@@ -88,6 +88,7 @@ namespace quicr {
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
 
+        lock.unlock();
         track_handler->SetStatus(PublishTrackHandler::Status::kOk);
     }
 

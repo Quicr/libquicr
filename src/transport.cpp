@@ -400,8 +400,9 @@ namespace quicr {
             SPDLOG_LOGGER_DEBUG(logger_, "Removed subscribe track subscribe id: {0}", *subscribe_id);
 
             if (remove_handler) {
-                std::lock_guard<std::mutex> _(state_mutex_);
                 handler.SetStatus(SubscribeTrackHandler::Status::kNotConnected); // Set after remove subscribe track
+
+                std::lock_guard<std::mutex> _(state_mutex_);
                 conn_ctx.tracks_by_sub_id.erase(*subscribe_id);
             }
         }
@@ -415,7 +416,7 @@ namespace quicr {
 
         SPDLOG_LOGGER_INFO(logger_, "Unpublish track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
 
-        std::lock_guard<std::mutex> _(state_mutex_);
+        std::unique_lock<std::mutex> lock(state_mutex_);
 
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
@@ -450,7 +451,12 @@ namespace quicr {
 
                 pub_n_it->second->publish_data_ctx_id_ = 0;
 
+                lock.unlock();
+
                 pub_n_it->second->SetStatus(PublishTrackHandler::Status::kNotAnnounced);
+
+                lock.lock();
+
                 pub_ns_it->second.erase(pub_n_it);
             }
 
@@ -476,7 +482,7 @@ namespace quicr {
 
         SPDLOG_LOGGER_INFO(logger_, "Publish track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
 
-        std::lock_guard<std::mutex> _(state_mutex_);
+        std::unique_lock<std::mutex> lock(state_mutex_);
 
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
@@ -490,7 +496,12 @@ namespace quicr {
             SPDLOG_LOGGER_INFO(
               logger_, "Publish track has new namespace hash: {0} sending ANNOUNCE message", th.track_namespace_hash);
 
+            lock.unlock();
+
             track_handler->SetStatus(PublishTrackHandler::Status::kPendingAnnounceResponse);
+
+            lock.lock();
+
             SendAnnounce(conn_it->second, tfn.name_space);
 
         } else {
@@ -658,7 +669,7 @@ namespace quicr {
 
     void Transport::RemoveAllTracksForConnectionClose(ConnectionContext& conn_ctx)
     {
-        // clean up subscriber handlers of disconnect
+        // clean up subscriber handlers on disconnect
         for (const auto& [sub_id, handler] : conn_ctx.tracks_by_sub_id) {
             RemoveSubscribeTrack(conn_ctx, *handler, false);
         }
