@@ -51,7 +51,7 @@ namespace quicr {
 
         // NOLINTBEGIN(readability-identifier-naming)
         auto data() const noexcept { return buffer_.data(); }
-        constexpr std::size_t size() const noexcept { return buffer_.size(); }
+        std::size_t size() const noexcept { return buffer_.size(); }
         auto begin() const noexcept { return buffer_.begin(); }
         auto end() const noexcept { return buffer_.end(); }
         // NOLINTEND(readability-identifier-naming)
