@@ -167,7 +167,7 @@ namespace quicr {
     {
         auto client_setup = MoqClientSetup{};
 
-        client_setup.num_versions = 1; // NOTE: Not used for encode, verison vector size is used
+        client_setup.num_versions = 1; // NOTE: Not used for encode, version vector size is used
         client_setup.supported_versions = { kMoqtVersion };
         client_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::Role);
         client_setup.role_parameter.length = 0x1; // NOTE: not used for encode, size of value is used
@@ -549,7 +549,7 @@ namespace quicr {
                 object.track_alias = *track_handler.GetTrackAlias();
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
-                datagram_serial_buffer_ << object;
+                serial_buffer_ << object;
                 break;
             }
             case TrackMode::kStreamPerObject: {
@@ -564,7 +564,7 @@ namespace quicr {
                 object.track_alias = *track_handler.GetTrackAlias();
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
-                datagram_serial_buffer_ << object;
+                serial_buffer_ << object;
 
                 break;
             }
@@ -582,14 +582,14 @@ namespace quicr {
                     group_hdr.priority = priority;
                     group_hdr.subscribe_id = *track_handler.GetSubscribeId();
                     group_hdr.track_alias = *track_handler.GetTrackAlias();
-                    datagram_serial_buffer_ << group_hdr;
+                    serial_buffer_ << group_hdr;
                 }
 
                 MoqStreamGroupObject object;
                 object.object_id = object_id;
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
-                datagram_serial_buffer_ << object;
+                serial_buffer_ << object;
 
                 break;
             }
@@ -603,7 +603,7 @@ namespace quicr {
                     track_hdr.priority = priority;
                     track_hdr.subscribe_id = *track_handler.GetSubscribeId();
                     track_hdr.track_alias = *track_handler.GetTrackAlias();
-                    datagram_serial_buffer_ << track_hdr;
+                    serial_buffer_ << track_hdr;
                 }
 
                 MoqStreamTrackObject object;
@@ -611,7 +611,7 @@ namespace quicr {
                 object.object_id = object_id;
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
-                datagram_serial_buffer_ << object;
+                serial_buffer_ << object;
 
                 break;
             }
@@ -619,13 +619,13 @@ namespace quicr {
 
         quic_transport_->Enqueue(track_handler.connection_handle_,
                                  track_handler.publish_data_ctx_id_,
-                                 datagram_serial_buffer_,
+                                 serial_buffer_,
                                  priority,
                                  ttl,
                                  0,
                                  eflags);
 
-        datagram_serial_buffer_.Clear();
+        serial_buffer_.Clear();
 
         return PublishTrackHandler::PublishObjectStatus::kOk;
     }

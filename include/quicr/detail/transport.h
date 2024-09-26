@@ -332,7 +332,7 @@ namespace quicr {
         std::shared_ptr<ITransport> quic_transport_; // **MUST** be last for proper order of destruction
 
         Serializer ctrl_serial_buffer_{ 4096 };
-        Serializer datagram_serial_buffer_{ 1280 };
+        Serializer serial_buffer_{ 8192 };
 
         friend class Client;
         friend class Server;

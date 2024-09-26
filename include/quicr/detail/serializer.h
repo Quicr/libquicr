@@ -17,7 +17,6 @@ namespace quicr {
         Serializer() = default;
         Serializer(std::size_t reserve_size) { buffer_.reserve(reserve_size); }
 
-        BytesSpan View() const noexcept { return buffer_; }
         Bytes&& Take() noexcept { return std::move(buffer_); }
 
         void Push(Byte data) { buffer_.push_back(std::move(data)); }
@@ -49,6 +48,13 @@ namespace quicr {
 
             return *this;
         }
+
+        // NOLINTBEGIN(readability-identifier-naming)
+        auto data() const noexcept { return buffer_.data(); }
+        constexpr std::size_t size() const noexcept { return buffer_.size(); }
+        auto begin() const noexcept { return buffer_.begin(); }
+        auto end() const noexcept { return buffer_.end(); }
+        // NOLINTEND(readability-identifier-naming)
 
       private:
         Bytes buffer_;
