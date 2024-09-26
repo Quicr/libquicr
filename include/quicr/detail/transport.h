@@ -3,7 +3,8 @@
 
 #pragma once
 
-#include <quicr/detail/messages.h>
+#include "messages.h"
+#include "tick_service.h"
 
 #include "quic_transport.h"
 
@@ -92,16 +93,18 @@ namespace quicr {
         /**
          * @brief Client mode Constructor to create the MOQ instance
          *
-         * @param cfg       MoQ Instance Client Configuration
+         * @param cfg            MoQ Instance Client Configuration
+         * @param tick_service   Shared pointer to the tick service to use
          */
-        Transport(const ClientConfig& cfg);
+        Transport(const ClientConfig& cfg, std::shared_ptr<TickService> tick_service);
 
         /**
          * @brief Server mode Constructor to create the MOQ instance
          *
-         * @param cfg        MoQ Server Configuration
+         * @param cfg            MoQ Server Configuration
+         * @param tick_service   Shared pointer to the tick service to use
          */
-        Transport(const ServerConfig& cfg);
+        Transport(const ServerConfig& cfg, std::shared_ptr<TickService> tick_service);
 
         ~Transport();
 
@@ -188,11 +191,11 @@ namespace quicr {
                           const bool is_bidir = false) override;
         void OnRecvDgram(const ConnectionHandle& connection_handle, std::optional<DataContextId> data_ctx_id) override;
 
-        void OnConnectionMetricsSampled(TimeStampUs sample_time,
+        void OnConnectionMetricsSampled(MetricsTimeStamp sample_time,
                                         TransportConnId conn_id,
                                         const QuicConnectionMetrics& quic_connection_metrics) override;
 
-        void OnDataMetricsStampled(TimeStampUs sample_time,
+        void OnDataMetricsStampled(MetricsTimeStamp sample_time,
                                    TransportConnId conn_id,
                                    DataContextId data_ctx_id,
                                    const QuicDataContextMetrics& quic_data_context_metrics) override;
@@ -325,6 +328,7 @@ namespace quicr {
 
         Status status_{ Status::kNotReady };
 
+        std::shared_ptr<TickService> tick_service_;
         std::shared_ptr<ITransport> quic_transport_; // **MUST** be last for proper order of destruction
 
         friend class Client;

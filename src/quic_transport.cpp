@@ -13,11 +13,13 @@ namespace quicr {
     std::shared_ptr<ITransport> ITransport::MakeClientTransport(const TransportRemote& server,
                                                                 const TransportConfig& tcfg,
                                                                 TransportDelegate& delegate,
+                                                                std::shared_ptr<TickService> tick_service,
                                                                 std::shared_ptr<spdlog::logger> logger)
     {
         switch (server.proto) {
             case TransportProtocol::kQuic:
-                return std::make_shared<PicoQuicTransport>(server, tcfg, delegate, false, std::move(logger));
+                return std::make_shared<PicoQuicTransport>(
+                  server, tcfg, delegate, false, std::move(tick_service), std::move(logger));
             default:
                 throw std::runtime_error("make_client_transport: Protocol not implemented");
                 break;
@@ -29,12 +31,14 @@ namespace quicr {
     std::shared_ptr<ITransport> ITransport::MakeServerTransport(const TransportRemote& server,
                                                                 const TransportConfig& tcfg,
                                                                 TransportDelegate& delegate,
+                                                                std::shared_ptr<TickService> tick_service,
                                                                 std::shared_ptr<spdlog::logger> logger)
     {
         switch (server.proto) {
 
             case TransportProtocol::kQuic:
-                return std::make_shared<PicoQuicTransport>(server, tcfg, delegate, true, std::move(logger));
+                return std::make_shared<PicoQuicTransport>(
+                  server, tcfg, delegate, true, std::move(tick_service), std::move(logger));
             default:
                 throw std::runtime_error("make_server_transport: Protocol not implemented");
                 break;

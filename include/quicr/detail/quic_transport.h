@@ -4,6 +4,7 @@
 #pragma once
 
 #include "quic_transport_metrics.h"
+#include "quicr/detail/tick_service.h"
 #include "safe_queue.h"
 #include "span.h"
 #include "stream_buffer.h"
@@ -102,38 +103,13 @@ namespace quicr {
         uint8_t quic_priority_limit{ 0 };      /// Lowest priority that will not be bypassed from pacing/CC in picoquic
     };
 
-    using TimeStampUs = std::chrono::time_point<std::chrono::steady_clock, std::chrono::microseconds>;
-
-    struct MethodTraceItem
-    {
-        std::string method;     /// Name of the method
-        TimeStampUs start_time; /// Original start time of the call
-        uint32_t delta;         /// Delta is calculated based on start_time and now time of constructor
-
-        MethodTraceItem()
-          : method("root")
-          , start_time(std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()))
-          , delta(0)
-        {
-        }
-
-        MethodTraceItem(const std::string& method, const TimeStampUs start_time)
-          : method(method)
-          , start_time(start_time)
-        {
-            delta =
-              (std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()) - start_time)
-                .count();
-        }
-    };
-
     struct ConnData
     {
         TransportConnId conn_id;
         DataContextId data_ctx_id;
         uint8_t priority;
         std::vector<uint8_t> data;
-        std::vector<MethodTraceItem> trace;
+        uint64_t tick_microseconds; // Tick value in microseconds
     };
 
     /**
@@ -229,7 +205,7 @@ namespace quicr {
              * @param quic_connection_metrics        Connection specific metrics for sample period
              */
             virtual void OnConnectionMetricsSampled(
-              [[maybe_unused]] const TimeStampUs sample_time,
+              [[maybe_unused]] const MetricsTimeStamp sample_time,
               [[maybe_unused]] const TransportConnId conn_id,
               [[maybe_unused]] const QuicConnectionMetrics& quic_connection_metrics)
             {
@@ -245,7 +221,7 @@ namespace quicr {
              * @param data_ctx_id                   Data context ID for metrics
              * @param quic_data_context_metrics     Data context metrics for sample period
              */
-            virtual void OnDataMetricsStampled([[maybe_unused]] const TimeStampUs sample_time,
+            virtual void OnDataMetricsStampled([[maybe_unused]] const MetricsTimeStamp sample_time,
                                                [[maybe_unused]] const TransportConnId conn_id,
                                                [[maybe_unused]] const DataContextId data_ctx_id,
                                                [[maybe_unused]] const QuicDataContextMetrics& quic_data_context_metrics)
@@ -258,16 +234,18 @@ namespace quicr {
         /**
          * @brief Create a new client transport based on the remote (server) host/ip
          *
-         * @param[in] server      Transport remote server information
-         * @param[in] tcfg        Transport configuration
-         * @param[in] delegate    Implemented callback methods
-         * @param[in] logger      Shared pointer to logger
+         * @param[in] server        Transport remote server information
+         * @param[in] tcfg          Transport configuration
+         * @param[in] delegate      Implemented callback methods
+         * @param[in] tick_service  Shared pointer to the tick service to use
+         * @param[in] logger        Shared pointer to logger
          *
          * @return shared_ptr for the under lining transport.
          */
         static std::shared_ptr<ITransport> MakeClientTransport(const TransportRemote& server,
                                                                const TransportConfig& tcfg,
                                                                TransportDelegate& delegate,
+                                                               std::shared_ptr<TickService> tick_service,
                                                                std::shared_ptr<spdlog::logger> logger);
 
         /**
@@ -284,6 +262,7 @@ namespace quicr {
         static std::shared_ptr<ITransport> MakeServerTransport(const TransportRemote& server,
                                                                const TransportConfig& tcfg,
                                                                TransportDelegate& delegate,
+                                                               std::shared_ptr<TickService> tick_service,
                                                                std::shared_ptr<spdlog::logger> logger);
 
       public:
@@ -408,18 +387,16 @@ namespace quicr {
          * @param[in] context_id	Identifying the connection
          * @param[in] data_ctx_id	stream Id to send data on
          * @param[in] bytes		Data to send/write
-         * @param[in] priority    Priority of the object, range should be 0 - 255
-         * @param[in] ttl_ms      The age the object should exist in queue in milliseconds
-         * @param[in] delay_ms    Delay the pop by millisecond value
-         * @param[in] trace       Method time trace vector
-         * @param[in] flags       Flags for stream and queue handling on enqueue of object
+         * @param[in] priority          Priority of the object, range should be 0 - 255
+         * @param[in] ttl_ms            The age the object should exist in queue in milliseconds
+         * @param[in] delay_ms          Delay the pop by millisecond value
+         * @param[in] flags             Flags for stream and queue handling on enqueue of object
          *
          * @returns TransportError is returned indicating status of the operation
          */
         virtual TransportError Enqueue(const TransportConnId& context_id,
                                        const DataContextId& data_ctx_id,
                                        Span<const uint8_t> bytes,
-                                       std::vector<MethodTraceItem>&& trace = { MethodTraceItem{} },
                                        uint8_t priority = 1,
                                        uint32_t ttl_ms = 350,
                                        uint32_t delay_ms = 0,

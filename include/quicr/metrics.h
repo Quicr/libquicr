@@ -8,7 +8,7 @@
 
 namespace quicr {
     using namespace quicr;
-    using MetricsTimeStampUs = std::chrono::time_point<std::chrono::steady_clock, std::chrono::microseconds>;
+    using MetricsTimeStampUs = uint64_t; ///< Metrics timestamp in microseconds from epoch 1970
 
     struct ConnectionMetrics
     {

@@ -52,7 +52,7 @@ namespace quicr {
          * @param cfg           MoQ Server Configuration
          */
         Server(const ServerConfig& cfg)
-          : Transport(cfg)
+          : Transport(cfg, std::make_shared<ThreadedTickService>())
         {
         }
 

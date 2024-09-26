@@ -362,8 +362,6 @@ main(int argc, char* argv[])
         SPDLOG_INFO("Client done");
         std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
-        // Unlock the mutex
-        lock.unlock();
     } catch (const std::invalid_argument& e) {
         std::cerr << "Invalid argument: " << e.what() << std::endl;
         result_code = EXIT_FAILURE;

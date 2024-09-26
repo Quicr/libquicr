@@ -26,7 +26,7 @@ namespace quicr {
          * @param cfg           MoQ Client Configuration
          */
         Client(const ClientConfig& cfg)
-          : Transport(cfg)
+          : Transport(cfg, std::make_shared<ThreadedTickService>())
         {
         }
 

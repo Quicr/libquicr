@@ -24,7 +24,6 @@
 #include <array>
 #include <atomic>
 #include <chrono>
-#include <iostream>
 #include <memory>
 #include <mutex>
 #include <sys/select.h>
@@ -32,18 +31,9 @@
 #include <type_traits>
 #include <vector>
 
+#include "tick_service.h"
+
 namespace quicr {
-
-    /**
-     * Interface for services that calculate ticks.
-     */
-    struct TickService
-    {
-        using TickType = size_t;
-        using DurationType = std::chrono::microseconds;
-
-        virtual TickType GetTicks(const DurationType& interval) const = 0;
-    };
 
     template<typename T>
     struct TimeQueueElement
@@ -51,76 +41,6 @@ namespace quicr {
         bool has_value{ false };     /// Indicates if value was set/returned in front access
         uint32_t expired_count{ 0 }; /// Number of items expired before on this front access
         T value;                     /// Value of front object
-    };
-
-    /**
-     * @brief Calculates elapsed time in ticks.
-     *
-     * @details Calculates time that's elapsed between update calls. Keeps
-     *          track of time using ticks as a counter of elapsed time. The
-     *          precision 500us or greater, which results in the tick interval
-     *          being >= 500us.
-     */
-    class ThreadedTickService : public TickService
-    {
-        using ClockType = std::chrono::steady_clock;
-
-      public:
-        ThreadedTickService() { tick_thread_ = std::thread(&ThreadedTickService::TickLoop, this); }
-
-        ThreadedTickService(const ThreadedTickService& other)
-          : ticks_{ other.ticks_ }
-          , stop_{ other.stop_.load() }
-        {
-            tick_thread_ = std::thread(&ThreadedTickService::TickLoop, this);
-        }
-
-        virtual ~ThreadedTickService()
-        {
-            stop_ = true;
-            if (tick_thread_.joinable())
-                tick_thread_.join();
-        }
-
-        ThreadedTickService& operator=(const ThreadedTickService& other)
-        {
-            ticks_ = other.ticks_;
-            stop_ = other.stop_.load();
-            tick_thread_ = std::thread(&ThreadedTickService::TickLoop, this);
-            return *this;
-        }
-
-        TickType GetTicks(const DurationType& interval) const override
-        {
-            const TickType increment = std::max(interval, interval_) / interval_;
-            return ticks_ / increment;
-        }
-
-      private:
-        void TickLoop()
-        {
-            const int interval_us = interval_.count();
-
-            timeval sleep_time = { 0, interval_us };
-            while (!stop_) {
-                select(0, NULL, NULL, NULL, &sleep_time);
-                sleep_time.tv_usec = interval_us;
-                ++ticks_;
-            }
-        }
-
-      private:
-        /// The current ticks since the tick_service began.
-        uint64_t ticks_{ 0 };
-
-        /// Flag to stop tick_service thread.
-        std::atomic<bool> stop_{ false };
-
-        /// The interval at which ticks should increase.
-        const DurationType interval_{ 500 };
-
-        /// The thread to update ticks on.
-        std::thread tick_thread_;
     };
 
     /**
@@ -346,7 +266,7 @@ namespace quicr {
          */
         TickType Advance()
         {
-            const TickType new_ticks = tick_service_->GetTicks(Duration_t(interval_));
+            const TickType new_ticks = tick_service_->Milliseconds();
             const TickType delta = current_ticks_ ? new_ticks - current_ticks_ : 0;
             current_ticks_ = new_ticks;
 

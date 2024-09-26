@@ -8,6 +8,7 @@ add_executable(quicr_test
     track_handlers.cpp
     uintvar.cpp
     client.cpp
+    tick_service.cpp
 )
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 

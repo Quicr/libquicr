@@ -218,28 +218,30 @@ namespace quicr {
         uint64_t tx_discard_objects{ 0 }; /// count of discard objects sent
     };
 
-    using TimeStampUs = std::chrono::time_point<std::chrono::steady_clock, std::chrono::microseconds>;
+    using MetricsTimeStamp = std::chrono::time_point<std::chrono::system_clock>;
 
     struct MetricsConnSample
     {
-        TimeStampUs sample_time;   /// Sample time
-        uint64_t conn_ctx_id{ 0 }; /// Conn context ID
+        MetricsTimeStamp sample_time; /// Sample time
+        uint64_t conn_ctx_id{ 0 };    /// Conn context ID
         std::optional<UdpConnectionMetrics> udp_sample;
         std::optional<QuicConnectionMetrics> quic_sample;
 
         MetricsConnSample()
-          : sample_time(std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()))
+          : sample_time(std::chrono::system_clock::now())
         {
         }
 
         MetricsConnSample(const uint64_t conn_id, const UdpConnectionMetrics udp_sample)
-          : sample_time(std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()))
+          : sample_time(std::chrono::system_clock::now())
           , conn_ctx_id(conn_id)
           , udp_sample(udp_sample)
         {
         }
 
-        MetricsConnSample(const TimeStampUs sample_time, const uint64_t conn_id, const UdpConnectionMetrics udp_sample)
+        MetricsConnSample(const MetricsTimeStamp sample_time,
+                          const uint64_t conn_id,
+                          const UdpConnectionMetrics udp_sample)
           : sample_time(sample_time)
           , conn_ctx_id(conn_id)
           , udp_sample(udp_sample)
@@ -247,13 +249,13 @@ namespace quicr {
         }
 
         MetricsConnSample(const uint64_t conn_id, const QuicConnectionMetrics quic_sample)
-          : sample_time(std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()))
+          : sample_time(std::chrono::system_clock::now())
           , conn_ctx_id(conn_id)
           , quic_sample(quic_sample)
         {
         }
 
-        MetricsConnSample(const TimeStampUs sample_time,
+        MetricsConnSample(const MetricsTimeStamp sample_time,
                           const uint64_t conn_id,
                           const QuicConnectionMetrics quic_sample)
           : sample_time(sample_time)
@@ -265,26 +267,26 @@ namespace quicr {
 
     struct MetricsDataSample
     {
-        TimeStampUs sample_time;   /// Sample time
-        uint64_t conn_ctx_id{ 0 }; /// Conn context ID
-        uint64_t data_ctx_id{ 0 }; /// Data context ID
+        MetricsTimeStamp sample_time; /// Sample time
+        uint64_t conn_ctx_id{ 0 };    /// Conn context ID
+        uint64_t data_ctx_id{ 0 };    /// Data context ID
         std::optional<UdpDataContextMetrics> udp_sample;
         std::optional<QuicDataContextMetrics> quic_sample;
 
         MetricsDataSample()
-          : sample_time(std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()))
+          : sample_time(std::chrono::system_clock::now())
         {
         }
 
         MetricsDataSample(const uint64_t conn_id, const uint64_t data_id, const UdpDataContextMetrics udp_sample)
-          : sample_time(std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()))
+          : sample_time(std::chrono::system_clock::now())
           , conn_ctx_id(conn_id)
           , data_ctx_id(data_id)
           , udp_sample(udp_sample)
         {
         }
 
-        MetricsDataSample(const TimeStampUs sample_time,
+        MetricsDataSample(const MetricsTimeStamp sample_time,
                           const uint64_t conn_id,
                           const uint64_t data_id,
                           const UdpDataContextMetrics udp_sample)
@@ -296,14 +298,14 @@ namespace quicr {
         }
 
         MetricsDataSample(const uint64_t conn_id, const uint64_t data_id, const QuicDataContextMetrics quic_sample)
-          : sample_time(std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()))
+          : sample_time(std::chrono::system_clock::now())
           , conn_ctx_id(conn_id)
           , data_ctx_id(data_id)
           , quic_sample(quic_sample)
         {
         }
 
-        MetricsDataSample(const TimeStampUs sample_time,
+        MetricsDataSample(const MetricsTimeStamp sample_time,
                           const uint64_t conn_id,
                           const uint64_t data_id,
                           const QuicDataContextMetrics quic_sample)
