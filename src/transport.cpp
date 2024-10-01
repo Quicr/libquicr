@@ -94,11 +94,7 @@ namespace quicr {
         spdlog::drop(logger_->name());
     }
 
-    void Transport::Init()
-    {
-        ctrl_serial_buffer_.reserve(4096);
-        serial_buffer_.reserve(8192);
-    }
+    void Transport::Init() {}
 
     Transport::Status Transport::Start()
     {
@@ -148,7 +144,7 @@ namespace quicr {
         return Status();
     }
 
-    void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx)
+    void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data)
     {
         if (not conn_ctx.ctrl_data_ctx_id) {
             CloseConnection(
@@ -156,15 +152,8 @@ namespace quicr {
             return;
         }
 
-        quic_transport_->Enqueue(conn_ctx.connection_handle,
-                                 *conn_ctx.ctrl_data_ctx_id,
-                                 ctrl_serial_buffer_,
-                                 0,
-                                 2000,
-                                 0,
-                                 { true, false, false, false });
-
-        ctrl_serial_buffer_.clear();
+        quic_transport_->Enqueue(
+          conn_ctx.connection_handle, *conn_ctx.ctrl_data_ctx_id, data, 0, 2000, 0, { true, false, false, false });
     }
 
     void Transport::SendClientSetup()
@@ -179,11 +168,13 @@ namespace quicr {
         client_setup.endpoint_id_parameter.value.assign(client_config_.endpoint_id.begin(),
                                                         client_config_.endpoint_id.end());
 
-        ctrl_serial_buffer_ << client_setup;
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqClientSetup));
+        buffer << client_setup;
 
         auto& conn_ctx = connections_.begin()->second;
 
-        SendCtrlMsg(conn_ctx);
+        SendCtrlMsg(conn_ctx, buffer);
     }
 
     void Transport::SendServerSetup(ConnectionContext& conn_ctx)
@@ -197,11 +188,13 @@ namespace quicr {
         server_setup.endpoint_id_parameter.value.assign(server_config_.endpoint_id.begin(),
                                                         server_config_.endpoint_id.end());
 
-        ctrl_serial_buffer_ << server_setup;
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqServerSetup));
+        buffer << server_setup;
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending SERVER_SETUP to conn_id: {0}", conn_ctx.connection_handle);
 
-        SendCtrlMsg(conn_ctx);
+        SendCtrlMsg(conn_ctx, buffer);
     }
 
     void Transport::SendAnnounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
@@ -210,11 +203,14 @@ namespace quicr {
 
         announce.track_namespace.assign(track_namespace.begin(), track_namespace.end());
         announce.params = {};
-        ctrl_serial_buffer_ << announce;
+
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqAnnounce) + track_namespace.size());
+        buffer << announce;
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending ANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
 
-        SendCtrlMsg(conn_ctx);
+        SendCtrlMsg(conn_ctx, buffer);
     }
 
     void Transport::SendAnnounceOk(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
@@ -222,11 +218,14 @@ namespace quicr {
         auto announce_ok = MoqAnnounceOk{};
 
         announce_ok.track_namespace.assign(track_namespace.begin(), track_namespace.end());
-        ctrl_serial_buffer_ << announce_ok;
+
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqAnnounceOk) + track_namespace.size());
+        buffer << announce_ok;
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending ANNOUNCE OK to conn_id: {0}", conn_ctx.connection_handle);
 
-        SendCtrlMsg(conn_ctx);
+        SendCtrlMsg(conn_ctx, buffer);
     }
 
     void Transport::SendUnannounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
@@ -234,11 +233,14 @@ namespace quicr {
         auto unannounce = MoqUnannounce{};
 
         unannounce.track_namespace.assign(track_namespace.begin(), track_namespace.end());
-        ctrl_serial_buffer_ << unannounce;
+
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqUnannounce) + track_namespace.size());
+        buffer << unannounce;
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending UNANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
 
-        SendCtrlMsg(conn_ctx);
+        SendCtrlMsg(conn_ctx, buffer);
     }
 
     void Transport::SendSubscribe(ConnectionContext& conn_ctx,
@@ -255,7 +257,9 @@ namespace quicr {
         subscribe.filter_type = FilterType::LatestGroup;
         subscribe.num_params = 0;
 
-        ctrl_serial_buffer_ << subscribe;
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqSubscribe));
+        buffer << subscribe;
 
         SPDLOG_LOGGER_DEBUG(
           logger_,
@@ -265,7 +269,7 @@ namespace quicr {
           th.track_namespace_hash,
           th.track_name_hash);
 
-        SendCtrlMsg(conn_ctx);
+        SendCtrlMsg(conn_ctx, buffer);
     }
 
     void Transport::SendSubscribeOk(ConnectionContext& conn_ctx,
@@ -278,12 +282,15 @@ namespace quicr {
         subscribe_ok.subscribe_id = subscribe_id;
         subscribe_ok.expires = expires;
         subscribe_ok.content_exists = content_exists;
-        ctrl_serial_buffer_ << subscribe_ok;
+
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqSubscribeOk));
+        buffer << subscribe_ok;
 
         SPDLOG_LOGGER_DEBUG(
           logger_, "Sending SUBSCRIBE OK to conn_id: {0} subscribe_id: {1}", conn_ctx.connection_handle, subscribe_id);
 
-        SendCtrlMsg(conn_ctx);
+        SendCtrlMsg(conn_ctx, buffer);
     }
 
     void Transport::SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason)
@@ -293,14 +300,17 @@ namespace quicr {
         subscribe_done.subscribe_id = subscribe_id;
         subscribe_done.reason_phrase.assign(reason.begin(), reason.end());
         subscribe_done.content_exists = false;
-        ctrl_serial_buffer_ << subscribe_done;
+
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqSubscribeDone));
+        buffer << subscribe_done;
 
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending SUBSCRIBE DONE to conn_id: {0} subscribe_id: {1}",
                             conn_ctx.connection_handle,
                             subscribe_id);
 
-        SendCtrlMsg(conn_ctx);
+        SendCtrlMsg(conn_ctx, buffer);
     }
 
     void Transport::SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id)
@@ -308,12 +318,15 @@ namespace quicr {
 
         auto unsubscribe = MoqUnsubscribe{};
         unsubscribe.subscribe_id = subscribe_id;
-        ctrl_serial_buffer_ << unsubscribe;
+
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqUnsubscribe));
+        buffer << unsubscribe;
 
         SPDLOG_LOGGER_DEBUG(
           logger_, "Sending UNSUBSCRIBE to conn_id: {0} subscribe_id: {1}", conn_ctx.connection_handle, subscribe_id);
 
-        SendCtrlMsg(conn_ctx);
+        SendCtrlMsg(conn_ctx, buffer);
     }
 
     void Transport::SendSubscribeError(ConnectionContext& conn_ctx,
@@ -329,7 +342,9 @@ namespace quicr {
         subscribe_err.track_alias = track_alias;
         subscribe_err.reason_phrase.assign(reason.begin(), reason.end());
 
-        ctrl_serial_buffer_ << subscribe_err;
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqSubscribeError));
+        buffer << subscribe_err;
 
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending SUBSCRIBE ERROR to conn_id: {0} subscribe_id: {1} error code: {2} reason: {3}",
@@ -338,7 +353,7 @@ namespace quicr {
                             static_cast<int>(error),
                             reason);
 
-        SendCtrlMsg(conn_ctx);
+        SendCtrlMsg(conn_ctx, buffer);
     }
 
     void Transport::SubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
@@ -543,6 +558,9 @@ namespace quicr {
 
         ITransport::EnqueueFlags eflags;
 
+        Bytes buffer;
+        buffer.reserve(data.size());
+
         switch (track_handler.default_track_mode_) {
             case TrackMode::kDatagram: {
                 MoqObjectDatagram object;
@@ -553,7 +571,7 @@ namespace quicr {
                 object.track_alias = *track_handler.GetTrackAlias();
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
-                serial_buffer_ << object;
+                buffer << object;
                 break;
             }
             case TrackMode::kStreamPerObject: {
@@ -568,7 +586,7 @@ namespace quicr {
                 object.track_alias = *track_handler.GetTrackAlias();
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
-                serial_buffer_ << object;
+                buffer << object;
 
                 break;
             }
@@ -586,14 +604,14 @@ namespace quicr {
                     group_hdr.priority = priority;
                     group_hdr.subscribe_id = *track_handler.GetSubscribeId();
                     group_hdr.track_alias = *track_handler.GetTrackAlias();
-                    serial_buffer_ << group_hdr;
+                    buffer << group_hdr;
                 }
 
                 MoqStreamGroupObject object;
                 object.object_id = object_id;
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
-                serial_buffer_ << object;
+                buffer << object;
 
                 break;
             }
@@ -607,7 +625,7 @@ namespace quicr {
                     track_hdr.priority = priority;
                     track_hdr.subscribe_id = *track_handler.GetSubscribeId();
                     track_hdr.track_alias = *track_handler.GetTrackAlias();
-                    serial_buffer_ << track_hdr;
+                    buffer << track_hdr;
                 }
 
                 MoqStreamTrackObject object;
@@ -615,21 +633,14 @@ namespace quicr {
                 object.object_id = object_id;
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
-                serial_buffer_ << object;
+                buffer << object;
 
                 break;
             }
         }
 
-        quic_transport_->Enqueue(track_handler.connection_handle_,
-                                 track_handler.publish_data_ctx_id_,
-                                 serial_buffer_,
-                                 priority,
-                                 ttl,
-                                 0,
-                                 eflags);
-
-        serial_buffer_.clear();
+        quic_transport_->Enqueue(
+          track_handler.connection_handle_, track_handler.publish_data_ctx_id_, buffer, priority, ttl, 0, eflags);
 
         return PublishTrackHandler::PublishObjectStatus::kOk;
     }
