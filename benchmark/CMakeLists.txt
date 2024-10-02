@@ -20,6 +20,7 @@ add_executable(quicr_benchmark
     stream_buffer.cpp
     time_queue.cpp
     uintvar.cpp
+    messages.cpp
 )
 
 target_link_libraries(quicr_benchmark PRIVATE quicr benchmark::benchmark_main)
