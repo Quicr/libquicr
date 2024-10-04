@@ -32,47 +32,53 @@ if(BUILD_TESTING AND QUICR_BUILD_TESTS AND NOT TARGET doctest)
     add_subdirectory(doctest)
 endif()
 
-if (NOT PLATFORM_ESP_IDF)
+# if (NOT PLATFORM_ESP_IDF)
     set(BUILD_SHARED_LIBS OFF)
     set(BUILD_STATIC_LIBS ON)
 
     # mbedtls
     if (${USE_MBEDTLS})
         message("Transport building with MBedTLS")
-        # Setup python environment for mbedtls to find.
-        find_package(Python3 REQUIRED)
-        execute_process(
-                COMMAND
-                ${Python3_EXECUTABLE} -m venv ${CMAKE_CURRENT_BINARY_DIR}/venv
-                RESULT_VARIABLE
-                MBEDTLS_VIRTUALENV
-        )
-        if (MBEDTLS_VIRTUALENV)
-            message(FATAL_ERROR "Failed to create mbedtls virtual envrionment")
-        endif (MBEDTLS_VIRTUALENV)
 
-        # Override python lookup to use virtualenv when mbedtls later searches for it.
-        set(Python3_EXECUTABLE ${CMAKE_CURRENT_BINARY_DIR}/venv/bin/python)
+        if (NOT TARGET mbedcrypto)
+            # Setup python environment for mbedtls to find.
+            find_package(Python3 REQUIRED)
+            execute_process(
+                    COMMAND
+                    ${Python3_EXECUTABLE} -m venv ${CMAKE_CURRENT_BINARY_DIR}/venv
+                    RESULT_VARIABLE
+                    MBEDTLS_VIRTUALENV
+            )
+            if (MBEDTLS_VIRTUALENV)
+                message(FATAL_ERROR "Failed to create mbedtls virtual envrionment")
+            endif (MBEDTLS_VIRTUALENV)
 
-        # Install mbedtls dependencies into virtualenv.
-        execute_process(
-                COMMAND
-                ${Python3_EXECUTABLE} -m pip install -r ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/scripts/basic.requirements.txt
-                RESULT_VARIABLE
-                MBEDTLS_PIP
-        )
-        if (MBEDTLS_PIP)
-            message(FATAL_ERROR "Failed to install mbedtls dependencies")
-        endif (MBEDTLS_PIP)
+            # Override python lookup to use virtualenv when mbedtls later searches for it.
+            set(Python3_EXECUTABLE ${CMAKE_CURRENT_BINARY_DIR}/venv/bin/python)
 
-        # Continue with mbedtls inclusion.
-        option(ENABLE_TESTING OFF)
-        option(ENABLE_PROGRAMS OFF)
-        set(MBEDTLS_AS_SUBPROJECT ON)
-        add_subdirectory(mbedtls)
+            # Install mbedtls dependencies into virtualenv.
+            execute_process(
+                    COMMAND
+                    ${Python3_EXECUTABLE} -m pip install -r ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/scripts/basic.requirements.txt
+                    RESULT_VARIABLE
+                    MBEDTLS_PIP
+            )
+            if (MBEDTLS_PIP)
+                message(FATAL_ERROR "Failed to install mbedtls dependencies")
+            endif (MBEDTLS_PIP)
 
-        set(MBEDTLS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls)
-        set(MBEDTLS_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/include)
+            # Continue with mbedtls inclusion.
+            option(ENABLE_TESTING OFF)
+            option(ENABLE_PROGRAMS OFF)
+            set(MBEDTLS_AS_SUBPROJECT ON)
+            add_subdirectory(mbedtls)
+
+            set(MBEDTLS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls)
+            set(MBEDTLS_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/include)
+        elseif(PLATFORM_ESP_IDF)
+            set(MBEDTLS_ROOT_DIR ${IDF_PATH}/components/mbedtls/mbedtls)
+            set(MBEDTLS_INCLUDE_DIRS ${IDF_PATH}/components/mbedtls/mbedtls ${IDF_PATH}/components/mbedtls/mbedtls/include ${IDF_PATH}/components/mbedtls/port/include)
+        endif()
         set(MBEDTLS_LIBRARIES mbedtls mbedcrypto mbedx509)
         set(MBEDTLS_LIBRARY mbedtls)
         set(MBEDTLS_CRYPTO mbedcrypto)
@@ -98,6 +104,8 @@ if (NOT PLATFORM_ESP_IDF)
         set(PICOQUIC_PTLS_SUBMODULE ON)
         option(WITH_OPENSSL OFF)
         set(picoquic_BUILD_TESTS OFF)
+        set(PICOQUIC_ADDITIONAL_C_FLAGS -Wno-error=format)
+        set(PICOQUIC_ADDITIONAL_CXX_FLAGS -Wno-error=format)
         add_subdirectory(picoquic)
         add_dependencies(picoquic-core mbedtls)
     else ()
@@ -118,4 +126,4 @@ if (NOT PLATFORM_ESP_IDF)
         add_dependencies(picoquic-core picotls-core)
 
     endif ()
-endif ()
+# endif ()
