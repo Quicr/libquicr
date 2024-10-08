@@ -1446,20 +1446,6 @@ PicoQuicTransport::CheckConnsForCongestion()
         // Is CWIN congested?
         if (cwin_congested_count > 5 || (path_quality.cwin < kPqCcLowCwin && path_quality.bytes_in_transit)) {
 
-            /* TODO(tievens): comem back to this later. Right now it's too loud
-            logger->info << "CC: CWIN congested (fyi only)"
-                         << " conn_id: " << conn_id
-                         << " cwin_congested_count: " << cwin_congested_count
-                         << " rate Kbps: " << path_quality.pacing_rate * 8 / 1000
-                         << " cwin_bytes: " << path_quality.cwin
-                         << " rtt_us: " << path_quality.rtt
-                         << " rtt_max: " << path_quality.rtt_max
-                         << " rtt_sample: " << path_quality.rtt_sample
-                         << " lost_pkts: " << path_quality.lost
-                         << " bytes_in_transit: " << path_quality.bytes_in_transit
-                         << " recv_rate_Kbps: " << path_quality.receive_rate_estimate * 8 / 1000
-                         << std::flush;
-            */
             // congested_count++; /* TODO(tievens): DO NOT react to this right now, causing issue with low latency wired
             // networks */
         }
@@ -1478,13 +1464,6 @@ PicoQuicTransport::CheckConnsForCongestion()
             // Don't include control stream in delayed callbacks check. Control stream should be priority 0 or 1
             if (data_ctx.priority >= 2 &&
                 data_ctx.metrics.tx_delayed_callback - data_ctx.metrics.prev_tx_delayed_callback > 1) {
-                SPDLOG_LOGGER_WARN(logger,
-                                   "CC: Stream congested, callback count greater than 1 conn_id: {0} data_ctx_id: {1} "
-                                   "tx_data_queue: {2} congested_callbacks: {3}",
-                                   data_ctx.conn_id,
-                                   data_ctx.data_ctx_id,
-                                   data_ctx.tx_data->Size(),
-                                   data_ctx.metrics.tx_delayed_callback - data_ctx.metrics.prev_tx_delayed_callback);
                 congested_count++;
             }
             data_ctx.metrics.prev_tx_delayed_callback = data_ctx.metrics.tx_delayed_callback;
@@ -1493,12 +1472,6 @@ PicoQuicTransport::CheckConnsForCongestion()
 
             // TODO(tievens): size of TX is based on rate; adjust based on burst rates
             if (data_ctx.tx_data->Size() >= 50) {
-                SPDLOG_LOGGER_WARN(
-                  logger,
-                  "CC: Stream congested, queue backlog conn_id: {0} data_ctx_id: {1} tx_data_queue: {2}",
-                  data_ctx.conn_id,
-                  data_ctx.data_ctx_id,
-                  data_ctx.tx_data->Size());
                 congested_count++;
             }
 
@@ -1782,12 +1755,6 @@ PicoQuicTransport::CreateStream(ConnectionContext& conn_ctx, DataContext* data_c
 
     data_ctx->current_stream_id = conn_ctx.last_stream_id;
 
-    /*
-     * Low order bit set indicates FIFO handling of same priorities, unset is round-robin
-     */
-    picoquic_set_stream_priority(conn_ctx.pq_cnx, *data_ctx->current_stream_id, (data_ctx->priority << 1));
-    picoquic_mark_active_stream(conn_ctx.pq_cnx, *data_ctx->current_stream_id, 1, data_ctx);
-
     data_ctx->mark_stream_active = true;
 
     picoquic_runner_queue_.Push([this, conn_id = conn_ctx.conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
@@ -1858,6 +1825,8 @@ PicoQuicTransport::MarkStreamActive(const TransportConnId conn_id, const DataCon
         return;
     }
 
+    picoquic_set_stream_priority(
+      conn_it->second.pq_cnx, *data_ctx_it->second.current_stream_id, (data_ctx_it->second.priority << 1));
     picoquic_mark_active_stream(
       conn_it->second.pq_cnx, *data_ctx_it->second.current_stream_id, 1, &data_ctx_it->second);
 }

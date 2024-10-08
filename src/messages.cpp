@@ -779,7 +779,7 @@ namespace quicr::messages {
 
             msg.err_code = *val;
         }
-        while (!msg.reason_phrase > 0) {
+        while (!msg.reason_phrase.has_value()) {
             auto reason = buffer.DecodeBytes();
             if (!reason) {
                 return false;
