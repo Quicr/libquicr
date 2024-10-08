@@ -40,7 +40,7 @@ endif()
     if (${USE_MBEDTLS})
         message("Transport building with MBedTLS")
 
-        if (NOT TARGET mbedcrypto)
+        if (NOT TARGET mbedcrypto) # If not already available on build server
             # Setup python environment for mbedtls to find.
             find_package(Python3 REQUIRED)
             execute_process(
@@ -75,10 +75,12 @@ endif()
 
             set(MBEDTLS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls)
             set(MBEDTLS_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/include)
+
         elseif(PLATFORM_ESP_IDF)
             set(MBEDTLS_ROOT_DIR ${IDF_PATH}/components/mbedtls/mbedtls)
             set(MBEDTLS_INCLUDE_DIRS ${IDF_PATH}/components/mbedtls/mbedtls ${IDF_PATH}/components/mbedtls/mbedtls/include ${IDF_PATH}/components/mbedtls/port/include)
         endif()
+
         set(MBEDTLS_LIBRARIES mbedtls mbedcrypto mbedx509)
         set(MBEDTLS_LIBRARY mbedtls)
         set(MBEDTLS_CRYPTO mbedcrypto)
@@ -96,7 +98,7 @@ endif()
 
         # picoQUIC
         # Picoquic uses its own find mbedtls, which works with a prefix and will not work if mbedtls include dirs is set
-        unset(MBEDTLS_INCLUDE_DIRS)
+        #unset(MBEDTLS_INCLUDE_DIRS)
         set(MBEDTLS_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls)
         option(WITH_MBEDTLS ON)
 
