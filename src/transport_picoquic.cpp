@@ -1782,12 +1782,6 @@ PicoQuicTransport::CreateStream(ConnectionContext& conn_ctx, DataContext* data_c
 
     data_ctx->current_stream_id = conn_ctx.last_stream_id;
 
-    /*
-     * Low order bit set indicates FIFO handling of same priorities, unset is round-robin
-     */
-    picoquic_set_stream_priority(conn_ctx.pq_cnx, *data_ctx->current_stream_id, (data_ctx->priority << 1));
-    picoquic_mark_active_stream(conn_ctx.pq_cnx, *data_ctx->current_stream_id, 1, data_ctx);
-
     data_ctx->mark_stream_active = true;
 
     picoquic_runner_queue_.Push([this, conn_id = conn_ctx.conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
@@ -1858,6 +1852,8 @@ PicoQuicTransport::MarkStreamActive(const TransportConnId conn_id, const DataCon
         return;
     }
 
+    picoquic_set_stream_priority(
+      conn_it->second.pq_cnx, *data_ctx_it->second.current_stream_id, (data_ctx_it->second.priority << 1));
     picoquic_mark_active_stream(
       conn_it->second.pq_cnx, *data_ctx_it->second.current_stream_id, 1, &data_ctx_it->second);
 }
