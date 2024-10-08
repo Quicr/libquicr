@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 # SPDX-License-Identifier: BSD-2-Clause
 
-find_path(MBEDTLS_INCLUDE_DIRS mbedtls/ssl.h)
+find_path(MBEDTLS_INCLUDE_DIRS mbedtls/ssl.h mbedtls/esp_config.h)
 
 find_library(MBEDTLS_LIBRARY mbedtls)
 find_library(MBEDX509_LIBRARY mbedx509)
