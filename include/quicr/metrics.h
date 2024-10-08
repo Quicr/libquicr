@@ -45,8 +45,8 @@ namespace quicr {
         struct Quic
         {
             uint64_t tx_buffer_drops{ 0 };   ///< count of write buffer drops of data due to RESET request
-            uint64_t tx_queue_discards{ 0 }; ///< count of objects discarded due to TTL expiry or clear
-            uint64_t tx_queue_expired{ 0 };  ///< count of objects expired before pop/front
+            uint64_t tx_queue_discards{ 0 }; ///< count of objects discarded due clear and transition to new stream
+            uint64_t tx_queue_expired{ 0 };  ///< count of objects expired before pop/front due to TTL expiry
 
             uint64_t tx_delayed_callback{ 0 }; ///< count of times transmit callbacks were delayed
             uint64_t tx_reset_wait{ 0 };       ///< count of times data context performed a reset and wait
