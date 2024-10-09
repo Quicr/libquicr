@@ -122,7 +122,7 @@ namespace quicr {
                 if (!tqueue || tqueue->Empty())
                     continue;
 
-                return std::move(tqueue->Front());
+                return tqueue->Front();
             }
 
             return {};
@@ -141,7 +141,7 @@ namespace quicr {
                 if (!tqueue || tqueue->Empty())
                     continue;
 
-                return std::move(tqueue->PopFront());
+                return tqueue->PopFront();
             }
 
             return {};

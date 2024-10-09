@@ -198,7 +198,7 @@ namespace quicr {
          */
         [[nodiscard]] TimeQueueElement<T> PopFront()
         {
-            auto obj = std::move(Front());
+            auto obj = Front();
             if (obj.has_value) {
                 Pop();
             }

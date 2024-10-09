@@ -931,7 +931,7 @@ PicoQuicTransport::CreateDataContextBiDirRecv(TransportConnId conn_id, uint64_t 
         data_ctx_it->second.current_stream_id = stream_id;
 
 #if __cplusplus >= 202002L
-        _cbNotifyQueue.push([=, data_ctx_id = data_ctx_it->second.data_ctx_id, this]() {
+        cbNotifyQueue_.Push([=, data_ctx_id = data_ctx_it->second.data_ctx_id, this]() {
 #else
         cbNotifyQueue_.Push([=, data_ctx_id = data_ctx_it->second.data_ctx_id]() {
 #endif
@@ -1253,7 +1253,7 @@ PicoQuicTransport::OnConnectionStatus(const TransportConnId conn_id, const Trans
     }
 
 #if __cplusplus >= 202002L
-    _cbNotifyQueue.push([=, this]() { _delegate.on_connection_status(conn_id, status); });
+    cbNotifyQueue_.Push([=, this]() { delegate_.OnConnectionStatus(conn_id, status); });
 #else
     cbNotifyQueue_.Push([=]() { delegate_.OnConnectionStatus(conn_id, status); });
 #endif
@@ -1286,7 +1286,7 @@ PicoQuicTransport::OnNewConnection(const TransportConnId conn_id)
     }
 
 #if __cplusplus >= 202002L
-    _cbNotifyQueue.push([=, this]() { _delegate.on_new_connection(conn_id, remote); });
+    cbNotifyQueue_.Push([=, this]() { delegate_.OnNewConnection(conn_id, remote); });
 #else
     cbNotifyQueue_.Push([=]() { delegate_.OnNewConnection(conn_id, remote); });
 #endif
@@ -1315,7 +1315,7 @@ PicoQuicTransport::OnRecvDatagram(ConnectionContext* conn_ctx, uint8_t* bytes, s
     }
 
 #if __cplusplus >= 202002L
-    if (conn_ctx->dgram_rx_data.size() < 10 && !_cbNotifyQueue.push([=, this]() {
+    if (conn_ctx->dgram_rx_data.Size() < 10 && !cbNotifyQueue_.Push([=, this]() {
 #else
     if (conn_ctx->dgram_rx_data.Size() < 10 && !cbNotifyQueue_.Push([=]() {
 #endif
@@ -1346,7 +1346,7 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
         data_ctx->metrics.rx_stream_bytes += bytes.size();
 
 #if __cplusplus >= 202002L
-        if (!_cbNotifyQueue.push([=, this]() {
+        if (!cbNotifyQueue_.Push([=, this]() {
 #else
         if (!cbNotifyQueue_.Push([=]() {
 #endif
@@ -1359,7 +1359,7 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
 
     } else {
 #if __cplusplus >= 202002L
-        if (!_cbNotifyQueue.push([=, this]() {
+        if (!cbNotifyQueue_.Push([=, this]() {
 #else
         if (!cbNotifyQueue_.Push([=]() {
 #endif
