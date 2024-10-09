@@ -94,7 +94,22 @@ namespace quicr {
         spdlog::drop(logger_->name());
     }
 
-    void Transport::Init() {}
+    void Transport::Init()
+    {
+        if (client_mode_) {
+            // client init items
+
+            if (client_config_.transport_config.debug) {
+                logger_->set_level(spdlog::level::debug);
+            }
+        } else {
+            // Server init items
+
+            if (server_config_.transport_config.debug) {
+                logger_->set_level(spdlog::level::debug);
+            }
+        }
+    }
 
     Transport::Status Transport::Start()
     {
