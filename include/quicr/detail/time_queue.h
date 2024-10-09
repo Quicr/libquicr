@@ -23,8 +23,8 @@
 #include <atomic>
 #include <chrono>
 #include <memory>
-#include <vector>
 #include <stdexcept>
+#include <vector>
 
 #include "tick_service.h"
 
