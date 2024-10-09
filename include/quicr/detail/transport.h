@@ -238,7 +238,7 @@ namespace quicr {
 
         void Init();
 
-        PublishTrackHandler::PublishObjectStatus SendObject(const PublishTrackHandler& track_handler,
+        PublishTrackHandler::PublishObjectStatus SendObject(PublishTrackHandler& track_handler,
                                                             uint8_t priority,
                                                             uint32_t ttl,
                                                             bool stream_header_needed,

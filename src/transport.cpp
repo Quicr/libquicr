@@ -94,7 +94,22 @@ namespace quicr {
         spdlog::drop(logger_->name());
     }
 
-    void Transport::Init() {}
+    void Transport::Init()
+    {
+        if (client_mode_) {
+            // client init items
+
+            if (client_config_.transport_config.debug) {
+                logger_->set_level(spdlog::level::debug);
+            }
+        } else {
+            // Server init items
+
+            if (server_config_.transport_config.debug) {
+                logger_->set_level(spdlog::level::debug);
+            }
+        }
+    }
 
     Transport::Status Transport::Start()
     {
@@ -550,7 +565,7 @@ namespace quicr {
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
     }
 
-    PublishTrackHandler::PublishObjectStatus Transport::SendObject(const PublishTrackHandler& track_handler,
+    PublishTrackHandler::PublishObjectStatus Transport::SendObject(PublishTrackHandler& track_handler,
                                                                    uint8_t priority,
                                                                    uint32_t ttl,
                                                                    bool stream_header_needed,
@@ -569,8 +584,7 @@ namespace quicr {
 
         ITransport::EnqueueFlags eflags;
 
-        Bytes buffer;
-        buffer.reserve(data.size());
+        track_handler.object_msg_buffer_.clear();
 
         switch (track_handler.default_track_mode_) {
             case TrackMode::kDatagram: {
@@ -582,7 +596,7 @@ namespace quicr {
                 object.track_alias = *track_handler.GetTrackAlias();
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
-                buffer << object;
+                track_handler.object_msg_buffer_ << object;
                 break;
             }
             case TrackMode::kStreamPerObject: {
@@ -597,7 +611,7 @@ namespace quicr {
                 object.track_alias = *track_handler.GetTrackAlias();
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
-                buffer << object;
+                track_handler.object_msg_buffer_ << object;
 
                 break;
             }
@@ -615,14 +629,14 @@ namespace quicr {
                     group_hdr.priority = priority;
                     group_hdr.subscribe_id = *track_handler.GetSubscribeId();
                     group_hdr.track_alias = *track_handler.GetTrackAlias();
-                    buffer << group_hdr;
+                    track_handler.object_msg_buffer_ << group_hdr;
                 }
 
                 MoqStreamGroupObject object;
                 object.object_id = object_id;
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
-                buffer << object;
+                track_handler.object_msg_buffer_ << object;
 
                 break;
             }
@@ -636,7 +650,7 @@ namespace quicr {
                     track_hdr.priority = priority;
                     track_hdr.subscribe_id = *track_handler.GetSubscribeId();
                     track_hdr.track_alias = *track_handler.GetTrackAlias();
-                    buffer << track_hdr;
+                    track_handler.object_msg_buffer_ << track_hdr;
                 }
 
                 MoqStreamTrackObject object;
@@ -644,14 +658,19 @@ namespace quicr {
                 object.object_id = object_id;
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
-                buffer << object;
+                track_handler.object_msg_buffer_ << object;
 
                 break;
             }
         }
 
-        quic_transport_->Enqueue(
-          track_handler.connection_handle_, track_handler.publish_data_ctx_id_, buffer, priority, ttl, 0, eflags);
+        quic_transport_->Enqueue(track_handler.connection_handle_,
+                                 track_handler.publish_data_ctx_id_,
+                                 track_handler.object_msg_buffer_,
+                                 priority,
+                                 ttl,
+                                 0,
+                                 eflags);
 
         return PublishTrackHandler::PublishObjectStatus::kOk;
     }

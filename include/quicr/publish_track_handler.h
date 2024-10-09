@@ -296,6 +296,8 @@ namespace quicr {
         uint64_t object_payload_remaining_length_{ 0 };
         bool sent_track_header_{ false }; // Used only in stream per track mode
 
+        Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
+
         friend class Transport;
         friend class Client;
         friend class Server;
