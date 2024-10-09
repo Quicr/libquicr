@@ -20,16 +20,11 @@
 
 #pragma once
 
-#include <algorithm>
-#include <array>
 #include <atomic>
 #include <chrono>
 #include <memory>
-#include <mutex>
-#include <sys/select.h>
-#include <thread>
-#include <type_traits>
 #include <vector>
+#include <stdexcept>
 
 #include "tick_service.h"
 
@@ -198,7 +193,7 @@ namespace quicr {
          */
         [[nodiscard]] TimeQueueElement<T> PopFront()
         {
-            auto obj = std::move(Front());
+            auto obj = Front();
             if (obj.has_value) {
                 Pop();
             }
