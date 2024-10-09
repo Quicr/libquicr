@@ -21,8 +21,11 @@
 #include <optional>
 #include <queue>
 #include <string>
-#include <sys/socket.h>
 #include <vector>
+#include <cstdlib>
+
+#include <sys/socket.h>
+
 
 namespace quicr {
 
