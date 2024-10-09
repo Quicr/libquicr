@@ -952,7 +952,7 @@ PicoQuicTransport::CreateDataContextBiDirRecv(TransportConnId conn_id, uint64_t 
         data_ctx_it->second.current_stream_id = stream_id;
 
 #if __cplusplus >= 202002L
-        cbNotifyQueue_.push([=, data_ctx_id = data_ctx_it->second.data_ctx_id, this]() {
+        cbNotifyQueue_.Push([=, data_ctx_id = data_ctx_it->second.data_ctx_id, this]() {
 #else
         cbNotifyQueue_.Push([=, data_ctx_id = data_ctx_it->second.data_ctx_id]() {
 #endif
@@ -1012,8 +1012,9 @@ PicoQuicTransport::DeleteDataContext(const TransportConnId& conn_id, DataContext
     }
 
     /*
-     * Race conditions exist with picoquic thread callbacks that will cause a problem if the context (pointer context)
-     *    is deleted outside of the picoquic thread. Below schedules the delete to be done within the picoquic thread.
+     * Race conditions exist with picoquic thread callbacks that will cause a problem if the context (pointer
+     * context) is deleted outside of the picoquic thread. Below schedules the delete to be done within the picoquic
+     * thread.
      */
     picoquic_runner_queue_.Push([this, conn_id, data_ctx_id]() { DeleteDataContextInternal(conn_id, data_ctx_id); });
 }
@@ -1290,7 +1291,7 @@ PicoQuicTransport::OnConnectionStatus(const TransportConnId conn_id, const Trans
     }
 
 #if __cplusplus >= 202002L
-    _cbNotifyQueue.push([=, this]() { _delegate.on_connection_status(conn_id, status); });
+    cbNotifyQueue_.Push([=, this]() { delegate_.OnConnectionStatus(conn_id, status); });
 #else
     cbNotifyQueue_.Push([=]() { delegate_.OnConnectionStatus(conn_id, status); });
 #endif
@@ -1323,7 +1324,7 @@ PicoQuicTransport::OnNewConnection(const TransportConnId conn_id)
     }
 
 #if __cplusplus >= 202002L
-    _cbNotifyQueue.push([=, this]() { _delegate.on_new_connection(conn_id, remote); });
+    cbNotifyQueue_.Push([=, this]() { delegate_.OnNewConnection(conn_id, remote); });
 #else
     cbNotifyQueue_.Push([=]() { delegate_.OnNewConnection(conn_id, remote); });
 #endif
@@ -1402,7 +1403,7 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
         data_ctx->metrics.rx_stream_bytes += bytes.size();
 
 #if __cplusplus >= 202002L
-        if (!_cbNotifyQueue.push([=, this]() {
+        if (!cbNotifyQueue_.Push([=, this]() {
 #else
         if (!cbNotifyQueue_.Push([=]() {
 #endif
@@ -1415,7 +1416,7 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
 
     } else {
 #if __cplusplus >= 202002L
-        if (!_cbNotifyQueue.push([=, this]() {
+        if (!cbNotifyQueue_.Push([=, this]() {
 #else
         if (!cbNotifyQueue_.Push([=]() {
 #endif
@@ -1502,8 +1503,8 @@ PicoQuicTransport::CheckConnsForCongestion()
         // Is CWIN congested?
         if (cwin_congested_count > 5 || (path_quality.cwin < kPqCcLowCwin && path_quality.bytes_in_transit)) {
 
-            // congested_count++; /* TODO(tievens): DO NOT react to this right now, causing issue with low latency wired
-            // networks */
+            // congested_count++; /* TODO(tievens): DO NOT react to this right now, causing issue with low latency
+            // wired networks */
         }
         conn_ctx.metrics.prev_cwin_congested = conn_ctx.metrics.cwin_congested;
 
