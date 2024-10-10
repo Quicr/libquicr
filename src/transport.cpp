@@ -3,8 +3,6 @@
 
 #include "quicr/detail/transport.h"
 
-#include "../dependencies/boringssl/tool/transport_common.h"
-
 #include <sstream>
 
 namespace quicr {
