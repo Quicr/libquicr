@@ -1193,6 +1193,10 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
             } else {
                 data_len = obj.value.data.size();
                 data_ctx->stream_tx_object_offset = 0;
+
+                if (!data_ctx->tx_data->Empty()) {
+                    is_still_active = 1;
+                }
             }
 
         } else {
