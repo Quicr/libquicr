@@ -920,9 +920,10 @@ namespace quicr {
                       {
                         msg.group_id,
                         msg.object_id,
+                        msg.subscribe_id,
                         msg.payload.size(),
                         msg.priority,
-                        std::nullopt,
+                        msg.priority,
                         TrackMode::kDatagram,
                         msg.extensions,
                       },
@@ -1090,6 +1091,7 @@ namespace quicr {
                 handler->subscribe_track_metrics_.bytes_received += msg.payload.size();
                 handler->ObjectReceived({ msg.group_id,
                                           msg.object_id,
+                                          msg.subscribe_id,
                                           msg.payload.size(),
                                           msg.priority,
                                           std::nullopt,
@@ -1140,6 +1142,7 @@ namespace quicr {
                     handler->subscribe_track_metrics_.bytes_received += obj.payload.size();
                     handler->ObjectReceived({ obj.group_id,
                                               obj.object_id,
+                                              msg.subscribe_id,
                                               obj.payload.size(),
                                               msg.priority,
                                               std::nullopt,
@@ -1195,6 +1198,7 @@ namespace quicr {
                     handler->subscribe_track_metrics_.bytes_received += obj.payload.size();
                     handler->ObjectReceived({ msg.group_id,
                                               obj.object_id,
+                                              msg.subscribe_id,
                                               obj.payload.size(),
                                               msg.priority,
                                               std::nullopt,

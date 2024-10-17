@@ -33,7 +33,9 @@ namespace quicr {
      * @details Various attributes relative to the publish announce
      */
     struct PublishAnnounceAttributes
-    {};
+    {
+
+    };
 
     /**
      * @brief Client Setup Attributes
