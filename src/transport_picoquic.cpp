@@ -478,8 +478,8 @@ PicoQuicTransport::Start()
      *    also triggers PMTUD to run. This value will be the initial value.
      */
     picoquic_init_transport_parameters(&local_tp_options_, 1);
-    //local_tp_options_.max_datagram_frame_size = 1280;
-    //  local_tp_options.max_packet_size = 1450;
+    // local_tp_options_.max_datagram_frame_size = 1280;
+    //   local_tp_options.max_packet_size = 1450;
     local_tp_options_.max_idle_timeout = tconfig_.idle_timeout_ms;
     local_tp_options_.max_ack_delay = 100000;
     local_tp_options_.min_ack_delay = 1000;
@@ -683,9 +683,9 @@ PicoQuicTransport::CreateDataContext(const TransportConnId conn_id,
         if (use_reliable_transport) {
             CreateStream(conn_it->second, &data_ctx_it->second);
             SPDLOG_LOGGER_DEBUG(logger,
-                        "Created STREAM data context id: {} pri: {}",
-                        data_ctx_it->second.data_ctx_id,
-                        static_cast<int>(priority));
+                                "Created STREAM data context id: {} pri: {}",
+                                data_ctx_it->second.data_ctx_id,
+                                static_cast<int>(priority));
         } else {
             picoquic_set_datagram_priority(conn_it->second.pq_cnx, priority);
             SPDLOG_LOGGER_DEBUG(logger,
