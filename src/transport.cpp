@@ -923,7 +923,7 @@ namespace quicr {
                         msg.subscribe_id,
                         msg.payload.size(),
                         msg.priority,
-                        msg.priority,
+                        std::nullopt,
                         TrackMode::kDatagram,
                         msg.extensions,
                       },
