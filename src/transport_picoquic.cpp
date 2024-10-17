@@ -478,6 +478,10 @@ PicoQuicTransport::Start()
      *    also triggers PMTUD to run. This value will be the initial value.
      */
     picoquic_init_transport_parameters(&local_tp_options_, 1);
+
+    // TODO(tievens): revisit PMTU/GSO, removing this breaks some networks
+    local_tp_options_.max_datagram_frame_size = 1280;
+
     local_tp_options_.max_idle_timeout = tconfig_.idle_timeout_ms;
     local_tp_options_.max_ack_delay = 100000;
     local_tp_options_.min_ack_delay = 1000;
