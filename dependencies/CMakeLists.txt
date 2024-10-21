@@ -99,7 +99,12 @@ endif()
         # picoQUIC
         # Picoquic uses its own find mbedtls, which works with a prefix and will not work if mbedtls include dirs is set
         #unset(MBEDTLS_INCLUDE_DIRS)
-        set(MBEDTLS_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls)
+        set(MbedTLS_FOUND ON)
+        if (PLATFORM_ESP_IDF)
+            set(MBEDTLS_PREFIX ${IDF_PATH}/components/mbedtls/mbedtls)
+        else()
+            set(MBEDTLS_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls)
+        endif()
         option(WITH_MBEDTLS ON)
 
         set(OPENSSL_INCLUDE_DIR "") # Picoquic will still error if this is not set
@@ -109,7 +114,7 @@ endif()
         set(PICOQUIC_ADDITIONAL_C_FLAGS -Wno-error=format)
         set(PICOQUIC_ADDITIONAL_CXX_FLAGS -Wno-error=format)
         add_subdirectory(picoquic)
-        add_dependencies(picoquic-core mbedtls)
+        add_dependencies(picoquic-core picotls-core mbedtls)
     else ()
         option(WITH_FUSION OFF)
         OPTION(ENABLE_TESTING OFF)
