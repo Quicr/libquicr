@@ -38,8 +38,6 @@ option(USE_MBEDTLS OFF)
 if (NOT PLATFORM_ESP_IDF)
   find_package(Threads REQUIRED)
   find_package(PkgConfig REQUIRED)
-else()
-  set(USE_MBEDTLS ON)
 endif()
 
 ###
