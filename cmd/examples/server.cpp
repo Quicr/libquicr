@@ -102,6 +102,12 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 
     void ObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data) override
     {
+        if (data.size() > 255) {
+            SPDLOG_CRITICAL("Example server is for example only, received data > 255 bytes is not allowed!");
+            SPDLOG_CRITICAL("Use github.com/quicr/laps for full relay functionality");
+            throw std::runtime_error("Example server is for example only, received data > 255 bytes is not allowed!");
+        }
+
         std::lock_guard<std::mutex> _(qserver_vars::state_mutex);
 
         auto track_alias = GetTrackAlias();

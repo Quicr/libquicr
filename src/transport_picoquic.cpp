@@ -261,7 +261,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
             SPDLOG_LOGGER_INFO(transport->logger, "Application closed conn_id: {0}", conn_id);
             [[fallthrough]];
         case picoquic_callback_close: {
-            uint64_t app_reason_code = 0;
+            uint64_t app_reason_code = picoquic_get_application_error(pq_cnx);
             std::ostringstream log_msg;
             log_msg << "Closing connection conn_id: " << conn_id << " stream_id: " << stream_id;
 
@@ -727,7 +727,7 @@ PicoQuicTransport::Close(const TransportConnId& conn_id, uint64_t app_reason_cod
             break;
 
         case 100: // Client shutting down connection
-            OnConnectionStatus(conn_id, TransportStatus::kShutdown);
+            OnConnectionStatus(conn_id, TransportStatus::kRemoteRequestClose);
             picoquic_close(conn_it->second.pq_cnx, app_reason_code);
             break;
 

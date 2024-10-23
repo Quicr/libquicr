@@ -717,6 +717,7 @@ namespace quicr {
     {
         SPDLOG_LOGGER_DEBUG(logger_, "Connection status conn_id: {0} status: {1}", conn_id, static_cast<int>(status));
         ConnectionStatus conn_status = ConnectionStatus::kConnected;
+        bool remove_connection = false;
 
         switch (status) {
             case TransportStatus::kReady: {
@@ -749,22 +750,35 @@ namespace quicr {
                 break;
             case TransportStatus::kRemoteRequestClose:
                 conn_status = ConnectionStatus::kClosedByRemote;
-                [[fallthrough]];
+                remove_connection = true;
+                break;
 
             case TransportStatus::kIdleTimeout:
                 conn_status = ConnectionStatus::kIdleTimeout;
-                [[fallthrough]];
+                remove_connection = true;
+                break;
 
             case TransportStatus::kDisconnected: {
                 conn_status = ConnectionStatus::kNotConnected;
+                remove_connection = true;
+                break;
+            }
 
-                // Clean up publish and subscribe tracks
-                auto conn_it = connections_.find(conn_id);
+            case TransportStatus::kShuttingDown:
+                conn_status = ConnectionStatus::kNotConnected;
+                break;
 
-                if (conn_it == connections_.end()) {
-                    break;
-                }
+            case TransportStatus::kShutdown:
+                conn_status = ConnectionStatus::kNotConnected;
+                remove_connection = true;
+                status_ = Status::kNotReady;
+                break;
+        }
 
+        if (remove_connection) {
+            // Clean up publish and subscribe tracks
+            auto conn_it = connections_.find(conn_id);
+            if (conn_it != connections_.end()) {
                 if (client_mode_) {
                     status_ = Status::kNotConnected;
                 }
@@ -773,18 +787,7 @@ namespace quicr {
 
                 std::lock_guard<std::mutex> _(state_mutex_);
                 connections_.erase(conn_it);
-
-                break;
             }
-
-            case TransportStatus::kShuttingDown:
-                conn_status = ConnectionStatus::kNotConnected;
-                [[fallthrough]];
-
-            case TransportStatus::kShutdown:
-                conn_status = ConnectionStatus::kNotConnected;
-                status_ = Status::kNotReady;
-                break;
         }
 
         ConnectionStatusChanged(conn_id, conn_status);
