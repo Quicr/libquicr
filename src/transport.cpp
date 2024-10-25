@@ -270,7 +270,6 @@ namespace quicr {
         subscribe.track_namespace.assign(tfn.name_space.begin(), tfn.name_space.end());
         subscribe.track_name.assign(tfn.name.begin(), tfn.name.end());
         subscribe.filter_type = FilterType::LatestGroup;
-        subscribe.num_params = 0;
 
         Bytes buffer;
         buffer.reserve(sizeof(MoqSubscribe));
@@ -836,6 +835,15 @@ namespace quicr {
 
             // bidir is Control stream, data streams are unidirectional
             if (is_bidir) {
+                auto length = stream_buf->DecodeUintV();
+                if (!length) {
+                    break;
+                }
+
+                if (stream_buf->Size() < *length) {
+                    continue;
+                }
+
                 if (not conn_ctx.ctrl_msg_type_received.has_value()) {
                     auto msg_type = stream_buf->DecodeUintV();
 

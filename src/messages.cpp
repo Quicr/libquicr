@@ -109,17 +109,13 @@ namespace quicr::messages {
             return false;
         }
 
-        if (!ParseUintVField(buffer, param.length)) {
+        auto val = buffer.DecodeBytes();
+        if (!val) {
             return false;
         }
 
-        if (param.length) {
-            auto val = buffer.DecodeBytes();
-            if (!val) {
-                return false;
-            }
-            param.value = std::move(val.value());
-        }
+        param.length = val->size();
+        param.value = std::move(val.value());
 
         return true;
     }
@@ -141,59 +137,30 @@ namespace quicr::messages {
         buffer << UintVar(msg.last_group_id);
         buffer << UintVar(msg.last_object_id);
 
+        UintVar size(buffer.size());
+        buffer.insert(buffer.begin(), size.begin(), size.end());
+
         return buffer;
     }
 
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqTrackStatus& msg)
     {
-        switch (msg.current_pos) {
-            case 0: {
-                if (!ParseBytesField(buffer, msg.track_namespace)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 1: {
-                if (!ParseBytesField(buffer, msg.track_name)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 2: {
-                auto val = buffer.DecodeUintV();
-                if (!val) {
-                    return false;
-                }
-                msg.status_code = static_cast<TrackStatus>(*val);
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 3: {
-                if (!ParseUintVField(buffer, msg.last_group_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-
-                [[fallthrough]];
-            }
-            case 4: {
-                if (!ParseUintVField(buffer, msg.last_object_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-
-                msg.parsing_completed = true;
-
-                [[fallthrough]];
-            }
-            default:
-                break;
+        if (!ParseBytesField(buffer, msg.track_namespace)) {
+            return false;
         }
-
-        if (!msg.parsing_completed) {
+        if (!ParseBytesField(buffer, msg.track_name)) {
+            return false;
+        }
+        auto val = buffer.DecodeUintV();
+        if (!val) {
+            return false;
+        }
+        msg.status_code = static_cast<TrackStatus>(*val);
+        if (!ParseUintVField(buffer, msg.last_group_id)) {
+            return false;
+        }
+        if (!ParseUintVField(buffer, msg.last_object_id)) {
             return false;
         }
 
@@ -211,33 +178,19 @@ namespace quicr::messages {
         buffer << UintVar(msg.track_name.size());
         buffer << msg.track_name;
 
+        UintVar size(buffer.size());
+        buffer.insert(buffer.begin(), size.begin(), size.end());
+
         return buffer;
     }
 
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqTrackStatusRequest& msg)
     {
-        switch (msg.current_pos) {
-            case 0: {
-                if (!ParseBytesField(buffer, msg.track_namespace)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 1: {
-                if (!ParseBytesField(buffer, msg.track_name)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                msg.parsing_completed = true;
-                [[fallthrough]];
-            }
-            default:
-                break;
+        if (!ParseBytesField(buffer, msg.track_namespace)) {
+            return false;
         }
-
-        if (!msg.parsing_completed) {
+        if (!ParseBytesField(buffer, msg.track_name)) {
             return false;
         }
 
@@ -281,10 +234,11 @@ namespace quicr::messages {
 
         buffer << UintVar(msg.track_params.size());
         for (const auto& param : msg.track_params) {
-            buffer << UintVar(static_cast<uint64_t>(param.type));
-            buffer << UintVar(param.value.size());
-            buffer << param.value;
+            buffer << param;
         }
+
+        UintVar size(buffer.size());
+        buffer.insert(buffer.begin(), size.begin(), size.end());
 
         return buffer;
     }
@@ -292,135 +246,55 @@ namespace quicr::messages {
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqSubscribe& msg)
     {
-        switch (msg.current_pos) {
-            case 0: {
-                if (!ParseUintVField(buffer, msg.subscribe_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 1: {
-                if (!ParseUintVField(buffer, msg.track_alias)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 2: {
-                if (!ParseBytesField(buffer, msg.track_namespace)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 3: {
-                if (!ParseBytesField(buffer, msg.track_name)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 4: {
-                auto val = buffer.DecodeUintV();
-                if (!val) {
-                    return false;
-                }
-                auto filter = val.value();
-                msg.filter_type = static_cast<FilterType>(filter);
-                if (msg.filter_type == FilterType::LatestGroup || msg.filter_type == FilterType::LatestObject) {
-                    // we don't get further fields until parameters
-                    msg.current_pos = 9;
-                } else {
-                    msg.current_pos += 1;
-                }
-                [[fallthrough]];
-            }
-            case 5: {
-                if (msg.filter_type == FilterType::AbsoluteStart || msg.filter_type == FilterType::AbsoluteRange) {
-                    if (!ParseUintVField(buffer, msg.start_group)) {
-                        return false;
-                    }
-                    msg.current_pos += 1;
-                }
-                [[fallthrough]];
-            }
-            case 6: {
-                if (msg.filter_type == FilterType::AbsoluteStart || msg.filter_type == FilterType::AbsoluteRange) {
-                    if (!ParseUintVField(buffer, msg.start_object)) {
-                        return false;
-                    }
-
-                    if (msg.filter_type == FilterType::AbsoluteStart) {
-                        msg.current_pos = 9;
-                    } else {
-                        msg.current_pos += 1;
-                    }
-                }
-                [[fallthrough]];
-            }
-            case 7: {
-                if (msg.filter_type == FilterType::AbsoluteRange) {
-                    if (!ParseUintVField(buffer, msg.end_group)) {
-                        return false;
-                    }
-                    msg.current_pos += 1;
-                }
-
-                [[fallthrough]];
-            }
-            case 8: {
-                if (msg.filter_type == FilterType::AbsoluteRange) {
-                    if (!ParseUintVField(buffer, msg.end_object)) {
-                        return false;
-                    }
-                    msg.current_pos += 1;
-                }
-                [[fallthrough]];
-            }
-            case 9: {
-                if (!msg.num_params.has_value()) {
-                    uint64_t num = 0;
-                    if (!ParseUintVField(buffer, num)) {
-                        return false;
-                    }
-
-                    msg.num_params = num;
-                }
-                // parse each param
-                while (*msg.num_params > 0) {
-                    if (!msg.current_param.has_value()) {
-                        uint64_t type{ 0 };
-                        if (!ParseUintVField(buffer, type)) {
-                            return false;
-                        }
-
-                        msg.current_param = MoqParameter{};
-                        msg.current_param->type = type;
-                    }
-
-                    // decode param_len:<bytes>
-                    auto param = buffer.DecodeBytes();
-                    if (!param) {
-                        return false;
-                    }
-                    msg.current_param.value().length = param->size();
-                    msg.current_param.value().value = param.value();
-                    msg.track_params.push_back(msg.current_param.value());
-                    msg.current_param = std::nullopt;
-                    *msg.num_params -= 1;
-                }
-
-                msg.parsing_completed = true;
-                [[fallthrough]];
-            }
-
-            default:
-                break;
+        if (!ParseUintVField(buffer, msg.subscribe_id)) {
+            return false;
+        }
+        if (!ParseUintVField(buffer, msg.track_alias)) {
+            return false;
+        }
+        if (!ParseBytesField(buffer, msg.track_namespace)) {
+            return false;
+        }
+        if (!ParseBytesField(buffer, msg.track_name)) {
+            return false;
         }
 
-        if (!msg.parsing_completed) {
+        auto val = buffer.DecodeUintV();
+        if (!val) {
             return false;
+        }
+        auto filter = val.value();
+        msg.filter_type = static_cast<FilterType>(filter);
+
+        if (msg.filter_type == FilterType::AbsoluteStart || msg.filter_type == FilterType::AbsoluteRange) {
+            if (!ParseUintVField(buffer, msg.start_group)) {
+                return false;
+            }
+            if (!ParseUintVField(buffer, msg.start_object)) {
+                return false;
+            }
+
+            if (msg.filter_type == FilterType::AbsoluteRange) {
+                if (!ParseUintVField(buffer, msg.end_group)) {
+                    return false;
+                }
+                if (!ParseUintVField(buffer, msg.end_object)) {
+                    return false;
+                }
+            }
+        }
+
+        uint64_t num = 0;
+        if (!ParseUintVField(buffer, num)) {
+            return false;
+        }
+
+        for (uint64_t i = 0; i < num; ++i) {
+            MoqParameter param;
+            if (!(buffer >> param)) {
+                return false;
+            }
+            msg.track_params.push_back(param);
         }
 
         return true;
@@ -433,6 +307,10 @@ namespace quicr::messages {
     {
         buffer << UintVar(static_cast<uint64_t>(MoqMessageType::UNSUBSCRIBE));
         buffer << UintVar(msg.subscribe_id);
+
+        UintVar size(buffer.size());
+        buffer.insert(buffer.begin(), size.begin(), size.end());
+
         return buffer;
     }
 
@@ -458,71 +336,44 @@ namespace quicr::messages {
             buffer << UintVar(msg.final_object_id);
         }
 
+        UintVar size(buffer.size());
+        buffer.insert(buffer.begin(), size.begin(), size.end());
+
         return buffer;
     }
 
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqSubscribeDone& msg)
     {
-        switch (msg.current_pos) {
-            case 0: {
-                if (!ParseUintVField(buffer, msg.subscribe_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 1: {
-                if (!ParseUintVField(buffer, msg.status_code)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 2: {
-                auto val = buffer.DecodeBytes();
-                if (!val) {
-                    return false;
-                }
-                msg.reason_phrase = std::move(val.value());
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 3: {
-                auto val = buffer.Front();
-                if (!val) {
-                    return false;
-                }
-                buffer.Pop();
-                msg.content_exists = (val.value()) == 1;
-                msg.current_pos += 1;
-                if (!msg.content_exists) {
-                    // nothing more to process.
-                    return true;
-                }
-                [[fallthrough]];
-            }
-            case 4: {
-                if (!ParseUintVField(buffer, msg.final_group_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 5: {
-                if (!ParseUintVField(buffer, msg.final_object_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            default:
-                break;
-        }
-
-        if (msg.current_pos < msg.MAX_FIELDS) {
+        if (!ParseUintVField(buffer, msg.subscribe_id)) {
             return false;
         }
+        if (!ParseUintVField(buffer, msg.status_code)) {
+            return false;
+        }
+        auto reason_phrase = buffer.DecodeBytes();
+        if (!reason_phrase) {
+            return false;
+        }
+        msg.reason_phrase = std::move(reason_phrase.value());
+
+        auto content_exists = buffer.Front();
+        if (!content_exists) {
+            return false;
+        }
+        buffer.Pop();
+        msg.content_exists = (content_exists.value()) == 1;
+        if (!msg.content_exists) {
+            // nothing more to process.
+            return true;
+        }
+        if (!ParseUintVField(buffer, msg.final_group_id)) {
+            return false;
+        }
+        if (!ParseUintVField(buffer, msg.final_object_id)) {
+            return false;
+        }
+
         return true;
     }
 
@@ -539,62 +390,38 @@ namespace quicr::messages {
             buffer << UintVar(msg.largest_group);
             buffer << UintVar(msg.largest_object);
         }
+
+        UintVar size(buffer.size());
+        buffer.insert(buffer.begin(), size.begin(), size.end());
         return buffer;
     }
 
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqSubscribeOk& msg)
     {
-        switch (msg.current_pos) {
-            case 0: {
-                if (!ParseUintVField(buffer, msg.subscribe_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 1: {
-                if (!ParseUintVField(buffer, msg.expires)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 2: {
-                auto val = buffer.Front();
-                if (!val) {
-                    return false;
-                }
-                buffer.Pop();
-                msg.content_exists = (val.value()) == 1;
-                msg.current_pos += 1;
-                if (!msg.content_exists) {
-                    // nothing more to process.
-                    return true;
-                }
-                [[fallthrough]];
-            }
-            case 3: {
-                if (!ParseUintVField(buffer, msg.largest_group)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 4: {
-                if (!ParseUintVField(buffer, msg.largest_object)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            default:
-                break;
-        }
-
-        if (msg.current_pos < msg.MAX_FIELDS) {
+        if (!ParseUintVField(buffer, msg.subscribe_id)) {
             return false;
         }
+        if (!ParseUintVField(buffer, msg.expires)) {
+            return false;
+        }
+        auto val = buffer.Front();
+        if (!val) {
+            return false;
+        }
+        buffer.Pop();
+        msg.content_exists = (val.value()) == 1;
+        if (!msg.content_exists) {
+            // nothing more to process.
+            return true;
+        }
+        if (!ParseUintVField(buffer, msg.largest_group)) {
+            return false;
+        }
+        if (!ParseUintVField(buffer, msg.largest_object)) {
+            return false;
+        }
+
         return true;
     }
 
@@ -609,50 +436,30 @@ namespace quicr::messages {
         buffer << UintVar(msg.reason_phrase.size());
         buffer << msg.reason_phrase;
         buffer << UintVar(msg.track_alias);
+
+        UintVar size(buffer.size());
+        buffer.insert(buffer.begin(), size.begin(), size.end());
         return buffer;
     }
 
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqSubscribeError& msg)
     {
-        switch (msg.current_pos) {
-            case 0: {
-                if (!ParseUintVField(buffer, msg.subscribe_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 1: {
-                if (!ParseUintVField(buffer, msg.err_code)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 2: {
-                auto val = buffer.DecodeBytes();
-                if (!val) {
-                    return false;
-                }
-                msg.reason_phrase = std::move(val.value());
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 3: {
-                if (!ParseUintVField(buffer, msg.track_alias)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            default:
-                break;
-        }
-
-        if (msg.current_pos < msg.MAX_FIELDS) {
+        if (!ParseUintVField(buffer, msg.subscribe_id)) {
             return false;
         }
+        if (!ParseUintVField(buffer, msg.err_code)) {
+            return false;
+        }
+        auto val = buffer.DecodeBytes();
+        if (!val) {
+            return false;
+        }
+        msg.reason_phrase = std::move(val.value());
+        if (!ParseUintVField(buffer, msg.track_alias)) {
+            return false;
+        }
+
         return true;
     }
 
@@ -669,6 +476,9 @@ namespace quicr::messages {
         buffer << UintVar(msg.track_namespace.size());
         buffer << msg.track_namespace;
         buffer << UintVar(static_cast<uint64_t>(0));
+
+        UintVar size(buffer.size());
+        buffer.insert(buffer.begin(), size.begin(), size.end());
         return buffer;
     }
 
@@ -684,37 +494,18 @@ namespace quicr::messages {
             msg.track_namespace = *val;
         }
 
-        if (!msg.num_params) {
-            auto val = buffer.DecodeUintV();
-            if (!val) {
-                return false;
-            }
-            msg.num_params = *val;
+        auto num_params = buffer.DecodeUintV();
+        if (!num_params) {
+            return false;
         }
 
         // parse each param
-        while (msg.num_params > 0) {
-            if (!msg.current_param.type) {
-                uint64_t type{ 0 };
-                if (!ParseUintVField(buffer, type)) {
-                    return false;
-                }
-
-                msg.current_param = {};
-                msg.current_param.type = type;
-            }
-
-            // decode param_len:<bytes>
-            auto param = buffer.DecodeBytes();
-            if (!param) {
+        for (uint64_t i = 0; i < num_params; ++i) {
+            MoqParameter param;
+            if (!(buffer >> param)) {
                 return false;
             }
-
-            msg.current_param.length = param->size();
-            msg.current_param.value = param.value();
-            msg.params.push_back(msg.current_param);
-            msg.current_param = {};
-            msg.num_params -= 1;
+            msg.params.push_back(param);
         }
 
         return true;
@@ -728,6 +519,9 @@ namespace quicr::messages {
         buffer << UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_OK));
         buffer << UintVar(msg.track_namespace.size());
         buffer << msg.track_namespace;
+
+        UintVar size(buffer.size());
+        buffer.insert(buffer.begin(), size.begin(), size.end());
         return buffer;
     }
 
@@ -756,6 +550,9 @@ namespace quicr::messages {
         buffer << UintVar(msg.err_code.value());
         buffer << UintVar(msg.reason_phrase.value().size());
         buffer << msg.reason_phrase.value();
+
+        UintVar size(buffer.size());
+        buffer.insert(buffer.begin(), size.begin(), size.end());
         return buffer;
     }
 
@@ -798,6 +595,9 @@ namespace quicr::messages {
         buffer << UintVar(static_cast<uint64_t>(MoqMessageType::UNANNOUNCE));
         buffer << UintVar(msg.track_namespace.size());
         buffer << msg.track_namespace;
+
+        UintVar size(buffer.size());
+        buffer.insert(buffer.begin(), size.begin(), size.end());
         return buffer;
     }
 
@@ -823,6 +623,9 @@ namespace quicr::messages {
         buffer << UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_CANCEL));
         buffer << UintVar(msg.track_namespace.size());
         buffer << msg.track_namespace;
+
+        UintVar size(buffer.size());
+        buffer.insert(buffer.begin(), size.begin(), size.end());
         return buffer;
     }
 
@@ -852,6 +655,9 @@ namespace quicr::messages {
         buffer << UintVar(static_cast<uint64_t>(MoqMessageType::GOAWAY));
         buffer << UintVar(msg.new_session_uri.size());
         buffer << msg.new_session_uri;
+
+        UintVar size(buffer.size());
+        buffer.insert(buffer.begin(), size.begin(), size.end());
         return buffer;
     }
 
@@ -972,77 +778,41 @@ namespace quicr::messages {
         PushExtensions(buffer, msg.extensions);
         buffer << UintVar(msg.payload.size());
         buffer << msg.payload;
+
+        UintVar size(buffer.size());
+        buffer.insert(buffer.begin(), size.begin(), size.end());
         return buffer;
     }
 
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqObjectDatagram& msg)
     {
-        switch (msg.current_pos) {
-            case 0: {
-                if (!ParseUintVField(buffer, msg.subscribe_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 1: {
-                if (!ParseUintVField(buffer, msg.track_alias)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 2: {
-                if (!ParseUintVField(buffer, msg.group_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 3: {
-                if (!ParseUintVField(buffer, msg.object_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 4: {
-                if (!ParseUintVField(buffer, msg.priority)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 5: {
-                if (!ParseUintVField(buffer, msg.num_extensions)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 6:
-                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            case 7: {
-                auto val = buffer.DecodeBytes();
-                if (!val) {
-                    return false;
-                }
-                msg.payload = std::move(val.value());
-                msg.parse_completed = true;
-                [[fallthrough]];
-            }
-            default:
-                break;
-        }
-
-        if (!msg.parse_completed) {
+        if (!ParseUintVField(buffer, msg.subscribe_id)) {
             return false;
         }
+        if (!ParseUintVField(buffer, msg.track_alias)) {
+            return false;
+        }
+        if (!ParseUintVField(buffer, msg.group_id)) {
+            return false;
+        }
+        if (!ParseUintVField(buffer, msg.object_id)) {
+            return false;
+        }
+        if (!ParseUintVField(buffer, msg.priority)) {
+            return false;
+        }
+        if (!ParseUintVField(buffer, msg.num_extensions)) {
+            return false;
+        }
+        if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
+            return false;
+        }
+        auto val = buffer.DecodeBytes();
+        if (!val) {
+            return false;
+        }
+        msg.payload = std::move(val.value());
 
         return true;
     }
@@ -1056,40 +826,22 @@ namespace quicr::messages {
         buffer << UintVar(msg.subscribe_id);
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.priority);
+
+        UintVar size(buffer.size());
+        buffer.insert(buffer.begin(), size.begin(), size.end());
         return buffer;
     }
 
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqStreamHeaderTrack& msg)
     {
-        switch (msg.current_pos) {
-            case 0: {
-                if (!ParseUintVField(buffer, msg.subscribe_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 1: {
-                if (!ParseUintVField(buffer, msg.track_alias)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 2: {
-                if (!ParseUintVField(buffer, msg.priority)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                msg.parse_completed = true;
-                [[fallthrough]];
-            }
-            default:
-                break;
+        if (!ParseUintVField(buffer, msg.subscribe_id)) {
+            return false;
         }
-
-        if (!msg.parse_completed) {
+        if (!ParseUintVField(buffer, msg.track_alias)) {
+            return false;
+        }
+        if (!ParseUintVField(buffer, msg.priority)) {
             return false;
         }
         return true;
@@ -1297,6 +1049,9 @@ namespace quicr::messages {
         buffer << UintVar(msg.endpoint_id_parameter.value.size());
         buffer << msg.endpoint_id_parameter.value;
 
+        UintVar size(buffer.size());
+        buffer.insert(buffer.begin(), size.begin(), size.end());
+
         return buffer;
     }
 
@@ -1403,6 +1158,9 @@ namespace quicr::messages {
         buffer << UintVar(msg.endpoint_id_parameter.value.size());
         buffer << msg.endpoint_id_parameter.value;
 
+        UintVar size(buffer.size());
+        buffer.insert(buffer.begin(), size.begin(), size.end());
+
         return buffer;
     }
 
@@ -1476,5 +1234,4 @@ namespace quicr::messages {
 
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqServerSetup&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqServerSetup&);
-
 }
