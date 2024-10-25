@@ -203,6 +203,7 @@ namespace quicr {
         std::unique_ptr<TimeQueueType>& GetQueueByPriority(const uint8_t priority)
         {
             if (priority >= PMAX) {
+                std::cerr << "PMAX " << (int)PMAX << " and p = " << (int)priority << std::endl;
                 throw InvalidPriorityException("Priority not within range");
             }
 
