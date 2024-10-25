@@ -62,8 +62,8 @@ namespace qperf {
         perf_config.objects_per_group = inif[section_name]["objspergroup"].as<std::uint32_t>();
         perf_config.bytes_per_object_0 = inif[section_name]["bytesobject0"].as<std::uint32_t>();
         perf_config.bytes_per_object_not_0 = inif[section_name]["bytesnotobject0"].as<std::uint32_t>();
-        perf_config.start_delay = inif[section_name]["startdelay"].as<std::int64_t>();
-        perf_config.transmit_time = inif[section_name]["transmittime"].as<std::int64_t>();        
+        perf_config.start_delay = inif[section_name]["startdelay"].as<std::uint64_t>();
+        perf_config.transmit_time = inif[section_name]["transmittime"].as<std::uint64_t>();
 
         SPDLOG_INFO("Test config:");
         SPDLOG_INFO("\tns = \"{}\", n=\"{}\"", scenario_namespace, scenario_name);
@@ -139,8 +139,8 @@ namespace qperf {
         std::thread write_thread_;
         std::atomic_bool terminate_;
 
-        int group_id_;
-        int object_id_;
+        uint64_t group_id_;
+        uint64_t object_id_;
         PerfConfig perf_config_;
     };
 

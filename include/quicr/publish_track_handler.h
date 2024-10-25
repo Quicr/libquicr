@@ -294,7 +294,7 @@ namespace quicr {
         uint64_t prev_object_group_id_{ 0 };
         uint64_t prev_object_id_{ 0 };
         uint64_t object_payload_remaining_length_{ 0 };
-        bool sent_track_header_{ false }; // Used only in stream per track mode
+        bool sent_first_header_{ false }; // Used to indicate if the first stream has sent the header or not
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
 
