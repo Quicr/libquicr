@@ -21,7 +21,6 @@ namespace quicr {
         kDatagram,
         kStreamPerObject,
         kStreamPerGroup,
-        kStreamPerTrack
     };
 
     /**

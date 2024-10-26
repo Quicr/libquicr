@@ -663,69 +663,7 @@ TEST_CASE("StreamPerGroup Object  Message encode/decode")
     StreamPerGroupObjectEncodeDecode(true);
 }
 
-static void
-StreamPerTrackObjectEncodeDecode(bool extensions)
-{
-    Bytes buffer;
-    auto hdr = MoqStreamHeaderTrack{};
-    hdr.subscribe_id = 0x100;
-    hdr.track_alias = uint64_t(kTrackAliasAliceVideo);
-    hdr.priority = 0xA;
 
-    buffer << hdr;
-
-    MoqStreamHeaderTrack hdr_out;
-    CHECK(Verify(buffer, static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_TRACK), hdr_out));
-    CHECK_EQ(hdr_out.subscribe_id, hdr_out.subscribe_id);
-    CHECK_EQ(hdr_out.track_alias, hdr_out.track_alias);
-    CHECK_EQ(hdr_out.priority, hdr_out.priority);
-
-    // stream all the objects
-    buffer.clear();
-    auto objects = std::vector<MoqStreamTrackObject>{};
-    // send 10 objects
-    for (size_t i = 0; i < 1000; i++) {
-        auto obj = MoqStreamTrackObject{};
-        if (i % 10 == 0) {
-            obj.group_id = i;
-            obj.object_id = 0;
-        } else {
-            obj.object_id = i;
-        }
-
-        obj.extensions = extensions ? kOptionalExtensions : std::nullopt;
-        obj.payload = { 0x1, 0x2, 0x3, 0x4, 0x5 };
-        objects.push_back(obj);
-        buffer << obj;
-    }
-
-    auto obj_out = MoqStreamTrackObject{};
-    size_t object_count = 0;
-    StreamBuffer<uint8_t> in_buffer;
-    for (size_t i = 0; i < buffer.size(); i++) {
-        in_buffer.Push(buffer.at(i));
-        bool done;
-        done = in_buffer >> obj_out;
-        if (done) {
-            CHECK_EQ(obj_out.group_id, objects[object_count].group_id);
-            CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
-            CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
-            CHECK_EQ(obj_out.payload, objects[object_count].payload);
-            // got one object
-            object_count++;
-            obj_out = MoqStreamTrackObject{};
-            in_buffer.Pop(in_buffer.Size());
-        }
-    }
-
-    CHECK_EQ(object_count, 1000);
-}
-
-TEST_CASE("StreamPerTrack Object  Message encode/decode")
-{
-    StreamPerTrackObjectEncodeDecode(false);
-    StreamPerTrackObjectEncodeDecode(true);
-}
 
 TEST_CASE("MoqGoaway Message encode/decode")
 {

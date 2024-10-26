@@ -45,12 +45,6 @@ namespace quicr {
             case TrackMode::kStreamPerObject:
                 is_stream_header_needed = true;
                 break;
-            case TrackMode::kStreamPerTrack:
-                if (not sent_track_header_) {
-                    is_stream_header_needed = true;
-                    sent_track_header_ = true;
-                }
-                break;
         }
 
         prev_object_group_id_ = object_headers.group_id;
