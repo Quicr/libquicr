@@ -1276,6 +1276,122 @@ namespace quicr::messages {
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamGroupObject&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamGroupObject&);
 
+
+    Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderSubGroup& msg)
+    {
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_SUBGROUP));
+        buffer << UintVar(msg.track_alias);
+        buffer << UintVar(msg.group_id);
+        buffer << UintVar(msg.subgroup_id);
+        buffer << UintVar(msg.priority);
+        return buffer;
+    }
+
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqStreamHeaderSubGroup& msg)
+    {
+        switch (msg.current_pos) {
+            case 0: {
+                if (!ParseUintVField(buffer, msg.track_alias)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 1: {
+                if (!ParseUintVField(buffer, msg.group_id)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 2: {
+                if (!ParseUintVField(buffer, msg.subgroup_id)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 3: {
+                if (!ParseUintVField(buffer, msg.priority)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                msg.parse_completed = true;
+                [[fallthrough]];
+            }
+            default:
+                break;
+        }
+
+        if (!msg.parse_completed) {
+            return false;
+        }
+
+        return true;
+    }
+
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamHeaderSubGroup&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamHeaderSubGroup&);
+
+    Bytes& operator<<(Bytes& buffer, const MoqStreamSubGroupObject& msg)
+    {
+        buffer << UintVar(msg.object_id);
+        PushExtensions(buffer, msg.extensions);
+        buffer << UintVar(msg.payload.size());
+        buffer << msg.payload;
+        return buffer;
+    }
+
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, MoqStreamSubGroupObject& msg)
+    {
+        switch (msg.current_pos) {
+            case 0: {
+                if (!ParseUintVField(buffer, msg.object_id)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 1: {
+                if (!ParseUintVField(buffer, msg.num_extensions)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 2: {
+                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 3: {
+                auto val = buffer.DecodeBytes();
+                if (!val) {
+                    return false;
+                }
+                msg.payload = std::move(val.value());
+                msg.parse_completed = true;
+                [[fallthrough]];
+            }
+            default:
+                break;
+        }
+
+        if (!msg.parse_completed) {
+            return false;
+        }
+
+        return true;
+    }
+
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamSubGroupObject&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamSubGroupObject&);
+
+
     // Client Setup message
     Bytes& operator<<(Bytes& buffer, const MoqClientSetup& msg)
     {

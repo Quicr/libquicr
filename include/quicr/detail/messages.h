@@ -19,6 +19,7 @@ namespace quicr::messages {
     using StatusCode = uint64_t;
     using ReasonPhrase = Bytes;
     using GroupId = uint64_t;
+    using SubGroupId = uint64_t;
     using ObjectId = uint64_t;
     using ObjectPriority = uint64_t;
     using SubscribeId = uint64_t;
@@ -64,6 +65,7 @@ namespace quicr::messages {
 
         STREAM_HEADER_TRACK = 0x50,
         STREAM_HEADER_GROUP,
+        STREAM_HEADER_SUBGROUP = 0x4,
     };
 
     enum class SubscribeError : uint8_t
@@ -491,5 +493,41 @@ namespace quicr::messages {
 
     bool operator>>(Bytes& buffer, MoqStreamGroupObject& msg);
     Bytes& operator<<(Bytes& buffer, const MoqStreamGroupObject& msg);
+
+
+    // SubGroups
+    struct MoqStreamHeaderSubGroup
+    {
+        TrackAlias track_alias;
+        GroupId group_id;
+        SubGroupId subgroup_id;
+        ObjectPriority priority;
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqStreamHeaderSubGroup& msg);
+
+      private:
+        uint64_t current_pos{ 0 };
+        bool parse_completed{ false };
+    };
+
+    bool operator>>(Bytes& buffer, MoqStreamHeaderSubGroup& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderSubGroup& msg);
+
+    struct MoqStreamSubGroupObject
+    {
+        ObjectId object_id;
+        std::optional<Extensions> extensions;
+        Bytes payload;
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, MoqStreamSubGroupObject& msg);
+      private:
+        uint64_t num_extensions{ 0 };
+        std::optional<uint64_t> current_tag{};
+        uint64_t current_pos{ 0 };
+        bool parse_completed{ false };
+    };
+
+    bool operator>>(Bytes& buffer, MoqStreamSubGroupObject& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqStreamSubGroupObject& msg);
 
 } // end of namespace quicr::messages

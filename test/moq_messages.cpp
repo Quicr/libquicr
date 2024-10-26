@@ -664,6 +664,62 @@ TEST_CASE("StreamPerGroup Object  Message encode/decode")
 }
 
 static void
+StreamPerSubGroupObjectEncodeDecode(bool extensions)
+{
+    Bytes buffer;
+    auto hdr_grp = MoqStreamHeaderSubGroup{};
+    hdr_grp.track_alias = uint64_t(kTrackAliasAliceVideo);
+    hdr_grp.group_id = 0x1000;
+    hdr_grp.priority = 0xA;
+
+    buffer << hdr_grp;
+
+    MoqStreamHeaderSubGroup hdr_group_out;
+    CHECK(Verify(buffer, static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_SUBGROUP), hdr_group_out));
+    CHECK_EQ(hdr_grp.track_alias, hdr_group_out.track_alias);
+    CHECK_EQ(hdr_grp.group_id, hdr_group_out.group_id);
+
+    // stream all the objects
+    buffer.clear();
+    auto objects = std::vector<MoqStreamSubGroupObject>{};
+    // send 10 objects
+    for (size_t i = 0; i < 1000; i++) {
+        auto obj = MoqStreamSubGroupObject{};
+        obj.object_id = i;
+        obj.extensions = extensions ? kOptionalExtensions : std::nullopt;
+        obj.payload = { 0x1, 0x2, 0x3, 0x4, 0x5 };
+        objects.push_back(obj);
+        buffer << obj;
+    }
+
+    auto obj_out = MoqStreamSubGroupObject{};
+    size_t object_count = 0;
+    StreamBuffer<uint8_t> in_buffer;
+    for (size_t i = 0; i < buffer.size(); i++) {
+        in_buffer.Push(buffer.at(i));
+        bool done;
+        done = in_buffer >> obj_out;
+        if (done) {
+            CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
+            CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
+            CHECK_EQ(obj_out.payload, objects[object_count].payload);
+            // got one object
+            object_count++;
+            obj_out = {};
+            in_buffer.Pop(in_buffer.Size());
+        }
+    }
+
+    CHECK_EQ(object_count, 1000);
+}
+
+TEST_CASE("StreamPerSubGroup Object  Message encode/decode")
+{
+    StreamPerSubGroupObjectEncodeDecode(false);
+    StreamPerSubGroupObjectEncodeDecode(true);
+}
+
+static void
 StreamPerTrackObjectEncodeDecode(bool extensions)
 {
     Bytes buffer;
