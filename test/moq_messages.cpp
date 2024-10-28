@@ -542,38 +542,6 @@ TEST_CASE("ServerSetup  Message encode/decode")
 }
 
 static void
-ObjectStreamEncodeDecode(bool extensions)
-{
-    Bytes buffer;
-    auto object_stream = MoqObjectStream{};
-    object_stream.subscribe_id = 0x100;
-    object_stream.track_alias = uint64_t(kTrackAliasAliceVideo);
-    object_stream.group_id = 0x1000;
-    object_stream.object_id = 0xFF;
-    object_stream.priority = 0xA;
-    object_stream.extensions = extensions ? kOptionalExtensions : std::nullopt;
-    object_stream.payload = { 0x1, 0x2, 0x3, 0x5, 0x6 };
-
-    buffer << object_stream;
-
-    MoqObjectStream object_stream_out;
-    CHECK(Verify(buffer, static_cast<uint64_t>(MoqMessageType::OBJECT_STREAM), object_stream_out));
-    CHECK_EQ(object_stream.subscribe_id, object_stream_out.subscribe_id);
-    CHECK_EQ(object_stream.track_alias, object_stream_out.track_alias);
-    CHECK_EQ(object_stream.group_id, object_stream_out.group_id);
-    CHECK_EQ(object_stream.object_id, object_stream_out.object_id);
-    CHECK_EQ(object_stream.priority, object_stream_out.priority);
-    CHECK_EQ(object_stream.extensions, object_stream_out.extensions);
-    CHECK_EQ(object_stream.payload, object_stream_out.payload);
-}
-
-TEST_CASE("ObjectStream  Message encode/decode")
-{
-    ObjectStreamEncodeDecode(true);
-    ObjectStreamEncodeDecode(false);
-}
-
-static void
 ObjectDatagramEncodeDecode(bool extensions)
 {
     Bytes buffer;
@@ -588,7 +556,7 @@ ObjectDatagramEncodeDecode(bool extensions)
 
     buffer << object_datagram;
 
-    MoqObjectStream object_datagram_out;
+    MoqObjectDatagram object_datagram_out;
     CHECK(Verify(buffer, static_cast<uint64_t>(MoqMessageType::OBJECT_DATAGRAM), object_datagram_out));
     CHECK_EQ(object_datagram.subscribe_id, object_datagram_out.subscribe_id);
     CHECK_EQ(object_datagram.track_alias, object_datagram_out.track_alias);
@@ -603,64 +571,6 @@ TEST_CASE("ObjectDatagram  Message encode/decode")
 {
     ObjectDatagramEncodeDecode(false);
     ObjectDatagramEncodeDecode(true);
-}
-
-static void
-StreamPerGroupObjectEncodeDecode(bool extensions)
-{
-    Bytes buffer;
-    auto hdr_grp = MoqStreamHeaderGroup{};
-    hdr_grp.subscribe_id = 0x100;
-    hdr_grp.track_alias = uint64_t(kTrackAliasAliceVideo);
-    hdr_grp.group_id = 0x1000;
-    hdr_grp.priority = 0xA;
-
-    buffer << hdr_grp;
-
-    MoqStreamHeaderGroup hdr_group_out;
-    CHECK(Verify(buffer, static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_GROUP), hdr_group_out));
-    CHECK_EQ(hdr_grp.subscribe_id, hdr_group_out.subscribe_id);
-    CHECK_EQ(hdr_grp.track_alias, hdr_group_out.track_alias);
-    CHECK_EQ(hdr_grp.group_id, hdr_group_out.group_id);
-
-    // stream all the objects
-    buffer.clear();
-    auto objects = std::vector<MoqStreamGroupObject>{};
-    // send 10 objects
-    for (size_t i = 0; i < 1000; i++) {
-        auto obj = MoqStreamGroupObject{};
-        obj.object_id = i;
-        obj.extensions = extensions ? kOptionalExtensions : std::nullopt;
-        obj.payload = { 0x1, 0x2, 0x3, 0x4, 0x5 };
-        objects.push_back(obj);
-        buffer << obj;
-    }
-
-    auto obj_out = MoqStreamGroupObject{};
-    size_t object_count = 0;
-    StreamBuffer<uint8_t> in_buffer;
-    for (size_t i = 0; i < buffer.size(); i++) {
-        in_buffer.Push(buffer.at(i));
-        bool done;
-        done = in_buffer >> obj_out;
-        if (done) {
-            CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
-            CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
-            CHECK_EQ(obj_out.payload, objects[object_count].payload);
-            // got one object
-            object_count++;
-            obj_out = MoqStreamGroupObject{};
-            in_buffer.Pop(in_buffer.Size());
-        }
-    }
-
-    CHECK_EQ(object_count, 1000);
-}
-
-TEST_CASE("StreamPerGroup Object  Message encode/decode")
-{
-    StreamPerGroupObjectEncodeDecode(false);
-    StreamPerGroupObjectEncodeDecode(true);
 }
 
 static void

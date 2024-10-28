@@ -21,6 +21,7 @@ namespace quicr {
     struct ClientConfig : Config
     {
         std::string connect_uri; ///< URI such as moqt://relay[:port][/path?query]
+        std::optional<uint64_t> moq_version;
     };
 
     struct ServerConfig : Config

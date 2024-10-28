@@ -19,9 +19,8 @@ namespace quicr {
     enum class TrackMode : uint8_t
     {
         kDatagram,
-        kStreamPerObject,
-        kStreamPerGroup,
-        kStreamPerTrack
+        kStreamPerTrack,
+        kStreamPerSubGroup,
     };
 
     /**

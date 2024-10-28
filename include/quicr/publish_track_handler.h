@@ -255,6 +255,7 @@ namespace quicr {
                                                                      uint32_t ttl,
                                                                      bool stream_header_needed,
                                                                      uint64_t group_id,
+                                                                     uint64_t subgroup_id,
                                                                      uint64_t object_id,
                                                                      std::optional<Extensions> extensions,
                                                                      BytesSpan data)>;
@@ -292,11 +293,15 @@ namespace quicr {
         PublishObjFunction publish_object_func_; // set by the transport
 
         uint64_t prev_object_group_id_{ 0 };
+        uint64_t prev_sub_group_id_{ 0 };
         uint64_t prev_object_id_{ 0 };
         uint64_t object_payload_remaining_length_{ 0 };
         bool sent_track_header_{ false }; // Used only in stream per track mode
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
+
+        uint64_t subgroup_id = { 0 }; // stack maintains subgroup id order to ease application
+                                      // from managing the non-sequential numbers
 
         friend class Transport;
         friend class Client;

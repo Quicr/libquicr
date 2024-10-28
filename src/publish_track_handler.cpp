@@ -36,25 +36,18 @@ namespace quicr {
         }
 
         bool is_stream_header_needed{ false };
-        switch (default_track_mode_) {
-            case TrackMode::kDatagram:
-                break;
-            case TrackMode::kStreamPerGroup:
-                is_stream_header_needed = prev_object_group_id_ != object_headers.group_id;
-                break;
-            case TrackMode::kStreamPerObject:
-                is_stream_header_needed = true;
-                break;
-            case TrackMode::kStreamPerTrack:
-                if (not sent_track_header_) {
-                    is_stream_header_needed = true;
-                    sent_track_header_ = true;
-                }
-                break;
+
+        if (prev_sub_group_id_ != object_headers.subgroup_id) {
+            is_stream_header_needed = true;
+        } else if (prev_object_group_id_ != object_headers.group_id) {
+            is_stream_header_needed = true;
+        } else if (default_track_mode_ == TrackMode::kStreamPerTrack && ! sent_track_header_) {
+            is_stream_header_needed = true;
+            sent_track_header_ = true;
         }
 
         prev_object_group_id_ = object_headers.group_id;
-
+        prev_sub_group_id_ = object_headers.subgroup_id.value();
         publish_track_metrics_.bytes_published += data.size();
         publish_track_metrics_.objects_published++;
 
@@ -64,6 +57,7 @@ namespace quicr {
                                         object_headers.ttl.has_value() ? object_headers.ttl.value() : default_ttl_,
                                         is_stream_header_needed,
                                         object_headers.group_id,
+                                        object_headers.subgroup_id.value(),
                                         object_headers.object_id,
                                         object_headers.extensions,
                                         data);

@@ -24,7 +24,7 @@ namespace quicr {
         template<class T>
         struct IsRange
         {
-            static constexpr bool kValue = noexcept(std::declval<T>().begin()) && noexcept(std::declval<T>().end());
+            static constexpr bool kValue = noexcept(std::declval<T>().begin())&& noexcept(std::declval<T>().end());
         };
 
         template<class It, class SpanIt>

@@ -102,6 +102,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 
     void ObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data) override
     {
+
         if (data.size() > 255) {
             SPDLOG_CRITICAL("Example server is for example only, received data > 255 bytes is not allowed!");
             SPDLOG_CRITICAL("Use github.com/quicr/laps for full relay functionality");
@@ -463,7 +464,7 @@ class MyServer : public quicr::Server
                     th.track_fullname_hash);
 
         auto pub_track_h =
-          std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStreamPerGroup, 2, 5000);
+          std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStreamPerSubGroup, 2, 5000);
         qserver_vars::subscribes[th.track_fullname_hash][connection_handle] = pub_track_h;
         qserver_vars::subscribe_alias_sub_id[connection_handle][subscribe_id] = th.track_fullname_hash;
 
