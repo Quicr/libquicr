@@ -41,7 +41,7 @@ namespace quicr {
             is_stream_header_needed = true;
         } else if (prev_object_group_id_ != object_headers.group_id) {
             is_stream_header_needed = true;
-        } else if (default_track_mode_ == TrackMode::kStreamPerTrack && ! sent_track_header_) {
+        } else if (default_track_mode_ == TrackMode::kStreamPerTrack && !sent_track_header_) {
             is_stream_header_needed = true;
             sent_track_header_ = true;
         }

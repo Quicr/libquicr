@@ -647,7 +647,6 @@ namespace quicr {
                 track_handler.object_msg_buffer_ << object;
                 break;
             }
-
         }
 
         quic_transport_->Enqueue(track_handler.connection_handle_,
@@ -1122,16 +1121,17 @@ namespace quicr {
 
                 auto& obj = stream_buffer->GetAnyB<MoqStreamSubGroupObject>();
                 if (*stream_buffer >> obj) {
-                    SPDLOG_LOGGER_TRACE(logger_,
-                                        "Received stream_subgroup_object subscribe_id: {0} priority: {1} track_alias: {2} "
-                                        "group_id: {3} subgroup_id: {4} object_id: {5} data size: {6}",
-                                        msg.subscribe_id,
-                                        msg.priority,
-                                        msg.track_alias,
-                                        msg.group_id,
-                                        msg.subgroup_id,
-                                        obj.object_id,
-                                        obj.payload.size());
+                    SPDLOG_LOGGER_TRACE(
+                      logger_,
+                      "Received stream_subgroup_object subscribe_id: {0} priority: {1} track_alias: {2} "
+                      "group_id: {3} subgroup_id: {4} object_id: {5} data size: {6}",
+                      msg.subscribe_id,
+                      msg.priority,
+                      msg.track_alias,
+                      msg.group_id,
+                      msg.subgroup_id,
+                      obj.object_id,
+                      obj.payload.size());
 
                     auto& handler = sub_it->second;
 

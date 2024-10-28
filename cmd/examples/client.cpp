@@ -140,7 +140,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
     bool sending{ false };
     uint64_t group_id{ 0 };
     uint64_t object_id{ 0 };
-    uint64_t subgroup_id { 0 };
+    uint64_t subgroup_id{ 0 };
 
     while (not stop) {
         if ((!published_track) && (client->GetStatus() == MyClient::Status::kReady)) {
@@ -187,8 +187,8 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
             subgroup_id++;
         }
 
-        quicr::ObjectHeaders obj_headers = { group_id,       object_id++, subgroup_id,  msg.size(),  2 /*priority*/,
-                                             3000 /* ttl */, std::nullopt, std::nullopt };
+        quicr::ObjectHeaders obj_headers = { group_id,       object_id++,    subgroup_id,  msg.size(),
+                                             2 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt };
 
         track_handler->PublishObject(obj_headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
     }
