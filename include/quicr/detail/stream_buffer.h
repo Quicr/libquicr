@@ -119,7 +119,7 @@ namespace quicr {
          * @brief Get the first data byte in stream buffer
          * @returns data byt or nullopt if no data
          */
-            std::optional<T> Front() noexcept
+        std::optional<T> Front() noexcept
         {
             if (buffer_.empty()) {
                 return std::nullopt;

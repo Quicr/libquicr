@@ -1014,7 +1014,8 @@ namespace quicr::messages {
                     return false;
                 }
                 buffer.Pop();
-                msg.priority = val.value();;
+                msg.priority = val.value();
+                ;
                 msg.current_pos += 1;
                 msg.parse_completed = true;
                 [[fallthrough]];

@@ -403,7 +403,6 @@ namespace quicr::messages {
     bool operator>>(Bytes& buffer, MoqObjectDatagram& msg);
     Bytes& operator<<(Bytes& buffer, const MoqObjectDatagram& msg);
 
-
     // SubGroups
     struct MoqStreamHeaderSubGroup
     {

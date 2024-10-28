@@ -591,7 +591,6 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions)
     CHECK_EQ(hdr_grp.group_id, hdr_group_out.group_id);
     CHECK_EQ(hdr_grp.subgroup_id, hdr_group_out.subgroup_id);
 
-
     // stream all the objects
     buffer.clear();
     auto objects = std::vector<MoqStreamSubGroupObject>{};
