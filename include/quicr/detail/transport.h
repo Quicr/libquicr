@@ -296,14 +296,11 @@ namespace quicr {
         // -------------------------------------------------------------------------------------------------
         // Private member functions that will be implemented by both Server and Client
         // ------------------------------------------------------------------------------------------------
-        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                        std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer) = 0;
+
+        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes) = 0;
 
         bool ProcessStreamDataMessage(ConnectionContext& conn_ctx,
                                       std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer);
-
-        template<class MessageType>
-        std::pair<MessageType&, bool> ParseControlMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer);
 
         template<class MessageType>
         std::pair<MessageType&, bool> ParseDataMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,

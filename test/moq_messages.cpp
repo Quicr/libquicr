@@ -58,22 +58,29 @@ Verify(std::vector<uint8_t>& buffer, uint64_t message_type, T& message, [[maybe_
 
     return done;
 }
+
+BytesSpan
+operator>>(BytesSpan buffer, uint64_t& value)
+{
+    UintVar value_uv(buffer);
+    value = static_cast<uint64_t>(value_uv);
+    return buffer.subspan(value_uv.Size());
+}
+
 template<typename T>
 bool
-VerifyCtrl(std::vector<uint8_t>& buffer, uint64_t message_type, T& message, [[maybe_unused]] size_t slice_depth = 1)
+VerifyCtrl(BytesSpan buffer, uint64_t message_type, T& message)
 {
-    StreamBuffer<uint8_t> in_buffer;
-    in_buffer.Push(buffer);
+    uint64_t msg_type = 0;
+    uint64_t length = 0;
+    buffer = buffer >> msg_type >> length;
 
-    auto length = in_buffer.DecodeUintV();
-    CHECK(length.has_value());
-    CHECK_EQ(*length, in_buffer.Size());
+    CHECK_EQ(msg_type, message_type);
+    CHECK_EQ(length, buffer.size());
 
-    auto msg_type = in_buffer.DecodeUintV();
-    CHECK(msg_type.has_value());
-    CHECK_EQ(*msg_type, message_type);
+    buffer >> message;
 
-    return in_buffer >> message;
+    return true;
 }
 
 TEST_CASE("AnnounceOk Message encode/decode")
@@ -528,7 +535,6 @@ TEST_CASE("ClientSetup  Message encode/decode")
 
 TEST_CASE("ServerSetup  Message encode/decode")
 {
-    Bytes buffer;
     const std::string endpoint_id = "server_test";
     auto server_setup = MoqServerSetup{};
     server_setup.selection_version = { 0x1000 };
@@ -537,6 +543,7 @@ TEST_CASE("ServerSetup  Message encode/decode")
     server_setup.role_parameter.value = { 0xFF };
     server_setup.endpoint_id_parameter.value.assign(endpoint_id.begin(), endpoint_id.end());
 
+    Bytes buffer;
     buffer << server_setup;
 
     MoqServerSetup server_setup_out;
@@ -680,7 +687,7 @@ StreamPerTrackObjectEncodeDecode(bool extensions)
     buffer << hdr;
 
     MoqStreamHeaderTrack hdr_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_TRACK), hdr_out));
+    CHECK(Verify(buffer, static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_TRACK), hdr_out));
     CHECK_EQ(hdr_out.subscribe_id, hdr_out.subscribe_id);
     CHECK_EQ(hdr_out.track_alias, hdr_out.track_alias);
     CHECK_EQ(hdr_out.priority, hdr_out.priority);

@@ -835,15 +835,6 @@ namespace quicr {
 
             // bidir is Control stream, data streams are unidirectional
             if (is_bidir) {
-                auto length = stream_buf->DecodeUintV();
-                if (!length) {
-                    break;
-                }
-
-                if (stream_buf->Size() < *length) {
-                    continue;
-                }
-
                 if (not conn_ctx.ctrl_msg_type_received.has_value()) {
                     auto msg_type = stream_buf->DecodeUintV();
 
@@ -854,12 +845,15 @@ namespace quicr {
                     }
                 }
 
-                if (ProcessCtrlMessage(conn_ctx, stream_buf)) {
-                    conn_ctx.ctrl_msg_type_received = std::nullopt; // Clear current type now that it's complete
+                if (auto msg_bytes = stream_buf->DecodeBytes(); msg_bytes != std::nullopt) {
+                    if (ProcessCtrlMessage(conn_ctx, *msg_bytes)) {
+                        conn_ctx.ctrl_msg_type_received = std::nullopt; // Clear current type now that it's complete
+                    } else {
+                        conn_ctx.metrics.invalid_ctrl_stream_msg++;
+                    }
                 } else {
-                    break; // More data is needed, wait for next callback
+                    break;
                 }
-
             }
 
             // Data stream, unidirectional
@@ -1229,23 +1223,6 @@ namespace quicr {
     }
 
     template<class MessageType>
-    std::pair<MessageType&, bool> Transport::ParseControlMessage(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer)
-    {
-        if (!stream_buffer->AnyHasValue()) {
-            SPDLOG_LOGGER_DEBUG(logger_, "Received control message, init stream buffer");
-            stream_buffer->InitAny<MessageType>();
-        }
-
-        auto& msg = stream_buffer->GetAny<MessageType>();
-        if (*stream_buffer >> msg) {
-            return { msg, true };
-        }
-
-        return { msg, false };
-    }
-
-    template<class MessageType>
     std::pair<MessageType&, bool> Transport::ParseDataMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
                                                               MoqMessageType msg_type)
     {
@@ -1282,43 +1259,6 @@ namespace quicr {
 
         return { msg, stream_buffer->AnyHasValueB() };
     }
-
-    template std::pair<messages::MoqSubscribe&, bool> Transport::ParseControlMessage<messages::MoqSubscribe>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqSubscribeOk&, bool> Transport::ParseControlMessage<messages::MoqSubscribeOk>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqSubscribeError&, bool> Transport::ParseControlMessage<messages::MoqSubscribeError>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqUnsubscribe&, bool> Transport::ParseControlMessage<messages::MoqUnsubscribe>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqSubscribeDone&, bool> Transport::ParseControlMessage<messages::MoqSubscribeDone>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqTrackStatusRequest&, bool>
-    Transport::ParseControlMessage<messages::MoqTrackStatusRequest>(std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqTrackStatus&, bool> Transport::ParseControlMessage<messages::MoqTrackStatus>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqAnnounce&, bool> Transport::ParseControlMessage<messages::MoqAnnounce>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqAnnounceOk&, bool> Transport::ParseControlMessage<messages::MoqAnnounceOk>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqAnnounceError&, bool> Transport::ParseControlMessage<messages::MoqAnnounceError>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqUnannounce&, bool> Transport::ParseControlMessage<messages::MoqUnannounce>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqAnnounceCancel&, bool> Transport::ParseControlMessage<messages::MoqAnnounceCancel>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqGoaway&, bool> Transport::ParseControlMessage<messages::MoqGoaway>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqClientSetup&, bool> Transport::ParseControlMessage<messages::MoqClientSetup>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqStreamHeaderTrack&, bool>
-    Transport::ParseControlMessage<messages::MoqStreamHeaderTrack>(std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqStreamHeaderGroup&, bool>
-    Transport::ParseControlMessage<messages::MoqStreamHeaderGroup>(std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqStreamGroupObject&, bool>
-    Transport::ParseControlMessage<messages::MoqStreamGroupObject>(std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqServerSetup&, bool> Transport::ParseControlMessage<messages::MoqServerSetup>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
 
     template std::pair<messages::MoqObjectStream&, bool> Transport::ParseDataMessage<messages::MoqObjectStream>(
       std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
