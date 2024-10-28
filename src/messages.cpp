@@ -128,6 +128,58 @@ namespace quicr::messages {
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqParameter&);
 
     //
+    // Tuple
+    //
+
+
+    Bytes& operator<<(Bytes& buffer, const Tuple& tuple)
+    {
+        if (tuple.elements.size() > 32) {
+            throw std::runtime_error("Tuple Element Count Error");
+        }
+
+        buffer << UintVar(tuple.elements.size());
+        for (const auto& elem: tuple.elements) {
+            buffer << UintVar(elem.value.size());
+            buffer << elem.value;
+        }
+        return buffer;
+    }
+
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, Tuple& tuple)
+    {
+        uint64_t num_elements {0};
+        if (!ParseUintVField(buffer, num_elements)) {
+            return false;
+        }
+
+        if (num_elements > 32) {
+            return false;
+        }
+
+        while (num_elements > 0) {
+            TupleElement elem;
+            if (!ParseBytesField(buffer, elem.value)) {
+                return false;
+            }
+            tuple.elements.push_back(std::move(elem));
+            num_elements--;
+        }
+
+        if ( tuple.elements.size() != num_elements) {
+            return false;
+        }
+
+        return true;
+    }
+
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, Tuple&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, Tuple&);
+
+
+
+    //
     // Track Status
     //
     Bytes& operator<<(Bytes& buffer, const MoqTrackStatus& msg)

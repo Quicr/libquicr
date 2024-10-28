@@ -739,3 +739,30 @@ TEST_CASE("MoqGoaway Message encode/decode")
     CHECK(Verify(buffer, static_cast<uint64_t>(MoqMessageType::GOAWAY), goaway_out));
     CHECK_EQ(FromASCII("go.away.now.no.return"), goaway_out.new_session_uri);
 }
+
+
+TEST_CASE("Tuple encode/decode")
+{
+    Bytes buffer;
+
+    auto tuple = Tuple {
+        {
+          TupleElement{ FromASCII("webex.com")}, TupleElement{ FromASCII("conf123")}, TupleElement{ FromASCII("conf123")}
+        }
+    };
+
+
+    buffer << tuple;
+
+    Tuple tuple_out {};
+    StreamBuffer<uint8_t> in_buffer;
+    in_buffer.Push(buffer);
+    in_buffer >> tuple_out;
+
+    CHECK_EQ(tuple.elements.size(), tuple_out.elements.size());
+    CHECK_EQ(tuple.elements[0].value, tuple_out.elements[0].value);
+    CHECK_EQ(tuple.elements[1].value, tuple_out.elements[1].value);
+    CHECK_EQ(tuple.elements[2].value, tuple_out.elements[2].value);
+
+
+}

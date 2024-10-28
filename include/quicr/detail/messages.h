@@ -112,6 +112,25 @@ namespace quicr::messages {
     bool operator>>(Bytes& buffer, MoqParameter& msg);
     Bytes& operator<<(Bytes& buffer, const MoqParameter& msg);
 
+
+    //
+    // Tuples
+    //
+
+    struct TupleElement {
+        Bytes value;
+    };
+
+    struct Tuple {
+        std::vector<TupleElement> elements;
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, Tuple& msg);
+    };
+
+    bool operator>>(Bytes& buffer, Tuple& msg);
+    Bytes& operator<<(Bytes& buffer, const Tuple& msg);
+
+
     //
     // Setup
     //
