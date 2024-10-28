@@ -663,8 +663,6 @@ TEST_CASE("StreamPerGroup Object  Message encode/decode")
     StreamPerGroupObjectEncodeDecode(true);
 }
 
-
-
 TEST_CASE("MoqGoaway Message encode/decode")
 {
     Bytes buffer;
