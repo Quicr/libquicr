@@ -24,7 +24,7 @@ namespace quicr {
         uint64_t rx_stream_unknown_subscribe_id{ 0 }; ///< Received stream header with unknown subscribe ID
         uint64_t rx_stream_invalid_type{ 0 };         ///< Invalid message type
 
-        uint64_t invalid_ctrl_stream_msg{ 0 };        ///< Invalid control stream message received. Should always be 0.
+        uint64_t invalid_ctrl_stream_msg{ 0 }; ///< Invalid control stream message received. Should always be 0.
     };
 
     struct SubscribeTrackMetrics
