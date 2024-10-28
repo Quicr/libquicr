@@ -880,7 +880,7 @@ namespace quicr::messages {
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
         buffer << UintVar(msg.object_id);
-        buffer << UintVar(msg.priority);
+        buffer.push_back(msg.priority);
         PushExtensions(buffer, msg.extensions);
         buffer << UintVar(msg.payload.size());
         buffer << msg.payload;
@@ -920,9 +920,12 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 4: {
-                if (!ParseUintVField(buffer, msg.priority)) {
+                auto val = buffer.Front();
+                if (!val) {
                     return false;
                 }
+                buffer.Pop();
+                msg.priority = val.value();
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
@@ -969,7 +972,7 @@ namespace quicr::messages {
         buffer << UintVar(msg.subscribe_id);
         buffer << UintVar(msg.group_id);
         buffer << UintVar(msg.subgroup_id);
-        buffer << UintVar(msg.priority);
+        buffer.push_back(msg.priority);
         return buffer;
     }
 
@@ -1006,9 +1009,12 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 4: {
-                if (!ParseUintVField(buffer, msg.priority)) {
+                auto val = buffer.Front();
+                if (!val) {
                     return false;
                 }
+                buffer.Pop();
+                msg.priority = val.value();;
                 msg.current_pos += 1;
                 msg.parse_completed = true;
                 [[fallthrough]];

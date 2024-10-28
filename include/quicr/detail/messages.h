@@ -21,7 +21,7 @@ namespace quicr::messages {
     using GroupId = uint64_t;
     using SubGroupId = uint64_t;
     using ObjectId = uint64_t;
-    using ObjectPriority = uint64_t;
+    using ObjectPriority = uint8_t;
     using SubscribeId = uint64_t;
     using TrackAlias = uint64_t;
     using ParamType = uint64_t;
