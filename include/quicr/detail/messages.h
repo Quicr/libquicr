@@ -65,7 +65,7 @@ namespace quicr::messages {
 
         STREAM_HEADER_TRACK = 0x50,
         STREAM_HEADER_GROUP,
-        STREAM_HEADER_SUBGROUP = 0x4,
+        STREAM_HEADER_SUBGROUP = 0x04,
     };
 
     enum class SubscribeError : uint8_t

@@ -300,9 +300,6 @@ namespace quicr {
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
 
-        uint64_t subgroup_id = { 0 }; // stack maintains subgroup id order to ease application
-                                      // from managing the non-sequential numbers
-
         friend class Transport;
         friend class Client;
         friend class Server;
