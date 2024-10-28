@@ -22,7 +22,7 @@ namespace quicr::example {
         auto now = std::chrono::system_clock::now();
         auto now_us = std::chrono::time_point_cast<std::chrono::microseconds>(now);
         std::time_t t = std::chrono::system_clock::to_time_t(now);
-        struct tm tm_result {};
+        struct tm tm_result;
         localtime_r(&t, &tm_result);
         oss << std::put_time(&tm_result, "%F %T") << "." << std::setfill('0') << std::setw(6)
             << (now_us.time_since_epoch().count()) % 1'000'000;
