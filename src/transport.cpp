@@ -1122,7 +1122,7 @@ namespace quicr {
 
                 auto& obj = stream_buffer->GetAnyB<MoqStreamSubGroupObject>();
                 if (*stream_buffer >> obj) {
-                    SPDLOG_LOGGER_DEBUG(logger_,
+                    SPDLOG_LOGGER_TRACE(logger_,
                                         "Received stream_subgroup_object subscribe_id: {0} priority: {1} track_alias: {2} "
                                         "group_id: {3} subgroup_id: {4} object_id: {5} data size: {6}",
                                         msg.subscribe_id,

@@ -124,8 +124,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqParameter&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqParameter&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqParameter&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqParameter&);
 
     //
     // Track Status
@@ -200,8 +200,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqTrackStatus&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqTrackStatus&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqTrackStatus&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqTrackStatus&);
 
     Bytes& operator<<(Bytes& buffer, const MoqTrackStatusRequest& msg)
     {
@@ -244,8 +244,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqTrackStatusRequest&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqTrackStatusRequest&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqTrackStatusRequest&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqTrackStatusRequest&);
 
     //
     // Subscribe
@@ -426,8 +426,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqSubscribe&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqSubscribe&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqSubscribe&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqSubscribe&);
 
     Bytes& operator<<(Bytes& buffer, const MoqUnsubscribe& msg)
     {
@@ -442,8 +442,8 @@ namespace quicr::messages {
         return ParseUintVField(buffer, msg.subscribe_id);
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqUnsubscribe&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqUnsubscribe&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqUnsubscribe&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqUnsubscribe&);
 
     Bytes& operator<<(Bytes& buffer, const MoqSubscribeDone& msg)
     {
@@ -526,8 +526,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqSubscribeDone&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqSubscribeDone&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqSubscribeDone&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqSubscribeDone&);
 
     Bytes& operator<<(Bytes& buffer, const MoqSubscribeOk& msg)
     {
@@ -598,8 +598,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqSubscribeOk&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqSubscribeOk&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqSubscribeOk&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqSubscribeOk&);
 
     Bytes& operator<<(Bytes& buffer, const MoqSubscribeError& msg)
     {
@@ -656,8 +656,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqSubscribeError&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqSubscribeError&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqSubscribeError&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqSubscribeError&);
 
     //
     // Announce
@@ -720,8 +720,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqAnnounce&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqAnnounce&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqAnnounce&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqAnnounce&);
 
     Bytes& operator<<(Bytes& buffer, const MoqAnnounceOk& msg)
     {
@@ -745,8 +745,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqAnnounceOk&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqAnnounceOk&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqAnnounceOk&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqAnnounceOk&);
 
     Bytes& operator<<(Bytes& buffer, const MoqAnnounceError& msg)
     {
@@ -790,8 +790,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqAnnounceError&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqAnnounceError&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqAnnounceError&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqAnnounceError&);
 
     Bytes& operator<<(Bytes& buffer, const MoqUnannounce& msg)
     {
@@ -815,8 +815,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqUnannounce&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqUnannounce&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqUnannounce&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqUnannounce&);
 
     Bytes& operator<<(Bytes& buffer, const MoqAnnounceCancel& msg)
     {
@@ -840,8 +840,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqAnnounceCancel&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqAnnounceCancel&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqAnnounceCancel&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqAnnounceCancel&);
 
     //
     // Goaway
@@ -866,8 +866,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqGoaway&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqGoaway&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqGoaway&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqGoaway&);
 
     //
     // Object
@@ -959,8 +959,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqObjectDatagram&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqObjectDatagram&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqObjectDatagram&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqObjectDatagram&);
 
     Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderTrack& msg)
     {
@@ -1007,8 +1007,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamHeaderTrack&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamHeaderTrack&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamHeaderTrack&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamHeaderTrack&);
 
     Bytes& operator<<(Bytes& buffer, const MoqStreamTrackObject& msg)
     {
@@ -1071,8 +1071,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamTrackObject&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamTrackObject&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamTrackObject&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamTrackObject&);
 
     Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderSubGroup& msg)
     {
@@ -1136,8 +1136,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamHeaderSubGroup&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamHeaderSubGroup&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamHeaderSubGroup&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamHeaderSubGroup&);
 
     Bytes& operator<<(Bytes& buffer, const MoqStreamSubGroupObject& msg)
     {
@@ -1193,8 +1193,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamSubGroupObject&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamSubGroupObject&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamSubGroupObject&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamSubGroupObject&);
 
     // Client Setup message
     Bytes& operator<<(Bytes& buffer, const MoqClientSetup& msg)
@@ -1301,8 +1301,8 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqClientSetup&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqClientSetup&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqClientSetup&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqClientSetup&);
 
     // Server Setup message
 
@@ -1394,7 +1394,7 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>><StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqServerSetup&);
-    template bool operator>><SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqServerSetup&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqServerSetup&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqServerSetup&);
 
 }
