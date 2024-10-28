@@ -463,8 +463,7 @@ class MyServer : public quicr::Server
                     subscribe_id,
                     th.track_fullname_hash);
 
-        auto pub_track_h =
-          std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStreamPerSubGroup, 2, 5000);
+        auto pub_track_h = std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, 2, 5000);
         qserver_vars::subscribes[th.track_fullname_hash][connection_handle] = pub_track_h;
         qserver_vars::subscribe_alias_sub_id[connection_handle][subscribe_id] = th.track_fullname_hash;
 

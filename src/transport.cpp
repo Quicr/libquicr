@@ -599,29 +599,6 @@ namespace quicr {
                 track_handler.object_msg_buffer_ << object;
                 break;
             }
-
-            case TrackMode::kStreamPerTrack: {
-                eflags.use_reliable = true;
-
-                if (stream_header_needed) {
-                    eflags.new_stream = true;
-
-                    MoqStreamHeaderTrack track_hdr;
-                    track_hdr.priority = priority;
-                    track_hdr.subscribe_id = *track_handler.GetSubscribeId();
-                    track_hdr.track_alias = *track_handler.GetTrackAlias();
-                    track_handler.object_msg_buffer_ << track_hdr;
-                }
-
-                MoqStreamTrackObject object;
-                object.group_id = group_id;
-                object.object_id = object_id;
-                object.extensions = extensions;
-                object.payload.assign(data.begin(), data.end());
-                track_handler.object_msg_buffer_ << object;
-                break;
-            }
-
             default: {
                 // use stream per subgroup, group change
                 eflags.use_reliable = true;
@@ -908,7 +885,7 @@ namespace quicr {
                       {
                         msg.group_id,
                         msg.object_id,
-                        std::nullopt,
+                        0, // datagrams don't have subgroups
                         msg.payload.size(),
                         msg.priority,
                         std::nullopt,
@@ -1043,61 +1020,6 @@ namespace quicr {
         }
 
         switch (data_type) {
-            case messages::MoqMessageType::STREAM_HEADER_TRACK: {
-                auto&& [msg, parsed] = ParseStreamData<MoqStreamHeaderTrack, MoqStreamTrackObject>(
-                  stream_buffer, MoqMessageType::STREAM_HEADER_TRACK);
-
-                if (!parsed) {
-                    break;
-                }
-
-                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                    conn_ctx.metrics.rx_dgram_unknown_subscribe_id++;
-
-                    SPDLOG_LOGGER_DEBUG(
-                      logger_,
-                      "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
-                      msg.subscribe_id);
-
-                    // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
-                    stream_buffer->ResetAnyB<MoqStreamTrackObject>();
-                    return true;
-                }
-
-                auto& obj = stream_buffer->GetAnyB<MoqStreamTrackObject>();
-                if (*stream_buffer >> obj) {
-
-                    SPDLOG_LOGGER_TRACE(logger_,
-                                        "Received stream_track_object subscribe_id: {0} priority: {1} track_alias: {2} "
-                                        "group_id: {3} object_id: {4} data size: {5}",
-                                        msg.subscribe_id,
-                                        msg.priority,
-                                        msg.track_alias,
-                                        obj.group_id,
-                                        obj.object_id,
-                                        obj.payload.size());
-
-                    auto& handler = sub_it->second;
-
-                    handler->subscribe_track_metrics_.objects_received++;
-                    handler->subscribe_track_metrics_.bytes_received += obj.payload.size();
-                    handler->ObjectReceived({ obj.group_id,
-                                              obj.object_id,
-                                              std::nullopt,
-                                              obj.payload.size(),
-                                              msg.priority,
-                                              std::nullopt,
-                                              TrackMode::kStreamPerTrack,
-                                              obj.extensions },
-                                            obj.payload);
-
-                    stream_buffer->ResetAnyB<MoqStreamTrackObject>();
-
-                    return true;
-                }
-                break;
-            }
             case messages::MoqMessageType::STREAM_HEADER_SUBGROUP: {
                 auto&& [msg, parsed] = ParseStreamData<MoqStreamHeaderSubGroup, MoqStreamSubGroupObject>(
                   stream_buffer, MoqMessageType::STREAM_HEADER_SUBGROUP);
@@ -1143,7 +1065,7 @@ namespace quicr {
                                               obj.payload.size(),
                                               msg.priority,
                                               std::nullopt,
-                                              TrackMode::kStreamPerSubGroup,
+                                              TrackMode::kStream,
                                               obj.extensions },
                                             obj.payload);
 

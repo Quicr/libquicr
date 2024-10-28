@@ -18,9 +18,9 @@ namespace quicr {
      */
     struct ObjectHeaders
     {
-        uint64_t group_id;  ///< Object group ID - Should be derived using time in microseconds
-        uint64_t object_id; ///< Object ID - Start at zero and increment for each object in group
-        std::optional<uint64_t> subgroup_id;
+        uint64_t group_id;                   ///< Object group ID - Application defined order of generation
+        uint64_t object_id;                  ///< Object ID - Application defined order of generation
+        uint64_t subgroup_id{ 0 };           ///< Subgroup ID - Starts at 0, monotonically increases by 1
         uint64_t payload_length;             ///< Length of payload of the object data
         std::optional<uint8_t> priority;     ///< Priority of the object, lower value is better
         std::optional<uint16_t> ttl;         ///< Object time to live in milliseconds

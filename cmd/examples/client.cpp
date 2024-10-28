@@ -132,7 +132,7 @@ void
 DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<quicr::Client>& client, const bool& stop)
 {
     auto track_handler = std::make_shared<MyPublishTrackHandler>(
-      full_track_name, quicr::TrackMode::kStreamPerSubGroup /*mode*/, 2 /*prirority*/, 3000 /*ttl*/);
+      full_track_name, quicr::TrackMode::kStream /*mode*/, 2 /*prirority*/, 3000 /*ttl*/);
 
     SPDLOG_INFO("Started publisher track");
 
@@ -183,6 +183,8 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
             group_id++;
         }
 
+        // The idea is to generate a new subgroup after 4 objects and have
+        // only one subgroup within a group of 10 objects
         if (object_id == 4) {
             subgroup_id++;
         }
