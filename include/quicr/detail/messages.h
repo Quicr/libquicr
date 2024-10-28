@@ -403,40 +403,6 @@ namespace quicr::messages {
     bool operator>>(Bytes& buffer, MoqObjectDatagram& msg);
     Bytes& operator<<(Bytes& buffer, const MoqObjectDatagram& msg);
 
-    struct MoqStreamHeaderTrack
-    {
-        SubscribeId subscribe_id;
-        TrackAlias track_alias;
-        ObjectPriority priority;
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqStreamHeaderTrack& msg);
-
-      private:
-        uint64_t current_pos{ 0 };
-        bool parse_completed{ false };
-    };
-
-    bool operator>>(Bytes& buffer, MoqStreamHeaderTrack& msg);
-    Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderTrack& msg);
-
-    struct MoqStreamTrackObject
-    {
-        GroupId group_id;
-        ObjectId object_id;
-        std::optional<Extensions> extensions;
-        Bytes payload;
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqStreamTrackObject& msg);
-
-      private:
-        uint64_t num_extensions{ 0 };
-        std::optional<uint64_t> current_tag{};
-        uint64_t current_pos{ 0 };
-        bool parse_completed{ false };
-    };
-
-    bool operator>>(Bytes& buffer, MoqStreamTrackObject& msg);
-    Bytes& operator<<(Bytes& buffer, const MoqStreamTrackObject& msg);
 
     // SubGroups
     struct MoqStreamHeaderSubGroup
