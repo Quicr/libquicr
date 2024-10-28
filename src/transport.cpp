@@ -1120,7 +1120,7 @@ namespace quicr {
                       msg.subscribe_id);
 
                     // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
-                    stream_buffer->ResetAnyB<MoqStreamGroupObject>();
+                    stream_buffer->ResetAnyB<MoqStreamTrackObject>();
                     return true;
                 }
 
