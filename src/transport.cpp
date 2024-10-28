@@ -1311,10 +1311,6 @@ namespace quicr {
       std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
     template std::pair<messages::MoqClientSetup&, bool> Transport::ParseControlMessage<messages::MoqClientSetup>(
       std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqObjectStream&, bool> Transport::ParseControlMessage<messages::MoqObjectStream>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqObjectDatagram&, bool> Transport::ParseControlMessage<messages::MoqObjectDatagram>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
     template std::pair<messages::MoqStreamHeaderTrack&, bool>
     Transport::ParseControlMessage<messages::MoqStreamHeaderTrack>(std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
     template std::pair<messages::MoqStreamHeaderGroup&, bool>

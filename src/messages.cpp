@@ -778,41 +778,77 @@ namespace quicr::messages {
         PushExtensions(buffer, msg.extensions);
         buffer << UintVar(msg.payload.size());
         buffer << msg.payload;
-
-        UintVar size(buffer.size());
-        buffer.insert(buffer.begin(), size.begin(), size.end());
         return buffer;
     }
 
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqObjectDatagram& msg)
     {
-        if (!ParseUintVField(buffer, msg.subscribe_id)) {
+        switch (msg.current_pos) {
+            case 0: {
+                if (!ParseUintVField(buffer, msg.subscribe_id)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 1: {
+                if (!ParseUintVField(buffer, msg.track_alias)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 2: {
+                if (!ParseUintVField(buffer, msg.group_id)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 3: {
+                if (!ParseUintVField(buffer, msg.object_id)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 4: {
+                if (!ParseUintVField(buffer, msg.priority)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 5: {
+                if (!ParseUintVField(buffer, msg.num_extensions)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 6:
+                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            case 7: {
+                auto val = buffer.DecodeBytes();
+                if (!val) {
+                    return false;
+                }
+                msg.payload = std::move(val.value());
+                msg.parse_completed = true;
+                [[fallthrough]];
+            }
+            default:
+                break;
+        }
+
+        if (!msg.parse_completed) {
             return false;
         }
-        if (!ParseUintVField(buffer, msg.track_alias)) {
-            return false;
-        }
-        if (!ParseUintVField(buffer, msg.group_id)) {
-            return false;
-        }
-        if (!ParseUintVField(buffer, msg.object_id)) {
-            return false;
-        }
-        if (!ParseUintVField(buffer, msg.priority)) {
-            return false;
-        }
-        if (!ParseUintVField(buffer, msg.num_extensions)) {
-            return false;
-        }
-        if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
-            return false;
-        }
-        auto val = buffer.DecodeBytes();
-        if (!val) {
-            return false;
-        }
-        msg.payload = std::move(val.value());
 
         return true;
     }

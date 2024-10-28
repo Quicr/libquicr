@@ -385,6 +385,8 @@ namespace quicr::messages {
       private:
         uint64_t num_extensions{ 0 };
         std::optional<uint64_t> current_tag{};
+        uint64_t current_pos{ 0 };
+        bool parse_completed{ false };
     };
 
     bool operator>>(Bytes& buffer, MoqObjectDatagram& msg);
