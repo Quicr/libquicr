@@ -38,9 +38,9 @@ namespace quicr {
         bool is_stream_header_needed{ false };
 
         // change in subgroups and groups require a new stream
-        if (prev_sub_group_id_ != object_headers.subgroup_id || prev_object_group_id_ != object_headers.group_id) {
-            is_stream_header_needed = true;
-        }
+
+        is_stream_header_needed =
+          prev_sub_group_id_ != object_headers.subgroup_id || prev_object_group_id_ != object_headers.group_id;
 
         prev_object_group_id_ = object_headers.group_id;
         prev_sub_group_id_ = object_headers.subgroup_id;

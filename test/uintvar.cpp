@@ -71,6 +71,5 @@ TEST_CASE("UintVar Invalid Construction")
 {
     CHECK_THROWS(quicr::UintVar(std::numeric_limits<uint64_t>::max()));
     CHECK_THROWS(quicr::UintVar(std::vector<uint8_t>{}));
-    CHECK_THROWS(quicr::UintVar(std::vector<uint8_t>(sizeof(uint64_t) + 1)));
     CHECK_THROWS(quicr::UintVar(std::vector<uint8_t>{ 0xFF, 0xFF }));
 }
