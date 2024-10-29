@@ -33,7 +33,7 @@ namespace quicr::messages {
     {
 
         // get the count of extensions
-        if (!count && !ParseUintVField(buffer, count)) {
+        if (count == 0 && !ParseUintVField(buffer, count)) {
             return false;
         }
 
@@ -667,13 +667,12 @@ namespace quicr::messages {
         buffer << UintVar(msg.group_id);
         buffer << UintVar(msg.object_id);
         buffer.push_back(msg.priority);
-        if (!msg.payload.size()) {
+        buffer << UintVar(msg.payload.size());
+        if (msg.payload.empty()) {
             // empty payload needs a object status to be set
-            buffer << UintVar(msg.payload.size());
             buffer << UintVar(static_cast<uint8_t>(msg.object_status));
             PushExtensions(buffer, msg.extensions);
         } else {
-            buffer << UintVar(msg.payload.size());
             PushExtensions(buffer, msg.extensions);
             buffer << msg.payload;
         }
