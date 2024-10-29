@@ -1036,7 +1036,7 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const MoqStreamSubGroupObject& msg)
     {
         buffer << UintVar(msg.object_id);
-        if(!msg.payload.size()) {
+        if (!msg.payload.size()) {
             // empty payload needs a object status to be set
             buffer << UintVar(msg.payload.size());
             buffer << UintVar(static_cast<uint8_t>(msg.object_status));

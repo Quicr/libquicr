@@ -603,7 +603,7 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
             obj.object_status = ObjectStatus::DOES_NOT_EXIST;
             obj.payload = {};
         } else {
-            obj.payload = {0x1, 0x2, 0x3, 0x4, 0x5};
+            obj.payload = { 0x1, 0x2, 0x3, 0x4, 0x5 };
         }
 
         obj.extensions = extensions ? kOptionalExtensions : std::nullopt;

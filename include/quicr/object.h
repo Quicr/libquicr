@@ -14,7 +14,8 @@ namespace quicr {
     /**
      * @brief Status of object as reported by the publisher
      */
-    enum struct ObjectStatus: uint8_t {
+    enum struct ObjectStatus : uint8_t
+    {
         AVAIALABLE = 0x0,
         DOES_NOT_EXIST = 0x1,
         END_OF_GROUP = 0x3,
