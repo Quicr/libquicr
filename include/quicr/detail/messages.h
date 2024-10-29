@@ -4,6 +4,7 @@
 #pragma once
 
 #include "quicr/common.h"
+#include "quicr/track_name.h"
 #include "stream_buffer.h"
 
 #include <map>
@@ -13,7 +14,6 @@
 namespace quicr::messages {
 
     using Version = uint64_t;
-    using TrackNamespace = Bytes;
     using TrackName = Bytes;
     using ErrorCode = uint64_t;
     using StatusCode = uint64_t;
@@ -111,6 +111,13 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, MoqParameter& msg);
     Bytes& operator<<(Bytes& buffer, const MoqParameter& msg);
+
+    //
+    // Namespace
+    //
+
+    BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg);
+    Bytes& operator<<(Bytes& buffer, const TrackNamespace& msg);
 
     //
     // Setup

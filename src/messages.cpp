@@ -142,6 +142,40 @@ namespace quicr::messages {
         return true;
     }
 
+    Bytes& operator<<(Bytes& buffer, const TrackNamespace& ns)
+    {
+        const auto& entries = ns.GetEntries();
+
+        Bytes payload;
+        for (const auto& entry : entries) {
+            payload << UintVar(entry.size());
+            payload << entry;
+        }
+
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg)
+    {
+        uint64_t length = 0;
+        buffer = buffer >> length;
+
+        std::vector<Bytes> entries;
+        while (length > 0) {
+            Bytes entry;
+            buffer = buffer >> entry;
+            length -= entry.size() + UintVar::Size(entry.size());
+            entries.emplace_back(std::move(entry));
+        }
+
+        msg = TrackNamespace{ entries };
+
+        return buffer;
+    }
+
     // Client Setup message
     Bytes& operator<<(Bytes& buffer, const MoqClientSetup& msg)
     {
@@ -266,7 +300,6 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const MoqTrackStatus& msg)
     {
         Bytes payload;
-        payload << UintVar(msg.track_namespace.size());
         payload << msg.track_namespace;
         payload << UintVar(msg.track_name.size());
         payload << msg.track_name;
@@ -299,7 +332,6 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const MoqTrackStatusRequest& msg)
     {
         Bytes payload;
-        payload << UintVar(msg.track_namespace.size());
         payload << msg.track_namespace;
         payload << UintVar(msg.track_name.size());
         payload << msg.track_name;
@@ -325,7 +357,6 @@ namespace quicr::messages {
         Bytes payload;
         payload << UintVar(msg.subscribe_id);
         payload << UintVar(msg.track_alias);
-        payload << UintVar(msg.track_namespace.size());
         payload << msg.track_namespace;
         payload << UintVar(msg.track_name.size());
         payload << msg.track_name;
@@ -513,7 +544,6 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const MoqAnnounce& msg)
     {
         Bytes payload;
-        payload << UintVar(msg.track_namespace.size());
         payload << msg.track_namespace;
         payload << UintVar(static_cast<uint64_t>(0));
 
@@ -543,7 +573,6 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const MoqAnnounceOk& msg)
     {
         Bytes payload;
-        payload << UintVar(msg.track_namespace.size());
         payload << msg.track_namespace;
 
         buffer << UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_OK));
@@ -561,7 +590,6 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const MoqAnnounceError& msg)
     {
         Bytes payload;
-        payload << UintVar(msg.track_namespace.value().size());
         payload << msg.track_namespace.value();
         payload << UintVar(msg.err_code.value());
         payload << UintVar(msg.reason_phrase.value().size());
@@ -594,7 +622,6 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const MoqUnannounce& msg)
     {
         Bytes payload;
-        payload << UintVar(msg.track_namespace.size());
         payload << msg.track_namespace;
 
         buffer << UintVar(static_cast<uint64_t>(MoqMessageType::UNANNOUNCE));
@@ -612,7 +639,6 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const MoqAnnounceCancel& msg)
     {
         Bytes payload;
-        payload << UintVar(msg.track_namespace.size());
         payload << msg.track_namespace;
 
         buffer << UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_CANCEL));

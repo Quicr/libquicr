@@ -44,10 +44,13 @@ namespace quicr::example {
                                                  const std::optional<uint64_t> track_alias) noexcept
     {
 
-        FullTrackName full_track_name{ { track_namespace.begin(), track_namespace.end() },
+        FullTrackName full_track_name{ TrackNamespace{
+                                         quicr::Bytes{ 0x01 },
+                                         quicr::Bytes{ 0x01 },
+                                         quicr::Bytes{ track_namespace.begin(), track_namespace.end() },
+                                       },
                                        { track_name.begin(), track_name.end() },
                                        track_alias };
         return full_track_name;
     }
-
 }

@@ -18,7 +18,7 @@ FromASCII(const std::string& ascii)
     return std::vector<uint8_t>(ascii.begin(), ascii.end());
 }
 
-const Bytes kTrackNamespaceConf = FromASCII("moqt://conf.example.com/conf/1");
+const TrackNamespace kTrackNamespaceConf{ FromASCII("conf.example.com"), FromASCII("conf"), FromASCII("1") };
 const Bytes kTrackNameAliceVideo = FromASCII("alice/video");
 const UintVar kTrackAliasAliceVideo{ 0xA11CE };
 const Extensions kExampleExtensions = { { 0x1, { 0x1, 0x2 } } };

@@ -61,7 +61,7 @@ namespace {
     {
 
         return {
-            { track_namespace.begin(), track_namespace.end() },
+            quicr::TrackNamespace{ quicr::Bytes{ track_namespace.begin(), track_namespace.end() } },
             { track_name.begin(), track_name.end() },
             track_alias,
         };
