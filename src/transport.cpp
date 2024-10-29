@@ -887,6 +887,7 @@ namespace quicr {
                         msg.object_id,
                         0, // datagrams don't have subgroups
                         msg.payload.size(),
+                        ObjectStatus::AVAIALABLE,
                         msg.priority,
                         std::nullopt,
                         TrackMode::kDatagram,
@@ -1063,6 +1064,7 @@ namespace quicr {
                                               obj.object_id,
                                               msg.subgroup_id,
                                               obj.payload.size(),
+                                              obj.object_status,
                                               msg.priority,
                                               std::nullopt,
                                               TrackMode::kStream,

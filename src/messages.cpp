@@ -31,6 +31,12 @@ namespace quicr::messages {
                                 std::optional<Extensions>& extensions,
                                 std::optional<uint64_t>& current_tag)
     {
+
+        // get the count of extensions
+        if (!count && !ParseUintVField(buffer, count)) {
+            return false;
+        }
+
         if (count == 0) {
             return true;
         }
@@ -76,7 +82,7 @@ namespace quicr::messages {
     static void PushExtensions(Bytes& buffer, const std::optional<Extensions>& extensions)
     {
         if (!extensions.has_value()) {
-            buffer.push_back(0);
+            buffer << UintVar(0);
             return;
         }
 
@@ -929,20 +935,13 @@ namespace quicr::messages {
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 5: {
-                if (!ParseUintVField(buffer, msg.num_extensions)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 6:
+            case 5:
                 if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
-            case 7: {
+            case 6: {
                 auto val = buffer.DecodeBytes();
                 if (!val) {
                     return false;
@@ -1037,15 +1036,23 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const MoqStreamSubGroupObject& msg)
     {
         buffer << UintVar(msg.object_id);
-        PushExtensions(buffer, msg.extensions);
-        buffer << UintVar(msg.payload.size());
-        buffer << msg.payload;
+        if(!msg.payload.size()) {
+            // empty payload needs a object status to be set
+            buffer << UintVar(msg.payload.size());
+            buffer << UintVar(static_cast<uint8_t>(msg.object_status));
+            PushExtensions(buffer, msg.extensions);
+        } else {
+            buffer << UintVar(msg.payload.size());
+            PushExtensions(buffer, msg.extensions);
+            buffer << msg.payload;
+        }
         return buffer;
     }
 
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, MoqStreamSubGroupObject& msg)
     {
+
         switch (msg.current_pos) {
             case 0: {
                 if (!ParseUintVField(buffer, msg.object_id)) {
@@ -1055,25 +1062,43 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 1: {
-                if (!ParseUintVField(buffer, msg.num_extensions)) {
+                if (!ParseUintVField(buffer, msg.payload_len)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
             case 2: {
-                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
-                    return false;
+                if (msg.payload_len == 0) {
+                    uint64_t status = 0;
+                    if (!ParseUintVField(buffer, status)) {
+                        return false;
+                    }
+                    msg.object_status = static_cast<ObjectStatus>(status);
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
+
             case 3: {
-                auto val = buffer.DecodeBytes();
-                if (!val) {
+                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
                     return false;
                 }
-                msg.payload = std::move(val.value());
+                msg.current_pos += 1;
+                if (msg.payload_len == 0) {
+                    msg.parse_completed = true;
+                    break;
+                }
+                [[fallthrough]];
+            }
+
+            case 4: {
+                if (!buffer.Available(msg.payload_len)) {
+                    return false;
+                }
+                auto val = buffer.Front(msg.payload_len);
+                msg.payload = std::move(val);
+                buffer.Pop(msg.payload_len);
                 msg.parse_completed = true;
                 [[fallthrough]];
             }

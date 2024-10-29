@@ -12,6 +12,17 @@ namespace quicr {
     using Extensions = std::map<uint64_t, std::vector<uint8_t>>;
 
     /**
+     * @brief Status of object as reported by the publisher
+     */
+    enum struct ObjectStatus: uint8_t {
+        AVAIALABLE = 0x0,
+        DOES_NOT_EXIST = 0x1,
+        END_OF_GROUP = 0x3,
+        END_OF_TRACK = 0x4,
+        END_OF_SUBGROUP = 0x5
+    };
+
+    /**
      * @brief Object headers struct
      *
      * @details Object headers are passed when sending and receiving an object. The object headers describe the object.
@@ -22,6 +33,7 @@ namespace quicr {
         uint64_t object_id;                  ///< Object ID - Application defined order of generation
         uint64_t subgroup_id{ 0 };           ///< Subgroup ID - Starts at 0, monotonically increases by 1
         uint64_t payload_length;             ///< Length of payload of the object data
+        ObjectStatus status;                 ///< Status of the object at the publisher
         std::optional<uint8_t> priority;     ///< Priority of the object, lower value is better
         std::optional<uint16_t> ttl;         ///< Object time to live in milliseconds
         std::optional<TrackMode> track_mode; ///< Track Mode of how the object was received or mode to use when sending

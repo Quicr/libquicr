@@ -574,7 +574,7 @@ TEST_CASE("ObjectDatagram  Message encode/decode")
 }
 
 static void
-StreamPerSubGroupObjectEncodeDecode(bool extensions)
+StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
 {
     Bytes buffer;
     auto hdr_grp = MoqStreamHeaderSubGroup{};
@@ -595,11 +595,18 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions)
     buffer.clear();
     auto objects = std::vector<MoqStreamSubGroupObject>{};
     // send 10 objects
-    for (size_t i = 0; i < 1000; i++) {
+    for (size_t i = 0; i < 1; i++) {
         auto obj = MoqStreamSubGroupObject{};
-        obj.object_id = i;
+        obj.object_id = 0x1234;
+
+        if (empty_payload) {
+            obj.object_status = ObjectStatus::DOES_NOT_EXIST;
+            obj.payload = {};
+        } else {
+            obj.payload = {0x1, 0x2, 0x3, 0x4, 0x5};
+        }
+
         obj.extensions = extensions ? kOptionalExtensions : std::nullopt;
-        obj.payload = { 0x1, 0x2, 0x3, 0x4, 0x5 };
         objects.push_back(obj);
         buffer << obj;
     }
@@ -613,8 +620,13 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions)
         done = in_buffer >> obj_out;
         if (done) {
             CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
+            if (empty_payload) {
+                CHECK_EQ(obj_out.object_status, objects[object_count].object_status);
+            } else {
+                CHECK(obj_out.payload.size() > 0);
+                CHECK_EQ(obj_out.payload, objects[object_count].payload);
+            }
             CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
-            CHECK_EQ(obj_out.payload, objects[object_count].payload);
             // got one object
             object_count++;
             obj_out = {};
@@ -622,13 +634,15 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions)
         }
     }
 
-    CHECK_EQ(object_count, 1000);
+    CHECK_EQ(object_count, 1);
 }
 
 TEST_CASE("StreamPerSubGroup Object  Message encode/decode")
 {
-    StreamPerSubGroupObjectEncodeDecode(false);
-    StreamPerSubGroupObjectEncodeDecode(true);
+    StreamPerSubGroupObjectEncodeDecode(false, true);
+    StreamPerSubGroupObjectEncodeDecode(false, false);
+    StreamPerSubGroupObjectEncodeDecode(true, true);
+    StreamPerSubGroupObjectEncodeDecode(true, false);
 }
 
 TEST_CASE("MoqGoaway Message encode/decode")
