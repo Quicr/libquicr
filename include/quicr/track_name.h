@@ -69,35 +69,26 @@ namespace quicr {
         bool empty() const noexcept { return bytes_.empty(); }
         // NOLINTEND(readability-identifier-naming)
 
-        constexpr friend bool operator==(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept
+        friend bool operator==(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept
         {
             return lhs.bytes_ == rhs.bytes_;
         }
 
-        constexpr friend bool operator!=(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept
-        {
-            return !(lhs == rhs);
-        }
+        friend bool operator!=(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept { return !(lhs == rhs); }
 
-        constexpr friend bool operator<(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept
+        friend bool operator<(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept
         {
             return lhs.bytes_ < rhs.bytes_;
         }
 
-        constexpr friend bool operator>(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept
+        friend bool operator>(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept
         {
             return lhs.bytes_ > rhs.bytes_;
         }
 
-        constexpr friend bool operator<=(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept
-        {
-            return !(lhs > rhs);
-        }
+        friend bool operator<=(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept { return !(lhs > rhs); }
 
-        constexpr friend bool operator>=(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept
-        {
-            return !(lhs < rhs);
-        }
+        friend bool operator>=(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept { return !(lhs < rhs); }
 
       private:
         std::vector<uint8_t> bytes_;
