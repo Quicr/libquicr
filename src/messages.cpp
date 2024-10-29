@@ -82,7 +82,7 @@ namespace quicr::messages {
     static void PushExtensions(Bytes& buffer, const std::optional<Extensions>& extensions)
     {
         if (!extensions.has_value()) {
-            buffer << UintVar(0);
+            buffer.push_back(0);
             return;
         }
 

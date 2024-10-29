@@ -554,7 +554,6 @@ ObjectDatagramEncodeDecode(bool extensions, bool empty_payload)
     object_datagram.extensions = extensions ? kOptionalExtensions : std::nullopt;
     if (empty_payload) {
         object_datagram.object_status = quicr::ObjectStatus::DOES_NOT_EXIST;
-        object_datagram.payload = {};
     } else {
         object_datagram.payload = { 0x1, 0x2, 0x3, 0x5, 0x6 };
     }
@@ -613,7 +612,6 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
 
         if (empty_payload) {
             obj.object_status = ObjectStatus::DOES_NOT_EXIST;
-            obj.payload = {};
         } else {
             obj.payload = { 0x1, 0x2, 0x3, 0x4, 0x5 };
         }
