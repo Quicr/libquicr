@@ -580,7 +580,9 @@ ObjectDatagramEncodeDecode(bool extensions, bool empty_payload)
 TEST_CASE("ObjectDatagram  Message encode/decode")
 {
     ObjectDatagramEncodeDecode(false, false);
-    // ObjectDatagramEncodeDecode(false, true);
+    ObjectDatagramEncodeDecode(false, true);
+    ObjectDatagramEncodeDecode(true, false);
+    ObjectDatagramEncodeDecode(true, true);
 }
 
 static void
