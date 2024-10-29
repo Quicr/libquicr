@@ -887,8 +887,16 @@ namespace quicr::messages {
         buffer << UintVar(msg.group_id);
         buffer << UintVar(msg.object_id);
         buffer.push_back(msg.priority);
-        PushExtensions(buffer, msg.extensions);
-        buffer << UintVar(msg.payload.size());
+        if (!msg.payload.size()) {
+            // empty payload needs a object status to be set
+            buffer << UintVar(msg.payload.size());
+            buffer << UintVar(static_cast<uint8_t>(msg.object_status));
+            PushExtensions(buffer, msg.extensions);
+        } else {
+            buffer << UintVar(msg.payload.size());
+            PushExtensions(buffer, msg.extensions);
+            buffer << msg.payload;
+        }
         buffer << msg.payload;
         return buffer;
     }
@@ -935,18 +943,44 @@ namespace quicr::messages {
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 5:
-                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
+            case 5: {
+                if (!ParseUintVField(buffer, msg.payload_len)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
+            }
             case 6: {
-                auto val = buffer.DecodeBytes();
-                if (!val) {
+                if (msg.payload_len == 0) {
+                    uint64_t status = 0;
+                    if (!ParseUintVField(buffer, status)) {
+                        return false;
+                    }
+                    msg.object_status = static_cast<ObjectStatus>(status);
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+
+            case 7: {
+                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
                     return false;
                 }
-                msg.payload = std::move(val.value());
+                msg.current_pos += 1;
+                if (msg.payload_len == 0) {
+                    msg.parse_completed = true;
+                    break;
+                }
+                [[fallthrough]];
+            }
+
+            case 8: {
+                if (!buffer.Available(msg.payload_len)) {
+                    return false;
+                }
+                auto val = buffer.Front(msg.payload_len);
+                msg.payload = std::move(val);
+                buffer.Pop(msg.payload_len);
                 msg.parse_completed = true;
                 [[fallthrough]];
             }

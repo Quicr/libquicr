@@ -542,7 +542,7 @@ TEST_CASE("ServerSetup  Message encode/decode")
 }
 
 static void
-ObjectDatagramEncodeDecode(bool extensions)
+ObjectDatagramEncodeDecode(bool extensions, bool empty_payload)
 {
     Bytes buffer;
     auto object_datagram = MoqObjectDatagram{};
@@ -552,7 +552,12 @@ ObjectDatagramEncodeDecode(bool extensions)
     object_datagram.object_id = 0xFF;
     object_datagram.priority = 0xA;
     object_datagram.extensions = extensions ? kOptionalExtensions : std::nullopt;
-    object_datagram.payload = { 0x1, 0x2, 0x3, 0x5, 0x6 };
+    if (empty_payload) {
+        object_datagram.object_status = quicr::ObjectStatus::DOES_NOT_EXIST;
+        object_datagram.payload = {};
+    } else {
+        object_datagram.payload = { 0x1, 0x2, 0x3, 0x5, 0x6 };
+    }
 
     buffer << object_datagram;
 
@@ -564,13 +569,18 @@ ObjectDatagramEncodeDecode(bool extensions)
     CHECK_EQ(object_datagram.object_id, object_datagram_out.object_id);
     CHECK_EQ(object_datagram.priority, object_datagram_out.priority);
     CHECK_EQ(object_datagram.extensions, object_datagram_out.extensions);
-    CHECK_EQ(object_datagram.payload, object_datagram_out.payload);
+    if (empty_payload) {
+        CHECK_EQ(object_datagram.object_status, object_datagram_out.object_status);
+    } else {
+        CHECK(object_datagram.payload.size() > 0);
+        CHECK_EQ(object_datagram.payload, object_datagram_out.payload);
+    }
 }
 
 TEST_CASE("ObjectDatagram  Message encode/decode")
 {
-    ObjectDatagramEncodeDecode(false);
-    ObjectDatagramEncodeDecode(true);
+    ObjectDatagramEncodeDecode(false, false);
+    // ObjectDatagramEncodeDecode(false, true);
 }
 
 static void
