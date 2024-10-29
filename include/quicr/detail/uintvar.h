@@ -76,11 +76,11 @@ namespace quicr {
         UintVar(Span<const uint8_t> bytes)
           : be_value_{ 0 }
         {
-            if (bytes.empty() || bytes.size() > sizeof(uint64_t) || bytes.size() != Size(bytes[0])) {
+            if (bytes.empty() || bytes.size() < Size(bytes[0])) {
                 throw std::invalid_argument("Invalid bytes for uintvar");
             }
 
-            std::memcpy(&be_value_, bytes.data(), bytes.size());
+            std::memcpy(&be_value_, bytes.data(), Size(bytes[0]));
         }
 
         explicit constexpr operator uint64_t() const noexcept
