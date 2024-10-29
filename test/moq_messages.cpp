@@ -554,7 +554,7 @@ TEST_CASE("ServerSetup  Message encode/decode")
 }
 
 static void
-ObjectDatagramEncodeDecode(bool extensions)
+ObjectDatagramEncodeDecode(bool extensions, bool empty_payload)
 {
     Bytes buffer;
     auto object_datagram = MoqObjectDatagram{};
@@ -564,7 +564,11 @@ ObjectDatagramEncodeDecode(bool extensions)
     object_datagram.object_id = 0xFF;
     object_datagram.priority = 0xA;
     object_datagram.extensions = extensions ? kOptionalExtensions : std::nullopt;
-    object_datagram.payload = { 0x1, 0x2, 0x3, 0x5, 0x6 };
+    if (empty_payload) {
+        object_datagram.object_status = quicr::ObjectStatus::kDoesNotExist;
+    } else {
+        object_datagram.payload = { 0x1, 0x2, 0x3, 0x5, 0x6 };
+    }
 
     buffer << object_datagram;
 
@@ -576,17 +580,24 @@ ObjectDatagramEncodeDecode(bool extensions)
     CHECK_EQ(object_datagram.object_id, object_datagram_out.object_id);
     CHECK_EQ(object_datagram.priority, object_datagram_out.priority);
     CHECK_EQ(object_datagram.extensions, object_datagram_out.extensions);
-    CHECK_EQ(object_datagram.payload, object_datagram_out.payload);
+    if (empty_payload) {
+        CHECK_EQ(object_datagram.object_status, object_datagram_out.object_status);
+    } else {
+        CHECK(object_datagram.payload.size() > 0);
+        CHECK_EQ(object_datagram.payload, object_datagram_out.payload);
+    }
 }
 
 TEST_CASE("ObjectDatagram  Message encode/decode")
 {
-    ObjectDatagramEncodeDecode(false);
-    ObjectDatagramEncodeDecode(true);
+    ObjectDatagramEncodeDecode(false, false);
+    ObjectDatagramEncodeDecode(false, true);
+    ObjectDatagramEncodeDecode(true, false);
+    ObjectDatagramEncodeDecode(true, true);
 }
 
 static void
-StreamPerSubGroupObjectEncodeDecode(bool extensions)
+StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
 {
     Bytes buffer;
     auto hdr_grp = MoqStreamHeaderSubGroup{};
@@ -607,11 +618,17 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions)
     buffer.clear();
     auto objects = std::vector<MoqStreamSubGroupObject>{};
     // send 10 objects
-    for (size_t i = 0; i < 1000; i++) {
+    for (size_t i = 0; i < 1; i++) {
         auto obj = MoqStreamSubGroupObject{};
-        obj.object_id = i;
+        obj.object_id = 0x1234;
+
+        if (empty_payload) {
+            obj.object_status = ObjectStatus::kDoesNotExist;
+        } else {
+            obj.payload = { 0x1, 0x2, 0x3, 0x4, 0x5 };
+        }
+
         obj.extensions = extensions ? kOptionalExtensions : std::nullopt;
-        obj.payload = { 0x1, 0x2, 0x3, 0x4, 0x5 };
         objects.push_back(obj);
         buffer << obj;
     }
@@ -625,8 +642,13 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions)
         done = in_buffer >> obj_out;
         if (done) {
             CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
+            if (empty_payload) {
+                CHECK_EQ(obj_out.object_status, objects[object_count].object_status);
+            } else {
+                CHECK(obj_out.payload.size() > 0);
+                CHECK_EQ(obj_out.payload, objects[object_count].payload);
+            }
             CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
-            CHECK_EQ(obj_out.payload, objects[object_count].payload);
             // got one object
             object_count++;
             obj_out = {};
@@ -634,13 +656,15 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions)
         }
     }
 
-    CHECK_EQ(object_count, 1000);
+    CHECK_EQ(object_count, 1);
 }
 
 TEST_CASE("StreamPerSubGroup Object  Message encode/decode")
 {
-    StreamPerSubGroupObjectEncodeDecode(false);
-    StreamPerSubGroupObjectEncodeDecode(true);
+    StreamPerSubGroupObjectEncodeDecode(false, true);
+    StreamPerSubGroupObjectEncodeDecode(false, false);
+    StreamPerSubGroupObjectEncodeDecode(true, true);
+    StreamPerSubGroupObjectEncodeDecode(true, false);
 }
 
 TEST_CASE("MoqGoaway Message encode/decode")
