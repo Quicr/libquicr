@@ -36,25 +36,14 @@ namespace quicr {
         }
 
         bool is_stream_header_needed{ false };
-        switch (default_track_mode_) {
-            case TrackMode::kDatagram:
-                break;
-            case TrackMode::kStreamPerGroup:
-                is_stream_header_needed = prev_object_group_id_ != object_headers.group_id;
-                break;
-            case TrackMode::kStreamPerObject:
-                is_stream_header_needed = true;
-                break;
-            case TrackMode::kStreamPerTrack:
-                if (not sent_track_header_) {
-                    is_stream_header_needed = true;
-                    sent_track_header_ = true;
-                }
-                break;
-        }
+
+        // change in subgroups and groups require a new stream
+
+        is_stream_header_needed =
+          prev_sub_group_id_ != object_headers.subgroup_id || prev_object_group_id_ != object_headers.group_id;
 
         prev_object_group_id_ = object_headers.group_id;
-
+        prev_sub_group_id_ = object_headers.subgroup_id;
         publish_track_metrics_.bytes_published += data.size();
         publish_track_metrics_.objects_published++;
 
@@ -64,6 +53,7 @@ namespace quicr {
                                         object_headers.ttl.has_value() ? object_headers.ttl.value() : default_ttl_,
                                         is_stream_header_needed,
                                         object_headers.group_id,
+                                        object_headers.subgroup_id,
                                         object_headers.object_id,
                                         object_headers.extensions,
                                         data);
