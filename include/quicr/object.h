@@ -16,11 +16,11 @@ namespace quicr {
      */
     enum struct ObjectStatus : uint8_t
     {
-        AVAIALABLE = 0x0,
-        DOES_NOT_EXIST = 0x1,
-        END_OF_GROUP = 0x3,
-        END_OF_TRACK = 0x4,
-        END_OF_SUBGROUP = 0x5
+        kAvailable = 0x0,
+        kDoesNotExist = 0x1,
+        kEndOfGroup = 0x3,
+        kEndOfTrack = 0x4,
+        kEndOfSubGroup = 0x5
     };
 
     /**
