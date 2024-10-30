@@ -12,17 +12,48 @@
 #include <vector>
 
 namespace quicr {
+    /**
+     * @brief An N-tuple representation of a MOQ namespace.
+     */
     class TrackNamespace
     {
       public:
         TrackNamespace() = default;
 
+        /**
+         * @brief Constructs a namespace from a variadic number of Bytes parameters.
+         *
+         * @tparam B MUST be std::vector<uint8_t>
+         * @param entries The variadic amount of Bytes arguments.
+         */
         template<typename... B,
                  std::enable_if_t<std::is_same_v<std::common_type_t<B...>, std::vector<uint8_t>>, bool> = true>
         explicit TrackNamespace(B&&... entries)
         {
             static_assert(sizeof...(B) >= 1, "Track namespace must have at least 1 entry");
             static_assert(sizeof...(B) <= 32 - 1, "Track namespace can only have a maximum of 32 entries");
+
+            std::size_t offset = 0;
+            const auto add_entry = [&](auto&& e) {
+                entries_.emplace_back(Span{ bytes_ }.subspan(offset, e.size()));
+                offset += e.size();
+            };
+
+            (bytes_.insert(bytes_.end(), entries.begin(), entries.end()), ...);
+            (add_entry(entries), ...);
+        }
+
+        /**
+         * @brief Constructs a namespace from a variadic number of string parameters.
+         *
+         * @tparam S MUST be std::string
+         * @param entries The variadic amount of string arguments.
+         */
+        template<typename... S, std::enable_if_t<std::is_same_v<std::common_type_t<S...>, std::string>, bool> = true>
+        explicit TrackNamespace(S&&... entries)
+        {
+            static_assert(sizeof...(S) >= 1, "Track namespace must have at least 1 entry");
+            static_assert(sizeof...(S) <= 32 - 1, "Track namespace can only have a maximum of 32 entries");
 
             std::size_t offset = 0;
             const auto add_entry = [&](auto&& e) {
@@ -89,6 +120,16 @@ namespace quicr {
         friend bool operator<=(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept { return !(lhs > rhs); }
 
         friend bool operator>=(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept { return !(lhs < rhs); }
+
+        bool Contains(const TrackNamespace& other) const noexcept
+        {
+            if (this->size() > other.size()) {
+                return false;
+            }
+
+            auto other_view = Span{ other }.subspan(0, this->size());
+            return std::equal(this->begin(), this->end(), other_view.begin(), other_view.end());
+        }
 
       private:
         std::vector<uint8_t> bytes_;

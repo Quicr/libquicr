@@ -146,29 +146,23 @@ namespace quicr::messages {
     {
         const auto& entries = ns.GetEntries();
 
-        Bytes payload;
+        buffer << UintVar(entries.size());
         for (const auto& entry : entries) {
-            payload << UintVar(entry.size());
-            payload << entry;
+            buffer << UintVar(entry.size());
+            buffer << entry;
         }
-
-        buffer << UintVar(payload.size());
-        buffer << payload;
 
         return buffer;
     }
 
     BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg)
     {
-        uint64_t length = 0;
-        buffer = buffer >> length;
+        uint64_t size = 0;
+        buffer = buffer >> size;
 
-        std::vector<Bytes> entries;
-        while (length > 0) {
-            Bytes entry;
+        std::vector<Bytes> entries(size);
+        for (auto& entry : entries) {
             buffer = buffer >> entry;
-            length -= entry.size() + UintVar::Size(entry.size());
-            entries.emplace_back(std::move(entry));
         }
 
         msg = TrackNamespace{ entries };
