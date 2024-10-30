@@ -4,6 +4,7 @@
 #pragma once
 
 #include "quicr/common.h"
+#include "quicr/object.h"
 #include "stream_buffer.h"
 
 #include <map>
@@ -315,6 +316,8 @@ namespace quicr::messages {
         GroupId group_id;
         ObjectId object_id;
         ObjectPriority priority;
+        ObjectStatus object_status;
+        uint64_t payload_len{ 0 };
         std::optional<Extensions> extensions;
         Bytes payload;
         template<class StreamBufferType>
@@ -351,6 +354,8 @@ namespace quicr::messages {
     struct MoqStreamSubGroupObject
     {
         ObjectId object_id;
+        uint64_t payload_len{ 0 };
+        ObjectStatus object_status;
         std::optional<Extensions> extensions;
         Bytes payload;
         template<class StreamBufferType>

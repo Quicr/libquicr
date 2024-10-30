@@ -6,6 +6,7 @@
 #include <spdlog/spdlog.h>
 
 #include <quicr/client.h>
+#include <quicr/object.h>
 
 #include "helper_functions.h"
 #include "signal_handler.h"
@@ -189,8 +190,10 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
             subgroup_id++;
         }
 
-        quicr::ObjectHeaders obj_headers = { group_id,       object_id++,    subgroup_id,  msg.size(),
-                                             2 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt };
+        quicr::ObjectHeaders obj_headers = {
+            group_id,       object_id++,    subgroup_id,  msg.size(),  quicr::ObjectStatus::kAvailable,
+            2 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt
+        };
 
         track_handler->PublishObject(obj_headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
     }
