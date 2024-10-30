@@ -210,15 +210,14 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
-    void Transport::SendAnnounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
+    void Transport::SendAnnounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
     {
         auto announce = MoqAnnounce{};
 
-        announce.track_namespace.assign(track_namespace.begin(), track_namespace.end());
+        announce.track_namespace = track_namespace;
         announce.params = {};
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqAnnounce) + track_namespace.size());
         buffer << announce;
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending ANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
@@ -226,14 +225,13 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
-    void Transport::SendAnnounceOk(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
+    void Transport::SendAnnounceOk(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
     {
         auto announce_ok = MoqAnnounceOk{};
 
-        announce_ok.track_namespace.assign(track_namespace.begin(), track_namespace.end());
+        announce_ok.track_namespace = track_namespace;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqAnnounceOk) + track_namespace.size());
         buffer << announce_ok;
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending ANNOUNCE OK to conn_id: {0}", conn_ctx.connection_handle);
@@ -241,14 +239,13 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
-    void Transport::SendUnannounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
+    void Transport::SendUnannounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
     {
         auto unannounce = MoqUnannounce{};
 
-        unannounce.track_namespace.assign(track_namespace.begin(), track_namespace.end());
+        unannounce.track_namespace = track_namespace;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqUnannounce) + track_namespace.size());
         buffer << unannounce;
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending UNANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
@@ -265,7 +262,7 @@ namespace quicr {
         auto subscribe = MoqSubscribe{};
         subscribe.subscribe_id = subscribe_id;
         subscribe.track_alias = th.track_fullname_hash;
-        subscribe.track_namespace.assign(tfn.name_space.begin(), tfn.name_space.end());
+        subscribe.track_namespace = tfn.name_space;
         subscribe.track_name.assign(tfn.name.begin(), tfn.name.end());
         subscribe.filter_type = FilterType::LatestGroup;
 
@@ -486,6 +483,7 @@ namespace quicr {
             if (!pub_ns_it->second.size()) {
                 SPDLOG_LOGGER_INFO(
                   logger_, "Unpublish namespace hash: {0}, has no tracks, sending unannounce", th.track_namespace_hash);
+
                 SendUnannounce(conn_it->second, tfn.name_space);
                 conn_it->second.pub_tracks_by_name.erase(pub_ns_it);
             }

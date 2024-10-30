@@ -3,12 +3,222 @@
 
 #pragma once
 
+#include "detail/span.h"
+
+#include <algorithm>
 #include <cstdint>
 #include <optional>
+#include <tuple>
 #include <vector>
 
 namespace quicr {
-    using TrackNamespace = std::vector<uint8_t>;
+    /**
+     * @brief An N-tuple representation of a MOQ namespace.
+     */
+    class TrackNamespace
+    {
+      public:
+        TrackNamespace() = default;
+
+        /**
+         * @brief Constructs a namespace from a variadic number of Bytes parameters.
+         *
+         * @tparam B MUST be std::vector<uint8_t>
+         * @param entries The variadic amount of Bytes arguments.
+         */
+        template<typename... B,
+                 std::enable_if_t<std::is_same_v<std::common_type_t<B...>, std::vector<uint8_t>>, bool> = true>
+        explicit TrackNamespace(B&&... entries)
+        {
+            static_assert(sizeof...(B) >= 1, "Track namespace must have at least 1 entry");
+            static_assert(sizeof...(B) <= 32 - 1, "Track namespace can only have a maximum of 32 entries");
+
+            std::size_t offset = 0;
+            const auto add_entry = [&](auto&& e) {
+                entries_.emplace_back(Span{ bytes_ }.subspan(offset, e.size()));
+                offset += e.size();
+            };
+
+            (bytes_.insert(bytes_.end(), entries.begin(), entries.end()), ...);
+            (add_entry(entries), ...);
+        }
+
+        /**
+         * @brief Constructs a namespace from a variadic number of string parameters.
+         *
+         * @tparam S MUST be std::string
+         * @param entries The variadic amount of string arguments.
+         */
+        template<typename... S, std::enable_if_t<std::is_same_v<std::common_type_t<S...>, std::string>, bool> = true>
+        explicit TrackNamespace(S&&... entries)
+        {
+            static_assert(sizeof...(S) >= 1, "Track namespace must have at least 1 entry");
+            static_assert(sizeof...(S) <= 32 - 1, "Track namespace can only have a maximum of 32 entries");
+
+            std::size_t offset = 0;
+            const auto add_entry = [&](auto&& e) {
+                entries_.emplace_back(Span{ bytes_ }.subspan(offset, e.size()));
+                offset += e.size();
+            };
+
+            (bytes_.insert(bytes_.end(), entries.begin(), entries.end()), ...);
+            (add_entry(entries), ...);
+        }
+
+        TrackNamespace(const std::vector<std::vector<uint8_t>>& entries)
+          : entries_(entries.size())
+        {
+            if (entries.size() > 32 || entries.size() == 0) {
+                throw std::invalid_argument("TrackNamespace requires a number of entries in the range of [1, 32]");
+            }
+
+            for (auto& entry : entries) {
+                bytes_.insert(bytes_.end(), entry.begin(), entry.end());
+            }
+
+            std::size_t offset = 0;
+            std::size_t i = 0;
+            for (auto& entry : entries) {
+                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                offset += entry.size();
+            }
+        }
+
+        TrackNamespace(const std::vector<std::string>& entries)
+          : entries_(entries.size())
+        {
+            if (entries.size() > 32 || entries.size() == 0) {
+                throw std::invalid_argument("TrackNamespace requires a number of entries in the range of [1, 32]");
+            }
+
+            for (auto& entry : entries) {
+                bytes_.insert(bytes_.end(), entry.begin(), entry.end());
+            }
+
+            std::size_t offset = 0;
+            std::size_t i = 0;
+            for (auto& entry : entries) {
+                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                offset += entry.size();
+            }
+        }
+
+        TrackNamespace(const TrackNamespace& other)
+          : bytes_(other.bytes_)
+          , entries_(other.entries_)
+        {
+            std::size_t offset = 0;
+            std::size_t i = 0;
+            for (auto& entry : entries_) {
+                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                offset += entry.size();
+            }
+        }
+
+        TrackNamespace(TrackNamespace&& other)
+          : bytes_(std::move(other.bytes_))
+          , entries_(std::move(other.entries_))
+        {
+            other.entries_.clear();
+
+            std::size_t offset = 0;
+            std::size_t i = 0;
+            for (auto& entry : entries_) {
+                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                offset += entry.size();
+            }
+        }
+
+        TrackNamespace& operator=(const TrackNamespace& other)
+        {
+            this->bytes_ = other.bytes_;
+            this->entries_ = other.entries_;
+
+            std::size_t offset = 0;
+            std::size_t i = 0;
+            for (auto& entry : entries_) {
+                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                offset += entry.size();
+            }
+
+            return *this;
+        }
+
+        TrackNamespace& operator=(TrackNamespace&& other)
+        {
+            this->bytes_ = std::move(other.bytes_);
+            this->entries_ = std::move(other.entries_);
+
+            std::size_t offset = 0;
+            std::size_t i = 0;
+            for (auto& entry : entries_) {
+                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                offset += entry.size();
+            }
+
+            return *this;
+        }
+
+        const std::vector<Span<const uint8_t>>& GetEntries() const noexcept { return entries_; }
+
+        // NOLINTBEGIN(readability-identifier-naming)
+        auto begin() noexcept { return bytes_.begin(); }
+        auto end() noexcept { return bytes_.end(); }
+        auto begin() const noexcept { return bytes_.begin(); }
+        auto end() const noexcept { return bytes_.end(); }
+        auto data() const noexcept { return bytes_.data(); }
+        auto size() const noexcept { return bytes_.size(); }
+        bool empty() const noexcept { return bytes_.empty(); }
+        // NOLINTEND(readability-identifier-naming)
+
+        friend bool operator==(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept
+        {
+            return lhs.bytes_ == rhs.bytes_;
+        }
+
+        friend bool operator!=(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept { return !(lhs == rhs); }
+
+        friend bool operator<(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept
+        {
+            return lhs.bytes_ < rhs.bytes_;
+        }
+
+        friend bool operator>(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept
+        {
+            return lhs.bytes_ > rhs.bytes_;
+        }
+
+        friend bool operator<=(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept { return !(lhs > rhs); }
+
+        friend bool operator>=(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept { return !(lhs < rhs); }
+
+        bool Contains(const TrackNamespace& other) const noexcept
+        {
+            if (this->size() > other.size()) {
+                return false;
+            }
+
+            auto other_view = Span{ other }.subspan(0, this->size());
+            return std::equal(this->begin(), this->end(), other_view.begin(), other_view.end());
+        }
+
+      private:
+        std::vector<uint8_t> bytes_;
+        std::vector<Span<const uint8_t>> entries_;
+    };
+}
+
+template<>
+struct std::hash<quicr::TrackNamespace>
+{
+    std::size_t operator()(const quicr::TrackNamespace& value)
+    {
+        return std::hash<std::string_view>{}({ reinterpret_cast<const char*>(value.data()), value.size() });
+    }
+};
+
+namespace quicr {
+
     using TrackNamespaceHash = uint64_t;
     using TrackNameHash = uint64_t;
 
@@ -40,8 +250,7 @@ namespace quicr {
         }
 
         TrackHash(const FullTrackName& ftn) noexcept
-          : track_namespace_hash{ std::hash<std::string_view>{}(
-              { reinterpret_cast<const char*>(ftn.name_space.data()), ftn.name_space.size() }) }
+          : track_namespace_hash{ std::hash<TrackNamespace>{}(ftn.name_space) }
           , track_name_hash{ std::hash<std::string_view>{}(
               { reinterpret_cast<const char*>(ftn.name.data()), ftn.name.size() }) }
         {
@@ -50,4 +259,3 @@ namespace quicr {
     };
 
 }
-// namespace moq

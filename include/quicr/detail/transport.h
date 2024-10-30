@@ -251,9 +251,9 @@ namespace quicr {
         void SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data);
         void SendClientSetup();
         void SendServerSetup(ConnectionContext& conn_ctx);
-        void SendAnnounce(ConnectionContext& conn_ctx, Span<const uint8_t> track_namespace);
-        void SendAnnounceOk(ConnectionContext& conn_ctx, Span<const uint8_t> track_namespace);
-        void SendUnannounce(ConnectionContext& conn_ctx, Span<const uint8_t> track_namespace);
+        void SendAnnounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
+        void SendAnnounceOk(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
+        void SendUnannounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
         void SendSubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id, const FullTrackName& tfn, TrackHash th);
         void SendSubscribeOk(ConnectionContext& conn_ctx, uint64_t subscribe_id, uint64_t expires, bool content_exists);
         void SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id);
