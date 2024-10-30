@@ -42,8 +42,20 @@ namespace quicr::example {
                                                  const std::string& track_name,
                                                  const std::optional<uint64_t> track_alias) noexcept
     {
+        const auto split = [](std::string str, const std::string& delimiter) {
+            std::vector<std::string> tokens;
 
-        FullTrackName full_track_name{ TrackNamespace{ track_namespace },
+            std::size_t pos = 0;
+            while ((pos = str.find(delimiter)) != std::string::npos) {
+                tokens.emplace_back(str.substr(0, pos));
+                str.erase(0, pos + delimiter.length());
+            }
+            tokens.emplace_back(std::move(str));
+
+            return tokens;
+        };
+
+        FullTrackName full_track_name{ TrackNamespace{ split(track_namespace, ",") },
                                        { track_name.begin(), track_name.end() },
                                        track_alias };
         return full_track_name;

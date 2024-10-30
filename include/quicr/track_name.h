@@ -66,6 +66,7 @@ namespace quicr {
         }
 
         TrackNamespace(const std::vector<std::vector<uint8_t>>& entries)
+          : entries_(entries.size())
         {
             if (entries.size() > 32 || entries.size() == 0) {
                 throw std::invalid_argument("TrackNamespace requires a number of entries in the range of [1, 32]");
@@ -76,17 +77,85 @@ namespace quicr {
             }
 
             std::size_t offset = 0;
+            std::size_t i = 0;
             for (auto& entry : entries) {
-                entries_.emplace_back(Span{ bytes_ }.subspan(offset, entry.size()));
+                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
                 offset += entry.size();
             }
         }
 
-        TrackNamespace(const TrackNamespace&) = default;
-        TrackNamespace(TrackNamespace&&) = default;
+        TrackNamespace(const std::vector<std::string>& entries)
+          : entries_(entries.size())
+        {
+            if (entries.size() > 32 || entries.size() == 0) {
+                throw std::invalid_argument("TrackNamespace requires a number of entries in the range of [1, 32]");
+            }
 
-        TrackNamespace& operator=(const TrackNamespace&) = default;
-        TrackNamespace& operator=(TrackNamespace&&) = default;
+            for (auto& entry : entries) {
+                bytes_.insert(bytes_.end(), entry.begin(), entry.end());
+            }
+
+            std::size_t offset = 0;
+            std::size_t i = 0;
+            for (auto& entry : entries) {
+                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                offset += entry.size();
+            }
+        }
+
+        TrackNamespace(const TrackNamespace& other)
+          : bytes_{ other.bytes_ }
+          , entries_{ other.entries_ }
+        {
+            std::size_t offset = 0;
+            std::size_t i = 0;
+            for (auto& entry : entries_) {
+                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                offset += entry.size();
+            }
+        }
+
+        TrackNamespace(TrackNamespace&& other)
+          : bytes_{ std::move(other.bytes_) }
+          , entries_{ std::move(other.entries_) }
+        {
+            std::size_t offset = 0;
+            std::size_t i = 0;
+            for (auto& entry : entries_) {
+                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                offset += entry.size();
+            }
+        }
+
+        TrackNamespace& operator=(const TrackNamespace& other)
+        {
+            this->bytes_ = other.bytes_;
+            this->entries_ = other.entries_;
+
+            std::size_t offset = 0;
+            std::size_t i = 0;
+            for (auto& entry : entries_) {
+                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                offset += entry.size();
+            }
+
+            return *this;
+        }
+
+        TrackNamespace& operator=(TrackNamespace&& other)
+        {
+            this->bytes_ = std::move(other.bytes_);
+            this->entries_ = std::move(other.entries_);
+
+            std::size_t offset = 0;
+            std::size_t i = 0;
+            for (auto& entry : entries_) {
+                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                offset += entry.size();
+            }
+
+            return *this;
+        }
 
         const std::vector<Span<const uint8_t>>& GetEntries() const noexcept { return entries_; }
 
