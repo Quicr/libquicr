@@ -238,7 +238,7 @@ main(int argc, char** argv)
     const std::chrono::seconds duration(result["duration"].as<std::uint32_t>());
     const bool reliable = result["reliable"].as<bool>();
     const std::uint16_t group_size = result["group_size"].as<std::uint16_t>();
-    const quicr::TrackMode track_mode = reliable ? quicr::TrackMode::kStreamPerGroup : quicr::TrackMode::kDatagram;
+    const quicr::TrackMode track_mode = reliable ? quicr::TrackMode::kStream : quicr::TrackMode::kDatagram;
 
     const quicr::TransportConfig config{
         .tls_cert_filename = "",

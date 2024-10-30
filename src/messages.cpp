@@ -31,6 +31,12 @@ namespace quicr::messages {
                                 std::optional<Extensions>& extensions,
                                 std::optional<uint64_t>& current_tag)
     {
+
+        // get the count of extensions
+        if (count == 0 && !ParseUintVField(buffer, count)) {
+            return false;
+        }
+
         if (count == 0) {
             return true;
         }
@@ -673,94 +679,6 @@ namespace quicr::messages {
     // Object
     //
 
-    Bytes& operator<<(Bytes& buffer, const MoqObjectStream& msg)
-    {
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::OBJECT_STREAM));
-        buffer << UintVar(msg.subscribe_id);
-        buffer << UintVar(msg.track_alias);
-        buffer << UintVar(msg.group_id);
-        buffer << UintVar(msg.object_id);
-        buffer << UintVar(msg.priority);
-        PushExtensions(buffer, msg.extensions);
-        buffer << UintVar(msg.payload.size());
-        buffer << msg.payload;
-        return buffer;
-    }
-
-    template<class StreamBufferType>
-    bool operator>>(StreamBufferType& buffer, MoqObjectStream& msg)
-    {
-        switch (msg.current_pos) {
-            case 0: {
-                if (!ParseUintVField(buffer, msg.subscribe_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 1: {
-                if (!ParseUintVField(buffer, msg.track_alias)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 2: {
-                if (!ParseUintVField(buffer, msg.group_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 3: {
-                if (!ParseUintVField(buffer, msg.object_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 4: {
-                if (!ParseUintVField(buffer, msg.priority)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 5:
-                if (!ParseUintVField(buffer, msg.num_extensions)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            case 6:
-                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            case 7: {
-                auto val = buffer.DecodeBytes();
-                if (!val) {
-                    return false;
-                }
-                msg.payload = std::move(val.value());
-                msg.parse_completed = true;
-                [[fallthrough]];
-            }
-            default:
-                break;
-        }
-
-        if (!msg.parse_completed) {
-            return false;
-        }
-
-        return true;
-    }
-
-    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqObjectStream&);
-    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqObjectStream&);
-
     Bytes& operator<<(Bytes& buffer, const MoqObjectDatagram& msg)
     {
         buffer << UintVar(static_cast<uint64_t>(MoqMessageType::OBJECT_DATAGRAM));
@@ -768,9 +686,16 @@ namespace quicr::messages {
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
         buffer << UintVar(msg.object_id);
-        buffer << UintVar(msg.priority);
-        PushExtensions(buffer, msg.extensions);
+        buffer.push_back(msg.priority);
         buffer << UintVar(msg.payload.size());
+        if (msg.payload.empty()) {
+            // empty payload needs a object status to be set
+            buffer << UintVar(static_cast<uint8_t>(msg.object_status));
+            PushExtensions(buffer, msg.extensions);
+        } else {
+            PushExtensions(buffer, msg.extensions);
+            buffer << msg.payload;
+        }
         buffer << msg.payload;
         return buffer;
     }
@@ -808,31 +733,53 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 4: {
-                if (!ParseUintVField(buffer, msg.priority)) {
+                auto val = buffer.Front();
+                if (!val) {
                     return false;
                 }
+                buffer.Pop();
+                msg.priority = val.value();
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
             case 5: {
-                if (!ParseUintVField(buffer, msg.num_extensions)) {
+                if (!ParseUintVField(buffer, msg.payload_len)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 6:
+            case 6: {
+                if (msg.payload_len == 0) {
+                    uint64_t status = 0;
+                    if (!ParseUintVField(buffer, status)) {
+                        return false;
+                    }
+                    msg.object_status = static_cast<ObjectStatus>(status);
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+
+            case 7: {
                 if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
                     return false;
                 }
                 msg.current_pos += 1;
+                if (msg.payload_len == 0) {
+                    msg.parse_completed = true;
+                    break;
+                }
                 [[fallthrough]];
-            case 7: {
-                auto val = buffer.DecodeBytes();
-                if (!val) {
+            }
+
+            case 8: {
+                if (!buffer.Available(msg.payload_len)) {
                     return false;
                 }
-                msg.payload = std::move(val.value());
+                auto val = buffer.Front(msg.payload_len);
+                msg.payload = std::move(val);
+                buffer.Pop(msg.payload_len);
                 msg.parse_completed = true;
                 [[fallthrough]];
             }
@@ -850,157 +797,57 @@ namespace quicr::messages {
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqObjectDatagram&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqObjectDatagram&);
 
-    Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderTrack& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderSubGroup& msg)
     {
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_TRACK));
-        buffer << UintVar(msg.subscribe_id);
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_SUBGROUP));
         buffer << UintVar(msg.track_alias);
-        buffer << UintVar(msg.priority);
+        buffer << UintVar(msg.subscribe_id);
+        buffer << UintVar(msg.group_id);
+        buffer << UintVar(msg.subgroup_id);
+        buffer.push_back(msg.priority);
         return buffer;
     }
 
     template<class StreamBufferType>
-    bool operator>>(StreamBufferType& buffer, MoqStreamHeaderTrack& msg)
+    bool operator>>(StreamBufferType& buffer, MoqStreamHeaderSubGroup& msg)
     {
         switch (msg.current_pos) {
             case 0: {
-                if (!ParseUintVField(buffer, msg.subscribe_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 1: {
                 if (!ParseUintVField(buffer, msg.track_alias)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 2: {
-                if (!ParseUintVField(buffer, msg.priority)) {
+            case 1: {
+                if (!ParseUintVField(buffer, msg.subscribe_id)) {
                     return false;
                 }
                 msg.current_pos += 1;
-                msg.parse_completed = true;
                 [[fallthrough]];
             }
-            default:
-                break;
-        }
-
-        if (!msg.parse_completed) {
-            return false;
-        }
-        return true;
-    }
-
-    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamHeaderTrack&);
-    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamHeaderTrack&);
-
-    Bytes& operator<<(Bytes& buffer, const MoqStreamTrackObject& msg)
-    {
-        buffer << UintVar(msg.group_id);
-        buffer << UintVar(msg.object_id);
-        PushExtensions(buffer, msg.extensions);
-        buffer << UintVar(msg.payload.size());
-        buffer << msg.payload;
-        return buffer;
-    }
-
-    template<class StreamBufferType>
-    bool operator>>(StreamBufferType& buffer, MoqStreamTrackObject& msg)
-    {
-        switch (msg.current_pos) {
-            case 0: {
+            case 2: {
                 if (!ParseUintVField(buffer, msg.group_id)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 1: {
-                if (!ParseUintVField(buffer, msg.object_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 2: {
-                if (!ParseUintVField(buffer, msg.num_extensions)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
             case 3: {
-                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
+                if (!ParseUintVField(buffer, msg.subgroup_id)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
             case 4: {
-                auto val = buffer.DecodeBytes();
+                auto val = buffer.Front();
                 if (!val) {
                     return false;
                 }
-                msg.payload = std::move(val.value());
-                msg.parse_completed = true;
-                [[fallthrough]];
-            }
-            default:
-                break;
-        }
-
-        if (!msg.parse_completed) {
-            return false;
-        }
-        return true;
-    }
-
-    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamTrackObject&);
-    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamTrackObject&);
-
-    Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderGroup& msg)
-    {
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_GROUP));
-        buffer << UintVar(msg.subscribe_id);
-        buffer << UintVar(msg.track_alias);
-        buffer << UintVar(msg.group_id);
-        buffer << UintVar(msg.priority);
-        return buffer;
-    }
-
-    template<class StreamBufferType>
-    bool operator>>(StreamBufferType& buffer, MoqStreamHeaderGroup& msg)
-    {
-        switch (msg.current_pos) {
-            case 0: {
-                if (!ParseUintVField(buffer, msg.subscribe_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 1: {
-                if (!ParseUintVField(buffer, msg.track_alias)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 2: {
-                if (!ParseUintVField(buffer, msg.group_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 3: {
-                if (!ParseUintVField(buffer, msg.priority)) {
-                    return false;
-                }
+                buffer.Pop();
+                msg.priority = val.value();
+                ;
                 msg.current_pos += 1;
                 msg.parse_completed = true;
                 [[fallthrough]];
@@ -1016,21 +863,28 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamHeaderGroup&);
-    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamHeaderGroup&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamHeaderSubGroup&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamHeaderSubGroup&);
 
-    Bytes& operator<<(Bytes& buffer, const MoqStreamGroupObject& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqStreamSubGroupObject& msg)
     {
         buffer << UintVar(msg.object_id);
-        PushExtensions(buffer, msg.extensions);
         buffer << UintVar(msg.payload.size());
-        buffer << msg.payload;
+        if (msg.payload.empty()) {
+            // empty payload needs a object status to be set
+            buffer << UintVar(static_cast<uint8_t>(msg.object_status));
+            PushExtensions(buffer, msg.extensions);
+        } else {
+            PushExtensions(buffer, msg.extensions);
+            buffer << msg.payload;
+        }
         return buffer;
     }
 
     template<class StreamBufferType>
-    bool operator>>(StreamBufferType& buffer, MoqStreamGroupObject& msg)
+    bool operator>>(StreamBufferType& buffer, MoqStreamSubGroupObject& msg)
     {
+
         switch (msg.current_pos) {
             case 0: {
                 if (!ParseUintVField(buffer, msg.object_id)) {
@@ -1040,25 +894,43 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 1: {
-                if (!ParseUintVField(buffer, msg.num_extensions)) {
+                if (!ParseUintVField(buffer, msg.payload_len)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
             case 2: {
-                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
-                    return false;
+                if (msg.payload_len == 0) {
+                    uint64_t status = 0;
+                    if (!ParseUintVField(buffer, status)) {
+                        return false;
+                    }
+                    msg.object_status = static_cast<ObjectStatus>(status);
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
+
             case 3: {
-                auto val = buffer.DecodeBytes();
-                if (!val) {
+                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
                     return false;
                 }
-                msg.payload = std::move(val.value());
+                msg.current_pos += 1;
+                if (msg.payload_len == 0) {
+                    msg.parse_completed = true;
+                    break;
+                }
+                [[fallthrough]];
+            }
+
+            case 4: {
+                if (!buffer.Available(msg.payload_len)) {
+                    return false;
+                }
+                auto val = buffer.Front(msg.payload_len);
+                msg.payload = std::move(val);
+                buffer.Pop(msg.payload_len);
                 msg.parse_completed = true;
                 [[fallthrough]];
             }
@@ -1073,6 +945,7 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamGroupObject&);
-    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamGroupObject&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamSubGroupObject&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamSubGroupObject&);
+
 }

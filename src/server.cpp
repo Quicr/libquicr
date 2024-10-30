@@ -77,11 +77,12 @@ namespace quicr {
                                                 uint32_t ttl,
                                                 bool stream_header_needed,
                                                 uint64_t group_id,
+                                                uint64_t subgroup_id,
                                                 uint64_t object_id,
                                                 std::optional<Extensions> extensions,
                                                 Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
             return SendObject(
-              *track_handler, priority, ttl, stream_header_needed, group_id, object_id, extensions, data);
+              *track_handler, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
         };
 
         // Hold onto track handler
