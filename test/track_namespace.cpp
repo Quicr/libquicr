@@ -21,7 +21,7 @@ FindTracks(Span<const TrackNamespace> tracks, const TrackNamespace& track)
     return matching_tracks;
 }
 
-const std::vector<TrackNamespace> tracks{
+const std::vector<TrackNamespace> kTracks{
     TrackNamespace{ "example"s, "chat555"s, "user1"s, "dev1"s, "time1"s },
     TrackNamespace{ "example"s, "chat555"s, "user1"s, "dev2"s, "time1"s },
     TrackNamespace{ "example"s, "chat555"s, "user1"s, "dev1"s, "time3"s },
@@ -30,8 +30,8 @@ const std::vector<TrackNamespace> tracks{
 
 TEST_CASE("Full match")
 {
-    auto matching_tracks = FindTracks(tracks, TrackNamespace{ "example"s, "chat555"s });
-    CHECK_EQ(matching_tracks, tracks);
+    auto matching_tracks = FindTracks(kTracks, TrackNamespace{ "example"s, "chat555"s });
+    CHECK_EQ(matching_tracks, kTracks);
 }
 
 TEST_CASE("Partial match (many entries)")
@@ -42,7 +42,7 @@ TEST_CASE("Partial match (many entries)")
         TrackNamespace{ "example"s, "chat555"s, "user1"s, "dev1"s, "time3"s },
     };
 
-    auto matching_tracks = FindTracks(tracks, TrackNamespace{ "example"s, "chat555"s, "user1"s });
+    auto matching_tracks = FindTracks(kTracks, TrackNamespace{ "example"s, "chat555"s, "user1"s });
     CHECK_EQ(matching_tracks, expected_tracks);
 }
 
@@ -51,6 +51,6 @@ TEST_CASE("Partial match (single entry)")
     const std::vector<TrackNamespace> expected_tracks{ TrackNamespace{
       "example"s, "chat555"s, "user2"s, "dev1"s, "time4"s } };
 
-    auto matching_tracks = FindTracks(tracks, TrackNamespace{ "example"s, "chat555"s, "user2"s });
+    auto matching_tracks = FindTracks(kTracks, TrackNamespace{ "example"s, "chat555"s, "user2"s });
     CHECK_EQ(matching_tracks, expected_tracks);
 }
