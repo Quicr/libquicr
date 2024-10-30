@@ -117,8 +117,10 @@ namespace quicr {
 
         TrackNamespace(TrackNamespace&& other)
           : bytes_{ std::move(other.bytes_) }
-          , entries_{ std::move(other.entries_) }
+          , entries_{ other.entries_ }
         {
+            other.entries_.clear();
+
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries_) {
@@ -145,7 +147,8 @@ namespace quicr {
         TrackNamespace& operator=(TrackNamespace&& other)
         {
             this->bytes_ = std::move(other.bytes_);
-            this->entries_ = std::move(other.entries_);
+            this->entries_ = other.entries_;
+            other.entries_.clear();
 
             std::size_t offset = 0;
             std::size_t i = 0;
