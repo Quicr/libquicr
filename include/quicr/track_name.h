@@ -104,8 +104,8 @@ namespace quicr {
         }
 
         TrackNamespace(const TrackNamespace& other)
-          : bytes_{ other.bytes_ }
-          , entries_{ other.entries_ }
+          : bytes_(other.bytes_)
+          , entries_(other.entries_)
         {
             std::size_t offset = 0;
             std::size_t i = 0;
@@ -116,8 +116,8 @@ namespace quicr {
         }
 
         TrackNamespace(TrackNamespace&& other)
-          : bytes_{ std::move(other.bytes_) }
-          , entries_{ other.entries_ }
+          : bytes_(std::move(other.bytes_))
+          , entries_(std::move(other.entries_))
         {
             other.entries_.clear();
 
@@ -147,8 +147,7 @@ namespace quicr {
         TrackNamespace& operator=(TrackNamespace&& other)
         {
             this->bytes_ = std::move(other.bytes_);
-            this->entries_ = other.entries_;
-            other.entries_.clear();
+            this->entries_ = std::move(other.entries_);
 
             std::size_t offset = 0;
             std::size_t i = 0;
