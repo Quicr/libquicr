@@ -61,6 +61,11 @@ namespace quicr::messages {
 
         GOAWAY = 0x10,
 
+        FETCH = 0x16,
+        FETCH_CANCEL = 0x17,
+        FETCH_OK = 0x18,
+        FETCH_ERROR = 0x19,
+
         CLIENT_SETUP = 0x40,
         SERVER_SETUP,
 
@@ -86,6 +91,13 @@ namespace quicr::messages {
         StreamPerPriority,
         StreamPerTrack,
         Datagram
+    };
+
+    enum struct GroupOrder : uint8_t
+    {
+        kOriginalPublisherOrder = 0x0,
+        kAscending,
+        kDescending
     };
 
     //
@@ -311,6 +323,58 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, MoqGoaway& msg);
     Bytes& operator<<(Bytes& buffer, const MoqGoaway& msg);
+
+    //
+    // Fetch
+    //
+
+    struct MoqFetch
+    {
+        uint64_t subscribe_id;
+        TrackNamespace track_namespace;
+        TrackName track_name;
+        ObjectPriority priority;
+        GroupOrder group_order;
+        GroupId start_group;
+        ObjectId start_object;
+        GroupId end_group;
+        ObjectId end_object;
+        std::vector<MoqParameter> params;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetch& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqFetch& msg);
+
+    struct MoqFetchOk
+    {
+        SubscribeId subscribe_id;
+        GroupOrder group_order;
+        uint8_t end_of_track;
+        uint64_t largest_group{ 0 };
+        uint64_t largest_object{ 0 };
+        std::vector<MoqParameter> params;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetchOk& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqFetchOk& msg);
+
+    struct MoqFetchError
+    {
+        uint64_t subscribe_id;
+        ErrorCode err_code;
+        ReasonPhrase reason_phrase;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetchError& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqFetchError& msg);
+
+    struct MoqFetchCancel
+    {
+        uint64_t subscribe_id;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetchCancel& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqFetchCancel& msg);
 
     //
     // Data Streams
