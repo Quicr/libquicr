@@ -15,6 +15,25 @@ namespace qclient_vars {
     bool publish_clock{ false };
 }
 
+class MySubscribeAnnouncesHandler : public quicr::SubscribeAnnouncesHandler
+{
+
+  public:
+    MySubscribeAnnouncesHandler(const quicr::TrackNamespace& namespace_prefix)
+      : SubscribeAnnouncesHandler(namespace_prefix)
+    {
+    }
+
+    virtual void MatchingAnnounceReceived([[maybe_unused]] const quicr::messages::MoqAnnounce& announce)
+    {
+        SPDLOG_INFO("SubscribeAnnounceHandler: Matching Announce Received:");
+    }
+
+    void StatusChanged([[maybe_unused]] Status status)
+    {
+        SPDLOG_INFO("SubscribeAnnounceHandler: Status Changed: {0}", uint8_t(status));
+    }
+};
 /**
  * @brief  Subscribe track handler
  * @details Subscribe track handler used for the subscribe command line option.
@@ -214,13 +233,16 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
              const bool& stop)
 {
     auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name);
-
+    auto announces_handler = std::make_shared<MySubscribeAnnouncesHandler>(full_track_name.name_space);
     SPDLOG_INFO("Started subscriber");
 
     bool subscribe_track{ false };
 
     while (not stop) {
         if ((!subscribe_track) && (client->GetStatus() == MyClient::Status::kReady)) {
+            SPDLOG_INFO("Subscribing to announces");
+            client->SubscribeAnnounces(announces_handler);
+
             SPDLOG_INFO("Subscribing to track");
             client->SubscribeTrack(track_handler);
             subscribe_track = true;
