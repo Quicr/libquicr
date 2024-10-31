@@ -365,6 +365,36 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
+    void Transport::SendSubscribeAnnounces(ConnectionContext& conn_ctx, const TrackNamespace& prefix)
+    {
+
+        auto subscribe_announces = MoqSubscribeAnnounces{};
+        subscribe_announces.track_namespace_prefix = prefix;
+        subscribe_announces.params = {};
+
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqSubscribeAnnounces));
+        buffer << subscribe_announces;
+
+        SPDLOG_LOGGER_DEBUG(logger_, "Sending SUBSCRIBE_ANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
+
+        SendCtrlMsg(conn_ctx, buffer);
+    }
+
+    void Transport::SendSubscribeAnnouncesOk(quicr::Transport::ConnectionContext& conn_ctx,
+                                             const quicr::TrackNamespace& prefix)
+    {
+        auto subscribe_announces_ok = MoqSubscribeAnnouncesOk{};
+        subscribe_announces_ok.track_namespace_prefix = prefix;
+
+        Bytes buffer;
+        buffer.reserve(sizeof(subscribe_announces_ok));
+        buffer << subscribe_announces_ok;
+
+        SPDLOG_LOGGER_DEBUG(logger_, "Sending SUBSCRIBE_ANNOUNCE_OK to conn_id: {0}", conn_ctx.connection_handle);
+        SendCtrlMsg(conn_ctx, buffer);
+    }
+
     void Transport::SubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
         const auto& tfn = track_handler->GetFullTrackName();
@@ -488,6 +518,33 @@ namespace quicr {
                 conn_it->second.pub_tracks_by_name.erase(pub_ns_it);
             }
         }
+    }
+
+    void Transport::SubscribeAnnounces(TransportConnId conn_id,
+                                       const std::shared_ptr<SubscribeAnnouncesHandler>& handler)
+    {
+        // Generate track alias
+        auto ns_prefix = handler->GetTrackNamespacePrefix();
+
+        SPDLOG_LOGGER_INFO(logger_, "SubscribeAnnounces track conn_id: {0}", conn_id);
+
+        std::unique_lock<std::mutex> lock(state_mutex_);
+
+        auto conn_it = connections_.find(conn_id);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "SubscribeAnnounces conn_id: {0} does not exist.", conn_id);
+            return;
+        }
+
+        auto it = conn_it->second.announce_subscriptions.find(ns_prefix);
+        if (it != conn_it->second.announce_subscriptions.end()) {
+            // do nothing
+            return;
+        }
+
+        conn_it->second.announce_subscriptions[ns_prefix] = std::move(handler);
+
+        SendSubscribeAnnounces(conn_it->second, ns_prefix);
     }
 
     void Transport::PublishTrack(TransportConnId conn_id, std::shared_ptr<PublishTrackHandler> track_handler)

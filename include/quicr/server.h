@@ -214,6 +214,20 @@ namespace quicr {
          */
         virtual void UnsubscribeReceived(ConnectionHandle connection_handle, uint64_t subscribe_id) = 0;
 
+        /**
+         *
+         * @param connection_handle
+         * @param track_namespace_prefix
+         *
+         * TODO: Add support for receiving parameters
+         */
+        virtual void SubscribeAnnouncesReceived(ConnectionHandle connection_handle,
+                                                TrackNamespace& track_namespace_prefix);
+
+        void ResolveSubscribeAnnounces(ConnectionHandle connection_handle,
+                                       const TrackNamespace& track_namespace,
+                                       const AnnounceResponse& announce_response);
+
         ///@}
         // --END OF CALLBACKS ----------------------------------------------------------------------------------
 

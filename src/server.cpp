@@ -29,6 +29,12 @@ namespace quicr {
 
     void Server::ResolveAnnounce(ConnectionHandle, const TrackNamespace&, const AnnounceResponse&) {}
 
+    void Server::SubscribeAnnouncesReceived(ConnectionHandle connection_handle, TrackNamespace& track_namespace_prefix)
+    {
+    }
+
+    void Server::ResolveSubscribeAnnounces(ConnectionHandle, const TrackNamespace&, const AnnounceResponse&) {}
+
     void Server::SubscribeReceived(ConnectionHandle,
                                    uint64_t,
                                    uint64_t,
@@ -111,12 +117,9 @@ namespace quicr {
 
                 // TODO(tievens): add filter type when caching supports it
                 SubscribeReceived(conn_ctx.connection_handle, msg.subscribe_id, msg.track_alias, tfn, {});
-
-                // TODO(tievens): Delay the subscribe OK till ResolveSubscribe() is called
-                SendSubscribeOk(conn_ctx, msg.subscribe_id, kSubscribeExpires, false);
-
                 return true;
             }
+
             case messages::MoqMessageType::SUBSCRIBE_OK: {
                 messages::MoqSubscribeOk msg;
                 msg_bytes >> msg;
@@ -334,6 +337,18 @@ namespace quicr {
                 // TODO(tievens): Revisit sending sever setup immediately or wait for something else from server
                 SendServerSetup(conn_ctx);
                 conn_ctx.setup_complete = true;
+
+                return true;
+            }
+            case messages::MoqMessageType::SUBSCRIBE_ANNOUNCES: {
+                messages::MoqSubscribeAnnounces msg;
+                msg_bytes >> msg;
+
+                // TODO: add support for parameters
+                SubscribeAnnouncesReceived(conn_ctx.connection_handle, msg.track_namespace_prefix);
+
+                // TODO: Delay sending OK until its resolved.
+                SendSubscribeAnnouncesOk(conn_ctx, msg.track_namespace_prefix);
 
                 return true;
             }

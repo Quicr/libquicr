@@ -693,7 +693,7 @@ TEST_CASE("SubscribeAnnouncesOk Message encode/decode")
     CHECK_EQ(kTrackNamespaceConf, out.track_namespace_prefix);
 }
 
-TEST_CASE("UnsubscribeAnnounces Message encode/decode")
+TEST_CASE("SubscribeAnnounces Message encode/decode")
 {
     Bytes buffer;
 

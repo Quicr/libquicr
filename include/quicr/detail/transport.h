@@ -14,6 +14,7 @@
 #include <quicr/config.h>
 #include <quicr/metrics.h>
 #include <quicr/publish_track_handler.h>
+#include <quicr/subscribe_announces_handler.h>
 #include <quicr/subscribe_track_handler.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
@@ -147,6 +148,8 @@ namespace quicr {
         void UnpublishTrack(ConnectionHandle connection_handle,
                             const std::shared_ptr<PublishTrackHandler>& track_handler);
 
+        void SubscribeAnnounces(ConnectionHandle connection_handle,
+                                const std::shared_ptr<SubscribeAnnouncesHandler>& handler);
         /**
          * @brief Get the status of the Client
          *
@@ -229,6 +232,9 @@ namespace quicr {
             /// Published tracks by quic transport data context ID.
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
 
+            // Tracknamespaces prefixes active subscriptions
+            std::map<TrackNamespace, std::shared_ptr<SubscribeAnnouncesHandler>> announce_subscriptions{};
+
             ConnectionMetrics metrics; ///< Connection metrics
         };
 
@@ -263,6 +269,14 @@ namespace quicr {
                                 uint64_t track_alias,
                                 messages::SubscribeError error,
                                 const std::string& reason);
+        void SendSubscribeAnnounces(ConnectionContext& conn_ctx, const TrackNamespace& prefix);
+        void SendSubscribeAnnouncesOk(ConnectionContext& conn_ctx, const TrackNamespace& prefix);
+        void SendSubscribeAnnouncesError(ConnectionContext& conn_ctx,
+                                         const TrackNamespace& prefix,
+                                         messages::SubscribeError error,
+                                         const std::string& reason);
+        void SendUnsubscribeAnnounces(ConnectionContext& conn_ctx, const TrackNamespace& prefix);
+
         void CloseConnection(ConnectionHandle connection_handle,
                              messages::MoqTerminationReason reason,
                              const std::string& reason_str);

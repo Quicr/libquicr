@@ -299,6 +299,21 @@ namespace quicr {
                 conn_ctx.setup_complete = true;
                 return true;
             }
+            case messages::MoqMessageType::SUBSCRIBE_ANNOUNCES_OK: {
+                messages::MoqSubscribeAnnouncesOk msg;
+                msg_bytes >> msg;
+
+                SPDLOG_LOGGER_DEBUG(
+                  logger_, "Received subscribe_announce ok, conn_id: {0}", conn_ctx.connection_handle);
+
+                // Update each track to indicate status is okay to publish
+                auto it = conn_ctx.announce_subscriptions.find(msg.track_namespace_prefix);
+                if (it->second.get()->GetStatus() != SubscribeAnnouncesHandler::Status::kOk) {
+                    // TODO : report status to the handler
+                    it->second.get()->SetStatus(SubscribeAnnouncesHandler::Status::kOk);
+                }
+                return true;
+            }
 
             default:
                 SPDLOG_LOGGER_ERROR(logger_,
