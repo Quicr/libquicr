@@ -306,12 +306,28 @@ namespace quicr {
                 SPDLOG_LOGGER_DEBUG(
                   logger_, "Received subscribe_announce ok, conn_id: {0}", conn_ctx.connection_handle);
 
-                // Update each track to indicate status is okay to publish
                 auto it = conn_ctx.announce_subscriptions.find(msg.track_namespace_prefix);
                 if (it->second.get()->GetStatus() != SubscribeAnnouncesHandler::Status::kOk) {
                     // TODO : report status to the handler
                     it->second.get()->SetStatus(SubscribeAnnouncesHandler::Status::kOk);
                 }
+                return true;
+            }
+            case messages::MoqMessageType::ANNOUNCE: {
+                messages::MoqAnnounce msg;
+                msg_bytes >> msg;
+
+                SPDLOG_LOGGER_DEBUG(logger_, "Received announce on conn_id: {0}", conn_ctx.connection_handle);
+
+                for (const auto& entry : conn_ctx.announce_subscriptions) {
+                    if (entry.first.Contains(msg.track_namespace)) {
+                        entry.second.get()->MatchingTrackNamespaceReceived(msg.track_namespace);
+                    }
+                }
+
+                // TODO: Revisit sending OK in this case.
+                // SendAnnounceOk(conn_ctx, msg.track_namespace);
+
                 return true;
             }
 

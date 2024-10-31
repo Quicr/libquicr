@@ -224,9 +224,34 @@ namespace quicr {
         virtual void SubscribeAnnouncesReceived(ConnectionHandle connection_handle,
                                                 TrackNamespace& track_namespace_prefix);
 
+        /**
+         *
+         * @param connection_handle
+         * @param track_namespace
+         * @param announce_response
+         *
+         * TODO: AnnounceResponse is incorrect here.
+         */
         void ResolveSubscribeAnnounces(ConnectionHandle connection_handle,
                                        const TrackNamespace& track_namespace,
                                        const AnnounceResponse& announce_response);
+
+        /**
+         * Send existing and new announces that match namespace prefix in SubscribeAnnounces
+         * This function allows the subscriber to learn about new announces.
+         * @param connection_handle
+         * @param track_namespace
+         */
+        void ForwardAnnounce(ConnectionHandle connection_handle, const TrackNamespace& track_namespace)
+        {
+
+            if (connection_handle) {
+                // TODO: This is a fire and forget sending announcement.
+                // Not sure if server should even worry about getting an OK,
+                // since if a subscribe follows , that implies it as OK
+                Transport::SendAnnounce(connection_handle, track_namespace);
+            }
+        }
 
         ///@}
         // --END OF CALLBACKS ----------------------------------------------------------------------------------

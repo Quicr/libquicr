@@ -24,9 +24,10 @@ class MySubscribeAnnouncesHandler : public quicr::SubscribeAnnouncesHandler
     {
     }
 
-    virtual void MatchingAnnounceReceived([[maybe_unused]] const quicr::messages::MoqAnnounce& announce)
+    void MatchingTrackNamespaceReceived(const quicr::TrackNamespace& track_namespace)
     {
-        SPDLOG_INFO("SubscribeAnnounceHandler: Matching Announce Received:");
+        auto data = std::string{ track_namespace.begin(), track_namespace.end() };
+        SPDLOG_INFO("SubscribeAnnounceHandler: Matching Announce Received: {0}", data);
     }
 
     void StatusChanged([[maybe_unused]] Status status)

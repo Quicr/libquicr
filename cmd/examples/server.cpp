@@ -346,11 +346,14 @@ class MyServer : public quicr::Server
 
         // check to see if there are subscribers who need this announce
         for (const auto& entry : qserver_vars::announce_subscribers) {
-            if (track_namespace.Contains(entry.first)) {
+            if (entry.first.Contains(track_namespace)) {
                 SPDLOG_INFO("Found a match for announced namespace. prefix: {0}, namespace: {1}",
                             qserver_vars::to_ascii(entry.first.GetEntries()),
                             qserver_vars::to_ascii(track_namespace.GetEntries()));
-
+                // Send announce to the subscribers
+                for (const auto& conn : entry.second) {
+                    ForwardAnnounce(conn, track_namespace);
+                }
             } else {
                 SPDLOG_INFO("No match Found for announced namespace. prefix: {0}, namespace: {1}",
                             qserver_vars::to_ascii(entry.first.GetEntries()),

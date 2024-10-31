@@ -547,6 +547,20 @@ namespace quicr {
         SendSubscribeAnnounces(conn_it->second, ns_prefix);
     }
 
+    void Transport::SendAnnounce(TransportConnId conn_id, const quicr::TrackNamespace& track_namespace)
+    {
+
+        std::unique_lock<std::mutex> lock(state_mutex_);
+
+        auto conn_it = connections_.find(conn_id);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "SendAnnounce conn_id: {0} does not exist.", conn_id);
+            return;
+        }
+
+        SendAnnounce(conn_it->second, track_namespace);
+    }
+
     void Transport::PublishTrack(TransportConnId conn_id, std::shared_ptr<PublishTrackHandler> track_handler)
     {
         // Generate track alias

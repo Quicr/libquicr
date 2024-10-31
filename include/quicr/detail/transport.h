@@ -148,8 +148,16 @@ namespace quicr {
         void UnpublishTrack(ConnectionHandle connection_handle,
                             const std::shared_ptr<PublishTrackHandler>& track_handler);
 
+        /**
+         *
+         * @param connection_handle
+         * @param handler
+         */
         void SubscribeAnnounces(ConnectionHandle connection_handle,
                                 const std::shared_ptr<SubscribeAnnouncesHandler>& handler);
+
+        void SendAnnounce(ConnectionHandle connection_handle, const TrackNamespace& track_namespace);
+
         /**
          * @brief Get the status of the Client
          *

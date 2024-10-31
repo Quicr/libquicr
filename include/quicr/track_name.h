@@ -194,7 +194,7 @@ namespace quicr {
 
         bool Contains(const TrackNamespace& other) const noexcept
         {
-            if (this->size() < other.size()) {
+            if (this->size() > other.size()) {
                 return false;
             }
 

@@ -54,7 +54,7 @@ namespace quicr {
          */
         ///@{
 
-        virtual void MatchingAnnounceReceived([[maybe_unused]] const quicr::messages::MoqAnnounce& announce) {}
+        virtual void MatchingTrackNamespaceReceived([[maybe_unused]] const quicr::TrackNamespace& track_namespace) {}
 
         virtual void StatusChanged([[maybe_unused]] Status status) {}
 
