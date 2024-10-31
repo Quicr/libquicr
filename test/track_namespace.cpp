@@ -14,7 +14,7 @@ FindTracks(Span<const TrackNamespace> tracks, const TrackNamespace& track)
     std::vector<TrackNamespace> matching_tracks;
 
     std::for_each(tracks.begin(), tracks.end(), [&](const auto& t) {
-        if (track.Contains(t))
+        if (track.IsPrefixOf(t))
             matching_tracks.emplace_back(t);
     });
 
@@ -53,4 +53,22 @@ TEST_CASE("Partial match (single entry)")
 
     auto matching_tracks = FindTracks(kTracks, TrackNamespace{ "example"s, "chat555"s, "user2"s });
     CHECK_EQ(matching_tracks, expected_tracks);
+}
+
+TEST_CASE("No match")
+{
+    auto matching_tracks = FindTracks(kTracks, TrackNamespace{ "example"s, "chat555"s, "user"s });
+    CHECK(matching_tracks.empty());
+}
+
+TEST_CASE("IsPrefix vs HasPrefix")
+{
+    TrackNamespace long_ns{ "example"s, "chat555"s, "user2"s, "dev1"s, "time4"s };
+    TrackNamespace short_ns{ "example"s, "chat555"s, "user2"s };
+
+    CHECK(short_ns.IsPrefixOf(long_ns));
+    CHECK_FALSE(long_ns.IsPrefixOf(short_ns));
+
+    CHECK(long_ns.HasSamePrefix(short_ns));
+    CHECK(short_ns.HasSamePrefix(long_ns));
 }
