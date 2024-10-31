@@ -20,15 +20,10 @@
 
 #pragma once
 
-#include <algorithm>
-#include <array>
 #include <atomic>
 #include <chrono>
 #include <memory>
-#include <mutex>
-#include <sys/select.h>
-#include <thread>
-#include <type_traits>
+#include <stdexcept>
 #include <vector>
 
 #include "tick_service.h"

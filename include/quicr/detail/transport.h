@@ -238,11 +238,12 @@ namespace quicr {
 
         void Init();
 
-        PublishTrackHandler::PublishObjectStatus SendObject(const PublishTrackHandler& track_handler,
+        PublishTrackHandler::PublishObjectStatus SendObject(PublishTrackHandler& track_handler,
                                                             uint8_t priority,
                                                             uint32_t ttl,
                                                             bool stream_header_needed,
                                                             uint64_t group_id,
+                                                            uint64_t subgroup_id,
                                                             uint64_t object_id,
                                                             std::optional<Extensions> extensions,
                                                             BytesSpan data);
@@ -250,9 +251,9 @@ namespace quicr {
         void SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data);
         void SendClientSetup();
         void SendServerSetup(ConnectionContext& conn_ctx);
-        void SendAnnounce(ConnectionContext& conn_ctx, Span<const uint8_t> track_namespace);
-        void SendAnnounceOk(ConnectionContext& conn_ctx, Span<const uint8_t> track_namespace);
-        void SendUnannounce(ConnectionContext& conn_ctx, Span<const uint8_t> track_namespace);
+        void SendAnnounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
+        void SendAnnounceOk(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
+        void SendUnannounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
         void SendSubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id, const FullTrackName& tfn, TrackHash th);
         void SendSubscribeOk(ConnectionContext& conn_ctx, uint64_t subscribe_id, uint64_t expires, bool content_exists);
         void SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id);
@@ -296,14 +297,11 @@ namespace quicr {
         // -------------------------------------------------------------------------------------------------
         // Private member functions that will be implemented by both Server and Client
         // ------------------------------------------------------------------------------------------------
-        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                        std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer) = 0;
+
+        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes) = 0;
 
         bool ProcessStreamDataMessage(ConnectionContext& conn_ctx,
                                       std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer);
-
-        template<class MessageType>
-        std::pair<MessageType&, bool> ParseControlMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer);
 
         template<class MessageType>
         std::pair<MessageType&, bool> ParseDataMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,

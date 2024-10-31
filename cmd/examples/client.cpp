@@ -6,6 +6,7 @@
 #include <spdlog/spdlog.h>
 
 #include <quicr/client.h>
+#include <quicr/object.h>
 
 #include "helper_functions.h"
 #include "signal_handler.h"
@@ -132,7 +133,7 @@ void
 DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<quicr::Client>& client, const bool& stop)
 {
     auto track_handler = std::make_shared<MyPublishTrackHandler>(
-      full_track_name, quicr::TrackMode::kStreamPerGroup /*mode*/, 2 /*prirority*/, 3000 /*ttl*/);
+      full_track_name, quicr::TrackMode::kStream /*mode*/, 2 /*prirority*/, 3000 /*ttl*/);
 
     SPDLOG_INFO("Started publisher track");
 
@@ -140,6 +141,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
     bool sending{ false };
     uint64_t group_id{ 0 };
     uint64_t object_id{ 0 };
+    uint64_t subgroup_id{ 0 };
 
     while (not stop) {
         if ((!published_track) && (client->GetStatus() == MyClient::Status::kReady)) {
@@ -175,13 +177,23 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
             getline(std::cin, msg);
             SPDLOG_INFO("Send message: {0}", msg);
         }
+
         if (object_id % 10 == 0) { // Set new group
             object_id = 0;
+            subgroup_id = 0;
             group_id++;
         }
 
-        quicr::ObjectHeaders obj_headers = { group_id,       object_id++,  msg.size(),  2 /*priority*/,
-                                             3000 /* ttl */, std::nullopt, std::nullopt };
+        // The idea is to generate a new subgroup after 4 objects and have
+        // only one subgroup within a group of 10 objects
+        if (object_id == 4) {
+            subgroup_id++;
+        }
+
+        quicr::ObjectHeaders obj_headers = {
+            group_id,       object_id++,    subgroup_id,  msg.size(),  quicr::ObjectStatus::kAvailable,
+            2 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt
+        };
 
         track_handler->PublishObject(obj_headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
     }

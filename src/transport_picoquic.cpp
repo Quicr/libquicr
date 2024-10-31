@@ -261,7 +261,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
             SPDLOG_LOGGER_INFO(transport->logger, "Application closed conn_id: {0}", conn_id);
             [[fallthrough]];
         case picoquic_callback_close: {
-            uint64_t app_reason_code = 0;
+            uint64_t app_reason_code = picoquic_get_application_error(pq_cnx);
             std::ostringstream log_msg;
             log_msg << "Closing connection conn_id: " << conn_id << " stream_id: " << stream_id;
 
@@ -478,8 +478,10 @@ PicoQuicTransport::Start()
      *    also triggers PMTUD to run. This value will be the initial value.
      */
     picoquic_init_transport_parameters(&local_tp_options_, 1);
+
+    // TODO(tievens): revisit PMTU/GSO, removing this breaks some networks
     local_tp_options_.max_datagram_frame_size = 1280;
-    //  local_tp_options.max_packet_size = 1450;
+
     local_tp_options_.max_idle_timeout = tconfig_.idle_timeout_ms;
     local_tp_options_.max_ack_delay = 100000;
     local_tp_options_.min_ack_delay = 1000;
@@ -682,6 +684,16 @@ PicoQuicTransport::CreateDataContext(const TransportConnId conn_id,
         // Create stream
         if (use_reliable_transport) {
             CreateStream(conn_it->second, &data_ctx_it->second);
+            SPDLOG_LOGGER_DEBUG(logger,
+                                "Created STREAM data context id: {} pri: {}",
+                                data_ctx_it->second.data_ctx_id,
+                                static_cast<int>(priority));
+        } else {
+            picoquic_set_datagram_priority(conn_it->second.pq_cnx, priority);
+            SPDLOG_LOGGER_DEBUG(logger,
+                                "Created DGRAM data context id: {} pri: {}",
+                                data_ctx_it->second.data_ctx_id,
+                                static_cast<int>(priority));
         }
     }
 
@@ -715,7 +727,7 @@ PicoQuicTransport::Close(const TransportConnId& conn_id, uint64_t app_reason_cod
             break;
 
         case 100: // Client shutting down connection
-            OnConnectionStatus(conn_id, TransportStatus::kShutdown);
+            OnConnectionStatus(conn_id, TransportStatus::kRemoteRequestClose);
             picoquic_close(conn_it->second.pq_cnx, app_reason_code);
             break;
 
@@ -1193,6 +1205,10 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
             } else {
                 data_len = obj.value.data.size();
                 data_ctx->stream_tx_object_offset = 0;
+
+                if (!data_ctx->tx_data->Empty()) {
+                    is_still_active = 1;
+                }
             }
 
         } else {
@@ -1757,6 +1773,14 @@ PicoQuicTransport::CreateStream(ConnectionContext& conn_ctx, DataContext* data_c
 
     data_ctx->mark_stream_active = true;
 
+    /*
+     * Must call set_app_stream_ctx so that the stream will be created now and the next call to create
+     *      stream will use a new stream ID. Marking the stream active and setting priority involves
+     *      more state changes in picoquic which causes issues when both the picoquic thread and caller
+     *      thread udpate state.
+     */
+    picoquic_set_app_stream_ctx(conn_ctx.pq_cnx, *data_ctx->current_stream_id, data_ctx);
+
     picoquic_runner_queue_.Push([this, conn_id = conn_ctx.conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
         MarkStreamActive(conn_id, data_ctx_id);
     });
@@ -1825,10 +1849,10 @@ PicoQuicTransport::MarkStreamActive(const TransportConnId conn_id, const DataCon
         return;
     }
 
-    picoquic_set_stream_priority(
-      conn_it->second.pq_cnx, *data_ctx_it->second.current_stream_id, (data_ctx_it->second.priority << 1));
     picoquic_mark_active_stream(
       conn_it->second.pq_cnx, *data_ctx_it->second.current_stream_id, 1, &data_ctx_it->second);
+    picoquic_set_stream_priority(
+      conn_it->second.pq_cnx, *data_ctx_it->second.current_stream_id, (data_ctx_it->second.priority << 1));
 }
 
 void

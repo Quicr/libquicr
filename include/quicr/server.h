@@ -218,8 +218,7 @@ namespace quicr {
         // --END OF CALLBACKS ----------------------------------------------------------------------------------
 
       private:
-        bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer) override;
+        bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes) override;
 
         bool stop_{ false };
     };
