@@ -348,10 +348,11 @@ namespace quicr::messages {
     struct MoqFetchOk
     {
         SubscribeId subscribe_id;
-        uint64_t expires;
-        bool content_exists;
+        GroupOrder group_order;
+        uint8_t end_of_track;
         uint64_t largest_group{ 0 };
         uint64_t largest_object{ 0 };
+        std::vector<MoqParameter> params;
     };
 
     BytesSpan operator>>(BytesSpan buffer, MoqFetchOk& msg);
@@ -362,7 +363,6 @@ namespace quicr::messages {
         uint64_t subscribe_id;
         ErrorCode err_code;
         ReasonPhrase reason_phrase;
-        uint64_t track_alias;
     };
 
     BytesSpan operator>>(BytesSpan buffer, MoqFetchError& msg);
@@ -371,11 +371,6 @@ namespace quicr::messages {
     struct MoqFetchCancel
     {
         uint64_t subscribe_id;
-        uint64_t status_code;
-        ReasonPhrase reason_phrase;
-        bool content_exists;
-        uint64_t final_group_id;
-        uint64_t final_object_id;
     };
 
     BytesSpan operator>>(BytesSpan buffer, MoqFetchCancel& msg);

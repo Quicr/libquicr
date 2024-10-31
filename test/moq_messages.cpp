@@ -708,3 +708,45 @@ TEST_CASE("MoqFetch Message encode/decode")
     CHECK_EQ(fetch.end_group, fetch_out.end_group);
     CHECK_EQ(fetch.end_object, fetch_out.end_object);
 }
+
+TEST_CASE("MoqFetchOk/Error/Cancel Message encode/decode")
+{
+    Bytes buffer;
+
+    auto fetch_ok = MoqFetchOk{};
+    fetch_ok.subscribe_id = 0x1234;
+    fetch_ok.group_order = GroupOrder::kDescending;
+    fetch_ok.largest_group = 0x9999;
+    fetch_ok.largest_object = 0x9999;
+
+    buffer << fetch_ok;
+
+    MoqFetchOk fetch_ok_out{};
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::FETCH_OK), fetch_ok_out));
+    CHECK_EQ(fetch_ok.subscribe_id, fetch_ok_out.subscribe_id);
+    CHECK_EQ(fetch_ok.group_order, fetch_ok_out.group_order);
+    CHECK_EQ(fetch_ok.largest_group, fetch_ok_out.largest_group);
+    CHECK_EQ(fetch_ok.largest_object, fetch_ok_out.largest_object);
+
+    buffer.clear();
+    auto fetch_cancel = MoqFetchCancel{};
+    fetch_cancel.subscribe_id = 0x1111;
+
+    buffer << fetch_cancel;
+
+    MoqFetchCancel fetch_cancel_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::FETCH_CANCEL), fetch_cancel_out));
+    CHECK_EQ(fetch_cancel.subscribe_id, fetch_cancel_out.subscribe_id);
+
+    buffer.clear();
+    auto fetch_error = MoqFetchError{};
+    fetch_error.subscribe_id = 0x1111;
+    fetch_error.err_code = 0x0;
+
+    buffer << fetch_error;
+
+    MoqFetchError fetch_error_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::FETCH_ERROR), fetch_error_out));
+    CHECK_EQ(fetch_error.subscribe_id, fetch_error_out.subscribe_id);
+    CHECK_EQ(fetch_error.err_code, fetch_error_out.err_code);
+}

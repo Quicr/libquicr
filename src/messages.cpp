@@ -733,6 +733,78 @@ namespace quicr::messages {
         return buffer;
     }
 
+    Bytes& operator<<(Bytes& buffer, const MoqFetchOk& msg)
+    {
+        Bytes payload;
+        payload << UintVar(msg.subscribe_id);
+        auto group_order = static_cast<uint8_t>(msg.group_order);
+        payload.push_back(group_order);
+        payload.push_back(msg.end_of_track);
+        payload << UintVar(msg.largest_group);
+        payload << UintVar(msg.largest_object);
+
+        payload << UintVar(msg.params.size());
+        for (const auto& param : msg.params) {
+            payload << param;
+        }
+
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::FETCH_OK));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetchOk& msg)
+    {
+        buffer = buffer >> msg.subscribe_id;
+        msg.group_order = static_cast<GroupOrder>(buffer.front());
+        buffer = buffer.subspan(sizeof(GroupOrder));
+        msg.end_of_track = buffer.front();
+        buffer = buffer.subspan(sizeof(uint8_t));
+        buffer = buffer >> msg.largest_group;
+        buffer = buffer >> msg.largest_object;
+
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, const MoqFetchCancel& msg)
+    {
+        Bytes payload;
+        payload << UintVar(msg.subscribe_id);
+
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::FETCH_CANCEL));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetchCancel& msg)
+    {
+        return buffer >> msg.subscribe_id;
+    }
+
+    Bytes& operator<<(Bytes& buffer, const MoqFetchError& msg)
+    {
+        Bytes payload;
+        payload << UintVar(msg.subscribe_id);
+        payload << UintVar(msg.err_code);
+        payload << UintVar(msg.reason_phrase.size());
+        payload << msg.reason_phrase;
+
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::FETCH_ERROR));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetchError& msg)
+    {
+        return buffer >> msg.subscribe_id >> msg.err_code >> msg.reason_phrase;
+    }
+
     //
     // Object
     //
