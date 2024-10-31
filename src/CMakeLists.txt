@@ -27,7 +27,7 @@ target_compile_options(quicr
         $<$<CXX_COMPILER_ID:MSVC>: >)
 set_target_properties(quicr
     PROPERTIES
-        CXX_STANDARD 17
+        CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS OFF)
 
@@ -51,11 +51,10 @@ target_link_libraries(quicr
     PUBLIC
         spdlog)
 
-if (NOT PLATFORM_ESP_IDF)
-    target_link_libraries(quicr
-            PUBLIC
-            picoquic-core picoquic-log)
-endif()
+target_link_libraries(quicr
+    PUBLIC
+        picoquic-core picoquic-log)
+
 if (PLATFORM_ESP_IDF)
     add_compile_definitions(${LIB_NAME} PLATFORM_ESP)
 endif()
