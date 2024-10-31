@@ -12,13 +12,6 @@
 #include <vector>
 
 namespace quicr {
-    template<class T>
-    inline void hash_combine(std::size_t& seed, const T& v)
-    {
-        std::hash<T> hasher;
-        seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-    }
-
     /**
      * @brief An N-tuple representation of a MOQ namespace.
      */
@@ -42,9 +35,7 @@ namespace quicr {
 
             std::size_t offset = 0;
             const auto add_entry = [&](auto&& e) {
-                const auto& entry = entries_.emplace_back(Span{ bytes_ }.subspan(offset, e.size()));
-                hash_.emplace_back(
-                  std::hash<std::string_view>{}({ reinterpret_cast<const char*>(entry.data()), entry.size() }));
+                entries_.emplace_back(Span{ bytes_ }.subspan(offset, e.size()));
                 offset += e.size();
             };
 
@@ -66,9 +57,7 @@ namespace quicr {
 
             std::size_t offset = 0;
             const auto add_entry = [&](auto&& e) {
-                const auto& entry = entries_.emplace_back(Span{ bytes_ }.subspan(offset, e.size()));
-                hash_.emplace_back(
-                  std::hash<std::string_view>{}({ reinterpret_cast<const char*>(entry.data()), entry.size() }));
+                entries_.emplace_back(Span{ bytes_ }.subspan(offset, e.size()));
                 offset += e.size();
             };
 
@@ -90,11 +79,8 @@ namespace quicr {
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries) {
-                entries_[i] = Span{ bytes_ }.subspan(offset, entry.size());
-                hash_.emplace_back(std::hash<std::string_view>{}(
-                  { reinterpret_cast<const char*>(entries_[i].data()), entries_[i].size() }));
+                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
                 offset += entry.size();
-                ++i;
             }
         }
 
@@ -112,18 +98,14 @@ namespace quicr {
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries) {
-                entries_[i] = Span{ bytes_ }.subspan(offset, entry.size());
-                hash_.emplace_back(std::hash<std::string_view>{}(
-                  { reinterpret_cast<const char*>(entries_[i].data()), entries_[i].size() }));
+                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
                 offset += entry.size();
-                ++i;
             }
         }
 
         TrackNamespace(const TrackNamespace& other)
           : bytes_(other.bytes_)
           , entries_(other.entries_)
-          , hash_(other.hash_)
         {
             std::size_t offset = 0;
             std::size_t i = 0;
@@ -136,7 +118,6 @@ namespace quicr {
         TrackNamespace(TrackNamespace&& other)
           : bytes_(std::move(other.bytes_))
           , entries_(std::move(other.entries_))
-          , hash_(std::move(other.hash_))
         {
             other.entries_.clear();
 
@@ -152,7 +133,6 @@ namespace quicr {
         {
             this->bytes_ = other.bytes_;
             this->entries_ = other.entries_;
-            this->hash_ = other.hash_;
 
             std::size_t offset = 0;
             std::size_t i = 0;
@@ -168,7 +148,6 @@ namespace quicr {
         {
             this->bytes_ = std::move(other.bytes_);
             this->entries_ = std::move(other.entries_);
-            this->hash_ = std::move(other.hash_);
 
             std::size_t offset = 0;
             std::size_t i = 0;
@@ -181,7 +160,6 @@ namespace quicr {
         }
 
         const std::vector<Span<const uint8_t>>& GetEntries() const noexcept { return entries_; }
-        const auto& GetHashes() const noexcept { return hash_; }
 
         // NOLINTBEGIN(readability-identifier-naming)
         auto begin() noexcept { return bytes_.begin(); }
@@ -214,44 +192,29 @@ namespace quicr {
 
         friend bool operator>=(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept { return !(lhs < rhs); }
 
-        bool IsPrefixOf(const TrackNamespace& other) const noexcept
+        bool Contains(const TrackNamespace& other) const noexcept
         {
             if (this->size() > other.size()) {
                 return false;
             }
 
-            return this->hash() == other.hash(this->hash_.size());
-        }
-
-        bool HasSamePrefix(const TrackNamespace& other) const noexcept
-        {
-            const std::size_t min_size = std::min(this->hash_.size(), other.hash_.size());
-            return this->hash(min_size) == other.hash(min_size);
-        }
-
-      private:
-        std::size_t hash(std::size_t offset = -1) const noexcept
-        {
-            std::size_t value = 0;
-            for (const auto& h : Span{ hash_ }.subspan(0, std::min(offset, hash_.size()))) {
-                hash_combine(value, h);
-            }
-            return value;
+            auto other_view = Span{ other }.subspan(0, this->size());
+            return std::equal(this->begin(), this->end(), other_view.begin(), other_view.end());
         }
 
       private:
         std::vector<uint8_t> bytes_;
         std::vector<Span<const uint8_t>> entries_;
-        std::vector<std::size_t> hash_;
-
-        friend struct std::hash<quicr::TrackNamespace>;
     };
 }
 
 template<>
 struct std::hash<quicr::TrackNamespace>
 {
-    std::size_t operator()(const quicr::TrackNamespace& value) { return value.hash(); }
+    std::size_t operator()(const quicr::TrackNamespace& value)
+    {
+        return std::hash<std::string_view>{}({ reinterpret_cast<const char*>(value.data()), value.size() });
+    }
 };
 
 namespace quicr {
