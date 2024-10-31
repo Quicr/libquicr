@@ -130,6 +130,7 @@ namespace quicr {
 
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kSubscribeError);
                 RemoveSubscribeTrack(conn_ctx, *sub_it->second);
+                return true;
             }
             case messages::MoqMessageType::ANNOUNCE_OK: {
                 messages::MoqAnnounceOk msg;
@@ -204,6 +205,7 @@ namespace quicr {
                         handler->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
                     }
                 }
+                return true;
             }
             case messages::MoqMessageType::SUBSCRIBE_DONE: {
                 messages::MoqSubscribeDone msg;
@@ -244,6 +246,7 @@ namespace quicr {
                 SPDLOG_LOGGER_INFO(
                   logger_, "Received announce cancel for namespace_hash: {0}", th.track_namespace_hash);
                 AnnounceStatusChanged(tfn.name_space, PublishAnnounceStatus::kNotAnnounced);
+                return true;
             }
             case messages::MoqMessageType::TRACK_STATUS_REQUEST: {
                 messages::MoqTrackStatusRequest msg;
