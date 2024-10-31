@@ -251,7 +251,7 @@ namespace quicr {
 template<>
 struct std::hash<quicr::TrackNamespace>
 {
-    std::size_t operator()(const quicr::TrackNamespace& value) { return value.hash(); }
+    std::size_t operator()(const quicr::TrackNamespace& value) const noexcept { return value.hash(); }
 };
 
 namespace quicr {
