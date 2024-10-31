@@ -329,23 +329,23 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, MoqSubscribeAnnounces& msg);
     Bytes& operator<<(Bytes& buffer, const MoqSubscribeAnnounces& msg);
 
-    struct MoqSubscribeAnnounceOk
+    struct MoqSubscribeAnnouncesOk
     {
         TrackNamespace track_namespace_prefix;
     };
 
-    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeAnnounceOk& msg);
-    Bytes& operator<<(Bytes& buffer, const MoqSubscribeAnnounceOk& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeAnnouncesOk& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqSubscribeAnnouncesOk& msg);
 
-    struct MoqSubscribeAnnounceError
+    struct MoqSubscribeAnnouncesError
     {
         TrackNamespace track_namespace_prefix;
         std::optional<ErrorCode> err_code;
         std::optional<ReasonPhrase> reason_phrase;
     };
 
-    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeAnnounceError& msg);
-    Bytes& operator<<(Bytes& buffer, const MoqSubscribeAnnounceError& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeAnnouncesError& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqSubscribeAnnouncesError& msg);
 
     struct MoqUnsubscribeAnnounces
     {

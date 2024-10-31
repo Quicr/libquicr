@@ -714,7 +714,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, const MoqSubscribeAnnounceOk& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqSubscribeAnnouncesOk& msg)
     {
         Bytes payload;
         payload << msg.track_namespace_prefix;
@@ -726,12 +726,12 @@ namespace quicr::messages {
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeAnnounceOk& msg)
+    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeAnnouncesOk& msg)
     {
         return buffer >> msg.track_namespace_prefix;
     }
 
-    Bytes& operator<<(Bytes& buffer, const MoqSubscribeAnnounceError& msg)
+    Bytes& operator<<(Bytes& buffer, const MoqSubscribeAnnouncesError& msg)
     {
         Bytes payload;
         payload << msg.track_namespace_prefix;
@@ -746,7 +746,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeAnnounceError& msg)
+    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeAnnouncesError& msg)
     {
         TrackNamespace track_ns;
         buffer = buffer >> track_ns;

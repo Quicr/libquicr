@@ -679,3 +679,61 @@ TEST_CASE("MoqGoaway Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::GOAWAY), goaway_out));
     CHECK_EQ(FromASCII("go.away.now.no.return"), goaway_out.new_session_uri);
 }
+
+TEST_CASE("SubscribeAnnouncesOk Message encode/decode")
+{
+    Bytes buffer;
+
+    auto in = MoqSubscribeAnnouncesOk{};
+    in.track_namespace_prefix = kTrackNamespaceConf;
+    buffer << in;
+
+    MoqSubscribeAnnouncesOk out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ANNOUNCES_OK), out));
+    CHECK_EQ(kTrackNamespaceConf, out.track_namespace_prefix);
+}
+
+TEST_CASE("UnsubscribeAnnounces Message encode/decode")
+{
+    Bytes buffer;
+
+    auto in = MoqSubscribeAnnounces{};
+    in.track_namespace_prefix = kTrackNamespaceConf;
+    in.params = {};
+    buffer << in;
+
+    MoqSubscribeAnnounces out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ANNOUNCES), out));
+    CHECK_EQ(kTrackNamespaceConf, out.track_namespace_prefix);
+    CHECK_EQ(0, out.params.size());
+}
+
+TEST_CASE("UnsubscribeAnnounces Message encode/decode")
+{
+    Bytes buffer;
+
+    auto in = MoqUnsubscribeAnnounces{};
+    in.track_namespace_prefix = kTrackNamespaceConf;
+    buffer << in;
+
+    MoqUnsubscribeAnnounces out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::UNSUBSCRIBE_ANNOUNCES), out));
+    CHECK_EQ(kTrackNamespaceConf, out.track_namespace_prefix);
+}
+
+TEST_CASE("SubscribeAnnouncesError Message encode/decode")
+{
+    Bytes buffer;
+
+    auto in =  MoqSubscribeAnnouncesError{};
+    in.track_namespace_prefix = kTrackNamespaceConf;
+    in.err_code = 0x1234;
+    in.reason_phrase = Bytes{ 0x1, 0x2, 0x3 };
+    buffer << in;
+
+    MoqSubscribeAnnouncesError out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ANNOUNCES_ERROR), out));
+    CHECK_EQ(kTrackNamespaceConf, out.track_namespace_prefix);
+    CHECK_EQ(in.err_code, out.err_code);
+    CHECK_EQ(in.reason_phrase, out.reason_phrase);
+}
