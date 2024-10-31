@@ -679,3 +679,32 @@ TEST_CASE("MoqGoaway Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::GOAWAY), goaway_out));
     CHECK_EQ(FromASCII("go.away.now.no.return"), goaway_out.new_session_uri);
 }
+
+TEST_CASE("MoqFetch Message encode/decode")
+{
+    Bytes buffer;
+
+    auto fetch = MoqFetch{};
+    fetch.track_namespace = kTrackNamespaceConf;
+    fetch.track_name = kTrackNameAliceVideo;
+    fetch.priority = 1;
+    fetch.group_order = GroupOrder::kAscending;
+    fetch.start_group = 0x1000;
+    fetch.start_object = 0x0;
+    fetch.end_group = 0x2000;
+    fetch.end_object = 0x100;
+    fetch.params = {};
+
+    buffer << fetch;
+
+    MoqFetch fetch_out{};
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::FETCH), fetch_out));
+    CHECK_EQ(fetch.track_namespace, fetch_out.track_namespace);
+    CHECK_EQ(fetch.track_name, fetch_out.track_name);
+    CHECK_EQ(fetch.priority, fetch_out.priority);
+    CHECK_EQ(fetch.group_order, fetch_out.group_order);
+    CHECK_EQ(fetch.start_group, fetch_out.start_group);
+    CHECK_EQ(fetch.start_object, fetch_out.start_object);
+    CHECK_EQ(fetch.end_group, fetch_out.end_group);
+    CHECK_EQ(fetch.end_object, fetch_out.end_object);
+}

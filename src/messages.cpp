@@ -676,6 +676,64 @@ namespace quicr::messages {
     }
 
     //
+    // Fetch
+    //
+
+    Bytes& operator<<(Bytes& buffer, const MoqFetch& msg)
+    {
+        Bytes payload;
+
+        payload << UintVar(msg.subscribe_id);
+        payload << msg.track_namespace;
+        payload << UintVar(msg.track_name.size());
+        payload << msg.track_name;
+        payload.push_back(msg.priority);
+        auto group_order = static_cast<uint8_t>(msg.group_order);
+        payload.push_back(group_order);
+        payload << UintVar(msg.start_group);
+        payload << UintVar(msg.start_object);
+        payload << UintVar(msg.end_group);
+        payload << UintVar(msg.end_object);
+
+        payload << UintVar(msg.params.size());
+        for (const auto& param : msg.params) {
+            payload << param;
+        }
+
+        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::FETCH));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetch& msg)
+    {
+        buffer = buffer >> msg.subscribe_id;
+        buffer = buffer >> msg.track_namespace;
+        buffer = buffer >> msg.track_name;
+        msg.priority = buffer.front();
+        buffer = buffer.subspan(sizeof(ObjectPriority));
+        msg.group_order = static_cast<GroupOrder>(buffer.front());
+        buffer = buffer.subspan(sizeof(uint8_t));
+        buffer = buffer >> msg.start_group;
+        buffer = buffer >> msg.start_object;
+        buffer = buffer >> msg.end_group;
+        buffer = buffer >> msg.end_object;
+
+        uint64_t num_params = 0;
+        buffer = buffer >> num_params;
+
+        for (uint64_t i = 0; i < num_params; ++i) {
+            MoqParameter param;
+            buffer = buffer >> param;
+            msg.params.push_back(param);
+        }
+
+        return buffer;
+    }
+
+    //
     // Object
     //
 
