@@ -725,7 +725,7 @@ TEST_CASE("SubscribeAnnouncesError Message encode/decode")
 {
     Bytes buffer;
 
-    auto in =  MoqSubscribeAnnouncesError{};
+    auto in = MoqSubscribeAnnouncesError{};
     in.track_namespace_prefix = kTrackNamespaceConf;
     in.err_code = 0x1234;
     in.reason_phrase = Bytes{ 0x1, 0x2, 0x3 };

@@ -66,7 +66,6 @@ namespace quicr::messages {
         SUBSCRIBE_ANNOUNCES_ERROR,
         UNSUBSCRIBE_ANNOUNCES,
 
-
         CLIENT_SETUP = 0x40,
         SERVER_SETUP,
 
@@ -321,7 +320,8 @@ namespace quicr::messages {
     // Subscribe Announces
     //
 
-    struct MoqSubscribeAnnounces {
+    struct MoqSubscribeAnnounces
+    {
         TrackNamespace track_namespace_prefix;
         std::vector<MoqParameter> params;
     };
