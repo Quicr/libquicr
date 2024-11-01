@@ -24,7 +24,7 @@ class MySubscribeAnnouncesHandler : public quicr::SubscribeAnnouncesHandler
     {
     }
 
-    void MatchingTrackNamespaceReceived(const quicr::TrackNamespace& track_namespace)
+    void TrackNamespaceReceived(const quicr::TrackNamespace& track_namespace)
     {
         auto data = std::string{ track_namespace.begin(), track_namespace.end() };
         SPDLOG_INFO("SubscribeAnnounceHandler: Matching Announce Received: {0}", data);

@@ -46,6 +46,10 @@ namespace quicr {
             std::optional<Bytes> reason_phrase;
         };
 
+        // TODO (suhas): Add details.
+        struct SubscribeAnnouncesResponse
+        {};
+
         /**
          * @brief MoQ Server constructor to create the MOQ server mode instance
          *
@@ -215,30 +219,35 @@ namespace quicr {
         virtual void UnsubscribeReceived(ConnectionHandle connection_handle, uint64_t subscribe_id) = 0;
 
         /**
+         * @brief Subscription for announces
          *
-         * @param connection_handle
-         * @param track_namespace_prefix
+         * @param connection_handle         Subscriber connection Id
+         * @param track_namespace_prefix    TrackNamespace prefix to report matching announcements
          *
          * TODO: Add support for receiving parameters
          */
-        virtual void SubscribeAnnouncesReceived(ConnectionHandle connection_handle,
-                                                TrackNamespace& track_namespace_prefix);
+        virtual void SubscribeForAnnouncesReceived(ConnectionHandle connection_handle,
+                                                   TrackNamespace& track_namespace_prefix);
 
         /**
+         * @brief Resolve received subscribe for announces by providing
+         *        appropriate response.
          *
-         * @param connection_handle
-         * @param track_namespace
-         * @param announce_response
+         * @param connection_handle Subscriber connection Id
+         * @param track_namespace   Namespace prefix matching the subscribe_announces message
+         * @param response          Response to resolve subscribe_announces
          *
-         * TODO: AnnounceResponse is incorrect here.
          */
         void ResolveSubscribeAnnounces(ConnectionHandle connection_handle,
                                        const TrackNamespace& track_namespace,
-                                       const AnnounceResponse& announce_response);
+                                       const SubscribeAnnouncesResponse& aresponse);
 
         /**
-         * Send existing and new announces that match namespace prefix in SubscribeAnnounces
+         * @brief Forward announcements to subscribers
+         *
+         * @details Send existing and new announces that match namespace prefix in SubscribeAnnounces
          * This function allows the subscriber to learn about new announces.
+         *
          * @param connection_handle
          * @param track_namespace
          */

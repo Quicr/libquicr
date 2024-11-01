@@ -324,7 +324,7 @@ namespace quicr {
 
                 for (const auto& entry : conn_ctx.announce_subscriptions) {
                     if (entry.first.Contains(msg.track_namespace)) {
-                        entry.second.get()->MatchingTrackNamespaceReceived(msg.track_namespace);
+                        entry.second.get()->TrackNamespaceReceived(msg.track_namespace);
                     }
                 }
 

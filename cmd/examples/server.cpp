@@ -261,8 +261,8 @@ class MyServer : public quicr::Server
         SPDLOG_INFO("New connection handle {0} accepted from {1}:{2}", connection_handle, remote.ip, remote.port);
     }
 
-    void SubscribeAnnouncesReceived(quicr::ConnectionHandle connection_handle,
-                                    quicr::TrackNamespace& track_namespace_prefix) override
+    void SubscribeForAnnouncesReceived(quicr::ConnectionHandle connection_handle,
+                                       quicr::TrackNamespace& track_namespace_prefix) override
     {
         SPDLOG_INFO("SubscribeAnnounces received {0} accepted from {1}:{2}",
                     connection_handle,
@@ -538,10 +538,6 @@ class MyServer : public quicr::Server
             }
         }
     }
-
-  private:
-    // Set of prefixes for which announces needs to be resolved.
-    std::set<quicr::TrackNamespace> announce_prefixes_;
 };
 
 /* -------------------------------------------------------------------------------------------------
