@@ -691,7 +691,7 @@ namespace quicr::messages {
         // TODO: sending zero parameters
         payload << UintVar(static_cast<uint64_t>(0));
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ANNOUNCES));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_ANNOUNCES));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -719,7 +719,7 @@ namespace quicr::messages {
         Bytes payload;
         payload << msg.track_namespace_prefix;
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ANNOUNCES_OK));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_ANNOUNCES_OK));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -739,7 +739,7 @@ namespace quicr::messages {
         payload << UintVar(msg.reason_phrase.value().size());
         payload << msg.reason_phrase.value();
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ANNOUNCES_ERROR));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_ANNOUNCES_ERROR));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -768,7 +768,7 @@ namespace quicr::messages {
         Bytes payload;
         payload << msg.track_namespace_prefix;
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::UNSUBSCRIBE_ANNOUNCES));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::UNSUBSCRIBE_ANNOUNCES));
         buffer << UintVar(payload.size());
         buffer << payload;
 

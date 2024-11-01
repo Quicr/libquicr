@@ -685,7 +685,7 @@ TEST_CASE("SubscribeAnnouncesOk Message encode/decode")
     buffer << in;
 
     MoqSubscribeAnnouncesOk out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ANNOUNCES_OK), out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_ANNOUNCES_OK), out));
     CHECK_EQ(kTrackNamespaceConf, out.track_namespace_prefix);
 }
 
@@ -699,7 +699,7 @@ TEST_CASE("SubscribeAnnounces Message encode/decode")
     buffer << in;
 
     MoqSubscribeAnnounces out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ANNOUNCES), out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_ANNOUNCES), out));
     CHECK_EQ(kTrackNamespaceConf, out.track_namespace_prefix);
     CHECK_EQ(0, out.params.size());
 }
@@ -713,7 +713,7 @@ TEST_CASE("UnsubscribeAnnounces Message encode/decode")
     buffer << in;
 
     MoqUnsubscribeAnnounces out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::UNSUBSCRIBE_ANNOUNCES), out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::UNSUBSCRIBE_ANNOUNCES), out));
     CHECK_EQ(kTrackNamespaceConf, out.track_namespace_prefix);
 }
 
@@ -728,7 +728,7 @@ TEST_CASE("SubscribeAnnouncesError Message encode/decode")
     buffer << in;
 
     MoqSubscribeAnnouncesError out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ANNOUNCES_ERROR), out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_ANNOUNCES_ERROR), out));
     CHECK_EQ(kTrackNamespaceConf, out.track_namespace_prefix);
     CHECK_EQ(in.err_code, out.err_code);
     CHECK_EQ(in.reason_phrase, out.reason_phrase);

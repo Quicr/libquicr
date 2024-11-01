@@ -302,7 +302,7 @@ namespace quicr {
                 conn_ctx.setup_complete = true;
                 return true;
             }
-            case messages::MoqMessageType::SUBSCRIBE_ANNOUNCES_OK: {
+            case messages::ControlMessageType::SUBSCRIBE_ANNOUNCES_OK: {
                 messages::MoqSubscribeAnnouncesOk msg;
                 msg_bytes >> msg;
 
@@ -316,7 +316,7 @@ namespace quicr {
                 }
                 return true;
             }
-            case messages::MoqMessageType::ANNOUNCE: {
+            case messages::ControlMessageType::ANNOUNCE: {
                 messages::MoqAnnounce msg;
                 msg_bytes >> msg;
 
