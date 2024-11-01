@@ -220,6 +220,16 @@ namespace quicr {
             }
         }
 
+        /**
+         * @brief Get the connection handle
+         *
+         * @return ConnectionHandle of the client
+         */
+        std::optional<ConnectionHandle> GetConnectionHandle() const
+        {
+            return connection_handle_;
+        }
+
       private:
         bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan stream_buffer) override;
 
