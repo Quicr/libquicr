@@ -256,7 +256,9 @@ namespace quicr {
     void Transport::SendSubscribe(ConnectionContext& conn_ctx,
                                   uint64_t subscribe_id,
                                   const FullTrackName& tfn,
-                                  TrackHash th)
+                                  TrackHash th,
+                                  messages::ObjectPriority priority,
+                                  messages::GroupOrder group_order)
     {
 
         auto subscribe = MoqSubscribe{};
@@ -264,6 +266,8 @@ namespace quicr {
         subscribe.track_alias = th.track_fullname_hash;
         subscribe.track_namespace = tfn.name_space;
         subscribe.track_name.assign(tfn.name.begin(), tfn.name.end());
+        subscribe.priority = priority;
+        subscribe.group_order = group_order;
         subscribe.filter_type = FilterType::LatestGroup;
 
         Bytes buffer;
@@ -415,10 +419,13 @@ namespace quicr {
 
         track_handler->SetSubscribeId(sid);
 
+        auto priority = track_handler->GetPriority();
+        auto group_order = track_handler->GetGroupOrder();
+
         // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
         conn_it->second.tracks_by_sub_id[sid] = std::move(track_handler);
 
-        SendSubscribe(conn_it->second, sid, tfn, th);
+        SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order);
     }
 
     void Transport::UnsubscribeTrack(quicr::TransportConnId conn_id,

@@ -254,7 +254,12 @@ namespace quicr {
         void SendAnnounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
         void SendAnnounceOk(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
         void SendUnannounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
-        void SendSubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id, const FullTrackName& tfn, TrackHash th);
+        void SendSubscribe(ConnectionContext& conn_ctx,
+                           uint64_t subscribe_id,
+                           const FullTrackName& tfn,
+                           TrackHash th,
+                           messages::ObjectPriority priority,
+                           messages::GroupOrder group_order);
         void SendSubscribeOk(ConnectionContext& conn_ctx, uint64_t subscribe_id, uint64_t expires, bool content_exists);
         void SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id);
         void SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason);

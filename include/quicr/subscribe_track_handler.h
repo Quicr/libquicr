@@ -51,8 +51,12 @@ namespace quicr {
          *
          * @param full_track_name           Full track name struct
          */
-        SubscribeTrackHandler(const FullTrackName& full_track_name)
+        SubscribeTrackHandler(const FullTrackName& full_track_name,
+                              messages::ObjectPriority priority,
+                              messages::GroupOrder group_order)
           : BaseTrackHandler(full_track_name)
+          , subscription_priority_(priority)
+          , subscription_group_order_(group_order)
         {
         }
 
@@ -61,10 +65,17 @@ namespace quicr {
          * @brief Create shared Subscribe track handler
          *
          * @param full_track_name           Full track name struct
+         * @param priority                  Subscription priority, if omitted, publisher priority
+         *                                  is considered
+         * @param group_order               Order for group delivery
          */
-        static std::shared_ptr<SubscribeTrackHandler> Create(const FullTrackName& full_track_name)
+        static std::shared_ptr<SubscribeTrackHandler> Create(
+          const FullTrackName& full_track_name,
+          messages::ObjectPriority priority,
+          messages::GroupOrder group_order = messages::GroupOrder::kAscending)
         {
-            return std::shared_ptr<SubscribeTrackHandler>(new SubscribeTrackHandler(full_track_name));
+            return std::shared_ptr<SubscribeTrackHandler>(
+              new SubscribeTrackHandler(full_track_name, priority, group_order));
         }
 
         /**
@@ -73,6 +84,21 @@ namespace quicr {
          * @return Status of the subscribe
          */
         constexpr Status GetStatus() const noexcept { return status_; }
+
+        /**
+         * @brief Get subscription priority
+         *
+         * @return Priority value
+         */
+        constexpr messages::ObjectPriority GetPriority() const noexcept { return subscription_priority_; }
+
+        /**
+         * @brief Get subscription group order
+         *
+         * @return GroupOrder value
+         */
+
+        constexpr messages::GroupOrder GetGroupOrder() const noexcept { return subscription_group_order_; }
 
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
@@ -163,6 +189,8 @@ namespace quicr {
         // Member variables
         // --------------------------------------------------------------------------
         Status status_{ Status::kNotSubscribed };
+        messages::ObjectPriority subscription_priority_;
+        messages::GroupOrder subscription_group_order_;
 
         friend class Transport;
         friend class Client;
