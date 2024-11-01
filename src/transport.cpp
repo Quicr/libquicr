@@ -827,7 +827,7 @@ namespace quicr {
                     auto msg_type = stream_buf->DecodeUintV();
 
                     if (msg_type) {
-                        conn_ctx.ctrl_msg_type_received = static_cast<MoqMessageType>(*msg_type);
+                        conn_ctx.ctrl_msg_type_received = static_cast<MoqControlMessageType>(*msg_type);
                     } else {
                         break;
                     }
@@ -863,7 +863,7 @@ namespace quicr {
                 buffer.Push(data.value());
 
                 auto msg_type = buffer.DecodeUintV();
-                if (!msg_type || static_cast<MoqMessageType>(*msg_type) != MoqMessageType::OBJECT_DATAGRAM) {
+                if (!msg_type || static_cast<MoqDataMessageType>(*msg_type) != MoqDataMessageType::OBJECT_DATAGRAM) {
                     SPDLOG_LOGGER_DEBUG(logger_,
                                         "Received datagram that is not message type OBJECT_DATAGRAM, dropping");
                     auto& conn_ctx = connections_[conn_id];
@@ -1034,21 +1034,21 @@ namespace quicr {
         }
 
         // Header not set, get the header for this stream or datagram
-        MoqMessageType data_type;
+        MoqDataMessageType data_type;
 
         auto dt = stream_buffer->GetAnyType();
         if (dt.has_value()) {
-            data_type = static_cast<MoqMessageType>(*dt);
+            data_type = static_cast<MoqDataMessageType>(*dt);
         } else {
             auto val = stream_buffer->DecodeUintV();
-            data_type = static_cast<MoqMessageType>(*val);
+            data_type = static_cast<MoqDataMessageType>(*val);
             stream_buffer->SetAnyType(*val);
         }
 
         switch (data_type) {
-            case messages::MoqMessageType::STREAM_HEADER_SUBGROUP: {
+            case messages::MoqDataMessageType::STREAM_HEADER_SUBGROUP: {
                 auto&& [msg, parsed] = ParseStreamData<MoqStreamHeaderSubGroup, MoqStreamSubGroupObject>(
-                  stream_buffer, MoqMessageType::STREAM_HEADER_SUBGROUP);
+                  stream_buffer, MoqDataMessageType::STREAM_HEADER_SUBGROUP);
 
                 if (!parsed) {
                     break;
@@ -1115,7 +1115,7 @@ namespace quicr {
 
     template<class MessageType>
     std::pair<MessageType&, bool> Transport::ParseDataMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-                                                              MoqMessageType msg_type)
+                                                              MoqDataMessageType msg_type)
     {
         if (!stream_buffer->AnyHasValue()) {
             SPDLOG_LOGGER_DEBUG(logger_,
@@ -1134,7 +1134,7 @@ namespace quicr {
 
     template<class HeaderType, class MessageType>
     std::pair<HeaderType&, bool> Transport::ParseStreamData(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-                                                            MoqMessageType msg_type)
+                                                            MoqDataMessageType msg_type)
     {
         if (!stream_buffer->AnyHasValue()) {
             SPDLOG_LOGGER_DEBUG(
@@ -1154,6 +1154,6 @@ namespace quicr {
     template std::pair<messages::MoqStreamHeaderSubGroup&, bool>
     Transport::ParseStreamData<messages::MoqStreamHeaderSubGroup, messages::MoqStreamSubGroupObject>(
       std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-      MoqMessageType msg_type);
+      MoqDataMessageType msg_type);
 
 } // namespace moq

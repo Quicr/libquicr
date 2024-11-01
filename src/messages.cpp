@@ -197,7 +197,7 @@ namespace quicr::messages {
         payload << UintVar(msg.endpoint_id_parameter.value.size());
         payload << msg.endpoint_id_parameter.value;
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::CLIENT_SETUP));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::CLIENT_SETUP));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -258,7 +258,7 @@ namespace quicr::messages {
         payload << UintVar(msg.endpoint_id_parameter.value.size());
         payload << msg.endpoint_id_parameter.value;
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SERVER_SETUP));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::SERVER_SETUP));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -307,7 +307,7 @@ namespace quicr::messages {
         payload << UintVar(msg.last_group_id);
         payload << UintVar(msg.last_object_id);
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::TRACK_STATUS));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::TRACK_STATUS));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -336,7 +336,7 @@ namespace quicr::messages {
         payload << UintVar(msg.track_name.size());
         payload << msg.track_name;
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::TRACK_STATUS_REQUEST));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::TRACK_STATUS_REQUEST));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -387,7 +387,7 @@ namespace quicr::messages {
             payload << param;
         }
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::SUBSCRIBE));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -434,7 +434,7 @@ namespace quicr::messages {
         Bytes payload;
         payload << UintVar(msg.subscribe_id);
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::UNSUBSCRIBE));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::UNSUBSCRIBE));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -459,7 +459,7 @@ namespace quicr::messages {
             payload << UintVar(msg.final_object_id);
         }
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_DONE));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::SUBSCRIBE_DONE));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -496,7 +496,7 @@ namespace quicr::messages {
             payload << UintVar(msg.largest_object);
         }
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_OK));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::SUBSCRIBE_OK));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -530,7 +530,7 @@ namespace quicr::messages {
         payload << msg.reason_phrase;
         payload << UintVar(msg.track_alias);
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ERROR));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::SUBSCRIBE_ERROR));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -552,7 +552,7 @@ namespace quicr::messages {
         payload << msg.track_namespace;
         payload << UintVar(static_cast<uint64_t>(0));
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::ANNOUNCE));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -580,7 +580,7 @@ namespace quicr::messages {
         Bytes payload;
         payload << msg.track_namespace;
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_OK));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::ANNOUNCE_OK));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -600,7 +600,7 @@ namespace quicr::messages {
         payload << UintVar(msg.reason_phrase.value().size());
         payload << msg.reason_phrase.value();
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_ERROR));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::ANNOUNCE_ERROR));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -629,7 +629,7 @@ namespace quicr::messages {
         Bytes payload;
         payload << msg.track_namespace;
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::UNANNOUNCE));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::UNANNOUNCE));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -646,7 +646,7 @@ namespace quicr::messages {
         Bytes payload;
         payload << msg.track_namespace;
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_CANCEL));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::ANNOUNCE_CANCEL));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -668,7 +668,7 @@ namespace quicr::messages {
         payload << UintVar(msg.new_session_uri.size());
         payload << msg.new_session_uri;
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::GOAWAY));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::GOAWAY));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -705,7 +705,7 @@ namespace quicr::messages {
             payload << param;
         }
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::FETCH));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::FETCH));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -753,7 +753,7 @@ namespace quicr::messages {
             payload << param;
         }
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::FETCH_OK));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::FETCH_OK));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -778,7 +778,7 @@ namespace quicr::messages {
         Bytes payload;
         payload << UintVar(msg.subscribe_id);
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::FETCH_CANCEL));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::FETCH_CANCEL));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -798,7 +798,7 @@ namespace quicr::messages {
         payload << UintVar(msg.reason_phrase.size());
         payload << msg.reason_phrase;
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::FETCH_ERROR));
+        buffer << UintVar(static_cast<uint64_t>(MoqControlMessageType::FETCH_ERROR));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -816,7 +816,7 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const MoqObjectDatagram& msg)
     {
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::OBJECT_DATAGRAM));
+        buffer << UintVar(static_cast<uint64_t>(MoqDataMessageType::OBJECT_DATAGRAM));
         buffer << UintVar(msg.subscribe_id);
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
@@ -934,7 +934,7 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderSubGroup& msg)
     {
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_SUBGROUP));
+        buffer << UintVar(static_cast<uint64_t>(MoqDataMessageType::STREAM_HEADER_SUBGROUP));
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.subscribe_id);
         buffer << UintVar(msg.group_id);

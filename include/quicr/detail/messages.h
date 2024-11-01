@@ -41,12 +41,10 @@ namespace quicr::messages {
     };
 
     // Ref: https://moq-wg.github.io/moq-transport/draft-ietf-moq-transport.html#name-messages
-    enum class MoqMessageType : uint64_t
+    enum class MoqControlMessageType : uint64_t
     {
-        OBJECT_STREAM = 0x0,
-        OBJECT_DATAGRAM,
-
-        SUBSCRIBE = 0x03,
+        SUBSCRIBE_UPDATE = 0x02,
+        SUBSCRIBE,
         SUBSCRIBE_OK,
         SUBSCRIBE_ERROR,
         ANNOUNCE,
@@ -61,17 +59,21 @@ namespace quicr::messages {
 
         GOAWAY = 0x10,
 
-        FETCH = 0x16,
-        FETCH_CANCEL = 0x17,
-        FETCH_OK = 0x18,
-        FETCH_ERROR = 0x19,
+        MAX_SUBSCRIBE_ID = 0x15,
+        FETCH,
+        FETCH_CANCEL,
+        FETCH_OK,
+        FETCH_ERROR,
 
         CLIENT_SETUP = 0x40,
         SERVER_SETUP,
+    };
 
-        STREAM_HEADER_TRACK = 0x50,
-        STREAM_HEADER_GROUP,
+    enum class MoqDataMessageType : uint8_t
+    {
+        OBJECT_DATAGRAM = 0x01,
         STREAM_HEADER_SUBGROUP = 0x04,
+        FETCH_HEADER = 0x5
     };
 
     enum class SubscribeError : uint8_t

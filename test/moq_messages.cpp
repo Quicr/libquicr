@@ -92,7 +92,7 @@ TEST_CASE("AnnounceOk Message encode/decode")
     buffer << announce_ok;
 
     MoqAnnounceOk announce_ok_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::ANNOUNCE_OK), announce_ok_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::ANNOUNCE_OK), announce_ok_out));
     CHECK_EQ(kTrackNamespaceConf, announce_ok_out.track_namespace);
 }
 
@@ -106,7 +106,7 @@ TEST_CASE("Announce Message encode/decode")
     buffer << announce;
 
     MoqAnnounce announce_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::ANNOUNCE), announce_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::ANNOUNCE), announce_out));
     CHECK_EQ(kTrackNamespaceConf, announce_out.track_namespace);
     CHECK_EQ(0, announce_out.params.size());
 }
@@ -120,7 +120,7 @@ TEST_CASE("Unannounce Message encode/decode")
     buffer << unannounce;
 
     MoqAnnounceOk announce_ok_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::UNANNOUNCE), announce_ok_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::UNANNOUNCE), announce_ok_out));
     CHECK_EQ(kTrackNamespaceConf, announce_ok_out.track_namespace);
 }
 
@@ -135,7 +135,7 @@ TEST_CASE("AnnounceError Message encode/decode")
     buffer << announce_err;
 
     MoqAnnounceError announce_err_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::ANNOUNCE_ERROR), announce_err_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::ANNOUNCE_ERROR), announce_err_out));
     CHECK_EQ(kTrackNamespaceConf, announce_err_out.track_namespace);
     CHECK_EQ(announce_err.err_code, announce_err_out.err_code);
     CHECK_EQ(announce_err.reason_phrase, announce_err_out.reason_phrase);
@@ -150,7 +150,7 @@ TEST_CASE("AnnounceCancel Message encode/decode")
     buffer << announce_cancel;
 
     MoqAnnounceCancel announce_cancel_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::ANNOUNCE_CANCEL), announce_cancel_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::ANNOUNCE_CANCEL), announce_cancel_out));
     CHECK_EQ(kTrackNamespaceConf, announce_cancel_out.track_namespace);
 }
 
@@ -170,7 +170,7 @@ TEST_CASE("Subscribe (LatestObject) Message encode/decode")
     buffer << subscribe;
 
     MoqSubscribe subscribe_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SUBSCRIBE), subscribe_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::SUBSCRIBE), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -194,7 +194,7 @@ TEST_CASE("Subscribe (LatestGroup) Message encode/decode")
     buffer << subscribe;
 
     MoqSubscribe subscribe_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SUBSCRIBE), subscribe_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::SUBSCRIBE), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -218,7 +218,7 @@ TEST_CASE("Subscribe (AbsoluteStart) Message encode/decode")
     buffer << subscribe;
 
     MoqSubscribe subscribe_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SUBSCRIBE), subscribe_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::SUBSCRIBE), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -245,7 +245,7 @@ TEST_CASE("Subscribe (AbsoluteRange) Message encode/decode")
     buffer << subscribe;
 
     MoqSubscribe subscribe_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SUBSCRIBE), subscribe_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::SUBSCRIBE), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -273,7 +273,7 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
     buffer << subscribe;
 
     MoqSubscribe subscribe_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SUBSCRIBE), subscribe_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::SUBSCRIBE), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -309,7 +309,7 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
     buffer << subscribe;
 
     MoqSubscribe subscribe_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SUBSCRIBE), subscribe_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::SUBSCRIBE), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -379,7 +379,7 @@ TEST_CASE("Subscribe (Combo) Message encode/decode")
         Bytes buffer;
         buffer << subscribes[i];
         MoqSubscribe subscribe_out;
-        CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SUBSCRIBE), subscribe_out));
+        CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::SUBSCRIBE), subscribe_out));
         CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
         CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
         CHECK_EQ(subscribes[i].subscribe_id, subscribe_out.subscribe_id);
@@ -405,7 +405,7 @@ TEST_CASE("SubscribeOk Message encode/decode")
     buffer << subscribe_ok;
 
     MoqSubscribeOk subscribe_ok_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_OK), subscribe_ok_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::SUBSCRIBE_OK), subscribe_ok_out));
     CHECK_EQ(subscribe_ok.subscribe_id, subscribe_ok_out.subscribe_id);
     CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
     CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
@@ -424,7 +424,7 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
     buffer << subscribe_ok;
 
     MoqSubscribeOk subscribe_ok_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_OK), subscribe_ok_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::SUBSCRIBE_OK), subscribe_ok_out));
     CHECK_EQ(subscribe_ok.subscribe_id, subscribe_ok_out.subscribe_id);
     CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
     CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
@@ -444,7 +444,7 @@ TEST_CASE("Error  Message encode/decode")
     buffer << subscribe_err;
 
     MoqSubscribeError subscribe_err_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ERROR), subscribe_err_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::SUBSCRIBE_ERROR), subscribe_err_out));
     CHECK_EQ(subscribe_err.subscribe_id, subscribe_err_out.subscribe_id);
     CHECK_EQ(subscribe_err.err_code, subscribe_err_out.err_code);
     CHECK_EQ(subscribe_err.reason_phrase, subscribe_err_out.reason_phrase);
@@ -460,7 +460,7 @@ TEST_CASE("Unsubscribe  Message encode/decode")
     buffer << unsubscribe;
 
     MoqUnsubscribe unsubscribe_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::UNSUBSCRIBE), unsubscribe_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::UNSUBSCRIBE), unsubscribe_out));
     CHECK_EQ(unsubscribe.subscribe_id, unsubscribe_out.subscribe_id);
 }
 
@@ -477,7 +477,7 @@ TEST_CASE("SubscribeDone  Message encode/decode")
     buffer << subscribe_done;
 
     MoqSubscribeDone subscribe_done_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_DONE), subscribe_done_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::SUBSCRIBE_DONE), subscribe_done_out));
     CHECK_EQ(subscribe_done.subscribe_id, subscribe_done_out.subscribe_id);
     CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
     CHECK_EQ(subscribe_done.reason_phrase, subscribe_done_out.reason_phrase);
@@ -499,7 +499,7 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
     buffer << subscribe_done;
 
     MoqSubscribeDone subscribe_done_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_DONE), subscribe_done_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::SUBSCRIBE_DONE), subscribe_done_out));
     CHECK_EQ(subscribe_done.subscribe_id, subscribe_done_out.subscribe_id);
     CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
     CHECK_EQ(subscribe_done.reason_phrase, subscribe_done_out.reason_phrase);
@@ -523,7 +523,7 @@ TEST_CASE("ClientSetup  Message encode/decode")
     buffer << client_setup;
 
     MoqClientSetup client_setup_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::CLIENT_SETUP), client_setup_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::CLIENT_SETUP), client_setup_out));
     CHECK_EQ(client_setup.supported_versions, client_setup_out.supported_versions);
     CHECK_EQ(client_setup.role_parameter.value, client_setup_out.role_parameter.value);
     CHECK_EQ(client_setup.endpoint_id_parameter.value, client_setup_out.endpoint_id_parameter.value);
@@ -543,7 +543,7 @@ TEST_CASE("ServerSetup  Message encode/decode")
     buffer << server_setup;
 
     MoqServerSetup server_setup_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::SERVER_SETUP), server_setup_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::SERVER_SETUP), server_setup_out));
     CHECK_EQ(server_setup.selection_version, server_setup_out.selection_version);
     CHECK_EQ(server_setup.role_parameter.value, server_setup.role_parameter.value);
     CHECK_EQ(server_setup.endpoint_id_parameter.value, server_setup_out.endpoint_id_parameter.value);
@@ -569,7 +569,7 @@ ObjectDatagramEncodeDecode(bool extensions, bool empty_payload)
     buffer << object_datagram;
 
     MoqObjectDatagram object_datagram_out;
-    CHECK(Verify(buffer, static_cast<uint64_t>(MoqMessageType::OBJECT_DATAGRAM), object_datagram_out));
+    CHECK(Verify(buffer, static_cast<uint64_t>(MoqDataMessageType::OBJECT_DATAGRAM), object_datagram_out));
     CHECK_EQ(object_datagram.subscribe_id, object_datagram_out.subscribe_id);
     CHECK_EQ(object_datagram.track_alias, object_datagram_out.track_alias);
     CHECK_EQ(object_datagram.group_id, object_datagram_out.group_id);
@@ -605,7 +605,7 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
     buffer << hdr_grp;
 
     MoqStreamHeaderSubGroup hdr_group_out;
-    CHECK(Verify(buffer, static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_SUBGROUP), hdr_group_out));
+    CHECK(Verify(buffer, static_cast<uint64_t>(MoqDataMessageType::STREAM_HEADER_SUBGROUP), hdr_group_out));
     CHECK_EQ(hdr_grp.track_alias, hdr_group_out.track_alias);
     CHECK_EQ(hdr_grp.group_id, hdr_group_out.group_id);
     CHECK_EQ(hdr_grp.subgroup_id, hdr_group_out.subgroup_id);
@@ -672,7 +672,7 @@ TEST_CASE("MoqGoaway Message encode/decode")
     buffer << goaway;
 
     MoqGoaway goaway_out{};
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::GOAWAY), goaway_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::GOAWAY), goaway_out));
     CHECK_EQ(FromASCII("go.away.now.no.return"), goaway_out.new_session_uri);
 }
 
@@ -694,7 +694,7 @@ TEST_CASE("MoqFetch Message encode/decode")
     buffer << fetch;
 
     MoqFetch fetch_out{};
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::FETCH), fetch_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::FETCH), fetch_out));
     CHECK_EQ(fetch.track_namespace, fetch_out.track_namespace);
     CHECK_EQ(fetch.track_name, fetch_out.track_name);
     CHECK_EQ(fetch.priority, fetch_out.priority);
@@ -718,7 +718,7 @@ TEST_CASE("MoqFetchOk/Error/Cancel Message encode/decode")
     buffer << fetch_ok;
 
     MoqFetchOk fetch_ok_out{};
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::FETCH_OK), fetch_ok_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::FETCH_OK), fetch_ok_out));
     CHECK_EQ(fetch_ok.subscribe_id, fetch_ok_out.subscribe_id);
     CHECK_EQ(fetch_ok.group_order, fetch_ok_out.group_order);
     CHECK_EQ(fetch_ok.largest_group, fetch_ok_out.largest_group);
@@ -731,7 +731,7 @@ TEST_CASE("MoqFetchOk/Error/Cancel Message encode/decode")
     buffer << fetch_cancel;
 
     MoqFetchCancel fetch_cancel_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::FETCH_CANCEL), fetch_cancel_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::FETCH_CANCEL), fetch_cancel_out));
     CHECK_EQ(fetch_cancel.subscribe_id, fetch_cancel_out.subscribe_id);
 
     buffer.clear();
@@ -742,7 +742,7 @@ TEST_CASE("MoqFetchOk/Error/Cancel Message encode/decode")
     buffer << fetch_error;
 
     MoqFetchError fetch_error_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqMessageType::FETCH_ERROR), fetch_error_out));
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(MoqControlMessageType::FETCH_ERROR), fetch_error_out));
     CHECK_EQ(fetch_error.subscribe_id, fetch_error_out.subscribe_id);
     CHECK_EQ(fetch_error.err_code, fetch_error_out.err_code);
 }
