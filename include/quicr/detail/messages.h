@@ -41,7 +41,7 @@ namespace quicr::messages {
     };
 
     // Ref: https://moq-wg.github.io/moq-transport/draft-ietf-moq-transport.html#name-messages
-    enum class MoqControlMessageType : uint64_t
+    enum class ControlMessageType : uint64_t
     {
         SUBSCRIBE_UPDATE = 0x02,
         SUBSCRIBE,
@@ -69,7 +69,7 @@ namespace quicr::messages {
         SERVER_SETUP,
     };
 
-    enum class MoqDataMessageType : uint8_t
+    enum class DataMessageType : uint8_t
     {
         OBJECT_DATAGRAM = 0x01,
         STREAM_HEADER_SUBGROUP = 0x04,

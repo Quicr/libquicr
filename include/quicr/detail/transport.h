@@ -210,7 +210,7 @@ namespace quicr {
             std::optional<uint64_t> ctrl_data_ctx_id;
             bool setup_complete{ false }; ///< True if both client and server setup messages have completed
             uint64_t client_version{ 0 };
-            std::optional<messages::MoqControlMessageType>
+            std::optional<messages::ControlMessageType>
               ctrl_msg_type_received; ///< Indicates the current message type being read
 
             uint64_t current_subscribe_id{ 0 }; ///< Connection specific ID for subscribe messages
@@ -314,11 +314,11 @@ namespace quicr {
 
         template<class MessageType>
         std::pair<MessageType&, bool> ParseDataMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-                                                       messages::MoqDataMessageType msg_type);
+                                                       messages::DataMessageType msg_type);
 
         template<class HeaderType, class MessageType>
         std::pair<HeaderType&, bool> ParseStreamData(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-                                                     messages::MoqDataMessageType msg_type);
+                                                     messages::DataMessageType msg_type);
 
       private:
         // -------------------------------------------------------------------------------------------------
