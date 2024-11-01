@@ -326,12 +326,7 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 }
 
 MoqSubscribe
-GenerateSubscribe(FilterType filter,
-                  size_t num_params = 0,
-                  uint64_t sg = 0,
-                  uint64_t so = 0,
-                  uint64_t eg = 0,
-                  uint64_t eo = 0)
+GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uint64_t so = 0, uint64_t eg = 0)
 {
     MoqSubscribe out;
     out.subscribe_id = 0xABCD;
@@ -376,8 +371,8 @@ TEST_CASE("Subscribe (Combo) Message encode/decode")
         GenerateSubscribe(FilterType::LatestGroup, 2),
         GenerateSubscribe(FilterType::AbsoluteStart, 0, 0x100, 0x2),
         GenerateSubscribe(FilterType::AbsoluteStart, 2, 0x100, 0x2),
-        GenerateSubscribe(FilterType::AbsoluteRange, 0, 0x100, 0x2, 0x500, 0x2),
-        GenerateSubscribe(FilterType::AbsoluteRange, 2, 0x100, 0x2, 0x500, 0x2),
+        GenerateSubscribe(FilterType::AbsoluteRange, 0, 0x100, 0x2, 0x500),
+        GenerateSubscribe(FilterType::AbsoluteRange, 2, 0x100, 0x2, 0x500),
     };
 
     for (size_t i = 0; i < subscribes.size(); i++) {

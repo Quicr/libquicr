@@ -83,6 +83,11 @@ namespace quicr::messages {
         TRACK_NOT_EXIST = 0xF0 // Missing in draft
     };
 
+    enum class FetchError : uint8_t
+    {
+        TRACK_NOT_EXIST = 0xF0 // Missing in draft
+    };
+
     // TODO (Suhas): rename it to StreamMapping
     enum ForwardingPreference : uint8_t
     {

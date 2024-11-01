@@ -263,6 +263,10 @@ namespace quicr {
                                 uint64_t track_alias,
                                 messages::SubscribeError error,
                                 const std::string& reason);
+        void SendFetchError(ConnectionContext& conn_ctx,
+                            uint64_t subscribe_id,
+                            messages::FetchError error,
+                            const std::string& reason);
         void CloseConnection(ConnectionHandle connection_handle,
                              messages::MoqTerminationReason reason,
                              const std::string& reason_str);

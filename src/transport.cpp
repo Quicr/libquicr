@@ -365,6 +365,31 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
+    void Transport::SendFetchError(ConnectionContext& conn_ctx,
+                                   [[maybe_unused]] uint64_t subscribe_id,
+                                   FetchError error,
+                                   const std::string& reason)
+    {
+
+        auto fetch_err = MoqFetchError{};
+        fetch_err.subscribe_id = 0x1;
+        fetch_err.err_code = static_cast<uint64_t>(error);
+        fetch_err.reason_phrase.assign(reason.begin(), reason.end());
+
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqFetchError));
+        buffer << fetch_err;
+
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending FETCH ERROR to conn_id: {0} subscribe_id: {1} error code: {2} reason: {3}",
+                            conn_ctx.connection_handle,
+                            subscribe_id,
+                            static_cast<int>(error),
+                            reason);
+
+        SendCtrlMsg(conn_ctx, buffer);
+    }
+
     void Transport::SubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
         const auto& tfn = track_handler->GetFullTrackName();

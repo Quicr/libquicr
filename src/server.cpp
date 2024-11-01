@@ -337,7 +337,17 @@ namespace quicr {
 
                 return true;
             }
+            case messages::MoqMessageType::FETCH: {
+                messages::MoqFetch msg;
+                msg_bytes >> msg;
 
+                SPDLOG_LOGGER_INFO(logger_, "Fetch API is not supported");
+
+                SendFetchError(
+                  conn_ctx, msg.subscribe_id, messages::FetchError::TRACK_NOT_EXIST, "Track doesn't exist");
+
+                return true;
+            }
             default:
                 SPDLOG_LOGGER_ERROR(logger_,
                                     "Unsupported MOQT message type: {0}, bad stream",
