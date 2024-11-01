@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <optional>
+#include <sstream>
 #include <tuple>
 #include <vector>
 
@@ -191,6 +192,17 @@ namespace quicr {
         friend bool operator<=(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept { return !(lhs > rhs); }
 
         friend bool operator>=(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept { return !(lhs < rhs); }
+
+        std::string ToString() const
+        {
+            std::stringstream ss;
+            const auto& entries = GetEntries();
+            for (const auto& entry : Span{ entries }.subspan(0, GetEntries().size() - 1)) {
+                ss << std::string(entry.begin(), entry.end()) + "/";
+            }
+            ss << std::string(entries.back().begin(), entries.back().end());
+            return ss.str();
+        }
 
         bool Contains(const TrackNamespace& other) const noexcept
         {

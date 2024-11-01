@@ -93,15 +93,6 @@ namespace qserver_vars {
     std::unordered_map<quicr::messages::TrackAlias,
                        std::unordered_map<quicr::ConnectionHandle, std::shared_ptr<quicr::SubscribeTrackHandler>>>
       pub_subscribes;
-
-    static std::string ToAscii(const std::vector<Span<const uint8_t>>& data)
-    {
-        std::stringstream output;
-        for (const auto& entry : data) {
-            output << entry.data() << ",";
-        }
-        return output.str();
-    }
 }
 
 /**
@@ -266,7 +257,7 @@ class MyServer : public quicr::Server
     {
         SPDLOG_INFO("SubscribeAnnounces received {0} accepted from {1}:{2}",
                     connection_handle,
-                    qserver_vars::ToAscii(track_namespace_prefix.GetEntries()));
+                    track_namespace_prefix.ToString());
         qserver_vars::announce_subscribers[track_namespace_prefix].insert(connection_handle);
     }
 
@@ -345,19 +336,17 @@ class MyServer : public quicr::Server
         ResolveAnnounce(connection_handle, track_namespace, announce_response);
 
         // check to see if there are subscribers who need this announce
-        for (const auto& entry : qserver_vars::announce_subscribers) {
-            if (entry.first.Contains(track_namespace)) {
-                SPDLOG_INFO("Found a match for announced namespace. prefix: {0}, namespace: {1}",
-                            qserver_vars::ToAscii(entry.first.GetEntries()),
-                            qserver_vars::ToAscii(track_namespace.GetEntries()));
+        for (const auto& [ns, conns] : qserver_vars::announce_subscribers) {
+            if (track_namespace.Contains(ns)) {
+                SPDLOG_INFO(
+                  "Found a match for announced namespace. prefix: {0}, namespace: {1}", ns.ToString(), ns.ToString());
                 // Send announce to the subscribers
-                for (const auto& conn : entry.second) {
+                for (const auto& conn : conns) {
                     ForwardAnnounce(conn, track_namespace);
                 }
             } else {
-                SPDLOG_INFO("No match Found for announced namespace. prefix: {0}, namespace: {1}",
-                            qserver_vars::ToAscii(entry.first.GetEntries()),
-                            qserver_vars::ToAscii(track_namespace.GetEntries()));
+                SPDLOG_INFO(
+                  "No match Found for announced namespace. prefix: {0}, namespace: {1}", ns.ToString(), ns.ToString());
             }
         }
 
