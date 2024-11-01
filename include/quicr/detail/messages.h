@@ -41,12 +41,10 @@ namespace quicr::messages {
     };
 
     // Ref: https://moq-wg.github.io/moq-transport/draft-ietf-moq-transport.html#name-messages
-    enum class MoqMessageType : uint64_t
+    enum class ControlMessageType : uint64_t
     {
-        OBJECT_STREAM = 0x0,
-        OBJECT_DATAGRAM,
-
-        SUBSCRIBE = 0x03,
+        SUBSCRIBE_UPDATE = 0x02,
+        SUBSCRIBE,
         SUBSCRIBE_OK,
         SUBSCRIBE_ERROR,
         ANNOUNCE,
@@ -61,17 +59,21 @@ namespace quicr::messages {
 
         GOAWAY = 0x10,
 
-        FETCH = 0x16,
-        FETCH_CANCEL = 0x17,
-        FETCH_OK = 0x18,
-        FETCH_ERROR = 0x19,
+        MAX_SUBSCRIBE_ID = 0x15,
+        FETCH,
+        FETCH_CANCEL,
+        FETCH_OK,
+        FETCH_ERROR,
 
         CLIENT_SETUP = 0x40,
         SERVER_SETUP,
+    };
 
-        STREAM_HEADER_TRACK = 0x50,
-        STREAM_HEADER_GROUP,
+    enum class DataMessageType : uint8_t
+    {
+        OBJECT_DATAGRAM = 0x01,
         STREAM_HEADER_SUBGROUP = 0x04,
+        FETCH_HEADER = 0x5
     };
 
     enum class SubscribeError : uint8_t
@@ -80,6 +82,11 @@ namespace quicr::messages {
         INVALID_RANGE,
         RETRY_TRACK_ALIAS,
 
+        TRACK_NOT_EXIST = 0xF0 // Missing in draft
+    };
+
+    enum class FetchError : uint8_t
+    {
         TRACK_NOT_EXIST = 0xF0 // Missing in draft
     };
 
@@ -179,11 +186,12 @@ namespace quicr::messages {
         uint64_t track_alias;
         TrackNamespace track_namespace;
         TrackName track_name;
+        ObjectPriority priority;
+        GroupOrder group_order;
         FilterType filter_type{ FilterType::None };
         uint64_t start_group{ 0 };
-        uint64_t end_group{ 0 };
         uint64_t start_object{ 0 };
-        uint64_t end_object{ 0 };
+        uint64_t end_group{ 0 };
         std::vector<MoqParameter> track_params;
     };
 
