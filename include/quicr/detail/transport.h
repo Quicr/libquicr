@@ -221,7 +221,7 @@ namespace quicr {
             std::optional<uint64_t> ctrl_data_ctx_id;
             bool setup_complete{ false }; ///< True if both client and server setup messages have completed
             uint64_t client_version{ 0 };
-            std::optional<messages::MoqMessageType>
+            std::optional<messages::ControlMessageType>
               ctrl_msg_type_received; ///< Indicates the current message type being read
 
             uint64_t current_subscribe_id{ 0 }; ///< Connection specific ID for subscribe messages
@@ -268,7 +268,12 @@ namespace quicr {
         void SendAnnounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
         void SendAnnounceOk(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
         void SendUnannounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
-        void SendSubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id, const FullTrackName& tfn, TrackHash th);
+        void SendSubscribe(ConnectionContext& conn_ctx,
+                           uint64_t subscribe_id,
+                           const FullTrackName& tfn,
+                           TrackHash th,
+                           messages::ObjectPriority priority,
+                           messages::GroupOrder group_order);
         void SendSubscribeOk(ConnectionContext& conn_ctx, uint64_t subscribe_id, uint64_t expires, bool content_exists);
         void SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id);
         void SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason);
@@ -284,7 +289,10 @@ namespace quicr {
                                          messages::SubscribeError error,
                                          const std::string& reason);
         void SendUnsubscribeAnnounces(ConnectionContext& conn_ctx, const TrackNamespace& prefix);
-
+        void SendFetchError(ConnectionContext& conn_ctx,
+                            uint64_t subscribe_id,
+                            messages::FetchError error,
+                            const std::string& reason);
         void CloseConnection(ConnectionHandle connection_handle,
                              messages::MoqTerminationReason reason,
                              const std::string& reason_str);
@@ -327,11 +335,11 @@ namespace quicr {
 
         template<class MessageType>
         std::pair<MessageType&, bool> ParseDataMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-                                                       messages::MoqMessageType msg_type);
+                                                       messages::DataMessageType msg_type);
 
         template<class HeaderType, class MessageType>
         std::pair<HeaderType&, bool> ParseStreamData(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-                                                     messages::MoqMessageType msg_type);
+                                                     messages::DataMessageType msg_type);
 
       private:
         // -------------------------------------------------------------------------------------------------

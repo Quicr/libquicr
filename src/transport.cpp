@@ -256,7 +256,9 @@ namespace quicr {
     void Transport::SendSubscribe(ConnectionContext& conn_ctx,
                                   uint64_t subscribe_id,
                                   const FullTrackName& tfn,
-                                  TrackHash th)
+                                  TrackHash th,
+                                  messages::ObjectPriority priority,
+                                  messages::GroupOrder group_order)
     {
 
         auto subscribe = MoqSubscribe{};
@@ -264,6 +266,8 @@ namespace quicr {
         subscribe.track_alias = th.track_fullname_hash;
         subscribe.track_namespace = tfn.name_space;
         subscribe.track_name.assign(tfn.name.begin(), tfn.name.end());
+        subscribe.priority = priority;
+        subscribe.group_order = group_order;
         subscribe.filter_type = FilterType::LatestGroup;
 
         Bytes buffer;
@@ -365,6 +369,31 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
+    void Transport::SendFetchError(ConnectionContext& conn_ctx,
+                                   [[maybe_unused]] uint64_t subscribe_id,
+                                   FetchError error,
+                                   const std::string& reason)
+    {
+
+        auto fetch_err = MoqFetchError{};
+        fetch_err.subscribe_id = 0x1;
+        fetch_err.err_code = static_cast<uint64_t>(error);
+        fetch_err.reason_phrase.assign(reason.begin(), reason.end());
+
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqFetchError) + sizeof(reason.size()));
+        buffer << fetch_err;
+
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending FETCH ERROR to conn_id: {0} subscribe_id: {1} error code: {2} reason: {3}",
+                            conn_ctx.connection_handle,
+                            subscribe_id,
+                            static_cast<int>(error),
+                            reason);
+
+        SendCtrlMsg(conn_ctx, buffer);
+    }
+
     void Transport::SendSubscribeAnnounces(ConnectionContext& conn_ctx, const TrackNamespace& prefix)
     {
 
@@ -420,10 +449,13 @@ namespace quicr {
 
         track_handler->SetSubscribeId(sid);
 
+        auto priority = track_handler->GetPriority();
+        auto group_order = track_handler->GetGroupOrder();
+
         // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
         conn_it->second.tracks_by_sub_id[sid] = std::move(track_handler);
 
-        SendSubscribe(conn_it->second, sid, tfn, th);
+        SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order);
     }
 
     void Transport::UnsubscribeTrack(quicr::TransportConnId conn_id,
@@ -873,7 +905,7 @@ namespace quicr {
                     auto msg_type = stream_buf->DecodeUintV();
 
                     if (msg_type) {
-                        conn_ctx.ctrl_msg_type_received = static_cast<MoqMessageType>(*msg_type);
+                        conn_ctx.ctrl_msg_type_received = static_cast<ControlMessageType>(*msg_type);
                     } else {
                         break;
                     }
@@ -909,7 +941,7 @@ namespace quicr {
                 buffer.Push(data.value());
 
                 auto msg_type = buffer.DecodeUintV();
-                if (!msg_type || static_cast<MoqMessageType>(*msg_type) != MoqMessageType::OBJECT_DATAGRAM) {
+                if (!msg_type || static_cast<DataMessageType>(*msg_type) != DataMessageType::OBJECT_DATAGRAM) {
                     SPDLOG_LOGGER_DEBUG(logger_,
                                         "Received datagram that is not message type OBJECT_DATAGRAM, dropping");
                     auto& conn_ctx = connections_[conn_id];
@@ -1080,21 +1112,21 @@ namespace quicr {
         }
 
         // Header not set, get the header for this stream or datagram
-        MoqMessageType data_type;
+        DataMessageType data_type;
 
         auto dt = stream_buffer->GetAnyType();
         if (dt.has_value()) {
-            data_type = static_cast<MoqMessageType>(*dt);
+            data_type = static_cast<DataMessageType>(*dt);
         } else {
             auto val = stream_buffer->DecodeUintV();
-            data_type = static_cast<MoqMessageType>(*val);
+            data_type = static_cast<DataMessageType>(*val);
             stream_buffer->SetAnyType(*val);
         }
 
         switch (data_type) {
-            case messages::MoqMessageType::STREAM_HEADER_SUBGROUP: {
+            case messages::DataMessageType::STREAM_HEADER_SUBGROUP: {
                 auto&& [msg, parsed] = ParseStreamData<MoqStreamHeaderSubGroup, MoqStreamSubGroupObject>(
-                  stream_buffer, MoqMessageType::STREAM_HEADER_SUBGROUP);
+                  stream_buffer, DataMessageType::STREAM_HEADER_SUBGROUP);
 
                 if (!parsed) {
                     break;
@@ -1161,7 +1193,7 @@ namespace quicr {
 
     template<class MessageType>
     std::pair<MessageType&, bool> Transport::ParseDataMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-                                                              MoqMessageType msg_type)
+                                                              DataMessageType msg_type)
     {
         if (!stream_buffer->AnyHasValue()) {
             SPDLOG_LOGGER_DEBUG(logger_,
@@ -1180,7 +1212,7 @@ namespace quicr {
 
     template<class HeaderType, class MessageType>
     std::pair<HeaderType&, bool> Transport::ParseStreamData(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-                                                            MoqMessageType msg_type)
+                                                            DataMessageType msg_type)
     {
         if (!stream_buffer->AnyHasValue()) {
             SPDLOG_LOGGER_DEBUG(
@@ -1200,6 +1232,6 @@ namespace quicr {
     template std::pair<messages::MoqStreamHeaderSubGroup&, bool>
     Transport::ParseStreamData<messages::MoqStreamHeaderSubGroup, messages::MoqStreamSubGroupObject>(
       std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-      MoqMessageType msg_type);
+      DataMessageType msg_type);
 
 } // namespace moq

@@ -103,7 +103,7 @@ namespace quicr {
     bool Server::ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes)
     {
         switch (*conn_ctx.ctrl_msg_type_received) {
-            case messages::MoqMessageType::SUBSCRIBE: {
+            case messages::ControlMessageType::SUBSCRIBE: {
                 messages::MoqSubscribe msg;
                 msg_bytes >> msg;
 
@@ -120,8 +120,7 @@ namespace quicr {
                 SubscribeReceived(conn_ctx.connection_handle, msg.subscribe_id, msg.track_alias, tfn, {});
                 return true;
             }
-
-            case messages::MoqMessageType::SUBSCRIBE_OK: {
+            case messages::ControlMessageType::SUBSCRIBE_OK: {
                 messages::MoqSubscribeOk msg;
                 msg_bytes >> msg;
 
@@ -143,7 +142,7 @@ namespace quicr {
 
                 return true;
             }
-            case messages::MoqMessageType::SUBSCRIBE_ERROR: {
+            case messages::ControlMessageType::SUBSCRIBE_ERROR: {
                 messages::MoqSubscribeError msg;
                 msg_bytes >> msg;
 
@@ -166,7 +165,7 @@ namespace quicr {
 
                 return true;
             }
-            case messages::MoqMessageType::ANNOUNCE: {
+            case messages::ControlMessageType::ANNOUNCE: {
                 messages::MoqAnnounce msg;
                 msg_bytes >> msg;
 
@@ -179,7 +178,7 @@ namespace quicr {
 
                 return true;
             }
-            case messages::MoqMessageType::ANNOUNCE_ERROR: {
+            case messages::ControlMessageType::ANNOUNCE_ERROR: {
                 messages::MoqAnnounceError msg;
                 msg_bytes >> msg;
 
@@ -201,7 +200,7 @@ namespace quicr {
                 return true;
             }
 
-            case messages::MoqMessageType::UNANNOUNCE: {
+            case messages::ControlMessageType::UNANNOUNCE: {
                 messages::MoqUnannounce msg;
                 msg_bytes >> msg;
 
@@ -215,7 +214,7 @@ namespace quicr {
                 return true;
             }
 
-            case messages::MoqMessageType::UNSUBSCRIBE: {
+            case messages::ControlMessageType::UNSUBSCRIBE: {
                 messages::MoqUnsubscribe msg;
                 msg_bytes >> msg;
 
@@ -230,7 +229,7 @@ namespace quicr {
 
                 return true;
             }
-            case messages::MoqMessageType::SUBSCRIBE_DONE: {
+            case messages::ControlMessageType::SUBSCRIBE_DONE: {
                 messages::MoqSubscribeDone msg;
                 msg_bytes >> msg;
 
@@ -261,7 +260,7 @@ namespace quicr {
 
                 return true;
             }
-            case messages::MoqMessageType::ANNOUNCE_CANCEL: {
+            case messages::ControlMessageType::ANNOUNCE_CANCEL: {
                 messages::MoqAnnounceCancel msg;
                 msg_bytes >> msg;
 
@@ -272,7 +271,7 @@ namespace quicr {
                   logger_, "Received announce cancel for namespace_hash: {0}", th.track_namespace_hash);
                 return true;
             }
-            case messages::MoqMessageType::TRACK_STATUS_REQUEST: {
+            case messages::ControlMessageType::TRACK_STATUS_REQUEST: {
                 messages::MoqTrackStatusRequest msg;
                 msg_bytes >> msg;
 
@@ -285,7 +284,7 @@ namespace quicr {
                                    th.track_name_hash);
                 return true;
             }
-            case messages::MoqMessageType::TRACK_STATUS: {
+            case messages::ControlMessageType::TRACK_STATUS: {
                 messages::MoqTrackStatus msg;
                 msg_bytes >> msg;
 
@@ -298,7 +297,7 @@ namespace quicr {
                                    th.track_name_hash);
                 return true;
             }
-            case messages::MoqMessageType::GOAWAY: {
+            case messages::ControlMessageType::GOAWAY: {
                 messages::MoqGoaway msg;
                 msg_bytes >> msg;
 
@@ -306,7 +305,7 @@ namespace quicr {
                 SPDLOG_LOGGER_INFO(logger_, "Received goaway new session uri: {0}", new_sess_uri);
                 return true;
             }
-            case messages::MoqMessageType::CLIENT_SETUP: {
+            case messages::ControlMessageType::CLIENT_SETUP: {
                 messages::MoqClientSetup msg;
                 msg_bytes >> msg;
 
@@ -341,7 +340,7 @@ namespace quicr {
 
                 return true;
             }
-            case messages::MoqMessageType::SUBSCRIBE_ANNOUNCES: {
+            case messages::ControlMessageType::SUBSCRIBE_ANNOUNCES: {
                 messages::MoqSubscribeAnnounces msg;
                 msg_bytes >> msg;
 
@@ -353,7 +352,17 @@ namespace quicr {
 
                 return true;
             }
+            case messages::ControlMessageType::FETCH: {
+                messages::MoqFetch msg;
+                msg_bytes >> msg;
 
+                SPDLOG_LOGGER_INFO(logger_, "Fetch API is not supported");
+
+                SendFetchError(
+                  conn_ctx, msg.subscribe_id, messages::FetchError::TRACK_NOT_EXIST, "Track doesn't exist");
+
+                return true;
+            }
             default:
                 SPDLOG_LOGGER_ERROR(logger_,
                                     "Unsupported MOQT message type: {0}, bad stream",
