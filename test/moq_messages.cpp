@@ -163,6 +163,8 @@ TEST_CASE("Subscribe (LatestObject) Message encode/decode")
     subscribe.track_alias = uint64_t(kTrackAliasAliceVideo);
     subscribe.track_namespace = kTrackNamespaceConf;
     subscribe.track_name = kTrackNameAliceVideo;
+    subscribe.priority = 0x10;
+    subscribe.group_order = GroupOrder::kDescending;
     subscribe.filter_type = FilterType::LatestObject;
 
     buffer << subscribe;
@@ -173,6 +175,8 @@ TEST_CASE("Subscribe (LatestObject) Message encode/decode")
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
     CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
+    CHECK_EQ(subscribe.priority, subscribe_out.priority);
+    CHECK_EQ(subscribe.group_order, subscribe_out.group_order);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
 }
 
@@ -237,7 +241,6 @@ TEST_CASE("Subscribe (AbsoluteRange) Message encode/decode")
     subscribe.start_group = 0x1000;
     subscribe.start_object = 0x1;
     subscribe.end_group = 0xFFF;
-    subscribe.end_object = 0xFF;
 
     buffer << subscribe;
 
@@ -251,7 +254,6 @@ TEST_CASE("Subscribe (AbsoluteRange) Message encode/decode")
     CHECK_EQ(subscribe.start_group, subscribe_out.start_group);
     CHECK_EQ(subscribe.start_object, subscribe_out.start_object);
     CHECK_EQ(subscribe.end_group, subscribe_out.end_group);
-    CHECK_EQ(subscribe.end_object, subscribe_out.end_object);
 }
 
 TEST_CASE("Subscribe (Params) Message encode/decode")
@@ -349,7 +351,6 @@ GenerateSubscribe(FilterType filter,
             out.start_group = sg;
             out.start_object = so;
             out.end_group = eg;
-            out.end_object = eo;
             break;
         default:
             break;

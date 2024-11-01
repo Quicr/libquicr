@@ -360,8 +360,10 @@ namespace quicr::messages {
         payload << msg.track_namespace;
         payload << UintVar(msg.track_name.size());
         payload << msg.track_name;
+        payload.push_back(msg.priority);
+        auto group_order = static_cast<uint8_t>(msg.group_order);
+        payload.push_back(group_order);
         payload << UintVar(static_cast<uint64_t>(msg.filter_type));
-
         switch (msg.filter_type) {
             case FilterType::None:
             case FilterType::LatestGroup:
@@ -375,8 +377,9 @@ namespace quicr::messages {
                 payload << UintVar(msg.start_group);
                 payload << UintVar(msg.start_object);
                 payload << UintVar(msg.end_group);
-                payload << UintVar(msg.end_object);
                 break;
+            default:
+                throw std::runtime_error("Malformed filter type");
         }
 
         payload << UintVar(msg.track_params.size());
@@ -397,7 +400,10 @@ namespace quicr::messages {
         buffer = buffer >> msg.track_alias;
         buffer = buffer >> msg.track_namespace;
         buffer = buffer >> msg.track_name;
-
+        msg.priority = buffer.front();
+        buffer = buffer.subspan(sizeof(ObjectPriority));
+        msg.group_order = static_cast<GroupOrder>(buffer.front());
+        buffer = buffer.subspan(sizeof(GroupOrder));
         uint64_t filter = 0;
         buffer = buffer >> filter;
         msg.filter_type = static_cast<FilterType>(filter);
@@ -408,14 +414,13 @@ namespace quicr::messages {
 
             if (msg.filter_type == FilterType::AbsoluteRange) {
                 buffer = buffer >> msg.end_group;
-                buffer = buffer >> msg.end_object;
             }
         }
 
-        uint64_t num = 0;
-        buffer = buffer >> num;
+        uint64_t num_params = 0;
+        buffer = buffer >> num_params;
 
-        for (uint64_t i = 0; i < num; ++i) {
+        for (uint64_t i = 0; i < num_params; ++i) {
             MoqParameter param;
             buffer = buffer >> param;
             msg.track_params.push_back(param);

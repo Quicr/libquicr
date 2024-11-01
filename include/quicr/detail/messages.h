@@ -179,11 +179,12 @@ namespace quicr::messages {
         uint64_t track_alias;
         TrackNamespace track_namespace;
         TrackName track_name;
+        ObjectPriority priority;
+        GroupOrder group_order;
         FilterType filter_type{ FilterType::None };
         uint64_t start_group{ 0 };
-        uint64_t end_group{ 0 };
         uint64_t start_object{ 0 };
-        uint64_t end_object{ 0 };
+        uint64_t end_group{ 0 };
         std::vector<MoqParameter> track_params;
     };
 
