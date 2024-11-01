@@ -29,7 +29,8 @@ namespace quicr {
 
     void Server::ResolveAnnounce(ConnectionHandle, const TrackNamespace&, const AnnounceResponse&) {}
 
-    void Server::SubscribeAnnouncesReceived(ConnectionHandle connection_handle, TrackNamespace& track_namespace_prefix)
+    void Server::SubscribeAnnouncesReceived([[maybe_unused]] ConnectionHandle connection_handle,
+                                            [[maybe_unused]] TrackNamespace& track_namespace_prefix)
     {
     }
 

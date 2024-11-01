@@ -675,7 +675,6 @@ namespace quicr::messages {
         return buffer >> msg.new_session_uri;
     }
 
-
     //
     // Subscribe Announces
     //
@@ -775,7 +774,6 @@ namespace quicr::messages {
     {
         return buffer >> msg.track_namespace_prefix;
     }
-
 
     //
     // Fetch

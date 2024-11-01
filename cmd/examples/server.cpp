@@ -262,7 +262,7 @@ class MyServer : public quicr::Server
     }
 
     void SubscribeAnnouncesReceived(quicr::ConnectionHandle connection_handle,
-                                    quicr::TrackNamespace& track_namespace_prefix)
+                                    quicr::TrackNamespace& track_namespace_prefix) override
     {
         SPDLOG_INFO("SubscribeAnnounces received {0} accepted from {1}:{2}",
                     connection_handle,

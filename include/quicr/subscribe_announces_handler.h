@@ -58,6 +58,7 @@ namespace quicr {
 
         virtual void StatusChanged([[maybe_unused]] Status status) {}
 
+        virtual ~SubscribeAnnouncesHandler() = default;
         ///@}
 
         // --------------------------------------------------------------------------
