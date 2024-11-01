@@ -59,6 +59,10 @@ namespace quicr::messages {
 
         GOAWAY = 0x10,
 
+        SUBSCRIBE_ANNOUNCES = 0x11,
+        SUBSCRIBE_ANNOUNCES_OK,
+        SUBSCRIBE_ANNOUNCES_ERROR,
+        UNSUBSCRIBE_ANNOUNCES,
         MAX_SUBSCRIBE_ID = 0x15,
         FETCH,
         FETCH_CANCEL,
@@ -324,6 +328,7 @@ namespace quicr::messages {
     //
     // GoAway
     //
+
     struct MoqGoaway
     {
         Bytes new_session_uri;
@@ -331,6 +336,45 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, MoqGoaway& msg);
     Bytes& operator<<(Bytes& buffer, const MoqGoaway& msg);
+
+    //
+    // Subscribe Announces
+    //
+
+    struct MoqSubscribeAnnounces
+    {
+        TrackNamespace track_namespace_prefix;
+        std::vector<MoqParameter> params;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeAnnounces& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqSubscribeAnnounces& msg);
+
+    struct MoqSubscribeAnnouncesOk
+    {
+        TrackNamespace track_namespace_prefix;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeAnnouncesOk& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqSubscribeAnnouncesOk& msg);
+
+    struct MoqSubscribeAnnouncesError
+    {
+        TrackNamespace track_namespace_prefix;
+        std::optional<ErrorCode> err_code;
+        std::optional<ReasonPhrase> reason_phrase;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeAnnouncesError& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqSubscribeAnnouncesError& msg);
+
+    struct MoqUnsubscribeAnnounces
+    {
+        TrackNamespace track_namespace_prefix;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, MoqUnsubscribeAnnounces& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqUnsubscribeAnnounces& msg);
 
     //
     // Fetch
@@ -388,6 +432,7 @@ namespace quicr::messages {
     // Data Streams
     //
 
+    // Datagrams
     struct MoqObjectDatagram
     {
         SubscribeId subscribe_id;

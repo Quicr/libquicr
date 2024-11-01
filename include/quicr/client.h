@@ -220,6 +220,13 @@ namespace quicr {
             }
         }
 
+        void SubscribeAnnounces(std::shared_ptr<SubscribeAnnouncesHandler> handler)
+        {
+            if (connection_handle_) {
+                Transport::SubscribeAnnounces(*connection_handle_, std::move(handler));
+            }
+        }
+
       private:
         bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan stream_buffer) override;
 

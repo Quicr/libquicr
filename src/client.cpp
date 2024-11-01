@@ -302,6 +302,37 @@ namespace quicr {
                 conn_ctx.setup_complete = true;
                 return true;
             }
+            case messages::ControlMessageType::SUBSCRIBE_ANNOUNCES_OK: {
+                messages::MoqSubscribeAnnouncesOk msg;
+                msg_bytes >> msg;
+
+                SPDLOG_LOGGER_DEBUG(
+                  logger_, "Received subscribe_announce ok, conn_id: {0}", conn_ctx.connection_handle);
+
+                auto it = conn_ctx.announce_subscriptions.find(msg.track_namespace_prefix);
+                if (it->second.get()->GetStatus() != SubscribeAnnouncesHandler::Status::kOk) {
+                    // TODO : report status to the handler
+                    it->second.get()->SetStatus(SubscribeAnnouncesHandler::Status::kOk);
+                }
+                return true;
+            }
+            case messages::ControlMessageType::ANNOUNCE: {
+                messages::MoqAnnounce msg;
+                msg_bytes >> msg;
+
+                SPDLOG_LOGGER_DEBUG(logger_, "Received announce on conn_id: {0}", conn_ctx.connection_handle);
+
+                for (const auto& entry : conn_ctx.announce_subscriptions) {
+                    if (entry.first.Contains(msg.track_namespace)) {
+                        entry.second.get()->TrackNamespaceReceived(msg.track_namespace);
+                    }
+                }
+
+                // TODO: Revisit sending OK in this case.
+                // SendAnnounceOk(conn_ctx, msg.track_namespace);
+
+                return true;
+            }
 
             default:
                 SPDLOG_LOGGER_ERROR(logger_,

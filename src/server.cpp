@@ -29,6 +29,15 @@ namespace quicr {
 
     void Server::ResolveAnnounce(ConnectionHandle, const TrackNamespace&, const AnnounceResponse&) {}
 
+    void Server::SubscribeForAnnouncesReceived([[maybe_unused]] ConnectionHandle connection_handle,
+                                               [[maybe_unused]] TrackNamespace& track_namespace_prefix)
+    {
+    }
+
+    void Server::ResolveSubscribeAnnounces(ConnectionHandle, const TrackNamespace&, const SubscribeAnnouncesResponse&)
+    {
+    }
+
     void Server::SubscribeReceived(ConnectionHandle,
                                    uint64_t,
                                    uint64_t,
@@ -334,6 +343,18 @@ namespace quicr {
                 // TODO(tievens): Revisit sending sever setup immediately or wait for something else from server
                 SendServerSetup(conn_ctx);
                 conn_ctx.setup_complete = true;
+
+                return true;
+            }
+            case messages::ControlMessageType::SUBSCRIBE_ANNOUNCES: {
+                messages::MoqSubscribeAnnounces msg;
+                msg_bytes >> msg;
+
+                // TODO: add support for parameters
+                SubscribeForAnnouncesReceived(conn_ctx.connection_handle, msg.track_namespace_prefix);
+
+                // TODO: Delay sending OK until its resolved.
+                SendSubscribeAnnouncesOk(conn_ctx, msg.track_namespace_prefix);
 
                 return true;
             }

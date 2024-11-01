@@ -46,6 +46,10 @@ namespace quicr {
             std::optional<Bytes> reason_phrase;
         };
 
+        // TODO (suhas): Add details.
+        struct SubscribeAnnouncesResponse
+        {};
+
         /**
          * @brief MoQ Server constructor to create the MOQ server mode instance
          *
@@ -213,6 +217,50 @@ namespace quicr {
          * @param subscribe_id        Subscribe ID received
          */
         virtual void UnsubscribeReceived(ConnectionHandle connection_handle, uint64_t subscribe_id) = 0;
+
+        /**
+         * @brief Subscription for announces
+         *
+         * @param connection_handle         Subscriber connection Id
+         * @param track_namespace_prefix    TrackNamespace prefix to report matching announcements
+         *
+         * TODO: Add support for receiving parameters
+         */
+        virtual void SubscribeForAnnouncesReceived(ConnectionHandle connection_handle,
+                                                   TrackNamespace& track_namespace_prefix);
+
+        /**
+         * @brief Resolve received subscribe for announces by providing
+         *        appropriate response.
+         *
+         * @param connection_handle Subscriber connection Id
+         * @param track_namespace   Namespace prefix matching the subscribe_announces message
+         * @param response          Response to resolve subscribe_announces
+         *
+         */
+        void ResolveSubscribeAnnounces(ConnectionHandle connection_handle,
+                                       const TrackNamespace& track_namespace,
+                                       const SubscribeAnnouncesResponse& aresponse);
+
+        /**
+         * @brief Forward announcements to subscribers
+         *
+         * @details Send existing and new announces that match namespace prefix in SubscribeAnnounces
+         * This function allows the subscriber to learn about new announces.
+         *
+         * @param connection_handle
+         * @param track_namespace
+         */
+        void ForwardAnnounce(ConnectionHandle connection_handle, const TrackNamespace& track_namespace)
+        {
+
+            if (connection_handle) {
+                // TODO: This is a fire and forget sending announcement.
+                // Not sure if server should even worry about getting an OK,
+                // since if a subscribe follows , that implies it as OK
+                Transport::SendAnnounce(connection_handle, track_namespace);
+            }
+        }
 
         ///@}
         // --END OF CALLBACKS ----------------------------------------------------------------------------------

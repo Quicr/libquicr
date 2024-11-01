@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include <algorithm>
 #include <condition_variable>
 #include <oss/cxxopts.hpp>
 #include <set>
@@ -18,6 +19,12 @@ using FullTrackNameHash = uint64_t;
 
 namespace qserver_vars {
     std::mutex state_mutex;
+
+    /**
+     * Map of subscribers who want to learn about announces
+     *
+     */
+    std::map<quicr::TrackNamespace, std::set<quicr::ConnectionHandle>> announce_subscribers{};
 
     /**
      * Map of subscribes (e.g., track alias) sent to announcements
@@ -245,6 +252,15 @@ class MyServer : public quicr::Server
         SPDLOG_INFO("New connection handle {0} accepted from {1}:{2}", connection_handle, remote.ip, remote.port);
     }
 
+    void SubscribeForAnnouncesReceived(quicr::ConnectionHandle connection_handle,
+                                       quicr::TrackNamespace& track_namespace_prefix) override
+    {
+        SPDLOG_INFO("SubscribeAnnounces received {0} accepted from {1}:{2}",
+                    connection_handle,
+                    track_namespace_prefix.ToString());
+        qserver_vars::announce_subscribers[track_namespace_prefix].insert(connection_handle);
+    }
+
     void MetricsSampled(quicr::ConnectionHandle connection_handle, const quicr::ConnectionMetrics& metrics) override
     {
         SPDLOG_DEBUG("Metrics sample time: {0}"
@@ -318,6 +334,21 @@ class MyServer : public quicr::Server
         AnnounceResponse announce_response;
         announce_response.reason_code = quicr::Server::AnnounceResponse::ReasonCode::kOk;
         ResolveAnnounce(connection_handle, track_namespace, announce_response);
+
+        // check to see if there are subscribers who need this announce
+        for (const auto& [ns, conns] : qserver_vars::announce_subscribers) {
+            if (track_namespace.Contains(ns)) {
+                SPDLOG_INFO(
+                  "Found a match for announced namespace. prefix: {0}, namespace: {1}", ns.ToString(), ns.ToString());
+                // Send announce to the subscribers
+                for (const auto& conn : conns) {
+                    ForwardAnnounce(conn, track_namespace);
+                }
+            } else {
+                SPDLOG_INFO(
+                  "No match Found for announced namespace. prefix: {0}, namespace: {1}", ns.ToString(), ns.ToString());
+            }
+        }
 
         auto& anno_tracks = qserver_vars::announce_active[th.track_namespace_hash][connection_handle];
 

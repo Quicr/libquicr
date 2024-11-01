@@ -681,6 +681,106 @@ namespace quicr::messages {
     }
 
     //
+    // Subscribe Announces
+    //
+
+    Bytes& operator<<(Bytes& buffer, const MoqSubscribeAnnounces& msg)
+    {
+        Bytes payload;
+        payload << msg.track_namespace_prefix;
+        // TODO: sending zero parameters
+        payload << UintVar(static_cast<uint64_t>(0));
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_ANNOUNCES));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeAnnounces& msg)
+    {
+        buffer = buffer >> msg.track_namespace_prefix;
+
+        uint64_t num_params = 0;
+        buffer = buffer >> num_params;
+
+        for (uint64_t i = 0; i < num_params; ++i) {
+            MoqParameter param;
+            buffer = buffer >> param;
+            msg.params.push_back(param);
+        }
+
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, const MoqSubscribeAnnouncesOk& msg)
+    {
+        Bytes payload;
+        payload << msg.track_namespace_prefix;
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_ANNOUNCES_OK));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeAnnouncesOk& msg)
+    {
+        return buffer >> msg.track_namespace_prefix;
+    }
+
+    Bytes& operator<<(Bytes& buffer, const MoqSubscribeAnnouncesError& msg)
+    {
+        Bytes payload;
+        payload << msg.track_namespace_prefix;
+        payload << UintVar(msg.err_code.value());
+        payload << UintVar(msg.reason_phrase.value().size());
+        payload << msg.reason_phrase.value();
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_ANNOUNCES_ERROR));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeAnnouncesError& msg)
+    {
+        TrackNamespace track_ns;
+        buffer = buffer >> track_ns;
+        msg.track_namespace_prefix = track_ns;
+
+        ErrorCode err_code;
+        buffer = buffer >> err_code;
+        msg.err_code = err_code;
+
+        ReasonPhrase reason_phrase;
+        buffer = buffer >> reason_phrase;
+        msg.reason_phrase = reason_phrase;
+
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, const MoqUnsubscribeAnnounces& msg)
+    {
+        Bytes payload;
+        payload << msg.track_namespace_prefix;
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::UNSUBSCRIBE_ANNOUNCES));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, MoqUnsubscribeAnnounces& msg)
+    {
+        return buffer >> msg.track_namespace_prefix;
+    }
+
+    //
     // Fetch
     //
 
