@@ -94,7 +94,7 @@ namespace qserver_vars {
                        std::unordered_map<quicr::ConnectionHandle, std::shared_ptr<quicr::SubscribeTrackHandler>>>
       pub_subscribes;
 
-    static std::string to_ascii(const std::vector<Span<const uint8_t>>& data)
+    static std::string ToAscii(const std::vector<Span<const uint8_t>>& data)
     {
         std::stringstream output;
         for (const auto& entry : data) {
@@ -266,7 +266,7 @@ class MyServer : public quicr::Server
     {
         SPDLOG_INFO("SubscribeAnnounces received {0} accepted from {1}:{2}",
                     connection_handle,
-                    qserver_vars::to_ascii(track_namespace_prefix.GetEntries()));
+                    qserver_vars::ToAscii(track_namespace_prefix.GetEntries()));
         qserver_vars::announce_subscribers[track_namespace_prefix].insert(connection_handle);
     }
 
@@ -348,16 +348,16 @@ class MyServer : public quicr::Server
         for (const auto& entry : qserver_vars::announce_subscribers) {
             if (entry.first.Contains(track_namespace)) {
                 SPDLOG_INFO("Found a match for announced namespace. prefix: {0}, namespace: {1}",
-                            qserver_vars::to_ascii(entry.first.GetEntries()),
-                            qserver_vars::to_ascii(track_namespace.GetEntries()));
+                            qserver_vars::ToAscii(entry.first.GetEntries()),
+                            qserver_vars::ToAscii(track_namespace.GetEntries()));
                 // Send announce to the subscribers
                 for (const auto& conn : entry.second) {
                     ForwardAnnounce(conn, track_namespace);
                 }
             } else {
                 SPDLOG_INFO("No match Found for announced namespace. prefix: {0}, namespace: {1}",
-                            qserver_vars::to_ascii(entry.first.GetEntries()),
-                            qserver_vars::to_ascii(track_namespace.GetEntries()));
+                            qserver_vars::ToAscii(entry.first.GetEntries()),
+                            qserver_vars::ToAscii(track_namespace.GetEntries()));
             }
         }
 
@@ -541,7 +541,7 @@ class MyServer : public quicr::Server
 
   private:
     // Set of prefixes for which announces needs to be resolved.
-    std::set<quicr::TrackNamespace> announce_prefixes;
+    std::set<quicr::TrackNamespace> announce_prefixes_;
 };
 
 /* -------------------------------------------------------------------------------------------------
