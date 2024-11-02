@@ -4,6 +4,19 @@
 #include "quicr/detail/transport.h"
 
 #include <sstream>
+#include <sstream>
+#include <iomanip>
+
+static std::string
+to_hex(const quicr::Bytes& data)
+{
+    std::stringstream hex(std::ios_base::out);
+    hex.flags(std::ios::hex);
+    for (const auto& byte : data) {
+        hex << std::setw(2) << std::setfill('0') << int(byte);
+    }
+    return hex.str();
+}
 
 namespace quicr {
 
@@ -178,6 +191,10 @@ namespace quicr {
         client_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::Role);
         client_setup.role_parameter.length = 0x1; // NOTE: not used for encode, size of value is used
         client_setup.role_parameter.value = { 0x03 };
+        client_setup.max_subscribe_id.type = static_cast<uint64_t>(ParameterType::MaxSubscribeId);
+        client_setup.role_parameter.length = 0x2; // NOTE: not used for encode, size of value is used
+        client_setup.max_subscribe_id.value = { 0x1, 0x2, 0x3, 0x4 };
+
         client_setup.endpoint_id_parameter.value.assign(client_config_.endpoint_id.begin(),
                                                         client_config_.endpoint_id.end());
 
@@ -294,6 +311,7 @@ namespace quicr {
         auto subscribe_ok = MoqSubscribeOk{};
         subscribe_ok.subscribe_id = subscribe_id;
         subscribe_ok.expires = expires;
+        subscribe_ok.group_order = GroupOrder::kAscending;
         subscribe_ok.content_exists = content_exists;
 
         Bytes buffer;
@@ -725,6 +743,20 @@ namespace quicr {
                 break;
             }
         }
+#if 0
+        SPDLOG_LOGGER_INFO(logger_,
+                           "PublishObject:Header: TrackAliasPriority {0}, GroupId: {1}, SubgroupId: {2}, ObjectId: {3}, "
+                           "NewStreamHeader: {4}, ObjectSize: {5}, Alias: {6}, SubscribeId: {7} \n\tPayload: {8}",
+                           priority,
+                           group_id,
+                           subgroup_id,
+                           object_id,
+                           stream_header_needed,
+                           *track_handler.GetTrackAlias(),
+                           *track_handler.GetSubscribeId(),
+                           track_handler.object_msg_buffer_.size(),
+                           to_hex(track_handler.object_msg_buffer_));
+#endif
 
         quic_transport_->Enqueue(track_handler.connection_handle_,
                                  track_handler.publish_data_ctx_id_,
@@ -1135,10 +1167,10 @@ namespace quicr {
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
                 if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
                     conn_ctx.metrics.rx_dgram_unknown_subscribe_id++;
-                    SPDLOG_LOGGER_ERROR(
-                      logger_,
-                      "Received stream_header_subgroup to unknown subscribe track subscribe_id: {0}, ignored",
-                      msg.subscribe_id);
+                    //SPDLOG_LOGGER_INFO(
+                     // logger_,
+                      //"Received stream_header_subgroup to unknown subscribe track subscribe_id: {0}, ignored",
+                      //msg.subscribe_id);
 
                     // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
                     stream_buffer->ResetAnyB<MoqStreamSubGroupObject>();

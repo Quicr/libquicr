@@ -337,7 +337,7 @@ class MyServer : public quicr::Server
 
         // check to see if there are subscribers who need this announce
         for (const auto& [ns, conns] : qserver_vars::announce_subscribers) {
-            if (track_namespace.Contains(ns)) {
+            if (ns.Contains(track_namespace)) {
                 SPDLOG_INFO(
                   "Found a match for announced namespace. prefix: {0}, namespace: {1}", ns.ToString(), ns.ToString());
                 // Send announce to the subscribers

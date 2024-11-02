@@ -191,7 +191,8 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
         std::string msg;
         if (qclient_vars::publish_clock) {
             std::this_thread::sleep_for(std::chrono::milliseconds(999));
-            msg = quicr::example::GetTimeStr();
+            //msg = quicr::example::GetTimeStr();
+            msg = std::string{"moqtest"};
             SPDLOG_INFO(msg);
         } else { // stdin
             getline(std::cin, msg);
@@ -206,9 +207,9 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
 
         // The idea is to generate a new subgroup after 4 objects and have
         // only one subgroup within a group of 10 objects
-        if (object_id == 4) {
-            subgroup_id++;
-        }
+        //if (object_id == 4) {
+        //    subgroup_id++;
+        //}
 
         quicr::ObjectHeaders obj_headers = {
             group_id,       object_id++,    subgroup_id,  msg.size(),  quicr::ObjectStatus::kAvailable,
@@ -241,8 +242,8 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
 
     while (not stop) {
         if ((!subscribe_track) && (client->GetStatus() == MyClient::Status::kReady)) {
-            SPDLOG_INFO("Subscribing to announces");
-            client->SubscribeAnnounces(announces_handler);
+            //SPDLOG_INFO("Subscribing to announces");
+            //client->SubscribeAnnounces(announces_handler);
 
             SPDLOG_INFO("Subscribing to track");
             client->SubscribeTrack(track_handler);

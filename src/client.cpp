@@ -72,13 +72,14 @@ namespace quicr {
                     return true;
                 }
 
-                SendSubscribeOk(conn_ctx, msg.subscribe_id, kSubscribeExpires, false);
-
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received subscribe to announced track alias: {0} recv subscribe_id: {1}, setting "
                                     "send state to ready",
                                     msg.track_alias,
                                     msg.subscribe_id);
+
+                SendSubscribeOk(conn_ctx, msg.subscribe_id, kSubscribeExpires, false);
+
 
                 // Indicate send is ready upon subscribe
                 // TODO(tievens): Maybe needs a delay as subscriber may have not received ok before data is sent
@@ -289,15 +290,19 @@ namespace quicr {
                 std::string server_endpoint_id(msg.endpoint_id_parameter.value.begin(),
                                                msg.endpoint_id_parameter.value.end());
 
+                std::string max_subscribe_id(msg.max_subscribe_id.value.begin(),
+                                               msg.max_subscribe_id.value.end());
+
                 ServerSetupReceived({ msg.selection_version, server_endpoint_id });
                 SetStatus(Status::kReady);
 
                 SPDLOG_LOGGER_INFO(logger_,
-                                   "Server setup received conn_id: {0} from: {1} role: {2} selected_version: {3}",
+                                   "Server setup received conn_id: {0} from: {1} role: {2} selected_version: {3}, max_subscriber_id: {4}",
                                    conn_ctx.connection_handle,
                                    server_endpoint_id,
                                    static_cast<int>(msg.role_parameter.value.front()),
-                                   msg.selection_version);
+                                   msg.selection_version,
+                                   max_subscribe_id);
 
                 conn_ctx.setup_complete = true;
                 return true;

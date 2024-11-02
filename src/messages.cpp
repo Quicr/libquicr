@@ -187,11 +187,16 @@ namespace quicr::messages {
         }
 
         /// num params
-        payload << UintVar(static_cast<uint64_t>(2));
+        payload << UintVar(static_cast<uint64_t>(3));
         // role param
         payload << UintVar(msg.role_parameter.type);
         payload << UintVar(msg.role_parameter.value.size());
         payload << msg.role_parameter.value;
+        // max_subscribe_id param
+        payload << UintVar(static_cast<uint64_t>(ParameterType::MaxSubscribeId));
+        payload << UintVar(msg.max_subscribe_id.value.size());
+        payload << msg.max_subscribe_id.value;
+
         // endpoint_id param
         payload << UintVar(static_cast<uint64_t>(ParameterType::EndpointId));
         payload << UintVar(msg.endpoint_id_parameter.value.size());
@@ -228,6 +233,8 @@ namespace quicr::messages {
                 case ParameterType::Path:
                     msg.path_parameter = std::move(param);
                     break;
+                case ParameterType::MaxSubscribeId:
+                    msg.max_subscribe_id = std::move(param);
                 case ParameterType::EndpointId:
                     msg.endpoint_id_parameter = std::move(param);
                     break;
@@ -247,7 +254,7 @@ namespace quicr::messages {
         payload << UintVar(msg.selection_version);
 
         /// num params
-        payload << UintVar(static_cast<uint64_t>(2));
+        payload << UintVar(static_cast<uint64_t>(3));
         // role param
         payload << UintVar(static_cast<uint64_t>(msg.role_parameter.type));
         payload << UintVar(msg.role_parameter.value.size());
@@ -282,6 +289,9 @@ namespace quicr::messages {
                     break;
                 case ParameterType::Path:
                     msg.path_parameter = std::move(param);
+                    break;
+                case ParameterType::MaxSubscribeId:
+                    msg.max_subscribe_id = std::move(param);
                     break;
                 case ParameterType::EndpointId:
                     msg.endpoint_id_parameter = std::move(param);
@@ -401,10 +411,7 @@ namespace quicr::messages {
         buffer = buffer >> msg.track_namespace;
         buffer = buffer >> msg.track_name;
         msg.priority = buffer.front();
-        buffer = buffer.subspan(sizeof(ObjectPriority));
-        msg.group_order = static_cast<GroupOrder>(buffer.front());
-        buffer = buffer.subspan(sizeof(GroupOrder));
-        uint64_t filter = 0;
+         uint64_t filter = 0;
         buffer = buffer >> filter;
         msg.filter_type = static_cast<FilterType>(filter);
 
@@ -490,10 +497,17 @@ namespace quicr::messages {
         Bytes payload;
         payload << UintVar(msg.subscribe_id);
         payload << UintVar(msg.expires);
+        auto group_order = static_cast<uint8_t>(msg.group_order);
+        payload.push_back(group_order);
         msg.content_exists ? payload.push_back(static_cast<uint8_t>(1)) : payload.push_back(static_cast<uint8_t>(0));
         if (msg.content_exists) {
             payload << UintVar(msg.largest_group);
             payload << UintVar(msg.largest_object);
+        }
+
+        payload << UintVar(msg.params.size());
+        for (const auto& param : msg.params) {
+            payload << param;
         }
 
         buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_OK));
@@ -508,15 +522,25 @@ namespace quicr::messages {
         buffer = buffer >> msg.subscribe_id;
         buffer = buffer >> msg.expires;
 
+        msg.group_order = static_cast<GroupOrder>(buffer.front());
+        buffer = buffer.subspan(sizeof(GroupOrder));
+
         msg.content_exists = static_cast<bool>(buffer.front());
         buffer = buffer.subspan(1);
 
-        if (!msg.content_exists) {
-            return buffer;
+        if (msg.content_exists) {
+            buffer = buffer >> msg.largest_group;
+            buffer = buffer >> msg.largest_object;
         }
 
-        buffer = buffer >> msg.largest_group;
-        buffer = buffer >> msg.largest_object;
+        uint64_t num_params = 0;
+        buffer = buffer >> num_params;
+
+        for (uint64_t i = 0; i < num_params; ++i) {
+            MoqParameter param;
+            buffer = buffer >> param;
+            msg.params.push_back(param);
+        }
 
         return buffer;
     }
@@ -1035,8 +1059,8 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderSubGroup& msg)
     {
         buffer << UintVar(static_cast<uint64_t>(DataMessageType::STREAM_HEADER_SUBGROUP));
-        buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.subscribe_id);
+        buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
         buffer << UintVar(msg.subgroup_id);
         buffer.push_back(msg.priority);
@@ -1048,14 +1072,14 @@ namespace quicr::messages {
     {
         switch (msg.current_pos) {
             case 0: {
-                if (!ParseUintVField(buffer, msg.track_alias)) {
+                if (!ParseUintVField(buffer, msg.subscribe_id)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
             case 1: {
-                if (!ParseUintVField(buffer, msg.subscribe_id)) {
+                if (!ParseUintVField(buffer, msg.track_alias)) {
                     return false;
                 }
                 msg.current_pos += 1;
@@ -1108,9 +1132,9 @@ namespace quicr::messages {
         if (msg.payload.empty()) {
             // empty payload needs a object status to be set
             buffer << UintVar(static_cast<uint8_t>(msg.object_status));
-            PushExtensions(buffer, msg.extensions);
+            //PushExtensions(buffer, msg.extensions);
         } else {
-            PushExtensions(buffer, msg.extensions);
+            //PushExtensions(buffer, msg.extensions);
             buffer << msg.payload;
         }
         return buffer;
@@ -1146,7 +1170,7 @@ namespace quicr::messages {
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-
+            /*
             case 3: {
                 if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
                     return false;
@@ -1158,7 +1182,7 @@ namespace quicr::messages {
                 }
                 [[fallthrough]];
             }
-
+            */
             case 4: {
                 if (!buffer.Available(msg.payload_len)) {
                     return false;

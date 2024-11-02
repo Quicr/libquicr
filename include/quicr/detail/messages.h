@@ -119,6 +119,7 @@ namespace quicr::messages {
     {
         Role = 0x0,
         Path = 0x1,
+        MaxSubscribeId = 0x2,
         AuthorizationInfo = 0x2, // version specific, unused
         EndpointId = 0xF0,       // Endpoint ID, using temp value for now
         Invalid = 0xFF,          // used internally.
@@ -155,6 +156,7 @@ namespace quicr::messages {
         std::vector<Version> supported_versions;
         MoqParameter role_parameter;
         MoqParameter path_parameter;
+        MoqParameter max_subscribe_id;
         MoqParameter endpoint_id_parameter;
     };
 
@@ -166,6 +168,7 @@ namespace quicr::messages {
         Version selection_version;
         MoqParameter role_parameter;
         MoqParameter path_parameter;
+        MoqParameter max_subscribe_id;
         MoqParameter endpoint_id_parameter;
     };
 
@@ -206,9 +209,11 @@ namespace quicr::messages {
     {
         SubscribeId subscribe_id;
         uint64_t expires;
+        GroupOrder group_order;
         bool content_exists;
         uint64_t largest_group{ 0 };
         uint64_t largest_object{ 0 };
+        std::vector<MoqParameter> params;
     };
 
     BytesSpan operator>>(BytesSpan buffer, MoqSubscribeOk& msg);
@@ -459,8 +464,8 @@ namespace quicr::messages {
     // SubGroups
     struct MoqStreamHeaderSubGroup
     {
-        TrackAlias track_alias;
         SubscribeId subscribe_id;
+        TrackAlias track_alias;
         GroupId group_id;
         SubGroupId subgroup_id;
         ObjectPriority priority;
