@@ -196,7 +196,6 @@ namespace quicr::messages {
         payload << UintVar(static_cast<uint64_t>(ParameterType::MaxSubscribeId));
         payload << UintVar(msg.max_subscribe_id.value.size());
         payload << msg.max_subscribe_id.value;
-
         // endpoint_id param
         payload << UintVar(static_cast<uint64_t>(ParameterType::EndpointId));
         payload << UintVar(msg.endpoint_id_parameter.value.size());
@@ -254,7 +253,7 @@ namespace quicr::messages {
         payload << UintVar(msg.selection_version);
 
         /// num params
-        payload << UintVar(static_cast<uint64_t>(3));
+        payload << UintVar(static_cast<uint64_t>(2));
         // role param
         payload << UintVar(static_cast<uint64_t>(msg.role_parameter.type));
         payload << UintVar(msg.role_parameter.value.size());
