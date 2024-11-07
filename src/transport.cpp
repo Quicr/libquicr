@@ -575,17 +575,22 @@ namespace quicr {
                                              false);
 
         // Setup the function for the track handler to use to send objects with thread safety
-        track_handler->publish_object_func_ = [&, track_handler, subscribe_id = track_handler->GetSubscribeId()](
-                                                uint8_t priority,
-                                                uint32_t ttl,
-                                                bool stream_header_needed,
-                                                uint64_t group_id,
-                                                uint64_t subgroup_id,
-                                                uint64_t object_id,
-                                                std::optional<Extensions> extensions,
-                                                Span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
+        std::weak_ptr<PublishTrackHandler> weak_handler(track_handler);
+        track_handler->publish_object_func_ =
+          [&, weak_handler](uint8_t priority,
+                            uint32_t ttl,
+                            bool stream_header_needed,
+                            uint64_t group_id,
+                            uint64_t subgroup_id,
+                            uint64_t object_id,
+                            std::optional<Extensions> extensions,
+                            Span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
+            auto handler = weak_handler.lock();
+            if (!handler) {
+                return PublishTrackHandler::PublishObjectStatus::kInternalError;
+            }
             return SendObject(
-              *track_handler, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
+              *handler, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
         };
 
         // Hold ref to track handler
