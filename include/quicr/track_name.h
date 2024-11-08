@@ -293,6 +293,7 @@ namespace quicr {
         {
             hash_combine(track_fullname_hash, track_namespace_hash);
             hash_combine(track_fullname_hash, track_name_hash);
+            track_fullname_hash = (track_fullname_hash << 2) >> 2;
         }
     };
 
