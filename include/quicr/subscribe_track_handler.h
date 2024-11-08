@@ -4,8 +4,8 @@
 #pragma once
 
 #include <quicr/detail/base_track_handler.h>
+#include <quicr/detail/messages.h>
 #include <quicr/metrics.h>
-#include <quicr/publish_track_handler.h>
 
 namespace quicr {
 
