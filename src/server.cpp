@@ -110,7 +110,11 @@ namespace quicr {
                 }
 
                 // TODO(tievens): add filter type when caching supports it
-                SubscribeReceived(conn_ctx.connection_handle, msg.subscribe_id, msg.track_alias, tfn, {});
+                SubscribeReceived(conn_ctx.connection_handle,
+                                  msg.subscribe_id,
+                                  msg.track_alias,
+                                  tfn,
+                                  { .priority = msg.priority, .group_order = msg.group_order });
 
                 // TODO(tievens): Delay the subscribe OK till ResolveSubscribe() is called
                 SendSubscribeOk(conn_ctx, msg.subscribe_id, kSubscribeExpires, false);
