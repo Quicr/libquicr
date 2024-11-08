@@ -369,5 +369,4 @@ namespace quicr {
         return false;
     }
 
-    }
 } // namespace quicr
