@@ -94,7 +94,7 @@ namespace quicr {
     }
 
     bool Server::ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes)
-    {
+    try {
         switch (*conn_ctx.ctrl_msg_type_received) {
             case messages::ControlMessageType::SUBSCRIBE: {
                 messages::MoqSubscribe msg;
@@ -308,6 +308,7 @@ namespace quicr {
             }
             case messages::ControlMessageType::CLIENT_SETUP: {
                 messages::MoqClientSetup msg;
+
                 msg_bytes >> msg;
 
                 if (!msg.supported_versions.size()) { // should never happen
@@ -360,6 +361,12 @@ namespace quicr {
 
         } // End of switch(msg type)
 
+    } catch (...) {
+        SPDLOG_LOGGER_ERROR(logger_, "Unable to parse control message");
+        CloseConnection(conn_ctx.connection_handle,
+                        messages::MoqTerminationReason::PROTOCOL_VIOLATION,
+                        "Control message cannot be parsed");
         return false;
     }
+
 } // namespace quicr
