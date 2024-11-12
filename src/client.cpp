@@ -38,25 +38,12 @@ namespace quicr {
 
     void Client::PublishUnannounce(const TrackNamespace&) {}
 
-    bool Client::ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                    std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer)
+    bool Client::ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes)
     {
-        if (stream_buffer->Empty()) { // should never happen
-            SPDLOG_LOGGER_ERROR(logger_, "Stream buffer cannot be zero when parsing message type, bad stream");
-            return false;
-        }
-
-        if (not conn_ctx.ctrl_msg_type_received) { // should never happen
-            SPDLOG_LOGGER_ERROR(logger_, "Process receive message connection context is missing, bad stream");
-            return false;
-        }
-
         switch (*conn_ctx.ctrl_msg_type_received) {
-            case messages::MoqMessageType::SUBSCRIBE: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqSubscribe>(stream_buffer);
-                if (!parsed) {
-                    break;
-                }
+            case messages::ControlMessageType::SUBSCRIBE: {
+                messages::MoqSubscribe msg;
+                msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
                 auto th = TrackHash(tfn);
@@ -100,14 +87,11 @@ namespace quicr {
                 ptd->SetStatus(PublishTrackHandler::Status::kOk);
 
                 conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
-                stream_buffer->ResetAny();
                 return true;
             }
-            case messages::MoqMessageType::SUBSCRIBE_OK: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqSubscribeOk>(stream_buffer);
-                if (!parsed) {
-                    break;
-                }
+            case messages::ControlMessageType::SUBSCRIBE_OK: {
+                messages::MoqSubscribeOk msg;
+                msg_bytes >> msg;
 
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
 
@@ -120,19 +104,15 @@ namespace quicr {
 
                     // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race
                     // condition
-                    stream_buffer->ResetAny();
                     return true;
                 }
 
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
-                stream_buffer->ResetAny();
                 return true;
             }
-            case messages::MoqMessageType::SUBSCRIBE_ERROR: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqSubscribeError>(stream_buffer);
-                if (!parsed) {
-                    break;
-                }
+            case messages::ControlMessageType::SUBSCRIBE_ERROR: {
+                messages::MoqSubscribeError msg;
+                msg_bytes >> msg;
 
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
 
@@ -145,21 +125,16 @@ namespace quicr {
 
                     // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race
                     // condition
-                    stream_buffer->ResetAny();
                     return true;
                 }
 
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kSubscribeError);
                 RemoveSubscribeTrack(conn_ctx, *sub_it->second);
-
-                stream_buffer->ResetAny();
                 return true;
             }
-            case messages::MoqMessageType::ANNOUNCE_OK: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqAnnounceOk>(stream_buffer);
-                if (!parsed) {
-                    break;
-                }
+            case messages::ControlMessageType::ANNOUNCE_OK: {
+                messages::MoqAnnounceOk msg;
+                msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
                 auto th = TrackHash(tfn);
@@ -174,14 +149,11 @@ namespace quicr {
                     if (td.second.get()->GetStatus() != PublishTrackHandler::Status::kOk)
                         td.second.get()->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
                 }
-                stream_buffer->ResetAny();
                 return true;
             }
-            case messages::MoqMessageType::ANNOUNCE_ERROR: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqAnnounceError>(stream_buffer);
-                if (!parsed) {
-                    break;
-                }
+            case messages::ControlMessageType::ANNOUNCE_ERROR: {
+                messages::MoqAnnounceError msg;
+                msg_bytes >> msg;
 
                 if (msg.track_namespace) {
                     std::string reason = "unknown";
@@ -198,14 +170,11 @@ namespace quicr {
                                        (msg.err_code.has_value() ? *msg.err_code : 0),
                                        reason);
                 }
-                stream_buffer->ResetAny();
                 return true;
             }
-            case messages::MoqMessageType::UNSUBSCRIBE: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqUnsubscribe>(stream_buffer);
-                if (!parsed) {
-                    break;
-                }
+            case messages::ControlMessageType::UNSUBSCRIBE: {
+                messages::MoqUnsubscribe msg;
+                msg_bytes >> msg;
 
                 const auto& th_it = conn_ctx.recv_sub_id.find(msg.subscribe_id);
 
@@ -218,7 +187,6 @@ namespace quicr {
 
                     // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to
                     // race condition
-                    stream_buffer->ResetAny();
                     return true;
                 }
 
@@ -237,15 +205,11 @@ namespace quicr {
                         handler->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
                     }
                 }
-
-                stream_buffer->ResetAny();
                 return true;
             }
-            case messages::MoqMessageType::SUBSCRIBE_DONE: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqSubscribeDone>(stream_buffer);
-                if (!parsed) {
-                    break;
-                }
+            case messages::ControlMessageType::SUBSCRIBE_DONE: {
+                messages::MoqSubscribeDone msg;
+                msg_bytes >> msg;
 
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
                 if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
@@ -256,7 +220,6 @@ namespace quicr {
 
                     // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race
                     // condition
-                    stream_buffer->ResetAny();
                     return true;
                 }
                 auto tfn = sub_it->second->GetFullTrackName();
@@ -271,14 +234,11 @@ namespace quicr {
                                     TrackHash(tfn).track_fullname_hash);
 
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
-                stream_buffer->ResetAny();
                 return true;
             }
-            case messages::MoqMessageType::ANNOUNCE_CANCEL: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqAnnounceCancel>(stream_buffer);
-                if (!parsed) {
-                    break;
-                }
+            case messages::ControlMessageType::ANNOUNCE_CANCEL: {
+                messages::MoqAnnounceCancel msg;
+                msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
                 auto th = TrackHash(tfn);
@@ -286,15 +246,11 @@ namespace quicr {
                 SPDLOG_LOGGER_INFO(
                   logger_, "Received announce cancel for namespace_hash: {0}", th.track_namespace_hash);
                 AnnounceStatusChanged(tfn.name_space, PublishAnnounceStatus::kNotAnnounced);
-
-                stream_buffer->ResetAny();
                 return true;
             }
-            case messages::MoqMessageType::TRACK_STATUS_REQUEST: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqTrackStatusRequest>(stream_buffer);
-                if (!parsed) {
-                    break;
-                }
+            case messages::ControlMessageType::TRACK_STATUS_REQUEST: {
+                messages::MoqTrackStatusRequest msg;
+                msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
                 auto th = TrackHash(tfn);
@@ -303,14 +259,11 @@ namespace quicr {
                                    "Received track status request for namespace_hash: {0} name_hash: {1}",
                                    th.track_namespace_hash,
                                    th.track_name_hash);
-                stream_buffer->ResetAny();
                 return true;
             }
-            case messages::MoqMessageType::TRACK_STATUS: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqTrackStatus>(stream_buffer);
-                if (!parsed) {
-                    break;
-                }
+            case messages::ControlMessageType::TRACK_STATUS: {
+                messages::MoqTrackStatus msg;
+                msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
                 auto th = TrackHash(tfn);
@@ -319,25 +272,19 @@ namespace quicr {
                                    "Received track status for namespace_hash: {0} name_hash: {1}",
                                    th.track_namespace_hash,
                                    th.track_name_hash);
-                stream_buffer->ResetAny();
                 return true;
             }
-            case messages::MoqMessageType::GOAWAY: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqGoaway>(stream_buffer);
-                if (!parsed) {
-                    break;
-                }
+            case messages::ControlMessageType::GOAWAY: {
+                messages::MoqGoaway msg;
+                msg_bytes >> msg;
 
                 std::string new_sess_uri(msg.new_session_uri.begin(), msg.new_session_uri.end());
                 SPDLOG_LOGGER_INFO(logger_, "Received goaway new session uri: {0}", new_sess_uri);
-                stream_buffer->ResetAny();
                 return true;
             }
-            case messages::MoqMessageType::SERVER_SETUP: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqServerSetup>(stream_buffer);
-                if (!parsed) {
-                    break;
-                }
+            case messages::ControlMessageType::SERVER_SETUP: {
+                messages::MoqServerSetup msg;
+                msg_bytes >> msg;
 
                 std::string server_endpoint_id(msg.endpoint_id_parameter.value.begin(),
                                                msg.endpoint_id_parameter.value.end());
@@ -353,7 +300,6 @@ namespace quicr {
                                    msg.selection_version);
 
                 conn_ctx.setup_complete = true;
-                stream_buffer->ResetAny();
                 return true;
             }
 

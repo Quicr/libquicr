@@ -4,6 +4,8 @@
 #pragma once
 
 #include "quicr/common.h"
+#include "quicr/object.h"
+#include "quicr/track_name.h"
 #include "stream_buffer.h"
 
 #include <map>
@@ -13,14 +15,14 @@
 namespace quicr::messages {
 
     using Version = uint64_t;
-    using TrackNamespace = Bytes;
     using TrackName = Bytes;
     using ErrorCode = uint64_t;
     using StatusCode = uint64_t;
     using ReasonPhrase = Bytes;
     using GroupId = uint64_t;
+    using SubGroupId = uint64_t;
     using ObjectId = uint64_t;
-    using ObjectPriority = uint64_t;
+    using ObjectPriority = uint8_t;
     using SubscribeId = uint64_t;
     using TrackAlias = uint64_t;
     using ParamType = uint64_t;
@@ -39,12 +41,10 @@ namespace quicr::messages {
     };
 
     // Ref: https://moq-wg.github.io/moq-transport/draft-ietf-moq-transport.html#name-messages
-    enum class MoqMessageType : uint64_t
+    enum class ControlMessageType : uint64_t
     {
-        OBJECT_STREAM = 0x0,
-        OBJECT_DATAGRAM,
-
-        SUBSCRIBE = 0x03,
+        SUBSCRIBE_UPDATE = 0x02,
+        SUBSCRIBE,
         SUBSCRIBE_OK,
         SUBSCRIBE_ERROR,
         ANNOUNCE,
@@ -59,11 +59,21 @@ namespace quicr::messages {
 
         GOAWAY = 0x10,
 
+        MAX_SUBSCRIBE_ID = 0x15,
+        FETCH,
+        FETCH_CANCEL,
+        FETCH_OK,
+        FETCH_ERROR,
+
         CLIENT_SETUP = 0x40,
         SERVER_SETUP,
+    };
 
-        STREAM_HEADER_TRACK = 0x50,
-        STREAM_HEADER_GROUP,
+    enum class DataMessageType : uint8_t
+    {
+        OBJECT_DATAGRAM = 0x01,
+        STREAM_HEADER_SUBGROUP = 0x04,
+        FETCH_HEADER = 0x5
     };
 
     enum class SubscribeError : uint8_t
@@ -75,6 +85,11 @@ namespace quicr::messages {
         TRACK_NOT_EXIST = 0xF0 // Missing in draft
     };
 
+    enum class FetchError : uint8_t
+    {
+        TRACK_NOT_EXIST = 0xF0 // Missing in draft
+    };
+
     // TODO (Suhas): rename it to StreamMapping
     enum ForwardingPreference : uint8_t
     {
@@ -83,6 +98,13 @@ namespace quicr::messages {
         StreamPerPriority,
         StreamPerTrack,
         Datagram
+    };
+
+    enum struct GroupOrder : uint8_t
+    {
+        kOriginalPublisherOrder = 0x0,
+        kAscending,
+        kDescending
     };
 
     //
@@ -109,8 +131,15 @@ namespace quicr::messages {
         friend bool operator>>(StreamBufferType& buffer, MoqParameter& msg);
     };
 
-    bool operator>>(Bytes& buffer, MoqParameter& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqParameter& msg);
     Bytes& operator<<(Bytes& buffer, const MoqParameter& msg);
+
+    //
+    // Namespace
+    //
+
+    BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg);
+    Bytes& operator<<(Bytes& buffer, const TrackNamespace& msg);
 
     //
     // Setup
@@ -123,17 +152,9 @@ namespace quicr::messages {
         MoqParameter role_parameter;
         MoqParameter path_parameter;
         MoqParameter endpoint_id_parameter;
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqClientSetup& msg);
-
-      private:
-        size_t current_pos{ 0 };
-        std::optional<uint64_t> num_params;
-        std::optional<MoqParameter> current_param{};
-        bool parse_completed{ false };
     };
 
-    bool operator>>(Bytes& buffer, MoqClientSetup& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqClientSetup& msg);
     Bytes& operator<<(Bytes& buffer, const MoqClientSetup& msg);
 
     struct MoqServerSetup
@@ -142,17 +163,9 @@ namespace quicr::messages {
         MoqParameter role_parameter;
         MoqParameter path_parameter;
         MoqParameter endpoint_id_parameter;
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqServerSetup& msg);
-
-      private:
-        size_t current_pos{ 0 };
-        std::optional<uint64_t> num_params;
-        bool parse_completed{ false };
-        std::optional<MoqParameter> current_param{};
     };
 
-    bool operator>>(Bytes& buffer, MoqServerSetup& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqServerSetup& msg);
     Bytes& operator<<(Bytes& buffer, const MoqServerSetup& msg);
 
     //
@@ -173,23 +186,16 @@ namespace quicr::messages {
         uint64_t track_alias;
         TrackNamespace track_namespace;
         TrackName track_name;
+        ObjectPriority priority;
+        GroupOrder group_order;
         FilterType filter_type{ FilterType::None };
         uint64_t start_group{ 0 };
-        uint64_t end_group{ 0 };
         uint64_t start_object{ 0 };
-        uint64_t end_object{ 0 };
-        std::optional<uint64_t> num_params;
+        uint64_t end_group{ 0 };
         std::vector<MoqParameter> track_params;
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqSubscribe& msg);
-
-      private:
-        std::optional<MoqParameter> current_param{};
-        size_t current_pos{ 0 };
-        bool parsing_completed{ false };
     };
 
-    bool operator>>(Bytes& buffer, MoqSubscribe& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqSubscribe& msg);
     Bytes& operator<<(Bytes& buffer, const MoqSubscribe& msg);
 
     struct MoqSubscribeOk
@@ -199,15 +205,9 @@ namespace quicr::messages {
         bool content_exists;
         uint64_t largest_group{ 0 };
         uint64_t largest_object{ 0 };
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqSubscribeOk& msg);
-
-      private:
-        size_t current_pos{ 0 };
-        size_t MAX_FIELDS{ 5 };
     };
 
-    bool operator>>(Bytes& buffer, MoqSubscribeOk& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeOk& msg);
     Bytes& operator<<(Bytes& buffer, const MoqSubscribeOk& msg);
 
     struct MoqSubscribeError
@@ -216,25 +216,17 @@ namespace quicr::messages {
         ErrorCode err_code;
         ReasonPhrase reason_phrase;
         uint64_t track_alias;
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqSubscribeError& msg);
-
-      private:
-        size_t current_pos{ 0 };
-        size_t MAX_FIELDS{ 4 };
     };
 
-    bool operator>>(Bytes& buffer, MoqSubscribeError& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeError& msg);
     Bytes& operator<<(Bytes& buffer, const MoqSubscribeError& msg);
 
     struct MoqUnsubscribe
     {
         SubscribeId subscribe_id;
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqUnsubscribe& msg);
     };
 
-    bool operator>>(Bytes& buffer, MoqUnsubscribe& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqUnsubscribe& msg);
     Bytes& operator<<(Bytes& buffer, const MoqUnsubscribe& msg);
 
     struct MoqSubscribeDone
@@ -245,15 +237,9 @@ namespace quicr::messages {
         bool content_exists;
         uint64_t final_group_id;
         uint64_t final_object_id;
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqSubscribeDone& msg);
-
-      private:
-        size_t current_pos{ 0 };
-        size_t MAX_FIELDS = { 6 };
     };
 
-    bool operator>>(Bytes& buffer, MoqSubscribeDone& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeDone& msg);
     Bytes& operator<<(Bytes& buffer, const MoqSubscribeDone& msg);
 
     //
@@ -263,15 +249,9 @@ namespace quicr::messages {
     {
         TrackNamespace track_namespace;
         TrackName track_name;
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqTrackStatusRequest& msg);
-
-      private:
-        size_t current_pos{ 0 };
-        bool parsing_completed{ false };
     };
 
-    bool operator>>(Bytes& buffer, MoqTrackStatusRequest& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqTrackStatusRequest& msg);
     Bytes& operator<<(Bytes& buffer, const MoqTrackStatusRequest& msg);
 
     enum class TrackStatus : uint64_t
@@ -289,15 +269,9 @@ namespace quicr::messages {
         TrackStatus status_code;
         uint64_t last_group_id{ 0 };
         uint64_t last_object_id{ 0 };
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqTrackStatus& msg);
-
-      private:
-        size_t current_pos{ 0 };
-        bool parsing_completed{ false };
     };
 
-    bool operator>>(Bytes& buffer, MoqTrackStatus& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqTrackStatus& msg);
     Bytes& operator<<(Bytes& buffer, const MoqTrackStatus& msg);
 
     //
@@ -308,25 +282,17 @@ namespace quicr::messages {
     {
         TrackNamespace track_namespace;
         std::vector<MoqParameter> params;
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqAnnounce& msg);
-
-      private:
-        uint64_t num_params{ 0 };
-        MoqParameter current_param{};
     };
 
-    bool operator>>(Bytes& buffer, MoqAnnounce& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqAnnounce& msg);
     Bytes& operator<<(Bytes& buffer, const MoqAnnounce& msg);
 
     struct MoqAnnounceOk
     {
         TrackNamespace track_namespace;
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqAnnounceOk& msg);
     };
 
-    bool operator>>(Bytes& buffer, MoqAnnounceOk& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqAnnounceOk& msg);
     Bytes& operator<<(Bytes& buffer, const MoqAnnounceOk& msg);
 
     struct MoqAnnounceError
@@ -334,32 +300,25 @@ namespace quicr::messages {
         std::optional<TrackNamespace> track_namespace;
         std::optional<ErrorCode> err_code;
         std::optional<ReasonPhrase> reason_phrase;
-
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqAnnounceError& msg);
     };
 
-    bool operator>>(Bytes& buffer, MoqAnnounceError& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqAnnounceError& msg);
     Bytes& operator<<(Bytes& buffer, const MoqAnnounceError& msg);
 
     struct MoqUnannounce
     {
         TrackNamespace track_namespace;
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqUnannounce& msg);
     };
 
-    bool operator>>(Bytes& buffer, MoqUnannounce& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqUnannounce& msg);
     Bytes& operator<<(Bytes& buffer, const MoqUnannounce& msg);
 
     struct MoqAnnounceCancel
     {
         TrackNamespace track_namespace;
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqAnnounceCancel& msg);
     };
 
-    bool operator>>(Bytes& buffer, MoqAnnounceCancel& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqAnnounceCancel& msg);
     Bytes& operator<<(Bytes& buffer, const MoqAnnounceCancel& msg);
 
     //
@@ -368,37 +327,66 @@ namespace quicr::messages {
     struct MoqGoaway
     {
         Bytes new_session_uri;
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqGoaway& msg);
     };
 
-    bool operator>>(Bytes& buffer, MoqGoaway& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqGoaway& msg);
     Bytes& operator<<(Bytes& buffer, const MoqGoaway& msg);
 
     //
-    // Object
+    // Fetch
     //
-    struct MoqObjectStream
-    {
-        SubscribeId subscribe_id;
-        TrackAlias track_alias;
-        GroupId group_id;
-        ObjectId object_id;
-        ObjectPriority priority;
-        std::optional<Extensions> extensions;
-        Bytes payload;
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqObjectStream& msg);
 
-      private:
-        uint64_t num_extensions{ 0 };
-        std::optional<uint64_t> current_tag{};
-        uint64_t current_pos{ 0 };
-        bool parse_completed{ false };
+    struct MoqFetch
+    {
+        uint64_t subscribe_id;
+        TrackNamespace track_namespace;
+        TrackName track_name;
+        ObjectPriority priority;
+        GroupOrder group_order;
+        GroupId start_group;
+        ObjectId start_object;
+        GroupId end_group;
+        ObjectId end_object;
+        std::vector<MoqParameter> params;
     };
 
-    bool operator>>(Bytes& buffer, MoqObjectStream& msg);
-    Bytes& operator<<(Bytes& buffer, const MoqObjectStream& msg);
+    BytesSpan operator>>(BytesSpan buffer, MoqFetch& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqFetch& msg);
+
+    struct MoqFetchOk
+    {
+        SubscribeId subscribe_id;
+        GroupOrder group_order;
+        uint8_t end_of_track;
+        uint64_t largest_group{ 0 };
+        uint64_t largest_object{ 0 };
+        std::vector<MoqParameter> params;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetchOk& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqFetchOk& msg);
+
+    struct MoqFetchError
+    {
+        uint64_t subscribe_id;
+        ErrorCode err_code;
+        ReasonPhrase reason_phrase;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetchError& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqFetchError& msg);
+
+    struct MoqFetchCancel
+    {
+        uint64_t subscribe_id;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetchCancel& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqFetchCancel& msg);
+
+    //
+    // Data Streams
+    //
 
     struct MoqObjectDatagram
     {
@@ -407,6 +395,8 @@ namespace quicr::messages {
         GroupId group_id;
         ObjectId object_id;
         ObjectPriority priority;
+        ObjectStatus object_status;
+        uint64_t payload_len{ 0 };
         std::optional<Extensions> extensions;
         Bytes payload;
         template<class StreamBufferType>
@@ -419,33 +409,36 @@ namespace quicr::messages {
         bool parse_completed{ false };
     };
 
-    bool operator>>(Bytes& buffer, MoqObjectDatagram& msg);
     Bytes& operator<<(Bytes& buffer, const MoqObjectDatagram& msg);
 
-    struct MoqStreamHeaderTrack
+    // SubGroups
+    struct MoqStreamHeaderSubGroup
     {
-        SubscribeId subscribe_id;
         TrackAlias track_alias;
+        SubscribeId subscribe_id;
+        GroupId group_id;
+        SubGroupId subgroup_id;
         ObjectPriority priority;
         template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqStreamHeaderTrack& msg);
+        friend bool operator>>(StreamBufferType& buffer, MoqStreamHeaderSubGroup& msg);
 
       private:
         uint64_t current_pos{ 0 };
         bool parse_completed{ false };
     };
 
-    bool operator>>(Bytes& buffer, MoqStreamHeaderTrack& msg);
-    Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderTrack& msg);
+    bool operator>>(Bytes& buffer, MoqStreamHeaderSubGroup& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderSubGroup& msg);
 
-    struct MoqStreamTrackObject
+    struct MoqStreamSubGroupObject
     {
-        GroupId group_id;
         ObjectId object_id;
+        uint64_t payload_len{ 0 };
+        ObjectStatus object_status;
         std::optional<Extensions> extensions;
         Bytes payload;
         template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqStreamTrackObject& msg);
+        friend bool operator>>(StreamBufferType& buffer, MoqStreamSubGroupObject& msg);
 
       private:
         uint64_t num_extensions{ 0 };
@@ -454,42 +447,7 @@ namespace quicr::messages {
         bool parse_completed{ false };
     };
 
-    bool operator>>(Bytes& buffer, MoqStreamTrackObject& msg);
-    Bytes& operator<<(Bytes& buffer, const MoqStreamTrackObject& msg);
-
-    struct MoqStreamHeaderGroup
-    {
-        SubscribeId subscribe_id;
-        TrackAlias track_alias;
-        GroupId group_id;
-        ObjectPriority priority;
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqStreamHeaderGroup& msg);
-
-      private:
-        uint64_t current_pos{ 0 };
-        bool parse_completed{ false };
-    };
-
-    bool operator>>(Bytes& buffer, MoqStreamHeaderGroup& msg);
-    Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderGroup& msg);
-
-    struct MoqStreamGroupObject
-    {
-        ObjectId object_id;
-        std::optional<Extensions> extensions;
-        Bytes payload;
-        template<class StreamBufferType>
-        friend bool operator>>(StreamBufferType& buffer, MoqStreamGroupObject& msg);
-
-      private:
-        uint64_t num_extensions{ 0 };
-        std::optional<uint64_t> current_tag{};
-        uint64_t current_pos{ 0 };
-        bool parse_completed{ false };
-    };
-
-    bool operator>>(Bytes& buffer, MoqStreamGroupObject& msg);
-    Bytes& operator<<(Bytes& buffer, const MoqStreamGroupObject& msg);
+    bool operator>>(Bytes& buffer, MoqStreamSubGroupObject& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqStreamSubGroupObject& msg);
 
 } // end of namespace quicr::messages

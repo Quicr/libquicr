@@ -61,7 +61,7 @@ namespace {
     {
 
         return {
-            { track_namespace.begin(), track_namespace.end() },
+            quicr::TrackNamespace{ quicr::Bytes{ track_namespace.begin(), track_namespace.end() } },
             { track_name.begin(), track_name.end() },
             track_alias,
         };
@@ -120,7 +120,7 @@ namespace {
     class PerfSubscribeTrackHandler : public quicr::SubscribeTrackHandler
     {
         PerfSubscribeTrackHandler(const quicr::FullTrackName& full_track_name)
-          : SubscribeTrackHandler(full_track_name)
+          : SubscribeTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending)
         {
         }
 
@@ -238,7 +238,7 @@ main(int argc, char** argv)
     const std::chrono::seconds duration(result["duration"].as<std::uint32_t>());
     const bool reliable = result["reliable"].as<bool>();
     const std::uint16_t group_size = result["group_size"].as<std::uint16_t>();
-    const quicr::TrackMode track_mode = reliable ? quicr::TrackMode::kStreamPerGroup : quicr::TrackMode::kDatagram;
+    const quicr::TrackMode track_mode = reliable ? quicr::TrackMode::kStream : quicr::TrackMode::kDatagram;
 
     const quicr::TransportConfig config{
         .tls_cert_filename = "",

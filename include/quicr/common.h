@@ -7,9 +7,13 @@
 #include <string>
 
 namespace quicr {
+    namespace messages {
+        enum struct GroupOrder : uint8_t;
+    }
 
     constexpr uint64_t kMoqtVersion = 0xff000004; ///< draft-ietf-quicr-transport-04
-    constexpr uint64_t kSubscribeExpires = 0;     ///< Never expires
+
+    constexpr uint64_t kSubscribeExpires = 0; ///< Never expires
     constexpr int kReadLoopMaxPerStream = 60; ///< Support packet/frame bursts, but do not allow starving other streams
 
     using namespace quicr;
@@ -25,7 +29,10 @@ namespace quicr {
      * @details Various attributes relative to the subscribe
      */
     struct SubscribeAttributes
-    {};
+    {
+        uint8_t priority;                 ///< Subscriber priority
+        messages::GroupOrder group_order; ///< Subscriber group order
+    };
 
     /**
      * @brief Publish announce attributes

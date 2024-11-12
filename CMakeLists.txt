@@ -19,7 +19,7 @@ project(quicr
 
 configure_file( src/version.h.in ${CMAKE_BINARY_DIR}/include/quicr/version.h )
 
-IF (NOT LINUX AND NOT APPLE)
+IF (NOT UNIX AND NOT APPLE)
     message(FATAL_ERROR "Unsupported platform, Linux and Apple are the only supported platforms")
 endif ()
 

@@ -56,26 +56,28 @@ namespace qserver_vars {
      * Map of subscribes set by namespace and track name hash
      *      Set<subscribe_who> = subscribe_active[track_namespace_hash][track_name_hash]
      */
-    struct SubscribeWho
+    struct SubscribeInfo
     {
         uint64_t connection_handle;
         uint64_t subscribe_id;
         uint64_t track_alias;
 
-        bool operator<(const SubscribeWho& other) const
+        bool operator<(const SubscribeInfo& other) const
         {
-            return connection_handle < other.connection_handle && subscribe_id << other.subscribe_id;
+            return connection_handle < other.connection_handle ||
+                   (connection_handle == other.connection_handle && subscribe_id < other.subscribe_id);
         }
-        bool operator==(const SubscribeWho& other) const
+        bool operator==(const SubscribeInfo& other) const
         {
             return connection_handle == other.connection_handle && subscribe_id == other.subscribe_id;
         }
-        bool operator>(const SubscribeWho& other) const
+        bool operator>(const SubscribeInfo& other) const
         {
-            return connection_handle > other.connection_handle && subscribe_id > other.subscribe_id;
+            return connection_handle > other.connection_handle ||
+                   (connection_handle == other.connection_handle && subscribe_id > other.subscribe_id);
         }
     };
-    std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::set<SubscribeWho>>> subscribe_active;
+    std::unordered_map<uint64_t, std::unordered_map<uint64_t, std::set<SubscribeInfo>>> subscribe_active;
 
     /**
      * Active publisher/announce subscribes that this relay has made to receive objects from publisher.
@@ -96,12 +98,13 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 {
   public:
     MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name)
-      : SubscribeTrackHandler(full_track_name)
+      : SubscribeTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending)
     {
     }
 
     void ObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data) override
     {
+
         if (data.size() > 255) {
             SPDLOG_CRITICAL("Example server is for example only, received data > 255 bytes is not allowed!");
             SPDLOG_CRITICAL("Use github.com/quicr/laps for full relay functionality");
@@ -414,7 +417,7 @@ class MyServer : public quicr::Server
         }
 
         qserver_vars::subscribe_active[th.track_namespace_hash][th.track_name_hash].erase(
-          qserver_vars::SubscribeWho{ connection_handle, subscribe_id, th.track_fullname_hash });
+          qserver_vars::SubscribeInfo{ connection_handle, subscribe_id, th.track_fullname_hash });
 
         if (!qserver_vars::subscribe_active[th.track_namespace_hash][th.track_name_hash].size()) {
             qserver_vars::subscribe_active[th.track_namespace_hash].erase(th.track_name_hash);
@@ -453,23 +456,24 @@ class MyServer : public quicr::Server
                            uint64_t subscribe_id,
                            [[maybe_unused]] uint64_t proposed_track_alias,
                            const quicr::FullTrackName& track_full_name,
-                           const quicr::SubscribeAttributes&) override
+                           const quicr::SubscribeAttributes& attrs) override
     {
         auto th = quicr::TrackHash(track_full_name);
 
-        SPDLOG_INFO("New subscribe connection handle: {0} subscribe_id: {1} track alias: {2}",
+        SPDLOG_INFO("New subscribe connection handle: {0} subscribe_id: {1} track alias: {2} priority: {3}",
                     connection_handle,
                     subscribe_id,
-                    th.track_fullname_hash);
+                    th.track_fullname_hash,
+                    attrs.priority);
 
         auto pub_track_h =
-          std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStreamPerGroup, 2, 5000);
+          std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, 5000);
         qserver_vars::subscribes[th.track_fullname_hash][connection_handle] = pub_track_h;
         qserver_vars::subscribe_alias_sub_id[connection_handle][subscribe_id] = th.track_fullname_hash;
 
         // record subscribe as active from this subscriber
         qserver_vars::subscribe_active[th.track_namespace_hash][th.track_name_hash].emplace(
-          qserver_vars::SubscribeWho{ connection_handle, subscribe_id, th.track_fullname_hash });
+          qserver_vars::SubscribeInfo{ connection_handle, subscribe_id, th.track_fullname_hash });
 
         // Create a subscribe track that will be used by the relay to send to subscriber for matching objects
         BindPublisherTrack(connection_handle, subscribe_id, pub_track_h);

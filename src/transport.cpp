@@ -3,8 +3,6 @@
 
 #include "quicr/detail/transport.h"
 
-#include "../dependencies/boringssl/tool/transport_common.h"
-
 #include <sstream>
 
 namespace quicr {
@@ -212,15 +210,14 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
-    void Transport::SendAnnounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
+    void Transport::SendAnnounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
     {
         auto announce = MoqAnnounce{};
 
-        announce.track_namespace.assign(track_namespace.begin(), track_namespace.end());
+        announce.track_namespace = track_namespace;
         announce.params = {};
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqAnnounce) + track_namespace.size());
         buffer << announce;
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending ANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
@@ -228,14 +225,13 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
-    void Transport::SendAnnounceOk(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
+    void Transport::SendAnnounceOk(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
     {
         auto announce_ok = MoqAnnounceOk{};
 
-        announce_ok.track_namespace.assign(track_namespace.begin(), track_namespace.end());
+        announce_ok.track_namespace = track_namespace;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqAnnounceOk) + track_namespace.size());
         buffer << announce_ok;
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending ANNOUNCE OK to conn_id: {0}", conn_ctx.connection_handle);
@@ -243,14 +239,13 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
-    void Transport::SendUnannounce(ConnectionContext& conn_ctx, Span<uint8_t const> track_namespace)
+    void Transport::SendUnannounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
     {
         auto unannounce = MoqUnannounce{};
 
-        unannounce.track_namespace.assign(track_namespace.begin(), track_namespace.end());
+        unannounce.track_namespace = track_namespace;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqUnannounce) + track_namespace.size());
         buffer << unannounce;
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending UNANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
@@ -261,16 +256,19 @@ namespace quicr {
     void Transport::SendSubscribe(ConnectionContext& conn_ctx,
                                   uint64_t subscribe_id,
                                   const FullTrackName& tfn,
-                                  TrackHash th)
+                                  TrackHash th,
+                                  messages::ObjectPriority priority,
+                                  messages::GroupOrder group_order)
     {
 
         auto subscribe = MoqSubscribe{};
         subscribe.subscribe_id = subscribe_id;
         subscribe.track_alias = th.track_fullname_hash;
-        subscribe.track_namespace.assign(tfn.name_space.begin(), tfn.name_space.end());
+        subscribe.track_namespace = tfn.name_space;
         subscribe.track_name.assign(tfn.name.begin(), tfn.name.end());
+        subscribe.priority = priority;
+        subscribe.group_order = group_order;
         subscribe.filter_type = FilterType::LatestGroup;
-        subscribe.num_params = 0;
 
         Bytes buffer;
         buffer.reserve(sizeof(MoqSubscribe));
@@ -371,6 +369,31 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
+    void Transport::SendFetchError(ConnectionContext& conn_ctx,
+                                   [[maybe_unused]] uint64_t subscribe_id,
+                                   FetchError error,
+                                   const std::string& reason)
+    {
+
+        auto fetch_err = MoqFetchError{};
+        fetch_err.subscribe_id = 0x1;
+        fetch_err.err_code = static_cast<uint64_t>(error);
+        fetch_err.reason_phrase.assign(reason.begin(), reason.end());
+
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqFetchError) + sizeof(reason.size()));
+        buffer << fetch_err;
+
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending FETCH ERROR to conn_id: {0} subscribe_id: {1} error code: {2} reason: {3}",
+                            conn_ctx.connection_handle,
+                            subscribe_id,
+                            static_cast<int>(error),
+                            reason);
+
+        SendCtrlMsg(conn_ctx, buffer);
+    }
+
     void Transport::SubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
         const auto& tfn = track_handler->GetFullTrackName();
@@ -396,10 +419,13 @@ namespace quicr {
 
         track_handler->SetSubscribeId(sid);
 
+        auto priority = track_handler->GetPriority();
+        auto group_order = track_handler->GetGroupOrder();
+
         // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
         conn_it->second.tracks_by_sub_id[sid] = std::move(track_handler);
 
-        SendSubscribe(conn_it->second, sid, tfn, th);
+        SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order);
     }
 
     void Transport::UnsubscribeTrack(quicr::TransportConnId conn_id,
@@ -489,6 +515,7 @@ namespace quicr {
             if (!pub_ns_it->second.size()) {
                 SPDLOG_LOGGER_INFO(
                   logger_, "Unpublish namespace hash: {0}, has no tracks, sending unannounce", th.track_namespace_hash);
+
                 SendUnannounce(conn_it->second, tfn.name_space);
                 conn_it->second.pub_tracks_by_name.erase(pub_ns_it);
             }
@@ -548,16 +575,22 @@ namespace quicr {
                                              false);
 
         // Setup the function for the track handler to use to send objects with thread safety
-        track_handler->publish_object_func_ = [&, track_handler, subscribe_id = track_handler->GetSubscribeId()](
-                                                uint8_t priority,
-                                                uint32_t ttl,
-                                                bool stream_header_needed,
-                                                uint64_t group_id,
-                                                uint64_t object_id,
-                                                std::optional<Extensions> extensions,
-                                                Span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
+        std::weak_ptr<PublishTrackHandler> weak_handler(track_handler);
+        track_handler->publish_object_func_ =
+          [&, weak_handler](uint8_t priority,
+                            uint32_t ttl,
+                            bool stream_header_needed,
+                            uint64_t group_id,
+                            uint64_t subgroup_id,
+                            uint64_t object_id,
+                            std::optional<Extensions> extensions,
+                            Span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
+            auto handler = weak_handler.lock();
+            if (!handler) {
+                return PublishTrackHandler::PublishObjectStatus::kInternalError;
+            }
             return SendObject(
-              *track_handler, priority, ttl, stream_header_needed, group_id, object_id, extensions, data);
+              *handler, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
         };
 
         // Hold ref to track handler
@@ -570,6 +603,7 @@ namespace quicr {
                                                                    uint32_t ttl,
                                                                    bool stream_header_needed,
                                                                    uint64_t group_id,
+                                                                   uint64_t subgroup_id,
                                                                    uint64_t object_id,
                                                                    std::optional<Extensions> extensions,
                                                                    BytesSpan data)
@@ -599,24 +633,8 @@ namespace quicr {
                 track_handler.object_msg_buffer_ << object;
                 break;
             }
-            case TrackMode::kStreamPerObject: {
-                eflags.use_reliable = true;
-                eflags.new_stream = true;
-
-                MoqObjectStream object;
-                object.group_id = group_id;
-                object.object_id = object_id;
-                object.priority = priority;
-                object.subscribe_id = *track_handler.GetSubscribeId();
-                object.track_alias = *track_handler.GetTrackAlias();
-                object.extensions = extensions;
-                object.payload.assign(data.begin(), data.end());
-                track_handler.object_msg_buffer_ << object;
-
-                break;
-            }
-
-            case TrackMode::kStreamPerGroup: {
+            default: {
+                // use stream per subgroup, group change
                 eflags.use_reliable = true;
 
                 if (stream_header_needed) {
@@ -624,42 +642,20 @@ namespace quicr {
                     eflags.clear_tx_queue = true;
                     eflags.use_reset = true;
 
-                    MoqStreamHeaderGroup group_hdr;
-                    group_hdr.group_id = group_id;
-                    group_hdr.priority = priority;
-                    group_hdr.subscribe_id = *track_handler.GetSubscribeId();
-                    group_hdr.track_alias = *track_handler.GetTrackAlias();
-                    track_handler.object_msg_buffer_ << group_hdr;
+                    MoqStreamHeaderSubGroup subgroup_hdr;
+                    subgroup_hdr.group_id = group_id;
+                    subgroup_hdr.subgroup_id = subgroup_id;
+                    subgroup_hdr.priority = priority;
+                    subgroup_hdr.track_alias = *track_handler.GetTrackAlias();
+                    subgroup_hdr.subscribe_id = *track_handler.GetSubscribeId();
+                    track_handler.object_msg_buffer_ << subgroup_hdr;
                 }
 
-                MoqStreamGroupObject object;
+                MoqStreamSubGroupObject object;
                 object.object_id = object_id;
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
                 track_handler.object_msg_buffer_ << object;
-
-                break;
-            }
-            case TrackMode::kStreamPerTrack: {
-                eflags.use_reliable = true;
-
-                if (stream_header_needed) {
-                    eflags.new_stream = true;
-
-                    MoqStreamHeaderTrack track_hdr;
-                    track_hdr.priority = priority;
-                    track_hdr.subscribe_id = *track_handler.GetSubscribeId();
-                    track_hdr.track_alias = *track_handler.GetTrackAlias();
-                    track_handler.object_msg_buffer_ << track_hdr;
-                }
-
-                MoqStreamTrackObject object;
-                object.group_id = group_id;
-                object.object_id = object_id;
-                object.extensions = extensions;
-                object.payload.assign(data.begin(), data.end());
-                track_handler.object_msg_buffer_ << object;
-
                 break;
             }
         }
@@ -843,18 +839,21 @@ namespace quicr {
                     auto msg_type = stream_buf->DecodeUintV();
 
                     if (msg_type) {
-                        conn_ctx.ctrl_msg_type_received = static_cast<MoqMessageType>(*msg_type);
+                        conn_ctx.ctrl_msg_type_received = static_cast<ControlMessageType>(*msg_type);
                     } else {
                         break;
                     }
                 }
 
-                if (ProcessCtrlMessage(conn_ctx, stream_buf)) {
-                    conn_ctx.ctrl_msg_type_received = std::nullopt; // Clear current type now that it's complete
+                if (auto msg_bytes = stream_buf->DecodeBytes(); msg_bytes != std::nullopt) {
+                    if (ProcessCtrlMessage(conn_ctx, *msg_bytes)) {
+                        conn_ctx.ctrl_msg_type_received = std::nullopt; // Clear current type now that it's complete
+                    } else {
+                        conn_ctx.metrics.invalid_ctrl_stream_msg++;
+                    }
                 } else {
-                    break; // More data is needed, wait for next callback
+                    break;
                 }
-
             }
 
             // Data stream, unidirectional
@@ -868,7 +867,7 @@ namespace quicr {
 
     void Transport::OnRecvDgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id)
     {
-        MoqObjectStream object_datagram_out;
+        MoqObjectDatagram object_datagram_out;
         for (int i = 0; i < kReadLoopMaxPerStream; i++) {
             auto data = quic_transport_->Dequeue(conn_id, data_ctx_id);
             if (data.has_value() && !data->empty()) {
@@ -876,7 +875,7 @@ namespace quicr {
                 buffer.Push(data.value());
 
                 auto msg_type = buffer.DecodeUintV();
-                if (!msg_type || static_cast<MoqMessageType>(*msg_type) != MoqMessageType::OBJECT_DATAGRAM) {
+                if (!msg_type || static_cast<DataMessageType>(*msg_type) != DataMessageType::OBJECT_DATAGRAM) {
                     SPDLOG_LOGGER_DEBUG(logger_,
                                         "Received datagram that is not message type OBJECT_DATAGRAM, dropping");
                     auto& conn_ctx = connections_[conn_id];
@@ -923,7 +922,9 @@ namespace quicr {
                       {
                         msg.group_id,
                         msg.object_id,
+                        0, // datagrams don't have subgroups
                         msg.payload.size(),
+                        ObjectStatus::kAvailable,
                         msg.priority,
                         std::nullopt,
                         TrackMode::kDatagram,
@@ -1045,66 +1046,21 @@ namespace quicr {
         }
 
         // Header not set, get the header for this stream or datagram
-        MoqMessageType data_type;
+        DataMessageType data_type;
 
         auto dt = stream_buffer->GetAnyType();
         if (dt.has_value()) {
-            data_type = static_cast<MoqMessageType>(*dt);
+            data_type = static_cast<DataMessageType>(*dt);
         } else {
             auto val = stream_buffer->DecodeUintV();
-            data_type = static_cast<MoqMessageType>(*val);
+            data_type = static_cast<DataMessageType>(*val);
             stream_buffer->SetAnyType(*val);
         }
 
         switch (data_type) {
-            case messages::MoqMessageType::OBJECT_STREAM: {
-                auto&& [msg, parsed] =
-                  ParseDataMessage<messages::MoqObjectStream>(stream_buffer, messages::MoqMessageType::OBJECT_STREAM);
-                if (!parsed) {
-                    break;
-                }
-
-                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-
-                    conn_ctx.metrics.rx_stream_unknown_subscribe_id++;
-                    SPDLOG_LOGGER_DEBUG(logger_,
-                                        "Received stream_object to unknown subscribe track subscribe_id: {0}, ignored",
-                                        msg.subscribe_id);
-
-                    // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
-
-                    return true;
-                }
-
-                SPDLOG_LOGGER_TRACE(logger_,
-                                    "Received stream_object subscribe_id: {0} priority: {1} track_alias: {2} group_id: "
-                                    "{3} object_id: {4} data size: {5}",
-                                    msg.subscribe_id,
-                                    msg.priority,
-                                    msg.track_alias,
-                                    msg.group_id,
-                                    msg.object_id,
-                                    msg.payload.size());
-
-                auto& handler = sub_it->second;
-
-                handler->subscribe_track_metrics_.objects_received++;
-                handler->subscribe_track_metrics_.bytes_received += msg.payload.size();
-                handler->ObjectReceived({ msg.group_id,
-                                          msg.object_id,
-                                          msg.payload.size(),
-                                          msg.priority,
-                                          std::nullopt,
-                                          TrackMode::kStreamPerObject,
-                                          msg.extensions },
-                                        msg.payload);
-                stream_buffer->ResetAny();
-                return true;
-            }
-            case messages::MoqMessageType::STREAM_HEADER_TRACK: {
-                auto&& [msg, parsed] = ParseStreamData<MoqStreamHeaderTrack, MoqStreamTrackObject>(
-                  stream_buffer, MoqMessageType::STREAM_HEADER_TRACK);
+            case messages::DataMessageType::STREAM_HEADER_SUBGROUP: {
+                auto&& [msg, parsed] = ParseStreamData<MoqStreamHeaderSubGroup, MoqStreamSubGroupObject>(
+                  stream_buffer, DataMessageType::STREAM_HEADER_SUBGROUP);
 
                 if (!parsed) {
                     break;
@@ -1113,84 +1069,29 @@ namespace quicr {
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
                 if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
                     conn_ctx.metrics.rx_dgram_unknown_subscribe_id++;
-
-                    SPDLOG_LOGGER_DEBUG(
+                    SPDLOG_LOGGER_ERROR(
                       logger_,
-                      "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
+                      "Received stream_header_subgroup to unknown subscribe track subscribe_id: {0}, ignored",
                       msg.subscribe_id);
 
                     // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
-                    stream_buffer->ResetAnyB<MoqStreamGroupObject>();
+                    stream_buffer->ResetAnyB<MoqStreamSubGroupObject>();
                     return true;
                 }
 
-                auto& obj = stream_buffer->GetAnyB<MoqStreamTrackObject>();
+                auto& obj = stream_buffer->GetAnyB<MoqStreamSubGroupObject>();
                 if (*stream_buffer >> obj) {
-
-                    SPDLOG_LOGGER_TRACE(logger_,
-                                        "Received stream_track_object subscribe_id: {0} priority: {1} track_alias: {2} "
-                                        "group_id: {3} object_id: {4} data size: {5}",
-                                        msg.subscribe_id,
-                                        msg.priority,
-                                        msg.track_alias,
-                                        obj.group_id,
-                                        obj.object_id,
-                                        obj.payload.size());
-
-                    auto& handler = sub_it->second;
-
-                    handler->subscribe_track_metrics_.objects_received++;
-                    handler->subscribe_track_metrics_.bytes_received += obj.payload.size();
-                    handler->ObjectReceived({ obj.group_id,
-                                              obj.object_id,
-                                              obj.payload.size(),
-                                              msg.priority,
-                                              std::nullopt,
-                                              TrackMode::kStreamPerTrack,
-                                              obj.extensions },
-                                            obj.payload);
-
-                    stream_buffer->ResetAnyB<MoqStreamTrackObject>();
-
-                    return true;
-                }
-                break;
-            }
-            case messages::MoqMessageType::STREAM_HEADER_GROUP: {
-                auto&& [msg, parsed] = ParseStreamData<MoqStreamHeaderGroup, MoqStreamGroupObject>(
-                  stream_buffer, MoqMessageType::STREAM_HEADER_GROUP);
-
-                if (!parsed) {
-                    break;
-                }
-
-                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-
-                    conn_ctx.metrics.rx_dgram_unknown_subscribe_id++;
-
-                    SPDLOG_LOGGER_DEBUG(
+                    SPDLOG_LOGGER_TRACE(
                       logger_,
-                      "Received stream_header_group to unknown subscribe track subscribe_id: {0}, ignored",
-                      msg.subscribe_id);
-
-                    // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
-                    stream_buffer->ResetAnyB<MoqStreamGroupObject>();
-                    return true;
-                }
-
-                auto& obj = stream_buffer->GetAnyB<MoqStreamGroupObject>();
-                if (*stream_buffer >> obj) {
-
-                    SPDLOG_LOGGER_TRACE(logger_,
-                                        "Received stream_group_object subscribe_id: {0} priority: {1} track_alias: {2} "
-                                        "group_id: {3} object_id: {4} data size: {5}",
-                                        msg.subscribe_id,
-                                        msg.priority,
-                                        msg.track_alias,
-                                        msg.group_id,
-                                        obj.object_id,
-                                        obj.payload.size());
+                      "Received stream_subgroup_object subscribe_id: {0} priority: {1} track_alias: {2} "
+                      "group_id: {3} subgroup_id: {4} object_id: {5} data size: {6}",
+                      msg.subscribe_id,
+                      msg.priority,
+                      msg.track_alias,
+                      msg.group_id,
+                      msg.subgroup_id,
+                      obj.object_id,
+                      obj.payload.size());
 
                     auto& handler = sub_it->second;
 
@@ -1198,19 +1099,20 @@ namespace quicr {
                     handler->subscribe_track_metrics_.bytes_received += obj.payload.size();
                     handler->ObjectReceived({ msg.group_id,
                                               obj.object_id,
+                                              msg.subgroup_id,
                                               obj.payload.size(),
+                                              obj.object_status,
                                               msg.priority,
                                               std::nullopt,
-                                              TrackMode::kStreamPerGroup,
+                                              TrackMode::kStream,
                                               obj.extensions },
                                             obj.payload);
 
-                    stream_buffer->ResetAnyB<MoqStreamGroupObject>();
+                    stream_buffer->ResetAnyB<MoqStreamSubGroupObject>();
                     return true;
                 }
                 break;
             }
-
             default:
                 // Process the stream object type
                 conn_ctx.metrics.rx_stream_invalid_type++;
@@ -1224,25 +1126,8 @@ namespace quicr {
     }
 
     template<class MessageType>
-    std::pair<MessageType&, bool> Transport::ParseControlMessage(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer)
-    {
-        if (!stream_buffer->AnyHasValue()) {
-            SPDLOG_LOGGER_DEBUG(logger_, "Received control message, init stream buffer");
-            stream_buffer->InitAny<MessageType>();
-        }
-
-        auto& msg = stream_buffer->GetAny<MessageType>();
-        if (*stream_buffer >> msg) {
-            return { msg, true };
-        }
-
-        return { msg, false };
-    }
-
-    template<class MessageType>
     std::pair<MessageType&, bool> Transport::ParseDataMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-                                                              MoqMessageType msg_type)
+                                                              DataMessageType msg_type)
     {
         if (!stream_buffer->AnyHasValue()) {
             SPDLOG_LOGGER_DEBUG(logger_,
@@ -1261,7 +1146,7 @@ namespace quicr {
 
     template<class HeaderType, class MessageType>
     std::pair<HeaderType&, bool> Transport::ParseStreamData(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-                                                            MoqMessageType msg_type)
+                                                            DataMessageType msg_type)
     {
         if (!stream_buffer->AnyHasValue()) {
             SPDLOG_LOGGER_DEBUG(
@@ -1278,58 +1163,9 @@ namespace quicr {
         return { msg, stream_buffer->AnyHasValueB() };
     }
 
-    template std::pair<messages::MoqSubscribe&, bool> Transport::ParseControlMessage<messages::MoqSubscribe>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqSubscribeOk&, bool> Transport::ParseControlMessage<messages::MoqSubscribeOk>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqSubscribeError&, bool> Transport::ParseControlMessage<messages::MoqSubscribeError>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqUnsubscribe&, bool> Transport::ParseControlMessage<messages::MoqUnsubscribe>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqSubscribeDone&, bool> Transport::ParseControlMessage<messages::MoqSubscribeDone>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqTrackStatusRequest&, bool>
-    Transport::ParseControlMessage<messages::MoqTrackStatusRequest>(std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqTrackStatus&, bool> Transport::ParseControlMessage<messages::MoqTrackStatus>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqAnnounce&, bool> Transport::ParseControlMessage<messages::MoqAnnounce>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqAnnounceOk&, bool> Transport::ParseControlMessage<messages::MoqAnnounceOk>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqAnnounceError&, bool> Transport::ParseControlMessage<messages::MoqAnnounceError>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqUnannounce&, bool> Transport::ParseControlMessage<messages::MoqUnannounce>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqAnnounceCancel&, bool> Transport::ParseControlMessage<messages::MoqAnnounceCancel>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqGoaway&, bool> Transport::ParseControlMessage<messages::MoqGoaway>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqClientSetup&, bool> Transport::ParseControlMessage<messages::MoqClientSetup>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqObjectStream&, bool> Transport::ParseControlMessage<messages::MoqObjectStream>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqObjectDatagram&, bool> Transport::ParseControlMessage<messages::MoqObjectDatagram>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqStreamHeaderTrack&, bool>
-    Transport::ParseControlMessage<messages::MoqStreamHeaderTrack>(std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqStreamHeaderGroup&, bool>
-    Transport::ParseControlMessage<messages::MoqStreamHeaderGroup>(std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqStreamGroupObject&, bool>
-    Transport::ParseControlMessage<messages::MoqStreamGroupObject>(std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-    template std::pair<messages::MoqServerSetup&, bool> Transport::ParseControlMessage<messages::MoqServerSetup>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>&);
-
-    template std::pair<messages::MoqObjectStream&, bool> Transport::ParseDataMessage<messages::MoqObjectStream>(
+    template std::pair<messages::MoqStreamHeaderSubGroup&, bool>
+    Transport::ParseStreamData<messages::MoqStreamHeaderSubGroup, messages::MoqStreamSubGroupObject>(
       std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-      MoqMessageType msg_type);
-
-    template std::pair<messages::MoqStreamHeaderTrack&, bool>
-    Transport::ParseStreamData<messages::MoqStreamHeaderTrack, messages::MoqStreamTrackObject>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-      MoqMessageType msg_type);
-    template std::pair<messages::MoqStreamHeaderGroup&, bool>
-    Transport::ParseStreamData<messages::MoqStreamHeaderGroup, messages::MoqStreamGroupObject>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-      MoqMessageType msg_type);
+      DataMessageType msg_type);
 
 } // namespace moq

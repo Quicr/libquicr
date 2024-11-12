@@ -210,7 +210,7 @@ namespace quicr {
             std::optional<uint64_t> ctrl_data_ctx_id;
             bool setup_complete{ false }; ///< True if both client and server setup messages have completed
             uint64_t client_version{ 0 };
-            std::optional<messages::MoqMessageType>
+            std::optional<messages::ControlMessageType>
               ctrl_msg_type_received; ///< Indicates the current message type being read
 
             uint64_t current_subscribe_id{ 0 }; ///< Connection specific ID for subscribe messages
@@ -243,6 +243,7 @@ namespace quicr {
                                                             uint32_t ttl,
                                                             bool stream_header_needed,
                                                             uint64_t group_id,
+                                                            uint64_t subgroup_id,
                                                             uint64_t object_id,
                                                             std::optional<Extensions> extensions,
                                                             BytesSpan data);
@@ -250,10 +251,15 @@ namespace quicr {
         void SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data);
         void SendClientSetup();
         void SendServerSetup(ConnectionContext& conn_ctx);
-        void SendAnnounce(ConnectionContext& conn_ctx, Span<const uint8_t> track_namespace);
-        void SendAnnounceOk(ConnectionContext& conn_ctx, Span<const uint8_t> track_namespace);
-        void SendUnannounce(ConnectionContext& conn_ctx, Span<const uint8_t> track_namespace);
-        void SendSubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id, const FullTrackName& tfn, TrackHash th);
+        void SendAnnounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
+        void SendAnnounceOk(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
+        void SendUnannounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
+        void SendSubscribe(ConnectionContext& conn_ctx,
+                           uint64_t subscribe_id,
+                           const FullTrackName& tfn,
+                           TrackHash th,
+                           messages::ObjectPriority priority,
+                           messages::GroupOrder group_order);
         void SendSubscribeOk(ConnectionContext& conn_ctx, uint64_t subscribe_id, uint64_t expires, bool content_exists);
         void SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id);
         void SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason);
@@ -262,6 +268,10 @@ namespace quicr {
                                 uint64_t track_alias,
                                 messages::SubscribeError error,
                                 const std::string& reason);
+        void SendFetchError(ConnectionContext& conn_ctx,
+                            uint64_t subscribe_id,
+                            messages::FetchError error,
+                            const std::string& reason);
         void CloseConnection(ConnectionHandle connection_handle,
                              messages::MoqTerminationReason reason,
                              const std::string& reason_str);
@@ -296,22 +306,19 @@ namespace quicr {
         // -------------------------------------------------------------------------------------------------
         // Private member functions that will be implemented by both Server and Client
         // ------------------------------------------------------------------------------------------------
-        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                        std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer) = 0;
+
+        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes) = 0;
 
         bool ProcessStreamDataMessage(ConnectionContext& conn_ctx,
                                       std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer);
 
         template<class MessageType>
-        std::pair<MessageType&, bool> ParseControlMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer);
-
-        template<class MessageType>
         std::pair<MessageType&, bool> ParseDataMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-                                                       messages::MoqMessageType msg_type);
+                                                       messages::DataMessageType msg_type);
 
         template<class HeaderType, class MessageType>
         std::pair<HeaderType&, bool> ParseStreamData(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-                                                     messages::MoqMessageType msg_type);
+                                                     messages::DataMessageType msg_type);
 
       private:
         // -------------------------------------------------------------------------------------------------

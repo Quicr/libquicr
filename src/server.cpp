@@ -77,11 +77,12 @@ namespace quicr {
                                                 uint32_t ttl,
                                                 bool stream_header_needed,
                                                 uint64_t group_id,
+                                                uint64_t subgroup_id,
                                                 uint64_t object_id,
                                                 std::optional<Extensions> extensions,
                                                 Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
             return SendObject(
-              *track_handler, priority, ttl, stream_header_needed, group_id, object_id, extensions, data);
+              *track_handler, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
         };
 
         // Hold onto track handler
@@ -92,297 +93,266 @@ namespace quicr {
         track_handler->SetStatus(PublishTrackHandler::Status::kOk);
     }
 
-    bool Server::ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                    std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer)
-    {
-        if (stream_buffer->Empty()) { // should never happen
-            SPDLOG_LOGGER_ERROR(logger_, "Stream buffer cannot be zero when parsing message type, bad stream");
-            return false;
-        }
-
-        if (not conn_ctx.ctrl_msg_type_received) { // should never happen
-            SPDLOG_LOGGER_ERROR(logger_, "Process receive message connection context is missing, bad stream");
-            return false;
-        }
-
+    bool Server::ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes)
+    try {
         switch (*conn_ctx.ctrl_msg_type_received) {
-            case messages::MoqMessageType::SUBSCRIBE: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqSubscribe>(stream_buffer);
-                if (parsed) {
-                    auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
-                    auto th = TrackHash(tfn);
+            case messages::ControlMessageType::SUBSCRIBE: {
+                messages::MoqSubscribe msg;
+                msg_bytes >> msg;
 
-                    conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
+                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+                auto th = TrackHash(tfn);
 
-                    if (msg.subscribe_id > conn_ctx.current_subscribe_id) {
-                        conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
-                    }
+                conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
 
-                    // TODO(tievens): add filter type when caching supports it
-                    SubscribeReceived(conn_ctx.connection_handle, msg.subscribe_id, msg.track_alias, tfn, {});
-
-                    // TODO(tievens): Delay the subscribe OK till ResolveSubscribe() is called
-                    SendSubscribeOk(conn_ctx, msg.subscribe_id, kSubscribeExpires, false);
-
-                    stream_buffer->ResetAny();
-                    return true;
+                if (msg.subscribe_id > conn_ctx.current_subscribe_id) {
+                    conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
                 }
-                break;
+
+                // TODO(tievens): add filter type when caching supports it
+                SubscribeReceived(conn_ctx.connection_handle,
+                                  msg.subscribe_id,
+                                  msg.track_alias,
+                                  tfn,
+                                  { .priority = msg.priority, .group_order = msg.group_order });
+
+                // TODO(tievens): Delay the subscribe OK till ResolveSubscribe() is called
+                SendSubscribeOk(conn_ctx, msg.subscribe_id, kSubscribeExpires, false);
+
+                return true;
             }
-            case messages::MoqMessageType::SUBSCRIBE_OK: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqSubscribeOk>(stream_buffer);
-                if (parsed) {
-                    auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+            case messages::ControlMessageType::SUBSCRIBE_OK: {
+                messages::MoqSubscribeOk msg;
+                msg_bytes >> msg;
 
-                    if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                        SPDLOG_LOGGER_WARN(
-                          logger_,
-                          "Received subscribe ok to unknown subscribe track conn_id: {0} subscribe_id: {1}, ignored",
-                          conn_ctx.connection_handle,
-                          msg.subscribe_id);
+                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
 
-                        // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race
-                        // condition
-                        stream_buffer->ResetAny();
-                        return true;
-                    }
-
-                    sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
-
-                    stream_buffer->ResetAny();
-                    return true;
-                }
-                break;
-            }
-            case messages::MoqMessageType::SUBSCRIBE_ERROR: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqSubscribeError>(stream_buffer);
-                if (parsed) {
-                    auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-
-                    if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                        SPDLOG_LOGGER_WARN(
-                          logger_,
-                          "Received subscribe error to unknown subscribe_id conn_id: {0} subscribe_id: {1}, ignored",
-                          conn_ctx.connection_handle,
-                          msg.subscribe_id);
-
-                        // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race
-                        // condition
-                        stream_buffer->ResetAny();
-                        return true;
-                    }
-
-                    sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kSubscribeError);
-                    RemoveSubscribeTrack(conn_ctx, *sub_it->second);
-
-                    stream_buffer->ResetAny();
-                    return true;
-                }
-                break;
-            }
-            case messages::MoqMessageType::ANNOUNCE: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqAnnounce>(stream_buffer);
-                if (parsed) {
-                    auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
-
-                    AnnounceReceived(conn_ctx.connection_handle, tfn.name_space, {});
-
-                    // TODO(tievens): Delay announce OK till ResolveAnnounce() is called
-                    SendAnnounceOk(conn_ctx, msg.track_namespace);
-
-                    stream_buffer->ResetAny();
-                    return true;
-                }
-                break;
-            }
-            case messages::MoqMessageType::ANNOUNCE_ERROR: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqAnnounceError>(stream_buffer);
-                if (parsed) {
-                    if (msg.track_namespace) {
-                        std::string reason = "unknown";
-                        auto tfn = FullTrackName{ *msg.track_namespace, {}, std::nullopt };
-                        auto th = TrackHash(tfn);
-
-                        if (msg.reason_phrase) {
-                            reason.assign(msg.reason_phrase->begin(), msg.reason_phrase->end());
-                        }
-
-                        SPDLOG_LOGGER_INFO(
-                          logger_,
-                          "Received announce error for namespace_hash: {0} error code: {1} reason: {2}",
-                          th.track_namespace_hash,
-                          (msg.err_code.has_value() ? *msg.err_code : 0),
-                          reason);
-                    }
-                    stream_buffer->ResetAny();
-                    return true;
-                }
-                break;
-            }
-
-            case messages::MoqMessageType::UNANNOUNCE: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqUnannounce>(stream_buffer);
-                if (parsed) {
-
-                    auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
-                    auto th = TrackHash(tfn);
-
-                    SPDLOG_LOGGER_INFO(logger_, "Received unannounce for namespace_hash: {0}", th.track_namespace_hash);
-
-                    UnannounceReceived(conn_ctx.connection_handle, tfn.name_space);
-
-                    stream_buffer->ResetAny();
-                    return true;
-                }
-                break;
-            }
-
-            case messages::MoqMessageType::UNSUBSCRIBE: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqUnsubscribe>(stream_buffer);
-                if (parsed) {
-
-                    const auto& [name_space, name] = conn_ctx.recv_sub_id[msg.subscribe_id];
-                    TrackHash th(name_space, name);
-                    if (auto pdt = GetPubTrackHandler(conn_ctx, th)) {
-                        pdt->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
-                    }
-
-                    UnsubscribeReceived(conn_ctx.connection_handle, msg.subscribe_id);
-                    conn_ctx.recv_sub_id.erase(msg.subscribe_id);
-
-                    stream_buffer->ResetAny();
-                    return true;
-                }
-                break;
-            }
-            case messages::MoqMessageType::SUBSCRIBE_DONE: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqSubscribeDone>(stream_buffer);
-                if (parsed) {
-                    auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-                    if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                        SPDLOG_LOGGER_WARN(
-                          logger_,
-                          "Received subscribe done to unknown subscribe_id conn_id: {0} subscribe_id: {1}",
-                          conn_ctx.connection_handle,
-                          msg.subscribe_id);
-
-                        // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race
-                        // condition
-                        stream_buffer->ResetAny();
-                        return true;
-                    }
-                    auto tfn = sub_it->second->GetFullTrackName();
-                    auto th = TrackHash(tfn);
-
-                    SPDLOG_LOGGER_INFO(
+                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                    SPDLOG_LOGGER_WARN(
                       logger_,
-                      "Received subscribe done conn_id: {0} subscribe_id: {1} track namespace hash: {2} "
-                      "name hash: {3} track alias: {4}",
+                      "Received subscribe ok to unknown subscribe track conn_id: {0} subscribe_id: {1}, ignored",
                       conn_ctx.connection_handle,
-                      msg.subscribe_id,
-                      th.track_namespace_hash,
-                      th.track_name_hash,
-                      th.track_fullname_hash);
+                      msg.subscribe_id);
 
-                    sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
-
-                    stream_buffer->ResetAny();
+                    // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race
+                    // condition
                     return true;
                 }
-                break;
-            }
-            case messages::MoqMessageType::ANNOUNCE_CANCEL: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqAnnounceCancel>(stream_buffer);
-                if (parsed) {
-                    auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
-                    auto th = TrackHash(tfn);
 
-                    SPDLOG_LOGGER_INFO(
-                      logger_, "Received announce cancel for namespace_hash: {0}", th.track_namespace_hash);
-                    stream_buffer->ResetAny();
+                sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
+
+                return true;
+            }
+            case messages::ControlMessageType::SUBSCRIBE_ERROR: {
+                messages::MoqSubscribeError msg;
+                msg_bytes >> msg;
+
+                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+
+                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received subscribe error to unknown subscribe_id conn_id: {0} subscribe_id: {1}, ignored",
+                      conn_ctx.connection_handle,
+                      msg.subscribe_id);
+
+                    // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race
+                    // condition
                     return true;
                 }
-                break;
+
+                sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kSubscribeError);
+                RemoveSubscribeTrack(conn_ctx, *sub_it->second);
+
+                return true;
             }
-            case messages::MoqMessageType::TRACK_STATUS_REQUEST: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqTrackStatusRequest>(stream_buffer);
-                if (parsed) {
-                    auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+            case messages::ControlMessageType::ANNOUNCE: {
+                messages::MoqAnnounce msg;
+                msg_bytes >> msg;
+
+                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
+
+                AnnounceReceived(conn_ctx.connection_handle, tfn.name_space, {});
+
+                // TODO(tievens): Delay announce OK till ResolveAnnounce() is called
+                SendAnnounceOk(conn_ctx, msg.track_namespace);
+
+                return true;
+            }
+            case messages::ControlMessageType::ANNOUNCE_ERROR: {
+                messages::MoqAnnounceError msg;
+                msg_bytes >> msg;
+
+                if (msg.track_namespace) {
+                    std::string reason = "unknown";
+                    auto tfn = FullTrackName{ *msg.track_namespace, {}, std::nullopt };
                     auto th = TrackHash(tfn);
+
+                    if (msg.reason_phrase) {
+                        reason.assign(msg.reason_phrase->begin(), msg.reason_phrase->end());
+                    }
 
                     SPDLOG_LOGGER_INFO(logger_,
-                                       "Received track status request for namespace_hash: {0} name_hash: {1}",
+                                       "Received announce error for namespace_hash: {0} error code: {1} reason: {2}",
                                        th.track_namespace_hash,
-                                       th.track_name_hash);
-                    stream_buffer->ResetAny();
-                    return true;
+                                       (msg.err_code.has_value() ? *msg.err_code : 0),
+                                       reason);
                 }
-                break;
-            }
-            case messages::MoqMessageType::TRACK_STATUS: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqTrackStatus>(stream_buffer);
-                if (parsed) {
-                    auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
-                    auto th = TrackHash(tfn);
-
-                    SPDLOG_LOGGER_INFO(logger_,
-                                       "Received track status for namespace_hash: {0} name_hash: {1}",
-                                       th.track_namespace_hash,
-                                       th.track_name_hash);
-                    stream_buffer->ResetAny();
-                    return true;
-                }
-                break;
-            }
-            case messages::MoqMessageType::GOAWAY: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqGoaway>(stream_buffer);
-                if (parsed) {
-                    std::string new_sess_uri(msg.new_session_uri.begin(), msg.new_session_uri.end());
-                    SPDLOG_LOGGER_INFO(logger_, "Received goaway new session uri: {0}", new_sess_uri);
-                    stream_buffer->ResetAny();
-                    return true;
-                }
-                break;
-            }
-            case messages::MoqMessageType::CLIENT_SETUP: {
-                auto&& [msg, parsed] = ParseControlMessage<messages::MoqClientSetup>(stream_buffer);
-                if (parsed) {
-                    if (!msg.supported_versions.size()) { // should never happen
-                        CloseConnection(conn_ctx.connection_handle,
-                                        messages::MoqTerminationReason::PROTOCOL_VIOLATION,
-                                        "Client setup contained zero versions");
-                        stream_buffer->ResetAny();
-                        return true;
-                    }
-
-                    std::string client_endpoint_id(msg.endpoint_id_parameter.value.begin(),
-                                                   msg.endpoint_id_parameter.value.end());
-
-                    ClientSetupReceived(
-                      conn_ctx.connection_handle,
-                      { { msg.endpoint_id_parameter.value.begin(), msg.endpoint_id_parameter.value.end() } });
-
-                    SPDLOG_LOGGER_INFO(
-                      logger_,
-                      "Client setup received conn_id: {0} from: {1} num_versions: {2} role: {3} version: {4}",
-                      conn_ctx.connection_handle,
-                      client_endpoint_id,
-                      msg.num_versions,
-                      static_cast<int>(msg.role_parameter.value.front()),
-                      msg.supported_versions.front());
-
-                    conn_ctx.client_version = msg.supported_versions.front();
-
-                    // TODO(tievens): Revisit sending sever setup immediately or wait for something else from server
-                    SendServerSetup(conn_ctx);
-                    conn_ctx.setup_complete = true;
-
-                    stream_buffer->ResetAny();
-                    return true;
-                }
-                break;
+                return true;
             }
 
+            case messages::ControlMessageType::UNANNOUNCE: {
+                messages::MoqUnannounce msg;
+                msg_bytes >> msg;
+
+                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
+                auto th = TrackHash(tfn);
+
+                SPDLOG_LOGGER_INFO(logger_, "Received unannounce for namespace_hash: {0}", th.track_namespace_hash);
+
+                UnannounceReceived(conn_ctx.connection_handle, tfn.name_space);
+
+                return true;
+            }
+
+            case messages::ControlMessageType::UNSUBSCRIBE: {
+                messages::MoqUnsubscribe msg;
+                msg_bytes >> msg;
+
+                const auto& [name_space, name] = conn_ctx.recv_sub_id[msg.subscribe_id];
+                TrackHash th(name_space, name);
+                if (auto pdt = GetPubTrackHandler(conn_ctx, th)) {
+                    pdt->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
+                }
+
+                UnsubscribeReceived(conn_ctx.connection_handle, msg.subscribe_id);
+                conn_ctx.recv_sub_id.erase(msg.subscribe_id);
+
+                return true;
+            }
+            case messages::ControlMessageType::SUBSCRIBE_DONE: {
+                messages::MoqSubscribeDone msg;
+                msg_bytes >> msg;
+
+                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received subscribe done to unknown subscribe_id conn_id: {0} subscribe_id: {1}",
+                                       conn_ctx.connection_handle,
+                                       msg.subscribe_id);
+
+                    // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race
+                    // condition
+                    return true;
+                }
+                auto tfn = sub_it->second->GetFullTrackName();
+                auto th = TrackHash(tfn);
+
+                SPDLOG_LOGGER_INFO(logger_,
+                                   "Received subscribe done conn_id: {0} subscribe_id: {1} track namespace hash: {2} "
+                                   "name hash: {3} track alias: {4}",
+                                   conn_ctx.connection_handle,
+                                   msg.subscribe_id,
+                                   th.track_namespace_hash,
+                                   th.track_name_hash,
+                                   th.track_fullname_hash);
+
+                sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
+
+                return true;
+            }
+            case messages::ControlMessageType::ANNOUNCE_CANCEL: {
+                messages::MoqAnnounceCancel msg;
+                msg_bytes >> msg;
+
+                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
+                auto th = TrackHash(tfn);
+
+                SPDLOG_LOGGER_INFO(
+                  logger_, "Received announce cancel for namespace_hash: {0}", th.track_namespace_hash);
+                return true;
+            }
+            case messages::ControlMessageType::TRACK_STATUS_REQUEST: {
+                messages::MoqTrackStatusRequest msg;
+                msg_bytes >> msg;
+
+                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+                auto th = TrackHash(tfn);
+
+                SPDLOG_LOGGER_INFO(logger_,
+                                   "Received track status request for namespace_hash: {0} name_hash: {1}",
+                                   th.track_namespace_hash,
+                                   th.track_name_hash);
+                return true;
+            }
+            case messages::ControlMessageType::TRACK_STATUS: {
+                messages::MoqTrackStatus msg;
+                msg_bytes >> msg;
+
+                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+                auto th = TrackHash(tfn);
+
+                SPDLOG_LOGGER_INFO(logger_,
+                                   "Received track status for namespace_hash: {0} name_hash: {1}",
+                                   th.track_namespace_hash,
+                                   th.track_name_hash);
+                return true;
+            }
+            case messages::ControlMessageType::GOAWAY: {
+                messages::MoqGoaway msg;
+                msg_bytes >> msg;
+
+                std::string new_sess_uri(msg.new_session_uri.begin(), msg.new_session_uri.end());
+                SPDLOG_LOGGER_INFO(logger_, "Received goaway new session uri: {0}", new_sess_uri);
+                return true;
+            }
+            case messages::ControlMessageType::CLIENT_SETUP: {
+                messages::MoqClientSetup msg;
+
+                msg_bytes >> msg;
+
+                if (!msg.supported_versions.size()) { // should never happen
+                    CloseConnection(conn_ctx.connection_handle,
+                                    messages::MoqTerminationReason::PROTOCOL_VIOLATION,
+                                    "Client setup contained zero versions");
+                    return true;
+                }
+
+                std::string client_endpoint_id(msg.endpoint_id_parameter.value.begin(),
+                                               msg.endpoint_id_parameter.value.end());
+
+                ClientSetupReceived(
+                  conn_ctx.connection_handle,
+                  { { msg.endpoint_id_parameter.value.begin(), msg.endpoint_id_parameter.value.end() } });
+
+                SPDLOG_LOGGER_INFO(
+                  logger_,
+                  "Client setup received conn_id: {0} from: {1} num_versions: {2} role: {3} version: {4}",
+                  conn_ctx.connection_handle,
+                  client_endpoint_id,
+                  msg.num_versions,
+                  static_cast<int>(msg.role_parameter.value.front()),
+                  msg.supported_versions.front());
+
+                conn_ctx.client_version = msg.supported_versions.front();
+
+                // TODO(tievens): Revisit sending sever setup immediately or wait for something else from server
+                SendServerSetup(conn_ctx);
+                conn_ctx.setup_complete = true;
+
+                return true;
+            }
+            case messages::ControlMessageType::FETCH: {
+                messages::MoqFetch msg;
+                msg_bytes >> msg;
+
+                SPDLOG_LOGGER_INFO(logger_, "Fetch API is not supported");
+
+                SendFetchError(
+                  conn_ctx, msg.subscribe_id, messages::FetchError::TRACK_NOT_EXIST, "Track doesn't exist");
+
+                return true;
+            }
             default:
                 SPDLOG_LOGGER_ERROR(logger_,
                                     "Unsupported MOQT message type: {0}, bad stream",
@@ -391,6 +361,12 @@ namespace quicr {
 
         } // End of switch(msg type)
 
+    } catch (...) {
+        SPDLOG_LOGGER_ERROR(logger_, "Unable to parse control message");
+        CloseConnection(conn_ctx.connection_handle,
+                        messages::MoqTerminationReason::PROTOCOL_VIOLATION,
+                        "Control message cannot be parsed");
         return false;
     }
+
 } // namespace quicr
