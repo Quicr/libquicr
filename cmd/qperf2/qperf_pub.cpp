@@ -7,33 +7,35 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
-#include "qperf.hpp"
+#include "qperf_pub.hpp"
 
-#include "inicpp.h"
-#include "utils.hpp"
 
-#include <atomic>
 #include <chrono>
-#include <condition_variable>
 #include <csignal>
 #include <cstdlib>
-#include <functional>
-#include <stack>
 #include <thread>
-
-#include <filesystem>
 
 namespace qperf {
     PerfPublishTrackHandler::PerfPublishTrackHandler(const PerfConfig& perf_config)
-      : PublishTrackHandler(perf_config.full_track_name, perf_config.track_mode, perf_config.priority, perf_config.ttl)
-      , perf_config_(perf_config), terminate_(false)
+      : PublishTrackHandler(perf_config.full_track_name,
+                            perf_config.track_mode,
+                            perf_config.priority,
+                            perf_config.ttl)
+      , perf_config_(perf_config)
+      , terminate_(false)
+      , last_bytes_(0)
+      , test_mode_(qperf::TestMode::kNone)
+      , group_id_(0)
+      , object_id_(0)
+
     {
+        memset(&test_metrics_, '\0', sizeof(test_metrics_));
     }
 
     auto PerfPublishTrackHandler::Create(const std::string& section_name, ini::IniFile& inif)
     {
         PerfConfig perf_config;
-        populate_scenario_fields(section_name, inif, perf_config);
+        PopulateScenarioFields(section_name, inif, perf_config);
         return std::shared_ptr<PerfPublishTrackHandler>(new PerfPublishTrackHandler(perf_config));
     }
 
@@ -41,10 +43,11 @@ namespace qperf {
     {
         switch (status) {
             case Status::kOk: {
-                SPDLOG_INFO("PerfPublishTrackeHandler - status kNotConnected");
-                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
+                SPDLOG_INFO("PerfPublishTrackeHandler - status kOk");
+                auto track_alias = GetTrackAlias();
+                if (track_alias.has_value()) {
                     SPDLOG_INFO("Track alias: {0} is ready to write", track_alias.value());
-                    write_thread_ = SpawnWriter();
+                   write_thread_ = SpawnWriter();
                 }
             } break;
             case Status::kNotConnected:
@@ -73,10 +76,146 @@ namespace qperf {
 
     void PerfPublishTrackHandler::MetricsSampled(const quicr::PublishTrackMetrics& metrics)
     {
-        metrics_ = metrics;
-        SPDLOG_INFO("Metrics...");
-        SPDLOG_INFO("Total objects publics: {}", metrics_.objects_published);
-        SPDLOG_INFO("Total bytes published {}", metrics_.bytes_published);
+        std::lock_guard<std::mutex> _(mutex_);
+        auto now = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+        if (test_mode_ == qperf::TestMode::kRunning && last_bytes_ != 0) { // skip first metric reporting...
+            // calculate bitrate metrics
+            auto diff = std::chrono::duration_cast<std::chrono::seconds>(now - last_metric_time_);
+            std::uint64_t delta_bytes = metrics.bytes_published - last_bytes_;
+            std::uint64_t bitrate = ((delta_bytes) * 8) / diff.count();
+            test_metrics_.bitrate_total += bitrate;
+            test_metrics_.max_publish_bitrate = bitrate > test_metrics_.max_publish_bitrate ? bitrate : test_metrics_.max_publish_bitrate;
+            test_metrics_.min_publish_bitrate = bitrate < test_metrics_.min_publish_bitrate ? bitrate : test_metrics_.min_publish_bitrate;
+            test_metrics_.metric_samples += 1;            
+            test_metrics_.avg_publish_bitrate = test_metrics_.bitrate_total / test_metrics_.metric_samples;
+            SPDLOG_INFO("{}: Bitrate: {} {} delta bytes {}, delta time {}, {}, {}, {}",
+                        perf_config_.test_name,
+                        bitrate,
+                        FormatBitrate(bitrate),
+                        delta_bytes,
+                        diff.count(),
+                        test_metrics_.max_publish_bitrate,
+                        test_metrics_.min_publish_bitrate,
+                        test_metrics_.avg_publish_bitrate);
+        }
+
+        last_metric_time_ = now;
+        last_bytes_ = metrics.bytes_published;
+    }
+
+    std::chrono::time_point<std::chrono::system_clock> PerfPublishTrackHandler::PublishObjectWithMetrics(
+      quicr::BytesSpan object_span)
+    {
+        std::lock_guard<std::mutex> _(mutex_);
+        ObjectTestHeader test_header;
+        memset(&test_header, '\0', sizeof(test_header));
+        if (perf_config_.objects_per_group > 0) {
+            if (!(object_id_ % perf_config_.objects_per_group)) {
+                object_id_ = 0;
+                group_id_ += 1;
+            }
+        } else {
+            SPDLOG_WARN("{} Error - objects per groups <= 0", perf_config_.test_name);
+        }
+
+        quicr::ObjectHeaders object_headers{
+            .group_id = group_id_,
+            .object_id = object_id_,
+            .payload_length = 0, // set later...
+            .priority = perf_config_.priority,
+            .ttl = perf_config_.ttl,
+            .extensions{},
+        };
+
+        // get current time..
+        auto now = std::chrono::system_clock::now();
+        auto duration = now.time_since_epoch();
+
+        // update metrics
+        if (test_metrics_.start_transmit_time == 0) {
+            test_metrics_.start_transmit_time = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
+        }
+
+        // fill out test_header
+        test_header.test_mode = qperf::TestMode::kRunning;
+        test_header.time = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
+
+        // check how much we can write in the header
+        auto header_bytes_to_copy =
+          object_span.size() < sizeof(test_header) ? sizeof(test_header.test_mode) : sizeof(test_header);
+        memcpy((void*)object_span.data(), (void*)&test_header, header_bytes_to_copy);
+        object_headers.payload_length = object_span.size();
+
+        // publish
+        PublishObject(object_headers, object_span);
+
+        SPDLOG_INFO(
+          "PO, RUNNING, {}, {}, {}, {}, {}", perf_config_.test_name, group_id_, object_id_, publish_track_metrics_.objects_published, publish_track_metrics_.bytes_published);             
+
+        // return current time in ms - publish time
+        return now;
+    }
+
+    std::uint64_t PerfPublishTrackHandler::PublishTestComplete()
+    {
+        std::lock_guard<std::mutex> _(mutex_);
+        test_mode_= qperf::TestMode::kComplete;
+        auto now = std::chrono::system_clock::now();
+        auto duration = now.time_since_epoch(); 
+
+        ObjectTestComplete test_complete;
+        memset(&test_complete, '\0', sizeof(test_complete));        
+
+        // start_transmit_time is set when fist object is published
+        test_metrics_.end_transmit_time = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();      
+
+        //test_metrics_.end_transmit_time;
+        test_metrics_.total_published_objects = publish_track_metrics_.objects_published +1;
+        test_metrics_.total_published_bytes = publish_track_metrics_.bytes_published + sizeof(test_complete);
+        test_metrics_.total_objects_dropped_not_ok = publish_track_metrics_.objects_dropped_not_ok;
+        // following are calculated on metrics callback...
+        //test_metrics_.max_bitrate
+        //test_metrics_.min_bitrate
+        //test_metrics_.avg_bitrate
+
+
+
+        test_complete.test_mode = test_mode_;
+        test_complete.time = test_metrics_.end_transmit_time;
+        memcpy(&test_complete.test_metrics, &test_metrics_, sizeof(test_metrics_));
+
+        quicr::Bytes object_data(sizeof(test_complete));
+        memcpy((void*)&object_data[0], (void*)&test_complete, sizeof(test_complete));
+
+        // SAH group_id_ += 1;
+        object_id_ += 1;
+
+        quicr::ObjectHeaders object_headers{
+            .group_id = group_id_,
+            .object_id = object_id_,
+            .payload_length = 0, // set later...
+            .priority = perf_config_.priority,
+            .ttl = perf_config_.ttl,
+            .extensions{},
+        };
+
+        object_headers.payload_length = sizeof(test_complete);
+        PublishObject(object_headers, object_data);
+
+
+        auto total_transmit_time = test_metrics_.end_transmit_time - test_metrics_.start_transmit_time;
+        SPDLOG_INFO(
+          "PO, COMPLETE, {}, {}, {}, {}, {}, {}", perf_config_.test_name, group_id_, object_id_, test_metrics_.total_published_objects, test_metrics_.total_published_bytes, total_transmit_time);
+        SPDLOG_INFO("--------------------------------------------");
+        SPDLOG_INFO("{}", perf_config_.test_name);
+        SPDLOG_INFO("Publish Object - Complete");
+        SPDLOG_INFO("\tTotal transmit time in {} ms", total_transmit_time);        
+        SPDLOG_INFO("\tTotal pubished objects {}, bytes {}", test_metrics_.total_published_objects, test_metrics_.total_published_bytes);
+        SPDLOG_INFO("\tBitrate max {}, min {}, avg {}, {}", test_metrics_.max_publish_bitrate, test_metrics_.min_publish_bitrate, test_metrics_.avg_publish_bitrate, FormatBitrate(static_cast<std::uint32_t>(test_metrics_.avg_publish_bitrate)));
+
+        SPDLOG_INFO("--------------------------------------------");
+
+        return test_complete.time;
     }
 
     std::thread PerfPublishTrackHandler::SpawnWriter()
@@ -86,127 +225,79 @@ namespace qperf {
 
     void PerfPublishTrackHandler::WriteThread()
     {
-        std::vector<std::uint8_t> object_0_buffer(perf_config_.bytes_per_object_0);
-        std::vector<std::uint8_t> object_not_0_buffer(perf_config_.bytes_per_object_not_0);
+        quicr::Bytes object_0_buffer(perf_config_.bytes_per_group_start);
+        quicr::Bytes object_not_0_buffer(perf_config_.bytes_per_group);
 
-        group_id_ = -1;
+        for (std::size_t i = 0; i < object_0_buffer.size(); i++) {
+            object_0_buffer[i] = i % 255;
+        }
+
+        for (std::size_t i = 0; i < object_not_0_buffer.size(); i++) {
+            object_not_0_buffer[i] = i % 255;
+        }  
+
+        group_id_ = 0;
         object_id_ = 0;
 
-        if (perf_config_.transmit_time <= 0)
-        {
+        if (perf_config_.total_test_time <= 0) {
             SPDLOG_WARN("Transmit time <= 0 - stopping test");
             return;
         }
 
-        const std::chrono::time_point<std::chrono::system_clock> start_transmit_time = std::chrono::system_clock::now();            
-        auto transmite_time_ms = std::chrono::milliseconds(perf_config_.transmit_time);
-        auto end_transmit_time = start_transmit_time + transmite_time_ms;         
+        const std::chrono::time_point<std::chrono::system_clock> start_transmit_time = std::chrono::system_clock::now();
+        auto transmit_time_ms = std::chrono::milliseconds(perf_config_.total_test_time);
+        auto end_transmit_time = start_transmit_time + transmit_time_ms;
 
-     
         // Delay befor trasnmitting
         if (perf_config_.start_delay > 0) {
-            const std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();            
+            std::this_thread::sleep_for(std::chrono::milliseconds(33));
+            test_mode_ = qperf::TestMode::kWaitPreTest;
+            SPDLOG_INFO("{} Waiting start delay {} ms", perf_config_.test_name, perf_config_.start_delay);
+            const std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
             auto delay_ms = std::chrono::milliseconds(perf_config_.start_delay);
             auto end_time = start + delay_ms;
-
-            auto start_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(start.time_since_epoch());
-            auto delay_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(delay_ms);
-            auto end_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time.time_since_epoch());
-
             while (!terminate_) {
                 auto now = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
-                auto now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch());
-                if (now > end_time) {
+                if (now >= end_time) {
                     break;
                 }
-                std::this_thread::sleep_for(std::chrono::microseconds(1000));
+                std::this_thread::sleep_for(std::chrono::microseconds(500));
             }
         }
 
         // Transmit
-        SPDLOG_INFO("Starting to transmit...");
-        auto start_transmit = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+        SPDLOG_INFO("{} Start transmitting for {} ms", perf_config_.test_name, perf_config_.total_transmit_time);
+        std::chrono::time_point<std::chrono::system_clock> last_publish_time;
 
+        test_mode_ = qperf::TestMode::kRunning;
         while (!terminate_) {
-            auto start = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
-            if (perf_config_.objects_per_group > 0)
-            {
-                if (!(object_id_ % perf_config_.objects_per_group)) {
-                    auto m = object_id_ % perf_config_.objects_per_group;
-                    object_id_ = 0;
-                    group_id_ += 1;
-                }
-            }
-            else
-            {
-                SPDLOG_WARN("Error - objects per groups <= 0");
-            }
-
-            quicr::ObjectHeaders object_headers{
-                .group_id = group_id_,
-                .object_id = object_id_,
-                .payload_length = 0, // set later...
-                .priority = perf_config_.priority,
-                .ttl = perf_config_.ttl,
-                .track_mode = perf_config_.track_mode,
-                .extensions{},
-            };
-            //SetDefaultPriority(perf_config_.priority);
-            perf_config_.track_mode = quicr::TrackMode::kStreamPerGroup;
-            SetDefaultTrackMode(quicr::TrackMode::kStreamPerGroup);
-
-            SPDLOG_WARN("Priorty = {}", (int)object_headers.priority.value());
-            SPDLOG_WARN("Track mode = {}", (int)object_headers.track_mode.value());
-            if (!object_headers.priority.has_value())
-            {
-                std::cerr << "priority has no value" << std::endl;
-                abort();
-            }
-            if (object_headers.priority > 4)
-            { 
-                std::cerr << "priority  = " << (int)object_headers.priority.value() << std::endl;
-            }
-
+            std::chrono::time_point<std::chrono::system_clock> last_publish_time;
             if (object_id_ == 0) {
-                object_headers.payload_length = perf_config_.bytes_per_object_0;
-                PublishObject(object_headers, object_0_buffer);
+                quicr::BytesSpan objectSpan(object_0_buffer);
+                last_publish_time = PublishObjectWithMetrics(objectSpan);
             } else {
-                object_headers.payload_length = perf_config_.bytes_per_object_not_0;
-                PublishObject(object_headers, object_not_0_buffer);
-            }           
-
-            //auto p = object_headers.priority.value();
-            //SPDLOG_INFO("Publish g:{} o:{} s:{} p:{}", group_id_, object_id_, object_headers.payload_length, p); // (int)object_headers.priority.value(), object_headers.ttl);
+                quicr::BytesSpan objectSpan(object_not_0_buffer);
+                last_publish_time = PublishObjectWithMetrics(objectSpan);
+            }
 
             // Check if we are done...
-            auto current_transmit_time = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
-            if (current_transmit_time >= end_transmit_time)
-            {
-                SPDLOG_INFO("Testing time completed...");
+            if (last_publish_time >= end_transmit_time) {
+                // publish COMPLETE object  - end of test
+                PublishTestComplete();
+                terminate_ = true;
                 return;
-            }           
+            }
 
             // Wait interval
             if (perf_config_.transmit_interval >= 0) {
-                std::uint64_t delay_us = static_cast<std::uint64_t>(1000.0 * perf_config_.transmit_interval);
-                auto delay = std::chrono::microseconds(delay_us);
-                auto end_time = start + delay;
-                while (!terminate_) {
-                    auto now =
-                      std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
-                    auto diff = now - end_time;
-                    if (diff.count() > 0) {
-                        break;
-                    }
-                    std::this_thread::sleep_for(std::chrono::microseconds(1000));
-                }
+                std::uint64_t interval_us = (perf_config_.transmit_interval * 1000.0f);
+                std::this_thread::sleep_for(std::chrono::microseconds(interval_us));
+            } else {
+                SPDLOG_WARN("{} Transmit interval is < 0", perf_config_.test_name);
             }
-            else
-            {
-                SPDLOG_WARN("Transmit interval is < 0");
-            }
-            object_id_ += 1;
+            object_id_ += 1;            
         };
+        SPDLOG_WARN("{} Exiting writer thread.", perf_config_.test_name);
     }
 
     void PerfPublishTrackHandler::StopWriter()
@@ -225,36 +316,93 @@ namespace qperf {
 
     void PerfPubClient::StatusChanged(Status status)
     {
-        std::vector<std::shared_ptr<PerfPublishTrackHandler>> track_handlers;
+        std::lock_guard<std::mutex> _(track_handlers_mutex_);
         switch (status) {
             case Status::kReady:
-                std::cerr << "PerfPubClient - kReady" << std::endl;
-                std::cerr << "path = " << std::filesystem::current_path() << std::endl;
+                SPDLOG_INFO("PerfPubClient - kReady");
                 inif_.load(configfile_);
                 for (const auto& sectionPair : inif_) {
                     const std::string& section_name = sectionPair.first;
-                    const ini::IniSection& section = sectionPair.second;
-                    std::cerr << "section: " << section_name << std::endl;
                     auto pub_handler =
-                      track_handlers.emplace_back(PerfPublishTrackHandler::Create(section_name, inif_));
+                      track_handlers_.emplace_back(PerfPublishTrackHandler::Create(section_name, inif_));
                     PublishTrack(pub_handler);
                 }
                 break;
+
+            case Status::kNotReady:
+                SPDLOG_INFO("PerfPubClient - kNotReady");
+                break;
             case Status::kConnecting:
-                std::cerr << "PerfPubClient - kConnecting" << std::endl;
+                SPDLOG_INFO("PerfPubClient - kConnecting");
+                break;
+            case Status::kDisconnecting:
+                SPDLOG_INFO("PerfPubClient - kDisconnecting");
                 break;
             case Status::kPendingSeverSetup:
-                std::cerr << "PerfPubClient - kPendingSeverSetup" << std::endl;
+                SPDLOG_INFO("PerfPubClient - kPendingSeverSetup");
+                break;
+
+            // All of the rest of these are 'errors' and will set terminate_.
+            case Status::kInternalError:
+                SPDLOG_INFO("PerfPubClient - kInternalError - terminate");
+                terminate_ = true;
+                break;
+            case Status::kInvalidParams:
+                SPDLOG_INFO("PerfPubClient - kInvalidParams - terminate");
+                terminate_ = true;
+                break;
+            case Status::kNotConnected:
+                SPDLOG_INFO("PerfPubClient - kNotConnected - terminate");
+                terminate_ = true;
+                break;
+            case Status::kFailedToConnect:
+                SPDLOG_INFO("PerfPubClient - kFailedToConnect - terminate");
+                terminate_ = true;
                 break;
             default:
-                std::cerr << "PerfPubClient - UKNOWN status" << std::endl;
-                SPDLOG_INFO("Connection failed {0}", static_cast<int>(status));
+                SPDLOG_INFO("PerfPubClient - UNKNOWN - Connection failed {0}", static_cast<int>(status));
                 terminate_ = true;
                 break;
         }
     }
 
     void PerfPubClient::MetricsSampled(const quicr::ConnectionMetrics&) {}
+
+    bool PerfPubClient::GetTerminateStatus()
+    {
+        return terminate_;
+    }
+
+    bool PerfPubClient::HandlersComplete()
+    {
+        std::lock_guard<std::mutex> _(track_handlers_mutex_);
+        bool ret = true;
+        // Don't like this - should be dependent on a 'state'
+        if (track_handlers_.size() > 0) {
+            for (auto handler : track_handlers_) {
+                if (!handler->IsComplete()) {
+                    ret = false;
+                    break;
+                }
+            }
+        } else {
+            ret = false;
+        }
+        return ret;
+    }
+
+    void PerfPubClient::Terminate()
+    {
+        std::lock_guard<std::mutex> _(track_handlers_mutex_);
+        for (auto handler : track_handlers_) {
+            // Stop the handler writer thread...
+            handler->StopWriter();
+            // Unpublish the track
+            UnpublishTrack(handler);
+        }
+        // we are done
+        terminate_ = true;
+    }
 }
 
 bool terminate = false;
@@ -310,9 +458,18 @@ main(int argc, char** argv)
 
     const auto logger = spdlog::stderr_color_mt("PERF");
 
-    auto client = std::make_shared<qperf::PerfPubClient>(client_config, result["config"].as<std::string>());
+    auto config_file = result["config"].as<std::string>();
+    SPDLOG_INFO("--------------------------------------------");
+    SPDLOG_INFO("Starting...pub");
+    SPDLOG_INFO("\tconfig file {}", config_file);
+    SPDLOG_INFO("\tclient config:");
+    SPDLOG_INFO("\t\tconnect_uri = {}", client_config.connect_uri);
+    SPDLOG_INFO("\t\tendpoint = {}", client_config.endpoint_id);
+    SPDLOG_INFO("--------------------------------------------");
 
     std::signal(SIGINT, HandleTerminateSignal);
+
+    auto client = std::make_shared<qperf::PerfPubClient>(client_config, config_file);
 
     try {
         client->Connect();
@@ -325,100 +482,11 @@ main(int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    defer(client->Disconnect());
-
-    while (!terminate) {
+    while (!terminate && !client->HandlersComplete()) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
-    /*
-        if (terminate) {
-            SPDLOG_LOGGER_INFO(logger, "Received interrupt, exiting early");
-            return EXIT_SUCCESS;
-        }
-
-        SPDLOG_LOGGER_INFO(logger, "+==========================================+");
-        SPDLOG_LOGGER_INFO(logger, "| Starting test of duration {0} seconds", duration.count());
-        SPDLOG_LOGGER_INFO(logger, "+-------------------------------------------");
-        SPDLOG_LOGGER_INFO(logger, "| *                 Tracks: {0}", tracks);
-
-        if (interval != std::chrono::microseconds::zero()) {
-            const std::uint64_t bitrate = (msg_size * 8) / (interval.count() / 1e6);
-            const std::uint64_t expected_objects = 1e6 / interval.count();
-            SPDLOG_LOGGER_INFO(logger, "| *         Approx bitrate: {0}", FormatBitrate(bitrate));
-            SPDLOG_LOGGER_INFO(logger, "| *          Total bitrate: {0}", FormatBitrate(bitrate * tracks));
-            SPDLOG_LOGGER_INFO(logger, "| *     Expected Objects/s: {0}", expected_objects);
-            SPDLOG_LOGGER_INFO(logger, "| *        Total Objects/s: {0}", (expected_objects * tracks));
-            SPDLOG_LOGGER_INFO(logger, "| * Total Expected Objects: {0}", (expected_objects * tracks *
-       duration.count()));
-        }
-
-        SPDLOG_LOGGER_INFO(logger, "+==========================================+");
-
-        std::atomic_size_t finished_publishers = 0;
-        std::atomic_size_t total_attempted_published_objects = 0;
-        quicr::Bytes data(msg_size, 0);
-
-        std::vector<std::thread> threads;
-        defer(for (auto& thread : threads) { thread.join(); });
-
-        const auto start = std::chrono::high_resolution_clock::now();
-
-        for (const auto& handler : track_handlers) {
-            threads.emplace_back([&] {
-                std::size_t group = 0;
-                std::size_t objects = 0;
-
-                ::LoopFor(duration, interval, [&] {
-                    if (objects++ == group_size) {
-                        ++group;
-                        objects = 0;
-                    }
-
-                    quicr::ObjectHeaders header = {
-                        .group_id = group,
-                        .object_id = objects,
-                        .payload_length = data.size(),
-                        .priority = priority,
-                        .ttl = expiry_age,
-                        .track_mode = track_mode,
-                    };
-
-                    handler->PublishObject(header, data);
-                    ++total_attempted_published_objects;
-                });
-
-                ++finished_publishers;
-                cv.notify_one();
-            });
-        }
-
-        cv.wait(lock, [&] { return terminate.load() || finished_publishers.load() == tracks; });
-
-        const auto end = std::chrono::high_resolution_clock::now();
-        const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(end - start);
-
-        SPDLOG_LOGGER_INFO(logger, "| Test complete, collecting metrics...");
-        cv.wait_for(lock, std::chrono::seconds(10));
-
-        std::size_t total_objects_published = 0;
-        std::size_t total_bytes_published = 0;
-
-        for (const auto& handler : track_handlers) {
-            total_objects_published += handler->GetMetrics().objects_published;
-            total_bytes_published += handler->GetMetrics().bytes_published;
-        }
-
-        SPDLOG_LOGGER_INFO(logger, "+==========================================+");
-        SPDLOG_LOGGER_INFO(logger, "| Results");
-        SPDLOG_LOGGER_INFO(logger, "+-------------------------------------------");
-        SPDLOG_LOGGER_INFO(logger, "| *          Duration: {0} seconds", elapsed.count());
-        SPDLOG_LOGGER_INFO(logger, "| * Attempted Objects: {0}", total_attempted_published_objects.load());
-        SPDLOG_LOGGER_INFO(logger, "| * Published Objects: {0}", total_objects_published);
-        SPDLOG_LOGGER_INFO(logger, "| *   Published Bytes: {0}", total_bytes_published);
-        SPDLOG_LOGGER_INFO(logger, "+==========================================+");\
-
-        */
-
+    client->Terminate();
+    client->Disconnect();
     return EXIT_SUCCESS;
 }
