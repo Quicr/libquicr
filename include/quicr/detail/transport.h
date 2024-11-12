@@ -12,6 +12,7 @@
 #include <chrono>
 #include <quicr/common.h>
 #include <quicr/config.h>
+#include <quicr/fetch_track_handler.h>
 #include <quicr/metrics.h>
 #include <quicr/publish_track_handler.h>
 #include <quicr/subscribe_track_handler.h>
@@ -142,10 +143,18 @@ namespace quicr {
          * @brief Unpublish track
          *
          * @param connection_handle           Connection ID from transport for the QUIC connection context
-         * @param track_handler    Track handler used when published track
+         * @param track_handler               Track handler used when published track
          */
         void UnpublishTrack(ConnectionHandle connection_handle,
                             const std::shared_ptr<PublishTrackHandler>& track_handler);
+
+        /**
+         * @brief Fetch track
+         *
+         * @param conn_id                   Connection ID to send subscribe
+         * @param track_handler             Track handler used for fetching
+         */
+        void FetchTrack(TransportConnId conn_id, std::shared_ptr<FetchTrackHandler> track_handler);
 
         /**
          * @brief Get the status of the Client
@@ -226,6 +235,9 @@ namespace quicr {
             std::map<TrackNamespaceHash, std::map<TrackNameHash, std::shared_ptr<PublishTrackHandler>>>
               pub_tracks_by_name;
 
+            /// Fetch Tracks by subscribe ID
+            std::map<messages::SubscribeId, std::shared_ptr<FetchTrackHandler>> fetch_tracks_by_sub_id;
+
             /// Published tracks by quic transport data context ID.
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
 
@@ -268,6 +280,13 @@ namespace quicr {
                                 uint64_t track_alias,
                                 messages::SubscribeError error,
                                 const std::string& reason);
+        void SendFetch(ConnectionContext& conn_ctx,
+                       uint64_t subscribe_id,
+                       const FullTrackName& tfn,
+                       messages::ObjectPriority priority,
+                       messages::GroupOrder group_order,
+                       messages::GroupId start_group,
+                       messages::GroupId end_group);
         void SendFetchError(ConnectionContext& conn_ctx,
                             uint64_t subscribe_id,
                             messages::FetchError error,

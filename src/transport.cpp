@@ -6,7 +6,6 @@
 #include <sstream>
 
 namespace quicr {
-
     using namespace quicr::messages;
 
     static std::optional<std::tuple<std::string, uint16_t>> ParseConnectUri(const std::string& connect_uri)
@@ -260,7 +259,6 @@ namespace quicr {
                                   messages::ObjectPriority priority,
                                   messages::GroupOrder group_order)
     {
-
         auto subscribe = MoqSubscribe{};
         subscribe.subscribe_id = subscribe_id;
         subscribe.track_alias = th.track_fullname_hash;
@@ -290,7 +288,6 @@ namespace quicr {
                                     uint64_t expires,
                                     bool content_exists)
     {
-
         auto subscribe_ok = MoqSubscribeOk{};
         subscribe_ok.subscribe_id = subscribe_id;
         subscribe_ok.expires = expires;
@@ -308,7 +305,6 @@ namespace quicr {
 
     void Transport::SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason)
     {
-
         auto subscribe_done = MoqSubscribeDone{};
         subscribe_done.subscribe_id = subscribe_id;
         subscribe_done.reason_phrase.assign(reason.begin(), reason.end());
@@ -328,7 +324,6 @@ namespace quicr {
 
     void Transport::SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id)
     {
-
         auto unsubscribe = MoqUnsubscribe{};
         unsubscribe.subscribe_id = subscribe_id;
 
@@ -348,7 +343,6 @@ namespace quicr {
                                        SubscribeError error,
                                        const std::string& reason)
     {
-
         auto subscribe_err = MoqSubscribeError{};
         subscribe_err.subscribe_id = 0x1;
         subscribe_err.err_code = static_cast<uint64_t>(error);
@@ -369,12 +363,37 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
+    void Transport::SendFetch(ConnectionContext& conn_ctx,
+                              uint64_t subscribe_id,
+                              const FullTrackName& tfn,
+                              messages::ObjectPriority priority,
+                              messages::GroupOrder group_order,
+                              messages::GroupId start_group,
+                              messages::GroupId end_group)
+    {
+        MoqFetch fetch;
+        fetch.subscribe_id = subscribe_id;
+        fetch.track_namespace = tfn.name_space;
+        fetch.track_name.assign(tfn.name.begin(), tfn.name.end());
+        fetch.priority = priority;
+        fetch.group_order = group_order;
+        fetch.start_group = start_group;
+        fetch.start_object = 0; // Request the start of the group
+        fetch.end_group = end_group;
+        fetch.end_object = 0; // Request the whole group
+
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqFetch) + tfn.name.size() + tfn.name_space.size());
+        buffer << fetch;
+
+        SendCtrlMsg(conn_ctx, buffer);
+    }
+
     void Transport::SendFetchError(ConnectionContext& conn_ctx,
                                    [[maybe_unused]] uint64_t subscribe_id,
                                    FetchError error,
                                    const std::string& reason)
     {
-
         auto fetch_err = MoqFetchError{};
         fetch_err.subscribe_id = 0x1;
         fetch_err.err_code = static_cast<uint64_t>(error);
@@ -415,7 +434,7 @@ namespace quicr {
 
         auto sid = conn_it->second.current_subscribe_id++;
 
-        SPDLOG_LOGGER_DEBUG(logger_, "subscribe id to add to memory: {0}", sid);
+        SPDLOG_LOGGER_DEBUG(logger_, "subscribe id (from subscribe) to add to memory: {0}", sid);
 
         track_handler->SetSubscribeId(sid);
 
@@ -446,7 +465,6 @@ namespace quicr {
         handler.SetSubscribeId(std::nullopt);
 
         if (subscribe_id.has_value()) {
-
             SendUnsubscribe(conn_ctx, *subscribe_id);
 
             SPDLOG_LOGGER_DEBUG(logger_, "Removed subscribe track subscribe id: {0}", *subscribe_id);
@@ -481,7 +499,6 @@ namespace quicr {
         if (pub_ns_it != conn_it->second.pub_tracks_by_name.end()) {
             auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
             if (pub_n_it != pub_ns_it->second.end()) {
-
                 // Send subscribe done if track has subscriber and is sending
                 if (pub_n_it->second->GetStatus() == PublishTrackHandler::Status::kOk &&
                     pub_n_it->second->GetSubscribeId().has_value()) {
@@ -596,6 +613,39 @@ namespace quicr {
         // Hold ref to track handler
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
+    }
+
+    void Transport::FetchTrack(TransportConnId conn_id, std::shared_ptr<FetchTrackHandler> track_handler)
+    {
+        const auto& tfn = track_handler->GetFullTrackName();
+        auto th = TrackHash(tfn);
+
+        track_handler->SetTrackAlias(th.track_fullname_hash);
+
+        SPDLOG_LOGGER_INFO(logger_, "Fetch track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
+
+        std::lock_guard<std::mutex> _(state_mutex_);
+        auto conn_it = connections_.find(conn_id);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "Fetch track conn_id: {0} does not exist.", conn_id);
+            return;
+        }
+
+        auto sid = conn_it->second.current_subscribe_id++;
+
+        SPDLOG_LOGGER_DEBUG(logger_, "subscribe id (from fetch) to add to memory: {0}", sid);
+
+        track_handler->SetSubscribeId(sid);
+
+        auto priority = track_handler->GetPriority();
+        auto group_order = track_handler->GetGroupOrder();
+        auto start_group = track_handler->GetStartGroup();
+        auto end_group = track_handler->GetEndGroup();
+
+        // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
+        conn_it->second.fetch_tracks_by_sub_id[sid] = std::move(track_handler);
+
+        SendFetch(conn_it->second, sid, tfn, priority, group_order, start_group, end_group);
     }
 
     PublishTrackHandler::PublishObjectStatus Transport::SendObject(PublishTrackHandler& track_handler,
@@ -885,13 +935,11 @@ namespace quicr {
 
                 MoqObjectDatagram msg;
                 if (buffer >> msg) {
-
                     ////TODO(tievens): Considering moving lock to here... std::lock_guard<std::mutex> _(state_mutex_);
 
                     auto& conn_ctx = connections_[conn_id];
                     auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
                     if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-
                         conn_ctx.metrics.rx_dgram_unknown_subscribe_id++;
 
                         SPDLOG_LOGGER_DEBUG(logger_,
@@ -967,7 +1015,6 @@ namespace quicr {
                                           const DataContextId data_ctx_id,
                                           const QuicDataContextMetrics& quic_data_context_metrics)
     {
-
         const auto& conn = connections_[conn_id];
         const auto& pub_th_it = conn.pub_tracks_by_data_ctx_id.find(data_ctx_id);
 
