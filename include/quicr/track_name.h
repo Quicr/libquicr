@@ -282,8 +282,12 @@ namespace quicr {
         constexpr TrackHash(const uint64_t name_space, const uint64_t name) noexcept
           : track_namespace_hash{ name_space }
           , track_name_hash{ name }
-          , track_fullname_hash{ (name_space ^ (name << 1)) << 1 >> 2 }
         {
+            hash_combine(track_fullname_hash, track_namespace_hash);
+            hash_combine(track_fullname_hash, track_name_hash);
+
+            // TODO(tievens): Evaluate; change hash to be more than 62 bits to avoid collisions
+            track_fullname_hash = (track_fullname_hash << 2) >> 2;
         }
 
         TrackHash(const FullTrackName& ftn) noexcept
@@ -293,6 +297,8 @@ namespace quicr {
         {
             hash_combine(track_fullname_hash, track_namespace_hash);
             hash_combine(track_fullname_hash, track_name_hash);
+
+            // TODO(tievens): Evaluate; change hash to be more than 62 bits to avoid collisions
             track_fullname_hash = (track_fullname_hash << 2) >> 2;
         }
     };
