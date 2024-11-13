@@ -352,30 +352,30 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
-                auto th = TrackHash(tfn);
 
-                if (FetchReceived(conn_ctx.connection_handle,
-                                  msg.subscribe_id,
-                                  tfn,
-                                  {
-                                    .priority = msg.priority,
-                                    .group_order = msg.group_order,
-                                    .start_group = msg.start_group,
-                                    .start_object = msg.start_object,
-                                    .end_group = msg.end_group,
-                                    .end_object = msg.end_object,
-                                  })) {
-                    conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
-
-                    if (msg.subscribe_id > conn_ctx.current_subscribe_id) {
-                        conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
-                    }
-
-                    SendFetchOk(conn_ctx, msg.subscribe_id, msg.group_order, false, 0, 0);
-                } else {
+                if (!FetchReceived(conn_ctx.connection_handle,
+                                   msg.subscribe_id,
+                                   tfn,
+                                   { .priority = msg.priority,
+                                     .group_order = msg.group_order,
+                                     .start_group = msg.start_group,
+                                     .start_object = msg.start_object,
+                                     .end_group = msg.end_group,
+                                     .end_object = msg.end_object })) {
                     SendFetchError(
-                      conn_ctx, msg.subscribe_id, messages::FetchError::TRACK_NOT_EXIST, "Track doesn't exist");
+                      conn_ctx, msg.subscribe_id, messages::FetchError::kTrackDoesNotExist, "Track does not exist");
+
+                    return true;
                 }
+
+                auto th = TrackHash(tfn);
+                conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
+
+                if (msg.subscribe_id > conn_ctx.current_subscribe_id) {
+                    conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
+                }
+
+                SendFetchOk(conn_ctx, msg.subscribe_id, msg.group_order, false, 0, 0);
 
                 return true;
             }
