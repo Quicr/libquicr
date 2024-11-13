@@ -385,7 +385,7 @@ namespace quicr {
         fetch.end_object = end_object;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqFetch) + tfn.name.size() + tfn.name_space.size());
+        buffer.reserve(MoqFetch::SizeOf(fetch));
         buffer << fetch;
 
         SendCtrlMsg(conn_ctx, buffer);

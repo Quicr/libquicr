@@ -348,6 +348,11 @@ namespace quicr::messages {
         GroupId end_group;
         ObjectId end_object;
         std::vector<MoqParameter> params;
+
+        static inline std::size_t SizeOf(const MoqFetch& fetch) noexcept
+        {
+            return sizeof(MoqFetch) + fetch.track_namespace.size() + fetch.track_name.size();
+        }
     };
 
     BytesSpan operator>>(BytesSpan buffer, MoqFetch& msg);
