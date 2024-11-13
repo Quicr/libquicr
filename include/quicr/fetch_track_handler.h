@@ -169,7 +169,7 @@ namespace quicr {
         }
 
       private:
-        Status status_{ Status::kNotConnected };
+        Status status_{ Status::kPendingResponse };
         messages::ObjectPriority priority_;
         messages::GroupOrder group_order_;
         messages::GroupId start_group_;
