@@ -74,10 +74,10 @@ namespace qperf {
                                                   const std::optional<uint64_t> track_alias = std::nullopt) noexcept
     {
         return {
-            { track_namespace.begin(), track_namespace.end() },
+            quicr::TrackNamespace{ quicr::Bytes{ track_namespace.begin(), track_namespace.end() } },
             { track_name.begin(), track_name.end() },
             track_alias,
-        };
+        };        
     }
 
     static bool PopulateScenarioFields(const std::string section_name, ini::IniFile& inif, PerfConfig& perf_config)
@@ -95,15 +95,11 @@ namespace qperf {
         std::string track_mode_ini_str = inif[section_name]["track_mode"].as<std::string>();
         if (track_mode_ini_str == "datagram") {
             perf_config.track_mode = quicr::TrackMode::kDatagram;
-        } else if (track_mode_ini_str == "perobject") {
-            perf_config.track_mode = quicr::TrackMode::kStreamPerObject;
-        } else if (track_mode_ini_str == "pergroup") {
-            perf_config.track_mode = quicr::TrackMode::kStreamPerGroup;
-        } else if (track_mode_ini_str == "pertrack") {
-            perf_config.track_mode = quicr::TrackMode::kStreamPerTrack;
+        } else if (track_mode_ini_str == "stream") {
+            perf_config.track_mode = quicr::TrackMode::kStream;
         } else {
-            perf_config.track_mode = quicr::TrackMode::kStreamPerGroup;
-            SPDLOG_WARN("Invalid or missing track mode in scenario. Using default `pergroup`");
+            perf_config.track_mode = quicr::TrackMode::kStream;
+            SPDLOG_WARN("Invalid or missing track mode in scenario. Using default `stream`");
         }
 
         perf_config.priority = inif[section_name]["priority"].as<std::uint32_t>();

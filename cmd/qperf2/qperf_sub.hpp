@@ -36,11 +36,15 @@ namespace qperf {
         std::uint64_t start_data_time_;
         std::uint64_t total_objects_;
         std::uint64_t total_bytes_;
-        std::uint32_t test_identifier_;        
+        std::uint32_t test_identifier_;     
+        qperf::TestMode test_mode_;   
         
         std::uint64_t max_bitrate_;
         std::uint64_t min_bitrate_;
         double avg_bitrate_;    
+
+        std::uint32_t metric_samples_;
+        std::uint64_t bitrate_total_;
 
         std::uint64_t max_object_time_delta_;
         std::uint64_t min_object_time_delta_;
@@ -52,10 +56,9 @@ namespace qperf {
         double avg_object_arrival_delta_;   
         std::uint64_t total_arrival_delta_;
 
-        std::uint32_t metric_samples_;
-        std::uint64_t bitrate_total_;
+
         
-        qperf::TestMode test_mode_;
+
     };
 
     class PerfSubClient : public quicr::Client

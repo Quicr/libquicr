@@ -28,7 +28,7 @@ namespace qperf {
      * @details Subscribe track handler used for the subscribe command line option.
      */
     PerfSubscribeTrackHandler::PerfSubscribeTrackHandler(const PerfConfig& perf_config, std::uint32_t test_identifier)
-      : SubscribeTrackHandler(perf_config.full_track_name)
+      : SubscribeTrackHandler(perf_config.full_track_name, perf_config.priority, quicr::messages::GroupOrder::kOriginalPublisherOrder)
       , terminate_(false)
       , perf_config_(perf_config)
       , last_bytes_(0)
@@ -155,15 +155,15 @@ namespace qperf {
             }
 
             total_time_delta_ += transmit_delta;
-            max_object_time_delta_ = transmit_delta > max_object_time_delta_ ? transmit_delta : max_object_time_delta_;
-            min_object_time_delta_ = transmit_delta < min_object_time_delta_ ? transmit_delta : min_object_time_delta_;
+            max_object_time_delta_ = transmit_delta > (std::int64_t)max_object_time_delta_ ? transmit_delta : (std::int64_t)max_object_time_delta_;
+            min_object_time_delta_ = transmit_delta < (std::int64_t)min_object_time_delta_ ? transmit_delta : (std::int64_t)min_object_time_delta_;
 
             if (!first_pass) {
                 total_arrival_delta_ += arrival_delta;
                 max_object_arrival_delta_ =
-                  arrival_delta > max_object_arrival_delta_ ? arrival_delta : max_object_arrival_delta_;
+                  arrival_delta > (std::int64_t)max_object_arrival_delta_ ? arrival_delta : (std::int64_t)max_object_arrival_delta_;
                 min_object_arrival_delta_ =
-                  arrival_delta < min_object_arrival_delta_ ? arrival_delta : min_object_arrival_delta_;
+                  arrival_delta < (std::int64_t)min_object_arrival_delta_ ? arrival_delta : (std::int64_t)min_object_arrival_delta_;
             }
 
             first_pass = false;
@@ -396,25 +396,21 @@ main(int argc, char** argv)
         return EXIT_SUCCESS;
     }
 
-    const quicr::TransportConfig config{
-        .tls_cert_filename = "",
-        .tls_key_filename = "",
-        .time_queue_max_duration = 5000,
-        .use_reset_wait_strategy = false,
-        .quic_qlog_path = "",
-    };
+    quicr::TransportConfig config;
+    config.tls_cert_filename = "";
+    config.tls_key_filename = "";
+    config.time_queue_max_duration = 5000;
+    config.use_reset_wait_strategy = false;
+    config.quic_qlog_path = "";
 
     auto endpoint_test_id =
       result["endpoint_id"].as<std::string>() + ":" + std::to_string(result["test_id"].as<std::uint32_t>());
 
-    const quicr::ClientConfig client_config{
-        {
-          .endpoint_id = endpoint_test_id,
-          .transport_config = config,
-          .metrics_sample_ms = 5000,
-        },
-        .connect_uri = result["connect_uri"].as<std::string>(),
-    };
+    quicr::ClientConfig client_config;
+    client_config.connect_uri = result["connect_uri"].as<std::string>();
+    client_config.endpoint_id = endpoint_test_id;
+    client_config.metrics_sample_ms = 5000;    
+    client_config.transport_config = config;
 
     auto log_id = endpoint_test_id;
 

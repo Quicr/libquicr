@@ -118,14 +118,12 @@ namespace qperf {
             SPDLOG_WARN("{} Error - objects per groups <= 0", perf_config_.test_name);
         }
 
-        quicr::ObjectHeaders object_headers{
-            .group_id = group_id_,
-            .object_id = object_id_,
-            .payload_length = 0, // set later...
-            .priority = perf_config_.priority,
-            .ttl = perf_config_.ttl,
-            .extensions{},
-        };
+        quicr::ObjectHeaders object_headers;
+        object_headers.group_id = group_id_;
+        object_headers.object_id = object_id_;
+        object_headers.payload_length = 0; // set later
+        object_headers.priority = perf_config_.priority;
+        object_headers.ttl = perf_config_.ttl;
 
         // get current time..
         auto now = std::chrono::system_clock::now();
@@ -190,15 +188,13 @@ namespace qperf {
         // SAH group_id_ += 1;
         object_id_ += 1;
 
-        quicr::ObjectHeaders object_headers{
-            .group_id = group_id_,
-            .object_id = object_id_,
-            .payload_length = 0, // set later...
-            .priority = perf_config_.priority,
-            .ttl = perf_config_.ttl,
-            .extensions{},
-        };
-
+        quicr::ObjectHeaders object_headers;
+        object_headers.group_id = group_id_;
+        object_headers.object_id = object_id_;
+        object_headers.payload_length = 0;
+        object_headers.priority = perf_config_.priority;
+        object_headers.ttl = perf_config_.ttl;
+        
         object_headers.payload_length = sizeof(test_complete);
         PublishObject(object_headers, object_data);
 
@@ -439,22 +435,21 @@ main(int argc, char** argv)
         return EXIT_SUCCESS;
     }
 
-    const quicr::TransportConfig config{
-        .tls_cert_filename = "",
-        .tls_key_filename = "",
-        .time_queue_max_duration = 5000,
-        .use_reset_wait_strategy = false,
-        .quic_qlog_path = "",
-    };
+    quicr::TransportConfig config;
+    config.tls_cert_filename = "";
+    config.tls_key_filename = "";
+    config.time_queue_max_duration = 5000;
+    config.use_reset_wait_strategy = false;
+    config.quic_qlog_path = "";
 
-    const quicr::ClientConfig client_config{
-        {
-          .endpoint_id = result["endpoint_id"].as<std::string>(),
-          .transport_config = config,
-          .metrics_sample_ms = 5000,
-        },
-        .connect_uri = result["connect_uri"].as<std::string>(),
-    };
+
+    quicr::ClientConfig client_config;
+    client_config.endpoint_id = result["endpoint_id"].as<std::string>();
+    client_config.metrics_sample_ms = 5000;
+    client_config.transport_config = config;
+    client_config.connect_uri = result["connect_uri"].as<std::string>();
+
+
 
     const auto logger = spdlog::stderr_color_mt("PERF");
 
