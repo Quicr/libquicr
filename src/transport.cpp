@@ -369,7 +369,9 @@ namespace quicr {
                               messages::ObjectPriority priority,
                               messages::GroupOrder group_order,
                               messages::GroupId start_group,
-                              messages::GroupId end_group)
+                              messages::GroupId start_object,
+                              messages::GroupId end_group,
+                              messages::GroupId end_object)
     {
         MoqFetch fetch;
         fetch.subscribe_id = subscribe_id;
@@ -378,13 +380,34 @@ namespace quicr {
         fetch.priority = priority;
         fetch.group_order = group_order;
         fetch.start_group = start_group;
-        fetch.start_object = 0; // Request the start of the group
+        fetch.start_object = start_object;
         fetch.end_group = end_group;
-        fetch.end_object = 0; // Request the whole group
+        fetch.end_object = end_object;
 
         Bytes buffer;
         buffer.reserve(sizeof(MoqFetch) + tfn.name.size() + tfn.name_space.size());
         buffer << fetch;
+
+        SendCtrlMsg(conn_ctx, buffer);
+    }
+
+    void Transport::SendFetchOk(ConnectionContext& conn_ctx,
+                                uint64_t subscribe_id,
+                                messages::GroupOrder group_order,
+                                bool end_of_track,
+                                messages::GroupId largest_group,
+                                messages::GroupId largest_object)
+    {
+        MoqFetchOk fetch_ok;
+        fetch_ok.subscribe_id = subscribe_id;
+        fetch_ok.group_order = group_order;
+        fetch_ok.end_of_track = end_of_track;
+        fetch_ok.largest_group = largest_group;
+        fetch_ok.largest_object = largest_object;
+
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqFetchOk));
+        buffer << fetch_ok;
 
         SendCtrlMsg(conn_ctx, buffer);
     }
@@ -640,12 +663,14 @@ namespace quicr {
         auto priority = track_handler->GetPriority();
         auto group_order = track_handler->GetGroupOrder();
         auto start_group = track_handler->GetStartGroup();
+        auto start_object = track_handler->GetStartObject();
         auto end_group = track_handler->GetEndGroup();
+        auto end_object = track_handler->GetEndObject();
 
         // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
         conn_it->second.fetch_tracks_by_sub_id[sid] = std::move(track_handler);
 
-        SendFetch(conn_it->second, sid, tfn, priority, group_order, start_group, end_group);
+        SendFetch(conn_it->second, sid, tfn, priority, group_order, start_group, start_object, end_group, end_object);
     }
 
     PublishTrackHandler::PublishObjectStatus Transport::SendObject(PublishTrackHandler& track_handler,

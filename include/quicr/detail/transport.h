@@ -286,7 +286,15 @@ namespace quicr {
                        messages::ObjectPriority priority,
                        messages::GroupOrder group_order,
                        messages::GroupId start_group,
-                       messages::GroupId end_group);
+                       messages::GroupId start_object,
+                       messages::GroupId end_group,
+                       messages::GroupId end_object);
+        void SendFetchOk(ConnectionContext& conn_ctx,
+                         uint64_t subscribe_id,
+                         messages::GroupOrder group_order,
+                         bool end_of_track,
+                         messages::GroupId largest_group_id,
+                         messages::GroupId largest_object_id);
         void SendFetchError(ConnectionContext& conn_ctx,
                             uint64_t subscribe_id,
                             messages::FetchError error,

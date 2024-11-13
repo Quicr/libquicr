@@ -37,6 +37,11 @@ namespace quicr {
     {
     }
 
+    bool Server::FetchReceived(ConnectionHandle, uint64_t, const FullTrackName&, const FetchAttributes&)
+    {
+        return false;
+    }
+
     void Server::ResolveSubscribe(ConnectionHandle, uint64_t, const SubscribeResponse&) {}
 
     void Server::BindPublisherTrack(TransportConnId conn_id,
@@ -161,7 +166,7 @@ namespace quicr {
                     return true;
                 }
 
-                sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kSubscribeError);
+                sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kError);
                 RemoveSubscribeTrack(conn_ctx, *sub_it->second);
 
                 return true;
@@ -346,10 +351,31 @@ namespace quicr {
                 messages::MoqFetch msg;
                 msg_bytes >> msg;
 
-                SPDLOG_LOGGER_INFO(logger_, "Fetch API is not supported");
+                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+                auto th = TrackHash(tfn);
 
-                SendFetchError(
-                  conn_ctx, msg.subscribe_id, messages::FetchError::TRACK_NOT_EXIST, "Track doesn't exist");
+                if (FetchReceived(conn_ctx.connection_handle,
+                                  msg.subscribe_id,
+                                  tfn,
+                                  {
+                                    .priority = msg.priority,
+                                    .group_order = msg.group_order,
+                                    .start_group = msg.start_group,
+                                    .start_object = msg.start_object,
+                                    .end_group = msg.end_group,
+                                    .end_object = msg.end_object,
+                                  })) {
+                    conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
+
+                    if (msg.subscribe_id > conn_ctx.current_subscribe_id) {
+                        conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
+                    }
+
+                    SendFetchOk(conn_ctx, msg.subscribe_id, msg.group_order, false, 0, 0);
+                } else {
+                    SendFetchError(
+                      conn_ctx, msg.subscribe_id, messages::FetchError::TRACK_NOT_EXIST, "Track doesn't exist");
+                }
 
                 return true;
             }

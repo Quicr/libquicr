@@ -357,7 +357,7 @@ namespace quicr::messages {
     {
         SubscribeId subscribe_id;
         GroupOrder group_order;
-        uint8_t end_of_track;
+        bool end_of_track;
         uint64_t largest_group{ 0 };
         uint64_t largest_object{ 0 };
         std::vector<MoqParameter> params;

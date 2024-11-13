@@ -38,10 +38,10 @@ namespace quicr {
         {
             kOk = 0,
             kNotConnected,
-            kSubscribeError,
+            kError,
             kNotAuthorized,
             kNotSubscribed,
-            kPendingSubscribeResponse,
+            kPendingResponse,
             kSendingUnsubscribe ///< In this state, callbacks will not be called
         };
 

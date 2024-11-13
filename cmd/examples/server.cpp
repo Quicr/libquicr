@@ -141,7 +141,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                 case Status::kNotConnected:
                     reason = "not connected";
                     break;
-                case Status::kSubscribeError:
+                case Status::kError:
                     reason = "subscribe error";
                     break;
                 case Status::kNotAuthorized:
@@ -150,7 +150,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                 case Status::kNotSubscribed:
                     reason = "not subscribed";
                     break;
-                case Status::kPendingSubscribeResponse:
+                case Status::kPendingResponse:
                     reason = "pending subscribe response";
                     break;
                 case Status::kSendingUnsubscribe:
@@ -499,6 +499,23 @@ class MyServer : public quicr::Server
                 qserver_vars::pub_subscribes[th.track_fullname_hash][conn_h] = sub_track_h;
             }
         }
+    }
+
+    bool FetchReceived(quicr::ConnectionHandle connection_handle,
+                       uint64_t subscribe_id,
+                       const quicr::FullTrackName& track_full_name,
+                       const quicr::FetchAttributes& attributes) override
+    {
+        auto th = quicr::TrackHash(track_full_name);
+
+        auto anno_ns_it = qserver_vars::announce_active.find(th.track_namespace_hash);
+        if (anno_ns_it == qserver_vars::announce_active.end()) {
+            SPDLOG_INFO("Fetch to track namespace hash: {0}, does not have any announcements.",
+                        th.track_namespace_hash);
+            return false;
+        }
+
+        return true;
     }
 };
 

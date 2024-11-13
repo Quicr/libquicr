@@ -214,6 +214,11 @@ namespace quicr {
          */
         virtual void UnsubscribeReceived(ConnectionHandle connection_handle, uint64_t subscribe_id) = 0;
 
+        virtual bool FetchReceived(ConnectionHandle connection_handle,
+                                   uint64_t subscribe_id,
+                                   const FullTrackName& track_full_name,
+                                   const FetchAttributes& attributes);
+
         ///@}
         // --END OF CALLBACKS ----------------------------------------------------------------------------------
 

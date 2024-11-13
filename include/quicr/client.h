@@ -220,6 +220,13 @@ namespace quicr {
             }
         }
 
+        void FetchTrack(std::shared_ptr<FetchTrackHandler> track_handler)
+        {
+            if (connection_handle_.has_value()) {
+                Transport::FetchTrack(connection_handle_.value(), std::move(track_handler));
+            }
+        }
+
         /**
          * @brief Get the connection handle
          *
