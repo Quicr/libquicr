@@ -48,7 +48,8 @@ namespace quicr {
 
     void Server::BindPublisherTrack(TransportConnId conn_id,
                                     uint64_t subscribe_id,
-                                    const std::shared_ptr<PublishTrackHandler>& track_handler)
+                                    const std::shared_ptr<PublishTrackHandler>& track_handler,
+                                    PublishTrackHandler::OnPublishObjFunction&& callback)
     {
         // Generate track alias
         const auto& tfn = track_handler->GetFullTrackName();
@@ -79,15 +80,19 @@ namespace quicr {
                                              false);
 
         // Setup the function for the track handler to use to send objects with thread safety
-        track_handler->publish_object_func_ = [&, track_handler, subscribe_id = track_handler->GetSubscribeId()](
-                                                uint8_t priority,
-                                                uint32_t ttl,
-                                                bool stream_header_needed,
-                                                uint64_t group_id,
-                                                uint64_t subgroup_id,
-                                                uint64_t object_id,
-                                                std::optional<Extensions> extensions,
-                                                Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
+        track_handler->publish_object_func_ =
+          [&, track_handler, subscribe_id = track_handler->GetSubscribeId(), cb = std::move(callback)](
+            uint8_t priority,
+            uint32_t ttl,
+            bool stream_header_needed,
+            uint64_t group_id,
+            uint64_t subgroup_id,
+            uint64_t object_id,
+            std::optional<Extensions> extensions,
+            Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
+            if (cb) {
+                cb(priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
+            }
             return SendObject(
               *track_handler, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
         };
@@ -404,6 +409,12 @@ namespace quicr {
 
         } // End of switch(msg type)
 
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Unable to parse control message: {0}", e.what());
+        CloseConnection(conn_ctx.connection_handle,
+                        messages::MoqTerminationReason::PROTOCOL_VIOLATION,
+                        "Control message cannot be parsed");
+        return false;
     } catch (...) {
         SPDLOG_LOGGER_ERROR(logger_, "Unable to parse control message");
         CloseConnection(conn_ctx.connection_handle,

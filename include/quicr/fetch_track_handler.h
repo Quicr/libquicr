@@ -21,16 +21,16 @@ namespace quicr {
          * @param priority The priority of the track.
          * @param group_order The group order to use.
          * @param start_group The starting group of the range.
-         * @param start_object The starting object in a group.
          * @param end_group The final group in the range.
+         * @param start_object The starting object in a group.
          * @param end_object The final object in a group.
          */
         FetchTrackHandler(const FullTrackName& full_track_name,
                           messages::ObjectPriority priority,
                           messages::GroupOrder group_order,
                           messages::GroupId start_group,
-                          messages::GroupId start_object,
                           messages::GroupId end_group,
+                          messages::GroupId start_object,
                           messages::GroupId end_object)
           : SubscribeTrackHandler(full_track_name, priority, group_order)
           , start_group_(start_group)
@@ -58,12 +58,12 @@ namespace quicr {
                                                          messages::ObjectPriority priority,
                                                          messages::GroupOrder group_order,
                                                          messages::GroupId start_group,
-                                                         messages::GroupId start_object,
                                                          messages::GroupId end_group,
+                                                         messages::GroupId start_object,
                                                          messages::GroupId end_object)
         {
             return std::shared_ptr<FetchTrackHandler>(new FetchTrackHandler(
-              full_track_name, priority, group_order, start_group, start_object, end_group, end_object));
+              full_track_name, priority, group_order, start_group, end_group, start_object, end_object));
         }
 
         constexpr messages::GroupId GetStartGroup() const noexcept { return start_group_; }

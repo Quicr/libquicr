@@ -88,15 +88,30 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
 
 class MyFetchTrackHandler : public quicr::FetchTrackHandler
 {
-    MyFetchTrackHandler(const quicr::FullTrackName& full_track_name)
-      : FetchTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending, 100, 0, 110, 10)
+    MyFetchTrackHandler(const quicr::FullTrackName& full_track_name,
+                        uint64_t start_group,
+                        uint64_t start_object,
+                        uint64_t end_group,
+                        uint64_t end_object)
+      : FetchTrackHandler(full_track_name,
+                          3,
+                          quicr::messages::GroupOrder::kAscending,
+                          start_group,
+                          end_group,
+                          start_object,
+                          end_object)
     {
     }
 
   public:
-    static auto Create(const quicr::FullTrackName& full_track_name)
+    static auto Create(const quicr::FullTrackName& full_track_name,
+                       uint64_t start_group,
+                       uint64_t start_object,
+                       uint64_t end_group,
+                       uint64_t end_object)
     {
-        return std::shared_ptr<MyFetchTrackHandler>(new MyFetchTrackHandler(full_track_name));
+        return std::shared_ptr<MyFetchTrackHandler>(
+          new MyFetchTrackHandler(full_track_name, start_group, end_group, start_object, end_object));
     }
 
     void ObjectReceived(const quicr::ObjectHeaders&, quicr::BytesSpan data) override
@@ -273,10 +288,21 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
 // Fetch thread to perform fetch
 /*===========================================================================*/
 
-void
-DoFetch(const quicr::FullTrackName& full_track_name, const std::shared_ptr<quicr::Client>& client, const bool& stop)
+struct Range
 {
-    auto track_handler = MyFetchTrackHandler::Create(full_track_name);
+    uint64_t start;
+    uint64_t end;
+};
+
+void
+DoFetch(const quicr::FullTrackName& full_track_name,
+        const Range& group_range,
+        const Range& object_range,
+        const std::shared_ptr<quicr::Client>& client,
+        const bool& stop)
+{
+    auto track_handler = MyFetchTrackHandler::Create(
+      full_track_name, group_range.start, group_range.end, object_range.start, object_range.end);
 
     SPDLOG_INFO("Started fetch");
 
@@ -387,7 +413,11 @@ main(int argc, char* argv[])
       "sub_name", "Track name", cxxopts::value<std::string>());
 
     options.add_options("Fetcher")("fetch_namespace", "Track namespace", cxxopts::value<std::string>())(
-      "fetch_name", "Track name", cxxopts::value<std::string>());
+      "fetch_name", "Track name", cxxopts::value<std::string>())(
+      "start_group", "Starting group ID", cxxopts::value<uint64_t>())(
+      "end_group", "One past the final group ID", cxxopts::value<uint64_t>())(
+      "start_object", "The starting object ID within the group", cxxopts::value<uint64_t>())(
+      "end_object", "One past the final object ID in the group", cxxopts::value<uint64_t>());
 
     auto result = options.parse(argc, argv);
 
@@ -436,7 +466,13 @@ main(int argc, char* argv[])
             const auto& fetch_track_name = quicr::example::MakeFullTrackName(
               result["fetch_namespace"].as<std::string>(), result["fetch_name"].as<std::string>(), 3001);
 
-            fetch_thread = std::thread(DoFetch, fetch_track_name, client, std::ref(stop_threads));
+            fetch_thread =
+              std::thread(DoFetch,
+                          fetch_track_name,
+                          Range{ result["start_group"].as<uint64_t>(), result["end_group"].as<uint64_t>() },
+                          Range{ result["start_object"].as<uint64_t>(), result["end_object"].as<uint64_t>() },
+                          client,
+                          std::ref(stop_threads));
         }
 
         // Wait until told to terminate

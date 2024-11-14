@@ -475,8 +475,30 @@ class MyServer : public quicr::Server
         qserver_vars::subscribe_active[th.track_namespace_hash][th.track_name_hash].emplace(
           qserver_vars::SubscribeInfo{ connection_handle, subscribe_id, th.track_fullname_hash });
 
+        auto&& cache_message_callback = [&, tnsh = th.track_namespace_hash](uint8_t priority,
+                                                                            uint32_t ttl,
+                                                                            bool stream_header_needed,
+                                                                            uint64_t group_id,
+                                                                            uint64_t subgroup_id,
+                                                                            uint64_t object_id,
+                                                                            std::optional<quicr::Extensions> extensions,
+                                                                            quicr::BytesSpan data) {
+            // TODO(trigaux): Cleanup cache a bit, maybe only keep a certain depth. Cleanup when publishers go away.
+            cache_[tnsh].insert(std::make_pair(group_id,
+                                               CacheObject{
+                                                 priority,
+                                                 ttl,
+                                                 stream_header_needed,
+                                                 group_id,
+                                                 subgroup_id,
+                                                 object_id,
+                                                 extensions,
+                                                 { data.begin(), data.end() },
+                                               }));
+        };
+
         // Create a subscribe track that will be used by the relay to send to subscriber for matching objects
-        BindPublisherTrack(connection_handle, subscribe_id, pub_track_h);
+        BindPublisherTrack(connection_handle, subscribe_id, pub_track_h, std::move(cache_message_callback));
 
         // Subscribe to announcer if announcer is active
         auto anno_ns_it = qserver_vars::announce_active.find(th.track_namespace_hash);
@@ -503,14 +525,31 @@ class MyServer : public quicr::Server
 
     bool FetchReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
                        [[maybe_unused]] uint64_t subscribe_id,
-                       [[maybe_unused]] const quicr::FullTrackName& track_full_name,
-                       [[maybe_unused]] const quicr::FetchAttributes& attrs) override
+                       const quicr::FullTrackName& track_full_name,
+                       const quicr::FetchAttributes& attrs) override
     {
         SPDLOG_INFO("Received Fetch for conn_id: {} subscribe_id: {} start_group: {} end_group: {}",
                     connection_handle,
                     subscribe_id,
                     attrs.start_group,
                     attrs.end_group);
+
+        const auto th = quicr::TrackHash(track_full_name);
+
+        const auto& cache_entry_it = cache_.find(th.track_namespace_hash);
+        if (cache_entry_it == cache_.end()) {
+            return false;
+        }
+
+        const auto& [_, cache_entry] = *cache_entry_it;
+
+        const auto total_objects = attrs.end_object - attrs.start_object;
+        for (auto group_id = attrs.start_group; group_id < attrs.end_group; ++group_id) {
+            // TODO(trigaux): Check that the specific range of objects exists.
+            if (cache_entry.count(group_id) < total_objects) {
+                return false;
+            }
+        }
 
         return true;
     }
@@ -523,25 +562,32 @@ class MyServer : public quicr::Server
           std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, 5000);
         BindPublisherTrack(connection_handle, subscribe_id, pub_track_h);
 
-        std::thread retrieve_cache_thread([=] {
-            for (auto group_id = attrs.start_group; group_id < attrs.end_group; ++group_id) {
-                for (auto object_id = attrs.start_object; object_id < attrs.end_object; ++object_id) {
-                    std::string msg = "group=" + std::to_string(group_id) + ",object=" + std::to_string(object_id);
-                    quicr::ObjectHeaders obj_headers = { group_id,
-                                                         object_id,
-                                                         0,
-                                                         msg.size(),
-                                                         quicr::ObjectStatus::kAvailable,
-                                                         attrs.priority,
-                                                         3000 /* ttl */,
-                                                         std::nullopt,
-                                                         std::nullopt };
+        const auto th = quicr::TrackHash(track_full_name);
+        const auto& cache_entry = cache_.at(th.track_namespace_hash);
 
-                    pub_track_h->PublishObject(obj_headers,
-                                               { reinterpret_cast<const uint8_t*>(msg.data()), msg.size() });
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                }
-            }
+        std::thread retrieve_cache_thread([=, &cache_entry] {
+            std::for_each(cache_entry.begin(), cache_entry.end(), [&](const auto& e) {
+                const auto& [group_id, object] = e;
+
+                if ((group_id < attrs.start_group || group_id >= attrs.end_group) ||
+                    (object.object_id < attrs.start_object || object.object_id >= attrs.end_object))
+                    return;
+
+                quicr::ObjectHeaders obj_headers{
+                    group_id,
+                    object.object_id,
+                    object.subgroup_id,
+                    object.data.size(),
+                    quicr::ObjectStatus::kAvailable,
+                    object.priority,
+                    object.ttl,
+                    std::nullopt,
+                    object.extensions,
+                };
+
+                pub_track_h->PublishObject(obj_headers, object.data);
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            });
         });
 
         retrieve_cache_thread.detach();
@@ -552,6 +598,20 @@ class MyServer : public quicr::Server
     {
         SPDLOG_INFO("Canceling fetch for subscribe_id: {0}", subscribe_id);
     }
+
+  private:
+    struct CacheObject
+    {
+        uint8_t priority;
+        uint32_t ttl;
+        bool stream_header_needed;
+        uint64_t group_id;
+        uint64_t subgroup_id;
+        uint64_t object_id;
+        std::optional<quicr::Extensions> extensions;
+        quicr::Bytes data;
+    };
+    std::map<quicr::TrackNamespaceHash, std::multimap<quicr::messages::GroupId, CacheObject>> cache_;
 };
 
 /* -------------------------------------------------------------------------------------------------

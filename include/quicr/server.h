@@ -86,7 +86,8 @@ namespace quicr {
          */
         void BindPublisherTrack(ConnectionHandle connection_handle,
                                 uint64_t subscribe_id,
-                                const std::shared_ptr<PublishTrackHandler>& track_handler);
+                                const std::shared_ptr<PublishTrackHandler>& track_handler,
+                                PublishTrackHandler::OnPublishObjFunction&& callback = nullptr);
 
         /**
          * @brief Accept or reject an subscribe that was received
