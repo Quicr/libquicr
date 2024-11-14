@@ -35,14 +35,13 @@ namespace qperf {
         uint64_t last_bytes_;
         qperf::TestMode test_mode_;
         uint64_t group_id_;
-        uint64_t object_id_;        
+        uint64_t object_id_;
 
         std::thread write_thread_;
         std::chrono::time_point<std::chrono::system_clock> last_metric_time_;
 
         qperf::TestMetrics test_metrics_;
         std::mutex mutex_;
-
     };
 
     class PerfPubClient : public quicr::Client

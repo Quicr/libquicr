@@ -28,7 +28,9 @@ namespace qperf {
      * @details Subscribe track handler used for the subscribe command line option.
      */
     PerfSubscribeTrackHandler::PerfSubscribeTrackHandler(const PerfConfig& perf_config, std::uint32_t test_identifier)
-      : SubscribeTrackHandler(perf_config.full_track_name, perf_config.priority, quicr::messages::GroupOrder::kOriginalPublisherOrder)
+      : SubscribeTrackHandler(perf_config.full_track_name,
+                              perf_config.priority,
+                              quicr::messages::GroupOrder::kOriginalPublisherOrder)
       , terminate_(false)
       , perf_config_(perf_config)
       , last_bytes_(0)
@@ -155,15 +157,21 @@ namespace qperf {
             }
 
             total_time_delta_ += transmit_delta;
-            max_object_time_delta_ = transmit_delta > (std::int64_t)max_object_time_delta_ ? transmit_delta : (std::int64_t)max_object_time_delta_;
-            min_object_time_delta_ = transmit_delta < (std::int64_t)min_object_time_delta_ ? transmit_delta : (std::int64_t)min_object_time_delta_;
+            max_object_time_delta_ = transmit_delta > (std::int64_t)max_object_time_delta_
+                                       ? transmit_delta
+                                       : (std::int64_t)max_object_time_delta_;
+            min_object_time_delta_ = transmit_delta < (std::int64_t)min_object_time_delta_
+                                       ? transmit_delta
+                                       : (std::int64_t)min_object_time_delta_;
 
             if (!first_pass) {
                 total_arrival_delta_ += arrival_delta;
-                max_object_arrival_delta_ =
-                  arrival_delta > (std::int64_t)max_object_arrival_delta_ ? arrival_delta : (std::int64_t)max_object_arrival_delta_;
-                min_object_arrival_delta_ =
-                  arrival_delta < (std::int64_t)min_object_arrival_delta_ ? arrival_delta : (std::int64_t)min_object_arrival_delta_;
+                max_object_arrival_delta_ = arrival_delta > (std::int64_t)max_object_arrival_delta_
+                                              ? arrival_delta
+                                              : (std::int64_t)max_object_arrival_delta_;
+                min_object_arrival_delta_ = arrival_delta < (std::int64_t)min_object_arrival_delta_
+                                              ? arrival_delta
+                                              : (std::int64_t)min_object_arrival_delta_;
             }
 
             first_pass = false;
@@ -190,7 +198,11 @@ namespace qperf {
             SPDLOG_INFO("\tTotal published objects {}, bytes {}",
                         test_complete.test_metrics.total_published_objects,
                         test_complete.test_metrics.total_published_bytes);
-            SPDLOG_INFO("\tBitrate              max {}, min {}, avg {:.3f}, {}", max_bitrate_, min_bitrate_, avg_bitrate_, FormatBitrate(static_cast<std::uint32_t>(avg_bitrate_)));
+            SPDLOG_INFO("\tBitrate              max {}, min {}, avg {:.3f}, {}",
+                        max_bitrate_,
+                        min_bitrate_,
+                        avg_bitrate_,
+                        FormatBitrate(static_cast<std::uint32_t>(avg_bitrate_)));
             SPDLOG_INFO("\tObject time delta    max {}, min {}, avg {:04.3f} ",
                         max_object_time_delta_,
                         min_object_time_delta_,
@@ -409,7 +421,7 @@ main(int argc, char** argv)
     quicr::ClientConfig client_config;
     client_config.connect_uri = result["connect_uri"].as<std::string>();
     client_config.endpoint_id = endpoint_test_id;
-    client_config.metrics_sample_ms = 5000;    
+    client_config.metrics_sample_ms = 5000;
     client_config.transport_config = config;
 
     auto log_id = endpoint_test_id;

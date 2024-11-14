@@ -19,7 +19,7 @@ namespace qperf {
         uint32_t bytes_per_group;
         uint64_t start_delay;
         uint64_t total_test_time;
-        uint64_t total_transmit_time;     
+        uint64_t total_transmit_time;
     };
 
     enum class TestMode : uint8_t
@@ -32,7 +32,8 @@ namespace qperf {
         kError
     };
 
-    struct TestMetrics {
+    struct TestMetrics
+    {
         std::uint64_t start_transmit_time;
         std::uint64_t end_transmit_time;
         std::uint64_t total_published_objects;
@@ -40,34 +41,34 @@ namespace qperf {
         std::uint64_t total_published_bytes;
         std::uint64_t max_publish_bitrate;
         std::uint64_t min_publish_bitrate;
-        std::uint64_t avg_publish_bitrate;        
+        std::uint64_t avg_publish_bitrate;
         std::uint32_t metric_samples;
         std::uint64_t bitrate_total;
     };
 
-    struct ObjectTestHeader {
+    struct ObjectTestHeader
+    {
         TestMode test_mode;
         std::uint64_t time;
     };
 
-    struct ObjectTestComplete {
+    struct ObjectTestComplete
+    {
         TestMode test_mode;
-        std::uint64_t time;        
+        std::uint64_t time;
         TestMetrics test_metrics;
-    //    quicr::ConnectionMetrics quicr_metrics;
-    //    quicr::PublishTrackMetrics  quicr_publish_track_metrics;
+        //    quicr::ConnectionMetrics quicr_metrics;
+        //    quicr::PublishTrackMetrics  quicr_publish_track_metrics;
         /*
         std::uint64_t start_transmit_time;
-        std::uint64_t end_transmit_time;         
+        std::uint64_t end_transmit_time;
         std::uint64_t total_published_objects;
         std::uint64_t total_published_bytes;
         std::uint64_t max_bitrate;
         std::uint64_t min_bitrate;
-        std::uint64_t avg_bitrate;   
+        std::uint64_t avg_bitrate;
         */
-        
-    };    
-
+    };
 
     inline quicr::FullTrackName MakeFullTrackName(const std::string& track_namespace,
                                                   const std::string& track_name,
@@ -77,7 +78,7 @@ namespace qperf {
             quicr::TrackNamespace{ quicr::Bytes{ track_namespace.begin(), track_namespace.end() } },
             { track_name.begin(), track_name.end() },
             track_alias,
-        };        
+        };
     }
 
     static bool PopulateScenarioFields(const std::string section_name, ini::IniFile& inif, PerfConfig& perf_config)
@@ -117,13 +118,15 @@ namespace qperf {
         SPDLOG_INFO("\tns = \"{}\", n=\"{}\"", scenario_namespace, scenario_name);
         SPDLOG_INFO("\ttrack mode = {}", (int)perf_config.track_mode);
         SPDLOG_INFO("\tpri = {}, ttl = {}", perf_config.priority, perf_config.ttl);
-        SPDLOG_INFO("\tobjspergroup = {}",perf_config.objects_per_group);
-        SPDLOG_INFO("\tbytes per group start = {}, bytes per group = {}",perf_config.bytes_per_group_start, perf_config.bytes_per_group);
-        SPDLOG_INFO("\ttransmit interval = {}",perf_config.transmit_interval);
-        SPDLOG_INFO("\tstart_delay = {}",perf_config.start_delay);
-        SPDLOG_INFO("\ttotal test time = {}",perf_config.total_test_time);
-        SPDLOG_INFO("\ttransmit time = {}",perf_config.total_transmit_time);
-        SPDLOG_INFO("--------------------------------------------");        
+        SPDLOG_INFO("\tobjspergroup = {}", perf_config.objects_per_group);
+        SPDLOG_INFO("\tbytes per group start = {}, bytes per group = {}",
+                    perf_config.bytes_per_group_start,
+                    perf_config.bytes_per_group);
+        SPDLOG_INFO("\ttransmit interval = {}", perf_config.transmit_interval);
+        SPDLOG_INFO("\tstart_delay = {}", perf_config.start_delay);
+        SPDLOG_INFO("\ttotal test time = {}", perf_config.total_test_time);
+        SPDLOG_INFO("\ttransmit time = {}", perf_config.total_transmit_time);
+        SPDLOG_INFO("--------------------------------------------");
 
         parsed = true;
         return parsed;
@@ -148,5 +151,5 @@ namespace qperf {
      * @brief Publish track handler
      * @details Publish track handler used for the publish command line option
      */
- 
+
 } // namespace qperf

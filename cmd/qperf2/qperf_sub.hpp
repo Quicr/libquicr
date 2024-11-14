@@ -6,7 +6,6 @@
 #include "inicpp.h"
 #include "qperf.hpp"
 
-
 namespace qperf {
     class PerfSubscribeTrackHandler : public quicr::SubscribeTrackHandler
     {
@@ -27,21 +26,21 @@ namespace qperf {
       private:
         std::atomic_bool terminate_;
         PerfConfig perf_config_;
-        quicr::SubscribeTrackMetrics metrics_;     
+        quicr::SubscribeTrackMetrics metrics_;
 
         std::chrono::time_point<std::chrono::system_clock> last_metric_time_;
-        uint64_t last_bytes_;  
+        uint64_t last_bytes_;
         std::uint64_t local_now_;
         std::uint64_t last_local_now_;
         std::uint64_t start_data_time_;
         std::uint64_t total_objects_;
         std::uint64_t total_bytes_;
-        std::uint32_t test_identifier_;     
-        qperf::TestMode test_mode_;   
-        
+        std::uint32_t test_identifier_;
+        qperf::TestMode test_mode_;
+
         std::uint64_t max_bitrate_;
         std::uint64_t min_bitrate_;
-        double avg_bitrate_;    
+        double avg_bitrate_;
 
         std::uint32_t metric_samples_;
         std::uint64_t bitrate_total_;
@@ -49,16 +48,12 @@ namespace qperf {
         std::uint64_t max_object_time_delta_;
         std::uint64_t min_object_time_delta_;
         double avg_object_time_delta_;
-        std::uint64_t total_time_delta_;           
+        std::uint64_t total_time_delta_;
 
         std::uint64_t max_object_arrival_delta_;
         std::uint64_t min_object_arrival_delta_;
-        double avg_object_arrival_delta_;   
+        double avg_object_arrival_delta_;
         std::uint64_t total_arrival_delta_;
-
-
-        
-
     };
 
     class PerfSubClient : public quicr::Client
@@ -69,7 +64,7 @@ namespace qperf {
         void MetricsSampled(const quicr::ConnectionMetrics&) override {}
 
         bool HandlersComplete();
-        void Terminate();        
+        void Terminate();
 
       private:
         bool terminate_;
@@ -80,9 +75,6 @@ namespace qperf {
         std::vector<std::shared_ptr<PerfSubscribeTrackHandler>> track_handlers_;
 
         std::mutex track_handlers_mutex_;
-
-      
     };
-
 
 } // namespace

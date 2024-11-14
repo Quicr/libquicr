@@ -9,7 +9,6 @@
 
 #include "qperf_pub.hpp"
 
-
 #include <chrono>
 #include <csignal>
 #include <cstdlib>
@@ -17,10 +16,7 @@
 
 namespace qperf {
     PerfPublishTrackHandler::PerfPublishTrackHandler(const PerfConfig& perf_config)
-      : PublishTrackHandler(perf_config.full_track_name,
-                            perf_config.track_mode,
-                            perf_config.priority,
-                            perf_config.ttl)
+      : PublishTrackHandler(perf_config.full_track_name, perf_config.track_mode, perf_config.priority, perf_config.ttl)
       , perf_config_(perf_config)
       , terminate_(false)
       , last_bytes_(0)
@@ -47,7 +43,7 @@ namespace qperf {
                 auto track_alias = GetTrackAlias();
                 if (track_alias.has_value()) {
                     SPDLOG_INFO("Track alias: {0} is ready to write", track_alias.value());
-                   write_thread_ = SpawnWriter();
+                    write_thread_ = SpawnWriter();
                 }
             } break;
             case Status::kNotConnected:
@@ -84,9 +80,11 @@ namespace qperf {
             std::uint64_t delta_bytes = metrics.bytes_published - last_bytes_;
             std::uint64_t bitrate = ((delta_bytes) * 8) / diff.count();
             test_metrics_.bitrate_total += bitrate;
-            test_metrics_.max_publish_bitrate = bitrate > test_metrics_.max_publish_bitrate ? bitrate : test_metrics_.max_publish_bitrate;
-            test_metrics_.min_publish_bitrate = bitrate < test_metrics_.min_publish_bitrate ? bitrate : test_metrics_.min_publish_bitrate;
-            test_metrics_.metric_samples += 1;            
+            test_metrics_.max_publish_bitrate =
+              bitrate > test_metrics_.max_publish_bitrate ? bitrate : test_metrics_.max_publish_bitrate;
+            test_metrics_.min_publish_bitrate =
+              bitrate < test_metrics_.min_publish_bitrate ? bitrate : test_metrics_.min_publish_bitrate;
+            test_metrics_.metric_samples += 1;
             test_metrics_.avg_publish_bitrate = test_metrics_.bitrate_total / test_metrics_.metric_samples;
             SPDLOG_INFO("{}: Bitrate: {} {} delta bytes {}, delta time {}, {}, {}, {}",
                         perf_config_.test_name,
@@ -147,8 +145,12 @@ namespace qperf {
         // publish
         PublishObject(object_headers, object_span);
 
-        SPDLOG_INFO(
-          "PO, RUNNING, {}, {}, {}, {}, {}", perf_config_.test_name, group_id_, object_id_, publish_track_metrics_.objects_published, publish_track_metrics_.bytes_published);             
+        SPDLOG_INFO("PO, RUNNING, {}, {}, {}, {}, {}",
+                    perf_config_.test_name,
+                    group_id_,
+                    object_id_,
+                    publish_track_metrics_.objects_published,
+                    publish_track_metrics_.bytes_published);
 
         // return current time in ms - publish time
         return now;
@@ -157,26 +159,24 @@ namespace qperf {
     std::uint64_t PerfPublishTrackHandler::PublishTestComplete()
     {
         std::lock_guard<std::mutex> _(mutex_);
-        test_mode_= qperf::TestMode::kComplete;
+        test_mode_ = qperf::TestMode::kComplete;
         auto now = std::chrono::system_clock::now();
-        auto duration = now.time_since_epoch(); 
+        auto duration = now.time_since_epoch();
 
         ObjectTestComplete test_complete;
-        memset(&test_complete, '\0', sizeof(test_complete));        
+        memset(&test_complete, '\0', sizeof(test_complete));
 
         // start_transmit_time is set when fist object is published
-        test_metrics_.end_transmit_time = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();      
+        test_metrics_.end_transmit_time = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
 
-        //test_metrics_.end_transmit_time;
-        test_metrics_.total_published_objects = publish_track_metrics_.objects_published +1;
+        // test_metrics_.end_transmit_time;
+        test_metrics_.total_published_objects = publish_track_metrics_.objects_published + 1;
         test_metrics_.total_published_bytes = publish_track_metrics_.bytes_published + sizeof(test_complete);
         test_metrics_.total_objects_dropped_not_ok = publish_track_metrics_.objects_dropped_not_ok;
         // following are calculated on metrics callback...
-        //test_metrics_.max_bitrate
-        //test_metrics_.min_bitrate
-        //test_metrics_.avg_bitrate
-
-
+        // test_metrics_.max_bitrate
+        // test_metrics_.min_bitrate
+        // test_metrics_.avg_bitrate
 
         test_complete.test_mode = test_mode_;
         test_complete.time = test_metrics_.end_transmit_time;
@@ -194,20 +194,30 @@ namespace qperf {
         object_headers.payload_length = 0;
         object_headers.priority = perf_config_.priority;
         object_headers.ttl = perf_config_.ttl;
-        
+
         object_headers.payload_length = sizeof(test_complete);
         PublishObject(object_headers, object_data);
 
-
         auto total_transmit_time = test_metrics_.end_transmit_time - test_metrics_.start_transmit_time;
-        SPDLOG_INFO(
-          "PO, COMPLETE, {}, {}, {}, {}, {}, {}", perf_config_.test_name, group_id_, object_id_, test_metrics_.total_published_objects, test_metrics_.total_published_bytes, total_transmit_time);
+        SPDLOG_INFO("PO, COMPLETE, {}, {}, {}, {}, {}, {}",
+                    perf_config_.test_name,
+                    group_id_,
+                    object_id_,
+                    test_metrics_.total_published_objects,
+                    test_metrics_.total_published_bytes,
+                    total_transmit_time);
         SPDLOG_INFO("--------------------------------------------");
         SPDLOG_INFO("{}", perf_config_.test_name);
         SPDLOG_INFO("Publish Object - Complete");
-        SPDLOG_INFO("\tTotal transmit time in {} ms", total_transmit_time);        
-        SPDLOG_INFO("\tTotal pubished objects {}, bytes {}", test_metrics_.total_published_objects, test_metrics_.total_published_bytes);
-        SPDLOG_INFO("\tBitrate max {}, min {}, avg {}, {}", test_metrics_.max_publish_bitrate, test_metrics_.min_publish_bitrate, test_metrics_.avg_publish_bitrate, FormatBitrate(static_cast<std::uint32_t>(test_metrics_.avg_publish_bitrate)));
+        SPDLOG_INFO("\tTotal transmit time in {} ms", total_transmit_time);
+        SPDLOG_INFO("\tTotal pubished objects {}, bytes {}",
+                    test_metrics_.total_published_objects,
+                    test_metrics_.total_published_bytes);
+        SPDLOG_INFO("\tBitrate max {}, min {}, avg {}, {}",
+                    test_metrics_.max_publish_bitrate,
+                    test_metrics_.min_publish_bitrate,
+                    test_metrics_.avg_publish_bitrate,
+                    FormatBitrate(static_cast<std::uint32_t>(test_metrics_.avg_publish_bitrate)));
 
         SPDLOG_INFO("--------------------------------------------");
 
@@ -230,7 +240,7 @@ namespace qperf {
 
         for (std::size_t i = 0; i < object_not_0_buffer.size(); i++) {
             object_not_0_buffer[i] = i % 255;
-        }  
+        }
 
         group_id_ = 0;
         object_id_ = 0;
@@ -291,7 +301,7 @@ namespace qperf {
             } else {
                 SPDLOG_WARN("{} Transmit interval is < 0", perf_config_.test_name);
             }
-            object_id_ += 1;            
+            object_id_ += 1;
         };
         SPDLOG_WARN("{} Exiting writer thread.", perf_config_.test_name);
     }
@@ -442,14 +452,11 @@ main(int argc, char** argv)
     config.use_reset_wait_strategy = false;
     config.quic_qlog_path = "";
 
-
     quicr::ClientConfig client_config;
     client_config.endpoint_id = result["endpoint_id"].as<std::string>();
     client_config.metrics_sample_ms = 5000;
     client_config.transport_config = config;
     client_config.connect_uri = result["connect_uri"].as<std::string>();
-
-
 
     const auto logger = spdlog::stderr_color_mt("PERF");
 
