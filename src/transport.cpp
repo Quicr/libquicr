@@ -391,6 +391,18 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
+    void Transport::SendFetchCancel(ConnectionContext& conn_ctx, uint64_t subscribe_id)
+    {
+        MoqFetchCancel fetch_cancel;
+        fetch_cancel.subscribe_id = subscribe_id;
+
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqFetchCancel));
+        buffer << fetch_cancel;
+
+        SendCtrlMsg(conn_ctx, buffer);
+    }
+
     void Transport::SendFetchOk(ConnectionContext& conn_ctx,
                                 uint64_t subscribe_id,
                                 messages::GroupOrder group_order,
@@ -638,19 +650,19 @@ namespace quicr {
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
     }
 
-    void Transport::FetchTrack(TransportConnId conn_id, std::shared_ptr<FetchTrackHandler> track_handler)
+    void Transport::FetchTrack(ConnectionHandle connection_handle, std::shared_ptr<FetchTrackHandler> track_handler)
     {
         const auto& tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
 
         track_handler->SetTrackAlias(th.track_fullname_hash);
 
-        SPDLOG_LOGGER_INFO(logger_, "Fetch track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
+        SPDLOG_LOGGER_INFO(logger_, "Fetch track conn_id: {0} hash: {1}", connection_handle, th.track_fullname_hash);
 
         std::lock_guard<std::mutex> _(state_mutex_);
-        auto conn_it = connections_.find(conn_id);
+        auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
-            SPDLOG_LOGGER_ERROR(logger_, "Fetch track conn_id: {0} does not exist.", conn_id);
+            SPDLOG_LOGGER_ERROR(logger_, "Fetch track conn_id: {0} does not exist.", connection_handle);
             return;
         }
 
@@ -667,10 +679,32 @@ namespace quicr {
         auto end_group = track_handler->GetEndGroup();
         auto end_object = track_handler->GetEndObject();
 
-        // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
-        conn_it->second.fetch_tracks_by_sub_id[sid] = std::move(track_handler);
+        track_handler->SetStatus(FetchTrackHandler::Status::kPendingResponse);
+
+        conn_it->second.tracks_by_sub_id[sid] = std::move(track_handler);
 
         SendFetch(conn_it->second, sid, tfn, priority, group_order, start_group, start_object, end_group, end_object);
+    }
+
+    void Transport::CancelFetchTrack(ConnectionHandle connection_handle,
+                                     std::shared_ptr<FetchTrackHandler> track_handler)
+    {
+        std::lock_guard<std::mutex> _(state_mutex_);
+        auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "Fetch track conn_id: {0} does not exist.", connection_handle);
+            return;
+        }
+
+        const auto sub_id = track_handler->GetSubscribeId();
+        if (!sub_id.has_value()) {
+            return;
+        }
+
+        SendFetchCancel(conn_it->second, sub_id.value());
+
+        track_handler->SetSubscribeId(std::nullopt);
+        track_handler->SetStatus(FetchTrackHandler::Status::kNotConnected);
     }
 
     PublishTrackHandler::PublishObjectStatus Transport::SendObject(PublishTrackHandler& track_handler,

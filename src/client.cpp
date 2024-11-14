@@ -306,8 +306,8 @@ namespace quicr {
                 messages::MoqFetchError msg;
                 msg_bytes >> msg;
 
-                auto fetch_it = conn_ctx.fetch_tracks_by_sub_id.find(msg.subscribe_id);
-                if (fetch_it == conn_ctx.fetch_tracks_by_sub_id.end()) {
+                auto fetch_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                if (fetch_it == conn_ctx.tracks_by_sub_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received fetch ok for unknown fetch track conn_id: {0} subscribe_id: {1}, ignored",
@@ -316,14 +316,16 @@ namespace quicr {
                     return true;
                 }
 
+                fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kOk);
+
                 return true;
             }
             case messages::ControlMessageType::FETCH_ERROR: {
                 messages::MoqFetchError msg;
                 msg_bytes >> msg;
 
-                auto fetch_it = conn_ctx.fetch_tracks_by_sub_id.find(msg.subscribe_id);
-                if (fetch_it == conn_ctx.fetch_tracks_by_sub_id.end()) {
+                auto fetch_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                if (fetch_it == conn_ctx.tracks_by_sub_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received fetch error for unkown fetch track conn_id: {0} subscribe_id: {1}, ignored",
@@ -333,7 +335,7 @@ namespace quicr {
                 }
 
                 fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kError);
-                conn_ctx.fetch_tracks_by_sub_id.erase(fetch_it);
+                conn_ctx.tracks_by_sub_id.erase(fetch_it);
 
                 return true;
             }

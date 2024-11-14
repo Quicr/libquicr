@@ -55,8 +55,8 @@ namespace quicr {
                               messages::ObjectPriority priority,
                               messages::GroupOrder group_order)
           : BaseTrackHandler(full_track_name)
-          , subscription_priority_(priority)
-          , subscription_group_order_(group_order)
+          , priority_(priority)
+          , group_order_(group_order)
         {
         }
 
@@ -90,7 +90,7 @@ namespace quicr {
          *
          * @return Priority value
          */
-        constexpr messages::ObjectPriority GetPriority() const noexcept { return subscription_priority_; }
+        constexpr messages::ObjectPriority GetPriority() const noexcept { return priority_; }
 
         /**
          * @brief Get subscription group order
@@ -98,7 +98,7 @@ namespace quicr {
          * @return GroupOrder value
          */
 
-        constexpr messages::GroupOrder GetGroupOrder() const noexcept { return subscription_group_order_; }
+        constexpr messages::GroupOrder GetGroupOrder() const noexcept { return group_order_; }
 
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
@@ -159,10 +159,6 @@ namespace quicr {
 
         ///@}
 
-        // --------------------------------------------------------------------------
-        // Metrics
-        // --------------------------------------------------------------------------
-
         /**
          * @brief Subscribe metrics for the track
          *
@@ -171,10 +167,7 @@ namespace quicr {
          */
         SubscribeTrackMetrics subscribe_track_metrics_;
 
-        // --------------------------------------------------------------------------
-        // Internal
-        // --------------------------------------------------------------------------
-      private:
+      protected:
         /**
          * @brief Set the subscribe status
          * @param status                Status of the subscribe
@@ -185,12 +178,10 @@ namespace quicr {
             StatusChanged(status);
         }
 
-        // --------------------------------------------------------------------------
-        // Member variables
-        // --------------------------------------------------------------------------
+      private:
         Status status_{ Status::kNotSubscribed };
-        messages::ObjectPriority subscription_priority_;
-        messages::GroupOrder subscription_group_order_;
+        messages::ObjectPriority priority_;
+        messages::GroupOrder group_order_;
 
         friend class Transport;
         friend class Client;

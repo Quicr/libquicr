@@ -151,10 +151,18 @@ namespace quicr {
         /**
          * @brief Fetch track
          *
-         * @param conn_id                   Connection ID to send subscribe
+         * @param connection_handle         Connection ID to send fetch
          * @param track_handler             Track handler used for fetching
          */
-        void FetchTrack(TransportConnId conn_id, std::shared_ptr<FetchTrackHandler> track_handler);
+        void FetchTrack(ConnectionHandle connection_handle, std::shared_ptr<FetchTrackHandler> track_handler);
+
+        /**
+         * @brief Cancel Fetch track
+         *
+         * @param connection_handle         Connection ID to send fetch cancel.
+         * @param track_handler             Fetch Track handler to cancel.
+         */
+        void CancelFetchTrack(ConnectionHandle connection_handle, std::shared_ptr<FetchTrackHandler> track_handler);
 
         /**
          * @brief Get the status of the Client
@@ -228,15 +236,12 @@ namespace quicr {
             /// Used to map published tracks to subscribes in client mode
             std::map<messages::SubscribeId, std::pair<TrackNamespaceHash, TrackNameHash>> recv_sub_id;
 
-            /// Tracks by subscribe ID
+            /// Tracks by subscribe ID (Subscribe and Fetch)
             std::map<messages::SubscribeId, std::shared_ptr<SubscribeTrackHandler>> tracks_by_sub_id;
 
             /// Publish tracks by namespace and name. map[track namespace][track name] = track handler
             std::map<TrackNamespaceHash, std::map<TrackNameHash, std::shared_ptr<PublishTrackHandler>>>
               pub_tracks_by_name;
-
-            /// Fetch Tracks by subscribe ID
-            std::map<messages::SubscribeId, std::shared_ptr<FetchTrackHandler>> fetch_tracks_by_sub_id;
 
             /// Published tracks by quic transport data context ID.
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
@@ -289,6 +294,7 @@ namespace quicr {
                        messages::GroupId start_object,
                        messages::GroupId end_group,
                        messages::GroupId end_object);
+        void SendFetchCancel(ConnectionContext& conn_ctx, uint64_t subscribe_id);
         void SendFetchOk(ConnectionContext& conn_ctx,
                          uint64_t subscribe_id,
                          messages::GroupOrder group_order,

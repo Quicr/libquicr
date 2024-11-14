@@ -219,6 +219,13 @@ namespace quicr {
                                    const FullTrackName& track_full_name,
                                    const FetchAttributes& attributes);
 
+        virtual void OnFetchOk(ConnectionHandle connection_handle,
+                               uint64_t subscribe_id,
+                               const FullTrackName& track_full_name,
+                               const FetchAttributes& attributes);
+
+        virtual void FetchCancelReceived(ConnectionHandle connection_handle, uint64_t subscribe_id) = 0;
+
         ///@}
         // --END OF CALLBACKS ----------------------------------------------------------------------------------
 

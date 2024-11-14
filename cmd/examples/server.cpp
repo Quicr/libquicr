@@ -501,21 +501,56 @@ class MyServer : public quicr::Server
         }
     }
 
-    bool FetchReceived(quicr::ConnectionHandle connection_handle,
-                       uint64_t subscribe_id,
-                       const quicr::FullTrackName& track_full_name,
-                       const quicr::FetchAttributes& attributes) override
+    bool FetchReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
+                       [[maybe_unused]] uint64_t subscribe_id,
+                       [[maybe_unused]] const quicr::FullTrackName& track_full_name,
+                       [[maybe_unused]] const quicr::FetchAttributes& attrs) override
     {
-        auto th = quicr::TrackHash(track_full_name);
-
-        auto anno_ns_it = qserver_vars::announce_active.find(th.track_namespace_hash);
-        if (anno_ns_it == qserver_vars::announce_active.end()) {
-            SPDLOG_INFO("Fetch to track namespace hash: {0}, does not have any announcements.",
-                        th.track_namespace_hash);
-            return false;
-        }
+        SPDLOG_INFO("Received Fetch for conn_id: {} subscribe_id: {} start_group: {} end_group: {}",
+                    connection_handle,
+                    subscribe_id,
+                    attrs.start_group,
+                    attrs.end_group);
 
         return true;
+    }
+    void OnFetchOk(quicr::ConnectionHandle connection_handle,
+                   uint64_t subscribe_id,
+                   const quicr::FullTrackName& track_full_name,
+                   const quicr::FetchAttributes& attrs) override
+    {
+        auto pub_track_h =
+          std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, 5000);
+        BindPublisherTrack(connection_handle, subscribe_id, pub_track_h);
+
+        std::thread retrieve_cache_thread([=] {
+            for (auto group_id = attrs.start_group; group_id < attrs.end_group; ++group_id) {
+                for (auto object_id = attrs.start_object; object_id < attrs.end_object; ++object_id) {
+                    std::string msg = "group=" + std::to_string(group_id) + ",object=" + std::to_string(object_id);
+                    quicr::ObjectHeaders obj_headers = { group_id,
+                                                         object_id,
+                                                         0,
+                                                         msg.size(),
+                                                         quicr::ObjectStatus::kAvailable,
+                                                         attrs.priority,
+                                                         3000 /* ttl */,
+                                                         std::nullopt,
+                                                         std::nullopt };
+
+                    pub_track_h->PublishObject(obj_headers,
+                                               { reinterpret_cast<const uint8_t*>(msg.data()), msg.size() });
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                }
+            }
+        });
+
+        retrieve_cache_thread.detach();
+    }
+
+    void FetchCancelReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
+                             [[maybe_unused]] uint64_t subscribe_id) override
+    {
+        SPDLOG_INFO("Canceling fetch for subscribe_id: {0}", subscribe_id);
     }
 };
 

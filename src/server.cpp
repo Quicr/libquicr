@@ -42,6 +42,8 @@ namespace quicr {
         return false;
     }
 
+    void Server::OnFetchOk(ConnectionHandle, uint64_t, const FullTrackName&, const FetchAttributes&) {}
+
     void Server::ResolveSubscribe(ConnectionHandle, uint64_t, const SubscribeResponse&) {}
 
     void Server::BindPublisherTrack(TransportConnId conn_id,
@@ -352,16 +354,16 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+                const FetchAttributes attrs{
+                    .priority = msg.priority,
+                    .group_order = msg.group_order,
+                    .start_group = msg.start_group,
+                    .start_object = msg.start_object,
+                    .end_group = msg.end_group,
+                    .end_object = msg.end_object,
+                };
 
-                if (!FetchReceived(conn_ctx.connection_handle,
-                                   msg.subscribe_id,
-                                   tfn,
-                                   { .priority = msg.priority,
-                                     .group_order = msg.group_order,
-                                     .start_group = msg.start_group,
-                                     .start_object = msg.start_object,
-                                     .end_group = msg.end_group,
-                                     .end_object = msg.end_object })) {
+                if (!FetchReceived(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs)) {
                     SendFetchError(
                       conn_ctx, msg.subscribe_id, messages::FetchError::kTrackDoesNotExist, "Track does not exist");
 
@@ -376,6 +378,21 @@ namespace quicr {
                 }
 
                 SendFetchOk(conn_ctx, msg.subscribe_id, msg.group_order, false, 0, 0);
+                OnFetchOk(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs);
+
+                return true;
+            }
+            case messages::ControlMessageType::FETCH_CANCEL: {
+                messages::MoqFetchCancel msg;
+                msg_bytes >> msg;
+
+                if (conn_ctx.recv_sub_id.find(msg.subscribe_id) == conn_ctx.recv_sub_id.end()) {
+                    SPDLOG_LOGGER_WARN(
+                      logger_, "Received Fetch Cancel for unknown subscribe ID: {0}", msg.subscribe_id);
+                }
+
+                FetchCancelReceived(conn_ctx.connection_handle, msg.subscribe_id);
+                conn_ctx.recv_sub_id.erase(msg.subscribe_id);
 
                 return true;
             }

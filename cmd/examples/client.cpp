@@ -89,7 +89,7 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
 class MyFetchTrackHandler : public quicr::FetchTrackHandler
 {
     MyFetchTrackHandler(const quicr::FullTrackName& full_track_name)
-      : FetchTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending, 0, 0, 0, 0)
+      : FetchTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending, 100, 0, 110, 10)
     {
     }
 
@@ -234,6 +234,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     SPDLOG_INFO("Publisher done track");
+    moq_example::terminate = true;
 }
 
 /*===========================================================================*/
@@ -265,6 +266,7 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     SPDLOG_INFO("Subscriber done track");
+    moq_example::terminate = true;
 }
 
 /*===========================================================================*/
@@ -278,22 +280,24 @@ DoFetch(const quicr::FullTrackName& full_track_name, const std::shared_ptr<quicr
 
     SPDLOG_INFO("Started fetch");
 
-    bool subscribe_track{ false };
+    bool fetch_track{ false };
 
     while (not stop) {
-        if ((!subscribe_track) && (client->GetStatus() == MyClient::Status::kReady)) {
+        if ((!fetch_track) && (client->GetStatus() == MyClient::Status::kReady)) {
             SPDLOG_INFO("Fetching track");
             client->FetchTrack(track_handler);
-            subscribe_track = true;
+            fetch_track = true;
         }
+
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
-    // client->CancelFetchTrack(track_handler);
+    client->CancelFetchTrack(track_handler);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     SPDLOG_INFO("Fetch done track");
+    moq_example::terminate = true;
 }
 
 /*===========================================================================*/
