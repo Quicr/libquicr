@@ -279,11 +279,11 @@ namespace qperf {
         while (!terminate_) {
             std::chrono::time_point<std::chrono::system_clock> last_publish_time;
             if (object_id_ == 0) {
-                quicr::BytesSpan objectSpan(object_0_buffer);
-                last_publish_time = PublishObjectWithMetrics(objectSpan);
+                quicr::BytesSpan object_span(object_0_buffer);
+                last_publish_time = PublishObjectWithMetrics(object_span);
             } else {
-                quicr::BytesSpan objectSpan(object_not_0_buffer);
-                last_publish_time = PublishObjectWithMetrics(objectSpan);
+                quicr::BytesSpan object_span(object_not_0_buffer);
+                last_publish_time = PublishObjectWithMetrics(object_span);
             }
 
             // Check if we are done...
@@ -327,8 +327,8 @@ namespace qperf {
             case Status::kReady:
                 SPDLOG_INFO("PerfPubClient - kReady");
                 inif_.load(configfile_);
-                for (const auto& sectionPair : inif_) {
-                    const std::string& section_name = sectionPair.first;
+                for (const auto& section_pair : inif_) {
+                    const std::string& section_name = section_pair.first;
                     auto pub_handler =
                       track_handlers_.emplace_back(PerfPublishTrackHandler::Create(section_name, inif_));
                     PublishTrack(pub_handler);
