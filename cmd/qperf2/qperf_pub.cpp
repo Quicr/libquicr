@@ -273,7 +273,6 @@ namespace qperf {
 
         // Transmit
         SPDLOG_INFO("{} Start transmitting for {} ms", perf_config_.test_name, perf_config_.total_transmit_time);
-        std::chrono::time_point<std::chrono::system_clock> last_publish_time;
 
         test_mode_ = qperf::TestMode::kRunning;
         while (!terminate_) {

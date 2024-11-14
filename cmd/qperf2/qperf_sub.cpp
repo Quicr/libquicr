@@ -302,8 +302,8 @@ namespace qperf {
             case Status::kReady:
                 SPDLOG_INFO("Client status - kReady");
                 inif_.load(configfile_);
-                for (const auto& sectionPair : inif_) {
-                    const std::string& section_name = sectionPair.first;
+                for (const auto& section_pair : inif_) {
+                    const std::string& section_name = section_pair.first;
                     SPDLOG_INFO("Starting test - {}", section_name);
                     auto sub_handler = track_handlers_.emplace_back(
                       PerfSubscribeTrackHandler::Create(section_name, inif_, test_identifier_));
