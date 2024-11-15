@@ -258,6 +258,7 @@ namespace quicr {
 
     using TrackNamespaceHash = uint64_t;
     using TrackNameHash = uint64_t;
+    using TrackFullNameHash = uint64_t;
 
     /**
      * @brief Full track name struct
