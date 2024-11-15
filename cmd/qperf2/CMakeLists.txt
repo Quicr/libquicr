@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 # SPDX-License-Identifier: BSD-2-Clause
 
-add_executable(qperf_pub qperf_pub.cpp)
+add_executable(qperf_pub qperf_pub.cc)
 target_link_libraries(qperf_pub PRIVATE quicr)
 target_include_directories(qperf_pub PRIVATE ../dependencies )
 
@@ -23,7 +23,7 @@ if(LINT)
         Lint(qperf_pub)
 endif()
 
-add_executable(qperf_sub qperf_sub.cpp)
+add_executable(qperf_sub qperf_sub.cc)
 target_link_libraries(qperf_sub PRIVATE quicr)
 target_include_directories(qperf_sub PRIVATE ../dependencies )
 

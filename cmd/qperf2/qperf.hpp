@@ -57,17 +57,6 @@ namespace qperf {
         TestMode test_mode;
         std::uint64_t time;
         TestMetrics test_metrics;
-        //    quicr::ConnectionMetrics quicr_metrics;
-        //    quicr::PublishTrackMetrics  quicr_publish_track_metrics;
-        /*
-        std::uint64_t start_transmit_time;
-        std::uint64_t end_transmit_time;
-        std::uint64_t total_published_objects;
-        std::uint64_t total_published_bytes;
-        std::uint64_t max_bitrate;
-        std::uint64_t min_bitrate;
-        std::uint64_t avg_bitrate;
-        */
     };
 
     inline quicr::FullTrackName MakeFullTrackName(const std::string& track_namespace,
@@ -75,7 +64,7 @@ namespace qperf {
                                                   const std::optional<uint64_t> track_alias = std::nullopt) noexcept
     {
         return {
-            quicr::TrackNamespace{ quicr::Bytes{ track_namespace.begin(), track_namespace.end() } },
+            quicr::TrackNamespace{ track_namespace },
             { track_name.begin(), track_name.end() },
             track_alias,
         };
