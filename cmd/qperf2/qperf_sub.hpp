@@ -27,7 +27,7 @@ namespace qperf {
         std::atomic_bool terminate_;
         PerfConfig perf_config_;
         quicr::SubscribeTrackMetrics metrics_;
-
+        bool first_pass_;
         std::chrono::time_point<std::chrono::system_clock> last_metric_time_;
         uint64_t last_bytes_;
         std::uint64_t local_now_;
@@ -45,15 +45,15 @@ namespace qperf {
         std::uint32_t metric_samples_;
         std::uint64_t bitrate_total_;
 
-        std::uint64_t max_object_time_delta_;
-        std::uint64_t min_object_time_delta_;
+        std::int64_t max_object_time_delta_;
+        std::int64_t min_object_time_delta_;
         double avg_object_time_delta_;
-        std::uint64_t total_time_delta_;
+        std::int64_t total_time_delta_;
 
-        std::uint64_t max_object_arrival_delta_;
-        std::uint64_t min_object_arrival_delta_;
+        std::int64_t max_object_arrival_delta_;
+        std::int64_t min_object_arrival_delta_;
         double avg_object_arrival_delta_;
-        std::uint64_t total_arrival_delta_;
+        std::int64_t total_arrival_delta_;
     };
 
     class PerfSubClient : public quicr::Client

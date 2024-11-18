@@ -92,8 +92,8 @@ namespace qperf {
                         FormatBitrate(bitrate),
                         delta_bytes,
                         diff.count(),
-                        test_metrics_.max_publish_bitrate,
                         test_metrics_.min_publish_bitrate,
+                        test_metrics_.max_publish_bitrate,
                         test_metrics_.avg_publish_bitrate);
         }
 
@@ -173,10 +173,6 @@ namespace qperf {
         test_metrics_.total_published_objects = publish_track_metrics_.objects_published + 1;
         test_metrics_.total_published_bytes = publish_track_metrics_.bytes_published + sizeof(test_complete);
         test_metrics_.total_objects_dropped_not_ok = publish_track_metrics_.objects_dropped_not_ok;
-        // following are calculated on metrics callback...
-        // test_metrics_.max_bitrate
-        // test_metrics_.min_bitrate
-        // test_metrics_.avg_bitrate
 
         test_complete.test_mode = test_mode_;
         test_complete.time = test_metrics_.end_transmit_time;
@@ -185,7 +181,6 @@ namespace qperf {
         quicr::Bytes object_data(sizeof(test_complete));
         memcpy((void*)&object_data[0], (void*)&test_complete, sizeof(test_complete));
 
-        // SAH group_id_ += 1;
         object_id_ += 1;
 
         quicr::ObjectHeaders object_headers;
@@ -209,16 +204,16 @@ namespace qperf {
         SPDLOG_INFO("--------------------------------------------");
         SPDLOG_INFO("{}", perf_config_.test_name);
         SPDLOG_INFO("Publish Object - Complete");
-        SPDLOG_INFO("\tTotal transmit time in {} ms", total_transmit_time);
-        SPDLOG_INFO("\tTotal pubished objects {}, bytes {}",
+        SPDLOG_INFO("      Total transmit time (ms) {}", total_transmit_time);
+        SPDLOG_INFO("        Total pubished objects {}, bytes {}",
                     test_metrics_.total_published_objects,
                     test_metrics_.total_published_bytes);
-        SPDLOG_INFO("\tBitrate max {}, min {}, avg {}, {}",
-                    test_metrics_.max_publish_bitrate,
-                    test_metrics_.min_publish_bitrate,
-                    test_metrics_.avg_publish_bitrate,
+        SPDLOG_INFO("                 Bitrate (bps)");
+        SPDLOG_INFO("                           min {}", test_metrics_.min_publish_bitrate);
+        SPDLOG_INFO("                           max {}", test_metrics_.max_publish_bitrate);
+        SPDLOG_INFO("                           avg {}", test_metrics_.avg_publish_bitrate);
+        SPDLOG_INFO("                               {}",
                     FormatBitrate(static_cast<std::uint32_t>(test_metrics_.avg_publish_bitrate)));
-
         SPDLOG_INFO("--------------------------------------------");
 
         return test_complete.time;
