@@ -104,17 +104,18 @@ namespace qperf {
 
         SPDLOG_INFO("--------------------------------------------");
         SPDLOG_INFO("Test config:");
-        SPDLOG_INFO("\tns = \"{}\", n=\"{}\"", scenario_namespace, scenario_name);
-        SPDLOG_INFO("\ttrack mode = {}", (int)perf_config.track_mode);
-        SPDLOG_INFO("\tpri = {}, ttl = {}", perf_config.priority, perf_config.ttl);
-        SPDLOG_INFO("\tobjspergroup = {}", perf_config.objects_per_group);
-        SPDLOG_INFO("\tbytes per group start = {}, bytes per group = {}",
-                    perf_config.bytes_per_group_start,
-                    perf_config.bytes_per_group);
-        SPDLOG_INFO("\ttransmit interval = {}", perf_config.transmit_interval);
-        SPDLOG_INFO("\tstart_delay = {}", perf_config.start_delay);
-        SPDLOG_INFO("\ttotal test time = {}", perf_config.total_test_time);
-        SPDLOG_INFO("\ttransmit time = {}", perf_config.total_transmit_time);
+        SPDLOG_INFO("                    ns  \"{}\"", scenario_namespace);
+        SPDLOG_INFO("                     n  \"{}\"", scenario_name);
+        SPDLOG_INFO("              track mode {} ({})", (int)perf_config.track_mode, track_mode_ini_str);
+        SPDLOG_INFO("                     pri {}", perf_config.priority);
+        SPDLOG_INFO("                     ttl {}", perf_config.ttl);
+        SPDLOG_INFO("            objspergroup {}", perf_config.objects_per_group);
+        SPDLOG_INFO("   bytes per group start {}", perf_config.bytes_per_group_start);
+        SPDLOG_INFO("         bytes per group {}", perf_config.bytes_per_group);
+        SPDLOG_INFO("       transmit interval {}", perf_config.transmit_interval);
+        SPDLOG_INFO("             start_delay {}", perf_config.start_delay);
+        SPDLOG_INFO("         total test time {}", perf_config.total_test_time);
+        SPDLOG_INFO("           transmit time {}", perf_config.total_transmit_time);
         SPDLOG_INFO("--------------------------------------------");
 
         parsed = true;

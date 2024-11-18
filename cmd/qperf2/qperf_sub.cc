@@ -33,6 +33,7 @@ namespace qperf {
                               quicr::messages::GroupOrder::kOriginalPublisherOrder)
       , terminate_(false)
       , perf_config_(perf_config)
+      , first_pass_(true)
       , last_bytes_(0)
       , local_now_(0)
       , last_local_now_(0)
@@ -46,11 +47,11 @@ namespace qperf {
       , metric_samples_(0)
       , bitrate_total_(0)
       , max_object_time_delta_(0)
-      , min_object_time_delta_(std::numeric_limits<std::uint64_t>::max())
+      , min_object_time_delta_(std::numeric_limits<std::int64_t>::max())
       , avg_object_time_delta_(0.0)
       , total_time_delta_(0)
       , max_object_arrival_delta_(0)
-      , min_object_arrival_delta_(std::numeric_limits<std::uint64_t>::max())
+      , min_object_arrival_delta_(std::numeric_limits<std::int64_t>::max())
       , avg_object_arrival_delta_(0.0)
       , total_arrival_delta_(0)
     {
@@ -111,13 +112,19 @@ namespace qperf {
     void PerfSubscribeTrackHandler::ObjectReceived(const quicr::ObjectHeaders& object_header,
                                                    quicr::BytesSpan data_span)
     {
-        static bool first_pass = true;
         auto received_time = std::chrono::system_clock::now();
         local_now_ = std::chrono::time_point_cast<std::chrono::microseconds>(received_time).time_since_epoch().count();
 
-        if (last_local_now_ == 0) {
+        std::cout << "object_header group " << object_header.group_id << std::endl;
+
+        total_objects_ += 1;
+        total_bytes_ += data_span.size();
+
+        if (first_pass_) {
+            first_pass_ = false;
             last_local_now_ = local_now_;
             start_data_time_ = local_now_;
+            return;
         }
 
         memcpy(&test_mode_, data_span.data(), sizeof(std::uint8_t));
@@ -134,21 +141,25 @@ namespace qperf {
             std::int64_t transmit_delta = local_now_ - remote_now;
             std::int64_t arrival_delta = local_now_ - last_local_now_;
 
-            total_objects_ += 1;
-            total_bytes_ += data_span.size();
-            SPDLOG_INFO("OR, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
-                        test_identifier_,
-                        perf_config_.test_name,
-                        object_header.group_id,
-                        object_header.object_id,
-                        data_span.size(),
-                        local_now_,
-                        remote_now,
-                        transmit_delta,
-                        arrival_delta,
-                        total_objects_,
-                        total_bytes_);
-            if (total_objects_ == 1) {
+            if (transmit_delta <= 0) {
+                SPDLOG_INFO("-- negative/zero transmit delta (check ntp) -- {} {} {} {} {}",
+                            object_header.group_id,
+                            object_header.object_id,
+                            local_now_,
+                            remote_now,
+                            transmit_delta);
+            }
+
+            if (arrival_delta <= 0) {
+                SPDLOG_INFO("-- negative/zero arrival delta -- {} {} {} {} {}",
+                            object_header.group_id,
+                            object_header.object_id,
+                            local_now_,
+                            last_local_now_,
+                            arrival_delta);
+            }
+
+            if (first_pass_) {
                 SPDLOG_INFO("--------------------------------------------");
                 SPDLOG_INFO("{}", perf_config_.test_name);
                 SPDLOG_INFO("Started Receiving");
@@ -156,15 +167,28 @@ namespace qperf {
                 SPDLOG_INFO("--------------------------------------------");
             }
 
-            total_time_delta_ += transmit_delta;
-            max_object_time_delta_ = transmit_delta > (std::int64_t)max_object_time_delta_
-                                       ? transmit_delta
-                                       : (std::int64_t)max_object_time_delta_;
-            min_object_time_delta_ = transmit_delta < (std::int64_t)min_object_time_delta_
-                                       ? transmit_delta
-                                       : (std::int64_t)min_object_time_delta_;
+            if (!first_pass_) {
+                SPDLOG_INFO("OR, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
+                            test_identifier_,
+                            perf_config_.test_name,
+                            object_header.group_id,
+                            object_header.object_id,
+                            data_span.size(),
+                            local_now_,
+                            remote_now,
+                            transmit_delta,
+                            arrival_delta,
+                            total_objects_,
+                            total_bytes_);
 
-            if (!first_pass) {
+                total_time_delta_ += transmit_delta;
+                max_object_time_delta_ = transmit_delta > (std::int64_t)max_object_time_delta_
+                                           ? transmit_delta
+                                           : (std::int64_t)max_object_time_delta_;
+                min_object_time_delta_ = transmit_delta < (std::int64_t)min_object_time_delta_
+                                           ? transmit_delta
+                                           : (std::int64_t)min_object_time_delta_;
+
                 total_arrival_delta_ += arrival_delta;
                 max_object_arrival_delta_ = arrival_delta > (std::int64_t)max_object_arrival_delta_
                                               ? arrival_delta
@@ -174,16 +198,14 @@ namespace qperf {
                                               : (std::int64_t)min_object_arrival_delta_;
             }
 
-            first_pass = false;
-
         } else if (test_mode_ == qperf::TestMode::kComplete) {
             ObjectTestComplete test_complete;
 
             memset(&test_complete, '\0', sizeof(test_complete));
             memcpy(&test_complete, data_span.data(), sizeof(test_complete));
 
-            total_objects_ += 1;
-            total_bytes_ += data_span.size();
+            // total_objects_ += 1;
+            // total_bytes_ += data_span.size();
             std::int64_t total_time = local_now_ - start_data_time_;
             avg_object_time_delta_ = (double)total_time_delta_ / (double)total_objects_;
             avg_object_arrival_delta_ =
@@ -192,27 +214,27 @@ namespace qperf {
             SPDLOG_INFO("--------------------------------------------");
             SPDLOG_INFO("{}", perf_config_.test_name);
             SPDLOG_INFO("Testing Complete");
-            SPDLOG_INFO("\tTotal test run time  {} ms", total_time);
-            SPDLOG_INFO("\tConfigured test time {} ms", perf_config_.total_transmit_time);
-            SPDLOG_INFO("\tTotal subscribed objects {}, bytes {}", total_objects_, total_bytes_);
-            SPDLOG_INFO("\tTotal published objects {}, bytes {}",
+            SPDLOG_INFO("       Total test run time (ms) {}", total_time / 1000.0f);
+            SPDLOG_INFO("      Configured test time (ms) {}", perf_config_.total_transmit_time);
+            SPDLOG_INFO("       Total subscribed objects {}, bytes {}", total_objects_, total_bytes_);
+            SPDLOG_INFO("        Total published objects {}, bytes {}",
                         test_complete.test_metrics.total_published_objects,
                         test_complete.test_metrics.total_published_bytes);
-            SPDLOG_INFO("\tBitrate              max {}, min {}, avg {:.3f}, {}",
-                        max_bitrate_,
-                        min_bitrate_,
-                        avg_bitrate_,
-                        FormatBitrate(static_cast<std::uint32_t>(avg_bitrate_)));
-            SPDLOG_INFO("\tObject time delta    max {}, min {}, avg {:04.3f} ",
-                        max_object_time_delta_,
-                        min_object_time_delta_,
-                        avg_object_time_delta_);
-            SPDLOG_INFO("\tObject arrival delta max {}, min {}, avg {:04.3f}",
-                        max_object_arrival_delta_,
-                        min_object_arrival_delta_,
-                        avg_object_arrival_delta_);
+            SPDLOG_INFO("                  Bitrate (bps):");
+            SPDLOG_INFO("                            min {}", min_bitrate_);
+            SPDLOG_INFO("                            max {}", max_bitrate_);
+            SPDLOG_INFO("                            avg {:.3f}", avg_bitrate_);
+            SPDLOG_INFO("                                {}", FormatBitrate(static_cast<std::uint32_t>(avg_bitrate_)));
+            SPDLOG_INFO("        Object time delta (us):");
+            SPDLOG_INFO("                            min {}", min_object_time_delta_);
+            SPDLOG_INFO("                            max {}", max_object_time_delta_);
+            SPDLOG_INFO("                            avg {:04.3f} ", avg_object_time_delta_);
+            SPDLOG_INFO("     Object arrival delta (us):");
+            SPDLOG_INFO("                            min {}", min_object_arrival_delta_);
+            SPDLOG_INFO("                            max {}", max_object_arrival_delta_);
+            SPDLOG_INFO("                            avg {:04.3f}", avg_object_arrival_delta_);
             SPDLOG_INFO("--------------------------------------------");
-            // id,test_name,total_time,total_transmit_time,total_objects,total_bytes,sent_object,sent_bytes,max_bitrate,min_bitrate,avg_bitrate,max_time,min_time,avg_time,max_arrival,min_arrival,avg_arrival
+            // id,test_name,total_time,total_transmit_time,total_objects,total_bytes,sent_object,sent_bytes,min_bitrate,max_bitrate,avg_bitrate,min_time,maxtime,avg_time,min_arrival,max_arrival,avg_arrival
             SPDLOG_INFO("OR COMPLETE, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
                         test_identifier_,
                         perf_config_.test_name,
@@ -222,14 +244,14 @@ namespace qperf {
                         total_bytes_,
                         test_complete.test_metrics.total_published_objects,
                         test_complete.test_metrics.total_published_bytes,
-                        max_bitrate_,
                         min_bitrate_,
+                        max_bitrate_,
                         avg_bitrate_,
-                        max_object_time_delta_,
                         min_object_time_delta_,
+                        max_object_time_delta_,
                         avg_object_time_delta_,
-                        max_object_arrival_delta_,
                         min_object_arrival_delta_,
+                        max_object_arrival_delta_,
                         avg_object_arrival_delta_);
 
             return;
@@ -237,6 +259,7 @@ namespace qperf {
             SPDLOG_WARN(
               "OR, {}, {} - unkown data identifier {}", test_identifier_, perf_config_.test_name, (int)test_mode_);
         }
+
         last_local_now_ = local_now_;
     }
 
