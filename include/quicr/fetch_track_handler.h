@@ -66,10 +66,29 @@ namespace quicr {
               full_track_name, priority, group_order, start_group, end_group, start_object, end_object));
         }
 
-        constexpr messages::GroupId GetStartGroup() const noexcept { return start_group_; }
-        constexpr messages::GroupId GetStartObject() const noexcept { return start_object_; }
-        constexpr messages::GroupId GetEndGroup() const noexcept { return end_group_; }
-        constexpr messages::GroupId GetEndObject() const noexcept { return end_object_; }
+        /**
+         * @brief Get the starting group id of the Fetch range.
+         * @returns The starting group ID.
+         */
+        constexpr const messages::GroupId& GetStartGroup() const noexcept { return start_group_; }
+
+        /**
+         * @brief Get the id of the group one past the end of the Fetch range.
+         * @returns The ending group ID.
+         */
+        constexpr const messages::GroupId& GetEndGroup() const noexcept { return end_group_; }
+
+        /**
+         * @brief Get the starting object id of the Group range.
+         * @returns The starting object ID.
+         */
+        constexpr const messages::GroupId& GetStartObject() const noexcept { return start_object_; }
+
+        /**
+         * @brief Get the id of the object one past the end of the group range.
+         * @returns The ending object ID.
+         */
+        constexpr const messages::GroupId& GetEndObject() const noexcept { return end_object_; }
 
       private:
         messages::GroupId start_group_;

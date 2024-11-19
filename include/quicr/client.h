@@ -220,6 +220,11 @@ namespace quicr {
             }
         }
 
+        /**
+         * @brief Fetch track.
+         *
+         * @param track_handler Track handler to use for handling Fetch related messages.
+         */
         void FetchTrack(std::shared_ptr<FetchTrackHandler> track_handler)
         {
             if (connection_handle_.has_value()) {
@@ -227,6 +232,11 @@ namespace quicr {
             }
         }
 
+        /**
+         * @brief Cancel a given Fetch track handler.
+         *
+         * @param track_handler The given Fetch track handler to cancel.
+         */
         void CancelFetchTrack(std::shared_ptr<FetchTrackHandler> track_handler)
         {
             if (connection_handle_.has_value()) {

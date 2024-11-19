@@ -80,9 +80,10 @@ namespace quicr {
          * @details The server will create a server publish track handler based on a received
          *      subscribe. It will use this handler to send objects to subscriber.
          *
-         * @param connection_handle                   Connection ID of the client/subscriber
+         * @param connection_handle         Connection ID of the client/subscriber
          * @param subscribe_id              Subscribe ID from the received subscribe
          * @param track_handler             Server publish track handler
+         * @param callback                  Callback to run extra functionality on sending messages.
          */
         void BindPublisherTrack(ConnectionHandle connection_handle,
                                 uint64_t subscribe_id,
@@ -215,16 +216,40 @@ namespace quicr {
          */
         virtual void UnsubscribeReceived(ConnectionHandle connection_handle, uint64_t subscribe_id) = 0;
 
+        /**
+         * @brief Callback notification on Fetch message received.
+         *
+         * @param connection_handle Source connection ID.
+         * @param subscribe_id      Subscribe ID received.
+         * @param track_full_name   Track full name
+         * @param attributes        Fetch attributes received.
+         *
+         * @returns true if user defined conditions of Fetch are satisfied, false otherwise.
+         */
         virtual bool FetchReceived(ConnectionHandle connection_handle,
                                    uint64_t subscribe_id,
                                    const FullTrackName& track_full_name,
                                    const FetchAttributes& attributes);
 
+        /**
+         * @brief Event to run on sending FetchOk.
+         *
+         * @param connection_handle Source connection ID.
+         * @param subscribe_id      Subscribe ID received.
+         * @param track_full_name   Track full name
+         * @param attributes        Fetch attributes received.
+         */
         virtual void OnFetchOk(ConnectionHandle connection_handle,
                                uint64_t subscribe_id,
                                const FullTrackName& track_full_name,
                                const FetchAttributes& attributes);
 
+        /**
+         * @brief Callback notification on receiving a FetchCancel message.
+         *
+         * @param connection_handle Source connection ID.
+         * @param subscribe_id      Subscribe ID received.
+         */
         virtual void FetchCancelReceived(ConnectionHandle connection_handle, uint64_t subscribe_id) = 0;
 
         ///@}
