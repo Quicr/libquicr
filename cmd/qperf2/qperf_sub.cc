@@ -83,7 +83,7 @@ namespace qperf {
             case Status::kNotSubscribed:
                 SPDLOG_INFO("{}, {} Subscribe Handler - kNotSubscribed", test_identifier_, perf_config_.test_name);
                 break;
-            case Status::kPendingSubscribeResponse:
+            case Status::kPendingResponse:
                 SPDLOG_INFO(
                   "{}, {} Subscribe Handler - kPendingSubscribeResponse", test_identifier_, perf_config_.test_name);
                 break;
@@ -93,7 +93,7 @@ namespace qperf {
                 SPDLOG_INFO("{}, {} Subscribe Handler - kSendingUnsubscribe", test_identifier_, perf_config_.test_name);
                 terminate_ = true;
                 break;
-            case Status::kSubscribeError:
+            case Status::kError:
                 SPDLOG_INFO("{}, {} Subscribe Handler - kSubscribeError", test_identifier_, perf_config_.test_name);
                 terminate_ = true;
                 break;
