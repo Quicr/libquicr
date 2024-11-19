@@ -483,7 +483,10 @@ class MyServer : public quicr::Server
                                                                             uint64_t object_id,
                                                                             std::optional<quicr::Extensions> extensions,
                                                                             quicr::BytesSpan data) {
-            // TODO(trigaux): Cleanup cache a bit, maybe only keep a certain depth. Cleanup when publishers go away.
+            if (cache_[tnsh].size() > 10) {
+                cache_[tnsh].erase(cache_[tnsh].begin());
+            }
+
             cache_[tnsh].insert(std::make_pair(group_id,
                                                CacheObject{
                                                  priority,
