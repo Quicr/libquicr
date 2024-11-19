@@ -37,11 +37,19 @@ namespace quicr {
     {
     }
 
+    bool Server::FetchReceived(ConnectionHandle, uint64_t, const FullTrackName&, const FetchAttributes&)
+    {
+        return false;
+    }
+
+    void Server::OnFetchOk(ConnectionHandle, uint64_t, const FullTrackName&, const FetchAttributes&) {}
+
     void Server::ResolveSubscribe(ConnectionHandle, uint64_t, const SubscribeResponse&) {}
 
     void Server::BindPublisherTrack(TransportConnId conn_id,
                                     uint64_t subscribe_id,
-                                    const std::shared_ptr<PublishTrackHandler>& track_handler)
+                                    const std::shared_ptr<PublishTrackHandler>& track_handler,
+                                    PublishTrackHandler::OnPublishObjFunction&& callback)
     {
         // Generate track alias
         const auto& tfn = track_handler->GetFullTrackName();
@@ -72,15 +80,19 @@ namespace quicr {
                                              false);
 
         // Setup the function for the track handler to use to send objects with thread safety
-        track_handler->publish_object_func_ = [&, track_handler, subscribe_id = track_handler->GetSubscribeId()](
-                                                uint8_t priority,
-                                                uint32_t ttl,
-                                                bool stream_header_needed,
-                                                uint64_t group_id,
-                                                uint64_t subgroup_id,
-                                                uint64_t object_id,
-                                                std::optional<Extensions> extensions,
-                                                Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
+        track_handler->publish_object_func_ =
+          [&, track_handler, subscribe_id = track_handler->GetSubscribeId(), cb = std::move(callback)](
+            uint8_t priority,
+            uint32_t ttl,
+            bool stream_header_needed,
+            uint64_t group_id,
+            uint64_t subgroup_id,
+            uint64_t object_id,
+            std::optional<Extensions> extensions,
+            Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
+            if (cb) {
+                cb(priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
+            }
             return SendObject(
               *track_handler, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
         };
@@ -161,7 +173,7 @@ namespace quicr {
                     return true;
                 }
 
-                sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kSubscribeError);
+                sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kError);
                 RemoveSubscribeTrack(conn_ctx, *sub_it->second);
 
                 return true;
@@ -346,10 +358,46 @@ namespace quicr {
                 messages::MoqFetch msg;
                 msg_bytes >> msg;
 
-                SPDLOG_LOGGER_INFO(logger_, "Fetch API is not supported");
+                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+                const FetchAttributes attrs{
+                    .priority = msg.priority,
+                    .group_order = msg.group_order,
+                    .start_group = msg.start_group,
+                    .start_object = msg.start_object,
+                    .end_group = msg.end_group,
+                    .end_object = msg.end_object,
+                };
 
-                SendFetchError(
-                  conn_ctx, msg.subscribe_id, messages::FetchError::TRACK_NOT_EXIST, "Track doesn't exist");
+                if (!FetchReceived(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs)) {
+                    SendFetchError(
+                      conn_ctx, msg.subscribe_id, messages::FetchError::kTrackDoesNotExist, "Track does not exist");
+
+                    return true;
+                }
+
+                auto th = TrackHash(tfn);
+                conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
+
+                if (msg.subscribe_id > conn_ctx.current_subscribe_id) {
+                    conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
+                }
+
+                SendFetchOk(conn_ctx, msg.subscribe_id, msg.group_order, false, 0, 0);
+                OnFetchOk(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs);
+
+                return true;
+            }
+            case messages::ControlMessageType::FETCH_CANCEL: {
+                messages::MoqFetchCancel msg;
+                msg_bytes >> msg;
+
+                if (conn_ctx.recv_sub_id.find(msg.subscribe_id) == conn_ctx.recv_sub_id.end()) {
+                    SPDLOG_LOGGER_WARN(
+                      logger_, "Received Fetch Cancel for unknown subscribe ID: {0}", msg.subscribe_id);
+                }
+
+                FetchCancelReceived(conn_ctx.connection_handle, msg.subscribe_id);
+                conn_ctx.recv_sub_id.erase(msg.subscribe_id);
 
                 return true;
             }
@@ -361,6 +409,12 @@ namespace quicr {
 
         } // End of switch(msg type)
 
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Unable to parse control message: {0}", e.what());
+        CloseConnection(conn_ctx.connection_handle,
+                        messages::MoqTerminationReason::PROTOCOL_VIOLATION,
+                        "Control message cannot be parsed");
+        return false;
     } catch (...) {
         SPDLOG_LOGGER_ERROR(logger_, "Unable to parse control message");
         CloseConnection(conn_ctx.connection_handle,

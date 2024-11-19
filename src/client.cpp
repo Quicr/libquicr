@@ -128,7 +128,7 @@ namespace quicr {
                     return true;
                 }
 
-                sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kSubscribeError);
+                sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kError);
                 RemoveSubscribeTrack(conn_ctx, *sub_it->second);
                 return true;
             }
@@ -302,7 +302,43 @@ namespace quicr {
                 conn_ctx.setup_complete = true;
                 return true;
             }
+            case messages::ControlMessageType::FETCH_OK: {
+                messages::MoqFetchError msg;
+                msg_bytes >> msg;
 
+                auto fetch_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                if (fetch_it == conn_ctx.tracks_by_sub_id.end()) {
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received fetch ok for unknown fetch track conn_id: {0} subscribe_id: {1}, ignored",
+                      conn_ctx.connection_handle,
+                      msg.subscribe_id);
+                    return true;
+                }
+
+                fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kOk);
+
+                return true;
+            }
+            case messages::ControlMessageType::FETCH_ERROR: {
+                messages::MoqFetchError msg;
+                msg_bytes >> msg;
+
+                auto fetch_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                if (fetch_it == conn_ctx.tracks_by_sub_id.end()) {
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received fetch error for unkown fetch track conn_id: {0} subscribe_id: {1}, ignored",
+                      conn_ctx.connection_handle,
+                      msg.subscribe_id);
+                    return true;
+                }
+
+                fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kError);
+                conn_ctx.tracks_by_sub_id.erase(fetch_it);
+
+                return true;
+            }
             default:
                 SPDLOG_LOGGER_ERROR(logger_,
                                     "Unsupported MOQT message type: {0}, bad stream",
