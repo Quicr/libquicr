@@ -230,9 +230,9 @@ namespace quicr {
         }
 
       private:
-        std::size_t hash(std::size_t offset = -1) const noexcept
+        uint64_t hash(std::size_t offset = -1) const noexcept
         {
-            std::size_t value = 0;
+            uint64_t value = 0;
             for (const auto& h : Span{ hash_ }.subspan(0, std::min(offset, hash_.size()))) {
                 hash_combine(value, h);
             }
