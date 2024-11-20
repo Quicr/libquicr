@@ -8,6 +8,7 @@
 #include <spdlog/spdlog.h>
 #include <unordered_map>
 
+#include <quicr/cache.h>
 #include <quicr/server.h>
 
 #include "signal_handler.h"
@@ -104,7 +105,6 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 
     void ObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data) override
     {
-
         if (data.size() > 255) {
             SPDLOG_CRITICAL("Example server is for example only, received data > 255 bytes is not allowed!");
             SPDLOG_CRITICAL("Use github.com/quicr/laps for full relay functionality");
@@ -467,7 +467,7 @@ class MyServer : public quicr::Server
                     attrs.priority);
 
         auto pub_track_h =
-          std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, 5000);
+          std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, 50000);
         qserver_vars::subscribes[th.track_fullname_hash][connection_handle] = pub_track_h;
         qserver_vars::subscribe_alias_sub_id[connection_handle][subscribe_id] = th.track_fullname_hash;
 
@@ -483,21 +483,23 @@ class MyServer : public quicr::Server
                                                                             uint64_t object_id,
                                                                             std::optional<quicr::Extensions> extensions,
                                                                             quicr::BytesSpan data) {
-            if (cache_[tnsh].size() > 10) {
-                cache_[tnsh].erase(cache_[tnsh].begin());
+            if (cache_.count(tnsh) == 0) {
+                cache_.insert(std::make_pair(
+                  tnsh, quicr::Cache<quicr::messages::GroupId, std::vector<CacheObject>>{ ttl, 1, GetTickService() }));
             }
 
-            cache_[tnsh].insert(std::make_pair(group_id,
-                                               CacheObject{
-                                                 priority,
-                                                 ttl,
-                                                 stream_header_needed,
-                                                 group_id,
-                                                 subgroup_id,
-                                                 object_id,
-                                                 extensions,
-                                                 { data.begin(), data.end() },
-                                               }));
+            auto& cache_entry = cache_.at(tnsh);
+
+            CacheObject object{
+                priority,    ttl,       stream_header_needed, group_id,
+                subgroup_id, object_id, extensions,           { data.begin(), data.end() },
+            };
+
+            try {
+                cache_entry.Get(group_id).push_back(std::move(object));
+            } catch (...) {
+                cache_entry.Insert(group_id, { std::move(object) }, ttl);
+            }
         };
 
         // Create a subscribe track that will be used by the relay to send to subscriber for matching objects
@@ -539,59 +541,61 @@ class MyServer : public quicr::Server
 
         const auto th = quicr::TrackHash(track_full_name);
 
-        const auto& cache_entry_it = cache_.find(th.track_namespace_hash);
+        auto cache_entry_it = cache_.find(th.track_namespace_hash);
         if (cache_entry_it == cache_.end()) {
             return false;
         }
 
-        const auto& [_, cache_entry] = *cache_entry_it;
+        auto& [_, cache_entry] = *cache_entry_it;
 
-        const auto total_objects = attrs.end_object - attrs.start_object;
-        for (auto group_id = attrs.start_group; group_id < attrs.end_group; ++group_id) {
-            // TODO(trigaux): Check that the specific range of objects exists.
-            if (cache_entry.count(group_id) < total_objects) {
-                return false;
-            }
+        const auto& groups = cache_entry.Get(attrs.start_group, attrs.end_group);
+
+        if (groups.empty()) {
+            return false;
         }
 
-        return true;
+        return std::all_of(groups.begin(), groups.end(), [&](const auto& o) {
+            return !o.empty() && o.front().object_id <= attrs.start_object &&
+                   o.back().object_id >= (attrs.end_object - 1);
+        });
     }
+
     void OnFetchOk(quicr::ConnectionHandle connection_handle,
                    uint64_t subscribe_id,
                    const quicr::FullTrackName& track_full_name,
                    const quicr::FetchAttributes& attrs) override
     {
         auto pub_track_h =
-          std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, 5000);
+          std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, 50000);
         BindPublisherTrack(connection_handle, subscribe_id, pub_track_h);
 
         const auto th = quicr::TrackHash(track_full_name);
-        const auto& cache_entry = cache_.at(th.track_namespace_hash);
 
-        std::thread retrieve_cache_thread([=, &cache_entry] {
-            std::for_each(cache_entry.begin(), cache_entry.end(), [&](const auto& e) {
-                const auto& [group_id, object] = e;
+        std::thread retrieve_cache_thread(
+          [=, cache_entries = cache_.at(th.track_namespace_hash).Get(attrs.start_group, attrs.end_group)] {
+              for (const auto& cache_entry : cache_entries) {
+                  for (const auto& object : cache_entry) {
+                      if ((object.group_id < attrs.start_group || object.group_id >= attrs.end_group) ||
+                          (object.object_id < attrs.start_object || object.object_id >= attrs.end_object))
+                          continue;
 
-                if ((group_id < attrs.start_group || group_id >= attrs.end_group) ||
-                    (object.object_id < attrs.start_object || object.object_id >= attrs.end_object))
-                    return;
+                      quicr::ObjectHeaders obj_headers{
+                          object.group_id,
+                          object.object_id,
+                          object.subgroup_id,
+                          object.data.size(),
+                          quicr::ObjectStatus::kAvailable,
+                          object.priority,
+                          object.ttl,
+                          std::nullopt,
+                          object.extensions,
+                      };
 
-                quicr::ObjectHeaders obj_headers{
-                    group_id,
-                    object.object_id,
-                    object.subgroup_id,
-                    object.data.size(),
-                    quicr::ObjectStatus::kAvailable,
-                    object.priority,
-                    object.ttl,
-                    std::nullopt,
-                    object.extensions,
-                };
-
-                pub_track_h->PublishObject(obj_headers, object.data);
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            });
-        });
+                      pub_track_h->PublishObject(obj_headers, object.data);
+                      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                  }
+              }
+          });
 
         retrieve_cache_thread.detach();
     }
@@ -614,7 +618,7 @@ class MyServer : public quicr::Server
         std::optional<quicr::Extensions> extensions;
         quicr::Bytes data;
     };
-    std::map<quicr::TrackNamespaceHash, std::multimap<quicr::messages::GroupId, CacheObject>> cache_;
+    std::map<quicr::TrackNamespaceHash, quicr::Cache<quicr::messages::GroupId, std::vector<CacheObject>>> cache_;
 };
 
 /* -------------------------------------------------------------------------------------------------
@@ -650,7 +654,7 @@ InitConfig(cxxopts::ParseResult& cli_opts)
     config.transport_config.tls_cert_filename = cli_opts["cert"].as<std::string>();
     config.transport_config.tls_key_filename = cli_opts["key"].as<std::string>();
     config.transport_config.use_reset_wait_strategy = false;
-    config.transport_config.time_queue_max_duration = 5000;
+    config.transport_config.time_queue_max_duration = 50000;
     config.transport_config.quic_qlog_path = qlog_path;
 
     return config;

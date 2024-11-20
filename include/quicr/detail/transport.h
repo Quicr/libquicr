@@ -109,6 +109,8 @@ namespace quicr {
 
         ~Transport();
 
+        const std::shared_ptr<TickService>& GetTickService() const noexcept { return tick_service_; }
+
         // -------------------------------------------------------------------------------------------------
         // Public API MoQ Instance API methods
         // -------------------------------------------------------------------------------------------------
