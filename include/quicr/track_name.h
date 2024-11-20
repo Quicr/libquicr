@@ -13,7 +13,7 @@
 
 namespace quicr {
     template<class T>
-    inline void hash_combine(std::size_t& seed, const T& v)
+    inline void hash_combine(uint64_t& seed, const T& v)
     {
         std::hash<T> hasher;
         seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
@@ -277,7 +277,7 @@ namespace quicr {
         TrackNamespaceHash track_namespace_hash = 0; // 64bit hash of namespace
         TrackNameHash track_name_hash = 0;           // 64bit hash of name
 
-        size_t track_fullname_hash = 0; // 62bit of namespace+name
+        uint64_t track_fullname_hash = 0; // 62bit of namespace+name
 
         constexpr TrackHash(const uint64_t name_space, const uint64_t name) noexcept
           : track_namespace_hash{ name_space }
