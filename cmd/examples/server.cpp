@@ -17,6 +17,33 @@ using TrackNamespaceHash = uint64_t;
 using TrackNameHash = uint64_t;
 using FullTrackNameHash = uint64_t;
 
+/**
+ * @brief Defines an object received from an announcer that lives in the cache.
+ */
+struct CacheObject
+{
+    uint8_t priority;
+    uint32_t ttl;
+    bool stream_header_needed;
+    uint64_t group_id;
+    uint64_t subgroup_id;
+    uint64_t object_id;
+    std::optional<quicr::Extensions> extensions;
+    quicr::Bytes data;
+};
+
+/**
+ * @brief Specialization of std::less for sorting CacheObjects by object ID.
+ */
+template<>
+struct std::less<CacheObject>
+{
+    constexpr bool operator()(const CacheObject& lhs, const CacheObject& rhs) const noexcept
+    {
+        return lhs.object_id < rhs.object_id;
+    }
+};
+
 namespace qserver_vars {
     std::mutex state_mutex;
 
@@ -485,7 +512,7 @@ class MyServer : public quicr::Server
                                                                             quicr::BytesSpan data) {
             if (cache_.count(tnsh) == 0) {
                 cache_.insert(std::make_pair(
-                  tnsh, quicr::Cache<quicr::messages::GroupId, std::vector<CacheObject>>{ ttl, 1, GetTickService() }));
+                  tnsh, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{ ttl, 1, GetTickService() }));
             }
 
             auto& cache_entry = cache_.at(tnsh);
@@ -496,7 +523,7 @@ class MyServer : public quicr::Server
             };
 
             try {
-                cache_entry.Get(group_id).push_back(std::move(object));
+                cache_entry.Get(group_id).insert(std::move(object));
             } catch (...) {
                 cache_entry.Insert(group_id, { std::move(object) }, ttl);
             }
@@ -528,6 +555,16 @@ class MyServer : public quicr::Server
         }
     }
 
+    /**
+     * @brief Checks the cache for the requested objects.
+     *
+     * @param connection_handle Source connection ID.
+     * @param subscribe_id      Subscribe ID received.
+     * @param track_full_name   Track full name
+     * @param attributes        Fetch attributes received.
+     *
+     * @returns true if the range of groups and objects exist in the cache, otherwise returns false.
+     */
     bool FetchReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
                        [[maybe_unused]] uint64_t subscribe_id,
                        const quicr::FullTrackName& track_full_name,
@@ -554,12 +591,23 @@ class MyServer : public quicr::Server
             return false;
         }
 
-        return std::all_of(groups.begin(), groups.end(), [&](const auto& o) {
-            return !o.empty() && o.front().object_id <= attrs.start_object &&
-                   o.back().object_id >= (attrs.end_object - 1);
+        return std::all_of(groups.begin(), groups.end(), [&](const auto& group) {
+            return !group.empty() && group.begin()->object_id <= attrs.start_object &&
+                   std::prev(group.end())->object_id >= (attrs.end_object - 1);
         });
     }
 
+    /**
+     * @brief Event run on sending FetchOk.
+     *
+     * @details Event run upon sending a FetchOk to a fetching client. Retrieves the requested objects from the cache
+     *          and send them to the requesting client's fetch handler.
+     *
+     * @param connection_handle Source connection ID.
+     * @param subscribe_id      Subscribe ID received.
+     * @param track_full_name   Track full name
+     * @param attributes        Fetch attributes received.
+     */
     void OnFetchOk(quicr::ConnectionHandle connection_handle,
                    uint64_t subscribe_id,
                    const quicr::FullTrackName& track_full_name,
@@ -607,18 +655,8 @@ class MyServer : public quicr::Server
     }
 
   private:
-    struct CacheObject
-    {
-        uint8_t priority;
-        uint32_t ttl;
-        bool stream_header_needed;
-        uint64_t group_id;
-        uint64_t subgroup_id;
-        uint64_t object_id;
-        std::optional<quicr::Extensions> extensions;
-        quicr::Bytes data;
-    };
-    std::map<quicr::TrackNamespaceHash, quicr::Cache<quicr::messages::GroupId, std::vector<CacheObject>>> cache_;
+    /// The server cache for fetching from.
+    std::map<quicr::TrackNamespaceHash, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>> cache_;
 };
 
 /* -------------------------------------------------------------------------------------------------
