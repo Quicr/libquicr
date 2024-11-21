@@ -744,7 +744,7 @@ namespace quicr::messages {
         payload << UintVar(msg.subscribe_id);
         auto group_order = static_cast<uint8_t>(msg.group_order);
         payload.push_back(group_order);
-        payload.push_back(msg.end_of_track);
+        payload.push_back(static_cast<uint8_t>(msg.end_of_track));
         payload << UintVar(msg.largest_group);
         payload << UintVar(msg.largest_object);
 
@@ -765,7 +765,7 @@ namespace quicr::messages {
         buffer = buffer >> msg.subscribe_id;
         msg.group_order = static_cast<GroupOrder>(buffer.front());
         buffer = buffer.subspan(sizeof(GroupOrder));
-        msg.end_of_track = buffer.front();
+        msg.end_of_track = static_cast<bool>(buffer.front());
         buffer = buffer.subspan(sizeof(uint8_t));
         buffer = buffer >> msg.largest_group;
         buffer = buffer >> msg.largest_object;

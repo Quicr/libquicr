@@ -249,6 +249,9 @@ namespace quicr {
          * @param priority              Priority to use for object; set on next track change
          * @param ttl                   Expire time to live in milliseconds
          * @param stream_header_needed  Indicates if group or track header is needed before this data object
+         * @param group_id              The ID of the group the message belongs to
+         * @param object_id             The ID of the object this message represents
+         * @param extensions            Extensions to send along with the message
          * @param data                  Raw data/object that should be transmitted - MoQInstance serializes the data
          */
         using PublishObjFunction = std::function<PublishObjectStatus(uint8_t priority,
@@ -259,6 +262,26 @@ namespace quicr {
                                                                      uint64_t object_id,
                                                                      std::optional<Extensions> extensions,
                                                                      BytesSpan data)>;
+
+        /**
+         * @brief Event on Publish Object function via the MoQ instance
+         *
+         * @param priority              Priority to use for object; set on next track change
+         * @param ttl                   Expire time to live in milliseconds
+         * @param stream_header_needed  Indicates if group or track header is needed before this data object
+         * @param group_id              The ID of the group the message belongs to
+         * @param object_id             The ID of the object this message represents
+         * @param extensions            Extensions to send along with the message
+         * @param data                  Raw data/object that should be transmitted - MoQInstance serializes the data
+         */
+        using OnPublishObjFunction = std::function<void(uint8_t priority,
+                                                        uint32_t ttl,
+                                                        bool stream_header_needed,
+                                                        uint64_t group_id,
+                                                        uint64_t subgroup_id,
+                                                        uint64_t object_id,
+                                                        std::optional<Extensions> extensions,
+                                                        BytesSpan data)>;
         /**
          * @brief Set the Data context ID
          *
@@ -296,7 +319,7 @@ namespace quicr {
         uint64_t prev_sub_group_id_{ 0 };
         uint64_t prev_object_id_{ 0 };
         uint64_t object_payload_remaining_length_{ 0 };
-        bool sent_track_header_{ false }; // Used only in stream per track mode
+        bool sent_first_header_{ false }; // Used to indicate if the first stream has sent the header or not
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
 

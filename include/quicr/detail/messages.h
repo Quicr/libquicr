@@ -87,7 +87,7 @@ namespace quicr::messages {
 
     enum class FetchError : uint8_t
     {
-        TRACK_NOT_EXIST = 0xF0 // Missing in draft
+        kTrackDoesNotExist = 0xF0 // Missing in draft
     };
 
     // TODO (Suhas): rename it to StreamMapping
@@ -348,6 +348,11 @@ namespace quicr::messages {
         GroupId end_group;
         ObjectId end_object;
         std::vector<MoqParameter> params;
+
+        static inline std::size_t SizeOf(const MoqFetch& fetch) noexcept
+        {
+            return sizeof(MoqFetch) + fetch.track_namespace.size() + fetch.track_name.size();
+        }
     };
 
     BytesSpan operator>>(BytesSpan buffer, MoqFetch& msg);
@@ -357,7 +362,7 @@ namespace quicr::messages {
     {
         SubscribeId subscribe_id;
         GroupOrder group_order;
-        uint8_t end_of_track;
+        bool end_of_track;
         uint64_t largest_group{ 0 };
         uint64_t largest_object{ 0 };
         std::vector<MoqParameter> params;

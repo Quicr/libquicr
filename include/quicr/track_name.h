@@ -268,8 +268,8 @@ namespace quicr {
      */
     struct FullTrackName
     {
-        const TrackNamespace name_space;
-        const std::vector<uint8_t> name;
+        TrackNamespace name_space;
+        std::vector<uint8_t> name;
         std::optional<uint64_t> track_alias;
     };
 
