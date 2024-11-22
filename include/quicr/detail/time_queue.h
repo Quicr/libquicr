@@ -102,17 +102,17 @@ namespace quicr {
          * @throws std::invalid_argument    If the duration or interval do not meet requirements or If the tick_service
          * is null.
          */
-        TimeQueue(size_t duration, size_t interval, const std::shared_ptr<TickService>& tick_service)
+        TimeQueue(size_t duration, size_t interval, std::shared_ptr<TickService> tick_service)
           : duration_{ duration }
           , interval_{ interval }
           , total_buckets_{ duration_ / interval_ }
-          , tick_service_(tick_service)
+          , tick_service_(std::move(tick_service))
         {
             if (duration == 0 || duration % interval != 0 || duration == interval) {
                 throw std::invalid_argument("Invalid time_queue constructor args");
             }
 
-            if (!tick_service) {
+            if (!tick_service_) {
                 throw std::invalid_argument("Tick service cannot be null");
             }
 
@@ -134,9 +134,9 @@ namespace quicr {
          */
         TimeQueue(size_t duration,
                   size_t interval,
-                  const std::shared_ptr<TickService>& tick_service,
+                  std::shared_ptr<TickService> tick_service,
                   size_t initial_queue_size)
-          : TimeQueue(duration, interval, tick_service)
+          : TimeQueue(duration, interval, std::move(tick_service))
         {
             queue_.reserve(initial_queue_size);
         }
@@ -252,7 +252,7 @@ namespace quicr {
             }
         }
 
-      private:
+      protected:
         /**
          * @brief Based on current time, adjust and move the bucket index with time
          *        (sliding window)
@@ -318,7 +318,7 @@ namespace quicr {
             queue_.emplace_back(bucket, bucket.size() - 1, expiry_tick, ticks + delay_ttl);
         }
 
-      private:
+      protected:
         /// The duration in ticks of the entire queue.
         const size_t duration_;
 
