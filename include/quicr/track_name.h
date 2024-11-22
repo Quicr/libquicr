@@ -280,13 +280,6 @@ namespace quicr {
 
         size_t track_fullname_hash = 0; // 62bit of namespace+name
 
-        constexpr TrackHash(const uint64_t name_space, const uint64_t name, const uint64_t full_name) noexcept
-          : track_namespace_hash(name_space)
-          , track_name_hash(name)
-          , track_fullname_hash(full_name)
-        {
-        }
-
         constexpr TrackHash(const uint64_t name_space, const uint64_t name) noexcept
           : track_namespace_hash{ name_space }
           , track_name_hash{ name }
@@ -303,7 +296,7 @@ namespace quicr {
           , track_name_hash{ std::hash<std::string_view>{}(
               { reinterpret_cast<const char*>(ftn.name.data()), ftn.name.size() }) }
         {
-            (track_fullname_hash, track_namespace_hash);
+            hash_combine(track_fullname_hash, track_namespace_hash);
             hash_combine(track_fullname_hash, track_name_hash);
 
             // TODO(tievens): Evaluate; change hash to be more than 62 bits to avoid collisions
