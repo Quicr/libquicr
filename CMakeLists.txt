@@ -17,6 +17,12 @@ project(quicr
         DESCRIPTION "QuicR, a Media over QUIC Library"
         LANGUAGES CXX)
 
+if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
+    message(FATAL_ERROR
+    "In-source builds are disallowed, prefer libquicr's Makefile or cmake -B <build> -S <source>
+You may need to delete the already generated Cache and CMake folder to continue.")
+endif()
+
 configure_file( src/version.h.in ${CMAKE_BINARY_DIR}/include/quicr/version.h )
 
 IF (NOT UNIX AND NOT APPLE)
