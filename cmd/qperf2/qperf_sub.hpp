@@ -19,7 +19,7 @@ namespace qperf {
         void MetricsSampled(const quicr::SubscribeTrackMetrics& metrics) override;
         const quicr::SubscribeTrackMetrics& GetMetrics() const noexcept { return metrics_; }
 
-        bool IsComplete() { return (terminate_ || (test_mode_ == qperf::TestMode::kComplete)); }
+        bool IsComplete() { return terminate_; }
 
         std::string TestName() { return perf_config_.test_name; }
 
