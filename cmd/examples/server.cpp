@@ -522,9 +522,9 @@ class MyServer : public quicr::Server
                 subgroup_id, object_id, extensions,           { data.begin(), data.end() },
             };
 
-            try {
-                cache_entry.Get(group_id).insert(std::move(object));
-            } catch (...) {
+            if (auto group = cache_entry.Get(group_id)) {
+                group->insert(std::move(object));
+            } else {
                 cache_entry.Insert(group_id, { std::move(object) }, ttl);
             }
         };
@@ -580,20 +580,22 @@ class MyServer : public quicr::Server
 
         auto cache_entry_it = cache_.find(th.track_namespace_hash);
         if (cache_entry_it == cache_.end()) {
+            SPDLOG_WARN("No cache entry for the hash {}", th.track_namespace_hash);
             return false;
         }
 
         auto& [_, cache_entry] = *cache_entry_it;
 
-        const auto& groups = cache_entry.Get(attrs.start_group, attrs.end_group);
+        const auto groups = cache_entry.Get(attrs.start_group, attrs.end_group);
 
         if (groups.empty()) {
+            SPDLOG_WARN("No groups found for requested range");
             return false;
         }
 
-        return std::all_of(groups.begin(), groups.end(), [&](const auto& group) {
-            return !group.empty() && group.begin()->object_id <= attrs.start_object &&
-                   std::prev(group.end())->object_id >= (attrs.end_object - 1);
+        return std::any_of(groups.begin(), groups.end(), [&](const auto& group) {
+            return !group->empty() && group->begin()->object_id <= attrs.start_object &&
+                   std::prev(group->end())->object_id >= (attrs.end_object - 1);
         });
     }
 
@@ -622,7 +624,7 @@ class MyServer : public quicr::Server
         std::thread retrieve_cache_thread(
           [=, cache_entries = cache_.at(th.track_namespace_hash).Get(attrs.start_group, attrs.end_group)] {
               for (const auto& cache_entry : cache_entries) {
-                  for (const auto& object : cache_entry) {
+                  for (const auto& object : *cache_entry) {
                       if ((object.group_id < attrs.start_group || object.group_id >= attrs.end_group) ||
                           (object.object_id < attrs.start_object || object.object_id >= attrs.end_object))
                           continue;
