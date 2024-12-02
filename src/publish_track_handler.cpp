@@ -39,8 +39,8 @@ namespace quicr {
 
         // change in subgroups and groups require a new stream
 
-        is_stream_header_needed = not sent_first_header_ ||
-          prev_sub_group_id_ != object_headers.subgroup_id || prev_object_group_id_ != object_headers.group_id;
+        is_stream_header_needed = not sent_first_header_ || prev_sub_group_id_ != object_headers.subgroup_id ||
+                                  prev_object_group_id_ != object_headers.group_id;
 
         sent_first_header_ = true;
 
