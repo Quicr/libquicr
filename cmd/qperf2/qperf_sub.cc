@@ -115,16 +115,13 @@ namespace qperf {
         auto received_time = std::chrono::system_clock::now();
         local_now_ = std::chrono::time_point_cast<std::chrono::microseconds>(received_time).time_since_epoch().count();
 
-        std::cout << "object_header group " << object_header.group_id << std::endl;
-
         total_objects_ += 1;
         total_bytes_ += data_span.size();
 
         if (first_pass_) {
-            first_pass_ = false;
+
             last_local_now_ = local_now_;
             start_data_time_ = local_now_;
-            return;
         }
 
         memcpy(&test_mode_, data_span.data(), sizeof(std::uint8_t));
@@ -167,19 +164,20 @@ namespace qperf {
                 SPDLOG_INFO("--------------------------------------------");
             }
 
+            SPDLOG_INFO("OR, RUNNING, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
+                        test_identifier_,
+                        perf_config_.test_name,
+                        object_header.group_id,
+                        object_header.object_id,
+                        data_span.size(),
+                        local_now_,
+                        remote_now,
+                        transmit_delta,
+                        arrival_delta,
+                        total_objects_,
+                        total_bytes_);
+
             if (!first_pass_) {
-                SPDLOG_INFO("OR, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
-                            test_identifier_,
-                            perf_config_.test_name,
-                            object_header.group_id,
-                            object_header.object_id,
-                            data_span.size(),
-                            local_now_,
-                            remote_now,
-                            transmit_delta,
-                            arrival_delta,
-                            total_objects_,
-                            total_bytes_);
 
                 total_time_delta_ += transmit_delta;
                 max_object_time_delta_ = transmit_delta > (std::int64_t)max_object_time_delta_
@@ -199,13 +197,12 @@ namespace qperf {
             }
 
         } else if (test_mode_ == qperf::TestMode::kComplete) {
+
             ObjectTestComplete test_complete;
 
             memset(&test_complete, '\0', sizeof(test_complete));
             memcpy(&test_complete, data_span.data(), sizeof(test_complete));
 
-            // total_objects_ += 1;
-            // total_bytes_ += data_span.size();
             std::int64_t total_time = local_now_ - start_data_time_;
             avg_object_time_delta_ = (double)total_time_delta_ / (double)total_objects_;
             avg_object_arrival_delta_ =
@@ -220,6 +217,9 @@ namespace qperf {
             SPDLOG_INFO("        Total published objects {}, bytes {}",
                         test_complete.test_metrics.total_published_objects,
                         test_complete.test_metrics.total_published_bytes);
+            SPDLOG_INFO("       Subscribed delta objects {}, bytes {}",
+                        test_complete.test_metrics.total_published_objects - total_objects_,
+                        test_complete.test_metrics.total_published_bytes - total_bytes_);
             SPDLOG_INFO("                  Bitrate (bps):");
             SPDLOG_INFO("                            min {}", min_bitrate_);
             SPDLOG_INFO("                            max {}", max_bitrate_);
@@ -253,7 +253,7 @@ namespace qperf {
                         min_object_arrival_delta_,
                         max_object_arrival_delta_,
                         avg_object_arrival_delta_);
-
+            terminate_ = true;
             return;
         } else {
             SPDLOG_WARN(
@@ -261,6 +261,7 @@ namespace qperf {
         }
 
         last_local_now_ = local_now_;
+        first_pass_ = false;
     }
 
     void PerfSubscribeTrackHandler::MetricsSampled(const quicr::SubscribeTrackMetrics& metrics)
@@ -379,6 +380,7 @@ namespace qperf {
         } else {
             ret = false;
         }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         return ret;
     }
 
