@@ -394,6 +394,29 @@ TEST_CASE("Subscribe (Combo) Message encode/decode")
     }
 }
 
+
+TEST_CASE("SubscribeUpdate Message encode/decode")
+{
+    Bytes buffer;
+
+    auto subscribe_update = MoqSubscribeUpdate{};
+    subscribe_update.subscribe_id = 0x1;
+    subscribe_update.start_group = uint64_t(0x1000);
+    subscribe_update.start_object = uint64_t(0x100);
+    subscribe_update.end_group = uint64_t(0x2000);
+    subscribe_update.priority = 0x10;
+
+    buffer << subscribe_update;
+
+    MoqSubscribeUpdate subscribe_update_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_UPDATE), subscribe_update_out));
+    CHECK_EQ(0x1000, subscribe_update_out.start_group);
+    CHECK_EQ(0x100, subscribe_update_out.start_object);
+    CHECK_EQ(subscribe_update.subscribe_id, subscribe_update_out.subscribe_id);
+    CHECK_EQ(0x2000, subscribe_update_out.end_group);
+    CHECK_EQ(subscribe_update.priority, subscribe_update_out.priority);
+}
+
 TEST_CASE("SubscribeOk Message encode/decode")
 {
     Bytes buffer;

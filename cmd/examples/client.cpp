@@ -422,7 +422,7 @@ main(int argc, char* argv[])
     auto result = options.parse(argc, argv);
 
     if (result.count("help")) {
-        std::cout << options.help({ "", "Publisher", "Subscriber" }) << std::endl;
+        std::cout << options.help({ "", "Publisher", "Subscriber", "Fetcher" }) << std::endl;
         return EXIT_SUCCESS;
     }
 

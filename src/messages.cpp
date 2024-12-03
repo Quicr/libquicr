@@ -429,6 +429,48 @@ namespace quicr::messages {
         return buffer;
     }
 
+    Bytes& operator<<(Bytes& buffer, const MoqSubscribeUpdate& msg)
+    {
+        Bytes payload;
+        payload << UintVar(msg.subscribe_id);
+        payload << UintVar(msg.start_group);
+        payload << UintVar(msg.start_object);
+        payload << UintVar(msg.end_group);
+        payload.push_back(msg.priority);
+
+        payload << UintVar(msg.track_params.size());
+        for (const auto& param : msg.track_params) {
+            payload << param;
+        }
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_UPDATE));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeUpdate& msg)
+    {
+        buffer = buffer >> msg.subscribe_id;
+        buffer = buffer >> msg.start_group;
+        buffer = buffer >> msg.start_object;
+        buffer = buffer >> msg.end_group;
+        msg.priority = buffer.front();
+        buffer = buffer.subspan(sizeof(ObjectPriority));
+
+        uint64_t num_params = 0;
+        buffer = buffer >> num_params;
+
+        for (uint64_t i = 0; i < num_params; ++i) {
+            MoqParameter param;
+            buffer = buffer >> param;
+            msg.track_params.push_back(param);
+        }
+
+        return buffer;
+    }
+
     Bytes& operator<<(Bytes& buffer, const MoqUnsubscribe& msg)
     {
         Bytes payload;

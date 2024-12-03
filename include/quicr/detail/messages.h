@@ -210,6 +210,19 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, MoqSubscribeOk& msg);
     Bytes& operator<<(Bytes& buffer, const MoqSubscribeOk& msg);
 
+
+    struct MoqSubscribeUpdate {
+        SubscribeId subscribe_id;
+        GroupId start_group;
+        ObjectId start_object;
+        GroupId end_group;
+        ObjectPriority  priority;
+        std::vector<MoqParameter> track_params;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeUpdate& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqSubscribeUpdate& msg);
+
     struct MoqSubscribeError
     {
         uint64_t subscribe_id;
