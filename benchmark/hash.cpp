@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include <quicr/common.h>
 #include <quicr/hash.h>
 #include <quicr/track_name.h>
-#include <quicr/common.h>
 
 #include <benchmark/benchmark.h>
 
@@ -15,7 +15,7 @@ ToHash(benchmark::State& state)
 {
     TrackNamespace ns{ "example"s, "chat555"s, "user1"s, "dev1"s, "time1"s };
 
-     std::vector<uint8_t> ns_bytes { ns.begin(), ns.end()};
+    std::vector<uint8_t> ns_bytes{ ns.begin(), ns.end() };
 
     for ([[maybe_unused]] const auto& _ : state) {
         auto h = hash(ns_bytes);
@@ -28,7 +28,7 @@ ToHashStl(benchmark::State& state)
 {
     TrackNamespace ns{ "example"s, "chat555"s, "user1"s, "dev1"s, "time1"s };
 
-    std::string_view ns_sv(reinterpret_cast<const char *>(ns.data()), ns.size());
+    std::string_view ns_sv(reinterpret_cast<const char*>(ns.data()), ns.size());
 
     for ([[maybe_unused]] const auto& _ : state) {
         auto h = std::hash<std::string_view>{}(ns_sv);

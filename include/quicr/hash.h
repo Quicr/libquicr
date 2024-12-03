@@ -53,7 +53,7 @@ namespace quicr {
             start_it += word_len;
         }
 
-        for (size_t i = word_count* word_len; i < bytes.size(); i++) {
+        for (size_t i = word_count * word_len; i < bytes.size(); i++) {
             crc = crc_table[(crc & 0xFF) ^ bytes[i]] ^ (crc >> 8);
         }
 

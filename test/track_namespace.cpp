@@ -32,10 +32,10 @@ TEST_CASE("Hash namespace")
 {
     TrackNamespace ns{ "example"s, "chat555"s, "user1"s, "dev1"s, "time1"s };
 
-    auto h = hash({ns.begin(), ns.end()});
+    auto h = hash({ ns.begin(), ns.end() });
     CHECK_EQ(12859449578022697340, h);
 
-    TrackHash th({ns, {}, std::nullopt});
+    TrackHash th({ ns, {}, std::nullopt });
     CHECK_EQ(h, th.track_namespace_hash);
 
     auto ns_hash = std::hash<TrackNamespace>{}(ns);

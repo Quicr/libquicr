@@ -38,7 +38,7 @@ namespace quicr {
             std::size_t offset = 0;
             const auto add_entry = [&](auto&& e) {
                 const auto& entry = entries_.emplace_back(Span{ bytes_ }.subspan(offset, e.size()));
-                hash_.emplace_back(quicr::hash({entry.begin(), entry.end()}));
+                hash_.emplace_back(quicr::hash({ entry.begin(), entry.end() }));
 
                 offset += e.size();
             };
@@ -62,7 +62,7 @@ namespace quicr {
             std::size_t offset = 0;
             const auto add_entry = [&](auto&& e) {
                 const auto& entry = entries_.emplace_back(Span{ bytes_ }.subspan(offset, e.size()));
-                hash_.emplace_back(quicr::hash({entry.begin(), entry.end()}));
+                hash_.emplace_back(quicr::hash({ entry.begin(), entry.end() }));
                 offset += e.size();
             };
 
@@ -212,7 +212,7 @@ namespace quicr {
                 return false;
             }
 
-            for (size_t i=0; i < this->hash_.size(); i++) {
+            for (size_t i = 0; i < this->hash_.size(); i++) {
                 if (this->hash_[i] != other.hash_[i]) {
                     return false;
                 }
@@ -224,7 +224,7 @@ namespace quicr {
         bool HasSamePrefix(const TrackNamespace& other) const noexcept
         {
             const std::size_t prefix_size = std::min(this->hash_.size(), other.hash_.size());
-            for (size_t i=0; i < prefix_size; i++) {
+            for (size_t i = 0; i < prefix_size; i++) {
                 if (this->hash_[i] != other.hash_[i]) {
                     return false;
                 }
@@ -234,10 +234,7 @@ namespace quicr {
         }
 
       private:
-        uint64_t hash() const noexcept
-        {
-            return quicr::hash(bytes_);
-        }
+        uint64_t hash() const noexcept { return quicr::hash(bytes_); }
 
       private:
         std::vector<uint8_t> bytes_;
@@ -292,8 +289,8 @@ namespace quicr {
         }
 
         TrackHash(const FullTrackName& ftn) noexcept
-          : track_namespace_hash{ hash({ftn.name_space.begin(), ftn.name_space.end() }) }
-          , track_name_hash{ hash( { ftn.name.begin(), ftn.name.end() }) }
+          : track_namespace_hash{ hash({ ftn.name_space.begin(), ftn.name_space.end() }) }
+          , track_name_hash{ hash({ ftn.name.begin(), ftn.name.end() }) }
         {
             hash_combine(track_fullname_hash, track_namespace_hash);
             hash_combine(track_fullname_hash, track_name_hash);
