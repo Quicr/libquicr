@@ -279,6 +279,14 @@ namespace quicr {
                            TrackHash th,
                            messages::ObjectPriority priority,
                            messages::GroupOrder group_order);
+        void SendSubscribeUpdate(ConnectionContext& conn_ctx,
+                           uint64_t subscribe_id,
+                           TrackHash th,
+                           messages::GroupId start_group_id,
+                           messages::ObjectId start_object_id,
+                           messages::GroupId end_group_id,
+                           messages::ObjectPriority priority);
+
         void SendSubscribeOk(ConnectionContext& conn_ctx, uint64_t subscribe_id, uint64_t expires, bool content_exists);
         void SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id);
         void SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason);

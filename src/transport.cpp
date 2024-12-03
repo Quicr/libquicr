@@ -283,6 +283,36 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
+    void Transport::SendSubscribeUpdate(quicr::Transport::ConnectionContext& conn_ctx,
+                                       uint64_t subscribe_id,
+                                       quicr::TrackHash th,
+                                       messages::GroupId start_group_id,
+                                       messages::ObjectId start_object_id,
+                                       messages::GroupId end_group_id,
+                                       messages::ObjectPriority priority)
+    {
+        auto subscribe_update = MoqSubscribeUpdate{};
+        subscribe_update.subscribe_id = subscribe_id;
+        subscribe_update.start_group = start_group_id;
+        subscribe_update.start_object = start_object_id;
+        subscribe_update.end_group = end_group_id;
+        subscribe_update.priority = priority;
+
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqSubscribeUpdate));
+        buffer << subscribe_update;
+
+        SPDLOG_LOGGER_DEBUG(
+          logger_,
+          "Sending SUBSCRIBE_UPDATe to conn_id: {0} subscribe_id: {1} track namespace hash: {2} name hash: {3}",
+          conn_ctx.connection_handle,
+          subscribe_id,
+          th.track_namespace_hash,
+          th.track_name_hash);
+
+        SendCtrlMsg(conn_ctx, buffer);
+    }
+
     void Transport::SendSubscribeOk(ConnectionContext& conn_ctx,
                                     uint64_t subscribe_id,
                                     uint64_t expires,
