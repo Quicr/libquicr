@@ -77,6 +77,12 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 }
                 break;
             }
+            case Status::kSubscriptionUpdated: {
+                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
+                    SPDLOG_INFO("Publish track alias: {0} has updated subscription", track_alias.value());
+                }
+                break;
+            }
             default:
                 if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
                     SPDLOG_INFO("Publish track alias: {0} status {1}", track_alias.value(), static_cast<int>(status));
@@ -200,6 +206,14 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
         if (track_handler->GetStatus() != MyPublishTrackHandler::Status::kOk) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
+        }
+
+        // TODO: This is very restricted. We need to verify the request params in the update message
+        if (track_handler->GetStatus() == MyPublishTrackHandler::Status::kSubscriptionUpdated) {
+            // restart the group
+            group_id++;
+            object_id = 0;
+            SPDLOG_INFO(" Subscription Updated: Restarting a new group {0}", group_id);
         }
 
         if (!sending) {

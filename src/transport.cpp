@@ -519,6 +519,27 @@ namespace quicr {
         RemoveSubscribeTrack(conn_ctx, *track_handler);
     }
 
+    void Transport::UpdateTrackSubscription(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
+    {
+        const auto& tfn = track_handler->GetFullTrackName();
+        auto th = TrackHash(tfn);
+
+        SPDLOG_LOGGER_INFO(logger_, "Subscribe track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
+
+        std::lock_guard<std::mutex> _(state_mutex_);
+        auto conn_it = connections_.find(conn_id);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_id);
+            return;
+        }
+
+        SPDLOG_LOGGER_DEBUG(logger_, "subscribe id (from subscribe) to add to memory: {0}", track_handler->GetSubscribeId().value());
+
+        auto priority = track_handler->GetPriority();
+        SendSubscribeUpdate(conn_it->second, track_handler->GetSubscribeId().value(), th, 0x0, 0x0, 0x0, priority);
+    }
+
+
     void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx,
                                          SubscribeTrackHandler& handler,
                                          bool remove_handler)

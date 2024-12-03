@@ -133,6 +133,16 @@ namespace quicr {
                               const std::shared_ptr<SubscribeTrackHandler>& track_handler);
 
         /**
+         * @brief Update Subscription to a track
+         *
+         * @param connection_handle         Connection ID to send subscribe
+         * @param track_handler             Track handler to use for track related functions and callbacks
+         *
+         */
+        void UpdateTrackSubscription(ConnectionHandle connection_handle, std::shared_ptr<SubscribeTrackHandler> track_handler);
+
+
+        /**
          * @brief Publish to a track
          *
          * @param connection_handle           Connection ID from transport for the QUIC connection context
