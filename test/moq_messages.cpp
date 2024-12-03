@@ -394,7 +394,6 @@ TEST_CASE("Subscribe (Combo) Message encode/decode")
     }
 }
 
-
 TEST_CASE("SubscribeUpdate Message encode/decode")
 {
     Bytes buffer;

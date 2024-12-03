@@ -192,9 +192,10 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
             SPDLOG_INFO("Track alias: {0} failed to subscribe reason: {1}", GetTrackAlias().value(), reason);
         }
     }
+
   private:
-    uint64_t latest_group {0};
-    uint64_t latest_object {0};
+    uint64_t latest_group{ 0 };
+    uint64_t latest_object{ 0 };
 };
 
 /**
@@ -561,12 +562,14 @@ class MyServer : public quicr::Server
                 qserver_vars::pub_subscribes[th.track_fullname_hash][conn_h] = sub_track_h;
             } else {
                 auto now = std::chrono::steady_clock::now();
-                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_subscription_time.value()).count();
+                auto elapsed =
+                  std::chrono::duration_cast<std::chrono::milliseconds>(now - last_subscription_time.value()).count();
                 if (elapsed > kSubscriptionDampenDurationMs) {
                     // send subscription update
                     auto& sub_track_h = qserver_vars::pub_subscribes[th.track_namespace_hash][conn_h];
                     UpdateTrackSubscription(conn_h, sub_track_h);
-                    last_subscription_time = std::chrono::steady_clock::now();;
+                    last_subscription_time = std::chrono::steady_clock::now();
+                    ;
                 }
             }
         }
@@ -676,7 +679,6 @@ class MyServer : public quicr::Server
     std::map<quicr::TrackNamespaceHash, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>> cache_;
     const int kSubscriptionDampenDurationMs = 1000;
     std::optional<std::chrono::time_point<std::chrono::steady_clock>> last_subscription_time;
-
 };
 
 /* -------------------------------------------------------------------------------------------------

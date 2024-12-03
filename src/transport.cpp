@@ -284,12 +284,12 @@ namespace quicr {
     }
 
     void Transport::SendSubscribeUpdate(quicr::Transport::ConnectionContext& conn_ctx,
-                                       uint64_t subscribe_id,
-                                       quicr::TrackHash th,
-                                       messages::GroupId start_group_id,
-                                       messages::ObjectId start_object_id,
-                                       messages::GroupId end_group_id,
-                                       messages::ObjectPriority priority)
+                                        uint64_t subscribe_id,
+                                        quicr::TrackHash th,
+                                        messages::GroupId start_group_id,
+                                        messages::ObjectId start_object_id,
+                                        messages::GroupId end_group_id,
+                                        messages::ObjectPriority priority)
     {
         auto subscribe_update = MoqSubscribeUpdate{};
         subscribe_update.subscribe_id = subscribe_id;
@@ -519,7 +519,8 @@ namespace quicr {
         RemoveSubscribeTrack(conn_ctx, *track_handler);
     }
 
-    void Transport::UpdateTrackSubscription(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
+    void Transport::UpdateTrackSubscription(TransportConnId conn_id,
+                                            std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
         const auto& tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
@@ -533,12 +534,12 @@ namespace quicr {
             return;
         }
 
-        SPDLOG_LOGGER_DEBUG(logger_, "subscribe id (from subscribe) to add to memory: {0}", track_handler->GetSubscribeId().value());
+        SPDLOG_LOGGER_DEBUG(
+          logger_, "subscribe id (from subscribe) to add to memory: {0}", track_handler->GetSubscribeId().value());
 
         auto priority = track_handler->GetPriority();
         SendSubscribeUpdate(conn_it->second, track_handler->GetSubscribeId().value(), th, 0x0, 0x0, 0x0, priority);
     }
-
 
     void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx,
                                          SubscribeTrackHandler& handler,

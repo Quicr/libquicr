@@ -139,8 +139,8 @@ namespace quicr {
          * @param track_handler             Track handler to use for track related functions and callbacks
          *
          */
-        void UpdateTrackSubscription(ConnectionHandle connection_handle, std::shared_ptr<SubscribeTrackHandler> track_handler);
-
+        void UpdateTrackSubscription(ConnectionHandle connection_handle,
+                                     std::shared_ptr<SubscribeTrackHandler> track_handler);
 
         /**
          * @brief Publish to a track
@@ -290,12 +290,12 @@ namespace quicr {
                            messages::ObjectPriority priority,
                            messages::GroupOrder group_order);
         void SendSubscribeUpdate(ConnectionContext& conn_ctx,
-                           uint64_t subscribe_id,
-                           TrackHash th,
-                           messages::GroupId start_group_id,
-                           messages::ObjectId start_object_id,
-                           messages::GroupId end_group_id,
-                           messages::ObjectPriority priority);
+                                 uint64_t subscribe_id,
+                                 TrackHash th,
+                                 messages::GroupId start_group_id,
+                                 messages::ObjectId start_object_id,
+                                 messages::GroupId end_group_id,
+                                 messages::ObjectPriority priority);
 
         void SendSubscribeOk(ConnectionContext& conn_ctx, uint64_t subscribe_id, uint64_t expires, bool content_exists);
         void SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id);

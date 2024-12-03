@@ -111,7 +111,6 @@ namespace quicr {
                 auto [ns_hash, n_hash] = conn_ctx.recv_sub_id[msg.subscribe_id];
                 auto th = TrackHash(ns_hash, n_hash);
 
-
                 // For client/publisher, notify track that there is a subscriber
                 auto ptd = GetPubTrackHandler(conn_ctx, th);
                 if (ptd == nullptr) {
