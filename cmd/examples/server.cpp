@@ -138,6 +138,9 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
             throw std::runtime_error("Example server is for example only, received data > 255 bytes is not allowed!");
         }
 
+        latest_group_ = object_headers.group_id;
+        latest_object_ = object_headers.object_id;
+
         std::lock_guard<std::mutex> _(qserver_vars::state_mutex);
 
         auto track_alias = GetTrackAlias();
@@ -189,6 +192,10 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
             SPDLOG_INFO("Track alias: {0} failed to subscribe reason: {1}", GetTrackAlias().value(), reason);
         }
     }
+
+  private:
+    uint64_t latest_group_{ 0 };
+    uint64_t latest_object_{ 0 };
 };
 
 /**
@@ -541,7 +548,9 @@ class MyServer : public quicr::Server
         }
 
         for (auto& [conn_h, tracks] : anno_ns_it->second) {
+            // aggregate subscriptions
             if (tracks.find(th.track_fullname_hash) == tracks.end()) {
+                last_subscription_time_ = std::chrono::steady_clock::now();
                 SPDLOG_INFO("Sending subscribe to announcer connection handler: {0} subscribe track_alias: {1}",
                             conn_h,
                             th.track_fullname_hash);
@@ -549,8 +558,31 @@ class MyServer : public quicr::Server
                 tracks.insert(th.track_fullname_hash); // Add track alias to state
 
                 auto sub_track_h = std::make_shared<MySubscribeTrackHandler>(track_full_name);
+                auto copy_sub_track_h = sub_track_h;
                 SubscribeTrack(conn_h, sub_track_h);
-                qserver_vars::pub_subscribes[th.track_fullname_hash][conn_h] = sub_track_h;
+
+                SPDLOG_INFO("Sending subscription to announcer connection: {0} hash: {1}, handler: {2}",
+                            conn_h,
+                            th.track_fullname_hash,
+                            sub_track_h->GetFullTrackName().track_alias.value());
+                qserver_vars::pub_subscribes[th.track_fullname_hash][conn_h] = copy_sub_track_h;
+            } else {
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed =
+                  std::chrono::duration_cast<std::chrono::milliseconds>(now - last_subscription_time_.value()).count();
+                if (elapsed > kSubscriptionDampenDurationMs_) {
+                    // send subscription update
+                    auto& sub_track_h = qserver_vars::pub_subscribes[th.track_fullname_hash][conn_h];
+                    if (sub_track_h == nullptr) {
+
+                        return;
+                    }
+                    SPDLOG_INFO("Sending subscription update to announcer connection: {0} hash: {1}",
+                                th.track_namespace_hash,
+                                subscribe_id);
+                    UpdateTrackSubscription(conn_h, sub_track_h);
+                    last_subscription_time_ = std::chrono::steady_clock::now();
+                }
             }
         }
     }
@@ -659,6 +691,8 @@ class MyServer : public quicr::Server
   private:
     /// The server cache for fetching from.
     std::map<quicr::TrackNamespaceHash, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>> cache_;
+    const int kSubscriptionDampenDurationMs_ = 1000;
+    std::optional<std::chrono::time_point<std::chrono::steady_clock>> last_subscription_time_;
 };
 
 /* -------------------------------------------------------------------------------------------------

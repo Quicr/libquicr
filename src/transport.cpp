@@ -283,6 +283,36 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
+    void Transport::SendSubscribeUpdate(quicr::Transport::ConnectionContext& conn_ctx,
+                                        uint64_t subscribe_id,
+                                        quicr::TrackHash th,
+                                        messages::GroupId start_group_id,
+                                        messages::ObjectId start_object_id,
+                                        messages::GroupId end_group_id,
+                                        messages::ObjectPriority priority)
+    {
+        auto subscribe_update = MoqSubscribeUpdate{};
+        subscribe_update.subscribe_id = subscribe_id;
+        subscribe_update.start_group = start_group_id;
+        subscribe_update.start_object = start_object_id;
+        subscribe_update.end_group = end_group_id;
+        subscribe_update.priority = priority;
+
+        Bytes buffer;
+        buffer.reserve(sizeof(MoqSubscribeUpdate));
+        buffer << subscribe_update;
+
+        SPDLOG_LOGGER_DEBUG(
+          logger_,
+          "Sending SUBSCRIBE_UPDATe to conn_id: {0} subscribe_id: {1} track namespace hash: {2} name hash: {3}",
+          conn_ctx.connection_handle,
+          subscribe_id,
+          th.track_namespace_hash,
+          th.track_name_hash);
+
+        SendCtrlMsg(conn_ctx, buffer);
+    }
+
     void Transport::SendSubscribeOk(ConnectionContext& conn_ctx,
                                     uint64_t subscribe_id,
                                     uint64_t expires,
@@ -487,6 +517,28 @@ namespace quicr {
     {
         auto& conn_ctx = connections_[conn_id];
         RemoveSubscribeTrack(conn_ctx, *track_handler);
+    }
+
+    void Transport::UpdateTrackSubscription(TransportConnId conn_id,
+                                            std::shared_ptr<SubscribeTrackHandler> track_handler)
+    {
+        const auto& tfn = track_handler->GetFullTrackName();
+        auto th = TrackHash(tfn);
+
+        SPDLOG_LOGGER_INFO(logger_, "Subscribe track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
+
+        std::lock_guard<std::mutex> _(state_mutex_);
+        auto conn_it = connections_.find(conn_id);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_id);
+            return;
+        }
+
+        SPDLOG_LOGGER_DEBUG(
+          logger_, "subscribe id (from subscribe) to add to memory: {0}", track_handler->GetSubscribeId().value());
+
+        auto priority = track_handler->GetPriority();
+        SendSubscribeUpdate(conn_it->second, track_handler->GetSubscribeId().value(), th, 0x0, 0x0, 0x0, priority);
     }
 
     void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx,
