@@ -112,7 +112,7 @@ namespace quicr {
                 return nullptr;
             }
 
-            return *std::begin(cache_);
+            return std::begin(cache_)->second;
         }
 
         ValueType Last() noexcept
@@ -123,7 +123,7 @@ namespace quicr {
                 return nullptr;
             }
 
-            return *std::prev(std::end(cache_));
+            return std::prev(std::end(cache_))->second;
         }
 
         void Clear() noexcept
