@@ -64,6 +64,7 @@ namespace quicr {
             kAnnounceNotAuthorized,
             kNoSubscribers,
             kSendingUnannounce, ///< In this state, callbacks will not be called
+            kSubscriptionUpdated,
         };
 
       protected:

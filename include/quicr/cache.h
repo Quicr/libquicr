@@ -23,7 +23,8 @@ namespace quicr {
         using IndexType = std::uint32_t;
 
         using BucketType = std::vector<K>;
-        using CacheType = std::map<K, T>;
+        using ValueType = std::shared_ptr<T>;
+        using CacheType = std::map<K, ValueType>;
 
       public:
         Cache(size_t duration, size_t interval, std::shared_ptr<TickService> tick_service)
@@ -80,27 +81,49 @@ namespace quicr {
             return true;
         }
 
-        T& Get(const K& key)
+        ValueType Get(const K& key) noexcept
         {
             if (!Contains(key)) {
-                throw std::out_of_range("key is not found in cache");
+                return nullptr;
             }
 
             return cache_.at(key);
         }
 
-        std::vector<T> Get(const K& start_key, const K& end_key) noexcept
+        std::vector<ValueType> Get(const K& start_key, const K& end_key) noexcept
         {
             if (!Contains(start_key, end_key)) {
                 return {};
             }
 
-            std::vector<T> entries;
+            std::vector<ValueType> entries(end_key - start_key, nullptr);
             for (auto key = start_key; key < end_key; ++key) {
-                entries.push_back(cache_.at(key));
+                entries[key - start_key] = cache_.at(key);
             }
 
             return entries;
+        }
+
+        ValueType First() noexcept
+        {
+            Advance();
+
+            if (cache_.empty()) {
+                return nullptr;
+            }
+
+            return std::begin(cache_)->second;
+        }
+
+        ValueType Last() noexcept
+        {
+            Advance();
+
+            if (cache_.empty()) {
+                return nullptr;
+            }
+
+            return std::prev(std::end(cache_))->second;
         }
 
         void Clear() noexcept
@@ -157,7 +180,7 @@ namespace quicr {
             const IndexType future_index = (bucket_index_ + ttl - 1) % total_buckets_;
 
             buckets_[future_index].push_back(key);
-            cache_[key] = value;
+            cache_[key] = std::make_shared<T>(value);
         }
 
       protected:
