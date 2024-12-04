@@ -42,6 +42,7 @@ namespace quicr {
             return crc;
         }
 
+        /*
         const auto word_count = bytes.size() / word_len;
 
         auto start_it = bytes.begin();
@@ -56,12 +57,11 @@ namespace quicr {
         for (size_t i = word_count * word_len; i < bytes.size(); i++) {
             crc = crc_table[(crc & 0xFF) ^ bytes[i]] ^ (crc >> 8);
         }
+        */
 
-        /*
         for (const auto& b : bytes) {
             crc = crc_table[(crc & 0xFF) ^ b] ^ (crc >> 8);
         }
-        */
 
         return crc;
     }
