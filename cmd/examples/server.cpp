@@ -558,18 +558,30 @@ class MyServer : public quicr::Server
                 tracks.insert(th.track_fullname_hash); // Add track alias to state
 
                 auto sub_track_h = std::make_shared<MySubscribeTrackHandler>(track_full_name);
+                auto copy_sub_track_h = sub_track_h;
                 SubscribeTrack(conn_h, sub_track_h);
-                qserver_vars::pub_subscribes[th.track_fullname_hash][conn_h] = sub_track_h;
+
+                SPDLOG_INFO("Sending subscription to announcer connection: {0} hash: {1}, handler: {2}",
+                            conn_h,
+                            th.track_fullname_hash,
+                            sub_track_h->GetFullTrackName().track_alias.value());
+                qserver_vars::pub_subscribes[th.track_fullname_hash][conn_h] = copy_sub_track_h;
             } else {
                 auto now = std::chrono::steady_clock::now();
                 auto elapsed =
                   std::chrono::duration_cast<std::chrono::milliseconds>(now - last_subscription_time.value()).count();
                 if (elapsed > kSubscriptionDampenDurationMs) {
                     // send subscription update
-                    auto& sub_track_h = qserver_vars::pub_subscribes[th.track_namespace_hash][conn_h];
+                    auto& sub_track_h = qserver_vars::pub_subscribes[th.track_fullname_hash][conn_h];
+                    if (sub_track_h == nullptr) {
+
+                        return;
+                    }
+                    SPDLOG_INFO("Sending subscription update to announcer connection: {0} hash: {1}",
+                                th.track_namespace_hash,
+                                subscribe_id);
                     UpdateTrackSubscription(conn_h, sub_track_h);
                     last_subscription_time = std::chrono::steady_clock::now();
-                    ;
                 }
             }
         }

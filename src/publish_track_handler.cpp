@@ -26,6 +26,9 @@ namespace quicr {
             case Status::kAnnounceNotAuthorized:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNotAuthorized;
+            case Status::kSubscriptionUpdated:
+                // reset the status to ok to imply change
+                publish_status_ = Status::kOk;
             default:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kInternalError;

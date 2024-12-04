@@ -27,10 +27,10 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
     {
     }
 
-    void ObjectReceived(const quicr::ObjectHeaders&, quicr::BytesSpan data) override
+    void ObjectReceived(const quicr::ObjectHeaders& hdr, quicr::BytesSpan data) override
     {
         std::string msg(data.begin(), data.end());
-        SPDLOG_INFO("Received message: {0}", msg);
+        SPDLOG_INFO("Received message: Group:{0}, Object:{1} - {2}", hdr.group_id, hdr.object_id, msg);
     }
 
     void StatusChanged(Status status) override
@@ -81,6 +81,7 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
                     SPDLOG_INFO("Publish track alias: {0} has updated subscription", track_alias.value());
                 }
+                subscription_updated.store(true, std::memory_order_release);
                 break;
             }
             default:
@@ -90,6 +91,7 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 break;
         }
     }
+    std::atomic<bool> subscription_updated{ false };
 };
 
 class MyFetchTrackHandler : public quicr::FetchTrackHandler
@@ -195,7 +197,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
     uint64_t group_id{ 0 };
     uint64_t object_id{ 0 };
     uint64_t subgroup_id{ 0 };
-
+    MyPublishTrackHandler::Status status = MyPublishTrackHandler::Status::kNotConnected;
     while (not stop) {
         if ((!published_track) && (client->GetStatus() == MyClient::Status::kReady)) {
             SPDLOG_INFO("Publish track ");
@@ -203,16 +205,18 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
             published_track = true;
         }
 
-        if (track_handler->GetStatus() != MyPublishTrackHandler::Status::kOk) {
+        if (status != MyPublishTrackHandler::Status::kOk) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            status = track_handler->GetStatus();
             continue;
         }
 
         // TODO: This is very restricted. We need to verify the request params in the update message
-        if (track_handler->GetStatus() == MyPublishTrackHandler::Status::kSubscriptionUpdated) {
+        if (track_handler->subscription_updated.load(std::memory_order_acquire)) {
             // restart the group
             group_id++;
             object_id = 0;
+            track_handler->subscription_updated.store(false, std::memory_order::memory_order_release);
             SPDLOG_INFO(" Subscription Updated: Restarting a new group {0}", group_id);
         }
 
@@ -239,7 +243,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
             SPDLOG_INFO("Send message: {0}", msg);
         }
 
-        if (object_id % 10 == 0) { // Set new group
+        if (object_id % 50 == 0) { // Set new group
             object_id = 0;
             subgroup_id = 0;
             group_id++;
