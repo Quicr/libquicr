@@ -273,7 +273,8 @@ namespace quicr {
         inline std::vector<T> FrontInternal(std::uint32_t length) noexcept
         {
             std::vector<T> result(length);
-            if (buffer_.size() < length) return {};
+            if (buffer_.size() < length)
+                return {};
 
             std::copy_n(buffer_.begin(), length, result.begin());
             return result;
