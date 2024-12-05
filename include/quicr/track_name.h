@@ -277,7 +277,7 @@ namespace quicr {
 
         uint64_t track_fullname_hash = 0; // 62bit of namespace+name
 
-        constexpr TrackHash(const uint64_t name_space, const uint64_t name) noexcept
+        TrackHash(const uint64_t name_space, const uint64_t name) noexcept
           : track_namespace_hash{ name_space }
           , track_name_hash{ name }
         {
