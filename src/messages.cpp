@@ -1106,6 +1106,10 @@ namespace quicr::messages {
                     return false;
                 }
                 auto val = buffer.Front(msg.payload_len);
+                if (val.size() == 0) {
+                    return false;
+                }
+
                 msg.payload = std::move(val);
                 buffer.Pop(msg.payload_len);
                 msg.parse_completed = true;
