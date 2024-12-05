@@ -191,7 +191,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
         }
 
         case picoquic_callback_stream_reset: {
-            SPDLOG_LOGGER_DEBUG(
+            SPDLOG_LOGGER_TRACE(
               transport->logger, "Received RESET stream conn_id: {0} stream_id: {1}", conn_id, stream_id);
 
             picoquic_reset_stream_ctx(pq_cnx, stream_id);
@@ -1116,7 +1116,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
 
             CloseStream(*conn_ctx, data_ctx, true);
 
-            SPDLOG_LOGGER_DEBUG(logger,
+            SPDLOG_LOGGER_TRACE(logger,
                                 "Replacing stream using RESET; conn_id: {0} data_ctx_id: {1} existing_stream: {2} "
                                 "write buf drops: {3} tx_queue_discards: {4}",
                                 data_ctx->conn_id,
@@ -1759,7 +1759,7 @@ PicoQuicTransport::CreateStream(ConnectionContext& conn_ctx, DataContext* data_c
 {
     conn_ctx.last_stream_id = picoquic_get_next_local_stream_id(conn_ctx.pq_cnx, !data_ctx->is_bidir);
 
-    SPDLOG_LOGGER_DEBUG(logger,
+    SPDLOG_LOGGER_TRACE(logger,
                         "conn_id: {0} data_ctx_id: {1} create new stream with stream_id: {2}",
                         conn_ctx.conn_id,
                         data_ctx->data_ctx_id,
@@ -1793,14 +1793,14 @@ PicoQuicTransport::CloseStream(ConnectionContext& conn_ctx, DataContext* data_ct
         return; // stream already closed
     }
 
-    SPDLOG_LOGGER_DEBUG(logger,
+    SPDLOG_LOGGER_TRACE(logger,
                         "conn_id: {0} data_ctx_id: {1} closing stream stream_id: {2}",
                         conn_ctx.conn_id,
                         data_ctx->data_ctx_id,
                         *data_ctx->current_stream_id);
 
     if (send_reset) {
-        SPDLOG_LOGGER_DEBUG(
+        SPDLOG_LOGGER_TRACE(
           logger, "Reset stream_id: {0} conn_id: {1}", *data_ctx->current_stream_id, conn_ctx.conn_id);
 
         picoquic_reset_stream_ctx(conn_ctx.pq_cnx, *data_ctx->current_stream_id);
