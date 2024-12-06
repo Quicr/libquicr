@@ -506,7 +506,7 @@ namespace quicr {
 
         auto priority = track_handler->GetPriority();
         auto group_order = track_handler->GetGroupOrder();
-        auto fitler_type = track_handler->GetFilterType();
+        auto filter_type = track_handler->GetFilterType();
 
         // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
         conn_it->second.tracks_by_sub_id[sid] = std::move(track_handler);
