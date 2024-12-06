@@ -22,8 +22,8 @@ namespace qclient_vars {
 class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 {
   public:
-    MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name)
-      : SubscribeTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending)
+    MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name, quicr::messages::FilterType filter_type)
+      : SubscribeTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending, filter_type)
     {
     }
 
@@ -237,7 +237,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
         if (qclient_vars::publish_clock) {
             std::this_thread::sleep_for(std::chrono::milliseconds(999));
             msg = quicr::example::GetTimeStr();
-            SPDLOG_INFO(msg);
+            SPDLOG_INFO("Group:{0} Object:{1}, Msg:{2}", group_id, object_id, msg);
         } else { // stdin
             getline(std::cin, msg);
             SPDLOG_INFO("Send message: {0}", msg);
@@ -277,9 +277,10 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
 void
 DoSubscriber(const quicr::FullTrackName& full_track_name,
              const std::shared_ptr<quicr::Client>& client,
+             quicr::messages::FilterType filter_type,
              const bool& stop)
 {
-    auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name);
+    auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type);
 
     SPDLOG_INFO("Started subscriber");
 
@@ -428,7 +429,10 @@ main(int argc, char* argv[])
       "clock", "Publish clock timestamp every second instead of using STDIN chat");
 
     options.add_options("Subscriber")("sub_namespace", "Track namespace", cxxopts::value<std::string>())(
-      "sub_name", "Track name", cxxopts::value<std::string>());
+      "sub_name", "Track name", cxxopts::value<std::string>())(
+      "start_point",
+      "Start point for Subscription - 0 for from the beginning, 1 from the latest object",
+      cxxopts::value<uint64_t>());
 
     options.add_options("Fetcher")("fetch_namespace", "Track namespace", cxxopts::value<std::string>())(
       "fetch_name", "Track name", cxxopts::value<std::string>())(
@@ -475,10 +479,18 @@ main(int argc, char* argv[])
             pub_thread = std::thread(DoPublisher, pub_track_name, client, std::ref(stop_threads));
         }
         if (enable_sub) {
+            auto filter_type = quicr::messages::FilterType::LatestObject;
+            if (result.count("start_point")) {
+                if (result["start_point"].as<uint64_t>() == 0) {
+                    filter_type = quicr::messages::FilterType::LatestGroup;
+                    SPDLOG_INFO("Setting subscription filter to Latest Group");
+                }
+            }
+
             const auto& sub_track_name = quicr::example::MakeFullTrackName(
               result["sub_namespace"].as<std::string>(), result["sub_name"].as<std::string>(), 2001);
 
-            sub_thread = std::thread(DoSubscriber, sub_track_name, client, std::ref(stop_threads));
+            sub_thread = std::thread(DoSubscriber, sub_track_name, client, filter_type, std::ref(stop_threads));
         }
         if (enable_fetch) {
             const auto& fetch_track_name = quicr::example::MakeFullTrackName(
