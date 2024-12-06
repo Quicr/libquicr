@@ -32,6 +32,7 @@ namespace quicr {
     void Server::SubscribeReceived(ConnectionHandle,
                                    uint64_t,
                                    uint64_t,
+                                   quicr::messages::FilterType,
                                    const FullTrackName&,
                                    const SubscribeAttributes&)
     {
@@ -125,6 +126,7 @@ namespace quicr {
                 SubscribeReceived(conn_ctx.connection_handle,
                                   msg.subscribe_id,
                                   msg.track_alias,
+                                  msg.filter_type,
                                   tfn,
                                   { .priority = msg.priority, .group_order = msg.group_order });
 
