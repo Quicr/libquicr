@@ -511,7 +511,7 @@ namespace quicr {
         // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
         conn_it->second.tracks_by_sub_id[sid] = std::move(track_handler);
 
-        SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, fitler_type);
+        SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type);
     }
 
     void Transport::UnsubscribeTrack(quicr::TransportConnId conn_id,
