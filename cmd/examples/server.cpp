@@ -541,7 +541,7 @@ class MyServer : public quicr::Server
         };
 
         // Create a subscribe track that will be used by the relay to send to subscriber for matching objects
-        BindPublisherTrack(connection_handle, subscribe_id, pub_track_h, std::move(cache_message_callback));
+        BindPublisherTrack(connection_handle, subscribe_id, pub_track_h, false, std::move(cache_message_callback));
 
         // Subscribe to announcer if announcer is active
         auto anno_ns_it = qserver_vars::announce_active.find(th.track_namespace_hash);
