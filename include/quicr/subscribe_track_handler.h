@@ -53,10 +53,12 @@ namespace quicr {
          */
         SubscribeTrackHandler(const FullTrackName& full_track_name,
                               messages::ObjectPriority priority,
-                              messages::GroupOrder group_order)
+                              messages::GroupOrder group_order,
+                              messages::FilterType filter_type)
           : BaseTrackHandler(full_track_name)
           , priority_(priority)
           , group_order_(group_order)
+          , filter_type_(filter_type)
         {
         }
 
@@ -72,10 +74,11 @@ namespace quicr {
         static std::shared_ptr<SubscribeTrackHandler> Create(
           const FullTrackName& full_track_name,
           messages::ObjectPriority priority,
-          messages::GroupOrder group_order = messages::GroupOrder::kAscending)
+          messages::GroupOrder group_order = messages::GroupOrder::kAscending,
+          messages::FilterType filter_type = messages::FilterType::LatestObject)
         {
             return std::shared_ptr<SubscribeTrackHandler>(
-              new SubscribeTrackHandler(full_track_name, priority, group_order));
+              new SubscribeTrackHandler(full_track_name, priority, group_order, filter_type));
         }
 
         /**
@@ -99,6 +102,14 @@ namespace quicr {
          */
 
         constexpr messages::GroupOrder GetGroupOrder() const noexcept { return group_order_; }
+
+        /**
+         * @brief Get subscription filter type
+         *
+         * @return FilterType value
+         */
+
+        constexpr messages::FilterType GetFilterType() const noexcept { return filter_type_; }
 
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
@@ -182,6 +193,7 @@ namespace quicr {
         Status status_{ Status::kNotSubscribed };
         messages::ObjectPriority priority_;
         messages::GroupOrder group_order_;
+        messages::FilterType filter_type_;
 
         friend class Transport;
         friend class Client;

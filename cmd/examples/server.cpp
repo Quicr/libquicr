@@ -126,7 +126,10 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 {
   public:
     MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name)
-      : SubscribeTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending)
+      : SubscribeTrackHandler(full_track_name,
+                              3,
+                              quicr::messages::GroupOrder::kAscending,
+                              quicr::messages::FilterType::LatestObject)
     {
     }
 

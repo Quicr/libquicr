@@ -288,7 +288,8 @@ namespace quicr {
                            const FullTrackName& tfn,
                            TrackHash th,
                            messages::ObjectPriority priority,
-                           messages::GroupOrder group_order);
+                           messages::GroupOrder group_order,
+                           messages::FilterType filter_type);
         void SendSubscribeUpdate(ConnectionContext& conn_ctx,
                                  uint64_t subscribe_id,
                                  TrackHash th,
