@@ -492,6 +492,7 @@ class MyServer : public quicr::Server
     void SubscribeReceived(quicr::ConnectionHandle connection_handle,
                            uint64_t subscribe_id,
                            [[maybe_unused]] uint64_t proposed_track_alias,
+                           [[maybe_unused]] quicr::messages::FilterType filter_type,
                            const quicr::FullTrackName& track_full_name,
                            const quicr::SubscribeAttributes& attrs) override
     {

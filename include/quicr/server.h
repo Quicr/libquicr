@@ -205,6 +205,7 @@ namespace quicr {
         virtual void SubscribeReceived(ConnectionHandle connection_handle,
                                        uint64_t subscribe_id,
                                        uint64_t proposed_track_alias,
+                                       quicr::messages::FilterType filter_type,
                                        const FullTrackName& track_full_name,
                                        const SubscribeAttributes& subscribe_attributes);
 
