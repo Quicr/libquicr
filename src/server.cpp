@@ -50,6 +50,7 @@ namespace quicr {
     void Server::BindPublisherTrack(TransportConnId conn_id,
                                     uint64_t subscribe_id,
                                     const std::shared_ptr<PublishTrackHandler>& track_handler,
+                                    bool ephemeral,
                                     PublishTrackHandler::OnPublishObjFunction&& callback)
     {
         // Generate track alias
@@ -98,9 +99,11 @@ namespace quicr {
               *track_handler, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
         };
 
-        // Hold onto track handler
-        conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
-        conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
+        if (!ephemeral) {
+            // Hold onto track handler
+            conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
+            conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
+        }
 
         lock.unlock();
         track_handler->SetStatus(PublishTrackHandler::Status::kOk);
