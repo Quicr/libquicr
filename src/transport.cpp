@@ -1001,7 +1001,7 @@ namespace quicr {
                 if (not conn_ctx.ctrl_msg_type_received.has_value()) {
                     auto msg_type = stream_buf->DecodeUintV();
 
-                    if (msg_type) {
+                    if (msg_type.has_value()) {
                         conn_ctx.ctrl_msg_type_received = static_cast<ControlMessageType>(*msg_type);
                     } else {
                         break;
@@ -1309,7 +1309,7 @@ namespace quicr {
                                                             DataMessageType msg_type)
     {
         if (!stream_buffer->AnyHasValue()) {
-            SPDLOG_LOGGER_DEBUG(
+            SPDLOG_LOGGER_TRACE(
               logger_, "Received stream header (type = {0}), init stream buffer", static_cast<std::uint64_t>(msg_type));
             stream_buffer->InitAny<HeaderType>(static_cast<uint64_t>(msg_type));
         }
