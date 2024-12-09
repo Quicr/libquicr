@@ -61,6 +61,7 @@ namespace quicr {
                                        "Received subscribe unknown publish track conn_id: {0} namespace hash: {1} "
                                        "name hash: {2}",
                                        conn_ctx.connection_handle,
+                                       th.track_namespace_hash,
                                        th.track_name_hash);
 
                     SendSubscribeError(conn_ctx,
