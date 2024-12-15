@@ -25,6 +25,7 @@
 #include <memory>
 #include <stdexcept>
 #include <vector>
+#include <set>
 
 #include "tick_service.h"
 
@@ -51,6 +52,8 @@ namespace quicr {
     template<typename T, typename Duration_t>
     class TimeQueue
     {
+        static constexpr uint32_t kMaxBuckets = 1000; /// Maximum number of buckets allowed
+
         /*=======================================================================*/
         // Time queue type assertions
         /*=======================================================================*/
@@ -104,7 +107,7 @@ namespace quicr {
          */
         TimeQueue(size_t duration, size_t interval, std::shared_ptr<TickService> tick_service)
           : duration_{ duration }
-          , interval_{ interval }
+          , interval_{ (duration / interval > kMaxBuckets ? duration / 1000 : interval) }
           , total_buckets_{ duration_ / interval_ }
           , tick_service_(std::move(tick_service))
         {
@@ -245,11 +248,14 @@ namespace quicr {
         void Clear() noexcept
         {
             queue_.clear();
-            queue_index_ = bucket_index_ = 0;
 
+            //for (const auto& index: buckets_in_use_) {
             for (auto& bucket : buckets_) {
                 bucket.clear();
             }
+
+            buckets_in_use_.clear();
+            queue_index_ = bucket_index_ = 0;
         }
 
       protected:
@@ -316,6 +322,7 @@ namespace quicr {
 
             bucket.push_back(value);
             queue_.emplace_back(bucket, bucket.size() - 1, expiry_tick, ticks + delay_ttl);
+            buckets_in_use_.insert(future_index);
         }
 
       protected:
@@ -345,6 +352,9 @@ namespace quicr {
 
         /// Tick service for calculating new tick and jumps in time.
         std::shared_ptr<TickService> tick_service_;
+
+        /// Set of buckets in use that should be cleared when clear is called
+        std::set<IndexType> buckets_in_use_;
     };
 
 }; // namespace quicr
