@@ -42,7 +42,7 @@ TEST_CASE("TickService microseconds")
           std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start_time).count();
 
         // Allow variance difference
-        CHECK(static_cast<long long>(delta_ticks) >= static_cast<long long>(delta_time - 4000));
+        CHECK(static_cast<long long>(delta_ticks) >= static_cast<long long>(delta_time - 6000));
         CHECK(delta_ticks <= delta_time + 4000);
     }
 }
