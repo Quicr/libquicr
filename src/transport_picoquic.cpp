@@ -23,8 +23,6 @@
 #include <spdlog/logger.h>
 
 // System.
-#include "spdlog/fmt/bundled/chrono.h"
-
 #include <arpa/inet.h>
 #include <cassert>
 #include <chrono>

@@ -110,6 +110,8 @@ namespace quicr {
                 if (stream_tx_object != nullptr)
                     delete[] stream_tx_object;
                 stream_tx_object = nullptr;
+                stream_tx_object_offset = 0;
+                stream_tx_object_size = 0;
             }
         };
 
