@@ -1193,7 +1193,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
             data_ctx->metrics.tx_object_duration_us.AddValue(tick_service_->Microseconds() -
                                                              obj.value.tick_microseconds);
 
-            if (obj.value.data->size()> max_len) {
+            if (obj.value.data->size() > max_len) {
                 data_ctx->stream_tx_object_offset = max_len;
                 data_len = max_len;
                 is_still_active = 1;
@@ -1206,7 +1206,6 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
                     is_still_active = 1;
                 }
             }
-
 
             data_ctx->stream_tx_object = obj.value.data;
             std::memcpy(data_ctx->stream_tx_object->data(), obj.value.data->data(), obj.value.data->size());

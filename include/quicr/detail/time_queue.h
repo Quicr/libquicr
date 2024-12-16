@@ -23,9 +23,9 @@
 #include <atomic>
 #include <chrono>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <vector>
-#include <set>
 
 #include "tick_service.h"
 
@@ -249,7 +249,7 @@ namespace quicr {
         {
             queue_.clear();
 
-            for (const auto& index: buckets_in_use_) {
+            for (const auto& index : buckets_in_use_) {
                 buckets_.at(index).clear();
             }
 
