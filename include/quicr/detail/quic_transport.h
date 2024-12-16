@@ -110,7 +110,7 @@ namespace quicr {
         uint8_t priority;
 
         /// Shared pointer is used so transport can take ownership of the vector without copy/new allocation
-        std::vector<uint8_t> data;
+        std::shared_ptr<std::vector<uint8_t>> data;
 
         uint64_t tick_microseconds; // Tick value in microseconds
     };
