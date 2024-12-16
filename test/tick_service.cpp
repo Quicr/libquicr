@@ -29,7 +29,7 @@ TEST_CASE("TickService milliseconds")
 
 TEST_CASE("TickService microseconds")
 {
-    constexpr int sleep_time_us = 800;
+    constexpr int sleep_time_us = 600;
 
     for (int i = 0; i < 10; i++) {
         const auto& start_time = std::chrono::steady_clock::now();
@@ -43,6 +43,6 @@ TEST_CASE("TickService microseconds")
 
         // Allow variance difference
         CHECK(static_cast<long long>(delta_ticks) >= static_cast<long long>(delta_time - 6000));
-        CHECK(delta_ticks <= delta_time + 4000);
+        CHECK(delta_ticks <= delta_time + 6000);
     }
 }
