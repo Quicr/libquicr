@@ -107,7 +107,7 @@ namespace quicr {
          */
         TimeQueue(size_t duration, size_t interval, std::shared_ptr<TickService> tick_service)
           : duration_{ duration }
-          , interval_{ (duration / interval > kMaxBuckets ? duration / 1000 : interval) }
+          , interval_{ (duration / interval > kMaxBuckets ? duration / kMaxBuckets : interval) }
           , total_buckets_{ duration_ / interval_ }
           , tick_service_(std::move(tick_service))
         {
