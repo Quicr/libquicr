@@ -575,8 +575,8 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
 
     data_ctx_it->second.metrics.enqueued_objs++;
 
-    ConnData cd{ conn_id, data_ctx_id, priority, {}, tick_service_->Microseconds() };
-    cd.data.assign(bytes.begin(), bytes.end());
+    auto data_ptr = std::make_shared<std::vector<uint8_t>>(bytes.begin(), bytes.end());
+    ConnData cd{ conn_id, data_ctx_id, priority, std::move(data_ptr), tick_service_->Microseconds() };
 
     if (flags.use_reliable) {
         if (flags.new_stream) {
@@ -1023,14 +1023,14 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
             SPDLOG_LOGGER_DEBUG(logger,
                                 "send_next_dgram has no data context conn_id: {0} data len: {1} dropping",
                                 conn_ctx->conn_id,
-                                out_data.value.data.size());
+                                out_data.value.data->size());
             conn_ctx->metrics.tx_dgram_drops++;
             return;
         }
 
         CheckCallbackDelta(&data_ctx_it->second);
 
-        if (out_data.value.data.size() == 0) {
+        if (out_data.value.data->size() == 0) {
             SPDLOG_LOGGER_ERROR(logger,
                                 "conn_id: {0} data_ctx_id: {1} priority: {2} has ZERO data size",
                                 data_ctx_it->second.conn_id,
@@ -1042,23 +1042,23 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
 
         data_ctx_it->second.metrics.tx_queue_expired += out_data.expired_count;
 
-        if (out_data.value.data.size() <= max_len) {
+        if (out_data.value.data->size() <= max_len) {
             conn_ctx->dgram_tx_data->Pop();
 
             data_ctx_it->second.metrics.tx_object_duration_us.AddValue(tick_service_->Microseconds() -
                                                                        out_data.value.tick_microseconds);
-            data_ctx_it->second.metrics.tx_dgrams_bytes += out_data.value.data.size();
+            data_ctx_it->second.metrics.tx_dgrams_bytes += out_data.value.data->size();
             data_ctx_it->second.metrics.tx_dgrams++;
 
             uint8_t* buf = nullptr;
 
             buf = picoquic_provide_datagram_buffer_ex(
               bytes_ctx,
-              out_data.value.data.size(),
+              out_data.value.data->size(),
               conn_ctx->dgram_tx_data->Empty() ? picoquic_datagram_not_active : picoquic_datagram_active_any_path);
 
             if (buf != nullptr) {
-                std::memcpy(buf, out_data.value.data.data(), out_data.value.data.size());
+                std::memcpy(buf, out_data.value.data->data(), out_data.value.data->size());
             }
         } else {
             picoquic_runner_queue_.Push([this, conn_id = conn_ctx->conn_id]() { MarkDgramReady(conn_id); });
@@ -1180,7 +1180,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
         data_ctx->metrics.tx_queue_expired += obj.expired_count;
 
         if (obj.has_value) {
-            if (obj.value.data.size() == 0) {
+            if (obj.value.data->size() == 0) {
                 SPDLOG_LOGGER_ERROR(logger,
                                     "conn_id: {0} data_ctx_id: {1} priority: {2} stream has ZERO data size",
                                     data_ctx->conn_id,
@@ -1193,23 +1193,22 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
             data_ctx->metrics.tx_object_duration_us.AddValue(tick_service_->Microseconds() -
                                                              obj.value.tick_microseconds);
 
-            data_ctx->stream_tx_object = new uint8_t[obj.value.data.size()];
-            data_ctx->stream_tx_object_size = obj.value.data.size();
-            std::memcpy(data_ctx->stream_tx_object, obj.value.data.data(), obj.value.data.size());
-
-            if (obj.value.data.size() > max_len) {
+            if (obj.value.data->size() > max_len) {
                 data_ctx->stream_tx_object_offset = max_len;
                 data_len = max_len;
                 is_still_active = 1;
 
             } else {
-                data_len = obj.value.data.size();
+                data_len = obj.value.data->size();
                 data_ctx->stream_tx_object_offset = 0;
 
                 if (!data_ctx->tx_data->Empty()) {
                     is_still_active = 1;
                 }
             }
+
+            data_ctx->stream_tx_object = obj.value.data;
+            std::memcpy(data_ctx->stream_tx_object->data(), obj.value.data->data(), obj.value.data->size());
 
         } else {
             // Queue is empty
@@ -1218,7 +1217,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
             return;
         }
     } else { // Have existing object with remaining bytes to send.
-        data_len = data_ctx->stream_tx_object_size - data_ctx->stream_tx_object_offset;
+        data_len = data_ctx->stream_tx_object->size() - data_ctx->stream_tx_object_offset;
         offset = data_ctx->stream_tx_object_offset;
 
         if (data_len > max_len) {
@@ -1252,7 +1251,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
     }
 
     // Write data
-    std::memcpy(buf, data_ctx->stream_tx_object + offset, data_len);
+    std::memcpy(buf, data_ctx->stream_tx_object->data() + offset, data_len);
 
     if (data_ctx->stream_tx_object_offset == 0 && data_ctx->stream_tx_object != nullptr) {
         // Zero offset at this point means the object was fully sent

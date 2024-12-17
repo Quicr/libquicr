@@ -56,6 +56,11 @@ namespace quicr {
         {
         }
 
+        Server(const ServerConfig& cfg, std::shared_ptr<ThreadedTickService> tick_service)
+          : Transport(cfg, tick_service)
+        {
+        }
+
         ~Server() = default;
 
         /**

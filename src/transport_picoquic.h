@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <string>
@@ -77,9 +78,9 @@ namespace quicr {
 
             std::unique_ptr<PriorityQueue<ConnData>> tx_data; /// Pending objects to be written to the network
 
-            uint8_t* stream_tx_object{ nullptr }; /// Current object that is being sent as a byte stream
-            size_t stream_tx_object_size{ 0 };    /// Size of the tx object
-            size_t stream_tx_object_offset{ 0 };  /// Pointer offset to next byte to send
+            /// Current object that is being sent as a byte stream
+            std::shared_ptr<std::vector<uint8_t>> stream_tx_object;
+            size_t stream_tx_object_offset{ 0 }; /// Pointer offset to next byte to send
 
             // The last ticks when TX callback was run
             uint64_t last_tx_tick{ 0 };
@@ -94,11 +95,8 @@ namespace quicr {
 
             ~DataContext()
             {
-                // Free the TX object
-                if (stream_tx_object != nullptr) {
-                    delete[] stream_tx_object;
-                    stream_tx_object = nullptr;
-                }
+                // clean up
+                stream_tx_object = nullptr;
             }
 
             /**
@@ -106,13 +104,9 @@ namespace quicr {
              */
             void ResetTxObject()
             {
-                if (stream_tx_object != nullptr) {
-                    delete[] stream_tx_object;
-                }
-
+                // reset/clean up
                 stream_tx_object = nullptr;
                 stream_tx_object_offset = 0;
-                stream_tx_object_size = 0;
             }
         };
 
