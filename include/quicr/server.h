@@ -98,6 +98,17 @@ namespace quicr {
                                 PublishTrackHandler::OnPublishObjFunction&& callback = nullptr);
 
         /**
+         * @brief Unbind a server publish track handler
+         *
+         * @details Removes a server publish track handler state.
+         *
+         * @param connection_handle         Connection ID of the client/subscriber
+         * @param track_handler             Server publish track handler
+         */
+        void UnbindPublisherTrack(ConnectionHandle connection_handle,
+                                  const std::shared_ptr<PublishTrackHandler>& track_handler);
+
+        /**
          * @brief Accept or reject an subscribe that was received
          *
          * @details Accept or reject an subscribe received via SubscribeReceived(). The MoQ Transport

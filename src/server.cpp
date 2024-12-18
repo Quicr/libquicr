@@ -47,6 +47,39 @@ namespace quicr {
 
     void Server::ResolveSubscribe(ConnectionHandle, uint64_t, const SubscribeResponse&) {}
 
+    void Server::UnbindPublisherTrack(ConnectionHandle connection_handle,
+                                      const std::shared_ptr<PublishTrackHandler>& track_handler)
+    {
+        std::unique_lock lock(state_mutex_);
+
+        auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            return;
+        }
+        auto th = TrackHash(track_handler->GetFullTrackName());
+        SPDLOG_LOGGER_DEBUG(
+          logger_,
+          "Server publish track conn_id: {0} full_name_hash: {} namespace_hash: {} name_hash: {} unbind",
+          connection_handle,
+          th.track_fullname_hash,
+          th.track_namespace_hash,
+          th.track_name_hash);
+
+        conn_it->second.pub_tracks_by_name[th.track_namespace_hash].erase(th.track_name_hash);
+
+        if (conn_it->second.pub_tracks_by_name.count(th.track_namespace_hash) == 0) {
+            SPDLOG_LOGGER_DEBUG(logger_,
+                                "Server publish track conn_id: {0} full_name_hash: {} namespace_hash: {} unbind",
+                                connection_handle,
+                                th.track_fullname_hash,
+                                th.track_namespace_hash);
+
+            conn_it->second.pub_tracks_by_name.erase(th.track_namespace_hash);
+        }
+
+        conn_it->second.pub_tracks_by_data_ctx_id.erase(track_handler->publish_data_ctx_id_);
+    }
+
     void Server::BindPublisherTrack(TransportConnId conn_id,
                                     uint64_t subscribe_id,
                                     const std::shared_ptr<PublishTrackHandler>& track_handler,
@@ -82,21 +115,26 @@ namespace quicr {
                                              false);
 
         // Setup the function for the track handler to use to send objects with thread safety
-        track_handler->publish_object_func_ =
-          [&, track_handler, subscribe_id = track_handler->GetSubscribeId(), cb = std::move(callback)](
-            uint8_t priority,
-            uint32_t ttl,
-            bool stream_header_needed,
-            uint64_t group_id,
-            uint64_t subgroup_id,
-            uint64_t object_id,
-            std::optional<Extensions> extensions,
-            Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
+        std::weak_ptr weak_track_handler(track_handler);
+        track_handler->publish_object_func_ = [&, weak_track_handler, cb = std::move(callback)](
+                                                uint8_t priority,
+                                                uint32_t ttl,
+                                                bool stream_header_needed,
+                                                uint64_t group_id,
+                                                uint64_t subgroup_id,
+                                                uint64_t object_id,
+                                                std::optional<Extensions> extensions,
+                                                Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
             if (cb) {
                 cb(priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
             }
-            return SendObject(
-              *track_handler, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
+
+            if (auto th = weak_track_handler.lock()) {
+                return SendObject(
+                  *th, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
+            }
+
+            return PublishTrackHandler::PublishObjectStatus::kInternalError;
         };
 
         if (!ephemeral) {
