@@ -944,12 +944,13 @@ namespace quicr {
 
                 RemoveAllTracksForConnectionClose(conn_it->second);
 
+                ConnectionStatusChanged(conn_id, conn_status);
+
                 std::lock_guard<std::mutex> _(state_mutex_);
                 connections_.erase(conn_it);
             }
         }
 
-        ConnectionStatusChanged(conn_id, conn_status);
         StatusChanged(status_);
     }
 
