@@ -116,16 +116,15 @@ namespace quicr {
 
         // Setup the function for the track handler to use to send objects with thread safety
         std::weak_ptr weak_track_handler(track_handler);
-        track_handler->publish_object_func_ =
-          [&, weak_track_handler, cb = std::move(callback)](
-            uint8_t priority,
-            uint32_t ttl,
-            bool stream_header_needed,
-            uint64_t group_id,
-            uint64_t subgroup_id,
-            uint64_t object_id,
-            std::optional<Extensions> extensions,
-            Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
+        track_handler->publish_object_func_ = [&, weak_track_handler, cb = std::move(callback)](
+                                                uint8_t priority,
+                                                uint32_t ttl,
+                                                bool stream_header_needed,
+                                                uint64_t group_id,
+                                                uint64_t subgroup_id,
+                                                uint64_t object_id,
+                                                std::optional<Extensions> extensions,
+                                                Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
             if (cb) {
                 cb(priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
             }
