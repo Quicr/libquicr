@@ -53,30 +53,31 @@ namespace quicr {
         std::unique_lock lock(state_mutex_);
 
         auto conn_it = connections_.find(connection_handle);
-        if (conn_it != connections_.end()) {
-            auto th = TrackHash(track_handler->GetFullTrackName());
-            SPDLOG_LOGGER_DEBUG(
-              logger_,
-              "Server publish track conn_id: {0} full_name_hash: {} namespace_hash: {} name_hash: {} unbind",
-              connection_handle,
-              th.track_fullname_hash,
-              th.track_namespace_hash,
-              th.track_name_hash);
-
-            conn_it->second.pub_tracks_by_name[th.track_namespace_hash].erase(th.track_name_hash);
-
-            if (conn_it->second.pub_tracks_by_name.count(th.track_namespace_hash) == 0) {
-                SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Server publish track conn_id: {0} full_name_hash: {} namespace_hash: {} unbind",
-                                    connection_handle,
-                                    th.track_fullname_hash,
-                                    th.track_namespace_hash);
-
-                conn_it->second.pub_tracks_by_name.erase(th.track_namespace_hash);
-            }
-
-            conn_it->second.pub_tracks_by_data_ctx_id.erase(track_handler->publish_data_ctx_id_);
+        if (conn_it == connections_.end()) {
+            return;
         }
+        auto th = TrackHash(track_handler->GetFullTrackName());
+        SPDLOG_LOGGER_DEBUG(
+          logger_,
+          "Server publish track conn_id: {0} full_name_hash: {} namespace_hash: {} name_hash: {} unbind",
+          connection_handle,
+          th.track_fullname_hash,
+          th.track_namespace_hash,
+          th.track_name_hash);
+
+        conn_it->second.pub_tracks_by_name[th.track_namespace_hash].erase(th.track_name_hash);
+
+        if (conn_it->second.pub_tracks_by_name.count(th.track_namespace_hash) == 0) {
+            SPDLOG_LOGGER_DEBUG(logger_,
+                                "Server publish track conn_id: {0} full_name_hash: {} namespace_hash: {} unbind",
+                                connection_handle,
+                                th.track_fullname_hash,
+                                th.track_namespace_hash);
+
+            conn_it->second.pub_tracks_by_name.erase(th.track_namespace_hash);
+        }
+
+        conn_it->second.pub_tracks_by_data_ctx_id.erase(track_handler->publish_data_ctx_id_);
     }
 
     void Server::BindPublisherTrack(TransportConnId conn_id,
@@ -116,7 +117,7 @@ namespace quicr {
         // Setup the function for the track handler to use to send objects with thread safety
         std::weak_ptr weak_track_handler(track_handler);
         track_handler->publish_object_func_ =
-          [&, weak_track_handler, subscribe_id = track_handler->GetSubscribeId(), cb = std::move(callback)](
+          [&, weak_track_handler, cb = std::move(callback)](
             uint8_t priority,
             uint32_t ttl,
             bool stream_header_needed,
