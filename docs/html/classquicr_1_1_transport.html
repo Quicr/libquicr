@@ -139,6 +139,8 @@ Public Types</h2></td></tr>
 , <a class="el" href="#a1fc1ea2c9665c591c4eac8a6ff1b6173a7c92b98495ae8a8b8dad3b3213bb7a7d">kDisconnecting</a>
 , <a class="el" href="#a1fc1ea2c9665c591c4eac8a6ff1b6173a32a54fa8629fe6e9cb3e265e959258d8">kNotConnected</a>
 , <a class="el" href="#a1fc1ea2c9665c591c4eac8a6ff1b6173a69342870c437db62c59af80facdf4f3c">kFailedToConnect</a>
+, <br />
+&#160;&#160;<a class="el" href="#a1fc1ea2c9665c591c4eac8a6ff1b6173a6c5660d2ed7f39a660130e00fa80f208">kPendingSeverSetup</a>
 <br />
  }</td></tr>
 <tr class="memdesc:a1fc1ea2c9665c591c4eac8a6ff1b6173"><td class="mdescLeft">&#160;</td><td class="mdescRight">Status of the transport.  <a href="#a1fc1ea2c9665c591c4eac8a6ff1b6173">More...</a><br /></td></tr>
@@ -172,26 +174,37 @@ Public Types</h2></td></tr>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:abbc296d2b5f3250ae88e294990cf37ea" id="r_abbc296d2b5f3250ae88e294990cf37ea"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#abbc296d2b5f3250ae88e294990cf37ea">Transport</a> ()=delete</td></tr>
 <tr class="separator:abbc296d2b5f3250ae88e294990cf37ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abdec66b07391f57c779dab7fd8c5b79b" id="r_abdec66b07391f57c779dab7fd8c5b79b"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#abdec66b07391f57c779dab7fd8c5b79b">Transport</a> (const <a class="el" href="structquicr_1_1_client_config.html">ClientConfig</a> &amp;cfg)</td></tr>
-<tr class="memdesc:abdec66b07391f57c779dab7fd8c5b79b"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classquicr_1_1_client.html" title="MoQ Client.">Client</a> mode Constructor to create the MOQ instance.  <br /></td></tr>
-<tr class="separator:abdec66b07391f57c779dab7fd8c5b79b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aea459eee130d8289066a98e949427902" id="r_aea459eee130d8289066a98e949427902"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aea459eee130d8289066a98e949427902">Transport</a> (const <a class="el" href="structquicr_1_1_server_config.html">ServerConfig</a> &amp;cfg)</td></tr>
-<tr class="memdesc:aea459eee130d8289066a98e949427902"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classquicr_1_1_server.html" title="MoQ Server.">Server</a> mode Constructor to create the MOQ instance.  <br /></td></tr>
-<tr class="separator:aea459eee130d8289066a98e949427902"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3eb0a0928506c4d5fc20cf8074758f5e" id="r_a3eb0a0928506c4d5fc20cf8074758f5e"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a3eb0a0928506c4d5fc20cf8074758f5e">Transport</a> (const <a class="el" href="structquicr_1_1_client_config.html">ClientConfig</a> &amp;cfg, std::shared_ptr&lt; TickService &gt; tick_service)</td></tr>
+<tr class="memdesc:a3eb0a0928506c4d5fc20cf8074758f5e"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classquicr_1_1_client.html" title="MoQ Client.">Client</a> mode Constructor to create the MOQ instance.  <br /></td></tr>
+<tr class="separator:a3eb0a0928506c4d5fc20cf8074758f5e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6bde553271f86037479bfb77e6c305f7" id="r_a6bde553271f86037479bfb77e6c305f7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a6bde553271f86037479bfb77e6c305f7">Transport</a> (const <a class="el" href="structquicr_1_1_server_config.html">ServerConfig</a> &amp;cfg, std::shared_ptr&lt; TickService &gt; tick_service)</td></tr>
+<tr class="memdesc:a6bde553271f86037479bfb77e6c305f7"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classquicr_1_1_server.html" title="MoQ Server.">Server</a> mode Constructor to create the MOQ instance.  <br /></td></tr>
+<tr class="separator:a6bde553271f86037479bfb77e6c305f7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a39559970251ec1c9dff25017c69297a7" id="r_a39559970251ec1c9dff25017c69297a7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a39559970251ec1c9dff25017c69297a7">~Transport</a> ()</td></tr>
 <tr class="separator:a39559970251ec1c9dff25017c69297a7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adc54129621cd83bfce5164e82ad89b4b" id="r_adc54129621cd83bfce5164e82ad89b4b"><td class="memItemLeft" align="right" valign="top">const std::shared_ptr&lt; TickService &gt; &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#adc54129621cd83bfce5164e82ad89b4b">GetTickService</a> () const noexcept</td></tr>
+<tr class="separator:adc54129621cd83bfce5164e82ad89b4b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a40dd0c703c1d342b51670195bce425c3" id="r_a40dd0c703c1d342b51670195bce425c3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a40dd0c703c1d342b51670195bce425c3">SubscribeTrack</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, std::shared_ptr&lt; <a class="el" href="classquicr_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt; track_handler)</td></tr>
 <tr class="memdesc:a40dd0c703c1d342b51670195bce425c3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Subscribe to a track.  <br /></td></tr>
 <tr class="separator:a40dd0c703c1d342b51670195bce425c3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af595c628c640d1f674f1278fca9ee7cd" id="r_af595c628c640d1f674f1278fca9ee7cd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#af595c628c640d1f674f1278fca9ee7cd">UnsubscribeTrack</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, const std::shared_ptr&lt; <a class="el" href="classquicr_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt; &amp;track_handler)</td></tr>
 <tr class="memdesc:af595c628c640d1f674f1278fca9ee7cd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Unsubscribe track.  <br /></td></tr>
 <tr class="separator:af595c628c640d1f674f1278fca9ee7cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a307e575ac9f13c8ce7e2c37ab910ef91" id="r_a307e575ac9f13c8ce7e2c37ab910ef91"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a307e575ac9f13c8ce7e2c37ab910ef91">UpdateTrackSubscription</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, std::shared_ptr&lt; <a class="el" href="classquicr_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt; track_handler)</td></tr>
+<tr class="memdesc:a307e575ac9f13c8ce7e2c37ab910ef91"><td class="mdescLeft">&#160;</td><td class="mdescRight">Update Subscription to a track.  <br /></td></tr>
+<tr class="separator:a307e575ac9f13c8ce7e2c37ab910ef91"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa954eee8c9e305afea8e078631a610f0" id="r_aa954eee8c9e305afea8e078631a610f0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa954eee8c9e305afea8e078631a610f0">PublishTrack</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, std::shared_ptr&lt; <a class="el" href="classquicr_1_1_publish_track_handler.html">PublishTrackHandler</a> &gt; track_handler)</td></tr>
 <tr class="memdesc:aa954eee8c9e305afea8e078631a610f0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish to a track.  <br /></td></tr>
 <tr class="separator:aa954eee8c9e305afea8e078631a610f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a13e2e0f786b4bace741af6379b6dfee6" id="r_a13e2e0f786b4bace741af6379b6dfee6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a13e2e0f786b4bace741af6379b6dfee6">UnpublishTrack</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, const std::shared_ptr&lt; <a class="el" href="classquicr_1_1_publish_track_handler.html">PublishTrackHandler</a> &gt; &amp;track_handler)</td></tr>
 <tr class="memdesc:a13e2e0f786b4bace741af6379b6dfee6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Unpublish track.  <br /></td></tr>
 <tr class="separator:a13e2e0f786b4bace741af6379b6dfee6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a87fba644270c33f3322491bcacbb8244" id="r_a87fba644270c33f3322491bcacbb8244"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a87fba644270c33f3322491bcacbb8244">FetchTrack</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, std::shared_ptr&lt; FetchTrackHandler &gt; track_handler)</td></tr>
+<tr class="memdesc:a87fba644270c33f3322491bcacbb8244"><td class="mdescLeft">&#160;</td><td class="mdescRight">Fetch track.  <br /></td></tr>
+<tr class="separator:a87fba644270c33f3322491bcacbb8244"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a35778d49705111d93733245d707331a6" id="r_a35778d49705111d93733245d707331a6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a35778d49705111d93733245d707331a6">CancelFetchTrack</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, std::shared_ptr&lt; FetchTrackHandler &gt; track_handler)</td></tr>
+<tr class="memdesc:a35778d49705111d93733245d707331a6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Cancel Fetch track.  <br /></td></tr>
+<tr class="separator:a35778d49705111d93733245d707331a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0f2587e91119578814a0f68beab5343b" id="r_a0f2587e91119578814a0f68beab5343b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#a1fc1ea2c9665c591c4eac8a6ff1b6173">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a0f2587e91119578814a0f68beab5343b">GetStatus</a> () const noexcept</td></tr>
 <tr class="memdesc:a0f2587e91119578814a0f68beab5343b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the status of the <a class="el" href="classquicr_1_1_client.html" title="MoQ Client.">Client</a>.  <br /></td></tr>
 <tr class="separator:a0f2587e91119578814a0f68beab5343b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -303,6 +316,7 @@ Public Member Functions</h2></td></tr>
 <tr><td class="fieldname"><a id="a1fc1ea2c9665c591c4eac8a6ff1b6173a7c92b98495ae8a8b8dad3b3213bb7a7d" name="a1fc1ea2c9665c591c4eac8a6ff1b6173a7c92b98495ae8a8b8dad3b3213bb7a7d"></a>kDisconnecting&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="a1fc1ea2c9665c591c4eac8a6ff1b6173a32a54fa8629fe6e9cb3e265e959258d8" name="a1fc1ea2c9665c591c4eac8a6ff1b6173a32a54fa8629fe6e9cb3e265e959258d8"></a>kNotConnected&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="a1fc1ea2c9665c591c4eac8a6ff1b6173a69342870c437db62c59af80facdf4f3c" name="a1fc1ea2c9665c591c4eac8a6ff1b6173a69342870c437db62c59af80facdf4f3c"></a>kFailedToConnect&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a1fc1ea2c9665c591c4eac8a6ff1b6173a6c5660d2ed7f39a660130e00fa80f208" name="a1fc1ea2c9665c591c4eac8a6ff1b6173a6c5660d2ed7f39a660130e00fa80f208"></a>kPendingSeverSetup&#160;</td><td class="fielddoc"></td></tr>
 </table>
 
 </div>
@@ -355,8 +369,8 @@ Public Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="abdec66b07391f57c779dab7fd8c5b79b" name="abdec66b07391f57c779dab7fd8c5b79b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abdec66b07391f57c779dab7fd8c5b79b">&#9670;&#160;</a></span>Transport() <span class="overload">[2/3]</span></h2>
+<a id="a3eb0a0928506c4d5fc20cf8074758f5e" name="a3eb0a0928506c4d5fc20cf8074758f5e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3eb0a0928506c4d5fc20cf8074758f5e">&#9670;&#160;</a></span>Transport() <span class="overload">[2/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -364,8 +378,12 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="memname">quicr::Transport::Transport </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="structquicr_1_1_client_config.html">ClientConfig</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>cfg</em></span></td><td>)</td>
+          <td class="paramtype">const <a class="el" href="structquicr_1_1_client_config.html">ClientConfig</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>cfg</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">std::shared_ptr&lt; TickService &gt;</td>          <td class="paramname"><span class="paramname"><em>tick_service</em></span>&#160;)</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -374,14 +392,15 @@ Public Member Functions</h2></td></tr>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">cfg</td><td>MoQ Instance <a class="el" href="classquicr_1_1_client.html" title="MoQ Client.">Client</a> Configuration </td></tr>
+    <tr><td class="paramname">tick_service</td><td>Shared pointer to the tick service to use </td></tr>
   </table>
   </dd>
 </dl>
 
 </div>
 </div>
-<a id="aea459eee130d8289066a98e949427902" name="aea459eee130d8289066a98e949427902"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aea459eee130d8289066a98e949427902">&#9670;&#160;</a></span>Transport() <span class="overload">[3/3]</span></h2>
+<a id="a6bde553271f86037479bfb77e6c305f7" name="a6bde553271f86037479bfb77e6c305f7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6bde553271f86037479bfb77e6c305f7">&#9670;&#160;</a></span>Transport() <span class="overload">[3/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -389,8 +408,12 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="memname">quicr::Transport::Transport </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="structquicr_1_1_server_config.html">ServerConfig</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>cfg</em></span></td><td>)</td>
+          <td class="paramtype">const <a class="el" href="structquicr_1_1_server_config.html">ServerConfig</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>cfg</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">std::shared_ptr&lt; TickService &gt;</td>          <td class="paramname"><span class="paramname"><em>tick_service</em></span>&#160;)</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -399,6 +422,7 @@ Public Member Functions</h2></td></tr>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">cfg</td><td>MoQ <a class="el" href="classquicr_1_1_server.html" title="MoQ Server.">Server</a> Configuration </td></tr>
+    <tr><td class="paramname">tick_service</td><td>Shared pointer to the tick service to use </td></tr>
   </table>
   </dd>
 </dl>
@@ -423,6 +447,66 @@ Public Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a35778d49705111d93733245d707331a6" name="a35778d49705111d93733245d707331a6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a35778d49705111d93733245d707331a6">&#9670;&#160;</a></span>CancelFetchTrack()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void quicr::Transport::CancelFetchTrack </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a></td>          <td class="paramname"><span class="paramname"><em>connection_handle</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::shared_ptr&lt; FetchTrackHandler &gt;</td>          <td class="paramname"><span class="paramname"><em>track_handler</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Cancel Fetch track. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">connection_handle</td><td>Connection ID to send fetch cancel. </td></tr>
+    <tr><td class="paramname">track_handler</td><td>Fetch Track handler to cancel. </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="a87fba644270c33f3322491bcacbb8244" name="a87fba644270c33f3322491bcacbb8244"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a87fba644270c33f3322491bcacbb8244">&#9670;&#160;</a></span>FetchTrack()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void quicr::Transport::FetchTrack </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a></td>          <td class="paramname"><span class="paramname"><em>connection_handle</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::shared_ptr&lt; FetchTrackHandler &gt;</td>          <td class="paramname"><span class="paramname"><em>track_handler</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Fetch track. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">connection_handle</td><td>Connection ID to send fetch </td></tr>
+    <tr><td class="paramname">track_handler</td><td>Track handler used for fetching </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
 <a id="a0f2587e91119578814a0f68beab5343b" name="a0f2587e91119578814a0f68beab5343b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a0f2587e91119578814a0f68beab5343b">&#9670;&#160;</a></span>GetStatus()</h2>
 
@@ -448,6 +532,33 @@ Public Member Functions</h2></td></tr>
 
 <p>Get the status of the <a class="el" href="classquicr_1_1_client.html" title="MoQ Client.">Client</a>. </p>
 <dl class="section return"><dt>Returns</dt><dd>Status of the <a class="el" href="classquicr_1_1_client.html" title="MoQ Client.">Client</a> </dd></dl>
+
+</div>
+</div>
+<a id="adc54129621cd83bfce5164e82ad89b4b" name="adc54129621cd83bfce5164e82ad89b4b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adc54129621cd83bfce5164e82ad89b4b">&#9670;&#160;</a></span>GetTickService()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const std::shared_ptr&lt; TickService &gt; &amp; quicr::Transport::GetTickService </td>
+          <td>(</td>
+          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">noexcept</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a58">server.cpp</a>.</dd>
+</dl>
 
 </div>
 </div>
@@ -512,7 +623,7 @@ Public Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#a10">client.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#a14">client.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -544,7 +655,7 @@ Public Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a45">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a49">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -606,7 +717,39 @@ Public Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a40">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a44">server.cpp</a>.</dd>
+</dl>
+
+</div>
+</div>
+<a id="a307e575ac9f13c8ce7e2c37ab910ef91" name="a307e575ac9f13c8ce7e2c37ab910ef91"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a307e575ac9f13c8ce7e2c37ab910ef91">&#9670;&#160;</a></span>UpdateTrackSubscription()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void quicr::Transport::UpdateTrackSubscription </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a></td>          <td class="paramname"><span class="paramname"><em>connection_handle</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::shared_ptr&lt; <a class="el" href="classquicr_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt;</td>          <td class="paramname"><span class="paramname"><em>track_handler</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Update Subscription to a track. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">connection_handle</td><td>Connection ID to send subscribe </td></tr>
+    <tr><td class="paramname">track_handler</td><td>Track handler to use for track related functions and callbacks </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a60">server.cpp</a>.</dd>
 </dl>
 
 </div>

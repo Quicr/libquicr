@@ -112,10 +112,10 @@ Public Attributes</h2></td></tr>
 <tr class="memdesc:a3515db816b3b8af4efaae2fde9d38ec4"><td class="mdescLeft">&#160;</td><td class="mdescRight">count of write buffer drops of data due to RESET request  <br /></td></tr>
 <tr class="separator:a3515db816b3b8af4efaae2fde9d38ec4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a44eac673c72811e9165a2cbd296e54a8" id="r_a44eac673c72811e9165a2cbd296e54a8"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a44eac673c72811e9165a2cbd296e54a8">tx_queue_discards</a> { 0 }</td></tr>
-<tr class="memdesc:a44eac673c72811e9165a2cbd296e54a8"><td class="mdescLeft">&#160;</td><td class="mdescRight">count of objects discarded due to TTL expiry or clear  <br /></td></tr>
+<tr class="memdesc:a44eac673c72811e9165a2cbd296e54a8"><td class="mdescLeft">&#160;</td><td class="mdescRight">count of objects discarded due clear and transition to new stream  <br /></td></tr>
 <tr class="separator:a44eac673c72811e9165a2cbd296e54a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a22d9e1f996d31c3ae1c29de4cd03b9f7" id="r_a22d9e1f996d31c3ae1c29de4cd03b9f7"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a22d9e1f996d31c3ae1c29de4cd03b9f7">tx_queue_expired</a> { 0 }</td></tr>
-<tr class="memdesc:a22d9e1f996d31c3ae1c29de4cd03b9f7"><td class="mdescLeft">&#160;</td><td class="mdescRight">count of objects expired before pop/front  <br /></td></tr>
+<tr class="memdesc:a22d9e1f996d31c3ae1c29de4cd03b9f7"><td class="mdescLeft">&#160;</td><td class="mdescRight">count of objects expired before pop/front due to TTL expiry  <br /></td></tr>
 <tr class="separator:a22d9e1f996d31c3ae1c29de4cd03b9f7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a61ff2c2489148fb5297eb27b53287749" id="r_a61ff2c2489148fb5297eb27b53287749"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a61ff2c2489148fb5297eb27b53287749">tx_delayed_callback</a> { 0 }</td></tr>
 <tr class="memdesc:a61ff2c2489148fb5297eb27b53287749"><td class="mdescLeft">&#160;</td><td class="mdescRight">count of times transmit callbacks were delayed  <br /></td></tr>
@@ -195,7 +195,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>TX object time in queue duration in microseconds. </p>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a24">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a27">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -212,8 +212,8 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>count of objects discarded due to TTL expiry or clear </p>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a26">server.cpp</a>.</dd>
+<p>count of objects discarded due clear and transition to new stream </p>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a29">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -230,7 +230,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>count of objects expired before pop/front </p>
+<p>count of objects expired before pop/front due to TTL expiry </p>
 
 </div>
 </div>
@@ -247,7 +247,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>TX queue size in period. </p>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a27">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a30">server.cpp</a>.</dd>
 </dl>
 
 </div>

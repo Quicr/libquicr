@@ -6,6 +6,7 @@ var annotated_dup =
       [ "ClientSetupAttributes", "structquicr_1_1_client_setup_attributes.html", "structquicr_1_1_client_setup_attributes" ],
       [ "Config", "structquicr_1_1_config.html", "structquicr_1_1_config" ],
       [ "ConnectionMetrics", "structquicr_1_1_connection_metrics.html", "structquicr_1_1_connection_metrics" ],
+      [ "FetchAttributes", "structquicr_1_1_fetch_attributes.html", "structquicr_1_1_fetch_attributes" ],
       [ "MinMaxAvg", "structquicr_1_1_min_max_avg.html", "structquicr_1_1_min_max_avg" ],
       [ "ObjectHeaders", "structquicr_1_1_object_headers.html", "structquicr_1_1_object_headers" ],
       [ "PublishAnnounceAttributes", "structquicr_1_1_publish_announce_attributes.html", null ],
@@ -16,7 +17,7 @@ var annotated_dup =
       [ "Server", "classquicr_1_1_server.html", "classquicr_1_1_server" ],
       [ "ServerConfig", "structquicr_1_1_server_config.html", "structquicr_1_1_server_config" ],
       [ "ServerSetupAttributes", "structquicr_1_1_server_setup_attributes.html", "structquicr_1_1_server_setup_attributes" ],
-      [ "SubscribeAttributes", "structquicr_1_1_subscribe_attributes.html", null ],
+      [ "SubscribeAttributes", "structquicr_1_1_subscribe_attributes.html", "structquicr_1_1_subscribe_attributes" ],
       [ "SubscribeTrackHandler", "classquicr_1_1_subscribe_track_handler.html", "classquicr_1_1_subscribe_track_handler" ],
       [ "SubscribeTrackMetrics", "structquicr_1_1_subscribe_track_metrics.html", "structquicr_1_1_subscribe_track_metrics" ],
       [ "Transport", "classquicr_1_1_transport.html", "classquicr_1_1_transport" ]

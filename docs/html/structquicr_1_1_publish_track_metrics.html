@@ -114,7 +114,7 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:ad54254b2933d1283ed2c5d88b46f3e4b" id="r_ad54254b2933d1283ed2c5d88b46f3e4b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacequicr.html#abef68353326546fb765a43765d3dd48d">MetricsTimeStampUs</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad54254b2933d1283ed2c5d88b46f3e4b">last_sample_time</a></td></tr>
+<tr class="memitem:ad54254b2933d1283ed2c5d88b46f3e4b" id="r_ad54254b2933d1283ed2c5d88b46f3e4b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacequicr.html#a40bbec8f57f3e736978aa38e4d015b26">MetricsTimeStampUs</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad54254b2933d1283ed2c5d88b46f3e4b">last_sample_time</a></td></tr>
 <tr class="memdesc:ad54254b2933d1283ed2c5d88b46f3e4b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Last sampled time in microseconds.  <br /></td></tr>
 <tr class="separator:ad54254b2933d1283ed2c5d88b46f3e4b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1b904152d53e05c40a548bff30c2c68c" id="r_a1b904152d53e05c40a548bff30c2c68c"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a1b904152d53e05c40a548bff30c2c68c">bytes_published</a> { 0 }</td></tr>
@@ -123,11 +123,14 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:aa00898861132cd32c0fc5a126300af6c" id="r_aa00898861132cd32c0fc5a126300af6c"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa00898861132cd32c0fc5a126300af6c">objects_published</a> { 0 }</td></tr>
 <tr class="memdesc:aa00898861132cd32c0fc5a126300af6c"><td class="mdescLeft">&#160;</td><td class="mdescRight">count of objects published  <br /></td></tr>
 <tr class="separator:aa00898861132cd32c0fc5a126300af6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5329ac823fd89261234dfb5d5d11d6d0" id="r_a5329ac823fd89261234dfb5d5d11d6d0"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a5329ac823fd89261234dfb5d5d11d6d0">objects_dropped_not_ok</a> { 0 }</td></tr>
+<tr class="memdesc:a5329ac823fd89261234dfb5d5d11d6d0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Objects dropped upon publish object call due to status not being OK.  <br /></td></tr>
+<tr class="separator:a5329ac823fd89261234dfb5d5d11d6d0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7e0e7bf91f7f7ff1268bc05bda6d6639" id="r_a7e0e7bf91f7f7ff1268bc05bda6d6639"><td class="memItemLeft" align="right" valign="top">struct <a class="el" href="structquicr_1_1_publish_track_metrics_1_1_quic.html">quicr::PublishTrackMetrics::Quic</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a7e0e7bf91f7f7ff1268bc05bda6d6639">quic</a></td></tr>
 <tr class="separator:a7e0e7bf91f7f7ff1268bc05bda6d6639"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#_a20">server.cpp</a>.</dd>
+<div class="textblock"><dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#_a22">server.cpp</a>.</dd>
 </dl>
 </div><h2 class="groupheader">Member Data Documentation</h2>
 <a id="a1b904152d53e05c40a548bff30c2c68c" name="a1b904152d53e05c40a548bff30c2c68c"></a>
@@ -143,7 +146,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>sum of payload bytes published </p>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a22">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a25">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -155,12 +158,30 @@ Public Attributes</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="namespacequicr.html#abef68353326546fb765a43765d3dd48d">MetricsTimeStampUs</a> quicr::PublishTrackMetrics::last_sample_time</td>
+          <td class="memname"><a class="el" href="namespacequicr.html#a40bbec8f57f3e736978aa38e4d015b26">MetricsTimeStampUs</a> quicr::PublishTrackMetrics::last_sample_time</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
 <p>Last sampled time in microseconds. </p>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a23">server.cpp</a>.</dd>
+</dl>
+
+</div>
+</div>
+<a id="a5329ac823fd89261234dfb5d5d11d6d0" name="a5329ac823fd89261234dfb5d5d11d6d0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5329ac823fd89261234dfb5d5d11d6d0">&#9670;&#160;</a></span>objects_dropped_not_ok</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint64_t quicr::PublishTrackMetrics::objects_dropped_not_ok { 0 }</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Objects dropped upon publish object call due to status not being OK. </p>
 
 </div>
 </div>
@@ -177,7 +198,7 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>count of objects published </p>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a21">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a24">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -193,7 +214,7 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a23">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a26">server.cpp</a>.</dd>
 </dl>
 
 </div>

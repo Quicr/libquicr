@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['metricstimestampus_0',['MetricsTimeStampUs',['../namespacequicr.html#abef68353326546fb765a43765d3dd48d',1,'quicr']]]
+  ['metricstimestampus_0',['MetricsTimeStampUs',['../namespacequicr.html#a40bbec8f57f3e736978aa38e4d015b26',1,'quicr']]]
 ];

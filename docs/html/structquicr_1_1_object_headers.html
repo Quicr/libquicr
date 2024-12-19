@@ -112,14 +112,20 @@ $(function(){initNavTree('structquicr_1_1_object_headers.html',''); initResizabl
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
 <tr class="memitem:a5f95043ef8044f6497e9eedc8cd20ff9" id="r_a5f95043ef8044f6497e9eedc8cd20ff9"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a5f95043ef8044f6497e9eedc8cd20ff9">group_id</a></td></tr>
-<tr class="memdesc:a5f95043ef8044f6497e9eedc8cd20ff9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Object group ID - Should be derived using time in microseconds.  <br /></td></tr>
+<tr class="memdesc:a5f95043ef8044f6497e9eedc8cd20ff9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Object group ID - Application defined order of generation.  <br /></td></tr>
 <tr class="separator:a5f95043ef8044f6497e9eedc8cd20ff9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a544ac7b64c29d3adec1e76b4efefa5d5" id="r_a544ac7b64c29d3adec1e76b4efefa5d5"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a544ac7b64c29d3adec1e76b4efefa5d5">object_id</a></td></tr>
-<tr class="memdesc:a544ac7b64c29d3adec1e76b4efefa5d5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Object ID - Start at zero and increment for each object in group.  <br /></td></tr>
+<tr class="memdesc:a544ac7b64c29d3adec1e76b4efefa5d5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Object ID - Application defined order of generation.  <br /></td></tr>
 <tr class="separator:a544ac7b64c29d3adec1e76b4efefa5d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a05928bdabd0ac8c294486dba35099d18" id="r_a05928bdabd0ac8c294486dba35099d18"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a05928bdabd0ac8c294486dba35099d18">subgroup_id</a> { 0 }</td></tr>
+<tr class="memdesc:a05928bdabd0ac8c294486dba35099d18"><td class="mdescLeft">&#160;</td><td class="mdescRight">Subgroup ID - Starts at 0, monotonically increases by 1.  <br /></td></tr>
+<tr class="separator:a05928bdabd0ac8c294486dba35099d18"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad15c80dbc8580017173694db9db4d0d2" id="r_ad15c80dbc8580017173694db9db4d0d2"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad15c80dbc8580017173694db9db4d0d2">payload_length</a></td></tr>
 <tr class="memdesc:ad15c80dbc8580017173694db9db4d0d2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Length of payload of the object data.  <br /></td></tr>
 <tr class="separator:ad15c80dbc8580017173694db9db4d0d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a38b64b96be4f439f8d9b9abc83f799a3" id="r_a38b64b96be4f439f8d9b9abc83f799a3"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacequicr.html#a960fb04ec2c5b5aee1ff1b6b125ea4b3">ObjectStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a38b64b96be4f439f8d9b9abc83f799a3">status</a></td></tr>
+<tr class="memdesc:a38b64b96be4f439f8d9b9abc83f799a3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Status of the object at the publisher.  <br /></td></tr>
+<tr class="separator:a38b64b96be4f439f8d9b9abc83f799a3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7f1dbb9d56ecaa769b7b43128215c4bc" id="r_a7f1dbb9d56ecaa769b7b43128215c4bc"><td class="memItemLeft" align="right" valign="top">std::optional&lt; uint8_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a7f1dbb9d56ecaa769b7b43128215c4bc">priority</a></td></tr>
 <tr class="memdesc:a7f1dbb9d56ecaa769b7b43128215c4bc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Priority of the object, lower value is better.  <br /></td></tr>
 <tr class="separator:a7f1dbb9d56ecaa769b7b43128215c4bc"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -164,7 +170,9 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Object group ID - Should be derived using time in microseconds. </p>
+<p>Object group ID - Application defined order of generation. </p>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#a3">client.cpp</a>, and <a class="el" href="server_8cpp-example.html#a4">server.cpp</a>.</dd>
+</dl>
 
 </div>
 </div>
@@ -180,7 +188,9 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Object ID - Start at zero and increment for each object in group. </p>
+<p>Object ID - Application defined order of generation. </p>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#a4">client.cpp</a>, and <a class="el" href="server_8cpp-example.html#a5">server.cpp</a>.</dd>
+</dl>
 
 </div>
 </div>
@@ -213,6 +223,38 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Priority of the object, lower value is better. </p>
+
+</div>
+</div>
+<a id="a38b64b96be4f439f8d9b9abc83f799a3" name="a38b64b96be4f439f8d9b9abc83f799a3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a38b64b96be4f439f8d9b9abc83f799a3">&#9670;&#160;</a></span>status</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="namespacequicr.html#a960fb04ec2c5b5aee1ff1b6b125ea4b3">ObjectStatus</a> quicr::ObjectHeaders::status</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Status of the object at the publisher. </p>
+
+</div>
+</div>
+<a id="a05928bdabd0ac8c294486dba35099d18" name="a05928bdabd0ac8c294486dba35099d18"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a05928bdabd0ac8c294486dba35099d18">&#9670;&#160;</a></span>subgroup_id</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint64_t quicr::ObjectHeaders::subgroup_id { 0 }</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Subgroup ID - Starts at 0, monotonically increases by 1. </p>
 
 </div>
 </div>

@@ -1,10 +1,7 @@
 var searchData=
 [
-  ['partialobjectreceived_0',['PartialObjectReceived',['../classquicr_1_1_subscribe_track_handler.html#aa2f1ee639e6a02ffb3c43673560f4155',1,'quicr::SubscribeTrackHandler']]],
-  ['publishannounce_1',['PublishAnnounce',['../classquicr_1_1_client.html#a9e224101a208c9b380292fcaed46511d',1,'quicr::Client']]],
-  ['publishobject_2',['PublishObject',['../classquicr_1_1_publish_track_handler.html#a7c89d1920f4297189e949e2fb1afd75e',1,'quicr::PublishTrackHandler']]],
-  ['publishpartialobject_3',['PublishPartialObject',['../classquicr_1_1_publish_track_handler.html#a4cc6faa161871429b1dee50fea209ee8',1,'quicr::PublishTrackHandler']]],
-  ['publishtrack_4',['PublishTrack',['../classquicr_1_1_client.html#af917b7f2f2cbbdc96973c2dd457c3e28',1,'quicr::Client::PublishTrack()'],['../classquicr_1_1_transport.html#aa954eee8c9e305afea8e078631a610f0',1,'quicr::Transport::PublishTrack()']]],
-  ['publishtrackhandler_5',['PublishTrackHandler',['../classquicr_1_1_publish_track_handler.html#a01c90daa87d5635743ac0b5129522af3',1,'quicr::PublishTrackHandler']]],
-  ['publishunannounce_6',['PublishUnannounce',['../classquicr_1_1_client.html#aac3401494cbd247ee5e81a04b90dc8c2',1,'quicr::Client']]]
+  ['objectreceived_0',['ObjectReceived',['../classquicr_1_1_subscribe_track_handler.html#aa4df3bdf8ba34557c381aa0268bc5b7d',1,'quicr::SubscribeTrackHandler']]],
+  ['onfetchok_1',['OnFetchOk',['../classquicr_1_1_server.html#a02376c338780cdcb08848fe7f6d1e65c',1,'quicr::Server']]],
+  ['operator_21_3d_2',['operator!=',['../structquicr_1_1_min_max_avg.html#ac442cba0a0a42f6c5e93f3b18fe838e4',1,'quicr::MinMaxAvg::operator!=()'],['../structquicr_1_1_quic_connection_metrics.html#ac3426d7a22d2a8fda01bb6d37280f2d1',1,'quicr::QuicConnectionMetrics::operator!=()'],['../structquicr_1_1_quic_data_context_metrics.html#abf57ff4c88f422e6d12a7924b7399c0e',1,'quicr::QuicDataContextMetrics::operator!=()']]],
+  ['operator_3d_3d_3',['operator==',['../structquicr_1_1_min_max_avg.html#a4d564b349201e2ab37b60568301af0a8',1,'quicr::MinMaxAvg::operator==()'],['../structquicr_1_1_quic_connection_metrics.html#aba9b9709203a03cad1680bf0254f2186',1,'quicr::QuicConnectionMetrics::operator==()'],['../structquicr_1_1_quic_data_context_metrics.html#a5f530813a7ddb58840b82ff595f999b5',1,'quicr::QuicDataContextMetrics::operator==()']]]
 ];

@@ -1,6 +1,10 @@
 var searchData=
 [
-  ['resetperiod_0',['ResetPeriod',['../structquicr_1_1_quic_connection_metrics.html#a6c9bb6b0e5176c4f79666efa3f83c877',1,'quicr::QuicConnectionMetrics::ResetPeriod()'],['../structquicr_1_1_quic_data_context_metrics.html#abdb1bfc9734877f4645912524b827553',1,'quicr::QuicDataContextMetrics::ResetPeriod()']]],
-  ['resolveannounce_1',['ResolveAnnounce',['../classquicr_1_1_server.html#adb4668639df22b2690ec9add2627be6e',1,'quicr::Server']]],
-  ['resolvesubscribe_2',['ResolveSubscribe',['../classquicr_1_1_client.html#a7afb7804880b2bfa52318fd386afcc6b',1,'quicr::Client::ResolveSubscribe()'],['../classquicr_1_1_server.html#a3ff7b0e678b6f85140a9a6b8854ff450',1,'quicr::Server::ResolveSubscribe()']]]
+  ['partialobjectreceived_0',['PartialObjectReceived',['../classquicr_1_1_subscribe_track_handler.html#aa2f1ee639e6a02ffb3c43673560f4155',1,'quicr::SubscribeTrackHandler']]],
+  ['publishannounce_1',['PublishAnnounce',['../classquicr_1_1_client.html#a9e224101a208c9b380292fcaed46511d',1,'quicr::Client']]],
+  ['publishobject_2',['PublishObject',['../classquicr_1_1_publish_track_handler.html#a7c89d1920f4297189e949e2fb1afd75e',1,'quicr::PublishTrackHandler']]],
+  ['publishpartialobject_3',['PublishPartialObject',['../classquicr_1_1_publish_track_handler.html#a4cc6faa161871429b1dee50fea209ee8',1,'quicr::PublishTrackHandler']]],
+  ['publishtrack_4',['PublishTrack',['../classquicr_1_1_client.html#af917b7f2f2cbbdc96973c2dd457c3e28',1,'quicr::Client::PublishTrack()'],['../classquicr_1_1_transport.html#aa954eee8c9e305afea8e078631a610f0',1,'quicr::Transport::PublishTrack()']]],
+  ['publishtrackhandler_5',['PublishTrackHandler',['../classquicr_1_1_publish_track_handler.html#a01c90daa87d5635743ac0b5129522af3',1,'quicr::PublishTrackHandler']]],
+  ['publishunannounce_6',['PublishUnannounce',['../classquicr_1_1_client.html#aac3401494cbd247ee5e81a04b90dc8c2',1,'quicr::Client']]]
 ];

@@ -22,16 +22,23 @@ var classquicr_1_1_client =
       [ "kConnecting", "classquicr_1_1_client.html#a1fc1ea2c9665c591c4eac8a6ff1b6173ab714c11518d545c225d456731dab0dd0", null ],
       [ "kDisconnecting", "classquicr_1_1_client.html#a1fc1ea2c9665c591c4eac8a6ff1b6173a7c92b98495ae8a8b8dad3b3213bb7a7d", null ],
       [ "kNotConnected", "classquicr_1_1_client.html#a1fc1ea2c9665c591c4eac8a6ff1b6173a32a54fa8629fe6e9cb3e265e959258d8", null ],
-      [ "kFailedToConnect", "classquicr_1_1_client.html#a1fc1ea2c9665c591c4eac8a6ff1b6173a69342870c437db62c59af80facdf4f3c", null ]
+      [ "kFailedToConnect", "classquicr_1_1_client.html#a1fc1ea2c9665c591c4eac8a6ff1b6173a69342870c437db62c59af80facdf4f3c", null ],
+      [ "kPendingSeverSetup", "classquicr_1_1_client.html#a1fc1ea2c9665c591c4eac8a6ff1b6173a6c5660d2ed7f39a660130e00fa80f208", null ]
     ] ],
     [ "StreamDataMessageStatus", "classquicr_1_1_client.html#af17faf762203edfb5ee459d7ebbda324", null ],
     [ "Client", "classquicr_1_1_client.html#ab3d3baf373db19be4e7adf7f391385ca", null ],
     [ "~Client", "classquicr_1_1_client.html#aedb5bdcf5c9b48209fe490325529aee8", null ],
     [ "AnnounceStatusChanged", "classquicr_1_1_client.html#a3e1ae165ee6479326395d4ba3925688b", null ],
+    [ "CancelFetchTrack", "classquicr_1_1_client.html#a10ba799208ce46f6589302abfc74dd29", null ],
+    [ "CancelFetchTrack", "classquicr_1_1_client.html#a35778d49705111d93733245d707331a6", null ],
     [ "Connect", "classquicr_1_1_client.html#afe0f8545b074ff9165f881db356ebe1f", null ],
     [ "Disconnect", "classquicr_1_1_client.html#af49830320e49dbcb96fbaea405d52ea7", null ],
+    [ "FetchTrack", "classquicr_1_1_client.html#a8e6103b26efaade861d9788bd9077796", null ],
+    [ "FetchTrack", "classquicr_1_1_client.html#a87fba644270c33f3322491bcacbb8244", null ],
     [ "GetAnnounceStatus", "classquicr_1_1_client.html#a0b5addf2c846846d2e57549f8358a2ef", null ],
+    [ "GetConnectionHandle", "classquicr_1_1_client.html#a205a30230380e47800fe5712fc2fc20c", null ],
     [ "GetStatus", "classquicr_1_1_client.html#a0f2587e91119578814a0f68beab5343b", null ],
+    [ "GetTickService", "classquicr_1_1_client.html#adc54129621cd83bfce5164e82ad89b4b", null ],
     [ "MetricsSampled", "classquicr_1_1_client.html#ad4d45bf8cdae687842daa5204e6a7cf9", null ],
     [ "PublishAnnounce", "classquicr_1_1_client.html#a9e224101a208c9b380292fcaed46511d", null ],
     [ "PublishTrack", "classquicr_1_1_client.html#af917b7f2f2cbbdc96973c2dd457c3e28", null ],
@@ -46,5 +53,6 @@ var classquicr_1_1_client =
     [ "UnpublishTrack", "classquicr_1_1_client.html#a7da1a6b8f09d451d4724b914b76e406b", null ],
     [ "UnpublishTrack", "classquicr_1_1_client.html#a13e2e0f786b4bace741af6379b6dfee6", null ],
     [ "UnsubscribeTrack", "classquicr_1_1_client.html#aec97f326ef8b26ba7a07de00bd414e2d", null ],
-    [ "UnsubscribeTrack", "classquicr_1_1_client.html#af595c628c640d1f674f1278fca9ee7cd", null ]
+    [ "UnsubscribeTrack", "classquicr_1_1_client.html#af595c628c640d1f674f1278fca9ee7cd", null ],
+    [ "UpdateTrackSubscription", "classquicr_1_1_client.html#a307e575ac9f13c8ce7e2c37ab910ef91", null ]
 ];

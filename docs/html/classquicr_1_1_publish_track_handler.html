@@ -152,6 +152,7 @@ Public Types</h2></td></tr>
 &#160;&#160;<a class="el" href="#af50c21bea085782c5c0c8f2958a921f7ac1e877c9c6c8271ff158221905113d7b">kAnnounceNotAuthorized</a>
 , <a class="el" href="#af50c21bea085782c5c0c8f2958a921f7a029c756c36d0d64ad37d82fdd25135ad">kNoSubscribers</a>
 , <a class="el" href="#af50c21bea085782c5c0c8f2958a921f7a6473b74b448bc158ffb66542042c88b3">kSendingUnannounce</a>
+, <a class="el" href="#af50c21bea085782c5c0c8f2958a921f7a7682a9bdfcd5780c1e1f4151cbe68427">kSubscriptionUpdated</a>
 <br />
  }</td></tr>
 <tr class="memdesc:af50c21bea085782c5c0c8f2958a921f7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Status codes for the publish track.  <a href="#af50c21bea085782c5c0c8f2958a921f7">More...</a><br /></td></tr>
@@ -207,7 +208,7 @@ Protected Member Functions</h2></td></tr>
 <div class="textblock"><p>MOQ track handler for published track. </p>
 <p>MOQ publish track handler defines all track related callbacks and functions for publish. Track handler operates on a single track (namespace + name).</p>
 <p>This extends the base track handler to add publish (aka send) handling </p>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#_a5">client.cpp</a>, and <a class="el" href="server_8cpp-example.html#_a11">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#_a7">client.cpp</a>, and <a class="el" href="server_8cpp-example.html#_a13">server.cpp</a>.</dd>
 </dl>
 </div><h2 class="groupheader">Member Enumeration Documentation</h2>
 <a id="af4b42f9237fde47f666b9360ae337654" name="af4b42f9237fde47f666b9360ae337654"></a>
@@ -284,6 +285,7 @@ Protected Member Functions</h2></td></tr>
 <tr><td class="fieldname"><a id="af50c21bea085782c5c0c8f2958a921f7a029c756c36d0d64ad37d82fdd25135ad" name="af50c21bea085782c5c0c8f2958a921f7a029c756c36d0d64ad37d82fdd25135ad"></a>kNoSubscribers&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="af50c21bea085782c5c0c8f2958a921f7a6473b74b448bc158ffb66542042c88b3" name="af50c21bea085782c5c0c8f2958a921f7a6473b74b448bc158ffb66542042c88b3"></a>kSendingUnannounce&#160;</td><td class="fielddoc"><p>In this state, callbacks will not be called. </p>
 </td></tr>
+<tr><td class="fieldname"><a id="af50c21bea085782c5c0c8f2958a921f7a7682a9bdfcd5780c1e1f4151cbe68427" name="af50c21bea085782c5c0c8f2958a921f7a7682a9bdfcd5780c1e1f4151cbe68427"></a>kSubscriptionUpdated&#160;</td><td class="fielddoc"></td></tr>
 </table>
 
 </div>
@@ -449,7 +451,7 @@ Protected Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a19">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a21">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -478,7 +480,7 @@ Protected Member Functions</h2></td></tr>
 <dl class="section note"><dt>Note</dt><dd>If data is less than <a class="el" href="structquicr_1_1_object_headers.html#ad15c80dbc8580017173694db9db4d0d2" title="Length of payload of the object data.">ObjectHeaders::payload_length</a>, the error kObjectDataIncomplete will be returned and the object will not be sent.</dd></dl>
 <p><b>Restrictions:</b></p><ul>
 <li>This method cannot be called twice with the same object header group and object IDs.</li>
-<li>In TrackMode::kStreamPerGroup, <a class="el" href="structquicr_1_1_object_headers.html#a5f95043ef8044f6497e9eedc8cd20ff9" title="Object group ID - Should be derived using time in microseconds.">ObjectHeaders::group_id</a> <b>MUST</b> be different than the previous when calling this method when the previous has not been completed yet using PublishContinuationData(). If group id is not different, the PublishStatus::kPreviousObjectNotCompleteMustStartNewGroup will be returned and the object will not be sent. If new group ID is provided, then the previous object will terminate with stream closure, resulting in the previous being truncated.</li>
+<li>In TrackMode::kStreamPerGroup, <a class="el" href="structquicr_1_1_object_headers.html#a5f95043ef8044f6497e9eedc8cd20ff9" title="Object group ID - Application defined order of generation.">ObjectHeaders::group_id</a> <b>MUST</b> be different than the previous when calling this method when the previous has not been completed yet using PublishContinuationData(). If group id is not different, the PublishStatus::kPreviousObjectNotCompleteMustStartNewGroup will be returned and the object will not be sent. If new group ID is provided, then the previous object will terminate with stream closure, resulting in the previous being truncated.</li>
 <li>In TrackMode::kStreamPerTrack, this method <b>CANNOT</b> be called until the previous object has been completed using PublishContinuationData(). Calling this method before completing the previous object remaining data will result in PublishStatus::kObjectDataIncomplete. No data would be sent and the stream would remain unchanged. It is expected that the caller would send the remaining continuation data.</li>
 </ul>
 <dl class="params"><dt>Parameters</dt><dd>
@@ -646,7 +648,7 @@ Protected Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#a6">client.cpp</a>, and <a class="el" href="server_8cpp-example.html#a12">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#a8">client.cpp</a>, and <a class="el" href="server_8cpp-example.html#a14">server.cpp</a>.</dd>
 </dl>
 
 </div>

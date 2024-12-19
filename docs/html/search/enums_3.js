@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['reasoncode_0',['ReasonCode',['../structquicr_1_1_server_1_1_announce_response.html#ac1d5dc562359c27e3223dbd389502d8f',1,'quicr::Server::AnnounceResponse']]]
+  ['publishannouncestatus_0',['PublishAnnounceStatus',['../namespacequicr.html#af82eff7adbcd82b21179868efb55d3f1',1,'quicr']]],
+  ['publishobjectstatus_1',['PublishObjectStatus',['../classquicr_1_1_publish_track_handler.html#af4b42f9237fde47f666b9360ae337654',1,'quicr::PublishTrackHandler']]]
 ];

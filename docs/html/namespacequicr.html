@@ -98,6 +98,7 @@ $(function(){initNavTree('namespacequicr.html',''); initResizable(true); });
 
 <div class="header">
   <div class="summary">
+<a href="#namespaces">Namespaces</a> &#124;
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#typedef-members">Typedefs</a> &#124;
 <a href="#enum-members">Enumerations</a> &#124;
@@ -106,6 +107,11 @@ $(function(){initNavTree('namespacequicr.html',''); initResizable(true); });
 </div><!--header-->
 <div class="contents">
 <table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="namespaces" name="namespaces"></a>
+Namespaces</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">namespace &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacequicr_1_1messages.html">messages</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="nested-classes" name="nested-classes"></a>
 Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_client.html">Client</a></td></tr>
@@ -119,6 +125,9 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1_config.html">Config</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1_connection_metrics.html">ConnectionMetrics</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1_fetch_attributes.html">FetchAttributes</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Fetch attributes.  <a href="structquicr_1_1_fetch_attributes.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1_min_max_avg.html">MinMaxAvg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -167,8 +176,9 @@ Typedefs</h2></td></tr>
 <tr class="separator:ae1ac30988d32dc3d91fb37721fa99dcb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae332e51a43d09ae0300bd16654d671fc" id="r_ae332e51a43d09ae0300bd16654d671fc"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> = uint64_t</td></tr>
 <tr class="separator:ae332e51a43d09ae0300bd16654d671fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abef68353326546fb765a43765d3dd48d" id="r_abef68353326546fb765a43765d3dd48d"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#abef68353326546fb765a43765d3dd48d">MetricsTimeStampUs</a> = std::chrono::time_point&lt;std::chrono::steady_clock, std::chrono::microseconds&gt;</td></tr>
-<tr class="separator:abef68353326546fb765a43765d3dd48d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a40bbec8f57f3e736978aa38e4d015b26" id="r_a40bbec8f57f3e736978aa38e4d015b26"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a40bbec8f57f3e736978aa38e4d015b26">MetricsTimeStampUs</a> = uint64_t</td></tr>
+<tr class="memdesc:a40bbec8f57f3e736978aa38e4d015b26"><td class="mdescLeft">&#160;</td><td class="mdescRight">Metrics timestamp in microseconds from epoch 1970.  <br /></td></tr>
+<tr class="separator:a40bbec8f57f3e736978aa38e4d015b26"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a46df09228d12c1aa95c59315dc0dd30c" id="r_a46df09228d12c1aa95c59315dc0dd30c"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a46df09228d12c1aa95c59315dc0dd30c">Extensions</a> = std::map&lt;uint64_t, std::vector&lt;uint8_t&gt;&gt;</td></tr>
 <tr class="separator:a46df09228d12c1aa95c59315dc0dd30c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -186,6 +196,17 @@ Enumerations</h2></td></tr>
  }</td></tr>
 <tr class="memdesc:af82eff7adbcd82b21179868efb55d3f1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish Announce Status.  <a href="#af82eff7adbcd82b21179868efb55d3f1">More...</a><br /></td></tr>
 <tr class="separator:af82eff7adbcd82b21179868efb55d3f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a960fb04ec2c5b5aee1ff1b6b125ea4b3" id="r_a960fb04ec2c5b5aee1ff1b6b125ea4b3"><td class="memItemLeft" align="right" valign="top">enum struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a960fb04ec2c5b5aee1ff1b6b125ea4b3">ObjectStatus</a> : uint8_t { <br />
+&#160;&#160;<a class="el" href="#a960fb04ec2c5b5aee1ff1b6b125ea4b3ad5dbdf8007e4468c85b9aa91312030e7">kAvailable</a> = 0x0
+, <a class="el" href="#a960fb04ec2c5b5aee1ff1b6b125ea4b3a428619f5cc217376ae939f57c8dc15ba">kDoesNotExist</a> = 0x1
+, <a class="el" href="#a960fb04ec2c5b5aee1ff1b6b125ea4b3a818b4dfa26193214fe8e0403cc188b47">kEndOfGroup</a> = 0x3
+, <a class="el" href="#a960fb04ec2c5b5aee1ff1b6b125ea4b3a85de4307cb2daea127c173a936cc06b0">kEndOfTrack</a> = 0x4
+, <br />
+&#160;&#160;<a class="el" href="#a960fb04ec2c5b5aee1ff1b6b125ea4b3a2e641e4fabd9280a58fa4d0588994bd7">kEndOfSubGroup</a> = 0x5
+<br />
+ }</td></tr>
+<tr class="memdesc:a960fb04ec2c5b5aee1ff1b6b125ea4b3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Status of object as reported by the publisher.  <a href="#a960fb04ec2c5b5aee1ff1b6b125ea4b3">More...</a><br /></td></tr>
+<tr class="separator:a960fb04ec2c5b5aee1ff1b6b125ea4b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="var-members" name="var-members"></a>
 Variables</h2></td></tr>
@@ -272,21 +293,54 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a id="abef68353326546fb765a43765d3dd48d" name="abef68353326546fb765a43765d3dd48d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abef68353326546fb765a43765d3dd48d">&#9670;&#160;</a></span>MetricsTimeStampUs</h2>
+<a id="a40bbec8f57f3e736978aa38e4d015b26" name="a40bbec8f57f3e736978aa38e4d015b26"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a40bbec8f57f3e736978aa38e4d015b26">&#9670;&#160;</a></span>MetricsTimeStampUs</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">using <a class="el" href="#abef68353326546fb765a43765d3dd48d">quicr::MetricsTimeStampUs</a> = std::chrono::time_point&lt;std::chrono::steady_clock, std::chrono::microseconds&gt;</td>
+          <td class="memname">using <a class="el" href="#a40bbec8f57f3e736978aa38e4d015b26">quicr::MetricsTimeStampUs</a> = uint64_t</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
+<p>Metrics timestamp in microseconds from epoch 1970. </p>
+
 </div>
 </div>
 <h2 class="groupheader">Enumeration Type Documentation</h2>
+<a id="a960fb04ec2c5b5aee1ff1b6b125ea4b3" name="a960fb04ec2c5b5aee1ff1b6b125ea4b3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a960fb04ec2c5b5aee1ff1b6b125ea4b3">&#9670;&#160;</a></span>ObjectStatus</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum struct <a class="el" href="#a960fb04ec2c5b5aee1ff1b6b125ea4b3">quicr::ObjectStatus</a> : uint8_t</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">strong</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Status of object as reported by the publisher. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a960fb04ec2c5b5aee1ff1b6b125ea4b3ad5dbdf8007e4468c85b9aa91312030e7" name="a960fb04ec2c5b5aee1ff1b6b125ea4b3ad5dbdf8007e4468c85b9aa91312030e7"></a>kAvailable&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a960fb04ec2c5b5aee1ff1b6b125ea4b3a428619f5cc217376ae939f57c8dc15ba" name="a960fb04ec2c5b5aee1ff1b6b125ea4b3a428619f5cc217376ae939f57c8dc15ba"></a>kDoesNotExist&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a960fb04ec2c5b5aee1ff1b6b125ea4b3a818b4dfa26193214fe8e0403cc188b47" name="a960fb04ec2c5b5aee1ff1b6b125ea4b3a818b4dfa26193214fe8e0403cc188b47"></a>kEndOfGroup&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a960fb04ec2c5b5aee1ff1b6b125ea4b3a85de4307cb2daea127c173a936cc06b0" name="a960fb04ec2c5b5aee1ff1b6b125ea4b3a85de4307cb2daea127c173a936cc06b0"></a>kEndOfTrack&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a960fb04ec2c5b5aee1ff1b6b125ea4b3a2e641e4fabd9280a58fa4d0588994bd7" name="a960fb04ec2c5b5aee1ff1b6b125ea4b3a2e641e4fabd9280a58fa4d0588994bd7"></a>kEndOfSubGroup&#160;</td><td class="fielddoc"></td></tr>
+</table>
+
+</div>
+</div>
 <a id="af82eff7adbcd82b21179868efb55d3f1" name="af82eff7adbcd82b21179868efb55d3f1"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#af82eff7adbcd82b21179868efb55d3f1">&#9670;&#160;</a></span>PublishAnnounceStatus</h2>
 

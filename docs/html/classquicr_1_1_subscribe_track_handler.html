@@ -131,11 +131,11 @@ Public Types</h2></td></tr>
 <tr class="memitem:a9de21a18d0ef99ddba39efc9833d74ee" id="r_a9de21a18d0ef99ddba39efc9833d74ee"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9de21a18d0ef99ddba39efc9833d74ee">Status</a> : uint8_t { <br />
 &#160;&#160;<a class="el" href="#a9de21a18d0ef99ddba39efc9833d74eeae69fa9a656f76dd8a4d89f21992b2d3a">kOk</a> = 0
 , <a class="el" href="#a9de21a18d0ef99ddba39efc9833d74eea32a54fa8629fe6e9cb3e265e959258d8">kNotConnected</a>
-, <a class="el" href="#a9de21a18d0ef99ddba39efc9833d74eea6eea58710b4bb41e1060ec0b21650de0">kSubscribeError</a>
+, <a class="el" href="#a9de21a18d0ef99ddba39efc9833d74eeae3587c730cc1aa530fa4ddc9c4204e97">kError</a>
 , <a class="el" href="#a9de21a18d0ef99ddba39efc9833d74eea94d644150606feeb2501ae2801a617ed">kNotAuthorized</a>
 , <br />
 &#160;&#160;<a class="el" href="#a9de21a18d0ef99ddba39efc9833d74eea92328fe39107890e5ea75689d9e5d32f">kNotSubscribed</a>
-, <a class="el" href="#a9de21a18d0ef99ddba39efc9833d74eea0a3ab3e9715377a993aa8530a0a67cdc">kPendingSubscribeResponse</a>
+, <a class="el" href="#a9de21a18d0ef99ddba39efc9833d74eea78076a6dd163ca654a4258f3d295d408">kPendingResponse</a>
 , <a class="el" href="#a9de21a18d0ef99ddba39efc9833d74eea0c00fa0c8dbc5959120d45bc8386979f">kSendingUnsubscribe</a>
 <br />
  }</td></tr>
@@ -147,6 +147,15 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a520dfe48f9e5a3a82d154d579ee1ff01" id="r_a520dfe48f9e5a3a82d154d579ee1ff01"><td class="memItemLeft" align="right" valign="top">constexpr <a class="el" href="#a9de21a18d0ef99ddba39efc9833d74ee">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a520dfe48f9e5a3a82d154d579ee1ff01">GetStatus</a> () const noexcept</td></tr>
 <tr class="memdesc:a520dfe48f9e5a3a82d154d579ee1ff01"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the status of the subscribe.  <br /></td></tr>
 <tr class="separator:a520dfe48f9e5a3a82d154d579ee1ff01"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae2ddbd22867565e10610b7d85f3eb09a" id="r_ae2ddbd22867565e10610b7d85f3eb09a"><td class="memItemLeft" align="right" valign="top">constexpr messages::ObjectPriority&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae2ddbd22867565e10610b7d85f3eb09a">GetPriority</a> () const noexcept</td></tr>
+<tr class="memdesc:ae2ddbd22867565e10610b7d85f3eb09a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get subscription priority.  <br /></td></tr>
+<tr class="separator:ae2ddbd22867565e10610b7d85f3eb09a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acdb34d9d30f8591c9bc1e80e7bad16b7" id="r_acdb34d9d30f8591c9bc1e80e7bad16b7"><td class="memItemLeft" align="right" valign="top">constexpr messages::GroupOrder&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#acdb34d9d30f8591c9bc1e80e7bad16b7">GetGroupOrder</a> () const noexcept</td></tr>
+<tr class="memdesc:acdb34d9d30f8591c9bc1e80e7bad16b7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get subscription group order.  <br /></td></tr>
+<tr class="separator:acdb34d9d30f8591c9bc1e80e7bad16b7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a71fd849dc9a449261a18773287a92bf6" id="r_a71fd849dc9a449261a18773287a92bf6"><td class="memItemLeft" align="right" valign="top">constexpr messages::FilterType&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a71fd849dc9a449261a18773287a92bf6">GetFilterType</a> () const noexcept</td></tr>
+<tr class="memdesc:a71fd849dc9a449261a18773287a92bf6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get subscription filter type.  <br /></td></tr>
+<tr class="separator:a71fd849dc9a449261a18773287a92bf6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">Callbacks</div></td></tr>
 <tr class="memitem:aa4df3bdf8ba34557c381aa0268bc5b7d" id="r_aa4df3bdf8ba34557c381aa0268bc5b7d"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa4df3bdf8ba34557c381aa0268bc5b7d">ObjectReceived</a> (const <a class="el" href="structquicr_1_1_object_headers.html">ObjectHeaders</a> &amp;object_headers, <a class="el" href="namespacequicr.html#ae1ac30988d32dc3d91fb37721fa99dcb">BytesSpan</a> data)</td></tr>
 <tr class="memdesc:aa4df3bdf8ba34557c381aa0268bc5b7d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification of received [full] data object.  <br /></td></tr>
@@ -163,9 +172,9 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-static-methods" name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
-<tr class="memitem:ab68abe464d5df71d9fd11c2e7e0cef94" id="r_ab68abe464d5df71d9fd11c2e7e0cef94"><td class="memItemLeft" align="right" valign="top">static std::shared_ptr&lt; <a class="el" href="classquicr_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab68abe464d5df71d9fd11c2e7e0cef94">Create</a> (const FullTrackName &amp;full_track_name)</td></tr>
-<tr class="memdesc:ab68abe464d5df71d9fd11c2e7e0cef94"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create shared Subscribe track handler.  <br /></td></tr>
-<tr class="separator:ab68abe464d5df71d9fd11c2e7e0cef94"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeb33df952461efa0b926022cab0cdf84" id="r_aeb33df952461efa0b926022cab0cdf84"><td class="memItemLeft" align="right" valign="top">static std::shared_ptr&lt; <a class="el" href="classquicr_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aeb33df952461efa0b926022cab0cdf84">Create</a> (const FullTrackName &amp;full_track_name, messages::ObjectPriority priority, messages::GroupOrder group_order=messages::GroupOrder::kAscending, messages::FilterType filter_type=messages::FilterType::LatestObject)</td></tr>
+<tr class="memdesc:aeb33df952461efa0b926022cab0cdf84"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create shared Subscribe track handler.  <br /></td></tr>
+<tr class="separator:aeb33df952461efa0b926022cab0cdf84"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -175,9 +184,12 @@ Public Attributes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-methods" name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:a639f890eb93be735534c552ef874c225" id="r_a639f890eb93be735534c552ef874c225"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a639f890eb93be735534c552ef874c225">SubscribeTrackHandler</a> (const FullTrackName &amp;full_track_name)</td></tr>
-<tr class="memdesc:a639f890eb93be735534c552ef874c225"><td class="mdescLeft">&#160;</td><td class="mdescRight">Subscribe track handler constructor.  <br /></td></tr>
-<tr class="separator:a639f890eb93be735534c552ef874c225"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a16654a9bfdce5e0490274c91a321b54c" id="r_a16654a9bfdce5e0490274c91a321b54c"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a16654a9bfdce5e0490274c91a321b54c">SubscribeTrackHandler</a> (const FullTrackName &amp;full_track_name, messages::ObjectPriority priority, messages::GroupOrder group_order, messages::FilterType filter_type)</td></tr>
+<tr class="memdesc:a16654a9bfdce5e0490274c91a321b54c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Subscribe track handler constructor.  <br /></td></tr>
+<tr class="separator:a16654a9bfdce5e0490274c91a321b54c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a360cc2e877f2b0ba9990283517fdae24" id="r_a360cc2e877f2b0ba9990283517fdae24"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a360cc2e877f2b0ba9990283517fdae24">SetStatus</a> (<a class="el" href="#a9de21a18d0ef99ddba39efc9833d74ee">Status</a> status) noexcept</td></tr>
+<tr class="memdesc:a360cc2e877f2b0ba9990283517fdae24"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the subscribe status.  <br /></td></tr>
+<tr class="separator:a360cc2e877f2b0ba9990283517fdae24"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>MOQ track handler for subscribed track. </p>
@@ -240,10 +252,10 @@ Protected Member Functions</h2></td></tr>
 <table class="fieldtable">
 <tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a9de21a18d0ef99ddba39efc9833d74eeae69fa9a656f76dd8a4d89f21992b2d3a" name="a9de21a18d0ef99ddba39efc9833d74eeae69fa9a656f76dd8a4d89f21992b2d3a"></a>kOk&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="a9de21a18d0ef99ddba39efc9833d74eea32a54fa8629fe6e9cb3e265e959258d8" name="a9de21a18d0ef99ddba39efc9833d74eea32a54fa8629fe6e9cb3e265e959258d8"></a>kNotConnected&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a9de21a18d0ef99ddba39efc9833d74eea6eea58710b4bb41e1060ec0b21650de0" name="a9de21a18d0ef99ddba39efc9833d74eea6eea58710b4bb41e1060ec0b21650de0"></a>kSubscribeError&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a9de21a18d0ef99ddba39efc9833d74eeae3587c730cc1aa530fa4ddc9c4204e97" name="a9de21a18d0ef99ddba39efc9833d74eeae3587c730cc1aa530fa4ddc9c4204e97"></a>kError&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="a9de21a18d0ef99ddba39efc9833d74eea94d644150606feeb2501ae2801a617ed" name="a9de21a18d0ef99ddba39efc9833d74eea94d644150606feeb2501ae2801a617ed"></a>kNotAuthorized&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="a9de21a18d0ef99ddba39efc9833d74eea92328fe39107890e5ea75689d9e5d32f" name="a9de21a18d0ef99ddba39efc9833d74eea92328fe39107890e5ea75689d9e5d32f"></a>kNotSubscribed&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a9de21a18d0ef99ddba39efc9833d74eea0a3ab3e9715377a993aa8530a0a67cdc" name="a9de21a18d0ef99ddba39efc9833d74eea0a3ab3e9715377a993aa8530a0a67cdc"></a>kPendingSubscribeResponse&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a9de21a18d0ef99ddba39efc9833d74eea78076a6dd163ca654a4258f3d295d408" name="a9de21a18d0ef99ddba39efc9833d74eea78076a6dd163ca654a4258f3d295d408"></a>kPendingResponse&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="a9de21a18d0ef99ddba39efc9833d74eea0c00fa0c8dbc5959120d45bc8386979f" name="a9de21a18d0ef99ddba39efc9833d74eea0c00fa0c8dbc5959120d45bc8386979f"></a>kSendingUnsubscribe&#160;</td><td class="fielddoc"><p>In this state, callbacks will not be called. </p>
 </td></tr>
 </table>
@@ -251,8 +263,8 @@ Protected Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a639f890eb93be735534c552ef874c225" name="a639f890eb93be735534c552ef874c225"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a639f890eb93be735534c552ef874c225">&#9670;&#160;</a></span>SubscribeTrackHandler()</h2>
+<a id="a16654a9bfdce5e0490274c91a321b54c" name="a16654a9bfdce5e0490274c91a321b54c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a16654a9bfdce5e0490274c91a321b54c">&#9670;&#160;</a></span>SubscribeTrackHandler()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -263,8 +275,22 @@ Protected Member Functions</h2></td></tr>
         <tr>
           <td class="memname">quicr::SubscribeTrackHandler::SubscribeTrackHandler </td>
           <td>(</td>
-          <td class="paramtype">const FullTrackName &amp;</td>          <td class="paramname"><span class="paramname"><em>full_track_name</em></span></td><td>)</td>
+          <td class="paramtype">const FullTrackName &amp;</td>          <td class="paramname"><span class="paramname"><em>full_track_name</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">messages::ObjectPriority</td>          <td class="paramname"><span class="paramname"><em>priority</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">messages::GroupOrder</td>          <td class="paramname"><span class="paramname"><em>group_order</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">messages::FilterType</td>          <td class="paramname"><span class="paramname"><em>filter_type</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -285,8 +311,8 @@ Protected Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="ab68abe464d5df71d9fd11c2e7e0cef94" name="ab68abe464d5df71d9fd11c2e7e0cef94"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab68abe464d5df71d9fd11c2e7e0cef94">&#9670;&#160;</a></span>Create()</h2>
+<a id="aeb33df952461efa0b926022cab0cdf84" name="aeb33df952461efa0b926022cab0cdf84"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aeb33df952461efa0b926022cab0cdf84">&#9670;&#160;</a></span>Create()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -297,8 +323,22 @@ Protected Member Functions</h2></td></tr>
         <tr>
           <td class="memname">static std::shared_ptr&lt; <a class="el" href="classquicr_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt; quicr::SubscribeTrackHandler::Create </td>
           <td>(</td>
-          <td class="paramtype">const FullTrackName &amp;</td>          <td class="paramname"><span class="paramname"><em>full_track_name</em></span></td><td>)</td>
+          <td class="paramtype">const FullTrackName &amp;</td>          <td class="paramname"><span class="paramname"><em>full_track_name</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">messages::ObjectPriority</td>          <td class="paramname"><span class="paramname"><em>priority</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">messages::GroupOrder</td>          <td class="paramname"><span class="paramname"><em>group_order</em></span><span class="paramdefsep"> = </span><span class="paramdefval">messages::GroupOrder::kAscending</span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">messages::FilterType</td>          <td class="paramname"><span class="paramname"><em>filter_type</em></span><span class="paramdefsep"> = </span><span class="paramdefval">messages::FilterType::LatestObject</span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -312,9 +352,95 @@ Protected Member Functions</h2></td></tr>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">full_track_name</td><td>Full track name struct </td></tr>
+    <tr><td class="paramname">priority</td><td>Subscription priority, if omitted, publisher priority is considered </td></tr>
+    <tr><td class="paramname">group_order</td><td>Order for group delivery </td></tr>
   </table>
   </dd>
 </dl>
+
+</div>
+</div>
+<a id="a71fd849dc9a449261a18773287a92bf6" name="a71fd849dc9a449261a18773287a92bf6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a71fd849dc9a449261a18773287a92bf6">&#9670;&#160;</a></span>GetFilterType()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">messages::FilterType quicr::SubscribeTrackHandler::GetFilterType </td>
+          <td>(</td>
+          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">constexpr</span><span class="mlabel">noexcept</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get subscription filter type. </p>
+<dl class="section return"><dt>Returns</dt><dd>FilterType value </dd></dl>
+
+</div>
+</div>
+<a id="acdb34d9d30f8591c9bc1e80e7bad16b7" name="acdb34d9d30f8591c9bc1e80e7bad16b7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acdb34d9d30f8591c9bc1e80e7bad16b7">&#9670;&#160;</a></span>GetGroupOrder()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">messages::GroupOrder quicr::SubscribeTrackHandler::GetGroupOrder </td>
+          <td>(</td>
+          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">constexpr</span><span class="mlabel">noexcept</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get subscription group order. </p>
+<dl class="section return"><dt>Returns</dt><dd>GroupOrder value </dd></dl>
+
+</div>
+</div>
+<a id="ae2ddbd22867565e10610b7d85f3eb09a" name="ae2ddbd22867565e10610b7d85f3eb09a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae2ddbd22867565e10610b7d85f3eb09a">&#9670;&#160;</a></span>GetPriority()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">messages::ObjectPriority quicr::SubscribeTrackHandler::GetPriority </td>
+          <td>(</td>
+          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">constexpr</span><span class="mlabel">noexcept</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get subscription priority. </p>
+<dl class="section return"><dt>Returns</dt><dd>Priority value </dd></dl>
 
 </div>
 </div>
@@ -462,6 +588,39 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="a360cc2e877f2b0ba9990283517fdae24" name="a360cc2e877f2b0ba9990283517fdae24"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a360cc2e877f2b0ba9990283517fdae24">&#9670;&#160;</a></span>SetStatus()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void quicr::SubscribeTrackHandler::SetStatus </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="#a9de21a18d0ef99ddba39efc9833d74ee">Status</a></td>          <td class="paramname"><span class="paramname"><em>status</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">protected</span><span class="mlabel">noexcept</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Set the subscribe status. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">status</td><td>Status of the subscribe </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
 <a id="acc562217cd1bb34fc845cdde7a0fe570" name="acc562217cd1bb34fc845cdde7a0fe570"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#acc562217cd1bb34fc845cdde7a0fe570">&#9670;&#160;</a></span>StatusChanged()</h2>
 
@@ -493,7 +652,7 @@ Protected Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#a3">client.cpp</a>, and <a class="el" href="server_8cpp-example.html#a4">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#a5">client.cpp</a>, and <a class="el" href="server_8cpp-example.html#a6">server.cpp</a>.</dd>
 </dl>
 
 </div>

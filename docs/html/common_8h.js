@@ -1,9 +1,10 @@
 var common_8h =
 [
-    [ "quicr::SubscribeAttributes", "structquicr_1_1_subscribe_attributes.html", null ],
+    [ "quicr::SubscribeAttributes", "structquicr_1_1_subscribe_attributes.html", "structquicr_1_1_subscribe_attributes" ],
     [ "quicr::PublishAnnounceAttributes", "structquicr_1_1_publish_announce_attributes.html", null ],
     [ "quicr::ClientSetupAttributes", "structquicr_1_1_client_setup_attributes.html", "structquicr_1_1_client_setup_attributes" ],
     [ "quicr::ServerSetupAttributes", "structquicr_1_1_server_setup_attributes.html", "structquicr_1_1_server_setup_attributes" ],
+    [ "quicr::FetchAttributes", "structquicr_1_1_fetch_attributes.html", "structquicr_1_1_fetch_attributes" ],
     [ "Byte", "common_8h.html#afc0a634888231229a3c4ca9455f639cf", null ],
     [ "Bytes", "common_8h.html#a196ac5046236a7e948d3b5a766ac02ee", null ],
     [ "BytesSpan", "common_8h.html#ae1ac30988d32dc3d91fb37721fa99dcb", null ],

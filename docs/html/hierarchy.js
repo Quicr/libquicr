@@ -13,6 +13,7 @@ var hierarchy =
     ] ],
     [ "quicr::ConnectionMetrics", "structquicr_1_1_connection_metrics.html", null ],
     [ "quicr::Transport::ConnectionRemoteInfo", "structquicr_1_1_transport_1_1_connection_remote_info.html", null ],
+    [ "quicr::FetchAttributes", "structquicr_1_1_fetch_attributes.html", null ],
     [ "quicr::MinMaxAvg", "structquicr_1_1_min_max_avg.html", null ],
     [ "quicr::ObjectHeaders", "structquicr_1_1_object_headers.html", null ],
     [ "quicr::PublishAnnounceAttributes", "structquicr_1_1_publish_announce_attributes.html", null ],
