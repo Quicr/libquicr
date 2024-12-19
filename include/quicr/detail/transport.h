@@ -3,7 +3,8 @@
 
 #pragma once
 
-#include <quicr/detail/messages.h>
+#include "messages.h"
+#include "tick_service.h"
 
 #include "quic_transport.h"
 
@@ -11,6 +12,7 @@
 #include <chrono>
 #include <quicr/common.h>
 #include <quicr/config.h>
+#include <quicr/fetch_track_handler.h>
 #include <quicr/metrics.h>
 #include <quicr/publish_track_handler.h>
 #include <quicr/subscribe_track_handler.h>
@@ -48,7 +50,8 @@ namespace quicr {
             kConnecting,
             kDisconnecting,
             kNotConnected,
-            kFailedToConnect
+            kFailedToConnect,
+            kPendingSeverSetup,
         };
 
         /**
@@ -91,18 +94,22 @@ namespace quicr {
         /**
          * @brief Client mode Constructor to create the MOQ instance
          *
-         * @param cfg       MoQ Instance Client Configuration
+         * @param cfg            MoQ Instance Client Configuration
+         * @param tick_service   Shared pointer to the tick service to use
          */
-        Transport(const ClientConfig& cfg);
+        Transport(const ClientConfig& cfg, std::shared_ptr<TickService> tick_service);
 
         /**
          * @brief Server mode Constructor to create the MOQ instance
          *
-         * @param cfg        MoQ Server Configuration
+         * @param cfg            MoQ Server Configuration
+         * @param tick_service   Shared pointer to the tick service to use
          */
-        Transport(const ServerConfig& cfg);
+        Transport(const ServerConfig& cfg, std::shared_ptr<TickService> tick_service);
 
         ~Transport();
+
+        const std::shared_ptr<TickService>& GetTickService() const noexcept { return tick_service_; }
 
         // -------------------------------------------------------------------------------------------------
         // Public API MoQ Instance API methods
@@ -126,6 +133,16 @@ namespace quicr {
                               const std::shared_ptr<SubscribeTrackHandler>& track_handler);
 
         /**
+         * @brief Update Subscription to a track
+         *
+         * @param connection_handle         Connection ID to send subscribe
+         * @param track_handler             Track handler to use for track related functions and callbacks
+         *
+         */
+        void UpdateTrackSubscription(ConnectionHandle connection_handle,
+                                     std::shared_ptr<SubscribeTrackHandler> track_handler);
+
+        /**
          * @brief Publish to a track
          *
          * @param connection_handle           Connection ID from transport for the QUIC connection context
@@ -138,10 +155,26 @@ namespace quicr {
          * @brief Unpublish track
          *
          * @param connection_handle           Connection ID from transport for the QUIC connection context
-         * @param track_handler    Track handler used when published track
+         * @param track_handler               Track handler used when published track
          */
         void UnpublishTrack(ConnectionHandle connection_handle,
                             const std::shared_ptr<PublishTrackHandler>& track_handler);
+
+        /**
+         * @brief Fetch track
+         *
+         * @param connection_handle         Connection ID to send fetch
+         * @param track_handler             Track handler used for fetching
+         */
+        void FetchTrack(ConnectionHandle connection_handle, std::shared_ptr<FetchTrackHandler> track_handler);
+
+        /**
+         * @brief Cancel Fetch track
+         *
+         * @param connection_handle         Connection ID to send fetch cancel.
+         * @param track_handler             Fetch Track handler to cancel.
+         */
+        void CancelFetchTrack(ConnectionHandle connection_handle, std::shared_ptr<FetchTrackHandler> track_handler);
 
         /**
          * @brief Get the status of the Client
@@ -187,11 +220,11 @@ namespace quicr {
                           const bool is_bidir = false) override;
         void OnRecvDgram(const ConnectionHandle& connection_handle, std::optional<DataContextId> data_ctx_id) override;
 
-        void OnConnectionMetricsSampled(TimeStampUs sample_time,
+        void OnConnectionMetricsSampled(MetricsTimeStamp sample_time,
                                         TransportConnId conn_id,
                                         const QuicConnectionMetrics& quic_connection_metrics) override;
 
-        void OnDataMetricsStampled(TimeStampUs sample_time,
+        void OnDataMetricsStampled(MetricsTimeStamp sample_time,
                                    TransportConnId conn_id,
                                    DataContextId data_ctx_id,
                                    const QuicDataContextMetrics& quic_data_context_metrics) override;
@@ -206,7 +239,7 @@ namespace quicr {
             std::optional<uint64_t> ctrl_data_ctx_id;
             bool setup_complete{ false }; ///< True if both client and server setup messages have completed
             uint64_t client_version{ 0 };
-            std::optional<messages::MoqMessageType>
+            std::optional<messages::ControlMessageType>
               ctrl_msg_type_received; ///< Indicates the current message type being read
 
             uint64_t current_subscribe_id{ 0 }; ///< Connection specific ID for subscribe messages
@@ -215,7 +248,7 @@ namespace quicr {
             /// Used to map published tracks to subscribes in client mode
             std::map<messages::SubscribeId, std::pair<TrackNamespaceHash, TrackNameHash>> recv_sub_id;
 
-            /// Tracks by subscribe ID
+            /// Tracks by subscribe ID (Subscribe and Fetch)
             std::map<messages::SubscribeId, std::shared_ptr<SubscribeTrackHandler>> tracks_by_sub_id;
 
             /// Publish tracks by namespace and name. map[track namespace][track name] = track handler
@@ -234,22 +267,37 @@ namespace quicr {
 
         void Init();
 
-        PublishTrackHandler::PublishObjectStatus SendObject(const PublishTrackHandler& track_handler,
+        PublishTrackHandler::PublishObjectStatus SendObject(PublishTrackHandler& track_handler,
                                                             uint8_t priority,
                                                             uint32_t ttl,
                                                             bool stream_header_needed,
                                                             uint64_t group_id,
+                                                            uint64_t subgroup_id,
                                                             uint64_t object_id,
                                                             std::optional<Extensions> extensions,
                                                             BytesSpan data);
 
-        void SendCtrlMsg(const ConnectionContext& conn_ctx, Span<const uint8_t> data);
+        void SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data);
         void SendClientSetup();
         void SendServerSetup(ConnectionContext& conn_ctx);
-        void SendAnnounce(ConnectionContext& conn_ctx, Span<const uint8_t> track_namespace);
-        void SendAnnounceOk(ConnectionContext& conn_ctx, Span<const uint8_t> track_namespace);
-        void SendUnannounce(ConnectionContext& conn_ctx, Span<const uint8_t> track_namespace);
-        void SendSubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id, const FullTrackName& tfn, TrackHash th);
+        void SendAnnounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
+        void SendAnnounceOk(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
+        void SendUnannounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
+        void SendSubscribe(ConnectionContext& conn_ctx,
+                           uint64_t subscribe_id,
+                           const FullTrackName& tfn,
+                           TrackHash th,
+                           messages::ObjectPriority priority,
+                           messages::GroupOrder group_order,
+                           messages::FilterType filter_type);
+        void SendSubscribeUpdate(ConnectionContext& conn_ctx,
+                                 uint64_t subscribe_id,
+                                 TrackHash th,
+                                 messages::GroupId start_group_id,
+                                 messages::ObjectId start_object_id,
+                                 messages::GroupId end_group_id,
+                                 messages::ObjectPriority priority);
+
         void SendSubscribeOk(ConnectionContext& conn_ctx, uint64_t subscribe_id, uint64_t expires, bool content_exists);
         void SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id);
         void SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason);
@@ -258,6 +306,26 @@ namespace quicr {
                                 uint64_t track_alias,
                                 messages::SubscribeError error,
                                 const std::string& reason);
+        void SendFetch(ConnectionContext& conn_ctx,
+                       uint64_t subscribe_id,
+                       const FullTrackName& tfn,
+                       messages::ObjectPriority priority,
+                       messages::GroupOrder group_order,
+                       messages::GroupId start_group,
+                       messages::GroupId start_object,
+                       messages::GroupId end_group,
+                       messages::GroupId end_object);
+        void SendFetchCancel(ConnectionContext& conn_ctx, uint64_t subscribe_id);
+        void SendFetchOk(ConnectionContext& conn_ctx,
+                         uint64_t subscribe_id,
+                         messages::GroupOrder group_order,
+                         bool end_of_track,
+                         messages::GroupId largest_group_id,
+                         messages::GroupId largest_object_id);
+        void SendFetchError(ConnectionContext& conn_ctx,
+                            uint64_t subscribe_id,
+                            messages::FetchError error,
+                            const std::string& reason);
         void CloseConnection(ConnectionHandle connection_handle,
                              messages::MoqTerminationReason reason,
                              const std::string& reason_str);
@@ -266,8 +334,9 @@ namespace quicr {
                                   SubscribeTrackHandler& handler,
                                   bool remove_handler = true);
 
-        std::optional<std::weak_ptr<PublishTrackHandler>> GetPubTrackHandler(ConnectionContext& conn_ctx,
-                                                                             TrackHash& th);
+        std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(ConnectionContext& conn_ctx, TrackHash& th);
+
+        void RemoveAllTracksForConnectionClose(ConnectionContext& conn_ctx);
 
         // -------------------------------------------------------------------------------------------------
         // Private member functions that will be implemented by Server class
@@ -291,22 +360,19 @@ namespace quicr {
         // -------------------------------------------------------------------------------------------------
         // Private member functions that will be implemented by both Server and Client
         // ------------------------------------------------------------------------------------------------
-        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                        std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer) = 0;
+
+        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes) = 0;
 
         bool ProcessStreamDataMessage(ConnectionContext& conn_ctx,
                                       std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer);
 
         template<class MessageType>
-        std::pair<MessageType&, bool> ParseControlMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer);
-
-        template<class MessageType>
         std::pair<MessageType&, bool> ParseDataMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-                                                       messages::MoqMessageType msg_type);
+                                                       messages::DataMessageType msg_type);
 
         template<class HeaderType, class MessageType>
         std::pair<HeaderType&, bool> ParseStreamData(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-                                                     messages::MoqMessageType msg_type);
+                                                     messages::DataMessageType msg_type);
 
       private:
         // -------------------------------------------------------------------------------------------------
@@ -323,6 +389,7 @@ namespace quicr {
 
         Status status_{ Status::kNotReady };
 
+        std::shared_ptr<TickService> tick_service_;
         std::shared_ptr<ITransport> quic_transport_; // **MUST** be last for proper order of destruction
 
         friend class Client;

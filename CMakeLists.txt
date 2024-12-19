@@ -13,14 +13,19 @@ else()
 endif()
 
 project(quicr
-        VERSION 1.0.0
+        VERSION 1.0.2
         DESCRIPTION "QuicR, a Media over QUIC Library"
         LANGUAGES CXX)
 
-configure_file( src/version.h.in ${CMAKE_BINARY_DIR}/include/quicr/version.h )
-include_directories(${CMAKE_BINARY_DIR}/include )
+if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
+    message(FATAL_ERROR
+    "In-source builds are disallowed, prefer libquicr's Makefile or cmake -B <build> -S <source>
+You may need to delete the already generated Cache and CMake folder to continue.")
+endif()
 
-IF (NOT LINUX AND NOT APPLE)
+configure_file( src/version.h.in ${CMAKE_BINARY_DIR}/include/quicr/version.h )
+
+IF (NOT UNIX AND NOT APPLE)
     message(FATAL_ERROR "Unsupported platform, Linux and Apple are the only supported platforms")
 endif ()
 

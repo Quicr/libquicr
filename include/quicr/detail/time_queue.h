@@ -20,30 +20,16 @@
 
 #pragma once
 
-#include <algorithm>
-#include <array>
 #include <atomic>
 #include <chrono>
-#include <iostream>
 #include <memory>
-#include <mutex>
-#include <sys/select.h>
-#include <thread>
-#include <type_traits>
+#include <set>
+#include <stdexcept>
 #include <vector>
 
+#include "tick_service.h"
+
 namespace quicr {
-
-    /**
-     * Interface for services that calculate ticks.
-     */
-    struct TickService
-    {
-        using TickType = size_t;
-        using DurationType = std::chrono::microseconds;
-
-        virtual TickType GetTicks(const DurationType& interval) const = 0;
-    };
 
     template<typename T>
     struct TimeQueueElement
@@ -51,76 +37,6 @@ namespace quicr {
         bool has_value{ false };     /// Indicates if value was set/returned in front access
         uint32_t expired_count{ 0 }; /// Number of items expired before on this front access
         T value;                     /// Value of front object
-    };
-
-    /**
-     * @brief Calculates elapsed time in ticks.
-     *
-     * @details Calculates time that's elapsed between update calls. Keeps
-     *          track of time using ticks as a counter of elapsed time. The
-     *          precision 500us or greater, which results in the tick interval
-     *          being >= 500us.
-     */
-    class ThreadedTickService : public TickService
-    {
-        using ClockType = std::chrono::steady_clock;
-
-      public:
-        ThreadedTickService() { tick_thread_ = std::thread(&ThreadedTickService::TickLoop, this); }
-
-        ThreadedTickService(const ThreadedTickService& other)
-          : ticks_{ other.ticks_ }
-          , stop_{ other.stop_.load() }
-        {
-            tick_thread_ = std::thread(&ThreadedTickService::TickLoop, this);
-        }
-
-        virtual ~ThreadedTickService()
-        {
-            stop_ = true;
-            if (tick_thread_.joinable())
-                tick_thread_.join();
-        }
-
-        ThreadedTickService& operator=(const ThreadedTickService& other)
-        {
-            ticks_ = other.ticks_;
-            stop_ = other.stop_.load();
-            tick_thread_ = std::thread(&ThreadedTickService::TickLoop, this);
-            return *this;
-        }
-
-        TickType GetTicks(const DurationType& interval) const override
-        {
-            const TickType increment = std::max(interval, interval_) / interval_;
-            return ticks_ / increment;
-        }
-
-      private:
-        void TickLoop()
-        {
-            const int interval_us = interval_.count();
-
-            timeval sleep_time = { 0, interval_us };
-            while (!stop_) {
-                select(0, NULL, NULL, NULL, &sleep_time);
-                sleep_time.tv_usec = interval_us;
-                ++ticks_;
-            }
-        }
-
-      private:
-        /// The current ticks since the tick_service began.
-        uint64_t ticks_{ 0 };
-
-        /// Flag to stop tick_service thread.
-        std::atomic<bool> stop_{ false };
-
-        /// The interval at which ticks should increase.
-        const DurationType interval_{ 500 };
-
-        /// The thread to update ticks on.
-        std::thread tick_thread_;
     };
 
     /**
@@ -136,6 +52,8 @@ namespace quicr {
     template<typename T, typename Duration_t>
     class TimeQueue
     {
+        static constexpr uint32_t kMaxBuckets = 1000; /// Maximum number of buckets allowed
+
         /*=======================================================================*/
         // Time queue type assertions
         /*=======================================================================*/
@@ -187,17 +105,17 @@ namespace quicr {
          * @throws std::invalid_argument    If the duration or interval do not meet requirements or If the tick_service
          * is null.
          */
-        TimeQueue(size_t duration, size_t interval, const std::shared_ptr<TickService>& tick_service)
+        TimeQueue(size_t duration, size_t interval, std::shared_ptr<TickService> tick_service)
           : duration_{ duration }
-          , interval_{ interval }
+          , interval_{ (duration / interval > kMaxBuckets ? duration / kMaxBuckets : interval) }
           , total_buckets_{ duration_ / interval_ }
-          , tick_service_(tick_service)
+          , tick_service_(std::move(tick_service))
         {
             if (duration == 0 || duration % interval != 0 || duration == interval) {
                 throw std::invalid_argument("Invalid time_queue constructor args");
             }
 
-            if (!tick_service) {
+            if (!tick_service_) {
                 throw std::invalid_argument("Tick service cannot be null");
             }
 
@@ -219,9 +137,9 @@ namespace quicr {
          */
         TimeQueue(size_t duration,
                   size_t interval,
-                  const std::shared_ptr<TickService>& tick_service,
+                  std::shared_ptr<TickService> tick_service,
                   size_t initial_queue_size)
-          : TimeQueue(duration, interval, tick_service)
+          : TimeQueue(duration, interval, std::move(tick_service))
         {
             queue_.reserve(initial_queue_size);
         }
@@ -278,7 +196,7 @@ namespace quicr {
          */
         [[nodiscard]] TimeQueueElement<T> PopFront()
         {
-            auto obj = std::move(Front());
+            auto obj = Front();
             if (obj.has_value) {
                 Pop();
             }
@@ -330,14 +248,16 @@ namespace quicr {
         void Clear() noexcept
         {
             queue_.clear();
-            queue_index_ = bucket_index_ = 0;
 
-            for (auto& bucket : buckets_) {
-                bucket.clear();
+            for (const auto& index : buckets_in_use_) {
+                buckets_.at(index).clear();
             }
+
+            buckets_in_use_.clear();
+            queue_index_ = bucket_index_ = 0;
         }
 
-      private:
+      protected:
         /**
          * @brief Based on current time, adjust and move the bucket index with time
          *        (sliding window)
@@ -346,7 +266,7 @@ namespace quicr {
          */
         TickType Advance()
         {
-            const TickType new_ticks = tick_service_->GetTicks(Duration_t(interval_));
+            const TickType new_ticks = tick_service_->Milliseconds();
             const TickType delta = current_ticks_ ? new_ticks - current_ticks_ : 0;
             current_ticks_ = new_ticks;
 
@@ -401,9 +321,10 @@ namespace quicr {
 
             bucket.push_back(value);
             queue_.emplace_back(bucket, bucket.size() - 1, expiry_tick, ticks + delay_ttl);
+            buckets_in_use_.insert(future_index);
         }
 
-      private:
+      protected:
         /// The duration in ticks of the entire queue.
         const size_t duration_;
 
@@ -430,6 +351,9 @@ namespace quicr {
 
         /// Tick service for calculating new tick and jumps in time.
         std::shared_ptr<TickService> tick_service_;
+
+        /// Set of buckets in use that should be cleared when clear is called
+        std::set<IndexType> buckets_in_use_;
     };
 
 }; // namespace quicr

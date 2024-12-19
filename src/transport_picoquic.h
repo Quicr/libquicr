@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <string>
@@ -33,9 +34,10 @@
 
 namespace quicr {
 
-    constexpr int kPqLoopMaxDelayUs = 500;    /// The max microseconds that pq_loop will be ran again
-    constexpr int kPqRestWaitMinPriority = 4; /// Minimum priority value to consider for RESET and WAIT
-    constexpr int kPqCcLowCwin = 4000;        /// Bytes less than this value are considered a low/congested CWIN
+    constexpr int kPqLoopMaxDelayUs = 500;            /// The max microseconds that pq_loop will be ran again
+    constexpr int kPqRestWaitMinPriority = 4;         /// Minimum priority value to consider for RESET and WAIT
+    constexpr int kPqCcLowCwin = 4000;                /// Bytes less than this value are considered a low/congested CWIN
+    constexpr int kCongestionCheckInterval = 100'000; /// Congestion check interval in microseconds
 
     class PicoQuicTransport : public ITransport
     {
@@ -76,9 +78,9 @@ namespace quicr {
 
             std::unique_ptr<PriorityQueue<ConnData>> tx_data; /// Pending objects to be written to the network
 
-            uint8_t* stream_tx_object{ nullptr }; /// Current object that is being sent as a byte stream
-            size_t stream_tx_object_size{ 0 };    /// Size of the tx object
-            size_t stream_tx_object_offset{ 0 };  /// Pointer offset to next byte to send
+            /// Current object that is being sent as a byte stream
+            std::shared_ptr<std::vector<uint8_t>> stream_tx_object;
+            size_t stream_tx_object_offset{ 0 }; /// Pointer offset to next byte to send
 
             // The last ticks when TX callback was run
             uint64_t last_tx_tick{ 0 };
@@ -93,11 +95,8 @@ namespace quicr {
 
             ~DataContext()
             {
-                // Free the TX object
-                if (stream_tx_object != nullptr) {
-                    delete[] stream_tx_object;
-                    stream_tx_object = nullptr;
-                }
+                // clean up
+                stream_tx_object = nullptr;
             }
 
             /**
@@ -105,13 +104,9 @@ namespace quicr {
              */
             void ResetTxObject()
             {
-                if (stream_tx_object != nullptr) {
-                    delete[] stream_tx_object;
-                }
-
+                // reset/clean up
                 stream_tx_object = nullptr;
                 stream_tx_object_offset = 0;
-                stream_tx_object_size = 0;
             }
         };
 
@@ -207,6 +202,7 @@ namespace quicr {
                           const TransportConfig& tcfg,
                           TransportDelegate& delegate,
                           bool is_server_mode,
+                          std::shared_ptr<TickService> tick_service,
                           std::shared_ptr<spdlog::logger> logger);
 
         virtual ~PicoQuicTransport();
@@ -228,7 +224,6 @@ namespace quicr {
         TransportError Enqueue(const TransportConnId& conn_id,
                                const DataContextId& data_ctx_id,
                                Span<const uint8_t> bytes,
-                               std::vector<quicr::MethodTraceItem>&& trace,
                                uint8_t priority,
                                uint32_t ttl_ms,
                                uint32_t delay_ms,

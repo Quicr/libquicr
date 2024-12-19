@@ -3,24 +3,23 @@
 
 #pragma once
 
+#include "span.h"
+
 #include <cstdint>
 #include <cstring>
 #include <vector>
 
 namespace quicr {
     namespace {
-        constexpr bool is_big_endian()
-        {
 #if __cplusplus >= 202002L
-            return std::endian::native == std::endian::big;
+        constexpr bool kIsBigEndian = std::endian::native == std::endian::big;
 #else
-            return static_cast<const std::uint8_t&>(0x0001) == 0x00;
+        constexpr bool kIsBigEndian = static_cast<const std::uint8_t&>(0x0001) == 0x00;
 #endif
-        }
 
         constexpr std::uint16_t SwapBytes(const std::uint16_t value)
         {
-            if constexpr (is_big_endian())
+            if constexpr (kIsBigEndian)
                 return value;
 
             return ((value >> 8) & 0x00FF) | ((value << 8) & 0xFF00);
@@ -28,7 +27,7 @@ namespace quicr {
 
         constexpr std::uint32_t SwapBytes(const std::uint32_t value)
         {
-            if constexpr (is_big_endian())
+            if constexpr (kIsBigEndian)
                 return value;
 
             return ((value >> 24) & 0x000000FF) | ((value >> 8) & 0x0000FF00) | ((value << 8) & 0x00FF0000) |
@@ -37,7 +36,7 @@ namespace quicr {
 
         constexpr std::uint64_t SwapBytes(const std::uint64_t value)
         {
-            if constexpr (is_big_endian())
+            if constexpr (kIsBigEndian)
                 return value;
 
             return ((value >> 56) & 0x00000000000000FF) | ((value >> 40) & 0x000000000000FF00) |
@@ -47,84 +46,71 @@ namespace quicr {
         }
     }
 
-    using UintV = std::vector<uint8_t>;
-
-    /**
-     * @brief Get the byte size from variable length-integer
-     *
-     * @param uint_v_msbbyte     MSB byte of the variable length integer
-     *
-     * @returns the size in bytes of the variable length integer
-     */
-    inline uint8_t SizeofUintV(const uint8_t uint_v_msbbyte)
+    class UintVar
     {
-        if ((uint_v_msbbyte & 0xC0) == 0xC0) {
-            return 8;
-        } else if ((uint_v_msbbyte & 0x80) == 0x80) {
-            return 4;
-        } else if ((uint_v_msbbyte & 0x40) == 0x40) {
-            return 2;
-        } else {
-            return 1;
-        }
-    }
+      public:
+        constexpr UintVar(uint64_t value)
+          : be_value_{ SwapBytes(value) }
+        {
+            constexpr uint64_t kLen1 = (static_cast<uint64_t>(-1) << (64 - 6) >> (64 - 6));
+            constexpr uint64_t kLen2 = (static_cast<uint64_t>(-1) << (64 - 14) >> (64 - 14));
+            constexpr uint64_t kLen4 = (static_cast<uint64_t>(-1) << (64 - 30) >> (64 - 30));
 
-    /**
-     * @brief Convert uint64_t to Variable-Length Integer
-     *
-     * @details Encode unsigned 64bit value to shorten wrire format per RFC9000 Section 16 (Variable-Length Integer
-     * Encoding)
-     *
-     * @param value         64bit value to convert
-     *
-     * @returns vector of encoded bytes or empty vector if value is invalid
-     */
-    inline UintV ToUintV(uint64_t value)
-    {
-        constexpr uint64_t kLen1 = (static_cast<uint64_t>(-1) << (64 - 6) >> (64 - 6));
-        constexpr uint64_t kLen2 = (static_cast<uint64_t>(-1) << (64 - 14) >> (64 - 14));
-        constexpr uint64_t kLen4 = (static_cast<uint64_t>(-1) << (64 - 30) >> (64 - 30));
+            if (static_cast<uint8_t>(be_value_) & 0xC0u) { // Check if invalid
+                throw std::invalid_argument("Value greater than uintvar maximum");
+            }
 
-        if (value & (0xC0ull << 56)) { // Check if invalid
-            return {};
+            if (value > kLen4) { // 62 bit encoding (8 bytes)
+                be_value_ |= 0xC0ull;
+            } else if (value > kLen2) { // 30 bit encoding (4 bytes)
+                be_value_ >>= 32;
+                be_value_ |= 0x80ull;
+            } else if (value > kLen1) { // 14 bit encoding (2 bytes)
+                be_value_ >>= 48;
+                be_value_ |= 0x40ull;
+            } else {
+                be_value_ >>= 56;
+            }
         }
 
-        std::size_t length = sizeof(uint8_t);
-        if (value > kLen4) { // 62 bit encoding (8 bytes)
-            value |= (0xC0ull << 56);
-            length = sizeof(uint64_t);
-        } else if (value > kLen2) { // 30 bit encoding (4 bytes)
-            value |= (0x80u << 24);
-            length = sizeof(uint32_t);
-        } else if (value > kLen1) { // 14 bit encoding (2 bytes)
-            value |= (0x40u << 8);
-            length = sizeof(uint16_t);
+        UintVar(Span<const uint8_t> bytes)
+          : be_value_{ 0 }
+        {
+            if (bytes.empty() || bytes.size() < Size(bytes[0])) {
+                throw std::invalid_argument("Invalid bytes for uintvar");
+            }
+
+            std::memcpy(&be_value_, bytes.data(), Size(bytes[0]));
         }
 
-        value = SwapBytes(value);
-        const auto* bytes = reinterpret_cast<uint8_t*>(&value);
-        return { bytes + (sizeof(uint64_t) - length), bytes + sizeof(uint64_t) };
-    }
-
-    /**
-     * @brief Convert Variable-Length Integer to uint64_t
-     *
-     * @param uintV Encoded variable-Length integer
-     *
-     * @returns uint64_t value of the variable length integer
-     */
-    inline uint64_t ToUint64(const UintV& uint_v)
-    {
-        if (uint_v.empty()) {
-            return 0;
+        explicit constexpr operator uint64_t() const noexcept
+        {
+            return SwapBytes((be_value_ & SwapBytes(uint64_t(~(~0x3Full << 56)))) << (sizeof(uint64_t) - Size()) * 8);
         }
 
-        uint64_t value{ 0 };
-        uint8_t* byte_value = reinterpret_cast<uint8_t*>(&value) + (sizeof(uint64_t) - uint_v.size());
-        std::memcpy(byte_value, uint_v.data(), uint_v.size());
+        static constexpr std::size_t Size(uint8_t msb_bytes) noexcept
+        {
+            if ((msb_bytes & 0xC0) == 0xC0) {
+                return sizeof(uint64_t);
+            } else if ((msb_bytes & 0x80) == 0x80) {
+                return sizeof(uint32_t);
+            } else if ((msb_bytes & 0x40) == 0x40) {
+                return sizeof(uint16_t);
+            }
 
-        byte_value[0] &= 0x3f; // Zero MSB length bits
+            return sizeof(uint8_t);
+        }
 
-        return SwapBytes(value);
-    }
+        constexpr std::size_t Size() const noexcept { return UintVar::Size(static_cast<uint8_t>(be_value_)); }
+
+        // NOLINTBEGIN(readability-identifier-naming)
+        auto data() const noexcept { return reinterpret_cast<const uint8_t*>(&be_value_); }
+        constexpr std::size_t size() const noexcept { return Size(); }
+        auto begin() const noexcept { return data(); }
+        auto end() const noexcept { return data() + Size(); }
+        // NOLINTEND(readability-identifier-naming)
+
+      private:
+        uint64_t be_value_;
+    };
 }

@@ -26,7 +26,7 @@ namespace quicr {
          * @param cfg           MoQ Client Configuration
          */
         Client(const ClientConfig& cfg)
-          : Transport(cfg)
+          : Transport(cfg, std::make_shared<ThreadedTickService>())
         {
         }
 
@@ -220,9 +220,39 @@ namespace quicr {
             }
         }
 
+        /**
+         * @brief Fetch track.
+         *
+         * @param track_handler Track handler to use for handling Fetch related messages.
+         */
+        void FetchTrack(std::shared_ptr<FetchTrackHandler> track_handler)
+        {
+            if (connection_handle_.has_value()) {
+                Transport::FetchTrack(connection_handle_.value(), std::move(track_handler));
+            }
+        }
+
+        /**
+         * @brief Cancel a given Fetch track handler.
+         *
+         * @param track_handler The given Fetch track handler to cancel.
+         */
+        void CancelFetchTrack(std::shared_ptr<FetchTrackHandler> track_handler)
+        {
+            if (connection_handle_.has_value()) {
+                Transport::CancelFetchTrack(connection_handle_.value(), std::move(track_handler));
+            }
+        }
+
+        /**
+         * @brief Get the connection handle
+         *
+         * @return ConnectionHandle of the client
+         */
+        std::optional<ConnectionHandle> GetConnectionHandle() const { return connection_handle_; }
+
       private:
-        bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer) override;
+        bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan stream_buffer) override;
 
         void SetConnectionHandle(ConnectionHandle connection_handle) override
         {

@@ -51,6 +51,66 @@ Golang is required for BoringSSL build.  Install via https://go.dev/doc/install 
 
 ---
 
+## Example
+[cmd/examples](https://github.com/Quicr/libquicr/tree/main/cmd/examples) has an example client and server implementation showing chat and clock
+applications.
+
+Running `make` will build the examples. After running `make`, issue a `make cert` to generate a self-signed certificate
+that will be used by `qserver`.   
+
+For the server, the default command line arguments look for the server certificate in the local directory. You can override
+that with the options `-c <cert file>` and `-k <key file>`, or you can run `qserver` from within the examples directory. 
+
+### qServer
+qServer is an example server/relay. It implements the server API to accept connections and relay objects to subscribers from publishers. 
+
+Use `qserver -h` to get help. 
+
+By default, no options are required unless you need to change the defaults. The default listening port is **1234**
+
+### qClient
+qClient is an example client. It implements the client API to make a connetion to the relay and to act as subscriber, publisher, or both.
+The client program will read from `stdin` when in publisher mode to publish data. Alternatively, the client can be configured to publish
+a timestamp using the option `--clock`.  
+
+Use `qclient -h` to get help.
+
+> [!NOTE]
+> The **namespace** and **name** for both publish and subscribe can be any string value. The only requirement is
+> to publish and subscribe to the same values. 
+
+#### As chat subscriber
+
+```
+./qclient --sub_namespace chat --sub_name general
+```
+
+#### As chat publisher
+
+```
+./qclient --pub_namespace chat --pub_name general
+```
+
+#### As both chat subscriber and publisher
+
+```
+./qclient --sub_namespace chat --sub_name general --pub_namespace chat --pub_name general
+```
+
+#### As clock publisher
+
+```
+./qclient --pub_namespace clock --pub_name second --clock
+```
+
+#### As clock subscriber
+
+```
+./qclient --sub_namespace clock --sub_name second
+```
+
+---
+
 ### CMake
 
 Generate the cmake build directory:
@@ -118,9 +178,7 @@ OR
 
 ```
 
-## Example
-Please see cmd/examples for a sample client and server implementation showing chat and clock
-applications
+---
 
 ## Generate documentation
 API documentation can be generated using `make doc`

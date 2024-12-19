@@ -9,13 +9,14 @@ endif()
 target_sources (quicr PRIVATE
     client.cpp
     messages.cpp
-    serializer.cpp
     publish_track_handler.cpp
     server.cpp
     quic_transport.cpp
     transport.cpp
     transport_picoquic.cpp
 )
+
+target_include_directories(quicr PUBLIC ${CMAKE_BINARY_DIR}/include )
 
 # Suppress external lib warnings
 set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)
