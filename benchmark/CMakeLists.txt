@@ -20,6 +20,7 @@ add_executable(quicr_benchmark
     time_queue.cpp
     uintvar.cpp
     hash.cpp
+    shared_memory.cpp
 )
 
 target_link_libraries(quicr_benchmark PRIVATE quicr benchmark::benchmark_main)
