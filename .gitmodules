@@ -1,9 +1,6 @@
 [submodule "dependencies/doctest"]
 	path = dependencies/doctest
 	url = https://github.com/doctest/doctest.git
-[submodule "dependencies/boringssl"]
-	path = dependencies/boringssl
-	url = https://github.com/quicr/boringssl
 [submodule "dependencies/picotls"]
 	path = dependencies/picotls
 	url = https://github.com/quicr/picotls
