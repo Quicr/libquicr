@@ -17,18 +17,20 @@ namespace quicr {
         return Span{ reinterpret_cast<const std::uint8_t*>(&value), sizeof(T) };
     }
 
-    class SharedMemory
+    class DataStorage
     {
-        template<class T>
-        struct IsRange
-        {
-            static constexpr bool kValue = noexcept(std::declval<T>().begin()) && noexcept(std::declval<T>().end());
-        };
-
         template<class It, class SpanIt>
         class IteratorImpl
         {
           public:
+            // NOLINTBEGIN(readability-identifier-naming)
+            using value_type = std::uint8_t;
+            using difference_type = std::ptrdiff_t;
+            using pointer = std::uint8_t*;
+            using reference = std::uint8_t&;
+            using iterator_category = std::forward_iterator_tag;
+            // NOLINTEND(readability-identifier-naming)
+
             constexpr IteratorImpl() noexcept = default;
             constexpr IteratorImpl(const It& it, const It& end_it) noexcept
               : it_(it)
@@ -66,26 +68,41 @@ namespace quicr {
             std::optional<SpanIt> span_it_;
         };
 
-        using MemoryType = std::shared_ptr<std::vector<uint8_t>>;
-        using BufferType = std::vector<MemoryType>;
+        using SliceType = std::shared_ptr<std::vector<uint8_t>>;
+        using BufferType = std::vector<SliceType>;
 
-        SharedMemory() = default;
+        DataStorage() = default;
+        DataStorage(SliceType slice)
+          : buffer_{ std::move(slice) }
+        {
+        }
 
       public:
-        static std::shared_ptr<SharedMemory> Create() noexcept
+        static std::shared_ptr<DataStorage> Create() noexcept
         {
-            return std::shared_ptr<SharedMemory>(new SharedMemory());
+            return std::shared_ptr<DataStorage>(new DataStorage());
         }
+
+        static std::shared_ptr<DataStorage> Create(SliceType slice) noexcept
+        {
+            return std::shared_ptr<DataStorage>(new DataStorage(std::move(slice)));
+        }
+
+        bool Empty() const noexcept { return buffer_.empty(); }
+        const SliceType& First() const noexcept { return buffer_.front(); }
+        const SliceType& Last() const noexcept { return buffer_.back(); }
 
         void Push(Span<const uint8_t> bytes)
         {
-            auto memory = std::make_shared<std::vector<uint8_t>>();
-            memory->assign(bytes.begin(), bytes.end());
+            auto slice = std::make_shared<std::vector<uint8_t>>();
+            slice->assign(bytes.begin(), bytes.end());
 
-            buffer_.push_back(std::move(memory));
+            buffer_.push_back(std::move(slice));
         }
 
-        friend SharedMemory& operator<<(SharedMemory& buffer, Span<const uint8_t> value)
+        void Push(SliceType slice) { buffer_.push_back(std::move(slice)); }
+
+        friend DataStorage& operator<<(DataStorage& buffer, Span<const uint8_t> value)
         {
             buffer.Push(value);
             return buffer;
@@ -105,4 +122,3 @@ namespace quicr {
         BufferType buffer_;
     };
 }
-
