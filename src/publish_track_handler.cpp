@@ -26,6 +26,10 @@ namespace quicr {
             case Status::kAnnounceNotAuthorized:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNotAuthorized;
+            case Status::kSubscriptionUpdated:
+                // reset the status to ok to imply change
+                publish_status_ = Status::kOk;
+                break;
             default:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kInternalError;
@@ -39,8 +43,10 @@ namespace quicr {
 
         // change in subgroups and groups require a new stream
 
-        is_stream_header_needed =
-          prev_sub_group_id_ != object_headers.subgroup_id || prev_object_group_id_ != object_headers.group_id;
+        is_stream_header_needed = not sent_first_header_ || prev_sub_group_id_ != object_headers.subgroup_id ||
+                                  prev_object_group_id_ != object_headers.group_id;
+
+        sent_first_header_ = true;
 
         prev_object_group_id_ = object_headers.group_id;
         prev_sub_group_id_ = object_headers.subgroup_id;

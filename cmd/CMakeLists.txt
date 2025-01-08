@@ -3,3 +3,4 @@
 
 add_subdirectory(examples)
 add_subdirectory(qperf)
+add_subdirectory(qperf2)

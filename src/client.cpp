@@ -41,7 +41,7 @@ namespace quicr {
     bool Client::ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes)
     {
         switch (*conn_ctx.ctrl_msg_type_received) {
-            case messages::MoqMessageType::SUBSCRIBE: {
+            case messages::ControlMessageType::SUBSCRIBE: {
                 messages::MoqSubscribe msg;
                 msg_bytes >> msg;
 
@@ -89,7 +89,57 @@ namespace quicr {
                 conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
                 return true;
             }
-            case messages::MoqMessageType::SUBSCRIBE_OK: {
+            case messages::ControlMessageType::SUBSCRIBE_UPDATE: {
+                messages::MoqSubscribeUpdate msg;
+                msg_bytes >> msg;
+
+                if (conn_ctx.recv_sub_id.count(msg.subscribe_id) == 0) {
+                    // update for invalid subscription
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received subscribe_update {0} for unknown subscription conn_id: {1}",
+                                       msg.subscribe_id,
+                                       conn_ctx.connection_handle);
+
+                    SendSubscribeError(conn_ctx,
+                                       msg.subscribe_id,
+                                       0x0,
+                                       messages::SubscribeError::TRACK_NOT_EXIST,
+                                       "Subscription not found");
+                    return true;
+                }
+
+                auto [ns_hash, n_hash] = conn_ctx.recv_sub_id[msg.subscribe_id];
+                auto th = TrackHash(ns_hash, n_hash);
+
+                // For client/publisher, notify track that there is a subscriber
+                auto ptd = GetPubTrackHandler(conn_ctx, th);
+                if (ptd == nullptr) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received subscribe unknown publish track conn_id: {0} namespace hash: {1} "
+                                       "name hash: {2}",
+                                       conn_ctx.connection_handle,
+                                       th.track_namespace_hash,
+                                       th.track_name_hash);
+
+                    SendSubscribeError(conn_ctx,
+                                       msg.subscribe_id,
+                                       th.track_fullname_hash,
+                                       messages::SubscribeError::TRACK_NOT_EXIST,
+                                       "Published track not found");
+                    return true;
+                }
+
+                SendSubscribeOk(conn_ctx, msg.subscribe_id, kSubscribeExpires, false);
+
+                SPDLOG_LOGGER_DEBUG(logger_,
+                                    "Received subscribe_update to track alias: {0} recv subscribe_id: {1}",
+                                    th.track_fullname_hash,
+                                    msg.subscribe_id);
+
+                ptd->SetStatus(PublishTrackHandler::Status::kSubscriptionUpdated);
+                return true;
+            }
+            case messages::ControlMessageType::SUBSCRIBE_OK: {
                 messages::MoqSubscribeOk msg;
                 msg_bytes >> msg;
 
@@ -110,7 +160,7 @@ namespace quicr {
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
                 return true;
             }
-            case messages::MoqMessageType::SUBSCRIBE_ERROR: {
+            case messages::ControlMessageType::SUBSCRIBE_ERROR: {
                 messages::MoqSubscribeError msg;
                 msg_bytes >> msg;
 
@@ -128,11 +178,11 @@ namespace quicr {
                     return true;
                 }
 
-                sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kSubscribeError);
+                sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kError);
                 RemoveSubscribeTrack(conn_ctx, *sub_it->second);
                 return true;
             }
-            case messages::MoqMessageType::ANNOUNCE_OK: {
+            case messages::ControlMessageType::ANNOUNCE_OK: {
                 messages::MoqAnnounceOk msg;
                 msg_bytes >> msg;
 
@@ -151,7 +201,7 @@ namespace quicr {
                 }
                 return true;
             }
-            case messages::MoqMessageType::ANNOUNCE_ERROR: {
+            case messages::ControlMessageType::ANNOUNCE_ERROR: {
                 messages::MoqAnnounceError msg;
                 msg_bytes >> msg;
 
@@ -172,7 +222,7 @@ namespace quicr {
                 }
                 return true;
             }
-            case messages::MoqMessageType::UNSUBSCRIBE: {
+            case messages::ControlMessageType::UNSUBSCRIBE: {
                 messages::MoqUnsubscribe msg;
                 msg_bytes >> msg;
 
@@ -207,7 +257,7 @@ namespace quicr {
                 }
                 return true;
             }
-            case messages::MoqMessageType::SUBSCRIBE_DONE: {
+            case messages::ControlMessageType::SUBSCRIBE_DONE: {
                 messages::MoqSubscribeDone msg;
                 msg_bytes >> msg;
 
@@ -236,7 +286,7 @@ namespace quicr {
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
                 return true;
             }
-            case messages::MoqMessageType::ANNOUNCE_CANCEL: {
+            case messages::ControlMessageType::ANNOUNCE_CANCEL: {
                 messages::MoqAnnounceCancel msg;
                 msg_bytes >> msg;
 
@@ -248,7 +298,7 @@ namespace quicr {
                 AnnounceStatusChanged(tfn.name_space, PublishAnnounceStatus::kNotAnnounced);
                 return true;
             }
-            case messages::MoqMessageType::TRACK_STATUS_REQUEST: {
+            case messages::ControlMessageType::TRACK_STATUS_REQUEST: {
                 messages::MoqTrackStatusRequest msg;
                 msg_bytes >> msg;
 
@@ -261,7 +311,7 @@ namespace quicr {
                                    th.track_name_hash);
                 return true;
             }
-            case messages::MoqMessageType::TRACK_STATUS: {
+            case messages::ControlMessageType::TRACK_STATUS: {
                 messages::MoqTrackStatus msg;
                 msg_bytes >> msg;
 
@@ -274,7 +324,7 @@ namespace quicr {
                                    th.track_name_hash);
                 return true;
             }
-            case messages::MoqMessageType::GOAWAY: {
+            case messages::ControlMessageType::GOAWAY: {
                 messages::MoqGoaway msg;
                 msg_bytes >> msg;
 
@@ -282,7 +332,7 @@ namespace quicr {
                 SPDLOG_LOGGER_INFO(logger_, "Received goaway new session uri: {0}", new_sess_uri);
                 return true;
             }
-            case messages::MoqMessageType::SERVER_SETUP: {
+            case messages::ControlMessageType::SERVER_SETUP: {
                 messages::MoqServerSetup msg;
                 msg_bytes >> msg;
 
@@ -302,7 +352,43 @@ namespace quicr {
                 conn_ctx.setup_complete = true;
                 return true;
             }
+            case messages::ControlMessageType::FETCH_OK: {
+                messages::MoqFetchError msg;
+                msg_bytes >> msg;
 
+                auto fetch_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                if (fetch_it == conn_ctx.tracks_by_sub_id.end()) {
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received fetch ok for unknown fetch track conn_id: {0} subscribe_id: {1}, ignored",
+                      conn_ctx.connection_handle,
+                      msg.subscribe_id);
+                    return true;
+                }
+
+                fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kOk);
+
+                return true;
+            }
+            case messages::ControlMessageType::FETCH_ERROR: {
+                messages::MoqFetchError msg;
+                msg_bytes >> msg;
+
+                auto fetch_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                if (fetch_it == conn_ctx.tracks_by_sub_id.end()) {
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received fetch error for unkown fetch track conn_id: {0} subscribe_id: {1}, ignored",
+                      conn_ctx.connection_handle,
+                      msg.subscribe_id);
+                    return true;
+                }
+
+                fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kError);
+                conn_ctx.tracks_by_sub_id.erase(fetch_it);
+
+                return true;
+            }
             default:
                 SPDLOG_LOGGER_ERROR(logger_,
                                     "Unsupported MOQT message type: {0}, bad stream",

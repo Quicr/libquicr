@@ -197,7 +197,7 @@ namespace quicr::messages {
         payload << UintVar(msg.endpoint_id_parameter.value.size());
         payload << msg.endpoint_id_parameter.value;
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::CLIENT_SETUP));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::CLIENT_SETUP));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -258,7 +258,7 @@ namespace quicr::messages {
         payload << UintVar(msg.endpoint_id_parameter.value.size());
         payload << msg.endpoint_id_parameter.value;
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SERVER_SETUP));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SERVER_SETUP));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -307,7 +307,7 @@ namespace quicr::messages {
         payload << UintVar(msg.last_group_id);
         payload << UintVar(msg.last_object_id);
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::TRACK_STATUS));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::TRACK_STATUS));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -336,7 +336,7 @@ namespace quicr::messages {
         payload << UintVar(msg.track_name.size());
         payload << msg.track_name;
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::TRACK_STATUS_REQUEST));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::TRACK_STATUS_REQUEST));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -360,8 +360,10 @@ namespace quicr::messages {
         payload << msg.track_namespace;
         payload << UintVar(msg.track_name.size());
         payload << msg.track_name;
+        payload.push_back(msg.priority);
+        auto group_order = static_cast<uint8_t>(msg.group_order);
+        payload.push_back(group_order);
         payload << UintVar(static_cast<uint64_t>(msg.filter_type));
-
         switch (msg.filter_type) {
             case FilterType::None:
             case FilterType::LatestGroup:
@@ -375,8 +377,9 @@ namespace quicr::messages {
                 payload << UintVar(msg.start_group);
                 payload << UintVar(msg.start_object);
                 payload << UintVar(msg.end_group);
-                payload << UintVar(msg.end_object);
                 break;
+            default:
+                throw std::runtime_error("Malformed filter type");
         }
 
         payload << UintVar(msg.track_params.size());
@@ -384,7 +387,7 @@ namespace quicr::messages {
             payload << param;
         }
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SUBSCRIBE));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -397,7 +400,10 @@ namespace quicr::messages {
         buffer = buffer >> msg.track_alias;
         buffer = buffer >> msg.track_namespace;
         buffer = buffer >> msg.track_name;
-
+        msg.priority = buffer.front();
+        buffer = buffer.subspan(sizeof(ObjectPriority));
+        msg.group_order = static_cast<GroupOrder>(buffer.front());
+        buffer = buffer.subspan(sizeof(GroupOrder));
         uint64_t filter = 0;
         buffer = buffer >> filter;
         msg.filter_type = static_cast<FilterType>(filter);
@@ -408,14 +414,55 @@ namespace quicr::messages {
 
             if (msg.filter_type == FilterType::AbsoluteRange) {
                 buffer = buffer >> msg.end_group;
-                buffer = buffer >> msg.end_object;
             }
         }
 
-        uint64_t num = 0;
-        buffer = buffer >> num;
+        uint64_t num_params = 0;
+        buffer = buffer >> num_params;
 
-        for (uint64_t i = 0; i < num; ++i) {
+        for (uint64_t i = 0; i < num_params; ++i) {
+            MoqParameter param;
+            buffer = buffer >> param;
+            msg.track_params.push_back(param);
+        }
+
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, const MoqSubscribeUpdate& msg)
+    {
+        Bytes payload;
+        payload << UintVar(msg.subscribe_id);
+        payload << UintVar(msg.start_group);
+        payload << UintVar(msg.start_object);
+        payload << UintVar(msg.end_group);
+        payload.push_back(msg.priority);
+
+        payload << UintVar(msg.track_params.size());
+        for (const auto& param : msg.track_params) {
+            payload << param;
+        }
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_UPDATE));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeUpdate& msg)
+    {
+        buffer = buffer >> msg.subscribe_id;
+        buffer = buffer >> msg.start_group;
+        buffer = buffer >> msg.start_object;
+        buffer = buffer >> msg.end_group;
+        msg.priority = buffer.front();
+        buffer = buffer.subspan(sizeof(ObjectPriority));
+
+        uint64_t num_params = 0;
+        buffer = buffer >> num_params;
+
+        for (uint64_t i = 0; i < num_params; ++i) {
             MoqParameter param;
             buffer = buffer >> param;
             msg.track_params.push_back(param);
@@ -429,7 +476,7 @@ namespace quicr::messages {
         Bytes payload;
         payload << UintVar(msg.subscribe_id);
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::UNSUBSCRIBE));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::UNSUBSCRIBE));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -454,7 +501,7 @@ namespace quicr::messages {
             payload << UintVar(msg.final_object_id);
         }
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_DONE));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_DONE));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -491,7 +538,7 @@ namespace quicr::messages {
             payload << UintVar(msg.largest_object);
         }
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_OK));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_OK));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -525,7 +572,7 @@ namespace quicr::messages {
         payload << msg.reason_phrase;
         payload << UintVar(msg.track_alias);
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::SUBSCRIBE_ERROR));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_ERROR));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -547,7 +594,7 @@ namespace quicr::messages {
         payload << msg.track_namespace;
         payload << UintVar(static_cast<uint64_t>(0));
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::ANNOUNCE));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -575,7 +622,7 @@ namespace quicr::messages {
         Bytes payload;
         payload << msg.track_namespace;
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_OK));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::ANNOUNCE_OK));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -595,7 +642,7 @@ namespace quicr::messages {
         payload << UintVar(msg.reason_phrase.value().size());
         payload << msg.reason_phrase.value();
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_ERROR));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::ANNOUNCE_ERROR));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -624,7 +671,7 @@ namespace quicr::messages {
         Bytes payload;
         payload << msg.track_namespace;
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::UNANNOUNCE));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::UNANNOUNCE));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -641,7 +688,7 @@ namespace quicr::messages {
         Bytes payload;
         payload << msg.track_namespace;
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::ANNOUNCE_CANCEL));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::ANNOUNCE_CANCEL));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -663,7 +710,7 @@ namespace quicr::messages {
         payload << UintVar(msg.new_session_uri.size());
         payload << msg.new_session_uri;
 
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::GOAWAY));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::GOAWAY));
         buffer << UintVar(payload.size());
         buffer << payload;
 
@@ -676,12 +723,142 @@ namespace quicr::messages {
     }
 
     //
+    // Fetch
+    //
+
+    Bytes& operator<<(Bytes& buffer, const MoqFetch& msg)
+    {
+        Bytes payload;
+
+        payload << UintVar(msg.subscribe_id);
+        payload << msg.track_namespace;
+        payload << UintVar(msg.track_name.size());
+        payload << msg.track_name;
+        payload.push_back(msg.priority);
+        auto group_order = static_cast<uint8_t>(msg.group_order);
+        payload.push_back(group_order);
+        payload << UintVar(msg.start_group);
+        payload << UintVar(msg.start_object);
+        payload << UintVar(msg.end_group);
+        payload << UintVar(msg.end_object);
+
+        payload << UintVar(msg.params.size());
+        for (const auto& param : msg.params) {
+            payload << param;
+        }
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::FETCH));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetch& msg)
+    {
+        buffer = buffer >> msg.subscribe_id;
+        buffer = buffer >> msg.track_namespace;
+        buffer = buffer >> msg.track_name;
+        msg.priority = buffer.front();
+        buffer = buffer.subspan(sizeof(ObjectPriority));
+        msg.group_order = static_cast<GroupOrder>(buffer.front());
+        buffer = buffer.subspan(sizeof(uint8_t));
+        buffer = buffer >> msg.start_group;
+        buffer = buffer >> msg.start_object;
+        buffer = buffer >> msg.end_group;
+        buffer = buffer >> msg.end_object;
+
+        uint64_t num_params = 0;
+        buffer = buffer >> num_params;
+
+        for (uint64_t i = 0; i < num_params; ++i) {
+            MoqParameter param;
+            buffer = buffer >> param;
+            msg.params.push_back(param);
+        }
+
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, const MoqFetchOk& msg)
+    {
+        Bytes payload;
+        payload << UintVar(msg.subscribe_id);
+        auto group_order = static_cast<uint8_t>(msg.group_order);
+        payload.push_back(group_order);
+        payload.push_back(static_cast<uint8_t>(msg.end_of_track));
+        payload << UintVar(msg.largest_group);
+        payload << UintVar(msg.largest_object);
+
+        payload << UintVar(msg.params.size());
+        for (const auto& param : msg.params) {
+            payload << param;
+        }
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::FETCH_OK));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetchOk& msg)
+    {
+        buffer = buffer >> msg.subscribe_id;
+        msg.group_order = static_cast<GroupOrder>(buffer.front());
+        buffer = buffer.subspan(sizeof(GroupOrder));
+        msg.end_of_track = static_cast<bool>(buffer.front());
+        buffer = buffer.subspan(sizeof(uint8_t));
+        buffer = buffer >> msg.largest_group;
+        buffer = buffer >> msg.largest_object;
+
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, const MoqFetchCancel& msg)
+    {
+        Bytes payload;
+        payload << UintVar(msg.subscribe_id);
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::FETCH_CANCEL));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetchCancel& msg)
+    {
+        return buffer >> msg.subscribe_id;
+    }
+
+    Bytes& operator<<(Bytes& buffer, const MoqFetchError& msg)
+    {
+        Bytes payload;
+        payload << UintVar(msg.subscribe_id);
+        payload << UintVar(msg.err_code);
+        payload << UintVar(msg.reason_phrase.size());
+        payload << msg.reason_phrase;
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::FETCH_ERROR));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetchError& msg)
+    {
+        return buffer >> msg.subscribe_id >> msg.err_code >> msg.reason_phrase;
+    }
+
+    //
     // Object
     //
 
     Bytes& operator<<(Bytes& buffer, const MoqObjectDatagram& msg)
     {
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::OBJECT_DATAGRAM));
+        buffer << UintVar(static_cast<uint64_t>(DataMessageType::OBJECT_DATAGRAM));
         buffer << UintVar(msg.subscribe_id);
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
@@ -799,7 +976,7 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderSubGroup& msg)
     {
-        buffer << UintVar(static_cast<uint64_t>(MoqMessageType::STREAM_HEADER_SUBGROUP));
+        buffer << UintVar(static_cast<uint64_t>(DataMessageType::STREAM_HEADER_SUBGROUP));
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.subscribe_id);
         buffer << UintVar(msg.group_id);
@@ -929,6 +1106,10 @@ namespace quicr::messages {
                     return false;
                 }
                 auto val = buffer.Front(msg.payload_len);
+                if (val.size() == 0) {
+                    return false;
+                }
+
                 msg.payload = std::move(val);
                 buffer.Pop(msg.payload_len);
                 msg.parse_completed = true;

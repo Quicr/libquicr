@@ -41,12 +41,10 @@ namespace quicr::messages {
     };
 
     // Ref: https://moq-wg.github.io/moq-transport/draft-ietf-moq-transport.html#name-messages
-    enum class MoqMessageType : uint64_t
+    enum class ControlMessageType : uint64_t
     {
-        OBJECT_STREAM = 0x0,
-        OBJECT_DATAGRAM,
-
-        SUBSCRIBE = 0x03,
+        SUBSCRIBE_UPDATE = 0x02,
+        SUBSCRIBE,
         SUBSCRIBE_OK,
         SUBSCRIBE_ERROR,
         ANNOUNCE,
@@ -61,12 +59,21 @@ namespace quicr::messages {
 
         GOAWAY = 0x10,
 
+        MAX_SUBSCRIBE_ID = 0x15,
+        FETCH,
+        FETCH_CANCEL,
+        FETCH_OK,
+        FETCH_ERROR,
+
         CLIENT_SETUP = 0x40,
         SERVER_SETUP,
+    };
 
-        STREAM_HEADER_TRACK = 0x50,
-        STREAM_HEADER_GROUP,
+    enum class DataMessageType : uint8_t
+    {
+        OBJECT_DATAGRAM = 0x01,
         STREAM_HEADER_SUBGROUP = 0x04,
+        FETCH_HEADER = 0x5
     };
 
     enum class SubscribeError : uint8_t
@@ -78,6 +85,11 @@ namespace quicr::messages {
         TRACK_NOT_EXIST = 0xF0 // Missing in draft
     };
 
+    enum class FetchError : uint8_t
+    {
+        kTrackDoesNotExist = 0xF0 // Missing in draft
+    };
+
     // TODO (Suhas): rename it to StreamMapping
     enum ForwardingPreference : uint8_t
     {
@@ -86,6 +98,13 @@ namespace quicr::messages {
         StreamPerPriority,
         StreamPerTrack,
         Datagram
+    };
+
+    enum struct GroupOrder : uint8_t
+    {
+        kOriginalPublisherOrder = 0x0,
+        kAscending,
+        kDescending
     };
 
     //
@@ -167,11 +186,12 @@ namespace quicr::messages {
         uint64_t track_alias;
         TrackNamespace track_namespace;
         TrackName track_name;
+        ObjectPriority priority;
+        GroupOrder group_order;
         FilterType filter_type{ FilterType::None };
         uint64_t start_group{ 0 };
-        uint64_t end_group{ 0 };
         uint64_t start_object{ 0 };
-        uint64_t end_object{ 0 };
+        uint64_t end_group{ 0 };
         std::vector<MoqParameter> track_params;
     };
 
@@ -189,6 +209,19 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, MoqSubscribeOk& msg);
     Bytes& operator<<(Bytes& buffer, const MoqSubscribeOk& msg);
+
+    struct MoqSubscribeUpdate
+    {
+        SubscribeId subscribe_id;
+        GroupId start_group;
+        ObjectId start_object;
+        GroupId end_group;
+        ObjectPriority priority;
+        std::vector<MoqParameter> track_params;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeUpdate& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqSubscribeUpdate& msg);
 
     struct MoqSubscribeError
     {
@@ -311,6 +344,63 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, MoqGoaway& msg);
     Bytes& operator<<(Bytes& buffer, const MoqGoaway& msg);
+
+    //
+    // Fetch
+    //
+
+    struct MoqFetch
+    {
+        uint64_t subscribe_id;
+        TrackNamespace track_namespace;
+        TrackName track_name;
+        ObjectPriority priority;
+        GroupOrder group_order;
+        GroupId start_group;
+        ObjectId start_object;
+        GroupId end_group;
+        ObjectId end_object;
+        std::vector<MoqParameter> params;
+
+        static inline std::size_t SizeOf(const MoqFetch& fetch) noexcept
+        {
+            return sizeof(MoqFetch) + fetch.track_namespace.size() + fetch.track_name.size();
+        }
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetch& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqFetch& msg);
+
+    struct MoqFetchOk
+    {
+        SubscribeId subscribe_id;
+        GroupOrder group_order;
+        bool end_of_track;
+        uint64_t largest_group{ 0 };
+        uint64_t largest_object{ 0 };
+        std::vector<MoqParameter> params;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetchOk& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqFetchOk& msg);
+
+    struct MoqFetchError
+    {
+        uint64_t subscribe_id;
+        ErrorCode err_code;
+        ReasonPhrase reason_phrase;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetchError& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqFetchError& msg);
+
+    struct MoqFetchCancel
+    {
+        uint64_t subscribe_id;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, MoqFetchCancel& msg);
+    Bytes& operator<<(Bytes& buffer, const MoqFetchCancel& msg);
 
     //
     // Data Streams

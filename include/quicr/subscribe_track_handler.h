@@ -4,8 +4,8 @@
 #pragma once
 
 #include <quicr/detail/base_track_handler.h>
+#include <quicr/detail/messages.h>
 #include <quicr/metrics.h>
-#include <quicr/publish_track_handler.h>
 
 namespace quicr {
 
@@ -38,10 +38,10 @@ namespace quicr {
         {
             kOk = 0,
             kNotConnected,
-            kSubscribeError,
+            kError,
             kNotAuthorized,
             kNotSubscribed,
-            kPendingSubscribeResponse,
+            kPendingResponse,
             kSendingUnsubscribe ///< In this state, callbacks will not be called
         };
 
@@ -51,8 +51,14 @@ namespace quicr {
          *
          * @param full_track_name           Full track name struct
          */
-        SubscribeTrackHandler(const FullTrackName& full_track_name)
+        SubscribeTrackHandler(const FullTrackName& full_track_name,
+                              messages::ObjectPriority priority,
+                              messages::GroupOrder group_order,
+                              messages::FilterType filter_type)
           : BaseTrackHandler(full_track_name)
+          , priority_(priority)
+          , group_order_(group_order)
+          , filter_type_(filter_type)
         {
         }
 
@@ -61,10 +67,18 @@ namespace quicr {
          * @brief Create shared Subscribe track handler
          *
          * @param full_track_name           Full track name struct
+         * @param priority                  Subscription priority, if omitted, publisher priority
+         *                                  is considered
+         * @param group_order               Order for group delivery
          */
-        static std::shared_ptr<SubscribeTrackHandler> Create(const FullTrackName& full_track_name)
+        static std::shared_ptr<SubscribeTrackHandler> Create(
+          const FullTrackName& full_track_name,
+          messages::ObjectPriority priority,
+          messages::GroupOrder group_order = messages::GroupOrder::kAscending,
+          messages::FilterType filter_type = messages::FilterType::LatestObject)
         {
-            return std::shared_ptr<SubscribeTrackHandler>(new SubscribeTrackHandler(full_track_name));
+            return std::shared_ptr<SubscribeTrackHandler>(
+              new SubscribeTrackHandler(full_track_name, priority, group_order, filter_type));
         }
 
         /**
@@ -73,6 +87,29 @@ namespace quicr {
          * @return Status of the subscribe
          */
         constexpr Status GetStatus() const noexcept { return status_; }
+
+        /**
+         * @brief Get subscription priority
+         *
+         * @return Priority value
+         */
+        constexpr messages::ObjectPriority GetPriority() const noexcept { return priority_; }
+
+        /**
+         * @brief Get subscription group order
+         *
+         * @return GroupOrder value
+         */
+
+        constexpr messages::GroupOrder GetGroupOrder() const noexcept { return group_order_; }
+
+        /**
+         * @brief Get subscription filter type
+         *
+         * @return FilterType value
+         */
+
+        constexpr messages::FilterType GetFilterType() const noexcept { return filter_type_; }
 
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
@@ -133,10 +170,6 @@ namespace quicr {
 
         ///@}
 
-        // --------------------------------------------------------------------------
-        // Metrics
-        // --------------------------------------------------------------------------
-
         /**
          * @brief Subscribe metrics for the track
          *
@@ -145,10 +178,7 @@ namespace quicr {
          */
         SubscribeTrackMetrics subscribe_track_metrics_;
 
-        // --------------------------------------------------------------------------
-        // Internal
-        // --------------------------------------------------------------------------
-      private:
+      protected:
         /**
          * @brief Set the subscribe status
          * @param status                Status of the subscribe
@@ -159,10 +189,11 @@ namespace quicr {
             StatusChanged(status);
         }
 
-        // --------------------------------------------------------------------------
-        // Member variables
-        // --------------------------------------------------------------------------
+      private:
         Status status_{ Status::kNotSubscribed };
+        messages::ObjectPriority priority_;
+        messages::GroupOrder group_order_;
+        messages::FilterType filter_type_;
 
         friend class Transport;
         friend class Client;

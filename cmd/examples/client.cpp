@@ -22,15 +22,15 @@ namespace qclient_vars {
 class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 {
   public:
-    MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name)
-      : SubscribeTrackHandler(full_track_name)
+    MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name, quicr::messages::FilterType filter_type)
+      : SubscribeTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending, filter_type)
     {
     }
 
-    void ObjectReceived(const quicr::ObjectHeaders&, quicr::BytesSpan data) override
+    void ObjectReceived(const quicr::ObjectHeaders& hdr, quicr::BytesSpan data) override
     {
         std::string msg(data.begin(), data.end());
-        SPDLOG_INFO("Received message: {0}", msg);
+        SPDLOG_INFO("Received message: Group:{0}, Object:{1} - {2}", hdr.group_id, hdr.object_id, msg);
     }
 
     void StatusChanged(Status status) override
@@ -77,10 +77,66 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 }
                 break;
             }
+            case Status::kSubscriptionUpdated: {
+                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
+                    SPDLOG_INFO("Publish track alias: {0} has updated subscription", track_alias.value());
+                }
+                subscription_updated.store(true, std::memory_order_release);
+                break;
+            }
             default:
                 if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
                     SPDLOG_INFO("Publish track alias: {0} status {1}", track_alias.value(), static_cast<int>(status));
                 }
+                break;
+        }
+    }
+    std::atomic<bool> subscription_updated{ false };
+};
+
+class MyFetchTrackHandler : public quicr::FetchTrackHandler
+{
+    MyFetchTrackHandler(const quicr::FullTrackName& full_track_name,
+                        uint64_t start_group,
+                        uint64_t start_object,
+                        uint64_t end_group,
+                        uint64_t end_object)
+      : FetchTrackHandler(full_track_name,
+                          3,
+                          quicr::messages::GroupOrder::kAscending,
+                          start_group,
+                          end_group,
+                          start_object,
+                          end_object)
+    {
+    }
+
+  public:
+    static auto Create(const quicr::FullTrackName& full_track_name,
+                       uint64_t start_group,
+                       uint64_t start_object,
+                       uint64_t end_group,
+                       uint64_t end_object)
+    {
+        return std::shared_ptr<MyFetchTrackHandler>(
+          new MyFetchTrackHandler(full_track_name, start_group, end_group, start_object, end_object));
+    }
+
+    void ObjectReceived(const quicr::ObjectHeaders&, quicr::BytesSpan data) override
+    {
+        std::string msg(data.begin(), data.end());
+        SPDLOG_INFO("Received message: {0}", msg);
+    }
+
+    void StatusChanged(Status status) override
+    {
+        switch (status) {
+            case Status::kOk: {
+                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
+                    SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
+                }
+            } break;
+            default:
                 break;
         }
     }
@@ -124,10 +180,9 @@ class MyClient : public quicr::Client
     bool& stop_threads_;
 };
 
-/* -------------------------------------------------------------------------------------------------
- * Publisher Thread to perform publishing
- * -------------------------------------------------------------------------------------------------
- */
+/*===========================================================================*/
+// Publisher Thread to perform publishing
+/*===========================================================================*/
 
 void
 DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<quicr::Client>& client, const bool& stop)
@@ -142,7 +197,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
     uint64_t group_id{ 0 };
     uint64_t object_id{ 0 };
     uint64_t subgroup_id{ 0 };
-
+    MyPublishTrackHandler::Status status = MyPublishTrackHandler::Status::kNotConnected;
     while (not stop) {
         if ((!published_track) && (client->GetStatus() == MyClient::Status::kReady)) {
             SPDLOG_INFO("Publish track ");
@@ -150,9 +205,19 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
             published_track = true;
         }
 
-        if (track_handler->GetStatus() != MyPublishTrackHandler::Status::kOk) {
+        if (status != MyPublishTrackHandler::Status::kOk) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            status = track_handler->GetStatus();
             continue;
+        }
+
+        // TODO: This is very restricted. We need to verify the request params in the update message
+        if (track_handler->subscription_updated.load(std::memory_order_acquire)) {
+            // restart the group
+            group_id++;
+            object_id = 0;
+            track_handler->subscription_updated.store(false, std::memory_order::memory_order_release);
+            SPDLOG_INFO(" Subscription Updated: Restarting a new group {0}", group_id);
         }
 
         if (!sending) {
@@ -172,13 +237,13 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
         if (qclient_vars::publish_clock) {
             std::this_thread::sleep_for(std::chrono::milliseconds(999));
             msg = quicr::example::GetTimeStr();
-            SPDLOG_INFO(msg);
+            SPDLOG_INFO("Group:{0} Object:{1}, Msg:{2}", group_id, object_id, msg);
         } else { // stdin
             getline(std::cin, msg);
             SPDLOG_INFO("Send message: {0}", msg);
         }
 
-        if (object_id % 10 == 0) { // Set new group
+        if (object_id % 50 == 0) { // Set new group
             object_id = 0;
             subgroup_id = 0;
             group_id++;
@@ -202,18 +267,20 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     SPDLOG_INFO("Publisher done track");
+    moq_example::terminate = true;
 }
 
-/* -------------------------------------------------------------------------------------------------
- * Subscriber thread to perform subscribe
- * -------------------------------------------------------------------------------------------------
- */
+/*===========================================================================*/
+// Subscriber thread to perform subscribe
+/*===========================================================================*/
+
 void
 DoSubscriber(const quicr::FullTrackName& full_track_name,
              const std::shared_ptr<quicr::Client>& client,
+             quicr::messages::FilterType filter_type,
              const bool& stop)
 {
-    auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name);
+    auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type);
 
     SPDLOG_INFO("Started subscriber");
 
@@ -233,14 +300,57 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     SPDLOG_INFO("Subscriber done track");
+    moq_example::terminate = true;
 }
 
-/* -------------------------------------------------------------------------------------------------
- * Main program
- * -------------------------------------------------------------------------------------------------
- */
+/*===========================================================================*/
+// Fetch thread to perform fetch
+/*===========================================================================*/
+
+struct Range
+{
+    uint64_t start;
+    uint64_t end;
+};
+
+void
+DoFetch(const quicr::FullTrackName& full_track_name,
+        const Range& group_range,
+        const Range& object_range,
+        const std::shared_ptr<quicr::Client>& client,
+        const bool& stop)
+{
+    auto track_handler = MyFetchTrackHandler::Create(
+      full_track_name, group_range.start, group_range.end, object_range.start, object_range.end);
+
+    SPDLOG_INFO("Started fetch");
+
+    bool fetch_track{ false };
+
+    while (not stop) {
+        if ((!fetch_track) && (client->GetStatus() == MyClient::Status::kReady)) {
+            SPDLOG_INFO("Fetching track");
+            client->FetchTrack(track_handler);
+            fetch_track = true;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+
+    client->CancelFetchTrack(track_handler);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    SPDLOG_INFO("Fetch done track");
+    moq_example::terminate = true;
+}
+
+/*===========================================================================*/
+// Main program
+/*===========================================================================*/
+
 quicr::ClientConfig
-InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub)
+InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, bool& enable_fetch)
 {
     quicr::ClientConfig config;
 
@@ -278,6 +388,13 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub)
                     cli_opts["sub_name"].as<std::string>());
     }
 
+    if (cli_opts.count("fetch_namespace") && cli_opts.count("fetch_name")) {
+        enable_fetch = true;
+        SPDLOG_INFO("Subscriber enabled using track namespace: {0} name: {1}",
+                    cli_opts["fetch_namespace"].as<std::string>(),
+                    cli_opts["fetch_name"].as<std::string>());
+    }
+
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
     config.connect_uri = cli_opts["url"].as<std::string>();
     config.transport_config.debug = cli_opts["debug"].as<bool>();
@@ -312,12 +429,22 @@ main(int argc, char* argv[])
       "clock", "Publish clock timestamp every second instead of using STDIN chat");
 
     options.add_options("Subscriber")("sub_namespace", "Track namespace", cxxopts::value<std::string>())(
-      "sub_name", "Track name", cxxopts::value<std::string>());
+      "sub_name", "Track name", cxxopts::value<std::string>())(
+      "start_point",
+      "Start point for Subscription - 0 for from the beginning, 1 from the latest object",
+      cxxopts::value<uint64_t>());
+
+    options.add_options("Fetcher")("fetch_namespace", "Track namespace", cxxopts::value<std::string>())(
+      "fetch_name", "Track name", cxxopts::value<std::string>())(
+      "start_group", "Starting group ID", cxxopts::value<uint64_t>())(
+      "end_group", "One past the final group ID", cxxopts::value<uint64_t>())(
+      "start_object", "The starting object ID within the group", cxxopts::value<uint64_t>())(
+      "end_object", "One past the final object ID in the group", cxxopts::value<uint64_t>());
 
     auto result = options.parse(argc, argv);
 
     if (result.count("help")) {
-        std::cout << options.help({ "", "Publisher", "Subscriber" }) << std::endl;
+        std::cout << options.help({ "", "Publisher", "Subscriber", "Fetcher" }) << std::endl;
         return EXIT_SUCCESS;
     }
 
@@ -329,7 +456,8 @@ main(int argc, char* argv[])
 
     bool enable_pub{ false };
     bool enable_sub{ false };
-    quicr::ClientConfig config = InitConfig(result, enable_pub, enable_sub);
+    bool enable_fetch{ false };
+    quicr::ClientConfig config = InitConfig(result, enable_pub, enable_sub, enable_fetch);
 
     try {
         bool stop_threads{ false };
@@ -340,7 +468,9 @@ main(int argc, char* argv[])
             exit(-1);
         }
 
-        std::thread pub_thread, sub_thread;
+        std::thread pub_thread;
+        std::thread sub_thread;
+        std::thread fetch_thread;
 
         if (enable_pub) {
             const auto& pub_track_name = quicr::example::MakeFullTrackName(
@@ -349,10 +479,30 @@ main(int argc, char* argv[])
             pub_thread = std::thread(DoPublisher, pub_track_name, client, std::ref(stop_threads));
         }
         if (enable_sub) {
+            auto filter_type = quicr::messages::FilterType::LatestObject;
+            if (result.count("start_point")) {
+                if (result["start_point"].as<uint64_t>() == 0) {
+                    filter_type = quicr::messages::FilterType::LatestGroup;
+                    SPDLOG_INFO("Setting subscription filter to Latest Group");
+                }
+            }
+
             const auto& sub_track_name = quicr::example::MakeFullTrackName(
               result["sub_namespace"].as<std::string>(), result["sub_name"].as<std::string>(), 2001);
 
-            sub_thread = std::thread(DoSubscriber, sub_track_name, client, std::ref(stop_threads));
+            sub_thread = std::thread(DoSubscriber, sub_track_name, client, filter_type, std::ref(stop_threads));
+        }
+        if (enable_fetch) {
+            const auto& fetch_track_name = quicr::example::MakeFullTrackName(
+              result["fetch_namespace"].as<std::string>(), result["fetch_name"].as<std::string>(), 3001);
+
+            fetch_thread =
+              std::thread(DoFetch,
+                          fetch_track_name,
+                          Range{ result["start_group"].as<uint64_t>(), result["end_group"].as<uint64_t>() },
+                          Range{ result["start_object"].as<uint64_t>(), result["end_object"].as<uint64_t>() },
+                          client,
+                          std::ref(stop_threads));
         }
 
         // Wait until told to terminate
@@ -367,6 +517,10 @@ main(int argc, char* argv[])
 
         if (sub_thread.joinable()) {
             sub_thread.join();
+        }
+
+        if (fetch_thread.joinable()) {
+            fetch_thread.join();
         }
 
         client->Disconnect();
