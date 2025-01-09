@@ -7,19 +7,19 @@
 #include <benchmark/benchmark.h>
 
 static void
-SharedMemory_Construct(benchmark::State& state)
+DataStorage_Construct(benchmark::State& state)
 {
     for ([[maybe_unused]] const auto& _ : state) {
-        auto buffer = quicr::DataStorage::Create();
+        auto buffer = quicr::DataStorage<>::Create();
         benchmark::DoNotOptimize(buffer);
         benchmark::ClobberMemory();
     }
 }
 
 static void
-SharedMemory_Push(benchmark::State& state)
+DataStorage_Push(benchmark::State& state)
 {
-    auto buffer = quicr::DataStorage::Create();
+    auto buffer = quicr::DataStorage<>::Create();
     uint64_t value = 0;
     auto bytes = quicr::AsBytes(value);
 
@@ -28,5 +28,5 @@ SharedMemory_Push(benchmark::State& state)
     }
 }
 
-BENCHMARK(SharedMemory_Construct);
-BENCHMARK(SharedMemory_Push);
+BENCHMARK(DataStorage_Construct);
+BENCHMARK(DataStorage_Push);

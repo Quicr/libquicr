@@ -17,6 +17,13 @@ namespace quicr {
         return Span{ reinterpret_cast<const std::uint8_t*>(&value), sizeof(T) };
     }
 
+    template<>
+    inline Span<const uint8_t> AsBytes<std::string>(const std::string& value)
+    {
+        return Span{ reinterpret_cast<const std::uint8_t*>(value.data()), value.size() };
+    }
+
+    template<class Allocator = std::allocator<std::uint8_t>>
     class DataStorage
     {
         template<class It, class SpanIt>
@@ -68,7 +75,7 @@ namespace quicr {
             std::optional<SpanIt> span_it_;
         };
 
-        using SliceType = std::shared_ptr<std::vector<uint8_t>>;
+        using SliceType = std::shared_ptr<std::vector<uint8_t, Allocator>>;
         using BufferType = std::vector<SliceType>;
 
         DataStorage() = default;
@@ -94,7 +101,7 @@ namespace quicr {
 
         void Push(Span<const uint8_t> bytes)
         {
-            auto slice = std::make_shared<std::vector<uint8_t>>();
+            auto slice = std::make_shared<typename SliceType::element_type>();
             slice->assign(bytes.begin(), bytes.end());
 
             buffer_.push_back(std::move(slice));
@@ -109,8 +116,9 @@ namespace quicr {
         }
 
         // NOLINTBEGIN(readability-identifier-naming)
-        using iterator = IteratorImpl<BufferType::iterator, std::vector<uint8_t>::iterator>;
-        using const_iterator = IteratorImpl<BufferType::const_iterator, std::vector<uint8_t>::iterator>;
+        using iterator = IteratorImpl<typename BufferType::iterator, typename SliceType::element_type::iterator>;
+        using const_iterator =
+          IteratorImpl<typename BufferType::const_iterator, typename SliceType::element_type::iterator>;
 
         iterator begin() noexcept { return iterator(buffer_.begin(), buffer_.end()); }
         iterator end() noexcept { return iterator(buffer_.end(), buffer_.end()); }
