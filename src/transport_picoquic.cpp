@@ -1719,7 +1719,7 @@ PicoQuicTransport::Client(const TransportConnId conn_id)
             return;
         }
 
-        ret = picoquic_packet_loop(quic_ctx_, 0, PF_UNSPEC, 0, 0xFF, 0, PqLoopCb, this);
+        ret = picoquic_packet_loop(quic_ctx_, 0, PF_UNSPEC, 0, 0x2048, 0, PqLoopCb, this);
 
         SPDLOG_LOGGER_INFO(logger, "picoquic ended with {0}", ret);
     }
