@@ -3,7 +3,7 @@
 
 #include <doctest/doctest.h>
 
-#include "quicr/data_storage.h"
+#include "quicr/detail/data_storage.h"
 
 TEST_CASE("DataStorage Construct")
 {
@@ -48,7 +48,19 @@ TEST_CASE("DataStorage Multiples")
     buffer->Push(quicr::AsBytes(s3));
 
     std::vector<uint8_t> v(buffer->begin(), buffer->end());
-
     CHECK_EQ(v.size(), s1.size() + s2.size() + s3.size());
     CHECK_EQ(v.at(5), 'w');
+    CHECK_EQ(std::string{ buffer->begin(), buffer->end() }, "one two three");
+
+    auto buffer_view = quicr::DataStorageSpan(buffer, 1, 11);
+    std::vector<uint8_t> view_v(buffer_view.begin(), buffer_view.end());
+    CHECK_EQ(view_v.size(), s1.size() + s2.size() + s3.size() - 2);
+    CHECK_EQ(view_v.at(4), 'w');
+    CHECK_EQ(std::string{ buffer_view.begin(), buffer_view.end() }, "ne two thre");
+
+    auto buffer_subview = buffer_view.Subspan(3);
+    std::vector<uint8_t> subview_v(buffer_subview.begin(), buffer_subview.end());
+    CHECK_EQ(subview_v.size(), s1.size() + s2.size() + s3.size() - 5);
+    CHECK_EQ(subview_v.at(1), 'w');
+    CHECK_EQ(std::string{ buffer_subview.begin(), buffer_subview.end() }, "two thre");
 }
