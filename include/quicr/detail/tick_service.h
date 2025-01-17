@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include <pthread.h>
+
 #include <atomic>
 #include <chrono>
 #include <thread>
@@ -52,12 +54,23 @@ namespace quicr {
         using ClockType = std::chrono::steady_clock;
 
       public:
-        ThreadedTickService() { tick_thread_ = std::thread(&ThreadedTickService::TickLoop, this); }
+        ThreadedTickService()
+        {
+            pthread_attr_t attr;
+            pthread_attr_init(&attr);
+            size_t stack_size = 1024;
+            pthread_attr_setstacksize(&attr, stack_size);
+            tick_thread_ = std::thread(&ThreadedTickService::TickLoop, this);
+        }
 
         ThreadedTickService(const ThreadedTickService& other)
           : ticks_{ other.ticks_ }
           , stop_{ other.stop_.load() }
         {
+            pthread_attr_t attr;
+            pthread_attr_init(&attr);
+            size_t stack_size = 1024;
+            pthread_attr_setstacksize(&attr, stack_size);
             tick_thread_ = std::thread(&ThreadedTickService::TickLoop, this);
         }
 
@@ -72,6 +85,11 @@ namespace quicr {
         {
             ticks_ = other.ticks_;
             stop_ = other.stop_.load();
+
+            pthread_attr_t attr;
+            pthread_attr_init(&attr);
+            size_t stack_size = 1024;
+            pthread_attr_setstacksize(&attr, stack_size);
             tick_thread_ = std::thread(&ThreadedTickService::TickLoop, this);
             return *this;
         }
@@ -105,7 +123,7 @@ namespace quicr {
         std::atomic<bool> stop_{ false };
 
         /// Sleep delay in microseconds
-        const uint64_t sleep_delay_us_{ 333 };
+        const uint64_t sleep_delay_us_{ 10000 };
 
         /// The thread to update ticks on.
         std::thread tick_thread_;
