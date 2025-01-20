@@ -47,7 +47,7 @@ namespace quicr {
          *    In this sense, the queue is sliding forward with every new message
          *    added to queue.
          *
-         * @param elem
+         * @param elem The element to insert.
          * @return True if successfully pushed, false if not.  The cause for false is
          * that the queue is full.
          */
@@ -162,8 +162,6 @@ namespace quicr {
 
         /**
          * @brief Put the queue in a state such that threads will not wait
-         *
-         * @return Nothing
          */
         void StopWaiting()
         {
