@@ -190,6 +190,7 @@ Example on MacOS:
 * `brew install doxygen`
 * `brew install npm`
 * `brew install pandoc`
+* `npm install --global @mermaid-js/mermaid-cli`
 * `npm install --global mermaid-filter`
 
 > [!NOTE]

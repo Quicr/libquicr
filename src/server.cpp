@@ -59,7 +59,7 @@ namespace quicr {
         auto th = TrackHash(track_handler->GetFullTrackName());
         SPDLOG_LOGGER_DEBUG(
           logger_,
-          "Server publish track conn_id: {0} full_name_hash: {} namespace_hash: {} name_hash: {} unbind",
+          "Server publish track conn_id: {} full_name_hash: {} namespace_hash: {} name_hash: {} unbind",
           connection_handle,
           th.track_fullname_hash,
           th.track_namespace_hash,
@@ -69,7 +69,7 @@ namespace quicr {
 
         if (conn_it->second.pub_tracks_by_name.count(th.track_namespace_hash) == 0) {
             SPDLOG_LOGGER_DEBUG(logger_,
-                                "Server publish track conn_id: {0} full_name_hash: {} namespace_hash: {} unbind",
+                                "Server publish track conn_id: {} full_name_hash: {} namespace_hash: {} unbind",
                                 connection_handle,
                                 th.track_fullname_hash,
                                 th.track_namespace_hash);

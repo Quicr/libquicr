@@ -943,7 +943,7 @@ PicoQuicTransport::CreateDataContextBiDirRecv(TransportConnId conn_id, uint64_t 
         data_ctx_it->second.current_stream_id = stream_id;
 
 #if __cplusplus >= 202002L
-        _cbNotifyQueue.push([=, data_ctx_id = data_ctx_it->second.data_ctx_id, this]() {
+        cbNotifyQueue_.push([=, data_ctx_id = data_ctx_it->second.data_ctx_id, this]() {
 #else
         cbNotifyQueue_.Push([=, data_ctx_id = data_ctx_it->second.data_ctx_id]() {
 #endif
