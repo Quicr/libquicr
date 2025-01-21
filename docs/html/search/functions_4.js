@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['fetchcancelreceived_0',['FetchCancelReceived',['../classquicr_1_1_server.html#a5281a0b5fc90162e56c5c5143caf7fb9',1,'quicr::Server']]],
-  ['fetchreceived_1',['FetchReceived',['../classquicr_1_1_server.html#aeab9499f114f81678af62ff93271f159',1,'quicr::Server']]],
-  ['fetchtrack_2',['FetchTrack',['../classquicr_1_1_client.html#a8e6103b26efaade861d9788bd9077796',1,'quicr::Client::FetchTrack()'],['../classquicr_1_1_transport.html#a87fba644270c33f3322491bcacbb8244',1,'quicr::Transport::FetchTrack()']]]
+  ['empty_0',['Empty',['../classquicr_1_1_cache.html#ac369d83326c2d5afe5102b3f193bf196',1,'quicr::Cache']]],
+  ['empty_1',['empty',['../classquicr_1_1_track_namespace.html#a7eb13451950e95386176d8bf79b64ac6',1,'quicr::TrackNamespace']]],
+  ['end_2',['end',['../classquicr_1_1_uint_var.html#ac6905fcc50cbacd576d39bb118ba29a2',1,'quicr::UintVar::end()'],['../classquicr_1_1_track_namespace.html#aff84c308ad8f65f729df2baf961b5064',1,'quicr::TrackNamespace::end() noexcept'],['../classquicr_1_1_track_namespace.html#aaa88817be4478819ea3f94dd613e9aae',1,'quicr::TrackNamespace::end() const noexcept']]]
 ];

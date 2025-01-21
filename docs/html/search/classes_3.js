@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['minmaxavg_0',['MinMaxAvg',['../structquicr_1_1_min_max_avg.html',1,'quicr']]]
+  ['hash_3c_20quicr_3a_3atracknamespace_20_3e_0',['hash&lt; quicr::TrackNamespace &gt;',['../structstd_1_1hash_3_01quicr_1_1_track_namespace_01_4.html',1,'std']]]
 ];

@@ -212,10 +212,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a13e2e0f786b4bace741af6379b6dfee6" id="r_a13e2e0f786b4bace741af6379b6dfee6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_transport.html#a13e2e0f786b4bace741af6379b6dfee6">UnpublishTrack</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, const std::shared_ptr&lt; <a class="el" href="classquicr_1_1_publish_track_handler.html">PublishTrackHandler</a> &gt; &amp;track_handler)</td></tr>
 <tr class="memdesc:a13e2e0f786b4bace741af6379b6dfee6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Unpublish track.  <br /></td></tr>
 <tr class="separator:a13e2e0f786b4bace741af6379b6dfee6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a87fba644270c33f3322491bcacbb8244" id="r_a87fba644270c33f3322491bcacbb8244"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_transport.html#a87fba644270c33f3322491bcacbb8244">FetchTrack</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, std::shared_ptr&lt; FetchTrackHandler &gt; track_handler)</td></tr>
+<tr class="memitem:a87fba644270c33f3322491bcacbb8244" id="r_a87fba644270c33f3322491bcacbb8244"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_transport.html#a87fba644270c33f3322491bcacbb8244">FetchTrack</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, std::shared_ptr&lt; <a class="el" href="classquicr_1_1_fetch_track_handler.html">FetchTrackHandler</a> &gt; track_handler)</td></tr>
 <tr class="memdesc:a87fba644270c33f3322491bcacbb8244"><td class="mdescLeft">&#160;</td><td class="mdescRight">Fetch track.  <br /></td></tr>
 <tr class="separator:a87fba644270c33f3322491bcacbb8244"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a35778d49705111d93733245d707331a6" id="r_a35778d49705111d93733245d707331a6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_transport.html#a35778d49705111d93733245d707331a6">CancelFetchTrack</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, std::shared_ptr&lt; FetchTrackHandler &gt; track_handler)</td></tr>
+<tr class="memitem:a35778d49705111d93733245d707331a6" id="r_a35778d49705111d93733245d707331a6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_transport.html#a35778d49705111d93733245d707331a6">CancelFetchTrack</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, std::shared_ptr&lt; <a class="el" href="classquicr_1_1_fetch_track_handler.html">FetchTrackHandler</a> &gt; track_handler)</td></tr>
 <tr class="memdesc:a35778d49705111d93733245d707331a6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Cancel Fetch track.  <br /></td></tr>
 <tr class="separator:a35778d49705111d93733245d707331a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0f2587e91119578814a0f68beab5343b" id="r_a0f2587e91119578814a0f68beab5343b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_transport.html#a0f2587e91119578814a0f68beab5343b">GetStatus</a> () const noexcept</td></tr>
@@ -236,25 +236,25 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a8b9d7987020d6d2703f096dc1a2b044f" id="r_a8b9d7987020d6d2703f096dc1a2b044f"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structquicr_1_1_server_1_1_client_setup_response.html">ClientSetupResponse</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a8b9d7987020d6d2703f096dc1a2b044f">ClientSetupReceived</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, const <a class="el" href="structquicr_1_1_client_setup_attributes.html">ClientSetupAttributes</a> &amp;client_setup_attributes)=0</td></tr>
 <tr class="memdesc:a8b9d7987020d6d2703f096dc1a2b044f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback on client setup message.  <br /></td></tr>
 <tr class="separator:a8b9d7987020d6d2703f096dc1a2b044f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a87a3a77ca05c0fbce50d9dc99b2cf39c" id="r_a87a3a77ca05c0fbce50d9dc99b2cf39c"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a87a3a77ca05c0fbce50d9dc99b2cf39c">AnnounceReceived</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, const TrackNamespace &amp;track_namespace, const <a class="el" href="structquicr_1_1_publish_announce_attributes.html">PublishAnnounceAttributes</a> &amp;publish_announce_attributes)</td></tr>
+<tr class="memitem:a87a3a77ca05c0fbce50d9dc99b2cf39c" id="r_a87a3a77ca05c0fbce50d9dc99b2cf39c"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a87a3a77ca05c0fbce50d9dc99b2cf39c">AnnounceReceived</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, const <a class="el" href="classquicr_1_1_track_namespace.html">TrackNamespace</a> &amp;track_namespace, const <a class="el" href="structquicr_1_1_publish_announce_attributes.html">PublishAnnounceAttributes</a> &amp;publish_announce_attributes)</td></tr>
 <tr class="memdesc:a87a3a77ca05c0fbce50d9dc99b2cf39c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new announce received that needs to be authorized.  <br /></td></tr>
 <tr class="separator:a87a3a77ca05c0fbce50d9dc99b2cf39c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adb4668639df22b2690ec9add2627be6e" id="r_adb4668639df22b2690ec9add2627be6e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#adb4668639df22b2690ec9add2627be6e">ResolveAnnounce</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, const TrackNamespace &amp;track_namespace, const <a class="el" href="structquicr_1_1_server_1_1_announce_response.html">AnnounceResponse</a> &amp;announce_response)</td></tr>
+<tr class="memitem:adb4668639df22b2690ec9add2627be6e" id="r_adb4668639df22b2690ec9add2627be6e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#adb4668639df22b2690ec9add2627be6e">ResolveAnnounce</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, const <a class="el" href="classquicr_1_1_track_namespace.html">TrackNamespace</a> &amp;track_namespace, const <a class="el" href="structquicr_1_1_server_1_1_announce_response.html">AnnounceResponse</a> &amp;announce_response)</td></tr>
 <tr class="memdesc:adb4668639df22b2690ec9add2627be6e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Accept or reject an announce that was received.  <br /></td></tr>
 <tr class="separator:adb4668639df22b2690ec9add2627be6e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a843f1518d8767255b253586738c89241" id="r_a843f1518d8767255b253586738c89241"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a843f1518d8767255b253586738c89241">UnannounceReceived</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, const TrackNamespace &amp;track_namespace)=0</td></tr>
+<tr class="memitem:a843f1518d8767255b253586738c89241" id="r_a843f1518d8767255b253586738c89241"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a843f1518d8767255b253586738c89241">UnannounceReceived</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, const <a class="el" href="classquicr_1_1_track_namespace.html">TrackNamespace</a> &amp;track_namespace)=0</td></tr>
 <tr class="memdesc:a843f1518d8767255b253586738c89241"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for unannounce received.  <br /></td></tr>
 <tr class="separator:a843f1518d8767255b253586738c89241"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a58cfe3217255552af34a1ad6e86cdb19" id="r_a58cfe3217255552af34a1ad6e86cdb19"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a58cfe3217255552af34a1ad6e86cdb19">SubscribeReceived</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, uint64_t subscribe_id, uint64_t proposed_track_alias, quicr::messages::FilterType filter_type, const FullTrackName &amp;track_full_name, const <a class="el" href="structquicr_1_1_subscribe_attributes.html">SubscribeAttributes</a> &amp;subscribe_attributes)</td></tr>
+<tr class="memitem:a58cfe3217255552af34a1ad6e86cdb19" id="r_a58cfe3217255552af34a1ad6e86cdb19"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a58cfe3217255552af34a1ad6e86cdb19">SubscribeReceived</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, uint64_t subscribe_id, uint64_t proposed_track_alias, quicr::messages::FilterType filter_type, const <a class="el" href="structquicr_1_1_full_track_name.html">FullTrackName</a> &amp;track_full_name, const <a class="el" href="structquicr_1_1_subscribe_attributes.html">SubscribeAttributes</a> &amp;subscribe_attributes)</td></tr>
 <tr class="memdesc:a58cfe3217255552af34a1ad6e86cdb19"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new subscribe received.  <br /></td></tr>
 <tr class="separator:a58cfe3217255552af34a1ad6e86cdb19"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a66db5227f79115bd0874ec3b1d3c01e9" id="r_a66db5227f79115bd0874ec3b1d3c01e9"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a66db5227f79115bd0874ec3b1d3c01e9">UnsubscribeReceived</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, uint64_t subscribe_id)=0</td></tr>
 <tr class="memdesc:a66db5227f79115bd0874ec3b1d3c01e9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification on unsubscribe received.  <br /></td></tr>
 <tr class="separator:a66db5227f79115bd0874ec3b1d3c01e9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aeab9499f114f81678af62ff93271f159" id="r_aeab9499f114f81678af62ff93271f159"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aeab9499f114f81678af62ff93271f159">FetchReceived</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, uint64_t subscribe_id, const FullTrackName &amp;track_full_name, const <a class="el" href="structquicr_1_1_fetch_attributes.html">FetchAttributes</a> &amp;attributes)</td></tr>
+<tr class="memitem:aeab9499f114f81678af62ff93271f159" id="r_aeab9499f114f81678af62ff93271f159"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aeab9499f114f81678af62ff93271f159">FetchReceived</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, uint64_t subscribe_id, const <a class="el" href="structquicr_1_1_full_track_name.html">FullTrackName</a> &amp;track_full_name, const <a class="el" href="structquicr_1_1_fetch_attributes.html">FetchAttributes</a> &amp;attributes)</td></tr>
 <tr class="memdesc:aeab9499f114f81678af62ff93271f159"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification on Fetch message received.  <br /></td></tr>
 <tr class="separator:aeab9499f114f81678af62ff93271f159"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a02376c338780cdcb08848fe7f6d1e65c" id="r_a02376c338780cdcb08848fe7f6d1e65c"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a02376c338780cdcb08848fe7f6d1e65c">OnFetchOk</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, uint64_t subscribe_id, const FullTrackName &amp;track_full_name, const <a class="el" href="structquicr_1_1_fetch_attributes.html">FetchAttributes</a> &amp;attributes)</td></tr>
+<tr class="memitem:a02376c338780cdcb08848fe7f6d1e65c" id="r_a02376c338780cdcb08848fe7f6d1e65c"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a02376c338780cdcb08848fe7f6d1e65c">OnFetchOk</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, uint64_t subscribe_id, const <a class="el" href="structquicr_1_1_full_track_name.html">FullTrackName</a> &amp;track_full_name, const <a class="el" href="structquicr_1_1_fetch_attributes.html">FetchAttributes</a> &amp;attributes)</td></tr>
 <tr class="memdesc:a02376c338780cdcb08848fe7f6d1e65c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Event to run on sending FetchOk.  <br /></td></tr>
 <tr class="separator:a02376c338780cdcb08848fe7f6d1e65c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5281a0b5fc90162e56c5c5143caf7fb9" id="r_a5281a0b5fc90162e56c5c5143caf7fb9"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a5281a0b5fc90162e56c5c5143caf7fb9">FetchCancelReceived</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, uint64_t subscribe_id)=0</td></tr>
@@ -503,7 +503,7 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const TrackNamespace &amp;</td>          <td class="paramname"><span class="paramname"><em>track_namespace</em></span>, </td>
+          <td class="paramtype">const <a class="el" href="classquicr_1_1_track_namespace.html">TrackNamespace</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_namespace</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -528,7 +528,7 @@ Public Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a45">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a42">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -579,7 +579,7 @@ Public Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a59">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a57">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -601,7 +601,7 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">std::shared_ptr&lt; FetchTrackHandler &gt;</td>          <td class="paramname"><span class="paramname"><em>track_handler</em></span>&#160;)</td>
+          <td class="paramtype">std::shared_ptr&lt; <a class="el" href="classquicr_1_1_fetch_track_handler.html">FetchTrackHandler</a> &gt;</td>          <td class="paramname"><span class="paramname"><em>track_handler</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -659,7 +659,7 @@ Public Member Functions</h2></td></tr>
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd><a class="el" href="structquicr_1_1_server_1_1_client_setup_response.html" title="Response to received MOQT ClientSetup message.">ClientSetupResponse</a> indicating the status of processing the setup message. </dd></dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a51">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a48">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -702,7 +702,7 @@ Public Member Functions</h2></td></tr>
 </dl>
 
 <p>Reimplemented from <a class="el" href="classquicr_1_1_transport.html">quicr::Transport</a>.</p>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a50">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a47">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -767,7 +767,7 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const FullTrackName &amp;</td>          <td class="paramname"><span class="paramname"><em>track_full_name</em></span>, </td>
+          <td class="paramtype">const <a class="el" href="structquicr_1_1_full_track_name.html">FullTrackName</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_full_name</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -793,7 +793,7 @@ Public Member Functions</h2></td></tr>
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd>true if user defined conditions of Fetch are satisfied, false otherwise. </dd></dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a61">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a59">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -815,7 +815,7 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">std::shared_ptr&lt; FetchTrackHandler &gt;</td>          <td class="paramname"><span class="paramname"><em>track_handler</em></span>&#160;)</td>
+          <td class="paramtype">std::shared_ptr&lt; <a class="el" href="classquicr_1_1_fetch_track_handler.html">FetchTrackHandler</a> &gt;</td>          <td class="paramname"><span class="paramname"><em>track_handler</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -886,7 +886,7 @@ Public Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a58">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a56">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -999,7 +999,7 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const FullTrackName &amp;</td>          <td class="paramname"><span class="paramname"><em>track_full_name</em></span>, </td>
+          <td class="paramtype">const <a class="el" href="structquicr_1_1_full_track_name.html">FullTrackName</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_full_name</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -1024,7 +1024,7 @@ Public Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a65">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a63">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -1081,7 +1081,7 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const TrackNamespace &amp;</td>          <td class="paramname"><span class="paramname"><em>track_namespace</em></span>, </td>
+          <td class="paramtype">const <a class="el" href="classquicr_1_1_track_namespace.html">TrackNamespace</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_namespace</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -1101,7 +1101,7 @@ Public Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a48">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a45">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -1203,7 +1203,7 @@ Public Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#a14">client.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#a17">client.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -1258,7 +1258,7 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const FullTrackName &amp;</td>          <td class="paramname"><span class="paramname"><em>track_full_name</em></span>, </td>
+          <td class="paramtype">const <a class="el" href="structquicr_1_1_full_track_name.html">FullTrackName</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_full_name</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -1285,7 +1285,7 @@ Public Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a55">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a52">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -1325,7 +1325,7 @@ Public Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a49">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a46">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -1347,7 +1347,7 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const TrackNamespace &amp;</td>          <td class="paramname"><span class="paramname"><em>track_namespace</em></span>&#160;)</td>
+          <td class="paramtype">const <a class="el" href="classquicr_1_1_track_namespace.html">TrackNamespace</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>track_namespace</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -1365,7 +1365,7 @@ Public Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a43">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a38">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -1474,7 +1474,7 @@ Public Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a54">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a51">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -1514,7 +1514,7 @@ Public Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a44">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a41">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -1554,7 +1554,7 @@ Public Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a60">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a58">server.cpp</a>.</dd>
 </dl>
 
 </div>

@@ -110,7 +110,7 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line"><span class="preprocessor">#include &lt;spdlog/spdlog.h&gt;</span></div>
 <div class="line"><span class="preprocessor">#include &lt;unordered_map&gt;</span></div>
 <div class="line"> </div>
-<div class="line"><span class="preprocessor">#include &lt;quicr/cache.h&gt;</span></div>
+<div class="line"><span class="preprocessor">#include &lt;<a class="code" href="cache_8h.html">quicr/cache.h</a>&gt;</span></div>
 <div class="line"><span class="preprocessor">#include &lt;<a class="code" href="server_8h.html">quicr/server.h</a>&gt;</span></div>
 <div class="line"> </div>
 <div class="line"><span class="preprocessor">#include &quot;signal_handler.h&quot;</span></div>
@@ -143,7 +143,7 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line"><span class="keyword">namespace </span>qserver_vars {</div>
 <div class="line">    std::mutex state_mutex;</div>
 <div class="line"> </div>
-<div class="line">    std::unordered_map&lt;TrackNamespaceHash,</div>
+<div class="line">    std::unordered_map&lt;<a class="code hl_typedef" href="namespacequicr.html#a52160249bd8abca985a330c86a98dcac">TrackNamespaceHash</a>,</div>
 <div class="line">                       std::unordered_map&lt;quicr::ConnectionHandle, std::set&lt;quicr::messages::TrackAlias&gt;&gt;&gt;</div>
 <div class="line">      announce_active;</div>
 <div class="line"> </div>
@@ -186,7 +186,7 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line"><span class="keyword">class </span>MySubscribeTrackHandler : <span class="keyword">public</span> <a id="_a1" name="_a1"></a><a class="code hl_class" href="classquicr_1_1_subscribe_track_handler.html">quicr::SubscribeTrackHandler</a></div>
 <div class="line">{</div>
 <div class="line">  <span class="keyword">public</span>:</div>
-<div class="line">    MySubscribeTrackHandler(<span class="keyword">const</span> quicr::FullTrackName&amp; full_track_name)</div>
+<div class="line">    MySubscribeTrackHandler(<span class="keyword">const</span> <a id="_a2" name="_a2"></a><a class="code hl_struct" href="structquicr_1_1_full_track_name.html">quicr::FullTrackName</a>&amp; full_track_name)</div>
 <div class="line">      : SubscribeTrackHandler(full_track_name,</div>
 <div class="line">                              3,</div>
 <div class="line">                              <a class="code hl_namespace" href="namespacequicr.html">quicr</a>::messages::GroupOrder::kAscending,</div>
@@ -194,7 +194,7 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">    {</div>
 <div class="line">    }</div>
 <div class="line"> </div>
-<div class="line">    <span class="keywordtype">void</span> <a id="a2" name="a2"></a><a class="code hl_function" href="classquicr_1_1_subscribe_track_handler.html#aa4df3bdf8ba34557c381aa0268bc5b7d">ObjectReceived</a>(<span class="keyword">const</span> <a id="_a3" name="_a3"></a><a class="code hl_struct" href="structquicr_1_1_object_headers.html">quicr::ObjectHeaders</a>&amp; object_headers, <a class="code hl_typedef" href="namespacequicr.html#ae1ac30988d32dc3d91fb37721fa99dcb">quicr::BytesSpan</a> data)<span class="keyword"> override</span></div>
+<div class="line">    <span class="keywordtype">void</span> <a id="a3" name="a3"></a><a class="code hl_function" href="classquicr_1_1_subscribe_track_handler.html#aa4df3bdf8ba34557c381aa0268bc5b7d">ObjectReceived</a>(<span class="keyword">const</span> <a id="_a4" name="_a4"></a><a class="code hl_struct" href="structquicr_1_1_object_headers.html">quicr::ObjectHeaders</a>&amp; object_headers, <a class="code hl_typedef" href="namespacequicr.html#ae1ac30988d32dc3d91fb37721fa99dcb">quicr::BytesSpan</a> data)<span class="keyword"> override</span></div>
 <div class="line"><span class="keyword">    </span>{</div>
 <div class="line">        <span class="keywordflow">if</span> (data.size() &gt; 255) {</div>
 <div class="line">            SPDLOG_CRITICAL(<span class="stringliteral">&quot;Example server is for example only, received data &gt; 255 bytes is not allowed!&quot;</span>);</div>
@@ -202,8 +202,8 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">            <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;Example server is for example only, received data &gt; 255 bytes is not allowed!&quot;</span>);</div>
 <div class="line">        }</div>
 <div class="line"> </div>
-<div class="line">        latest_group_ = object_headers.<a id="a4" name="a4"></a><a class="code hl_variable" href="structquicr_1_1_object_headers.html#a5f95043ef8044f6497e9eedc8cd20ff9">group_id</a>;</div>
-<div class="line">        latest_object_ = object_headers.<a id="a5" name="a5"></a><a class="code hl_variable" href="structquicr_1_1_object_headers.html#a544ac7b64c29d3adec1e76b4efefa5d5">object_id</a>;</div>
+<div class="line">        latest_group_ = object_headers.<a id="a5" name="a5"></a><a class="code hl_variable" href="structquicr_1_1_object_headers.html#a5f95043ef8044f6497e9eedc8cd20ff9">group_id</a>;</div>
+<div class="line">        latest_object_ = object_headers.<a id="a6" name="a6"></a><a class="code hl_variable" href="structquicr_1_1_object_headers.html#a544ac7b64c29d3adec1e76b4efefa5d5">object_id</a>;</div>
 <div class="line"> </div>
 <div class="line">        std::lock_guard&lt;std::mutex&gt; _(qserver_vars::state_mutex);</div>
 <div class="line"> </div>
@@ -225,29 +225,29 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">        }</div>
 <div class="line">    }</div>
 <div class="line"> </div>
-<div class="line">    <span class="keywordtype">void</span> <a id="a6" name="a6"></a><a class="code hl_function" href="classquicr_1_1_subscribe_track_handler.html#acc562217cd1bb34fc845cdde7a0fe570">StatusChanged</a>(Status status)<span class="keyword"> override</span></div>
+<div class="line">    <span class="keywordtype">void</span> <a id="a7" name="a7"></a><a class="code hl_function" href="classquicr_1_1_subscribe_track_handler.html#acc562217cd1bb34fc845cdde7a0fe570">StatusChanged</a>(Status status)<span class="keyword"> override</span></div>
 <div class="line"><span class="keyword">    </span>{</div>
 <div class="line">        <span class="keywordflow">if</span> (status == Status::kOk) {</div>
 <div class="line">            SPDLOG_INFO(<span class="stringliteral">&quot;Track alias: {0} is subscribed&quot;</span>, GetTrackAlias().value());</div>
 <div class="line">        } <span class="keywordflow">else</span> {</div>
 <div class="line">            std::string reason = <span class="stringliteral">&quot;&quot;</span>;</div>
 <div class="line">            <span class="keywordflow">switch</span> (status) {</div>
-<div class="line">                <span class="keywordflow">case</span> <a id="a7" name="a7"></a><a class="code hl_enumvalue" href="classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eea32a54fa8629fe6e9cb3e265e959258d8">Status::kNotConnected</a>:</div>
+<div class="line">                <span class="keywordflow">case</span> <a id="a8" name="a8"></a><a class="code hl_enumvalue" href="classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eea32a54fa8629fe6e9cb3e265e959258d8">Status::kNotConnected</a>:</div>
 <div class="line">                    reason = <span class="stringliteral">&quot;not connected&quot;</span>;</div>
 <div class="line">                    <span class="keywordflow">break</span>;</div>
-<div class="line">                <span class="keywordflow">case</span> <a id="a8" name="a8"></a><a class="code hl_enumvalue" href="classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eeae3587c730cc1aa530fa4ddc9c4204e97">Status::kError</a>:</div>
+<div class="line">                <span class="keywordflow">case</span> <a id="a9" name="a9"></a><a class="code hl_enumvalue" href="classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eeae3587c730cc1aa530fa4ddc9c4204e97">Status::kError</a>:</div>
 <div class="line">                    reason = <span class="stringliteral">&quot;subscribe error&quot;</span>;</div>
 <div class="line">                    <span class="keywordflow">break</span>;</div>
-<div class="line">                <span class="keywordflow">case</span> <a id="a9" name="a9"></a><a class="code hl_enumvalue" href="classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eea94d644150606feeb2501ae2801a617ed">Status::kNotAuthorized</a>:</div>
+<div class="line">                <span class="keywordflow">case</span> <a id="a10" name="a10"></a><a class="code hl_enumvalue" href="classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eea94d644150606feeb2501ae2801a617ed">Status::kNotAuthorized</a>:</div>
 <div class="line">                    reason = <span class="stringliteral">&quot;not authorized&quot;</span>;</div>
 <div class="line">                    <span class="keywordflow">break</span>;</div>
-<div class="line">                <span class="keywordflow">case</span> <a id="a10" name="a10"></a><a class="code hl_enumvalue" href="classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eea92328fe39107890e5ea75689d9e5d32f">Status::kNotSubscribed</a>:</div>
+<div class="line">                <span class="keywordflow">case</span> <a id="a11" name="a11"></a><a class="code hl_enumvalue" href="classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eea92328fe39107890e5ea75689d9e5d32f">Status::kNotSubscribed</a>:</div>
 <div class="line">                    reason = <span class="stringliteral">&quot;not subscribed&quot;</span>;</div>
 <div class="line">                    <span class="keywordflow">break</span>;</div>
-<div class="line">                <span class="keywordflow">case</span> <a id="a11" name="a11"></a><a class="code hl_enumvalue" href="classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eea78076a6dd163ca654a4258f3d295d408">Status::kPendingResponse</a>:</div>
+<div class="line">                <span class="keywordflow">case</span> <a id="a12" name="a12"></a><a class="code hl_enumvalue" href="classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eea78076a6dd163ca654a4258f3d295d408">Status::kPendingResponse</a>:</div>
 <div class="line">                    reason = <span class="stringliteral">&quot;pending subscribe response&quot;</span>;</div>
 <div class="line">                    <span class="keywordflow">break</span>;</div>
-<div class="line">                <span class="keywordflow">case</span> <a id="a12" name="a12"></a><a class="code hl_enumvalue" href="classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eea0c00fa0c8dbc5959120d45bc8386979f">Status::kSendingUnsubscribe</a>:</div>
+<div class="line">                <span class="keywordflow">case</span> <a id="a13" name="a13"></a><a class="code hl_enumvalue" href="classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eea0c00fa0c8dbc5959120d45bc8386979f">Status::kSendingUnsubscribe</a>:</div>
 <div class="line">                    reason = <span class="stringliteral">&quot;unsubscribing&quot;</span>;</div>
 <div class="line">                    <span class="keywordflow">break</span>;</div>
 <div class="line">                <span class="keywordflow">default</span>:</div>
@@ -262,10 +262,10 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">    uint64_t latest_object_{ 0 };</div>
 <div class="line">};</div>
 <div class="line"> </div>
-<div class="line"><span class="keyword">class </span>MyPublishTrackHandler : <span class="keyword">public</span> <a id="_a13" name="_a13"></a><a class="code hl_class" href="classquicr_1_1_publish_track_handler.html">quicr::PublishTrackHandler</a></div>
+<div class="line"><span class="keyword">class </span>MyPublishTrackHandler : <span class="keyword">public</span> <a id="_a14" name="_a14"></a><a class="code hl_class" href="classquicr_1_1_publish_track_handler.html">quicr::PublishTrackHandler</a></div>
 <div class="line">{</div>
 <div class="line">  <span class="keyword">public</span>:</div>
-<div class="line">    MyPublishTrackHandler(<span class="keyword">const</span> quicr::FullTrackName&amp; full_track_name,</div>
+<div class="line">    MyPublishTrackHandler(<span class="keyword">const</span> <a class="code hl_struct" href="structquicr_1_1_full_track_name.html">quicr::FullTrackName</a>&amp; full_track_name,</div>
 <div class="line">                          quicr::TrackMode track_mode,</div>
 <div class="line">                          uint8_t default_priority,</div>
 <div class="line">                          uint32_t default_ttl)</div>
@@ -273,29 +273,29 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">    {</div>
 <div class="line">    }</div>
 <div class="line"> </div>
-<div class="line">    <span class="keywordtype">void</span> <a id="a14" name="a14"></a><a class="code hl_function" href="classquicr_1_1_publish_track_handler.html#a85d2310272db252df775a681cc8b8884">StatusChanged</a>(Status status)<span class="keyword"> override</span></div>
+<div class="line">    <span class="keywordtype">void</span> <a id="a15" name="a15"></a><a class="code hl_function" href="classquicr_1_1_publish_track_handler.html#a85d2310272db252df775a681cc8b8884">StatusChanged</a>(Status status)<span class="keyword"> override</span></div>
 <div class="line"><span class="keyword">    </span>{</div>
 <div class="line">        <span class="keywordflow">if</span> (status == Status::kOk) {</div>
 <div class="line">            SPDLOG_INFO(<span class="stringliteral">&quot;Publish track alias {0} has subscribers&quot;</span>, GetTrackAlias().value());</div>
 <div class="line">        } <span class="keywordflow">else</span> {</div>
 <div class="line">            std::string reason = <span class="stringliteral">&quot;&quot;</span>;</div>
 <div class="line">            <span class="keywordflow">switch</span> (status) {</div>
-<div class="line">                <span class="keywordflow">case</span> <a id="a15" name="a15"></a><a class="code hl_enumvalue" href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a32a54fa8629fe6e9cb3e265e959258d8">Status::kNotConnected</a>:</div>
+<div class="line">                <span class="keywordflow">case</span> <a id="a16" name="a16"></a><a class="code hl_enumvalue" href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a32a54fa8629fe6e9cb3e265e959258d8">Status::kNotConnected</a>:</div>
 <div class="line">                    reason = <span class="stringliteral">&quot;not connected&quot;</span>;</div>
 <div class="line">                    <span class="keywordflow">break</span>;</div>
-<div class="line">                <span class="keywordflow">case</span> <a id="a16" name="a16"></a><a class="code hl_enumvalue" href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a0aacc8d02db06999d93256fad11a0f91">Status::kNotAnnounced</a>:</div>
+<div class="line">                <span class="keywordflow">case</span> <a id="a17" name="a17"></a><a class="code hl_enumvalue" href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a0aacc8d02db06999d93256fad11a0f91">Status::kNotAnnounced</a>:</div>
 <div class="line">                    reason = <span class="stringliteral">&quot;not announced&quot;</span>;</div>
 <div class="line">                    <span class="keywordflow">break</span>;</div>
-<div class="line">                <span class="keywordflow">case</span> <a id="a17" name="a17"></a><a class="code hl_enumvalue" href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7ac1e877c9c6c8271ff158221905113d7b">Status::kAnnounceNotAuthorized</a>:</div>
+<div class="line">                <span class="keywordflow">case</span> <a id="a18" name="a18"></a><a class="code hl_enumvalue" href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7ac1e877c9c6c8271ff158221905113d7b">Status::kAnnounceNotAuthorized</a>:</div>
 <div class="line">                    reason = <span class="stringliteral">&quot;not authorized&quot;</span>;</div>
 <div class="line">                    <span class="keywordflow">break</span>;</div>
-<div class="line">                <span class="keywordflow">case</span> <a id="a18" name="a18"></a><a class="code hl_enumvalue" href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7ad16e5c0773211b3d591e160d6e4dfbce">Status::kPendingAnnounceResponse</a>:</div>
+<div class="line">                <span class="keywordflow">case</span> <a id="a19" name="a19"></a><a class="code hl_enumvalue" href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7ad16e5c0773211b3d591e160d6e4dfbce">Status::kPendingAnnounceResponse</a>:</div>
 <div class="line">                    reason = <span class="stringliteral">&quot;pending announce response&quot;</span>;</div>
 <div class="line">                    <span class="keywordflow">break</span>;</div>
-<div class="line">                <span class="keywordflow">case</span> <a id="a19" name="a19"></a><a class="code hl_enumvalue" href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a029c756c36d0d64ad37d82fdd25135ad">Status::kNoSubscribers</a>:</div>
+<div class="line">                <span class="keywordflow">case</span> <a id="a20" name="a20"></a><a class="code hl_enumvalue" href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a029c756c36d0d64ad37d82fdd25135ad">Status::kNoSubscribers</a>:</div>
 <div class="line">                    reason = <span class="stringliteral">&quot;no subscribers&quot;</span>;</div>
 <div class="line">                    <span class="keywordflow">break</span>;</div>
-<div class="line">                <span class="keywordflow">case</span> <a id="a20" name="a20"></a><a class="code hl_enumvalue" href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a6473b74b448bc158ffb66542042c88b3">Status::kSendingUnannounce</a>:</div>
+<div class="line">                <span class="keywordflow">case</span> <a id="a21" name="a21"></a><a class="code hl_enumvalue" href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a6473b74b448bc158ffb66542042c88b3">Status::kSendingUnannounce</a>:</div>
 <div class="line">                    reason = <span class="stringliteral">&quot;sending unannounce&quot;</span>;</div>
 <div class="line">                    <span class="keywordflow">break</span>;</div>
 <div class="line">                <span class="keywordflow">default</span>:</div>
@@ -305,7 +305,7 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">        }</div>
 <div class="line">    }</div>
 <div class="line"> </div>
-<div class="line">    <span class="keywordtype">void</span> <a id="a21" name="a21"></a><a class="code hl_function" href="classquicr_1_1_publish_track_handler.html#aa0e5f4b4173834d38929f71dace54c8c">MetricsSampled</a>(<span class="keyword">const</span> <a id="_a22" name="_a22"></a><a class="code hl_struct" href="structquicr_1_1_publish_track_metrics.html">quicr::PublishTrackMetrics</a>&amp; metrics)<span class="keyword"> override</span></div>
+<div class="line">    <span class="keywordtype">void</span> <a id="a22" name="a22"></a><a class="code hl_function" href="classquicr_1_1_publish_track_handler.html#aa0e5f4b4173834d38929f71dace54c8c">MetricsSampled</a>(<span class="keyword">const</span> <a id="_a23" name="_a23"></a><a class="code hl_struct" href="structquicr_1_1_publish_track_metrics.html">quicr::PublishTrackMetrics</a>&amp; metrics)<span class="keyword"> override</span></div>
 <div class="line"><span class="keyword">    </span>{</div>
 <div class="line">        SPDLOG_DEBUG(<span class="stringliteral">&quot;Metrics sample time: {0}&quot;</span></div>
 <div class="line">                     <span class="stringliteral">&quot; track_alias: {1}&quot;</span></div>
@@ -314,13 +314,13 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">                     <span class="stringliteral">&quot; object duration us: {4}&quot;</span></div>
 <div class="line">                     <span class="stringliteral">&quot; queue discards: {5}&quot;</span></div>
 <div class="line">                     <span class="stringliteral">&quot; queue size: {6}&quot;</span>,</div>
-<div class="line">                     metrics.<a id="a23" name="a23"></a><a class="code hl_variable" href="structquicr_1_1_publish_track_metrics.html#ad54254b2933d1283ed2c5d88b46f3e4b">last_sample_time</a>,</div>
+<div class="line">                     metrics.<a id="a24" name="a24"></a><a class="code hl_variable" href="structquicr_1_1_publish_track_metrics.html#ad54254b2933d1283ed2c5d88b46f3e4b">last_sample_time</a>,</div>
 <div class="line">                     GetTrackAlias().value(),</div>
-<div class="line">                     metrics.<a id="a24" name="a24"></a><a class="code hl_variable" href="structquicr_1_1_publish_track_metrics.html#aa00898861132cd32c0fc5a126300af6c">objects_published</a>,</div>
-<div class="line">                     metrics.<a id="a25" name="a25"></a><a class="code hl_variable" href="structquicr_1_1_publish_track_metrics.html#a1b904152d53e05c40a548bff30c2c68c">bytes_published</a>,</div>
-<div class="line">                     metrics.<a id="a26" name="a26"></a><a class="code hl_variable" href="structquicr_1_1_publish_track_metrics.html#a7e0e7bf91f7f7ff1268bc05bda6d6639">quic</a>.<a id="a27" name="a27"></a><a class="code hl_variable" href="structquicr_1_1_publish_track_metrics_1_1_quic.html#a035153e90eb912bf57a3726f3772fbe6">tx_object_duration_us</a>.<a id="a28" name="a28"></a><a class="code hl_variable" href="structquicr_1_1_min_max_avg.html#a6d61fe9d36b0defb038738e980ff6096">avg</a>,</div>
+<div class="line">                     metrics.<a id="a25" name="a25"></a><a class="code hl_variable" href="structquicr_1_1_publish_track_metrics.html#aa00898861132cd32c0fc5a126300af6c">objects_published</a>,</div>
+<div class="line">                     metrics.<a id="a26" name="a26"></a><a class="code hl_variable" href="structquicr_1_1_publish_track_metrics.html#a1b904152d53e05c40a548bff30c2c68c">bytes_published</a>,</div>
+<div class="line">                     metrics.<a id="a27" name="a27"></a><a class="code hl_variable" href="structquicr_1_1_publish_track_metrics.html#a7e0e7bf91f7f7ff1268bc05bda6d6639">quic</a>.<a id="a28" name="a28"></a><a class="code hl_variable" href="structquicr_1_1_publish_track_metrics_1_1_quic.html#a035153e90eb912bf57a3726f3772fbe6">tx_object_duration_us</a>.avg,</div>
 <div class="line">                     metrics.<a class="code hl_variable" href="structquicr_1_1_publish_track_metrics.html#a7e0e7bf91f7f7ff1268bc05bda6d6639">quic</a>.<a id="a29" name="a29"></a><a class="code hl_variable" href="structquicr_1_1_publish_track_metrics_1_1_quic.html#a44eac673c72811e9165a2cbd296e54a8">tx_queue_discards</a>,</div>
-<div class="line">                     metrics.<a class="code hl_variable" href="structquicr_1_1_publish_track_metrics.html#a7e0e7bf91f7f7ff1268bc05bda6d6639">quic</a>.<a id="a30" name="a30"></a><a class="code hl_variable" href="structquicr_1_1_publish_track_metrics_1_1_quic.html#a85c44647ddb7ba34458709822f3cc7d8">tx_queue_size</a>.<a class="code hl_variable" href="structquicr_1_1_min_max_avg.html#a6d61fe9d36b0defb038738e980ff6096">avg</a>);</div>
+<div class="line">                     metrics.<a class="code hl_variable" href="structquicr_1_1_publish_track_metrics.html#a7e0e7bf91f7f7ff1268bc05bda6d6639">quic</a>.<a id="a30" name="a30"></a><a class="code hl_variable" href="structquicr_1_1_publish_track_metrics_1_1_quic.html#a85c44647ddb7ba34458709822f3cc7d8">tx_queue_size</a>.avg);</div>
 <div class="line">    }</div>
 <div class="line">};</div>
 <div class="line"> </div>
@@ -347,16 +347,16 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">                     <span class="stringliteral">&quot; lost pkts: {5}&quot;</span>,</div>
 <div class="line">                     metrics.<a id="a36" name="a36"></a><a class="code hl_variable" href="structquicr_1_1_connection_metrics.html#a770729a132791d5da484d9b573b21cb4">last_sample_time</a>,</div>
 <div class="line">                     connection_handle,</div>
-<div class="line">                     metrics.<a id="a37" name="a37"></a><a class="code hl_variable" href="structquicr_1_1_connection_metrics.html#a1ab84c81e8a08167ff2a2ae08aa117e9">quic</a>.<a id="a38" name="a38"></a><a class="code hl_variable" href="structquicr_1_1_quic_connection_metrics.html#aa3d73277c8ecce73416beb99a09d365b">rtt_us</a>.<a id="a39" name="a39"></a><a class="code hl_variable" href="structquicr_1_1_min_max_avg.html#ac20de44d1787802682cef6e241cb010b">max</a>,</div>
-<div class="line">                     metrics.<a class="code hl_variable" href="structquicr_1_1_connection_metrics.html#a1ab84c81e8a08167ff2a2ae08aa117e9">quic</a>.<a id="a40" name="a40"></a><a class="code hl_variable" href="structquicr_1_1_quic_connection_metrics.html#a884a5230461f3f7024a81d4bccad033d">srtt_us</a>.<a class="code hl_variable" href="structquicr_1_1_min_max_avg.html#ac20de44d1787802682cef6e241cb010b">max</a>,</div>
-<div class="line">                     metrics.<a class="code hl_variable" href="structquicr_1_1_connection_metrics.html#a1ab84c81e8a08167ff2a2ae08aa117e9">quic</a>.<a id="a41" name="a41"></a><a class="code hl_variable" href="structquicr_1_1_quic_connection_metrics.html#a03a719d44de487ec1472514a3a463825">tx_rate_bps</a>.<a class="code hl_variable" href="structquicr_1_1_min_max_avg.html#ac20de44d1787802682cef6e241cb010b">max</a>,</div>
-<div class="line">                     metrics.<a class="code hl_variable" href="structquicr_1_1_connection_metrics.html#a1ab84c81e8a08167ff2a2ae08aa117e9">quic</a>.<a id="a42" name="a42"></a><a class="code hl_variable" href="structquicr_1_1_quic_connection_metrics.html#ae8c463fa544b66d5c676744500062aee">tx_lost_pkts</a>);</div>
+<div class="line">                     metrics.<a id="a37" name="a37"></a><a class="code hl_variable" href="structquicr_1_1_connection_metrics.html#a1ab84c81e8a08167ff2a2ae08aa117e9">quic</a>.rtt_us.max,</div>
+<div class="line">                     metrics.<a class="code hl_variable" href="structquicr_1_1_connection_metrics.html#a1ab84c81e8a08167ff2a2ae08aa117e9">quic</a>.srtt_us.max,</div>
+<div class="line">                     metrics.<a class="code hl_variable" href="structquicr_1_1_connection_metrics.html#a1ab84c81e8a08167ff2a2ae08aa117e9">quic</a>.tx_rate_bps.max,</div>
+<div class="line">                     metrics.<a class="code hl_variable" href="structquicr_1_1_connection_metrics.html#a1ab84c81e8a08167ff2a2ae08aa117e9">quic</a>.tx_lost_pkts);</div>
 <div class="line">    }</div>
 <div class="line"> </div>
-<div class="line">    <span class="keywordtype">void</span> <a id="a43" name="a43"></a><a class="code hl_function" href="classquicr_1_1_server.html#a843f1518d8767255b253586738c89241">UnannounceReceived</a>(<a class="code hl_typedef" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">quicr::ConnectionHandle</a> connection_handle,</div>
-<div class="line">                            <span class="keyword">const</span> quicr::TrackNamespace&amp; track_namespace)<span class="keyword"> override</span></div>
+<div class="line">    <span class="keywordtype">void</span> <a id="a38" name="a38"></a><a class="code hl_function" href="classquicr_1_1_server.html#a843f1518d8767255b253586738c89241">UnannounceReceived</a>(<a class="code hl_typedef" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">quicr::ConnectionHandle</a> connection_handle,</div>
+<div class="line">                            <span class="keyword">const</span> <a id="_a39" name="_a39"></a><a class="code hl_class" href="classquicr_1_1_track_namespace.html">quicr::TrackNamespace</a>&amp; track_namespace)<span class="keyword"> override</span></div>
 <div class="line"><span class="keyword">    </span>{</div>
-<div class="line">        <span class="keyword">auto</span> th = quicr::TrackHash({ track_namespace, {}, std::nullopt });</div>
+<div class="line">        <span class="keyword">auto</span> th = <a id="_a40" name="_a40"></a><a class="code hl_struct" href="structquicr_1_1_track_hash.html">quicr::TrackHash</a>({ track_namespace, {}, std::nullopt });</div>
 <div class="line"> </div>
 <div class="line">        SPDLOG_DEBUG(<span class="stringliteral">&quot;Received unannounce from connection handle: {0} for namespace hash: {1}, removing all tracks &quot;</span></div>
 <div class="line">                     <span class="stringliteral">&quot;associated with namespace&quot;</span>,</div>
@@ -372,7 +372,7 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">                  th.track_namespace_hash,</div>
 <div class="line">                  track_alias);</div>
 <div class="line"> </div>
-<div class="line">                <a id="a44" name="a44"></a><a class="code hl_function" href="classquicr_1_1_transport.html#af595c628c640d1f674f1278fca9ee7cd">UnsubscribeTrack</a>(connection_handle, ptd);</div>
+<div class="line">                <a id="a41" name="a41"></a><a class="code hl_function" href="classquicr_1_1_transport.html#af595c628c640d1f674f1278fca9ee7cd">UnsubscribeTrack</a>(connection_handle, ptd);</div>
 <div class="line">            }</div>
 <div class="line">            qserver_vars::pub_subscribes[track_alias].erase(connection_handle);</div>
 <div class="line">            <span class="keywordflow">if</span> (qserver_vars::pub_subscribes[track_alias].empty()) {</div>
@@ -386,11 +386,11 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">        }</div>
 <div class="line">    }</div>
 <div class="line"> </div>
-<div class="line">    <span class="keywordtype">void</span> <a id="a45" name="a45"></a><a class="code hl_function" href="classquicr_1_1_server.html#a87a3a77ca05c0fbce50d9dc99b2cf39c">AnnounceReceived</a>(<a class="code hl_typedef" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">quicr::ConnectionHandle</a> connection_handle,</div>
-<div class="line">                          <span class="keyword">const</span> quicr::TrackNamespace&amp; track_namespace,</div>
-<div class="line">                          <span class="keyword">const</span> <a id="_a46" name="_a46"></a><a class="code hl_struct" href="structquicr_1_1_publish_announce_attributes.html">quicr::PublishAnnounceAttributes</a>&amp;)<span class="keyword"> override</span></div>
+<div class="line">    <span class="keywordtype">void</span> <a id="a42" name="a42"></a><a class="code hl_function" href="classquicr_1_1_server.html#a87a3a77ca05c0fbce50d9dc99b2cf39c">AnnounceReceived</a>(<a class="code hl_typedef" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">quicr::ConnectionHandle</a> connection_handle,</div>
+<div class="line">                          <span class="keyword">const</span> <a class="code hl_class" href="classquicr_1_1_track_namespace.html">quicr::TrackNamespace</a>&amp; track_namespace,</div>
+<div class="line">                          <span class="keyword">const</span> <a id="_a43" name="_a43"></a><a class="code hl_struct" href="structquicr_1_1_publish_announce_attributes.html">quicr::PublishAnnounceAttributes</a>&amp;)<span class="keyword"> override</span></div>
 <div class="line"><span class="keyword">    </span>{</div>
-<div class="line">        <span class="keyword">auto</span> th = quicr::TrackHash({ track_namespace, {}, std::nullopt });</div>
+<div class="line">        <span class="keyword">auto</span> th = <a class="code hl_struct" href="structquicr_1_1_track_hash.html">quicr::TrackHash</a>({ track_namespace, {}, std::nullopt });</div>
 <div class="line"> </div>
 <div class="line">        SPDLOG_INFO(<span class="stringliteral">&quot;Received announce from connection handle: {0} for namespace_hash: {1}&quot;</span>,</div>
 <div class="line">                    connection_handle,</div>
@@ -408,8 +408,8 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">        }</div>
 <div class="line"> </div>
 <div class="line">        AnnounceResponse announce_response;</div>
-<div class="line">        announce_response.reason_code = <a id="a47" name="a47"></a><a class="code hl_enumvalue" href="structquicr_1_1_server_1_1_announce_response.html#ac1d5dc562359c27e3223dbd389502d8fae69fa9a656f76dd8a4d89f21992b2d3a">quicr::Server::AnnounceResponse::ReasonCode::kOk</a>;</div>
-<div class="line">        <a id="a48" name="a48"></a><a class="code hl_function" href="classquicr_1_1_server.html#adb4668639df22b2690ec9add2627be6e">ResolveAnnounce</a>(connection_handle, track_namespace, announce_response);</div>
+<div class="line">        announce_response.reason_code = <a id="a44" name="a44"></a><a class="code hl_enumvalue" href="structquicr_1_1_server_1_1_announce_response.html#ac1d5dc562359c27e3223dbd389502d8fae69fa9a656f76dd8a4d89f21992b2d3a">quicr::Server::AnnounceResponse::ReasonCode::kOk</a>;</div>
+<div class="line">        <a id="a45" name="a45"></a><a class="code hl_function" href="classquicr_1_1_server.html#adb4668639df22b2690ec9add2627be6e">ResolveAnnounce</a>(connection_handle, track_namespace, announce_response);</div>
 <div class="line"> </div>
 <div class="line">        <span class="keyword">auto</span>&amp; anno_tracks = qserver_vars::announce_active[th.track_namespace_hash][connection_handle];</div>
 <div class="line"> </div>
@@ -431,7 +431,7 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">                        <span class="keyword">auto</span> sub_track_handler =</div>
 <div class="line">                          std::make_shared&lt;MySubscribeTrackHandler&gt;(pub_track_h-&gt;GetFullTrackName());</div>
 <div class="line"> </div>
-<div class="line">                        <a id="a49" name="a49"></a><a class="code hl_function" href="classquicr_1_1_transport.html#a40dd0c703c1d342b51670195bce425c3">SubscribeTrack</a>(connection_handle, sub_track_handler);</div>
+<div class="line">                        <a id="a46" name="a46"></a><a class="code hl_function" href="classquicr_1_1_transport.html#a40dd0c703c1d342b51670195bce425c3">SubscribeTrack</a>(connection_handle, sub_track_handler);</div>
 <div class="line">                        qserver_vars::pub_subscribes[a_who.track_alias][connection_handle] = sub_track_handler;</div>
 <div class="line">                    }</div>
 <div class="line">                }</div>
@@ -439,7 +439,7 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">        }</div>
 <div class="line">    }</div>
 <div class="line"> </div>
-<div class="line">    <span class="keywordtype">void</span> <a id="a50" name="a50"></a><a class="code hl_function" href="classquicr_1_1_server.html#acbe2d96fa3623a576f2f4426610d40a7">ConnectionStatusChanged</a>(<a class="code hl_typedef" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">quicr::ConnectionHandle</a> connection_handle, ConnectionStatus status)<span class="keyword"> override</span></div>
+<div class="line">    <span class="keywordtype">void</span> <a id="a47" name="a47"></a><a class="code hl_function" href="classquicr_1_1_server.html#acbe2d96fa3623a576f2f4426610d40a7">ConnectionStatusChanged</a>(<a class="code hl_typedef" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">quicr::ConnectionHandle</a> connection_handle, ConnectionStatus status)<span class="keyword"> override</span></div>
 <div class="line"><span class="keyword">    </span>{</div>
 <div class="line">        <span class="keywordflow">if</span> (status == ConnectionStatus::kConnected) {</div>
 <div class="line">            SPDLOG_DEBUG(<span class="stringliteral">&quot;Connection ready connection_handle: {0} &quot;</span>, connection_handle);</div>
@@ -449,17 +449,17 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">        }</div>
 <div class="line">    }</div>
 <div class="line"> </div>
-<div class="line">    ClientSetupResponse <a id="a51" name="a51"></a><a class="code hl_function" href="classquicr_1_1_server.html#a8b9d7987020d6d2703f096dc1a2b044f">ClientSetupReceived</a>(<a class="code hl_typedef" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">quicr::ConnectionHandle</a>,</div>
-<div class="line">                                            <span class="keyword">const</span> <a id="_a52" name="_a52"></a><a class="code hl_struct" href="structquicr_1_1_client_setup_attributes.html">quicr::ClientSetupAttributes</a>&amp; client_setup_attributes)<span class="keyword"> override</span></div>
+<div class="line">    ClientSetupResponse <a id="a48" name="a48"></a><a class="code hl_function" href="classquicr_1_1_server.html#a8b9d7987020d6d2703f096dc1a2b044f">ClientSetupReceived</a>(<a class="code hl_typedef" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">quicr::ConnectionHandle</a>,</div>
+<div class="line">                                            <span class="keyword">const</span> <a id="_a49" name="_a49"></a><a class="code hl_struct" href="structquicr_1_1_client_setup_attributes.html">quicr::ClientSetupAttributes</a>&amp; client_setup_attributes)<span class="keyword"> override</span></div>
 <div class="line"><span class="keyword">    </span>{</div>
 <div class="line">        ClientSetupResponse client_setup_response;</div>
 <div class="line"> </div>
-<div class="line">        SPDLOG_INFO(<span class="stringliteral">&quot;Client setup received from endpoint_id: {0}&quot;</span>, client_setup_attributes.<a id="a53" name="a53"></a><a class="code hl_variable" href="structquicr_1_1_client_setup_attributes.html#aaaee100e1a8163c135fd0490d84c70cf">endpoint_id</a>);</div>
+<div class="line">        SPDLOG_INFO(<span class="stringliteral">&quot;Client setup received from endpoint_id: {0}&quot;</span>, client_setup_attributes.<a id="a50" name="a50"></a><a class="code hl_variable" href="structquicr_1_1_client_setup_attributes.html#aaaee100e1a8163c135fd0490d84c70cf">endpoint_id</a>);</div>
 <div class="line"> </div>
 <div class="line">        <span class="keywordflow">return</span> client_setup_response;</div>
 <div class="line">    }</div>
 <div class="line"> </div>
-<div class="line">    <span class="keywordtype">void</span> <a id="a54" name="a54"></a><a class="code hl_function" href="classquicr_1_1_server.html#a66db5227f79115bd0874ec3b1d3c01e9">UnsubscribeReceived</a>(<a class="code hl_typedef" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">quicr::ConnectionHandle</a> connection_handle, uint64_t subscribe_id)<span class="keyword"> override</span></div>
+<div class="line">    <span class="keywordtype">void</span> <a id="a51" name="a51"></a><a class="code hl_function" href="classquicr_1_1_server.html#a66db5227f79115bd0874ec3b1d3c01e9">UnsubscribeReceived</a>(<a class="code hl_typedef" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">quicr::ConnectionHandle</a> connection_handle, uint64_t subscribe_id)<span class="keyword"> override</span></div>
 <div class="line"><span class="keyword">    </span>{</div>
 <div class="line">        SPDLOG_INFO(<span class="stringliteral">&quot;Unsubscribe connection handle: {0} subscribe_id: {1}&quot;</span>, connection_handle, subscribe_id);</div>
 <div class="line"> </div>
@@ -497,7 +497,7 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">            <span class="keywordflow">return</span>;</div>
 <div class="line">        }</div>
 <div class="line"> </div>
-<div class="line">        <span class="keyword">auto</span> th = quicr::TrackHash(track_h-&gt;GetFullTrackName());</div>
+<div class="line">        <span class="keyword">auto</span> th = <a class="code hl_struct" href="structquicr_1_1_track_hash.html">quicr::TrackHash</a>(track_h-&gt;GetFullTrackName());</div>
 <div class="line"> </div>
 <div class="line">        qserver_vars::subscribes[track_alias].erase(connection_handle);</div>
 <div class="line">        <span class="keywordtype">bool</span> unsub_pub{ <span class="keyword">false</span> };</div>
@@ -542,20 +542,20 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">        }</div>
 <div class="line">    }</div>
 <div class="line"> </div>
-<div class="line">    <span class="keywordtype">void</span> <a id="a55" name="a55"></a><a class="code hl_function" href="classquicr_1_1_server.html#a58cfe3217255552af34a1ad6e86cdb19">SubscribeReceived</a>(<a class="code hl_typedef" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">quicr::ConnectionHandle</a> connection_handle,</div>
+<div class="line">    <span class="keywordtype">void</span> <a id="a52" name="a52"></a><a class="code hl_function" href="classquicr_1_1_server.html#a58cfe3217255552af34a1ad6e86cdb19">SubscribeReceived</a>(<a class="code hl_typedef" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">quicr::ConnectionHandle</a> connection_handle,</div>
 <div class="line">                           uint64_t subscribe_id,</div>
 <div class="line">                           [[maybe_unused]] uint64_t proposed_track_alias,</div>
 <div class="line">                           [[maybe_unused]] quicr::messages::FilterType filter_type,</div>
-<div class="line">                           <span class="keyword">const</span> quicr::FullTrackName&amp; track_full_name,</div>
-<div class="line">                           <span class="keyword">const</span> <a id="_a56" name="_a56"></a><a class="code hl_struct" href="structquicr_1_1_subscribe_attributes.html">quicr::SubscribeAttributes</a>&amp; attrs)<span class="keyword"> override</span></div>
+<div class="line">                           <span class="keyword">const</span> <a class="code hl_struct" href="structquicr_1_1_full_track_name.html">quicr::FullTrackName</a>&amp; track_full_name,</div>
+<div class="line">                           <span class="keyword">const</span> <a id="_a53" name="_a53"></a><a class="code hl_struct" href="structquicr_1_1_subscribe_attributes.html">quicr::SubscribeAttributes</a>&amp; attrs)<span class="keyword"> override</span></div>
 <div class="line"><span class="keyword">    </span>{</div>
-<div class="line">        <span class="keyword">auto</span> th = quicr::TrackHash(track_full_name);</div>
+<div class="line">        <span class="keyword">auto</span> th = <a class="code hl_struct" href="structquicr_1_1_track_hash.html">quicr::TrackHash</a>(track_full_name);</div>
 <div class="line"> </div>
 <div class="line">        SPDLOG_INFO(<span class="stringliteral">&quot;New subscribe connection handle: {0} subscribe_id: {1} track alias: {2} priority: {3}&quot;</span>,</div>
 <div class="line">                    connection_handle,</div>
 <div class="line">                    subscribe_id,</div>
 <div class="line">                    th.track_fullname_hash,</div>
-<div class="line">                    attrs.<a id="a57" name="a57"></a><a class="code hl_variable" href="structquicr_1_1_subscribe_attributes.html#a68b01656e5373460714d09b33c2327c8">priority</a>);</div>
+<div class="line">                    attrs.<a id="a54" name="a54"></a><a class="code hl_variable" href="structquicr_1_1_subscribe_attributes.html#a68b01656e5373460714d09b33c2327c8">priority</a>);</div>
 <div class="line"> </div>
 <div class="line">        <span class="keyword">auto</span> pub_track_h =</div>
 <div class="line">          std::make_shared&lt;MyPublishTrackHandler&gt;(track_full_name, quicr::TrackMode::kStream, attrs.<a class="code hl_variable" href="structquicr_1_1_subscribe_attributes.html#a68b01656e5373460714d09b33c2327c8">priority</a>, 50000);</div>
@@ -576,7 +576,7 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">                                                                            <a class="code hl_typedef" href="namespacequicr.html#ae1ac30988d32dc3d91fb37721fa99dcb">quicr::BytesSpan</a> data) {</div>
 <div class="line">            <span class="keywordflow">if</span> (cache_.count(tnsh) == 0) {</div>
 <div class="line">                cache_.insert(std::make_pair(</div>
-<div class="line">                  tnsh, quicr::Cache&lt;quicr::messages::GroupId, std::set&lt;CacheObject&gt;&gt;{ ttl, 1, <a id="a58" name="a58"></a><a class="code hl_function" href="classquicr_1_1_transport.html#adc54129621cd83bfce5164e82ad89b4b">GetTickService</a>() }));</div>
+<div class="line">                  tnsh, <a id="_a55" name="_a55"></a><a class="code hl_class" href="classquicr_1_1_cache.html">quicr::Cache</a>&lt;quicr::messages::GroupId, std::set&lt;CacheObject&gt;&gt;{ ttl, 1, <a id="a56" name="a56"></a><a class="code hl_function" href="classquicr_1_1_transport.html#adc54129621cd83bfce5164e82ad89b4b">GetTickService</a>() }));</div>
 <div class="line">            }</div>
 <div class="line"> </div>
 <div class="line">            <span class="keyword">auto</span>&amp; cache_entry = cache_.at(tnsh);</div>
@@ -594,7 +594,7 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">        };</div>
 <div class="line"> </div>
 <div class="line">        <span class="comment">// Create a subscribe track that will be used by the relay to send to subscriber for matching objects</span></div>
-<div class="line">        <a id="a59" name="a59"></a><a class="code hl_function" href="classquicr_1_1_server.html#ac6935937aa065ba91ef96b78e758ffae">BindPublisherTrack</a>(connection_handle, subscribe_id, pub_track_h, <span class="keyword">false</span>, std::move(cache_message_callback));</div>
+<div class="line">        <a id="a57" name="a57"></a><a class="code hl_function" href="classquicr_1_1_server.html#ac6935937aa065ba91ef96b78e758ffae">BindPublisherTrack</a>(connection_handle, subscribe_id, pub_track_h, <span class="keyword">false</span>, std::move(cache_message_callback));</div>
 <div class="line"> </div>
 <div class="line">        <span class="comment">// Subscribe to announcer if announcer is active</span></div>
 <div class="line">        <span class="keyword">auto</span> anno_ns_it = qserver_vars::announce_active.find(th.track_namespace_hash);</div>
@@ -637,25 +637,25 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">                    SPDLOG_INFO(<span class="stringliteral">&quot;Sending subscription update to announcer connection: {0} hash: {1}&quot;</span>,</div>
 <div class="line">                                th.track_namespace_hash,</div>
 <div class="line">                                subscribe_id);</div>
-<div class="line">                    <a id="a60" name="a60"></a><a class="code hl_function" href="classquicr_1_1_transport.html#a307e575ac9f13c8ce7e2c37ab910ef91">UpdateTrackSubscription</a>(conn_h, sub_track_h);</div>
+<div class="line">                    <a id="a58" name="a58"></a><a class="code hl_function" href="classquicr_1_1_transport.html#a307e575ac9f13c8ce7e2c37ab910ef91">UpdateTrackSubscription</a>(conn_h, sub_track_h);</div>
 <div class="line">                    last_subscription_time_ = std::chrono::steady_clock::now();</div>
 <div class="line">                }</div>
 <div class="line">            }</div>
 <div class="line">        }</div>
 <div class="line">    }</div>
 <div class="line"> </div>
-<div class="line">    <span class="keywordtype">bool</span> <a id="a61" name="a61"></a><a class="code hl_function" href="classquicr_1_1_server.html#aeab9499f114f81678af62ff93271f159">FetchReceived</a>([[maybe_unused]] <a class="code hl_typedef" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">quicr::ConnectionHandle</a> connection_handle,</div>
+<div class="line">    <span class="keywordtype">bool</span> <a id="a59" name="a59"></a><a class="code hl_function" href="classquicr_1_1_server.html#aeab9499f114f81678af62ff93271f159">FetchReceived</a>([[maybe_unused]] <a class="code hl_typedef" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">quicr::ConnectionHandle</a> connection_handle,</div>
 <div class="line">                       [[maybe_unused]] uint64_t subscribe_id,</div>
-<div class="line">                       <span class="keyword">const</span> quicr::FullTrackName&amp; track_full_name,</div>
-<div class="line">                       <span class="keyword">const</span> <a id="_a62" name="_a62"></a><a class="code hl_struct" href="structquicr_1_1_fetch_attributes.html">quicr::FetchAttributes</a>&amp; attrs)<span class="keyword"> override</span></div>
+<div class="line">                       <span class="keyword">const</span> <a class="code hl_struct" href="structquicr_1_1_full_track_name.html">quicr::FullTrackName</a>&amp; track_full_name,</div>
+<div class="line">                       <span class="keyword">const</span> <a id="_a60" name="_a60"></a><a class="code hl_struct" href="structquicr_1_1_fetch_attributes.html">quicr::FetchAttributes</a>&amp; attrs)<span class="keyword"> override</span></div>
 <div class="line"><span class="keyword">    </span>{</div>
 <div class="line">        SPDLOG_INFO(<span class="stringliteral">&quot;Received Fetch for conn_id: {} subscribe_id: {} start_group: {} end_group: {}&quot;</span>,</div>
 <div class="line">                    connection_handle,</div>
 <div class="line">                    subscribe_id,</div>
-<div class="line">                    attrs.<a id="a63" name="a63"></a><a class="code hl_variable" href="structquicr_1_1_fetch_attributes.html#a3ff6b61725d430e5f29c63ac59f66fb1">start_group</a>,</div>
-<div class="line">                    attrs.<a id="a64" name="a64"></a><a class="code hl_variable" href="structquicr_1_1_fetch_attributes.html#ac54793e24fd6f4a99db739412553393a">end_group</a>);</div>
+<div class="line">                    attrs.<a id="a61" name="a61"></a><a class="code hl_variable" href="structquicr_1_1_fetch_attributes.html#a3ff6b61725d430e5f29c63ac59f66fb1">start_group</a>,</div>
+<div class="line">                    attrs.<a id="a62" name="a62"></a><a class="code hl_variable" href="structquicr_1_1_fetch_attributes.html#ac54793e24fd6f4a99db739412553393a">end_group</a>);</div>
 <div class="line"> </div>
-<div class="line">        <span class="keyword">const</span> <span class="keyword">auto</span> th = quicr::TrackHash(track_full_name);</div>
+<div class="line">        <span class="keyword">const</span> <span class="keyword">auto</span> th = <a class="code hl_struct" href="structquicr_1_1_track_hash.html">quicr::TrackHash</a>(track_full_name);</div>
 <div class="line"> </div>
 <div class="line">        <span class="keyword">auto</span> cache_entry_it = cache_.find(th.track_namespace_hash);</div>
 <div class="line">        <span class="keywordflow">if</span> (cache_entry_it == cache_.end()) {</div>
@@ -678,16 +678,16 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">        });</div>
 <div class="line">    }</div>
 <div class="line"> </div>
-<div class="line">    <span class="keywordtype">void</span> <a id="a65" name="a65"></a><a class="code hl_function" href="classquicr_1_1_server.html#a02376c338780cdcb08848fe7f6d1e65c">OnFetchOk</a>(<a class="code hl_typedef" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">quicr::ConnectionHandle</a> connection_handle,</div>
+<div class="line">    <span class="keywordtype">void</span> <a id="a63" name="a63"></a><a class="code hl_function" href="classquicr_1_1_server.html#a02376c338780cdcb08848fe7f6d1e65c">OnFetchOk</a>(<a class="code hl_typedef" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">quicr::ConnectionHandle</a> connection_handle,</div>
 <div class="line">                   uint64_t subscribe_id,</div>
-<div class="line">                   <span class="keyword">const</span> quicr::FullTrackName&amp; track_full_name,</div>
+<div class="line">                   <span class="keyword">const</span> <a class="code hl_struct" href="structquicr_1_1_full_track_name.html">quicr::FullTrackName</a>&amp; track_full_name,</div>
 <div class="line">                   <span class="keyword">const</span> <a class="code hl_struct" href="structquicr_1_1_fetch_attributes.html">quicr::FetchAttributes</a>&amp; attrs)<span class="keyword"> override</span></div>
 <div class="line"><span class="keyword">    </span>{</div>
 <div class="line">        <span class="keyword">auto</span> pub_track_h =</div>
-<div class="line">          std::make_shared&lt;MyPublishTrackHandler&gt;(track_full_name, quicr::TrackMode::kStream, attrs.<a id="a66" name="a66"></a><a class="code hl_variable" href="structquicr_1_1_fetch_attributes.html#afb92946668b01be4b17c4f43f4398e2f">priority</a>, 50000);</div>
+<div class="line">          std::make_shared&lt;MyPublishTrackHandler&gt;(track_full_name, quicr::TrackMode::kStream, attrs.<a id="a64" name="a64"></a><a class="code hl_variable" href="structquicr_1_1_fetch_attributes.html#afb92946668b01be4b17c4f43f4398e2f">priority</a>, 50000);</div>
 <div class="line">        <a class="code hl_function" href="classquicr_1_1_server.html#ac6935937aa065ba91ef96b78e758ffae">BindPublisherTrack</a>(connection_handle, subscribe_id, pub_track_h);</div>
 <div class="line"> </div>
-<div class="line">        <span class="keyword">const</span> <span class="keyword">auto</span> th = quicr::TrackHash(track_full_name);</div>
+<div class="line">        <span class="keyword">const</span> <span class="keyword">auto</span> th = <a class="code hl_struct" href="structquicr_1_1_track_hash.html">quicr::TrackHash</a>(track_full_name);</div>
 <div class="line"> </div>
 <div class="line">        std::thread retrieve_cache_thread(</div>
 <div class="line">          [=, cache_entries = cache_.at(th.track_namespace_hash).Get(attrs.<a class="code hl_variable" href="structquicr_1_1_fetch_attributes.html#a3ff6b61725d430e5f29c63ac59f66fb1">start_group</a>, attrs.<a class="code hl_variable" href="structquicr_1_1_fetch_attributes.html#ac54793e24fd6f4a99db739412553393a">end_group</a>)] {</div>
@@ -754,12 +754,12 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line">        exit(0);</div>
 <div class="line">    }</div>
 <div class="line"> </div>
-<div class="line">    config.<a id="a67" name="a67"></a><a class="code hl_variable" href="structquicr_1_1_config.html#ac61dcd9337d55b4694552338af12fe2e">endpoint_id</a> = cli_opts[<span class="stringliteral">&quot;endpoint_id&quot;</span>].as&lt;std::string&gt;();</div>
+<div class="line">    config.<a id="a65" name="a65"></a><a class="code hl_variable" href="structquicr_1_1_config.html#ac61dcd9337d55b4694552338af12fe2e">endpoint_id</a> = cli_opts[<span class="stringliteral">&quot;endpoint_id&quot;</span>].as&lt;std::string&gt;();</div>
 <div class="line"> </div>
-<div class="line">    config.<a id="a68" name="a68"></a><a class="code hl_variable" href="structquicr_1_1_server_config.html#a600aeb1938992178f439f50a73dec508">server_bind_ip</a> = cli_opts[<span class="stringliteral">&quot;bind_ip&quot;</span>].as&lt;std::string&gt;();</div>
-<div class="line">    config.<a id="a69" name="a69"></a><a class="code hl_variable" href="structquicr_1_1_server_config.html#ad89c841e7e25fd909452b6d1550a4c78">server_port</a> = cli_opts[<span class="stringliteral">&quot;port&quot;</span>].as&lt;uint16_t&gt;();</div>
+<div class="line">    config.<a id="a66" name="a66"></a><a class="code hl_variable" href="structquicr_1_1_server_config.html#a600aeb1938992178f439f50a73dec508">server_bind_ip</a> = cli_opts[<span class="stringliteral">&quot;bind_ip&quot;</span>].as&lt;std::string&gt;();</div>
+<div class="line">    config.<a id="a67" name="a67"></a><a class="code hl_variable" href="structquicr_1_1_server_config.html#ad89c841e7e25fd909452b6d1550a4c78">server_port</a> = cli_opts[<span class="stringliteral">&quot;port&quot;</span>].as&lt;uint16_t&gt;();</div>
 <div class="line"> </div>
-<div class="line">    config.<a id="a70" name="a70"></a><a class="code hl_variable" href="structquicr_1_1_config.html#ad8895576bc8e8fba62da81e6096c1aea">transport_config</a>.debug = cli_opts[<span class="stringliteral">&quot;debug&quot;</span>].as&lt;<span class="keywordtype">bool</span>&gt;();</div>
+<div class="line">    config.<a id="a68" name="a68"></a><a class="code hl_variable" href="structquicr_1_1_config.html#ad8895576bc8e8fba62da81e6096c1aea">transport_config</a>.debug = cli_opts[<span class="stringliteral">&quot;debug&quot;</span>].as&lt;<span class="keywordtype">bool</span>&gt;();</div>
 <div class="line">    config.<a class="code hl_variable" href="structquicr_1_1_config.html#ad8895576bc8e8fba62da81e6096c1aea">transport_config</a>.tls_cert_filename = cli_opts[<span class="stringliteral">&quot;cert&quot;</span>].as&lt;std::string&gt;();</div>
 <div class="line">    config.<a class="code hl_variable" href="structquicr_1_1_config.html#ad8895576bc8e8fba62da81e6096c1aea">transport_config</a>.tls_key_filename = cli_opts[<span class="stringliteral">&quot;key&quot;</span>].as&lt;std::string&gt;();</div>
 <div class="line">    config.<a class="code hl_variable" href="structquicr_1_1_config.html#ad8895576bc8e8fba62da81e6096c1aea">transport_config</a>.use_reset_wait_strategy = <span class="keyword">false</span>;</div>
@@ -803,7 +803,7 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line"> </div>
 <div class="line">    <span class="keywordflow">try</span> {</div>
 <div class="line">        <span class="keyword">auto</span> server = std::make_shared&lt;MyServer&gt;(config);</div>
-<div class="line">        <span class="keywordflow">if</span> (server-&gt;Start() != <a id="a71" name="a71"></a><a class="code hl_enumvalue" href="classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173a25d5606fe07425ea73f245c48612c039">quicr::Transport::Status::kReady</a>) {</div>
+<div class="line">        <span class="keywordflow">if</span> (server-&gt;Start() != <a id="a69" name="a69"></a><a class="code hl_enumvalue" href="classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173a25d5606fe07425ea73f245c48612c039">quicr::Transport::Status::kReady</a>) {</div>
 <div class="line">            SPDLOG_ERROR(<span class="stringliteral">&quot;Server failed to start&quot;</span>);</div>
 <div class="line">            exit(-2);</div>
 <div class="line">        }</div>
@@ -826,6 +826,8 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="line"> </div>
 <div class="line">    <span class="keywordflow">return</span> result_code;</div>
 <div class="line">}</div>
+<div class="ttc" id="acache_8h_html"><div class="ttname"><a href="cache_8h.html">cache.h</a></div></div>
+<div class="ttc" id="aclassquicr_1_1_cache_html"><div class="ttname"><a href="classquicr_1_1_cache.html">quicr::Cache</a></div><div class="ttdef"><b>Definition</b> cache.h:17</div></div>
 <div class="ttc" id="aclassquicr_1_1_publish_track_handler_html"><div class="ttname"><a href="classquicr_1_1_publish_track_handler.html">quicr::PublishTrackHandler</a></div><div class="ttdoc">MOQ track handler for published track.</div><div class="ttdef"><b>Definition</b> publish_track_handler.h:22</div></div>
 <div class="ttc" id="aclassquicr_1_1_publish_track_handler_html_a85d2310272db252df775a681cc8b8884"><div class="ttname"><a href="classquicr_1_1_publish_track_handler.html#a85d2310272db252df775a681cc8b8884">quicr::PublishTrackHandler::StatusChanged</a></div><div class="ttdeci">virtual void StatusChanged(Status status)</div><div class="ttdoc">Notification of publish track status change.</div></div>
 <div class="ttc" id="aclassquicr_1_1_publish_track_handler_html_aa0e5f4b4173834d38929f71dace54c8c"><div class="ttname"><a href="classquicr_1_1_publish_track_handler.html#aa0e5f4b4173834d38929f71dace54c8c">quicr::PublishTrackHandler::MetricsSampled</a></div><div class="ttdeci">virtual void MetricsSampled(const PublishTrackMetrics &amp;metrics)</div><div class="ttdoc">Notification callback to provide sampled metrics.</div></div>
@@ -857,13 +859,15 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="ttc" id="aclassquicr_1_1_subscribe_track_handler_html_a9de21a18d0ef99ddba39efc9833d74eeae3587c730cc1aa530fa4ddc9c4204e97"><div class="ttname"><a href="classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eeae3587c730cc1aa530fa4ddc9c4204e97">quicr::SubscribeTrackHandler::Status::kError</a></div><div class="ttdeci">@ kError</div></div>
 <div class="ttc" id="aclassquicr_1_1_subscribe_track_handler_html_aa4df3bdf8ba34557c381aa0268bc5b7d"><div class="ttname"><a href="classquicr_1_1_subscribe_track_handler.html#aa4df3bdf8ba34557c381aa0268bc5b7d">quicr::SubscribeTrackHandler::ObjectReceived</a></div><div class="ttdeci">virtual void ObjectReceived(const ObjectHeaders &amp;object_headers, BytesSpan data)</div><div class="ttdoc">Notification of received [full] data object.</div><div class="ttdef"><b>Definition</b> subscribe_track_handler.h:131</div></div>
 <div class="ttc" id="aclassquicr_1_1_subscribe_track_handler_html_acc562217cd1bb34fc845cdde7a0fe570"><div class="ttname"><a href="classquicr_1_1_subscribe_track_handler.html#acc562217cd1bb34fc845cdde7a0fe570">quicr::SubscribeTrackHandler::StatusChanged</a></div><div class="ttdeci">virtual void StatusChanged(Status status)</div><div class="ttdoc">Notification of subscribe status.</div><div class="ttdef"><b>Definition</b> subscribe_track_handler.h:158</div></div>
+<div class="ttc" id="aclassquicr_1_1_track_namespace_html"><div class="ttname"><a href="classquicr_1_1_track_namespace.html">quicr::TrackNamespace</a></div><div class="ttdoc">An N-tuple representation of a MOQ namespace.</div><div class="ttdef"><b>Definition</b> track_name.h:21</div></div>
 <div class="ttc" id="aclassquicr_1_1_transport_html_a1fc1ea2c9665c591c4eac8a6ff1b6173a25d5606fe07425ea73f245c48612c039"><div class="ttname"><a href="classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173a25d5606fe07425ea73f245c48612c039">quicr::Transport::Status::kReady</a></div><div class="ttdeci">@ kReady</div></div>
 <div class="ttc" id="aclassquicr_1_1_transport_html_a307e575ac9f13c8ce7e2c37ab910ef91"><div class="ttname"><a href="classquicr_1_1_transport.html#a307e575ac9f13c8ce7e2c37ab910ef91">quicr::Transport::UpdateTrackSubscription</a></div><div class="ttdeci">void UpdateTrackSubscription(ConnectionHandle connection_handle, std::shared_ptr&lt; SubscribeTrackHandler &gt; track_handler)</div><div class="ttdoc">Update Subscription to a track.</div></div>
 <div class="ttc" id="aclassquicr_1_1_transport_html_a40dd0c703c1d342b51670195bce425c3"><div class="ttname"><a href="classquicr_1_1_transport.html#a40dd0c703c1d342b51670195bce425c3">quicr::Transport::SubscribeTrack</a></div><div class="ttdeci">void SubscribeTrack(ConnectionHandle connection_handle, std::shared_ptr&lt; SubscribeTrackHandler &gt; track_handler)</div><div class="ttdoc">Subscribe to a track.</div></div>
 <div class="ttc" id="aclassquicr_1_1_transport_html_adc54129621cd83bfce5164e82ad89b4b"><div class="ttname"><a href="classquicr_1_1_transport.html#adc54129621cd83bfce5164e82ad89b4b">quicr::Transport::GetTickService</a></div><div class="ttdeci">const std::shared_ptr&lt; TickService &gt; &amp; GetTickService() const noexcept</div><div class="ttdef"><b>Definition</b> transport.h:112</div></div>
 <div class="ttc" id="aclassquicr_1_1_transport_html_af595c628c640d1f674f1278fca9ee7cd"><div class="ttname"><a href="classquicr_1_1_transport.html#af595c628c640d1f674f1278fca9ee7cd">quicr::Transport::UnsubscribeTrack</a></div><div class="ttdeci">void UnsubscribeTrack(ConnectionHandle connection_handle, const std::shared_ptr&lt; SubscribeTrackHandler &gt; &amp;track_handler)</div><div class="ttdoc">Unsubscribe track.</div></div>
-<div class="ttc" id="anamespacequicr_html"><div class="ttname"><a href="namespacequicr.html">quicr</a></div><div class="ttdef"><b>Definition</b> common.h:9</div></div>
+<div class="ttc" id="anamespacequicr_html"><div class="ttname"><a href="namespacequicr.html">quicr</a></div><div class="ttdef"><b>Definition</b> transport.h:26</div></div>
 <div class="ttc" id="anamespacequicr_html_a196ac5046236a7e948d3b5a766ac02ee"><div class="ttname"><a href="namespacequicr.html#a196ac5046236a7e948d3b5a766ac02ee">quicr::Bytes</a></div><div class="ttdeci">std::vector&lt; Byte &gt; Bytes</div><div class="ttdef"><b>Definition</b> common.h:22</div></div>
+<div class="ttc" id="anamespacequicr_html_a52160249bd8abca985a330c86a98dcac"><div class="ttname"><a href="namespacequicr.html#a52160249bd8abca985a330c86a98dcac">quicr::TrackNamespaceHash</a></div><div class="ttdeci">uint64_t TrackNamespaceHash</div><div class="ttdef"><b>Definition</b> track_name.h:256</div></div>
 <div class="ttc" id="anamespacequicr_html_ae1ac30988d32dc3d91fb37721fa99dcb"><div class="ttname"><a href="namespacequicr.html#ae1ac30988d32dc3d91fb37721fa99dcb">quicr::BytesSpan</a></div><div class="ttdeci">Span&lt; const Byte &gt; BytesSpan</div><div class="ttdef"><b>Definition</b> common.h:23</div></div>
 <div class="ttc" id="anamespacequicr_html_ae332e51a43d09ae0300bd16654d671fc"><div class="ttname"><a href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">quicr::ConnectionHandle</a></div><div class="ttdeci">uint64_t ConnectionHandle</div><div class="ttdef"><b>Definition</b> common.h:24</div></div>
 <div class="ttc" id="aserver_8h_html"><div class="ttname"><a href="server_8h.html">server.h</a></div></div>
@@ -878,8 +882,7 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="ttc" id="astructquicr_1_1_fetch_attributes_html_a3ff6b61725d430e5f29c63ac59f66fb1"><div class="ttname"><a href="structquicr_1_1_fetch_attributes.html#a3ff6b61725d430e5f29c63ac59f66fb1">quicr::FetchAttributes::start_group</a></div><div class="ttdeci">uint64_t start_group</div><div class="ttdoc">Fetch starting group in range.</div><div class="ttdef"><b>Definition</b> common.h:82</div></div>
 <div class="ttc" id="astructquicr_1_1_fetch_attributes_html_ac54793e24fd6f4a99db739412553393a"><div class="ttname"><a href="structquicr_1_1_fetch_attributes.html#ac54793e24fd6f4a99db739412553393a">quicr::FetchAttributes::end_group</a></div><div class="ttdeci">uint64_t end_group</div><div class="ttdoc">Fetch final group in range.</div><div class="ttdef"><b>Definition</b> common.h:84</div></div>
 <div class="ttc" id="astructquicr_1_1_fetch_attributes_html_afb92946668b01be4b17c4f43f4398e2f"><div class="ttname"><a href="structquicr_1_1_fetch_attributes.html#afb92946668b01be4b17c4f43f4398e2f">quicr::FetchAttributes::priority</a></div><div class="ttdeci">uint8_t priority</div><div class="ttdoc">Fetch priority.</div><div class="ttdef"><b>Definition</b> common.h:80</div></div>
-<div class="ttc" id="astructquicr_1_1_min_max_avg_html_a6d61fe9d36b0defb038738e980ff6096"><div class="ttname"><a href="structquicr_1_1_min_max_avg.html#a6d61fe9d36b0defb038738e980ff6096">quicr::MinMaxAvg::avg</a></div><div class="ttdeci">uint64_t avg</div><div class="ttdoc">Maximum value in period.</div><div class="ttdef"><b>Definition</b> quic_transport_metrics.h:18</div></div>
-<div class="ttc" id="astructquicr_1_1_min_max_avg_html_ac20de44d1787802682cef6e241cb010b"><div class="ttname"><a href="structquicr_1_1_min_max_avg.html#ac20de44d1787802682cef6e241cb010b">quicr::MinMaxAvg::max</a></div><div class="ttdeci">uint64_t max</div><div class="ttdoc">Minimum value in period.</div><div class="ttdef"><b>Definition</b> quic_transport_metrics.h:17</div></div>
+<div class="ttc" id="astructquicr_1_1_full_track_name_html"><div class="ttname"><a href="structquicr_1_1_full_track_name.html">quicr::FullTrackName</a></div><div class="ttdoc">Full track name struct.</div><div class="ttdef"><b>Definition</b> track_name.h:267</div></div>
 <div class="ttc" id="astructquicr_1_1_object_headers_html"><div class="ttname"><a href="structquicr_1_1_object_headers.html">quicr::ObjectHeaders</a></div><div class="ttdoc">Object headers struct.</div><div class="ttdef"><b>Definition</b> object.h:32</div></div>
 <div class="ttc" id="astructquicr_1_1_object_headers_html_a544ac7b64c29d3adec1e76b4efefa5d5"><div class="ttname"><a href="structquicr_1_1_object_headers.html#a544ac7b64c29d3adec1e76b4efefa5d5">quicr::ObjectHeaders::object_id</a></div><div class="ttdeci">uint64_t object_id</div><div class="ttdoc">Object ID - Application defined order of generation.</div><div class="ttdef"><b>Definition</b> object.h:34</div></div>
 <div class="ttc" id="astructquicr_1_1_object_headers_html_a5f95043ef8044f6497e9eedc8cd20ff9"><div class="ttname"><a href="structquicr_1_1_object_headers.html#a5f95043ef8044f6497e9eedc8cd20ff9">quicr::ObjectHeaders::group_id</a></div><div class="ttdeci">uint64_t group_id</div><div class="ttdoc">Object group ID - Application defined order of generation.</div><div class="ttdef"><b>Definition</b> object.h:33</div></div>
@@ -892,16 +895,13 @@ $(function(){initNavTree('server_8cpp-example.html',''); initResizable(true); })
 <div class="ttc" id="astructquicr_1_1_publish_track_metrics_html_a7e0e7bf91f7f7ff1268bc05bda6d6639"><div class="ttname"><a href="structquicr_1_1_publish_track_metrics.html#a7e0e7bf91f7f7ff1268bc05bda6d6639">quicr::PublishTrackMetrics::quic</a></div><div class="ttdeci">struct quicr::PublishTrackMetrics::Quic quic</div></div>
 <div class="ttc" id="astructquicr_1_1_publish_track_metrics_html_aa00898861132cd32c0fc5a126300af6c"><div class="ttname"><a href="structquicr_1_1_publish_track_metrics.html#aa00898861132cd32c0fc5a126300af6c">quicr::PublishTrackMetrics::objects_published</a></div><div class="ttdeci">uint64_t objects_published</div><div class="ttdoc">count of objects published</div><div class="ttdef"><b>Definition</b> metrics.h:43</div></div>
 <div class="ttc" id="astructquicr_1_1_publish_track_metrics_html_ad54254b2933d1283ed2c5d88b46f3e4b"><div class="ttname"><a href="structquicr_1_1_publish_track_metrics.html#ad54254b2933d1283ed2c5d88b46f3e4b">quicr::PublishTrackMetrics::last_sample_time</a></div><div class="ttdeci">MetricsTimeStampUs last_sample_time</div><div class="ttdoc">Last sampled time in microseconds.</div><div class="ttdef"><b>Definition</b> metrics.h:40</div></div>
-<div class="ttc" id="astructquicr_1_1_quic_connection_metrics_html_a03a719d44de487ec1472514a3a463825"><div class="ttname"><a href="structquicr_1_1_quic_connection_metrics.html#a03a719d44de487ec1472514a3a463825">quicr::QuicConnectionMetrics::tx_rate_bps</a></div><div class="ttdeci">MinMaxAvg tx_rate_bps</div><div class="ttdoc">Rate in bits per second in period.</div><div class="ttdef"><b>Definition</b> quic_transport_metrics.h:74</div></div>
-<div class="ttc" id="astructquicr_1_1_quic_connection_metrics_html_a884a5230461f3f7024a81d4bccad033d"><div class="ttname"><a href="structquicr_1_1_quic_connection_metrics.html#a884a5230461f3f7024a81d4bccad033d">quicr::QuicConnectionMetrics::srtt_us</a></div><div class="ttdeci">MinMaxAvg srtt_us</div><div class="ttdoc">Smooth Round trip time in microseconds in period.</div><div class="ttdef"><b>Definition</b> quic_transport_metrics.h:79</div></div>
-<div class="ttc" id="astructquicr_1_1_quic_connection_metrics_html_aa3d73277c8ecce73416beb99a09d365b"><div class="ttname"><a href="structquicr_1_1_quic_connection_metrics.html#aa3d73277c8ecce73416beb99a09d365b">quicr::QuicConnectionMetrics::rtt_us</a></div><div class="ttdeci">MinMaxAvg rtt_us</div><div class="ttdoc">Round trip time in microseconds in period.</div><div class="ttdef"><b>Definition</b> quic_transport_metrics.h:78</div></div>
-<div class="ttc" id="astructquicr_1_1_quic_connection_metrics_html_ae8c463fa544b66d5c676744500062aee"><div class="ttname"><a href="structquicr_1_1_quic_connection_metrics.html#ae8c463fa544b66d5c676744500062aee">quicr::QuicConnectionMetrics::tx_lost_pkts</a></div><div class="ttdeci">uint64_t tx_lost_pkts</div><div class="ttdoc">Number of lost packets sent.</div><div class="ttdef"><b>Definition</b> quic_transport_metrics.h:82</div></div>
 <div class="ttc" id="astructquicr_1_1_server_1_1_announce_response_html_ac1d5dc562359c27e3223dbd389502d8fae69fa9a656f76dd8a4d89f21992b2d3a"><div class="ttname"><a href="structquicr_1_1_server_1_1_announce_response.html#ac1d5dc562359c27e3223dbd389502d8fae69fa9a656f76dd8a4d89f21992b2d3a">quicr::Server::AnnounceResponse::ReasonCode::kOk</a></div><div class="ttdeci">@ kOk</div></div>
 <div class="ttc" id="astructquicr_1_1_server_config_html"><div class="ttname"><a href="structquicr_1_1_server_config.html">quicr::ServerConfig</a></div><div class="ttdef"><b>Definition</b> config.h:27</div></div>
 <div class="ttc" id="astructquicr_1_1_server_config_html_a600aeb1938992178f439f50a73dec508"><div class="ttname"><a href="structquicr_1_1_server_config.html#a600aeb1938992178f439f50a73dec508">quicr::ServerConfig::server_bind_ip</a></div><div class="ttdeci">std::string server_bind_ip</div><div class="ttdef"><b>Definition</b> config.h:29</div></div>
 <div class="ttc" id="astructquicr_1_1_server_config_html_ad89c841e7e25fd909452b6d1550a4c78"><div class="ttname"><a href="structquicr_1_1_server_config.html#ad89c841e7e25fd909452b6d1550a4c78">quicr::ServerConfig::server_port</a></div><div class="ttdeci">uint16_t server_port</div><div class="ttdoc">Listening port for server.</div><div class="ttdef"><b>Definition</b> config.h:31</div></div>
 <div class="ttc" id="astructquicr_1_1_subscribe_attributes_html"><div class="ttname"><a href="structquicr_1_1_subscribe_attributes.html">quicr::SubscribeAttributes</a></div><div class="ttdoc">Subscribe attributes.</div><div class="ttdef"><b>Definition</b> common.h:32</div></div>
 <div class="ttc" id="astructquicr_1_1_subscribe_attributes_html_a68b01656e5373460714d09b33c2327c8"><div class="ttname"><a href="structquicr_1_1_subscribe_attributes.html#a68b01656e5373460714d09b33c2327c8">quicr::SubscribeAttributes::priority</a></div><div class="ttdeci">uint8_t priority</div><div class="ttdoc">Subscriber priority.</div><div class="ttdef"><b>Definition</b> common.h:33</div></div>
+<div class="ttc" id="astructquicr_1_1_track_hash_html"><div class="ttname"><a href="structquicr_1_1_track_hash.html">quicr::TrackHash</a></div><div class="ttdef"><b>Definition</b> track_name.h:274</div></div>
 </div><!-- fragment --> </div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->

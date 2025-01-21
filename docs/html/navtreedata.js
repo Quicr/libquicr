@@ -30,6 +30,7 @@ var NAVTREE =
       [ "Namespace List", "namespaces.html", "namespaces_dup" ],
       [ "Namespace Members", "namespacemembers.html", [
         [ "All", "namespacemembers.html", null ],
+        [ "Functions", "namespacemembers_func.html", null ],
         [ "Variables", "namespacemembers_vars.html", null ],
         [ "Typedefs", "namespacemembers_type.html", null ],
         [ "Enumerations", "namespacemembers_enum.html", null ]
@@ -40,10 +41,11 @@ var NAVTREE =
       [ "Class Index", "classes.html", null ],
       [ "Class Hierarchy", "hierarchy.html", "hierarchy" ],
       [ "Class Members", "functions.html", [
-        [ "All", "functions.html", null ],
+        [ "All", "functions.html", "functions_dup" ],
         [ "Functions", "functions_func.html", null ],
         [ "Variables", "functions_vars.html", null ],
-        [ "Enumerations", "functions_enum.html", null ]
+        [ "Enumerations", "functions_enum.html", null ],
+        [ "Related Symbols", "functions_rela.html", null ]
       ] ]
     ] ],
     [ "Files", "files.html", [
@@ -56,9 +58,9 @@ var NAVTREE =
 var NAVTREEINDEX =
 [
 "annotated.html",
-"classquicr_1_1_server.html#a87a3a77ca05c0fbce50d9dc99b2cf39c",
-"object_8h.html#a960fb04ec2c5b5aee1ff1b6b125ea4b3a2e641e4fabd9280a58fa4d0588994bd7",
-"structquicr_1_1_server_config.html#a600aeb1938992178f439f50a73dec508"
+"classquicr_1_1_publish_track_handler.html#a85d2310272db252df775a681cc8b8884",
+"classquicr_1_1_track_namespace.html#a902dd7805c5681780cfc05ebaf551ee5",
+"structquicr_1_1_client_setup_attributes.html"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronisation';

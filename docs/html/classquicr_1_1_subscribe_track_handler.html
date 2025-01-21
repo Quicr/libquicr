@@ -116,8 +116,11 @@ $(function(){initNavTree('classquicr_1_1_subscribe_track_handler.html',''); init
 Inheritance diagram for quicr::SubscribeTrackHandler:</div>
 <div class="dyncontent">
  <div class="center">
-  <img src="classquicr_1_1_subscribe_track_handler.png" alt=""/>
- </div></div>
+  <img src="classquicr_1_1_subscribe_track_handler.png" usemap="#quicr::SubscribeTrackHandler_map" alt=""/>
+  <map id="quicr::SubscribeTrackHandler_map" name="quicr::SubscribeTrackHandler_map">
+<area href="classquicr_1_1_fetch_track_handler.html" alt="quicr::FetchTrackHandler" shape="rect" coords="0,112,180,136"/>
+  </map>
+</div></div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-types" name="pub-types"></a>
 Public Types</h2></td></tr>
@@ -172,7 +175,7 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-static-methods" name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
-<tr class="memitem:aeb33df952461efa0b926022cab0cdf84" id="r_aeb33df952461efa0b926022cab0cdf84"><td class="memItemLeft" align="right" valign="top">static std::shared_ptr&lt; <a class="el" href="classquicr_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aeb33df952461efa0b926022cab0cdf84">Create</a> (const FullTrackName &amp;full_track_name, messages::ObjectPriority priority, messages::GroupOrder group_order=messages::GroupOrder::kAscending, messages::FilterType filter_type=messages::FilterType::LatestObject)</td></tr>
+<tr class="memitem:aeb33df952461efa0b926022cab0cdf84" id="r_aeb33df952461efa0b926022cab0cdf84"><td class="memItemLeft" align="right" valign="top">static std::shared_ptr&lt; <a class="el" href="classquicr_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aeb33df952461efa0b926022cab0cdf84">Create</a> (const <a class="el" href="structquicr_1_1_full_track_name.html">FullTrackName</a> &amp;full_track_name, messages::ObjectPriority priority, messages::GroupOrder group_order=messages::GroupOrder::kAscending, messages::FilterType filter_type=messages::FilterType::LatestObject)</td></tr>
 <tr class="memdesc:aeb33df952461efa0b926022cab0cdf84"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create shared Subscribe track handler.  <br /></td></tr>
 <tr class="separator:aeb33df952461efa0b926022cab0cdf84"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -184,7 +187,7 @@ Public Attributes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-methods" name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:a16654a9bfdce5e0490274c91a321b54c" id="r_a16654a9bfdce5e0490274c91a321b54c"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a16654a9bfdce5e0490274c91a321b54c">SubscribeTrackHandler</a> (const FullTrackName &amp;full_track_name, messages::ObjectPriority priority, messages::GroupOrder group_order, messages::FilterType filter_type)</td></tr>
+<tr class="memitem:a16654a9bfdce5e0490274c91a321b54c" id="r_a16654a9bfdce5e0490274c91a321b54c"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a16654a9bfdce5e0490274c91a321b54c">SubscribeTrackHandler</a> (const <a class="el" href="structquicr_1_1_full_track_name.html">FullTrackName</a> &amp;full_track_name, messages::ObjectPriority priority, messages::GroupOrder group_order, messages::FilterType filter_type)</td></tr>
 <tr class="memdesc:a16654a9bfdce5e0490274c91a321b54c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Subscribe track handler constructor.  <br /></td></tr>
 <tr class="separator:a16654a9bfdce5e0490274c91a321b54c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a360cc2e877f2b0ba9990283517fdae24" id="r_a360cc2e877f2b0ba9990283517fdae24"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a360cc2e877f2b0ba9990283517fdae24">SetStatus</a> (<a class="el" href="#a9de21a18d0ef99ddba39efc9833d74ee">Status</a> status) noexcept</td></tr>
@@ -275,7 +278,7 @@ Protected Member Functions</h2></td></tr>
         <tr>
           <td class="memname">quicr::SubscribeTrackHandler::SubscribeTrackHandler </td>
           <td>(</td>
-          <td class="paramtype">const FullTrackName &amp;</td>          <td class="paramname"><span class="paramname"><em>full_track_name</em></span>, </td>
+          <td class="paramtype">const <a class="el" href="structquicr_1_1_full_track_name.html">FullTrackName</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>full_track_name</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -323,7 +326,7 @@ Protected Member Functions</h2></td></tr>
         <tr>
           <td class="memname">static std::shared_ptr&lt; <a class="el" href="classquicr_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt; quicr::SubscribeTrackHandler::Create </td>
           <td>(</td>
-          <td class="paramtype">const FullTrackName &amp;</td>          <td class="paramname"><span class="paramname"><em>full_track_name</em></span>, </td>
+          <td class="paramtype">const <a class="el" href="structquicr_1_1_full_track_name.html">FullTrackName</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>full_track_name</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -543,7 +546,7 @@ Protected Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#a1">client.cpp</a>, and <a class="el" href="server_8cpp-example.html#a2">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#a2">client.cpp</a>, and <a class="el" href="server_8cpp-example.html#a3">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -652,7 +655,7 @@ Protected Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#a5">client.cpp</a>, and <a class="el" href="server_8cpp-example.html#a6">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#a6">client.cpp</a>, and <a class="el" href="server_8cpp-example.html#a7">server.cpp</a>.</dd>
 </dl>
 
 </div>

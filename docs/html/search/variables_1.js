@@ -1,5 +1,6 @@
 var searchData=
 [
-  ['bytes_5fpublished_0',['bytes_published',['../structquicr_1_1_publish_track_metrics.html#a1b904152d53e05c40a548bff30c2c68c',1,'quicr::PublishTrackMetrics']]],
-  ['bytes_5freceived_1',['bytes_received',['../structquicr_1_1_subscribe_track_metrics.html#a18832fd586cc5aeacdb762cc4e3b45b7',1,'quicr::SubscribeTrackMetrics']]]
+  ['cache_5f_0',['cache_',['../classquicr_1_1_cache.html#a60ba69bba93ea239506bdc773d4b8d4d',1,'quicr::Cache']]],
+  ['connect_5furi_1',['connect_uri',['../structquicr_1_1_client_config.html#aa6b0b5406607428025ea40d64f18d570',1,'quicr::ClientConfig']]],
+  ['current_5fticks_5f_2',['current_ticks_',['../classquicr_1_1_cache.html#a3914bc9a1e0fdc35b6b7b5695a5283e7',1,'quicr::Cache']]]
 ];

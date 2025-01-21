@@ -1,5 +1,20 @@
 var searchData=
 [
-  ['value_5fcount_0',['value_count',['../structquicr_1_1_min_max_avg.html#abf2ac3b00250d15cc0381d6f33d2e573',1,'quicr::MinMaxAvg']]],
-  ['value_5fsum_1',['value_sum',['../structquicr_1_1_min_max_avg.html#a8c0ab4e52358c7f533e4bb003a48336b',1,'quicr::MinMaxAvg']]]
+  ['tick_5fservice_5f_0',['tick_service_',['../classquicr_1_1_cache.html#a3563dc4f5acb690f394236b577b4f963',1,'quicr::Cache']]],
+  ['total_5fbuckets_5f_1',['total_buckets_',['../classquicr_1_1_cache.html#a0379c483f2c80fa069c4e475e01f59aa',1,'quicr::Cache']]],
+  ['track_5falias_2',['track_alias',['../structquicr_1_1_full_track_name.html#af7c1d969614152aa33f9ae75f722277b',1,'quicr::FullTrackName']]],
+  ['track_5ffullname_5fhash_3',['track_fullname_hash',['../structquicr_1_1_track_hash.html#a1271ba1dc6c5fce5781260ee714cd494',1,'quicr::TrackHash']]],
+  ['track_5fmode_4',['track_mode',['../structquicr_1_1_object_headers.html#aeee729438fd7cc851a0855a0a77e9374',1,'quicr::ObjectHeaders']]],
+  ['track_5fname_5fhash_5',['track_name_hash',['../structquicr_1_1_track_hash.html#a980f55b7266e85d8183f61ab2239a232',1,'quicr::TrackHash']]],
+  ['track_5fnamespace_5fhash_6',['track_namespace_hash',['../structquicr_1_1_track_hash.html#a2c1fb4ac9ccdb5841021e0b3881d8a39',1,'quicr::TrackHash']]],
+  ['transport_5fconfig_7',['transport_config',['../structquicr_1_1_config.html#ad8895576bc8e8fba62da81e6096c1aea',1,'quicr::Config']]],
+  ['ttl_8',['ttl',['../structquicr_1_1_object_headers.html#a9ff68528be30e2c5cf9968c90c154b4b',1,'quicr::ObjectHeaders']]],
+  ['tx_5fbuffer_5fdrops_9',['tx_buffer_drops',['../structquicr_1_1_publish_track_metrics_1_1_quic.html#a3515db816b3b8af4efaae2fde9d38ec4',1,'quicr::PublishTrackMetrics::Quic']]],
+  ['tx_5fcallback_5fms_10',['tx_callback_ms',['../structquicr_1_1_publish_track_metrics_1_1_quic.html#a6d75598637cb6a2c57127c3b5f26c9de',1,'quicr::PublishTrackMetrics::Quic']]],
+  ['tx_5fdelayed_5fcallback_11',['tx_delayed_callback',['../structquicr_1_1_publish_track_metrics_1_1_quic.html#a61ff2c2489148fb5297eb27b53287749',1,'quicr::PublishTrackMetrics::Quic']]],
+  ['tx_5fobject_5fduration_5fus_12',['tx_object_duration_us',['../structquicr_1_1_publish_track_metrics_1_1_quic.html#a035153e90eb912bf57a3726f3772fbe6',1,'quicr::PublishTrackMetrics::Quic']]],
+  ['tx_5fqueue_5fdiscards_13',['tx_queue_discards',['../structquicr_1_1_publish_track_metrics_1_1_quic.html#a44eac673c72811e9165a2cbd296e54a8',1,'quicr::PublishTrackMetrics::Quic']]],
+  ['tx_5fqueue_5fexpired_14',['tx_queue_expired',['../structquicr_1_1_publish_track_metrics_1_1_quic.html#a22d9e1f996d31c3ae1c29de4cd03b9f7',1,'quicr::PublishTrackMetrics::Quic']]],
+  ['tx_5fqueue_5fsize_15',['tx_queue_size',['../structquicr_1_1_publish_track_metrics_1_1_quic.html#a85c44647ddb7ba34458709822f3cc7d8',1,'quicr::PublishTrackMetrics::Quic']]],
+  ['tx_5freset_5fwait_16',['tx_reset_wait',['../structquicr_1_1_publish_track_metrics_1_1_quic.html#a735f0c7c5788a6e95561a78d2aa4cb4f',1,'quicr::PublishTrackMetrics::Quic']]]
 ];

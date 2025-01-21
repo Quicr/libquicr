@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['_7eclient_0',['~Client',['../classquicr_1_1_client.html#aedb5bdcf5c9b48209fe490325529aee8',1,'quicr::Client']]],
-  ['_7eserver_1',['~Server',['../classquicr_1_1_server.html#a3ee9c943cab9c6a57b7b7b11ed9e9b50',1,'quicr::Server']]],
-  ['_7etransport_2',['~Transport',['../classquicr_1_1_transport.html#a39559970251ec1c9dff25017c69297a7',1,'quicr::Transport']]]
+  ['resolveannounce_0',['ResolveAnnounce',['../classquicr_1_1_server.html#adb4668639df22b2690ec9add2627be6e',1,'quicr::Server']]],
+  ['resolvesubscribe_1',['ResolveSubscribe',['../classquicr_1_1_client.html#a7afb7804880b2bfa52318fd386afcc6b',1,'quicr::Client::ResolveSubscribe()'],['../classquicr_1_1_server.html#a3ff7b0e678b6f85140a9a6b8854ff450',1,'quicr::Server::ResolveSubscribe()']]]
 ];

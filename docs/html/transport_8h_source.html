@@ -114,7 +114,7 @@ $(function(){initNavTree('transport_8h_source.html',''); initResizable(true); })
 <div class="line"><a id="l00012" name="l00012"></a><span class="lineno">   12</span><span class="preprocessor">#include &lt;chrono&gt;</span></div>
 <div class="line"><a id="l00013" name="l00013"></a><span class="lineno">   13</span><span class="preprocessor">#include &lt;<a class="code" href="common_8h.html">quicr/common.h</a>&gt;</span></div>
 <div class="line"><a id="l00014" name="l00014"></a><span class="lineno">   14</span><span class="preprocessor">#include &lt;<a class="code" href="config_8h.html">quicr/config.h</a>&gt;</span></div>
-<div class="line"><a id="l00015" name="l00015"></a><span class="lineno">   15</span><span class="preprocessor">#include &lt;quicr/fetch_track_handler.h&gt;</span></div>
+<div class="line"><a id="l00015" name="l00015"></a><span class="lineno">   15</span><span class="preprocessor">#include &lt;<a class="code" href="fetch__track__handler_8h.html">quicr/fetch_track_handler.h</a>&gt;</span></div>
 <div class="line"><a id="l00016" name="l00016"></a><span class="lineno">   16</span><span class="preprocessor">#include &lt;<a class="code" href="metrics_8h.html">quicr/metrics.h</a>&gt;</span></div>
 <div class="line"><a id="l00017" name="l00017"></a><span class="lineno">   17</span><span class="preprocessor">#include &lt;<a class="code" href="publish__track__handler_8h.html">quicr/publish_track_handler.h</a>&gt;</span></div>
 <div class="line"><a id="l00018" name="l00018"></a><span class="lineno">   18</span><span class="preprocessor">#include &lt;<a class="code" href="subscribe__track__handler_8h.html">quicr/subscribe_track_handler.h</a>&gt;</span></div>
@@ -125,7 +125,8 @@ $(function(){initNavTree('transport_8h_source.html',''); initResizable(true); })
 <div class="line"><a id="l00023" name="l00023"></a><span class="lineno">   23</span><span class="preprocessor">#include &lt;string&gt;</span></div>
 <div class="line"><a id="l00024" name="l00024"></a><span class="lineno">   24</span><span class="preprocessor">#include &lt;string_view&gt;</span></div>
 <div class="line"><a id="l00025" name="l00025"></a><span class="lineno">   25</span> </div>
-<div class="line"><a id="l00026" name="l00026"></a><span class="lineno">   26</span><span class="keyword">namespace </span><a class="code hl_namespace" href="namespacequicr.html">quicr</a> {</div>
+<div class="foldopen" id="foldopen00026" data-start="{" data-end="}">
+<div class="line"><a id="l00026" name="l00026"></a><span class="lineno"><a class="line" href="namespacequicr.html">   26</a></span><span class="keyword">namespace </span><a class="code hl_namespace" href="namespacequicr.html">quicr</a> {</div>
 <div class="line"><a id="l00027" name="l00027"></a><span class="lineno">   27</span> </div>
 <div class="foldopen" id="foldopen00033" data-start="{" data-end="};">
 <div class="line"><a id="l00033" name="l00033"></a><span class="lineno"><a class="line" href="classquicr_1_1_transport.html">   33</a></span>    <span class="keyword">class </span><a class="code hl_class" href="classquicr_1_1_transport.html">Transport</a> : <span class="keyword">public</span> ITransport::TransportDelegate</div>
@@ -244,12 +245,12 @@ $(function(){initNavTree('transport_8h_source.html',''); initResizable(true); })
 <div class="line"><a id="l00222" name="l00222"></a><span class="lineno">  222</span> </div>
 <div class="line"><a id="l00223" name="l00223"></a><span class="lineno">  223</span>        <span class="keywordtype">void</span> OnConnectionMetricsSampled(MetricsTimeStamp sample_time,</div>
 <div class="line"><a id="l00224" name="l00224"></a><span class="lineno">  224</span>                                        TransportConnId conn_id,</div>
-<div class="line"><a id="l00225" name="l00225"></a><span class="lineno">  225</span>                                        <span class="keyword">const</span> <a class="code hl_struct" href="structquicr_1_1_quic_connection_metrics.html">QuicConnectionMetrics</a>&amp; quic_connection_metrics) <span class="keyword">override</span>;</div>
+<div class="line"><a id="l00225" name="l00225"></a><span class="lineno">  225</span>                                        <span class="keyword">const</span> QuicConnectionMetrics&amp; quic_connection_metrics) <span class="keyword">override</span>;</div>
 <div class="line"><a id="l00226" name="l00226"></a><span class="lineno">  226</span> </div>
 <div class="line"><a id="l00227" name="l00227"></a><span class="lineno">  227</span>        <span class="keywordtype">void</span> OnDataMetricsStampled(MetricsTimeStamp sample_time,</div>
 <div class="line"><a id="l00228" name="l00228"></a><span class="lineno">  228</span>                                   TransportConnId conn_id,</div>
 <div class="line"><a id="l00229" name="l00229"></a><span class="lineno">  229</span>                                   DataContextId data_ctx_id,</div>
-<div class="line"><a id="l00230" name="l00230"></a><span class="lineno">  230</span>                                   <span class="keyword">const</span> <a class="code hl_struct" href="structquicr_1_1_quic_data_context_metrics.html">QuicDataContextMetrics</a>&amp; quic_data_context_metrics) <span class="keyword">override</span>;</div>
+<div class="line"><a id="l00230" name="l00230"></a><span class="lineno">  230</span>                                   <span class="keyword">const</span> QuicDataContextMetrics&amp; quic_data_context_metrics) <span class="keyword">override</span>;</div>
 <div class="line"><a id="l00231" name="l00231"></a><span class="lineno">  231</span> </div>
 <div class="line"><a id="l00232" name="l00232"></a><span class="lineno">  232</span>        <span class="comment">// -------------------------------------------------------------------------------------------------</span></div>
 <div class="line"><a id="l00233" name="l00233"></a><span class="lineno">  233</span>        <span class="comment">// End of transport handler/callback functions</span></div>
@@ -415,6 +416,7 @@ $(function(){initNavTree('transport_8h_source.html',''); initResizable(true); })
 </div>
 <div class="line"><a id="l00398" name="l00398"></a><span class="lineno">  398</span> </div>
 <div class="line"><a id="l00399" name="l00399"></a><span class="lineno">  399</span>} <span class="comment">// namespace quicr</span></div>
+</div>
 <div class="ttc" id="aclassquicr_1_1_client_html"><div class="ttname"><a href="classquicr_1_1_client.html">quicr::Client</a></div><div class="ttdoc">MoQ Client.</div><div class="ttdef"><b>Definition</b> client.h:21</div></div>
 <div class="ttc" id="aclassquicr_1_1_publish_track_handler_html_af4b42f9237fde47f666b9360ae337654"><div class="ttname"><a href="classquicr_1_1_publish_track_handler.html#af4b42f9237fde47f666b9360ae337654">quicr::PublishTrackHandler::PublishObjectStatus</a></div><div class="ttdeci">PublishObjectStatus</div><div class="ttdoc">Publish status codes.</div><div class="ttdef"><b>Definition</b> publish_track_handler.h:28</div></div>
 <div class="ttc" id="aclassquicr_1_1_server_html"><div class="ttname"><a href="classquicr_1_1_server.html">quicr::Server</a></div><div class="ttdoc">MoQ Server.</div><div class="ttdef"><b>Definition</b> server.h:21</div></div>
@@ -456,14 +458,13 @@ $(function(){initNavTree('transport_8h_source.html',''); initResizable(true); })
 <div class="ttc" id="aclassquicr_1_1_transport_html_af6b023296dcd922a3e590753aaa97bb3"><div class="ttname"><a href="classquicr_1_1_transport.html#af6b023296dcd922a3e590753aaa97bb3">quicr::Transport::StatusChanged</a></div><div class="ttdeci">virtual void StatusChanged(Status status)</div><div class="ttdoc">Callback notification for status/state change.</div><div class="ttdef"><b>Definition</b> transport.h:196</div></div>
 <div class="ttc" id="acommon_8h_html"><div class="ttname"><a href="common_8h.html">common.h</a></div></div>
 <div class="ttc" id="aconfig_8h_html"><div class="ttname"><a href="config_8h.html">config.h</a></div></div>
+<div class="ttc" id="afetch__track__handler_8h_html"><div class="ttname"><a href="fetch__track__handler_8h.html">fetch_track_handler.h</a></div></div>
 <div class="ttc" id="ametrics_8h_html"><div class="ttname"><a href="metrics_8h.html">metrics.h</a></div></div>
-<div class="ttc" id="anamespacequicr_html"><div class="ttname"><a href="namespacequicr.html">quicr</a></div><div class="ttdef"><b>Definition</b> common.h:9</div></div>
+<div class="ttc" id="anamespacequicr_html"><div class="ttname"><a href="namespacequicr.html">quicr</a></div><div class="ttdef"><b>Definition</b> transport.h:26</div></div>
 <div class="ttc" id="anamespacequicr_html_ae1ac30988d32dc3d91fb37721fa99dcb"><div class="ttname"><a href="namespacequicr.html#ae1ac30988d32dc3d91fb37721fa99dcb">quicr::BytesSpan</a></div><div class="ttdeci">Span&lt; const Byte &gt; BytesSpan</div><div class="ttdef"><b>Definition</b> common.h:23</div></div>
 <div class="ttc" id="anamespacequicr_html_ae332e51a43d09ae0300bd16654d671fc"><div class="ttname"><a href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">quicr::ConnectionHandle</a></div><div class="ttdeci">uint64_t ConnectionHandle</div><div class="ttdef"><b>Definition</b> common.h:24</div></div>
 <div class="ttc" id="apublish__track__handler_8h_html"><div class="ttname"><a href="publish__track__handler_8h.html">publish_track_handler.h</a></div></div>
 <div class="ttc" id="astructquicr_1_1_client_config_html"><div class="ttname"><a href="structquicr_1_1_client_config.html">quicr::ClientConfig</a></div><div class="ttdef"><b>Definition</b> config.h:22</div></div>
-<div class="ttc" id="astructquicr_1_1_quic_connection_metrics_html"><div class="ttname"><a href="structquicr_1_1_quic_connection_metrics.html">quicr::QuicConnectionMetrics</a></div><div class="ttdef"><b>Definition</b> quic_transport_metrics.h:68</div></div>
-<div class="ttc" id="astructquicr_1_1_quic_data_context_metrics_html"><div class="ttname"><a href="structquicr_1_1_quic_data_context_metrics.html">quicr::QuicDataContextMetrics</a></div><div class="ttdef"><b>Definition</b> quic_transport_metrics.h:130</div></div>
 <div class="ttc" id="astructquicr_1_1_server_config_html"><div class="ttname"><a href="structquicr_1_1_server_config.html">quicr::ServerConfig</a></div><div class="ttdef"><b>Definition</b> config.h:27</div></div>
 <div class="ttc" id="astructquicr_1_1_transport_1_1_connection_remote_info_html"><div class="ttname"><a href="structquicr_1_1_transport_1_1_connection_remote_info.html">quicr::Transport::ConnectionRemoteInfo</a></div><div class="ttdoc">Connection remote information.</div><div class="ttdef"><b>Definition</b> transport.h:89</div></div>
 <div class="ttc" id="astructquicr_1_1_transport_1_1_connection_remote_info_html_a117951c4753ffee482f2b52629137d0d"><div class="ttname"><a href="structquicr_1_1_transport_1_1_connection_remote_info.html#a117951c4753ffee482f2b52629137d0d">quicr::Transport::ConnectionRemoteInfo::ip</a></div><div class="ttdeci">std::string ip</div><div class="ttdoc">remote IPv4/v6 address</div><div class="ttdef"><b>Definition</b> transport.h:90</div></div>

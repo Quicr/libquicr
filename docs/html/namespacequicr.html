@@ -102,6 +102,7 @@ $(function(){initNavTree('namespacequicr.html',''); initResizable(true); });
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#typedef-members">Typedefs</a> &#124;
 <a href="#enum-members">Enumerations</a> &#124;
+<a href="#func-members">Functions</a> &#124;
 <a href="#var-members">Variables</a>  </div>
   <div class="headertitle"><div class="title">quicr Namespace Reference</div></div>
 </div><!--header-->
@@ -114,6 +115,8 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="nested-classes" name="nested-classes"></a>
 Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_cache.html">Cache</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_client.html">Client</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">MoQ <a class="el" href="classquicr_1_1_client.html" title="MoQ Client.">Client</a>.  <a href="classquicr_1_1_client.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -129,7 +132,10 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1_fetch_attributes.html">FetchAttributes</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Fetch attributes.  <a href="structquicr_1_1_fetch_attributes.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1_min_max_avg.html">MinMaxAvg</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_fetch_track_handler.html">FetchTrackHandler</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1_full_track_name.html">FullTrackName</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Full track name struct.  <a href="structquicr_1_1_full_track_name.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1_object_headers.html">ObjectHeaders</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Object headers struct.  <a href="structquicr_1_1_object_headers.html#details">More...</a><br /></td></tr>
@@ -141,10 +147,6 @@ Classes</h2></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">MOQ track handler for published track.  <a href="classquicr_1_1_publish_track_handler.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1_publish_track_metrics.html">PublishTrackMetrics</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1_quic_connection_metrics.html">QuicConnectionMetrics</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1_quic_data_context_metrics.html">QuicDataContextMetrics</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_server.html">Server</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">MoQ <a class="el" href="classquicr_1_1_server.html" title="MoQ Server.">Server</a>.  <a href="classquicr_1_1_server.html#details">More...</a><br /></td></tr>
@@ -162,8 +164,15 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1_subscribe_track_metrics.html">SubscribeTrackMetrics</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1_track_hash.html">TrackHash</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_track_namespace.html">TrackNamespace</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">An N-tuple representation of a MOQ namespace.  <a href="classquicr_1_1_track_namespace.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_transport.html">Transport</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">MOQ Implementation supporting both client and server modes.  <a href="classquicr_1_1_transport.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_uint_var.html">UintVar</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="typedef-members" name="typedef-members"></a>
@@ -181,6 +190,12 @@ Typedefs</h2></td></tr>
 <tr class="separator:a40bbec8f57f3e736978aa38e4d015b26"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a46df09228d12c1aa95c59315dc0dd30c" id="r_a46df09228d12c1aa95c59315dc0dd30c"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a46df09228d12c1aa95c59315dc0dd30c">Extensions</a> = std::map&lt;uint64_t, std::vector&lt;uint8_t&gt;&gt;</td></tr>
 <tr class="separator:a46df09228d12c1aa95c59315dc0dd30c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a52160249bd8abca985a330c86a98dcac" id="r_a52160249bd8abca985a330c86a98dcac"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a52160249bd8abca985a330c86a98dcac">TrackNamespaceHash</a> = uint64_t</td></tr>
+<tr class="separator:a52160249bd8abca985a330c86a98dcac"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1f13bc1ff5cc5d53c509bb70d615033b" id="r_a1f13bc1ff5cc5d53c509bb70d615033b"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a1f13bc1ff5cc5d53c509bb70d615033b">TrackNameHash</a> = uint64_t</td></tr>
+<tr class="separator:a1f13bc1ff5cc5d53c509bb70d615033b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4fd573f9e5aafc0b8c99ec5c0651f271" id="r_a4fd573f9e5aafc0b8c99ec5c0651f271"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4fd573f9e5aafc0b8c99ec5c0651f271">TrackFullNameHash</a> = uint64_t</td></tr>
+<tr class="separator:a4fd573f9e5aafc0b8c99ec5c0651f271"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="enum-members" name="enum-members"></a>
 Enumerations</h2></td></tr>
@@ -207,6 +222,12 @@ Enumerations</h2></td></tr>
  }</td></tr>
 <tr class="memdesc:a960fb04ec2c5b5aee1ff1b6b125ea4b3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Status of object as reported by the publisher.  <a href="#a960fb04ec2c5b5aee1ff1b6b125ea4b3">More...</a><br /></td></tr>
 <tr class="separator:a960fb04ec2c5b5aee1ff1b6b125ea4b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="func-members" name="func-members"></a>
+Functions</h2></td></tr>
+<tr class="memitem:afcf7c03b4c5ee148ada6150e15bd696a" id="r_afcf7c03b4c5ee148ada6150e15bd696a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#afcf7c03b4c5ee148ada6150e15bd696a">hash_combine</a> (uint64_t &amp;existing_hash, const uint64_t &amp;add_hash)</td></tr>
+<tr class="memdesc:afcf7c03b4c5ee148ada6150e15bd696a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Combine (aka add) hash to existing hash.  <br /></td></tr>
+<tr class="separator:afcf7c03b4c5ee148ada6150e15bd696a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="var-members" name="var-members"></a>
 Variables</h2></td></tr>
@@ -309,6 +330,48 @@ Variables</h2></td></tr>
 
 </div>
 </div>
+<a id="a4fd573f9e5aafc0b8c99ec5c0651f271" name="a4fd573f9e5aafc0b8c99ec5c0651f271"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4fd573f9e5aafc0b8c99ec5c0651f271">&#9670;&#160;</a></span>TrackFullNameHash</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="#a4fd573f9e5aafc0b8c99ec5c0651f271">quicr::TrackFullNameHash</a> = uint64_t</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1f13bc1ff5cc5d53c509bb70d615033b" name="a1f13bc1ff5cc5d53c509bb70d615033b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1f13bc1ff5cc5d53c509bb70d615033b">&#9670;&#160;</a></span>TrackNameHash</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="#a1f13bc1ff5cc5d53c509bb70d615033b">quicr::TrackNameHash</a> = uint64_t</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a52160249bd8abca985a330c86a98dcac" name="a52160249bd8abca985a330c86a98dcac"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a52160249bd8abca985a330c86a98dcac">&#9670;&#160;</a></span>TrackNamespaceHash</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="#a52160249bd8abca985a330c86a98dcac">quicr::TrackNamespaceHash</a> = uint64_t</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <h2 class="groupheader">Enumeration Type Documentation</h2>
 <a id="a960fb04ec2c5b5aee1ff1b6b125ea4b3" name="a960fb04ec2c5b5aee1ff1b6b125ea4b3"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a960fb04ec2c5b5aee1ff1b6b125ea4b3">&#9670;&#160;</a></span>ObjectStatus</h2>
@@ -371,6 +434,46 @@ Variables</h2></td></tr>
 <tr><td class="fieldname"><a id="af82eff7adbcd82b21179868efb55d3f1a6473b74b448bc158ffb66542042c88b3" name="af82eff7adbcd82b21179868efb55d3f1a6473b74b448bc158ffb66542042c88b3"></a>kSendingUnannounce&#160;</td><td class="fielddoc"><p>In this state, callbacks will not be called. </p>
 </td></tr>
 </table>
+
+</div>
+</div>
+<h2 class="groupheader">Function Documentation</h2>
+<a id="afcf7c03b4c5ee148ada6150e15bd696a" name="afcf7c03b4c5ee148ada6150e15bd696a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afcf7c03b4c5ee148ada6150e15bd696a">&#9670;&#160;</a></span>hash_combine()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void quicr::hash_combine </td>
+          <td>(</td>
+          <td class="paramtype">uint64_t &amp;</td>          <td class="paramname"><span class="paramname"><em>existing_hash</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const uint64_t &amp;</td>          <td class="paramname"><span class="paramname"><em>add_hash</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Combine (aka add) hash to existing hash. </p>
+<p>Adds/combines new hash to existing hash. Existing hash will be updated.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[in,out]</td><td class="paramname">existing_hash</td><td>Existing hash to update </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">add_hash</td><td>New hash to add to the existing (combine) </td></tr>
+  </table>
+  </dd>
+</dl>
 
 </div>
 </div>

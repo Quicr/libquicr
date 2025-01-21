@@ -1,12 +1,11 @@
 var searchData=
 [
-  ['server_5fbind_5fip_0',['server_bind_ip',['../structquicr_1_1_server_config.html#a600aeb1938992178f439f50a73dec508',1,'quicr::ServerConfig']]],
-  ['server_5fid_1',['server_id',['../structquicr_1_1_server_setup_attributes.html#a116f11c71bc25805ff006a802a961405',1,'quicr::ServerSetupAttributes']]],
-  ['server_5fport_2',['server_port',['../structquicr_1_1_server_config.html#ad89c841e7e25fd909452b6d1550a4c78',1,'quicr::ServerConfig']]],
-  ['srtt_5fus_3',['srtt_us',['../structquicr_1_1_quic_connection_metrics.html#a884a5230461f3f7024a81d4bccad033d',1,'quicr::QuicConnectionMetrics']]],
-  ['start_5fgroup_4',['start_group',['../structquicr_1_1_fetch_attributes.html#a3ff6b61725d430e5f29c63ac59f66fb1',1,'quicr::FetchAttributes']]],
-  ['start_5fobject_5',['start_object',['../structquicr_1_1_fetch_attributes.html#ad027ab230dc357065e839c9846b85f7e',1,'quicr::FetchAttributes']]],
-  ['status_6',['status',['../structquicr_1_1_object_headers.html#a38b64b96be4f439f8d9b9abc83f799a3',1,'quicr::ObjectHeaders']]],
-  ['subgroup_5fid_7',['subgroup_id',['../structquicr_1_1_object_headers.html#a05928bdabd0ac8c294486dba35099d18',1,'quicr::ObjectHeaders']]],
-  ['subscribe_5ftrack_5fmetrics_5f_8',['subscribe_track_metrics_',['../classquicr_1_1_subscribe_track_handler.html#a5e07af66c3912bd4bfcdfdc6b97abb55',1,'quicr::SubscribeTrackHandler']]]
+  ['reason_5fcode_0',['reason_code',['../structquicr_1_1_server_1_1_announce_response.html#aebfddf29f5b1efc4a59aa7423cb64ff4',1,'quicr::Server::AnnounceResponse']]],
+  ['reason_5fphrase_1',['reason_phrase',['../structquicr_1_1_server_1_1_announce_response.html#a9ed47be776f4477b7886b80ca4b0bc5f',1,'quicr::Server::AnnounceResponse']]],
+  ['rx_5fdgram_5fdecode_5ffailed_2',['rx_dgram_decode_failed',['../structquicr_1_1_connection_metrics.html#aa41dd17da9c845e2031b88dad1328336',1,'quicr::ConnectionMetrics']]],
+  ['rx_5fdgram_5finvalid_5ftype_3',['rx_dgram_invalid_type',['../structquicr_1_1_connection_metrics.html#a74057c71e8d078e6bf6febfea7ff71e6',1,'quicr::ConnectionMetrics']]],
+  ['rx_5fdgram_5funknown_5fsubscribe_5fid_4',['rx_dgram_unknown_subscribe_id',['../structquicr_1_1_connection_metrics.html#a63860450d74a7a4841689d972701d112',1,'quicr::ConnectionMetrics']]],
+  ['rx_5fstream_5fbuffer_5ferror_5',['rx_stream_buffer_error',['../structquicr_1_1_connection_metrics.html#a0faee37fb3befa1cb9d639d886eb7047',1,'quicr::ConnectionMetrics']]],
+  ['rx_5fstream_5finvalid_5ftype_6',['rx_stream_invalid_type',['../structquicr_1_1_connection_metrics.html#ae7e15aedb1af98ddaef4ad8125c4de40',1,'quicr::ConnectionMetrics']]],
+  ['rx_5fstream_5funknown_5fsubscribe_5fid_7',['rx_stream_unknown_subscribe_id',['../structquicr_1_1_connection_metrics.html#a3392bbf0637c27b90eafb2d3ff213c4c',1,'quicr::ConnectionMetrics']]]
 ];
