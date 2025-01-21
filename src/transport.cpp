@@ -1230,7 +1230,7 @@ namespace quicr {
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
                 if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
                     conn_ctx.metrics.rx_dgram_unknown_subscribe_id++;
-                    SPDLOG_LOGGER_ERROR(
+                    SPDLOG_LOGGER_DEBUG(
                       logger_,
                       "Received stream_header_subgroup to unknown subscribe track subscribe_id: {0}, ignored",
                       msg.subscribe_id);
