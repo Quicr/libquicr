@@ -125,16 +125,17 @@ namespace quicr {
                                                 uint64_t object_id,
                                                 std::optional<Extensions> extensions,
                                                 Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
+            auto th = weak_track_handler.lock();
+            if (!th) {
+                return PublishTrackHandler::PublishObjectStatus::kInternalError;
+            }
+
             if (cb) {
                 cb(priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
             }
 
-            if (auto th = weak_track_handler.lock()) {
-                return SendObject(
-                  *th, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
-            }
-
-            return PublishTrackHandler::PublishObjectStatus::kInternalError;
+            return SendObject(
+              *th, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
         };
 
         if (!ephemeral) {
