@@ -204,7 +204,7 @@ namespace quicr {
         void PushLengthBytes(Span<const T> value)
         {
             std::lock_guard _(rw_lock_);
-            PushInternal(Span{ UintVar(static_cast<uint64_t>(value.size())) });
+            PushInternal(Span<const uint8_t>{ UintVar(static_cast<uint64_t>(value.size())) });
             PushInternal(std::move(value));
         }
 

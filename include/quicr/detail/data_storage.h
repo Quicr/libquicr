@@ -14,13 +14,13 @@ namespace quicr {
     template<class T, std::enable_if_t<std::is_standard_layout_v<T>, bool> = true>
     inline Span<const uint8_t> AsBytes(const T& value)
     {
-        return Span{ reinterpret_cast<const std::uint8_t*>(&value), sizeof(T) };
+        return Span<const uint8_t>{ reinterpret_cast<const std::uint8_t*>(&value), sizeof(T) };
     }
 
     template<>
     inline Span<const uint8_t> AsBytes<std::string>(const std::string& value)
     {
-        return Span{ reinterpret_cast<const std::uint8_t*>(value.data()), value.size() };
+        return Span<const uint8_t>{ reinterpret_cast<const std::uint8_t*>(value.data()), value.size() };
     }
 
     template<class Allocator = std::allocator<std::uint8_t>>
