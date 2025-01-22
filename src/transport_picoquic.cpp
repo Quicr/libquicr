@@ -166,7 +166,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
             }
 
             if (auto conn_ctx = transport->GetConnContext(conn_id)) {
-                transport->OnRecvStreamBytes(conn_ctx, data_ctx, stream_id, Span{ bytes, length });
+                transport->OnRecvStreamBytes(conn_ctx, data_ctx, stream_id, Span<const uint8_t>{ bytes, length });
 
                 if (is_fin) {
                     SPDLOG_LOGGER_DEBUG(transport->logger, "Received FIN for stream {0}", stream_id);
@@ -1372,7 +1372,7 @@ PicoQuicTransport::OnRecvDatagram(ConnectionContext* conn_ctx, uint8_t* bytes, s
     }
 
 #if __cplusplus >= 202002L
-    if (conn_ctx->dgram_rx_data->Size() < 10 && !_cbNotifyQueue.Push([=, this]() {
+    if (conn_ctx->dgram_rx_data->Size() < 10 && !cbNotifyQueue_.Push([=, this]() {
 #else
     if (conn_ctx->dgram_rx_data->Size() < 10 && !cbNotifyQueue_.Push([=]() {
 #endif

@@ -123,7 +123,7 @@ namespace quicr {
         std::atomic<bool> stop_{ false };
 
         /// Sleep delay in microseconds
-        const uint64_t sleep_delay_us_{ 10000 };
+        const uint64_t sleep_delay_us_{ 30000 };
 
         /// The thread to update ticks on.
         std::thread tick_thread_;
