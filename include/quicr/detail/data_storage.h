@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <deque>
 #include <vector>
 
 namespace quicr {
@@ -86,7 +87,7 @@ namespace quicr {
 
       protected:
         using SliceType = std::shared_ptr<std::vector<uint8_t, Allocator>>;
-        using BufferType = std::vector<SliceType>;
+        using BufferType = std::deque<SliceType>;
 
         DataStorage() = default;
 
@@ -110,6 +111,7 @@ namespace quicr {
 
         const SliceType& First() const noexcept { return *(this->begin()); }
         const SliceType& Last() const noexcept { return *std::prev(this->end()); }
+        const SliceType GetLast() const noexcept { return *std::prev(this->end()); }
 
         void Push(Span<const uint8_t> bytes)
         {

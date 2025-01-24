@@ -364,14 +364,14 @@ namespace quicr {
         virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes) = 0;
 
         bool ProcessStreamDataMessage(ConnectionContext& conn_ctx,
-                                      std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer);
+                                      StreamBuffer<uint8_t>& stream_buffer);
 
         template<class MessageType>
-        std::pair<MessageType&, bool> ParseDataMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
+        std::pair<MessageType&, bool> ParseDataMessage(StreamBuffer<uint8_t>& stream_buffer,
                                                        messages::DataMessageType msg_type);
 
         template<class HeaderType, class MessageType>
-        std::pair<HeaderType&, bool> ParseStreamData(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
+        std::pair<HeaderType&, bool> ParseStreamData(StreamBuffer<uint8_t>& stream_buffer,
                                                      messages::DataMessageType msg_type);
 
       private:

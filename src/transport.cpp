@@ -164,8 +164,13 @@ namespace quicr {
             return;
         }
 
-        quic_transport_->Enqueue(
-          conn_ctx.connection_handle, *conn_ctx.ctrl_data_ctx_id, data, 0, 2000, 0, { true, false, false, false });
+        quic_transport_->Enqueue(conn_ctx.connection_handle,
+                                 *conn_ctx.ctrl_data_ctx_id,
+                                 std::make_shared<const std::vector<uint8_t>>(data.begin(), data.end()),
+                                 0,
+                                 2000,
+                                 0,
+                                 { true, false, false, false });
     }
 
     void Transport::SendClientSetup()
@@ -825,7 +830,8 @@ namespace quicr {
 
         quic_transport_->Enqueue(track_handler.connection_handle_,
                                  track_handler.publish_data_ctx_id_,
-                                 track_handler.object_msg_buffer_,
+                                 std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
+                                                                        track_handler.object_msg_buffer_.end()),
                                  priority,
                                  ttl,
                                  0,
@@ -966,13 +972,8 @@ namespace quicr {
                                  uint64_t stream_id,
                                  std::optional<DataContextId> data_ctx_id,
                                  const bool is_bidir)
-    {
-        auto stream_buf = quic_transport_->GetStreamBuffer(conn_id, stream_id);
-        if (stream_buf == nullptr) {
-            return;
-        }
-
-        // TODO(tievens): Considering moving lock to here... std::lock_guard<std::mutex> _(state_mutex_);
+    try {
+        auto& rx_ctx = quic_transport_->GetStreamRxContext(conn_id, stream_id);
 
         auto& conn_ctx = connections_[conn_id];
 
@@ -985,6 +986,23 @@ namespace quicr {
             conn_ctx.ctrl_data_ctx_id = data_ctx_id;
         }
 
+        if (not rx_ctx.caller_any.has_value()) {
+            rx_ctx.caller_any.emplace<StreamBuffer<uint8_t>>();
+        }
+
+        auto & stream_buf = std::any_cast<StreamBuffer<uint8_t>&>(rx_ctx.caller_any);
+
+        // TODO(tievens): Pipeline forwarded
+        for (int i=0; i < 100; i++) {
+            if (not rx_ctx.data_queue.Empty()) {
+                if (auto item = rx_ctx.data_queue.Pop()) {
+                    stream_buf.Push(*item.value());
+                }
+            } else {
+                break;;
+            }
+        }
+
         /*
          * Loop many times to continue to read objects. This loop should only continue if the current object is read and
          * has been completed and there is more data. If there isn't enough data to parse the message, the loop should
@@ -993,14 +1011,14 @@ namespace quicr {
          * should be provided.
          */
         for (int i = 0; i < kReadLoopMaxPerStream; i++) { // don't loop forever, especially on bad stream
-            if (stream_buf->Empty()) {
+            if (stream_buf.Empty()) {
                 break;
             }
 
             // bidir is Control stream, data streams are unidirectional
             if (is_bidir) {
                 if (not conn_ctx.ctrl_msg_type_received.has_value()) {
-                    auto msg_type = stream_buf->DecodeUintV();
+                    auto msg_type = stream_buf.DecodeUintV();
 
                     if (msg_type.has_value()) {
                         conn_ctx.ctrl_msg_type_received = static_cast<ControlMessageType>(*msg_type);
@@ -1009,7 +1027,7 @@ namespace quicr {
                     }
                 }
 
-                if (auto msg_bytes = stream_buf->DecodeBytes(); msg_bytes != std::nullopt) {
+                if (auto msg_bytes = stream_buf.DecodeBytes(); msg_bytes != std::nullopt) {
                     if (ProcessCtrlMessage(conn_ctx, *msg_bytes)) {
                         conn_ctx.ctrl_msg_type_received = std::nullopt; // Clear current type now that it's complete
                     } else {
@@ -1027,6 +1045,8 @@ namespace quicr {
                 }
             }
         }
+    } catch (TransportError &e) {
+        // TODO(tievens): Add metrics to track if this happens
     }
 
     void Transport::OnRecvDgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id)
@@ -1034,9 +1054,9 @@ namespace quicr {
         MoqObjectDatagram object_datagram_out;
         for (int i = 0; i < kReadLoopMaxPerStream; i++) {
             auto data = quic_transport_->Dequeue(conn_id, data_ctx_id);
-            if (data.has_value() && !data->empty()) {
+            if (data.has_value() && !data.value()->empty()) {
                 StreamBuffer<uint8_t> buffer;
-                buffer.Push(data.value());
+                buffer.Push(*data.value());
 
                 auto msg_type = buffer.DecodeUintV();
                 if (!msg_type || static_cast<DataMessageType>(*msg_type) != DataMessageType::OBJECT_DATAGRAM) {
@@ -1197,9 +1217,9 @@ namespace quicr {
     }
 
     bool Transport::ProcessStreamDataMessage(ConnectionContext& conn_ctx,
-                                             std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer)
+                                             StreamBuffer<uint8_t>& stream_buffer)
     {
-        if (stream_buffer->Empty()) { // should never happen
+        if (stream_buffer.Empty()) { // should never happen
             conn_ctx.metrics.rx_stream_buffer_error++;
             SPDLOG_LOGGER_DEBUG(logger_, "Stream buffer cannot be zero when parsing message type, bad stream");
 
@@ -1209,13 +1229,13 @@ namespace quicr {
         // Header not set, get the header for this stream or datagram
         DataMessageType data_type;
 
-        auto dt = stream_buffer->GetAnyType();
+        auto dt = stream_buffer.GetAnyType();
         if (dt.has_value()) {
             data_type = static_cast<DataMessageType>(*dt);
         } else {
-            auto val = stream_buffer->DecodeUintV();
+            auto val = stream_buffer.DecodeUintV();
             data_type = static_cast<DataMessageType>(*val);
-            stream_buffer->SetAnyType(*val);
+            stream_buffer.SetAnyType(*val);
         }
 
         switch (data_type) {
@@ -1236,12 +1256,12 @@ namespace quicr {
                       msg.subscribe_id);
 
                     // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
-                    stream_buffer->ResetAnyB<MoqStreamSubGroupObject>();
+                    stream_buffer.ResetAnyB<MoqStreamSubGroupObject>();
                     return true;
                 }
 
-                auto& obj = stream_buffer->GetAnyB<MoqStreamSubGroupObject>();
-                if (*stream_buffer >> obj) {
+                auto& obj = stream_buffer.GetAnyB<MoqStreamSubGroupObject>();
+                if (stream_buffer >> obj) {
                     SPDLOG_LOGGER_TRACE(
                       logger_,
                       "Received stream_subgroup_object subscribe_id: {0} priority: {1} track_alias: {2} "
@@ -1269,7 +1289,7 @@ namespace quicr {
                                               obj.extensions },
                                             obj.payload);
 
-                    stream_buffer->ResetAnyB<MoqStreamSubGroupObject>();
+                    stream_buffer.ResetAnyB<MoqStreamSubGroupObject>();
                     return true;
                 }
                 break;
@@ -1287,18 +1307,18 @@ namespace quicr {
     }
 
     template<class MessageType>
-    std::pair<MessageType&, bool> Transport::ParseDataMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
+    std::pair<MessageType&, bool> Transport::ParseDataMessage(StreamBuffer<uint8_t>& stream_buffer,
                                                               DataMessageType msg_type)
     {
-        if (!stream_buffer->AnyHasValue()) {
+        if (!stream_buffer.AnyHasValue()) {
             SPDLOG_LOGGER_DEBUG(logger_,
                                 "Received stream message (type = {0}), init stream buffer",
                                 static_cast<std::uint64_t>(msg_type));
-            stream_buffer->InitAny<MessageType>(static_cast<uint64_t>(msg_type));
+            stream_buffer.InitAny<MessageType>(static_cast<uint64_t>(msg_type));
         }
 
-        auto& msg = stream_buffer->GetAny<MessageType>();
-        if (*stream_buffer >> msg) {
+        auto& msg = stream_buffer.GetAny<MessageType>();
+        if (stream_buffer >> msg) {
             return { msg, true };
         }
 
@@ -1306,27 +1326,27 @@ namespace quicr {
     }
 
     template<class HeaderType, class MessageType>
-    std::pair<HeaderType&, bool> Transport::ParseStreamData(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
+    std::pair<HeaderType&, bool> Transport::ParseStreamData(StreamBuffer<uint8_t>& stream_buffer,
                                                             DataMessageType msg_type)
     {
-        if (!stream_buffer->AnyHasValue()) {
+        if (!stream_buffer.AnyHasValue()) {
             SPDLOG_LOGGER_TRACE(
               logger_, "Received stream header (type = {0}), init stream buffer", static_cast<std::uint64_t>(msg_type));
-            stream_buffer->InitAny<HeaderType>(static_cast<uint64_t>(msg_type));
+            stream_buffer.InitAny<HeaderType>(static_cast<uint64_t>(msg_type));
         }
 
-        auto& msg = stream_buffer->GetAny<HeaderType>();
-        if (!stream_buffer->AnyHasValueB() && *stream_buffer >> msg) {
-            stream_buffer->InitAnyB<MessageType>();
+        auto& msg = stream_buffer.GetAny<HeaderType>();
+        if (!stream_buffer.AnyHasValueB() && stream_buffer >> msg) {
+            stream_buffer.InitAnyB<MessageType>();
             return { msg, true };
         }
 
-        return { msg, stream_buffer->AnyHasValueB() };
+        return { msg, stream_buffer.AnyHasValueB() };
     }
 
     template std::pair<messages::MoqStreamHeaderSubGroup&, bool>
     Transport::ParseStreamData<messages::MoqStreamHeaderSubGroup, messages::MoqStreamSubGroupObject>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
+      StreamBuffer<uint8_t>& stream_buffer,
       DataMessageType msg_type);
 
 } // namespace moq

@@ -547,13 +547,13 @@ PicoQuicTransport::GetPeerAddrInfo(const TransportConnId& conn_id, sockaddr_stor
 TransportError
 PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
                            const DataContextId& data_ctx_id,
-                           Span<const uint8_t> bytes,
+                           std::shared_ptr<const std::vector<uint8_t>> bytes,
                            const uint8_t priority,
                            const uint32_t ttl_ms,
                            [[maybe_unused]] const uint32_t delay_ms,
                            const EnqueueFlags flags)
 {
-    if (bytes.empty()) {
+    if (bytes->empty()) {
         SPDLOG_LOGGER_ERROR(
           logger, "enqueue dropped due bytes empty, conn_id: {0} data_ctx_id: {1}", conn_id, data_ctx_id);
         return TransportError::kNone;
@@ -575,8 +575,7 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
 
     data_ctx_it->second.metrics.enqueued_objs++;
 
-    auto data_ptr = std::make_shared<std::vector<uint8_t>>(bytes.begin(), bytes.end());
-    ConnData cd{ conn_id, data_ctx_id, priority, std::move(data_ptr), tick_service_->Microseconds() };
+    ConnData cd{ conn_id, data_ctx_id, priority, std::move(bytes), tick_service_->Microseconds() };
 
     if (flags.use_reliable) {
         if (flags.new_stream) {
@@ -613,24 +612,25 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
     return TransportError::kNone;
 }
 
-std::shared_ptr<SafeStreamBuffer<uint8_t>>
-PicoQuicTransport::GetStreamBuffer(TransportConnId conn_id, uint64_t stream_id)
+StreamRxContext&
+PicoQuicTransport::GetStreamRxContext(TransportConnId conn_id, uint64_t stream_id)
 {
     std::lock_guard<std::mutex> _(state_mutex_);
 
     const auto conn_ctx_it = conn_context_.find(conn_id);
     if (conn_ctx_it == conn_context_.end()) {
-        return nullptr;
+        throw TransportError::kInvalidConnContextId;
     }
 
     const auto sbuf_it = conn_ctx_it->second.rx_stream_buffer.find(stream_id);
     if (sbuf_it != conn_ctx_it->second.rx_stream_buffer.end()) {
-        return sbuf_it->second.buf;
+        return sbuf_it->second.rx_ctx;
     }
-    return nullptr;
+
+    throw TransportError::kInvalidStreamId;
 }
 
-std::optional<std::vector<uint8_t>>
+std::optional<std::shared_ptr<const std::vector<uint8_t>>>
 PicoQuicTransport::Dequeue(TransportConnId conn_id, [[maybe_unused]] std::optional<DataContextId> data_ctx_id)
 {
     std::lock_guard<std::mutex> _(state_mutex_);
@@ -1207,8 +1207,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
                 }
             }
 
-            data_ctx->stream_tx_object = obj.value.data;
-            std::memcpy(data_ctx->stream_tx_object->data(), obj.value.data->data(), obj.value.data->size());
+            data_ctx->stream_tx_object = std::move(obj.value.data);
 
         } else {
             // Queue is empty
@@ -1319,9 +1318,7 @@ PicoQuicTransport::OnRecvDatagram(ConnectionContext* conn_ctx, uint8_t* bytes, s
         return;
     }
 
-    std::vector<uint8_t> data(bytes, bytes + length);
-
-    conn_ctx->dgram_rx_data.Push(data);
+    conn_ctx->dgram_rx_data.Push(std::make_shared<std::vector<uint8_t>>(bytes, bytes + length));
     conn_ctx->metrics.rx_dgrams++;
     conn_ctx->metrics.rx_dgrams_bytes += length;
 
@@ -1352,9 +1349,12 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
         return;
     }
 
+    auto data = std::make_shared<std::vector<uint8_t>>(bytes.begin(), bytes.end());
+
     std::lock_guard<std::mutex> l(state_mutex_);
+
     auto& rx_buf = conn_ctx->rx_stream_buffer[stream_id];
-    rx_buf.buf->Push(bytes);
+    rx_buf.rx_ctx.data_queue.Push(std::move(data));
 
     if (data_ctx != nullptr) {
         data_ctx->metrics.rx_stream_cb++;
@@ -1414,7 +1414,7 @@ PicoQuicTransport::RemoveClosedStreams()
         std::vector<uint64_t> closed_streams;
 
         for (auto& [stream_id, rx_buf] : conn_ctx.rx_stream_buffer) {
-            if (rx_buf.closed && (rx_buf.buf->Empty() || rx_buf.checked_once)) {
+            if (rx_buf.closed && (rx_buf.rx_ctx.data_queue.Empty() || rx_buf.checked_once)) {
                 closed_streams.push_back(stream_id);
             }
             rx_buf.checked_once = true;

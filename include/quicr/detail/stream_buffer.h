@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "data_storage.h"
 #include "span.h"
 #include "uintvar.h"
 
@@ -24,6 +25,7 @@ namespace quicr {
     class StreamBuffer
     {
         using BufferT = std::deque<T, Allocator>;
+        //using BufferT = DataStorage<Allocator>;
 
       public:
         StreamBuffer() = default;

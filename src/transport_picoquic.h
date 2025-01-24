@@ -79,7 +79,7 @@ namespace quicr {
             std::unique_ptr<PriorityQueue<ConnData>> tx_data; /// Pending objects to be written to the network
 
             /// Current object that is being sent as a byte stream
-            std::shared_ptr<std::vector<uint8_t>> stream_tx_object;
+            std::shared_ptr<const std::vector<uint8_t>> stream_tx_object;
             size_t stream_tx_object_offset{ 0 }; /// Pointer offset to next byte to send
 
             // The last ticks when TX callback was run
@@ -125,18 +125,23 @@ namespace quicr {
 
             std::unique_ptr<PriorityQueue<ConnData>>
               dgram_tx_data;                 /// Datagram pending objects to be written to the network
-            SafeQueue<BytesT> dgram_rx_data; /// Buffered datagrams received from the network
+
+            SafeQueue<std::shared_ptr<std::vector<uint8_t>>> dgram_rx_data; /// Buffered datagrams received from the network
 
             /**
              * Active stream buffers for received unidirectional streams
              */
             struct RxStreamBuffer
             {
-                std::shared_ptr<SafeStreamBuffer<uint8_t>> buf;
+                StreamRxContext rx_ctx;     /// Stream RX context that holds data and caller info
                 bool closed{ false };       /// Indicates if stream is active or in closed state
                 bool checked_once{ false }; /// True if closed and checked once to close
 
-                RxStreamBuffer() { buf = std::make_shared<SafeStreamBuffer<uint8_t>>(); }
+                RxStreamBuffer()
+                {
+                    rx_ctx.caller_any.reset();
+                    rx_ctx.data_queue.Clear();
+                }
             };
             std::map<uint64_t, RxStreamBuffer> rx_stream_buffer; /// Map of stream receive buffers, key is stream_id
 
@@ -223,17 +228,17 @@ namespace quicr {
 
         TransportError Enqueue(const TransportConnId& conn_id,
                                const DataContextId& data_ctx_id,
-                               Span<const uint8_t> bytes,
+                               std::shared_ptr<const std::vector<uint8_t>> bytes,
                                uint8_t priority,
                                uint32_t ttl_ms,
                                uint32_t delay_ms,
                                EnqueueFlags flags) override;
 
-        std::optional<std::vector<uint8_t>> Dequeue(TransportConnId conn_id,
-                                                    std::optional<DataContextId> data_ctx_id) override;
+        std::optional<std::shared_ptr<const std::vector<uint8_t>>> Dequeue(
+          TransportConnId conn_id,
+          std::optional<DataContextId> data_ctx_id) override;
 
-        std::shared_ptr<SafeStreamBuffer<uint8_t>> GetStreamBuffer(TransportConnId conn_id,
-                                                                   uint64_t stream_id) override;
+        StreamRxContext& GetStreamRxContext(TransportConnId conn_id, uint64_t stream_id) override;
 
         void SetRemoteDataCtxId(TransportConnId conn_id,
                                 DataContextId data_ctx_id,
