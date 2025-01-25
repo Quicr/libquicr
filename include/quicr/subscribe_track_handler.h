@@ -5,6 +5,7 @@
 
 #include <quicr/detail/base_track_handler.h>
 #include <quicr/detail/messages.h>
+#include <quicr/detail/stream_buffer.h>
 #include <quicr/metrics.h>
 
 namespace quicr {
@@ -211,6 +212,7 @@ namespace quicr {
         messages::ObjectPriority priority_;
         messages::GroupOrder group_order_;
         messages::FilterType filter_type_;
+        StreamBuffer<uint8_t> stream_buffer_;
 
         friend class Transport;
         friend class Client;

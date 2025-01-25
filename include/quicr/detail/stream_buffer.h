@@ -92,6 +92,12 @@ namespace quicr {
          */
         void SetAnyType(uint64_t type) { parsed_data_type_ = type; }
 
+        void Clear()
+        {
+            ResetAny();
+            buffer_.clear();
+        }
+
         void ResetAny()
         {
             parsed_data_.reset();
