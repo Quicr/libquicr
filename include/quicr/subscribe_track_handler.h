@@ -129,9 +129,26 @@ namespace quicr {
          * @param data              Object payload data received, **MUST** match ObjectHeaders::payload_length.
          */
         virtual void ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
-                                    [[maybe_unused]] BytesSpan data)
-        {
-        }
+                                    [[maybe_unused]] BytesSpan data);
+
+        /**
+         * @brief Notification of received stream data slice
+         *
+         * @details Event notification to provide the caller the raw data received on a stream
+         *
+         * @param is_start    True to indicate if this data is the start of a new stream
+         * @param data        Shared pointer to the data received
+         */
+        virtual void StreamDataRecv(bool is_start, std::shared_ptr<const std::vector<uint8_t>> data);
+
+        /**
+         * @brief Notification of received datagram data
+         *
+         * @details Event notification to provide the caller the raw data received as a datagram
+         *
+         * @param data        Shared pointer to the data received
+         */
+        virtual void DgramDataRecv(std::shared_ptr<const std::vector<uint8_t>> data);
 
         /**
          * @brief Notification of a partial object received data object

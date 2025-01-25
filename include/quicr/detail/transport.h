@@ -363,8 +363,7 @@ namespace quicr {
 
         virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes) = 0;
 
-        bool ProcessStreamDataMessage(ConnectionContext& conn_ctx,
-                                      StreamBuffer<uint8_t>& stream_buffer);
+        bool ProcessStreamDataMessage(ConnectionContext& conn_ctx, StreamBuffer<uint8_t>& stream_buffer);
 
         template<class MessageType>
         std::pair<MessageType&, bool> ParseDataMessage(StreamBuffer<uint8_t>& stream_buffer,

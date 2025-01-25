@@ -124,9 +124,10 @@ namespace quicr {
             DataContextId next_data_ctx_id{ 1 }; /// Next data context ID; zero is reserved for default context
 
             std::unique_ptr<PriorityQueue<ConnData>>
-              dgram_tx_data;                 /// Datagram pending objects to be written to the network
+              dgram_tx_data; /// Datagram pending objects to be written to the network
 
-            SafeQueue<std::shared_ptr<std::vector<uint8_t>>> dgram_rx_data; /// Buffered datagrams received from the network
+            SafeQueue<std::shared_ptr<std::vector<uint8_t>>>
+              dgram_rx_data; /// Buffered datagrams received from the network
 
             /**
              * Active stream buffers for received unidirectional streams

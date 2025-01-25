@@ -25,7 +25,6 @@ namespace quicr {
     class StreamBuffer
     {
         using BufferT = std::deque<T, Allocator>;
-        //using BufferT = DataStorage<Allocator>;
 
       public:
         StreamBuffer() = default;

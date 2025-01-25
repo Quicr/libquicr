@@ -990,16 +990,17 @@ namespace quicr {
             rx_ctx.caller_any.emplace<StreamBuffer<uint8_t>>();
         }
 
-        auto & stream_buf = std::any_cast<StreamBuffer<uint8_t>&>(rx_ctx.caller_any);
+        auto& stream_buf = std::any_cast<StreamBuffer<uint8_t>&>(rx_ctx.caller_any);
 
         // TODO(tievens): Pipeline forwarded
-        for (int i=0; i < 100; i++) {
+        for (int i = 0; i < 100; i++) {
             if (not rx_ctx.data_queue.Empty()) {
                 if (auto item = rx_ctx.data_queue.Pop()) {
                     stream_buf.Push(*item.value());
                 }
             } else {
-                break;;
+                break;
+                ;
             }
         }
 
@@ -1045,7 +1046,7 @@ namespace quicr {
                 }
             }
         }
-    } catch (TransportError &e) {
+    } catch (TransportError& e) {
         // TODO(tievens): Add metrics to track if this happens
     }
 
@@ -1054,12 +1055,10 @@ namespace quicr {
         MoqObjectDatagram object_datagram_out;
         for (int i = 0; i < kReadLoopMaxPerStream; i++) {
             auto data = quic_transport_->Dequeue(conn_id, data_ctx_id);
-            if (data.has_value() && !data.value()->empty()) {
-                StreamBuffer<uint8_t> buffer;
-                buffer.Push(*data.value());
+            if (data.has_value() && !data.value()->empty() && data.value()->size() > 3) {
+                auto msg_type = data.value()->front();
 
-                auto msg_type = buffer.DecodeUintV();
-                if (!msg_type || static_cast<DataMessageType>(*msg_type) != DataMessageType::OBJECT_DATAGRAM) {
+                if (!msg_type || static_cast<DataMessageType>(msg_type) != DataMessageType::OBJECT_DATAGRAM) {
                     SPDLOG_LOGGER_DEBUG(logger_,
                                         "Received datagram that is not message type OBJECT_DATAGRAM, dropping");
                     auto& conn_ctx = connections_[conn_id];
@@ -1067,62 +1066,55 @@ namespace quicr {
                     continue;
                 }
 
-                MoqObjectDatagram msg;
-                if (buffer >> msg) {
-                    ////TODO(tievens): Considering moving lock to here... std::lock_guard<std::mutex> _(state_mutex_);
+                // Decode and check next header, subscribe ID
+                auto sub_id_sz = quicr::UintVar::Size(data.value()->at(1));
+                if (data.value()->size() < sub_id_sz + 1)
+                    continue; // Invalid, not enough bytes to decode
 
-                    auto& conn_ctx = connections_[conn_id];
-                    auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-                    if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                        conn_ctx.metrics.rx_dgram_unknown_subscribe_id++;
+                auto sub_id =
+                  uint64_t(quicr::UintVar({ data.value()->begin() + 1, data.value()->begin() + 1 + sub_id_sz }));
 
-                        SPDLOG_LOGGER_DEBUG(logger_,
-                                            "Received datagram to unknown subscribe track subscribe_id: {0}, ignored",
-                                            msg.subscribe_id);
+                // Decode and check next header, track alias
+                auto ta_sz = quicr::UintVar::Size(data.value()->at(1 + sub_id_sz));
+                if (data.value()->size() < sub_id_sz + 1 + ta_sz)
+                    continue; // Invalid, not enough bytes to decode
 
-                        // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+                [[maybe_unused]] auto track_alias = uint64_t(quicr::UintVar(
+                  { data.value()->begin() + 1 + sub_id_sz, data.value()->begin() + 1 + sub_id_sz + ta_sz }));
 
-                        continue;
-                    }
+                auto& conn_ctx = connections_[conn_id];
+                auto sub_it = conn_ctx.tracks_by_sub_id.find(sub_id);
+                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                    conn_ctx.metrics.rx_dgram_unknown_subscribe_id++;
 
-                    SPDLOG_LOGGER_TRACE(logger_,
-                                        "Received object datagram conn_id: {0} data_ctx_id: {1} subscriber_id: {2} "
-                                        "track_alias: {3} group_id: {4} object_id: {5} data size: {6}",
-                                        conn_id,
-                                        (data_ctx_id ? *data_ctx_id : 0),
-                                        msg.subscribe_id,
-                                        msg.track_alias,
-                                        msg.group_id,
-                                        msg.object_id,
-                                        msg.payload.size());
+                    SPDLOG_LOGGER_DEBUG(
+                      logger_, "Received datagram to unknown subscribe track subscribe_id: {0}, ignored", sub_id);
 
-                    auto& handler = sub_it->second;
+                    // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
 
-                    handler->subscribe_track_metrics_.objects_received++;
-                    handler->subscribe_track_metrics_.bytes_received += msg.payload.size();
-                    handler->ObjectReceived(
-                      {
-                        msg.group_id,
-                        msg.object_id,
-                        0, // datagrams don't have subgroups
-                        msg.payload.size(),
-                        ObjectStatus::kAvailable,
-                        msg.priority,
-                        std::nullopt,
-                        TrackMode::kDatagram,
-                        msg.extensions,
-                      },
-                      msg.payload);
-
-                } else {
-                    auto& conn_ctx = connections_[conn_id];
-                    conn_ctx.metrics.rx_dgram_decode_failed++;
-
-                    SPDLOG_LOGGER_DEBUG(logger_,
-                                        "Failed to decode datagram conn_id: {0} data_ctx_id: {1}",
-                                        conn_id,
-                                        (data_ctx_id ? *data_ctx_id : 0));
+                    continue;
                 }
+
+                SPDLOG_LOGGER_TRACE(logger_,
+                                    "Received object datagram conn_id: {0} data_ctx_id: {1} subscriber_id: {2} "
+                                    "track_alias: {3} group_id: {4} object_id: {5} data size: {6}",
+                                    conn_id,
+                                    (data_ctx_id ? *data_ctx_id : 0),
+                                    sub_id,
+                                    track_alias,
+                                    data.value()->size());
+
+                auto& handler = sub_it->second;
+
+                handler->DgramDataRecv(*data);
+            } else if (data.has_value()) {
+                auto& conn_ctx = connections_[conn_id];
+                conn_ctx.metrics.rx_dgram_decode_failed++;
+
+                SPDLOG_LOGGER_DEBUG(logger_,
+                                    "Failed to decode datagram conn_id: {} data_ctx_id: {} size: {}",
+                                    conn_id,
+                                    (data_ctx_id ? *data_ctx_id : 0), data.value()->size());
             }
         }
     }
@@ -1216,8 +1208,7 @@ namespace quicr {
         }
     }
 
-    bool Transport::ProcessStreamDataMessage(ConnectionContext& conn_ctx,
-                                             StreamBuffer<uint8_t>& stream_buffer)
+    bool Transport::ProcessStreamDataMessage(ConnectionContext& conn_ctx, StreamBuffer<uint8_t>& stream_buffer)
     {
         if (stream_buffer.Empty()) { // should never happen
             conn_ctx.metrics.rx_stream_buffer_error++;

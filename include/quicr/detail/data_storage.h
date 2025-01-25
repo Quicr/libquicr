@@ -4,11 +4,10 @@
 #pragma once
 
 #include "span.h"
-
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <optional>
-#include <deque>
 #include <vector>
 
 namespace quicr {
@@ -141,6 +140,23 @@ namespace quicr {
                 value += buf->size();
             }
             return value;
+        }
+
+        std::size_t erase(std::size_t len) const noexcept
+        {
+            for (const auto s : buffer_) {
+                if (s == nullptr)
+                    return 0;
+
+                if (len >= s->size()) {
+                    buffer_.pop_front();
+                    len -= s->size();
+                } else {
+                    return len;
+                }
+            }
+
+            return 0;
         }
 
         iterator begin() noexcept { return iterator(buffer_.begin(), buffer_.end()); }

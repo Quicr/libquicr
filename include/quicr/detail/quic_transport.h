@@ -4,8 +4,8 @@
 #pragma once
 
 #include "quic_transport_metrics.h"
-#include "quicr/detail/tick_service.h"
 #include "quicr/detail/data_storage.h"
+#include "quicr/detail/tick_service.h"
 #include "safe_queue.h"
 #include "span.h"
 #include "stream_buffer.h"
@@ -13,12 +13,11 @@
 
 #include <spdlog/spdlog.h>
 
+#include <any>
 #include <array>
 #include <chrono>
 #include <memory>
 #include <mutex>
-#include <any>
-#include <memory>
 #include <optional>
 #include <queue>
 #include <string>
@@ -122,7 +121,7 @@ namespace quicr {
     /// Stream receive data context
     struct StreamRxContext
     {
-        std::any caller_any;                           ///< Caller any object - Set and used by caller/app
+        std::any caller_any; ///< Caller any object - Set and used by caller/app
 
         /// Data queue for received data on the stream
         SafeQueue<std::shared_ptr<std::vector<uint8_t>>> data_queue;
