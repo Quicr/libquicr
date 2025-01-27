@@ -194,7 +194,7 @@ namespace quicr {
                 end_pos = storage_->size();
             }
 
-            return DataStorageSpan(storage_, start_pos_, *end_pos);
+            return DataStorageSpan(storage_, start_pos, *end_pos);
         }
 
         // NOLINTBEGIN(readability-identifier-naming)
