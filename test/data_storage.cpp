@@ -64,3 +64,40 @@ TEST_CASE("DataStorage Multiples")
     CHECK_EQ(subview_v.at(1), 'w');
     CHECK_EQ(std::string{ buffer_subview.begin(), buffer_subview.end() }, "two thre");
 }
+
+TEST_CASE("DataStorage Add and Remove")
+{
+    auto buffer = quicr::DataStorage<>::Create();
+
+    std::string s1 = "one";
+    std::string s2 = " two";
+    std::string s3 = " three";
+
+    buffer->Push(quicr::AsBytes(s1));
+    buffer->Push(quicr::AsBytes(s2));
+
+    const auto buf_span = quicr::DataStorageSpan(buffer);
+    CHECK_EQ(buf_span.size(), buffer->size());
+
+    buffer->Push(quicr::AsBytes(s3));
+
+    CHECK_EQ(buf_span.size(), buffer->size());
+
+    auto size_before_erase = buffer->size();
+
+    // Shouldn't remove anything since 2 is less than first element
+    buffer->erase(2);
+    CHECK_EQ(buffer->size(), size_before_erase);
+
+    // Should remove the first element
+    buffer->erase(3);
+    CHECK_EQ(buffer->size(), size_before_erase - 3);
+
+    // Should remove the next two elements, but not the third
+    buffer->Push(quicr::AsBytes(s1));
+    buffer->Push(quicr::AsBytes(s1));
+    size_before_erase = buffer->size();
+    buffer->erase(11);
+
+    CHECK_EQ(buffer->size(), size_before_erase - 10);
+}

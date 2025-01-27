@@ -142,7 +142,7 @@ namespace quicr {
             return value;
         }
 
-        std::size_t erase(std::size_t len) const noexcept
+        std::size_t erase(std::size_t len) noexcept
         {
             for (const auto s : buffer_) {
                 if (s == nullptr)
@@ -173,15 +173,13 @@ namespace quicr {
 
     class DataStorageSpan
     {
-        static constexpr std::size_t dynamic_extent = std::numeric_limits<std::size_t>::max();
-
       public:
         DataStorageSpan(std::shared_ptr<DataStorage<>> storage,
-                        std::size_t offset = 0,
-                        std::size_t length = dynamic_extent)
+                        std::size_t start_pos = 0,
+                        std::optional<std::size_t> end_pos = std::nullopt)
           : storage_(std::move(storage))
-          , offset_(offset)
-          , length_(length == dynamic_extent ? storage_->size() - offset : length)
+          , start_pos_(start_pos)
+          , end_pos_(end_pos)
         {
         }
 
@@ -190,28 +188,28 @@ namespace quicr {
         DataStorageSpan& operator=(const DataStorageSpan&) = default;
         DataStorageSpan& operator=(DataStorageSpan&&) = default;
 
-        DataStorageSpan Subspan(std::size_t offset, std::size_t length = dynamic_extent) const noexcept
+        DataStorageSpan Subspan(std::size_t start_pos, std::optional<std::size_t> end_pos = std::nullopt) const noexcept
         {
-            if (length == dynamic_extent) {
-                length = length_ - offset;
+            if (not end_pos.has_value() || *end_pos > storage_->size()) {
+                end_pos = storage_->size();
             }
 
-            return DataStorageSpan(storage_, offset_ + offset, length);
+            return DataStorageSpan(storage_, start_pos_, *end_pos);
         }
 
         // NOLINTBEGIN(readability-identifier-naming)
-        std::size_t size() const noexcept { return length_; }
+        std::size_t size() const noexcept { return end_pos_.has_value() ? *end_pos_ : storage_->size(); }
 
-        DataStorage<>::iterator begin() noexcept { return std::next(storage_->begin(), offset_); }
+        DataStorage<>::iterator begin() noexcept { return std::next(storage_->begin(), start_pos_); }
         DataStorage<>::iterator end() noexcept { return std::next(this->begin(), size()); }
 
-        DataStorage<>::const_iterator begin() const noexcept { return std::next(storage_->cbegin(), offset_); }
+        DataStorage<>::const_iterator begin() const noexcept { return std::next(storage_->cbegin(), start_pos_); }
         DataStorage<>::const_iterator end() const noexcept { return std::next(this->begin(), size()); }
         // NOLINTEND(readability-identifier-naming)
 
       private:
         std::shared_ptr<DataStorage<>> storage_;
-        std::size_t offset_ = 0;
-        std::size_t length_ = dynamic_extent;
+        std::size_t start_pos_ = 0;
+        std::optional<std::size_t> end_pos_;
     };
 }
