@@ -142,7 +142,7 @@ namespace quicr {
             return value;
         }
 
-        std::size_t erase(std::size_t len) noexcept
+        std::size_t EraseFront(std::size_t len) noexcept
         {
             for (const auto s : buffer_) {
                 if (s == nullptr)
@@ -171,10 +171,10 @@ namespace quicr {
         BufferType buffer_;
     };
 
-    class DataStorageSpan
+    class DataStorageDynView
     {
       public:
-        DataStorageSpan(std::shared_ptr<DataStorage<>> storage,
+        DataStorageDynView(std::shared_ptr<DataStorage<>> storage,
                         std::size_t start_pos = 0,
                         std::optional<std::size_t> end_pos = std::nullopt)
           : storage_(std::move(storage))
@@ -183,22 +183,22 @@ namespace quicr {
         {
         }
 
-        DataStorageSpan(const DataStorageSpan&) = default;
-        DataStorageSpan(DataStorageSpan&&) = default;
-        DataStorageSpan& operator=(const DataStorageSpan&) = default;
-        DataStorageSpan& operator=(DataStorageSpan&&) = default;
+        DataStorageDynView(const DataStorageDynView&) = default;
+        DataStorageDynView(DataStorageDynView&&) = default;
+        DataStorageDynView& operator=(const DataStorageDynView&) = default;
+        DataStorageDynView& operator=(DataStorageDynView&&) = default;
 
-        DataStorageSpan Subspan(std::size_t start_pos, std::optional<std::size_t> end_pos = std::nullopt) const noexcept
+        DataStorageDynView Subspan(std::size_t start_pos, std::optional<std::size_t> end_pos = std::nullopt) const noexcept
         {
             if (not end_pos.has_value() || *end_pos > storage_->size()) {
                 end_pos = storage_->size();
             }
 
-            return DataStorageSpan(storage_, start_pos, *end_pos);
+            return DataStorageDynView(storage_, start_pos, *end_pos);
         }
 
         // NOLINTBEGIN(readability-identifier-naming)
-        std::size_t size() const noexcept { return end_pos_.has_value() ? *end_pos_ : storage_->size(); }
+        std::size_t size() const noexcept { return (end_pos_.has_value() ? *end_pos_ : storage_->size()) - start_pos_; }
 
         DataStorage<>::iterator begin() noexcept { return std::next(storage_->begin(), start_pos_); }
         DataStorage<>::iterator end() noexcept { return std::next(this->begin(), size()); }

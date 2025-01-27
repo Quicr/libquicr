@@ -52,17 +52,17 @@ TEST_CASE("DataStorage Multiples")
     CHECK_EQ(v.at(5), 'w');
     CHECK_EQ(std::string{ buffer->begin(), buffer->end() }, "one two three");
 
-    auto buffer_view = quicr::DataStorageSpan(buffer, 1, 11);
+    auto buffer_view = quicr::DataStorageDynView(buffer, 1, 11);
     std::vector<uint8_t> view_v(buffer_view.begin(), buffer_view.end());
-    CHECK_EQ(view_v.size(), s1.size() + s2.size() + s3.size() - 2);
+    CHECK_EQ(view_v.size(), 10);
     CHECK_EQ(view_v.at(4), 'w');
-    CHECK_EQ(std::string{ buffer_view.begin(), buffer_view.end() }, "ne two thre");
+    CHECK_EQ(std::string{ buffer_view.begin(), buffer_view.end() }, "ne two thr");
 
     auto buffer_subview = buffer_view.Subspan(3);
     std::vector<uint8_t> subview_v(buffer_subview.begin(), buffer_subview.end());
-    CHECK_EQ(subview_v.size(), s1.size() + s2.size() + s3.size() - 5);
-    CHECK_EQ(subview_v.at(1), 'w');
-    CHECK_EQ(std::string{ buffer_subview.begin(), buffer_subview.end() }, "two thre");
+    CHECK_EQ(subview_v.size(), s1.size() + s2.size() + s3.size() - 3);
+    CHECK_EQ(subview_v.at(1), 't');
+    CHECK_EQ(std::string{ buffer_subview.begin(), buffer_subview.end() }, " two three");
 }
 
 TEST_CASE("DataStorage Add and Remove")
@@ -76,28 +76,28 @@ TEST_CASE("DataStorage Add and Remove")
     buffer->Push(quicr::AsBytes(s1));
     buffer->Push(quicr::AsBytes(s2));
 
-    const auto buf_span = quicr::DataStorageSpan(buffer);
-    CHECK_EQ(buf_span.size(), buffer->size());
+    const auto buf_view = quicr::DataStorageDynView(buffer);
+    CHECK_EQ(buf_view.size(), buffer->size());
 
     buffer->Push(quicr::AsBytes(s3));
 
-    CHECK_EQ(buf_span.size(), buffer->size());
+    CHECK_EQ(buf_view.size(), buffer->size());
 
     auto size_before_erase = buffer->size();
 
     // Shouldn't remove anything since 2 is less than first element
-    buffer->erase(2);
+    buffer->EraseFront(2);
     CHECK_EQ(buffer->size(), size_before_erase);
 
     // Should remove the first element
-    buffer->erase(3);
+    buffer->EraseFront(3);
     CHECK_EQ(buffer->size(), size_before_erase - 3);
 
     // Should remove the next two elements, but not the third
     buffer->Push(quicr::AsBytes(s1));
     buffer->Push(quicr::AsBytes(s1));
     size_before_erase = buffer->size();
-    buffer->erase(11);
+    buffer->EraseFront(11);
 
     CHECK_EQ(buffer->size(), size_before_erase - 10);
 }
