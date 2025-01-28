@@ -8,9 +8,6 @@
 #include <quicr/subscribe_track_handler.h>
 
 namespace quicr {
-    /**
-     * @brief
-     */
     class FetchTrackHandler : public SubscribeTrackHandler
     {
       protected:

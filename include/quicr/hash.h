@@ -73,6 +73,7 @@ namespace quicr {
      *
      * @returns The hash of the given string.
      */
+    [[maybe_unused]]
     static std::uint64_t hash(const std::string_view& str)
     {
         return hash(std::vector<uint8_t>{ str.begin(), str.end() });
