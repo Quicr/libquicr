@@ -974,78 +974,146 @@ namespace quicr {
                                  const bool is_bidir)
     try {
         auto& rx_ctx = quic_transport_->GetStreamRxContext(conn_id, stream_id);
-
         auto& conn_ctx = connections_[conn_id];
 
-        if (is_bidir && not conn_ctx.ctrl_data_ctx_id) {
-            if (not data_ctx_id) {
-                CloseConnection(
-                  conn_id, MoqTerminationReason::INTERNAL_ERROR, "Received bidir is missing data context");
-                return;
-            }
-            conn_ctx.ctrl_data_ctx_id = data_ctx_id;
-        }
-
-        if (not rx_ctx.caller_any.has_value()) {
-            rx_ctx.caller_any.emplace<StreamBuffer<uint8_t>>();
-        }
-
-        auto& stream_buf = std::any_cast<StreamBuffer<uint8_t>&>(rx_ctx.caller_any);
-
-        // TODO(tievens): Pipeline forwarded
-        for (int i = 0; i < 100; i++) {
-            if (not rx_ctx.data_queue.Empty()) {
-                if (auto item = rx_ctx.data_queue.Pop()) {
-                    stream_buf.Push(*item.value());
-                }
-            } else {
-                break;
-                ;
-            }
-        }
-
         /*
-         * Loop many times to continue to read objects. This loop should only continue if the current object is read and
-         * has been completed and there is more data. If there isn't enough data to parse the message, the loop should
-         * be stopped. The ProcessCtrlMessage() and ProcessStreamDataMessage() methods return **true** to indicate that
-         * the loop should continue. They return **false** to indicate that there wasn't enough data and more data
-         * should be provided.
+         * RX data queue may have more messages at time of this callback. Attempt to
+         *      process all of them, up to a max. Setting a max prevents blocking
+         *      of other streams, etc.
          */
-        for (int i = 0; i < kReadLoopMaxPerStream; i++) { // don't loop forever, especially on bad stream
-            if (stream_buf.Empty()) {
+        for (int i = 0; i < kReadLoopMaxPerStream; i++) {
+            if (rx_ctx.data_queue.Empty()) {
                 break;
             }
 
-            // bidir is Control stream, data streams are unidirectional
-            if (is_bidir) {
-                if (not conn_ctx.ctrl_msg_type_received.has_value()) {
-                    auto msg_type = stream_buf.DecodeUintV();
+            auto data_opt = std::move(rx_ctx.data_queue.Pop());
+            if (not data_opt.has_value()) {
+                break;
+            }
 
-                    if (msg_type.has_value()) {
-                        conn_ctx.ctrl_msg_type_received = static_cast<ControlMessageType>(*msg_type);
-                    } else {
-                        break;
+            auto& data = *data_opt.value();
+
+            // CONTROL STREAM
+            if (is_bidir) {
+                conn_ctx.ctrl_msg_buffer.insert(conn_ctx.ctrl_msg_buffer.end(), data.begin(), data.end());
+
+                if (not conn_ctx.ctrl_data_ctx_id) {
+                    if (not data_ctx_id) {
+                        CloseConnection(
+                          conn_id, MoqTerminationReason::INTERNAL_ERROR, "Received bidir is missing data context");
+                        return;
                     }
+                    conn_ctx.ctrl_data_ctx_id = data_ctx_id;
                 }
 
-                if (auto msg_bytes = stream_buf.DecodeBytes(); msg_bytes != std::nullopt) {
-                    if (ProcessCtrlMessage(conn_ctx, *msg_bytes)) {
-                        conn_ctx.ctrl_msg_type_received = std::nullopt; // Clear current type now that it's complete
-                    } else {
-                        conn_ctx.metrics.invalid_ctrl_stream_msg++;
+                if (not conn_ctx.ctrl_msg_type_received.has_value()) {
+                    // Decode message type
+                    auto uv_sz = UintVar::Size(conn_ctx.ctrl_msg_buffer.front());
+                    if (conn_ctx.ctrl_msg_buffer.size() < uv_sz) {
+                        i = kReadLoopMaxPerStream - 1;
+                        continue; // Not enough bytes to process control message. Try again once more.
                     }
+
+                    auto msg_type = uint64_t(
+                      quicr::UintVar({ conn_ctx.ctrl_msg_buffer.begin(), conn_ctx.ctrl_msg_buffer.begin() + uv_sz }));
+
+                    conn_ctx.ctrl_msg_buffer.erase(conn_ctx.ctrl_msg_buffer.begin(),
+                                                   conn_ctx.ctrl_msg_buffer.begin() + uv_sz);
+
+                    conn_ctx.ctrl_msg_type_received = static_cast<ControlMessageType>(msg_type);
+                }
+
+                // Decode control payload length in bytes
+                auto uv_sz = UintVar::Size(conn_ctx.ctrl_msg_buffer.front());
+
+                if (conn_ctx.ctrl_msg_buffer.size() < uv_sz) {
+                    i = kReadLoopMaxPerStream - 1;
+                    continue; // Not enough bytes to process control message. Try again once more.
+                }
+
+                auto payload_len = uint64_t(
+                  quicr::UintVar({ conn_ctx.ctrl_msg_buffer.begin(), conn_ctx.ctrl_msg_buffer.begin() + uv_sz }));
+
+                if (conn_ctx.ctrl_msg_buffer.size() < payload_len + uv_sz) {
+                    i = kReadLoopMaxPerStream - 1;
+                    continue; // Not enough bytes to process control message. Try again once more.
+                }
+
+                if (ProcessCtrlMessage(conn_ctx,
+                                       { conn_ctx.ctrl_msg_buffer.begin() + uv_sz, conn_ctx.ctrl_msg_buffer.end() })) {
+
+                    // Reset the control message buffer and message type to start a new message.
+                    conn_ctx.ctrl_msg_type_received = std::nullopt;
+                    conn_ctx.ctrl_msg_buffer.erase(conn_ctx.ctrl_msg_buffer.begin(),
+                                                   conn_ctx.ctrl_msg_buffer.begin() + uv_sz + payload_len);
                 } else {
+                    conn_ctx.metrics.invalid_ctrl_stream_msg++;
+                }
+
+                continue;
+            } // end of is_bidir
+
+            // DATA OBJECT
+            if (not rx_ctx.caller_any.has_value()) { // Is new stream when no value is set
+                /*
+                 * Process data subgroup header - assume that the start of stream will always have enough bytes
+                 * for track alias
+                 */
+                auto msg_type = data.front();
+
+                if (!msg_type || static_cast<DataMessageType>(msg_type) != DataMessageType::STREAM_HEADER_SUBGROUP) {
+                    SPDLOG_LOGGER_DEBUG(logger_, "Received start of stream with invalid header type, dropping");
+                    conn_ctx.metrics.rx_stream_invalid_type++;
+
+                    // TODO(tievens): Need to reset this stream as this is invalid.
                     break;
                 }
-            }
 
-            // Data stream, unidirectional
-            else {
-                if (!ProcessStreamDataMessage(conn_ctx, stream_buf)) {
-                    break; // More data is needed, wait for next callback
+                // First header in subgroup starts with track alias
+                auto ta_sz = quicr::UintVar::Size(data.at(1));
+                if (data.size() < 1 + ta_sz) {
+                    SPDLOG_LOGGER_WARN(logger_, "Received start of stream without enough bytes to process track alias");
+                    break;
+                }
+
+                // TODO(tievens): Will switch to use track alias instead of subscribe id
+                [[maybe_unused]] auto track_alias =
+                  uint64_t(quicr::UintVar({ data.begin() + 1, data.begin() + 1 + ta_sz }));
+
+                // Decode and check next header, subscribe id
+                auto sub_id_sz = quicr::UintVar::Size(data.at(1 + ta_sz));
+                if (data.size() < ta_sz + 1 + sub_id_sz) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received start of stream without enough bytes to process subscribe id");
+                    break;
+                }
+
+                auto sub_id =
+                  uint64_t(quicr::UintVar({ data.begin() + 1 + ta_sz, data.begin() + 1 + ta_sz + sub_id_sz }));
+
+                auto sub_it = conn_ctx.tracks_by_sub_id.find(sub_id);
+                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                    conn_ctx.metrics.rx_stream_unknown_subscribe_id++;
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received stream_header_subgroup to unknown subscribe track subscribe_id: {}, ignored",
+                      sub_id);
+
+                    // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+                    break;
+                }
+
+                rx_ctx.caller_any.emplace<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
+                sub_it->second->StreamDataRecv(true, data_opt.value());
+
+            } else {
+                // fast processing for existing stream using weak pointer to subscribe handler
+                auto sub_handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx.caller_any);
+                if (auto sub_handler = sub_handler_weak.lock()) {
+                    sub_handler->StreamDataRecv(false, data_opt.value());
                 }
             }
-        }
+        } // end of for loop rx data queue
     } catch (TransportError& e) {
         // TODO(tievens): Add metrics to track if this happens
     }
@@ -1114,7 +1182,8 @@ namespace quicr {
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Failed to decode datagram conn_id: {} data_ctx_id: {} size: {}",
                                     conn_id,
-                                    (data_ctx_id ? *data_ctx_id : 0), data.value()->size());
+                                    (data_ctx_id ? *data_ctx_id : 0),
+                                    data.value()->size());
             }
         }
     }
@@ -1207,137 +1276,5 @@ namespace quicr {
             stop_ = true;
         }
     }
-
-    bool Transport::ProcessStreamDataMessage(ConnectionContext& conn_ctx, StreamBuffer<uint8_t>& stream_buffer)
-    {
-        if (stream_buffer.Empty()) { // should never happen
-            conn_ctx.metrics.rx_stream_buffer_error++;
-            SPDLOG_LOGGER_DEBUG(logger_, "Stream buffer cannot be zero when parsing message type, bad stream");
-
-            return false;
-        }
-
-        // Header not set, get the header for this stream or datagram
-        DataMessageType data_type;
-
-        auto dt = stream_buffer.GetAnyType();
-        if (dt.has_value()) {
-            data_type = static_cast<DataMessageType>(*dt);
-        } else {
-            auto val = stream_buffer.DecodeUintV();
-            data_type = static_cast<DataMessageType>(*val);
-            stream_buffer.SetAnyType(*val);
-        }
-
-        switch (data_type) {
-            case messages::DataMessageType::STREAM_HEADER_SUBGROUP: {
-                auto&& [msg, parsed] = ParseStreamData<MoqStreamHeaderSubGroup, MoqStreamSubGroupObject>(
-                  stream_buffer, DataMessageType::STREAM_HEADER_SUBGROUP);
-
-                if (!parsed) {
-                    break;
-                }
-
-                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                    conn_ctx.metrics.rx_dgram_unknown_subscribe_id++;
-                    SPDLOG_LOGGER_DEBUG(
-                      logger_,
-                      "Received stream_header_subgroup to unknown subscribe track subscribe_id: {0}, ignored",
-                      msg.subscribe_id);
-
-                    // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
-                    stream_buffer.ResetAnyB<MoqStreamSubGroupObject>();
-                    return true;
-                }
-
-                auto& obj = stream_buffer.GetAnyB<MoqStreamSubGroupObject>();
-                if (stream_buffer >> obj) {
-                    SPDLOG_LOGGER_TRACE(
-                      logger_,
-                      "Received stream_subgroup_object subscribe_id: {0} priority: {1} track_alias: {2} "
-                      "group_id: {3} subgroup_id: {4} object_id: {5} data size: {6}",
-                      msg.subscribe_id,
-                      msg.priority,
-                      msg.track_alias,
-                      msg.group_id,
-                      msg.subgroup_id,
-                      obj.object_id,
-                      obj.payload.size());
-
-                    auto& handler = sub_it->second;
-
-                    handler->subscribe_track_metrics_.objects_received++;
-                    handler->subscribe_track_metrics_.bytes_received += obj.payload.size();
-                    handler->ObjectReceived({ msg.group_id,
-                                              obj.object_id,
-                                              msg.subgroup_id,
-                                              obj.payload.size(),
-                                              obj.object_status,
-                                              msg.priority,
-                                              std::nullopt,
-                                              TrackMode::kStream,
-                                              obj.extensions },
-                                            obj.payload);
-
-                    stream_buffer.ResetAnyB<MoqStreamSubGroupObject>();
-                    return true;
-                }
-                break;
-            }
-            default:
-                // Process the stream object type
-                conn_ctx.metrics.rx_stream_invalid_type++;
-
-                SPDLOG_LOGGER_DEBUG(
-                  logger_, "Unsupported MOQT data message type: {0}, bad stream", static_cast<uint64_t>(data_type));
-                return false;
-        }
-
-        return false;
-    }
-
-    template<class MessageType>
-    std::pair<MessageType&, bool> Transport::ParseDataMessage(StreamBuffer<uint8_t>& stream_buffer,
-                                                              DataMessageType msg_type)
-    {
-        if (!stream_buffer.AnyHasValue()) {
-            SPDLOG_LOGGER_DEBUG(logger_,
-                                "Received stream message (type = {0}), init stream buffer",
-                                static_cast<std::uint64_t>(msg_type));
-            stream_buffer.InitAny<MessageType>(static_cast<uint64_t>(msg_type));
-        }
-
-        auto& msg = stream_buffer.GetAny<MessageType>();
-        if (stream_buffer >> msg) {
-            return { msg, true };
-        }
-
-        return { msg, false };
-    }
-
-    template<class HeaderType, class MessageType>
-    std::pair<HeaderType&, bool> Transport::ParseStreamData(StreamBuffer<uint8_t>& stream_buffer,
-                                                            DataMessageType msg_type)
-    {
-        if (!stream_buffer.AnyHasValue()) {
-            SPDLOG_LOGGER_TRACE(
-              logger_, "Received stream header (type = {0}), init stream buffer", static_cast<std::uint64_t>(msg_type));
-            stream_buffer.InitAny<HeaderType>(static_cast<uint64_t>(msg_type));
-        }
-
-        auto& msg = stream_buffer.GetAny<HeaderType>();
-        if (!stream_buffer.AnyHasValueB() && stream_buffer >> msg) {
-            stream_buffer.InitAnyB<MessageType>();
-            return { msg, true };
-        }
-
-        return { msg, stream_buffer.AnyHasValueB() };
-    }
-
-    template std::pair<messages::MoqStreamHeaderSubGroup&, bool>
-    Transport::ParseStreamData<messages::MoqStreamHeaderSubGroup, messages::MoqStreamSubGroupObject>(
-      StreamBuffer<uint8_t>& stream_buffer,
-      DataMessageType msg_type);
 
 } // namespace moq

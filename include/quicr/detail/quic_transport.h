@@ -124,7 +124,7 @@ namespace quicr {
         std::any caller_any; ///< Caller any object - Set and used by caller/app
 
         /// Data queue for received data on the stream
-        SafeQueue<std::shared_ptr<std::vector<uint8_t>>> data_queue;
+        SafeQueue<std::shared_ptr<const std::vector<uint8_t>>> data_queue;
     };
 
     /**

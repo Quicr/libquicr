@@ -175,8 +175,8 @@ namespace quicr {
     {
       public:
         DataStorageDynView(std::shared_ptr<DataStorage<>> storage,
-                        std::size_t start_pos = 0,
-                        std::optional<std::size_t> end_pos = std::nullopt)
+                           std::size_t start_pos = 0,
+                           std::optional<std::size_t> end_pos = std::nullopt)
           : storage_(std::move(storage))
           , start_pos_(start_pos)
           , end_pos_(end_pos)
@@ -188,7 +188,8 @@ namespace quicr {
         DataStorageDynView& operator=(const DataStorageDynView&) = default;
         DataStorageDynView& operator=(DataStorageDynView&&) = default;
 
-        DataStorageDynView Subspan(std::size_t start_pos, std::optional<std::size_t> end_pos = std::nullopt) const noexcept
+        DataStorageDynView Subspan(std::size_t start_pos,
+                                   std::optional<std::size_t> end_pos = std::nullopt) const noexcept
         {
             if (not end_pos.has_value() || *end_pos > storage_->size()) {
                 end_pos = storage_->size();
