@@ -235,7 +235,7 @@ namespace quicr {
                                uint32_t delay_ms,
                                EnqueueFlags flags) override;
 
-        std::optional<std::shared_ptr<const std::vector<uint8_t>>> Dequeue(
+        std::optional<std::shared_ptr<std::vector<uint8_t>>> Dequeue(
           TransportConnId conn_id,
           std::optional<DataContextId> data_ctx_id) override;
 
