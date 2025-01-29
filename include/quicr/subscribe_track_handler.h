@@ -90,6 +90,13 @@ namespace quicr {
         constexpr Status GetStatus() const noexcept { return status_; }
 
         /**
+         * @brief Set the priority of received data
+         *
+         * @param priority      Priority value of received data
+         */
+        void SetPriority(uint8_t priority) noexcept { priority_ = priority; }
+
+        /**
          * @brief Get subscription priority
          *
          * @return Priority value

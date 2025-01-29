@@ -1069,27 +1069,34 @@ namespace quicr {
                     break;
                 }
 
-                // First header in subgroup starts with track alias
-                auto ta_sz = quicr::UintVar::Size(data.at(1));
-                if (data.size() < 1 + ta_sz) {
-                    SPDLOG_LOGGER_WARN(logger_, "Received start of stream without enough bytes to process track alias");
+                uint64_t sub_id = 0;
+                // uint64_t track_alias = 0;
+                uint8_t prioirty = 0;
+
+                try {
+                    // First header in subgroup starts with track alias
+                    // TODO(tievens): Will switch to use track alias instead of subscribe id
+                    auto cursor_it = std::next(data.begin(), 1);
+                    auto ta_sz = UintVar::Size(*cursor_it);
+                    cursor_it += ta_sz;
+
+                    // Decode and check next header, subscribe id
+                    auto sub_id_sz = UintVar::Size(*cursor_it);
+                    sub_id = uint64_t(quicr::UintVar({ cursor_it, cursor_it + sub_id_sz}));
+                    cursor_it += sub_id_sz;
+
+                    auto group_id_sz = UintVar::Size(*cursor_it);
+                    cursor_it += group_id_sz;
+
+                    auto subgroup_id_sz = UintVar::Size(*cursor_it);
+                    cursor_it += subgroup_id_sz;
+
+                    prioirty = *cursor_it;
+
+                } catch (std::invalid_argument&) {
+                    SPDLOG_LOGGER_WARN(logger_, "Received start of stream without enough bytes to process uintvar");
                     break;
                 }
-
-                // TODO(tievens): Will switch to use track alias instead of subscribe id
-                [[maybe_unused]] auto track_alias =
-                  uint64_t(quicr::UintVar({ data.begin() + 1, data.begin() + 1 + ta_sz }));
-
-                // Decode and check next header, subscribe id
-                auto sub_id_sz = quicr::UintVar::Size(data.at(1 + ta_sz));
-                if (data.size() < ta_sz + 1 + sub_id_sz) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received start of stream without enough bytes to process subscribe id");
-                    break;
-                }
-
-                auto sub_id =
-                  uint64_t(quicr::UintVar({ data.begin() + 1 + ta_sz, data.begin() + 1 + ta_sz + sub_id_sz }));
 
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(sub_id);
                 if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
@@ -1104,6 +1111,7 @@ namespace quicr {
                 }
 
                 rx_ctx.caller_any.emplace<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
+                sub_it->second->SetPriority(prioirty);
                 sub_it->second->StreamDataRecv(true, data_opt.value());
 
             } else {
@@ -1134,21 +1142,20 @@ namespace quicr {
                     continue;
                 }
 
-                // Decode and check next header, subscribe ID
-                auto sub_id_sz = quicr::UintVar::Size(data.value()->at(1));
-                if (data.value()->size() < sub_id_sz + 1)
+                uint64_t sub_id = 0;
+                try {
+                    // Decode and check next header, subscribe ID
+                    auto cursor_it = std::next(data.value()->begin(), 1);
+
+                    auto sub_id_sz = quicr::UintVar::Size(*cursor_it);
+                    sub_id =
+                      uint64_t(quicr::UintVar({ cursor_it, cursor_it + sub_id_sz }));
+
+                    cursor_it += sub_id_sz;
+
+                } catch (std::invalid_argument&) {
                     continue; // Invalid, not enough bytes to decode
-
-                auto sub_id =
-                  uint64_t(quicr::UintVar({ data.value()->begin() + 1, data.value()->begin() + 1 + sub_id_sz }));
-
-                // Decode and check next header, track alias
-                auto ta_sz = quicr::UintVar::Size(data.value()->at(1 + sub_id_sz));
-                if (data.value()->size() < sub_id_sz + 1 + ta_sz)
-                    continue; // Invalid, not enough bytes to decode
-
-                [[maybe_unused]] auto track_alias = uint64_t(quicr::UintVar(
-                  { data.value()->begin() + 1 + sub_id_sz, data.value()->begin() + 1 + sub_id_sz + ta_sz }));
+                }
 
                 auto& conn_ctx = connections_[conn_id];
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(sub_id);
