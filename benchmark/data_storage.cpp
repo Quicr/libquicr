@@ -28,5 +28,21 @@ DataStorage_Push(benchmark::State& state)
     }
 }
 
+static void
+DataStorage_CopyIterator(benchmark::State& state)
+{
+    auto buffer = quicr::DataStorage<>::Create();
+    std::vector<uint8_t> bytes(1000, 0xFF);
+    for (int i = 0; i < 1000; ++i) {
+        buffer->Push(bytes);
+    }
+
+    uint8_t copied[1000];
+    for ([[maybe_unused]] const auto& _ : state) {
+        std::copy_n(std::next(buffer->begin(), 999000), 1000, copied);
+    }
+}
+
 BENCHMARK(DataStorage_Construct);
 BENCHMARK(DataStorage_Push);
+BENCHMARK(DataStorage_CopyIterator);
