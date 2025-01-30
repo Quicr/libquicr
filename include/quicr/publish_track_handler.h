@@ -193,6 +193,19 @@ namespace quicr {
         PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
 
         /**
+         * @brief Forward received object data to subscriber/relay/remote client
+         *
+         * @details This method is similar to PublishObject except that the data forwarded is byte array
+         *    level data, which should have already been encoded upon receive from the origin publisher. Relays
+         *    implement this method to forward bytes received to subscriber connection.
+         *
+         * @param is_new_stream       Indicates if this data starts a new stream
+         * @param data                MoQ data to send
+         * @return Publish status on forwarding the data
+         */
+        PublishObjectStatus ForwardPublishedData(bool is_new_stream, std::shared_ptr<const std::vector<uint8_t>> data);
+
+        /**
          * @brief Publish object to the announced track
          *
          * @details Publish a partial object. If not announced, it will be announced. Status will
@@ -265,6 +278,25 @@ namespace quicr {
                                                                      BytesSpan data)>;
 
         /**
+         * @brief Forward data function via the MoQ instance
+         *
+         * @details This is set by the MoQInstance.
+         *   Forward data function provides direct access to the MoQInstance that will forward data
+         *   based on the parameters passed.
+         *
+         * @param priority              Priority to use for object; set on next track change
+         * @param ttl                   Expire time to live in milliseconds
+         * @param stream_header_needed  Indicates if group or track header is needed before this data object
+         * @param data                  MoQ Serialized data to write to the remote connection/stream
+         */
+        using ForwardDataFunction =
+          std::function<PublishObjectStatus(uint8_t priority,
+                                            uint32_t ttl,
+                                            bool stream_header_needed,
+                                            std::shared_ptr<const std::vector<uint8_t>> data)>;
+
+
+        /**
          * @brief Event on Publish Object function via the MoQ instance
          *
          * @param priority              Priority to use for object; set on next track change
@@ -313,8 +345,9 @@ namespace quicr {
         uint8_t default_priority_; // Set by caller and is used when priority is not specified
         uint32_t default_ttl_;     // Set by caller and is used when TTL is not specified
 
-        uint64_t publish_data_ctx_id_;           // set byte the transport; publishing data context ID
-        PublishObjFunction publish_object_func_; // set by the transport
+        uint64_t publish_data_ctx_id_;                  // set byte the transport; publishing data context ID
+        PublishObjFunction publish_object_func_;        // set by the transport
+        ForwardDataFunction forward_publish_data_func_; // set by the transport
 
         uint64_t prev_object_group_id_{ 0 };
         uint64_t prev_sub_group_id_{ 0 };

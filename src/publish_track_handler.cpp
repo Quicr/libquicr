@@ -7,6 +7,46 @@ namespace quicr {
     void PublishTrackHandler::StatusChanged(Status) {}
     void PublishTrackHandler::MetricsSampled(const PublishTrackMetrics&) {}
 
+    PublishTrackHandler::PublishObjectStatus PublishTrackHandler::ForwardPublishedData(
+      bool is_new_stream,
+      std::shared_ptr<const std::vector<uint8_t>> data)
+    {
+        switch (publish_status_) {
+            case Status::kOk:
+                break;
+            case Status::kNoSubscribers:
+                publish_track_metrics_.objects_dropped_not_ok++;
+            return PublishObjectStatus::kNoSubscribers;
+            case Status::kPendingAnnounceResponse:
+                [[fallthrough]];
+            case Status::kNotAnnounced:
+                [[fallthrough]];
+            case Status::kNotConnected:
+                publish_track_metrics_.objects_dropped_not_ok++;
+            return PublishObjectStatus::kNotAnnounced;
+            case Status::kAnnounceNotAuthorized:
+                publish_track_metrics_.objects_dropped_not_ok++;
+            return PublishObjectStatus::kNotAuthorized;
+            case Status::kSubscriptionUpdated:
+                // reset the status to ok to imply change
+                    publish_status_ = Status::kOk;
+            break;
+            default:
+                publish_track_metrics_.objects_dropped_not_ok++;
+            return PublishObjectStatus::kInternalError;
+        }
+
+        publish_track_metrics_.bytes_published += data->size();
+
+        if (forward_publish_data_func_ != nullptr) {
+            return forward_publish_data_func_(default_priority_, default_ttl_, is_new_stream, data);
+
+        }
+
+        return PublishObjectStatus::kInternalError;
+    }
+
+
     PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(const ObjectHeaders& object_headers,
                                                                                 BytesSpan data)
     {

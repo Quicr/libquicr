@@ -138,6 +138,19 @@ namespace quicr {
               *th, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
         };
 
+        track_handler->forward_publish_data_func_ =
+          [&, weak_track_handler](
+            uint8_t priority,
+            uint32_t ttl,
+            bool stream_header_needed,
+            std::shared_ptr<const std::vector<uint8_t>> data) -> PublishTrackHandler::PublishObjectStatus {
+            auto handler = weak_track_handler.lock();
+            if (!handler) {
+                return PublishTrackHandler::PublishObjectStatus::kInternalError;
+            }
+            return SendData(*handler, priority, ttl, stream_header_needed, data);
+        };
+
         if (!ephemeral) {
             // Hold onto track handler
             conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;

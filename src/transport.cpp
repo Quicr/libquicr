@@ -704,6 +704,19 @@ namespace quicr {
               *handler, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
         };
 
+        track_handler->forward_publish_data_func_ =
+          [&,
+           weak_handler](uint8_t priority,
+                         uint32_t ttl,
+                         bool stream_header_needed,
+                         std::shared_ptr<const std::vector<uint8_t>> data) -> PublishTrackHandler::PublishObjectStatus {
+            auto handler = weak_handler.lock();
+            if (!handler) {
+                return PublishTrackHandler::PublishObjectStatus::kInternalError;
+            }
+            return SendData(*handler, priority, ttl, stream_header_needed, data);
+        };
+
         // Hold ref to track handler
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
@@ -764,6 +777,46 @@ namespace quicr {
 
         track_handler->SetSubscribeId(std::nullopt);
         track_handler->SetStatus(FetchTrackHandler::Status::kNotConnected);
+    }
+
+    PublishTrackHandler::PublishObjectStatus Transport::SendData(PublishTrackHandler& track_handler,
+                                                                 uint8_t priority,
+                                                                 uint32_t ttl,
+                                                                 bool stream_header_needed,
+                                                                 std::shared_ptr<const std::vector<uint8_t>> data)
+    {
+        if (!track_handler.GetTrackAlias().has_value()) {
+            return PublishTrackHandler::PublishObjectStatus::kNotAnnounced;
+        }
+
+        if (!track_handler.GetSubscribeId().has_value()) {
+            return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
+        }
+
+        ITransport::EnqueueFlags eflags;
+
+        switch (track_handler.default_track_mode_) {
+            case TrackMode::kDatagram: {
+                eflags.use_reliable = false;
+                break;
+            }
+            default: {
+                eflags.use_reliable = true;
+
+                if (stream_header_needed) {
+                    eflags.new_stream = true;
+                    eflags.clear_tx_queue = true;
+                    eflags.use_reset = true;
+                }
+
+                break;
+            }
+        }
+
+        quic_transport_->Enqueue(
+          track_handler.connection_handle_, track_handler.publish_data_ctx_id_, data, priority, ttl, 0, eflags);
+
+        return PublishTrackHandler::PublishObjectStatus::kOk;
     }
 
     PublishTrackHandler::PublishObjectStatus Transport::SendObject(PublishTrackHandler& track_handler,
@@ -1082,7 +1135,7 @@ namespace quicr {
 
                     // Decode and check next header, subscribe id
                     auto sub_id_sz = UintVar::Size(*cursor_it);
-                    sub_id = uint64_t(quicr::UintVar({ cursor_it, cursor_it + sub_id_sz}));
+                    sub_id = uint64_t(quicr::UintVar({ cursor_it, cursor_it + sub_id_sz }));
                     cursor_it += sub_id_sz;
 
                     auto group_id_sz = UintVar::Size(*cursor_it);
@@ -1148,8 +1201,7 @@ namespace quicr {
                     auto cursor_it = std::next(data.value()->begin(), 1);
 
                     auto sub_id_sz = quicr::UintVar::Size(*cursor_it);
-                    sub_id =
-                      uint64_t(quicr::UintVar({ cursor_it, cursor_it + sub_id_sz }));
+                    sub_id = uint64_t(quicr::UintVar({ cursor_it, cursor_it + sub_id_sz }));
 
                     cursor_it += sub_id_sz;
 
