@@ -195,13 +195,13 @@ namespace quicr {
          */
         [[nodiscard]] TimeQueueElement<T> PopFront()
         {
-            TimeQueueElement<T> obj;
+            TimeQueueElement<T> obj{};
             Front(obj);
             if (obj.has_value) {
                 Pop();
             }
 
-            return obj;
+            return std::move(obj);
         }
 
         /**
