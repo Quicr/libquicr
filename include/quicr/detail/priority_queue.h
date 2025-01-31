@@ -112,9 +112,11 @@ namespace quicr {
         /**
          * @brief Get the first object from queue
          *
+         * @param elem[out]          Time queue element storage. Will be updated.
+         *
          * @return TimeQueueElement<DataType> value from time queue
          */
-        TimeQueueElement<DataType> Front()
+        void Front(TimeQueueElement<DataType>& elem)
         {
             std::lock_guard<std::mutex> _(mutex_);
 
@@ -122,18 +124,18 @@ namespace quicr {
                 if (!tqueue || tqueue->Empty())
                     continue;
 
-                return tqueue->Front();
+                tqueue->Front(elem);
             }
-
-            return {};
         }
 
         /**
          * @brief Get and remove the first object from queue
          *
+         * @param elem[out]          Time queue element storage. Will be updated.
+         *
          * @return TimeQueueElement<DataType> from time queue
          */
-        TimeQueueElement<DataType> PopFront()
+        void PopFront(TimeQueueElement<DataType>& elem)
         {
             std::lock_guard<std::mutex> _(mutex_);
 
@@ -141,10 +143,8 @@ namespace quicr {
                 if (!tqueue || tqueue->Empty())
                     continue;
 
-                return tqueue->PopFront();
+                tqueue->PopFront(elem);
             }
-
-            return {};
         }
 
         /**

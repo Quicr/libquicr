@@ -288,7 +288,6 @@ namespace quicr {
                                                             std::optional<Extensions> extensions,
                                                             BytesSpan data);
 
-
         void SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data);
         void SendClientSetup();
         void SendServerSetup(ConnectionContext& conn_ctx);

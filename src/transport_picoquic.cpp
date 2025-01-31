@@ -1016,7 +1016,8 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
         return;
     }
 
-    auto out_data = conn_ctx->dgram_tx_data->Front();
+    TimeQueueElement<ConnData> out_data;
+    conn_ctx->dgram_tx_data->Front(out_data);
     if (out_data.has_value) {
         const auto data_ctx_it = conn_ctx->active_data_contexts.find(out_data.value.data_ctx_id);
         if (data_ctx_it == conn_ctx->active_data_contexts.end()) {
@@ -1161,8 +1162,10 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
         }
     }
 
+    TimeQueueElement<ConnData> obj;
+
     if (data_ctx->tx_reset_wait_discard) { // Drop TX objects till next reset/new stream
-        auto obj = data_ctx->tx_data->PopFront();
+        data_ctx->tx_data->PopFront(obj);
         if (obj.has_value) {
             data_ctx->metrics.tx_queue_discards++;
 
@@ -1176,7 +1179,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
     }
 
     if (data_ctx->stream_tx_object == nullptr) {
-        auto obj = data_ctx->tx_data->PopFront();
+        data_ctx->tx_data->PopFront(obj);
         data_ctx->metrics.tx_queue_expired += obj.expired_count;
 
         if (obj.has_value) {

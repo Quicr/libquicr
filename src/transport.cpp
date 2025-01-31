@@ -1039,7 +1039,7 @@ namespace quicr {
                 break;
             }
 
-            auto data_opt = std::move(rx_ctx.data_queue.Pop());
+            auto data_opt = rx_ctx.data_queue.Pop();
             if (not data_opt.has_value()) {
                 break;
             }

@@ -7,7 +7,10 @@
 
 namespace quicr {
 
-    void SubscribeTrackHandler::ObjectReceived(const ObjectHeaders& object_headers, BytesSpan data) {}
+    void SubscribeTrackHandler::ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
+                                               [[maybe_unused]] BytesSpan data)
+    {
+    }
 
     void SubscribeTrackHandler::StreamDataRecv(bool is_start, std::shared_ptr<const std::vector<uint8_t>> data)
     {

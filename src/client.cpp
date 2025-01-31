@@ -376,11 +376,12 @@ namespace quicr {
 
                 auto fetch_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
                 if (fetch_it == conn_ctx.tracks_by_sub_id.end()) {
-                    SPDLOG_LOGGER_WARN(
-                      logger_,
-                      "Received fetch error for unkown fetch track conn_id: {0} subscribe_id: {1}, ignored",
-                      conn_ctx.connection_handle,
-                      msg.subscribe_id);
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received fetch error for unknown fetch track conn_id: {} subscribe_id: {} "
+                                       "error code: {}, ignored",
+                                       conn_ctx.connection_handle,
+                                       msg.subscribe_id,
+                                       msg.err_code);
                     return true;
                 }
 
