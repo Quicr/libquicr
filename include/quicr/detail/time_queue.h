@@ -195,8 +195,8 @@ namespace quicr {
          */
         [[nodiscard]] TimeQueueElement<T> PopFront()
         {
-            TimeQueueElement<T> result;
-            auto obj = Front(result);
+            TimeQueueElement<T> obj;
+            Front(obj);
             if (obj.has_value) {
                 Pop();
             }
