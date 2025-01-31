@@ -625,19 +625,11 @@ class MyServer : public quicr::Server
             return false;
         }
 
-        for (const auto& group : groups) {
-            for (const auto& object : *group) {
-                SPDLOG_INFO("Fetch cache group: {} object_id: {}", object.headers.group_id, object.headers.object_id);
-            }
-        }
-
-        bool status = std::any_of(groups.begin(), groups.end(), [&](const auto& group) {
+        return std::any_of(groups.begin(), groups.end(), [&](const auto& group) {
             return !group->empty() && group->begin()->headers.object_id <= attrs.start_object &&
                    std::prev(group->end())->headers.object_id >= (attrs.end_object - 1);
         });
-
-        SPDLOG_INFO("Fetch status is {}", status);
-        return status;
+        ;
     }
 
     /**
