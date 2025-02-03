@@ -268,8 +268,8 @@ namespace quicr {
 
             queue_.clear();
 
-            for (const auto& index : buckets_) {
-                buckets_.at(index).clear();
+            for (const auto& bucket : buckets_) {
+                buckets_.clear();
             }
 
             queue_index_ = bucket_index_ = 0;
