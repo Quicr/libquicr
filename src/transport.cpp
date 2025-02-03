@@ -513,7 +513,8 @@ namespace quicr {
         auto group_order = track_handler->GetGroupOrder();
         auto filter_type = track_handler->GetFilterType();
 
-        // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
+        // Set the track handler for tracking by subscribe ID and track alias
+        conn_it->second.sub_by_track_alias[*track_handler->GetTrackAlias()] = track_handler;
         conn_it->second.tracks_by_sub_id[sid] = std::move(track_handler);
 
         SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type);
@@ -568,6 +569,7 @@ namespace quicr {
 
                 std::lock_guard<std::mutex> _(state_mutex_);
                 conn_ctx.tracks_by_sub_id.erase(*subscribe_id);
+                conn_ctx.sub_by_track_alias.erase(*handler.GetTrackAlias());
             }
         }
     }
@@ -847,7 +849,6 @@ namespace quicr {
                 object.group_id = group_id;
                 object.object_id = object_id;
                 object.priority = priority;
-                object.subscribe_id = *track_handler.GetSubscribeId();
                 object.track_alias = *track_handler.GetTrackAlias();
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
@@ -868,7 +869,6 @@ namespace quicr {
                     subgroup_hdr.subgroup_id = subgroup_id;
                     subgroup_hdr.priority = priority;
                     subgroup_hdr.track_alias = *track_handler.GetTrackAlias();
-                    subgroup_hdr.subscribe_id = *track_handler.GetSubscribeId();
                     track_handler.object_msg_buffer_ << subgroup_hdr;
                 }
 
@@ -925,6 +925,7 @@ namespace quicr {
         conn_ctx.pub_tracks_by_name.clear();
         conn_ctx.recv_sub_id.clear();
         conn_ctx.tracks_by_sub_id.clear();
+        conn_ctx.sub_by_track_alias.clear();
     }
 
     // ---------------------------------------------------------------------------------------
@@ -1122,21 +1123,15 @@ namespace quicr {
                     break;
                 }
 
-                uint64_t sub_id = 0;
-                // uint64_t track_alias = 0;
+                uint64_t track_alias = 0;
                 uint8_t prioirty = 0;
 
                 try {
                     // First header in subgroup starts with track alias
-                    // TODO(tievens): Will switch to use track alias instead of subscribe id
                     auto cursor_it = std::next(data.begin(), 1);
                     auto ta_sz = UintVar::Size(*cursor_it);
+                    track_alias = uint64_t(quicr::UintVar({ cursor_it, cursor_it + ta_sz }));
                     cursor_it += ta_sz;
-
-                    // Decode and check next header, subscribe id
-                    auto sub_id_sz = UintVar::Size(*cursor_it);
-                    sub_id = uint64_t(quicr::UintVar({ cursor_it, cursor_it + sub_id_sz }));
-                    cursor_it += sub_id_sz;
 
                     auto group_id_sz = UintVar::Size(*cursor_it);
                     cursor_it += group_id_sz;
@@ -1151,13 +1146,13 @@ namespace quicr {
                     break;
                 }
 
-                auto sub_it = conn_ctx.tracks_by_sub_id.find(sub_id);
-                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                    conn_ctx.metrics.rx_stream_unknown_subscribe_id++;
+                auto sub_it = conn_ctx.sub_by_track_alias.find(track_alias);
+                if (sub_it == conn_ctx.sub_by_track_alias.end()) {
+                    conn_ctx.metrics.rx_stream_unknown_track_alias++;
                     SPDLOG_LOGGER_WARN(
                       logger_,
-                      "Received stream_header_subgroup to unknown subscribe track subscribe_id: {}, ignored",
-                      sub_id);
+                      "Received stream_header_subgroup to unknown subscribe track track_alias: {}, ignored",
+                      track_alias);
 
                     // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
                     break;
@@ -1195,27 +1190,26 @@ namespace quicr {
                     continue;
                 }
 
-                uint64_t sub_id = 0;
+                uint64_t track_alais = 0;
                 try {
                     // Decode and check next header, subscribe ID
                     auto cursor_it = std::next(data.value()->begin(), 1);
 
-                    auto sub_id_sz = quicr::UintVar::Size(*cursor_it);
-                    sub_id = uint64_t(quicr::UintVar({ cursor_it, cursor_it + sub_id_sz }));
-
-                    cursor_it += sub_id_sz;
+                    auto track_alias_sz = quicr::UintVar::Size(*cursor_it);
+                    track_alais = uint64_t(quicr::UintVar({ cursor_it, cursor_it + track_alias_sz }));
+                    cursor_it += track_alias_sz;
 
                 } catch (std::invalid_argument&) {
                     continue; // Invalid, not enough bytes to decode
                 }
 
                 auto& conn_ctx = connections_[conn_id];
-                auto sub_it = conn_ctx.tracks_by_sub_id.find(sub_id);
-                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                    conn_ctx.metrics.rx_dgram_unknown_subscribe_id++;
+                auto sub_it = conn_ctx.sub_by_track_alias.find(track_alais);
+                if (sub_it == conn_ctx.sub_by_track_alias.end()) {
+                    conn_ctx.metrics.rx_dgram_unknown_track_alias++;
 
                     SPDLOG_LOGGER_DEBUG(
-                      logger_, "Received datagram to unknown subscribe track subscribe_id: {0}, ignored", sub_id);
+                      logger_, "Received datagram to unknown subscribe track track alias: {0}, ignored", track_alais);
 
                     // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
 

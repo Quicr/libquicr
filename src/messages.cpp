@@ -859,7 +859,6 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const MoqObjectDatagram& msg)
     {
         buffer << UintVar(static_cast<uint64_t>(DataMessageType::OBJECT_DATAGRAM));
-        buffer << UintVar(msg.subscribe_id);
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
         buffer << UintVar(msg.object_id);
@@ -882,34 +881,27 @@ namespace quicr::messages {
     {
         switch (msg.current_pos) {
             case 0: {
-                if (!ParseUintVField(buffer, msg.subscribe_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 1: {
                 if (!ParseUintVField(buffer, msg.track_alias)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 2: {
+            case 1: {
                 if (!ParseUintVField(buffer, msg.group_id)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 3: {
+            case 2: {
                 if (!ParseUintVField(buffer, msg.object_id)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 4: {
+            case 3: {
                 auto val = buffer.Front();
                 if (!val) {
                     return false;
@@ -919,14 +911,14 @@ namespace quicr::messages {
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 5: {
+            case 4: {
                 if (!ParseUintVField(buffer, msg.payload_len)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 6: {
+            case 5: {
                 if (msg.payload_len == 0) {
                     uint64_t status = 0;
                     if (!ParseUintVField(buffer, status)) {
@@ -938,7 +930,7 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
 
-            case 7: {
+            case 6: {
                 if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
                     return false;
                 }
@@ -950,7 +942,7 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
 
-            case 8: {
+            case 7: {
                 if (!buffer.Available(msg.payload_len)) {
                     return false;
                 }
@@ -978,7 +970,6 @@ namespace quicr::messages {
     {
         buffer << UintVar(static_cast<uint64_t>(DataMessageType::STREAM_HEADER_SUBGROUP));
         buffer << UintVar(msg.track_alias);
-        buffer << UintVar(msg.subscribe_id);
         buffer << UintVar(msg.group_id);
         buffer << UintVar(msg.subgroup_id);
         buffer.push_back(msg.priority);
@@ -997,34 +988,26 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 1: {
-                if (!ParseUintVField(buffer, msg.subscribe_id)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 2: {
                 if (!ParseUintVField(buffer, msg.group_id)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 3: {
+            case 2: {
                 if (!ParseUintVField(buffer, msg.subgroup_id)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 4: {
+            case 3: {
                 auto val = buffer.Front();
                 if (!val) {
                     return false;
                 }
                 buffer.Pop();
                 msg.priority = val.value();
-                ;
                 msg.current_pos += 1;
                 msg.parse_completed = true;
                 [[fallthrough]];

@@ -268,11 +268,10 @@ namespace quicr {
 
             queue_.clear();
 
-            for (const auto& index : buckets_in_use_) {
+            for (const auto& index : buckets_) {
                 buckets_.at(index).clear();
             }
 
-            buckets_in_use_.clear();
             queue_index_ = bucket_index_ = 0;
         }
 
@@ -338,7 +337,6 @@ namespace quicr {
 
             bucket.emplace_back(value);
             queue_.emplace_back(bucket, bucket.size() - 1, expiry_tick, ticks + delay_ttl);
-            buckets_in_use_.push_back(future_index);
         }
 
       protected:
@@ -368,9 +366,6 @@ namespace quicr {
 
         /// Tick service for calculating new tick and jumps in time.
         std::shared_ptr<TickService> tick_service_;
-
-        /// Set of buckets in use that should be cleared when clear is called
-        std::vector<IndexType> buckets_in_use_;
     };
 
 }; // namespace quicr

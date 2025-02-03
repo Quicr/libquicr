@@ -254,6 +254,9 @@ namespace quicr {
             /// Tracks by subscribe ID (Subscribe and Fetch)
             std::map<messages::SubscribeId, std::shared_ptr<SubscribeTrackHandler>> tracks_by_sub_id;
 
+            /// Subscribes by Track Alais is used for data object forwarding
+            std::map<messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> sub_by_track_alias;
+
             /// Publish tracks by namespace and name. map[track namespace][track name] = track handler
             std::map<TrackNamespaceHash, std::map<TrackNameHash, std::shared_ptr<PublishTrackHandler>>>
               pub_tracks_by_name;

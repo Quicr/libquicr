@@ -408,7 +408,6 @@ namespace quicr::messages {
 
     struct MoqObjectDatagram
     {
-        SubscribeId subscribe_id;
         TrackAlias track_alias;
         GroupId group_id;
         ObjectId object_id;
@@ -433,7 +432,6 @@ namespace quicr::messages {
     struct MoqStreamHeaderSubGroup
     {
         TrackAlias track_alias;
-        SubscribeId subscribe_id;
         GroupId group_id;
         SubGroupId subgroup_id;
         ObjectPriority priority;
