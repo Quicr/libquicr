@@ -268,8 +268,8 @@ namespace quicr {
 
             queue_.clear();
 
-            for (const auto& bucket : buckets_) {
-                buckets_.clear();
+            for (auto& bucket : buckets_) {
+                bucket.clear();
             }
 
             queue_index_ = bucket_index_ = 0;
@@ -335,7 +335,7 @@ namespace quicr {
 
             BucketType& bucket = buckets_[future_index];
 
-            bucket.emplace_back(value);
+            bucket.push_back(value);
             queue_.emplace_back(bucket, bucket.size() - 1, expiry_tick, ticks + delay_ttl);
         }
 

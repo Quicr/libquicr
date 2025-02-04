@@ -124,7 +124,7 @@ namespace quicr {
         std::any caller_any; ///< Caller any object - Set and used by caller/app
 
         /// Data queue for received data on the stream
-        SafeQueue<std::shared_ptr<std::vector<uint8_t>>> data_queue;
+        SafeQueue<std::shared_ptr<const std::vector<uint8_t>>> data_queue;
     };
 
     /**
@@ -425,7 +425,7 @@ namespace quicr {
          *
          * @returns std::nullopt if there is no data
          */
-        virtual std::optional<std::shared_ptr<std::vector<uint8_t>>> Dequeue(
+        virtual std::optional<std::shared_ptr<const std::vector<uint8_t>>> Dequeue(
           TransportConnId conn_id,
           std::optional<DataContextId> data_ctx_id) = 0;
 

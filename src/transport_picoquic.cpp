@@ -630,7 +630,7 @@ PicoQuicTransport::GetStreamRxContext(TransportConnId conn_id, uint64_t stream_i
     throw TransportError::kInvalidStreamId;
 }
 
-std::optional<std::shared_ptr<std::vector<uint8_t>>>
+std::optional<std::shared_ptr<const std::vector<uint8_t>>>
 PicoQuicTransport::Dequeue(TransportConnId conn_id, [[maybe_unused]] std::optional<DataContextId> data_ctx_id)
 {
     std::lock_guard<std::mutex> _(state_mutex_);
@@ -1321,7 +1321,7 @@ PicoQuicTransport::OnRecvDatagram(ConnectionContext* conn_ctx, uint8_t* bytes, s
         return;
     }
 
-    conn_ctx->dgram_rx_data.Push(std::make_shared<std::vector<uint8_t>>(bytes, bytes + length));
+    conn_ctx->dgram_rx_data.Push(std::make_shared<const std::vector<uint8_t>>(bytes, bytes + length));
     conn_ctx->metrics.rx_dgrams++;
     conn_ctx->metrics.rx_dgrams_bytes += length;
 
@@ -1352,12 +1352,10 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
         return;
     }
 
-    auto data = std::make_shared<std::vector<uint8_t>>(bytes.begin(), bytes.end());
-
     std::lock_guard<std::mutex> l(state_mutex_);
 
     auto& rx_buf = conn_ctx->rx_stream_buffer[stream_id];
-    rx_buf.rx_ctx.data_queue.Push(std::move(data));
+    rx_buf.rx_ctx.data_queue.Push(std::make_shared<const std::vector<uint8_t>>(bytes.begin(), bytes.end()));
 
     if (data_ctx != nullptr) {
         data_ctx->metrics.rx_stream_cb++;

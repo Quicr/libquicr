@@ -126,7 +126,7 @@ namespace quicr {
             std::unique_ptr<PriorityQueue<ConnData>>
               dgram_tx_data; /// Datagram pending objects to be written to the network
 
-            SafeQueue<std::shared_ptr<std::vector<uint8_t>>>
+            SafeQueue<std::shared_ptr<const std::vector<uint8_t>>>
               dgram_rx_data; /// Buffered datagrams received from the network
 
             /**
@@ -235,7 +235,7 @@ namespace quicr {
                                uint32_t delay_ms,
                                EnqueueFlags flags) override;
 
-        std::optional<std::shared_ptr<std::vector<uint8_t>>> Dequeue(TransportConnId conn_id,
+        std::optional<std::shared_ptr<const std::vector<uint8_t>>> Dequeue(TransportConnId conn_id,
                                                                      std::optional<DataContextId> data_ctx_id) override;
 
         StreamRxContext& GetStreamRxContext(TransportConnId conn_id, uint64_t stream_id) override;
