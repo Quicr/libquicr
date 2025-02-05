@@ -591,7 +591,6 @@ ObjectDatagramEncodeDecode(bool extensions, bool empty_payload)
 
     MoqObjectDatagram object_datagram_out;
     CHECK(Verify(buffer, static_cast<uint64_t>(DataMessageType::OBJECT_DATAGRAM), object_datagram_out));
-    CHECK_EQ(object_datagram.subscribe_id, object_datagram_out.subscribe_id);
     CHECK_EQ(object_datagram.track_alias, object_datagram_out.track_alias);
     CHECK_EQ(object_datagram.group_id, object_datagram_out.group_id);
     CHECK_EQ(object_datagram.object_id, object_datagram_out.object_id);
