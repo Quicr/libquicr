@@ -1064,7 +1064,7 @@ namespace quicr {
                     // Decode message type
                     auto uv_sz = UintVar::Size(conn_ctx.ctrl_msg_buffer.front());
                     if (conn_ctx.ctrl_msg_buffer.size() < uv_sz) {
-                        i = kReadLoopMaxPerStream - 1;
+                        i = kReadLoopMaxPerStream - 4;
                         continue; // Not enough bytes to process control message. Try again once more.
                     }
 
@@ -1081,7 +1081,7 @@ namespace quicr {
                 auto uv_sz = UintVar::Size(conn_ctx.ctrl_msg_buffer.front());
 
                 if (conn_ctx.ctrl_msg_buffer.size() < uv_sz) {
-                    i = kReadLoopMaxPerStream - 1;
+                    i = kReadLoopMaxPerStream - 4;
                     continue; // Not enough bytes to process control message. Try again once more.
                 }
 
@@ -1089,7 +1089,7 @@ namespace quicr {
                   quicr::UintVar({ conn_ctx.ctrl_msg_buffer.begin(), conn_ctx.ctrl_msg_buffer.begin() + uv_sz }));
 
                 if (conn_ctx.ctrl_msg_buffer.size() < payload_len + uv_sz) {
-                    i = kReadLoopMaxPerStream - 1;
+                    i = kReadLoopMaxPerStream - 4;
                     continue; // Not enough bytes to process control message. Try again once more.
                 }
 
@@ -1113,7 +1113,20 @@ namespace quicr {
                  * Process data subgroup header - assume that the start of stream will always have enough bytes
                  * for track alias
                  */
-                auto msg_type = data.front();
+                auto type_sz = UintVar::Size(data.front());
+                if (data.size() < type_sz) {
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "New stream {} does not have enough bytes to process start of stream header len: {} < {}",
+                      stream_id,
+                      data.size(),
+                      type_sz);
+                    i = kReadLoopMaxPerStream;
+                    continue; // Not enough bytes to process control message. Try again once more.
+                }
+
+                auto msg_type = uint64_t(quicr::UintVar({ data.begin(), data.begin() + type_sz }));
+                auto cursor_it = std::next(data.begin(), type_sz);
 
                 if (!msg_type || static_cast<DataMessageType>(msg_type) != DataMessageType::STREAM_HEADER_SUBGROUP) {
                     SPDLOG_LOGGER_DEBUG(logger_, "Received start of stream with invalid header type, dropping");
@@ -1128,7 +1141,6 @@ namespace quicr {
 
                 try {
                     // First header in subgroup starts with track alias
-                    auto cursor_it = std::next(data.begin(), 1);
                     auto ta_sz = UintVar::Size(*cursor_it);
                     track_alias = uint64_t(quicr::UintVar({ cursor_it, cursor_it + ta_sz }));
                     cursor_it += ta_sz;

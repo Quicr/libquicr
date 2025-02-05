@@ -1354,7 +1354,27 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
 
     std::lock_guard<std::mutex> l(state_mutex_);
 
+    auto rx_buf_it = conn_ctx->rx_stream_buffer.find(stream_id);
+    if (rx_buf_it == conn_ctx->rx_stream_buffer.end()) {
+        if (bytes.size() < kMinStreamBytesForSend) {
+            SPDLOG_LOGGER_DEBUG(logger,
+                               "bytes received from picoquic stream {} len: {} IS NEW: {}",
+                               stream_id,
+                               bytes.size(),
+                               rx_buf_it->second.rx_ctx.caller_any.has_value());
+        }
+        conn_ctx->rx_stream_buffer.try_emplace(stream_id);
+
+    } else if (bytes.size() < kMinStreamBytesForSend) {
+        SPDLOG_LOGGER_TRACE(logger,
+                           "bytes received from picoquic stream {} len: {} NOT NEW {}",
+                           stream_id,
+                           bytes.size(),
+                           rx_buf_it->second.rx_ctx.caller_any.has_value());
+    }
+
     auto& rx_buf = conn_ctx->rx_stream_buffer[stream_id];
+
     rx_buf.rx_ctx.data_queue.Push(std::make_shared<const std::vector<uint8_t>>(bytes.begin(), bytes.end()));
 
     if (data_ctx != nullptr) {

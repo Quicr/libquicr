@@ -39,6 +39,11 @@ namespace quicr {
     constexpr int kPqCcLowCwin = 4000;                /// Bytes less than this value are considered a low/congested CWIN
     constexpr int kCongestionCheckInterval = 100'000; /// Congestion check interval in microseconds
 
+    /**
+     * Minimum bytes needed to write before considering to send. This doesn't
+     */
+    constexpr int kMinStreamBytesForSend = 40;
+
     class PicoQuicTransport : public ITransport
     {
       public:
@@ -235,8 +240,9 @@ namespace quicr {
                                uint32_t delay_ms,
                                EnqueueFlags flags) override;
 
-        std::optional<std::shared_ptr<const std::vector<uint8_t>>> Dequeue(TransportConnId conn_id,
-                                                                     std::optional<DataContextId> data_ctx_id) override;
+        std::optional<std::shared_ptr<const std::vector<uint8_t>>> Dequeue(
+          TransportConnId conn_id,
+          std::optional<DataContextId> data_ctx_id) override;
 
         StreamRxContext& GetStreamRxContext(TransportConnId conn_id, uint64_t stream_id) override;
 
