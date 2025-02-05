@@ -576,7 +576,6 @@ ObjectDatagramEncodeDecode(bool extensions, bool empty_payload)
 {
     Bytes buffer;
     auto object_datagram = MoqObjectDatagram{};
-    object_datagram.subscribe_id = 0x100;
     object_datagram.track_alias = uint64_t(kTrackAliasAliceVideo);
     object_datagram.group_id = 0x1000;
     object_datagram.object_id = 0xFF;
