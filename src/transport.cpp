@@ -1108,7 +1108,7 @@ namespace quicr {
             } // end of is_bidir
 
             // DATA OBJECT
-            if (not rx_ctx.caller_any.has_value()) { // Is new stream when no value is set
+            if (rx_ctx.is_new) {
                 /*
                  * Process data subgroup header - assume that the start of stream will always have enough bytes
                  * for track alias
@@ -1158,6 +1158,8 @@ namespace quicr {
                     break;
                 }
 
+                rx_ctx.is_new = false;
+
                 auto sub_it = conn_ctx.sub_by_track_alias.find(track_alias);
                 if (sub_it == conn_ctx.sub_by_track_alias.end()) {
                     conn_ctx.metrics.rx_stream_unknown_track_alias++;
@@ -1170,11 +1172,11 @@ namespace quicr {
                     break;
                 }
 
-                rx_ctx.caller_any.emplace<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
+                rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
                 sub_it->second->SetPriority(prioirty);
                 sub_it->second->StreamDataRecv(true, data_opt.value());
 
-            } else {
+            } else if (rx_ctx.caller_any.has_value()) {
                 // fast processing for existing stream using weak pointer to subscribe handler
                 auto sub_handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx.caller_any);
                 if (auto sub_handler = sub_handler_weak.lock()) {

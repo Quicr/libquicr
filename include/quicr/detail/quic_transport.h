@@ -122,6 +122,7 @@ namespace quicr {
     struct StreamRxContext
     {
         std::any caller_any; ///< Caller any object - Set and used by caller/app
+        bool is_new {true}; ///< Indicates if new stream, on read set to false
 
         /// Data queue for received data on the stream
         SafeQueue<std::shared_ptr<const std::vector<uint8_t>>> data_queue;
