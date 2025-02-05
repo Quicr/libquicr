@@ -630,17 +630,22 @@ PicoQuicTransport::GetStreamRxContext(TransportConnId conn_id, uint64_t stream_i
     throw TransportError::kInvalidStreamId;
 }
 
-std::optional<std::shared_ptr<const std::vector<uint8_t>>>
+std::shared_ptr<const std::vector<uint8_t>>
 PicoQuicTransport::Dequeue(TransportConnId conn_id, [[maybe_unused]] std::optional<DataContextId> data_ctx_id)
 {
     std::lock_guard<std::mutex> _(state_mutex_);
 
     const auto conn_ctx_it = conn_context_.find(conn_id);
     if (conn_ctx_it == conn_context_.end()) {
-        return std::nullopt;
+        return {};
     }
 
-    return conn_ctx_it->second.dgram_rx_data.Pop();
+    auto data = conn_ctx_it->second.dgram_rx_data.Pop();
+    if (data.has_value()) {
+        return *data;
+    }
+
+    return {};
 }
 
 DataContextId

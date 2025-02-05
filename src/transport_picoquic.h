@@ -240,9 +240,8 @@ namespace quicr {
                                uint32_t delay_ms,
                                EnqueueFlags flags) override;
 
-        std::optional<std::shared_ptr<const std::vector<uint8_t>>> Dequeue(
-          TransportConnId conn_id,
-          std::optional<DataContextId> data_ctx_id) override;
+        std::shared_ptr<const std::vector<uint8_t>> Dequeue(TransportConnId conn_id,
+                                                            std::optional<DataContextId> data_ctx_id) override;
 
         StreamRxContext& GetStreamRxContext(TransportConnId conn_id, uint64_t stream_id) override;
 

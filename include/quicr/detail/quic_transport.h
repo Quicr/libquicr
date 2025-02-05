@@ -425,9 +425,8 @@ namespace quicr {
          *
          * @returns std::nullopt if there is no data
          */
-        virtual std::optional<std::shared_ptr<const std::vector<uint8_t>>> Dequeue(
-          TransportConnId conn_id,
-          std::optional<DataContextId> data_ctx_id) = 0;
+        virtual std::shared_ptr<const std::vector<uint8_t>> Dequeue(TransportConnId conn_id,
+                                                                    std::optional<DataContextId> data_ctx_id) = 0;
 
         /**
          * @brief Get the stream RX context by connection ID and stream ID

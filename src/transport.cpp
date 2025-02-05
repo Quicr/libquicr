@@ -1191,8 +1191,8 @@ namespace quicr {
         MoqObjectDatagram object_datagram_out;
         for (int i = 0; i < kReadLoopMaxPerStream; i++) {
             auto data = quic_transport_->Dequeue(conn_id, data_ctx_id);
-            if (data.has_value() && !data.value()->empty() && data.value()->size() > 3) {
-                auto msg_type = data.value()->front();
+            if (data && !data->empty() && data->size() > 3) {
+                auto msg_type = data->front();
 
                 if (!msg_type || static_cast<DataMessageType>(msg_type) != DataMessageType::OBJECT_DATAGRAM) {
                     SPDLOG_LOGGER_DEBUG(logger_,
@@ -1205,7 +1205,7 @@ namespace quicr {
                 uint64_t track_alais = 0;
                 try {
                     // Decode and check next header, subscribe ID
-                    auto cursor_it = std::next(data.value()->begin(), 1);
+                    auto cursor_it = std::next(data->begin(), 1);
 
                     auto track_alias_sz = quicr::UintVar::Size(*cursor_it);
                     track_alais = uint64_t(quicr::UintVar({ cursor_it, cursor_it + track_alias_sz }));
@@ -1239,8 +1239,8 @@ namespace quicr {
 
                 auto& handler = sub_it->second;
 
-                handler->DgramDataRecv(*data);
-            } else if (data.has_value()) {
+                handler->DgramDataRecv(data);
+            } else if (data) {
                 auto& conn_ctx = connections_[conn_id];
                 conn_ctx.metrics.rx_dgram_decode_failed++;
 
@@ -1248,7 +1248,7 @@ namespace quicr {
                                     "Failed to decode datagram conn_id: {} data_ctx_id: {} size: {}",
                                     conn_id,
                                     (data_ctx_id ? *data_ctx_id : 0),
-                                    data.value()->size());
+                                    data->size());
             }
         }
     }
