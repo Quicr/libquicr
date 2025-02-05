@@ -263,7 +263,7 @@ namespace quicr {
          */
         void Clear() noexcept
         {
-            if (queue_.empty() || queue_.size() < 40)
+            if (queue_.empty() /*|| queue_.size() < 40 */) // TODO: Need to review delayed purge
                 return;
 
             queue_.clear();

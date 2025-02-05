@@ -168,7 +168,7 @@ namespace quicr {
             std::lock_guard<std::mutex> _(mutex_);
 
             for (auto& tqueue : queue_) {
-                if (tqueue && !tqueue->Empty())
+                if (tqueue)
                     tqueue->Clear();
             }
         }

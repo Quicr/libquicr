@@ -1106,15 +1106,17 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
             break;
 
         case DataContext::StreamAction::kReplaceStreamUseReset: {
-            data_ctx->uses_reset_wait = true;
+            data_ctx->uses_reset_wait = false;
 
             std::lock_guard<std::mutex> _(state_mutex_);
             const auto conn_ctx = GetConnContext(data_ctx->conn_id);
 
+            /*
             // Keep stream in discard mode if still congested
             if (conn_ctx->is_congested && data_ctx->tx_reset_wait_discard) {
                 break;
             }
+            */
 
             if (data_ctx->stream_tx_object != nullptr) {
                 data_ctx->metrics.tx_buffer_drops++;
@@ -1186,6 +1188,13 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
     if (data_ctx->stream_tx_object == nullptr) {
         data_ctx->tx_data->PopFront(obj);
         data_ctx->metrics.tx_queue_expired += obj.expired_count;
+
+        if (obj.expired_count != 0) {
+            SPDLOG_LOGGER_DEBUG(logger,
+                                "Send stream objects expired; conn_id: {} data_ctx_id: {} priority: {} expired: {}",
+                                data_ctx->conn_id,
+                                data_ctx->data_ctx_id, obj.expired_count);
+        }
 
         if (obj.has_value) {
             if (obj.value.data->size() == 0) {

@@ -870,6 +870,20 @@ namespace quicr {
                     subgroup_hdr.priority = priority;
                     subgroup_hdr.track_alias = *track_handler.GetTrackAlias();
                     track_handler.object_msg_buffer_ << subgroup_hdr;
+
+                    quic_transport_->Enqueue(track_handler.connection_handle_,
+                                             track_handler.publish_data_ctx_id_,
+                                             std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
+                                                                                    track_handler.object_msg_buffer_.end()),
+                                             priority,
+                                             ttl,
+                                             0,
+                                             eflags);
+
+                    track_handler.object_msg_buffer_.clear();
+                    eflags.new_stream = false;
+                    eflags.clear_tx_queue = false;
+                    eflags.use_reset = false;
                 }
 
                 MoqStreamSubGroupObject object;
