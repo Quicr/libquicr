@@ -133,6 +133,14 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
             }
 
             data_ctx->metrics.tx_stream_cb++;
+
+            if (data_ctx->current_stream_id.has_value() && *data_ctx->current_stream_id != stream_id) {
+                SPDLOG_LOGGER_DEBUG(transport->logger,
+                                    "Data context stream ids are not the same ctx: {} cur: {}",
+                                    *data_ctx->current_stream_id,
+                                    stream_id);
+            }
+
             transport->SendStreamBytes(data_ctx, bytes, length);
             break;
         }
@@ -1075,6 +1083,7 @@ void
 PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, size_t max_len)
 {
     if (bytes_ctx == NULL) {
+        assert(false);
         return;
     }
 
@@ -1116,7 +1125,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
 
             CloseStream(*conn_ctx, data_ctx, true);
 
-            SPDLOG_LOGGER_TRACE(logger,
+            SPDLOG_LOGGER_DEBUG(logger,
                                 "Replacing stream using RESET; conn_id: {0} data_ctx_id: {1} existing_stream: {2} "
                                 "write buf drops: {3} tx_queue_discards: {4}",
                                 data_ctx->conn_id,
@@ -1363,7 +1372,7 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
                                 rx_buf_it->second.rx_ctx.caller_any.has_value());
         }
 
-        SPDLOG_LOGGER_DEBUG(logger, "TIM: New stream conn_id: {} stream_id: {}", conn_ctx->conn_id, stream_id);
+        SPDLOG_LOGGER_DEBUG(logger, "TIM: New stream conn_id: {} stream_id: {} len: ", conn_ctx->conn_id, stream_id, bytes.size());
 
         conn_ctx->rx_stream_buffer.try_emplace(stream_id);
         conn_ctx->rx_stream_buffer[stream_id].rx_ctx.data_queue.SetLimit(tconfig_.time_queue_rx_size);
@@ -1823,7 +1832,7 @@ PicoQuicTransport::CloseStream(ConnectionContext& conn_ctx, DataContext* data_ct
                         *data_ctx->current_stream_id);
 
     if (send_reset) {
-        SPDLOG_LOGGER_TRACE(
+        SPDLOG_LOGGER_DEBUG(
           logger, "Reset stream_id: {0} conn_id: {1}", *data_ctx->current_stream_id, conn_ctx.conn_id);
 
         picoquic_reset_stream_ctx(conn_ctx.pq_cnx, *data_ctx->current_stream_id);
