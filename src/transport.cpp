@@ -1179,8 +1179,8 @@ namespace quicr {
                     conn_ctx.metrics.rx_stream_unknown_track_alias++;
                     SPDLOG_LOGGER_WARN(
                       logger_,
-                      "Received stream_header_subgroup to unknown subscribe track track_alias: {}, ignored",
-                      track_alias);
+                      "Received stream_header_subgroup to unknown subscribe track track_alias: {} stream: {}, ignored",
+                      track_alias, stream_id);
 
                     // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
                     break;
