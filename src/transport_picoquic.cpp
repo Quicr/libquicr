@@ -1199,6 +1199,13 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
                                 *data_ctx->current_stream_id,
                                 conn_data.data->size());
             data_ctx->is_new_stream = false;
+        } else {
+            SPDLOG_LOGGER_DEBUG(logger,
+                                "TIM: existing stream conn_id: {} data_ctx_id: {} stream_id: {} len: {}",
+                                data_ctx->conn_id,
+                                data_ctx->data_ctx_id,
+                                *data_ctx->current_stream_id,
+                                conn_data.data->size());
         }
 
         if (conn_data.data != nullptr) {
