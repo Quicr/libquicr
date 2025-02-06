@@ -139,6 +139,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                                     "Data context stream ids are not the same ctx: {} cur: {}",
                                     *data_ctx->current_stream_id,
                                     stream_id);
+                break;
             }
 
             transport->SendStreamBytes(data_ctx, bytes, length);
@@ -1190,6 +1191,14 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
     if (data_ctx->stream_tx_object == nullptr) {
         data_ctx->tx_data->PopFront(conn_data);
 
+        if (data_ctx->is_new_stream) {
+            SPDLOG_LOGGER_DEBUG(logger,
+                                "TIM: Is new stream conn_id: {} data_ctx_id: {} stream_id: {} len: {}",
+                                data_ctx->conn_id,
+                                data_ctx->data_ctx_id,
+                                *data_ctx->current_stream_id,
+                                conn_data.data->size());
+        }
         if (conn_data.data != nullptr) {
             if (conn_data.data->size() == 0) {
                 SPDLOG_LOGGER_ERROR(logger,
@@ -1372,7 +1381,7 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
                                 rx_buf_it->second.rx_ctx.caller_any.has_value());
         }
 
-        SPDLOG_LOGGER_DEBUG(logger, "TIM: New stream conn_id: {} stream_id: {} len: ", conn_ctx->conn_id, stream_id, bytes.size());
+        SPDLOG_LOGGER_DEBUG(logger, "TIM: New stream conn_id: {} stream_id: {} len: {}", conn_ctx->conn_id, stream_id, bytes.size());
 
         conn_ctx->rx_stream_buffer.try_emplace(stream_id);
         conn_ctx->rx_stream_buffer[stream_id].rx_ctx.data_queue.SetLimit(tconfig_.time_queue_rx_size);
@@ -1804,6 +1813,7 @@ PicoQuicTransport::CreateStream(ConnectionContext& conn_ctx, DataContext* data_c
     data_ctx->current_stream_id = conn_ctx.last_stream_id;
 
     data_ctx->mark_stream_active = true;
+    data_ctx->is_new_stream = true;
 
     /*
      * Must call set_app_stream_ctx so that the stream will be created now and the next call to create

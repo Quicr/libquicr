@@ -59,6 +59,7 @@ namespace quicr {
          */
         struct DataContext
         {
+            bool is_new_stream{true};         /// Indicates that it is a new stream
             bool is_bidir{ false };           /// Indicates if the stream is bidir (true) or unidir (false)
             bool mark_stream_active{ false }; /// Instructs the stream to be marked active
 
