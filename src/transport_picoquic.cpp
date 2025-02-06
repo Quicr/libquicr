@@ -1191,14 +1191,16 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
     if (data_ctx->stream_tx_object == nullptr) {
         data_ctx->tx_data->PopFront(conn_data);
 
-        if (data_ctx->is_new_stream) {
+        if (data_ctx->is_new_stream && conn_data.data != nullptr) {
             SPDLOG_LOGGER_DEBUG(logger,
                                 "TIM: Is new stream conn_id: {} data_ctx_id: {} stream_id: {} len: {}",
                                 data_ctx->conn_id,
                                 data_ctx->data_ctx_id,
                                 *data_ctx->current_stream_id,
                                 conn_data.data->size());
+            data_ctx->is_new_stream = false;
         }
+
         if (conn_data.data != nullptr) {
             if (conn_data.data->size() == 0) {
                 SPDLOG_LOGGER_ERROR(logger,
