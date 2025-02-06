@@ -589,8 +589,7 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
     if (flags.use_reliable) {
         if (flags.new_stream) {
             if (flags.use_reset) {
-                //data_ctx_it->second.stream_action = DataContext::StreamAction::kReplaceStreamUseReset;
-                data_ctx_it->second.stream_action = DataContext::StreamAction::kReplaceStreamUseFin;
+                data_ctx_it->second.stream_action = DataContext::StreamAction::kReplaceStreamUseReset;
             } else {
                 data_ctx_it->second.stream_action = DataContext::StreamAction::kReplaceStreamUseFin;
             }
@@ -1261,14 +1260,6 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
 
     buf = picoquic_provide_stream_data_buffer(bytes_ctx, data_len, 0, is_still_active);
 
-    SPDLOG_LOGGER_DEBUG(logger,
-                        "TIM: existing stream conn_id: {} data_ctx_id: {} stream_id: {} len: {}",
-                        data_ctx->conn_id,
-                        data_ctx->data_ctx_id,
-                        *data_ctx->current_stream_id,
-                        data_len);
-
-
     if (buf == NULL) {
         // Error allocating memory to write
         SPDLOG_LOGGER_ERROR(logger,
@@ -1284,7 +1275,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
     std::memcpy(buf, data_ctx->stream_tx_object->data() + offset, data_len);
 
     SPDLOG_LOGGER_DEBUG(logger,
-                        "TIM: existing stream conn_id: {} data_ctx_id: {} stream_id: {} len: {}",
+                        "TIM: write stream conn_id: {} data_ctx_id: {} stream_id: {} len: {}",
                         data_ctx->conn_id,
                         data_ctx->data_ctx_id,
                         *data_ctx->current_stream_id,
@@ -1412,6 +1403,9 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
                             bytes.size(),
                             rx_buf_it->second.rx_ctx.caller_any.has_value());
     }
+
+    SPDLOG_LOGGER_DEBUG(logger,
+        "TIM: Recv data conn: {} stream_id: {} len: {}", conn_ctx->conn_id, stream_id, bytes.size());
 
     auto& rx_buf = conn_ctx->rx_stream_buffer[stream_id];
 
