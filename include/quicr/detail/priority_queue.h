@@ -3,18 +3,16 @@
 
 #pragma once
 
-#include <algorithm>
 #include <array>
 #include <chrono>
-#include <forward_list>
 #include <numeric>
 #include <optional>
 
-#include "time_queue.h"
+#include "safe_queue.h"
 
 namespace quicr {
     /**
-     * @brief Priority queue that uses time_queue for each priority
+     * @brief Priority queue that uses a queue for each priority
      *
      * @details Order is maintained for objects pushed by priority.
      *          During each `front()`/`pop()` the queue will always
@@ -28,9 +26,6 @@ namespace quicr {
     template<typename DataType, uint8_t PMAX = 32>
     class PriorityQueue
     {
-        using TimeType = std::chrono::milliseconds;
-        using TimeQueueType = TimeQueue<DataType, TimeType>;
-
         struct Exception : public std::runtime_error
         {
             using std::runtime_error::runtime_error;
@@ -46,51 +41,35 @@ namespace quicr {
 
         /**
          * Construct a priority queue
-         * @param tick_service Shared pointer to tick_service service
-         */
-        PriorityQueue(const std::shared_ptr<TickService>& tick_service)
-          : PriorityQueue(1000, 1, tick_service, 1000)
-        {
-        }
-
-        /**
-         * Construct a priority queue
          *
-         * @param duration              Max duration of time for the queue
-         * @param interval              Interval per bucket, Default is 1
          * @param tick_service          Shared pointer to tick_service service
-         * @param initial_queue_size    Number of default fifo queue size (reserve)
+         * @param max_queue_size        Number of default fifo queue size (reserve)
          */
-        PriorityQueue(size_t duration,
-                      size_t interval,
-                      const std::shared_ptr<TickService>& tick_service,
-                      size_t initial_queue_size)
+        PriorityQueue(const std::shared_ptr<TickService>& tick_service,
+                      size_t max_queue_size)
           : tick_service_(tick_service)
+          , max_queue_size_(max_queue_size)
         {
-
             if (tick_service == nullptr) {
                 throw std::invalid_argument("Tick service cannot be null");
             }
 
-            initial_queue_size_ = initial_queue_size;
-            duration_ms_ = duration;
-            interval_ms_ = interval;
+            for (auto& queue: queue_) {
+                queue.SetLimit(max_queue_size);
+            }
         }
 
         /**
          * @brief Pushes a new value onto the queue with a time to live and priority
          *
          * @param value     The value to push onto the queue.
-         * @param ttl       The time to live of the value in milliseconds.
          * @param priority  The priority of the value (range is 0 - PMAX)
          * @param delay_ttl Delay POP by this ttl value in milliseconds
          */
-        void Push(DataType& value, uint32_t ttl, uint8_t priority = 0, uint32_t delay_ttl = 0)
+        void Push(DataType& value, uint8_t priority = 0, uint32_t delay_ttl = 0)
         {
             std::lock_guard<std::mutex> _(mutex_);
-
-            auto& queue = GetQueueByPriority(priority);
-            queue->Push(value, ttl, delay_ttl);
+            queue_[priority].Push(value);
         }
 
         /**
@@ -105,45 +84,44 @@ namespace quicr {
         {
             std::lock_guard<std::mutex> _(mutex_);
 
-            auto& queue = GetQueueByPriority(priority);
-            queue->Push(std::move(value), ttl, delay_ttl);
+            queue_[priority].Push(std::move(value));
         }
 
         /**
          * @brief Get the first object from queue
          *
-         * @param elem[out]          Time queue element storage. Will be updated.
-         *
-         * @return TimeQueueElement<DataType> value from time queue
+         * @param elem[out]          Value reference that will be updated
          */
-        void Front(TimeQueueElement<DataType>& elem)
+        void Front(DataType& elem)
         {
             std::lock_guard<std::mutex> _(mutex_);
 
-            for (auto& tqueue : queue_) {
-                if (!tqueue || tqueue->Empty())
+            for (auto& queue : queue_) {
+                if (queue.Empty())
                     continue;
 
-                tqueue->Front(elem);
+                if (auto value = queue.Front()) {
+                    elem = std::move(*value);
+                }
             }
         }
 
         /**
          * @brief Get and remove the first object from queue
          *
-         * @param elem[out]          Time queue element storage. Will be updated.
-         *
-         * @return TimeQueueElement<DataType> from time queue
+         * @param elem[out]          Value reference that will be updated
          */
-        void PopFront(TimeQueueElement<DataType>& elem)
+        void PopFront(DataType& elem)
         {
             std::lock_guard<std::mutex> _(mutex_);
 
-            for (auto& tqueue : queue_) {
-                if (!tqueue || tqueue->Empty())
+            for (auto& queue : queue_) {
+                if (queue.Empty())
                     continue;
 
-                tqueue->PopFront(elem);
+                if (auto value = queue.Pop()) {
+                    elem = std::move(*value);
+                }
             }
         }
 
@@ -154,9 +132,9 @@ namespace quicr {
         {
             std::lock_guard<std::mutex> _(mutex_);
 
-            for (auto& tqueue : queue_) {
-                if (tqueue && !tqueue->Empty())
-                    return tqueue->Pop();
+            for (auto& queue : queue_) {
+                if (not queue.Empty())
+                    return queue.PopFront();
             }
         }
 
@@ -167,24 +145,23 @@ namespace quicr {
         {
             std::lock_guard<std::mutex> _(mutex_);
 
-            for (auto& tqueue : queue_) {
-                if (tqueue)
-                    tqueue->Clear();
+            for (auto& queue : queue_) {
+                if (not queue.Empty())
+                    queue.Clear();
             }
         }
 
-        // TODO: Consider changing empty/size to look at timeQueue sizes - maybe support blocking pops
-        size_t Size() const
+        size_t Size()
         {
-            return std::accumulate(queue_.begin(), queue_.end(), 0, [](auto sum, auto& tqueue) {
-                return tqueue ? sum + tqueue->Size() : sum;
+            return std::accumulate(queue_.begin(), queue_.end(), 0, [](auto sum, auto& queue) {
+                return sum + queue.Size();
             });
         }
 
-        bool Empty() const
+        bool Empty()
         {
-            for (auto& tqueue : queue_) {
-                if (tqueue && !tqueue->Empty()) {
+            for (auto& queue : queue_) {
+                if (not queue.Empty()) {
                     return false;
                 }
             }
@@ -193,33 +170,10 @@ namespace quicr {
         }
 
       private:
-        /**
-         * @brief Get queue by priority
-         *
-         * @param priority  The priority queue value (range is 0 - PMAX)
-         *
-         * @return Unique pointer to queue for the given priority
-         */
-        std::unique_ptr<TimeQueueType>& GetQueueByPriority(const uint8_t priority)
-        {
-            if (priority >= PMAX) {
-                throw InvalidPriorityException("Priority not within range");
-            }
-
-            if (!queue_[priority]) {
-                queue_[priority] =
-                  std::make_unique<TimeQueueType>(duration_ms_, interval_ms_, tick_service_, initial_queue_size_);
-            }
-
-            return queue_[priority];
-        }
-
         std::mutex mutex_;
-        size_t initial_queue_size_;
-        size_t duration_ms_;
-        size_t interval_ms_;
+        size_t max_queue_size_;
 
-        std::array<std::unique_ptr<TimeQueueType>, PMAX> queue_;
+        std::array<SafeQueue<DataType>, PMAX> queue_;
         std::shared_ptr<TickService> tick_service_;
     };
 }; // end of namespace quicr
