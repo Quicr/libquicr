@@ -1378,6 +1378,7 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
                                 rx_buf_it->second.rx_ctx.caller_any.has_value());
         }
         conn_ctx->rx_stream_buffer.try_emplace(stream_id);
+        conn_ctx->rx_stream_buffer[stream_id].rx_ctx.data_queue.SetLimit(tconfig_.time_queue_rx_size);
 
     } else if (bytes.size() < kMinStreamBytesForSend) {
         SPDLOG_LOGGER_TRACE(logger,
