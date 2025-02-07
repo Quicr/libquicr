@@ -1188,13 +1188,13 @@ namespace quicr {
 
                 rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
                 sub_it->second->SetPriority(prioirty);
-                sub_it->second->StreamDataRecv(true, data_opt.value());
+                sub_it->second->StreamDataRecv(true, stream_id, data_opt.value());
 
             } else if (rx_ctx.caller_any.has_value()) {
                 // fast processing for existing stream using weak pointer to subscribe handler
                 auto sub_handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx.caller_any);
                 if (auto sub_handler = sub_handler_weak.lock()) {
-                    sub_handler->StreamDataRecv(false, data_opt.value());
+                    sub_handler->StreamDataRecv(false, stream_id, data_opt.value());
                 }
             }
         } // end of for loop rx data queue

@@ -134,14 +134,6 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
 
             data_ctx->metrics.tx_stream_cb++;
 
-            if (data_ctx->current_stream_id.has_value() && *data_ctx->current_stream_id != stream_id) {
-                SPDLOG_LOGGER_DEBUG(transport->logger,
-                                    "Data context stream ids are not the same ctx: {} cur: {}",
-                                    *data_ctx->current_stream_id,
-                                    stream_id);
-                break;
-            }
-
             transport->SendStreamBytes(data_ctx, bytes, length);
             break;
         }
@@ -1397,6 +1389,10 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
     }
 
     auto& rx_buf = conn_ctx->rx_stream_buffer[stream_id];
+    if (rx_buf.closed) {
+        SPDLOG_LOGGER_DEBUG(logger, "Stream {} is closed, ignoring received data len: {}", stream_id, bytes.size());
+        return;
+    }
 
     rx_buf.rx_ctx.data_queue.Push(std::make_shared<const std::vector<uint8_t>>(bytes.begin(), bytes.end()));
 
