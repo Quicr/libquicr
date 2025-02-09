@@ -3,6 +3,7 @@
 
 #include "quicr/detail/transport.h"
 
+#include <iomanip>
 #include <sstream>
 
 namespace quicr {
@@ -1147,7 +1148,7 @@ namespace quicr {
                     conn_ctx.metrics.rx_stream_invalid_type++;
 
                     // TODO(tievens): Need to reset this stream as this is invalid.
-                    break;
+                    return;
                 }
 
                 uint64_t track_alias = 0;

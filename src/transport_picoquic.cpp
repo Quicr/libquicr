@@ -29,6 +29,7 @@
 #include <cstdint>
 #include <cstring>
 #include <ctime>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -445,10 +446,6 @@ TransportConnId
 PicoQuicTransport::Start()
 {
     uint64_t current_time = picoquic_current_time();
-
-    if (debug) {
-        debug_set_callback(&PicoQuicTransport::PicoQuicLogging, this);
-    }
 
     if (tconfig_.use_reset_wait_strategy) {
         SPDLOG_LOGGER_INFO(logger, "Using Reset and Wait congestion control strategy");
@@ -1380,6 +1377,12 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
         conn_ctx->rx_stream_buffer.try_emplace(stream_id);
         conn_ctx->rx_stream_buffer[stream_id].rx_ctx.data_queue.SetLimit(tconfig_.time_queue_rx_size);
 
+        std::cout << "HEX DUMP NEW STREAM FIRST PDU: ";
+        for (const auto& byte: bytes) {
+            std::cout << " " << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(byte);
+        }
+        std::cout << std::endl;
+
     } else if (bytes.size() < kMinStreamBytesForSend) {
         SPDLOG_LOGGER_TRACE(logger,
                             "bytes received from picoquic stream {} len: {} NOT NEW {}",
@@ -1742,9 +1745,6 @@ PicoQuicTransport::Shutdown()
     SPDLOG_LOGGER_INFO(logger, "done closing transport threads");
 
     picoquic_config_clear(&config_);
-
-    // If logging picoquic events, stop those
-    debug_set_callback(NULL, NULL);
 }
 
 void
