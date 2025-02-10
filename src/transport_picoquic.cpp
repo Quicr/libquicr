@@ -1077,7 +1077,6 @@ void
 PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, size_t max_len)
 {
     if (bytes_ctx == NULL) {
-        assert(false);
         return;
     }
 
@@ -1186,11 +1185,11 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
 
         if (data_ctx->is_new_stream && conn_data.data != nullptr) {
             SPDLOG_LOGGER_DEBUG(logger,
-                                "TIM: Is new stream conn_id: {} data_ctx_id: {} stream_id: {} len: {}",
+                                "TIM: Is new stream conn_id: {} data_ctx_id: {} stream_id: {} len: {} max_len: {}",
                                 data_ctx->conn_id,
                                 data_ctx->data_ctx_id,
                                 *data_ctx->current_stream_id,
-                                conn_data.data->size());
+                                conn_data.data->size(), max_len);
             data_ctx->is_new_stream = false;
         }
 
@@ -1590,7 +1589,7 @@ PicoQuicTransport::CheckConnsForCongestion()
                                    reset_wait_data_ctx_id,
                                    static_cast<int>(data_ctx.priority));
 
-                data_ctx.tx_reset_wait_discard = true;
+                data_ctx.tx_reset_wait_discard = false;
                 data_ctx.metrics.tx_reset_wait++;
 
                 /*
