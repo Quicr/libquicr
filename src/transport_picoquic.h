@@ -143,6 +143,7 @@ namespace quicr {
                 StreamRxContext rx_ctx;     /// Stream RX context that holds data and caller info
                 bool closed{ false };       /// Indicates if stream is active or in closed state
                 bool checked_once{ false }; /// True if closed and checked once to close
+                uint64_t count {0};
 
                 RxStreamBuffer()
                 {
