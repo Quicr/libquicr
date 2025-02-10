@@ -577,19 +577,18 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
 
     if (flags.use_reliable) {
         if (flags.new_stream) {
-            data_ctx_it->second.ResetTxObject();
-
             if (flags.use_reset) {
                 data_ctx_it->second.stream_action = DataContext::StreamAction::kReplaceStreamUseReset;
             } else {
                 data_ctx_it->second.stream_action = DataContext::StreamAction::kReplaceStreamUseFin;
             }
+
+            if (flags.clear_tx_queue) {
+                data_ctx_it->second.metrics.tx_queue_discards += data_ctx_it->second.tx_data->Size();
+                data_ctx_it->second.tx_data->Clear();
+            }
         }
 
-        if (flags.clear_tx_queue) {
-            data_ctx_it->second.metrics.tx_queue_discards += data_ctx_it->second.tx_data->Size();
-            data_ctx_it->second.tx_data->Clear();
-        }
 
         data_ctx_it->second.tx_data->Push(std::move(cd), ttl_ms, priority, 0);
 
