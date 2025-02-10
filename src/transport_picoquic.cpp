@@ -1185,13 +1185,16 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
     if (data_ctx->stream_tx_object == nullptr) {
         data_ctx->tx_data->PopFront(conn_data);
 
-        std::cout << "HEX DUMP SEND STREAM " << std::dec << *data_ctx->current_stream_id
-                  << " len: " << conn_data.data->size() << std::endl;
-        std::cout << "PDU: ";
-        for (const auto& byte : *conn_data.data) {
-            std::cout << " " << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(byte);
+
+        if (conn_data.data != nullptr) {
+            std::cout << "HEX DUMP SEND STREAM " << std::dec << *data_ctx->current_stream_id
+                      << " len: " << conn_data.data->size() << std::endl;
+            std::cout << "PDU: ";
+            for (const auto& byte : *conn_data.data) {
+                std::cout << " " << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(byte);
+            }
+            std::cout << std::endl;
         }
-        std::cout << std::endl;
 
         if (data_ctx->is_new_stream && conn_data.data != nullptr) {
             SPDLOG_LOGGER_DEBUG(logger,
