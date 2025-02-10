@@ -577,6 +577,8 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
 
     if (flags.use_reliable) {
         if (flags.new_stream) {
+            data_ctx_it->second.ResetTxObject();
+
             if (flags.use_reset) {
                 data_ctx_it->second.stream_action = DataContext::StreamAction::kReplaceStreamUseReset;
             } else {
