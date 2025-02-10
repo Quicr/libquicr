@@ -887,6 +887,10 @@ PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
 
     picoquic_config_init(&config_);
 
+    if (debug) {
+        debug_set_stream(stderr);
+    }
+
     if (is_server_mode && tcfg.tls_cert_filename.empty()) {
         throw InvalidConfigException("Missing cert filename");
     } else if (!tcfg.tls_cert_filename.empty()) {
@@ -1263,6 +1267,12 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
     // Write data
     std::memcpy(buf, data_ctx->stream_tx_object->data() + offset, data_len);
 
+    SPDLOG_LOGGER_DEBUG(logger,
+                        "TIM: conn_id: {} data_ctx_id: {} stream_id: {} memcpy write: {}",
+                        data_ctx->conn_id,
+                        data_ctx->data_ctx_id, *data_ctx->current_stream_id,
+                        data_len);
+
     if (data_ctx->stream_tx_object_offset == 0 && data_ctx->stream_tx_object != nullptr) {
         // Zero offset at this point means the object was fully sent
         data_ctx->ResetTxObject();
@@ -1390,6 +1400,12 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
                             bytes.size(),
                             rx_buf_it->second.rx_ctx.caller_any.has_value());
     }
+
+    SPDLOG_LOGGER_DEBUG(logger,
+                        "TIM: conn_id: {} stream_id: {} recv: {}",
+                        conn_ctx->conn_id,
+                        stream_id,
+                        bytes.size());
 
     auto& rx_buf = conn_ctx->rx_stream_buffer[stream_id];
     if (rx_buf.closed) {
