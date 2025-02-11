@@ -291,7 +291,7 @@ namespace quicr {
             if (delta == 0)
                 return current_ticks_;
 
-            delta /= interval_;     // relative delta based on interval
+            delta /= interval_; // relative delta based on interval
 
             if (delta >= static_cast<TickType>(total_buckets_)) {
                 Clear();
