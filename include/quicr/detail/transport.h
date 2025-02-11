@@ -233,14 +233,17 @@ namespace quicr {
         // End of transport handler/callback functions
         // -------------------------------------------------------------------------------------------------
 
+        static constexpr std::size_t kControlMessageBufferSize = 4096;
         struct ConnectionContext
         {
-            ConnectionHandle connection_handle;
+            ConnectionHandle connection_handle{ 0 };
             std::optional<uint64_t> ctrl_data_ctx_id;
             bool setup_complete{ false }; ///< True if both client and server setup messages have completed
             uint64_t client_version{ 0 };
             std::optional<messages::ControlMessageType>
               ctrl_msg_type_received; ///< Indicates the current message type being read
+
+            std::vector<uint8_t> ctrl_msg_buffer; ///< Control message buffer
 
             uint64_t current_subscribe_id{ 0 }; ///< Connection specific ID for subscribe messages
 
@@ -251,6 +254,9 @@ namespace quicr {
             /// Tracks by subscribe ID (Subscribe and Fetch)
             std::map<messages::SubscribeId, std::shared_ptr<SubscribeTrackHandler>> tracks_by_sub_id;
 
+            /// Subscribes by Track Alais is used for data object forwarding
+            std::map<messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> sub_by_track_alias;
+
             /// Publish tracks by namespace and name. map[track namespace][track name] = track handler
             std::map<TrackNamespaceHash, std::map<TrackNameHash, std::shared_ptr<PublishTrackHandler>>>
               pub_tracks_by_name;
@@ -258,7 +264,9 @@ namespace quicr {
             /// Published tracks by quic transport data context ID.
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
 
-            ConnectionMetrics metrics; ///< Connection metrics
+            ConnectionMetrics metrics{}; ///< Connection metrics
+
+            ConnectionContext() { ctrl_msg_buffer.reserve(kControlMessageBufferSize); }
         };
 
         // -------------------------------------------------------------------------------------------------
@@ -266,6 +274,12 @@ namespace quicr {
         // -------------------------------------------------------------------------------------------------
 
         void Init();
+
+        PublishTrackHandler::PublishObjectStatus SendData(PublishTrackHandler& track_handler,
+                                                          uint8_t priority,
+                                                          uint32_t ttl,
+                                                          bool stream_header_needed,
+                                                          std::shared_ptr<const std::vector<uint8_t>> data);
 
         PublishTrackHandler::PublishObjectStatus SendObject(PublishTrackHandler& track_handler,
                                                             uint8_t priority,
@@ -362,17 +376,6 @@ namespace quicr {
         // ------------------------------------------------------------------------------------------------
 
         virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes) = 0;
-
-        bool ProcessStreamDataMessage(ConnectionContext& conn_ctx,
-                                      std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer);
-
-        template<class MessageType>
-        std::pair<MessageType&, bool> ParseDataMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-                                                       messages::DataMessageType msg_type);
-
-        template<class HeaderType, class MessageType>
-        std::pair<HeaderType&, bool> ParseStreamData(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-                                                     messages::DataMessageType msg_type);
 
       private:
         // -------------------------------------------------------------------------------------------------

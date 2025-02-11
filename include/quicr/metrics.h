@@ -16,13 +16,13 @@ namespace quicr {
 
         QuicConnectionMetrics quic; ///< QUIC connection metrics
 
-        uint64_t rx_dgram_unknown_subscribe_id{ 0 }; ///< Received datagram with unknown subscribe ID
-        uint64_t rx_dgram_invalid_type{ 0 };         ///< Received datagram with invalid type of OBJECT_DATAGRAM
-        uint64_t rx_dgram_decode_failed{ 0 };        ///< Failed to decode datagram
+        uint64_t rx_dgram_unknown_track_alias{ 0 }; ///< Received datagram with unknown track alias
+        uint64_t rx_dgram_invalid_type{ 0 };        ///< Received datagram with invalid type of OBJECT_DATAGRAM
+        uint64_t rx_dgram_decode_failed{ 0 };       ///< Failed to decode datagram
 
-        uint64_t rx_stream_buffer_error{ 0 };         ///< Stream buffer error that results in bad parsing
-        uint64_t rx_stream_unknown_subscribe_id{ 0 }; ///< Received stream header with unknown subscribe ID
-        uint64_t rx_stream_invalid_type{ 0 };         ///< Invalid message type
+        uint64_t rx_stream_buffer_error{ 0 };        ///< Stream buffer error that results in bad parsing
+        uint64_t rx_stream_unknown_track_alias{ 0 }; ///< Received stream header with unknown track alias
+        uint64_t rx_stream_invalid_type{ 0 };        ///< Invalid message type
 
         uint64_t invalid_ctrl_stream_msg{ 0 }; ///< Invalid control stream message received. Should always be 0.
     };

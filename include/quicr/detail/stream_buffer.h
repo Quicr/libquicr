@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "data_storage.h"
 #include "span.h"
 #include "uintvar.h"
 
@@ -90,6 +91,12 @@ namespace quicr {
          * @param type          User defined value for the data type
          */
         void SetAnyType(uint64_t type) { parsed_data_type_ = type; }
+
+        void Clear()
+        {
+            ResetAny();
+            buffer_.clear();
+        }
 
         void ResetAny()
         {

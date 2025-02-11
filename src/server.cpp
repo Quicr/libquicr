@@ -83,8 +83,7 @@ namespace quicr {
     void Server::BindPublisherTrack(TransportConnId conn_id,
                                     uint64_t subscribe_id,
                                     const std::shared_ptr<PublishTrackHandler>& track_handler,
-                                    bool ephemeral,
-                                    PublishTrackHandler::OnPublishObjFunction&& callback)
+                                    bool ephemeral)
     {
         // Generate track alias
         const auto& tfn = track_handler->GetFullTrackName();
@@ -116,26 +115,34 @@ namespace quicr {
 
         // Setup the function for the track handler to use to send objects with thread safety
         std::weak_ptr weak_track_handler(track_handler);
-        track_handler->publish_object_func_ = [&, weak_track_handler, cb = std::move(callback)](
-                                                uint8_t priority,
-                                                uint32_t ttl,
-                                                bool stream_header_needed,
-                                                uint64_t group_id,
-                                                uint64_t subgroup_id,
-                                                uint64_t object_id,
-                                                std::optional<Extensions> extensions,
-                                                Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
+        track_handler->publish_object_func_ =
+          [&, weak_track_handler](uint8_t priority,
+                                  uint32_t ttl,
+                                  bool stream_header_needed,
+                                  uint64_t group_id,
+                                  uint64_t subgroup_id,
+                                  uint64_t object_id,
+                                  std::optional<Extensions> extensions,
+                                  Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
             auto th = weak_track_handler.lock();
             if (!th) {
                 return PublishTrackHandler::PublishObjectStatus::kInternalError;
             }
 
-            if (cb) {
-                cb(priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
-            }
-
             return SendObject(
               *th, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
+        };
+
+        track_handler->forward_publish_data_func_ =
+          [&, weak_track_handler](
+            uint8_t priority,
+            uint32_t ttl,
+            bool stream_header_needed,
+            std::shared_ptr<const std::vector<uint8_t>> data) -> PublishTrackHandler::PublishObjectStatus {
+            if (auto handler = weak_track_handler.lock()) {
+                return SendData(*handler, priority, ttl, stream_header_needed, data);
+            }
+            return PublishTrackHandler::PublishObjectStatus::kInternalError;
         };
 
         if (!ephemeral) {

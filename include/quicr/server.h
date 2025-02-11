@@ -89,13 +89,11 @@ namespace quicr {
          * @param subscribe_id              Subscribe ID from the received subscribe
          * @param track_handler             Server publish track handler
          * @param ephemeral                 Bool value to indicate if the state tracking is needed
-         * @param callback                  Callback to run extra functionality on sending messages.
          */
         void BindPublisherTrack(ConnectionHandle connection_handle,
                                 uint64_t subscribe_id,
                                 const std::shared_ptr<PublishTrackHandler>& track_handler,
-                                bool ephemeral = false,
-                                PublishTrackHandler::OnPublishObjFunction&& callback = nullptr);
+                                bool ephemeral = false);
 
         /**
          * @brief Unbind a server publish track handler

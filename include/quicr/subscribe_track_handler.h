@@ -5,6 +5,7 @@
 
 #include <quicr/detail/base_track_handler.h>
 #include <quicr/detail/messages.h>
+#include <quicr/detail/stream_buffer.h>
 #include <quicr/metrics.h>
 
 namespace quicr {
@@ -89,6 +90,13 @@ namespace quicr {
         constexpr Status GetStatus() const noexcept { return status_; }
 
         /**
+         * @brief Set the priority of received data
+         *
+         * @param priority      Priority value of received data
+         */
+        void SetPriority(uint8_t priority) noexcept { priority_ = priority; }
+
+        /**
          * @brief Get subscription priority
          *
          * @return Priority value
@@ -129,9 +137,29 @@ namespace quicr {
          * @param data              Object payload data received, **MUST** match ObjectHeaders::payload_length.
          */
         virtual void ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
-                                    [[maybe_unused]] BytesSpan data)
-        {
-        }
+                                    [[maybe_unused]] BytesSpan data);
+
+        /**
+         * @brief Notification of received stream data slice
+         *
+         * @details Event notification to provide the caller the raw data received on a stream
+         *
+         * @param is_start    True to indicate if this data is the start of a new stream
+         * @param stream_id   Stream ID data was received on
+         * @param data        Shared pointer to the data received
+         */
+        virtual void StreamDataRecv(bool is_start,
+                                    uint64_t stream_id,
+                                    std::shared_ptr<const std::vector<uint8_t>> data);
+
+        /**
+         * @brief Notification of received datagram data
+         *
+         * @details Event notification to provide the caller the raw data received as a datagram
+         *
+         * @param data        Shared pointer to the data received
+         */
+        virtual void DgramDataRecv(std::shared_ptr<const std::vector<uint8_t>> data);
 
         /**
          * @brief Notification of a partial object received data object
@@ -194,6 +222,8 @@ namespace quicr {
         messages::ObjectPriority priority_;
         messages::GroupOrder group_order_;
         messages::FilterType filter_type_;
+        StreamBuffer<uint8_t> stream_buffer_;
+        uint64_t current_stream_id_{ 0 };
 
         friend class Transport;
         friend class Client;

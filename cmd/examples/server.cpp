@@ -22,13 +22,7 @@ using FullTrackNameHash = uint64_t;
  */
 struct CacheObject
 {
-    uint8_t priority;
-    uint32_t ttl;
-    bool stream_header_needed;
-    uint64_t group_id;
-    uint64_t subgroup_id;
-    uint64_t object_id;
-    std::optional<quicr::Extensions> extensions;
+    quicr::ObjectHeaders headers;
     quicr::Bytes data;
 };
 
@@ -40,7 +34,7 @@ struct std::less<CacheObject>
 {
     constexpr bool operator()(const CacheObject& lhs, const CacheObject& rhs) const noexcept
     {
-        return lhs.object_id < rhs.object_id;
+        return lhs.headers.object_id < rhs.headers.object_id;
     }
 };
 
@@ -116,6 +110,17 @@ namespace qserver_vars {
     std::unordered_map<quicr::messages::TrackAlias,
                        std::unordered_map<quicr::ConnectionHandle, std::shared_ptr<quicr::SubscribeTrackHandler>>>
       pub_subscribes;
+
+    /**
+     * Cache of MoQ objects by track namespace hash
+     */
+    std::map<quicr::TrackNamespaceHash, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>> cache;
+
+    /**
+     * Tick Service used by the cache
+     */
+    std::shared_ptr<quicr::ThreadedTickService> tick_service = std::make_shared<quicr::ThreadedTickService>();
+
 }
 
 /**
@@ -159,6 +164,24 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
             return;
         }
 
+        // Cache Object
+        if (qserver_vars::cache.count(*track_alias) == 0) {
+            qserver_vars::cache.insert(std::make_pair(
+              *track_alias,
+              quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{ 50000, 1, qserver_vars::tick_service }));
+        }
+
+        auto& cache_entry = qserver_vars::cache.at(*track_alias);
+
+        CacheObject object{ object_headers, { data.begin(), data.end() } };
+
+        if (auto group = cache_entry.Get(object_headers.group_id)) {
+            group->insert(std::move(object));
+        } else {
+            cache_entry.Insert(object_headers.group_id, { std::move(object) }, 50000);
+        }
+
+        // Fan out to all subscribers
         for (const auto& [conn_id, pth] : sub_it->second) {
             pth->PublishObject(object_headers, data);
         }
@@ -513,35 +536,8 @@ class MyServer : public quicr::Server
         qserver_vars::subscribe_active[th.track_namespace_hash][th.track_name_hash].emplace(
           qserver_vars::SubscribeInfo{ connection_handle, subscribe_id, th.track_fullname_hash });
 
-        auto&& cache_message_callback = [&, tnsh = th.track_namespace_hash](uint8_t priority,
-                                                                            uint32_t ttl,
-                                                                            bool stream_header_needed,
-                                                                            uint64_t group_id,
-                                                                            uint64_t subgroup_id,
-                                                                            uint64_t object_id,
-                                                                            std::optional<quicr::Extensions> extensions,
-                                                                            quicr::BytesSpan data) {
-            if (cache_.count(tnsh) == 0) {
-                cache_.insert(std::make_pair(
-                  tnsh, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{ ttl, 1, GetTickService() }));
-            }
-
-            auto& cache_entry = cache_.at(tnsh);
-
-            CacheObject object{
-                priority,    ttl,       stream_header_needed, group_id,
-                subgroup_id, object_id, extensions,           { data.begin(), data.end() },
-            };
-
-            if (auto group = cache_entry.Get(group_id)) {
-                group->insert(std::move(object));
-            } else {
-                cache_entry.Insert(group_id, { std::move(object) }, ttl);
-            }
-        };
-
         // Create a subscribe track that will be used by the relay to send to subscriber for matching objects
-        BindPublisherTrack(connection_handle, subscribe_id, pub_track_h, false, std::move(cache_message_callback));
+        BindPublisherTrack(connection_handle, subscribe_id, pub_track_h, false);
 
         // Subscribe to announcer if announcer is active
         auto anno_ns_it = qserver_vars::announce_active.find(th.track_namespace_hash);
@@ -597,7 +593,7 @@ class MyServer : public quicr::Server
      * @param connection_handle Source connection ID.
      * @param subscribe_id      Subscribe ID received.
      * @param track_full_name   Track full name
-     * @param attributes        Fetch attributes received.
+     * @param attrs             Fetch attributes received.
      *
      * @returns true if the range of groups and objects exist in the cache, otherwise returns false.
      */
@@ -614,9 +610,9 @@ class MyServer : public quicr::Server
 
         const auto th = quicr::TrackHash(track_full_name);
 
-        auto cache_entry_it = cache_.find(th.track_namespace_hash);
-        if (cache_entry_it == cache_.end()) {
-            SPDLOG_WARN("No cache entry for the hash {}", th.track_namespace_hash);
+        auto cache_entry_it = qserver_vars::cache.find(th.track_fullname_hash);
+        if (cache_entry_it == qserver_vars::cache.end()) {
+            SPDLOG_WARN("No cache entry for the hash {}", th.track_fullname_hash);
             return false;
         }
 
@@ -630,9 +626,10 @@ class MyServer : public quicr::Server
         }
 
         return std::any_of(groups.begin(), groups.end(), [&](const auto& group) {
-            return !group->empty() && group->begin()->object_id <= attrs.start_object &&
-                   std::prev(group->end())->object_id >= (attrs.end_object - 1);
+            return !group->empty() && group->begin()->headers.object_id <= attrs.start_object &&
+                   std::prev(group->end())->headers.object_id >= (attrs.end_object - 1);
         });
+        ;
     }
 
     /**
@@ -658,26 +655,15 @@ class MyServer : public quicr::Server
         const auto th = quicr::TrackHash(track_full_name);
 
         std::thread retrieve_cache_thread(
-          [=, cache_entries = cache_.at(th.track_namespace_hash).Get(attrs.start_group, attrs.end_group)] {
+          [=, cache_entries = qserver_vars::cache.at(th.track_fullname_hash).Get(attrs.start_group, attrs.end_group)] {
               for (const auto& cache_entry : cache_entries) {
                   for (const auto& object : *cache_entry) {
-                      if ((object.group_id < attrs.start_group || object.group_id >= attrs.end_group) ||
-                          (object.object_id < attrs.start_object || object.object_id >= attrs.end_object))
+                      if ((object.headers.group_id < attrs.start_group || object.headers.group_id >= attrs.end_group) ||
+                          (object.headers.object_id < attrs.start_object ||
+                           object.headers.object_id >= attrs.end_object))
                           continue;
 
-                      quicr::ObjectHeaders obj_headers{
-                          object.group_id,
-                          object.object_id,
-                          object.subgroup_id,
-                          object.data.size(),
-                          quicr::ObjectStatus::kAvailable,
-                          object.priority,
-                          object.ttl,
-                          std::nullopt,
-                          object.extensions,
-                      };
-
-                      pub_track_h->PublishObject(obj_headers, object.data);
+                      pub_track_h->PublishObject(object.headers, object.data);
                       std::this_thread::sleep_for(std::chrono::milliseconds(1));
                   }
               }
@@ -694,7 +680,6 @@ class MyServer : public quicr::Server
 
   private:
     /// The server cache for fetching from.
-    std::map<quicr::TrackNamespaceHash, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>> cache_;
     const int kSubscriptionDampenDurationMs_ = 1000;
     std::optional<std::chrono::time_point<std::chrono::steady_clock>> last_subscription_time_;
 };
