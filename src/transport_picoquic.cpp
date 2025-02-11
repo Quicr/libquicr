@@ -1223,8 +1223,11 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
                                                              obj.value.tick_microseconds);
 
             if (StreamActionCheck(data_ctx, obj.value.stream_action)) {
-                SPDLOG_LOGGER_DEBUG(
-                  logger, "New Stream {} object size: {}", *data_ctx->current_stream_id, data_ctx->stream_tx_object->size());
+                SPDLOG_LOGGER_DEBUG(logger,
+                                    "New Stream conn_id: {} stream_id: {}, object size: {}",
+                                    data_ctx->conn_id,
+                                    *data_ctx->current_stream_id,
+                                    data_ctx->stream_tx_object->size());
                 return;
             }
 

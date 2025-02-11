@@ -132,12 +132,12 @@ namespace quicr {
              */
             struct RxStreamBuffer
             {
-                std::shared_ptr<StreamRxContext> rx_ctx;     /// Stream RX context that holds data and caller info
-                bool closed{ false };       /// Indicates if stream is active or in closed state
-                bool checked_once{ false }; /// True if closed and checked once to close
+                std::shared_ptr<StreamRxContext> rx_ctx; /// Stream RX context that holds data and caller info
+                bool closed{ false };                    /// Indicates if stream is active or in closed state
+                bool checked_once{ false };              /// True if closed and checked once to close
 
                 RxStreamBuffer()
-                    : rx_ctx(std::make_shared<StreamRxContext>())
+                  : rx_ctx(std::make_shared<StreamRxContext>())
                 {
                     rx_ctx->caller_any.reset();
                     rx_ctx->data_queue.Clear();
