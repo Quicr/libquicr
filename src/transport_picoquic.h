@@ -42,7 +42,7 @@ namespace quicr {
     /**
      * Minimum bytes needed to write before considering to send. This doesn't
      */
-    constexpr int kMinStreamBytesForSend = 40;
+    constexpr int kMinStreamBytesForSend = 10;
 
     class PicoQuicTransport : public ITransport
     {
@@ -67,13 +67,6 @@ namespace quicr {
 
             DataContextId data_ctx_id{ 0 }; /// The ID of this context
             TransportConnId conn_id{ 0 };   /// The connection ID this context is under
-
-            enum class StreamAction : uint8_t
-            { /// Stream action that should be done by send/receive processing
-                kNoAction = 0,
-                kReplaceStreamUseReset,
-                kReplaceStreamUseFin,
-            } stream_action{ StreamAction::kNoAction };
 
             std::optional<uint64_t> current_stream_id; /// Current active stream if the value is >= 4
 
@@ -288,6 +281,8 @@ namespace quicr {
         void CheckConnsForCongestion();
         void EmitMetrics();
         void RemoveClosedStreams();
+
+        bool StreamActionCheck(DataContext* data_ctx, StreamAction stream_action);
 
         /**
          * @brief Function run the queue functions within the picoquic thread via the pq_loop_cb

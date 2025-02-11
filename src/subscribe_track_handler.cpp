@@ -12,8 +12,18 @@ namespace quicr {
     {
     }
 
-    void SubscribeTrackHandler::StreamDataRecv(bool is_start, std::shared_ptr<const std::vector<uint8_t>> data)
+    void SubscribeTrackHandler::StreamDataRecv(bool is_start,
+                                               uint64_t stream_id,
+                                               std::shared_ptr<const std::vector<uint8_t>> data)
     {
+        if (stream_id > current_stream_id_) {
+            current_stream_id_ = stream_id;
+        } else if (stream_id < current_stream_id_) {
+            SPDLOG_DEBUG(
+              "Old stream data received, stream_id: {} is less than {}, ignoring", stream_id, current_stream_id_);
+            return;
+        }
+
         if (is_start) {
             stream_buffer_.Clear();
 

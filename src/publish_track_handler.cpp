@@ -101,9 +101,9 @@ namespace quicr {
                                         object_headers.object_id,
                                         object_headers.extensions,
                                         data);
-        } else {
-            return PublishObjectStatus::kInternalError;
         }
+
+        return PublishObjectStatus::kInternalError;
     }
 
 } // namespace quicr

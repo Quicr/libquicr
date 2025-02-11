@@ -871,14 +871,15 @@ namespace quicr {
                     subgroup_hdr.track_alias = *track_handler.GetTrackAlias();
                     track_handler.object_msg_buffer_ << subgroup_hdr;
 
-                    quic_transport_->Enqueue(track_handler.connection_handle_,
-                                             track_handler.publish_data_ctx_id_,
-                                             std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
-                                                                                    track_handler.object_msg_buffer_.end()),
-                                             priority,
-                                             ttl,
-                                             0,
-                                             eflags);
+                    quic_transport_->Enqueue(
+                      track_handler.connection_handle_,
+                      track_handler.publish_data_ctx_id_,
+                      std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
+                                                             track_handler.object_msg_buffer_.end()),
+                      priority,
+                      ttl,
+                      0,
+                      eflags);
 
                     track_handler.object_msg_buffer_.clear();
                     eflags.new_stream = false;
@@ -1147,7 +1148,7 @@ namespace quicr {
                     conn_ctx.metrics.rx_stream_invalid_type++;
 
                     // TODO(tievens): Need to reset this stream as this is invalid.
-                    break;
+                    return;
                 }
 
                 uint64_t track_alias = 0;
@@ -1180,7 +1181,8 @@ namespace quicr {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received stream_header_subgroup to unknown subscribe track track_alias: {} stream: {}, ignored",
-                      track_alias, stream_id);
+                      track_alias,
+                      stream_id);
 
                     // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
                     break;
@@ -1188,13 +1190,13 @@ namespace quicr {
 
                 rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
                 sub_it->second->SetPriority(prioirty);
-                sub_it->second->StreamDataRecv(true, data_opt.value());
+                sub_it->second->StreamDataRecv(true, stream_id, data_opt.value());
 
             } else if (rx_ctx.caller_any.has_value()) {
                 // fast processing for existing stream using weak pointer to subscribe handler
                 auto sub_handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx.caller_any);
                 if (auto sub_handler = sub_handler_weak.lock()) {
-                    sub_handler->StreamDataRecv(false, data_opt.value());
+                    sub_handler->StreamDataRecv(false, stream_id, data_opt.value());
                 }
             }
         } // end of for loop rx data queue

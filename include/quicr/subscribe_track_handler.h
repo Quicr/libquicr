@@ -145,9 +145,12 @@ namespace quicr {
          * @details Event notification to provide the caller the raw data received on a stream
          *
          * @param is_start    True to indicate if this data is the start of a new stream
+         * @param stream_id   Stream ID data was received on
          * @param data        Shared pointer to the data received
          */
-        virtual void StreamDataRecv(bool is_start, std::shared_ptr<const std::vector<uint8_t>> data);
+        virtual void StreamDataRecv(bool is_start,
+                                    uint64_t stream_id,
+                                    std::shared_ptr<const std::vector<uint8_t>> data);
 
         /**
          * @brief Notification of received datagram data
@@ -220,6 +223,7 @@ namespace quicr {
         messages::GroupOrder group_order_;
         messages::FilterType filter_type_;
         StreamBuffer<uint8_t> stream_buffer_;
+        uint64_t current_stream_id_{ 0 };
 
         friend class Transport;
         friend class Client;

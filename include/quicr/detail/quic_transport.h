@@ -106,11 +106,20 @@ namespace quicr {
         uint8_t quic_priority_limit{ 0 };      /// Lowest priority that will not be bypassed from pacing/CC in picoquic
     };
 
+    /// Stream action that should be done by send/receive processing
+    enum class StreamAction : uint8_t
+    {
+        kNoAction = 0,
+        kReplaceStreamUseReset,
+        kReplaceStreamUseFin,
+    };
+
     struct ConnData
     {
         TransportConnId conn_id;
         DataContextId data_ctx_id;
         uint8_t priority;
+        StreamAction stream_action{ StreamAction::kNoAction };
 
         /// Shared pointer is used so transport can take ownership of the vector without copy/new allocation
         std::shared_ptr<const std::vector<uint8_t>> data;
@@ -122,7 +131,7 @@ namespace quicr {
     struct StreamRxContext
     {
         std::any caller_any; ///< Caller any object - Set and used by caller/app
-        bool is_new {true}; ///< Indicates if new stream, on read set to false
+        bool is_new{ true }; ///< Indicates if new stream, on read set to false
 
         /// Data queue for received data on the stream
         SafeQueue<std::shared_ptr<const std::vector<uint8_t>>> data_queue;
