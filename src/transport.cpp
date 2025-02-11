@@ -1224,13 +1224,13 @@ namespace quicr {
                     continue;
                 }
 
-                uint64_t track_alais = 0;
+                uint64_t track_alias = 0;
                 try {
                     // Decode and check next header, subscribe ID
                     auto cursor_it = std::next(data->begin(), 1);
 
                     auto track_alias_sz = quicr::UintVar::Size(*cursor_it);
-                    track_alais = uint64_t(quicr::UintVar({ cursor_it, cursor_it + track_alias_sz }));
+                    track_alias = uint64_t(quicr::UintVar({ cursor_it, cursor_it + track_alias_sz }));
                     cursor_it += track_alias_sz;
 
                 } catch (std::invalid_argument&) {
@@ -1238,12 +1238,12 @@ namespace quicr {
                 }
 
                 auto& conn_ctx = connections_[conn_id];
-                auto sub_it = conn_ctx.sub_by_track_alias.find(track_alais);
+                auto sub_it = conn_ctx.sub_by_track_alias.find(track_alias);
                 if (sub_it == conn_ctx.sub_by_track_alias.end()) {
                     conn_ctx.metrics.rx_dgram_unknown_track_alias++;
 
                     SPDLOG_LOGGER_DEBUG(
-                      logger_, "Received datagram to unknown subscribe track track alias: {0}, ignored", track_alais);
+                      logger_, "Received datagram to unknown subscribe track track alias: {0}, ignored", track_alias);
 
                     // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
 

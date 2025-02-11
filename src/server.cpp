@@ -139,11 +139,10 @@ namespace quicr {
             uint32_t ttl,
             bool stream_header_needed,
             std::shared_ptr<const std::vector<uint8_t>> data) -> PublishTrackHandler::PublishObjectStatus {
-            auto handler = weak_track_handler.lock();
-            if (!handler) {
-                return PublishTrackHandler::PublishObjectStatus::kInternalError;
+            if (auto handler = weak_track_handler.lock()) {
+                return SendData(*handler, priority, ttl, stream_header_needed, data);
             }
-            return SendData(*handler, priority, ttl, stream_header_needed, data);
+            return PublishTrackHandler::PublishObjectStatus::kInternalError;
         };
 
         if (!ephemeral) {
