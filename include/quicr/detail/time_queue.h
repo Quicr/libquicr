@@ -321,17 +321,19 @@ namespace quicr {
         {
             if (ttl > duration_) {
                 throw std::invalid_argument("TTL is greater than max duration");
-            } else if (ttl == 0) {
+            }
+
+            if (ttl == 0) {
                 ttl = duration_;
             }
 
-            ttl = ttl / interval_;
+            auto relative_ttl = ttl / interval_;
 
             const TickType ticks = Advance();
 
             const TickType expiry_tick = ticks + ttl;
 
-            const IndexType future_index = (bucket_index_ + ttl - 1) % total_buckets_;
+            const IndexType future_index = (bucket_index_ + relative_ttl - 1) % total_buckets_;
 
             BucketType& bucket = buckets_[future_index];
 
