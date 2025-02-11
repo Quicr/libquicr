@@ -1230,13 +1230,13 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
                 return;
             }
 
-            if (obj.value.data->size() > max_len) {
+            if (data_ctx->stream_tx_object->size() > max_len) {
                 data_ctx->stream_tx_object_offset = max_len;
                 data_len = max_len;
                 is_still_active = 1;
 
             } else {
-                data_len = obj.value.data->size();
+                data_len = data_ctx->stream_tx_object->size();
 
                 if (!data_ctx->tx_data->Empty()) {
                     is_still_active = 1;
