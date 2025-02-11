@@ -121,10 +121,10 @@ namespace quicr {
 
             DataContextId next_data_ctx_id{ 1 }; /// Next data context ID; zero is reserved for default context
 
-            std::unique_ptr<PriorityQueue<ConnData>>
+            std::shared_ptr<PriorityQueue<ConnData>>
               dgram_tx_data; /// Datagram pending objects to be written to the network
 
-            SafeQueue<std::shared_ptr<const std::vector<uint8_t>>>
+            std::shared_ptr<SafeQueue<std::shared_ptr<const std::vector<uint8_t>>>>
               dgram_rx_data; /// Buffered datagrams received from the network
 
             /**
@@ -132,16 +132,18 @@ namespace quicr {
              */
             struct RxStreamBuffer
             {
-                StreamRxContext rx_ctx;     /// Stream RX context that holds data and caller info
+                std::shared_ptr<StreamRxContext> rx_ctx;     /// Stream RX context that holds data and caller info
                 bool closed{ false };       /// Indicates if stream is active or in closed state
                 bool checked_once{ false }; /// True if closed and checked once to close
 
                 RxStreamBuffer()
+                    : rx_ctx(std::make_shared<StreamRxContext>())
                 {
-                    rx_ctx.caller_any.reset();
-                    rx_ctx.data_queue.Clear();
+                    rx_ctx->caller_any.reset();
+                    rx_ctx->data_queue.Clear();
                 }
             };
+
             std::map<uint64_t, RxStreamBuffer> rx_stream_buffer; /// Map of stream receive buffers, key is stream_id
 
             /**
@@ -160,7 +162,10 @@ namespace quicr {
             // Metrics
             QuicConnectionMetrics metrics;
 
-            ConnectionContext() {}
+            ConnectionContext()
+              : dgram_rx_data(std::make_shared<SafeQueue<std::shared_ptr<const std::vector<uint8_t>>>>())
+            {
+            }
 
             ConnectionContext(picoquic_cnx_t* cnx)
               : ConnectionContext()
@@ -236,7 +241,7 @@ namespace quicr {
         std::shared_ptr<const std::vector<uint8_t>> Dequeue(TransportConnId conn_id,
                                                             std::optional<DataContextId> data_ctx_id) override;
 
-        StreamRxContext& GetStreamRxContext(TransportConnId conn_id, uint64_t stream_id) override;
+        std::shared_ptr<StreamRxContext> GetStreamRxContext(TransportConnId conn_id, uint64_t stream_id) override;
 
         void SetRemoteDataCtxId(TransportConnId conn_id,
                                 DataContextId data_ctx_id,

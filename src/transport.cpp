@@ -1042,8 +1042,12 @@ namespace quicr {
                                  std::optional<DataContextId> data_ctx_id,
                                  const bool is_bidir)
     try {
-        auto& rx_ctx = quic_transport_->GetStreamRxContext(conn_id, stream_id);
+        auto rx_ctx = quic_transport_->GetStreamRxContext(conn_id, stream_id);
         auto& conn_ctx = connections_[conn_id];
+
+        if (rx_ctx == nullptr) {
+            return;
+        }
 
         /*
          * RX data queue may have more messages at time of this callback. Attempt to
@@ -1051,11 +1055,11 @@ namespace quicr {
          *      of other streams, etc.
          */
         for (int i = 0; i < kReadLoopMaxPerStream; i++) {
-            if (rx_ctx.data_queue.Empty()) {
+            if (rx_ctx->data_queue.Empty()) {
                 break;
             }
 
-            auto data_opt = rx_ctx.data_queue.Pop();
+            auto data_opt = rx_ctx->data_queue.Pop();
             if (not data_opt.has_value()) {
                 break;
             }
@@ -1123,7 +1127,7 @@ namespace quicr {
             } // end of is_bidir
 
             // DATA OBJECT
-            if (rx_ctx.is_new) {
+            if (rx_ctx->is_new) {
                 /*
                  * Process data subgroup header - assume that the start of stream will always have enough bytes
                  * for track alias
@@ -1173,7 +1177,7 @@ namespace quicr {
                     break;
                 }
 
-                rx_ctx.is_new = false;
+                rx_ctx->is_new = false;
 
                 auto sub_it = conn_ctx.sub_by_track_alias.find(track_alias);
                 if (sub_it == conn_ctx.sub_by_track_alias.end()) {
@@ -1188,13 +1192,13 @@ namespace quicr {
                     break;
                 }
 
-                rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
+                rx_ctx->caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
                 sub_it->second->SetPriority(prioirty);
                 sub_it->second->StreamDataRecv(true, stream_id, data_opt.value());
 
-            } else if (rx_ctx.caller_any.has_value()) {
+            } else if (rx_ctx->caller_any.has_value()) {
                 // fast processing for existing stream using weak pointer to subscribe handler
-                auto sub_handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx.caller_any);
+                auto sub_handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
                 if (auto sub_handler = sub_handler_weak.lock()) {
                     sub_handler->StreamDataRecv(false, stream_id, data_opt.value());
                 }

@@ -444,9 +444,9 @@ namespace quicr {
          * @param conn_id                   Connection ID to get stream context from
          * @param stream_id                 Context stream ID
          *
-         * @returns reference to StreamRxContext
+         * @returns Shared pointer to StreamRxContext
          * @throws TransportError for invalid connection or stream id
          */
-        virtual StreamRxContext& GetStreamRxContext(TransportConnId conn_id, uint64_t stream_id) = 0;
+        virtual std::shared_ptr<StreamRxContext> GetStreamRxContext(TransportConnId conn_id, uint64_t stream_id) = 0;
     };
 } // namespace quicr
