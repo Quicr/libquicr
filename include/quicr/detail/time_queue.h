@@ -285,11 +285,13 @@ namespace quicr {
         TickType Advance()
         {
             const TickType new_ticks = tick_service_->Milliseconds();
-            const TickType delta = current_ticks_ ? new_ticks - current_ticks_ : 0;
+            TickType delta = current_ticks_ ? new_ticks - current_ticks_ : 0;
             current_ticks_ = new_ticks;
 
             if (delta == 0)
                 return current_ticks_;
+
+            delta /= interval_; // relative delta based on interval
 
             if (delta >= static_cast<TickType>(total_buckets_)) {
                 Clear();

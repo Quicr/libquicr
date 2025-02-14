@@ -1199,10 +1199,11 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
 
         if (obj.expired_count != 0) {
             SPDLOG_LOGGER_DEBUG(logger,
-                                "Send stream objects expired; conn_id: {} data_ctx_id: {} expired: {}",
+                                "Send stream objects expired; conn_id: {} data_ctx_id: {} expired: {} queue_size: {}",
                                 data_ctx->conn_id,
                                 data_ctx->data_ctx_id,
-                                obj.expired_count);
+                                obj.expired_count,
+                                data_ctx->tx_data->Size());
         }
 
         if (obj.has_value) {
