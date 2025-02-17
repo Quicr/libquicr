@@ -13,7 +13,7 @@
 
 namespace qclient_vars {
     bool publish_clock{ false };
-    std::optional<uint64_t> track_alais; /// Track alias to use for subscribe
+    std::optional<uint64_t> track_alias; /// Track alias to use for subscribe
 }
 
 /**
@@ -397,7 +397,7 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
     }
 
     if (cli_opts.count("track_alias")) {
-        qclient_vars::track_alais = cli_opts["track_alias"].as<uint64_t>();
+        qclient_vars::track_alias = cli_opts["track_alias"].as<uint64_t>();
     }
 
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
@@ -480,7 +480,7 @@ main(int argc, char* argv[])
         if (enable_pub) {
             const auto& pub_track_name = quicr::example::MakeFullTrackName(result["pub_namespace"].as<std::string>(),
                                                                            result["pub_name"].as<std::string>(),
-                                                                           qclient_vars::track_alais);
+                                                                           qclient_vars::track_alias);
 
             pub_thread = std::thread(DoPublisher, pub_track_name, client, std::ref(stop_threads));
         }
@@ -495,7 +495,7 @@ main(int argc, char* argv[])
 
             const auto& sub_track_name = quicr::example::MakeFullTrackName(result["sub_namespace"].as<std::string>(),
                                                                            result["sub_name"].as<std::string>(),
-                                                                           qclient_vars::track_alais);
+                                                                           qclient_vars::track_alias);
 
             sub_thread = std::thread(DoSubscriber, sub_track_name, client, filter_type, std::ref(stop_threads));
         }
@@ -503,7 +503,7 @@ main(int argc, char* argv[])
             const auto& fetch_track_name =
               quicr::example::MakeFullTrackName(result["fetch_namespace"].as<std::string>(),
                                                 result["fetch_name"].as<std::string>(),
-                                                qclient_vars::track_alais);
+                                                qclient_vars::track_alias);
 
             fetch_thread =
               std::thread(DoFetch,
