@@ -45,7 +45,43 @@ namespace quicr {
 
     void Server::OnFetchOk(ConnectionHandle, uint64_t, const FullTrackName&, const FetchAttributes&) {}
 
-    void Server::ResolveSubscribe(ConnectionHandle, uint64_t, const SubscribeResponse&) {}
+    void Server::ResolveSubscribe(ConnectionHandle connection_handle,
+                                  uint64_t subscribe_id,
+                                  const SubscribeResponse& subscribe_response)
+    {
+        auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            return;
+        }
+
+        switch (subscribe_response.reason_code) {
+            case SubscribeResponse::ReasonCode::kOk: {
+                SendSubscribeOk(conn_it->second, subscribe_id, kSubscribeExpires, false);
+                break;
+            }
+            case SubscribeResponse::ReasonCode::kRetryTrackAlias: {
+                if (subscribe_response.track_alias.has_value()) {
+                    SendSubscribeError(conn_it->second,
+                                       subscribe_id,
+                                       *subscribe_response.track_alias,
+                                       messages::SubscribeError::RETRY_TRACK_ALIAS,
+                                       subscribe_response.reason_phrase.has_value() ? *subscribe_response.reason_phrase
+                                                                                    : "internal error");
+                } else {
+                    SendSubscribeError(conn_it->second,
+                                       subscribe_id,
+                                       {},
+                                       messages::SubscribeError::INTERNAL_ERROR,
+                                       "Missing track alias");
+                }
+                break;
+            }
+            default:
+                SendSubscribeError(
+                  conn_it->second, subscribe_id, {}, messages::SubscribeError::INTERNAL_ERROR, "Internal error");
+                break;
+        }
+    }
 
     void Server::UnbindPublisherTrack(ConnectionHandle connection_handle,
                                       const std::shared_ptr<PublishTrackHandler>& track_handler)
@@ -178,9 +214,6 @@ namespace quicr {
                                   msg.filter_type,
                                   tfn,
                                   { .priority = msg.priority, .group_order = msg.group_order });
-
-                // TODO(tievens): Delay the subscribe OK till ResolveSubscribe() is called
-                SendSubscribeOk(conn_ctx, msg.subscribe_id, kSubscribeExpires, false);
 
                 return true;
             }

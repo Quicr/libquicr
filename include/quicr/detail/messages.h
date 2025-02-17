@@ -79,6 +79,10 @@ namespace quicr::messages {
     enum class SubscribeError : uint8_t
     {
         INTERNAL_ERROR = 0x0,
+        UNAUTHORIZED,
+        TIMEOUT,
+        NOT_SUPPORTED,
+        TRACK_DOES_NOT_EXIST,
         INVALID_RANGE,
         RETRY_TRACK_ALIAS,
 

@@ -39,6 +39,8 @@ struct std::less<CacheObject>
 };
 
 namespace qserver_vars {
+    bool force_track_alias{ true };
+
     std::mutex state_mutex;
 
     /**
@@ -514,18 +516,32 @@ class MyServer : public quicr::Server
 
     void SubscribeReceived(quicr::ConnectionHandle connection_handle,
                            uint64_t subscribe_id,
-                           [[maybe_unused]] uint64_t proposed_track_alias,
+                           uint64_t proposed_track_alias,
                            [[maybe_unused]] quicr::messages::FilterType filter_type,
                            const quicr::FullTrackName& track_full_name,
                            const quicr::SubscribeAttributes& attrs) override
     {
         auto th = quicr::TrackHash(track_full_name);
 
-        SPDLOG_INFO("New subscribe connection handle: {0} subscribe_id: {1} track alias: {2} priority: {3}",
+        SPDLOG_INFO("New subscribe connection handle: {} subscribe_id: {} computed track alias: {} proposed "
+                    "track_alias: {} priority: {}",
                     connection_handle,
                     subscribe_id,
                     th.track_fullname_hash,
+                    proposed_track_alias,
                     attrs.priority);
+
+        if (qserver_vars::force_track_alias && proposed_track_alias && proposed_track_alias != th.track_fullname_hash) {
+            std::ostringstream err;
+            err << "Use track alias: " << th.track_fullname_hash;
+            ResolveSubscribe(
+              connection_handle,
+              subscribe_id,
+              { quicr::SubscribeResponse::ReasonCode::kRetryTrackAlias, err.str(), th.track_fullname_hash });
+            return;
+        }
+
+        ResolveSubscribe(connection_handle, subscribe_id, { quicr::SubscribeResponse::ReasonCode::kOk });
 
         auto pub_track_h =
           std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, 50000);
@@ -629,7 +645,6 @@ class MyServer : public quicr::Server
             return !group->empty() && group->begin()->headers.object_id <= attrs.start_object &&
                    std::prev(group->end())->headers.object_id >= (attrs.end_object - 1);
         });
-        ;
     }
 
     /**
@@ -708,6 +723,10 @@ InitConfig(cxxopts::ParseResult& cli_opts)
         exit(0);
     }
 
+    if (cli_opts.count("relax_track_alias")) {
+        qserver_vars::force_track_alias = false;
+    }
+
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
 
     config.server_bind_ip = cli_opts["bind_ip"].as<std::string>();
@@ -732,7 +751,8 @@ main(int argc, char* argv[])
                              std::string("MOQ Example Server using QuicR Version: ") + std::string(QUICR_VERSION));
     options.set_width(75).set_tab_expansion().allow_unrecognised_options().add_options()("h,help", "Print help")(
       "d,debug", "Enable debugging") // a bool parameter
-      ("v,version", "QuicR Version") // a bool parameter
+      ("relax_track_alias", "Set to allow client provided track alias")("v,version",
+                                                                        "QuicR Version") // a bool parameter
       ("b,bind_ip", "Bind IP", cxxopts::value<std::string>()->default_value("127.0.0.1"))(
         "p,port", "Listening port", cxxopts::value<uint16_t>()->default_value("1234"))(
         "e,endpoint_id", "This relay/server endpoint ID", cxxopts::value<std::string>()->default_value("moq-server"))(

@@ -25,7 +25,27 @@ namespace quicr {
         // TODO: add the default response
     }
 
-    void Client::ResolveSubscribe(ConnectionHandle, uint64_t, const SubscribeResponse&) {}
+    void Client::ResolveSubscribe(ConnectionHandle connection_handle,
+                                  uint64_t subscribe_id,
+                                  const SubscribeResponse& subscribe_response)
+    {
+        auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            return;
+        }
+
+        switch (subscribe_response.reason_code) {
+            case SubscribeResponse::ReasonCode::kOk: {
+                SendSubscribeOk(conn_it->second, subscribe_id, kSubscribeExpires, false);
+                break;
+            }
+
+            default:
+                SendSubscribeError(
+                  conn_it->second, subscribe_id, {}, messages::SubscribeError::INTERNAL_ERROR, "Internal error");
+                break;
+        }
+    }
 
     void Client::MetricsSampled(const ConnectionMetrics&) {}
 
@@ -72,7 +92,7 @@ namespace quicr {
                     return true;
                 }
 
-                SendSubscribeOk(conn_ctx, msg.subscribe_id, kSubscribeExpires, false);
+                ResolveSubscribe(conn_ctx.connection_handle, msg.subscribe_id, { SubscribeResponse::ReasonCode::kOk });
 
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received subscribe to announced track alias: {0} recv subscribe_id: {1}, setting "
@@ -157,6 +177,11 @@ namespace quicr {
                     return true;
                 }
 
+                SPDLOG_LOGGER_DEBUG(logger_,
+                                    "Received subscribe ok conn_id: {} subscribe_id: {}",
+                                    conn_ctx.connection_handle,
+                                    msg.subscribe_id);
+
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
                 return true;
             }
@@ -177,6 +202,15 @@ namespace quicr {
                     // condition
                     return true;
                 }
+
+                SPDLOG_LOGGER_DEBUG(
+                  logger_,
+                  "Received subscribe error conn_id: {} subscribe_id: {} reason: {} code: {} requested track_alias: {}",
+                  conn_ctx.connection_handle,
+                  msg.subscribe_id,
+                  std::string(msg.reason_phrase.begin(), msg.reason_phrase.end()),
+                  msg.err_code,
+                  msg.track_alias);
 
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kError);
                 RemoveSubscribeTrack(conn_ctx, *sub_it->second);
