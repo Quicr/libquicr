@@ -374,13 +374,13 @@ namespace quicr {
     }
 
     void Transport::SendSubscribeError(ConnectionContext& conn_ctx,
-                                       [[maybe_unused]] uint64_t subscribe_id,
+                                       uint64_t subscribe_id,
                                        uint64_t track_alias,
                                        SubscribeError error,
                                        const std::string& reason)
     {
         auto subscribe_err = MoqSubscribeError{};
-        subscribe_err.subscribe_id = 0x1;
+        subscribe_err.subscribe_id = subscribe_id;
         subscribe_err.err_code = static_cast<uint64_t>(error);
         subscribe_err.track_alias = track_alias;
         subscribe_err.reason_phrase.assign(reason.begin(), reason.end());
@@ -492,9 +492,14 @@ namespace quicr {
         // TODO(tievens): Evaluate; change hash to be more than 62 bits to avoid collisions
         auto th = TrackHash(tfn);
 
-        track_handler->SetTrackAlias(th.track_fullname_hash);
+        auto proposed_track_alias = track_handler->GetTrackAlias();
+        if (not proposed_track_alias.has_value()) {
+            track_handler->SetTrackAlias(th.track_fullname_hash);
+        } else {
+            th.track_fullname_hash = proposed_track_alias.value();
+        }
 
-        SPDLOG_LOGGER_INFO(logger_, "Subscribe track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
+        SPDLOG_LOGGER_INFO(logger_, "Subscribe track conn_id: {0} track_alias: {1}", conn_id, th.track_fullname_hash);
 
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_id);

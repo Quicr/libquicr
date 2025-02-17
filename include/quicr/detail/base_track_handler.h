@@ -41,7 +41,7 @@ namespace quicr {
         };
         ReasonCode reason_code;
 
-        std::optional<Bytes> reason_phrase;
+        std::optional<std::string> reason_phrase;
         std::optional<uint64_t> track_alias; ///< Set only when ResponseCode is kRetryTrackAlias
     };
 

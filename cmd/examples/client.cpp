@@ -13,6 +13,7 @@
 
 namespace qclient_vars {
     bool publish_clock{ false };
+    std::optional<uint64_t> track_alais; /// Track alias to use for subscribe
 }
 
 /**
@@ -395,6 +396,10 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
                     cli_opts["fetch_name"].as<std::string>());
     }
 
+    if (cli_opts.count("track_alias")) {
+        qclient_vars::track_alais = cli_opts["track_alias"].as<uint64_t>();
+    }
+
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
     config.connect_uri = cli_opts["url"].as<std::string>();
     config.transport_config.debug = cli_opts["debug"].as<bool>();
@@ -432,7 +437,7 @@ main(int argc, char* argv[])
       "sub_name", "Track name", cxxopts::value<std::string>())(
       "start_point",
       "Start point for Subscription - 0 for from the beginning, 1 from the latest object",
-      cxxopts::value<uint64_t>());
+      cxxopts::value<uint64_t>())("track_alias", "Track alias to use", cxxopts::value<uint64_t>());
 
     options.add_options("Fetcher")("fetch_namespace", "Track namespace", cxxopts::value<std::string>())(
       "fetch_name", "Track name", cxxopts::value<std::string>())(
@@ -473,8 +478,9 @@ main(int argc, char* argv[])
         std::thread fetch_thread;
 
         if (enable_pub) {
-            const auto& pub_track_name = quicr::example::MakeFullTrackName(
-              result["pub_namespace"].as<std::string>(), result["pub_name"].as<std::string>(), 1001);
+            const auto& pub_track_name = quicr::example::MakeFullTrackName(result["pub_namespace"].as<std::string>(),
+                                                                           result["pub_name"].as<std::string>(),
+                                                                           qclient_vars::track_alais);
 
             pub_thread = std::thread(DoPublisher, pub_track_name, client, std::ref(stop_threads));
         }
@@ -487,14 +493,17 @@ main(int argc, char* argv[])
                 }
             }
 
-            const auto& sub_track_name = quicr::example::MakeFullTrackName(
-              result["sub_namespace"].as<std::string>(), result["sub_name"].as<std::string>(), 2001);
+            const auto& sub_track_name = quicr::example::MakeFullTrackName(result["sub_namespace"].as<std::string>(),
+                                                                           result["sub_name"].as<std::string>(),
+                                                                           qclient_vars::track_alais);
 
             sub_thread = std::thread(DoSubscriber, sub_track_name, client, filter_type, std::ref(stop_threads));
         }
         if (enable_fetch) {
-            const auto& fetch_track_name = quicr::example::MakeFullTrackName(
-              result["fetch_namespace"].as<std::string>(), result["fetch_name"].as<std::string>(), 3001);
+            const auto& fetch_track_name =
+              quicr::example::MakeFullTrackName(result["fetch_namespace"].as<std::string>(),
+                                                result["fetch_name"].as<std::string>(),
+                                                qclient_vars::track_alais);
 
             fetch_thread =
               std::thread(DoFetch,
