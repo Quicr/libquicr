@@ -45,6 +45,8 @@ namespace quicr {
 
     void Server::OnFetchOk(ConnectionHandle, uint64_t, const FullTrackName&, const FetchAttributes&) {}
 
+    void Server::NewGroupRequested(ConnectionHandle, uint64_t, uint64_t) {}
+
     void Server::ResolveSubscribe(ConnectionHandle connection_handle,
                                   uint64_t subscribe_id,
                                   const SubscribeResponse& subscribe_response)
@@ -488,6 +490,21 @@ namespace quicr {
 
                 FetchCancelReceived(conn_ctx.connection_handle, msg.subscribe_id);
                 conn_ctx.recv_sub_id.erase(msg.subscribe_id);
+
+                return true;
+            }
+            case messages::ControlMessageType::kNewGroup: {
+                messages::NewGroupRequest msg;
+                msg_bytes >> msg;
+
+                if (conn_ctx.new_group_rerequests.count(msg.track_alias)) {
+                    conn_ctx.new_group_rerequests[msg.track_alias] = true;
+                    return true;
+                }
+
+                NewGroupRequested(conn_ctx.connection_handle, msg.subscribe_id, msg.track_alias);
+
+                conn_ctx.new_group_rerequests[msg.track_alias] = false;
 
                 return true;
             }

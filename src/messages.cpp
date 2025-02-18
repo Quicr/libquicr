@@ -295,6 +295,31 @@ namespace quicr::messages {
     }
 
     //
+    // New Group Request
+    //
+
+    Bytes& operator<<(Bytes& buffer, const NewGroupRequest& msg)
+    {
+        Bytes payload;
+        payload << UintVar(msg.subscribe_id);
+        payload << UintVar(msg.track_alias);
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kNewGroup));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, NewGroupRequest& msg)
+    {
+        buffer = buffer >> msg.subscribe_id;
+        buffer = buffer >> msg.track_alias;
+
+        return buffer;
+    }
+
+    //
     // Track Status
     //
     Bytes& operator<<(Bytes& buffer, const MoqTrackStatus& msg)

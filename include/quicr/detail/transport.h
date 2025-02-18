@@ -264,6 +264,8 @@ namespace quicr {
             /// Published tracks by quic transport data context ID.
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
 
+            std::map<TrackFullNameHash, bool> new_group_rerequests;
+
             ConnectionMetrics metrics{}; ///< Connection metrics
 
             ConnectionContext() { ctrl_msg_buffer.reserve(kControlMessageBufferSize); }

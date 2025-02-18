@@ -67,6 +67,8 @@ namespace quicr::messages {
 
         CLIENT_SETUP = 0x40,
         SERVER_SETUP,
+
+        kNewGroup,
     };
 
     enum class DataMessageType : uint8_t
@@ -171,6 +173,19 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, MoqServerSetup& msg);
     Bytes& operator<<(Bytes& buffer, const MoqServerSetup& msg);
+
+    //
+    // New Group
+    //
+
+    struct NewGroupRequest
+    {
+        uint64_t subscribe_id;
+        uint64_t track_alias;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, NewGroupRequest& msg);
+    Bytes& operator<<(Bytes& buffer, const NewGroupRequest& msg);
 
     //
     // Subscribe
