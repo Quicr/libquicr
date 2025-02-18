@@ -98,15 +98,7 @@ namespace quicr {
                     return true;
                 }
 
-                ResolveSubscribe(conn_ctx.connection_handle,
-                                 msg.subscribe_id,
-                                 {
-                                   SubscribeResponse::ReasonCode::kOk,
-                                   std::nullopt,
-                                   std::nullopt,
-                                   0,
-                                   0,
-                                 });
+                ResolveSubscribe(conn_ctx.connection_handle, msg.subscribe_id, { SubscribeResponse::ReasonCode::kOk });
 
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received subscribe to announced track alias: {0} recv subscribe_id: {1}, setting "
