@@ -40,7 +40,7 @@ namespace quicr {
                   conn_it->second,
                   subscribe_id,
                   kSubscribeExpires,
-                  false,
+                  subscribe_response.largest_group.has_value() && subscribe_response.largest_object.has_value(),
                   subscribe_response.largest_group.has_value() ? subscribe_response.largest_group.value() : 0,
                   subscribe_response.largest_object.has_value() ? subscribe_response.largest_object.value() : 0);
                 break;
