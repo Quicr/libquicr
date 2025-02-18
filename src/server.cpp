@@ -56,7 +56,13 @@ namespace quicr {
 
         switch (subscribe_response.reason_code) {
             case SubscribeResponse::ReasonCode::kOk: {
-                SendSubscribeOk(conn_it->second, subscribe_id, kSubscribeExpires, false);
+                SendSubscribeOk(
+                  conn_it->second,
+                  subscribe_id,
+                  kSubscribeExpires,
+                  subscribe_response.largest_group.has_value() && subscribe_response.largest_object.has_value(),
+                  subscribe_response.largest_group.has_value() ? subscribe_response.largest_group.value() : 0,
+                  subscribe_response.largest_object.has_value() ? subscribe_response.largest_object.value() : 0);
                 break;
             }
             case SubscribeResponse::ReasonCode::kRetryTrackAlias: {

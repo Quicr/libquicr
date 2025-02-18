@@ -41,8 +41,11 @@ namespace quicr {
         };
         ReasonCode reason_code;
 
-        std::optional<std::string> reason_phrase;
-        std::optional<uint64_t> track_alias; ///< Set only when ResponseCode is kRetryTrackAlias
+        std::optional<std::string> reason_phrase = std::nullopt;
+        std::optional<uint64_t> track_alias = std::nullopt; ///< Set only when ResponseCode is kRetryTrackAlias
+
+        std::optional<uint64_t> largest_group = std::nullopt;
+        std::optional<uint64_t> largest_object = std::nullopt;
     };
 
     /**

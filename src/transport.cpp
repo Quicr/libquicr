@@ -322,12 +322,16 @@ namespace quicr {
     void Transport::SendSubscribeOk(ConnectionContext& conn_ctx,
                                     uint64_t subscribe_id,
                                     uint64_t expires,
-                                    bool content_exists)
+                                    bool content_exists,
+                                    messages::GroupId largest_group_id,
+                                    messages::ObjectId largest_object_id)
     {
         auto subscribe_ok = MoqSubscribeOk{};
         subscribe_ok.subscribe_id = subscribe_id;
         subscribe_ok.expires = expires;
         subscribe_ok.content_exists = content_exists;
+        subscribe_ok.largest_group = largest_group_id;
+        subscribe_ok.largest_object = largest_object_id;
 
         Bytes buffer;
         buffer.reserve(sizeof(MoqSubscribeOk));
