@@ -116,4 +116,10 @@ namespace quicr {
         }
     }
 
+    void SubscribeTrackHandler::RequestNewGroup() noexcept
+    {
+        if (new_group_request_callback_ && GetSubscribeId().has_value() && GetTrackAlias().has_value()) {
+            new_group_request_callback_(GetSubscribeId().value(), GetTrackAlias().value());
+        }
+    }
 } // namespace quicr

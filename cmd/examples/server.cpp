@@ -714,6 +714,18 @@ class MyServer : public quicr::Server
         SPDLOG_INFO("Canceling fetch for subscribe_id: {0}", subscribe_id);
     }
 
+    void NewGroupRequested(quicr::ConnectionHandle conn_id, uint64_t subscribe_id, uint64_t track_alias) override
+    {
+        for (auto [_, handler] : qserver_vars::pub_subscribes[track_alias]) {
+            if (!handler) {
+                continue;
+            }
+            SPDLOG_DEBUG(
+              "Received New Group Request for conn: {} sub_id: {} track_alias: {}", conn_id, subscribe_id, track_alias);
+            handler->RequestNewGroup();
+        }
+    }
+
   private:
     /// The server cache for fetching from.
     const int kSubscriptionDampenDurationMs_ = 1000;

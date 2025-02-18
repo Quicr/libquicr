@@ -488,6 +488,24 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
+    void Transport::SendNewGroupRequest(ConnectionHandle conn_id, uint64_t subscribe_id, uint64_t track_alias)
+    {
+        NewGroupRequest msg{ subscribe_id, track_alias };
+
+        Bytes buffer;
+        buffer.reserve(sizeof(NewGroupRequest));
+        buffer << msg;
+
+        std::lock_guard<std::mutex> _(state_mutex_);
+        auto conn_it = connections_.find(conn_id);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_id);
+            return;
+        }
+
+        SendCtrlMsg(conn_it->second, buffer);
+    }
+
     void Transport::SubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
         const auto& tfn = track_handler->GetFullTrackName();
@@ -521,6 +539,10 @@ namespace quicr {
         auto priority = track_handler->GetPriority();
         auto group_order = track_handler->GetGroupOrder();
         auto filter_type = track_handler->GetFilterType();
+
+        track_handler->new_group_request_callback_ = [=](auto sub_id, auto track_alias) {
+            SendNewGroupRequest(conn_id, sub_id, track_alias);
+        };
 
         // Set the track handler for tracking by subscribe ID and track alias
         conn_it->second.sub_by_track_alias[*track_handler->GetTrackAlias()] = track_handler;
@@ -598,6 +620,8 @@ namespace quicr {
             SPDLOG_LOGGER_ERROR(logger_, "Unpublish track conn_id: {0} does not exist.", conn_id);
             return;
         }
+
+        conn_it->second.pub_tracks_by_track_alias.erase(th.track_fullname_hash);
 
         // Check if this published track is a new namespace or existing.
         auto pub_ns_it = conn_it->second.pub_tracks_by_name.find(th.track_namespace_hash);
@@ -730,6 +754,7 @@ namespace quicr {
 
         // Hold ref to track handler
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
+        conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash] = track_handler;
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
     }
 
