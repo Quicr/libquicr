@@ -534,15 +534,10 @@ class MyServer : public quicr::Server
         if (qserver_vars::force_track_alias && proposed_track_alias && proposed_track_alias != th.track_fullname_hash) {
             std::ostringstream err;
             err << "Use track alias: " << th.track_fullname_hash;
-            ResolveSubscribe(connection_handle,
-                             subscribe_id,
-                             {
-                               quicr::SubscribeResponse::ReasonCode::kRetryTrackAlias,
-                               err.str(),
-                               th.track_fullname_hash,
-                               std::nullopt,
-                               std::nullopt,
-                             });
+            ResolveSubscribe(
+              connection_handle,
+              subscribe_id,
+              { quicr::SubscribeResponse::ReasonCode::kRetryTrackAlias, err.str(), th.track_fullname_hash });
             return;
         }
 
