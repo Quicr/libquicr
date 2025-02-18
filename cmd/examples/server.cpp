@@ -534,14 +534,40 @@ class MyServer : public quicr::Server
         if (qserver_vars::force_track_alias && proposed_track_alias && proposed_track_alias != th.track_fullname_hash) {
             std::ostringstream err;
             err << "Use track alias: " << th.track_fullname_hash;
-            ResolveSubscribe(
-              connection_handle,
-              subscribe_id,
-              { quicr::SubscribeResponse::ReasonCode::kRetryTrackAlias, err.str(), th.track_fullname_hash });
+            ResolveSubscribe(connection_handle,
+                             subscribe_id,
+                             {
+                               quicr::SubscribeResponse::ReasonCode::kRetryTrackAlias,
+                               err.str(),
+                               th.track_fullname_hash,
+                               std::nullopt,
+                               std::nullopt,
+                             });
             return;
         }
 
-        ResolveSubscribe(connection_handle, subscribe_id, { quicr::SubscribeResponse::ReasonCode::kOk });
+        uint64_t latest_group_id = 0;
+        uint64_t latest_object_id = 0;
+
+        auto cache_entry_it = qserver_vars::cache.find(th.track_fullname_hash);
+        if (cache_entry_it != qserver_vars::cache.end()) {
+            auto& [_, cache] = *cache_entry_it;
+            if (const auto& latest_group = cache.Last(); latest_group && !latest_group->empty()) {
+                const auto& latest_object = std::prev(latest_group->end());
+                latest_group_id = latest_object->headers.group_id;
+                latest_object_id = latest_object->headers.object_id;
+            }
+        }
+
+        ResolveSubscribe(connection_handle,
+                         subscribe_id,
+                         {
+                           quicr::SubscribeResponse::ReasonCode::kOk,
+                           std::nullopt,
+                           std::nullopt,
+                           latest_group_id,
+                           latest_object_id,
+                         });
 
         auto pub_track_h =
           std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, 50000);

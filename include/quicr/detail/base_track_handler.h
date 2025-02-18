@@ -43,6 +43,9 @@ namespace quicr {
 
         std::optional<std::string> reason_phrase;
         std::optional<uint64_t> track_alias; ///< Set only when ResponseCode is kRetryTrackAlias
+
+        std::optional<uint64_t> largest_group;
+        std::optional<uint64_t> largest_object;
     };
 
     /**

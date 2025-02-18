@@ -36,7 +36,13 @@ namespace quicr {
 
         switch (subscribe_response.reason_code) {
             case SubscribeResponse::ReasonCode::kOk: {
-                SendSubscribeOk(conn_it->second, subscribe_id, kSubscribeExpires, false);
+                SendSubscribeOk(
+                  conn_it->second,
+                  subscribe_id,
+                  kSubscribeExpires,
+                  false,
+                  subscribe_response.largest_group.has_value() ? subscribe_response.largest_group.value() : 0,
+                  subscribe_response.largest_object.has_value() ? subscribe_response.largest_object.value() : 0);
                 break;
             }
 
@@ -92,7 +98,15 @@ namespace quicr {
                     return true;
                 }
 
-                ResolveSubscribe(conn_ctx.connection_handle, msg.subscribe_id, { SubscribeResponse::ReasonCode::kOk });
+                ResolveSubscribe(conn_ctx.connection_handle,
+                                 msg.subscribe_id,
+                                 {
+                                   SubscribeResponse::ReasonCode::kOk,
+                                   std::nullopt,
+                                   std::nullopt,
+                                   0,
+                                   0,
+                                 });
 
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received subscribe to announced track alias: {0} recv subscribe_id: {1}, setting "
@@ -149,7 +163,7 @@ namespace quicr {
                     return true;
                 }
 
-                SendSubscribeOk(conn_ctx, msg.subscribe_id, kSubscribeExpires, false);
+                SendSubscribeOk(conn_ctx, msg.subscribe_id, kSubscribeExpires, false, 0, 0);
 
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received subscribe_update to track alias: {0} recv subscribe_id: {1}",
