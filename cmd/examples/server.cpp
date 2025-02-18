@@ -541,8 +541,8 @@ class MyServer : public quicr::Server
             return;
         }
 
-        uint64_t latest_group_id = 0;
-        uint64_t latest_object_id = 0;
+        std::optional<uint64_t> latest_group_id = std::nullopt;
+        std::optional<uint64_t> latest_object_id = std::nullopt;
 
         auto cache_entry_it = qserver_vars::cache.find(th.track_fullname_hash);
         if (cache_entry_it != qserver_vars::cache.end()) {
