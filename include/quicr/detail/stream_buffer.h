@@ -220,6 +220,25 @@ namespace quicr {
          */
         std::optional<uint64_t> DecodeUintV()
         {
+            const auto uintv = ReadUintV();
+            if (uintv) {
+                return uint64_t(*uintv);
+            }
+            return std::nullopt;
+        }
+
+        /**
+         * Reads a variable length int (uintV) from start of stream buffer
+         *
+         * @details Reads uintV from stream buffer. If all bytes are available, the
+         *      encoded uintV will be returned and the buffer
+         *      will be moved past the uintV. Nullopt will be returned if not enough
+         *      bytes are available.
+         *
+         * @return Returns uintV or nullopt if not enough bytes are available
+         */
+        std::optional<UintVar> ReadUintV()
+        {
             if (buffer_.empty()) {
                 return std::nullopt;
             }
@@ -234,7 +253,7 @@ namespace quicr {
                 auto val = UintVar(FrontInternal(uv_len));
                 PopInternal(uv_len);
 
-                return uint64_t(val);
+                return val;
             }
 
             return std::nullopt;

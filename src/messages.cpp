@@ -57,13 +57,15 @@ namespace quicr::messages {
             }
 
             if (current_tag.value() % 2 == 0) {
-                uint64_t value{ 0 };
-                if (!ParseUintVField(buffer, value)) {
+                auto val = buffer.ReadUintV();
+                if (!val) {
                     count -= completed;
                     return false;
                 }
-                std::vector<std::uint8_t> bytes(sizeof(std::uint64_t));
-                std::memcpy(bytes.data(), &value, sizeof(std::uint64_t));
+                const std::size_t size = val.value().size();
+                std::vector<std::uint8_t> bytes(size);
+                auto decoded = uint64_t(val.value());
+                std::memcpy(bytes.data(), &decoded, size);
                 extensions.value()[current_tag.value()] = std::move(bytes);
             } else {
                 auto val = buffer.DecodeBytes();
@@ -104,7 +106,7 @@ namespace quicr::messages {
             if (extension.first % 2 == 0) {
                 // Even types are a single varint value.
                 std::uint64_t val = 0;
-                std::memcpy(&val, extension.second.data(), sizeof(std::uint64_t));
+                std::memcpy(&val, extension.second.data(), std::min(extension.second.size(), sizeof(std::uint64_t)));
                 buffer << UintVar(val);
                 continue;
             }
