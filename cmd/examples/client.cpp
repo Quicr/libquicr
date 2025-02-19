@@ -465,12 +465,13 @@ main(int argc, char* argv[])
         ("track_alias", "Track alias to use", cxxopts::value<uint64_t>())
         ("new_group", "Requests a new group on subscribe");
 
-    options.add_options("Fetcher")("fetch_namespace", "Track namespace", cxxopts::value<std::string>())(
-      "fetch_name", "Track name", cxxopts::value<std::string>())(
-      "start_group", "Starting group ID", cxxopts::value<uint64_t>())(
-      "end_group", "One past the final group ID", cxxopts::value<uint64_t>())(
-      "start_object", "The starting object ID within the group", cxxopts::value<uint64_t>())(
-      "end_object", "One past the final object ID in the group", cxxopts::value<uint64_t>());
+    options.add_options("Fetcher")
+        ("fetch_namespace", "Track namespace", cxxopts::value<std::string>())
+        ("fetch_name", "Track name", cxxopts::value<std::string>())
+        ("start_group", "Starting group ID", cxxopts::value<uint64_t>())
+        ("end_group", "One past the final group ID", cxxopts::value<uint64_t>())
+        ("start_object", "The starting object ID within the group", cxxopts::value<uint64_t>())
+        ("end_object", "One past the final object ID in the group", cxxopts::value<uint64_t>());
 
     // clang-format on
 
