@@ -1,4 +1,5 @@
 #include <doctest/doctest.h>
+#include <map>
 
 #include <quicr/common.h>
 #include <quicr/track_name.h>
@@ -86,3 +87,25 @@ TEST_CASE("IsPrefix vs HasPrefix")
     CHECK(long_ns.HasSamePrefix(short_ns));
     CHECK(short_ns.HasSamePrefix(long_ns));
 }
+
+TEST_CASE("Find prefix matching map of namespaces")
+{
+    std::map<TrackNamespace, std::string> ns_map;
+    ns_map.emplace(TrackNamespace{ "example"s, "chat1"s, "user1"s, "dev1"s }, "chat-1-user-1-dev-1");
+    ns_map.emplace(TrackNamespace{ "example"s, "chat1"s, "user1"s, "dev2"s }, "chat-1-user-1-dev-2");
+    ns_map.emplace(TrackNamespace{ "example"s, "chat2"s, "user1"s, "dev1"s }, "chat-2-user-1-dev-1");
+    ns_map.emplace(TrackNamespace{ "example"s, "chat2"s, "user2"s, "dev1"s }, "chat-2-user-2-dev-1");
+    ns_map.emplace(TrackNamespace{ "example"s, "chat3"s, "user1"s, "dev1"s }, "chat-3-user-1-dev-1");
+
+    TrackNamespace prefix_ns{ "example"s, "chat2"s };
+    int found = 0;
+    for (auto it = ns_map.lower_bound(prefix_ns); it != ns_map.end(); ++it) {
+        if (!it->first.HasSamePrefix(prefix_ns)) {
+            break;
+        }
+        found++;
+    }
+
+    CHECK_EQ(found, 2);
+}
+
