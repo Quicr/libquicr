@@ -21,7 +21,7 @@ FromASCII(const std::string& ascii)
 const TrackNamespace kTrackNamespaceConf{ FromASCII("conf.example.com"), FromASCII("conf"), FromASCII("1") };
 const Bytes kTrackNameAliceVideo = FromASCII("alice/video");
 const UintVar kTrackAliasAliceVideo{ 0xA11CE };
-const Extensions kExampleExtensions = { { 0x1, { 0x1, 0x2 } } };
+const Extensions kExampleExtensions = { { 0x1, { 0x1, 0x2 } }, { 0x2, { 0xFF, 0, 0, 0, 0, 0, 0, 0 } } };
 const std::optional<Extensions> kOptionalExtensions = kExampleExtensions;
 
 template<typename T>
