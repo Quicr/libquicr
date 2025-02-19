@@ -160,7 +160,7 @@ namespace quicr {
     {
         if (not conn_ctx.ctrl_data_ctx_id) {
             CloseConnection(
-              conn_ctx.connection_handle, MoqTerminationReason::PROTOCOL_VIOLATION, "Control bidir stream not created");
+              conn_ctx.connection_handle, TerminationReason::kProtocolViolation, "Control bidir stream not created");
             return;
         }
 
@@ -175,18 +175,18 @@ namespace quicr {
 
     void Transport::SendClientSetup()
     {
-        auto client_setup = MoqClientSetup{};
+        auto client_setup = ClientSetup{};
 
         client_setup.num_versions = 1; // NOTE: Not used for encode, version vector size is used
         client_setup.supported_versions = { kMoqtVersion };
-        client_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::Role);
+        client_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::kRole);
         client_setup.role_parameter.length = 0x1; // NOTE: not used for encode, size of value is used
         client_setup.role_parameter.value = { 0x03 };
         client_setup.endpoint_id_parameter.value.assign(client_config_.endpoint_id.begin(),
                                                         client_config_.endpoint_id.end());
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqClientSetup));
+        buffer.reserve(sizeof(ClientSetup));
         buffer << client_setup;
 
         auto& conn_ctx = connections_.begin()->second;
@@ -196,17 +196,17 @@ namespace quicr {
 
     void Transport::SendServerSetup(ConnectionContext& conn_ctx)
     {
-        auto server_setup = MoqServerSetup{};
+        auto server_setup = ServerSetup{};
 
         server_setup.selection_version = { conn_ctx.client_version };
-        server_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::Role);
+        server_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::kRole);
         server_setup.role_parameter.length = 0x1; // NOTE: not used for encode, size of value is used
         server_setup.role_parameter.value = { 0x03 };
         server_setup.endpoint_id_parameter.value.assign(server_config_.endpoint_id.begin(),
                                                         server_config_.endpoint_id.end());
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqServerSetup));
+        buffer.reserve(sizeof(ServerSetup));
         buffer << server_setup;
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending SERVER_SETUP to conn_id: {0}", conn_ctx.connection_handle);
@@ -216,7 +216,7 @@ namespace quicr {
 
     void Transport::SendAnnounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
     {
-        auto announce = MoqAnnounce{};
+        auto announce = Announce{};
 
         announce.track_namespace = track_namespace;
         announce.params = {};
@@ -231,7 +231,7 @@ namespace quicr {
 
     void Transport::SendAnnounceOk(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
     {
-        auto announce_ok = MoqAnnounceOk{};
+        auto announce_ok = AnnounceOk{};
 
         announce_ok.track_namespace = track_namespace;
 
@@ -245,7 +245,7 @@ namespace quicr {
 
     void Transport::SendUnannounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
     {
-        auto unannounce = MoqUnannounce{};
+        auto unannounce = Unannounce{};
 
         unannounce.track_namespace = track_namespace;
 
@@ -265,7 +265,7 @@ namespace quicr {
                                   messages::GroupOrder group_order,
                                   messages::FilterType filter_type)
     {
-        auto subscribe = MoqSubscribe{};
+        auto subscribe = Subscribe{};
         subscribe.subscribe_id = subscribe_id;
         subscribe.track_alias = th.track_fullname_hash;
         subscribe.track_namespace = tfn.name_space;
@@ -275,7 +275,7 @@ namespace quicr {
         subscribe.filter_type = filter_type;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqSubscribe));
+        buffer.reserve(sizeof(Subscribe));
         buffer << subscribe;
 
         SPDLOG_LOGGER_DEBUG(
@@ -297,7 +297,7 @@ namespace quicr {
                                         messages::GroupId end_group_id,
                                         messages::ObjectPriority priority)
     {
-        auto subscribe_update = MoqSubscribeUpdate{};
+        auto subscribe_update = SubscribeUpdate{};
         subscribe_update.subscribe_id = subscribe_id;
         subscribe_update.start_group = start_group_id;
         subscribe_update.start_object = start_object_id;
@@ -305,7 +305,7 @@ namespace quicr {
         subscribe_update.priority = priority;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqSubscribeUpdate));
+        buffer.reserve(sizeof(SubscribeUpdate));
         buffer << subscribe_update;
 
         SPDLOG_LOGGER_DEBUG(
@@ -326,7 +326,7 @@ namespace quicr {
                                     messages::GroupId largest_group_id,
                                     messages::ObjectId largest_object_id)
     {
-        auto subscribe_ok = MoqSubscribeOk{};
+        auto subscribe_ok = SubscribeOk{};
         subscribe_ok.subscribe_id = subscribe_id;
         subscribe_ok.expires = expires;
         subscribe_ok.content_exists = content_exists;
@@ -334,7 +334,7 @@ namespace quicr {
         subscribe_ok.largest_object = largest_object_id;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqSubscribeOk));
+        buffer.reserve(sizeof(SubscribeOk));
         buffer << subscribe_ok;
 
         SPDLOG_LOGGER_DEBUG(
@@ -345,13 +345,13 @@ namespace quicr {
 
     void Transport::SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason)
     {
-        auto subscribe_done = MoqSubscribeDone{};
+        auto subscribe_done = SubscribeDone{};
         subscribe_done.subscribe_id = subscribe_id;
         subscribe_done.reason_phrase.assign(reason.begin(), reason.end());
         subscribe_done.content_exists = false;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqSubscribeDone));
+        buffer.reserve(sizeof(SubscribeDone));
         buffer << subscribe_done;
 
         SPDLOG_LOGGER_DEBUG(logger_,
@@ -364,11 +364,11 @@ namespace quicr {
 
     void Transport::SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id)
     {
-        auto unsubscribe = MoqUnsubscribe{};
+        auto unsubscribe = Unsubscribe{};
         unsubscribe.subscribe_id = subscribe_id;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqUnsubscribe));
+        buffer.reserve(sizeof(Unsubscribe));
         buffer << unsubscribe;
 
         SPDLOG_LOGGER_DEBUG(
@@ -380,17 +380,17 @@ namespace quicr {
     void Transport::SendSubscribeError(ConnectionContext& conn_ctx,
                                        uint64_t subscribe_id,
                                        uint64_t track_alias,
-                                       SubscribeError error,
+                                       SubscribeErrorCode error,
                                        const std::string& reason)
     {
-        auto subscribe_err = MoqSubscribeError{};
+        auto subscribe_err = SubscribeError{};
         subscribe_err.subscribe_id = subscribe_id;
         subscribe_err.err_code = static_cast<uint64_t>(error);
         subscribe_err.track_alias = track_alias;
         subscribe_err.reason_phrase.assign(reason.begin(), reason.end());
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqSubscribeError));
+        buffer.reserve(sizeof(SubscribeError));
         buffer << subscribe_err;
 
         SPDLOG_LOGGER_DEBUG(logger_,
@@ -413,7 +413,7 @@ namespace quicr {
                               messages::GroupId end_group,
                               messages::GroupId end_object)
     {
-        MoqFetch fetch;
+        Fetch fetch;
         fetch.subscribe_id = subscribe_id;
         fetch.track_namespace = tfn.name_space;
         fetch.track_name.assign(tfn.name.begin(), tfn.name.end());
@@ -425,7 +425,7 @@ namespace quicr {
         fetch.end_object = end_object;
 
         Bytes buffer;
-        buffer.reserve(MoqFetch::SizeOf(fetch));
+        buffer.reserve(Fetch::SizeOf(fetch));
         buffer << fetch;
 
         SendCtrlMsg(conn_ctx, buffer);
@@ -433,11 +433,11 @@ namespace quicr {
 
     void Transport::SendFetchCancel(ConnectionContext& conn_ctx, uint64_t subscribe_id)
     {
-        MoqFetchCancel fetch_cancel;
+        FetchCancel fetch_cancel;
         fetch_cancel.subscribe_id = subscribe_id;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqFetchCancel));
+        buffer.reserve(sizeof(FetchCancel));
         buffer << fetch_cancel;
 
         SendCtrlMsg(conn_ctx, buffer);
@@ -450,7 +450,7 @@ namespace quicr {
                                 messages::GroupId largest_group,
                                 messages::GroupId largest_object)
     {
-        MoqFetchOk fetch_ok;
+        FetchOk fetch_ok;
         fetch_ok.subscribe_id = subscribe_id;
         fetch_ok.group_order = group_order;
         fetch_ok.end_of_track = end_of_track;
@@ -458,7 +458,7 @@ namespace quicr {
         fetch_ok.largest_object = largest_object;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqFetchOk));
+        buffer.reserve(sizeof(FetchOk));
         buffer << fetch_ok;
 
         SendCtrlMsg(conn_ctx, buffer);
@@ -466,16 +466,16 @@ namespace quicr {
 
     void Transport::SendFetchError(ConnectionContext& conn_ctx,
                                    [[maybe_unused]] uint64_t subscribe_id,
-                                   FetchError error,
+                                   FetchErrorCode error,
                                    const std::string& reason)
     {
-        auto fetch_err = MoqFetchError{};
+        auto fetch_err = FetchError{};
         fetch_err.subscribe_id = 0x1;
         fetch_err.err_code = static_cast<uint64_t>(error);
         fetch_err.reason_phrase.assign(reason.begin(), reason.end());
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqFetchError) + sizeof(reason.size()));
+        buffer.reserve(sizeof(FetchError) + sizeof(reason.size()));
         buffer << fetch_err;
 
         SPDLOG_LOGGER_DEBUG(logger_,
@@ -879,7 +879,7 @@ namespace quicr {
 
         switch (track_handler.default_track_mode_) {
             case TrackMode::kDatagram: {
-                MoqObjectDatagram object;
+                ObjectDatagram object;
                 object.group_id = group_id;
                 object.object_id = object_id;
                 object.priority = priority;
@@ -898,7 +898,7 @@ namespace quicr {
                     eflags.clear_tx_queue = true;
                     eflags.use_reset = true;
 
-                    MoqStreamHeaderSubGroup subgroup_hdr;
+                    StreamHeaderSubGroup subgroup_hdr;
                     subgroup_hdr.group_id = group_id;
                     subgroup_hdr.subgroup_id = subgroup_id;
                     subgroup_hdr.priority = priority;
@@ -921,7 +921,7 @@ namespace quicr {
                     eflags.use_reset = false;
                 }
 
-                MoqStreamSubGroupObject object;
+                StreamSubGroupObject object;
                 object.object_id = object_id;
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
@@ -1107,7 +1107,7 @@ namespace quicr {
                 if (not conn_ctx.ctrl_data_ctx_id) {
                     if (not data_ctx_id) {
                         CloseConnection(
-                          conn_id, MoqTerminationReason::INTERNAL_ERROR, "Received bidir is missing data context");
+                          conn_id, TerminationReason::kInternalError, "Received bidir is missing data context");
                         return;
                     }
                     conn_ctx.ctrl_data_ctx_id = data_ctx_id;
@@ -1181,7 +1181,7 @@ namespace quicr {
                 auto msg_type = uint64_t(quicr::UintVar({ data.begin(), data.begin() + type_sz }));
                 auto cursor_it = std::next(data.begin(), type_sz);
 
-                if (!msg_type || static_cast<DataMessageType>(msg_type) != DataMessageType::STREAM_HEADER_SUBGROUP) {
+                if (!msg_type || static_cast<DataMessageType>(msg_type) != DataMessageType::kStreamHeaderSubgroup) {
                     SPDLOG_LOGGER_DEBUG(logger_, "Received start of stream with invalid header type, dropping");
                     conn_ctx.metrics.rx_stream_invalid_type++;
 
@@ -1244,15 +1244,15 @@ namespace quicr {
 
     void Transport::OnRecvDgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id)
     {
-        MoqObjectDatagram object_datagram_out;
+        ObjectDatagram object_datagram_out;
         for (int i = 0; i < kReadLoopMaxPerStream; i++) {
             auto data = quic_transport_->Dequeue(conn_id, data_ctx_id);
             if (data && !data->empty() && data->size() > 3) {
                 auto msg_type = data->front();
 
-                if (!msg_type || static_cast<DataMessageType>(msg_type) != DataMessageType::OBJECT_DATAGRAM) {
+                if (!msg_type || static_cast<DataMessageType>(msg_type) != DataMessageType::kObjectDatagram) {
                     SPDLOG_LOGGER_DEBUG(logger_,
-                                        "Received datagram that is not message type OBJECT_DATAGRAM, dropping");
+                                        "Received datagram that is not message type kObjectDatagram, dropping");
                     auto& conn_ctx = connections_[conn_id];
                     conn_ctx.metrics.rx_dgram_invalid_type++;
                     continue;
@@ -1359,31 +1359,31 @@ namespace quicr {
     void Transport::OnNewDataContext(const ConnectionHandle&, const DataContextId&) {}
 
     void Transport::CloseConnection(TransportConnId conn_id,
-                                    messages::MoqTerminationReason reason,
+                                    messages::TerminationReason reason,
                                     const std::string& reason_str)
     {
         std::ostringstream log_msg;
         log_msg << "Closing conn_id: " << conn_id;
         switch (reason) {
-            case MoqTerminationReason::NO_ERROR:
+            case TerminationReason::kNoError:
                 log_msg << " no error";
                 break;
-            case MoqTerminationReason::INTERNAL_ERROR:
+            case TerminationReason::kInternalError:
                 log_msg << " internal error: " << reason_str;
                 break;
-            case MoqTerminationReason::UNAUTHORIZED:
+            case TerminationReason::kUnauthorized:
                 log_msg << " unauthorized: " << reason_str;
                 break;
-            case MoqTerminationReason::PROTOCOL_VIOLATION:
+            case TerminationReason::kProtocolViolation:
                 log_msg << " protocol violation: " << reason_str;
                 break;
-            case MoqTerminationReason::DUP_TRACK_ALIAS:
+            case TerminationReason::kDupTrackAlias:
                 log_msg << " duplicate track alias: " << reason_str;
                 break;
-            case MoqTerminationReason::PARAM_LEN_MISMATCH:
+            case TerminationReason::kParamLengthMismatch:
                 log_msg << " param length mismatch: " << reason_str;
                 break;
-            case MoqTerminationReason::GOAWAY_TIMEOUT:
+            case TerminationReason::kGoAwayTimeout:
                 log_msg << " goaway timeout: " << reason_str;
                 break;
         }

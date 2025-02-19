@@ -110,10 +110,10 @@ namespace quicr::messages {
     }
 
     //
-    // MoqParameter
+    // Parameter
     //
 
-    Bytes& operator<<(Bytes& buffer, const MoqParameter& param)
+    Bytes& operator<<(Bytes& buffer, const Parameter& param)
     {
         buffer << UintVar(param.type);
         buffer << UintVar(param.length);
@@ -123,7 +123,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqParameter& param)
+    BytesSpan operator>>(BytesSpan buffer, Parameter& param)
     {
         buffer = (buffer >> param.type >> param.value);
         param.length = param.value.size();
@@ -131,7 +131,7 @@ namespace quicr::messages {
     }
 
     template<class StreamBufferType>
-    bool operator>>(StreamBufferType& buffer, MoqParameter& param)
+    bool operator>>(StreamBufferType& buffer, Parameter& param)
     {
         if (!ParseUintVField(buffer, param.type)) {
             return false;
@@ -177,7 +177,7 @@ namespace quicr::messages {
     }
 
     // Client Setup message
-    Bytes& operator<<(Bytes& buffer, const MoqClientSetup& msg)
+    Bytes& operator<<(Bytes& buffer, const ClientSetup& msg)
     {
         Bytes payload;
         payload << UintVar(msg.supported_versions.size());
@@ -193,18 +193,18 @@ namespace quicr::messages {
         payload << UintVar(msg.role_parameter.value.size());
         payload << msg.role_parameter.value;
         // endpoint_id param
-        payload << UintVar(static_cast<uint64_t>(ParameterType::EndpointId));
+        payload << UintVar(static_cast<uint64_t>(ParameterType::kEndpointId));
         payload << UintVar(msg.endpoint_id_parameter.value.size());
         payload << msg.endpoint_id_parameter.value;
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::CLIENT_SETUP));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kClientSetup));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqClientSetup& msg)
+    BytesSpan operator>>(BytesSpan buffer, ClientSetup& msg)
     {
         buffer = buffer >> msg.num_versions;
 
@@ -218,17 +218,17 @@ namespace quicr::messages {
         buffer = buffer >> num_params;
 
         for (uint64_t i = 0; i < num_params; ++i) {
-            MoqParameter param;
+            Parameter param;
             buffer = buffer >> param;
 
             switch (static_cast<ParameterType>(param.type)) {
-                case ParameterType::Role:
+                case ParameterType::kRole:
                     msg.role_parameter = std::move(param);
                     break;
-                case ParameterType::Path:
+                case ParameterType::kPath:
                     msg.path_parameter = std::move(param);
                     break;
-                case ParameterType::EndpointId:
+                case ParameterType::kEndpointId:
                     msg.endpoint_id_parameter = std::move(param);
                     break;
                 default:
@@ -241,7 +241,7 @@ namespace quicr::messages {
 
     // Server Setup message
 
-    Bytes& operator<<(Bytes& buffer, const MoqServerSetup& msg)
+    Bytes& operator<<(Bytes& buffer, const ServerSetup& msg)
     {
         Bytes payload;
         payload << UintVar(msg.selection_version);
@@ -254,18 +254,18 @@ namespace quicr::messages {
         payload << msg.role_parameter.value;
 
         // endpoint_id param
-        payload << UintVar(static_cast<uint64_t>(ParameterType::EndpointId));
+        payload << UintVar(static_cast<uint64_t>(ParameterType::kEndpointId));
         payload << UintVar(msg.endpoint_id_parameter.value.size());
         payload << msg.endpoint_id_parameter.value;
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SERVER_SETUP));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kServerSetup));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqServerSetup& msg)
+    BytesSpan operator>>(BytesSpan buffer, ServerSetup& msg)
     {
         buffer = buffer >> msg.selection_version;
 
@@ -273,17 +273,17 @@ namespace quicr::messages {
         buffer = buffer >> num_params;
 
         for (uint64_t i = 0; i < num_params; ++i) {
-            MoqParameter param;
+            Parameter param;
             buffer = buffer >> param;
 
             switch (static_cast<ParameterType>(param.type)) {
-                case ParameterType::Role:
+                case ParameterType::kRole:
                     msg.role_parameter = std::move(param);
                     break;
-                case ParameterType::Path:
+                case ParameterType::kPath:
                     msg.path_parameter = std::move(param);
                     break;
-                case ParameterType::EndpointId:
+                case ParameterType::kEndpointId:
                     msg.endpoint_id_parameter = std::move(param);
                     break;
                 default:
@@ -322,7 +322,7 @@ namespace quicr::messages {
     //
     // Track Status
     //
-    Bytes& operator<<(Bytes& buffer, const MoqTrackStatus& msg)
+    Bytes& operator<<(Bytes& buffer, const TrackStatus& msg)
     {
         Bytes payload;
         payload << msg.track_namespace;
@@ -332,21 +332,21 @@ namespace quicr::messages {
         payload << UintVar(msg.last_group_id);
         payload << UintVar(msg.last_object_id);
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::TRACK_STATUS));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kTrackStatus));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqTrackStatus& msg)
+    BytesSpan operator>>(BytesSpan buffer, TrackStatus& msg)
     {
         buffer = buffer >> msg.track_namespace;
         buffer = buffer >> msg.track_name;
 
         uint64_t status_code = 0;
         buffer = buffer >> status_code;
-        msg.status_code = static_cast<TrackStatus>(status_code);
+        msg.status_code = static_cast<TrackStatusCode>(status_code);
 
         buffer = buffer >> msg.last_group_id;
         buffer = buffer >> msg.last_object_id;
@@ -354,21 +354,21 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, const MoqTrackStatusRequest& msg)
+    Bytes& operator<<(Bytes& buffer, const TrackStatusRequest& msg)
     {
         Bytes payload;
         payload << msg.track_namespace;
         payload << UintVar(msg.track_name.size());
         payload << msg.track_name;
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::TRACK_STATUS_REQUEST));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kTrackStatusRequest));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqTrackStatusRequest& msg)
+    BytesSpan operator>>(BytesSpan buffer, TrackStatusRequest& msg)
     {
         return buffer >> msg.track_namespace >> msg.track_name;
     }
@@ -377,7 +377,7 @@ namespace quicr::messages {
     // Subscribe
     //
 
-    Bytes& operator<<(Bytes& buffer, const MoqSubscribe& msg)
+    Bytes& operator<<(Bytes& buffer, const Subscribe& msg)
     {
         Bytes payload;
         payload << UintVar(msg.subscribe_id);
@@ -390,15 +390,15 @@ namespace quicr::messages {
         payload.push_back(group_order);
         payload << UintVar(static_cast<uint64_t>(msg.filter_type));
         switch (msg.filter_type) {
-            case FilterType::None:
-            case FilterType::LatestGroup:
-            case FilterType::LatestObject:
+            case FilterType::kNone:
+            case FilterType::kLatestGroup:
+            case FilterType::kLatestObject:
                 break;
-            case FilterType::AbsoluteStart: {
+            case FilterType::kAbsoluteStart: {
                 payload << UintVar(msg.start_group);
                 payload << UintVar(msg.start_object);
             } break;
-            case FilterType::AbsoluteRange:
+            case FilterType::kAbsoluteRange:
                 payload << UintVar(msg.start_group);
                 payload << UintVar(msg.start_object);
                 payload << UintVar(msg.end_group);
@@ -412,14 +412,14 @@ namespace quicr::messages {
             payload << param;
         }
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SUBSCRIBE));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kSubscribe));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqSubscribe& msg)
+    BytesSpan operator>>(BytesSpan buffer, Subscribe& msg)
     {
         buffer = buffer >> msg.subscribe_id;
         buffer = buffer >> msg.track_alias;
@@ -433,11 +433,11 @@ namespace quicr::messages {
         buffer = buffer >> filter;
         msg.filter_type = static_cast<FilterType>(filter);
 
-        if (msg.filter_type == FilterType::AbsoluteStart || msg.filter_type == FilterType::AbsoluteRange) {
+        if (msg.filter_type == FilterType::kAbsoluteStart || msg.filter_type == FilterType::kAbsoluteRange) {
             buffer = buffer >> msg.start_group;
             buffer = buffer >> msg.start_object;
 
-            if (msg.filter_type == FilterType::AbsoluteRange) {
+            if (msg.filter_type == FilterType::kAbsoluteRange) {
                 buffer = buffer >> msg.end_group;
             }
         }
@@ -446,7 +446,7 @@ namespace quicr::messages {
         buffer = buffer >> num_params;
 
         for (uint64_t i = 0; i < num_params; ++i) {
-            MoqParameter param;
+            Parameter param;
             buffer = buffer >> param;
             msg.track_params.push_back(param);
         }
@@ -454,7 +454,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, const MoqSubscribeUpdate& msg)
+    Bytes& operator<<(Bytes& buffer, const SubscribeUpdate& msg)
     {
         Bytes payload;
         payload << UintVar(msg.subscribe_id);
@@ -468,14 +468,14 @@ namespace quicr::messages {
             payload << param;
         }
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_UPDATE));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kSubscribeUpdate));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeUpdate& msg)
+    BytesSpan operator>>(BytesSpan buffer, SubscribeUpdate& msg)
     {
         buffer = buffer >> msg.subscribe_id;
         buffer = buffer >> msg.start_group;
@@ -488,7 +488,7 @@ namespace quicr::messages {
         buffer = buffer >> num_params;
 
         for (uint64_t i = 0; i < num_params; ++i) {
-            MoqParameter param;
+            Parameter param;
             buffer = buffer >> param;
             msg.track_params.push_back(param);
         }
@@ -496,24 +496,24 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, const MoqUnsubscribe& msg)
+    Bytes& operator<<(Bytes& buffer, const Unsubscribe& msg)
     {
         Bytes payload;
         payload << UintVar(msg.subscribe_id);
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::UNSUBSCRIBE));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kUnsubscribe));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqUnsubscribe& msg)
+    BytesSpan operator>>(BytesSpan buffer, Unsubscribe& msg)
     {
         return buffer >> msg.subscribe_id;
     }
 
-    Bytes& operator<<(Bytes& buffer, const MoqSubscribeDone& msg)
+    Bytes& operator<<(Bytes& buffer, const SubscribeDone& msg)
     {
         Bytes payload;
         payload << UintVar(msg.subscribe_id);
@@ -526,14 +526,14 @@ namespace quicr::messages {
             payload << UintVar(msg.final_object_id);
         }
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_DONE));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kSubscribeDone));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeDone& msg)
+    BytesSpan operator>>(BytesSpan buffer, SubscribeDone& msg)
     {
         buffer = buffer >> msg.subscribe_id;
         buffer = buffer >> msg.status_code;
@@ -552,7 +552,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, const MoqSubscribeOk& msg)
+    Bytes& operator<<(Bytes& buffer, const SubscribeOk& msg)
     {
         Bytes payload;
         payload << UintVar(msg.subscribe_id);
@@ -563,14 +563,14 @@ namespace quicr::messages {
             payload << UintVar(msg.largest_object);
         }
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_OK));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kSubscribeOk));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeOk& msg)
+    BytesSpan operator>>(BytesSpan buffer, SubscribeOk& msg)
     {
         buffer = buffer >> msg.subscribe_id;
         buffer = buffer >> msg.expires;
@@ -588,7 +588,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, const MoqSubscribeError& msg)
+    Bytes& operator<<(Bytes& buffer, const SubscribeError& msg)
     {
         Bytes payload;
         payload << UintVar(msg.subscribe_id);
@@ -597,14 +597,14 @@ namespace quicr::messages {
         payload << msg.reason_phrase;
         payload << UintVar(msg.track_alias);
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_ERROR));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kSubscribeError));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqSubscribeError& msg)
+    BytesSpan operator>>(BytesSpan buffer, SubscribeError& msg)
     {
         return buffer >> msg.subscribe_id >> msg.err_code >> msg.reason_phrase >> msg.track_alias;
     }
@@ -613,20 +613,20 @@ namespace quicr::messages {
     // Announce
     //
 
-    Bytes& operator<<(Bytes& buffer, const MoqAnnounce& msg)
+    Bytes& operator<<(Bytes& buffer, const Announce& msg)
     {
         Bytes payload;
         payload << msg.track_namespace;
         payload << UintVar(static_cast<uint64_t>(0));
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::ANNOUNCE));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kAnnounce));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqAnnounce& msg)
+    BytesSpan operator>>(BytesSpan buffer, Announce& msg)
     {
         buffer = buffer >> msg.track_namespace;
 
@@ -634,7 +634,7 @@ namespace quicr::messages {
         buffer = buffer >> num_params;
 
         for (uint64_t i = 0; i < num_params; ++i) {
-            MoqParameter param;
+            Parameter param;
             buffer = buffer >> param;
             msg.params.push_back(param);
         }
@@ -642,24 +642,24 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, const MoqAnnounceOk& msg)
+    Bytes& operator<<(Bytes& buffer, const AnnounceOk& msg)
     {
         Bytes payload;
         payload << msg.track_namespace;
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::ANNOUNCE_OK));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kAnnounceOk));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqAnnounceOk& msg)
+    BytesSpan operator>>(BytesSpan buffer, AnnounceOk& msg)
     {
         return buffer >> msg.track_namespace;
     }
 
-    Bytes& operator<<(Bytes& buffer, const MoqAnnounceError& msg)
+    Bytes& operator<<(Bytes& buffer, const AnnounceError& msg)
     {
         Bytes payload;
         payload << msg.track_namespace.value();
@@ -667,14 +667,14 @@ namespace quicr::messages {
         payload << UintVar(msg.reason_phrase.value().size());
         payload << msg.reason_phrase.value();
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::ANNOUNCE_ERROR));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kAnnounceError));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqAnnounceError& msg)
+    BytesSpan operator>>(BytesSpan buffer, AnnounceError& msg)
     {
         TrackNamespace track_ns;
         buffer = buffer >> track_ns;
@@ -691,58 +691,58 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, const MoqUnannounce& msg)
+    Bytes& operator<<(Bytes& buffer, const Unannounce& msg)
     {
         Bytes payload;
         payload << msg.track_namespace;
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::UNANNOUNCE));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kUnannounce));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqUnannounce& msg)
+    BytesSpan operator>>(BytesSpan buffer, Unannounce& msg)
     {
         return buffer >> msg.track_namespace;
     }
 
-    Bytes& operator<<(Bytes& buffer, const MoqAnnounceCancel& msg)
+    Bytes& operator<<(Bytes& buffer, const AnnounceCancel& msg)
     {
         Bytes payload;
         payload << msg.track_namespace;
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::ANNOUNCE_CANCEL));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kAnnounceCancel));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqAnnounceCancel& msg)
+    BytesSpan operator>>(BytesSpan buffer, AnnounceCancel& msg)
     {
         return buffer >> msg.track_namespace;
     }
 
     //
-    // Goaway
+    // GoAway
     //
 
-    Bytes& operator<<(Bytes& buffer, const MoqGoaway& msg)
+    Bytes& operator<<(Bytes& buffer, const GoAway& msg)
     {
         Bytes payload;
         payload << UintVar(msg.new_session_uri.size());
         payload << msg.new_session_uri;
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::GOAWAY));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kGoAway));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqGoaway& msg)
+    BytesSpan operator>>(BytesSpan buffer, GoAway& msg)
     {
         return buffer >> msg.new_session_uri;
     }
@@ -751,7 +751,7 @@ namespace quicr::messages {
     // Fetch
     //
 
-    Bytes& operator<<(Bytes& buffer, const MoqFetch& msg)
+    Bytes& operator<<(Bytes& buffer, const Fetch& msg)
     {
         Bytes payload;
 
@@ -772,14 +772,14 @@ namespace quicr::messages {
             payload << param;
         }
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::FETCH));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kFetch));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqFetch& msg)
+    BytesSpan operator>>(BytesSpan buffer, Fetch& msg)
     {
         buffer = buffer >> msg.subscribe_id;
         buffer = buffer >> msg.track_namespace;
@@ -797,7 +797,7 @@ namespace quicr::messages {
         buffer = buffer >> num_params;
 
         for (uint64_t i = 0; i < num_params; ++i) {
-            MoqParameter param;
+            Parameter param;
             buffer = buffer >> param;
             msg.params.push_back(param);
         }
@@ -805,7 +805,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, const MoqFetchOk& msg)
+    Bytes& operator<<(Bytes& buffer, const FetchOk& msg)
     {
         Bytes payload;
         payload << UintVar(msg.subscribe_id);
@@ -820,14 +820,14 @@ namespace quicr::messages {
             payload << param;
         }
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::FETCH_OK));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kFetchOk));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqFetchOk& msg)
+    BytesSpan operator>>(BytesSpan buffer, FetchOk& msg)
     {
         buffer = buffer >> msg.subscribe_id;
         msg.group_order = static_cast<GroupOrder>(buffer.front());
@@ -840,24 +840,24 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, const MoqFetchCancel& msg)
+    Bytes& operator<<(Bytes& buffer, const FetchCancel& msg)
     {
         Bytes payload;
         payload << UintVar(msg.subscribe_id);
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::FETCH_CANCEL));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kFetchCancel));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqFetchCancel& msg)
+    BytesSpan operator>>(BytesSpan buffer, FetchCancel& msg)
     {
         return buffer >> msg.subscribe_id;
     }
 
-    Bytes& operator<<(Bytes& buffer, const MoqFetchError& msg)
+    Bytes& operator<<(Bytes& buffer, const FetchError& msg)
     {
         Bytes payload;
         payload << UintVar(msg.subscribe_id);
@@ -865,14 +865,14 @@ namespace quicr::messages {
         payload << UintVar(msg.reason_phrase.size());
         payload << msg.reason_phrase;
 
-        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::FETCH_ERROR));
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kFetchError));
         buffer << UintVar(payload.size());
         buffer << payload;
 
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, MoqFetchError& msg)
+    BytesSpan operator>>(BytesSpan buffer, FetchError& msg)
     {
         return buffer >> msg.subscribe_id >> msg.err_code >> msg.reason_phrase;
     }
@@ -881,9 +881,9 @@ namespace quicr::messages {
     // Object
     //
 
-    Bytes& operator<<(Bytes& buffer, const MoqObjectDatagram& msg)
+    Bytes& operator<<(Bytes& buffer, const ObjectDatagram& msg)
     {
-        buffer << UintVar(static_cast<uint64_t>(DataMessageType::OBJECT_DATAGRAM));
+        buffer << UintVar(static_cast<uint64_t>(DataMessageType::kObjectDatagram));
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
         buffer << UintVar(msg.object_id);
@@ -902,7 +902,7 @@ namespace quicr::messages {
     }
 
     template<class StreamBufferType>
-    bool operator>>(StreamBufferType& buffer, MoqObjectDatagram& msg)
+    bool operator>>(StreamBufferType& buffer, ObjectDatagram& msg)
     {
         switch (msg.current_pos) {
             case 0: {
@@ -988,12 +988,12 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqObjectDatagram&);
-    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqObjectDatagram&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, ObjectDatagram&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, ObjectDatagram&);
 
-    Bytes& operator<<(Bytes& buffer, const MoqStreamHeaderSubGroup& msg)
+    Bytes& operator<<(Bytes& buffer, const StreamHeaderSubGroup& msg)
     {
-        buffer << UintVar(static_cast<uint64_t>(DataMessageType::STREAM_HEADER_SUBGROUP));
+        buffer << UintVar(static_cast<uint64_t>(DataMessageType::kStreamHeaderSubgroup));
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
         buffer << UintVar(msg.subgroup_id);
@@ -1002,7 +1002,7 @@ namespace quicr::messages {
     }
 
     template<class StreamBufferType>
-    bool operator>>(StreamBufferType& buffer, MoqStreamHeaderSubGroup& msg)
+    bool operator>>(StreamBufferType& buffer, StreamHeaderSubGroup& msg)
     {
         switch (msg.current_pos) {
             case 0: {
@@ -1048,10 +1048,10 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamHeaderSubGroup&);
-    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamHeaderSubGroup&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, StreamHeaderSubGroup&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, StreamHeaderSubGroup&);
 
-    Bytes& operator<<(Bytes& buffer, const MoqStreamSubGroupObject& msg)
+    Bytes& operator<<(Bytes& buffer, const StreamSubGroupObject& msg)
     {
         buffer << UintVar(msg.object_id);
         buffer << UintVar(msg.payload.size());
@@ -1067,7 +1067,7 @@ namespace quicr::messages {
     }
 
     template<class StreamBufferType>
-    bool operator>>(StreamBufferType& buffer, MoqStreamSubGroupObject& msg)
+    bool operator>>(StreamBufferType& buffer, StreamSubGroupObject& msg)
     {
 
         switch (msg.current_pos) {
@@ -1134,7 +1134,7 @@ namespace quicr::messages {
         return true;
     }
 
-    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, MoqStreamSubGroupObject&);
-    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, MoqStreamSubGroupObject&);
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, StreamSubGroupObject&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, StreamSubGroupObject&);
 
 }

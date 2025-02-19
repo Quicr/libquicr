@@ -325,7 +325,7 @@ namespace quicr {
         void SendSubscribeError(ConnectionContext& conn_ctx,
                                 uint64_t subscribe_id,
                                 uint64_t track_alias,
-                                messages::SubscribeError error,
+                                messages::SubscribeErrorCode error,
                                 const std::string& reason);
         void SendFetch(ConnectionContext& conn_ctx,
                        uint64_t subscribe_id,
@@ -345,10 +345,10 @@ namespace quicr {
                          messages::GroupId largest_object_id);
         void SendFetchError(ConnectionContext& conn_ctx,
                             uint64_t subscribe_id,
-                            messages::FetchError error,
+                            messages::FetchErrorCode error,
                             const std::string& reason);
         void CloseConnection(ConnectionHandle connection_handle,
-                             messages::MoqTerminationReason reason,
+                             messages::TerminationReason reason,
                              const std::string& reason_str);
 
         void RemoveSubscribeTrack(ConnectionContext& conn_ctx,

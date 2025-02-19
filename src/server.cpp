@@ -72,21 +72,21 @@ namespace quicr {
                     SendSubscribeError(conn_it->second,
                                        subscribe_id,
                                        *subscribe_response.track_alias,
-                                       messages::SubscribeError::RETRY_TRACK_ALIAS,
+                                       messages::SubscribeErrorCode::kRetryTrackAlias,
                                        subscribe_response.reason_phrase.has_value() ? *subscribe_response.reason_phrase
                                                                                     : "internal error");
                 } else {
                     SendSubscribeError(conn_it->second,
                                        subscribe_id,
                                        {},
-                                       messages::SubscribeError::INTERNAL_ERROR,
+                                       messages::SubscribeErrorCode::kInternalError,
                                        "Missing track alias");
                 }
                 break;
             }
             default:
                 SendSubscribeError(
-                  conn_it->second, subscribe_id, {}, messages::SubscribeError::INTERNAL_ERROR, "Internal error");
+                  conn_it->second, subscribe_id, {}, messages::SubscribeErrorCode::kInternalError, "Internal error");
                 break;
         }
     }
@@ -204,8 +204,8 @@ namespace quicr {
     bool Server::ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes)
     try {
         switch (*conn_ctx.ctrl_msg_type_received) {
-            case messages::ControlMessageType::SUBSCRIBE: {
-                messages::MoqSubscribe msg;
+            case messages::ControlMessageType::kSubscribe: {
+                messages::Subscribe msg;
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
@@ -227,8 +227,8 @@ namespace quicr {
 
                 return true;
             }
-            case messages::ControlMessageType::SUBSCRIBE_OK: {
-                messages::MoqSubscribeOk msg;
+            case messages::ControlMessageType::kSubscribeOk: {
+                messages::SubscribeOk msg;
                 msg_bytes >> msg;
 
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
@@ -249,8 +249,8 @@ namespace quicr {
 
                 return true;
             }
-            case messages::ControlMessageType::SUBSCRIBE_ERROR: {
-                messages::MoqSubscribeError msg;
+            case messages::ControlMessageType::kSubscribeError: {
+                messages::SubscribeError msg;
                 msg_bytes >> msg;
 
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
@@ -272,8 +272,8 @@ namespace quicr {
 
                 return true;
             }
-            case messages::ControlMessageType::ANNOUNCE: {
-                messages::MoqAnnounce msg;
+            case messages::ControlMessageType::kAnnounce: {
+                messages::Announce msg;
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
@@ -285,8 +285,8 @@ namespace quicr {
 
                 return true;
             }
-            case messages::ControlMessageType::ANNOUNCE_ERROR: {
-                messages::MoqAnnounceError msg;
+            case messages::ControlMessageType::kAnnounceError: {
+                messages::AnnounceError msg;
                 msg_bytes >> msg;
 
                 if (msg.track_namespace) {
@@ -307,8 +307,8 @@ namespace quicr {
                 return true;
             }
 
-            case messages::ControlMessageType::UNANNOUNCE: {
-                messages::MoqUnannounce msg;
+            case messages::ControlMessageType::kUnannounce: {
+                messages::Unannounce msg;
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
@@ -321,8 +321,8 @@ namespace quicr {
                 return true;
             }
 
-            case messages::ControlMessageType::UNSUBSCRIBE: {
-                messages::MoqUnsubscribe msg;
+            case messages::ControlMessageType::kUnsubscribe: {
+                messages::Unsubscribe msg;
                 msg_bytes >> msg;
 
                 const auto& [name_space, name] = conn_ctx.recv_sub_id[msg.subscribe_id];
@@ -336,8 +336,8 @@ namespace quicr {
 
                 return true;
             }
-            case messages::ControlMessageType::SUBSCRIBE_DONE: {
-                messages::MoqSubscribeDone msg;
+            case messages::ControlMessageType::kSubscribeDone: {
+                messages::SubscribeDone msg;
                 msg_bytes >> msg;
 
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
@@ -367,8 +367,8 @@ namespace quicr {
 
                 return true;
             }
-            case messages::ControlMessageType::ANNOUNCE_CANCEL: {
-                messages::MoqAnnounceCancel msg;
+            case messages::ControlMessageType::kAnnounceCancel: {
+                messages::AnnounceCancel msg;
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
@@ -378,8 +378,8 @@ namespace quicr {
                   logger_, "Received announce cancel for namespace_hash: {0}", th.track_namespace_hash);
                 return true;
             }
-            case messages::ControlMessageType::TRACK_STATUS_REQUEST: {
-                messages::MoqTrackStatusRequest msg;
+            case messages::ControlMessageType::kTrackStatusRequest: {
+                messages::TrackStatusRequest msg;
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
@@ -391,8 +391,8 @@ namespace quicr {
                                    th.track_name_hash);
                 return true;
             }
-            case messages::ControlMessageType::TRACK_STATUS: {
-                messages::MoqTrackStatus msg;
+            case messages::ControlMessageType::kTrackStatus: {
+                messages::TrackStatus msg;
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
@@ -404,22 +404,22 @@ namespace quicr {
                                    th.track_name_hash);
                 return true;
             }
-            case messages::ControlMessageType::GOAWAY: {
-                messages::MoqGoaway msg;
+            case messages::ControlMessageType::kGoAway: {
+                messages::GoAway msg;
                 msg_bytes >> msg;
 
                 std::string new_sess_uri(msg.new_session_uri.begin(), msg.new_session_uri.end());
                 SPDLOG_LOGGER_INFO(logger_, "Received goaway new session uri: {0}", new_sess_uri);
                 return true;
             }
-            case messages::ControlMessageType::CLIENT_SETUP: {
-                messages::MoqClientSetup msg;
+            case messages::ControlMessageType::kClientSetup: {
+                messages::ClientSetup msg;
 
                 msg_bytes >> msg;
 
                 if (!msg.supported_versions.size()) { // should never happen
                     CloseConnection(conn_ctx.connection_handle,
-                                    messages::MoqTerminationReason::PROTOCOL_VIOLATION,
+                                    messages::TerminationReason::kProtocolViolation,
                                     "Client setup contained zero versions");
                     return true;
                 }
@@ -448,8 +448,8 @@ namespace quicr {
 
                 return true;
             }
-            case messages::ControlMessageType::FETCH: {
-                messages::MoqFetch msg;
+            case messages::ControlMessageType::kFetch: {
+                messages::Fetch msg;
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
@@ -464,7 +464,7 @@ namespace quicr {
 
                 if (!FetchReceived(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs)) {
                     SendFetchError(
-                      conn_ctx, msg.subscribe_id, messages::FetchError::kTrackDoesNotExist, "Track does not exist");
+                      conn_ctx, msg.subscribe_id, messages::FetchErrorCode::kTrackDoesNotExist, "Track does not exist");
 
                     return true;
                 }
@@ -481,8 +481,8 @@ namespace quicr {
 
                 return true;
             }
-            case messages::ControlMessageType::FETCH_CANCEL: {
-                messages::MoqFetchCancel msg;
+            case messages::ControlMessageType::kFetchCancel: {
+                messages::FetchCancel msg;
                 msg_bytes >> msg;
 
                 if (conn_ctx.recv_sub_id.find(msg.subscribe_id) == conn_ctx.recv_sub_id.end()) {
@@ -514,13 +514,13 @@ namespace quicr {
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Unable to parse control message: {0}", e.what());
         CloseConnection(conn_ctx.connection_handle,
-                        messages::MoqTerminationReason::PROTOCOL_VIOLATION,
+                        messages::TerminationReason::kProtocolViolation,
                         "Control message cannot be parsed");
         return false;
     } catch (...) {
         SPDLOG_LOGGER_ERROR(logger_, "Unable to parse control message");
         CloseConnection(conn_ctx.connection_handle,
-                        messages::MoqTerminationReason::PROTOCOL_VIOLATION,
+                        messages::TerminationReason::kProtocolViolation,
                         "Control message cannot be parsed");
         return false;
     }
