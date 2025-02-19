@@ -17,7 +17,7 @@ namespace quicr {
         QuicConnectionMetrics quic; ///< QUIC connection metrics
 
         uint64_t rx_dgram_unknown_track_alias{ 0 }; ///< Received datagram with unknown track alias
-        uint64_t rx_dgram_invalid_type{ 0 };        ///< Received datagram with invalid type of OBJECT_DATAGRAM
+        uint64_t rx_dgram_invalid_type{ 0 };        ///< Received datagram with invalid type of kObjectDatagram
         uint64_t rx_dgram_decode_failed{ 0 };       ///< Failed to decode datagram
 
         uint64_t rx_stream_buffer_error{ 0 };        ///< Stream buffer error that results in bad parsing

@@ -87,12 +87,12 @@ TEST_CASE("AnnounceOk Message encode/decode")
 {
     Bytes buffer;
 
-    auto announce_ok = MoqAnnounceOk{};
+    auto announce_ok = AnnounceOk{};
     announce_ok.track_namespace = kTrackNamespaceConf;
     buffer << announce_ok;
 
-    MoqAnnounceOk announce_ok_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::ANNOUNCE_OK), announce_ok_out));
+    AnnounceOk announce_ok_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kAnnounceOk), announce_ok_out));
     CHECK_EQ(kTrackNamespaceConf, announce_ok_out.track_namespace);
 }
 
@@ -100,13 +100,13 @@ TEST_CASE("Announce Message encode/decode")
 {
     Bytes buffer;
 
-    auto announce = MoqAnnounce{};
+    auto announce = Announce{};
     announce.track_namespace = kTrackNamespaceConf;
     announce.params = {};
     buffer << announce;
 
-    MoqAnnounce announce_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::ANNOUNCE), announce_out));
+    Announce announce_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kAnnounce), announce_out));
     CHECK_EQ(kTrackNamespaceConf, announce_out.track_namespace);
     CHECK_EQ(0, announce_out.params.size());
 }
@@ -115,12 +115,12 @@ TEST_CASE("Unannounce Message encode/decode")
 {
     Bytes buffer;
 
-    auto unannounce = MoqUnannounce{};
+    auto unannounce = Unannounce{};
     unannounce.track_namespace = kTrackNamespaceConf;
     buffer << unannounce;
 
-    MoqAnnounceOk announce_ok_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::UNANNOUNCE), announce_ok_out));
+    AnnounceOk announce_ok_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kUnannounce), announce_ok_out));
     CHECK_EQ(kTrackNamespaceConf, announce_ok_out.track_namespace);
 }
 
@@ -128,14 +128,14 @@ TEST_CASE("AnnounceError Message encode/decode")
 {
     Bytes buffer;
 
-    auto announce_err = MoqAnnounceError{};
+    auto announce_err = AnnounceError{};
     announce_err.track_namespace = kTrackNamespaceConf;
     announce_err.err_code = 0x1234;
     announce_err.reason_phrase = Bytes{ 0x1, 0x2, 0x3 };
     buffer << announce_err;
 
-    MoqAnnounceError announce_err_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::ANNOUNCE_ERROR), announce_err_out));
+    AnnounceError announce_err_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kAnnounceError), announce_err_out));
     CHECK_EQ(kTrackNamespaceConf, announce_err_out.track_namespace);
     CHECK_EQ(announce_err.err_code, announce_err_out.err_code);
     CHECK_EQ(announce_err.reason_phrase, announce_err_out.reason_phrase);
@@ -145,32 +145,32 @@ TEST_CASE("AnnounceCancel Message encode/decode")
 {
     Bytes buffer;
 
-    auto announce_cancel = MoqAnnounceCancel{};
+    auto announce_cancel = AnnounceCancel{};
     announce_cancel.track_namespace = kTrackNamespaceConf;
     buffer << announce_cancel;
 
-    MoqAnnounceCancel announce_cancel_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::ANNOUNCE_CANCEL), announce_cancel_out));
+    AnnounceCancel announce_cancel_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kAnnounceCancel), announce_cancel_out));
     CHECK_EQ(kTrackNamespaceConf, announce_cancel_out.track_namespace);
 }
 
-TEST_CASE("Subscribe (LatestObject) Message encode/decode")
+TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
 {
     Bytes buffer;
 
-    auto subscribe = MoqSubscribe{};
+    auto subscribe = Subscribe{};
     subscribe.subscribe_id = 0x1;
     subscribe.track_alias = uint64_t(kTrackAliasAliceVideo);
     subscribe.track_namespace = kTrackNamespaceConf;
     subscribe.track_name = kTrackNameAliceVideo;
     subscribe.priority = 0x10;
     subscribe.group_order = GroupOrder::kDescending;
-    subscribe.filter_type = FilterType::LatestObject;
+    subscribe.filter_type = FilterType::kLatestObject;
 
     buffer << subscribe;
 
-    MoqSubscribe subscribe_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::SUBSCRIBE), subscribe_out));
+    Subscribe subscribe_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -180,21 +180,21 @@ TEST_CASE("Subscribe (LatestObject) Message encode/decode")
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
 }
 
-TEST_CASE("Subscribe (LatestGroup) Message encode/decode")
+TEST_CASE("Subscribe (kLatestGroup) Message encode/decode")
 {
     Bytes buffer;
 
-    auto subscribe = MoqSubscribe{};
+    auto subscribe = Subscribe{};
     subscribe.subscribe_id = 0x1;
     subscribe.track_alias = uint64_t(kTrackAliasAliceVideo);
     subscribe.track_namespace = kTrackNamespaceConf;
     subscribe.track_name = kTrackNameAliceVideo;
-    subscribe.filter_type = FilterType::LatestGroup;
+    subscribe.filter_type = FilterType::kLatestGroup;
 
     buffer << subscribe;
 
-    MoqSubscribe subscribe_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::SUBSCRIBE), subscribe_out));
+    Subscribe subscribe_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -202,23 +202,23 @@ TEST_CASE("Subscribe (LatestGroup) Message encode/decode")
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
 }
 
-TEST_CASE("Subscribe (AbsoluteStart) Message encode/decode")
+TEST_CASE("Subscribe (kAbsoluteStart) Message encode/decode")
 {
     Bytes buffer;
 
-    auto subscribe = MoqSubscribe{};
+    auto subscribe = Subscribe{};
     subscribe.subscribe_id = 0x1;
     subscribe.track_alias = uint64_t(kTrackAliasAliceVideo);
     subscribe.track_namespace = kTrackNamespaceConf;
     subscribe.track_name = kTrackNameAliceVideo;
-    subscribe.filter_type = FilterType::AbsoluteStart;
+    subscribe.filter_type = FilterType::kAbsoluteStart;
     subscribe.start_group = 0x1000;
     subscribe.start_object = 0xFF;
 
     buffer << subscribe;
 
-    MoqSubscribe subscribe_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::SUBSCRIBE), subscribe_out));
+    Subscribe subscribe_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -228,24 +228,24 @@ TEST_CASE("Subscribe (AbsoluteStart) Message encode/decode")
     CHECK_EQ(subscribe.start_object, subscribe_out.start_object);
 }
 
-TEST_CASE("Subscribe (AbsoluteRange) Message encode/decode")
+TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
 {
     Bytes buffer;
 
-    auto subscribe = MoqSubscribe{};
+    auto subscribe = Subscribe{};
     subscribe.subscribe_id = 0x1;
     subscribe.track_alias = uint64_t(kTrackAliasAliceVideo);
     subscribe.track_namespace = kTrackNamespaceConf;
     subscribe.track_name = kTrackNameAliceVideo;
-    subscribe.filter_type = FilterType::AbsoluteRange;
+    subscribe.filter_type = FilterType::kAbsoluteRange;
     subscribe.start_group = 0x1000;
     subscribe.start_object = 0x1;
     subscribe.end_group = 0xFFF;
 
     buffer << subscribe;
 
-    MoqSubscribe subscribe_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::SUBSCRIBE), subscribe_out));
+    Subscribe subscribe_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -259,21 +259,21 @@ TEST_CASE("Subscribe (AbsoluteRange) Message encode/decode")
 TEST_CASE("Subscribe (Params) Message encode/decode")
 {
     Bytes buffer;
-    MoqParameter param;
-    param.type = static_cast<uint64_t>(ParameterType::AuthorizationInfo), param.length = 0x2;
+    Parameter param;
+    param.type = static_cast<uint64_t>(ParameterType::kAuthorizationInfo), param.length = 0x2;
     param.value = { 0x1, 0x2 };
 
-    auto subscribe = MoqSubscribe{};
+    auto subscribe = Subscribe{};
     subscribe.subscribe_id = 0x1;
     subscribe.track_alias = uint64_t(kTrackAliasAliceVideo);
     subscribe.track_namespace = kTrackNamespaceConf;
     subscribe.track_name = kTrackNameAliceVideo;
-    subscribe.filter_type = FilterType::LatestObject;
+    subscribe.filter_type = FilterType::kLatestObject;
     subscribe.track_params.push_back(param);
     buffer << subscribe;
 
-    MoqSubscribe subscribe_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::SUBSCRIBE), subscribe_out));
+    Subscribe subscribe_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -288,28 +288,28 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
 TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 {
     Bytes buffer;
-    MoqParameter param1;
-    param1.type = static_cast<uint64_t>(ParameterType::AuthorizationInfo);
+    Parameter param1;
+    param1.type = static_cast<uint64_t>(ParameterType::kAuthorizationInfo);
     param1.length = 0x2;
     param1.value = { 0x1, 0x2 };
 
-    MoqParameter param2;
-    param2.type = static_cast<uint64_t>(ParameterType::AuthorizationInfo);
+    Parameter param2;
+    param2.type = static_cast<uint64_t>(ParameterType::kAuthorizationInfo);
     param2.length = 0x3;
     param2.value = { 0x1, 0x2, 0x3 };
 
-    auto subscribe = MoqSubscribe{};
+    auto subscribe = Subscribe{};
     subscribe.subscribe_id = 0x1;
     subscribe.track_alias = uint64_t(kTrackAliasAliceVideo);
     subscribe.track_namespace = kTrackNamespaceConf;
     subscribe.track_name = kTrackNameAliceVideo;
-    subscribe.filter_type = FilterType::LatestObject;
+    subscribe.filter_type = FilterType::kLatestObject;
     subscribe.track_params.push_back(param1);
     subscribe.track_params.push_back(param2);
     buffer << subscribe;
 
-    MoqSubscribe subscribe_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::SUBSCRIBE), subscribe_out));
+    Subscribe subscribe_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
@@ -325,24 +325,24 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
     CHECK_EQ(subscribe.track_params[1].value, subscribe_out.track_params[1].value);
 }
 
-MoqSubscribe
+Subscribe
 GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uint64_t so = 0, uint64_t eg = 0)
 {
-    MoqSubscribe out;
+    Subscribe out;
     out.subscribe_id = 0xABCD;
     out.track_alias = uint64_t(kTrackAliasAliceVideo);
     out.track_namespace = kTrackNamespaceConf;
     out.track_name = kTrackNameAliceVideo;
     out.filter_type = filter;
     switch (filter) {
-        case FilterType::LatestObject:
-        case FilterType::LatestGroup:
+        case FilterType::kLatestObject:
+        case FilterType::kLatestGroup:
             break;
-        case FilterType::AbsoluteStart:
+        case FilterType::kAbsoluteStart:
             out.start_group = sg;
             out.start_object = so;
             break;
-        case FilterType::AbsoluteRange:
+        case FilterType::kAbsoluteRange:
             out.start_group = sg;
             out.start_object = so;
             out.end_group = eg;
@@ -352,8 +352,8 @@ GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uin
     }
 
     while (num_params > 0) {
-        MoqParameter param1;
-        param1.type = static_cast<uint64_t>(ParameterType::AuthorizationInfo);
+        Parameter param1;
+        param1.type = static_cast<uint64_t>(ParameterType::kAuthorizationInfo);
         param1.length = 0x2;
         param1.value = { 0x1, 0x2 };
         out.track_params.push_back(param1);
@@ -364,22 +364,22 @@ GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uin
 
 TEST_CASE("Subscribe (Combo) Message encode/decode")
 {
-    auto subscribes = std::vector<MoqSubscribe>{
-        GenerateSubscribe(FilterType::LatestObject),
-        GenerateSubscribe(FilterType::LatestGroup),
-        GenerateSubscribe(FilterType::LatestObject, 1),
-        GenerateSubscribe(FilterType::LatestGroup, 2),
-        GenerateSubscribe(FilterType::AbsoluteStart, 0, 0x100, 0x2),
-        GenerateSubscribe(FilterType::AbsoluteStart, 2, 0x100, 0x2),
-        GenerateSubscribe(FilterType::AbsoluteRange, 0, 0x100, 0x2, 0x500),
-        GenerateSubscribe(FilterType::AbsoluteRange, 2, 0x100, 0x2, 0x500),
+    auto subscribes = std::vector<Subscribe>{
+        GenerateSubscribe(FilterType::kLatestObject),
+        GenerateSubscribe(FilterType::kLatestGroup),
+        GenerateSubscribe(FilterType::kLatestObject, 1),
+        GenerateSubscribe(FilterType::kLatestGroup, 2),
+        GenerateSubscribe(FilterType::kAbsoluteStart, 0, 0x100, 0x2),
+        GenerateSubscribe(FilterType::kAbsoluteStart, 2, 0x100, 0x2),
+        GenerateSubscribe(FilterType::kAbsoluteRange, 0, 0x100, 0x2, 0x500),
+        GenerateSubscribe(FilterType::kAbsoluteRange, 2, 0x100, 0x2, 0x500),
     };
 
     for (size_t i = 0; i < subscribes.size(); i++) {
         Bytes buffer;
         buffer << subscribes[i];
-        MoqSubscribe subscribe_out;
-        CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::SUBSCRIBE), subscribe_out));
+        Subscribe subscribe_out;
+        CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
         CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
         CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
         CHECK_EQ(subscribes[i].subscribe_id, subscribe_out.subscribe_id);
@@ -398,7 +398,7 @@ TEST_CASE("SubscribeUpdate Message encode/decode")
 {
     Bytes buffer;
 
-    auto subscribe_update = MoqSubscribeUpdate{};
+    auto subscribe_update = SubscribeUpdate{};
     subscribe_update.subscribe_id = 0x1;
     subscribe_update.start_group = uint64_t(0x1000);
     subscribe_update.start_object = uint64_t(0x100);
@@ -407,8 +407,8 @@ TEST_CASE("SubscribeUpdate Message encode/decode")
 
     buffer << subscribe_update;
 
-    MoqSubscribeUpdate subscribe_update_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_UPDATE), subscribe_update_out));
+    SubscribeUpdate subscribe_update_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeUpdate), subscribe_update_out));
     CHECK_EQ(0x1000, subscribe_update_out.start_group);
     CHECK_EQ(0x100, subscribe_update_out.start_object);
     CHECK_EQ(subscribe_update.subscribe_id, subscribe_update_out.subscribe_id);
@@ -420,14 +420,14 @@ TEST_CASE("SubscribeOk Message encode/decode")
 {
     Bytes buffer;
 
-    auto subscribe_ok = MoqSubscribeOk{};
+    auto subscribe_ok = SubscribeOk{};
     subscribe_ok.subscribe_id = 0x1;
     subscribe_ok.expires = 0x100;
     subscribe_ok.content_exists = false;
     buffer << subscribe_ok;
 
-    MoqSubscribeOk subscribe_ok_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_OK), subscribe_ok_out));
+    SubscribeOk subscribe_ok_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeOk), subscribe_ok_out));
     CHECK_EQ(subscribe_ok.subscribe_id, subscribe_ok_out.subscribe_id);
     CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
     CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
@@ -437,7 +437,7 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
 {
     Bytes buffer;
 
-    auto subscribe_ok = MoqSubscribeOk{};
+    auto subscribe_ok = SubscribeOk{};
     subscribe_ok.subscribe_id = 0x1;
     subscribe_ok.expires = 0x100;
     subscribe_ok.content_exists = true;
@@ -445,8 +445,8 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
     subscribe_ok.largest_object = 0xff;
     buffer << subscribe_ok;
 
-    MoqSubscribeOk subscribe_ok_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_OK), subscribe_ok_out));
+    SubscribeOk subscribe_ok_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeOk), subscribe_ok_out));
     CHECK_EQ(subscribe_ok.subscribe_id, subscribe_ok_out.subscribe_id);
     CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
     CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
@@ -458,15 +458,15 @@ TEST_CASE("Error  Message encode/decode")
 {
     Bytes buffer;
 
-    auto subscribe_err = MoqSubscribeError{};
+    auto subscribe_err = SubscribeError{};
     subscribe_err.subscribe_id = 0x1;
     subscribe_err.err_code = 0;
     subscribe_err.reason_phrase = Bytes{ 0x0, 0x1 };
     subscribe_err.track_alias = uint64_t(kTrackAliasAliceVideo);
     buffer << subscribe_err;
 
-    MoqSubscribeError subscribe_err_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_ERROR), subscribe_err_out));
+    SubscribeError subscribe_err_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeError), subscribe_err_out));
     CHECK_EQ(subscribe_err.subscribe_id, subscribe_err_out.subscribe_id);
     CHECK_EQ(subscribe_err.err_code, subscribe_err_out.err_code);
     CHECK_EQ(subscribe_err.reason_phrase, subscribe_err_out.reason_phrase);
@@ -477,12 +477,12 @@ TEST_CASE("Unsubscribe  Message encode/decode")
 {
     Bytes buffer;
 
-    auto unsubscribe = MoqUnsubscribe{};
+    auto unsubscribe = Unsubscribe{};
     unsubscribe.subscribe_id = 0x1;
     buffer << unsubscribe;
 
-    MoqUnsubscribe unsubscribe_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::UNSUBSCRIBE), unsubscribe_out));
+    Unsubscribe unsubscribe_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kUnsubscribe), unsubscribe_out));
     CHECK_EQ(unsubscribe.subscribe_id, unsubscribe_out.subscribe_id);
 }
 
@@ -490,7 +490,7 @@ TEST_CASE("SubscribeDone  Message encode/decode")
 {
     Bytes buffer;
 
-    auto subscribe_done = MoqSubscribeDone{};
+    auto subscribe_done = SubscribeDone{};
     subscribe_done.subscribe_id = 0x1;
     subscribe_done.status_code = 0x0;
     subscribe_done.reason_phrase = Bytes{ 0x0 };
@@ -498,8 +498,8 @@ TEST_CASE("SubscribeDone  Message encode/decode")
 
     buffer << subscribe_done;
 
-    MoqSubscribeDone subscribe_done_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_DONE), subscribe_done_out));
+    SubscribeDone subscribe_done_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeDone), subscribe_done_out));
     CHECK_EQ(subscribe_done.subscribe_id, subscribe_done_out.subscribe_id);
     CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
     CHECK_EQ(subscribe_done.reason_phrase, subscribe_done_out.reason_phrase);
@@ -510,7 +510,7 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
 {
     Bytes buffer;
 
-    auto subscribe_done = MoqSubscribeDone{};
+    auto subscribe_done = SubscribeDone{};
     subscribe_done.subscribe_id = 0x1;
     subscribe_done.status_code = 0x0;
     subscribe_done.reason_phrase = Bytes{ 0x0 };
@@ -520,8 +520,8 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
 
     buffer << subscribe_done;
 
-    MoqSubscribeDone subscribe_done_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::SUBSCRIBE_DONE), subscribe_done_out));
+    SubscribeDone subscribe_done_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeDone), subscribe_done_out));
     CHECK_EQ(subscribe_done.subscribe_id, subscribe_done_out.subscribe_id);
     CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
     CHECK_EQ(subscribe_done.reason_phrase, subscribe_done_out.reason_phrase);
@@ -534,18 +534,18 @@ TEST_CASE("ClientSetup  Message encode/decode")
 {
     Bytes buffer;
     const std::string endpoint_id = "client test";
-    auto client_setup = MoqClientSetup{};
+    auto client_setup = ClientSetup{};
     client_setup.num_versions = 2;
     client_setup.supported_versions = { 0x1000, 0x2000 };
-    client_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::Role);
+    client_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::kRole);
     client_setup.role_parameter.length = 0x1;
     client_setup.role_parameter.value = { 0xFF };
     client_setup.endpoint_id_parameter.value.assign(endpoint_id.begin(), endpoint_id.end());
 
     buffer << client_setup;
 
-    MoqClientSetup client_setup_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::CLIENT_SETUP), client_setup_out));
+    ClientSetup client_setup_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kClientSetup), client_setup_out));
     CHECK_EQ(client_setup.supported_versions, client_setup_out.supported_versions);
     CHECK_EQ(client_setup.role_parameter.value, client_setup_out.role_parameter.value);
     CHECK_EQ(client_setup.endpoint_id_parameter.value, client_setup_out.endpoint_id_parameter.value);
@@ -554,9 +554,9 @@ TEST_CASE("ClientSetup  Message encode/decode")
 TEST_CASE("ServerSetup  Message encode/decode")
 {
     const std::string endpoint_id = "server_test";
-    auto server_setup = MoqServerSetup{};
+    auto server_setup = ServerSetup{};
     server_setup.selection_version = { 0x1000 };
-    server_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::Role);
+    server_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::kRole);
     server_setup.role_parameter.length = 0x1;
     server_setup.role_parameter.value = { 0xFF };
     server_setup.endpoint_id_parameter.value.assign(endpoint_id.begin(), endpoint_id.end());
@@ -564,8 +564,8 @@ TEST_CASE("ServerSetup  Message encode/decode")
     Bytes buffer;
     buffer << server_setup;
 
-    MoqServerSetup server_setup_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::SERVER_SETUP), server_setup_out));
+    ServerSetup server_setup_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kServerSetup), server_setup_out));
     CHECK_EQ(server_setup.selection_version, server_setup_out.selection_version);
     CHECK_EQ(server_setup.role_parameter.value, server_setup.role_parameter.value);
     CHECK_EQ(server_setup.endpoint_id_parameter.value, server_setup_out.endpoint_id_parameter.value);
@@ -575,7 +575,7 @@ static void
 ObjectDatagramEncodeDecode(bool extensions, bool empty_payload)
 {
     Bytes buffer;
-    auto object_datagram = MoqObjectDatagram{};
+    auto object_datagram = ObjectDatagram{};
     object_datagram.track_alias = uint64_t(kTrackAliasAliceVideo);
     object_datagram.group_id = 0x1000;
     object_datagram.object_id = 0xFF;
@@ -589,8 +589,8 @@ ObjectDatagramEncodeDecode(bool extensions, bool empty_payload)
 
     buffer << object_datagram;
 
-    MoqObjectDatagram object_datagram_out;
-    CHECK(Verify(buffer, static_cast<uint64_t>(DataMessageType::OBJECT_DATAGRAM), object_datagram_out));
+    ObjectDatagram object_datagram_out;
+    CHECK(Verify(buffer, static_cast<uint64_t>(DataMessageType::kObjectDatagram), object_datagram_out));
     CHECK_EQ(object_datagram.track_alias, object_datagram_out.track_alias);
     CHECK_EQ(object_datagram.group_id, object_datagram_out.group_id);
     CHECK_EQ(object_datagram.object_id, object_datagram_out.object_id);
@@ -616,7 +616,7 @@ static void
 StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
 {
     Bytes buffer;
-    auto hdr_grp = MoqStreamHeaderSubGroup{};
+    auto hdr_grp = StreamHeaderSubGroup{};
     hdr_grp.track_alias = uint64_t(kTrackAliasAliceVideo);
     hdr_grp.group_id = 0x1000;
     hdr_grp.subgroup_id = 0x5000;
@@ -624,18 +624,18 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
 
     buffer << hdr_grp;
 
-    MoqStreamHeaderSubGroup hdr_group_out;
-    CHECK(Verify(buffer, static_cast<uint64_t>(DataMessageType::STREAM_HEADER_SUBGROUP), hdr_group_out));
+    StreamHeaderSubGroup hdr_group_out;
+    CHECK(Verify(buffer, static_cast<uint64_t>(DataMessageType::kStreamHeaderSubgroup), hdr_group_out));
     CHECK_EQ(hdr_grp.track_alias, hdr_group_out.track_alias);
     CHECK_EQ(hdr_grp.group_id, hdr_group_out.group_id);
     CHECK_EQ(hdr_grp.subgroup_id, hdr_group_out.subgroup_id);
 
     // stream all the objects
     buffer.clear();
-    auto objects = std::vector<MoqStreamSubGroupObject>{};
+    auto objects = std::vector<StreamSubGroupObject>{};
     // send 10 objects
     for (size_t i = 0; i < 1; i++) {
-        auto obj = MoqStreamSubGroupObject{};
+        auto obj = StreamSubGroupObject{};
         obj.object_id = 0x1234;
 
         if (empty_payload) {
@@ -649,7 +649,7 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
         buffer << obj;
     }
 
-    auto obj_out = MoqStreamSubGroupObject{};
+    auto obj_out = StreamSubGroupObject{};
     size_t object_count = 0;
     StreamBuffer<uint8_t> in_buffer;
     for (size_t i = 0; i < buffer.size(); i++) {
@@ -683,24 +683,24 @@ TEST_CASE("StreamPerSubGroup Object  Message encode/decode")
     StreamPerSubGroupObjectEncodeDecode(true, false);
 }
 
-TEST_CASE("MoqGoaway Message encode/decode")
+TEST_CASE("GoAway Message encode/decode")
 {
     Bytes buffer;
 
-    auto goaway = MoqGoaway{};
+    auto goaway = GoAway{};
     goaway.new_session_uri = FromASCII("go.away.now.no.return");
     buffer << goaway;
 
-    MoqGoaway goaway_out{};
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::GOAWAY), goaway_out));
+    GoAway goaway_out{};
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kGoAway), goaway_out));
     CHECK_EQ(FromASCII("go.away.now.no.return"), goaway_out.new_session_uri);
 }
 
-TEST_CASE("MoqFetch Message encode/decode")
+TEST_CASE("Fetch Message encode/decode")
 {
     Bytes buffer;
 
-    auto fetch = MoqFetch{};
+    auto fetch = Fetch{};
     fetch.track_namespace = kTrackNamespaceConf;
     fetch.track_name = kTrackNameAliceVideo;
     fetch.priority = 1;
@@ -713,8 +713,8 @@ TEST_CASE("MoqFetch Message encode/decode")
 
     buffer << fetch;
 
-    MoqFetch fetch_out{};
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::FETCH), fetch_out));
+    Fetch fetch_out{};
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetch), fetch_out));
     CHECK_EQ(fetch.track_namespace, fetch_out.track_namespace);
     CHECK_EQ(fetch.track_name, fetch_out.track_name);
     CHECK_EQ(fetch.priority, fetch_out.priority);
@@ -725,11 +725,11 @@ TEST_CASE("MoqFetch Message encode/decode")
     CHECK_EQ(fetch.end_object, fetch_out.end_object);
 }
 
-TEST_CASE("MoqFetchOk/Error/Cancel Message encode/decode")
+TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
 {
     Bytes buffer;
 
-    auto fetch_ok = MoqFetchOk{};
+    auto fetch_ok = FetchOk{};
     fetch_ok.subscribe_id = 0x1234;
     fetch_ok.group_order = GroupOrder::kDescending;
     fetch_ok.largest_group = 0x9999;
@@ -737,32 +737,32 @@ TEST_CASE("MoqFetchOk/Error/Cancel Message encode/decode")
 
     buffer << fetch_ok;
 
-    MoqFetchOk fetch_ok_out{};
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::FETCH_OK), fetch_ok_out));
+    FetchOk fetch_ok_out{};
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetchOk), fetch_ok_out));
     CHECK_EQ(fetch_ok.subscribe_id, fetch_ok_out.subscribe_id);
     CHECK_EQ(fetch_ok.group_order, fetch_ok_out.group_order);
     CHECK_EQ(fetch_ok.largest_group, fetch_ok_out.largest_group);
     CHECK_EQ(fetch_ok.largest_object, fetch_ok_out.largest_object);
 
     buffer.clear();
-    auto fetch_cancel = MoqFetchCancel{};
+    auto fetch_cancel = FetchCancel{};
     fetch_cancel.subscribe_id = 0x1111;
 
     buffer << fetch_cancel;
 
-    MoqFetchCancel fetch_cancel_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::FETCH_CANCEL), fetch_cancel_out));
+    FetchCancel fetch_cancel_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetchCancel), fetch_cancel_out));
     CHECK_EQ(fetch_cancel.subscribe_id, fetch_cancel_out.subscribe_id);
 
     buffer.clear();
-    auto fetch_error = MoqFetchError{};
+    auto fetch_error = FetchError{};
     fetch_error.subscribe_id = 0x1111;
     fetch_error.err_code = 0x0;
 
     buffer << fetch_error;
 
-    MoqFetchError fetch_error_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::FETCH_ERROR), fetch_error_out));
+    FetchError fetch_error_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetchError), fetch_error_out));
     CHECK_EQ(fetch_error.subscribe_id, fetch_error_out.subscribe_id);
     CHECK_EQ(fetch_error.err_code, fetch_error_out.err_code);
 }

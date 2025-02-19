@@ -514,10 +514,10 @@ main(int argc, char* argv[])
             pub_thread = std::thread(DoPublisher, pub_track_name, client, std::ref(stop_threads));
         }
         if (enable_sub) {
-            auto filter_type = quicr::messages::FilterType::LatestObject;
+            auto filter_type = quicr::messages::FilterType::kLatestObject;
             if (result.count("start_point")) {
                 if (result["start_point"].as<uint64_t>() == 0) {
-                    filter_type = quicr::messages::FilterType::LatestGroup;
+                    filter_type = quicr::messages::FilterType::kLatestGroup;
                     SPDLOG_INFO("Setting subscription filter to Latest Group");
                 }
             }
