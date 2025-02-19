@@ -183,11 +183,16 @@ namespace quicr {
                     return true;
                 }
 
-                SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received subscribe ok conn_id: {} subscribe_id: {}",
-                                    conn_ctx.connection_handle,
-                                    msg.subscribe_id);
+                SPDLOG_LOGGER_DEBUG(
+                  logger_,
+                  "Received subscribe ok conn_id: {} subscribe_id: {} latest_group: {} latest_object: {}",
+                  conn_ctx.connection_handle,
+                  msg.subscribe_id,
+                  msg.largest_group,
+                  msg.largest_object);
 
+                sub_it->second.get()->SetLatestGroupID(msg.largest_group);
+                sub_it->second.get()->SetLatestObjectID(msg.largest_object);
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
                 return true;
             }
@@ -427,6 +432,21 @@ namespace quicr {
 
                 fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kError);
                 conn_ctx.tracks_by_sub_id.erase(fetch_it);
+
+                return true;
+            }
+            case messages::ControlMessageType::kNewGroup: {
+                messages::NewGroupRequest msg;
+                msg_bytes >> msg;
+
+                try {
+                    if (auto handler = conn_ctx.pub_tracks_by_track_alias.at(msg.track_alias)) {
+                        handler->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);
+                    }
+                } catch (const std::exception& e) {
+                    SPDLOG_LOGGER_ERROR(
+                      logger_, "Failed to fins publisher by alias: {} error: {}", msg.track_alias, e.what());
+                }
 
                 return true;
             }

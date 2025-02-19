@@ -119,6 +119,12 @@ namespace quicr {
 
         constexpr messages::FilterType GetFilterType() const noexcept { return filter_type_; }
 
+        constexpr std::optional<messages::GroupId> GetLatestGroupID() const noexcept { return latest_group_id_; }
+        constexpr std::optional<messages::ObjectId> GetLatestObjectID() const noexcept { return latest_object_id_; }
+
+        constexpr void SetLatestGroupID(messages::GroupId new_id) noexcept { latest_group_id_ = new_id; }
+        constexpr void SetLatestObjectID(messages::ObjectId new_id) noexcept { latest_object_id_ = new_id; }
+
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
         // --------------------------------------------------------------------------
@@ -196,6 +202,8 @@ namespace quicr {
          */
         virtual void MetricsSampled([[maybe_unused]] const SubscribeTrackMetrics& metrics) {}
 
+        void RequestNewGroup() noexcept;
+
         ///@}
 
         /**
@@ -205,6 +213,8 @@ namespace quicr {
          *     period.
          */
         SubscribeTrackMetrics subscribe_track_metrics_;
+
+        std::function<void(messages::SubscribeId, messages::TrackAlias)> new_group_request_callback_;
 
       protected:
         /**
@@ -224,6 +234,8 @@ namespace quicr {
         messages::FilterType filter_type_;
         StreamBuffer<uint8_t> stream_buffer_;
         uint64_t current_stream_id_{ 0 };
+        std::optional<messages::GroupId> latest_group_id_;
+        std::optional<messages::ObjectId> latest_object_id_;
 
         friend class Transport;
         friend class Client;

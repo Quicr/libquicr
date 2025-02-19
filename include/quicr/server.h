@@ -269,6 +269,8 @@ namespace quicr {
          */
         virtual void FetchCancelReceived(ConnectionHandle connection_handle, uint64_t subscribe_id) = 0;
 
+        virtual void NewGroupRequested(ConnectionHandle connection_handle, uint64_t subscribe_id, uint64_t track_alias);
+
         ///@}
         // --END OF CALLBACKS ----------------------------------------------------------------------------------
 

@@ -45,6 +45,8 @@ namespace quicr {
 
     void Server::OnFetchOk(ConnectionHandle, uint64_t, const FullTrackName&, const FetchAttributes&) {}
 
+    void Server::NewGroupRequested(ConnectionHandle, uint64_t, uint64_t) {}
+
     void Server::ResolveSubscribe(ConnectionHandle connection_handle,
                                   uint64_t subscribe_id,
                                   const SubscribeResponse& subscribe_response)
@@ -108,6 +110,7 @@ namespace quicr {
           th.track_name_hash);
 
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash].erase(th.track_name_hash);
+        conn_it->second.pub_tracks_by_track_alias.erase(th.track_fullname_hash);
 
         if (conn_it->second.pub_tracks_by_name.count(th.track_namespace_hash) == 0) {
             SPDLOG_LOGGER_DEBUG(logger_,
@@ -190,6 +193,7 @@ namespace quicr {
         if (!ephemeral) {
             // Hold onto track handler
             conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
+            conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash] = track_handler;
             conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
         }
 
@@ -488,6 +492,14 @@ namespace quicr {
 
                 FetchCancelReceived(conn_ctx.connection_handle, msg.subscribe_id);
                 conn_ctx.recv_sub_id.erase(msg.subscribe_id);
+
+                return true;
+            }
+            case messages::ControlMessageType::kNewGroup: {
+                messages::NewGroupRequest msg;
+                msg_bytes >> msg;
+
+                NewGroupRequested(conn_ctx.connection_handle, msg.subscribe_id, msg.track_alias);
 
                 return true;
             }

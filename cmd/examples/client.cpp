@@ -14,6 +14,7 @@
 namespace qclient_vars {
     bool publish_clock{ false };
     std::optional<uint64_t> track_alias; /// Track alias to use for subscribe
+    bool request_new_group = false;
 }
 
 /**
@@ -78,11 +79,16 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 }
                 break;
             }
+            case Status::kNewGroupRequested: {
+                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
+                    SPDLOG_INFO("Publish track alias: {0} has new group request", track_alias.value());
+                }
+                break;
+            }
             case Status::kSubscriptionUpdated: {
                 if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
                     SPDLOG_INFO("Publish track alias: {0} has updated subscription", track_alias.value());
                 }
-                subscription_updated.store(true, std::memory_order_release);
                 break;
             }
             default:
@@ -92,7 +98,6 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 break;
         }
     }
-    std::atomic<bool> subscription_updated{ false };
 };
 
 class MyFetchTrackHandler : public quicr::FetchTrackHandler
@@ -198,7 +203,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
     uint64_t group_id{ 0 };
     uint64_t object_id{ 0 };
     uint64_t subgroup_id{ 0 };
-    MyPublishTrackHandler::Status status = MyPublishTrackHandler::Status::kNotConnected;
+
     while (not stop) {
         if ((!published_track) && (client->GetStatus() == MyClient::Status::kReady)) {
             SPDLOG_INFO("Publish track ");
@@ -206,19 +211,22 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
             published_track = true;
         }
 
-        if (status != MyPublishTrackHandler::Status::kOk) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            status = track_handler->GetStatus();
-            continue;
-        }
-
-        // TODO: This is very restricted. We need to verify the request params in the update message
-        if (track_handler->subscription_updated.load(std::memory_order_acquire)) {
-            // restart the group
-            group_id++;
-            object_id = 0;
-            track_handler->subscription_updated.store(false, std::memory_order::memory_order_release);
-            SPDLOG_INFO(" Subscription Updated: Restarting a new group {0}", group_id);
+        switch (track_handler->GetStatus()) {
+            case MyPublishTrackHandler::Status::kOk:
+                break;
+            case MyPublishTrackHandler::Status::kNewGroupRequested:
+                group_id++;
+                object_id = 0;
+                SPDLOG_WARN(" New Group Requested: Restarting a new group {0}", group_id);
+                break;
+            case MyPublishTrackHandler::Status::kSubscriptionUpdated:
+                group_id++;
+                object_id = 0;
+                SPDLOG_WARN(" Subscription Updated: Restarting a new group {0}", group_id);
+                break;
+            default:
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                continue;
         }
 
         if (!sending) {
@@ -293,6 +301,14 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
             client->SubscribeTrack(track_handler);
             subscribe_track = true;
         }
+
+        if (track_handler->GetStatus() == MySubscribeTrackHandler::Status::kOk && qclient_vars::request_new_group) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+            SPDLOG_INFO("Requesting New Group");
+            track_handler->RequestNewGroup();
+            qclient_vars::request_new_group = false;
+        }
+
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
@@ -400,6 +416,10 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         qclient_vars::track_alias = cli_opts["track_alias"].as<uint64_t>();
     }
 
+    if (cli_opts.count("new_group")) {
+        qclient_vars::request_new_group = true;
+    }
+
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
     config.connect_uri = cli_opts["url"].as<std::string>();
     config.transport_config.debug = cli_opts["debug"].as<bool>();
@@ -420,31 +440,40 @@ main(int argc, char* argv[])
 
     cxxopts::Options options("qclient",
                              std::string("MOQ Example Client using QuicR Version: ") + std::string(QUICR_VERSION));
+
+    // clang-format off
     options.set_width(75)
       .set_tab_expansion()
       //.allow_unrecognised_options()
-      .add_options()("h,help", "Print help")("d,debug", "Enable debugging") // a bool parameter
-      ("v,version", "QuicR Version")                                        // a bool parameter
-      ("r,url", "Relay URL", cxxopts::value<std::string>()->default_value("moq://localhost:1234"))(
-        "e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))(
-        "q,qlog", "Enable qlog using path", cxxopts::value<std::string>());
+      .add_options()
+        ("h,help", "Print help")
+        ("d,debug", "Enable debugging") // a bool parameter
+        ("v,version", "QuicR Version")                                        // a bool parameter
+        ("r,url", "Relay URL", cxxopts::value<std::string>()->default_value("moq://localhost:1234"))
+        ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))
+        ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>());
 
-    options.add_options("Publisher")("pub_namespace", "Track namespace", cxxopts::value<std::string>())(
-      "pub_name", "Track name", cxxopts::value<std::string>())(
-      "clock", "Publish clock timestamp every second instead of using STDIN chat");
+    options.add_options("Publisher")
+        ("pub_namespace", "Track namespace", cxxopts::value<std::string>())
+        ("pub_name", "Track name", cxxopts::value<std::string>())
+        ("clock", "Publish clock timestamp every second instead of using STDIN chat");
 
-    options.add_options("Subscriber")("sub_namespace", "Track namespace", cxxopts::value<std::string>())(
-      "sub_name", "Track name", cxxopts::value<std::string>())(
-      "start_point",
-      "Start point for Subscription - 0 for from the beginning, 1 from the latest object",
-      cxxopts::value<uint64_t>())("track_alias", "Track alias to use", cxxopts::value<uint64_t>());
+    options.add_options("Subscriber")
+        ("sub_namespace", "Track namespace", cxxopts::value<std::string>())
+        ("sub_name", "Track name", cxxopts::value<std::string>())
+        ("start_point", "Start point for Subscription - 0 for from the beginning, 1 from the latest object", cxxopts::value<uint64_t>())
+        ("track_alias", "Track alias to use", cxxopts::value<uint64_t>())
+        ("new_group", "Requests a new group on subscribe");
 
-    options.add_options("Fetcher")("fetch_namespace", "Track namespace", cxxopts::value<std::string>())(
-      "fetch_name", "Track name", cxxopts::value<std::string>())(
-      "start_group", "Starting group ID", cxxopts::value<uint64_t>())(
-      "end_group", "One past the final group ID", cxxopts::value<uint64_t>())(
-      "start_object", "The starting object ID within the group", cxxopts::value<uint64_t>())(
-      "end_object", "One past the final object ID in the group", cxxopts::value<uint64_t>());
+    options.add_options("Fetcher")
+        ("fetch_namespace", "Track namespace", cxxopts::value<std::string>())
+        ("fetch_name", "Track name", cxxopts::value<std::string>())
+        ("start_group", "Starting group ID", cxxopts::value<uint64_t>())
+        ("end_group", "One past the final group ID", cxxopts::value<uint64_t>())
+        ("start_object", "The starting object ID within the group", cxxopts::value<uint64_t>())
+        ("end_object", "One past the final object ID in the group", cxxopts::value<uint64_t>());
+
+    // clang-format on
 
     auto result = options.parse(argc, argv);
 
