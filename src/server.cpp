@@ -136,10 +136,14 @@ namespace quicr {
         // Track hash is the track alias for now.
         auto th = TrackHash(tfn);
 
-        track_handler->SetTrackAlias(th.track_fullname_hash);
+        if (not track_handler->GetTrackAlias().has_value()) {
+            track_handler->SetTrackAlias(th.track_fullname_hash);
+        }
 
-        SPDLOG_LOGGER_INFO(
-          logger_, "Bind subscribe track handler conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
+        SPDLOG_LOGGER_INFO(logger_,
+                           "Bind subscribe track handler conn_id: {0} hash: {1}",
+                           conn_id,
+                           track_handler->GetTrackAlias().value());
 
         std::unique_lock<std::mutex> lock(state_mutex_);
         auto conn_it = connections_.find(conn_id);
