@@ -108,4 +108,3 @@ TEST_CASE("Find prefix matching map of namespaces")
 
     CHECK_EQ(found, 2);
 }
-

@@ -383,7 +383,7 @@ class MyServer : public quicr::Server
         auto& anno_tracks = qserver_vars::announce_active[track_namespace][connection_handle];
 
         // Check if there are any subscribes. If so, send subscribe to announce for all tracks matching namespace
-        for (const auto& [ns, sub_tracks]: qserver_vars::subscribe_active) {
+        for (const auto& [ns, sub_tracks] : qserver_vars::subscribe_active) {
             if (!ns.HasSamePrefix(track_namespace)) {
                 continue;
             }
@@ -408,7 +408,6 @@ class MyServer : public quicr::Server
                     }
                 }
             }
-
         }
     }
 
@@ -580,7 +579,7 @@ class MyServer : public quicr::Server
 
         // Subscribe to announcer if announcer is active
         bool success = false;
-        for (auto& [ns, conns]: qserver_vars::announce_active) {
+        for (auto& [ns, conns] : qserver_vars::announce_active) {
             if (!ns.HasSamePrefix(track_full_name.name_space)) {
                 continue;
             }
@@ -609,7 +608,8 @@ class MyServer : public quicr::Server
                 } else {
                     auto now = std::chrono::steady_clock::now();
                     auto elapsed =
-                      std::chrono::duration_cast<std::chrono::milliseconds>(now - last_subscription_time_.value()).count();
+                      std::chrono::duration_cast<std::chrono::milliseconds>(now - last_subscription_time_.value())
+                        .count();
                     if (elapsed > kSubscriptionDampenDurationMs_) {
                         // send subscription update
                         auto& sub_track_h = qserver_vars::pub_subscribes[th.track_fullname_hash][conn_h];
