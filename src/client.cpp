@@ -377,6 +377,17 @@ namespace quicr {
                 SPDLOG_LOGGER_INFO(logger_, "Received goaway new session uri: {0}", new_sess_uri);
                 return true;
             }
+            case messages::ControlMessageType::kSubscribeAnnouncesOk: {
+                messages::SubscribeAnnouncesOk msg;
+                msg_bytes >> msg;
+
+                auto th = TrackHash({ msg.prefix_namespace, {}, std::nullopt });
+
+                SPDLOG_LOGGER_DEBUG(
+                  logger_, "Received subscribe announce OK to namespace_hash: {}", th.track_namespace_hash);
+
+                return true;
+            }
             case messages::ControlMessageType::kServerSetup: {
                 messages::ServerSetup msg;
                 msg_bytes >> msg;

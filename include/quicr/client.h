@@ -81,6 +81,15 @@ namespace quicr {
         virtual void AnnounceStatusChanged(const TrackNamespace& track_namespace, const PublishAnnounceStatus status);
 
         /**
+         * @brief Callback notification for announce received from subscribe announces
+         *
+         * @param namespace                     Prefix namespace
+         * @param publish_announce_attributes   Publish announce attributes received
+         */
+        virtual void AnnounceReceived(const TrackNamespace& namespace,
+                                      const PublishAnnounceAttributes& publish_announce_attributes);
+
+        /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
          *
          * @details When a new subscribe is received that doesn't match any existing publish track, this
