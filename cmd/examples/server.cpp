@@ -389,7 +389,7 @@ class MyServer : public quicr::Server
             }
 
             for (const auto& [track_name, si] : sub_tracks) {
-                if (si.size()) { // Have subscribes
+                if (not si.empty()) { // Have subscribes
                     auto& a_si = *si.begin();
                     if (anno_tracks.find(a_si.track_alias) == anno_tracks.end()) {
                         SPDLOG_INFO("Sending subscribe to announcer connection handle: {0} subscribe track_alias: {1}",
@@ -402,6 +402,8 @@ class MyServer : public quicr::Server
 
                         auto sub_track_handler =
                           std::make_shared<MySubscribeTrackHandler>(pub_track_h->GetFullTrackName());
+                        sub_track_handler->SetTrackAlias(
+                          a_si.track_alias); // Publisher handler may have different track alias
 
                         SubscribeTrack(connection_handle, sub_track_handler);
                         qserver_vars::pub_subscribes[a_si.track_alias][connection_handle] = sub_track_handler;
@@ -567,6 +569,10 @@ class MyServer : public quicr::Server
 
         auto pub_track_h =
           std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, 50000);
+
+        if (not qserver_vars::force_track_alias) {
+            pub_track_h->SetTrackAlias(proposed_track_alias);
+        }
         qserver_vars::subscribes[th.track_fullname_hash][connection_handle] = pub_track_h;
         qserver_vars::subscribe_alias_sub_id[connection_handle][subscribe_id] = th.track_fullname_hash;
 
@@ -765,7 +771,7 @@ InitConfig(cxxopts::ParseResult& cli_opts)
         exit(0);
     }
 
-    if (cli_opts.count("relax_track_alias")) {
+    if (cli_opts.count("client_track_alias")) {
         qserver_vars::force_track_alias = false;
     }
 
@@ -793,8 +799,8 @@ main(int argc, char* argv[])
                              std::string("MOQ Example Server using QuicR Version: ") + std::string(QUICR_VERSION));
     options.set_width(75).set_tab_expansion().allow_unrecognised_options().add_options()("h,help", "Print help")(
       "d,debug", "Enable debugging") // a bool parameter
-      ("relax_track_alias", "Set to allow client provided track alias")("v,version",
-                                                                        "QuicR Version") // a bool parameter
+      ("client_track_alias", "Set to allow client provided track alias")("v,version",
+                                                                         "QuicR Version") // a bool parameter
       ("b,bind_ip", "Bind IP", cxxopts::value<std::string>()->default_value("127.0.0.1"))(
         "p,port", "Listening port", cxxopts::value<uint16_t>()->default_value("1234"))(
         "e,endpoint_id", "This relay/server endpoint ID", cxxopts::value<std::string>()->default_value("moq-server"))(

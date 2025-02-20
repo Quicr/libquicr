@@ -214,7 +214,7 @@ namespace quicr {
                     return true;
                 }
 
-                SPDLOG_LOGGER_DEBUG(
+                SPDLOG_LOGGER_INFO(
                   logger_,
                   "Received subscribe error conn_id: {} subscribe_id: {} reason: {} code: {} requested track_alias: {}",
                   conn_ctx.connection_handle,

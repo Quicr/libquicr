@@ -42,7 +42,7 @@ namespace quicr {
     /**
      * Minimum bytes needed to write before considering to send. This doesn't
      */
-    constexpr int kMinStreamBytesForSend = 10;
+    constexpr int kMinStreamBytesForSend = 4;
 
     class PicoQuicTransport : public ITransport
     {
