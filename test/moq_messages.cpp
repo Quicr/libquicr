@@ -11,6 +11,7 @@
 
 using namespace quicr;
 using namespace quicr::messages;
+using namespace std::string_literals;
 
 static Bytes
 FromASCII(const std::string& ascii)
@@ -765,4 +766,60 @@ TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetchError), fetch_error_out));
     CHECK_EQ(fetch_error.subscribe_id, fetch_error_out.subscribe_id);
     CHECK_EQ(fetch_error.err_code, fetch_error_out.err_code);
+}
+
+TEST_CASE("Subscribe Announces encode/decode")
+{
+    Bytes buffer;
+
+    auto msg = SubscribeAnnounces{};
+    msg.prefix_namespace = TrackNamespace{ "cisco"s, "meetings"s, "video"s, "1080p"s };
+    buffer << msg;
+
+    SubscribeAnnounces msg_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeAnnounces), msg_out));
+    CHECK_EQ(msg.prefix_namespace, msg_out.prefix_namespace);
+}
+
+TEST_CASE("Subscribe Announces Ok encode/decode")
+{
+    Bytes buffer;
+
+    auto msg = SubscribeAnnouncesOk{};
+    msg.prefix_namespace = TrackNamespace{ "cisco"s, "meetings"s, "video"s, "1080p"s };
+    buffer << msg;
+
+    SubscribeAnnouncesOk msg_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeAnnouncesOk), msg_out));
+    CHECK_EQ(msg.prefix_namespace, msg_out.prefix_namespace);
+}
+
+TEST_CASE("Unsubscribe Announces encode/decode")
+{
+    Bytes buffer;
+
+    auto msg = UnsubscribeAnnounces{};
+    msg.prefix_namespace = TrackNamespace{ "cisco"s, "meetings"s, "video"s, "1080p"s };
+    buffer << msg;
+
+    UnsubscribeAnnounces msg_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kUnsubscribeAnnounces), msg_out));
+    CHECK_EQ(msg.prefix_namespace, msg_out.prefix_namespace);
+}
+
+TEST_CASE("Subscribe Announces Error encode/decode")
+{
+    Bytes buffer;
+
+    auto msg = SubscribeAnnouncesError{};
+    msg.prefix_namespace = TrackNamespace{ "cisco"s, "meetings"s, "video"s, "1080p"s };
+    msg.error_code = SubscribeAnnouncesErrorCode::kNamespacePrefixUnknown;
+    msg.reason_phrase = Bytes{ 0x1, 0x2, 0x3 };
+    buffer << msg;
+
+    SubscribeAnnouncesError msg_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeAnnouncesError), msg_out));
+    CHECK_EQ(msg.prefix_namespace, msg_out.prefix_namespace);
+    CHECK_EQ(msg.error_code, msg_out.error_code);
+    CHECK_EQ(msg.reason_phrase, msg_out.reason_phrase);
 }
