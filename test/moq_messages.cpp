@@ -151,7 +151,9 @@ TEST_CASE("AnnounceCancel Message encode/decode")
 
     AnnounceCancel announce_cancel_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kAnnounceCancel), announce_cancel_out));
-    CHECK_EQ(kTrackNamespaceConf, announce_cancel_out.track_namespace);
+    CHECK_EQ(announce_cancel.track_namespace, announce_cancel_out.track_namespace);
+    CHECK_EQ(announce_cancel.error_code, announce_cancel_out.error_code);
+    CHECK_EQ(announce_cancel.reason_phrase, announce_cancel_out.reason_phrase);
 }
 
 TEST_CASE("Subscribe (kLatestObject) Message encode/decode")

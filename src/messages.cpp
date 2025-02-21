@@ -721,6 +721,9 @@ namespace quicr::messages {
     {
         Bytes payload;
         payload << msg.track_namespace;
+        payload << UintVar(msg.error_code);
+        payload << UintVar(msg.reason_phrase.size());
+        payload << msg.reason_phrase;
 
         buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kAnnounceCancel));
         buffer << UintVar(payload.size());
@@ -731,7 +734,7 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, AnnounceCancel& msg)
     {
-        return buffer >> msg.track_namespace;
+        return buffer >> msg.track_namespace >> msg.error_code >> msg.reason_phrase;
     }
 
     //

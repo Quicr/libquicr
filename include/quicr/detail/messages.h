@@ -344,6 +344,8 @@ namespace quicr::messages {
     struct AnnounceCancel
     {
         TrackNamespace track_namespace;
+        uint64_t error_code;
+        ReasonPhrase reason_phrase;
     };
 
     BytesSpan operator>>(BytesSpan buffer, AnnounceCancel& msg);
