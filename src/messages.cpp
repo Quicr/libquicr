@@ -579,10 +579,17 @@ namespace quicr::messages {
         Bytes payload;
         payload << UintVar(msg.subscribe_id);
         payload << UintVar(msg.expires);
-        msg.content_exists ? payload.push_back(static_cast<uint8_t>(1)) : payload.push_back(static_cast<uint8_t>(0));
+        payload.push_back(msg.group_order);
+        payload.push_back(msg.content_exists ? 1 : 0);
+
         if (msg.content_exists) {
             payload << UintVar(msg.largest_group);
             payload << UintVar(msg.largest_object);
+        }
+
+        payload << UintVar(msg.params.size());
+        for (const auto& param : msg.params) {
+            payload << param;
         }
 
         buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kSubscribeOk));
@@ -596,6 +603,9 @@ namespace quicr::messages {
     {
         buffer = buffer >> msg.subscribe_id;
         buffer = buffer >> msg.expires;
+
+        msg.group_order = buffer.front();
+        buffer = buffer.subspan(1);
 
         msg.content_exists = static_cast<bool>(buffer.front());
         buffer = buffer.subspan(1);

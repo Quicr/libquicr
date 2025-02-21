@@ -423,6 +423,7 @@ TEST_CASE("SubscribeOk Message encode/decode")
     auto subscribe_ok = SubscribeOk{};
     subscribe_ok.subscribe_id = 0x1;
     subscribe_ok.expires = 0x100;
+    subscribe_ok.group_order = 0x0;
     subscribe_ok.content_exists = false;
     buffer << subscribe_ok;
 
@@ -430,6 +431,7 @@ TEST_CASE("SubscribeOk Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeOk), subscribe_ok_out));
     CHECK_EQ(subscribe_ok.subscribe_id, subscribe_ok_out.subscribe_id);
     CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
+    CHECK_EQ(subscribe_ok.group_order, subscribe_ok_out.group_order);
     CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
 }
 
