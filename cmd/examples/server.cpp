@@ -508,7 +508,7 @@ class MyServer : public quicr::Server
 
             // Remove all subscribe announces for this connection handle
             std::vector<quicr::TrackNamespace> remove_ns;
-            for (auto& [ns, conns]: qserver_vars::subscribes_announces) {
+            for (auto& [ns, conns] : qserver_vars::subscribes_announces) {
                 auto it = conns.find(connection_handle);
                 if (it != conns.end()) {
                     conns.erase(it);
