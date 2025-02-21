@@ -914,12 +914,11 @@ namespace quicr::messages {
 
         buffer << UintVar(msg.payload.size());
         if (msg.payload.empty()) {
-            // empty payload needs a object status to be set
             buffer << UintVar(static_cast<uint8_t>(msg.object_status));
-        } else {
-            buffer << msg.payload;
         }
+
         buffer << msg.payload;
+
         return buffer;
     }
 
