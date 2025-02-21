@@ -718,6 +718,9 @@ class MyServer : public quicr::Server
                                 sub_track_h->GetFullTrackName().track_alias.value());
                     qserver_vars::pub_subscribes[th.track_fullname_hash][conn_h] = copy_sub_track_h;
                 } else {
+                    if (!last_subscription_time_.has_value()) {
+                        last_subscription_time_ = std::chrono::steady_clock::now();
+                    }
                     auto now = std::chrono::steady_clock::now();
                     auto elapsed =
                       std::chrono::duration_cast<std::chrono::milliseconds>(now - last_subscription_time_.value())

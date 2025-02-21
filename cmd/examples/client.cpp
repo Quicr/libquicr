@@ -249,15 +249,31 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
             case MyPublishTrackHandler::Status::kOk:
                 break;
             case MyPublishTrackHandler::Status::kNewGroupRequested:
-                group_id++;
-                object_id = 0;
-                SPDLOG_WARN(" New Group Requested: Restarting a new group {0}", group_id);
+                if (object_id) {
+                    group_id++;
+                    object_id = 0;
+                    subgroup_id = 0;
+                }
+                SPDLOG_INFO("New Group Requested: Restarting a new group {0}", group_id);
+
                 break;
             case MyPublishTrackHandler::Status::kSubscriptionUpdated:
-                group_id++;
-                object_id = 0;
-                SPDLOG_WARN(" Subscription Updated: Restarting a new group {0}", group_id);
+                if (object_id) {
+                    group_id++;
+                    object_id = 0;
+                    subgroup_id = 0;
+                    SPDLOG_INFO("Subscription Updated: Restarting a new group {0}", group_id);
+                }
+
                 break;
+            case MyPublishTrackHandler::Status::kNoSubscribers:
+                // Start a new group when a subscriber joins
+                if (object_id) {
+                    group_id++;
+                    object_id = 0;
+                    subgroup_id = 0;
+                }
+                [[fallthrough]];
             default:
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 continue;
@@ -286,16 +302,10 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
             SPDLOG_INFO("Send message: {0}", msg);
         }
 
-        if (object_id % 50 == 0) { // Set new group
+        if (object_id && object_id % 15 == 0) { // Set new group
             object_id = 0;
             subgroup_id = 0;
             group_id++;
-        }
-
-        // The idea is to generate a new subgroup after 4 objects and have
-        // only one subgroup within a group of 10 objects
-        if (object_id == 4) {
-            subgroup_id++;
         }
 
         quicr::ObjectHeaders obj_headers = {
