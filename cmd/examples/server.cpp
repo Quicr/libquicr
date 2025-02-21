@@ -731,7 +731,7 @@ class MyServer : public quicr::Server
                       SPDLOG_INFO("Fetching group: {} object: {}", object.headers.group_id, object.headers.object_id);
 
                       pub_track_h->PublishObject(object.headers, object.data);
-                      std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                      std::this_thread::sleep_for(std::chrono::milliseconds(1));
                   }
               }
           });
