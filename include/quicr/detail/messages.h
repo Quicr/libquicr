@@ -427,17 +427,26 @@ namespace quicr::messages {
     // Fetch
     //
 
+    enum class FetchType : uint8_t
+    {
+        kStandalone = 0x1,
+        kJoiningFetch,
+    };
+
     struct Fetch
     {
         uint64_t subscribe_id;
-        TrackNamespace track_namespace;
-        TrackName track_name;
         ObjectPriority priority;
         GroupOrder group_order;
+        FetchType fetch_type;
+        TrackNamespace track_namespace;
+        TrackName track_name;
         GroupId start_group;
         ObjectId start_object;
         GroupId end_group;
         ObjectId end_object;
+        SubscribeId joining_subscribe_id;
+        uint64_t preceding_group_offset;
         std::vector<Parameter> params;
 
         static inline std::size_t SizeOf(const Fetch& fetch) noexcept
