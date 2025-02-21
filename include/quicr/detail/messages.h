@@ -74,8 +74,9 @@ namespace quicr::messages {
     enum class DataMessageType : uint8_t
     {
         kObjectDatagram = 0x01,
+        kObjectDatagramStatus = 0x02,
         kStreamHeaderSubgroup = 0x04,
-        kFetchHeader = 0x5
+        kFetchHeader = 0x5,
     };
 
     enum class SubscribeErrorCode : uint8_t
@@ -433,6 +434,7 @@ namespace quicr::messages {
         uint64_t payload_len{ 0 };
         std::optional<Extensions> extensions;
         Bytes payload;
+
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, ObjectDatagram& msg);
 
@@ -444,6 +446,24 @@ namespace quicr::messages {
     };
 
     Bytes& operator<<(Bytes& buffer, const ObjectDatagram& msg);
+
+    struct ObjectDatagramStatus
+    {
+        TrackAlias track_alias;
+        GroupId group_id;
+        ObjectId object_id;
+        ObjectPriority priority;
+        ObjectStatus status;
+
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, ObjectDatagramStatus& msg);
+
+      private:
+        uint64_t current_pos{ 0 };
+        bool parse_completed{ false };
+    };
+
+    Bytes& operator<<(Bytes& buffer, const ObjectDatagramStatus& msg);
 
     // SubGroups
     struct StreamHeaderSubGroup

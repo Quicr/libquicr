@@ -1250,9 +1250,12 @@ namespace quicr {
             if (data && !data->empty() && data->size() > 3) {
                 auto msg_type = data->front();
 
+                // TODO: Handle ObjectDatagramStatus objects as well.
+
                 if (!msg_type || static_cast<DataMessageType>(msg_type) != DataMessageType::kObjectDatagram) {
-                    SPDLOG_LOGGER_DEBUG(logger_,
-                                        "Received datagram that is not message type kObjectDatagram, dropping");
+                    SPDLOG_LOGGER_DEBUG(
+                      logger_,
+                      "Received datagram that is not message type kObjectDatagram or kObjectDatagramStatus, dropping");
                     auto& conn_ctx = connections_[conn_id];
                     conn_ctx.metrics.rx_dgram_invalid_type++;
                     continue;
