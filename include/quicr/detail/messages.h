@@ -219,9 +219,11 @@ namespace quicr::messages {
     {
         SubscribeId subscribe_id;
         uint64_t expires;
+        uint8_t group_order;
         bool content_exists;
         uint64_t largest_group{ 0 };
         uint64_t largest_object{ 0 };
+        std::vector<Parameter> params;
     };
 
     BytesSpan operator>>(BytesSpan buffer, SubscribeOk& msg);
