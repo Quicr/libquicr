@@ -779,8 +779,7 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesOk& msg)
     {
-        buffer = buffer >> msg.prefix_namespace;
-        return buffer;
+        return buffer >> msg.prefix_namespace;
     }
 
     //

@@ -400,6 +400,7 @@ class MyServer : public quicr::Server
     {
         auto th = quicr::TrackHash({ prefix_namespace, {}, std::nullopt });
 
+        std::cout << "size of subscribe announces " << qserver_vars::subscribes_announces.size() << std::endl;
         auto [it, is_new] = qserver_vars::subscribes_announces.try_emplace(prefix_namespace);
         it->second.insert(connection_handle);
 
@@ -504,6 +505,22 @@ class MyServer : public quicr::Server
         } else {
             SPDLOG_DEBUG(
               "Connection changed connection_handle: {0} status: {1}", connection_handle, static_cast<int>(status));
+
+            // Remove all subscribe announces for this connection handle
+            std::vector<quicr::TrackNamespace> remove_ns;
+            for (auto& [ns, conns]: qserver_vars::subscribes_announces) {
+                auto it = conns.find(connection_handle);
+                if (it != conns.end()) {
+                    conns.erase(it);
+                    if (conns.empty()) {
+                        remove_ns.emplace_back(ns);
+                    }
+                }
+            }
+
+            for (auto ns : remove_ns) {
+                qserver_vars::subscribes_announces.erase(ns);
+            }
         }
     }
 

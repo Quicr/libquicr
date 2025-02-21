@@ -330,8 +330,8 @@ namespace quicr {
                   SubscribeAnnouncesReceived(conn_ctx.connection_handle, msg.prefix_namespace, {});
                 if (err.has_value()) {
                     SendSubscribeAnnouncesError(conn_ctx, msg.prefix_namespace, *err, {});
-                } else {
-
+                }
+                else {
                     for (const auto& ns : matched_ns) {
                         SendAnnounce(conn_ctx, ns);
                     }
