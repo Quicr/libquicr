@@ -751,6 +751,115 @@ namespace quicr::messages {
     }
 
     //
+    // Subscribe Announces
+    //
+    Bytes& operator<<(Bytes& buffer, const SubscribeAnnounces& msg)
+    {
+        Bytes payload;
+
+        payload << msg.prefix_namespace;
+        payload << UintVar(msg.params.size());
+        for (const auto& param : msg.params) {
+            payload << param;
+        }
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kSubscribeAnnounces));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnounces& msg)
+    {
+        buffer = buffer >> msg.prefix_namespace;
+
+        uint64_t num_params = 0;
+        buffer = buffer >> num_params;
+
+        for (uint64_t i = 0; i < num_params; ++i) {
+            Parameter param;
+            buffer = buffer >> param;
+            msg.params.push_back(param);
+        }
+
+        return buffer;
+    }
+
+    //
+    // Subscribe Announces Ok
+    //
+    Bytes& operator<<(Bytes& buffer, const SubscribeAnnouncesOk& msg)
+    {
+        Bytes payload;
+
+        payload << msg.prefix_namespace;
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kSubscribeAnnouncesOk));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesOk& msg)
+    {
+        return buffer >> msg.prefix_namespace;
+    }
+
+    //
+    // Unsubscribe Announces
+    //
+    Bytes& operator<<(Bytes& buffer, const UnsubscribeAnnounces& msg)
+    {
+        Bytes payload;
+
+        payload << msg.prefix_namespace;
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kUnsubscribeAnnounces));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, UnsubscribeAnnounces& msg)
+    {
+        buffer = buffer >> msg.prefix_namespace;
+        return buffer;
+    }
+
+    //
+    // Subscribe Announces Error
+    //
+    Bytes& operator<<(Bytes& buffer, const SubscribeAnnouncesError& msg)
+    {
+        Bytes payload;
+
+        payload << msg.prefix_namespace;
+        payload << UintVar(static_cast<uint64_t>(msg.error_code));
+        payload << UintVar(msg.reason_phrase.size());
+        payload << msg.reason_phrase;
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kSubscribeAnnouncesError));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesError& msg)
+    {
+        buffer = buffer >> msg.prefix_namespace;
+        uint64_t error_code;
+        buffer = buffer >> error_code;
+        msg.error_code = static_cast<SubscribeAnnouncesErrorCode>(error_code);
+        buffer = buffer >> msg.reason_phrase;
+
+        return buffer;
+    }
+
+    //
     // GoAway
     //
 

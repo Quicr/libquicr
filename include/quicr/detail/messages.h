@@ -58,6 +58,10 @@ namespace quicr::messages {
         kTrackStatus,
 
         kGoAway = 0x10,
+        kSubscribeAnnounces,
+        kSubscribeAnnouncesOk,
+        kSubscribeAnnouncesError,
+        kUnsubscribeAnnounces,
 
         kMaxSubscribeID = 0x15,
         kFetch,
@@ -170,6 +174,62 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, ServerSetup& msg);
     Bytes& operator<<(Bytes& buffer, const ServerSetup& msg);
+
+    //
+    // Subscribe Announces
+    //
+    struct SubscribeAnnounces
+    {
+        TrackNamespace prefix_namespace;
+        std::vector<Parameter> params;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnounces& msg);
+    Bytes& operator<<(Bytes& buffer, const SubscribeAnnounces& msg);
+
+    //
+    // Subscribe Announces Ok
+    //
+    struct SubscribeAnnouncesOk
+    {
+        TrackNamespace prefix_namespace;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesOk& msg);
+    Bytes& operator<<(Bytes& buffer, const SubscribeAnnouncesOk& msg);
+
+    //
+    // Unsubscribe Announces
+    //
+    struct UnsubscribeAnnounces
+    {
+        TrackNamespace prefix_namespace;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, UnsubscribeAnnounces& msg);
+    Bytes& operator<<(Bytes& buffer, const UnsubscribeAnnounces& msg);
+
+    //
+    // Subscribe Announces Error
+    //
+    enum class SubscribeAnnouncesErrorCode : uint64_t
+    {
+        kInternalError = 0x0,
+        kUnauthorized,
+        kTimeout,
+        kNotSupported,
+        kNamespacePrefixUnknown,
+    };
+
+    struct SubscribeAnnouncesError
+    {
+        TrackNamespace prefix_namespace;
+        SubscribeAnnouncesErrorCode error_code;
+        ReasonPhrase reason_phrase;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesError& msg);
+    Bytes& operator<<(Bytes& buffer, const SubscribeAnnouncesError& msg);
 
     //
     // New Group
