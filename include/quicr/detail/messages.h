@@ -427,10 +427,11 @@ namespace quicr::messages {
         GroupId group_id;
         ObjectId object_id;
         ObjectPriority priority;
-        ObjectStatus object_status;
-        uint64_t payload_len{ 0 };
         std::optional<Extensions> extensions;
+        uint64_t payload_len{ 0 };
+        ObjectStatus object_status;
         Bytes payload;
+
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, ObjectDatagram& msg);
 
