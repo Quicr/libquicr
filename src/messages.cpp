@@ -859,6 +859,15 @@ namespace quicr::messages {
         buffer = buffer >> msg.largest_group;
         buffer = buffer >> msg.largest_object;
 
+        uint64_t num_params = 0;
+        buffer = buffer >> num_params;
+
+        for (uint64_t i = 0; i < num_params; ++i) {
+            Parameter param;
+            buffer = buffer >> param;
+            msg.params.push_back(param);
+        }
+
         return buffer;
     }
 
