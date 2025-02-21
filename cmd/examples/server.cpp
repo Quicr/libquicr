@@ -722,9 +722,9 @@ class MyServer : public quicr::Server
                         last_subscription_time_ = std::chrono::steady_clock::now();
                     }
                     auto now = std::chrono::steady_clock::now();
-                    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                     now - last_subscription_time_.value())
-                                     .count();
+                    auto elapsed =
+                      std::chrono::duration_cast<std::chrono::milliseconds>(now - last_subscription_time_.value())
+                        .count();
                     if (elapsed > kSubscriptionDampenDurationMs_) {
                         // send subscription update
                         auto& sub_track_h = qserver_vars::pub_subscribes[th.track_fullname_hash][conn_h];

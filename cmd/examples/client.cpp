@@ -302,7 +302,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
             SPDLOG_INFO("Send message: {0}", msg);
         }
 
-        if (object_id && object_id % 15 == 0 ) { // Set new group
+        if (object_id && object_id % 15 == 0) { // Set new group
             object_id = 0;
             subgroup_id = 0;
             group_id++;
