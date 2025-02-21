@@ -701,10 +701,10 @@ TEST_CASE("Fetch Message encode/decode")
     Bytes buffer;
 
     auto fetch = Fetch{};
-    fetch.track_namespace = kTrackNamespaceConf;
-    fetch.track_name = kTrackNameAliceVideo;
     fetch.priority = 1;
     fetch.group_order = GroupOrder::kAscending;
+    fetch.track_namespace = kTrackNamespaceConf;
+    fetch.track_name = kTrackNameAliceVideo;
     fetch.start_group = 0x1000;
     fetch.start_object = 0x0;
     fetch.end_group = 0x2000;

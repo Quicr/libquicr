@@ -778,16 +778,19 @@ namespace quicr::messages {
         Bytes payload;
 
         payload << UintVar(msg.subscribe_id);
-        payload << msg.track_namespace;
-        payload << UintVar(msg.track_name.size());
-        payload << msg.track_name;
         payload.push_back(msg.priority);
         auto group_order = static_cast<uint8_t>(msg.group_order);
         payload.push_back(group_order);
+        payload << UintVar(msg.fetch_type);
+        payload << msg.track_namespace;
+        payload << UintVar(msg.track_name.size());
+        payload << msg.track_name;
         payload << UintVar(msg.start_group);
         payload << UintVar(msg.start_object);
         payload << UintVar(msg.end_group);
         payload << UintVar(msg.end_object);
+        payload << UintVar(msg.joining_subscribe_id);
+        payload << UintVar(msg.preceding_group_offset);
 
         payload << UintVar(msg.params.size());
         for (const auto& param : msg.params) {
@@ -804,16 +807,19 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, Fetch& msg)
     {
         buffer = buffer >> msg.subscribe_id;
-        buffer = buffer >> msg.track_namespace;
-        buffer = buffer >> msg.track_name;
         msg.priority = buffer.front();
         buffer = buffer.subspan(sizeof(ObjectPriority));
         msg.group_order = static_cast<GroupOrder>(buffer.front());
         buffer = buffer.subspan(sizeof(uint8_t));
+        buffer = buffer >> msg.fetch_type;
+        buffer = buffer >> msg.track_namespace;
+        buffer = buffer >> msg.track_name;
         buffer = buffer >> msg.start_group;
         buffer = buffer >> msg.start_object;
         buffer = buffer >> msg.end_group;
         buffer = buffer >> msg.end_object;
+        buffer = buffer >> msg.joining_subscribe_id;
+        buffer = buffer >> msg.preceding_group_offset;
 
         uint64_t num_params = 0;
         buffer = buffer >> num_params;
