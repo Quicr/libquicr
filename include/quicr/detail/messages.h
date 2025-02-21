@@ -68,6 +68,7 @@ namespace quicr::messages {
         kFetchCancel,
         kFetchOk,
         kFetchError,
+        kSubscribesBlocked,
 
         kClientSetup = 0x40,
         kServerSetup,
@@ -330,6 +331,14 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, SubscribeDone& msg);
     Bytes& operator<<(Bytes& buffer, const SubscribeDone& msg);
+
+    struct SubscribesBlocked
+    {
+        uint64_t max_subscribe_id;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribesBlocked& msg);
+    Bytes& operator<<(Bytes& buffer, const SubscribesBlocked& msg);
 
     //
     // Track Status

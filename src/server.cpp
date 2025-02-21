@@ -438,6 +438,20 @@ namespace quicr {
 
                 return true;
             }
+            case messages::ControlMessageType::kSubscribesBlocked: {
+                messages::SubscribesBlocked msg;
+                msg_bytes >> msg;
+
+                SPDLOG_LOGGER_WARN(logger_, "Subscribe was blocked, maximum_subscribe_id: {}", msg.max_subscribe_id);
+
+                // TODO: React to this somehow.
+                // See https://www.ietf.org/archive/id/draft-ietf-moq-transport-08.html#section-7.21
+                // A publisher MAY send a MAX_SUBSCRIBE_ID upon receipt of SUBSCRIBES_BLOCKED, but it MUST NOT rely on
+                // SUBSCRIBES_BLOCKED to trigger sending a MAX_SUBSCRIBE_ID, because sending SUBSCRIBES_BLOCKED is not
+                // required.
+
+                return true;
+            }
             case messages::ControlMessageType::kAnnounceCancel: {
                 messages::AnnounceCancel msg;
                 msg_bytes >> msg;
