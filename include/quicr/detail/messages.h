@@ -56,7 +56,6 @@ namespace quicr::messages {
         kAnnounceCancel,
         kTrackStatusRequest,
         kTrackStatus,
-        kSubscribesBlocked,
 
         kGoAway = 0x10,
 
@@ -65,6 +64,7 @@ namespace quicr::messages {
         kFetchCancel,
         kFetchOk,
         kFetchError,
+        kSubscribesBlocked,
 
         kClientSetup = 0x40,
         kServerSetup,
