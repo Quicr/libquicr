@@ -366,12 +366,18 @@ namespace quicr::messages {
     // Fetch
     //
 
+    enum class FetchType : uint8_t
+    {
+        kStandalone = 0x1,
+        kJoiningFetch,
+    };
+
     struct Fetch
     {
         uint64_t subscribe_id;
         ObjectPriority priority;
         GroupOrder group_order;
-        uint64_t fetch_type;
+        FetchType fetch_type;
         TrackNamespace track_namespace;
         TrackName track_name;
         GroupId start_group;

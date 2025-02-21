@@ -78,7 +78,7 @@ VerifyCtrl(BytesSpan buffer, uint64_t message_type, T& message)
     CHECK_EQ(msg_type, message_type);
     CHECK_EQ(length, buffer.size());
 
-    buffer >> message;
+    buffer = buffer >> message;
 
     return true;
 }
@@ -703,6 +703,7 @@ TEST_CASE("Fetch Message encode/decode")
     auto fetch = Fetch{};
     fetch.priority = 1;
     fetch.group_order = GroupOrder::kAscending;
+    fetch.fetch_type = FetchType::kStandalone;
     fetch.track_namespace = kTrackNamespaceConf;
     fetch.track_name = kTrackNameAliceVideo;
     fetch.start_group = 0x1000;
@@ -712,17 +713,31 @@ TEST_CASE("Fetch Message encode/decode")
     fetch.params = {};
 
     buffer << fetch;
+    {
+        Fetch fetch_out{};
+        CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetch), fetch_out));
+        CHECK_EQ(fetch.track_namespace, fetch_out.track_namespace);
+        CHECK_EQ(fetch.track_name, fetch_out.track_name);
+        CHECK_EQ(fetch.priority, fetch_out.priority);
+        CHECK_EQ(fetch.group_order, fetch_out.group_order);
+        CHECK_EQ(fetch.start_group, fetch_out.start_group);
+        CHECK_EQ(fetch.start_object, fetch_out.start_object);
+        CHECK_EQ(fetch.end_group, fetch_out.end_group);
+        CHECK_EQ(fetch.end_object, fetch_out.end_object);
+    }
 
-    Fetch fetch_out{};
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetch), fetch_out));
-    CHECK_EQ(fetch.track_namespace, fetch_out.track_namespace);
-    CHECK_EQ(fetch.track_name, fetch_out.track_name);
-    CHECK_EQ(fetch.priority, fetch_out.priority);
-    CHECK_EQ(fetch.group_order, fetch_out.group_order);
-    CHECK_EQ(fetch.start_group, fetch_out.start_group);
-    CHECK_EQ(fetch.start_object, fetch_out.start_object);
-    CHECK_EQ(fetch.end_group, fetch_out.end_group);
-    CHECK_EQ(fetch.end_object, fetch_out.end_object);
+    fetch.fetch_type = FetchType::kJoiningFetch;
+    fetch.joining_subscribe_id = 0x0;
+    fetch.preceding_group_offset = 0x0;
+
+    buffer.clear();
+    buffer << fetch;
+    {
+        Fetch fetch_out{};
+        CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetch), fetch_out));
+        CHECK_EQ(fetch.joining_subscribe_id, fetch_out.joining_subscribe_id);
+        CHECK_EQ(fetch.preceding_group_offset, fetch_out.preceding_group_offset);
+    }
 }
 
 TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
