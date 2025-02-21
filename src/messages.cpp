@@ -910,13 +910,13 @@ namespace quicr::messages {
         buffer << UintVar(msg.group_id);
         buffer << UintVar(msg.object_id);
         buffer.push_back(msg.priority);
+        PushExtensions(buffer, msg.extensions);
+
         buffer << UintVar(msg.payload.size());
         if (msg.payload.empty()) {
             // empty payload needs a object status to be set
             buffer << UintVar(static_cast<uint8_t>(msg.object_status));
-            PushExtensions(buffer, msg.extensions);
         } else {
-            PushExtensions(buffer, msg.extensions);
             buffer << msg.payload;
         }
         buffer << msg.payload;
@@ -959,13 +959,20 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 4: {
-                if (!ParseUintVField(buffer, msg.payload_len)) {
+                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
             case 5: {
+                if (!ParseUintVField(buffer, msg.payload_len)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 6: {
                 if (msg.payload_len == 0) {
                     uint64_t status = 0;
                     if (!ParseUintVField(buffer, status)) {
@@ -974,18 +981,6 @@ namespace quicr::messages {
                     msg.object_status = static_cast<ObjectStatus>(status);
                 }
                 msg.current_pos += 1;
-                [[fallthrough]];
-            }
-
-            case 6: {
-                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                if (msg.payload_len == 0) {
-                    msg.parse_completed = true;
-                    break;
-                }
                 [[fallthrough]];
             }
 
