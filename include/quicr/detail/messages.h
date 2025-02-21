@@ -263,10 +263,8 @@ namespace quicr::messages {
     {
         uint64_t subscribe_id;
         uint64_t status_code;
+        uint64_t stream_count;
         ReasonPhrase reason_phrase;
-        bool content_exists;
-        uint64_t final_group_id;
-        uint64_t final_object_id;
     };
 
     BytesSpan operator>>(BytesSpan buffer, SubscribeDone& msg);

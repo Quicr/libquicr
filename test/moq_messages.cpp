@@ -493,8 +493,8 @@ TEST_CASE("SubscribeDone  Message encode/decode")
     auto subscribe_done = SubscribeDone{};
     subscribe_done.subscribe_id = 0x1;
     subscribe_done.status_code = 0x0;
+    subscribe_done.stream_count = 0x0;
     subscribe_done.reason_phrase = Bytes{ 0x0 };
-    subscribe_done.content_exists = false;
 
     buffer << subscribe_done;
 
@@ -502,8 +502,8 @@ TEST_CASE("SubscribeDone  Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeDone), subscribe_done_out));
     CHECK_EQ(subscribe_done.subscribe_id, subscribe_done_out.subscribe_id);
     CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
+    CHECK_EQ(subscribe_done.stream_count, subscribe_done_out.stream_count);
     CHECK_EQ(subscribe_done.reason_phrase, subscribe_done_out.reason_phrase);
-    CHECK_EQ(subscribe_done.content_exists, subscribe_done_out.content_exists);
 }
 
 TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
@@ -513,10 +513,8 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
     auto subscribe_done = SubscribeDone{};
     subscribe_done.subscribe_id = 0x1;
     subscribe_done.status_code = 0x0;
+    subscribe_done.stream_count = 0x0;
     subscribe_done.reason_phrase = Bytes{ 0x0 };
-    subscribe_done.content_exists = true;
-    subscribe_done.final_group_id = 0x1111;
-    subscribe_done.final_object_id = 0xff;
 
     buffer << subscribe_done;
 
@@ -524,10 +522,8 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeDone), subscribe_done_out));
     CHECK_EQ(subscribe_done.subscribe_id, subscribe_done_out.subscribe_id);
     CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
+    CHECK_EQ(subscribe_done.stream_count, subscribe_done_out.stream_count);
     CHECK_EQ(subscribe_done.reason_phrase, subscribe_done_out.reason_phrase);
-    CHECK_EQ(subscribe_done.content_exists, subscribe_done_out.content_exists);
-    CHECK_EQ(subscribe_done.final_group_id, subscribe_done_out.final_group_id);
-    CHECK_EQ(subscribe_done.final_object_id, subscribe_done_out.final_object_id);
 }
 
 TEST_CASE("ClientSetup  Message encode/decode")

@@ -347,8 +347,8 @@ namespace quicr {
     {
         auto subscribe_done = SubscribeDone{};
         subscribe_done.subscribe_id = subscribe_id;
+        subscribe_done.stream_count = 0; // TODO: Get real number.
         subscribe_done.reason_phrase.assign(reason.begin(), reason.end());
-        subscribe_done.content_exists = false;
 
         Bytes buffer;
         buffer.reserve(sizeof(SubscribeDone));
