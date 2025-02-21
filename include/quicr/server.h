@@ -203,11 +203,19 @@ namespace quicr {
         /**
          * @brief Callback notification for unannounce received
          *
+         * @details The callback will indicate that a new unannounce has been received. The
+         *    app should return a vector of connection handler ids that should receive a
+         *    copy of the unannounce. The returned list is based on subscribe announces prefix
+         *    matching.
+         *
          * @param connection_handle         Source connection ID
          * @param track_namespace           Track namespace
          *
+         * @returns vector of subscribe announces connection handler ids matching prefix to the namespace being
+         * unannounced.
          */
-        virtual void UnannounceReceived(ConnectionHandle connection_handle, const TrackNamespace& track_namespace) = 0;
+        virtual std::vector<ConnectionHandle> UnannounceReceived(ConnectionHandle connection_handle,
+                                                                 const TrackNamespace& track_namespace) = 0;
 
         /**
          * @brief Callback notification for Unsubscribe announces received

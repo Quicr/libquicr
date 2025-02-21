@@ -81,13 +81,34 @@ namespace quicr {
         virtual void AnnounceStatusChanged(const TrackNamespace& track_namespace, const PublishAnnounceStatus status);
 
         /**
-         * @brief Callback notification for announce received from subscribe announces
+         * @brief Callback notification for announce received by subscribe announces
          *
-         * @param namespace                     Prefix namespace
-         * @param publish_announce_attributes   Publish announce attributes received
+         * @param track_namespace       Track namespace
+         * @param announce_attributes   Publish announce attributes received
          */
-        virtual void AnnounceReceived(const TrackNamespace& namespace,
-                                      const PublishAnnounceAttributes& publish_announce_attributes);
+        virtual void AnnounceReceived(const TrackNamespace& track_namespace,
+                                      const PublishAnnounceAttributes& announce_attributes);
+
+        /**
+         * @brief Callback notification for unannounce received by subscribe announces
+         *
+         * @param track_namespace       Track namespace
+         */
+        virtual void UnannounceReceived(const TrackNamespace& track_namespace);
+
+        /**
+         * @brief Callback notification for subscribe announces OK or Error
+         *
+         * @details error_code and reason will be nullopt is the announces status is OK and accepted.
+         *      If error, the error_code and reason will be set to indicate the error.
+         *
+         * @param track_namespace       Track namespace
+         * @param error_code            Set if there is an error; error code
+         * @param reason                Set if there is an error; reason phrase
+         */
+        virtual void SubscribeAnnouncesStatusChanged(const TrackNamespace& track_namespace,
+                                                     std::optional<messages::SubscribeAnnouncesErrorCode> error_code,
+                                                     std::optional<messages::ReasonPhrase> reason);
 
         /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
@@ -201,6 +222,36 @@ namespace quicr {
          * @param track_namespace         Track namespace to unannounce
          */
         void PublishUnannounce(const TrackNamespace& track_namespace);
+
+        /**
+         * @brief Subscribe Announces to prefix namespace
+         *
+         * @note SubscribeAnnouncesStatusChanged will be called after receiving either an OK or ERROR
+         *
+         * @param prefix_namespace      Prefix namespace to subscribe announces
+         */
+        void SubscribeAnnounces(const TrackNamespace& prefix_namespace)
+        {
+            if (!connection_handle_) {
+                return;
+            }
+
+            SendSubscribeAnnounces(*connection_handle_, prefix_namespace);
+        }
+
+        /**
+         * @brief Unsubscribe announces to prefix namespace
+         *
+         * @param prefix_namespace      Prefix namespace to unsubscribe announces
+         */
+        void UnsubscribeAnnounces(const TrackNamespace& prefix_namespace)
+        {
+            if (!connection_handle_) {
+                return;
+            }
+
+            SendUnsubscribeAnnounces(*connection_handle_, prefix_namespace);
+        }
 
         /**
          * @brief Publish to a track

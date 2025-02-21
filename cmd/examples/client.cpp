@@ -182,6 +182,40 @@ class MyClient : public quicr::Client
         }
     }
 
+    void AnnounceReceived(const quicr::TrackNamespace& track_namespace,
+                          const quicr::PublishAnnounceAttributes&) override
+    {
+        auto th = quicr::TrackHash({ track_namespace, {}, std::nullopt });
+        SPDLOG_INFO("Received announce for namespace_hash: {}", th.track_namespace_hash);
+    }
+
+    void UnannounceReceived(const quicr::TrackNamespace& track_namespace) override
+    {
+        auto th = quicr::TrackHash({ track_namespace, {}, std::nullopt });
+        SPDLOG_INFO("Received unannounce for namespace_hash: {}", th.track_namespace_hash);
+    }
+
+    void SubscribeAnnouncesStatusChanged(const quicr::TrackNamespace& track_namespace,
+                                         std::optional<quicr::messages::SubscribeAnnouncesErrorCode> error_code,
+                                         std::optional<quicr::messages::ReasonPhrase> reason) override
+    {
+        auto th = quicr::TrackHash({ track_namespace, {}, std::nullopt });
+        if (!error_code.has_value()) {
+            SPDLOG_INFO("Subscribe announces namespace_hash: {} status changed to OK", th.track_namespace_hash);
+            return;
+        }
+
+        std::string reason_str;
+        if (reason.has_value()) {
+            reason_str.assign(reason.value().begin(), reason.value().end());
+        }
+
+        SPDLOG_WARN("Subscribe announces to namespace_hash: {} has error {} with reason: {}",
+                    th.track_namespace_hash,
+                    static_cast<uint64_t>(error_code.value()),
+                    reason_str);
+    }
+
   private:
     bool& stop_threads_;
 };
@@ -463,7 +497,8 @@ main(int argc, char* argv[])
         ("sub_name", "Track name", cxxopts::value<std::string>())
         ("start_point", "Start point for Subscription - 0 for from the beginning, 1 from the latest object", cxxopts::value<uint64_t>())
         ("track_alias", "Track alias to use", cxxopts::value<uint64_t>())
-        ("new_group", "Requests a new group on subscribe");
+        ("new_group", "Requests a new group on subscribe")
+        ("sub_announces", "Prefix namespace to subscribe announces to", cxxopts::value<std::string>());
 
     options.add_options("Fetcher")
         ("fetch_namespace", "Track namespace", cxxopts::value<std::string>())
@@ -502,9 +537,30 @@ main(int argc, char* argv[])
             exit(-1);
         }
 
+        while (not stop_threads) {
+            if (client->GetStatus() == MyClient::Status::kReady) {
+                SPDLOG_INFO("Connected to server");
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        }
+
         std::thread pub_thread;
         std::thread sub_thread;
         std::thread fetch_thread;
+
+        if (result.count("sub_announces")) {
+            const auto& prefix_ns =
+              quicr::example::MakeFullTrackName(result["sub_announces"].as<std::string>(), "", std::nullopt);
+
+            auto th = quicr::TrackHash(prefix_ns);
+
+            SPDLOG_INFO("Sending subscribe announces for prefix '{}' namespace_hash: {}",
+                        result["sub_announces"].as<std::string>(),
+                        th.track_namespace_hash);
+
+            client->SubscribeAnnounces(prefix_ns.name_space);
+        }
 
         if (enable_pub) {
             const auto& pub_track_name = quicr::example::MakeFullTrackName(result["pub_namespace"].as<std::string>(),

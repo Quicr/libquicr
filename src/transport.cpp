@@ -381,8 +381,15 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
-    void Transport::SendSubscribeAnnounces(ConnectionContext& conn_ctx, const TrackNamespace& prefix_namespace)
+    void Transport::SendSubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace)
     {
+        std::lock_guard<std::mutex> _(state_mutex_);
+        auto conn_it = connections_.find(conn_handle);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_handle);
+            return;
+        }
+
         auto msg = SubscribeAnnounces{};
         msg.prefix_namespace = prefix_namespace;
 
@@ -394,10 +401,10 @@ namespace quicr {
 
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending Subscribe announces to conn_id: {} prefix_hash: {}",
-                            conn_ctx.connection_handle,
+                            conn_it->second.connection_handle,
                             th.track_namespace_hash);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_it->second, buffer);
     }
 
     void Transport::SendSubscribeAnnouncesOk(ConnectionContext& conn_ctx, const TrackNamespace& prefix_namespace)
@@ -442,8 +449,15 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
-    void Transport::SendUnsubscribeAnnounces(ConnectionContext& conn_ctx, const TrackNamespace& prefix_namespace)
+    void Transport::SendUnsubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace)
     {
+        std::lock_guard<std::mutex> _(state_mutex_);
+        auto conn_it = connections_.find(conn_handle);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_handle);
+            return;
+        }
+
         auto msg = UnsubscribeAnnounces{};
         msg.prefix_namespace = prefix_namespace;
 
@@ -455,10 +469,10 @@ namespace quicr {
 
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending Unsubscribe announces to conn_id: {} prefix_hash: {}",
-                            conn_ctx.connection_handle,
+                            conn_handle,
                             th.track_namespace_hash);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_it->second, buffer);
     }
 
     void Transport::SendSubscribeError(ConnectionContext& conn_ctx,

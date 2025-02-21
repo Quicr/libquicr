@@ -328,8 +328,8 @@ namespace quicr {
                                 messages::SubscribeErrorCode error,
                                 const std::string& reason);
 
-        void SendSubscribeAnnounces(ConnectionContext& conn_ctx, const TrackNamespace& prefix_namespace);
-        void SendUnsubscribeAnnounces(ConnectionContext& conn_ctx, const TrackNamespace& prefix_namespace);
+        void SendSubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
+        void SendUnsubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
         void SendSubscribeAnnouncesOk(ConnectionContext& conn_ctx, const TrackNamespace& prefix_namespace);
         void SendSubscribeAnnouncesError(ConnectionContext& conn_ctx,
                                          const TrackNamespace& prefix_namespace,

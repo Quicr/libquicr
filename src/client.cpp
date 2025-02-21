@@ -19,6 +19,14 @@ namespace quicr {
     void Client::ServerSetupReceived(const ServerSetupAttributes&) {}
 
     void Client::AnnounceStatusChanged(const TrackNamespace&, const PublishAnnounceStatus) {}
+    void Client::AnnounceReceived(const TrackNamespace&, const PublishAnnounceAttributes&) {}
+    void Client::UnannounceReceived(const TrackNamespace&) {}
+
+    void Client::SubscribeAnnouncesStatusChanged(const TrackNamespace&,
+                                                 std::optional<messages::SubscribeAnnouncesErrorCode>,
+                                                 std::optional<messages::ReasonPhrase>)
+    {
+    }
 
     void Client::UnpublishedSubscribeReceived(const FullTrackName&, const SubscribeAttributes&)
     {
@@ -227,6 +235,29 @@ namespace quicr {
                 RemoveSubscribeTrack(conn_ctx, *sub_it->second);
                 return true;
             }
+
+            case messages::ControlMessageType::kAnnounce: {
+                messages::Announce msg;
+                msg_bytes >> msg;
+
+                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
+
+                AnnounceReceived(tfn.name_space, {});
+                return true;
+            }
+
+            case messages::ControlMessageType::kUnannounce: {
+                messages::Unannounce msg;
+                msg_bytes >> msg;
+
+                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
+                auto th = TrackHash(tfn);
+
+                UnannounceReceived(tfn.name_space);
+
+                return true;
+            }
+
             case messages::ControlMessageType::kAnnounceOk: {
                 messages::AnnounceOk msg;
                 msg_bytes >> msg;
@@ -267,6 +298,23 @@ namespace quicr {
                 }
                 return true;
             }
+            case messages::ControlMessageType::kSubscribeAnnouncesOk: {
+                messages::SubscribeAnnouncesOk msg;
+                msg_bytes >> msg;
+
+                SubscribeAnnouncesStatusChanged(msg.prefix_namespace, std::nullopt, std::nullopt);
+
+                return true;
+            }
+            case messages::ControlMessageType::kSubscribeAnnouncesError: {
+                messages::SubscribeAnnouncesError msg;
+                msg_bytes >> msg;
+
+                SubscribeAnnouncesStatusChanged(msg.prefix_namespace, msg.error_code, std::move(msg.reason_phrase));
+
+                return true;
+            }
+
             case messages::ControlMessageType::kUnsubscribe: {
                 messages::Unsubscribe msg;
                 msg_bytes >> msg;
@@ -375,17 +423,6 @@ namespace quicr {
 
                 std::string new_sess_uri(msg.new_session_uri.begin(), msg.new_session_uri.end());
                 SPDLOG_LOGGER_INFO(logger_, "Received goaway new session uri: {0}", new_sess_uri);
-                return true;
-            }
-            case messages::ControlMessageType::kSubscribeAnnouncesOk: {
-                messages::SubscribeAnnouncesOk msg;
-                msg_bytes >> msg;
-
-                auto th = TrackHash({ msg.prefix_namespace, {}, std::nullopt });
-
-                SPDLOG_LOGGER_DEBUG(
-                  logger_, "Received subscribe announce OK to namespace_hash: {}", th.track_namespace_hash);
-
                 return true;
             }
             case messages::ControlMessageType::kServerSetup: {

@@ -27,6 +27,14 @@ namespace quicr {
 
     void Server::AnnounceReceived(ConnectionHandle, const TrackNamespace&, const PublishAnnounceAttributes&) {}
 
+    std::pair<std::optional<messages::SubscribeAnnouncesErrorCode>, std::vector<TrackNamespace>>
+    Server::SubscribeAnnouncesReceived(ConnectionHandle, const TrackNamespace&, const PublishAnnounceAttributes&)
+    {
+        return { std::nullopt, {} };
+    }
+
+    void Server::UnsubscribeAnnouncesReceived(ConnectionHandle, const TrackNamespace&) {}
+
     void Server::ResolveAnnounce(ConnectionHandle connection_handle,
                                  const TrackNamespace& track_namespace,
                                  const std::vector<ConnectionHandle>& subscribers,
@@ -370,7 +378,17 @@ namespace quicr {
 
                 SPDLOG_LOGGER_INFO(logger_, "Received unannounce for namespace_hash: {0}", th.track_namespace_hash);
 
-                UnannounceReceived(conn_ctx.connection_handle, tfn.name_space);
+                auto sub_anno_conns = UnannounceReceived(conn_ctx.connection_handle, tfn.name_space);
+
+                std::lock_guard<std::mutex> _(state_mutex_);
+                for (auto conn_id : sub_anno_conns) {
+                    auto conn_it = connections_.find(conn_id);
+                    if (conn_it == connections_.end()) {
+                        continue;
+                    }
+
+                    SendUnannounce(conn_it->second, msg.track_namespace);
+                }
 
                 return true;
             }
