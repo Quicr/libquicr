@@ -154,7 +154,6 @@ namespace quicr::messages {
         uint64_t num_versions{ 0 };
         std::vector<Version> supported_versions;
         Parameter role_parameter;
-        Parameter path_parameter;
         Parameter endpoint_id_parameter;
     };
 
@@ -165,7 +164,6 @@ namespace quicr::messages {
     {
         Version selection_version;
         Parameter role_parameter;
-        Parameter path_parameter;
         Parameter endpoint_id_parameter;
     };
 
