@@ -766,3 +766,16 @@ TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
     CHECK_EQ(fetch_error.subscribe_id, fetch_error_out.subscribe_id);
     CHECK_EQ(fetch_error.err_code, fetch_error_out.err_code);
 }
+
+TEST_CASE("SubscribesBlocked Message encode/decode")
+{
+    Bytes buffer;
+
+    auto sub_blocked = SubscribesBlocked{};
+    sub_blocked.max_subscribe_id = std::numeric_limits<uint64_t>::max() >> 2;
+    buffer << sub_blocked;
+
+    SubscribesBlocked sub_blocked_out{};
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribesBlocked), sub_blocked_out));
+    CHECK_EQ(sub_blocked.max_subscribe_id, sub_blocked_out.max_subscribe_id);
+}

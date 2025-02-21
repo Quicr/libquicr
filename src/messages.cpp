@@ -574,6 +574,23 @@ namespace quicr::messages {
         return buffer;
     }
 
+    Bytes& operator<<(Bytes& buffer, const SubscribesBlocked& msg)
+    {
+        Bytes payload;
+        payload << UintVar(msg.max_subscribe_id);
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kSubscribesBlocked));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribesBlocked& msg)
+    {
+        return buffer >> msg.max_subscribe_id;
+    }
+
     Bytes& operator<<(Bytes& buffer, const SubscribeOk& msg)
     {
         Bytes payload;

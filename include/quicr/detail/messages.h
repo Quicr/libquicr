@@ -56,6 +56,7 @@ namespace quicr::messages {
         kAnnounceCancel,
         kTrackStatusRequest,
         kTrackStatus,
+        kSubscribesBlocked,
 
         kGoAway = 0x10,
 
@@ -271,6 +272,14 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, SubscribeDone& msg);
     Bytes& operator<<(Bytes& buffer, const SubscribeDone& msg);
+
+    struct SubscribesBlocked
+    {
+        uint64_t max_subscribe_id;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribesBlocked& msg);
+    Bytes& operator<<(Bytes& buffer, const SubscribesBlocked& msg);
 
     //
     // Track Status
