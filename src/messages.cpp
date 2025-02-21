@@ -247,9 +247,6 @@ namespace quicr::messages {
                 case ParameterType::kRole:
                     msg.role_parameter = std::move(param);
                     break;
-                case ParameterType::kPath:
-                    msg.path_parameter = std::move(param);
-                    break;
                 case ParameterType::kEndpointId:
                     msg.endpoint_id_parameter = std::move(param);
                     break;
@@ -301,9 +298,6 @@ namespace quicr::messages {
             switch (static_cast<ParameterType>(param.type)) {
                 case ParameterType::kRole:
                     msg.role_parameter = std::move(param);
-                    break;
-                case ParameterType::kPath:
-                    msg.path_parameter = std::move(param);
                     break;
                 case ParameterType::kEndpointId:
                     msg.endpoint_id_parameter = std::move(param);
