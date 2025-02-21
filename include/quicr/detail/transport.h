@@ -327,6 +327,15 @@ namespace quicr {
                                 uint64_t track_alias,
                                 messages::SubscribeErrorCode error,
                                 const std::string& reason);
+
+        void SendSubscribeAnnounces(ConnectionContext& conn_ctx, const TrackNamespace& prefix_namespace);
+        void SendUnsubscribeAnnounces(ConnectionContext& conn_ctx, const TrackNamespace& prefix_namespace);
+        void SendSubscribeAnnouncesOk(ConnectionContext& conn_ctx, const TrackNamespace& prefix_namespace);
+        void SendSubscribeAnnouncesError(ConnectionContext& conn_ctx,
+                                         const TrackNamespace& prefix_namespace,
+                                         messages::SubscribeAnnouncesErrorCode err_code,
+                                         const messages::ReasonPhrase& reason);
+
         void SendFetch(ConnectionContext& conn_ctx,
                        uint64_t subscribe_id,
                        const FullTrackName& tfn,

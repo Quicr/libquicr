@@ -187,14 +187,17 @@ namespace quicr {
          * @brief Accept or reject an announce that was received
          *
          * @details Accept or reject an announce received via AnnounceReceived(). The MoQ Transport
-         *      will send the protocol message based on the AnnounceResponse
+         *      will send the protocol message based on the AnnounceResponse. Subscribers
+         *      defined will be sent a copy of the announcement
          *
          * @param connection_handle        source connection ID
          * @param track_namespace          track namespace
+         * @param subscribers              Vector/list of subscriber connection handles that should be sent the announce
          * @param announce_response        response to for the announcement
          */
         void ResolveAnnounce(ConnectionHandle connection_handle,
                              const TrackNamespace& track_namespace,
+                             const std::vector<ConnectionHandle>& subscribers,
                              const AnnounceResponse& announce_response);
 
         /**
@@ -205,6 +208,33 @@ namespace quicr {
          *
          */
         virtual void UnannounceReceived(ConnectionHandle connection_handle, const TrackNamespace& track_namespace) = 0;
+
+        /**
+         * @brief Callback notification for Unsubscribe announces received
+         *
+         * @param connection_handle         Source connection ID
+         * @param prefix_namespace           Prefix namespace
+         *
+         */
+        virtual void UnsubscribeAnnouncesReceived(ConnectionHandle connection_handle,
+                                                  const TrackNamespace& prefix_namespace) = 0;
+
+        /**
+         * @brief Callback notification for new subscribe announces received
+         *
+         * @note The caller must return the appropriate SubscribeAnnouncesErrorCode on error.
+         *    If no error, nullopt is returned for error code and the vector should contain
+         *    all the matching track namespaces to the prefix.  Each of the returned namespaces
+         *    will be announced to the subscriber.
+         *
+         * @param connection_handle             Source connection ID
+         * @param prefix_namespace               Track namespace
+         * @param announce_attributes   Announces attributes received
+         */
+        virtual std::pair<std::optional<messages::SubscribeAnnouncesErrorCode>, std::vector<TrackNamespace>>
+        SubscribeAnnouncesReceived(ConnectionHandle connection_handle,
+                                   const TrackNamespace& prefix_namespace,
+                                   const PublishAnnounceAttributes& announce_attributes);
 
         /**
          * @brief Callback notification for new subscribe received

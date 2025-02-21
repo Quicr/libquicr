@@ -27,7 +27,35 @@ namespace quicr {
 
     void Server::AnnounceReceived(ConnectionHandle, const TrackNamespace&, const PublishAnnounceAttributes&) {}
 
-    void Server::ResolveAnnounce(ConnectionHandle, const TrackNamespace&, const AnnounceResponse&) {}
+    void Server::ResolveAnnounce(ConnectionHandle connection_handle,
+                                 const TrackNamespace& track_namespace,
+                                 const std::vector<ConnectionHandle>& subscribers,
+                                 const AnnounceResponse& response)
+    {
+        auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            return;
+        }
+
+        switch (response.reason_code) {
+            case AnnounceResponse::ReasonCode::kOk: {
+                SendAnnounceOk(conn_it->second, track_namespace);
+
+                for (const auto& sub_conn_handle : subscribers) {
+                    auto it = connections_.find(sub_conn_handle);
+                    if (it == connections_.end()) {
+                        continue;
+                    }
+
+                    SendAnnounce(it->second, track_namespace);
+                }
+                break;
+            }
+            default: {
+                // TODO: Send announce error
+            }
+        }
+    }
 
     void Server::SubscribeReceived(ConnectionHandle,
                                    uint64_t,
@@ -283,12 +311,34 @@ namespace quicr {
                 auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
 
                 AnnounceReceived(conn_ctx.connection_handle, tfn.name_space, {});
+                return true;
+            }
 
-                // TODO(tievens): Delay announce OK till ResolveAnnounce() is called
-                SendAnnounceOk(conn_ctx, msg.track_namespace);
+            case messages::ControlMessageType::kSubscribeAnnounces: {
+                messages::SubscribeAnnounces msg;
+                msg_bytes >> msg;
+
+                const auto& [err, matched_ns] =
+                  SubscribeAnnouncesReceived(conn_ctx.connection_handle, msg.prefix_namespace, {});
+                if (err.has_value()) {
+                    SendSubscribeAnnouncesError(conn_ctx, msg.prefix_namespace, *err, {});
+                } else {
+
+                    for (const auto& ns : matched_ns) {
+                        SendAnnounce(conn_ctx, ns);
+                    }
+                }
 
                 return true;
             }
+
+            case messages::ControlMessageType::kUnsubscribeAnnounces: {
+                messages::UnsubscribeAnnounces msg;
+                msg_bytes >> msg;
+
+                UnsubscribeAnnouncesReceived(conn_ctx.connection_handle, msg.prefix_namespace);
+            }
+
             case messages::ControlMessageType::kAnnounceError: {
                 messages::AnnounceError msg;
                 msg_bytes >> msg;
