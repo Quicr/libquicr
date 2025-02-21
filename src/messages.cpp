@@ -641,6 +641,11 @@ namespace quicr::messages {
         payload << msg.track_namespace;
         payload << UintVar(static_cast<uint64_t>(0));
 
+        payload << UintVar(msg.params.size());
+        for (const auto& param : msg.params) {
+            payload << param;
+        }
+
         buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kAnnounce));
         buffer << UintVar(payload.size());
         buffer << payload;
