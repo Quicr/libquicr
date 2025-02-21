@@ -58,6 +58,10 @@ namespace quicr::messages {
         kTrackStatus,
 
         kGoAway = 0x10,
+        kSubscribeAnnounces,
+        kSubscribeAnnouncesOk,
+        kSubscribeAnnouncesError,
+        kUnsubscribeAnnounces,
 
         kMaxSubscribeID = 0x15,
         kFetch,
@@ -75,8 +79,9 @@ namespace quicr::messages {
     enum class DataMessageType : uint8_t
     {
         kObjectDatagram = 0x01,
+        kObjectDatagramStatus = 0x02,
         kStreamHeaderSubgroup = 0x04,
-        kFetchHeader = 0x5
+        kFetchHeader = 0x5,
     };
 
     enum class SubscribeErrorCode : uint8_t
@@ -155,7 +160,6 @@ namespace quicr::messages {
         uint64_t num_versions{ 0 };
         std::vector<Version> supported_versions;
         Parameter role_parameter;
-        Parameter path_parameter;
         Parameter endpoint_id_parameter;
     };
 
@@ -166,12 +170,67 @@ namespace quicr::messages {
     {
         Version selection_version;
         Parameter role_parameter;
-        Parameter path_parameter;
         Parameter endpoint_id_parameter;
     };
 
     BytesSpan operator>>(BytesSpan buffer, ServerSetup& msg);
     Bytes& operator<<(Bytes& buffer, const ServerSetup& msg);
+
+    //
+    // Subscribe Announces
+    //
+    struct SubscribeAnnounces
+    {
+        TrackNamespace prefix_namespace;
+        std::vector<Parameter> params;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnounces& msg);
+    Bytes& operator<<(Bytes& buffer, const SubscribeAnnounces& msg);
+
+    //
+    // Subscribe Announces Ok
+    //
+    struct SubscribeAnnouncesOk
+    {
+        TrackNamespace prefix_namespace;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesOk& msg);
+    Bytes& operator<<(Bytes& buffer, const SubscribeAnnouncesOk& msg);
+
+    //
+    // Unsubscribe Announces
+    //
+    struct UnsubscribeAnnounces
+    {
+        TrackNamespace prefix_namespace;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, UnsubscribeAnnounces& msg);
+    Bytes& operator<<(Bytes& buffer, const UnsubscribeAnnounces& msg);
+
+    //
+    // Subscribe Announces Error
+    //
+    enum class SubscribeAnnouncesErrorCode : uint64_t
+    {
+        kInternalError = 0x0,
+        kUnauthorized,
+        kTimeout,
+        kNotSupported,
+        kNamespacePrefixUnknown,
+    };
+
+    struct SubscribeAnnouncesError
+    {
+        TrackNamespace prefix_namespace;
+        SubscribeAnnouncesErrorCode error_code;
+        ReasonPhrase reason_phrase;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesError& msg);
+    Bytes& operator<<(Bytes& buffer, const SubscribeAnnouncesError& msg);
 
     //
     // New Group
@@ -220,9 +279,11 @@ namespace quicr::messages {
     {
         SubscribeId subscribe_id;
         uint64_t expires;
+        uint8_t group_order;
         bool content_exists;
         uint64_t largest_group{ 0 };
         uint64_t largest_object{ 0 };
+        std::vector<Parameter> params;
     };
 
     BytesSpan operator>>(BytesSpan buffer, SubscribeOk& msg);
@@ -264,10 +325,8 @@ namespace quicr::messages {
     {
         uint64_t subscribe_id;
         uint64_t status_code;
+        uint64_t stream_count;
         ReasonPhrase reason_phrase;
-        bool content_exists;
-        uint64_t final_group_id;
-        uint64_t final_object_id;
     };
 
     BytesSpan operator>>(BytesSpan buffer, SubscribeDone& msg);
@@ -355,6 +414,8 @@ namespace quicr::messages {
     struct AnnounceCancel
     {
         TrackNamespace track_namespace;
+        uint64_t error_code;
+        ReasonPhrase reason_phrase;
     };
 
     BytesSpan operator>>(BytesSpan buffer, AnnounceCancel& msg);
@@ -375,17 +436,26 @@ namespace quicr::messages {
     // Fetch
     //
 
+    enum class FetchType : uint8_t
+    {
+        kStandalone = 0x1,
+        kJoiningFetch,
+    };
+
     struct Fetch
     {
         uint64_t subscribe_id;
-        TrackNamespace track_namespace;
-        TrackName track_name;
         ObjectPriority priority;
         GroupOrder group_order;
+        FetchType fetch_type;
+        TrackNamespace track_namespace;
+        TrackName track_name;
         GroupId start_group;
         ObjectId start_object;
         GroupId end_group;
         ObjectId end_object;
+        SubscribeId joining_subscribe_id;
+        uint64_t preceding_group_offset;
         std::vector<Parameter> params;
 
         static inline std::size_t SizeOf(const Fetch& fetch) noexcept
@@ -438,10 +508,11 @@ namespace quicr::messages {
         GroupId group_id;
         ObjectId object_id;
         ObjectPriority priority;
-        ObjectStatus object_status;
-        uint64_t payload_len{ 0 };
         std::optional<Extensions> extensions;
+        uint64_t payload_len{ 0 };
+        ObjectStatus object_status;
         Bytes payload;
+
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, ObjectDatagram& msg);
 
@@ -453,6 +524,24 @@ namespace quicr::messages {
     };
 
     Bytes& operator<<(Bytes& buffer, const ObjectDatagram& msg);
+
+    struct ObjectDatagramStatus
+    {
+        TrackAlias track_alias;
+        GroupId group_id;
+        ObjectId object_id;
+        ObjectPriority priority;
+        ObjectStatus status;
+
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, ObjectDatagramStatus& msg);
+
+      private:
+        uint64_t current_pos{ 0 };
+        bool parse_completed{ false };
+    };
+
+    Bytes& operator<<(Bytes& buffer, const ObjectDatagramStatus& msg);
 
     // SubGroups
     struct StreamHeaderSubGroup

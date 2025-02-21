@@ -11,6 +11,7 @@
 
 using namespace quicr;
 using namespace quicr::messages;
+using namespace std::string_literals;
 
 static Bytes
 FromASCII(const std::string& ascii)
@@ -78,7 +79,7 @@ VerifyCtrl(BytesSpan buffer, uint64_t message_type, T& message)
     CHECK_EQ(msg_type, message_type);
     CHECK_EQ(length, buffer.size());
 
-    buffer >> message;
+    buffer = buffer >> message;
 
     return true;
 }
@@ -151,7 +152,9 @@ TEST_CASE("AnnounceCancel Message encode/decode")
 
     AnnounceCancel announce_cancel_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kAnnounceCancel), announce_cancel_out));
-    CHECK_EQ(kTrackNamespaceConf, announce_cancel_out.track_namespace);
+    CHECK_EQ(announce_cancel.track_namespace, announce_cancel_out.track_namespace);
+    CHECK_EQ(announce_cancel.error_code, announce_cancel_out.error_code);
+    CHECK_EQ(announce_cancel.reason_phrase, announce_cancel_out.reason_phrase);
 }
 
 TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
@@ -423,6 +426,7 @@ TEST_CASE("SubscribeOk Message encode/decode")
     auto subscribe_ok = SubscribeOk{};
     subscribe_ok.subscribe_id = 0x1;
     subscribe_ok.expires = 0x100;
+    subscribe_ok.group_order = 0x0;
     subscribe_ok.content_exists = false;
     buffer << subscribe_ok;
 
@@ -430,6 +434,7 @@ TEST_CASE("SubscribeOk Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeOk), subscribe_ok_out));
     CHECK_EQ(subscribe_ok.subscribe_id, subscribe_ok_out.subscribe_id);
     CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
+    CHECK_EQ(subscribe_ok.group_order, subscribe_ok_out.group_order);
     CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
 }
 
@@ -493,8 +498,8 @@ TEST_CASE("SubscribeDone  Message encode/decode")
     auto subscribe_done = SubscribeDone{};
     subscribe_done.subscribe_id = 0x1;
     subscribe_done.status_code = 0x0;
+    subscribe_done.stream_count = 0x0;
     subscribe_done.reason_phrase = Bytes{ 0x0 };
-    subscribe_done.content_exists = false;
 
     buffer << subscribe_done;
 
@@ -502,8 +507,8 @@ TEST_CASE("SubscribeDone  Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeDone), subscribe_done_out));
     CHECK_EQ(subscribe_done.subscribe_id, subscribe_done_out.subscribe_id);
     CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
+    CHECK_EQ(subscribe_done.stream_count, subscribe_done_out.stream_count);
     CHECK_EQ(subscribe_done.reason_phrase, subscribe_done_out.reason_phrase);
-    CHECK_EQ(subscribe_done.content_exists, subscribe_done_out.content_exists);
 }
 
 TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
@@ -513,10 +518,8 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
     auto subscribe_done = SubscribeDone{};
     subscribe_done.subscribe_id = 0x1;
     subscribe_done.status_code = 0x0;
+    subscribe_done.stream_count = 0x0;
     subscribe_done.reason_phrase = Bytes{ 0x0 };
-    subscribe_done.content_exists = true;
-    subscribe_done.final_group_id = 0x1111;
-    subscribe_done.final_object_id = 0xff;
 
     buffer << subscribe_done;
 
@@ -524,10 +527,8 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeDone), subscribe_done_out));
     CHECK_EQ(subscribe_done.subscribe_id, subscribe_done_out.subscribe_id);
     CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
+    CHECK_EQ(subscribe_done.stream_count, subscribe_done_out.stream_count);
     CHECK_EQ(subscribe_done.reason_phrase, subscribe_done_out.reason_phrase);
-    CHECK_EQ(subscribe_done.content_exists, subscribe_done_out.content_exists);
-    CHECK_EQ(subscribe_done.final_group_id, subscribe_done_out.final_group_id);
-    CHECK_EQ(subscribe_done.final_object_id, subscribe_done_out.final_object_id);
 }
 
 TEST_CASE("ClientSetup  Message encode/decode")
@@ -610,6 +611,27 @@ TEST_CASE("ObjectDatagram  Message encode/decode")
     ObjectDatagramEncodeDecode(false, true);
     ObjectDatagramEncodeDecode(true, false);
     ObjectDatagramEncodeDecode(true, true);
+}
+
+TEST_CASE("ObjectDatagramStatus  Message encode/decode")
+{
+    Bytes buffer;
+    auto object_datagram_status = ObjectDatagramStatus{};
+    object_datagram_status.track_alias = uint64_t(kTrackAliasAliceVideo);
+    object_datagram_status.group_id = 0x1000;
+    object_datagram_status.object_id = 0xFF;
+    object_datagram_status.priority = 0xA;
+    object_datagram_status.status = quicr::ObjectStatus::kAvailable;
+
+    buffer << object_datagram_status;
+
+    ObjectDatagramStatus object_datagram_status_out;
+    CHECK(Verify(buffer, static_cast<uint64_t>(DataMessageType::kObjectDatagramStatus), object_datagram_status_out));
+    CHECK_EQ(object_datagram_status.track_alias, object_datagram_status_out.track_alias);
+    CHECK_EQ(object_datagram_status.group_id, object_datagram_status_out.group_id);
+    CHECK_EQ(object_datagram_status.object_id, object_datagram_status_out.object_id);
+    CHECK_EQ(object_datagram_status.priority, object_datagram_status_out.priority);
+    CHECK_EQ(object_datagram_status.status, object_datagram_status_out.status);
 }
 
 static void
@@ -701,10 +723,11 @@ TEST_CASE("Fetch Message encode/decode")
     Bytes buffer;
 
     auto fetch = Fetch{};
-    fetch.track_namespace = kTrackNamespaceConf;
-    fetch.track_name = kTrackNameAliceVideo;
     fetch.priority = 1;
     fetch.group_order = GroupOrder::kAscending;
+    fetch.fetch_type = FetchType::kStandalone;
+    fetch.track_namespace = kTrackNamespaceConf;
+    fetch.track_name = kTrackNameAliceVideo;
     fetch.start_group = 0x1000;
     fetch.start_object = 0x0;
     fetch.end_group = 0x2000;
@@ -712,17 +735,31 @@ TEST_CASE("Fetch Message encode/decode")
     fetch.params = {};
 
     buffer << fetch;
+    {
+        Fetch fetch_out{};
+        CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetch), fetch_out));
+        CHECK_EQ(fetch.track_namespace, fetch_out.track_namespace);
+        CHECK_EQ(fetch.track_name, fetch_out.track_name);
+        CHECK_EQ(fetch.priority, fetch_out.priority);
+        CHECK_EQ(fetch.group_order, fetch_out.group_order);
+        CHECK_EQ(fetch.start_group, fetch_out.start_group);
+        CHECK_EQ(fetch.start_object, fetch_out.start_object);
+        CHECK_EQ(fetch.end_group, fetch_out.end_group);
+        CHECK_EQ(fetch.end_object, fetch_out.end_object);
+    }
 
-    Fetch fetch_out{};
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetch), fetch_out));
-    CHECK_EQ(fetch.track_namespace, fetch_out.track_namespace);
-    CHECK_EQ(fetch.track_name, fetch_out.track_name);
-    CHECK_EQ(fetch.priority, fetch_out.priority);
-    CHECK_EQ(fetch.group_order, fetch_out.group_order);
-    CHECK_EQ(fetch.start_group, fetch_out.start_group);
-    CHECK_EQ(fetch.start_object, fetch_out.start_object);
-    CHECK_EQ(fetch.end_group, fetch_out.end_group);
-    CHECK_EQ(fetch.end_object, fetch_out.end_object);
+    fetch.fetch_type = FetchType::kJoiningFetch;
+    fetch.joining_subscribe_id = 0x0;
+    fetch.preceding_group_offset = 0x0;
+
+    buffer.clear();
+    buffer << fetch;
+    {
+        Fetch fetch_out{};
+        CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetch), fetch_out));
+        CHECK_EQ(fetch.joining_subscribe_id, fetch_out.joining_subscribe_id);
+        CHECK_EQ(fetch.preceding_group_offset, fetch_out.preceding_group_offset);
+    }
 }
 
 TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
@@ -778,4 +815,60 @@ TEST_CASE("SubscribesBlocked Message encode/decode")
     SubscribesBlocked sub_blocked_out{};
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribesBlocked), sub_blocked_out));
     CHECK_EQ(sub_blocked.max_subscribe_id, sub_blocked_out.max_subscribe_id);
+}
+
+TEST_CASE("Subscribe Announces encode/decode")
+{
+    Bytes buffer;
+
+    auto msg = SubscribeAnnounces{};
+    msg.prefix_namespace = TrackNamespace{ "cisco"s, "meetings"s, "video"s, "1080p"s };
+    buffer << msg;
+
+    SubscribeAnnounces msg_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeAnnounces), msg_out));
+    CHECK_EQ(msg.prefix_namespace, msg_out.prefix_namespace);
+}
+
+TEST_CASE("Subscribe Announces Ok encode/decode")
+{
+    Bytes buffer;
+
+    auto msg = SubscribeAnnouncesOk{};
+    msg.prefix_namespace = TrackNamespace{ "cisco"s, "meetings"s, "video"s, "1080p"s };
+    buffer << msg;
+
+    SubscribeAnnouncesOk msg_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeAnnouncesOk), msg_out));
+    CHECK_EQ(msg.prefix_namespace, msg_out.prefix_namespace);
+}
+
+TEST_CASE("Unsubscribe Announces encode/decode")
+{
+    Bytes buffer;
+
+    auto msg = UnsubscribeAnnounces{};
+    msg.prefix_namespace = TrackNamespace{ "cisco"s, "meetings"s, "video"s, "1080p"s };
+    buffer << msg;
+
+    UnsubscribeAnnounces msg_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kUnsubscribeAnnounces), msg_out));
+    CHECK_EQ(msg.prefix_namespace, msg_out.prefix_namespace);
+}
+
+TEST_CASE("Subscribe Announces Error encode/decode")
+{
+    Bytes buffer;
+
+    auto msg = SubscribeAnnouncesError{};
+    msg.prefix_namespace = TrackNamespace{ "cisco"s, "meetings"s, "video"s, "1080p"s };
+    msg.error_code = SubscribeAnnouncesErrorCode::kNamespacePrefixUnknown;
+    msg.reason_phrase = Bytes{ 0x1, 0x2, 0x3 };
+    buffer << msg;
+
+    SubscribeAnnouncesError msg_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeAnnouncesError), msg_out));
+    CHECK_EQ(msg.prefix_namespace, msg_out.prefix_namespace);
+    CHECK_EQ(msg.error_code, msg_out.error_code);
+    CHECK_EQ(msg.reason_phrase, msg_out.reason_phrase);
 }

@@ -247,9 +247,6 @@ namespace quicr::messages {
                 case ParameterType::kRole:
                     msg.role_parameter = std::move(param);
                     break;
-                case ParameterType::kPath:
-                    msg.path_parameter = std::move(param);
-                    break;
                 case ParameterType::kEndpointId:
                     msg.endpoint_id_parameter = std::move(param);
                     break;
@@ -301,9 +298,6 @@ namespace quicr::messages {
             switch (static_cast<ParameterType>(param.type)) {
                 case ParameterType::kRole:
                     msg.role_parameter = std::move(param);
-                    break;
-                case ParameterType::kPath:
-                    msg.path_parameter = std::move(param);
                     break;
                 case ParameterType::kEndpointId:
                     msg.endpoint_id_parameter = std::move(param);
@@ -540,13 +534,9 @@ namespace quicr::messages {
         Bytes payload;
         payload << UintVar(msg.subscribe_id);
         payload << UintVar(msg.status_code);
+        payload << UintVar(msg.stream_count);
         payload << UintVar(msg.reason_phrase.size());
         payload << msg.reason_phrase;
-        msg.content_exists ? payload.push_back(static_cast<uint8_t>(1)) : payload.push_back(static_cast<uint8_t>(0));
-        if (msg.content_exists) {
-            payload << UintVar(msg.final_group_id);
-            payload << UintVar(msg.final_object_id);
-        }
 
         buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kSubscribeDone));
         buffer << UintVar(payload.size());
@@ -559,17 +549,8 @@ namespace quicr::messages {
     {
         buffer = buffer >> msg.subscribe_id;
         buffer = buffer >> msg.status_code;
+        buffer = buffer >> msg.stream_count;
         buffer = buffer >> msg.reason_phrase;
-
-        msg.content_exists = static_cast<bool>(buffer.front());
-        buffer = buffer.subspan(1);
-
-        if (!msg.content_exists) {
-            return buffer;
-        }
-
-        buffer = buffer >> msg.final_group_id;
-        buffer = buffer >> msg.final_object_id;
 
         return buffer;
     }
@@ -596,10 +577,17 @@ namespace quicr::messages {
         Bytes payload;
         payload << UintVar(msg.subscribe_id);
         payload << UintVar(msg.expires);
-        msg.content_exists ? payload.push_back(static_cast<uint8_t>(1)) : payload.push_back(static_cast<uint8_t>(0));
+        payload.push_back(msg.group_order);
+        payload.push_back(msg.content_exists ? 1 : 0);
+
         if (msg.content_exists) {
             payload << UintVar(msg.largest_group);
             payload << UintVar(msg.largest_object);
+        }
+
+        payload << UintVar(msg.params.size());
+        for (const auto& param : msg.params) {
+            payload << param;
         }
 
         buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kSubscribeOk));
@@ -614,6 +602,9 @@ namespace quicr::messages {
         buffer = buffer >> msg.subscribe_id;
         buffer = buffer >> msg.expires;
 
+        msg.group_order = buffer.front();
+        buffer = buffer.subspan(1);
+
         msg.content_exists = static_cast<bool>(buffer.front());
         buffer = buffer.subspan(1);
 
@@ -623,6 +614,15 @@ namespace quicr::messages {
 
         buffer = buffer >> msg.largest_group;
         buffer = buffer >> msg.largest_object;
+
+        uint64_t num_params = 0;
+        buffer = buffer >> num_params;
+
+        for (uint64_t i = 0; i < num_params; ++i) {
+            Parameter param;
+            buffer = buffer >> param;
+            msg.params.push_back(param);
+        }
 
         return buffer;
     }
@@ -751,6 +751,9 @@ namespace quicr::messages {
     {
         Bytes payload;
         payload << msg.track_namespace;
+        payload << UintVar(msg.error_code);
+        payload << UintVar(msg.reason_phrase.size());
+        payload << msg.reason_phrase;
 
         buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kAnnounceCancel));
         buffer << UintVar(payload.size());
@@ -761,7 +764,116 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, AnnounceCancel& msg)
     {
-        return buffer >> msg.track_namespace;
+        return buffer >> msg.track_namespace >> msg.error_code >> msg.reason_phrase;
+    }
+
+    //
+    // Subscribe Announces
+    //
+    Bytes& operator<<(Bytes& buffer, const SubscribeAnnounces& msg)
+    {
+        Bytes payload;
+
+        payload << msg.prefix_namespace;
+        payload << UintVar(msg.params.size());
+        for (const auto& param : msg.params) {
+            payload << param;
+        }
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kSubscribeAnnounces));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnounces& msg)
+    {
+        buffer = buffer >> msg.prefix_namespace;
+
+        uint64_t num_params = 0;
+        buffer = buffer >> num_params;
+
+        for (uint64_t i = 0; i < num_params; ++i) {
+            Parameter param;
+            buffer = buffer >> param;
+            msg.params.push_back(param);
+        }
+
+        return buffer;
+    }
+
+    //
+    // Subscribe Announces Ok
+    //
+    Bytes& operator<<(Bytes& buffer, const SubscribeAnnouncesOk& msg)
+    {
+        Bytes payload;
+
+        payload << msg.prefix_namespace;
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kSubscribeAnnouncesOk));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesOk& msg)
+    {
+        return buffer >> msg.prefix_namespace;
+    }
+
+    //
+    // Unsubscribe Announces
+    //
+    Bytes& operator<<(Bytes& buffer, const UnsubscribeAnnounces& msg)
+    {
+        Bytes payload;
+
+        payload << msg.prefix_namespace;
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kUnsubscribeAnnounces));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, UnsubscribeAnnounces& msg)
+    {
+        buffer = buffer >> msg.prefix_namespace;
+        return buffer;
+    }
+
+    //
+    // Subscribe Announces Error
+    //
+    Bytes& operator<<(Bytes& buffer, const SubscribeAnnouncesError& msg)
+    {
+        Bytes payload;
+
+        payload << msg.prefix_namespace;
+        payload << UintVar(static_cast<uint64_t>(msg.error_code));
+        payload << UintVar(msg.reason_phrase.size());
+        payload << msg.reason_phrase;
+
+        buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kSubscribeAnnouncesError));
+        buffer << UintVar(payload.size());
+        buffer << payload;
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesError& msg)
+    {
+        buffer = buffer >> msg.prefix_namespace;
+        uint64_t error_code;
+        buffer = buffer >> error_code;
+        msg.error_code = static_cast<SubscribeAnnouncesErrorCode>(error_code);
+        buffer = buffer >> msg.reason_phrase;
+
+        return buffer;
     }
 
     //
@@ -795,16 +907,23 @@ namespace quicr::messages {
         Bytes payload;
 
         payload << UintVar(msg.subscribe_id);
-        payload << msg.track_namespace;
-        payload << UintVar(msg.track_name.size());
-        payload << msg.track_name;
         payload.push_back(msg.priority);
         auto group_order = static_cast<uint8_t>(msg.group_order);
         payload.push_back(group_order);
-        payload << UintVar(msg.start_group);
-        payload << UintVar(msg.start_object);
-        payload << UintVar(msg.end_group);
-        payload << UintVar(msg.end_object);
+        payload << UintVar(static_cast<uint8_t>(msg.fetch_type));
+
+        if (msg.fetch_type == FetchType::kStandalone) {
+            payload << msg.track_namespace;
+            payload << UintVar(msg.track_name.size());
+            payload << msg.track_name;
+            payload << UintVar(msg.start_group);
+            payload << UintVar(msg.start_object);
+            payload << UintVar(msg.end_group);
+            payload << UintVar(msg.end_object);
+        } else if (msg.fetch_type == FetchType::kJoiningFetch) {
+            payload << UintVar(msg.joining_subscribe_id);
+            payload << UintVar(msg.preceding_group_offset);
+        }
 
         payload << UintVar(msg.params.size());
         for (const auto& param : msg.params) {
@@ -821,16 +940,26 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, Fetch& msg)
     {
         buffer = buffer >> msg.subscribe_id;
-        buffer = buffer >> msg.track_namespace;
-        buffer = buffer >> msg.track_name;
         msg.priority = buffer.front();
         buffer = buffer.subspan(sizeof(ObjectPriority));
         msg.group_order = static_cast<GroupOrder>(buffer.front());
         buffer = buffer.subspan(sizeof(uint8_t));
-        buffer = buffer >> msg.start_group;
-        buffer = buffer >> msg.start_object;
-        buffer = buffer >> msg.end_group;
-        buffer = buffer >> msg.end_object;
+
+        uint64_t fetch_type;
+        buffer = buffer >> fetch_type;
+        msg.fetch_type = static_cast<FetchType>(fetch_type);
+
+        if (msg.fetch_type == FetchType::kStandalone) {
+            buffer = buffer >> msg.track_namespace;
+            buffer = buffer >> msg.track_name;
+            buffer = buffer >> msg.start_group;
+            buffer = buffer >> msg.start_object;
+            buffer = buffer >> msg.end_group;
+            buffer = buffer >> msg.end_object;
+        } else if (msg.fetch_type == FetchType::kJoiningFetch) {
+            buffer = buffer >> msg.joining_subscribe_id;
+            buffer = buffer >> msg.preceding_group_offset;
+        }
 
         uint64_t num_params = 0;
         buffer = buffer >> num_params;
@@ -875,6 +1004,15 @@ namespace quicr::messages {
         buffer = buffer.subspan(sizeof(uint8_t));
         buffer = buffer >> msg.largest_group;
         buffer = buffer >> msg.largest_object;
+
+        uint64_t num_params = 0;
+        buffer = buffer >> num_params;
+
+        for (uint64_t i = 0; i < num_params; ++i) {
+            Parameter param;
+            buffer = buffer >> param;
+            msg.params.push_back(param);
+        }
 
         return buffer;
     }
@@ -927,16 +1065,15 @@ namespace quicr::messages {
         buffer << UintVar(msg.group_id);
         buffer << UintVar(msg.object_id);
         buffer.push_back(msg.priority);
+        PushExtensions(buffer, msg.extensions);
+
         buffer << UintVar(msg.payload.size());
         if (msg.payload.empty()) {
-            // empty payload needs a object status to be set
             buffer << UintVar(static_cast<uint8_t>(msg.object_status));
-            PushExtensions(buffer, msg.extensions);
-        } else {
-            PushExtensions(buffer, msg.extensions);
-            buffer << msg.payload;
         }
+
         buffer << msg.payload;
+
         return buffer;
     }
 
@@ -976,13 +1113,20 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 4: {
-                if (!ParseUintVField(buffer, msg.payload_len)) {
+                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
             case 5: {
+                if (!ParseUintVField(buffer, msg.payload_len)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 6: {
                 if (msg.payload_len == 0) {
                     uint64_t status = 0;
                     if (!ParseUintVField(buffer, status)) {
@@ -991,18 +1135,6 @@ namespace quicr::messages {
                     msg.object_status = static_cast<ObjectStatus>(status);
                 }
                 msg.current_pos += 1;
-                [[fallthrough]];
-            }
-
-            case 6: {
-                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                if (msg.payload_len == 0) {
-                    msg.parse_completed = true;
-                    break;
-                }
                 [[fallthrough]];
             }
 
@@ -1020,15 +1152,78 @@ namespace quicr::messages {
                 break;
         }
 
-        if (!msg.parse_completed) {
-            return false;
-        }
-
-        return true;
+        return msg.parse_completed;
     }
 
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, ObjectDatagram&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, ObjectDatagram&);
+
+    Bytes& operator<<(Bytes& buffer, const ObjectDatagramStatus& msg)
+    {
+        buffer << UintVar(static_cast<uint64_t>(DataMessageType::kObjectDatagramStatus));
+        buffer << UintVar(msg.track_alias);
+        buffer << UintVar(msg.group_id);
+        buffer << UintVar(msg.object_id);
+        buffer.push_back(msg.priority);
+        buffer << UintVar(static_cast<uint8_t>(msg.status));
+
+        return buffer;
+    }
+
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, ObjectDatagramStatus& msg)
+    {
+        switch (msg.current_pos) {
+            case 0: {
+                if (!ParseUintVField(buffer, msg.track_alias)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 1: {
+                if (!ParseUintVField(buffer, msg.group_id)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 2: {
+                if (!ParseUintVField(buffer, msg.object_id)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 3: {
+                auto val = buffer.Front();
+                if (!val) {
+                    return false;
+                }
+                buffer.Pop();
+                msg.priority = val.value();
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 4: {
+                uint64_t status = 0;
+                if (!ParseUintVField(buffer, status)) {
+                    return false;
+                }
+                msg.status = static_cast<ObjectStatus>(status);
+                msg.current_pos += 1;
+                msg.parse_completed = true;
+                break;
+            }
+            default:
+                break;
+        }
+
+        return msg.parse_completed;
+    }
+
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, ObjectDatagramStatus&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, ObjectDatagramStatus&);
 
     Bytes& operator<<(Bytes& buffer, const StreamHeaderSubGroup& msg)
     {
@@ -1080,11 +1275,7 @@ namespace quicr::messages {
                 break;
         }
 
-        if (!msg.parse_completed) {
-            return false;
-        }
-
-        return true;
+        return msg.parse_completed;
     }
 
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, StreamHeaderSubGroup&);
@@ -1166,11 +1357,7 @@ namespace quicr::messages {
                 break;
         }
 
-        if (!msg.parse_completed) {
-            return false;
-        }
-
-        return true;
+        return msg.parse_completed;
     }
 
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, StreamSubGroupObject&);
