@@ -1009,15 +1009,78 @@ namespace quicr::messages {
                 break;
         }
 
-        if (!msg.parse_completed) {
-            return false;
-        }
-
-        return true;
+        return msg.parse_completed;
     }
 
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, ObjectDatagram&);
     template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, ObjectDatagram&);
+
+    Bytes& operator<<(Bytes& buffer, const ObjectDatagramStatus& msg)
+    {
+        buffer << UintVar(static_cast<uint64_t>(DataMessageType::kObjectDatagramStatus));
+        buffer << UintVar(msg.track_alias);
+        buffer << UintVar(msg.group_id);
+        buffer << UintVar(msg.object_id);
+        buffer.push_back(msg.priority);
+        buffer << UintVar(static_cast<uint8_t>(msg.status));
+
+        return buffer;
+    }
+
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, ObjectDatagramStatus& msg)
+    {
+        switch (msg.current_pos) {
+            case 0: {
+                if (!ParseUintVField(buffer, msg.track_alias)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 1: {
+                if (!ParseUintVField(buffer, msg.group_id)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 2: {
+                if (!ParseUintVField(buffer, msg.object_id)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 3: {
+                auto val = buffer.Front();
+                if (!val) {
+                    return false;
+                }
+                buffer.Pop();
+                msg.priority = val.value();
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 4: {
+                uint64_t status = 0;
+                if (!ParseUintVField(buffer, status)) {
+                    return false;
+                }
+                msg.status = static_cast<ObjectStatus>(status);
+                msg.current_pos += 1;
+                msg.parse_completed = true;
+                break;
+            }
+            default:
+                break;
+        }
+
+        return msg.parse_completed;
+    }
+
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, ObjectDatagramStatus&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, ObjectDatagramStatus&);
 
     Bytes& operator<<(Bytes& buffer, const StreamHeaderSubGroup& msg)
     {
@@ -1069,11 +1132,7 @@ namespace quicr::messages {
                 break;
         }
 
-        if (!msg.parse_completed) {
-            return false;
-        }
-
-        return true;
+        return msg.parse_completed;
     }
 
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, StreamHeaderSubGroup&);
@@ -1155,11 +1214,7 @@ namespace quicr::messages {
                 break;
         }
 
-        if (!msg.parse_completed) {
-            return false;
-        }
-
-        return true;
+        return msg.parse_completed;
     }
 
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, StreamSubGroupObject&);

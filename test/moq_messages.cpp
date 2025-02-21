@@ -612,6 +612,27 @@ TEST_CASE("ObjectDatagram  Message encode/decode")
     ObjectDatagramEncodeDecode(true, true);
 }
 
+TEST_CASE("ObjectDatagramStatus  Message encode/decode")
+{
+    Bytes buffer;
+    auto object_datagram_status = ObjectDatagramStatus{};
+    object_datagram_status.track_alias = uint64_t(kTrackAliasAliceVideo);
+    object_datagram_status.group_id = 0x1000;
+    object_datagram_status.object_id = 0xFF;
+    object_datagram_status.priority = 0xA;
+    object_datagram_status.status = quicr::ObjectStatus::kAvailable;
+
+    buffer << object_datagram_status;
+
+    ObjectDatagramStatus object_datagram_status_out;
+    CHECK(Verify(buffer, static_cast<uint64_t>(DataMessageType::kObjectDatagramStatus), object_datagram_status_out));
+    CHECK_EQ(object_datagram_status.track_alias, object_datagram_status_out.track_alias);
+    CHECK_EQ(object_datagram_status.group_id, object_datagram_status_out.group_id);
+    CHECK_EQ(object_datagram_status.object_id, object_datagram_status_out.object_id);
+    CHECK_EQ(object_datagram_status.priority, object_datagram_status_out.priority);
+    CHECK_EQ(object_datagram_status.status, object_datagram_status_out.status);
+}
+
 static void
 StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
 {
