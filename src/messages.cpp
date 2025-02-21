@@ -540,13 +540,9 @@ namespace quicr::messages {
         Bytes payload;
         payload << UintVar(msg.subscribe_id);
         payload << UintVar(msg.status_code);
+        payload << UintVar(msg.stream_count);
         payload << UintVar(msg.reason_phrase.size());
         payload << msg.reason_phrase;
-        msg.content_exists ? payload.push_back(static_cast<uint8_t>(1)) : payload.push_back(static_cast<uint8_t>(0));
-        if (msg.content_exists) {
-            payload << UintVar(msg.final_group_id);
-            payload << UintVar(msg.final_object_id);
-        }
 
         buffer << UintVar(static_cast<uint64_t>(ControlMessageType::kSubscribeDone));
         buffer << UintVar(payload.size());
@@ -559,17 +555,8 @@ namespace quicr::messages {
     {
         buffer = buffer >> msg.subscribe_id;
         buffer = buffer >> msg.status_code;
+        buffer = buffer >> msg.stream_count;
         buffer = buffer >> msg.reason_phrase;
-
-        msg.content_exists = static_cast<bool>(buffer.front());
-        buffer = buffer.subspan(1);
-
-        if (!msg.content_exists) {
-            return buffer;
-        }
-
-        buffer = buffer >> msg.final_group_id;
-        buffer = buffer >> msg.final_object_id;
 
         return buffer;
     }
