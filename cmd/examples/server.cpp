@@ -9,6 +9,7 @@
 #include <spdlog/spdlog.h>
 
 #include <quicr/cache.h>
+#include <quicr/detail/defer.h>
 #include <quicr/server.h>
 
 #include "signal_handler.h"
@@ -121,6 +122,10 @@ namespace qserver_vars {
      */
     std::shared_ptr<quicr::ThreadedTickService> tick_service = std::make_shared<quicr::ThreadedTickService>();
 
+    /**
+     * @brief Map of atomic bools to mark if a fetch thread should be interrupted.
+     */
+    std::unordered_map<uint64_t, std::atomic_bool> stop_fetch;
 }
 
 /**
@@ -705,14 +710,25 @@ class MyServer : public quicr::Server
 
         const auto th = quicr::TrackHash(track_full_name);
 
+        qserver_vars::stop_fetch.emplace(std::make_pair(subscribe_id, false));
+
         std::thread retrieve_cache_thread(
           [=, cache_entries = qserver_vars::cache.at(th.track_fullname_hash).Get(attrs.start_group, attrs.end_group)] {
+              defer(UnbindPublisherTrack(connection_handle, pub_track_h));
+
               for (const auto& cache_entry : cache_entries) {
                   for (const auto& object : *cache_entry) {
+                      if (qserver_vars::stop_fetch[subscribe_id]) {
+                          qserver_vars::stop_fetch.erase(subscribe_id);
+                          return;
+                      }
+
                       if ((object.headers.group_id < attrs.start_group || object.headers.group_id >= attrs.end_group) ||
                           (object.headers.object_id < attrs.start_object ||
                            object.headers.object_id >= attrs.end_object))
                           continue;
+
+                      SPDLOG_INFO("Fetching group: {} object: {}", object.headers.group_id, object.headers.object_id);
 
                       pub_track_h->PublishObject(object.headers, object.data);
                       std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -723,10 +739,10 @@ class MyServer : public quicr::Server
         retrieve_cache_thread.detach();
     }
 
-    void FetchCancelReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
-                             [[maybe_unused]] uint64_t subscribe_id) override
+    void FetchCancelReceived(quicr::ConnectionHandle, uint64_t subscribe_id) override
     {
         SPDLOG_INFO("Canceling fetch for subscribe_id: {0}", subscribe_id);
+        qserver_vars::stop_fetch[subscribe_id] = true;
     }
 
     void NewGroupRequested(quicr::ConnectionHandle conn_id, uint64_t subscribe_id, uint64_t track_alias) override
