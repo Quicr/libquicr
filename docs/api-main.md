@@ -33,6 +33,7 @@ the methods. Each track handler is constructed for a single full track name (e.g
 --------------------------------|------------------------------------------------------------------------
  quicr::SubscribeTrackHandler     | Subscribe track handler for subscribe related operations and callbacks
  quicr::PublishTrackHandler       | Publish track handler for publish related operations and callbacks
+ quicr::FetchTrackHandler         | Fetch track handler for fetch realted operations and callbacks
 
 
 See [API Guide](api-guide.html) for more details on the API. See [Examples](examples.html) for detailed example of how to get started
