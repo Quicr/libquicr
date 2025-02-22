@@ -1,5 +1,7 @@
 var NAVTREEINDEX2 =
 {
+"classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eea78076a6dd163ca654a4258f3d295d408":[1,0,0,18,1,5],
+"classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eea78076a6dd163ca654a4258f3d295d408":[2,0,0,17,1,5],
 "classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eea92328fe39107890e5ea75689d9e5d32f":[1,0,0,18,1,4],
 "classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eea92328fe39107890e5ea75689d9e5d32f":[2,0,0,17,1,4],
 "classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eea94d644150606feeb2501ae2801a617ed":[1,0,0,18,1,3],
@@ -215,7 +217,7 @@ var NAVTREEINDEX2 =
 "functions_c.html":[2,3,0,2],
 "functions_d.html":[2,3,0,3],
 "functions_e.html":[2,3,0,4],
-"functions_enum.html":[2,3,3],
+"functions_enum.html":[2,3,4],
 "functions_f.html":[2,3,0,5],
 "functions_func.html":[2,3,1],
 "functions_g.html":[2,3,0,6],
@@ -228,9 +230,10 @@ var NAVTREEINDEX2 =
 "functions_p.html":[2,3,0,13],
 "functions_q.html":[2,3,0,14],
 "functions_r.html":[2,3,0,15],
-"functions_rela.html":[2,3,4],
+"functions_rela.html":[2,3,5],
 "functions_s.html":[2,3,0,16],
 "functions_t.html":[2,3,0,17],
+"functions_type.html":[2,3,3],
 "functions_u.html":[2,3,0,18],
 "functions_vars.html":[2,3,2],
 "functions_~.html":[2,3,0,19],
@@ -246,8 +249,5 @@ var NAVTREEINDEX2 =
 "metrics_8h.html":[3,0,1,0,7],
 "metrics_8h.html#a40bbec8f57f3e736978aa38e4d015b26":[3,0,1,0,7,4],
 "metrics_8h_source.html":[3,0,1,0,7],
-"namespacemembers.html":[1,1,0],
-"namespacemembers_enum.html":[1,1,4],
-"namespacemembers_func.html":[1,1,1],
-"namespacemembers_type.html":[1,1,3]
+"namespacemembers.html":[1,1,0]
 };

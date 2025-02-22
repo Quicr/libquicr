@@ -16,7 +16,7 @@ var searchData=
   ['stop_13',['Stop',['../classquicr_1_1_server.html#a113b47922f9ec4046f12afc4e5ddcc39',1,'quicr::Server']]],
   ['streamdatarecv_14',['StreamDataRecv',['../classquicr_1_1_subscribe_track_handler.html#a621ac7c2dc69e25c717e7cdaf51ce63f',1,'quicr::SubscribeTrackHandler']]],
   ['subscribeannounces_15',['SubscribeAnnounces',['../classquicr_1_1_client.html#aa9112d8078af3e7619bbf52f18ab943f',1,'quicr::Client']]],
-  ['subscribeannouncesreceived_16',['SubscribeAnnouncesReceived',['../classquicr_1_1_server.html#a38f61123dcebe79bb8704a1c2879f61f',1,'quicr::Server']]],
+  ['subscribeannouncesreceived_16',['SubscribeAnnouncesReceived',['../classquicr_1_1_server.html#a86b90d6a62ac61810e8cbce30cf75ec2',1,'quicr::Server']]],
   ['subscribeannouncesstatuschanged_17',['SubscribeAnnouncesStatusChanged',['../classquicr_1_1_client.html#af28df2ff32bb09dc287903f034ce5fd3',1,'quicr::Client']]],
   ['subscribereceived_18',['SubscribeReceived',['../classquicr_1_1_server.html#a58cfe3217255552af34a1ad6e86cdb19',1,'quicr::Server']]],
   ['subscribetrack_19',['SubscribeTrack',['../classquicr_1_1_transport.html#a40dd0c703c1d342b51670195bce425c3',1,'quicr::Transport::SubscribeTrack()'],['../classquicr_1_1_client.html#a0ab18527c8fb6b0a4c1a1faa11b0857b',1,'quicr::Client::SubscribeTrack()']]],

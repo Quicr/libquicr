@@ -221,9 +221,19 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a0f2587e91119578814a0f68beab5343b" id="r_a0f2587e91119578814a0f68beab5343b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_transport.html#a0f2587e91119578814a0f68beab5343b">GetStatus</a> () const noexcept</td></tr>
 <tr class="memdesc:a0f2587e91119578814a0f68beab5343b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the status of the <a class="el" href="classquicr_1_1_client.html" title="MoQ Client.">Client</a>.  <br /></td></tr>
 <tr class="separator:a0f2587e91119578814a0f68beab5343b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr><td colspan="2"><div class="groupHeader">Server Calbacks</div></td></tr>
-<tr><td colspan="2"><div class="groupText"><p>slient transport specific callbacks </p>
+<tr><td colspan="2"><div class="groupHeader">Base Calbacks</div></td></tr>
+<tr><td colspan="2"><div class="groupText"><p>Both client and server implement the same transport base callbacks </p>
 </div></td></tr>
+<tr class="memitem:af6b023296dcd922a3e590753aaa97bb3" id="r_af6b023296dcd922a3e590753aaa97bb3"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_transport.html#af6b023296dcd922a3e590753aaa97bb3">StatusChanged</a> (<a class="el" href="classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173">Status</a> status)</td></tr>
+<tr class="memdesc:af6b023296dcd922a3e590753aaa97bb3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for status/state change.  <br /></td></tr>
+<tr class="separator:af6b023296dcd922a3e590753aaa97bb3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader">Server Calbacks</h2></td></tr>
+<tr><td class="ititle" colspan="2"><p>slient transport specific callbacks </p>
+</td></tr>
+<tr class="memitem:a76bef93c48e77189e8ce0a652e987b29" id="r_a76bef93c48e77189e8ce0a652e987b29"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a76bef93c48e77189e8ce0a652e987b29">SubscribeAnnouncesResponse</a></td></tr>
+<tr class="memdesc:a76bef93c48e77189e8ce0a652e987b29"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new subscribe announces received.  <br /></td></tr>
+<tr class="separator:a76bef93c48e77189e8ce0a652e987b29"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a952d2b06367ada70f2547a73006a0bd0" id="r_a952d2b06367ada70f2547a73006a0bd0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a952d2b06367ada70f2547a73006a0bd0">NewConnectionAccepted</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, const <a class="el" href="structquicr_1_1_transport_1_1_connection_remote_info.html">ConnectionRemoteInfo</a> &amp;remote) override</td></tr>
 <tr class="memdesc:a952d2b06367ada70f2547a73006a0bd0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification on new connection.  <br /></td></tr>
 <tr class="separator:a952d2b06367ada70f2547a73006a0bd0"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -248,9 +258,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:affbb73c855166ed8d1cd569156986fb0" id="r_affbb73c855166ed8d1cd569156986fb0"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#affbb73c855166ed8d1cd569156986fb0">UnsubscribeAnnouncesReceived</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, const <a class="el" href="classquicr_1_1_track_namespace.html">TrackNamespace</a> &amp;prefix_namespace)=0</td></tr>
 <tr class="memdesc:affbb73c855166ed8d1cd569156986fb0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for Unsubscribe announces received.  <br /></td></tr>
 <tr class="separator:affbb73c855166ed8d1cd569156986fb0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a38f61123dcebe79bb8704a1c2879f61f" id="r_a38f61123dcebe79bb8704a1c2879f61f"><td class="memItemLeft" align="right" valign="top">virtual std::pair&lt; std::optional&lt; messages::SubscribeAnnouncesErrorCode &gt;, std::vector&lt; <a class="el" href="classquicr_1_1_track_namespace.html">TrackNamespace</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a38f61123dcebe79bb8704a1c2879f61f">SubscribeAnnouncesReceived</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, const <a class="el" href="classquicr_1_1_track_namespace.html">TrackNamespace</a> &amp;prefix_namespace, const <a class="el" href="structquicr_1_1_publish_announce_attributes.html">PublishAnnounceAttributes</a> &amp;announce_attributes)</td></tr>
-<tr class="memdesc:a38f61123dcebe79bb8704a1c2879f61f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new subscribe announces received.  <br /></td></tr>
-<tr class="separator:a38f61123dcebe79bb8704a1c2879f61f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a86b90d6a62ac61810e8cbce30cf75ec2" id="r_a86b90d6a62ac61810e8cbce30cf75ec2"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="#a76bef93c48e77189e8ce0a652e987b29">SubscribeAnnouncesResponse</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a86b90d6a62ac61810e8cbce30cf75ec2">SubscribeAnnouncesReceived</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, const <a class="el" href="classquicr_1_1_track_namespace.html">TrackNamespace</a> &amp;prefix_namespace, const <a class="el" href="structquicr_1_1_publish_announce_attributes.html">PublishAnnounceAttributes</a> &amp;announce_attributes)</td></tr>
+<tr class="separator:a86b90d6a62ac61810e8cbce30cf75ec2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a58cfe3217255552af34a1ad6e86cdb19" id="r_a58cfe3217255552af34a1ad6e86cdb19"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a58cfe3217255552af34a1ad6e86cdb19">SubscribeReceived</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, uint64_t subscribe_id, uint64_t proposed_track_alias, quicr::messages::FilterType filter_type, const <a class="el" href="structquicr_1_1_full_track_name.html">FullTrackName</a> &amp;track_full_name, const <a class="el" href="structquicr_1_1_subscribe_attributes.html">SubscribeAttributes</a> &amp;subscribe_attributes)</td></tr>
 <tr class="memdesc:a58cfe3217255552af34a1ad6e86cdb19"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for new subscribe received.  <br /></td></tr>
 <tr class="separator:a58cfe3217255552af34a1ad6e86cdb19"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -268,19 +277,41 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a5281a0b5fc90162e56c5c5143caf7fb9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a864d97bf5de5695abddff26724a3c79e" id="r_a864d97bf5de5695abddff26724a3c79e"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a864d97bf5de5695abddff26724a3c79e">NewGroupRequested</a> (<a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a> connection_handle, uint64_t subscribe_id, uint64_t track_alias)</td></tr>
 <tr class="separator:a864d97bf5de5695abddff26724a3c79e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr><td colspan="2"><div class="groupHeader">Base Calbacks</div></td></tr>
-<tr><td colspan="2"><div class="groupText"><p>Both client and server implement the same transport base callbacks </p>
-</div></td></tr>
-<tr class="memitem:af6b023296dcd922a3e590753aaa97bb3" id="r_af6b023296dcd922a3e590753aaa97bb3"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1_transport.html#af6b023296dcd922a3e590753aaa97bb3">StatusChanged</a> (<a class="el" href="classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173">Status</a> status)</td></tr>
-<tr class="memdesc:af6b023296dcd922a3e590753aaa97bb3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for status/state change.  <br /></td></tr>
-<tr class="separator:af6b023296dcd922a3e590753aaa97bb3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>MoQ <a class="el" href="classquicr_1_1_server.html" title="MoQ Server.">Server</a>. </p>
 <p>MoQ <a class="el" href="classquicr_1_1_server.html" title="MoQ Server.">Server</a> is the handler of the MoQ QUIC listening socket </p>
 <dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#_a31">server.cpp</a>.</dd>
 </dl>
-</div><h2 class="groupheader">Member Enumeration Documentation</h2>
+</div><h2 class="groupheader">Member Typedef Documentation</h2>
+<a id="a76bef93c48e77189e8ce0a652e987b29" name="a76bef93c48e77189e8ce0a652e987b29"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a76bef93c48e77189e8ce0a652e987b29">&#9670;&#160;</a></span>SubscribeAnnouncesResponse</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="#a76bef93c48e77189e8ce0a652e987b29">quicr::Server::SubscribeAnnouncesResponse</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<b>Initial value:</b><div class="fragment"><div class="line"> </div>
+<div class="line">          std::pair&lt;std::optional&lt;messages::SubscribeAnnouncesErrorCode&gt;, std::vector&lt;TrackNamespace&gt;&gt;</div>
+</div><!-- fragment -->
+<p>Callback notification for new subscribe announces received. </p>
+<dl class="section note"><dt>Note</dt><dd>The caller must return the appropriate SubscribeAnnouncesErrorCode on error. If no error, nullopt is returned for error code and the vector should contain all the matching track namespaces to the prefix. Each of the returned namespaces will be announced to the subscriber.</dd></dl>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">connection_handle</td><td>Source connection ID </td></tr>
+    <tr><td class="paramname">prefix_namespace</td><td>Track namespace </td></tr>
+    <tr><td class="paramname">announce_attributes</td><td>Announces attributes received </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<h2 class="groupheader">Member Enumeration Documentation</h2>
 <a id="ae5adbdfe900741b6fb2adc0158203389" name="ae5adbdfe900741b6fb2adc0158203389"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae5adbdfe900741b6fb2adc0158203389">&#9670;&#160;</a></span>ConnectionStatus</h2>
 
@@ -1268,8 +1299,8 @@ Public Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a38f61123dcebe79bb8704a1c2879f61f" name="a38f61123dcebe79bb8704a1c2879f61f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a38f61123dcebe79bb8704a1c2879f61f">&#9670;&#160;</a></span>SubscribeAnnouncesReceived()</h2>
+<a id="a86b90d6a62ac61810e8cbce30cf75ec2" name="a86b90d6a62ac61810e8cbce30cf75ec2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a86b90d6a62ac61810e8cbce30cf75ec2">&#9670;&#160;</a></span>SubscribeAnnouncesReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1278,7 +1309,7 @@ Public Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual std::pair&lt; std::optional&lt; messages::SubscribeAnnouncesErrorCode &gt;, std::vector&lt; <a class="el" href="classquicr_1_1_track_namespace.html">TrackNamespace</a> &gt; &gt; quicr::Server::SubscribeAnnouncesReceived </td>
+          <td class="memname">virtual <a class="el" href="#a76bef93c48e77189e8ce0a652e987b29">SubscribeAnnouncesResponse</a> quicr::Server::SubscribeAnnouncesReceived </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="namespacequicr.html#ae332e51a43d09ae0300bd16654d671fc">ConnectionHandle</a></td>          <td class="paramname"><span class="paramname"><em>connection_handle</em></span>, </td>
         </tr>
@@ -1299,17 +1330,6 @@ Public Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Callback notification for new subscribe announces received. </p>
-<dl class="section note"><dt>Note</dt><dd>The caller must return the appropriate SubscribeAnnouncesErrorCode on error. If no error, nullopt is returned for error code and the vector should contain all the matching track namespaces to the prefix. Each of the returned namespaces will be announced to the subscriber.</dd></dl>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">connection_handle</td><td>Source connection ID </td></tr>
-    <tr><td class="paramname">prefix_namespace</td><td>Track namespace </td></tr>
-    <tr><td class="paramname">announce_attributes</td><td>Announces attributes received </td></tr>
-  </table>
-  </dd>
-</dl>
 <dl class="section examples"><dt>Examples</dt><dd><a class="el" href="server_8cpp-example.html#a43">server.cpp</a>.</dd>
 </dl>
 

@@ -2,6 +2,7 @@ var classquicr_1_1_server =
 [
     [ "AnnounceResponse", "structquicr_1_1_server_1_1_announce_response.html", "structquicr_1_1_server_1_1_announce_response" ],
     [ "ClientSetupResponse", "structquicr_1_1_server_1_1_client_setup_response.html", null ],
+    [ "SubscribeAnnouncesResponse", "classquicr_1_1_server.html#a76bef93c48e77189e8ce0a652e987b29", null ],
     [ "ConnectionStatus", "classquicr_1_1_server.html#ae5adbdfe900741b6fb2adc0158203389", [
       [ "kNotConnected", "classquicr_1_1_server.html#ae5adbdfe900741b6fb2adc0158203389a32a54fa8629fe6e9cb3e265e959258d8", null ],
       [ "kConnecting", "classquicr_1_1_server.html#ae5adbdfe900741b6fb2adc0158203389ab714c11518d545c225d456731dab0dd0", null ],
@@ -51,7 +52,7 @@ var classquicr_1_1_server =
     [ "Start", "classquicr_1_1_server.html#a856666c96845df52a7f0ea57a2e463da", null ],
     [ "StatusChanged", "classquicr_1_1_server.html#af6b023296dcd922a3e590753aaa97bb3", null ],
     [ "Stop", "classquicr_1_1_server.html#a113b47922f9ec4046f12afc4e5ddcc39", null ],
-    [ "SubscribeAnnouncesReceived", "classquicr_1_1_server.html#a38f61123dcebe79bb8704a1c2879f61f", null ],
+    [ "SubscribeAnnouncesReceived", "classquicr_1_1_server.html#a86b90d6a62ac61810e8cbce30cf75ec2", null ],
     [ "SubscribeReceived", "classquicr_1_1_server.html#a58cfe3217255552af34a1ad6e86cdb19", null ],
     [ "SubscribeTrack", "classquicr_1_1_server.html#a40dd0c703c1d342b51670195bce425c3", null ],
     [ "UnannounceReceived", "classquicr_1_1_server.html#a03f7e5e129e9084a116dae7a6b5b53a5", null ],

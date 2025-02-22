@@ -30,12 +30,13 @@ var searchData=
   ['subscribe_5ftrack_5fhandler_2eh_27',['subscribe_track_handler.h',['../subscribe__track__handler_8h.html',1,'']]],
   ['subscribe_5ftrack_5fmetrics_5f_28',['subscribe_track_metrics_',['../classquicr_1_1_subscribe_track_handler.html#a5e07af66c3912bd4bfcdfdc6b97abb55',1,'quicr::SubscribeTrackHandler']]],
   ['subscribeannounces_29',['SubscribeAnnounces',['../classquicr_1_1_client.html#aa9112d8078af3e7619bbf52f18ab943f',1,'quicr::Client']]],
-  ['subscribeannouncesreceived_30',['SubscribeAnnouncesReceived',['../classquicr_1_1_server.html#a38f61123dcebe79bb8704a1c2879f61f',1,'quicr::Server']]],
-  ['subscribeannouncesstatuschanged_31',['SubscribeAnnouncesStatusChanged',['../classquicr_1_1_client.html#af28df2ff32bb09dc287903f034ce5fd3',1,'quicr::Client']]],
-  ['subscribeattributes_32',['SubscribeAttributes',['../structquicr_1_1_subscribe_attributes.html',1,'quicr']]],
-  ['subscriber_20api_33',['Media over QUIC (MoQ) Publisher/Subscriber API',['../index.html',1,'']]],
-  ['subscribereceived_34',['SubscribeReceived',['../classquicr_1_1_server.html#a58cfe3217255552af34a1ad6e86cdb19',1,'quicr::Server']]],
-  ['subscribetrack_35',['SubscribeTrack',['../classquicr_1_1_transport.html#a40dd0c703c1d342b51670195bce425c3',1,'quicr::Transport::SubscribeTrack()'],['../classquicr_1_1_client.html#a0ab18527c8fb6b0a4c1a1faa11b0857b',1,'quicr::Client::SubscribeTrack()']]],
-  ['subscribetrackhandler_36',['SubscribeTrackHandler',['../classquicr_1_1_subscribe_track_handler.html',1,'quicr::SubscribeTrackHandler'],['../classquicr_1_1_subscribe_track_handler.html#a16654a9bfdce5e0490274c91a321b54c',1,'quicr::SubscribeTrackHandler::SubscribeTrackHandler()']]],
-  ['subscribetrackmetrics_37',['SubscribeTrackMetrics',['../structquicr_1_1_subscribe_track_metrics.html',1,'quicr']]]
+  ['subscribeannouncesreceived_30',['SubscribeAnnouncesReceived',['../classquicr_1_1_server.html#a86b90d6a62ac61810e8cbce30cf75ec2',1,'quicr::Server']]],
+  ['subscribeannouncesresponse_31',['SubscribeAnnouncesResponse',['../classquicr_1_1_server.html#a76bef93c48e77189e8ce0a652e987b29',1,'quicr::Server']]],
+  ['subscribeannouncesstatuschanged_32',['SubscribeAnnouncesStatusChanged',['../classquicr_1_1_client.html#af28df2ff32bb09dc287903f034ce5fd3',1,'quicr::Client']]],
+  ['subscribeattributes_33',['SubscribeAttributes',['../structquicr_1_1_subscribe_attributes.html',1,'quicr']]],
+  ['subscriber_20api_34',['Media over QUIC (MoQ) Publisher/Subscriber API',['../index.html',1,'']]],
+  ['subscribereceived_35',['SubscribeReceived',['../classquicr_1_1_server.html#a58cfe3217255552af34a1ad6e86cdb19',1,'quicr::Server']]],
+  ['subscribetrack_36',['SubscribeTrack',['../classquicr_1_1_transport.html#a40dd0c703c1d342b51670195bce425c3',1,'quicr::Transport::SubscribeTrack()'],['../classquicr_1_1_client.html#a0ab18527c8fb6b0a4c1a1faa11b0857b',1,'quicr::Client::SubscribeTrack()']]],
+  ['subscribetrackhandler_37',['SubscribeTrackHandler',['../classquicr_1_1_subscribe_track_handler.html',1,'quicr::SubscribeTrackHandler'],['../classquicr_1_1_subscribe_track_handler.html#a16654a9bfdce5e0490274c91a321b54c',1,'quicr::SubscribeTrackHandler::SubscribeTrackHandler()']]],
+  ['subscribetrackmetrics_38',['SubscribeTrackMetrics',['../structquicr_1_1_subscribe_track_metrics.html',1,'quicr']]]
 ];
