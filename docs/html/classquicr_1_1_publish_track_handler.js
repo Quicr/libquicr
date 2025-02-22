@@ -24,9 +24,11 @@ var classquicr_1_1_publish_track_handler =
       [ "kAnnounceNotAuthorized", "classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7ac1e877c9c6c8271ff158221905113d7b", null ],
       [ "kNoSubscribers", "classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a029c756c36d0d64ad37d82fdd25135ad", null ],
       [ "kSendingUnannounce", "classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a6473b74b448bc158ffb66542042c88b3", null ],
-      [ "kSubscriptionUpdated", "classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a7682a9bdfcd5780c1e1f4151cbe68427", null ]
+      [ "kSubscriptionUpdated", "classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a7682a9bdfcd5780c1e1f4151cbe68427", null ],
+      [ "kNewGroupRequested", "classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a03233688e1e607f8608eadaa256217c7", null ]
     ] ],
     [ "PublishTrackHandler", "classquicr_1_1_publish_track_handler.html#a01c90daa87d5635743ac0b5129522af3", null ],
+    [ "ForwardPublishedData", "classquicr_1_1_publish_track_handler.html#a4d432fd8ddcabc9b33c1a2f6986cd3f3", null ],
     [ "GetStatus", "classquicr_1_1_publish_track_handler.html#a01aeb196162dd6f9652107349b2e0c94", null ],
     [ "MetricsSampled", "classquicr_1_1_publish_track_handler.html#aa0e5f4b4173834d38929f71dace54c8c", null ],
     [ "PublishObject", "classquicr_1_1_publish_track_handler.html#a7c89d1920f4297189e949e2fb1afd75e", null ],

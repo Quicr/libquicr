@@ -8,5 +8,5 @@ var searchData=
   ['connect_5',['Connect',['../classquicr_1_1_client.html#afe0f8545b074ff9165f881db356ebe1f',1,'quicr::Client']]],
   ['connectionstatuschanged_6',['ConnectionStatusChanged',['../classquicr_1_1_server.html#acbe2d96fa3623a576f2f4426610d40a7',1,'quicr::Server']]],
   ['contains_7',['Contains',['../classquicr_1_1_cache.html#a8a7e88a762cfc29af448e6a965476ef7',1,'quicr::Cache::Contains(const K &amp;key) noexcept'],['../classquicr_1_1_cache.html#ab9d8f377701ef49caa55b7fb34468149',1,'quicr::Cache::Contains(const K &amp;start_key, const K &amp;end_key) noexcept']]],
-  ['create_8',['Create',['../classquicr_1_1_fetch_track_handler.html#a34db54d75eea3f719155d16ea5875e34',1,'quicr::FetchTrackHandler::Create()'],['../classquicr_1_1_publish_track_handler.html#a4b15e2d372f5f53eeb3deb73113e7381',1,'quicr::PublishTrackHandler::Create()'],['../classquicr_1_1_subscribe_track_handler.html#aeb33df952461efa0b926022cab0cdf84',1,'quicr::SubscribeTrackHandler::Create()']]]
+  ['create_8',['Create',['../classquicr_1_1_fetch_track_handler.html#a34db54d75eea3f719155d16ea5875e34',1,'quicr::FetchTrackHandler::Create()'],['../classquicr_1_1_publish_track_handler.html#a4b15e2d372f5f53eeb3deb73113e7381',1,'quicr::PublishTrackHandler::Create()'],['../classquicr_1_1_subscribe_track_handler.html#a12419a2606c7be1782b4e2174c998da7',1,'quicr::SubscribeTrackHandler::Create()']]]
 ];

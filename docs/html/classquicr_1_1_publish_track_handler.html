@@ -153,6 +153,8 @@ Public Types</h2></td></tr>
 , <a class="el" href="#af50c21bea085782c5c0c8f2958a921f7a029c756c36d0d64ad37d82fdd25135ad">kNoSubscribers</a>
 , <a class="el" href="#af50c21bea085782c5c0c8f2958a921f7a6473b74b448bc158ffb66542042c88b3">kSendingUnannounce</a>
 , <a class="el" href="#af50c21bea085782c5c0c8f2958a921f7a7682a9bdfcd5780c1e1f4151cbe68427">kSubscriptionUpdated</a>
+, <br />
+&#160;&#160;<a class="el" href="#af50c21bea085782c5c0c8f2958a921f7a03233688e1e607f8608eadaa256217c7">kNewGroupRequested</a>
 <br />
  }</td></tr>
 <tr class="memdesc:af50c21bea085782c5c0c8f2958a921f7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Status codes for the publish track.  <a href="#af50c21bea085782c5c0c8f2958a921f7">More...</a><br /></td></tr>
@@ -175,6 +177,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a7c89d1920f4297189e949e2fb1afd75e" id="r_a7c89d1920f4297189e949e2fb1afd75e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#af4b42f9237fde47f666b9360ae337654">PublishObjectStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a7c89d1920f4297189e949e2fb1afd75e">PublishObject</a> (const <a class="el" href="structquicr_1_1_object_headers.html">ObjectHeaders</a> &amp;object_headers, <a class="el" href="namespacequicr.html#ae1ac30988d32dc3d91fb37721fa99dcb">BytesSpan</a> data)</td></tr>
 <tr class="memdesc:a7c89d1920f4297189e949e2fb1afd75e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish [full] object.  <br /></td></tr>
 <tr class="separator:a7c89d1920f4297189e949e2fb1afd75e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4d432fd8ddcabc9b33c1a2f6986cd3f3" id="r_a4d432fd8ddcabc9b33c1a2f6986cd3f3"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#af4b42f9237fde47f666b9360ae337654">PublishObjectStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4d432fd8ddcabc9b33c1a2f6986cd3f3">ForwardPublishedData</a> (bool is_new_stream, std::shared_ptr&lt; const std::vector&lt; uint8_t &gt; &gt; data)</td></tr>
+<tr class="memdesc:a4d432fd8ddcabc9b33c1a2f6986cd3f3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Forward received object data to subscriber/relay/remote client.  <br /></td></tr>
+<tr class="separator:a4d432fd8ddcabc9b33c1a2f6986cd3f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4cc6faa161871429b1dee50fea209ee8" id="r_a4cc6faa161871429b1dee50fea209ee8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="#af4b42f9237fde47f666b9360ae337654">PublishObjectStatus</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4cc6faa161871429b1dee50fea209ee8">PublishPartialObject</a> (const <a class="el" href="structquicr_1_1_object_headers.html">ObjectHeaders</a> &amp;object_headers, <a class="el" href="namespacequicr.html#ae1ac30988d32dc3d91fb37721fa99dcb">BytesSpan</a> data)</td></tr>
 <tr class="memdesc:a4cc6faa161871429b1dee50fea209ee8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Publish object to the announced track.  <br /></td></tr>
 <tr class="separator:a4cc6faa161871429b1dee50fea209ee8"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -286,6 +291,7 @@ Protected Member Functions</h2></td></tr>
 <tr><td class="fieldname"><a id="af50c21bea085782c5c0c8f2958a921f7a6473b74b448bc158ffb66542042c88b3" name="af50c21bea085782c5c0c8f2958a921f7a6473b74b448bc158ffb66542042c88b3"></a>kSendingUnannounce&#160;</td><td class="fielddoc"><p>In this state, callbacks will not be called. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="af50c21bea085782c5c0c8f2958a921f7a7682a9bdfcd5780c1e1f4151cbe68427" name="af50c21bea085782c5c0c8f2958a921f7a7682a9bdfcd5780c1e1f4151cbe68427"></a>kSubscriptionUpdated&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="af50c21bea085782c5c0c8f2958a921f7a03233688e1e607f8608eadaa256217c7" name="af50c21bea085782c5c0c8f2958a921f7a03233688e1e607f8608eadaa256217c7"></a>kNewGroupRequested&#160;</td><td class="fielddoc"></td></tr>
 </table>
 
 </div>
@@ -389,6 +395,38 @@ Protected Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
+
+</div>
+</div>
+<a id="a4d432fd8ddcabc9b33c1a2f6986cd3f3" name="a4d432fd8ddcabc9b33c1a2f6986cd3f3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4d432fd8ddcabc9b33c1a2f6986cd3f3">&#9670;&#160;</a></span>ForwardPublishedData()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="#af4b42f9237fde47f666b9360ae337654">PublishObjectStatus</a> quicr::PublishTrackHandler::ForwardPublishedData </td>
+          <td>(</td>
+          <td class="paramtype">bool</td>          <td class="paramname"><span class="paramname"><em>is_new_stream</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::shared_ptr&lt; const std::vector&lt; uint8_t &gt; &gt;</td>          <td class="paramname"><span class="paramname"><em>data</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Forward received object data to subscriber/relay/remote client. </p>
+<p>This method is similar to PublishObject except that the data forwarded is byte array level data, which should have already been encoded upon receive from the origin publisher. Relays implement this method to forward bytes received to subscriber connection.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">is_new_stream</td><td>Indicates if this data starts a new stream </td></tr>
+    <tr><td class="paramname">data</td><td>MoQ data to send </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>Publish status on forwarding the data </dd></dl>
 
 </div>
 </div>

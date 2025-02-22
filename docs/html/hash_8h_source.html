@@ -161,21 +161,22 @@ $(function(){initNavTree('hash_8h_source.html',''); initResizable(true); });
 <div class="line"><a id="l00066" name="l00066"></a><span class="lineno">   66</span>        <span class="keywordflow">return</span> crc;</div>
 <div class="line"><a id="l00067" name="l00067"></a><span class="lineno">   67</span>    }</div>
 <div class="line"><a id="l00068" name="l00068"></a><span class="lineno">   68</span> </div>
-<div class="line"><a id="l00076" name="l00076"></a><span class="lineno">   76</span>    <span class="keyword">static</span> std::uint64_t hash(<span class="keyword">const</span> std::string_view&amp; str)</div>
-<div class="line"><a id="l00077" name="l00077"></a><span class="lineno">   77</span>    {</div>
-<div class="line"><a id="l00078" name="l00078"></a><span class="lineno">   78</span>        <span class="keywordflow">return</span> hash(std::vector&lt;uint8_t&gt;{ str.begin(), str.end() });</div>
-<div class="line"><a id="l00079" name="l00079"></a><span class="lineno">   79</span>    }</div>
-<div class="line"><a id="l00080" name="l00080"></a><span class="lineno">   80</span> </div>
-<div class="foldopen" id="foldopen00090" data-start="{" data-end="}">
-<div class="line"><a id="l00090" name="l00090"></a><span class="lineno"><a class="line" href="namespacequicr.html#afcf7c03b4c5ee148ada6150e15bd696a">   90</a></span>    <span class="keyword">inline</span> <span class="keywordtype">void</span> <a class="code hl_function" href="namespacequicr.html#afcf7c03b4c5ee148ada6150e15bd696a">hash_combine</a>(uint64_t&amp; existing_hash, <span class="keyword">const</span> uint64_t&amp; add_hash)</div>
-<div class="line"><a id="l00091" name="l00091"></a><span class="lineno">   91</span>    {</div>
-<div class="line"><a id="l00092" name="l00092"></a><span class="lineno">   92</span>        existing_hash ^= add_hash + 0x9e3779b9 + (existing_hash &lt;&lt; 6) + (add_hash &gt;&gt; 2);</div>
-<div class="line"><a id="l00093" name="l00093"></a><span class="lineno">   93</span>    }</div>
+<div class="line"><a id="l00076" name="l00076"></a><span class="lineno">   76</span>    [[maybe_unused]]</div>
+<div class="line"><a id="l00077" name="l00077"></a><span class="lineno">   77</span>    <span class="keyword">static</span> std::uint64_t hash(<span class="keyword">const</span> std::string_view&amp; str)</div>
+<div class="line"><a id="l00078" name="l00078"></a><span class="lineno">   78</span>    {</div>
+<div class="line"><a id="l00079" name="l00079"></a><span class="lineno">   79</span>        <span class="keywordflow">return</span> hash(std::vector&lt;uint8_t&gt;{ str.begin(), str.end() });</div>
+<div class="line"><a id="l00080" name="l00080"></a><span class="lineno">   80</span>    }</div>
+<div class="line"><a id="l00081" name="l00081"></a><span class="lineno">   81</span> </div>
+<div class="foldopen" id="foldopen00091" data-start="{" data-end="}">
+<div class="line"><a id="l00091" name="l00091"></a><span class="lineno"><a class="line" href="namespacequicr.html#afcf7c03b4c5ee148ada6150e15bd696a">   91</a></span>    <span class="keyword">inline</span> <span class="keywordtype">void</span> <a class="code hl_function" href="namespacequicr.html#afcf7c03b4c5ee148ada6150e15bd696a">hash_combine</a>(uint64_t&amp; existing_hash, <span class="keyword">const</span> uint64_t&amp; add_hash)</div>
+<div class="line"><a id="l00092" name="l00092"></a><span class="lineno">   92</span>    {</div>
+<div class="line"><a id="l00093" name="l00093"></a><span class="lineno">   93</span>        existing_hash ^= add_hash + 0x9e3779b9 + (existing_hash &lt;&lt; 6) + (add_hash &gt;&gt; 2);</div>
+<div class="line"><a id="l00094" name="l00094"></a><span class="lineno">   94</span>    }</div>
 </div>
-<div class="line"><a id="l00094" name="l00094"></a><span class="lineno">   94</span> </div>
-<div class="line"><a id="l00095" name="l00095"></a><span class="lineno">   95</span>}</div>
+<div class="line"><a id="l00095" name="l00095"></a><span class="lineno">   95</span> </div>
+<div class="line"><a id="l00096" name="l00096"></a><span class="lineno">   96</span>}</div>
 <div class="ttc" id="anamespacequicr_html"><div class="ttname"><a href="namespacequicr.html">quicr</a></div><div class="ttdef"><b>Definition</b> transport.h:26</div></div>
-<div class="ttc" id="anamespacequicr_html_afcf7c03b4c5ee148ada6150e15bd696a"><div class="ttname"><a href="namespacequicr.html#afcf7c03b4c5ee148ada6150e15bd696a">quicr::hash_combine</a></div><div class="ttdeci">void hash_combine(uint64_t &amp;existing_hash, const uint64_t &amp;add_hash)</div><div class="ttdoc">Combine (aka add) hash to existing hash.</div><div class="ttdef"><b>Definition</b> hash.h:90</div></div>
+<div class="ttc" id="anamespacequicr_html_afcf7c03b4c5ee148ada6150e15bd696a"><div class="ttname"><a href="namespacequicr.html#afcf7c03b4c5ee148ada6150e15bd696a">quicr::hash_combine</a></div><div class="ttdeci">void hash_combine(uint64_t &amp;existing_hash, const uint64_t &amp;add_hash)</div><div class="ttdoc">Combine (aka add) hash to existing hash.</div><div class="ttdef"><b>Definition</b> hash.h:91</div></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->

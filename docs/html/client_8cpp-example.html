@@ -115,6 +115,8 @@ $(function(){initNavTree('client_8cpp-example.html',''); initResizable(true); })
 <div class="line"> </div>
 <div class="line"><span class="keyword">namespace </span>qclient_vars {</div>
 <div class="line">    <span class="keywordtype">bool</span> publish_clock{ <span class="keyword">false</span> };</div>
+<div class="line">    std::optional&lt;uint64_t&gt; track_alias; </div>
+<div class="line">    <span class="keywordtype">bool</span> request_new_group = <span class="keyword">false</span>;</div>
 <div class="line">}</div>
 <div class="line"> </div>
 <div class="line"><span class="keyword">class </span>MySubscribeTrackHandler : <span class="keyword">public</span> <a id="_a0" name="_a0"></a><a class="code hl_class" href="classquicr_1_1_subscribe_track_handler.html">quicr::SubscribeTrackHandler</a></div>
@@ -171,11 +173,16 @@ $(function(){initNavTree('client_8cpp-example.html',''); initResizable(true); })
 <div class="line">                }</div>
 <div class="line">                <span class="keywordflow">break</span>;</div>
 <div class="line">            }</div>
-<div class="line">            <span class="keywordflow">case</span> <a id="a12" name="a12"></a><a class="code hl_enumvalue" href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a7682a9bdfcd5780c1e1f4151cbe68427">Status::kSubscriptionUpdated</a>: {</div>
+<div class="line">            <span class="keywordflow">case</span> <a id="a12" name="a12"></a><a class="code hl_enumvalue" href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a03233688e1e607f8608eadaa256217c7">Status::kNewGroupRequested</a>: {</div>
+<div class="line">                <span class="keywordflow">if</span> (<span class="keyword">auto</span> track_alias = GetTrackAlias(); track_alias.has_value()) {</div>
+<div class="line">                    SPDLOG_INFO(<span class="stringliteral">&quot;Publish track alias: {0} has new group request&quot;</span>, track_alias.value());</div>
+<div class="line">                }</div>
+<div class="line">                <span class="keywordflow">break</span>;</div>
+<div class="line">            }</div>
+<div class="line">            <span class="keywordflow">case</span> <a id="a13" name="a13"></a><a class="code hl_enumvalue" href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a7682a9bdfcd5780c1e1f4151cbe68427">Status::kSubscriptionUpdated</a>: {</div>
 <div class="line">                <span class="keywordflow">if</span> (<span class="keyword">auto</span> track_alias = GetTrackAlias(); track_alias.has_value()) {</div>
 <div class="line">                    SPDLOG_INFO(<span class="stringliteral">&quot;Publish track alias: {0} has updated subscription&quot;</span>, track_alias.value());</div>
 <div class="line">                }</div>
-<div class="line">                subscription_updated.store(<span class="keyword">true</span>, std::memory_order_release);</div>
 <div class="line">                <span class="keywordflow">break</span>;</div>
 <div class="line">            }</div>
 <div class="line">            <span class="keywordflow">default</span>:</div>
@@ -185,10 +192,9 @@ $(function(){initNavTree('client_8cpp-example.html',''); initResizable(true); })
 <div class="line">                <span class="keywordflow">break</span>;</div>
 <div class="line">        }</div>
 <div class="line">    }</div>
-<div class="line">    std::atomic&lt;bool&gt; subscription_updated{ <span class="keyword">false</span> };</div>
 <div class="line">};</div>
 <div class="line"> </div>
-<div class="line"><span class="keyword">class </span>MyFetchTrackHandler : <span class="keyword">public</span> <a id="_a13" name="_a13"></a><a class="code hl_class" href="classquicr_1_1_fetch_track_handler.html">quicr::FetchTrackHandler</a></div>
+<div class="line"><span class="keyword">class </span>MyFetchTrackHandler : <span class="keyword">public</span> <a id="_a14" name="_a14"></a><a class="code hl_class" href="classquicr_1_1_fetch_track_handler.html">quicr::FetchTrackHandler</a></div>
 <div class="line">{</div>
 <div class="line">    MyFetchTrackHandler(<span class="keyword">const</span> <a class="code hl_struct" href="structquicr_1_1_full_track_name.html">quicr::FullTrackName</a>&amp; full_track_name,</div>
 <div class="line">                        uint64_t start_group,</div>
@@ -206,7 +212,7 @@ $(function(){initNavTree('client_8cpp-example.html',''); initResizable(true); })
 <div class="line">    }</div>
 <div class="line"> </div>
 <div class="line">  <span class="keyword">public</span>:</div>
-<div class="line">    <span class="keyword">static</span> <span class="keyword">auto</span> <a id="a14" name="a14"></a><a class="code hl_function" href="classquicr_1_1_fetch_track_handler.html#a34db54d75eea3f719155d16ea5875e34">Create</a>(<span class="keyword">const</span> <a class="code hl_struct" href="structquicr_1_1_full_track_name.html">quicr::FullTrackName</a>&amp; full_track_name,</div>
+<div class="line">    <span class="keyword">static</span> <span class="keyword">auto</span> <a id="a15" name="a15"></a><a class="code hl_function" href="classquicr_1_1_fetch_track_handler.html#a34db54d75eea3f719155d16ea5875e34">Create</a>(<span class="keyword">const</span> <a class="code hl_struct" href="structquicr_1_1_full_track_name.html">quicr::FullTrackName</a>&amp; full_track_name,</div>
 <div class="line">                       uint64_t start_group,</div>
 <div class="line">                       uint64_t start_object,</div>
 <div class="line">                       uint64_t end_group,</div>
@@ -236,24 +242,24 @@ $(function(){initNavTree('client_8cpp-example.html',''); initResizable(true); })
 <div class="line">    }</div>
 <div class="line">};</div>
 <div class="line"> </div>
-<div class="line"><span class="keyword">class </span>MyClient : <span class="keyword">public</span> <a id="_a15" name="_a15"></a><a class="code hl_class" href="classquicr_1_1_client.html">quicr::Client</a></div>
+<div class="line"><span class="keyword">class </span>MyClient : <span class="keyword">public</span> <a id="_a16" name="_a16"></a><a class="code hl_class" href="classquicr_1_1_client.html">quicr::Client</a></div>
 <div class="line">{</div>
 <div class="line">  <span class="keyword">public</span>:</div>
-<div class="line">    MyClient(<span class="keyword">const</span> <a id="_a16" name="_a16"></a><a class="code hl_struct" href="structquicr_1_1_client_config.html">quicr::ClientConfig</a>&amp; cfg, <span class="keywordtype">bool</span>&amp; stop_threads)</div>
+<div class="line">    MyClient(<span class="keyword">const</span> <a id="_a17" name="_a17"></a><a class="code hl_struct" href="structquicr_1_1_client_config.html">quicr::ClientConfig</a>&amp; cfg, <span class="keywordtype">bool</span>&amp; stop_threads)</div>
 <div class="line">      : <a class="code hl_namespace" href="namespacequicr.html">quicr</a>::Client(cfg)</div>
 <div class="line">      , stop_threads_(stop_threads)</div>
 <div class="line">    {</div>
 <div class="line">    }</div>
 <div class="line"> </div>
-<div class="line">    <span class="keywordtype">void</span> <a id="a17" name="a17"></a><a class="code hl_function" href="classquicr_1_1_transport.html#af6b023296dcd922a3e590753aaa97bb3">StatusChanged</a>(Status status)<span class="keyword"> override</span></div>
+<div class="line">    <span class="keywordtype">void</span> <a id="a18" name="a18"></a><a class="code hl_function" href="classquicr_1_1_transport.html#af6b023296dcd922a3e590753aaa97bb3">StatusChanged</a>(Status status)<span class="keyword"> override</span></div>
 <div class="line"><span class="keyword">    </span>{</div>
 <div class="line">        <span class="keywordflow">switch</span> (status) {</div>
-<div class="line">            <span class="keywordflow">case</span> <a id="a18" name="a18"></a><a class="code hl_enumvalue" href="classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173a25d5606fe07425ea73f245c48612c039">Status::kReady</a>:</div>
+<div class="line">            <span class="keywordflow">case</span> <a id="a19" name="a19"></a><a class="code hl_enumvalue" href="classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173a25d5606fe07425ea73f245c48612c039">Status::kReady</a>:</div>
 <div class="line">                SPDLOG_INFO(<span class="stringliteral">&quot;Connection ready&quot;</span>);</div>
 <div class="line">                <span class="keywordflow">break</span>;</div>
-<div class="line">            <span class="keywordflow">case</span> <a id="a19" name="a19"></a><a class="code hl_enumvalue" href="classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173ab714c11518d545c225d456731dab0dd0">Status::kConnecting</a>:</div>
+<div class="line">            <span class="keywordflow">case</span> <a id="a20" name="a20"></a><a class="code hl_enumvalue" href="classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173ab714c11518d545c225d456731dab0dd0">Status::kConnecting</a>:</div>
 <div class="line">                <span class="keywordflow">break</span>;</div>
-<div class="line">            <span class="keywordflow">case</span> <a id="a20" name="a20"></a><a class="code hl_enumvalue" href="classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173a6c5660d2ed7f39a660130e00fa80f208">Status::kPendingSeverSetup</a>:</div>
+<div class="line">            <span class="keywordflow">case</span> <a id="a21" name="a21"></a><a class="code hl_enumvalue" href="classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173a6c5660d2ed7f39a660130e00fa80f208">Status::kPendingSeverSetup</a>:</div>
 <div class="line">                SPDLOG_INFO(<span class="stringliteral">&quot;Connection connected and now pending server setup&quot;</span>);</div>
 <div class="line">                <span class="keywordflow">break</span>;</div>
 <div class="line">            <span class="keywordflow">default</span>:</div>
@@ -264,6 +270,40 @@ $(function(){initNavTree('client_8cpp-example.html',''); initResizable(true); })
 <div class="line">                moq_example::cv.notify_all();</div>
 <div class="line">                <span class="keywordflow">break</span>;</div>
 <div class="line">        }</div>
+<div class="line">    }</div>
+<div class="line"> </div>
+<div class="line">    <span class="keywordtype">void</span> <a id="a22" name="a22"></a><a class="code hl_function" href="classquicr_1_1_client.html#ac33e5c121b37a4a51310e0d2758a2eb4">AnnounceReceived</a>(<span class="keyword">const</span> <a id="_a23" name="_a23"></a><a class="code hl_class" href="classquicr_1_1_track_namespace.html">quicr::TrackNamespace</a>&amp; track_namespace,</div>
+<div class="line">                          <span class="keyword">const</span> <a id="_a24" name="_a24"></a><a class="code hl_struct" href="structquicr_1_1_publish_announce_attributes.html">quicr::PublishAnnounceAttributes</a>&amp;)<span class="keyword"> override</span></div>
+<div class="line"><span class="keyword">    </span>{</div>
+<div class="line">        <span class="keyword">auto</span> th = <a id="_a25" name="_a25"></a><a class="code hl_struct" href="structquicr_1_1_track_hash.html">quicr::TrackHash</a>({ track_namespace, {}, std::nullopt });</div>
+<div class="line">        SPDLOG_INFO(<span class="stringliteral">&quot;Received announce for namespace_hash: {}&quot;</span>, th.track_namespace_hash);</div>
+<div class="line">    }</div>
+<div class="line"> </div>
+<div class="line">    <span class="keywordtype">void</span> <a id="a26" name="a26"></a><a class="code hl_function" href="classquicr_1_1_client.html#ab22e0b13413ac17fdc3da8abd2f912fc">UnannounceReceived</a>(<span class="keyword">const</span> <a class="code hl_class" href="classquicr_1_1_track_namespace.html">quicr::TrackNamespace</a>&amp; track_namespace)<span class="keyword"> override</span></div>
+<div class="line"><span class="keyword">    </span>{</div>
+<div class="line">        <span class="keyword">auto</span> th = <a class="code hl_struct" href="structquicr_1_1_track_hash.html">quicr::TrackHash</a>({ track_namespace, {}, std::nullopt });</div>
+<div class="line">        SPDLOG_INFO(<span class="stringliteral">&quot;Received unannounce for namespace_hash: {}&quot;</span>, th.track_namespace_hash);</div>
+<div class="line">    }</div>
+<div class="line"> </div>
+<div class="line">    <span class="keywordtype">void</span> <a id="a27" name="a27"></a><a class="code hl_function" href="classquicr_1_1_client.html#af28df2ff32bb09dc287903f034ce5fd3">SubscribeAnnouncesStatusChanged</a>(<span class="keyword">const</span> <a class="code hl_class" href="classquicr_1_1_track_namespace.html">quicr::TrackNamespace</a>&amp; track_namespace,</div>
+<div class="line">                                         std::optional&lt;quicr::messages::SubscribeAnnouncesErrorCode&gt; error_code,</div>
+<div class="line">                                         std::optional&lt;quicr::messages::ReasonPhrase&gt; reason)<span class="keyword"> override</span></div>
+<div class="line"><span class="keyword">    </span>{</div>
+<div class="line">        <span class="keyword">auto</span> th = <a class="code hl_struct" href="structquicr_1_1_track_hash.html">quicr::TrackHash</a>({ track_namespace, {}, std::nullopt });</div>
+<div class="line">        <span class="keywordflow">if</span> (!error_code.has_value()) {</div>
+<div class="line">            SPDLOG_INFO(<span class="stringliteral">&quot;Subscribe announces namespace_hash: {} status changed to OK&quot;</span>, th.track_namespace_hash);</div>
+<div class="line">            <span class="keywordflow">return</span>;</div>
+<div class="line">        }</div>
+<div class="line"> </div>
+<div class="line">        std::string reason_str;</div>
+<div class="line">        <span class="keywordflow">if</span> (reason.has_value()) {</div>
+<div class="line">            reason_str.assign(reason.value().begin(), reason.value().end());</div>
+<div class="line">        }</div>
+<div class="line"> </div>
+<div class="line">        SPDLOG_WARN(<span class="stringliteral">&quot;Subscribe announces to namespace_hash: {} has error {} with reason: {}&quot;</span>,</div>
+<div class="line">                    th.track_namespace_hash,</div>
+<div class="line">                    <span class="keyword">static_cast&lt;</span>uint64_t<span class="keyword">&gt;</span>(error_code.value()),</div>
+<div class="line">                    reason_str);</div>
 <div class="line">    }</div>
 <div class="line"> </div>
 <div class="line">  <span class="keyword">private</span>:</div>
@@ -278,7 +318,7 @@ $(function(){initNavTree('client_8cpp-example.html',''); initResizable(true); })
 <div class="line">DoPublisher(<span class="keyword">const</span> <a class="code hl_struct" href="structquicr_1_1_full_track_name.html">quicr::FullTrackName</a>&amp; full_track_name, <span class="keyword">const</span> std::shared_ptr&lt;quicr::Client&gt;&amp; client, <span class="keyword">const</span> <span class="keywordtype">bool</span>&amp; stop)</div>
 <div class="line">{</div>
 <div class="line">    <span class="keyword">auto</span> track_handler = std::make_shared&lt;MyPublishTrackHandler&gt;(</div>
-<div class="line">      full_track_name, quicr::TrackMode::kStream <span class="comment">/*mode*/</span>, 2 <span class="comment">/*prirority*/</span>, 3000 <span class="comment">/*ttl*/</span>);</div>
+<div class="line">      full_track_name, quicr::TrackMode::kStream <span class="comment">/*mode*/</span>, 2 <span class="comment">/*priority*/</span>, 3000 <span class="comment">/*ttl*/</span>);</div>
 <div class="line"> </div>
 <div class="line">    SPDLOG_INFO(<span class="stringliteral">&quot;Started publisher track&quot;</span>);</div>
 <div class="line"> </div>
@@ -287,7 +327,7 @@ $(function(){initNavTree('client_8cpp-example.html',''); initResizable(true); })
 <div class="line">    uint64_t group_id{ 0 };</div>
 <div class="line">    uint64_t object_id{ 0 };</div>
 <div class="line">    uint64_t subgroup_id{ 0 };</div>
-<div class="line">    MyPublishTrackHandler::Status status = MyPublishTrackHandler::Status::kNotConnected;</div>
+<div class="line"> </div>
 <div class="line">    <span class="keywordflow">while</span> (not stop) {</div>
 <div class="line">        <span class="keywordflow">if</span> ((!published_track) &amp;&amp; (client-&gt;GetStatus() == MyClient::Status::kReady)) {</div>
 <div class="line">            SPDLOG_INFO(<span class="stringliteral">&quot;Publish track &quot;</span>);</div>
@@ -295,19 +335,38 @@ $(function(){initNavTree('client_8cpp-example.html',''); initResizable(true); })
 <div class="line">            published_track = <span class="keyword">true</span>;</div>
 <div class="line">        }</div>
 <div class="line"> </div>
-<div class="line">        <span class="keywordflow">if</span> (status != MyPublishTrackHandler::Status::kOk) {</div>
-<div class="line">            std::this_thread::sleep_for(std::chrono::milliseconds(100));</div>
-<div class="line">            status = track_handler-&gt;GetStatus();</div>
-<div class="line">            <span class="keywordflow">continue</span>;</div>
-<div class="line">        }</div>
+<div class="line">        <span class="keywordflow">switch</span> (track_handler-&gt;GetStatus()) {</div>
+<div class="line">            <span class="keywordflow">case</span> MyPublishTrackHandler::Status::kOk:</div>
+<div class="line">                <span class="keywordflow">break</span>;</div>
+<div class="line">            <span class="keywordflow">case</span> MyPublishTrackHandler::Status::kNewGroupRequested:</div>
+<div class="line">                <span class="keywordflow">if</span> (object_id) {</div>
+<div class="line">                    group_id++;</div>
+<div class="line">                    object_id = 0;</div>
+<div class="line">                    subgroup_id = 0;</div>
+<div class="line">                }</div>
+<div class="line">                SPDLOG_INFO(<span class="stringliteral">&quot;New Group Requested: Restarting a new group {0}&quot;</span>, group_id);</div>
 <div class="line"> </div>
-<div class="line">        <span class="comment">// TODO: This is very restricted. We need to verify the request params in the update message</span></div>
-<div class="line">        <span class="keywordflow">if</span> (track_handler-&gt;subscription_updated.load(std::memory_order_acquire)) {</div>
-<div class="line">            <span class="comment">// restart the group</span></div>
-<div class="line">            group_id++;</div>
-<div class="line">            object_id = 0;</div>
-<div class="line">            track_handler-&gt;subscription_updated.store(<span class="keyword">false</span>, std::memory_order::memory_order_release);</div>
-<div class="line">            SPDLOG_INFO(<span class="stringliteral">&quot; Subscription Updated: Restarting a new group {0}&quot;</span>, group_id);</div>
+<div class="line">                <span class="keywordflow">break</span>;</div>
+<div class="line">            <span class="keywordflow">case</span> MyPublishTrackHandler::Status::kSubscriptionUpdated:</div>
+<div class="line">                <span class="keywordflow">if</span> (object_id) {</div>
+<div class="line">                    group_id++;</div>
+<div class="line">                    object_id = 0;</div>
+<div class="line">                    subgroup_id = 0;</div>
+<div class="line">                    SPDLOG_INFO(<span class="stringliteral">&quot;Subscription Updated: Restarting a new group {0}&quot;</span>, group_id);</div>
+<div class="line">                }</div>
+<div class="line"> </div>
+<div class="line">                <span class="keywordflow">break</span>;</div>
+<div class="line">            <span class="keywordflow">case</span> MyPublishTrackHandler::Status::kNoSubscribers:</div>
+<div class="line">                <span class="comment">// Start a new group when a subscriber joins</span></div>
+<div class="line">                <span class="keywordflow">if</span> (object_id) {</div>
+<div class="line">                    group_id++;</div>
+<div class="line">                    object_id = 0;</div>
+<div class="line">                    subgroup_id = 0;</div>
+<div class="line">                }</div>
+<div class="line">                [[fallthrough]];</div>
+<div class="line">            <span class="keywordflow">default</span>:</div>
+<div class="line">                std::this_thread::sleep_for(std::chrono::milliseconds(100));</div>
+<div class="line">                <span class="keywordflow">continue</span>;</div>
 <div class="line">        }</div>
 <div class="line"> </div>
 <div class="line">        <span class="keywordflow">if</span> (!sending) {</div>
@@ -333,20 +392,14 @@ $(function(){initNavTree('client_8cpp-example.html',''); initResizable(true); })
 <div class="line">            SPDLOG_INFO(<span class="stringliteral">&quot;Send message: {0}&quot;</span>, msg);</div>
 <div class="line">        }</div>
 <div class="line"> </div>
-<div class="line">        <span class="keywordflow">if</span> (object_id % 50 == 0) { <span class="comment">// Set new group</span></div>
+<div class="line">        <span class="keywordflow">if</span> (object_id &amp;&amp; object_id % 15 == 0) { <span class="comment">// Set new group</span></div>
 <div class="line">            object_id = 0;</div>
 <div class="line">            subgroup_id = 0;</div>
 <div class="line">            group_id++;</div>
 <div class="line">        }</div>
 <div class="line"> </div>
-<div class="line">        <span class="comment">// The idea is to generate a new subgroup after 4 objects and have</span></div>
-<div class="line">        <span class="comment">// only one subgroup within a group of 10 objects</span></div>
-<div class="line">        <span class="keywordflow">if</span> (object_id == 4) {</div>
-<div class="line">            subgroup_id++;</div>
-<div class="line">        }</div>
-<div class="line"> </div>
 <div class="line">        <a class="code hl_struct" href="structquicr_1_1_object_headers.html">quicr::ObjectHeaders</a> obj_headers = {</div>
-<div class="line">            group_id,       object_id++,    subgroup_id,  msg.size(),  <a id="a21" name="a21"></a><a class="code hl_enumvalue" href="namespacequicr.html#a960fb04ec2c5b5aee1ff1b6b125ea4b3ad5dbdf8007e4468c85b9aa91312030e7">quicr::ObjectStatus::kAvailable</a>,</div>
+<div class="line">            group_id,       object_id++,    subgroup_id,  msg.size(),  <a id="a28" name="a28"></a><a class="code hl_enumvalue" href="namespacequicr.html#a960fb04ec2c5b5aee1ff1b6b125ea4b3ad5dbdf8007e4468c85b9aa91312030e7">quicr::ObjectStatus::kAvailable</a>,</div>
 <div class="line">            2 <span class="comment">/*priority*/</span>, 3000 <span class="comment">/* ttl */</span>, std::nullopt, std::nullopt</div>
 <div class="line">        };</div>
 <div class="line"> </div>
@@ -382,6 +435,14 @@ $(function(){initNavTree('client_8cpp-example.html',''); initResizable(true); })
 <div class="line">            client-&gt;SubscribeTrack(track_handler);</div>
 <div class="line">            subscribe_track = <span class="keyword">true</span>;</div>
 <div class="line">        }</div>
+<div class="line"> </div>
+<div class="line">        <span class="keywordflow">if</span> (track_handler-&gt;GetStatus() == MySubscribeTrackHandler::Status::kOk &amp;&amp; qclient_vars::request_new_group) {</div>
+<div class="line">            std::this_thread::sleep_for(std::chrono::milliseconds(2000));</div>
+<div class="line">            SPDLOG_INFO(<span class="stringliteral">&quot;Requesting New Group&quot;</span>);</div>
+<div class="line">            track_handler-&gt;RequestNewGroup();</div>
+<div class="line">            qclient_vars::request_new_group = <span class="keyword">false</span>;</div>
+<div class="line">        }</div>
+<div class="line"> </div>
 <div class="line">        std::this_thread::sleep_for(std::chrono::milliseconds(500));</div>
 <div class="line">    }</div>
 <div class="line"> </div>
@@ -485,9 +546,17 @@ $(function(){initNavTree('client_8cpp-example.html',''); initResizable(true); })
 <div class="line">                    cli_opts[<span class="stringliteral">&quot;fetch_name&quot;</span>].as&lt;std::string&gt;());</div>
 <div class="line">    }</div>
 <div class="line"> </div>
-<div class="line">    config.<a id="a22" name="a22"></a><a class="code hl_variable" href="structquicr_1_1_config.html#ac61dcd9337d55b4694552338af12fe2e">endpoint_id</a> = cli_opts[<span class="stringliteral">&quot;endpoint_id&quot;</span>].as&lt;std::string&gt;();</div>
-<div class="line">    config.<a id="a23" name="a23"></a><a class="code hl_variable" href="structquicr_1_1_client_config.html#aa6b0b5406607428025ea40d64f18d570">connect_uri</a> = cli_opts[<span class="stringliteral">&quot;url&quot;</span>].as&lt;std::string&gt;();</div>
-<div class="line">    config.<a id="a24" name="a24"></a><a class="code hl_variable" href="structquicr_1_1_config.html#ad8895576bc8e8fba62da81e6096c1aea">transport_config</a>.debug = cli_opts[<span class="stringliteral">&quot;debug&quot;</span>].as&lt;<span class="keywordtype">bool</span>&gt;();</div>
+<div class="line">    <span class="keywordflow">if</span> (cli_opts.count(<span class="stringliteral">&quot;track_alias&quot;</span>)) {</div>
+<div class="line">        qclient_vars::track_alias = cli_opts[<span class="stringliteral">&quot;track_alias&quot;</span>].as&lt;uint64_t&gt;();</div>
+<div class="line">    }</div>
+<div class="line"> </div>
+<div class="line">    <span class="keywordflow">if</span> (cli_opts.count(<span class="stringliteral">&quot;new_group&quot;</span>)) {</div>
+<div class="line">        qclient_vars::request_new_group = <span class="keyword">true</span>;</div>
+<div class="line">    }</div>
+<div class="line"> </div>
+<div class="line">    config.<a id="a29" name="a29"></a><a class="code hl_variable" href="structquicr_1_1_config.html#ac61dcd9337d55b4694552338af12fe2e">endpoint_id</a> = cli_opts[<span class="stringliteral">&quot;endpoint_id&quot;</span>].as&lt;std::string&gt;();</div>
+<div class="line">    config.<a id="a30" name="a30"></a><a class="code hl_variable" href="structquicr_1_1_client_config.html#aa6b0b5406607428025ea40d64f18d570">connect_uri</a> = cli_opts[<span class="stringliteral">&quot;url&quot;</span>].as&lt;std::string&gt;();</div>
+<div class="line">    config.<a id="a31" name="a31"></a><a class="code hl_variable" href="structquicr_1_1_config.html#ad8895576bc8e8fba62da81e6096c1aea">transport_config</a>.debug = cli_opts[<span class="stringliteral">&quot;debug&quot;</span>].as&lt;<span class="keywordtype">bool</span>&gt;();</div>
 <div class="line"> </div>
 <div class="line">    config.<a class="code hl_variable" href="structquicr_1_1_config.html#ad8895576bc8e8fba62da81e6096c1aea">transport_config</a>.use_reset_wait_strategy = <span class="keyword">false</span>;</div>
 <div class="line">    config.<a class="code hl_variable" href="structquicr_1_1_config.html#ad8895576bc8e8fba62da81e6096c1aea">transport_config</a>.time_queue_max_duration = 5000;</div>
@@ -505,31 +574,41 @@ $(function(){initNavTree('client_8cpp-example.html',''); initResizable(true); })
 <div class="line"> </div>
 <div class="line">    cxxopts::Options options(<span class="stringliteral">&quot;qclient&quot;</span>,</div>
 <div class="line">                             std::string(<span class="stringliteral">&quot;MOQ Example Client using QuicR Version: &quot;</span>) + std::string(QUICR_VERSION));</div>
+<div class="line"> </div>
+<div class="line">    <span class="comment">// clang-format off</span></div>
 <div class="line">    options.set_width(75)</div>
 <div class="line">      .set_tab_expansion()</div>
 <div class="line">      <span class="comment">//.allow_unrecognised_options()</span></div>
-<div class="line">      .add_options()(<span class="stringliteral">&quot;h,help&quot;</span>, <span class="stringliteral">&quot;Print help&quot;</span>)(<span class="stringliteral">&quot;d,debug&quot;</span>, <span class="stringliteral">&quot;Enable debugging&quot;</span>) <span class="comment">// a bool parameter</span></div>
-<div class="line">      (<span class="stringliteral">&quot;v,version&quot;</span>, <span class="stringliteral">&quot;QuicR Version&quot;</span>)                                        <span class="comment">// a bool parameter</span></div>
-<div class="line">      (<span class="stringliteral">&quot;r,url&quot;</span>, <span class="stringliteral">&quot;Relay URL&quot;</span>, cxxopts::value&lt;std::string&gt;()-&gt;default_value(<span class="stringliteral">&quot;moq://localhost:1234&quot;</span>))(</div>
-<div class="line">        <span class="stringliteral">&quot;e,endpoint_id&quot;</span>, <span class="stringliteral">&quot;This client endpoint ID&quot;</span>, cxxopts::value&lt;std::string&gt;()-&gt;default_value(<span class="stringliteral">&quot;moq-client&quot;</span>))(</div>
-<div class="line">        <span class="stringliteral">&quot;q,qlog&quot;</span>, <span class="stringliteral">&quot;Enable qlog using path&quot;</span>, cxxopts::value&lt;std::string&gt;());</div>
+<div class="line">      .add_options()</div>
+<div class="line">        (<span class="stringliteral">&quot;h,help&quot;</span>, <span class="stringliteral">&quot;Print help&quot;</span>)</div>
+<div class="line">        (<span class="stringliteral">&quot;d,debug&quot;</span>, <span class="stringliteral">&quot;Enable debugging&quot;</span>) <span class="comment">// a bool parameter</span></div>
+<div class="line">        (<span class="stringliteral">&quot;v,version&quot;</span>, <span class="stringliteral">&quot;QuicR Version&quot;</span>)                                        <span class="comment">// a bool parameter</span></div>
+<div class="line">        (<span class="stringliteral">&quot;r,url&quot;</span>, <span class="stringliteral">&quot;Relay URL&quot;</span>, cxxopts::value&lt;std::string&gt;()-&gt;default_value(<span class="stringliteral">&quot;moq://localhost:1234&quot;</span>))</div>
+<div class="line">        (<span class="stringliteral">&quot;e,endpoint_id&quot;</span>, <span class="stringliteral">&quot;This client endpoint ID&quot;</span>, cxxopts::value&lt;std::string&gt;()-&gt;default_value(<span class="stringliteral">&quot;moq-client&quot;</span>))</div>
+<div class="line">        (<span class="stringliteral">&quot;q,qlog&quot;</span>, <span class="stringliteral">&quot;Enable qlog using path&quot;</span>, cxxopts::value&lt;std::string&gt;());</div>
 <div class="line"> </div>
-<div class="line">    options.add_options(<span class="stringliteral">&quot;Publisher&quot;</span>)(<span class="stringliteral">&quot;pub_namespace&quot;</span>, <span class="stringliteral">&quot;Track namespace&quot;</span>, cxxopts::value&lt;std::string&gt;())(</div>
-<div class="line">      <span class="stringliteral">&quot;pub_name&quot;</span>, <span class="stringliteral">&quot;Track name&quot;</span>, cxxopts::value&lt;std::string&gt;())(</div>
-<div class="line">      <span class="stringliteral">&quot;clock&quot;</span>, <span class="stringliteral">&quot;Publish clock timestamp every second instead of using STDIN chat&quot;</span>);</div>
+<div class="line">    options.add_options(<span class="stringliteral">&quot;Publisher&quot;</span>)</div>
+<div class="line">        (<span class="stringliteral">&quot;pub_namespace&quot;</span>, <span class="stringliteral">&quot;Track namespace&quot;</span>, cxxopts::value&lt;std::string&gt;())</div>
+<div class="line">        (<span class="stringliteral">&quot;pub_name&quot;</span>, <span class="stringliteral">&quot;Track name&quot;</span>, cxxopts::value&lt;std::string&gt;())</div>
+<div class="line">        (<span class="stringliteral">&quot;clock&quot;</span>, <span class="stringliteral">&quot;Publish clock timestamp every second instead of using STDIN chat&quot;</span>);</div>
 <div class="line"> </div>
-<div class="line">    options.add_options(<span class="stringliteral">&quot;Subscriber&quot;</span>)(<span class="stringliteral">&quot;sub_namespace&quot;</span>, <span class="stringliteral">&quot;Track namespace&quot;</span>, cxxopts::value&lt;std::string&gt;())(</div>
-<div class="line">      <span class="stringliteral">&quot;sub_name&quot;</span>, <span class="stringliteral">&quot;Track name&quot;</span>, cxxopts::value&lt;std::string&gt;())(</div>
-<div class="line">      <span class="stringliteral">&quot;start_point&quot;</span>,</div>
-<div class="line">      <span class="stringliteral">&quot;Start point for Subscription - 0 for from the beginning, 1 from the latest object&quot;</span>,</div>
-<div class="line">      cxxopts::value&lt;uint64_t&gt;());</div>
+<div class="line">    options.add_options(<span class="stringliteral">&quot;Subscriber&quot;</span>)</div>
+<div class="line">        (<span class="stringliteral">&quot;sub_namespace&quot;</span>, <span class="stringliteral">&quot;Track namespace&quot;</span>, cxxopts::value&lt;std::string&gt;())</div>
+<div class="line">        (<span class="stringliteral">&quot;sub_name&quot;</span>, <span class="stringliteral">&quot;Track name&quot;</span>, cxxopts::value&lt;std::string&gt;())</div>
+<div class="line">        (<span class="stringliteral">&quot;start_point&quot;</span>, <span class="stringliteral">&quot;Start point for Subscription - 0 for from the beginning, 1 from the latest object&quot;</span>, cxxopts::value&lt;uint64_t&gt;())</div>
+<div class="line">        (<span class="stringliteral">&quot;track_alias&quot;</span>, <span class="stringliteral">&quot;Track alias to use&quot;</span>, cxxopts::value&lt;uint64_t&gt;())</div>
+<div class="line">        (<span class="stringliteral">&quot;new_group&quot;</span>, <span class="stringliteral">&quot;Requests a new group on subscribe&quot;</span>)</div>
+<div class="line">        (<span class="stringliteral">&quot;sub_announces&quot;</span>, <span class="stringliteral">&quot;Prefix namespace to subscribe announces to&quot;</span>, cxxopts::value&lt;std::string&gt;());</div>
 <div class="line"> </div>
-<div class="line">    options.add_options(<span class="stringliteral">&quot;Fetcher&quot;</span>)(<span class="stringliteral">&quot;fetch_namespace&quot;</span>, <span class="stringliteral">&quot;Track namespace&quot;</span>, cxxopts::value&lt;std::string&gt;())(</div>
-<div class="line">      <span class="stringliteral">&quot;fetch_name&quot;</span>, <span class="stringliteral">&quot;Track name&quot;</span>, cxxopts::value&lt;std::string&gt;())(</div>
-<div class="line">      <span class="stringliteral">&quot;start_group&quot;</span>, <span class="stringliteral">&quot;Starting group ID&quot;</span>, cxxopts::value&lt;uint64_t&gt;())(</div>
-<div class="line">      <span class="stringliteral">&quot;end_group&quot;</span>, <span class="stringliteral">&quot;One past the final group ID&quot;</span>, cxxopts::value&lt;uint64_t&gt;())(</div>
-<div class="line">      <span class="stringliteral">&quot;start_object&quot;</span>, <span class="stringliteral">&quot;The starting object ID within the group&quot;</span>, cxxopts::value&lt;uint64_t&gt;())(</div>
-<div class="line">      <span class="stringliteral">&quot;end_object&quot;</span>, <span class="stringliteral">&quot;One past the final object ID in the group&quot;</span>, cxxopts::value&lt;uint64_t&gt;());</div>
+<div class="line">    options.add_options(<span class="stringliteral">&quot;Fetcher&quot;</span>)</div>
+<div class="line">        (<span class="stringliteral">&quot;fetch_namespace&quot;</span>, <span class="stringliteral">&quot;Track namespace&quot;</span>, cxxopts::value&lt;std::string&gt;())</div>
+<div class="line">        (<span class="stringliteral">&quot;fetch_name&quot;</span>, <span class="stringliteral">&quot;Track name&quot;</span>, cxxopts::value&lt;std::string&gt;())</div>
+<div class="line">        (<span class="stringliteral">&quot;start_group&quot;</span>, <span class="stringliteral">&quot;Starting group ID&quot;</span>, cxxopts::value&lt;uint64_t&gt;())</div>
+<div class="line">        (<span class="stringliteral">&quot;end_group&quot;</span>, <span class="stringliteral">&quot;One past the final group ID&quot;</span>, cxxopts::value&lt;uint64_t&gt;())</div>
+<div class="line">        (<span class="stringliteral">&quot;start_object&quot;</span>, <span class="stringliteral">&quot;The starting object ID within the group&quot;</span>, cxxopts::value&lt;uint64_t&gt;())</div>
+<div class="line">        (<span class="stringliteral">&quot;end_object&quot;</span>, <span class="stringliteral">&quot;One past the final object ID in the group&quot;</span>, cxxopts::value&lt;uint64_t&gt;());</div>
+<div class="line"> </div>
+<div class="line">    <span class="comment">// clang-format on</span></div>
 <div class="line"> </div>
 <div class="line">    <span class="keyword">auto</span> result = options.parse(argc, argv);</div>
 <div class="line"> </div>
@@ -558,33 +637,58 @@ $(function(){initNavTree('client_8cpp-example.html',''); initResizable(true); })
 <div class="line">            exit(-1);</div>
 <div class="line">        }</div>
 <div class="line"> </div>
+<div class="line">        <span class="keywordflow">while</span> (not stop_threads) {</div>
+<div class="line">            <span class="keywordflow">if</span> (client-&gt;GetStatus() == MyClient::Status::kReady) {</div>
+<div class="line">                SPDLOG_INFO(<span class="stringliteral">&quot;Connected to server&quot;</span>);</div>
+<div class="line">                <span class="keywordflow">break</span>;</div>
+<div class="line">            }</div>
+<div class="line">            std::this_thread::sleep_for(std::chrono::milliseconds(200));</div>
+<div class="line">        }</div>
+<div class="line"> </div>
 <div class="line">        std::thread pub_thread;</div>
 <div class="line">        std::thread sub_thread;</div>
 <div class="line">        std::thread fetch_thread;</div>
 <div class="line"> </div>
+<div class="line">        <span class="keywordflow">if</span> (result.count(<span class="stringliteral">&quot;sub_announces&quot;</span>)) {</div>
+<div class="line">            <span class="keyword">const</span> <span class="keyword">auto</span>&amp; prefix_ns =</div>
+<div class="line">              quicr::example::MakeFullTrackName(result[<span class="stringliteral">&quot;sub_announces&quot;</span>].as&lt;std::string&gt;(), <span class="stringliteral">&quot;&quot;</span>, std::nullopt);</div>
+<div class="line"> </div>
+<div class="line">            <span class="keyword">auto</span> th = <a class="code hl_struct" href="structquicr_1_1_track_hash.html">quicr::TrackHash</a>(prefix_ns);</div>
+<div class="line"> </div>
+<div class="line">            SPDLOG_INFO(<span class="stringliteral">&quot;Sending subscribe announces for prefix &#39;{}&#39; namespace_hash: {}&quot;</span>,</div>
+<div class="line">                        result[<span class="stringliteral">&quot;sub_announces&quot;</span>].as&lt;std::string&gt;(),</div>
+<div class="line">                        th.track_namespace_hash);</div>
+<div class="line"> </div>
+<div class="line">            client-&gt;SubscribeAnnounces(prefix_ns.name_space);</div>
+<div class="line">        }</div>
+<div class="line"> </div>
 <div class="line">        <span class="keywordflow">if</span> (enable_pub) {</div>
-<div class="line">            <span class="keyword">const</span> <span class="keyword">auto</span>&amp; pub_track_name = quicr::example::MakeFullTrackName(</div>
-<div class="line">              result[<span class="stringliteral">&quot;pub_namespace&quot;</span>].as&lt;std::string&gt;(), result[<span class="stringliteral">&quot;pub_name&quot;</span>].as&lt;std::string&gt;(), 1001);</div>
+<div class="line">            <span class="keyword">const</span> <span class="keyword">auto</span>&amp; pub_track_name = quicr::example::MakeFullTrackName(result[<span class="stringliteral">&quot;pub_namespace&quot;</span>].as&lt;std::string&gt;(),</div>
+<div class="line">                                                                           result[<span class="stringliteral">&quot;pub_name&quot;</span>].as&lt;std::string&gt;(),</div>
+<div class="line">                                                                           qclient_vars::track_alias);</div>
 <div class="line"> </div>
 <div class="line">            pub_thread = std::thread(DoPublisher, pub_track_name, client, std::ref(stop_threads));</div>
 <div class="line">        }</div>
 <div class="line">        <span class="keywordflow">if</span> (enable_sub) {</div>
-<div class="line">            <span class="keyword">auto</span> filter_type = quicr::messages::FilterType::LatestObject;</div>
+<div class="line">            <span class="keyword">auto</span> filter_type = quicr::messages::FilterType::kLatestObject;</div>
 <div class="line">            <span class="keywordflow">if</span> (result.count(<span class="stringliteral">&quot;start_point&quot;</span>)) {</div>
 <div class="line">                <span class="keywordflow">if</span> (result[<span class="stringliteral">&quot;start_point&quot;</span>].as&lt;uint64_t&gt;() == 0) {</div>
-<div class="line">                    filter_type = quicr::messages::FilterType::LatestGroup;</div>
+<div class="line">                    filter_type = quicr::messages::FilterType::kLatestGroup;</div>
 <div class="line">                    SPDLOG_INFO(<span class="stringliteral">&quot;Setting subscription filter to Latest Group&quot;</span>);</div>
 <div class="line">                }</div>
 <div class="line">            }</div>
 <div class="line"> </div>
-<div class="line">            <span class="keyword">const</span> <span class="keyword">auto</span>&amp; sub_track_name = quicr::example::MakeFullTrackName(</div>
-<div class="line">              result[<span class="stringliteral">&quot;sub_namespace&quot;</span>].as&lt;std::string&gt;(), result[<span class="stringliteral">&quot;sub_name&quot;</span>].as&lt;std::string&gt;(), 2001);</div>
+<div class="line">            <span class="keyword">const</span> <span class="keyword">auto</span>&amp; sub_track_name = quicr::example::MakeFullTrackName(result[<span class="stringliteral">&quot;sub_namespace&quot;</span>].as&lt;std::string&gt;(),</div>
+<div class="line">                                                                           result[<span class="stringliteral">&quot;sub_name&quot;</span>].as&lt;std::string&gt;(),</div>
+<div class="line">                                                                           qclient_vars::track_alias);</div>
 <div class="line"> </div>
 <div class="line">            sub_thread = std::thread(DoSubscriber, sub_track_name, client, filter_type, std::ref(stop_threads));</div>
 <div class="line">        }</div>
 <div class="line">        <span class="keywordflow">if</span> (enable_fetch) {</div>
-<div class="line">            <span class="keyword">const</span> <span class="keyword">auto</span>&amp; fetch_track_name = quicr::example::MakeFullTrackName(</div>
-<div class="line">              result[<span class="stringliteral">&quot;fetch_namespace&quot;</span>].as&lt;std::string&gt;(), result[<span class="stringliteral">&quot;fetch_name&quot;</span>].as&lt;std::string&gt;(), 3001);</div>
+<div class="line">            <span class="keyword">const</span> <span class="keyword">auto</span>&amp; fetch_track_name =</div>
+<div class="line">              quicr::example::MakeFullTrackName(result[<span class="stringliteral">&quot;fetch_namespace&quot;</span>].as&lt;std::string&gt;(),</div>
+<div class="line">                                                result[<span class="stringliteral">&quot;fetch_name&quot;</span>].as&lt;std::string&gt;(),</div>
+<div class="line">                                                qclient_vars::track_alias);</div>
 <div class="line"> </div>
 <div class="line">            fetch_thread =</div>
 <div class="line">              std::thread(DoFetch,</div>
@@ -634,17 +738,22 @@ $(function(){initNavTree('client_8cpp-example.html',''); initResizable(true); })
 <div class="line">    <span class="keywordflow">return</span> result_code;</div>
 <div class="line">}</div>
 <div class="ttc" id="aclassquicr_1_1_client_html"><div class="ttname"><a href="classquicr_1_1_client.html">quicr::Client</a></div><div class="ttdoc">MoQ Client.</div><div class="ttdef"><b>Definition</b> client.h:21</div></div>
-<div class="ttc" id="aclassquicr_1_1_fetch_track_handler_html"><div class="ttname"><a href="classquicr_1_1_fetch_track_handler.html">quicr::FetchTrackHandler</a></div><div class="ttdef"><b>Definition</b> fetch_track_handler.h:15</div></div>
-<div class="ttc" id="aclassquicr_1_1_fetch_track_handler_html_a34db54d75eea3f719155d16ea5875e34"><div class="ttname"><a href="classquicr_1_1_fetch_track_handler.html#a34db54d75eea3f719155d16ea5875e34">quicr::FetchTrackHandler::Create</a></div><div class="ttdeci">static std::shared_ptr&lt; FetchTrackHandler &gt; Create(const FullTrackName &amp;full_track_name, messages::ObjectPriority priority, messages::GroupOrder group_order, messages::GroupId start_group, messages::GroupId end_group, messages::GroupId start_object, messages::GroupId end_object)</div><div class="ttdoc">Create shared Fetch track handler.</div><div class="ttdef"><b>Definition</b> fetch_track_handler.h:57</div></div>
+<div class="ttc" id="aclassquicr_1_1_client_html_ab22e0b13413ac17fdc3da8abd2f912fc"><div class="ttname"><a href="classquicr_1_1_client.html#ab22e0b13413ac17fdc3da8abd2f912fc">quicr::Client::UnannounceReceived</a></div><div class="ttdeci">virtual void UnannounceReceived(const TrackNamespace &amp;track_namespace)</div><div class="ttdoc">Callback notification for unannounce received by subscribe announces.</div></div>
+<div class="ttc" id="aclassquicr_1_1_client_html_ac33e5c121b37a4a51310e0d2758a2eb4"><div class="ttname"><a href="classquicr_1_1_client.html#ac33e5c121b37a4a51310e0d2758a2eb4">quicr::Client::AnnounceReceived</a></div><div class="ttdeci">virtual void AnnounceReceived(const TrackNamespace &amp;track_namespace, const PublishAnnounceAttributes &amp;announce_attributes)</div><div class="ttdoc">Callback notification for announce received by subscribe announces.</div></div>
+<div class="ttc" id="aclassquicr_1_1_client_html_af28df2ff32bb09dc287903f034ce5fd3"><div class="ttname"><a href="classquicr_1_1_client.html#af28df2ff32bb09dc287903f034ce5fd3">quicr::Client::SubscribeAnnouncesStatusChanged</a></div><div class="ttdeci">virtual void SubscribeAnnouncesStatusChanged(const TrackNamespace &amp;track_namespace, std::optional&lt; messages::SubscribeAnnouncesErrorCode &gt; error_code, std::optional&lt; messages::ReasonPhrase &gt; reason)</div><div class="ttdoc">Callback notification for subscribe announces OK or Error.</div></div>
+<div class="ttc" id="aclassquicr_1_1_fetch_track_handler_html"><div class="ttname"><a href="classquicr_1_1_fetch_track_handler.html">quicr::FetchTrackHandler</a></div><div class="ttdef"><b>Definition</b> fetch_track_handler.h:12</div></div>
+<div class="ttc" id="aclassquicr_1_1_fetch_track_handler_html_a34db54d75eea3f719155d16ea5875e34"><div class="ttname"><a href="classquicr_1_1_fetch_track_handler.html#a34db54d75eea3f719155d16ea5875e34">quicr::FetchTrackHandler::Create</a></div><div class="ttdeci">static std::shared_ptr&lt; FetchTrackHandler &gt; Create(const FullTrackName &amp;full_track_name, messages::ObjectPriority priority, messages::GroupOrder group_order, messages::GroupId start_group, messages::GroupId end_group, messages::GroupId start_object, messages::GroupId end_object)</div><div class="ttdoc">Create shared Fetch track handler.</div><div class="ttdef"><b>Definition</b> fetch_track_handler.h:54</div></div>
 <div class="ttc" id="aclassquicr_1_1_publish_track_handler_html"><div class="ttname"><a href="classquicr_1_1_publish_track_handler.html">quicr::PublishTrackHandler</a></div><div class="ttdoc">MOQ track handler for published track.</div><div class="ttdef"><b>Definition</b> publish_track_handler.h:22</div></div>
 <div class="ttc" id="aclassquicr_1_1_publish_track_handler_html_a85d2310272db252df775a681cc8b8884"><div class="ttname"><a href="classquicr_1_1_publish_track_handler.html#a85d2310272db252df775a681cc8b8884">quicr::PublishTrackHandler::StatusChanged</a></div><div class="ttdeci">virtual void StatusChanged(Status status)</div><div class="ttdoc">Notification of publish track status change.</div></div>
 <div class="ttc" id="aclassquicr_1_1_publish_track_handler_html_af50c21bea085782c5c0c8f2958a921f7a029c756c36d0d64ad37d82fdd25135ad"><div class="ttname"><a href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a029c756c36d0d64ad37d82fdd25135ad">quicr::PublishTrackHandler::Status::kNoSubscribers</a></div><div class="ttdeci">@ kNoSubscribers</div></div>
+<div class="ttc" id="aclassquicr_1_1_publish_track_handler_html_af50c21bea085782c5c0c8f2958a921f7a03233688e1e607f8608eadaa256217c7"><div class="ttname"><a href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a03233688e1e607f8608eadaa256217c7">quicr::PublishTrackHandler::Status::kNewGroupRequested</a></div><div class="ttdeci">@ kNewGroupRequested</div></div>
 <div class="ttc" id="aclassquicr_1_1_publish_track_handler_html_af50c21bea085782c5c0c8f2958a921f7a7682a9bdfcd5780c1e1f4151cbe68427"><div class="ttname"><a href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7a7682a9bdfcd5780c1e1f4151cbe68427">quicr::PublishTrackHandler::Status::kSubscriptionUpdated</a></div><div class="ttdeci">@ kSubscriptionUpdated</div></div>
 <div class="ttc" id="aclassquicr_1_1_publish_track_handler_html_af50c21bea085782c5c0c8f2958a921f7ae69fa9a656f76dd8a4d89f21992b2d3a"><div class="ttname"><a href="classquicr_1_1_publish_track_handler.html#af50c21bea085782c5c0c8f2958a921f7ae69fa9a656f76dd8a4d89f21992b2d3a">quicr::PublishTrackHandler::Status::kOk</a></div><div class="ttdeci">@ kOk</div></div>
-<div class="ttc" id="aclassquicr_1_1_subscribe_track_handler_html"><div class="ttname"><a href="classquicr_1_1_subscribe_track_handler.html">quicr::SubscribeTrackHandler</a></div><div class="ttdoc">MOQ track handler for subscribed track.</div><div class="ttdef"><b>Definition</b> subscribe_track_handler.h:21</div></div>
+<div class="ttc" id="aclassquicr_1_1_subscribe_track_handler_html"><div class="ttname"><a href="classquicr_1_1_subscribe_track_handler.html">quicr::SubscribeTrackHandler</a></div><div class="ttdoc">MOQ track handler for subscribed track.</div><div class="ttdef"><b>Definition</b> subscribe_track_handler.h:22</div></div>
 <div class="ttc" id="aclassquicr_1_1_subscribe_track_handler_html_a9de21a18d0ef99ddba39efc9833d74eeae69fa9a656f76dd8a4d89f21992b2d3a"><div class="ttname"><a href="classquicr_1_1_subscribe_track_handler.html#a9de21a18d0ef99ddba39efc9833d74eeae69fa9a656f76dd8a4d89f21992b2d3a">quicr::SubscribeTrackHandler::Status::kOk</a></div><div class="ttdeci">@ kOk</div></div>
-<div class="ttc" id="aclassquicr_1_1_subscribe_track_handler_html_aa4df3bdf8ba34557c381aa0268bc5b7d"><div class="ttname"><a href="classquicr_1_1_subscribe_track_handler.html#aa4df3bdf8ba34557c381aa0268bc5b7d">quicr::SubscribeTrackHandler::ObjectReceived</a></div><div class="ttdeci">virtual void ObjectReceived(const ObjectHeaders &amp;object_headers, BytesSpan data)</div><div class="ttdoc">Notification of received [full] data object.</div><div class="ttdef"><b>Definition</b> subscribe_track_handler.h:131</div></div>
-<div class="ttc" id="aclassquicr_1_1_subscribe_track_handler_html_acc562217cd1bb34fc845cdde7a0fe570"><div class="ttname"><a href="classquicr_1_1_subscribe_track_handler.html#acc562217cd1bb34fc845cdde7a0fe570">quicr::SubscribeTrackHandler::StatusChanged</a></div><div class="ttdeci">virtual void StatusChanged(Status status)</div><div class="ttdoc">Notification of subscribe status.</div><div class="ttdef"><b>Definition</b> subscribe_track_handler.h:158</div></div>
+<div class="ttc" id="aclassquicr_1_1_subscribe_track_handler_html_aa4df3bdf8ba34557c381aa0268bc5b7d"><div class="ttname"><a href="classquicr_1_1_subscribe_track_handler.html#aa4df3bdf8ba34557c381aa0268bc5b7d">quicr::SubscribeTrackHandler::ObjectReceived</a></div><div class="ttdeci">virtual void ObjectReceived(const ObjectHeaders &amp;object_headers, BytesSpan data)</div><div class="ttdoc">Notification of received [full] data object.</div></div>
+<div class="ttc" id="aclassquicr_1_1_subscribe_track_handler_html_acc562217cd1bb34fc845cdde7a0fe570"><div class="ttname"><a href="classquicr_1_1_subscribe_track_handler.html#acc562217cd1bb34fc845cdde7a0fe570">quicr::SubscribeTrackHandler::StatusChanged</a></div><div class="ttdeci">virtual void StatusChanged(Status status)</div><div class="ttdoc">Notification of subscribe status.</div><div class="ttdef"><b>Definition</b> subscribe_track_handler.h:192</div></div>
+<div class="ttc" id="aclassquicr_1_1_track_namespace_html"><div class="ttname"><a href="classquicr_1_1_track_namespace.html">quicr::TrackNamespace</a></div><div class="ttdoc">An N-tuple representation of a MOQ namespace.</div><div class="ttdef"><b>Definition</b> track_name.h:21</div></div>
 <div class="ttc" id="aclassquicr_1_1_transport_html_a1fc1ea2c9665c591c4eac8a6ff1b6173a25d5606fe07425ea73f245c48612c039"><div class="ttname"><a href="classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173a25d5606fe07425ea73f245c48612c039">quicr::Transport::Status::kReady</a></div><div class="ttdeci">@ kReady</div></div>
 <div class="ttc" id="aclassquicr_1_1_transport_html_a1fc1ea2c9665c591c4eac8a6ff1b6173a6c5660d2ed7f39a660130e00fa80f208"><div class="ttname"><a href="classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173a6c5660d2ed7f39a660130e00fa80f208">quicr::Transport::Status::kPendingSeverSetup</a></div><div class="ttdeci">@ kPendingSeverSetup</div></div>
 <div class="ttc" id="aclassquicr_1_1_transport_html_a1fc1ea2c9665c591c4eac8a6ff1b6173ab714c11518d545c225d456731dab0dd0"><div class="ttname"><a href="classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173ab714c11518d545c225d456731dab0dd0">quicr::Transport::Status::kConnecting</a></div><div class="ttdeci">@ kConnecting</div></div>
@@ -662,6 +771,8 @@ $(function(){initNavTree('client_8cpp-example.html',''); initResizable(true); })
 <div class="ttc" id="astructquicr_1_1_object_headers_html"><div class="ttname"><a href="structquicr_1_1_object_headers.html">quicr::ObjectHeaders</a></div><div class="ttdoc">Object headers struct.</div><div class="ttdef"><b>Definition</b> object.h:32</div></div>
 <div class="ttc" id="astructquicr_1_1_object_headers_html_a544ac7b64c29d3adec1e76b4efefa5d5"><div class="ttname"><a href="structquicr_1_1_object_headers.html#a544ac7b64c29d3adec1e76b4efefa5d5">quicr::ObjectHeaders::object_id</a></div><div class="ttdeci">uint64_t object_id</div><div class="ttdoc">Object ID - Application defined order of generation.</div><div class="ttdef"><b>Definition</b> object.h:34</div></div>
 <div class="ttc" id="astructquicr_1_1_object_headers_html_a5f95043ef8044f6497e9eedc8cd20ff9"><div class="ttname"><a href="structquicr_1_1_object_headers.html#a5f95043ef8044f6497e9eedc8cd20ff9">quicr::ObjectHeaders::group_id</a></div><div class="ttdeci">uint64_t group_id</div><div class="ttdoc">Object group ID - Application defined order of generation.</div><div class="ttdef"><b>Definition</b> object.h:33</div></div>
+<div class="ttc" id="astructquicr_1_1_publish_announce_attributes_html"><div class="ttname"><a href="structquicr_1_1_publish_announce_attributes.html">quicr::PublishAnnounceAttributes</a></div><div class="ttdoc">Publish announce attributes.</div><div class="ttdef"><b>Definition</b> common.h:43</div></div>
+<div class="ttc" id="astructquicr_1_1_track_hash_html"><div class="ttname"><a href="structquicr_1_1_track_hash.html">quicr::TrackHash</a></div><div class="ttdef"><b>Definition</b> track_name.h:274</div></div>
 </div><!-- fragment --> </div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->

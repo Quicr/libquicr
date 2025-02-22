@@ -150,6 +150,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a520dfe48f9e5a3a82d154d579ee1ff01" id="r_a520dfe48f9e5a3a82d154d579ee1ff01"><td class="memItemLeft" align="right" valign="top">constexpr <a class="el" href="#a9de21a18d0ef99ddba39efc9833d74ee">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a520dfe48f9e5a3a82d154d579ee1ff01">GetStatus</a> () const noexcept</td></tr>
 <tr class="memdesc:a520dfe48f9e5a3a82d154d579ee1ff01"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the status of the subscribe.  <br /></td></tr>
 <tr class="separator:a520dfe48f9e5a3a82d154d579ee1ff01"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abd74c4721b5eaf4af3856115d7205390" id="r_abd74c4721b5eaf4af3856115d7205390"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#abd74c4721b5eaf4af3856115d7205390">SetPriority</a> (uint8_t priority) noexcept</td></tr>
+<tr class="memdesc:abd74c4721b5eaf4af3856115d7205390"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the priority of received data.  <br /></td></tr>
+<tr class="separator:abd74c4721b5eaf4af3856115d7205390"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae2ddbd22867565e10610b7d85f3eb09a" id="r_ae2ddbd22867565e10610b7d85f3eb09a"><td class="memItemLeft" align="right" valign="top">constexpr messages::ObjectPriority&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae2ddbd22867565e10610b7d85f3eb09a">GetPriority</a> () const noexcept</td></tr>
 <tr class="memdesc:ae2ddbd22867565e10610b7d85f3eb09a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get subscription priority.  <br /></td></tr>
 <tr class="separator:ae2ddbd22867565e10610b7d85f3eb09a"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -159,10 +162,24 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a71fd849dc9a449261a18773287a92bf6" id="r_a71fd849dc9a449261a18773287a92bf6"><td class="memItemLeft" align="right" valign="top">constexpr messages::FilterType&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a71fd849dc9a449261a18773287a92bf6">GetFilterType</a> () const noexcept</td></tr>
 <tr class="memdesc:a71fd849dc9a449261a18773287a92bf6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get subscription filter type.  <br /></td></tr>
 <tr class="separator:a71fd849dc9a449261a18773287a92bf6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a044dc43dabdcb8f4ea701785867fff7f" id="r_a044dc43dabdcb8f4ea701785867fff7f"><td class="memItemLeft" align="right" valign="top">constexpr std::optional&lt; messages::GroupId &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a044dc43dabdcb8f4ea701785867fff7f">GetLatestGroupID</a> () const noexcept</td></tr>
+<tr class="separator:a044dc43dabdcb8f4ea701785867fff7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aab36d7f3ad6c23ab9bb64c85ba52b2ad" id="r_aab36d7f3ad6c23ab9bb64c85ba52b2ad"><td class="memItemLeft" align="right" valign="top">constexpr std::optional&lt; messages::ObjectId &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aab36d7f3ad6c23ab9bb64c85ba52b2ad">GetLatestObjectID</a> () const noexcept</td></tr>
+<tr class="separator:aab36d7f3ad6c23ab9bb64c85ba52b2ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6d1b4dea8eb98c1b71c769bc8ebb0a57" id="r_a6d1b4dea8eb98c1b71c769bc8ebb0a57"><td class="memItemLeft" align="right" valign="top">constexpr void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a6d1b4dea8eb98c1b71c769bc8ebb0a57">SetLatestGroupID</a> (messages::GroupId new_id) noexcept</td></tr>
+<tr class="separator:a6d1b4dea8eb98c1b71c769bc8ebb0a57"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae8fdfa40357f40b4eb6461484cab4969" id="r_ae8fdfa40357f40b4eb6461484cab4969"><td class="memItemLeft" align="right" valign="top">constexpr void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae8fdfa40357f40b4eb6461484cab4969">SetLatestObjectID</a> (messages::ObjectId new_id) noexcept</td></tr>
+<tr class="separator:ae8fdfa40357f40b4eb6461484cab4969"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">Callbacks</div></td></tr>
 <tr class="memitem:aa4df3bdf8ba34557c381aa0268bc5b7d" id="r_aa4df3bdf8ba34557c381aa0268bc5b7d"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa4df3bdf8ba34557c381aa0268bc5b7d">ObjectReceived</a> (const <a class="el" href="structquicr_1_1_object_headers.html">ObjectHeaders</a> &amp;object_headers, <a class="el" href="namespacequicr.html#ae1ac30988d32dc3d91fb37721fa99dcb">BytesSpan</a> data)</td></tr>
 <tr class="memdesc:aa4df3bdf8ba34557c381aa0268bc5b7d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification of received [full] data object.  <br /></td></tr>
 <tr class="separator:aa4df3bdf8ba34557c381aa0268bc5b7d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a621ac7c2dc69e25c717e7cdaf51ce63f" id="r_a621ac7c2dc69e25c717e7cdaf51ce63f"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a621ac7c2dc69e25c717e7cdaf51ce63f">StreamDataRecv</a> (bool is_start, uint64_t stream_id, std::shared_ptr&lt; const std::vector&lt; uint8_t &gt; &gt; data)</td></tr>
+<tr class="memdesc:a621ac7c2dc69e25c717e7cdaf51ce63f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification of received stream data slice.  <br /></td></tr>
+<tr class="separator:a621ac7c2dc69e25c717e7cdaf51ce63f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1d962c96f907ef5e50e3b3ed22711ed8" id="r_a1d962c96f907ef5e50e3b3ed22711ed8"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a1d962c96f907ef5e50e3b3ed22711ed8">DgramDataRecv</a> (std::shared_ptr&lt; const std::vector&lt; uint8_t &gt; &gt; data)</td></tr>
+<tr class="memdesc:a1d962c96f907ef5e50e3b3ed22711ed8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification of received datagram data.  <br /></td></tr>
+<tr class="separator:a1d962c96f907ef5e50e3b3ed22711ed8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa2f1ee639e6a02ffb3c43673560f4155" id="r_aa2f1ee639e6a02ffb3c43673560f4155"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa2f1ee639e6a02ffb3c43673560f4155">PartialObjectReceived</a> (const <a class="el" href="structquicr_1_1_object_headers.html">ObjectHeaders</a> &amp;object_headers, <a class="el" href="namespacequicr.html#ae1ac30988d32dc3d91fb37721fa99dcb">BytesSpan</a> data)</td></tr>
 <tr class="memdesc:aa2f1ee639e6a02ffb3c43673560f4155"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification of a partial object received data object.  <br /></td></tr>
 <tr class="separator:aa2f1ee639e6a02ffb3c43673560f4155"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -172,18 +189,22 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a3824e9ce82a8e52d43166931a24cc1fc" id="r_a3824e9ce82a8e52d43166931a24cc1fc"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a3824e9ce82a8e52d43166931a24cc1fc">MetricsSampled</a> (const <a class="el" href="structquicr_1_1_subscribe_track_metrics.html">SubscribeTrackMetrics</a> &amp;metrics)</td></tr>
 <tr class="memdesc:a3824e9ce82a8e52d43166931a24cc1fc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification callback to provide sampled metrics.  <br /></td></tr>
 <tr class="separator:a3824e9ce82a8e52d43166931a24cc1fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a93b099d6a5c5862e121d6891ac5036af" id="r_a93b099d6a5c5862e121d6891ac5036af"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a93b099d6a5c5862e121d6891ac5036af">RequestNewGroup</a> () noexcept</td></tr>
+<tr class="separator:a93b099d6a5c5862e121d6891ac5036af"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-static-methods" name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
-<tr class="memitem:aeb33df952461efa0b926022cab0cdf84" id="r_aeb33df952461efa0b926022cab0cdf84"><td class="memItemLeft" align="right" valign="top">static std::shared_ptr&lt; <a class="el" href="classquicr_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aeb33df952461efa0b926022cab0cdf84">Create</a> (const <a class="el" href="structquicr_1_1_full_track_name.html">FullTrackName</a> &amp;full_track_name, messages::ObjectPriority priority, messages::GroupOrder group_order=messages::GroupOrder::kAscending, messages::FilterType filter_type=messages::FilterType::LatestObject)</td></tr>
-<tr class="memdesc:aeb33df952461efa0b926022cab0cdf84"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create shared Subscribe track handler.  <br /></td></tr>
-<tr class="separator:aeb33df952461efa0b926022cab0cdf84"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a12419a2606c7be1782b4e2174c998da7" id="r_a12419a2606c7be1782b4e2174c998da7"><td class="memItemLeft" align="right" valign="top">static std::shared_ptr&lt; <a class="el" href="classquicr_1_1_subscribe_track_handler.html">SubscribeTrackHandler</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a12419a2606c7be1782b4e2174c998da7">Create</a> (const <a class="el" href="structquicr_1_1_full_track_name.html">FullTrackName</a> &amp;full_track_name, messages::ObjectPriority priority, messages::GroupOrder group_order=messages::GroupOrder::kAscending, messages::FilterType filter_type=messages::FilterType::kLatestObject)</td></tr>
+<tr class="memdesc:a12419a2606c7be1782b4e2174c998da7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create shared Subscribe track handler.  <br /></td></tr>
+<tr class="separator:a12419a2606c7be1782b4e2174c998da7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
 <tr class="memitem:a5e07af66c3912bd4bfcdfdc6b97abb55" id="r_a5e07af66c3912bd4bfcdfdc6b97abb55"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structquicr_1_1_subscribe_track_metrics.html">SubscribeTrackMetrics</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a5e07af66c3912bd4bfcdfdc6b97abb55">subscribe_track_metrics_</a></td></tr>
 <tr class="memdesc:a5e07af66c3912bd4bfcdfdc6b97abb55"><td class="mdescLeft">&#160;</td><td class="mdescRight">Subscribe metrics for the track.  <br /></td></tr>
 <tr class="separator:a5e07af66c3912bd4bfcdfdc6b97abb55"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a05b3e48f32df98a989a1818e712470bb" id="r_a05b3e48f32df98a989a1818e712470bb"><td class="memItemLeft" align="right" valign="top">std::function&lt; void(messages::SubscribeId, messages::TrackAlias)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a05b3e48f32df98a989a1818e712470bb">new_group_request_callback_</a></td></tr>
+<tr class="separator:a05b3e48f32df98a989a1818e712470bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-methods" name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
@@ -198,7 +219,7 @@ Protected Member Functions</h2></td></tr>
 <div class="textblock"><p>MOQ track handler for subscribed track. </p>
 <p>MOQ subscribe track handler defines all track related callbacks and functions for subscribe. Track handler operates on a single track (namespace + name).</p>
 <p>This extends the base track handler to add subscribe handling </p>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#_a0">client.cpp</a>, and <a class="el" href="server_8cpp-example.html#_a1">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#_a0">client.cpp</a>, and <a class="el" href="server_8cpp-example.html#_a2">server.cpp</a>.</dd>
 </dl>
 </div><h2 class="groupheader">Member Enumeration Documentation</h2>
 <a id="a056830ef56b1c16911c17844db8e5e44" name="a056830ef56b1c16911c17844db8e5e44"></a>
@@ -314,8 +335,8 @@ Protected Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="aeb33df952461efa0b926022cab0cdf84" name="aeb33df952461efa0b926022cab0cdf84"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aeb33df952461efa0b926022cab0cdf84">&#9670;&#160;</a></span>Create()</h2>
+<a id="a12419a2606c7be1782b4e2174c998da7" name="a12419a2606c7be1782b4e2174c998da7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a12419a2606c7be1782b4e2174c998da7">&#9670;&#160;</a></span>Create()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -341,7 +362,7 @@ Protected Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">messages::FilterType</td>          <td class="paramname"><span class="paramname"><em>filter_type</em></span><span class="paramdefsep"> = </span><span class="paramdefval">messages::FilterType::LatestObject</span>&#160;)</td>
+          <td class="paramtype">messages::FilterType</td>          <td class="paramname"><span class="paramname"><em>filter_type</em></span><span class="paramdefsep"> = </span><span class="paramdefval">messages::FilterType::kLatestObject</span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -357,6 +378,40 @@ Protected Member Functions</h2></td></tr>
     <tr><td class="paramname">full_track_name</td><td>Full track name struct </td></tr>
     <tr><td class="paramname">priority</td><td>Subscription priority, if omitted, publisher priority is considered </td></tr>
     <tr><td class="paramname">group_order</td><td>Order for group delivery </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="a1d962c96f907ef5e50e3b3ed22711ed8" name="a1d962c96f907ef5e50e3b3ed22711ed8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1d962c96f907ef5e50e3b3ed22711ed8">&#9670;&#160;</a></span>DgramDataRecv()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void quicr::SubscribeTrackHandler::DgramDataRecv </td>
+          <td>(</td>
+          <td class="paramtype">std::shared_ptr&lt; const std::vector&lt; uint8_t &gt; &gt;</td>          <td class="paramname"><span class="paramname"><em>data</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Notification of received datagram data. </p>
+<p>Event notification to provide the caller the raw data received as a datagram</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">data</td><td>Shared pointer to the data received </td></tr>
   </table>
   </dd>
 </dl>
@@ -416,6 +471,56 @@ Protected Member Functions</h2></td></tr>
 
 <p>Get subscription group order. </p>
 <dl class="section return"><dt>Returns</dt><dd>GroupOrder value </dd></dl>
+
+</div>
+</div>
+<a id="a044dc43dabdcb8f4ea701785867fff7f" name="a044dc43dabdcb8f4ea701785867fff7f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a044dc43dabdcb8f4ea701785867fff7f">&#9670;&#160;</a></span>GetLatestGroupID()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::optional&lt; messages::GroupId &gt; quicr::SubscribeTrackHandler::GetLatestGroupID </td>
+          <td>(</td>
+          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">constexpr</span><span class="mlabel">noexcept</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="aab36d7f3ad6c23ab9bb64c85ba52b2ad" name="aab36d7f3ad6c23ab9bb64c85ba52b2ad"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aab36d7f3ad6c23ab9bb64c85ba52b2ad">&#9670;&#160;</a></span>GetLatestObjectID()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::optional&lt; messages::ObjectId &gt; quicr::SubscribeTrackHandler::GetLatestObjectID </td>
+          <td>(</td>
+          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">constexpr</span><span class="mlabel">noexcept</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -531,7 +636,7 @@ Protected Member Functions</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">virtual</span></span>  </td>
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -546,7 +651,7 @@ Protected Member Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#a2">client.cpp</a>, and <a class="el" href="server_8cpp-example.html#a3">server.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="client_8cpp-example.html#a2">client.cpp</a>, and <a class="el" href="server_8cpp-example.html#a4">server.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -585,6 +690,114 @@ Protected Member Functions</h2></td></tr>
   <table class="params">
     <tr><td class="paramname">object_headers</td><td>Object headers, must include group and object Ids </td></tr>
     <tr><td class="paramname">data</td><td>Object payload data received, can be &lt;= <a class="el" href="structquicr_1_1_object_headers.html#ad15c80dbc8580017173694db9db4d0d2" title="Length of payload of the object data.">ObjectHeaders::payload_length</a> </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="a93b099d6a5c5862e121d6891ac5036af" name="a93b099d6a5c5862e121d6891ac5036af"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a93b099d6a5c5862e121d6891ac5036af">&#9670;&#160;</a></span>RequestNewGroup()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void quicr::SubscribeTrackHandler::RequestNewGroup </td>
+          <td>(</td>
+          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">noexcept</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a6d1b4dea8eb98c1b71c769bc8ebb0a57" name="a6d1b4dea8eb98c1b71c769bc8ebb0a57"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6d1b4dea8eb98c1b71c769bc8ebb0a57">&#9670;&#160;</a></span>SetLatestGroupID()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void quicr::SubscribeTrackHandler::SetLatestGroupID </td>
+          <td>(</td>
+          <td class="paramtype">messages::GroupId</td>          <td class="paramname"><span class="paramname"><em>new_id</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">constexpr</span><span class="mlabel">noexcept</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ae8fdfa40357f40b4eb6461484cab4969" name="ae8fdfa40357f40b4eb6461484cab4969"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae8fdfa40357f40b4eb6461484cab4969">&#9670;&#160;</a></span>SetLatestObjectID()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void quicr::SubscribeTrackHandler::SetLatestObjectID </td>
+          <td>(</td>
+          <td class="paramtype">messages::ObjectId</td>          <td class="paramname"><span class="paramname"><em>new_id</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">constexpr</span><span class="mlabel">noexcept</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="abd74c4721b5eaf4af3856115d7205390" name="abd74c4721b5eaf4af3856115d7205390"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abd74c4721b5eaf4af3856115d7205390">&#9670;&#160;</a></span>SetPriority()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void quicr::SubscribeTrackHandler::SetPriority </td>
+          <td>(</td>
+          <td class="paramtype">uint8_t</td>          <td class="paramname"><span class="paramname"><em>priority</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">noexcept</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Set the priority of received data. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">priority</td><td>Priority value of received data </td></tr>
   </table>
   </dd>
 </dl>
@@ -660,7 +873,66 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="a621ac7c2dc69e25c717e7cdaf51ce63f" name="a621ac7c2dc69e25c717e7cdaf51ce63f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a621ac7c2dc69e25c717e7cdaf51ce63f">&#9670;&#160;</a></span>StreamDataRecv()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void quicr::SubscribeTrackHandler::StreamDataRecv </td>
+          <td>(</td>
+          <td class="paramtype">bool</td>          <td class="paramname"><span class="paramname"><em>is_start</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint64_t</td>          <td class="paramname"><span class="paramname"><em>stream_id</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::shared_ptr&lt; const std::vector&lt; uint8_t &gt; &gt;</td>          <td class="paramname"><span class="paramname"><em>data</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Notification of received stream data slice. </p>
+<p>Event notification to provide the caller the raw data received on a stream</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">is_start</td><td>True to indicate if this data is the start of a new stream </td></tr>
+    <tr><td class="paramname">stream_id</td><td>Stream ID data was received on </td></tr>
+    <tr><td class="paramname">data</td><td>Shared pointer to the data received </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a id="a05b3e48f32df98a989a1818e712470bb" name="a05b3e48f32df98a989a1818e712470bb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a05b3e48f32df98a989a1818e712470bb">&#9670;&#160;</a></span>new_group_request_callback_</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::function&lt;void(messages::SubscribeId, messages::TrackAlias)&gt; quicr::SubscribeTrackHandler::new_group_request_callback_</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a5e07af66c3912bd4bfcdfdc6b97abb55" name="a5e07af66c3912bd4bfcdfdc6b97abb55"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a5e07af66c3912bd4bfcdfdc6b97abb55">&#9670;&#160;</a></span>subscribe_track_metrics_</h2>
 

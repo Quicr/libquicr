@@ -1,7 +1,7 @@
 var searchData=
 [
   ['begin_0',['begin',['../classquicr_1_1_uint_var.html#a74ea93018036a539601292ab487a9823',1,'quicr::UintVar::begin()'],['../classquicr_1_1_track_namespace.html#addd8054ca7d22732e94b365dd8a0ffa0',1,'quicr::TrackNamespace::begin() noexcept'],['../classquicr_1_1_track_namespace.html#af927104c43dccd234eeb96251052f630',1,'quicr::TrackNamespace::begin() const noexcept']]],
-  ['bindpublishertrack_1',['BindPublisherTrack',['../classquicr_1_1_server.html#ac6935937aa065ba91ef96b78e758ffae',1,'quicr::Server']]],
+  ['bindpublishertrack_1',['BindPublisherTrack',['../classquicr_1_1_server.html#aab1f2660141cc12eaafe5cfdb6ec5333',1,'quicr::Server']]],
   ['bucket_5findex_5f_2',['bucket_index_',['../classquicr_1_1_cache.html#a7cddee22bb1d4440541a000c4cb77a59',1,'quicr::Cache']]],
   ['buckets_5f_3',['buckets_',['../classquicr_1_1_cache.html#af8395df999a7e82f63f4f5d5ca3b76a8',1,'quicr::Cache']]],
   ['byte_4',['Byte',['../namespacequicr.html#afc0a634888231229a3c4ca9455f639cf',1,'quicr']]],
