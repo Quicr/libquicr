@@ -12,7 +12,7 @@ target_compile_options(qclient
 
 set_target_properties(qclient
         PROPERTIES
-        CXX_STANDARD 17
+        CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS OFF)
 
@@ -31,7 +31,7 @@ target_compile_options(qserver
 
 set_target_properties(qserver
         PROPERTIES
-        CXX_STANDARD 17
+        CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS ON)
 
