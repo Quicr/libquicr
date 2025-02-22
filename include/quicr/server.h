@@ -239,10 +239,13 @@ namespace quicr {
          * @param prefix_namespace               Track namespace
          * @param announce_attributes   Announces attributes received
          */
-        virtual std::pair<std::optional<messages::SubscribeAnnouncesErrorCode>, std::vector<TrackNamespace>>
-        SubscribeAnnouncesReceived(ConnectionHandle connection_handle,
-                                   const TrackNamespace& prefix_namespace,
-                                   const PublishAnnounceAttributes& announce_attributes);
+        using SubscribeAnnouncesResponse =
+          std::pair<std::optional<messages::SubscribeAnnouncesErrorCode>, std::vector<TrackNamespace>>;
+
+        virtual SubscribeAnnouncesResponse SubscribeAnnouncesReceived(
+          ConnectionHandle connection_handle,
+          const TrackNamespace& prefix_namespace,
+          const PublishAnnounceAttributes& announce_attributes);
 
         /**
          * @brief Callback notification for new subscribe received
