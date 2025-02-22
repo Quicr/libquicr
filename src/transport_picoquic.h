@@ -39,6 +39,11 @@ namespace quicr {
     constexpr int kPqCcLowCwin = 4000;                /// Bytes less than this value are considered a low/congested CWIN
     constexpr int kCongestionCheckInterval = 100'000; /// Congestion check interval in microseconds
 
+    /**
+     * Minimum bytes needed to write before considering to send. This doesn't
+     */
+    constexpr int kMinStreamBytesForSend = 4;
+
     class PicoQuicTransport : public ITransport
     {
       public:
@@ -63,13 +68,6 @@ namespace quicr {
             DataContextId data_ctx_id{ 0 }; /// The ID of this context
             TransportConnId conn_id{ 0 };   /// The connection ID this context is under
 
-            enum class StreamAction : uint8_t
-            { /// Stream action that should be done by send/receive processing
-                kNoAction = 0,
-                kReplaceStreamUseReset,
-                kReplaceStreamUseFin,
-            } stream_action{ StreamAction::kNoAction };
-
             std::optional<uint64_t> current_stream_id; /// Current active stream if the value is >= 4
 
             uint8_t priority{ 0 };
@@ -79,7 +77,7 @@ namespace quicr {
             std::unique_ptr<PriorityQueue<ConnData>> tx_data; /// Pending objects to be written to the network
 
             /// Current object that is being sent as a byte stream
-            std::shared_ptr<std::vector<uint8_t>> stream_tx_object;
+            std::shared_ptr<const std::vector<uint8_t>> stream_tx_object;
             size_t stream_tx_object_offset{ 0 }; /// Pointer offset to next byte to send
 
             // The last ticks when TX callback was run
@@ -123,21 +121,29 @@ namespace quicr {
 
             DataContextId next_data_ctx_id{ 1 }; /// Next data context ID; zero is reserved for default context
 
-            std::unique_ptr<PriorityQueue<ConnData>>
-              dgram_tx_data;                 /// Datagram pending objects to be written to the network
-            SafeQueue<BytesT> dgram_rx_data; /// Buffered datagrams received from the network
+            std::shared_ptr<PriorityQueue<ConnData>>
+              dgram_tx_data; /// Datagram pending objects to be written to the network
+
+            std::shared_ptr<SafeQueue<std::shared_ptr<const std::vector<uint8_t>>>>
+              dgram_rx_data; /// Buffered datagrams received from the network
 
             /**
              * Active stream buffers for received unidirectional streams
              */
             struct RxStreamBuffer
             {
-                std::shared_ptr<SafeStreamBuffer<uint8_t>> buf;
-                bool closed{ false };       /// Indicates if stream is active or in closed state
-                bool checked_once{ false }; /// True if closed and checked once to close
+                std::shared_ptr<StreamRxContext> rx_ctx; /// Stream RX context that holds data and caller info
+                bool closed{ false };                    /// Indicates if stream is active or in closed state
+                bool checked_once{ false };              /// True if closed and checked once to close
 
-                RxStreamBuffer() { buf = std::make_shared<SafeStreamBuffer<uint8_t>>(); }
+                RxStreamBuffer()
+                  : rx_ctx(std::make_shared<StreamRxContext>())
+                {
+                    rx_ctx->caller_any.reset();
+                    rx_ctx->data_queue.Clear();
+                }
             };
+
             std::map<uint64_t, RxStreamBuffer> rx_stream_buffer; /// Map of stream receive buffers, key is stream_id
 
             /**
@@ -156,7 +162,10 @@ namespace quicr {
             // Metrics
             QuicConnectionMetrics metrics;
 
-            ConnectionContext() {}
+            ConnectionContext()
+              : dgram_rx_data(std::make_shared<SafeQueue<std::shared_ptr<const std::vector<uint8_t>>>>())
+            {
+            }
 
             ConnectionContext(picoquic_cnx_t* cnx)
               : ConnectionContext()
@@ -223,17 +232,16 @@ namespace quicr {
 
         TransportError Enqueue(const TransportConnId& conn_id,
                                const DataContextId& data_ctx_id,
-                               Span<const uint8_t> bytes,
+                               std::shared_ptr<const std::vector<uint8_t>> bytes,
                                uint8_t priority,
                                uint32_t ttl_ms,
                                uint32_t delay_ms,
                                EnqueueFlags flags) override;
 
-        std::optional<std::vector<uint8_t>> Dequeue(TransportConnId conn_id,
-                                                    std::optional<DataContextId> data_ctx_id) override;
+        std::shared_ptr<const std::vector<uint8_t>> Dequeue(TransportConnId conn_id,
+                                                            std::optional<DataContextId> data_ctx_id) override;
 
-        std::shared_ptr<SafeStreamBuffer<uint8_t>> GetStreamBuffer(TransportConnId conn_id,
-                                                                   uint64_t stream_id) override;
+        std::shared_ptr<StreamRxContext> GetStreamRxContext(TransportConnId conn_id, uint64_t stream_id) override;
 
         void SetRemoteDataCtxId(TransportConnId conn_id,
                                 DataContextId data_ctx_id,
@@ -278,6 +286,8 @@ namespace quicr {
         void CheckConnsForCongestion();
         void EmitMetrics();
         void RemoveClosedStreams();
+
+        bool StreamActionCheck(DataContext* data_ctx, StreamAction stream_action);
 
         /**
          * @brief Function run the queue functions within the picoquic thread via the pq_loop_cb

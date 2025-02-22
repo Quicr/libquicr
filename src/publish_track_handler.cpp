@@ -7,8 +7,9 @@ namespace quicr {
     void PublishTrackHandler::StatusChanged(Status) {}
     void PublishTrackHandler::MetricsSampled(const PublishTrackMetrics&) {}
 
-    PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(const ObjectHeaders& object_headers,
-                                                                                BytesSpan data)
+    PublishTrackHandler::PublishObjectStatus PublishTrackHandler::ForwardPublishedData(
+      bool is_new_stream,
+      std::shared_ptr<const std::vector<uint8_t>> data)
     {
         switch (publish_status_) {
             case Status::kOk:
@@ -26,8 +27,62 @@ namespace quicr {
             case Status::kAnnounceNotAuthorized:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNotAuthorized;
+            case Status::kNewGroupRequested:
+                [[fallthrough]];
             case Status::kSubscriptionUpdated:
                 // reset the status to ok to imply change
+                if (!is_new_stream) {
+                    break;
+                }
+                publish_status_ = Status::kOk;
+                break;
+            default:
+                publish_track_metrics_.objects_dropped_not_ok++;
+                return PublishObjectStatus::kInternalError;
+        }
+
+        publish_track_metrics_.bytes_published += data->size();
+
+        if (forward_publish_data_func_ != nullptr) {
+            return forward_publish_data_func_(default_priority_, default_ttl_, is_new_stream, data);
+        }
+
+        return PublishObjectStatus::kInternalError;
+    }
+
+    PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(const ObjectHeaders& object_headers,
+                                                                                BytesSpan data)
+    {
+        bool is_stream_header_needed{ false };
+
+        // change in subgroups and groups require a new stream
+
+        is_stream_header_needed = not sent_first_header_ || prev_sub_group_id_ != object_headers.subgroup_id ||
+                                  prev_object_group_id_ != object_headers.group_id;
+
+        switch (publish_status_) {
+            case Status::kOk:
+                break;
+            case Status::kNoSubscribers:
+                publish_track_metrics_.objects_dropped_not_ok++;
+                return PublishObjectStatus::kNoSubscribers;
+            case Status::kPendingAnnounceResponse:
+                [[fallthrough]];
+            case Status::kNotAnnounced:
+                [[fallthrough]];
+            case Status::kNotConnected:
+                publish_track_metrics_.objects_dropped_not_ok++;
+                return PublishObjectStatus::kNotAnnounced;
+            case Status::kAnnounceNotAuthorized:
+                publish_track_metrics_.objects_dropped_not_ok++;
+                return PublishObjectStatus::kNotAuthorized;
+            case Status::kNewGroupRequested:
+                [[fallthrough]];
+            case Status::kSubscriptionUpdated:
+                // reset the status to ok to imply change
+                if (!is_stream_header_needed) {
+                    break;
+                }
                 publish_status_ = Status::kOk;
                 break;
             default:
@@ -38,13 +93,6 @@ namespace quicr {
         if (object_headers.track_mode.has_value() && object_headers.track_mode != default_track_mode_) {
             SetDefaultTrackMode(*object_headers.track_mode);
         }
-
-        bool is_stream_header_needed{ false };
-
-        // change in subgroups and groups require a new stream
-
-        is_stream_header_needed = not sent_first_header_ || prev_sub_group_id_ != object_headers.subgroup_id ||
-                                  prev_object_group_id_ != object_headers.group_id;
 
         sent_first_header_ = true;
 
@@ -63,9 +111,9 @@ namespace quicr {
                                         object_headers.object_id,
                                         object_headers.extensions,
                                         data);
-        } else {
-            return PublishObjectStatus::kInternalError;
         }
+
+        return PublishObjectStatus::kInternalError;
     }
 
 } // namespace quicr

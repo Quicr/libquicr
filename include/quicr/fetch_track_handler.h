@@ -8,9 +8,6 @@
 #include <quicr/subscribe_track_handler.h>
 
 namespace quicr {
-    /**
-     * @brief
-     */
     class FetchTrackHandler : public SubscribeTrackHandler
     {
       protected:
@@ -32,7 +29,7 @@ namespace quicr {
                           messages::GroupId end_group,
                           messages::GroupId start_object,
                           messages::GroupId end_object)
-          : SubscribeTrackHandler(full_track_name, priority, group_order, quicr::messages::FilterType::LatestGroup)
+          : SubscribeTrackHandler(full_track_name, priority, group_order, quicr::messages::FilterType::kLatestGroup)
           , start_group_(start_group)
           , start_object_(start_object)
           , end_group_(end_group)

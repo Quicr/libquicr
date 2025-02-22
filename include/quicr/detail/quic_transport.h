@@ -4,6 +4,7 @@
 #pragma once
 
 #include "quic_transport_metrics.h"
+#include "quicr/detail/data_storage.h"
 #include "quicr/detail/tick_service.h"
 #include "safe_queue.h"
 #include "span.h"
@@ -12,6 +13,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <any>
 #include <array>
 #include <chrono>
 #include <memory>
@@ -54,7 +56,8 @@ namespace quicr {
         kInvalidConnContextId,
         kInvalidDataContextId,
         kInvalidIpv4Address,
-        kInvalidIpv6Address
+        kInvalidIpv6Address,
+        kInvalidStreamId
     };
 
     /**
@@ -103,16 +106,35 @@ namespace quicr {
         uint8_t quic_priority_limit{ 0 };      /// Lowest priority that will not be bypassed from pacing/CC in picoquic
     };
 
+    /// Stream action that should be done by send/receive processing
+    enum class StreamAction : uint8_t
+    {
+        kNoAction = 0,
+        kReplaceStreamUseReset,
+        kReplaceStreamUseFin,
+    };
+
     struct ConnData
     {
         TransportConnId conn_id;
         DataContextId data_ctx_id;
         uint8_t priority;
+        StreamAction stream_action{ StreamAction::kNoAction };
 
         /// Shared pointer is used so transport can take ownership of the vector without copy/new allocation
-        std::shared_ptr<std::vector<uint8_t>> data;
+        std::shared_ptr<const std::vector<uint8_t>> data;
 
         uint64_t tick_microseconds; // Tick value in microseconds
+    };
+
+    /// Stream receive data context
+    struct StreamRxContext
+    {
+        std::any caller_any; ///< Caller any object - Set and used by caller/app
+        bool is_new{ true }; ///< Indicates if new stream, on read set to false
+
+        /// Data queue for received data on the stream
+        SafeQueue<std::shared_ptr<const std::vector<uint8_t>>> data_queue;
     };
 
     /**
@@ -287,9 +309,6 @@ namespace quicr {
          * 		start listening on the socket for new connections. In client
          * mode this will initiate a connection to the remote/server.
          *
-         * @param metrics_conn_samples      Connection metrics samples (from MetricsExporter)
-         * @param metrics_data_samples      Data flow metrics samples (from MetricsExporter)
-         *
          * @return TransportContextId: identifying the connection
          */
         virtual TransportConnId Start() = 0;
@@ -399,7 +418,7 @@ namespace quicr {
          */
         virtual TransportError Enqueue(const TransportConnId& context_id,
                                        const DataContextId& data_ctx_id,
-                                       Span<const uint8_t> bytes,
+                                       std::shared_ptr<const std::vector<uint8_t>> bytes,
                                        uint8_t priority = 1,
                                        uint32_t ttl_ms = 350,
                                        uint32_t delay_ms = 0,
@@ -416,16 +435,18 @@ namespace quicr {
          *
          * @returns std::nullopt if there is no data
          */
-        virtual std::optional<std::vector<uint8_t>> Dequeue(TransportConnId conn_id,
-                                                            std::optional<DataContextId> data_ctx_id) = 0;
+        virtual std::shared_ptr<const std::vector<uint8_t>> Dequeue(TransportConnId conn_id,
+                                                                    std::optional<DataContextId> data_ctx_id) = 0;
 
         /**
-         * @brief Similar to dequeue for datagrams this will return a shared pointer to the stream buffer
+         * @brief Get the stream RX context by connection ID and stream ID
          *
-         * @param[in] conn_id		        Identifying the connection
-         * @param[in] stream_id               Stream ID of stream buffer
+         * @param conn_id                   Connection ID to get stream context from
+         * @param stream_id                 Context stream ID
+         *
+         * @returns Shared pointer to StreamRxContext
+         * @throws TransportError for invalid connection or stream id
          */
-        virtual std::shared_ptr<SafeStreamBuffer<uint8_t>> GetStreamBuffer(TransportConnId conn_id,
-                                                                           uint64_t stream_id) = 0;
+        virtual std::shared_ptr<StreamRxContext> GetStreamRxContext(TransportConnId conn_id, uint64_t stream_id) = 0;
     };
 } // namespace quicr

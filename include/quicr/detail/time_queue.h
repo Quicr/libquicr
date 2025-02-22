@@ -23,7 +23,6 @@
 #include <atomic>
 #include <chrono>
 #include <memory>
-#include <set>
 #include <stdexcept>
 #include <vector>
 
@@ -196,25 +195,44 @@ namespace quicr {
          */
         [[nodiscard]] TimeQueueElement<T> PopFront()
         {
-            auto obj = Front();
+            TimeQueueElement<T> obj{};
+            Front(obj);
             if (obj.has_value) {
                 Pop();
             }
 
-            return obj;
+            return std::move(obj);
+        }
+
+        /**
+         * @brief Pops (removes) the front of the queue using provided storage
+         *
+         * @param elem[out]          Time queue element storage. Will be updated.
+         */
+        void PopFront(TimeQueueElement<T>& elem)
+        {
+            Front(elem);
+            if (elem.has_value) {
+                Pop();
+            }
         }
 
         /**
          * @brief Returns the most valid front of the queue without popping.
+         *
+         * @param elem[out]          Time queue element storage. Will be updated.
+         *
          * @returns Element of the front value
          */
-        [[nodiscard]] TimeQueueElement<T> Front()
+        void Front(TimeQueueElement<T>& elem)
         {
             const TickType ticks = Advance();
-            TimeQueueElement<T> elem;
+
+            elem.has_value = false;
+            elem.expired_count = 0;
 
             if (queue_.empty())
-                return elem;
+                return;
 
             while (queue_index_ < queue_.size()) {
                 auto& [bucket, value_index, expiry_tick, pop_wait_ttl] = queue_.at(queue_index_);
@@ -226,17 +244,15 @@ namespace quicr {
                 }
 
                 if (pop_wait_ttl > ticks) {
-                    return elem;
+                    return;
                 }
 
                 elem.has_value = true;
                 elem.value = bucket.at(value_index);
-                return elem;
+                return;
             }
 
             Clear();
-
-            return elem;
         }
 
         size_t Size() const noexcept { return queue_.size() - queue_index_; }
@@ -247,13 +263,15 @@ namespace quicr {
          */
         void Clear() noexcept
         {
+            if (queue_.empty() /*|| queue_.size() < 40 */) // TODO: Need to review delayed purge
+                return;
+
             queue_.clear();
 
-            for (const auto& index : buckets_in_use_) {
-                buckets_.at(index).clear();
+            for (auto& bucket : buckets_) {
+                bucket.clear();
             }
 
-            buckets_in_use_.clear();
             queue_index_ = bucket_index_ = 0;
         }
 
@@ -267,22 +285,22 @@ namespace quicr {
         TickType Advance()
         {
             const TickType new_ticks = tick_service_->Milliseconds();
-            const TickType delta = current_ticks_ ? new_ticks - current_ticks_ : 0;
+            TickType delta = current_ticks_ ? new_ticks - current_ticks_ : 0;
             current_ticks_ = new_ticks;
 
             if (delta == 0)
                 return current_ticks_;
+
+            delta /= interval_; // relative delta based on interval
 
             if (delta >= static_cast<TickType>(total_buckets_)) {
                 Clear();
                 return current_ticks_;
             }
 
-            for (TickType i = 0; i < delta; ++i) {
-                buckets_[(bucket_index_ + i) % total_buckets_].clear();
-            }
-
             bucket_index_ = (bucket_index_ + delta) % total_buckets_;
+            if (!buckets_[bucket_index_].empty())
+                buckets_[bucket_index_].clear();
 
             return current_ticks_;
         }
@@ -305,23 +323,24 @@ namespace quicr {
         {
             if (ttl > duration_) {
                 throw std::invalid_argument("TTL is greater than max duration");
-            } else if (ttl == 0) {
+            }
+
+            if (ttl == 0) {
                 ttl = duration_;
             }
 
-            ttl = ttl / interval_;
+            auto relative_ttl = ttl / interval_;
 
             const TickType ticks = Advance();
 
             const TickType expiry_tick = ticks + ttl;
 
-            const IndexType future_index = (bucket_index_ + ttl - 1) % total_buckets_;
+            const IndexType future_index = (bucket_index_ + relative_ttl - 1) % total_buckets_;
 
             BucketType& bucket = buckets_[future_index];
 
             bucket.push_back(value);
             queue_.emplace_back(bucket, bucket.size() - 1, expiry_tick, ticks + delay_ttl);
-            buckets_in_use_.insert(future_index);
         }
 
       protected:
@@ -351,9 +370,6 @@ namespace quicr {
 
         /// Tick service for calculating new tick and jumps in time.
         std::shared_ptr<TickService> tick_service_;
-
-        /// Set of buckets in use that should be cleared when clear is called
-        std::set<IndexType> buckets_in_use_;
     };
 
 }; // namespace quicr
