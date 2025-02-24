@@ -518,11 +518,10 @@ namespace quicr {
 
                 SPDLOG_LOGGER_INFO(
                   logger_,
-                  "Client setup received conn_id: {0} from: {1} num_versions: {2} role: {3} version: {4}",
+                  "Client setup received conn_id: {} from: {} num_versions: {} version: {}",
                   conn_ctx.connection_handle,
                   client_endpoint_id,
                   msg.num_versions,
-                  static_cast<int>(msg.role_parameter.value.front()),
                   msg.supported_versions.front());
 
                 conn_ctx.client_version = msg.supported_versions.front();

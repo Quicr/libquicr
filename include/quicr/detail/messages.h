@@ -125,9 +125,8 @@ namespace quicr::messages {
 
     enum struct ParameterType : uint8_t
     {
-        kRole = 0x0,
         kPath = 0x1,
-        kAuthorizationInfo = 0x2, // version specific, unused
+        kMaxSubscribeId = 0x2, // version specific, unused
         kEndpointId = 0xF0,       // Endpoint ID, using temp value for now
         kInvalid = 0xFF,          // used internally.
     };
@@ -158,8 +157,8 @@ namespace quicr::messages {
     struct ClientSetup
     {
         uint64_t num_versions{ 0 };
+        uint64_t max_subscribe_id{ 0xFFFFFFFF };
         std::vector<Version> supported_versions;
-        Parameter role_parameter;
         Parameter endpoint_id_parameter;
     };
 
@@ -169,7 +168,7 @@ namespace quicr::messages {
     struct ServerSetup
     {
         Version selection_version;
-        Parameter role_parameter;
+        uint64_t max_subscribe_id { 0xFFFFFFFF };
         Parameter endpoint_id_parameter;
     };
 
@@ -278,8 +277,11 @@ namespace quicr::messages {
     struct SubscribeOk
     {
         SubscribeId subscribe_id;
-        uint64_t expires;
-        uint8_t group_order;
+        uint64_t expires {0};
+
+        // TODO: Statically set ascending because we don't support anything else
+        uint8_t group_order{ static_cast<uint8_t>(GroupOrder::kAscending) };
+
         bool content_exists;
         uint64_t largest_group{ 0 };
         uint64_t largest_object{ 0 };
