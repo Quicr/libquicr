@@ -1063,10 +1063,9 @@ namespace quicr::messages {
         PushExtensions(buffer, msg.extensions);
 
         if (msg.payload.empty()) {
-            buffer << UintVar(static_cast<uint8_t>(msg.object_status));
+            return buffer;
         }
 
-        buffer << UintVar(msg.payload.size());
         buffer << msg.payload;
 
         return buffer;
@@ -1112,33 +1111,19 @@ namespace quicr::messages {
                     return false;
                 }
                 msg.current_pos += 1;
+                msg.payload_len = buffer.Size();
                 [[fallthrough]];
             }
             case 5: {
-                if (!ParseUintVField(buffer, msg.payload_len)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 6: {
                 if (msg.payload_len == 0) {
-                    uint64_t status = 0;
-                    if (!ParseUintVField(buffer, status)) {
-                        return false;
-                    }
-                    msg.object_status = static_cast<ObjectStatus>(status);
+                    msg.parse_completed = true;
+                    return true;
                 }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
 
-            case 7: {
                 if (!buffer.Available(msg.payload_len)) {
                     return false;
                 }
-                auto val = buffer.Front(msg.payload_len);
-                msg.payload = std::move(val);
+                msg.payload = std::move(buffer.Front(msg.payload_len));
                 buffer.Pop(msg.payload_len);
                 msg.parse_completed = true;
                 [[fallthrough]];
