@@ -436,6 +436,10 @@ namespace quicr {
 
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
 
+                UnsubscribeReceived(conn_ctx.connection_handle, msg.subscribe_id);
+                conn_ctx.recv_sub_id.erase(msg.subscribe_id);
+
+
                 return true;
             }
             case messages::ControlMessageType::kSubscribesBlocked: {
