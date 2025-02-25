@@ -565,7 +565,7 @@ TEST_CASE("ServerSetup  Message encode/decode")
 }
 
 static void
-ObjectDatagramEncodeDecode(bool extensions, bool empty_payload)
+ObjectDatagramEncodeDecode(bool extensions)
 {
     Bytes buffer;
     auto object_datagram = ObjectDatagram{};
@@ -574,35 +574,33 @@ ObjectDatagramEncodeDecode(bool extensions, bool empty_payload)
     object_datagram.object_id = 0xFF;
     object_datagram.priority = 0xA;
     object_datagram.extensions = extensions ? kOptionalExtensions : std::nullopt;
-    if (empty_payload) {
-        object_datagram.object_status = quicr::ObjectStatus::kDoesNotExist;
-    } else {
-        object_datagram.payload = { 0x1, 0x2, 0x3, 0x5, 0x6 };
-    }
+    object_datagram.payload = { 0x1, 0x2, 0x3, 0x5, 0x6 };
 
     buffer << object_datagram;
 
     ObjectDatagram object_datagram_out;
-    CHECK(Verify(buffer, static_cast<uint64_t>(DataMessageType::kObjectDatagram), object_datagram_out));
+    StreamBuffer<uint8_t> sbuf;
+    sbuf.Push(buffer);
+
+    auto msg_type = sbuf.DecodeUintV();
+
+    CHECK_EQ(msg_type, static_cast<uint64_t>(DataMessageType::kObjectDatagram));
+
+    sbuf >> object_datagram_out;
+
     CHECK_EQ(object_datagram.track_alias, object_datagram_out.track_alias);
     CHECK_EQ(object_datagram.group_id, object_datagram_out.group_id);
     CHECK_EQ(object_datagram.object_id, object_datagram_out.object_id);
     CHECK_EQ(object_datagram.priority, object_datagram_out.priority);
     CHECK_EQ(object_datagram.extensions, object_datagram_out.extensions);
-    if (empty_payload) {
-        CHECK_EQ(object_datagram.object_status, object_datagram_out.object_status);
-    } else {
-        CHECK(object_datagram.payload.size() > 0);
-        CHECK_EQ(object_datagram.payload, object_datagram_out.payload);
-    }
+    CHECK(object_datagram.payload.size() > 0);
+    CHECK_EQ(object_datagram.payload, object_datagram_out.payload);
 }
 
 TEST_CASE("ObjectDatagram  Message encode/decode")
 {
-    ObjectDatagramEncodeDecode(false, false);
-    ObjectDatagramEncodeDecode(false, true);
-    ObjectDatagramEncodeDecode(true, false);
-    ObjectDatagramEncodeDecode(true, true);
+    ObjectDatagramEncodeDecode(false);
+    ObjectDatagramEncodeDecode(true);
 }
 
 TEST_CASE("ObjectDatagramStatus  Message encode/decode")
