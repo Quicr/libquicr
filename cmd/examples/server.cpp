@@ -532,16 +532,14 @@ class MyServer : public quicr::Server
         std::vector<quicr::messages::SubscribeId> subscribe_ids;
         auto ta_conn_it = qserver_vars::subscribe_alias_sub_id.find(connection_handle);
         if (ta_conn_it != qserver_vars::subscribe_alias_sub_id.end()) {
-            for (const auto& [sub_id, _]: ta_conn_it->second) {
+            for (const auto& [sub_id, _] : ta_conn_it->second) {
                 subscribe_ids.push_back(sub_id);
             }
         }
 
-        for (const auto& sub_id: subscribe_ids) {
+        for (const auto& sub_id : subscribe_ids) {
             UnsubscribeReceived(connection_handle, sub_id);
         }
-
-
     }
 
     ClientSetupResponse ClientSetupReceived(quicr::ConnectionHandle,

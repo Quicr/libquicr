@@ -1314,7 +1314,6 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
 
-
             case 4: {
                 if (!buffer.Available(msg.payload_len)) {
                     return false;

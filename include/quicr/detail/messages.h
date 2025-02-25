@@ -127,8 +127,8 @@ namespace quicr::messages {
     {
         kPath = 0x1,
         kMaxSubscribeId = 0x2, // version specific, unused
-        kEndpointId = 0xF0,       // Endpoint ID, using temp value for now
-        kInvalid = 0xFF,          // used internally.
+        kEndpointId = 0xF0,    // Endpoint ID, using temp value for now
+        kInvalid = 0xFF,       // used internally.
     };
 
     Bytes& operator<<(Bytes& buffer, BytesSpan bytes);
@@ -168,7 +168,7 @@ namespace quicr::messages {
     struct ServerSetup
     {
         Version selection_version;
-        uint64_t max_subscribe_id { 0xFFFFFFFF };
+        uint64_t max_subscribe_id{ 0xFFFFFFFF };
         Parameter endpoint_id_parameter;
     };
 
@@ -277,7 +277,7 @@ namespace quicr::messages {
     struct SubscribeOk
     {
         SubscribeId subscribe_id;
-        uint64_t expires {0};
+        uint64_t expires{ 0 };
 
         // TODO: Statically set ascending because we don't support anything else
         uint8_t group_order{ static_cast<uint8_t>(GroupOrder::kAscending) };

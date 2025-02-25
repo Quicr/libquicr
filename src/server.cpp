@@ -439,7 +439,6 @@ namespace quicr {
                 UnsubscribeReceived(conn_ctx.connection_handle, msg.subscribe_id);
                 conn_ctx.recv_sub_id.erase(msg.subscribe_id);
 
-
                 return true;
             }
             case messages::ControlMessageType::kSubscribesBlocked: {
@@ -520,13 +519,12 @@ namespace quicr {
                   conn_ctx.connection_handle,
                   { { msg.endpoint_id_parameter.value.begin(), msg.endpoint_id_parameter.value.end() } });
 
-                SPDLOG_LOGGER_INFO(
-                  logger_,
-                  "Client setup received conn_id: {} from: {} num_versions: {} version: {}",
-                  conn_ctx.connection_handle,
-                  client_endpoint_id,
-                  msg.num_versions,
-                  msg.supported_versions.front());
+                SPDLOG_LOGGER_INFO(logger_,
+                                   "Client setup received conn_id: {} from: {} num_versions: {} version: {}",
+                                   conn_ctx.connection_handle,
+                                   client_endpoint_id,
+                                   msg.num_versions,
+                                   msg.supported_versions.front());
 
                 conn_ctx.client_version = msg.supported_versions.front();
 
