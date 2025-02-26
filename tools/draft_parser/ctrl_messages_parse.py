@@ -55,6 +55,7 @@ class ProtocolMessageParser:
             "New Session URI": "NewSessionURI",
             "Parameters": "Parameter",
             "Reason Phrase": "ReasonPhrase",
+            "Message Payload": "MessagePayload",
         }
 
     def parse_field_definition(
@@ -102,7 +103,7 @@ class ProtocolMessageParser:
 
     def generate_cpp_type(self, field: Field) -> str:
         """Generate appropriate C++ type for a field."""
-        base_type = self.field_type_map.get(field.field_type, "uint64_t")
+        base_type = self.field_type_map.get(field.field_type, "TYPE_MAP_ERROR")
 
         if field.is_repeated:
             base_type = f"std::vector<{base_type}>"
@@ -268,7 +269,9 @@ Bytes& operator<<(Bytes& buffer, const {message.name}& msg)
     // fill out payload"""
         prev_group_name = None
         for field in message.fields:
-            base_type = self.field_type_map.get(field.field_type, "uint64_t")
+            base_type = self.field_type_map.get(
+                field.field_type, "TYPE_MAP_ERROR"
+            )
             if field.name == "type":
                 # skip the type
                 continue
@@ -327,7 +330,9 @@ BytesSpan operator>>(BytesSpan buffer, {message.name}& msg)
 {{"""
         prev_group_name = None
         for field in message.fields:
-            base_type = self.field_type_map.get(field.field_type, "uint64_t")
+            base_type = self.field_type_map.get(
+                field.field_type, "TYPE_MAP_ERROR"
+            )
             if field.name == "type":
                 # skip the type
                 continue
