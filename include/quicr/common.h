@@ -11,7 +11,7 @@ namespace quicr {
         enum struct GroupOrder : uint8_t;
     }
 
-    constexpr uint64_t kMoqtVersion = 0xff000004; ///< draft-ietf-quicr-transport-04
+    constexpr uint64_t kMoqtVersion = 0xff000008; ///< draft-ietf-quicr-transport-08
 
     constexpr uint64_t kSubscribeExpires = 0; ///< Never expires
     constexpr int kReadLoopMaxPerStream = 60; ///< Support packet/frame bursts, but do not allow starving other streams

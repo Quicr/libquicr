@@ -31,7 +31,7 @@ namespace quicr {
          * @param limit     Limit number of messages in queue before push blocks. Zero
          *                  is unlimited.
          */
-        SafeQueue(uint32_t limit = 1000)
+        SafeQueue(uint32_t limit = 5'000)
           : stop_waiting_{ false }
           , limit_{ limit }
         {

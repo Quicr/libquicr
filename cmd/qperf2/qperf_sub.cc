@@ -31,7 +31,7 @@ namespace qperf {
       : SubscribeTrackHandler(perf_config.full_track_name,
                               perf_config.priority,
                               quicr::messages::GroupOrder::kOriginalPublisherOrder,
-                              quicr::messages::FilterType::LatestObject)
+                              quicr::messages::FilterType::kLatestObject)
       , terminate_(false)
       , perf_config_(perf_config)
       , first_pass_(true)
