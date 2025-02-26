@@ -209,11 +209,7 @@ namespace quicr::messages {
         }
 
         /// num params
-        payload << UintVar(static_cast<uint64_t>(2));
-        // role param
-        payload << UintVar(msg.role_parameter.type);
-        payload << UintVar(msg.role_parameter.value.size());
-        payload << msg.role_parameter.value;
+        payload << UintVar(static_cast<uint64_t>(1));
         // endpoint_id param
         payload << UintVar(static_cast<uint64_t>(ParameterType::kEndpointId));
         payload << UintVar(msg.endpoint_id_parameter.value.size());
@@ -244,9 +240,6 @@ namespace quicr::messages {
             buffer = buffer >> param;
 
             switch (static_cast<ParameterType>(param.type)) {
-                case ParameterType::kRole:
-                    msg.role_parameter = std::move(param);
-                    break;
                 case ParameterType::kEndpointId:
                     msg.endpoint_id_parameter = std::move(param);
                     break;
@@ -267,10 +260,11 @@ namespace quicr::messages {
 
         /// num params
         payload << UintVar(static_cast<uint64_t>(2));
-        // role param
-        payload << UintVar(static_cast<uint64_t>(msg.role_parameter.type));
-        payload << UintVar(msg.role_parameter.value.size());
-        payload << msg.role_parameter.value;
+
+        // Max subscribe ID
+        payload << UintVar(static_cast<uint64_t>(ParameterType::kMaxSubscribeId));
+        payload << UintVar(UintVar(msg.max_subscribe_id).Size());
+        payload << UintVar(msg.max_subscribe_id);
 
         // endpoint_id param
         payload << UintVar(static_cast<uint64_t>(ParameterType::kEndpointId));
@@ -296,9 +290,6 @@ namespace quicr::messages {
             buffer = buffer >> param;
 
             switch (static_cast<ParameterType>(param.type)) {
-                case ParameterType::kRole:
-                    msg.role_parameter = std::move(param);
-                    break;
                 case ParameterType::kEndpointId:
                     msg.endpoint_id_parameter = std::move(param);
                     break;
@@ -1071,9 +1062,8 @@ namespace quicr::messages {
         buffer.push_back(msg.priority);
         PushExtensions(buffer, msg.extensions);
 
-        buffer << UintVar(msg.payload.size());
         if (msg.payload.empty()) {
-            buffer << UintVar(static_cast<uint8_t>(msg.object_status));
+            return buffer;
         }
 
         buffer << msg.payload;
@@ -1121,33 +1111,19 @@ namespace quicr::messages {
                     return false;
                 }
                 msg.current_pos += 1;
+                msg.payload_len = buffer.Size();
                 [[fallthrough]];
             }
             case 5: {
-                if (!ParseUintVField(buffer, msg.payload_len)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-            case 6: {
                 if (msg.payload_len == 0) {
-                    uint64_t status = 0;
-                    if (!ParseUintVField(buffer, status)) {
-                        return false;
-                    }
-                    msg.object_status = static_cast<ObjectStatus>(status);
+                    msg.parse_completed = true;
+                    return true;
                 }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
 
-            case 7: {
                 if (!buffer.Available(msg.payload_len)) {
                     return false;
                 }
-                auto val = buffer.Front(msg.payload_len);
-                msg.payload = std::move(val);
+                msg.payload = std::move(buffer.Front(msg.payload_len));
                 buffer.Pop(msg.payload_len);
                 msg.parse_completed = true;
                 [[fallthrough]];
@@ -1288,13 +1264,15 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const StreamSubGroupObject& msg)
     {
         buffer << UintVar(msg.object_id);
-        buffer << UintVar(msg.payload.size());
         if (msg.payload.empty()) {
             // empty payload needs a object status to be set
-            buffer << UintVar(static_cast<uint8_t>(msg.object_status));
             PushExtensions(buffer, msg.extensions);
+            auto status = UintVar(static_cast<uint8_t>(msg.object_status));
+            buffer.push_back(0);
+            buffer << status;
         } else {
             PushExtensions(buffer, msg.extensions);
+            buffer << UintVar(msg.payload.size());
             buffer << msg.payload;
         }
         return buffer;
@@ -1303,7 +1281,6 @@ namespace quicr::messages {
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, StreamSubGroupObject& msg)
     {
-
         switch (msg.current_pos) {
             case 0: {
                 if (!ParseUintVField(buffer, msg.object_id)) {
@@ -1313,33 +1290,31 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 1: {
+                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+
+            case 2: {
                 if (!ParseUintVField(buffer, msg.payload_len)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 2: {
+            case 3: {
                 if (msg.payload_len == 0) {
                     uint64_t status = 0;
                     if (!ParseUintVField(buffer, status)) {
                         return false;
                     }
                     msg.object_status = static_cast<ObjectStatus>(status);
-                }
-                msg.current_pos += 1;
-                [[fallthrough]];
-            }
-
-            case 3: {
-                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
-                    return false;
-                }
-                msg.current_pos += 1;
-                if (msg.payload_len == 0) {
                     msg.parse_completed = true;
-                    break;
+                    return true;
                 }
+                msg.current_pos += 1;
                 [[fallthrough]];
             }
 

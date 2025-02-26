@@ -263,7 +263,7 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
 {
     Bytes buffer;
     Parameter param;
-    param.type = static_cast<uint64_t>(ParameterType::kAuthorizationInfo), param.length = 0x2;
+    param.type = static_cast<uint64_t>(ParameterType::kMaxSubscribeId), param.length = 0x2;
     param.value = { 0x1, 0x2 };
 
     auto subscribe = Subscribe{};
@@ -292,12 +292,12 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 {
     Bytes buffer;
     Parameter param1;
-    param1.type = static_cast<uint64_t>(ParameterType::kAuthorizationInfo);
+    param1.type = static_cast<uint64_t>(ParameterType::kMaxSubscribeId);
     param1.length = 0x2;
     param1.value = { 0x1, 0x2 };
 
     Parameter param2;
-    param2.type = static_cast<uint64_t>(ParameterType::kAuthorizationInfo);
+    param2.type = static_cast<uint64_t>(ParameterType::kMaxSubscribeId);
     param2.length = 0x3;
     param2.value = { 0x1, 0x2, 0x3 };
 
@@ -356,7 +356,7 @@ GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uin
 
     while (num_params > 0) {
         Parameter param1;
-        param1.type = static_cast<uint64_t>(ParameterType::kAuthorizationInfo);
+        param1.type = static_cast<uint64_t>(ParameterType::kMaxSubscribeId);
         param1.length = 0x2;
         param1.value = { 0x1, 0x2 };
         out.track_params.push_back(param1);
@@ -538,9 +538,6 @@ TEST_CASE("ClientSetup  Message encode/decode")
     auto client_setup = ClientSetup{};
     client_setup.num_versions = 2;
     client_setup.supported_versions = { 0x1000, 0x2000 };
-    client_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::kRole);
-    client_setup.role_parameter.length = 0x1;
-    client_setup.role_parameter.value = { 0xFF };
     client_setup.endpoint_id_parameter.value.assign(endpoint_id.begin(), endpoint_id.end());
 
     buffer << client_setup;
@@ -548,7 +545,6 @@ TEST_CASE("ClientSetup  Message encode/decode")
     ClientSetup client_setup_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kClientSetup), client_setup_out));
     CHECK_EQ(client_setup.supported_versions, client_setup_out.supported_versions);
-    CHECK_EQ(client_setup.role_parameter.value, client_setup_out.role_parameter.value);
     CHECK_EQ(client_setup.endpoint_id_parameter.value, client_setup_out.endpoint_id_parameter.value);
 }
 
@@ -557,9 +553,6 @@ TEST_CASE("ServerSetup  Message encode/decode")
     const std::string endpoint_id = "server_test";
     auto server_setup = ServerSetup{};
     server_setup.selection_version = { 0x1000 };
-    server_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::kRole);
-    server_setup.role_parameter.length = 0x1;
-    server_setup.role_parameter.value = { 0xFF };
     server_setup.endpoint_id_parameter.value.assign(endpoint_id.begin(), endpoint_id.end());
 
     Bytes buffer;
@@ -568,12 +561,11 @@ TEST_CASE("ServerSetup  Message encode/decode")
     ServerSetup server_setup_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kServerSetup), server_setup_out));
     CHECK_EQ(server_setup.selection_version, server_setup_out.selection_version);
-    CHECK_EQ(server_setup.role_parameter.value, server_setup.role_parameter.value);
     CHECK_EQ(server_setup.endpoint_id_parameter.value, server_setup_out.endpoint_id_parameter.value);
 }
 
 static void
-ObjectDatagramEncodeDecode(bool extensions, bool empty_payload)
+ObjectDatagramEncodeDecode(bool extensions)
 {
     Bytes buffer;
     auto object_datagram = ObjectDatagram{};
@@ -582,35 +574,33 @@ ObjectDatagramEncodeDecode(bool extensions, bool empty_payload)
     object_datagram.object_id = 0xFF;
     object_datagram.priority = 0xA;
     object_datagram.extensions = extensions ? kOptionalExtensions : std::nullopt;
-    if (empty_payload) {
-        object_datagram.object_status = quicr::ObjectStatus::kDoesNotExist;
-    } else {
-        object_datagram.payload = { 0x1, 0x2, 0x3, 0x5, 0x6 };
-    }
+    object_datagram.payload = { 0x1, 0x2, 0x3, 0x5, 0x6 };
 
     buffer << object_datagram;
 
     ObjectDatagram object_datagram_out;
-    CHECK(Verify(buffer, static_cast<uint64_t>(DataMessageType::kObjectDatagram), object_datagram_out));
+    StreamBuffer<uint8_t> sbuf;
+    sbuf.Push(buffer);
+
+    auto msg_type = sbuf.DecodeUintV();
+
+    CHECK_EQ(msg_type, static_cast<uint64_t>(DataMessageType::kObjectDatagram));
+
+    sbuf >> object_datagram_out;
+
     CHECK_EQ(object_datagram.track_alias, object_datagram_out.track_alias);
     CHECK_EQ(object_datagram.group_id, object_datagram_out.group_id);
     CHECK_EQ(object_datagram.object_id, object_datagram_out.object_id);
     CHECK_EQ(object_datagram.priority, object_datagram_out.priority);
     CHECK_EQ(object_datagram.extensions, object_datagram_out.extensions);
-    if (empty_payload) {
-        CHECK_EQ(object_datagram.object_status, object_datagram_out.object_status);
-    } else {
-        CHECK(object_datagram.payload.size() > 0);
-        CHECK_EQ(object_datagram.payload, object_datagram_out.payload);
-    }
+    CHECK(object_datagram.payload.size() > 0);
+    CHECK_EQ(object_datagram.payload, object_datagram_out.payload);
 }
 
 TEST_CASE("ObjectDatagram  Message encode/decode")
 {
-    ObjectDatagramEncodeDecode(false, false);
-    ObjectDatagramEncodeDecode(false, true);
-    ObjectDatagramEncodeDecode(true, false);
-    ObjectDatagramEncodeDecode(true, true);
+    ObjectDatagramEncodeDecode(false);
+    ObjectDatagramEncodeDecode(true);
 }
 
 TEST_CASE("ObjectDatagramStatus  Message encode/decode")
