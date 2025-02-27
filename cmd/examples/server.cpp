@@ -405,7 +405,6 @@ class MyServer : public quicr::Server
     {
         auto th = quicr::TrackHash({ prefix_namespace, {}, std::nullopt });
 
-        std::cout << "size of subscribe announces " << qserver_vars::subscribes_announces.size() << std::endl;
         auto [it, is_new] = qserver_vars::subscribes_announces.try_emplace(prefix_namespace);
         it->second.insert(connection_handle);
 
@@ -710,7 +709,7 @@ class MyServer : public quicr::Server
             }
             success = true;
 
-            // Loop through connectio handles
+            // Loop through connection handles
             for (auto& [conn_h, tracks] : conns) {
                 // aggregate subscriptions
                 if (tracks.find(th.track_fullname_hash) == tracks.end()) {
