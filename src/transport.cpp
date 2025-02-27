@@ -26,17 +26,23 @@ namespace quicr {
         uint16_t port = 0;
 
         do {
-            auto colon = std::find(it, connect_uri.end(), ':');
+            const std::size_t colon_pos = std::string(it, connect_uri.end()).rfind(':');
+            auto colon = it + colon_pos;
             if (address_str.empty() && colon == connect_uri.end()) {
                 break;
             }
 
             if (address_str.empty()) {
                 // parse resource id
+                const bool wrapped = *it == '[' && *(colon - 1) == ']';
+                if (wrapped) {
+                    ++it;
+                    --colon;
+                }
                 address_str.reserve(distance(it, colon));
                 address_str.assign(it, colon);
                 std::advance(it, address_str.length());
-                it++;
+                it += (wrapped ? 2 : 1);
                 continue;
             }
 
@@ -57,7 +63,6 @@ namespace quicr {
         if (address_str.empty() || port_str.empty()) {
             return std::nullopt;
         }
-
         return std::make_tuple(address_str, port);
     }
 
