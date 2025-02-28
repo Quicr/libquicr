@@ -580,8 +580,7 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
 
         if (flags.new_stream) {
             if (flags.use_reset) {
-                // stream_action = StreamAction::kReplaceStreamUseReset;
-                stream_action = StreamAction::kReplaceStreamUseFin;
+                stream_action = StreamAction::kReplaceStreamUseReset;
             } else {
                 stream_action = StreamAction::kReplaceStreamUseFin;
             }
