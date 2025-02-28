@@ -15,7 +15,7 @@
 #include <filesystem>
 #include <fstream>
 
-using json = nlohmann::json;
+using json = nlohmann::json; // NOLINT
 
 namespace qclient_vars {
     bool publish_clock{ false };
@@ -43,8 +43,8 @@ namespace {
 namespace base64 {
     // From https://gist.github.com/williamdes/308b95ac9ef1ee89ae0143529c361d37;
 
-    constexpr std::string_view b = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"; //=
-    static std::string encode(const std::string& in)
+    constexpr std::string_view kValues = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"; //=
+    static std::string Encode(const std::string& in)
     {
         std::string out;
 
@@ -55,13 +55,13 @@ namespace base64 {
             val = (val << 8) + c;
             valb += 8;
             while (valb >= 0) {
-                out += b[(val >> valb) & 0x3F];
+                out += kValues[(val >> valb) & 0x3F];
                 valb -= 6;
             }
         }
 
         if (valb > -6) {
-            out += b[((val << 8) >> (valb + 8)) & 0x3F];
+            out += kValues[((val << 8) >> (valb + 8)) & 0x3F];
         }
 
         while (out.size() % 4) {
@@ -71,24 +71,24 @@ namespace base64 {
         return out;
     }
 
-    static std::string decode(const std::string& in)
+    static std::string Decode(const std::string& in)
     {
         std::string out;
 
-        std::vector<int> T(256, -1);
+        std::vector<int> values(256, -1);
         for (int i = 0; i < 64; i++) {
-            T[b[i]] = i;
+            values[kValues[i]] = i;
         }
 
         int val = 0;
         int valb = -8;
 
         for (std::uint8_t c : in) {
-            if (T[c] == -1) {
+            if (values[c] == -1) {
                 break;
             }
 
-            val = (val << 6) + T[c];
+            val = (val << 6) + values[c];
             valb += 6;
 
             if (valb >= 0) {
@@ -115,20 +115,20 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
     {
         if (qclient_vars::record) {
             const std::string name_str = ToString(full_track_name);
-            data_fs.open(dir / (name_str + ".dat"), std::ios::in | std::ios::out | std::ios::trunc);
+            data_fs_.open(dir / (name_str + ".dat"), std::ios::in | std::ios::out | std::ios::trunc);
 
-            moq_fs.open(dir / (name_str + ".moq"), std::ios::in | std::ios::out | std::ios::trunc);
-            moq_fs << json::array();
+            moq_fs_.open(dir / (name_str + ".moq"), std::ios::in | std::ios::out | std::ios::trunc);
+            moq_fs_ << json::array();
         }
     }
 
     virtual ~MySubscribeTrackHandler()
     {
-        data_fs << std::endl;
-        data_fs.close();
+        data_fs_ << std::endl;
+        data_fs_.close();
 
-        moq_fs << std::endl;
-        moq_fs.close();
+        moq_fs_ << std::endl;
+        moq_fs_.close();
     }
 
     void ObjectReceived(const quicr::ObjectHeaders& hdr, quicr::BytesSpan data) override
@@ -162,12 +162,12 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
     {
         std::filesystem::create_directory(dir);
 
-        const std::size_t data_offset = data_fs.tellp();
-        data_fs << std::string(data.begin(), data.end());
+        const std::size_t data_offset = data_fs_.tellp();
+        data_fs_ << std::string(data.begin(), data.end());
 
         std::vector<std::string> ns_entries;
         for (const auto& entry : ftn.name_space.GetEntries()) {
-            ns_entries.push_back(base64::encode({ entry.begin(), entry.end() }));
+            ns_entries.push_back(base64::Encode({ entry.begin(), entry.end() }));
         }
 
         const std::string name_str = ToString(GetFullTrackName());
@@ -175,7 +175,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 
         json j;
         j["nameSpace"] = ns_entries;
-        j["trackName"] = base64::encode(std::string(ftn.name.begin(), ftn.name.end()));
+        j["trackName"] = base64::Encode(std::string(ftn.name.begin(), ftn.name.end()));
         j["objectID"] = hdr.object_id;
         j["groupID"] = hdr.group_id;
         j["subGroup"] = hdr.subgroup_id;
@@ -189,19 +189,19 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         j["dataOffset"] = data_offset;
         j["dataLength"] = hdr.payload_length;
 
-        moq_fs.clear();
-        moq_fs.seekg(0);
-        json moq_j = json::parse(moq_fs);
+        moq_fs_.clear();
+        moq_fs_.seekg(0);
+        json moq_j = json::parse(moq_fs_);
         moq_j.push_back(j);
 
-        moq_fs.clear();
-        moq_fs.seekg(0);
-        moq_fs << moq_j.dump();
+        moq_fs_.clear();
+        moq_fs_.seekg(0);
+        moq_fs_ << moq_j.dump();
     }
 
   private:
-    std::ofstream data_fs;
-    std::fstream moq_fs;
+    std::ofstream data_fs_;
+    std::fstream moq_fs_;
 };
 
 /**
