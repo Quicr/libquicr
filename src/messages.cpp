@@ -57,15 +57,13 @@ namespace quicr::messages {
             }
 
             if (current_tag.value() % 2 == 0) {
-                auto val = buffer.ReadUintV();
+                auto val = buffer.DecodeUintV();
                 if (!val) {
                     count -= completed;
                     return false;
                 }
-                const std::size_t size = val.value().size();
-                std::vector<std::uint8_t> bytes(size);
-                auto decoded = uint64_t(val.value());
-                std::memcpy(bytes.data(), &decoded, size);
+                std::vector<uint8_t> bytes(8);
+                memcpy(bytes.data(), &val.value(), 8);
                 extensions.value()[current_tag.value()] = std::move(bytes);
             } else {
                 auto val = buffer.DecodeBytes();
