@@ -1,0 +1,12 @@
+
+    // usings
+    {% for key in using_map %}
+        {% if using_map[key] %}
+            {% set field = using_map[key] %}
+                {% if field.cpp_using_type  %}
+    using {{field.cpp_using_name}} = {{field.cpp_using_type}};
+                {% else %}             
+    using {{field.cpp_using_name}} = {{field.cpp_using_type}};
+                {% endif %}
+        {% endif %}
+    {% endfor %}
