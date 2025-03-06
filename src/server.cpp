@@ -598,7 +598,10 @@ namespace quicr {
         } // End of switch(msg type)
 
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Unable to parse control message: {0}", e.what());
+        SPDLOG_LOGGER_ERROR(logger_,
+                            "Unable to parse {} control message: {}",
+                            static_cast<uint64_t>(*conn_ctx.ctrl_msg_type_received),
+                            e.what());
         CloseConnection(conn_ctx.connection_handle,
                         messages::TerminationReason::kProtocolViolation,
                         "Control message cannot be parsed");

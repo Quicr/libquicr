@@ -125,6 +125,9 @@ namespace quicr::messages {
     {
         uint64_t size = 0;
         buffer = buffer >> size;
+        if (size > buffer.size()) {
+            throw std::invalid_argument("Size of vector is larger than buffer size");
+        }
         value.assign(buffer.begin(), std::next(buffer.begin(), size));
         return buffer.subspan(value.size());
     }
