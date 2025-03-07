@@ -125,6 +125,9 @@ namespace quicr::messages {
     {
         uint64_t size = 0;
         buffer = buffer >> size;
+        if (size > buffer.size()) {
+            throw std::out_of_range("Namespace entry size is larger than buffer size");
+        }
         value.assign(buffer.begin(), std::next(buffer.begin(), size));
         return buffer.subspan(value.size());
     }
@@ -426,6 +429,10 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, Subscribe& msg)
     {
+        if (buffer.size() < 1) {
+            throw std::out_of_range("Invalid subscribe data to decode, too small");
+        }
+
         buffer = buffer >> msg.subscribe_id;
         buffer = buffer >> msg.track_alias;
         buffer = buffer >> msg.track_namespace;

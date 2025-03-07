@@ -450,7 +450,7 @@ namespace quicr {
                 SetStatus(Status::kReady);
 
                 SPDLOG_LOGGER_INFO(logger_,
-                                   "Server setup received conn_id: {} from: {} role: {} selected_version: {}",
+                                   "Server setup received conn_id: {} from: {} selected_version: {}",
                                    conn_ctx.connection_handle,
                                    server_endpoint_id,
                                    msg.selection_version);
