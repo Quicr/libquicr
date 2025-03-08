@@ -1217,13 +1217,12 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
             }
 
             data_ctx->stream_tx_object_offset = 0;
-            data_ctx->stream_tx_object = std::move(obj.value.data);
-
             data_ctx->metrics.tx_stream_objects++;
             data_ctx->metrics.tx_object_duration_us.AddValue(tick_service_->Microseconds() -
                                                              obj.value.tick_microseconds);
 
             if (StreamActionCheck(data_ctx, obj.value.stream_action)) {
+                data_ctx->stream_tx_object = std::move(obj.value.data);
                 SPDLOG_LOGGER_DEBUG(logger,
                                     "New Stream conn_id: {} stream_id: {}, object size: {}",
                                     data_ctx->conn_id,
@@ -1231,6 +1230,8 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
                                     data_ctx->stream_tx_object->size());
                 return;
             }
+
+            data_ctx->stream_tx_object = std::move(obj.value.data);
 
         } else {
             // Queue is empty
@@ -1860,6 +1861,7 @@ PicoQuicTransport::CloseStream(ConnectionContext& conn_ctx, DataContext* data_ct
         }
     }
 
+    data_ctx->ResetTxObject();
     data_ctx->current_stream_id = std::nullopt;
 }
 
