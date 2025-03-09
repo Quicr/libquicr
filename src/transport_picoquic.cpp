@@ -169,7 +169,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                 transport->OnRecvStreamBytes(conn_ctx, data_ctx, stream_id, Span{ bytes, length });
 
                 if (is_fin) {
-                    SPDLOG_LOGGER_INFO(transport->logger, "Received FIN for stream {0}", stream_id);
+                    SPDLOG_LOGGER_DEBUG(transport->logger, "Received FIN for stream {0}", stream_id);
                     picoquic_reset_stream_ctx(pq_cnx, stream_id);
 
                     if (auto conn_ctx = transport->GetConnContext(conn_id)) {

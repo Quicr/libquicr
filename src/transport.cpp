@@ -179,9 +179,6 @@ namespace quicr {
 
         client_setup.num_versions = 1; // NOTE: Not used for encode, version vector size is used
         client_setup.supported_versions = { kMoqtVersion };
-        client_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::kRole);
-        client_setup.role_parameter.length = 0x1; // NOTE: not used for encode, size of value is used
-        client_setup.role_parameter.value = { 0x03 };
         client_setup.endpoint_id_parameter.value.assign(client_config_.endpoint_id.begin(),
                                                         client_config_.endpoint_id.end());
 
@@ -199,9 +196,6 @@ namespace quicr {
         auto server_setup = ServerSetup{};
 
         server_setup.selection_version = { conn_ctx.client_version };
-        server_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::kRole);
-        server_setup.role_parameter.length = 0x1; // NOTE: not used for encode, size of value is used
-        server_setup.role_parameter.value = { 0x03 };
         server_setup.endpoint_id_parameter.value.assign(server_config_.endpoint_id.begin(),
                                                         server_config_.endpoint_id.end());
 

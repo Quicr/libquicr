@@ -405,7 +405,6 @@ class MyServer : public quicr::Server
     {
         auto th = quicr::TrackHash({ prefix_namespace, {}, std::nullopt });
 
-        std::cout << "size of subscribe announces " << qserver_vars::subscribes_announces.size() << std::endl;
         auto [it, is_new] = qserver_vars::subscribes_announces.try_emplace(prefix_namespace);
         it->second.insert(connection_handle);
 
@@ -526,6 +525,19 @@ class MyServer : public quicr::Server
             for (auto ns : remove_ns) {
                 qserver_vars::subscribes_announces.erase(ns);
             }
+        }
+
+        // Remove active subscribes
+        std::vector<quicr::messages::SubscribeId> subscribe_ids;
+        auto ta_conn_it = qserver_vars::subscribe_alias_sub_id.find(connection_handle);
+        if (ta_conn_it != qserver_vars::subscribe_alias_sub_id.end()) {
+            for (const auto& [sub_id, _] : ta_conn_it->second) {
+                subscribe_ids.push_back(sub_id);
+            }
+        }
+
+        for (const auto& sub_id : subscribe_ids) {
+            UnsubscribeReceived(connection_handle, sub_id);
         }
     }
 
@@ -697,7 +709,7 @@ class MyServer : public quicr::Server
             }
             success = true;
 
-            // Loop through connectio handles
+            // Loop through connection handles
             for (auto& [conn_h, tracks] : conns) {
                 // aggregate subscriptions
                 if (tracks.find(th.track_fullname_hash) == tracks.end()) {

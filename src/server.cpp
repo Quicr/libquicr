@@ -436,6 +436,9 @@ namespace quicr {
 
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
 
+                UnsubscribeReceived(conn_ctx.connection_handle, msg.subscribe_id);
+                conn_ctx.recv_sub_id.erase(msg.subscribe_id);
+
                 return true;
             }
             case messages::ControlMessageType::kSubscribesBlocked: {
@@ -516,14 +519,12 @@ namespace quicr {
                   conn_ctx.connection_handle,
                   { { msg.endpoint_id_parameter.value.begin(), msg.endpoint_id_parameter.value.end() } });
 
-                SPDLOG_LOGGER_INFO(
-                  logger_,
-                  "Client setup received conn_id: {0} from: {1} num_versions: {2} role: {3} version: {4}",
-                  conn_ctx.connection_handle,
-                  client_endpoint_id,
-                  msg.num_versions,
-                  static_cast<int>(msg.role_parameter.value.front()),
-                  msg.supported_versions.front());
+                SPDLOG_LOGGER_INFO(logger_,
+                                   "Client setup received conn_id: {} from: {} num_versions: {} version: {}",
+                                   conn_ctx.connection_handle,
+                                   client_endpoint_id,
+                                   msg.num_versions,
+                                   msg.supported_versions.front());
 
                 conn_ctx.client_version = msg.supported_versions.front();
 
@@ -597,7 +598,10 @@ namespace quicr {
         } // End of switch(msg type)
 
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Unable to parse control message: {0}", e.what());
+        SPDLOG_LOGGER_ERROR(logger_,
+                            "Unable to parse {} control message: {}",
+                            static_cast<uint64_t>(*conn_ctx.ctrl_msg_type_received),
+                            e.what());
         CloseConnection(conn_ctx.connection_handle,
                         messages::TerminationReason::kProtocolViolation,
                         "Control message cannot be parsed");
