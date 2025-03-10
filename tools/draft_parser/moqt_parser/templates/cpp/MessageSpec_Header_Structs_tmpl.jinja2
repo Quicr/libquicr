@@ -1,0 +1,34 @@
+
+    /**
+     * @brief {{message.name}}
+     */
+    struct {{ message.name }}
+    {
+        {% for group_name in message.optional_groups %}
+        struct {{group_name}} {
+            {% for field in message.optional_groups[group_name] %}
+            {{ field.cpp_using_name }} {{ field.name }};
+            {% endfor %}
+        };
+        {% endfor %}
+        {% for field in message.fields %}
+            {% if field.name != "type" and field.name != "length" %}
+                {% if field.is_optional %}
+        std::function<void ({{message.name}}&)> optional_{{field.name}}_cb;
+        std::optional<{{ field.cpp_using_name }}> {{ field.name }};
+                {% else %}
+        {{ field.cpp_using_name }} {{ field.name }};
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+    };
+
+    Bytes& operator<<(Bytes& buffer, const {{ message.name }}& msg);
+    BytesSpan operator>>(BytesSpan buffer, {{ message.name }}& msg);    
+
+{% for group_name in message.optional_groups %}
+    Bytes& operator<<(Bytes& buffer, const std::optional<{{message.name}}::{{group_name}}>& grp);
+    BytesSpan operator>>(BytesSpan buffer, std::optional<{{message.name}}::{{group_name}}>& grp);
+
+{% endfor %}
+

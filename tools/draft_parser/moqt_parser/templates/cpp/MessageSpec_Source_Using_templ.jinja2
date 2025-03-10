@@ -1,0 +1,35 @@
+// usings
+{% for key in using_map %}
+    {% if using_map[key] %}
+        {% set field = using_map[key] %}
+        {% if field.is_repeated %}
+Bytes& operator<<(Bytes& buffer, const {{field.cpp_using_name}}& vec)
+{
+    // write vector size
+    buffer << UintVar(vec);
+
+    // write elements of vector
+    for (const auto& item : vec) {
+        buffer << item;
+    }
+    
+    return buffer;
+}
+
+BytesSpan operator>>(BytesSpan buffer, {{field.cpp_using_name}}& vec)
+{
+    uint64_t size = 0;
+    buffer = buffer >> size;
+
+    for (int i=0; i<size; i++) {
+        {{field.cpp_type}} item;    
+        buffer = buffer >> item;
+        vec.push_back(item);
+    }
+
+    return buffer;
+}
+
+        {% endif %}
+    {% endif %}
+{% endfor %}

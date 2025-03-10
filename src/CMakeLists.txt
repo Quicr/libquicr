@@ -8,6 +8,8 @@ else()
 endif()
 target_sources (quicr PRIVATE
     client.cpp
+    ctrl_message_types.cpp
+    ctrl_messages.cpp
     messages.cpp
     publish_track_handler.cpp
     subscribe_track_handler.cpp
@@ -28,7 +30,7 @@ target_compile_options(quicr
         $<$<CXX_COMPILER_ID:MSVC>: >)
 set_target_properties(quicr
     PROPERTIES
-        CXX_STANDARD 17
+        CXX_STANDARD 17 
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS OFF)
 
