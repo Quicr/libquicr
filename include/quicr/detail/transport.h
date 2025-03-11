@@ -345,6 +345,12 @@ namespace quicr {
                        messages::GroupId start_object,
                        messages::GroupId end_group,
                        messages::GroupId end_object);
+        void SendJoiningFetch(ConnectionContext& conn_ctx,
+                              uint64_t subscribe_id,
+                              messages::ObjectPriority priority,
+                              messages::GroupOrder group_order,
+                              uint64_t joining_subscribe_id,
+                              messages::GroupId preceding_group_offset);
         void SendFetchCancel(ConnectionContext& conn_ctx, uint64_t subscribe_id);
         void SendFetchOk(ConnectionContext& conn_ctx,
                          uint64_t subscribe_id,

@@ -511,10 +511,34 @@ namespace quicr {
         fetch.track_name.assign(tfn.name.begin(), tfn.name.end());
         fetch.priority = priority;
         fetch.group_order = group_order;
+        fetch.fetch_type = FetchType::kStandalone;
         fetch.start_group = start_group;
         fetch.start_object = start_object;
         fetch.end_group = end_group;
         fetch.end_object = end_object;
+
+        Bytes buffer;
+        buffer.reserve(Fetch::SizeOf(fetch));
+        buffer << fetch;
+
+        SendCtrlMsg(conn_ctx, buffer);
+    }
+
+    void Transport::SendJoiningFetch(ConnectionContext& conn_ctx,
+                                     uint64_t subscribe_id,
+                                     messages::ObjectPriority priority,
+                                     messages::GroupOrder group_order,
+                                     uint64_t joining_subscribe_id,
+                                     messages::GroupId preceding_group_offset)
+    {
+        Fetch fetch;
+        fetch.subscribe_id = subscribe_id;
+        fetch.priority = priority;
+        fetch.group_order = group_order;
+        fetch.fetch_type = FetchType::kJoiningFetch;
+        // TODO(RichLogan): Parameter support.
+        fetch.joining_subscribe_id = joining_subscribe_id;
+        fetch.preceding_group_offset = preceding_group_offset;
 
         Bytes buffer;
         buffer.reserve(Fetch::SizeOf(fetch));
@@ -631,6 +655,7 @@ namespace quicr {
         auto priority = track_handler->GetPriority();
         auto group_order = track_handler->GetGroupOrder();
         auto filter_type = track_handler->GetFilterType();
+        auto joining_fetch = track_handler->GetJoiningFetch();
 
         track_handler->new_group_request_callback_ = [=](auto sub_id, auto track_alias) {
             SendNewGroupRequest(conn_id, sub_id, track_alias);
@@ -641,6 +666,18 @@ namespace quicr {
         conn_it->second.tracks_by_sub_id[sid] = std::move(track_handler);
 
         SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type);
+
+        // Send joining fetch, if requested.
+        if (joining_fetch) {
+            const auto& info = *joining_fetch;
+            const auto fetch_sid = conn_it->second.current_subscribe_id++;
+            SendJoiningFetch(conn_it->second,
+                fetch_sid,
+                info.priority,
+                info.group_order,
+                sid,
+                info.preceding_group_offset);
+        }
     }
 
     void Transport::UnsubscribeTrack(quicr::TransportConnId conn_id,

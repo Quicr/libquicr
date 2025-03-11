@@ -46,20 +46,34 @@ namespace quicr {
             kSendingUnsubscribe ///< In this state, callbacks will not be called
         };
 
+        /**
+         * @brief Attributes to use when subscribing with a Joining Fetch.
+         */
+        struct JoiningFetch
+        {
+            messages::ObjectPriority priority;
+            messages::GroupOrder group_order;
+            std::vector<messages::Parameter> parameters;
+            messages::GroupId preceding_group_offset;
+        };
+
       protected:
         /**
          * @brief Subscribe track handler constructor
          *
          * @param full_track_name           Full track name struct
+         * @param joining_fetch             If set, subscribe with a joining fetch using these attributes.
          */
         SubscribeTrackHandler(const FullTrackName& full_track_name,
                               messages::ObjectPriority priority,
                               messages::GroupOrder group_order,
-                              messages::FilterType filter_type)
+                              messages::FilterType filter_type,
+                              const std::optional<JoiningFetch>& joining_fetch = std::nullopt)
           : BaseTrackHandler(full_track_name)
           , priority_(priority)
           , group_order_(group_order)
           , filter_type_(filter_type)
+          , joining_fetch_(joining_fetch)
         {
         }
 
@@ -124,6 +138,11 @@ namespace quicr {
 
         constexpr void SetLatestGroupID(messages::GroupId new_id) noexcept { latest_group_id_ = new_id; }
         constexpr void SetLatestObjectID(messages::ObjectId new_id) noexcept { latest_object_id_ = new_id; }
+
+        /**
+         * @brief Get joining fetch info, if any.
+         */
+        std::optional<JoiningFetch> GetJoiningFetch() const noexcept { return joining_fetch_; }
 
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
@@ -236,6 +255,7 @@ namespace quicr {
         uint64_t current_stream_id_{ 0 };
         std::optional<messages::GroupId> latest_group_id_;
         std::optional<messages::ObjectId> latest_object_id_;
+        std::optional<JoiningFetch> joining_fetch_;
 
         friend class Transport;
         friend class Client;

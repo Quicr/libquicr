@@ -538,15 +538,31 @@ namespace quicr {
                 messages::Fetch msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
-                const FetchAttributes attrs{
-                    .priority = msg.priority,
-                    .group_order = msg.group_order,
-                    .start_group = msg.start_group,
-                    .start_object = msg.start_object,
-                    .end_group = msg.end_group,
-                    .end_object = msg.end_object,
-                };
+                FullTrackName tfn;
+                FetchAttributes attrs;
+                switch (msg.fetch_type) {
+                    case messages::FetchType::kStandalone: {
+                        tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+                        attrs = {
+                            .priority = msg.priority,
+                            .group_order = msg.group_order,
+                            .start_group = msg.start_group,
+                            .start_object = msg.start_object,
+                            .end_group = msg.end_group,
+                            .end_object = msg.end_object,
+                        };
+                        break;
+                    }
+                    case messages::FetchType::kJoiningFetch: {
+                        // TODO: Lookup the TFN and compute attrs.
+                        break;
+                    }
+                    default: {
+                        SendFetchError(
+                          conn_ctx, msg.subscribe_id, messages::FetchErrorCode::kNotSupported, "Unknown fetch type");
+                        break;
+                    }
+                }
 
                 if (!FetchReceived(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs)) {
                     SendFetchError(

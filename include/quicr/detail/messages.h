@@ -99,7 +99,12 @@ namespace quicr::messages {
 
     enum class FetchErrorCode : uint8_t
     {
-        kTrackDoesNotExist = 0xF0 // Missing in draft
+        kInternalError = 0x0,
+        kUnauthorized = 0x1,
+        kTimeout = 0x2,
+        kNotSupported = 0x3,
+        kTrackDoesNotExist = 0x4,
+        kInvalidRange = 0x5,
     };
 
     // TODO (Suhas): rename it to StreamMapping
@@ -443,6 +448,8 @@ namespace quicr::messages {
         kStandalone = 0x1,
         kJoiningFetch,
     };
+
+    // TODO(RichLogan): Consider a separate JoiningFetch structure.
 
     struct Fetch
     {
