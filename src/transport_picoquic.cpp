@@ -1872,7 +1872,7 @@ PicoQuicTransport::CloseStream(ConnectionContext& conn_ctx, DataContext* data_ct
 void
 PicoQuicTransport::MarkStreamActive(const TransportConnId conn_id, const DataContextId data_ctx_id)
 {
-    std::lock_guard<std::mutex> _(state_mutex_);
+    std::unique_lock<std::mutex> lock(state_mutex_);
 
     const auto conn_it = conn_context_.find(conn_id);
     if (conn_it == conn_context_.end()) {
@@ -1890,14 +1890,15 @@ PicoQuicTransport::MarkStreamActive(const TransportConnId conn_id, const DataCon
         return;
     }
 
+    lock.unlock();
     if (data_ctx_it->second.stream_action != StreamAction::kNoAction) {
         StreamActionCheck(&data_ctx_it->second, data_ctx_it->second.stream_action);
+    } else {
+        picoquic_mark_active_stream(
+          conn_it->second.pq_cnx, *data_ctx_it->second.current_stream_id, 1, &data_ctx_it->second);
+        picoquic_set_stream_priority(
+          conn_it->second.pq_cnx, *data_ctx_it->second.current_stream_id, (data_ctx_it->second.priority << 1));
     }
-
-    picoquic_mark_active_stream(
-      conn_it->second.pq_cnx, *data_ctx_it->second.current_stream_id, 1, &data_ctx_it->second);
-    picoquic_set_stream_priority(
-      conn_it->second.pq_cnx, *data_ctx_it->second.current_stream_id, (data_ctx_it->second.priority << 1));
 }
 
 void
