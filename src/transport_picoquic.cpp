@@ -1108,6 +1108,11 @@ PicoQuicTransport::StreamActionCheck(DataContext* data_ctx, StreamAction stream_
 
         case StreamAction::kReplaceStreamUseReset: {
             data_ctx->uses_reset_wait = false;
+
+            if (data_ctx->stream_action == StreamAction::kNoAction) {
+                return true;
+            }
+
             data_ctx->stream_action = StreamAction::kNoAction;
 
             std::lock_guard<std::mutex> _(state_mutex_);
@@ -1143,6 +1148,11 @@ PicoQuicTransport::StreamActionCheck(DataContext* data_ctx, StreamAction stream_
 
         case StreamAction::kReplaceStreamUseFin: {
             data_ctx->uses_reset_wait = true;
+
+            if (data_ctx->stream_action == StreamAction::kNoAction) {
+                return true;
+            }
+
             data_ctx->stream_action = StreamAction::kNoAction;
 
             if (data_ctx->stream_tx_object != nullptr) {
