@@ -1270,6 +1270,9 @@ namespace quicr {
                     continue; // Not enough bytes to process control message. Try again once more.
                 }
 
+                SPDLOG_LOGGER_DEBUG(
+                  logger_, "New stream conn_id: {} stream_id: {} data size: {}", conn_id, stream_id, data.size());
+
                 auto msg_type = uint64_t(quicr::UintVar({ data.begin(), data.begin() + type_sz }));
                 auto cursor_it = std::next(data.begin(), type_sz);
 

@@ -61,8 +61,8 @@ namespace quicr {
         {
             bool is_bidir{ false };           /// Indicates if the stream is bidir (true) or unidir (false)
             bool mark_stream_active{ false }; /// Instructs the stream to be marked active
+            bool tx_start_stream{ false };    /// Indicates tx queue starts a new stream
 
-            StreamAction stream_action { StreamAction::kNoAction }; /// Indicates current stream action
 
             bool uses_reset_wait{ false };       /// Indicates if data context can/uses reset wait strategy
             bool tx_reset_wait_discard{ false }; /// Instructs TX objects to be discarded on POP instead
