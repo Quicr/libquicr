@@ -23,9 +23,15 @@ namespace qclient_vars {
     bool request_new_group = false;
     bool record = false;
     bool playback = false;
+    std::chrono::milliseconds playback_speed_ms(20);
+}
+
+namespace qclient_consts {
+    const std::filesystem::path kMoqDataDir = std::filesystem::current_path() / "moq_data";
 }
 
 namespace {
+    // TODO: Escape/drop invalid filename characters.
     std::string ToString(const quicr::FullTrackName& ftn)
     {
         std::string str;
@@ -71,7 +77,7 @@ namespace base64 {
         return out;
     }
 
-    static std::string Decode(const std::string& in)
+    [[maybe_unused]] static std::string Decode(const std::string& in)
     {
         std::string out;
 
@@ -110,10 +116,12 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
   public:
     MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
                             quicr::messages::FilterType filter_type,
-                            const std::filesystem::path& dir = std::filesystem::current_path() / "moq_data")
+                            const std::filesystem::path& dir = qclient_consts::kMoqDataDir)
       : SubscribeTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending, filter_type)
     {
         if (qclient_vars::record) {
+            std::filesystem::create_directory(dir);
+
             const std::string name_str = ToString(full_track_name);
             data_fs_.open(dir / (name_str + ".dat"), std::ios::in | std::ios::out | std::ios::trunc);
 
@@ -134,7 +142,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
     void ObjectReceived(const quicr::ObjectHeaders& hdr, quicr::BytesSpan data) override
     {
         if (qclient_vars::record) {
-            RecordObject(std::filesystem::current_path() / "moq_data", GetFullTrackName(), hdr, data);
+            RecordObject(GetFullTrackName(), hdr, data);
         }
 
         std::string msg(data.begin(), data.end());
@@ -155,13 +163,8 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
     }
 
   private:
-    void RecordObject(const std::filesystem::path& dir,
-                      const quicr::FullTrackName& ftn,
-                      const quicr::ObjectHeaders& hdr,
-                      quicr::BytesSpan data)
+    void RecordObject(const quicr::FullTrackName& ftn, const quicr::ObjectHeaders& hdr, quicr::BytesSpan data)
     {
-        std::filesystem::create_directory(dir);
-
         const std::size_t data_offset = data_fs_.tellp();
         data_fs_ << std::string(data.begin(), data.end());
 
@@ -399,8 +402,8 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
     std::deque<std::pair<quicr::ObjectHeaders, quicr::Bytes>> messages;
     if (qclient_vars::playback) {
         const std::string name_str = ToString(full_track_name);
-        moq_fs.open(std::filesystem::current_path() / "moq_data" / (name_str + ".moq"), std::ios::in);
-        data_fs.open(std::filesystem::current_path() / "moq_data" / (name_str + ".dat"), std::ios::in);
+        moq_fs.open(qclient_consts::kMoqDataDir / (name_str + ".moq"), std::ios::in);
+        data_fs.open(qclient_consts::kMoqDataDir / (name_str + ".dat"), std::ios::in);
 
         std::string data;
         std::getline(data_fs, data);
@@ -483,7 +486,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
             SPDLOG_INFO("Send message: {0}", std::string(msg.begin(), msg.end()));
 
             track_handler->PublishObject(hdr, msg);
-            std::this_thread::sleep_for(std::chrono::milliseconds(999));
+            std::this_thread::sleep_for(qclient_vars::playback_speed_ms);
 
             if (messages.empty()) {
                 break;
@@ -672,6 +675,10 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         qclient_vars::playback = true;
     }
 
+    if (cli_opts.count("playback_speed_ms")) {
+        qclient_vars::playback_speed_ms = std::chrono::milliseconds(cli_opts["playback_speed_ms"].as<uint64_t>());
+    }
+
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
     config.connect_uri = cli_opts["url"].as<std::string>();
     config.transport_config.debug = cli_opts["debug"].as<bool>();
@@ -709,7 +716,8 @@ main(int argc, char* argv[])
         ("pub_namespace", "Track namespace", cxxopts::value<std::string>())
         ("pub_name", "Track name", cxxopts::value<std::string>())
         ("clock", "Publish clock timestamp every second instead of using STDIN chat")
-        ("playback", "Playback recorded data from moq and dat files", cxxopts::value<bool>());
+        ("playback", "Playback recorded data from moq and dat files", cxxopts::value<bool>())
+        ("playback_speed_ms", "Playback speed in ms", cxxopts::value<std::uint64_t>());
 
     options.add_options("Subscriber")
         ("sub_namespace", "Track namespace", cxxopts::value<std::string>())
