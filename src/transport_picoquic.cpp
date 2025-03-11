@@ -584,6 +584,8 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
             } else {
                 stream_action = StreamAction::kReplaceStreamUseFin;
             }
+
+            data_ctx_it->second.stream_action = stream_action;
         }
 
         if (flags.clear_tx_queue) {
@@ -1106,6 +1108,7 @@ PicoQuicTransport::StreamActionCheck(DataContext* data_ctx, StreamAction stream_
 
         case StreamAction::kReplaceStreamUseReset: {
             data_ctx->uses_reset_wait = false;
+            data_ctx->stream_action = StreamAction::kNoAction;
 
             std::lock_guard<std::mutex> _(state_mutex_);
             const auto conn_ctx = GetConnContext(data_ctx->conn_id);
@@ -1119,7 +1122,7 @@ PicoQuicTransport::StreamActionCheck(DataContext* data_ctx, StreamAction stream_
 
             CloseStream(*conn_ctx, data_ctx, true);
 
-            SPDLOG_LOGGER_TRACE(logger,
+            SPDLOG_LOGGER_DEBUG(logger,
                                 "Replacing stream using RESET; conn_id: {0} data_ctx_id: {1} existing_stream: {2} "
                                 "write buf drops: {3} tx_queue_discards: {4}",
                                 data_ctx->conn_id,
@@ -1140,6 +1143,7 @@ PicoQuicTransport::StreamActionCheck(DataContext* data_ctx, StreamAction stream_
 
         case StreamAction::kReplaceStreamUseFin: {
             data_ctx->uses_reset_wait = true;
+            data_ctx->stream_action = StreamAction::kNoAction;
 
             if (data_ctx->stream_tx_object != nullptr) {
                 data_ctx->metrics.tx_buffer_drops++;
@@ -1235,7 +1239,8 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
 
         } else {
             // Queue is empty
-            picoquic_provide_stream_data_buffer(bytes_ctx, 0, 0, is_still_active);
+            picoquic_provide_stream_data_buffer(
+              bytes_ctx, 0, 0, data_ctx->mark_stream_active || not data_ctx->tx_data->Empty());
 
             return;
         }
@@ -1451,7 +1456,6 @@ PicoQuicTransport::RemoveClosedStreams()
 {
     std::lock_guard<std::mutex> _(state_mutex_);
 
-    std::vector<uint64_t> closed_streams;
     for (auto& [conn_id, conn_ctx] : conn_context_) {
         std::vector<uint64_t> closed_streams;
 
@@ -1884,6 +1888,10 @@ PicoQuicTransport::MarkStreamActive(const TransportConnId conn_id, const DataCon
 
     if (!data_ctx_it->second.current_stream_id.has_value()) {
         return;
+    }
+
+    if (data_ctx_it->second.stream_action != StreamAction::kNoAction) {
+        StreamActionCheck(&data_ctx_it->second, data_ctx_it->second.stream_action);
     }
 
     picoquic_mark_active_stream(
