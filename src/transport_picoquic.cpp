@@ -1225,7 +1225,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
             data_ctx->metrics.tx_object_duration_us.AddValue(tick_service_->Microseconds() -
                                                              obj.value.tick_microseconds);
 
-            if (StreamActionCheck(data_ctx, obj.value.stream_action)) {
+            if (data_ctx->stream_action != StreamAction::kNoAction && StreamActionCheck(data_ctx, obj.value.stream_action)) {
                 data_ctx->stream_tx_object = std::move(obj.value.data);
                 SPDLOG_LOGGER_DEBUG(logger,
                                     "New Stream conn_id: {} stream_id: {}, object size: {}",
