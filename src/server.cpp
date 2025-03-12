@@ -74,9 +74,12 @@ namespace quicr {
     {
     }
 
-    bool Server::FetchReceived(ConnectionHandle, uint64_t, const FullTrackName&, const FetchAttributes&)
+    std::optional<Server::FetchAvailability> Server::FetchReceived(ConnectionHandle,
+                                                                   uint64_t,
+                                                                   const FullTrackName&,
+                                                                   const FetchAttributes&)
     {
-        return false;
+        return std::nullopt;
     }
 
     void Server::OnFetchOk(ConnectionHandle, uint64_t, const FullTrackName&, const FetchAttributes&) {}
@@ -564,7 +567,8 @@ namespace quicr {
                     }
                 }
 
-                if (!FetchReceived(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs)) {
+                const auto available = FetchReceived(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs);
+                if (!available) {
                     SendFetchError(
                       conn_ctx, msg.subscribe_id, messages::FetchErrorCode::kTrackDoesNotExist, "Track does not exist");
 
@@ -578,7 +582,12 @@ namespace quicr {
                     conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
                 }
 
-                SendFetchOk(conn_ctx, msg.subscribe_id, msg.group_order, false, 0, 0);
+                SendFetchOk(conn_ctx,
+                            msg.subscribe_id,
+                            msg.group_order,
+                            available->end_of_track,
+                            available->largest_group,
+                            available->largest_object);
                 OnFetchOk(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs);
 
                 return true;
