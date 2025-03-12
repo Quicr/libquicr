@@ -54,6 +54,11 @@ namespace quicr {
             messages::ObjectId largest_object;
         };
 
+        struct JoiningFetchAvailability : FetchAvailability
+        {
+            FullTrackName tfn;
+        };
+
         /**
          * @brief MoQ Server constructor to create the MOQ server mode instance
          *
@@ -296,6 +301,15 @@ namespace quicr {
                                                                uint64_t subscribe_id,
                                                                const FullTrackName& track_full_name,
                                                                const FetchAttributes& attributes);
+
+        /**
+         * @brief Callback notification on Joining Fetch message received.
+         * @param connection_handle     Source connection ID.
+         * @param joining_subscribe_id  Subscribe ID of the joining subscribe.
+         * @returns Availability of the fetch request. If the fetch cannot be served, return std::nullopt.
+         */
+        virtual std::optional<JoiningFetchAvailability> JoiningFetchReceived(ConnectionHandle connection_handle,
+                                                                             uint64_t joining_subscribe_id);
 
         /**
          * @brief Event to run on sending FetchOk.

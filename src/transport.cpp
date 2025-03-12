@@ -671,12 +671,8 @@ namespace quicr {
         if (joining_fetch) {
             const auto& info = *joining_fetch;
             const auto fetch_sid = conn_it->second.current_subscribe_id++;
-            SendJoiningFetch(conn_it->second,
-                fetch_sid,
-                info.priority,
-                info.group_order,
-                sid,
-                info.preceding_group_offset);
+            SendJoiningFetch(
+              conn_it->second, fetch_sid, info.priority, info.group_order, sid, info.preceding_group_offset);
         }
     }
 

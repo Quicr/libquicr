@@ -828,6 +828,11 @@ class MyServer : public quicr::Server
                    const quicr::FullTrackName& track_full_name,
                    const quicr::FetchAttributes& attrs) override
     {
+        if (attrs.fetch_type == quicr::messages::FetchType::kJoiningFetch) {
+            SPDLOG_WARN("Joining Fetch not implemented");
+            return;
+        }
+
         auto pub_track_h =
           std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, 50000);
         BindPublisherTrack(connection_handle, subscribe_id, pub_track_h);
