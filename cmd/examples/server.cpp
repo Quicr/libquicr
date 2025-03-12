@@ -770,10 +770,10 @@ class MyServer : public quicr::Server
      *
      * @returns true if the range of groups and objects exist in the cache, otherwise returns false.
      */
-    bool FetchReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
-                       [[maybe_unused]] uint64_t subscribe_id,
-                       const quicr::FullTrackName& track_full_name,
-                       const quicr::FetchAttributes& attrs) override
+    std::optional<FetchAvailability> FetchReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
+                                                   [[maybe_unused]] uint64_t subscribe_id,
+                                                   const quicr::FullTrackName& track_full_name,
+                                                   const quicr::FetchAttributes& attrs) override
     {
         SPDLOG_INFO("Received Fetch for conn_id: {} subscribe_id: {} start_group: {} end_group: {}",
                     connection_handle,
@@ -786,7 +786,7 @@ class MyServer : public quicr::Server
         auto cache_entry_it = qserver_vars::cache.find(th.track_fullname_hash);
         if (cache_entry_it == qserver_vars::cache.end()) {
             SPDLOG_WARN("No cache entry for the hash {}", th.track_fullname_hash);
-            return false;
+            return std::nullopt;
         }
 
         auto& [_, cache_entry] = *cache_entry_it;
@@ -795,13 +795,21 @@ class MyServer : public quicr::Server
 
         if (groups.empty()) {
             SPDLOG_WARN("No groups found for requested range");
-            return false;
+            return std::nullopt;
         }
 
-        return std::any_of(groups.begin(), groups.end(), [&](const auto& group) {
+        const bool available = std::any_of(groups.begin(), groups.end(), [&](const auto& group) {
             return !group->empty() && group->begin()->headers.object_id <= attrs.start_object &&
                    std::prev(group->end())->headers.object_id >= (attrs.end_object - 1);
         });
+        if (!available) {
+            SPDLOG_WARN("No objects found for requested range");
+            return std::nullopt;
+        }
+        const auto last_cached = groups.back()->end()->headers;
+        return FetchAvailability{ .end_of_track = false,
+                                  .largest_group = last_cached.group_id,
+                                  .largest_object = last_cached.object_id };
     }
 
     /**

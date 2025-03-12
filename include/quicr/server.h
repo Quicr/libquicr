@@ -46,6 +46,14 @@ namespace quicr {
             std::optional<Bytes> reason_phrase;
         };
 
+        // Availability of the track.
+        struct FetchAvailability
+        {
+            bool end_of_track;
+            messages::GroupId largest_group;
+            messages::ObjectId largest_object;
+        };
+
         /**
          * @brief MoQ Server constructor to create the MOQ server mode instance
          *
@@ -282,12 +290,12 @@ namespace quicr {
          * @param track_full_name   Track full name
          * @param attributes        Fetch attributes received.
          *
-         * @returns true if user defined conditions of Fetch are satisfied, false otherwise.
+         * @returns Availability for FETCH_OK, if possible. If the fetch cannot be served, return std::nullopt.
          */
-        virtual bool FetchReceived(ConnectionHandle connection_handle,
-                                   uint64_t subscribe_id,
-                                   const FullTrackName& track_full_name,
-                                   const FetchAttributes& attributes);
+        virtual std::optional<FetchAvailability> FetchReceived(ConnectionHandle connection_handle,
+                                                               uint64_t subscribe_id,
+                                                               const FullTrackName& track_full_name,
+                                                               const FetchAttributes& attributes);
 
         /**
          * @brief Event to run on sending FetchOk.
