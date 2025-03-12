@@ -6,6 +6,7 @@
 #include "span.h"
 #include <cstdint>
 #include <deque>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -24,7 +25,7 @@ namespace quicr {
     }
 
     template<class Allocator = std::allocator<std::uint8_t>>
-    class DataStorage : public std::enable_shared_from_this<DataStorage<Allocator>>
+    class DataStorage
     {
         template<class It, class SpanIt>
         class Iterator
@@ -55,11 +56,47 @@ namespace quicr {
 
             constexpr Iterator& operator++() noexcept
             {
-                if (!span_it_.has_value() || ++*span_it_ == (*it_)->end()) {
+                if (!span_it_.has_value()) {
+                    return *this;
+                }
+
+                if (++*span_it_ == (*it_)->end()) {
                     span_it_ = ++it_ == end_it_ ? std::nullopt : std::optional<SpanIt>{ (*it_)->begin() };
                 }
 
                 return *this;
+            }
+
+            constexpr Iterator& operator++(int) noexcept
+            {
+                Iterator temp(*this);
+                ++temp;
+                return temp;
+            }
+
+            constexpr Iterator& operator+=(difference_type diff) noexcept
+            {
+                // if (diff < 0) {
+                //     return *this -= -diff;
+                // }
+
+                while (static_cast<difference_type>((*it_)->end() - *span_it_) <= diff) {
+                    diff -= (*it_)->end() - *span_it_;
+                    span_it_ = ++it_ == end_it_ ? std::nullopt : std::optional<SpanIt>{ (*it_)->begin() };
+                }
+
+                if (span_it_.has_value()) {
+                    *span_it_ += diff;
+                }
+
+                return *this;
+            }
+
+            constexpr Iterator operator+(difference_type diff) noexcept
+            {
+                Iterator temp(*this);
+                temp += diff;
+                return temp;
             }
 
             constexpr Iterator& operator--() noexcept
@@ -70,6 +107,39 @@ namespace quicr {
 
                 return *this;
             }
+
+            constexpr Iterator& operator--(int) noexcept
+            {
+                Iterator temp(*this);
+                --temp;
+                return temp;
+            }
+
+            // FIXME: This is broken
+            // constexpr Iterator& operator-=(difference_type diff) noexcept
+            // {
+            //     if (span_it_.has_value()) {
+            //         span_it_ = std::optional<SpanIt>{ std::prev((*--it_)->end()) };
+            //     }
+
+            //     while (static_cast<difference_type>(*span_it_ - (*it_)->begin()) <= diff) {
+            //         diff -= (*it_)->size() - ((*it_)->end() - *span_it_);
+            //         span_it_ = std::optional<SpanIt>{ std::prev((*--it_)->end()) };
+            //     }
+
+            //     if (span_it_.has_value()) {
+            //         *span_it_ -= diff;
+            //     }
+
+            //     return *this;
+            // }
+
+            // constexpr Iterator operator-(difference_type diff) noexcept
+            // {
+            //     Iterator temp(*this);
+            //     temp -= diff;
+            //     return temp;
+            // }
 
             friend constexpr bool operator==(const Iterator& lhs, const Iterator& rhs)
             {
@@ -110,7 +180,6 @@ namespace quicr {
 
         const SliceType& First() const noexcept { return *(this->begin()); }
         const SliceType& Last() const noexcept { return *std::prev(this->end()); }
-        const SliceType GetLast() const noexcept { return *std::prev(this->end()); }
 
         void Push(Span<const uint8_t> bytes)
         {
@@ -171,31 +240,73 @@ namespace quicr {
         BufferType buffer_;
     };
 
-    class DataStorageDynView
+    class DataSpan
+    {
+        static constexpr std::size_t dynamic_extent = std::numeric_limits<std::size_t>::max();
+
+      public:
+        DataSpan(std::shared_ptr<DataStorage<>> storage, std::size_t offset = 0, std::size_t length = dynamic_extent)
+          : storage_(std::move(storage))
+          , offset_(offset)
+          , length_(length == dynamic_extent ? data()->size() - offset : length)
+        {
+        }
+
+        DataSpan(const DataSpan&) = default;
+        DataSpan(DataSpan&&) = default;
+        DataSpan& operator=(const DataSpan&) = default;
+        DataSpan& operator=(DataSpan&&) = default;
+
+        DataSpan Subspan(std::size_t offset, std::size_t length = dynamic_extent) const noexcept
+        {
+            if (length == dynamic_extent) {
+                length = length_ - offset;
+            }
+
+            return DataSpan(storage_.lock(), offset_ + offset, length);
+        }
+
+        // NOLINTBEGIN(readability-identifier-naming)
+        std::shared_ptr<DataStorage<>> data() const noexcept { return storage_.lock(); }
+        std::size_t size() const noexcept { return length_; }
+
+        DataStorage<>::iterator begin() noexcept { return std::next(data()->begin(), offset_); }
+        DataStorage<>::iterator end() noexcept { return std::next(this->begin(), size()); }
+
+        DataStorage<>::const_iterator begin() const noexcept { return std::next(data()->cbegin(), offset_); }
+        DataStorage<>::const_iterator end() const noexcept { return std::next(this->begin(), size()); }
+        // NOLINTEND(readability-identifier-naming)
+
+      private:
+        std::weak_ptr<DataStorage<>> storage_;
+        std::size_t offset_ = 0;
+        std::size_t length_ = dynamic_extent;
+    };
+
+    class DynamicDataView
     {
       public:
-        DataStorageDynView(std::shared_ptr<DataStorage<>> storage,
-                           std::size_t start_pos = 0,
-                           std::optional<std::size_t> end_pos = std::nullopt)
+        DynamicDataView(std::shared_ptr<DataStorage<>> storage,
+                        std::size_t start_pos = 0,
+                        std::optional<std::size_t> end_pos = std::nullopt)
           : storage_(std::move(storage))
           , start_pos_(start_pos)
           , end_pos_(end_pos)
         {
         }
 
-        DataStorageDynView(const DataStorageDynView&) = default;
-        DataStorageDynView(DataStorageDynView&&) = default;
-        DataStorageDynView& operator=(const DataStorageDynView&) = default;
-        DataStorageDynView& operator=(DataStorageDynView&&) = default;
+        DynamicDataView(const DynamicDataView&) = default;
+        DynamicDataView(DynamicDataView&&) = default;
+        DynamicDataView& operator=(const DynamicDataView&) = default;
+        DynamicDataView& operator=(DynamicDataView&&) = default;
 
-        DataStorageDynView Subspan(std::size_t start_pos,
-                                   std::optional<std::size_t> end_pos = std::nullopt) const noexcept
+        DynamicDataView Subview(std::size_t start_pos, std::optional<std::size_t> end_pos = std::nullopt) const noexcept
         {
             if (not end_pos.has_value() || *end_pos > storage_->size()) {
                 end_pos = storage_->size();
             }
 
-            return DataStorageDynView(storage_, start_pos, *end_pos);
+            return DynamicDataView(storage_, start_pos, *end_pos);
         }
 
         // NOLINTBEGIN(readability-identifier-naming)
