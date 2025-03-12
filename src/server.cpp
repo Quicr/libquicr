@@ -551,8 +551,8 @@ namespace quicr {
                     .end_object = msg.end_object,
                 };
 
-                const auto availability = FetchReceived(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs);
-                if (!availability) {
+                const auto available = FetchReceived(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs);
+                if (!available) {
                     SendFetchError(
                       conn_ctx, msg.subscribe_id, messages::FetchErrorCode::kTrackDoesNotExist, "Track does not exist");
 
@@ -569,9 +569,9 @@ namespace quicr {
                 SendFetchOk(conn_ctx,
                             msg.subscribe_id,
                             msg.group_order,
-                            availability->end_of_track,
-                            availability->largest_group,
-                            availability->largest_object);
+                            available->end_of_track,
+                            available->largest_group,
+                            available->largest_object);
                 OnFetchOk(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs);
 
                 return true;

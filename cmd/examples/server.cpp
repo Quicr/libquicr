@@ -806,7 +806,7 @@ class MyServer : public quicr::Server
             SPDLOG_WARN("No objects found for requested range");
             return std::nullopt;
         }
-        const auto last_cached = groups.back()->end()->headers;
+        const auto last_cached = std::prev(groups.back()->end())->headers;
         return FetchAvailability{ .end_of_track = false,
                                   .largest_group = last_cached.group_id,
                                   .largest_object = last_cached.object_id };
