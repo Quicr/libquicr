@@ -507,6 +507,7 @@ namespace quicr {
     {
         Fetch fetch;
         fetch.subscribe_id = subscribe_id;
+        fetch.fetch_type = FetchType::kStandalone;
         fetch.track_namespace = tfn.name_space;
         fetch.track_name.assign(tfn.name.begin(), tfn.name.end());
         fetch.priority = priority;
