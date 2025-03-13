@@ -801,7 +801,7 @@ class MyServer : public quicr::Server
         return std::any_of(groups.begin(), groups.end(), [&](const auto& group) {
             return !group->empty() && group->begin()->headers.object_id <= attrs.start_object &&
                    (!attrs.end_object.has_value() ||
-                    std::prev(group->end())->headers.object_id >= attrs.end_object.value());
+                    group->back()->headers.object_id >= attrs.end_object.value());
         });
     }
 
