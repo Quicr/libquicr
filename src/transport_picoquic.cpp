@@ -1231,7 +1231,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
 
             if (StreamActionCheck(data_ctx, obj.value.stream_action)) {
                 data_ctx->stream_tx_object = std::move(obj.value.data);
-                SPDLOG_LOGGER_DEBUG(logger,
+                SPDLOG_LOGGER_TRACE(logger,
                                     "New Stream conn_id: {} data_ctx_id: {} stream_id: {}, object size: {}",
                                     data_ctx->conn_id,
                                     data_ctx->data_ctx_id,
@@ -1239,7 +1239,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
                                     data_ctx->stream_tx_object->size());
                 return;
             } else if (obj.value.stream_action != StreamAction::kNoAction) {
-                SPDLOG_LOGGER_DEBUG(
+                SPDLOG_LOGGER_TRACE(
                   logger,
                   "Object wants New Stream conn_id: {} data_ctx_id: {} stream_id: {}, object size: {} queue_size: {}",
                   data_ctx->conn_id,
@@ -1880,7 +1880,7 @@ PicoQuicTransport::CloseStream(ConnectionContext& conn_ctx, DataContext* data_ct
 void
 PicoQuicTransport::MarkStreamActive(const TransportConnId conn_id, const DataContextId data_ctx_id)
 {
-    std::lock_guard lock(state_mutex_);
+    std::lock_guard _(state_mutex_);
 
     const auto conn_it = conn_context_.find(conn_id);
     if (conn_it == conn_context_.end()) {
