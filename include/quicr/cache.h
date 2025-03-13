@@ -5,6 +5,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <map>
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -66,7 +67,7 @@ namespace quicr {
 
         bool Contains(const K& start_key, const K& end_key) noexcept
         {
-            if (start_key >= end_key) {
+            if (start_key > end_key) {
                 return false;
             }
 
