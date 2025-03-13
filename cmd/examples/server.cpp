@@ -820,9 +820,9 @@ class MyServer : public quicr::Server
                    const quicr::FullTrackName& track_full_name,
                    const quicr::FetchAttributes& attrs) override
     {
-        auto pub_track_h =
-          std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, 50000);
-        BindPublisherTrack(connection_handle, subscribe_id, pub_track_h);
+        auto pub_fetch_h =
+          quicr::PublishFetchHandler::Create(subscribe_id, track_full_name, attrs.priority, attrs.group_order);
+        BindFetchTrack(connection_handle, pub_fetch_h);
 
         const auto th = quicr::TrackHash(track_full_name);
 
@@ -830,7 +830,7 @@ class MyServer : public quicr::Server
 
         std::thread retrieve_cache_thread(
           [=, cache_entries = qserver_vars::cache.at(th.track_fullname_hash).Get(attrs.start_group, attrs.end_group)] {
-              defer(UnbindPublisherTrack(connection_handle, pub_track_h));
+              defer(UnbindFetchTrack(connection_handle, pub_fetch_h));
 
               for (const auto& cache_entry : cache_entries) {
                   for (const auto& object : *cache_entry) {
@@ -846,7 +846,7 @@ class MyServer : public quicr::Server
 
                       SPDLOG_INFO("Fetching group: {} object: {}", object.headers.group_id, object.headers.object_id);
 
-                      pub_track_h->PublishObject(object.headers, object.data);
+                      pub_fetch_h->PublishObject(object.headers, object.data);
                       std::this_thread::sleep_for(std::chrono::milliseconds(1));
                   }
               }

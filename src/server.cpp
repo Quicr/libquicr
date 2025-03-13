@@ -241,6 +241,124 @@ namespace quicr {
         track_handler->SetStatus(PublishTrackHandler::Status::kOk);
     }
 
+    void Server::UnbindFetchTrack(ConnectionHandle connection_handle,
+                                  const std::shared_ptr<PublishFetchHandler>& track_handler)
+    {
+        std::unique_lock lock(state_mutex_);
+
+        auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            return;
+        }
+        auto subscribe_id = *track_handler->GetSubscribeId();
+        SPDLOG_LOGGER_DEBUG(
+          logger_, "Server publish fetch track conn_id: {} subscribe id: {} unbind", connection_handle, subscribe_id);
+
+        conn_it->second.sub_by_track_alias.erase(subscribe_id);
+    }
+
+    void Server::BindFetchTrack(TransportConnId conn_id, std::shared_ptr<PublishFetchHandler> track_handler)
+    {
+        SPDLOG_LOGGER_INFO(
+          logger_, "Publish fetch track conn_id: {0} subscribe: {1}", conn_id, *track_handler->GetSubscribeId());
+
+        std::unique_lock<std::mutex> lock(state_mutex_);
+
+        auto conn_it = connections_.find(conn_id);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "Publish fetch track conn_id: {0} does not exist.", conn_id);
+            return;
+        }
+
+        track_handler->connection_handle_ = conn_id;
+        track_handler->publish_data_ctx_id_ =
+          quic_transport_->CreateDataContext(conn_id, true, track_handler->GetPriority(), false);
+
+        // Setup the function for the track handler to use to send objects with thread safety
+        std::weak_ptr weak_handler(track_handler);
+        track_handler->publish_object_func_ = [&, weak_handler](uint8_t priority,
+                                                                uint32_t ttl,
+                                                                bool stream_header_needed,
+                                                                uint64_t group_id,
+                                                                uint64_t subgroup_id,
+                                                                uint64_t object_id,
+                                                                std::optional<Extensions> extensions,
+                                                                Span<const uint8_t> data) -> bool {
+            auto handler = weak_handler.lock();
+            if (!handler) {
+                return false;
+            }
+            return SendFetchObject(
+              *handler, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
+        };
+
+        // Hold ref to track handler
+        conn_it->second.pub_fetch_tracks_by_sub_id[*track_handler->GetSubscribeId()] = std::move(track_handler);
+    }
+
+    bool Server::SendFetchObject(PublishFetchHandler& track_handler,
+                                 uint8_t priority,
+                                 uint32_t ttl,
+                                 bool stream_header_needed,
+                                 uint64_t group_id,
+                                 uint64_t subgroup_id,
+                                 uint64_t object_id,
+                                 std::optional<Extensions> extensions,
+                                 BytesSpan data) const
+    {
+        const auto subscribe_id = *track_handler.GetSubscribeId();
+
+        ITransport::EnqueueFlags eflags;
+
+        track_handler.object_msg_buffer_.clear();
+
+        // use stream per subgroup, group change
+        eflags.use_reliable = true;
+
+        if (stream_header_needed) {
+            eflags.new_stream = true;
+            eflags.clear_tx_queue = true;
+            eflags.use_reset = true;
+
+            messages::FetchHeader fetch_header{};
+            fetch_header.subscribe_id = subscribe_id;
+            track_handler.object_msg_buffer_ << fetch_header;
+
+            quic_transport_->Enqueue(track_handler.connection_handle_,
+                                     track_handler.publish_data_ctx_id_,
+                                     std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
+                                                                            track_handler.object_msg_buffer_.end()),
+                                     priority,
+                                     ttl,
+                                     0,
+                                     eflags);
+
+            track_handler.object_msg_buffer_.clear();
+            eflags.new_stream = false;
+            eflags.clear_tx_queue = false;
+            eflags.use_reset = false;
+        }
+
+        messages::FetchObject object{};
+        object.group_id = group_id;
+        object.sub_group_id = subgroup_id;
+        object.object_id = object_id;
+        object.publisher_priority = priority;
+        object.extensions = extensions;
+        object.payload.assign(data.begin(), data.end());
+        track_handler.object_msg_buffer_ << object;
+
+        quic_transport_->Enqueue(track_handler.connection_handle_,
+                                 track_handler.publish_data_ctx_id_,
+                                 std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
+                                                                        track_handler.object_msg_buffer_.end()),
+                                 priority,
+                                 ttl,
+                                 0,
+                                 eflags);
+        return true;
+    }
+
     bool Server::ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes)
     try {
         switch (*conn_ctx.ctrl_msg_type_received) {

@@ -1054,6 +1054,116 @@ namespace quicr::messages {
         return buffer >> msg.subscribe_id >> msg.err_code >> msg.reason_phrase;
     }
 
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, FetchHeader& msg)
+    {
+        switch (msg.current_pos) {
+            case 0: {
+                if (!ParseUintVField(buffer, msg.subscribe_id)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                msg.parse_completed = true;
+                [[fallthrough]];
+            }
+            default:
+                break;
+        }
+
+        return msg.parse_completed;
+    }
+
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, FetchHeader&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, FetchHeader&);
+
+    Bytes& operator<<(Bytes& buffer, const FetchHeader& msg)
+    {
+        buffer << UintVar(static_cast<uint64_t>(DataMessageType::kFetchHeader));
+        buffer << UintVar(msg.subscribe_id);
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, const FetchObject& msg)
+    {
+        buffer << UintVar(msg.object_id);
+        if (msg.payload.empty()) {
+            // empty payload needs a object status to be set
+            PushExtensions(buffer, msg.extensions);
+            auto status = UintVar(static_cast<uint8_t>(msg.object_status));
+            buffer.push_back(0);
+            buffer << status;
+        } else {
+            PushExtensions(buffer, msg.extensions);
+            buffer << UintVar(msg.payload.size());
+            buffer << msg.payload;
+        }
+        return buffer;
+    }
+
+    template<class StreamBufferType>
+    bool operator>>(StreamBufferType& buffer, FetchObject& msg)
+    {
+        switch (msg.current_pos) {
+            case 0: {
+                if (!ParseUintVField(buffer, msg.object_id)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 1: {
+                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+
+            case 2: {
+                if (!ParseUintVField(buffer, msg.payload_len)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 3: {
+                if (msg.payload_len == 0) {
+                    uint64_t status = 0;
+                    if (!ParseUintVField(buffer, status)) {
+                        return false;
+                    }
+                    msg.object_status = static_cast<ObjectStatus>(status);
+                    msg.parse_completed = true;
+                    return true;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+
+            case 4: {
+                if (!buffer.Available(msg.payload_len)) {
+                    return false;
+                }
+                auto val = buffer.Front(msg.payload_len);
+                if (val.size() == 0) {
+                    return false;
+                }
+
+                msg.payload = std::move(val);
+                buffer.Pop(msg.payload_len);
+                msg.parse_completed = true;
+                [[fallthrough]];
+            }
+            default:
+                break;
+        }
+
+        return msg.parse_completed;
+    }
+
+    template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, FetchObject&);
+    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, FetchObject&);
+
     //
     // Object
     //

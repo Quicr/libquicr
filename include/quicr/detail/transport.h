@@ -14,6 +14,7 @@
 #include <quicr/config.h>
 #include <quicr/fetch_track_handler.h>
 #include <quicr/metrics.h>
+#include <quicr/publish_fetch_handler.h>
 #include <quicr/publish_track_handler.h>
 #include <quicr/subscribe_track_handler.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -251,7 +252,7 @@ namespace quicr {
             /// Used to map published tracks to subscribes in client mode
             std::map<messages::SubscribeId, std::pair<TrackNamespaceHash, TrackNameHash>> recv_sub_id;
 
-            /// Tracks by subscribe ID (Subscribe and Fetch)
+            /// Subscribe Tracks by subscribe ID.
             std::map<messages::SubscribeId, std::shared_ptr<SubscribeTrackHandler>> tracks_by_sub_id;
 
             /// Subscribes by Track Alais is used for data object forwarding
@@ -265,6 +266,9 @@ namespace quicr {
 
             /// Published tracks by quic transport data context ID.
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
+
+            /// Fetch Publishers by subscribe ID.
+            std::map<messages::SubscribeId, std::shared_ptr<PublishFetchHandler>> pub_fetch_tracks_by_sub_id;
 
             ConnectionMetrics metrics{}; ///< Connection metrics
 

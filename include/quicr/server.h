@@ -7,6 +7,7 @@
 #include <quicr/config.h>
 #include <quicr/detail/transport.h>
 #include <quicr/object.h>
+#include <quicr/publish_fetch_handler.h>
 #include <quicr/track_name.h>
 
 namespace quicr {
@@ -105,6 +106,10 @@ namespace quicr {
          */
         void UnbindPublisherTrack(ConnectionHandle connection_handle,
                                   const std::shared_ptr<PublishTrackHandler>& track_handler);
+
+        void BindFetchTrack(TransportConnId conn_id, std::shared_ptr<PublishFetchHandler> track_handler);
+
+        void UnbindFetchTrack(ConnectionHandle conn_id, const std::shared_ptr<PublishFetchHandler>& track_handler);
 
         /**
          * @brief Accept or reject an subscribe that was received
@@ -317,6 +322,15 @@ namespace quicr {
 
       private:
         bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes) override;
+        bool SendFetchObject(PublishFetchHandler& track_handler,
+                             uint8_t priority,
+                             uint32_t ttl,
+                             bool stream_header_needed,
+                             uint64_t group_id,
+                             uint64_t subgroup_id,
+                             uint64_t object_id,
+                             std::optional<Extensions> extensions,
+                             BytesSpan data) const;
 
         bool stop_{ false };
     };
