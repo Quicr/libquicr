@@ -266,6 +266,9 @@ namespace quicr {
             /// Published tracks by quic transport data context ID.
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
 
+            /// Fetch Publishers by subscribe ID.
+            std::map<messages::SubscribeId, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_sub_id;
+
             ConnectionMetrics metrics{}; ///< Connection metrics
 
             ConnectionContext() { ctrl_msg_buffer.reserve(kControlMessageBufferSize); }
@@ -375,6 +378,17 @@ namespace quicr {
         std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(ConnectionContext& conn_ctx, TrackHash& th);
 
         void RemoveAllTracksForConnectionClose(ConnectionContext& conn_ctx);
+
+        bool OnRecvSubgroup(std::vector<uint8_t>::const_iterator cursor_it,
+                            StreamRxContext& rx_ctx,
+                            std::uint64_t stream_id,
+                            ConnectionContext& conn_ctx,
+                            std::shared_ptr<const std::vector<uint8_t>> data) const;
+        bool OnRecvFetch(std::vector<uint8_t>::const_iterator cursor_it,
+                         StreamRxContext& rx_ctx,
+                         std::uint64_t stream_id,
+                         ConnectionContext& conn_ctx,
+                         std::shared_ptr<const std::vector<uint8_t>> data) const;
 
         // -------------------------------------------------------------------------------------------------
         // Private member functions that will be implemented by Server class

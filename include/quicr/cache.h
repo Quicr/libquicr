@@ -5,6 +5,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <map>
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -64,10 +65,10 @@ namespace quicr {
             return cache_.find(key) != cache_.end();
         }
 
-        bool Contains(const K& start_key, const K& end_key) noexcept
+        bool Contains(const K& start_key, const K& end_key)
         {
             if (start_key >= end_key) {
-                return false;
+                throw std::invalid_argument("Exclusive end key must be greater than start key");
             }
 
             Advance();
@@ -90,7 +91,7 @@ namespace quicr {
             return cache_.at(key);
         }
 
-        std::vector<ValueType> Get(const K& start_key, const K& end_key) noexcept
+        std::vector<ValueType> Get(const K& start_key, const K& end_key)
         {
             if (!Contains(start_key, end_key)) {
                 return {};

@@ -11,6 +11,7 @@ add_executable(quicr_test
     tick_service.cpp
     track_namespace.cpp
     data_storage.cpp
+    cache.cpp
 )
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 

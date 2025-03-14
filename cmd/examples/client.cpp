@@ -290,7 +290,7 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
     void ObjectReceived(const quicr::ObjectHeaders&, quicr::BytesSpan data) override
     {
         std::string msg(data.begin(), data.end());
-        SPDLOG_INFO("Received message: {0}", msg);
+        SPDLOG_INFO("Received fetched object: {0}", msg);
     }
 
     void StatusChanged(Status status) override

@@ -791,7 +791,7 @@ class MyServer : public quicr::Server
 
         auto& [_, cache_entry] = *cache_entry_it;
 
-        const auto groups = cache_entry.Get(attrs.start_group, attrs.end_group);
+        const auto groups = cache_entry.Get(attrs.start_group, attrs.end_group + 1);
 
         if (groups.empty()) {
             SPDLOG_WARN("No groups found for requested range");
@@ -800,7 +800,7 @@ class MyServer : public quicr::Server
 
         const bool available = std::any_of(groups.begin(), groups.end(), [&](const auto& group) {
             return !group->empty() && group->begin()->headers.object_id <= attrs.start_object &&
-                   std::prev(group->end())->headers.object_id >= (attrs.end_object - 1);
+                   (!attrs.end_object.has_value() || std::prev(group->end())->headers.object_id >= *attrs.end_object);
         });
         if (!available) {
             SPDLOG_WARN("No objects found for requested range");
@@ -833,17 +833,18 @@ class MyServer : public quicr::Server
             return;
         }
 
-        auto pub_track_h =
-          std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, 50000);
-        BindPublisherTrack(connection_handle, subscribe_id, pub_track_h);
+        auto pub_fetch_h =
+          quicr::PublishFetchHandler::Create(track_full_name, attrs.priority, subscribe_id, attrs.group_order, 50000);
+        BindFetchTrack(connection_handle, pub_fetch_h);
 
         const auto th = quicr::TrackHash(track_full_name);
 
         qserver_vars::stop_fetch.emplace(std::make_pair(subscribe_id, false));
 
         std::thread retrieve_cache_thread(
-          [=, cache_entries = qserver_vars::cache.at(th.track_fullname_hash).Get(attrs.start_group, attrs.end_group)] {
-              defer(UnbindPublisherTrack(connection_handle, pub_track_h));
+          [=,
+           cache_entries = qserver_vars::cache.at(th.track_fullname_hash).Get(attrs.start_group, attrs.end_group + 1)] {
+              defer(UnbindFetchTrack(connection_handle, pub_fetch_h));
 
               for (const auto& cache_entry : cache_entries) {
                   for (const auto& object : *cache_entry) {
@@ -852,14 +853,14 @@ class MyServer : public quicr::Server
                           return;
                       }
 
-                      if ((object.headers.group_id < attrs.start_group || object.headers.group_id >= attrs.end_group) ||
+                      if ((object.headers.group_id < attrs.start_group || object.headers.group_id > attrs.end_group) ||
                           (object.headers.object_id < attrs.start_object ||
-                           object.headers.object_id >= attrs.end_object))
+                           (attrs.end_object.has_value() && object.headers.object_id > *attrs.end_object)))
                           continue;
 
                       SPDLOG_INFO("Fetching group: {} object: {}", object.headers.group_id, object.headers.object_id);
 
-                      pub_track_h->PublishObject(object.headers, object.data);
+                      pub_fetch_h->PublishObject(object.headers, object.data);
                       std::this_thread::sleep_for(std::chrono::milliseconds(1));
                   }
               }

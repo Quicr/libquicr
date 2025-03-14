@@ -507,6 +507,7 @@ namespace quicr {
     {
         Fetch fetch;
         fetch.subscribe_id = subscribe_id;
+        fetch.fetch_type = FetchType::kStandalone;
         fetch.track_namespace = tfn.name_space;
         fetch.track_name.assign(tfn.name.begin(), tfn.name.end());
         fetch.priority = priority;
@@ -1303,58 +1304,29 @@ namespace quicr {
                     continue; // Not enough bytes to process control message. Try again once more.
                 }
 
+                SPDLOG_LOGGER_DEBUG(
+                  logger_, "New stream conn_id: {} stream_id: {} data size: {}", conn_id, stream_id, data.size());
+
                 auto msg_type = uint64_t(quicr::UintVar({ data.begin(), data.begin() + type_sz }));
                 auto cursor_it = std::next(data.begin(), type_sz);
 
-                if (!msg_type || static_cast<DataMessageType>(msg_type) != DataMessageType::kStreamHeaderSubgroup) {
-                    SPDLOG_LOGGER_DEBUG(logger_, "Received start of stream with invalid header type, dropping");
-                    conn_ctx.metrics.rx_stream_invalid_type++;
-
-                    // TODO(tievens): Need to reset this stream as this is invalid.
-                    return;
+                bool break_loop = false;
+                switch (static_cast<DataMessageType>(msg_type)) {
+                    case DataMessageType::kStreamHeaderSubgroup:
+                        break_loop = OnRecvSubgroup(cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
+                        break;
+                    case DataMessageType::kFetchHeader:
+                        break_loop = OnRecvFetch(cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
+                        break;
+                    default:
+                        SPDLOG_LOGGER_DEBUG(logger_, "Received start of stream with invalid header type, dropping");
+                        conn_ctx.metrics.rx_stream_invalid_type++;
+                        // TODO(tievens): Need to reset this stream as this is invalid.
+                        return;
                 }
-
-                uint64_t track_alias = 0;
-                uint8_t prioirty = 0;
-
-                try {
-                    // First header in subgroup starts with track alias
-                    auto ta_sz = UintVar::Size(*cursor_it);
-                    track_alias = uint64_t(quicr::UintVar({ cursor_it, cursor_it + ta_sz }));
-                    cursor_it += ta_sz;
-
-                    auto group_id_sz = UintVar::Size(*cursor_it);
-                    cursor_it += group_id_sz;
-
-                    auto subgroup_id_sz = UintVar::Size(*cursor_it);
-                    cursor_it += subgroup_id_sz;
-
-                    prioirty = *cursor_it;
-
-                } catch (std::invalid_argument&) {
-                    SPDLOG_LOGGER_WARN(logger_, "Received start of stream without enough bytes to process uintvar");
+                if (break_loop) {
                     break;
                 }
-
-                rx_ctx->is_new = false;
-
-                auto sub_it = conn_ctx.sub_by_track_alias.find(track_alias);
-                if (sub_it == conn_ctx.sub_by_track_alias.end()) {
-                    conn_ctx.metrics.rx_stream_unknown_track_alias++;
-                    SPDLOG_LOGGER_WARN(
-                      logger_,
-                      "Received stream_header_subgroup to unknown subscribe track track_alias: {} stream: {}, ignored",
-                      track_alias,
-                      stream_id);
-
-                    // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
-                    break;
-                }
-
-                rx_ctx->caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
-                sub_it->second->SetPriority(prioirty);
-                sub_it->second->StreamDataRecv(true, stream_id, data_opt.value());
-
             } else if (rx_ctx->caller_any.has_value()) {
                 // fast processing for existing stream using weak pointer to subscribe handler
                 auto sub_handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
@@ -1365,6 +1337,92 @@ namespace quicr {
         } // end of for loop rx data queue
     } catch (TransportError& e) {
         // TODO(tievens): Add metrics to track if this happens
+    }
+
+    bool Transport::OnRecvSubgroup(std::vector<uint8_t>::const_iterator cursor_it,
+                                   StreamRxContext& rx_ctx,
+                                   std::uint64_t stream_id,
+                                   ConnectionContext& conn_ctx,
+                                   std::shared_ptr<const std::vector<uint8_t>> data) const
+    {
+        uint64_t track_alias = 0;
+        uint8_t priority = 0;
+
+        try {
+            // First header in subgroup starts with track alias
+            auto ta_sz = UintVar::Size(*cursor_it);
+            track_alias = uint64_t(quicr::UintVar({ cursor_it, cursor_it + ta_sz }));
+            cursor_it += ta_sz;
+
+            auto group_id_sz = UintVar::Size(*cursor_it);
+            cursor_it += group_id_sz;
+
+            auto subgroup_id_sz = UintVar::Size(*cursor_it);
+            cursor_it += subgroup_id_sz;
+
+            priority = *cursor_it;
+
+        } catch (std::invalid_argument&) {
+            SPDLOG_LOGGER_WARN(logger_, "Received start of stream without enough bytes to process uintvar");
+            return false;
+        }
+
+        rx_ctx.is_new = false;
+
+        auto sub_it = conn_ctx.sub_by_track_alias.find(track_alias);
+        if (sub_it == conn_ctx.sub_by_track_alias.end()) {
+            conn_ctx.metrics.rx_stream_unknown_track_alias++;
+            SPDLOG_LOGGER_WARN(
+              logger_,
+              "Received stream_header_subgroup to unknown subscribe track track_alias: {} stream: {}, ignored",
+              track_alias,
+              stream_id);
+
+            // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+            return false;
+        }
+
+        rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
+        sub_it->second->SetPriority(priority);
+        sub_it->second->StreamDataRecv(true, stream_id, std::move(data));
+        return true;
+    }
+
+    bool Transport::OnRecvFetch(std::vector<uint8_t>::const_iterator cursor_it,
+                                StreamRxContext& rx_ctx,
+                                std::uint64_t stream_id,
+                                ConnectionContext& conn_ctx,
+                                std::shared_ptr<const std::vector<uint8_t>> data) const
+    {
+        uint64_t subscribe_id = 0;
+
+        try {
+            // Extract Subscribe ID.
+            const std::size_t sub_sz = UintVar::Size(*cursor_it);
+            subscribe_id = static_cast<std::uint64_t>(UintVar({ cursor_it, cursor_it + sub_sz }));
+
+        } catch (std::invalid_argument&) {
+            SPDLOG_LOGGER_WARN(logger_, "Received start of stream without enough bytes to process uintvar");
+            return false;
+        }
+
+        rx_ctx.is_new = false;
+
+        const auto fetch_it = conn_ctx.tracks_by_sub_id.find(subscribe_id);
+        if (fetch_it == conn_ctx.tracks_by_sub_id.end()) {
+            // TODO: Metrics.
+            SPDLOG_LOGGER_WARN(logger_,
+                               "Received fetch_header to unknown fetch track subscribe_id: {} stream: {}, ignored",
+                               subscribe_id,
+                               stream_id);
+
+            // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+            return false;
+        }
+
+        rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(fetch_it->second);
+        fetch_it->second->StreamDataRecv(true, stream_id, std::move(data));
+        return true;
     }
 
     void Transport::OnRecvDgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id)

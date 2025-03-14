@@ -87,6 +87,10 @@ namespace quicr {
          */
         constexpr const messages::GroupId& GetEndObject() const noexcept { return end_object_; }
 
+        void StreamDataRecv(bool is_start,
+                            uint64_t stream_id,
+                            std::shared_ptr<const std::vector<uint8_t>> data) override;
+
       private:
         messages::GroupId start_group_;
         messages::GroupId start_object_;
