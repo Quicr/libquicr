@@ -144,6 +144,12 @@ namespace quicr {
         void SetDefaultPriority(const uint8_t priority) noexcept { default_priority_ = priority; }
 
         /**
+         * @brief Get the default priority for published objects.
+         * @return The default priority.
+         */
+        constexpr uint8_t GetDefaultPriority() const noexcept { return default_priority_; }
+
+        /**
          * @brief set/update the default TTL expiry for published objects
          */
         void SetDefaultTTL(const uint32_t ttl) noexcept { default_ttl_ = ttl; }
@@ -191,7 +197,7 @@ namespace quicr {
          *
          * @returns Publish status of the publish
          */
-        PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
+        virtual PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
 
         /**
          * @brief Forward received object data to subscriber/relay/remote client
@@ -253,7 +259,7 @@ namespace quicr {
         // --------------------------------------------------------------------------
         // Internals
         // --------------------------------------------------------------------------
-      private:
+      protected:
         /**
          * @brief Publish Object function via the MoQ instance
          *

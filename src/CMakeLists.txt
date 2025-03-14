@@ -9,7 +9,9 @@ endif()
 target_sources (quicr PRIVATE
     client.cpp
     messages.cpp
+    publish_fetch_handler.cpp
     publish_track_handler.cpp
+    fetch_track_handler.cpp
     subscribe_track_handler.cpp
     server.cpp
     quic_transport.cpp
