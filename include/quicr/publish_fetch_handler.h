@@ -13,8 +13,9 @@ namespace quicr {
         PublishFetchHandler(const FullTrackName& full_track_name,
                             uint8_t priority,
                             uint64_t subscribe_id,
-                            messages::GroupOrder group_order)
-          : PublishTrackHandler(full_track_name, TrackMode::kStream, priority, 0)
+                            messages::GroupOrder group_order,
+                            uint32_t ttl)
+          : PublishTrackHandler(full_track_name, TrackMode::kStream, priority, ttl)
           , group_order_(group_order)
         {
             SetSubscribeId(subscribe_id);
@@ -24,10 +25,11 @@ namespace quicr {
         static std::shared_ptr<PublishFetchHandler> Create(const FullTrackName& full_track_name,
                                                            uint8_t priority,
                                                            uint64_t subscribe_id,
-                                                           messages::GroupOrder group_order)
+                                                           messages::GroupOrder group_order,
+                                                           uint32_t ttl)
         {
             return std::shared_ptr<PublishFetchHandler>(
-              new PublishFetchHandler(full_track_name, priority, subscribe_id, group_order));
+              new PublishFetchHandler(full_track_name, priority, subscribe_id, group_order, ttl));
         }
         PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data) override;
         constexpr messages::GroupOrder GetGroupOrder() const noexcept { return group_order_; }

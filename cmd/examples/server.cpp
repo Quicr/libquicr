@@ -821,7 +821,7 @@ class MyServer : public quicr::Server
                    const quicr::FetchAttributes& attrs) override
     {
         auto pub_fetch_h =
-          quicr::PublishFetchHandler::Create(track_full_name, attrs.priority, subscribe_id, attrs.group_order);
+          quicr::PublishFetchHandler::Create(track_full_name, attrs.priority, subscribe_id, attrs.group_order, 50000);
         BindFetchTrack(connection_handle, pub_fetch_h);
 
         const auto th = quicr::TrackHash(track_full_name);

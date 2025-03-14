@@ -13,8 +13,8 @@ namespace quicr {
             return PublishObjectStatus::kInternalError;
         }
         return publish_object_func_(object_headers.priority.has_value() ? object_headers.priority.value()
-                                                                        : GetDefaultPriority(),
-                                    object_headers.ttl.has_value() ? object_headers.ttl.value() : 0,
+                                                                        : default_priority_,
+                                    object_headers.ttl.has_value() ? object_headers.ttl.value() : default_ttl_,
                                     is_stream_header_needed,
                                     object_headers.group_id,
                                     object_headers.subgroup_id,
