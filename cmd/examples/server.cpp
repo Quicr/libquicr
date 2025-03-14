@@ -800,8 +800,7 @@ class MyServer : public quicr::Server
 
         return std::any_of(groups.begin(), groups.end(), [&](const auto& group) {
             return !group->empty() && group->begin()->headers.object_id <= attrs.start_object &&
-                   (!attrs.end_object.has_value() ||
-                    std::prev(group->end())->headers.object_id >= attrs.end_object.value());
+                   (!attrs.end_object.has_value() || std::prev(group->end())->headers.object_id >= *attrs.end_object);
         });
     }
 
@@ -843,7 +842,7 @@ class MyServer : public quicr::Server
 
                       if ((object.headers.group_id < attrs.start_group || object.headers.group_id > attrs.end_group) ||
                           (object.headers.object_id < attrs.start_object ||
-                           (attrs.end_object.has_value() && object.headers.object_id > attrs.end_object.value())))
+                           (attrs.end_object.has_value() && object.headers.object_id > *attrs.end_object)))
                           continue;
 
                       SPDLOG_INFO("Fetching group: {} object: {}", object.headers.group_id, object.headers.object_id);
