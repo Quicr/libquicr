@@ -1085,7 +1085,10 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const FetchObject& msg)
     {
+        buffer << UintVar(msg.group_id);
+        buffer << UintVar(msg.subgroup_id);
         buffer << UintVar(msg.object_id);
+        buffer.push_back(msg.publisher_priority);
         if (msg.payload.empty()) {
             // empty payload needs a object status to be set
             PushExtensions(buffer, msg.extensions);
@@ -1105,13 +1108,37 @@ namespace quicr::messages {
     {
         switch (msg.current_pos) {
             case 0: {
-                if (!ParseUintVField(buffer, msg.object_id)) {
+                if (!ParseUintVField(buffer, msg.group_id)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
             case 1: {
+                if (!ParseUintVField(buffer, msg.subgroup_id)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 2: {
+                if (!ParseUintVField(buffer, msg.object_id)) {
+                    return false;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 3: {
+                auto val = buffer.Front();
+                if (!val) {
+                    return false;
+                }
+                buffer.Pop();
+                msg.publisher_priority = val.value();
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 4: {
                 if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
                     return false;
                 }
@@ -1119,14 +1146,14 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
 
-            case 2: {
+            case 5: {
                 if (!ParseUintVField(buffer, msg.payload_len)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 3: {
+            case 6: {
                 if (msg.payload_len == 0) {
                     uint64_t status = 0;
                     if (!ParseUintVField(buffer, status)) {
@@ -1140,7 +1167,7 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
 
-            case 4: {
+            case 7: {
                 if (!buffer.Available(msg.payload_len)) {
                     return false;
                 }

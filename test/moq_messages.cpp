@@ -862,3 +862,75 @@ TEST_CASE("Subscribe Announces Error encode/decode")
     CHECK_EQ(msg.error_code, msg_out.error_code);
     CHECK_EQ(msg.reason_phrase, msg_out.reason_phrase);
 }
+
+static void
+FetchStreamEncodeDecode(bool extensions, bool empty_payload)
+{
+    Bytes buffer;
+    auto fetch_header = FetchHeader{};
+    fetch_header.subscribe_id = 0x1234;
+
+    buffer << fetch_header;
+
+    FetchHeader fetch_header_out;
+    CHECK(Verify(buffer, static_cast<uint64_t>(DataMessageType::kFetchHeader), fetch_header_out));
+    CHECK_EQ(fetch_header.subscribe_id, fetch_header_out.subscribe_id);
+
+    // stream all the objects
+    buffer.clear();
+    auto objects = std::vector<FetchObject>{};
+    // send 10 objects
+    for (size_t i = 0; i < 1; i++) {
+        auto obj = FetchObject{};
+        obj.group_id = 0x1234;
+        obj.subgroup_id = 0x5678;
+        obj.object_id = 0x9012;
+        obj.publisher_priority = 127;
+
+        if (empty_payload) {
+            obj.object_status = ObjectStatus::kDoesNotExist;
+        } else {
+            obj.payload = { 0x1, 0x2, 0x3, 0x4, 0x5 };
+        }
+
+        obj.extensions = extensions ? kOptionalExtensions : std::nullopt;
+        objects.push_back(obj);
+        buffer << obj;
+    }
+
+    auto obj_out = FetchObject{};
+    size_t object_count = 0;
+    StreamBuffer<uint8_t> in_buffer;
+    for (size_t i = 0; i < buffer.size(); i++) {
+        in_buffer.Push(buffer.at(i));
+        bool done;
+        done = in_buffer >> obj_out;
+        if (done) {
+            CHECK_EQ(obj_out.group_id, objects[object_count].group_id);
+            CHECK_EQ(obj_out.subgroup_id, objects[object_count].subgroup_id);
+            CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
+            CHECK_EQ(obj_out.publisher_priority, objects[object_count].publisher_priority);
+            if (empty_payload) {
+                CHECK_EQ(obj_out.object_status, objects[object_count].object_status);
+            } else {
+                CHECK(obj_out.payload.size() > 0);
+                CHECK_EQ(obj_out.payload, objects[object_count].payload);
+            }
+            CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
+            // got one object
+            object_count++;
+            obj_out = {};
+            in_buffer.Pop(in_buffer.Size());
+        }
+    }
+
+    CHECK_EQ(object_count, 1);
+}
+
+TEST_CASE("Fetch Stream Message encode/decode")
+{
+    FetchStreamEncodeDecode(false, true);
+    FetchStreamEncodeDecode(false, false);
+    FetchStreamEncodeDecode(true, true);
+    FetchStreamEncodeDecode(true, false);
+}
