@@ -74,9 +74,17 @@ namespace quicr {
     {
     }
 
-    bool Server::FetchReceived(ConnectionHandle, uint64_t, const FullTrackName&, const FetchAttributes&)
+    std::optional<Server::FetchAvailability> Server::FetchReceived(ConnectionHandle,
+                                                                   uint64_t,
+                                                                   const FullTrackName&,
+                                                                   const FetchAttributes&)
     {
-        return false;
+        return std::nullopt;
+    }
+
+    std::optional<Server::JoiningFetchAvailability> Server::JoiningFetchReceived(ConnectionHandle, uint64_t)
+    {
+        return std::nullopt;
     }
 
     void Server::OnFetchOk(ConnectionHandle, uint64_t, const FullTrackName&, const FetchAttributes&) {}
@@ -657,21 +665,57 @@ namespace quicr {
                 messages::Fetch msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
-                const FetchAttributes attrs{
-                    .priority = msg.priority,
-                    .group_order = msg.group_order,
-                    .start_group = msg.start_group,
-                    .start_object = msg.start_object,
-                    .end_group = msg.end_group,
-                    .end_object = msg.end_object > 0 ? std::optional(msg.end_object - 1) : std::nullopt,
-                };
+                // Prepare for fetch lookups, which differ by type.
+                FullTrackName tfn;
+                FetchAttributes attrs = { .priority = msg.priority,
+                                          .group_order = msg.group_order,
+                                          .fetch_type = msg.fetch_type };
+                FetchAvailability available;
 
-                if (!FetchReceived(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs)) {
-                    SendFetchError(
-                      conn_ctx, msg.subscribe_id, messages::FetchErrorCode::kTrackDoesNotExist, "Track does not exist");
-
-                    return true;
+                switch (msg.fetch_type) {
+                    case messages::FetchType::kStandalone: {
+                        // Standalone fetch is self-containing.
+                        tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+                        attrs.start_group = msg.start_group;
+                        attrs.start_object = msg.start_object;
+                        attrs.end_group = msg.end_group;
+                        attrs.end_object = msg.end_object > 0 ? std::optional(msg.end_object - 1) : std::nullopt;
+                        const auto is_available =
+                          FetchReceived(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs);
+                        if (!is_available) {
+                            SendFetchError(conn_ctx,
+                                           msg.subscribe_id,
+                                           messages::FetchErrorCode::kTrackDoesNotExist,
+                                           "Track does not exist");
+                            return true;
+                        }
+                        available = *is_available;
+                        break;
+                    }
+                    case messages::FetchType::kJoiningFetch: {
+                        // Joining fetch needs to look up its joining subscribe.
+                        const auto is_available =
+                          JoiningFetchReceived(conn_ctx.connection_handle, msg.joining_subscribe_id);
+                        if (!is_available) {
+                            SendFetchError(conn_ctx,
+                                           msg.subscribe_id,
+                                           messages::FetchErrorCode::kTrackDoesNotExist,
+                                           "Track does not exist");
+                            return true;
+                        }
+                        attrs.start_group = is_available->largest_group - msg.preceding_group_offset;
+                        attrs.start_object = 0;
+                        attrs.end_group = is_available->largest_group;
+                        attrs.end_object = is_available->largest_object;
+                        tfn = is_available->tfn;
+                        available = static_cast<FetchAvailability>(*is_available);
+                        break;
+                    }
+                    default: {
+                        SendFetchError(
+                          conn_ctx, msg.subscribe_id, messages::FetchErrorCode::kNotSupported, "Unknown fetch type");
+                        return true;
+                    }
                 }
 
                 auto th = TrackHash(tfn);
@@ -681,7 +725,12 @@ namespace quicr {
                     conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
                 }
 
-                SendFetchOk(conn_ctx, msg.subscribe_id, msg.group_order, false, 0, 0);
+                SendFetchOk(conn_ctx,
+                            msg.subscribe_id,
+                            msg.group_order,
+                            available.end_of_track,
+                            available.largest_group,
+                            available.largest_object);
                 OnFetchOk(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs);
 
                 return true;

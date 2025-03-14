@@ -9,6 +9,7 @@
 namespace quicr {
     namespace messages {
         enum struct GroupOrder : uint8_t;
+        enum struct FetchType : uint8_t;
     }
 
     constexpr uint64_t kMoqtVersion = 0xff000008; ///< draft-ietf-quicr-transport-08
@@ -84,6 +85,7 @@ namespace quicr {
         uint64_t end_group;                      ///< Final group to fetch from, inclusive.
         std::optional<std::uint64_t> end_object; ///< Final object in end_group to fetch from, inclusive. If unset, the
                                                  ///< entire end_group has been requested.
+        messages::FetchType fetch_type;          ///< Fetch type
     };
 }
 // namespace quicr
