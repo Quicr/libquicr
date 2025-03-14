@@ -373,6 +373,17 @@ namespace quicr {
 
         void RemoveAllTracksForConnectionClose(ConnectionContext& conn_ctx);
 
+        bool OnRecvSubgroup(std::vector<unsigned char>::const_iterator cursor_it,
+                            StreamRxContext& rx_ctx,
+                            std::uint64_t stream_id,
+                            ConnectionContext& conn_ctx,
+                            std::shared_ptr<const std::vector<unsigned char>> data) const;
+        bool OnRecvFetch(std::vector<unsigned char>::const_iterator cursor_it,
+                         StreamRxContext& rx_ctx,
+                         std::uint64_t stream_id,
+                         ConnectionContext& conn_ctx,
+                         std::shared_ptr<const std::vector<unsigned char>> data) const;
+
         // -------------------------------------------------------------------------------------------------
         // Private member functions that will be implemented by Server class
         // -------------------------------------------------------------------------------------------------

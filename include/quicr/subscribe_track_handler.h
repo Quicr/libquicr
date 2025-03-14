@@ -227,12 +227,13 @@ namespace quicr {
             StatusChanged(status);
         }
 
+        StreamBuffer<uint8_t> stream_buffer_;
+
       private:
         Status status_{ Status::kNotSubscribed };
         messages::ObjectPriority priority_;
         messages::GroupOrder group_order_;
         messages::FilterType filter_type_;
-        StreamBuffer<uint8_t> stream_buffer_;
         uint64_t current_stream_id_{ 0 };
         std::optional<messages::GroupId> latest_group_id_;
         std::optional<messages::ObjectId> latest_object_id_;

@@ -342,7 +342,7 @@ namespace quicr {
 
         messages::FetchObject object{};
         object.group_id = group_id;
-        object.sub_group_id = subgroup_id;
+        object.subgroup_id = subgroup_id;
         object.object_id = object_id;
         object.publisher_priority = priority;
         object.extensions = extensions;

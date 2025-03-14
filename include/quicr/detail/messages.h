@@ -518,7 +518,7 @@ namespace quicr::messages {
     struct FetchObject
     {
         GroupId group_id;
-        SubGroupId sub_group_id;
+        SubGroupId subgroup_id;
         ObjectId object_id;
         ObjectPriority publisher_priority;
         std::optional<Extensions> extensions;
