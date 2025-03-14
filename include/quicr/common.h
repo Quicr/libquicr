@@ -77,12 +77,13 @@ namespace quicr {
      */
     struct FetchAttributes
     {
-        uint8_t priority;                 ///< Fetch priority
-        messages::GroupOrder group_order; ///< Fetch group order
-        uint64_t start_group;             ///< Fetch starting group in range
-        uint64_t start_object;            ///< Fetch starting object in group
-        uint64_t end_group;               ///< Fetch final group in range
-        uint64_t end_object;              ///< Fetch final object in group
+        uint8_t priority;                        ///< Priority
+        messages::GroupOrder group_order;        ///< Group order
+        uint64_t start_group;                    ///< Starting group to fetch from, inclusive.
+        uint64_t start_object;                   ///< Starting object in start_group to fetch from, inclusive.
+        uint64_t end_group;                      ///< Final group to fetch from, inclusive.
+        std::optional<std::uint64_t> end_object; ///< Final object in end_group to fetch from, inclusive. If unset, the
+                                                 ///< entire end_group has been requested.
     };
 }
 // namespace quicr
