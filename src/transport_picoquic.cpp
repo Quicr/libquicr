@@ -579,6 +579,8 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
         StreamAction stream_action{ StreamAction::kNoAction };
 
         if (flags.new_stream) {
+            data_ctx_it->second.tx_start_stream = true;
+
             if (flags.use_reset) {
                 stream_action = StreamAction::kReplaceStreamUseReset;
             } else {
@@ -1117,18 +1119,20 @@ PicoQuicTransport::StreamActionCheck(DataContext* data_ctx, StreamAction stream_
             }
             */
 
+            auto existing_stream_id = *data_ctx->current_stream_id;
             CloseStream(*conn_ctx, data_ctx, true);
-
-            SPDLOG_LOGGER_TRACE(logger,
-                                "Replacing stream using RESET; conn_id: {0} data_ctx_id: {1} existing_stream: {2} "
-                                "write buf drops: {3} tx_queue_discards: {4}",
-                                data_ctx->conn_id,
-                                data_ctx->data_ctx_id,
-                                *data_ctx->current_stream_id,
-                                data_ctx->metrics.tx_buffer_drops,
-                                data_ctx->metrics.tx_queue_discards);
-
             CreateStream(*conn_ctx, data_ctx);
+
+            SPDLOG_LOGGER_DEBUG(
+              logger,
+              "Replacing stream using RESET; conn_id: {} data_ctx_id: {} existing_stream: {} new_stream_id: {} "
+              "write buf drops: {} tx_queue_discards: {}",
+              data_ctx->conn_id,
+              data_ctx->data_ctx_id,
+              existing_stream_id,
+              *data_ctx->current_stream_id,
+              data_ctx->metrics.tx_buffer_drops,
+              data_ctx->metrics.tx_queue_discards);
 
             if (!conn_ctx->is_congested) {               // Only clear reset wait if not congested
                 data_ctx->tx_reset_wait_discard = false; // Allow new object to be sent
@@ -1168,6 +1172,10 @@ void
 PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, size_t max_len)
 {
     if (bytes_ctx == NULL) {
+        return;
+    }
+
+    if (max_len < 20 && data_ctx == nullptr && data_ctx->tx_start_stream) {
         return;
     }
 
@@ -1217,24 +1225,37 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
             }
 
             data_ctx->stream_tx_object_offset = 0;
-            data_ctx->stream_tx_object = std::move(obj.value.data);
-
             data_ctx->metrics.tx_stream_objects++;
             data_ctx->metrics.tx_object_duration_us.AddValue(tick_service_->Microseconds() -
                                                              obj.value.tick_microseconds);
 
             if (StreamActionCheck(data_ctx, obj.value.stream_action)) {
-                SPDLOG_LOGGER_DEBUG(logger,
-                                    "New Stream conn_id: {} stream_id: {}, object size: {}",
+                data_ctx->stream_tx_object = std::move(obj.value.data);
+                SPDLOG_LOGGER_TRACE(logger,
+                                    "New Stream conn_id: {} data_ctx_id: {} stream_id: {}, object size: {}",
                                     data_ctx->conn_id,
+                                    data_ctx->data_ctx_id,
                                     *data_ctx->current_stream_id,
                                     data_ctx->stream_tx_object->size());
                 return;
+            } else if (obj.value.stream_action != StreamAction::kNoAction) {
+                SPDLOG_LOGGER_TRACE(
+                  logger,
+                  "Object wants New Stream conn_id: {} data_ctx_id: {} stream_id: {}, object size: {} queue_size: {}",
+                  data_ctx->conn_id,
+                  data_ctx->data_ctx_id,
+                  *data_ctx->current_stream_id,
+                  obj.value.data->size(),
+                  data_ctx->tx_data->Size());
             }
+
+            data_ctx->stream_tx_object = std::move(obj.value.data);
+            data_ctx->tx_start_stream = false;
 
         } else {
             // Queue is empty
-            picoquic_provide_stream_data_buffer(bytes_ctx, 0, 0, is_still_active);
+            picoquic_provide_stream_data_buffer(
+              bytes_ctx, 0, 0, data_ctx->mark_stream_active || not data_ctx->tx_data->Empty());
 
             return;
         }
@@ -1384,13 +1405,6 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
         }
         conn_ctx->rx_stream_buffer.try_emplace(stream_id);
         conn_ctx->rx_stream_buffer[stream_id].rx_ctx->data_queue.SetLimit(tconfig_.time_queue_rx_size);
-
-    } else if (bytes.size() < kMinStreamBytesForSend) {
-        SPDLOG_LOGGER_TRACE(logger,
-                            "bytes received from picoquic stream {} len: {} NOT NEW {}",
-                            stream_id,
-                            bytes.size(),
-                            rx_buf_it->second.rx_ctx.caller_any.has_value());
     }
 
     auto& rx_buf = conn_ctx->rx_stream_buffer[stream_id];
@@ -1450,7 +1464,6 @@ PicoQuicTransport::RemoveClosedStreams()
 {
     std::lock_guard<std::mutex> _(state_mutex_);
 
-    std::vector<uint64_t> closed_streams;
     for (auto& [conn_id, conn_ctx] : conn_context_) {
         std::vector<uint64_t> closed_streams;
 
@@ -1860,13 +1873,14 @@ PicoQuicTransport::CloseStream(ConnectionContext& conn_ctx, DataContext* data_ct
         }
     }
 
+    data_ctx->ResetTxObject();
     data_ctx->current_stream_id = std::nullopt;
 }
 
 void
 PicoQuicTransport::MarkStreamActive(const TransportConnId conn_id, const DataContextId data_ctx_id)
 {
-    std::lock_guard<std::mutex> _(state_mutex_);
+    std::lock_guard _(state_mutex_);
 
     const auto conn_it = conn_context_.find(conn_id);
     if (conn_it == conn_context_.end()) {
