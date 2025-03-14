@@ -646,7 +646,7 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
     buffer.clear();
     auto objects = std::vector<StreamSubGroupObject>{};
     // send 10 objects
-    for (size_t i = 0; i < 1; i++) {
+    for (size_t i = 0; i < 10; i++) {
         auto obj = StreamSubGroupObject{};
         obj.object_id = 0x1234;
 
@@ -666,25 +666,25 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
     StreamBuffer<uint8_t> in_buffer;
     for (size_t i = 0; i < buffer.size(); i++) {
         in_buffer.Push(buffer.at(i));
-        bool done;
-        done = in_buffer >> obj_out;
-        if (done) {
-            CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
-            if (empty_payload) {
-                CHECK_EQ(obj_out.object_status, objects[object_count].object_status);
-            } else {
-                CHECK(obj_out.payload.size() > 0);
-                CHECK_EQ(obj_out.payload, objects[object_count].payload);
-            }
-            CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
-            // got one object
-            object_count++;
-            obj_out = {};
-            in_buffer.Pop(in_buffer.Size());
+        bool done = in_buffer >> obj_out;
+        if (!done) {
+            continue;
         }
+        CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
+        if (empty_payload) {
+            CHECK_EQ(obj_out.object_status, objects[object_count].object_status);
+        } else {
+            CHECK(obj_out.payload.size() > 0);
+            CHECK_EQ(obj_out.payload, objects[object_count].payload);
+        }
+        CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
+        // got one object
+        object_count++;
+        obj_out = {};
+        in_buffer.Pop(in_buffer.Size());
     }
 
-    CHECK_EQ(object_count, 1);
+    CHECK_EQ(object_count, objects.size());
 }
 
 TEST_CASE("StreamPerSubGroup Object  Message encode/decode")
@@ -880,7 +880,7 @@ FetchStreamEncodeDecode(bool extensions, bool empty_payload)
     buffer.clear();
     auto objects = std::vector<FetchObject>{};
     // send 10 objects
-    for (size_t i = 0; i < 1; i++) {
+    for (size_t i = 0; i < 10; i++) {
         auto obj = FetchObject{};
         obj.group_id = 0x1234;
         obj.subgroup_id = 0x5678;
@@ -903,28 +903,28 @@ FetchStreamEncodeDecode(bool extensions, bool empty_payload)
     StreamBuffer<uint8_t> in_buffer;
     for (size_t i = 0; i < buffer.size(); i++) {
         in_buffer.Push(buffer.at(i));
-        bool done;
-        done = in_buffer >> obj_out;
-        if (done) {
-            CHECK_EQ(obj_out.group_id, objects[object_count].group_id);
-            CHECK_EQ(obj_out.subgroup_id, objects[object_count].subgroup_id);
-            CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
-            CHECK_EQ(obj_out.publisher_priority, objects[object_count].publisher_priority);
-            if (empty_payload) {
-                CHECK_EQ(obj_out.object_status, objects[object_count].object_status);
-            } else {
-                CHECK(obj_out.payload.size() > 0);
-                CHECK_EQ(obj_out.payload, objects[object_count].payload);
-            }
-            CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
-            // got one object
-            object_count++;
-            obj_out = {};
-            in_buffer.Pop(in_buffer.Size());
+        bool done = in_buffer >> obj_out;
+        if (!done) {
+            continue;
         }
+        CHECK_EQ(obj_out.group_id, objects[object_count].group_id);
+        CHECK_EQ(obj_out.subgroup_id, objects[object_count].subgroup_id);
+        CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
+        CHECK_EQ(obj_out.publisher_priority, objects[object_count].publisher_priority);
+        if (empty_payload) {
+            CHECK_EQ(obj_out.object_status, objects[object_count].object_status);
+        } else {
+            CHECK(obj_out.payload.size() > 0);
+            CHECK_EQ(obj_out.payload, objects[object_count].payload);
+        }
+        CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
+        // got one object
+        object_count++;
+        obj_out = {};
+        in_buffer.Pop(in_buffer.Size());
     }
 
-    CHECK_EQ(object_count, 1);
+    CHECK_EQ(object_count, objects.size());
 }
 
 TEST_CASE("Fetch Stream Message encode/decode")
