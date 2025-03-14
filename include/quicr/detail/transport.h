@@ -14,7 +14,6 @@
 #include <quicr/config.h>
 #include <quicr/fetch_track_handler.h>
 #include <quicr/metrics.h>
-#include <quicr/publish_fetch_handler.h>
 #include <quicr/publish_track_handler.h>
 #include <quicr/subscribe_track_handler.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -268,7 +267,7 @@ namespace quicr {
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
 
             /// Fetch Publishers by subscribe ID.
-            std::map<messages::SubscribeId, std::shared_ptr<PublishFetchHandler>> pub_fetch_tracks_by_sub_id;
+            std::map<messages::SubscribeId, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_sub_id;
 
             ConnectionMetrics metrics{}; ///< Connection metrics
 

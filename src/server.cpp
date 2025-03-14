@@ -254,13 +254,13 @@ namespace quicr {
         SPDLOG_LOGGER_DEBUG(
           logger_, "Server publish fetch track conn_id: {} subscribe id: {} unbind", connection_handle, subscribe_id);
 
-        conn_it->second.sub_by_track_alias.erase(subscribe_id);
+        conn_it->second.pub_fetch_tracks_by_sub_id.erase(subscribe_id);
     }
 
     void Server::BindFetchTrack(TransportConnId conn_id, std::shared_ptr<PublishFetchHandler> track_handler)
     {
-        SPDLOG_LOGGER_INFO(
-          logger_, "Publish fetch track conn_id: {0} subscribe: {1}", conn_id, *track_handler->GetSubscribeId());
+        const std::uint64_t subscribe_id = *track_handler->GetSubscribeId();
+        SPDLOG_LOGGER_INFO(logger_, "Publish fetch track conn_id: {0} subscribe: {1}", conn_id, subscribe_id);
 
         std::unique_lock<std::mutex> lock(state_mutex_);
 
@@ -272,39 +272,40 @@ namespace quicr {
 
         track_handler->connection_handle_ = conn_id;
         track_handler->publish_data_ctx_id_ =
-          quic_transport_->CreateDataContext(conn_id, true, track_handler->GetPriority(), false);
+          quic_transport_->CreateDataContext(conn_id, true, track_handler->GetDefaultPriority(), false);
 
         // Setup the function for the track handler to use to send objects with thread safety
         std::weak_ptr weak_handler(track_handler);
-        track_handler->publish_object_func_ = [&, weak_handler](uint8_t priority,
-                                                                uint32_t ttl,
-                                                                bool stream_header_needed,
-                                                                uint64_t group_id,
-                                                                uint64_t subgroup_id,
-                                                                uint64_t object_id,
-                                                                std::optional<Extensions> extensions,
-                                                                Span<const uint8_t> data) -> bool {
+        track_handler->publish_object_func_ =
+          [&, weak_handler](uint8_t priority,
+                            uint32_t ttl,
+                            bool stream_header_needed,
+                            uint64_t group_id,
+                            uint64_t subgroup_id,
+                            uint64_t object_id,
+                            std::optional<Extensions> extensions,
+                            Span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
             auto handler = weak_handler.lock();
             if (!handler) {
-                return false;
+                return PublishTrackHandler::PublishObjectStatus::kInternalError;
             }
             return SendFetchObject(
               *handler, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
         };
 
         // Hold ref to track handler
-        conn_it->second.pub_fetch_tracks_by_sub_id[*track_handler->GetSubscribeId()] = std::move(track_handler);
+        conn_it->second.pub_fetch_tracks_by_sub_id[subscribe_id] = std::move(track_handler);
     }
 
-    bool Server::SendFetchObject(PublishFetchHandler& track_handler,
-                                 uint8_t priority,
-                                 uint32_t ttl,
-                                 bool stream_header_needed,
-                                 uint64_t group_id,
-                                 uint64_t subgroup_id,
-                                 uint64_t object_id,
-                                 std::optional<Extensions> extensions,
-                                 BytesSpan data) const
+    PublishTrackHandler::PublishObjectStatus Server::SendFetchObject(PublishFetchHandler& track_handler,
+                                                                     uint8_t priority,
+                                                                     uint32_t ttl,
+                                                                     bool stream_header_needed,
+                                                                     uint64_t group_id,
+                                                                     uint64_t subgroup_id,
+                                                                     uint64_t object_id,
+                                                                     std::optional<Extensions> extensions,
+                                                                     BytesSpan data) const
     {
         const auto subscribe_id = *track_handler.GetSubscribeId();
 
@@ -356,7 +357,7 @@ namespace quicr {
                                  ttl,
                                  0,
                                  eflags);
-        return true;
+        return PublishTrackHandler::PublishObjectStatus::kOk;
     }
 
     bool Server::ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes)
