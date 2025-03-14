@@ -663,7 +663,7 @@ namespace quicr {
                     .start_group = msg.start_group,
                     .start_object = msg.start_object,
                     .end_group = msg.end_group,
-                    .end_object = msg.end_object,
+                    .end_object = msg.end_object > 0 ? std::optional(msg.end_object - 1) : std::nullopt,
                 };
 
                 if (!FetchReceived(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs)) {

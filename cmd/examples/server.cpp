@@ -791,7 +791,7 @@ class MyServer : public quicr::Server
 
         auto& [_, cache_entry] = *cache_entry_it;
 
-        const auto groups = cache_entry.Get(attrs.start_group, attrs.end_group);
+        const auto groups = cache_entry.Get(attrs.start_group, attrs.end_group + 1);
 
         if (groups.empty()) {
             SPDLOG_WARN("No groups found for requested range");
@@ -800,7 +800,7 @@ class MyServer : public quicr::Server
 
         return std::any_of(groups.begin(), groups.end(), [&](const auto& group) {
             return !group->empty() && group->begin()->headers.object_id <= attrs.start_object &&
-                   std::prev(group->end())->headers.object_id >= (attrs.end_object - 1);
+                   (!attrs.end_object.has_value() || std::prev(group->end())->headers.object_id >= *attrs.end_object);
         });
     }
 
@@ -829,7 +829,8 @@ class MyServer : public quicr::Server
         qserver_vars::stop_fetch.emplace(std::make_pair(subscribe_id, false));
 
         std::thread retrieve_cache_thread(
-          [=, cache_entries = qserver_vars::cache.at(th.track_fullname_hash).Get(attrs.start_group, attrs.end_group)] {
+          [=,
+           cache_entries = qserver_vars::cache.at(th.track_fullname_hash).Get(attrs.start_group, attrs.end_group + 1)] {
               defer(UnbindFetchTrack(connection_handle, pub_fetch_h));
 
               for (const auto& cache_entry : cache_entries) {
@@ -839,9 +840,9 @@ class MyServer : public quicr::Server
                           return;
                       }
 
-                      if ((object.headers.group_id < attrs.start_group || object.headers.group_id >= attrs.end_group) ||
+                      if ((object.headers.group_id < attrs.start_group || object.headers.group_id > attrs.end_group) ||
                           (object.headers.object_id < attrs.start_object ||
-                           object.headers.object_id >= attrs.end_object))
+                           (attrs.end_object.has_value() && object.headers.object_id > *attrs.end_object)))
                           continue;
 
                       SPDLOG_INFO("Fetching group: {} object: {}", object.headers.group_id, object.headers.object_id);
