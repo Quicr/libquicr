@@ -1089,14 +1089,13 @@ namespace quicr::messages {
         buffer << UintVar(msg.subgroup_id);
         buffer << UintVar(msg.object_id);
         buffer.push_back(msg.publisher_priority);
+        PushExtensions(buffer, msg.extensions);
         if (msg.payload.empty()) {
             // empty payload needs a object status to be set
-            PushExtensions(buffer, msg.extensions);
             auto status = UintVar(static_cast<uint8_t>(msg.object_status));
             buffer.push_back(0);
             buffer << status;
         } else {
-            PushExtensions(buffer, msg.extensions);
             buffer << UintVar(msg.payload.size());
             buffer << msg.payload;
         }
@@ -1406,14 +1405,13 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const StreamSubGroupObject& msg)
     {
         buffer << UintVar(msg.object_id);
+        PushExtensions(buffer, msg.extensions);
         if (msg.payload.empty()) {
             // empty payload needs a object status to be set
-            PushExtensions(buffer, msg.extensions);
             auto status = UintVar(static_cast<uint8_t>(msg.object_status));
             buffer.push_back(0);
             buffer << status;
         } else {
-            PushExtensions(buffer, msg.extensions);
             buffer << UintVar(msg.payload.size());
             buffer << msg.payload;
         }
