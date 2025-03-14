@@ -130,7 +130,7 @@ namespace quicr {
     void Server::UnbindPublisherTrack(ConnectionHandle connection_handle,
                                       const std::shared_ptr<PublishTrackHandler>& track_handler)
     {
-        std::unique_lock lock(state_mutex_);
+        std::lock_guard lock(state_mutex_);
 
         auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
@@ -244,7 +244,7 @@ namespace quicr {
     void Server::UnbindFetchTrack(ConnectionHandle connection_handle,
                                   const std::shared_ptr<PublishFetchHandler>& track_handler)
     {
-        std::unique_lock lock(state_mutex_);
+        std::lock_guard lock(state_mutex_);
 
         auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
@@ -262,7 +262,7 @@ namespace quicr {
         const std::uint64_t subscribe_id = *track_handler->GetSubscribeId();
         SPDLOG_LOGGER_INFO(logger_, "Publish fetch track conn_id: {0} subscribe: {1}", conn_id, subscribe_id);
 
-        std::unique_lock<std::mutex> lock(state_mutex_);
+        std::lock_guard lock(state_mutex_);
 
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
