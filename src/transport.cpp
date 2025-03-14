@@ -1364,7 +1364,7 @@ namespace quicr {
         uint64_t subscribe_id = 0;
 
         try {
-            // First header in subgroup starts with track alias
+            // Extract Subscribe ID.
             const std::size_t sub_sz = UintVar::Size(*cursor_it);
             subscribe_id = static_cast<std::uint64_t>(UintVar({ cursor_it, cursor_it + sub_sz }));
 
@@ -1375,7 +1375,7 @@ namespace quicr {
 
         rx_ctx.is_new = false;
 
-        auto fetch_it = conn_ctx.tracks_by_sub_id.find(subscribe_id);
+        const auto fetch_it = conn_ctx.tracks_by_sub_id.find(subscribe_id);
         if (fetch_it == conn_ctx.tracks_by_sub_id.end()) {
             // TODO: Metrics.
             SPDLOG_LOGGER_WARN(logger_,
