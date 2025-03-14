@@ -1306,11 +1306,11 @@ namespace quicr {
         // TODO(tievens): Add metrics to track if this happens
     }
 
-    bool Transport::OnRecvSubgroup(std::vector<unsigned char>::const_iterator cursor_it,
+    bool Transport::OnRecvSubgroup(std::vector<uint8_t>::const_iterator cursor_it,
                                    StreamRxContext& rx_ctx,
                                    std::uint64_t stream_id,
                                    ConnectionContext& conn_ctx,
-                                   std::shared_ptr<const std::vector<unsigned char>> data) const
+                                   std::shared_ptr<const std::vector<uint8_t>> data) const
     {
         uint64_t track_alias = 0;
         uint8_t priority = 0;
@@ -1355,11 +1355,11 @@ namespace quicr {
         return true;
     }
 
-    bool Transport::OnRecvFetch(std::vector<unsigned char>::const_iterator cursor_it,
+    bool Transport::OnRecvFetch(std::vector<uint8_t>::const_iterator cursor_it,
                                 StreamRxContext& rx_ctx,
                                 std::uint64_t stream_id,
                                 ConnectionContext& conn_ctx,
-                                std::shared_ptr<const std::vector<unsigned char>> data) const
+                                std::shared_ptr<const std::vector<uint8_t>> data) const
     {
         uint64_t subscribe_id = 0;
 
