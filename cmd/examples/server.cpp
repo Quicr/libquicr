@@ -760,56 +760,25 @@ class MyServer : public quicr::Server
         }
     }
 
-    /**
-     * @brief Checks the cache for the requested objects.
-     *
-     * @param connection_handle Source connection ID.
-     * @param subscribe_id      Subscribe ID received.
-     * @param track_full_name   Track full name
-     * @param attrs             Fetch attributes received.
-     *
-     * @returns true if the range of groups and objects exist in the cache, otherwise returns false.
-     */
-    std::optional<FetchAvailability> FetchReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
-                                                   [[maybe_unused]] uint64_t subscribe_id,
-                                                   const quicr::FullTrackName& track_full_name,
-                                                   const quicr::FetchAttributes& attrs) override
+    LargestAvailable GetLargestAvailable(const quicr::FullTrackName& track_name) override
     {
-        SPDLOG_INFO("Received Fetch for conn_id: {} subscribe_id: {} start_group: {} end_group: {}",
-                    connection_handle,
-                    subscribe_id,
-                    attrs.start_group,
-                    attrs.end_group);
-
-        const auto th = quicr::TrackHash(track_full_name);
-
-        auto cache_entry_it = qserver_vars::cache.find(th.track_fullname_hash);
-        if (cache_entry_it == qserver_vars::cache.end()) {
-            SPDLOG_WARN("No cache entry for the hash {}", th.track_fullname_hash);
+        // Get the largest object from the cache.
+        std::optional<uint64_t> largest_group_id = std::nullopt;
+        std::optional<uint64_t> largest_object_id = std::nullopt;
+        const auto& th = quicr::TrackHash(track_name);
+        const auto cache_entry_it = qserver_vars::cache.find(th.track_fullname_hash);
+        if (cache_entry_it != qserver_vars::cache.end()) {
+            auto& [_, cache] = *cache_entry_it;
+            if (const auto& latest_group = cache.Last(); latest_group && !latest_group->empty()) {
+                const auto& latest_object = std::prev(latest_group->end());
+                largest_group_id = latest_object->headers.group_id;
+                largest_object_id = latest_object->headers.object_id;
+            }
+        }
+        if (!largest_group_id.has_value() || !largest_object_id.has_value()) {
             return std::nullopt;
         }
-
-        auto& [_, cache_entry] = *cache_entry_it;
-
-        const auto groups = cache_entry.Get(attrs.start_group, attrs.end_group + 1);
-
-        if (groups.empty()) {
-            SPDLOG_WARN("No groups found for requested range");
-            return std::nullopt;
-        }
-
-        const bool available = std::any_of(groups.begin(), groups.end(), [&](const auto& group) {
-            return !group->empty() && group->begin()->headers.object_id <= attrs.start_object &&
-                   (!attrs.end_object.has_value() || std::prev(group->end())->headers.object_id >= *attrs.end_object);
-        });
-        if (!available) {
-            SPDLOG_WARN("No objects found for requested range");
-            return std::nullopt;
-        }
-        const auto last_cached = std::prev(groups.back()->end())->headers;
-        return FetchAvailability{ .end_of_track = false,
-                                  .largest_group = last_cached.group_id,
-                                  .largest_object = last_cached.object_id };
+        return std::make_pair(*largest_group_id, *largest_object_id);
     }
 
     /**
@@ -828,11 +797,6 @@ class MyServer : public quicr::Server
                    const quicr::FullTrackName& track_full_name,
                    const quicr::FetchAttributes& attrs) override
     {
-        if (attrs.fetch_type == quicr::messages::FetchType::kJoiningFetch) {
-            SPDLOG_WARN("Joining Fetch not implemented");
-            return;
-        }
-
         auto pub_fetch_h =
           quicr::PublishFetchHandler::Create(track_full_name, attrs.priority, subscribe_id, attrs.group_order, 50000);
         BindFetchTrack(connection_handle, pub_fetch_h);

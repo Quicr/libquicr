@@ -247,9 +247,15 @@ namespace quicr {
 
             uint64_t current_subscribe_id{ 0 }; ///< Connection specific ID for subscribe messages
 
-            /// Track namespace/name by received subscribe IDs
+            /// Subscribe Context by received subscribe IDs
             /// Used to map published tracks to subscribes in client mode
-            std::map<messages::SubscribeId, std::pair<TrackNamespaceHash, TrackNameHash>> recv_sub_id;
+            struct SubscribeContext
+            {
+                FullTrackName track_full_name;
+                std::optional<messages::GroupId> largest_group;
+                std::optional<messages::ObjectId> largest_object;
+            };
+            std::map<messages::SubscribeId, SubscribeContext> recv_sub_id;
 
             /// Tracks by subscribe ID (Subscribe and Fetch)
             std::map<messages::SubscribeId, std::shared_ptr<SubscribeTrackHandler>> tracks_by_sub_id;

@@ -74,15 +74,7 @@ namespace quicr {
     {
     }
 
-    std::optional<Server::FetchAvailability> Server::FetchReceived(ConnectionHandle,
-                                                                   uint64_t,
-                                                                   const FullTrackName&,
-                                                                   const FetchAttributes&)
-    {
-        return std::nullopt;
-    }
-
-    std::optional<Server::JoiningFetchAvailability> Server::JoiningFetchReceived(ConnectionHandle, uint64_t)
+    Server::LargestAvailable Server::GetLargestAvailable([[maybe_unused]] const FullTrackName& track_name)
     {
         return std::nullopt;
     }
@@ -102,6 +94,12 @@ namespace quicr {
 
         switch (subscribe_response.reason_code) {
             case SubscribeResponse::ReasonCode::kOk: {
+                // Save the latest state for joining fetch.
+                assert(conn_it->second.recv_sub_id.find(subscribe_id) != conn_it->second.recv_sub_id.end());
+                conn_it->second.recv_sub_id[subscribe_id].largest_group = subscribe_response.largest_group;
+                conn_it->second.recv_sub_id[subscribe_id].largest_object = subscribe_response.largest_object;
+
+                // Send the ok.
                 SendSubscribeOk(
                   conn_it->second,
                   subscribe_id,
@@ -293,7 +291,7 @@ namespace quicr {
                             uint64_t object_id,
                             std::optional<Extensions> extensions,
                             Span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
-            auto handler = weak_handler.lock();
+            const auto handler = weak_handler.lock();
             if (!handler) {
                 return PublishTrackHandler::PublishObjectStatus::kInternalError;
             }
@@ -376,9 +374,8 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
-                auto th = TrackHash(tfn);
 
-                conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
+                conn_ctx.recv_sub_id[msg.subscribe_id] = { .track_full_name = tfn };
 
                 if (msg.subscribe_id > conn_ctx.current_subscribe_id) {
                     conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
@@ -523,8 +520,8 @@ namespace quicr {
                 messages::Unsubscribe msg;
                 msg_bytes >> msg;
 
-                const auto& [name_space, name] = conn_ctx.recv_sub_id[msg.subscribe_id];
-                TrackHash th(name_space, name);
+                const auto& tfn = conn_ctx.recv_sub_id[msg.subscribe_id].track_full_name;
+                TrackHash th(tfn);
                 if (auto pdt = GetPubTrackHandler(conn_ctx, th)) {
                     pdt->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
                 }
@@ -667,48 +664,79 @@ namespace quicr {
 
                 // Prepare for fetch lookups, which differ by type.
                 FullTrackName tfn;
-                FetchAttributes attrs = { .priority = msg.priority,
-                                          .group_order = msg.group_order,
-                                          .fetch_type = msg.fetch_type };
-                FetchAvailability available;
+                FetchAttributes attrs = { .priority = msg.priority, .group_order = msg.group_order };
+                bool end_of_track = false; // TODO: Need to query this as part of the GetLargestAvailable call.
+                messages::GroupId largest_group;
+                messages::ObjectId largest_object;
 
                 switch (msg.fetch_type) {
                     case messages::FetchType::kStandalone: {
                         // Standalone fetch is self-containing.
                         tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+                        const auto largest_available = GetLargestAvailable(tfn);
+                        if (!largest_available.has_value()) {
+                            SendFetchError(conn_ctx,
+                                           msg.subscribe_id,
+                                           messages::FetchErrorCode::kTrackDoesNotExist,
+                                           "Track does not exist");
+                            return true;
+                        }
+
+                        largest_group = largest_available->first;
+                        largest_object = largest_available->second;
+
                         attrs.start_group = msg.start_group;
                         attrs.start_object = msg.start_object;
                         attrs.end_group = msg.end_group;
                         attrs.end_object = msg.end_object > 0 ? std::optional(msg.end_object - 1) : std::nullopt;
-                        const auto is_available =
-                          FetchReceived(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs);
-                        if (!is_available) {
+
+                        // Availability check.
+                        bool valid_range = true;
+                        valid_range &= attrs.start_group <= largest_group;
+                        if (largest_group == attrs.start_group) {
+                            valid_range &= attrs.start_object <= largest_object;
+                        }
+                        valid_range &= attrs.end_group <= largest_group;
+                        if (largest_group == attrs.end_group && attrs.end_object.has_value()) {
+                            valid_range &= attrs.end_object <= largest_object;
+                        }
+                        if (!valid_range) {
                             SendFetchError(conn_ctx,
                                            msg.subscribe_id,
-                                           messages::FetchErrorCode::kTrackDoesNotExist,
-                                           "Track does not exist");
+                                           messages::FetchErrorCode::kInvalidRange,
+                                           "Cannot serve this range");
                             return true;
                         }
-                        available = *is_available;
                         break;
                     }
                     case messages::FetchType::kJoiningFetch: {
                         // Joining fetch needs to look up its joining subscribe.
-                        const auto is_available =
-                          JoiningFetchReceived(conn_ctx.connection_handle, msg.joining_subscribe_id);
-                        if (!is_available) {
+                        // TODO: Need a new error code for subscribe doesn't exist.
+                        const auto subscribe_state = conn_ctx.recv_sub_id.find(msg.joining_subscribe_id);
+                        if (subscribe_state == conn_ctx.recv_sub_id.end()) {
                             SendFetchError(conn_ctx,
                                            msg.subscribe_id,
                                            messages::FetchErrorCode::kTrackDoesNotExist,
-                                           "Track does not exist");
+                                           "Corresponding subscribe does not exist");
                             return true;
                         }
-                        attrs.start_group = is_available->largest_group - msg.preceding_group_offset;
+
+                        tfn = subscribe_state->second.track_full_name;
+                        const auto opt_largest_group = subscribe_state->second.largest_group;
+                        const auto opt_largest_object = subscribe_state->second.largest_object;
+                        if (!opt_largest_group.has_value() || !opt_largest_object.has_value()) {
+                            // We have no data to complete the fetch with.
+                            // TODO: Possibly missing "No Objects" code per the draft.
+                            SendFetchError(
+                              conn_ctx, msg.subscribe_id, messages::FetchErrorCode::kInvalidRange, "Nothing to give");
+                        }
+                        largest_group = *opt_largest_group;
+                        largest_object = *opt_largest_object;
+
+                        attrs.start_group = largest_group - msg.preceding_group_offset;
                         attrs.start_object = 0;
-                        attrs.end_group = is_available->largest_group;
-                        attrs.end_object = is_available->largest_object;
-                        tfn = is_available->tfn;
-                        available = static_cast<FetchAvailability>(*is_available);
+                        attrs.end_group = largest_group;
+                        attrs.end_object = largest_object;
                         break;
                     }
                     default: {
@@ -718,19 +746,13 @@ namespace quicr {
                     }
                 }
 
-                auto th = TrackHash(tfn);
-                conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
+                conn_ctx.recv_sub_id[msg.subscribe_id] = { .track_full_name = tfn };
 
                 if (msg.subscribe_id > conn_ctx.current_subscribe_id) {
                     conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
                 }
 
-                SendFetchOk(conn_ctx,
-                            msg.subscribe_id,
-                            msg.group_order,
-                            available.end_of_track,
-                            available.largest_group,
-                            available.largest_object);
+                SendFetchOk(conn_ctx, msg.subscribe_id, msg.group_order, end_of_track, largest_group, largest_object);
                 OnFetchOk(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs);
 
                 return true;

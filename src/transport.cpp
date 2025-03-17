@@ -3,6 +3,7 @@
 
 #include "quicr/detail/transport.h"
 
+#include <quicr/detail/joining_fetch_handler.h>
 #include <sstream>
 
 namespace quicr {
@@ -664,14 +665,25 @@ namespace quicr {
 
         // Set the track handler for tracking by subscribe ID and track alias
         conn_it->second.sub_by_track_alias[*track_handler->GetTrackAlias()] = track_handler;
-        conn_it->second.tracks_by_sub_id[sid] = std::move(track_handler);
+        SPDLOG_ERROR("RICHLOGAN STORED track alias: {0} subscribe id: {1}", *track_handler->GetTrackAlias(), sid);
+        conn_it->second.tracks_by_sub_id[sid] = track_handler;
 
         SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type);
 
-        // Send joining fetch, if requested.
+        // Handle joining fetch, if requested.
         if (joining_fetch) {
+            // Make a joining fetch handler.
+            const auto joining_fetch_handler = std::make_shared<JoiningFetchHandler>(track_handler);
             const auto& info = *joining_fetch;
             const auto fetch_sid = conn_it->second.current_subscribe_id++;
+            SPDLOG_LOGGER_INFO(
+              logger_,
+              "Subscribe with joining fetch conn_id: {0} track_alias: {1} subscribe id: {2} joining subscribe id: {3}",
+              conn_id,
+              th.track_fullname_hash,
+              fetch_sid,
+              sid);
+            conn_it->second.tracks_by_sub_id[fetch_sid] = std::move(joining_fetch_handler);
             SendJoiningFetch(
               conn_it->second, fetch_sid, info.priority, info.group_order, sid, info.preceding_group_offset);
         }

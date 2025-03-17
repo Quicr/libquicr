@@ -47,19 +47,6 @@ namespace quicr {
             std::optional<Bytes> reason_phrase;
         };
 
-        // Availability of the track.
-        struct FetchAvailability
-        {
-            bool end_of_track;
-            messages::GroupId largest_group;
-            messages::ObjectId largest_object;
-        };
-
-        struct JoiningFetchAvailability : FetchAvailability
-        {
-            FullTrackName tfn;
-        };
-
         /**
          * @brief MoQ Server constructor to create the MOQ server mode instance
          *
@@ -120,8 +107,18 @@ namespace quicr {
         void UnbindPublisherTrack(ConnectionHandle connection_handle,
                                   const std::shared_ptr<PublishTrackHandler>& track_handler);
 
+        /**
+         * @brief Bind a server fetch publisher track handler.
+         * @param conn_id Connection Id of the client/fetcher.
+         * @param track_handler The fetch publisher.
+         */
         void BindFetchTrack(TransportConnId conn_id, std::shared_ptr<PublishFetchHandler> track_handler);
 
+        /**
+         * @brief Unbind a server fetch publisher track handler.
+         * @param conn_id Connection ID of the client/fetcher.
+         * @param track_handler The fetch publisher.
+         */
         void UnbindFetchTrack(ConnectionHandle conn_id, const std::shared_ptr<PublishFetchHandler>& track_handler);
 
         /**
@@ -292,29 +289,14 @@ namespace quicr {
          */
         virtual void UnsubscribeReceived(ConnectionHandle connection_handle, uint64_t subscribe_id) = 0;
 
+        // TODO: Their is probably a distinction between track not found, and no objects.
+        typedef std::optional<std::pair<messages::GroupId, messages::ObjectId>> LargestAvailable;
         /**
-         * @brief Callback notification on Fetch message received.
-         *
-         * @param connection_handle Source connection ID.
-         * @param subscribe_id      Subscribe ID received.
-         * @param track_full_name   Track full name
-         * @param attributes        Fetch attributes received.
-         *
-         * @returns Availability for FETCH_OK, if possible. If the fetch cannot be served, return std::nullopt.
+         * @brief Get the largest available object for the given track, if any.
+         * @param track_name The track to lookup on.
+         * @return The largest available object, if any.
          */
-        virtual std::optional<FetchAvailability> FetchReceived(ConnectionHandle connection_handle,
-                                                               uint64_t subscribe_id,
-                                                               const FullTrackName& track_full_name,
-                                                               const FetchAttributes& attributes);
-
-        /**
-         * @brief Callback notification on Joining Fetch message received.
-         * @param connection_handle     Source connection ID.
-         * @param joining_subscribe_id  Subscribe ID of the joining subscribe.
-         * @returns Availability of the fetch request. If the fetch cannot be served, return std::nullopt.
-         */
-        virtual std::optional<JoiningFetchAvailability> JoiningFetchReceived(ConnectionHandle connection_handle,
-                                                                             uint64_t joining_subscribe_id);
+        virtual LargestAvailable GetLargestAvailable(const FullTrackName& track_name);
 
         /**
          * @brief Event to run on sending FetchOk.
