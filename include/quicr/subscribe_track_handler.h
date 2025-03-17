@@ -51,10 +51,10 @@ namespace quicr {
          */
         struct JoiningFetch
         {
-            messages::ObjectPriority priority;
-            messages::GroupOrder group_order;
-            std::vector<messages::Parameter> parameters;
-            messages::GroupId preceding_group_offset;
+            const messages::ObjectPriority priority;
+            const messages::GroupOrder group_order;
+            const std::vector<messages::Parameter> parameters;
+            const messages::GroupId preceding_group_offset;
         };
 
       protected:

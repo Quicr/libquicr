@@ -528,17 +528,18 @@ namespace quicr {
 
     void Transport::SendJoiningFetch(ConnectionContext& conn_ctx,
                                      uint64_t subscribe_id,
-                                     messages::ObjectPriority priority,
-                                     messages::GroupOrder group_order,
+                                     ObjectPriority priority,
+                                     GroupOrder group_order,
                                      uint64_t joining_subscribe_id,
-                                     messages::GroupId preceding_group_offset)
+                                     GroupId preceding_group_offset,
+                                     const std::vector<Parameter>& parameters)
     {
         Fetch fetch;
         fetch.subscribe_id = subscribe_id;
         fetch.priority = priority;
         fetch.group_order = group_order;
         fetch.fetch_type = FetchType::kJoiningFetch;
-        // TODO(RichLogan): Parameter support.
+        fetch.params = parameters;
         fetch.joining_subscribe_id = joining_subscribe_id;
         fetch.preceding_group_offset = preceding_group_offset;
 
@@ -665,7 +666,6 @@ namespace quicr {
 
         // Set the track handler for tracking by subscribe ID and track alias
         conn_it->second.sub_by_track_alias[*track_handler->GetTrackAlias()] = track_handler;
-        SPDLOG_ERROR("RICHLOGAN STORED track alias: {0} subscribe id: {1}", *track_handler->GetTrackAlias(), sid);
         conn_it->second.tracks_by_sub_id[sid] = track_handler;
 
         SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type);
@@ -684,8 +684,13 @@ namespace quicr {
               fetch_sid,
               sid);
             conn_it->second.tracks_by_sub_id[fetch_sid] = std::move(joining_fetch_handler);
-            SendJoiningFetch(
-              conn_it->second, fetch_sid, info.priority, info.group_order, sid, info.preceding_group_offset);
+            SendJoiningFetch(conn_it->second,
+                             fetch_sid,
+                             info.priority,
+                             info.group_order,
+                             sid,
+                             info.preceding_group_offset,
+                             info.parameters);
         }
     }
 

@@ -538,14 +538,13 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
              const bool& stop,
              bool join_fetch)
 {
-    std::optional<quicr::SubscribeTrackHandler::JoiningFetch> joining_fetch = std::nullopt;
-    if (join_fetch) {
-        SPDLOG_INFO("Subscribing with Joining Fetch");
-        joining_fetch = quicr::SubscribeTrackHandler::JoiningFetch{
-            .group_order = quicr::messages::GroupOrder::kAscending, .preceding_group_offset = 0, .priority = 4
-        };
-    }
-    auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type, joining_fetch);
+    typedef quicr::SubscribeTrackHandler::JoiningFetch Fetch;
+    const auto joining_fetch = join_fetch ? Fetch{ .group_order = quicr::messages::GroupOrder::kAscending,
+                                                   .preceding_group_offset = 0,
+                                                   .priority = 4,
+                                                   .parameters = {} }
+                                          : std::optional<Fetch>(std::nullopt);
+    const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type, joining_fetch);
 
     SPDLOG_INFO("Started subscriber");
 

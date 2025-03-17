@@ -359,7 +359,8 @@ namespace quicr {
                               messages::ObjectPriority priority,
                               messages::GroupOrder group_order,
                               uint64_t joining_subscribe_id,
-                              messages::GroupId preceding_group_offset);
+                              messages::GroupId preceding_group_offset,
+                              const std::vector<messages::Parameter>& parameters);
         void SendFetchCancel(ConnectionContext& conn_ctx, uint64_t subscribe_id);
         void SendFetchOk(ConnectionContext& conn_ctx,
                          uint64_t subscribe_id,
