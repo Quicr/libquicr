@@ -9,7 +9,6 @@
 namespace quicr {
     namespace messages {
         enum struct GroupOrder : uint8_t;
-        enum struct FetchType : uint8_t;
     }
 
     constexpr uint64_t kMoqtVersion = 0xff000008; ///< draft-ietf-quicr-transport-08
