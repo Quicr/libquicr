@@ -86,6 +86,8 @@ namespace quicr {
                     conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
                 }
 
+                conn_ctx.recv_sub_id[msg.subscribe_id] = { .track_full_name = tfn };
+
                 // For client/publisher, notify track that there is a subscriber
                 auto ptd = GetPubTrackHandler(conn_ctx, th);
                 if (ptd == nullptr) {
@@ -118,6 +120,7 @@ namespace quicr {
                 ptd->SetTrackAlias(msg.track_alias);
                 ptd->SetStatus(PublishTrackHandler::Status::kOk);
 
+                conn_ctx.recv_sub_id[msg.subscribe_id] = { .track_full_name = tfn };
                 return true;
             }
             case messages::ControlMessageType::kSubscribeUpdate: {
