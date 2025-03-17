@@ -689,24 +689,6 @@ namespace quicr {
                         attrs.start_object = msg.start_object;
                         attrs.end_group = msg.end_group;
                         attrs.end_object = msg.end_object > 0 ? std::optional(msg.end_object - 1) : std::nullopt;
-
-                        // Availability check.
-                        bool valid_range = true;
-                        valid_range &= attrs.start_group <= largest_group;
-                        if (largest_group == attrs.start_group) {
-                            valid_range &= attrs.start_object <= largest_object;
-                        }
-                        valid_range &= attrs.end_group <= largest_group;
-                        if (largest_group == attrs.end_group && attrs.end_object.has_value()) {
-                            valid_range &= attrs.end_object <= largest_object;
-                        }
-                        if (!valid_range) {
-                            SendFetchError(conn_ctx,
-                                           msg.subscribe_id,
-                                           messages::FetchErrorCode::kInvalidRange,
-                                           "Cannot serve this range");
-                            return true;
-                        }
                         break;
                     }
                     case messages::FetchType::kJoiningFetch: {
@@ -733,7 +715,8 @@ namespace quicr {
                         largest_group = *opt_largest_group;
                         largest_object = *opt_largest_object;
 
-                        attrs.start_group = largest_group - msg.preceding_group_offset;
+                        attrs.start_group =
+                          msg.preceding_group_offset <= largest_group ? largest_group - msg.preceding_group_offset : 0;
                         attrs.start_object = 0;
                         attrs.end_group = largest_group;
                         attrs.end_object = largest_object;
@@ -744,6 +727,23 @@ namespace quicr {
                           conn_ctx, msg.subscribe_id, messages::FetchErrorCode::kNotSupported, "Unknown fetch type");
                         return true;
                     }
+                }
+
+                // TODO: This only covers it being below largest, not what's in cache.
+                // Availability check.
+                bool valid_range = true;
+                valid_range &= attrs.start_group <= largest_group;
+                if (largest_group == attrs.start_group) {
+                    valid_range &= attrs.start_object <= largest_object;
+                }
+                valid_range &= attrs.end_group <= largest_group;
+                if (largest_group == attrs.end_group && attrs.end_object.has_value()) {
+                    valid_range &= attrs.end_object <= largest_object;
+                }
+                if (!valid_range) {
+                    SendFetchError(
+                      conn_ctx, msg.subscribe_id, messages::FetchErrorCode::kInvalidRange, "Cannot serve this range");
+                    return true;
                 }
 
                 conn_ctx.recv_sub_id[msg.subscribe_id] = { .track_full_name = tfn };
