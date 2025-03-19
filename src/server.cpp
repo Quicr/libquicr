@@ -390,7 +390,7 @@ namespace quicr {
                                   msg.track_alias,
                                   msg.filter_type,
                                   tfn,
-                                  { .priority = msg.priority, .group_order = msg.group_order });
+                                  { msg.priority, msg.group_order });
 
                 return true;
             }
@@ -667,7 +667,7 @@ namespace quicr {
 
                 // Prepare for fetch lookups, which differ by type.
                 FullTrackName tfn;
-                FetchAttributes attrs = { .priority = msg.priority, .group_order = msg.group_order };
+                FetchAttributes attrs = { msg.priority, msg.group_order, 0, 0, 0, std::nullopt };
                 bool end_of_track = false; // TODO: Need to query this as part of the GetLargestAvailable call.
                 messages::GroupId largest_group;
                 messages::ObjectId largest_object;
