@@ -161,6 +161,8 @@ namespace quicr {
                 }
                 bucket.clear();
             }
+
+            bucket_index_ = (bucket_index_ + delta) % total_buckets_;
         }
 
         template<typename Value>

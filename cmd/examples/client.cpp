@@ -158,6 +158,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                     SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
                 }
             } break;
+
             default:
                 break;
         }
@@ -302,6 +303,11 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
                     SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
                 }
             } break;
+
+            case Status::kError: {
+                SPDLOG_INFO("Fetch failed");
+                break;
+            }
             default:
                 break;
         }
@@ -605,6 +611,12 @@ DoFetch(const quicr::FullTrackName& full_track_name,
             SPDLOG_INFO("Fetching track");
             client->FetchTrack(track_handler);
             fetch_track = true;
+        }
+
+        if (track_handler->GetStatus() != quicr::FetchTrackHandler::Status::kOk) {
+            moq_example::terminate = true;
+            moq_example::cv.notify_all();
+            break;
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(500));

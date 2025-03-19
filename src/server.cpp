@@ -79,7 +79,10 @@ namespace quicr {
         return std::nullopt;
     }
 
-    void Server::OnFetchOk(ConnectionHandle, uint64_t, const FullTrackName&, const FetchAttributes&) {}
+    bool Server::OnFetchOk(ConnectionHandle, uint64_t, const FullTrackName&, const FetchAttributes&)
+    {
+        return false;
+    }
 
     void Server::NewGroupRequested(ConnectionHandle, uint64_t, uint64_t) {}
 
@@ -375,7 +378,7 @@ namespace quicr {
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
 
-                conn_ctx.recv_sub_id[msg.subscribe_id] = { .track_full_name = tfn };
+                conn_ctx.recv_sub_id[msg.subscribe_id] = { tfn };
 
                 if (msg.subscribe_id > conn_ctx.current_subscribe_id) {
                     conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
@@ -752,7 +755,12 @@ namespace quicr {
                 }
 
                 SendFetchOk(conn_ctx, msg.subscribe_id, msg.group_order, end_of_track, largest_group, largest_object);
-                OnFetchOk(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs);
+                if (!OnFetchOk(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs)) {
+                    SendFetchError(conn_ctx,
+                                   msg.subscribe_id,
+                                   messages::FetchErrorCode::kInvalidRange,
+                                   "Cache does not have any data for given range");
+                }
 
                 return true;
             }

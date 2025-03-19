@@ -584,12 +584,12 @@ namespace quicr {
     }
 
     void Transport::SendFetchError(ConnectionContext& conn_ctx,
-                                   [[maybe_unused]] uint64_t subscribe_id,
+                                   uint64_t subscribe_id,
                                    FetchErrorCode error,
                                    const std::string& reason)
     {
         auto fetch_err = FetchError{};
-        fetch_err.subscribe_id = 0x1;
+        fetch_err.subscribe_id = subscribe_id;
         fetch_err.err_code = static_cast<uint64_t>(error);
         fetch_err.reason_phrase.assign(reason.begin(), reason.end());
 

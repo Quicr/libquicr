@@ -290,7 +290,8 @@ namespace quicr {
         virtual void UnsubscribeReceived(ConnectionHandle connection_handle, uint64_t subscribe_id) = 0;
 
         // TODO: Their is probably a distinction between track not found, and no objects.
-        typedef std::optional<std::pair<messages::GroupId, messages::ObjectId>> LargestAvailable;
+        using LargestAvailable = std::optional<std::pair<messages::GroupId, messages::ObjectId>>;
+
         /**
          * @brief Get the largest available object for the given track, if any.
          * @param track_name The track to lookup on.
@@ -305,8 +306,10 @@ namespace quicr {
          * @param subscribe_id      Subscribe ID received.
          * @param track_full_name   Track full name
          * @param attributes        Fetch attributes received.
+         *
+         * @returns True to indicate fetch will send data, False if no data is within the requested range
          */
-        virtual void OnFetchOk(ConnectionHandle connection_handle,
+        virtual bool OnFetchOk(ConnectionHandle connection_handle,
                                uint64_t subscribe_id,
                                const FullTrackName& track_full_name,
                                const FetchAttributes& attributes);

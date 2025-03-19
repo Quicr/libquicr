@@ -781,18 +781,7 @@ class MyServer : public quicr::Server
         return std::make_pair(*largest_group_id, *largest_object_id);
     }
 
-    /**
-     * @brief Event run on sending FetchOk.
-     *
-     * @details Event run upon sending a FetchOk to a fetching client. Retrieves the requested objects from the cache
-     *          and send them to the requesting client's fetch handler.
-     *
-     * @param connection_handle Source connection ID.
-     * @param subscribe_id      Subscribe ID received.
-     * @param track_full_name   Track full name
-     * @param attributes        Fetch attributes received.
-     */
-    void OnFetchOk(quicr::ConnectionHandle connection_handle,
+    bool OnFetchOk(quicr::ConnectionHandle connection_handle,
                    uint64_t subscribe_id,
                    const quicr::FullTrackName& track_full_name,
                    const quicr::FetchAttributes& attrs) override
@@ -809,6 +798,9 @@ class MyServer : public quicr::Server
         const auto cache_entries =
           qserver_vars::cache.at(th.track_fullname_hash).Get(attrs.start_group, attrs.end_group + 1);
         lock.unlock();
+
+        if (cache_entries.empty())
+            return false;
 
         std::thread retrieve_cache_thread([=, cache_entries = cache_entries] {
             defer(UnbindFetchTrack(connection_handle, pub_fetch_h));
@@ -828,7 +820,7 @@ class MyServer : public quicr::Server
                         object.headers.group_id == attrs.end_group && object.headers.object_id > *attrs.end_object)
                         break; // Done, reached end object within end group
 
-                    SPDLOG_INFO("Fetching group: {} object: {}", object.headers.group_id, object.headers.object_id);
+                    SPDLOG_DEBUG("Fetching group: {} object: {}", object.headers.group_id, object.headers.object_id);
 
                     pub_fetch_h->PublishObject(object.headers, object.data);
                     // std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -837,6 +829,7 @@ class MyServer : public quicr::Server
         });
 
         retrieve_cache_thread.detach();
+        return true;
     }
 
     void FetchCancelReceived(quicr::ConnectionHandle connection_handle, uint64_t subscribe_id) override

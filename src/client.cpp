@@ -120,7 +120,7 @@ namespace quicr {
                 ptd->SetTrackAlias(msg.track_alias);
                 ptd->SetStatus(PublishTrackHandler::Status::kOk);
 
-                conn_ctx.recv_sub_id[msg.subscribe_id] = { .track_full_name = tfn };
+                conn_ctx.recv_sub_id[msg.subscribe_id] = { tfn };
                 return true;
             }
             case messages::ControlMessageType::kSubscribeUpdate: {
@@ -251,8 +251,6 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
-                auto th = TrackHash(tfn);
-
                 UnannounceReceived(tfn.name_space);
 
                 return true;
@@ -492,6 +490,14 @@ namespace quicr {
                                        msg.err_code);
                     return true;
                 }
+
+                SPDLOG_LOGGER_WARN(logger_,
+                                   "Received fetch error conn_id: {} subscribe_id: {} "
+                                   "error code: {} reason: {}",
+                                   conn_ctx.connection_handle,
+                                   msg.subscribe_id,
+                                   msg.err_code,
+                                   std::string(msg.reason_phrase.begin(), msg.reason_phrase.end()));
 
                 fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kError);
                 conn_ctx.tracks_by_sub_id.erase(fetch_it);
