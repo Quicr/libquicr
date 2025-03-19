@@ -247,9 +247,15 @@ namespace quicr {
 
             uint64_t current_subscribe_id{ 0 }; ///< Connection specific ID for subscribe messages
 
-            /// Track namespace/name by received subscribe IDs
-            /// Used to map published tracks to subscribes in client mode
-            std::map<messages::SubscribeId, std::pair<TrackNamespaceHash, TrackNameHash>> recv_sub_id;
+            /// Subscribe Context by received subscribe IDs
+            /// Used to map published tracks to subscribes in client mode and to handle joining fetch lookups
+            struct SubscribeContext
+            {
+                FullTrackName track_full_name;
+                std::optional<messages::GroupId> largest_group{ std::nullopt };
+                std::optional<messages::ObjectId> largest_object{ std::nullopt };
+            };
+            std::map<messages::SubscribeId, SubscribeContext> recv_sub_id;
 
             /// Tracks by subscribe ID (Subscribe and Fetch)
             std::map<messages::SubscribeId, std::shared_ptr<SubscribeTrackHandler>> tracks_by_sub_id;
@@ -348,6 +354,13 @@ namespace quicr {
                        messages::GroupId start_object,
                        messages::GroupId end_group,
                        messages::GroupId end_object);
+        void SendJoiningFetch(ConnectionContext& conn_ctx,
+                              uint64_t subscribe_id,
+                              messages::ObjectPriority priority,
+                              messages::GroupOrder group_order,
+                              uint64_t joining_subscribe_id,
+                              messages::GroupId preceding_group_offset,
+                              const std::vector<messages::Parameter>& parameters);
         void SendFetchCancel(ConnectionContext& conn_ctx, uint64_t subscribe_id);
         void SendFetchOk(ConnectionContext& conn_ctx,
                          uint64_t subscribe_id,

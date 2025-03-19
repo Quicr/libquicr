@@ -86,7 +86,7 @@ namespace quicr {
                     conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
                 }
 
-                conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
+                conn_ctx.recv_sub_id[msg.subscribe_id] = { .track_full_name = tfn };
 
                 // For client/publisher, notify track that there is a subscriber
                 auto ptd = GetPubTrackHandler(conn_ctx, th);
@@ -120,7 +120,7 @@ namespace quicr {
                 ptd->SetTrackAlias(msg.track_alias);
                 ptd->SetStatus(PublishTrackHandler::Status::kOk);
 
-                conn_ctx.recv_sub_id[msg.subscribe_id] = { th.track_namespace_hash, th.track_name_hash };
+                conn_ctx.recv_sub_id[msg.subscribe_id] = { tfn };
                 return true;
             }
             case messages::ControlMessageType::kSubscribeUpdate: {
@@ -142,8 +142,8 @@ namespace quicr {
                     return true;
                 }
 
-                auto [ns_hash, n_hash] = conn_ctx.recv_sub_id[msg.subscribe_id];
-                auto th = TrackHash(ns_hash, n_hash);
+                auto tfn = conn_ctx.recv_sub_id[msg.subscribe_id].track_full_name;
+                auto th = TrackHash(tfn);
 
                 // For client/publisher, notify track that there is a subscriber
                 auto ptd = GetPubTrackHandler(conn_ctx, th);
@@ -251,8 +251,6 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
-                auto th = TrackHash(tfn);
-
                 UnannounceReceived(tfn.name_space);
 
                 return true;
@@ -333,7 +331,9 @@ namespace quicr {
                     return true;
                 }
 
-                const auto& [ns_hash, name_hash] = th_it->second;
+                const auto& th = TrackHash(th_it->second.track_full_name);
+                const auto& ns_hash = th.track_namespace_hash;
+                const auto& name_hash = th.track_name_hash;
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received unsubscribe conn_id: {0} subscribe_id: {1}",
                                     conn_ctx.connection_handle,
@@ -490,6 +490,14 @@ namespace quicr {
                                        msg.err_code);
                     return true;
                 }
+
+                SPDLOG_LOGGER_WARN(logger_,
+                                   "Received fetch error conn_id: {} subscribe_id: {} "
+                                   "error code: {} reason: {}",
+                                   conn_ctx.connection_handle,
+                                   msg.subscribe_id,
+                                   msg.err_code,
+                                   std::string(msg.reason_phrase.begin(), msg.reason_phrase.end()));
 
                 fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kError);
                 conn_ctx.tracks_by_sub_id.erase(fetch_it);

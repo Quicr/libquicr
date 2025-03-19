@@ -3,6 +3,7 @@
 
 #include "quicr/detail/transport.h"
 
+#include <quicr/detail/joining_fetch_handler.h>
 #include <sstream>
 
 namespace quicr {
@@ -512,10 +513,35 @@ namespace quicr {
         fetch.track_name.assign(tfn.name.begin(), tfn.name.end());
         fetch.priority = priority;
         fetch.group_order = group_order;
+        fetch.fetch_type = FetchType::kStandalone;
         fetch.start_group = start_group;
         fetch.start_object = start_object;
         fetch.end_group = end_group;
         fetch.end_object = end_object;
+
+        Bytes buffer;
+        buffer.reserve(Fetch::SizeOf(fetch));
+        buffer << fetch;
+
+        SendCtrlMsg(conn_ctx, buffer);
+    }
+
+    void Transport::SendJoiningFetch(ConnectionContext& conn_ctx,
+                                     uint64_t subscribe_id,
+                                     ObjectPriority priority,
+                                     GroupOrder group_order,
+                                     uint64_t joining_subscribe_id,
+                                     GroupId preceding_group_offset,
+                                     const std::vector<Parameter>& parameters)
+    {
+        Fetch fetch;
+        fetch.subscribe_id = subscribe_id;
+        fetch.priority = priority;
+        fetch.group_order = group_order;
+        fetch.fetch_type = FetchType::kJoiningFetch;
+        fetch.params = parameters;
+        fetch.joining_subscribe_id = joining_subscribe_id;
+        fetch.preceding_group_offset = preceding_group_offset;
 
         Bytes buffer;
         buffer.reserve(Fetch::SizeOf(fetch));
@@ -558,12 +584,12 @@ namespace quicr {
     }
 
     void Transport::SendFetchError(ConnectionContext& conn_ctx,
-                                   [[maybe_unused]] uint64_t subscribe_id,
+                                   uint64_t subscribe_id,
                                    FetchErrorCode error,
                                    const std::string& reason)
     {
         auto fetch_err = FetchError{};
-        fetch_err.subscribe_id = 0x1;
+        fetch_err.subscribe_id = subscribe_id;
         fetch_err.err_code = static_cast<uint64_t>(error);
         fetch_err.reason_phrase.assign(reason.begin(), reason.end());
 
@@ -632,6 +658,7 @@ namespace quicr {
         auto priority = track_handler->GetPriority();
         auto group_order = track_handler->GetGroupOrder();
         auto filter_type = track_handler->GetFilterType();
+        auto joining_fetch = track_handler->GetJoiningFetch();
 
         track_handler->new_group_request_callback_ = [=](auto sub_id, auto track_alias) {
             SendNewGroupRequest(conn_id, sub_id, track_alias);
@@ -639,9 +666,32 @@ namespace quicr {
 
         // Set the track handler for tracking by subscribe ID and track alias
         conn_it->second.sub_by_track_alias[*track_handler->GetTrackAlias()] = track_handler;
-        conn_it->second.tracks_by_sub_id[sid] = std::move(track_handler);
+        conn_it->second.tracks_by_sub_id[sid] = track_handler;
 
         SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type);
+
+        // Handle joining fetch, if requested.
+        if (joining_fetch) {
+            // Make a joining fetch handler.
+            const auto joining_fetch_handler = std::make_shared<JoiningFetchHandler>(track_handler);
+            const auto& info = *joining_fetch;
+            const auto fetch_sid = conn_it->second.current_subscribe_id++;
+            SPDLOG_LOGGER_INFO(
+              logger_,
+              "Subscribe with joining fetch conn_id: {0} track_alias: {1} subscribe id: {2} joining subscribe id: {3}",
+              conn_id,
+              th.track_fullname_hash,
+              fetch_sid,
+              sid);
+            conn_it->second.tracks_by_sub_id[fetch_sid] = std::move(joining_fetch_handler);
+            SendJoiningFetch(conn_it->second,
+                             fetch_sid,
+                             info.priority,
+                             info.group_order,
+                             sid,
+                             info.preceding_group_offset,
+                             info.parameters);
+        }
     }
 
     void Transport::UnsubscribeTrack(quicr::TransportConnId conn_id,

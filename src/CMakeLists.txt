@@ -17,6 +17,7 @@ target_sources (quicr PRIVATE
     quic_transport.cpp
     transport.cpp
     transport_picoquic.cpp
+    joining_fetch_handler.cpp
 )
 
 target_include_directories(quicr PUBLIC ${CMAKE_BINARY_DIR}/include )
