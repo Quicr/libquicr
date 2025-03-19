@@ -287,10 +287,11 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
           new MyFetchTrackHandler(full_track_name, start_group, end_group, start_object, end_object));
     }
 
-    void ObjectReceived(const quicr::ObjectHeaders&, quicr::BytesSpan data) override
+    void ObjectReceived(const quicr::ObjectHeaders& headers, quicr::BytesSpan data) override
     {
         std::string msg(data.begin(), data.end());
-        SPDLOG_INFO("Received fetched object: {0}", msg);
+        SPDLOG_INFO(
+          "Received fetched object group_id: {} object_id: {} value: {}", headers.group_id, headers.object_id, msg);
     }
 
     void StatusChanged(Status status) override

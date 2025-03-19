@@ -116,9 +116,9 @@ namespace qserver_vars {
     std::map<quicr::TrackNamespace, std::set<quicr::ConnectionHandle>> subscribes_announces;
 
     /**
-     * Cache of MoQ objects by track namespace hash
+     * Cache of MoQ objects by track alias
      */
-    std::map<quicr::TrackNamespaceHash, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>> cache;
+    std::map<quicr::messages::TrackAlias, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>> cache;
 
     /**
      * Tick Service used by the cache
@@ -128,7 +128,7 @@ namespace qserver_vars {
     /**
      * @brief Map of atomic bools to mark if a fetch thread should be interrupted.
      */
-    std::unordered_map<uint64_t, std::atomic_bool> stop_fetch;
+    std::map<std::pair<quicr::ConnectionHandle, quicr::messages::SubscribeId>, std::atomic_bool> stop_fetch;
 }
 
 /**
@@ -176,7 +176,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         if (qserver_vars::cache.count(*track_alias) == 0) {
             qserver_vars::cache.insert(std::make_pair(
               *track_alias,
-              quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{ 50000, 1, qserver_vars::tick_service }));
+              quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{ 50000, 1000, qserver_vars::tick_service }));
         }
 
         auto& cache_entry = qserver_vars::cache.at(*track_alias);
@@ -803,29 +803,36 @@ class MyServer : public quicr::Server
 
         const auto th = quicr::TrackHash(track_full_name);
 
-        qserver_vars::stop_fetch.emplace(std::make_pair(subscribe_id, false));
+        qserver_vars::stop_fetch.try_emplace({connection_handle, subscribe_id}, false);
+
+        std::unique_lock lock(moq_example::main_mutex);
+        const auto cache_entries = qserver_vars::cache.at(th.track_fullname_hash).Get(attrs.start_group, attrs.end_group + 1);
+        lock.unlock();
 
         std::thread retrieve_cache_thread(
           [=,
-           cache_entries = qserver_vars::cache.at(th.track_fullname_hash).Get(attrs.start_group, attrs.end_group + 1)] {
+           cache_entries = cache_entries] {
               defer(UnbindFetchTrack(connection_handle, pub_fetch_h));
 
               for (const auto& cache_entry : cache_entries) {
                   for (const auto& object : *cache_entry) {
-                      if (qserver_vars::stop_fetch[subscribe_id]) {
-                          qserver_vars::stop_fetch.erase(subscribe_id);
+                      if (qserver_vars::stop_fetch[{connection_handle, subscribe_id}]) {
+                          qserver_vars::stop_fetch.erase({connection_handle, subscribe_id});
                           return;
                       }
 
-                      if ((object.headers.group_id < attrs.start_group || object.headers.group_id > attrs.end_group) ||
-                          (object.headers.object_id < attrs.start_object ||
-                           (attrs.end_object.has_value() && object.headers.object_id > *attrs.end_object)))
-                          continue;
+                      /*
+                       * Stop when reached end group and end object, unless end object is zero. End object of
+                       * zero indicates all objects within end group
+                       */
+                      if (attrs.end_object.has_value() && *attrs.end_object != 0
+                          && object.headers.group_id == attrs.end_group && object.headers.object_id > *attrs.end_object)
+                          break; // Done, reached end object within end group
 
                       SPDLOG_INFO("Fetching group: {} object: {}", object.headers.group_id, object.headers.object_id);
 
                       pub_fetch_h->PublishObject(object.headers, object.data);
-                      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                      //std::this_thread::sleep_for(std::chrono::milliseconds(1));
                   }
               }
           });
@@ -833,10 +840,12 @@ class MyServer : public quicr::Server
         retrieve_cache_thread.detach();
     }
 
-    void FetchCancelReceived(quicr::ConnectionHandle, uint64_t subscribe_id) override
+    void FetchCancelReceived(quicr::ConnectionHandle connection_handle, uint64_t subscribe_id) override
     {
-        SPDLOG_INFO("Canceling fetch for subscribe_id: {0}", subscribe_id);
-        qserver_vars::stop_fetch[subscribe_id] = true;
+        SPDLOG_INFO("Canceling fetch for connection handle: {} subscribe_id: {}", connection_handle, subscribe_id);
+
+        if (qserver_vars::stop_fetch.count({connection_handle, subscribe_id}) == 0)
+            qserver_vars::stop_fetch[{connection_handle, subscribe_id}] = true;
     }
 
     void NewGroupRequested(quicr::ConnectionHandle conn_id, uint64_t subscribe_id, uint64_t track_alias) override

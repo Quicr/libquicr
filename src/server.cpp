@@ -716,7 +716,7 @@ namespace quicr {
                         largest_object = *opt_largest_object;
 
                         attrs.start_group =
-                          msg.preceding_group_offset <= largest_group ? largest_group - msg.preceding_group_offset : 0;
+                          msg.preceding_group_offset <= largest_group ? largest_group - msg.preceding_group_offset : largest_group;
                         attrs.start_object = 0;
                         attrs.end_group = largest_group;
                         attrs.end_object = largest_object;
@@ -745,8 +745,6 @@ namespace quicr {
                       conn_ctx, msg.subscribe_id, messages::FetchErrorCode::kInvalidRange, "Cannot serve this range");
                     return true;
                 }
-
-                conn_ctx.recv_sub_id[msg.subscribe_id] = { .track_full_name = tfn };
 
                 if (msg.subscribe_id > conn_ctx.current_subscribe_id) {
                     conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
