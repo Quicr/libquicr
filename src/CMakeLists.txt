@@ -10,6 +10,7 @@ target_sources (quicr PRIVATE
     client.cpp
     messages.cpp
     publish_track_handler.cpp
+    subscribe_track_handler.cpp
     server.cpp
     quic_transport.cpp
     transport.cpp

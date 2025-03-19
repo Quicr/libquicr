@@ -30,10 +30,10 @@ TEST_CASE("Encode/Decode UintVar Uint64")
 
 TEST_CASE("Encode/Decode UintVar Bytes")
 {
-    CHECK_EQ(var::kValue1Byte, uint64_t(quicr::UintVar(Span{ quicr::UintVar(var::kValue1Byte) })));
-    CHECK_EQ(var::kValue2Byte, uint64_t(quicr::UintVar(Span{ quicr::UintVar(var::kValue2Byte) })));
-    CHECK_EQ(var::kValue4Byte, uint64_t(quicr::UintVar(Span{ quicr::UintVar(var::kValue4Byte) })));
-    CHECK_EQ(var::kValue8Byte, uint64_t(quicr::UintVar(Span{ quicr::UintVar(var::kValue8Byte) })));
+    CHECK_EQ(var::kValue1Byte, uint64_t(quicr::UintVar(Span<const uint8_t>{ quicr::UintVar(var::kValue1Byte) })));
+    CHECK_EQ(var::kValue2Byte, uint64_t(quicr::UintVar(Span<const uint8_t>{ quicr::UintVar(var::kValue2Byte) })));
+    CHECK_EQ(var::kValue4Byte, uint64_t(quicr::UintVar(Span<const uint8_t>{ quicr::UintVar(var::kValue4Byte) })));
+    CHECK_EQ(var::kValue8Byte, uint64_t(quicr::UintVar(Span<const uint8_t>{ quicr::UintVar(var::kValue8Byte) })));
 }
 
 TEST_CASE("Length of UintVar")

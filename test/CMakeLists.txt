@@ -10,6 +10,8 @@ add_executable(quicr_test
     client.cpp
     tick_service.cpp
     track_namespace.cpp
+    data_storage.cpp
+    cache.cpp
 )
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
@@ -22,7 +24,7 @@ target_compile_options(quicr_test
 
 set_target_properties(quicr_test
     PROPERTIES
-        CXX_STANDARD 17
+        CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS ON)
 

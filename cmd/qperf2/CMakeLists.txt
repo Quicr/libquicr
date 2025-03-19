@@ -12,7 +12,7 @@ target_compile_options(qperf_pub
 
 set_target_properties(qperf_pub
         PROPERTIES
-        CXX_STANDARD 17
+        CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS OFF)
 
@@ -34,7 +34,7 @@ target_compile_options(qperf_sub
 
 set_target_properties(qperf_sub
         PROPERTIES
-        CXX_STANDARD 17
+        CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS OFF)
 

@@ -160,28 +160,30 @@ namespace quicr {
     {
         if (not conn_ctx.ctrl_data_ctx_id) {
             CloseConnection(
-              conn_ctx.connection_handle, MoqTerminationReason::PROTOCOL_VIOLATION, "Control bidir stream not created");
+              conn_ctx.connection_handle, TerminationReason::kProtocolViolation, "Control bidir stream not created");
             return;
         }
 
-        quic_transport_->Enqueue(
-          conn_ctx.connection_handle, *conn_ctx.ctrl_data_ctx_id, data, 0, 2000, 0, { true, false, false, false });
+        quic_transport_->Enqueue(conn_ctx.connection_handle,
+                                 *conn_ctx.ctrl_data_ctx_id,
+                                 std::make_shared<const std::vector<uint8_t>>(data.begin(), data.end()),
+                                 0,
+                                 2000,
+                                 0,
+                                 { true, false, false, false });
     }
 
     void Transport::SendClientSetup()
     {
-        auto client_setup = MoqClientSetup{};
+        auto client_setup = ClientSetup{};
 
         client_setup.num_versions = 1; // NOTE: Not used for encode, version vector size is used
         client_setup.supported_versions = { kMoqtVersion };
-        client_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::Role);
-        client_setup.role_parameter.length = 0x1; // NOTE: not used for encode, size of value is used
-        client_setup.role_parameter.value = { 0x03 };
         client_setup.endpoint_id_parameter.value.assign(client_config_.endpoint_id.begin(),
                                                         client_config_.endpoint_id.end());
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqClientSetup));
+        buffer.reserve(sizeof(ClientSetup));
         buffer << client_setup;
 
         auto& conn_ctx = connections_.begin()->second;
@@ -191,17 +193,14 @@ namespace quicr {
 
     void Transport::SendServerSetup(ConnectionContext& conn_ctx)
     {
-        auto server_setup = MoqServerSetup{};
+        auto server_setup = ServerSetup{};
 
         server_setup.selection_version = { conn_ctx.client_version };
-        server_setup.role_parameter.type = static_cast<uint64_t>(ParameterType::Role);
-        server_setup.role_parameter.length = 0x1; // NOTE: not used for encode, size of value is used
-        server_setup.role_parameter.value = { 0x03 };
         server_setup.endpoint_id_parameter.value.assign(server_config_.endpoint_id.begin(),
                                                         server_config_.endpoint_id.end());
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqServerSetup));
+        buffer.reserve(sizeof(ServerSetup));
         buffer << server_setup;
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending SERVER_SETUP to conn_id: {0}", conn_ctx.connection_handle);
@@ -211,7 +210,7 @@ namespace quicr {
 
     void Transport::SendAnnounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
     {
-        auto announce = MoqAnnounce{};
+        auto announce = Announce{};
 
         announce.track_namespace = track_namespace;
         announce.params = {};
@@ -219,14 +218,18 @@ namespace quicr {
         Bytes buffer;
         buffer << announce;
 
-        SPDLOG_LOGGER_DEBUG(logger_, "Sending ANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
+        auto th = TrackHash({ track_namespace, {}, std::nullopt });
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending ANNOUNCE to conn_id: {} namespace_hash: {}",
+                            conn_ctx.connection_handle,
+                            th.track_namespace_hash);
 
         SendCtrlMsg(conn_ctx, buffer);
     }
 
     void Transport::SendAnnounceOk(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
     {
-        auto announce_ok = MoqAnnounceOk{};
+        auto announce_ok = AnnounceOk{};
 
         announce_ok.track_namespace = track_namespace;
 
@@ -240,7 +243,7 @@ namespace quicr {
 
     void Transport::SendUnannounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
     {
-        auto unannounce = MoqUnannounce{};
+        auto unannounce = Unannounce{};
 
         unannounce.track_namespace = track_namespace;
 
@@ -260,7 +263,7 @@ namespace quicr {
                                   messages::GroupOrder group_order,
                                   messages::FilterType filter_type)
     {
-        auto subscribe = MoqSubscribe{};
+        auto subscribe = Subscribe{};
         subscribe.subscribe_id = subscribe_id;
         subscribe.track_alias = th.track_fullname_hash;
         subscribe.track_namespace = tfn.name_space;
@@ -270,7 +273,7 @@ namespace quicr {
         subscribe.filter_type = filter_type;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqSubscribe));
+        buffer.reserve(sizeof(Subscribe));
         buffer << subscribe;
 
         SPDLOG_LOGGER_DEBUG(
@@ -292,7 +295,7 @@ namespace quicr {
                                         messages::GroupId end_group_id,
                                         messages::ObjectPriority priority)
     {
-        auto subscribe_update = MoqSubscribeUpdate{};
+        auto subscribe_update = SubscribeUpdate{};
         subscribe_update.subscribe_id = subscribe_id;
         subscribe_update.start_group = start_group_id;
         subscribe_update.start_object = start_object_id;
@@ -300,7 +303,7 @@ namespace quicr {
         subscribe_update.priority = priority;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqSubscribeUpdate));
+        buffer.reserve(sizeof(SubscribeUpdate));
         buffer << subscribe_update;
 
         SPDLOG_LOGGER_DEBUG(
@@ -317,15 +320,19 @@ namespace quicr {
     void Transport::SendSubscribeOk(ConnectionContext& conn_ctx,
                                     uint64_t subscribe_id,
                                     uint64_t expires,
-                                    bool content_exists)
+                                    bool content_exists,
+                                    messages::GroupId largest_group_id,
+                                    messages::ObjectId largest_object_id)
     {
-        auto subscribe_ok = MoqSubscribeOk{};
+        auto subscribe_ok = SubscribeOk{};
         subscribe_ok.subscribe_id = subscribe_id;
         subscribe_ok.expires = expires;
         subscribe_ok.content_exists = content_exists;
+        subscribe_ok.largest_group = largest_group_id;
+        subscribe_ok.largest_object = largest_object_id;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqSubscribeOk));
+        buffer.reserve(sizeof(SubscribeOk));
         buffer << subscribe_ok;
 
         SPDLOG_LOGGER_DEBUG(
@@ -336,13 +343,13 @@ namespace quicr {
 
     void Transport::SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason)
     {
-        auto subscribe_done = MoqSubscribeDone{};
+        auto subscribe_done = SubscribeDone{};
         subscribe_done.subscribe_id = subscribe_id;
+        subscribe_done.stream_count = 0; // TODO: Get real number.
         subscribe_done.reason_phrase.assign(reason.begin(), reason.end());
-        subscribe_done.content_exists = false;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqSubscribeDone));
+        buffer.reserve(sizeof(SubscribeDone));
         buffer << subscribe_done;
 
         SPDLOG_LOGGER_DEBUG(logger_,
@@ -355,11 +362,11 @@ namespace quicr {
 
     void Transport::SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id)
     {
-        auto unsubscribe = MoqUnsubscribe{};
+        auto unsubscribe = Unsubscribe{};
         unsubscribe.subscribe_id = subscribe_id;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqUnsubscribe));
+        buffer.reserve(sizeof(Unsubscribe));
         buffer << unsubscribe;
 
         SPDLOG_LOGGER_DEBUG(
@@ -368,20 +375,114 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
+    void Transport::SendSubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace)
+    {
+        std::lock_guard<std::mutex> _(state_mutex_);
+        auto conn_it = connections_.find(conn_handle);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_handle);
+            return;
+        }
+
+        auto msg = SubscribeAnnounces{};
+        msg.prefix_namespace = prefix_namespace;
+
+        Bytes buffer;
+        buffer.reserve(sizeof(msg));
+        buffer << msg;
+
+        auto th = TrackHash({ prefix_namespace, {}, std::nullopt });
+
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending Subscribe announces to conn_id: {} prefix_hash: {}",
+                            conn_it->second.connection_handle,
+                            th.track_namespace_hash);
+
+        SendCtrlMsg(conn_it->second, buffer);
+    }
+
+    void Transport::SendSubscribeAnnouncesOk(ConnectionContext& conn_ctx, const TrackNamespace& prefix_namespace)
+    {
+        auto msg = SubscribeAnnouncesOk{};
+        msg.prefix_namespace = prefix_namespace;
+
+        Bytes buffer;
+        buffer.reserve(sizeof(msg));
+        buffer << msg;
+
+        auto th = TrackHash({ prefix_namespace, {}, std::nullopt });
+
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending Subscribe announces ok to conn_id: {} prefix_hash: {}",
+                            conn_ctx.connection_handle,
+                            th.track_namespace_hash);
+
+        SendCtrlMsg(conn_ctx, buffer);
+    }
+
+    void Transport::SendSubscribeAnnouncesError(ConnectionContext& conn_ctx,
+                                                const TrackNamespace& prefix_namespace,
+                                                SubscribeAnnouncesErrorCode err_code,
+                                                const ReasonPhrase& reason)
+    {
+        auto msg = SubscribeAnnouncesError{};
+        msg.error_code = err_code;
+        msg.reason_phrase.assign(reason.begin(), reason.end());
+        msg.prefix_namespace = prefix_namespace;
+
+        Bytes buffer;
+        buffer.reserve(sizeof(msg));
+        buffer << msg;
+
+        auto th = TrackHash({ prefix_namespace, {}, std::nullopt });
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending Subscribe announces error to conn_id: {} prefix_hash: {}",
+                            conn_ctx.connection_handle,
+                            th.track_namespace_hash);
+
+        SendCtrlMsg(conn_ctx, buffer);
+    }
+
+    void Transport::SendUnsubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace)
+    {
+        std::lock_guard<std::mutex> _(state_mutex_);
+        auto conn_it = connections_.find(conn_handle);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_handle);
+            return;
+        }
+
+        auto msg = UnsubscribeAnnounces{};
+        msg.prefix_namespace = prefix_namespace;
+
+        Bytes buffer;
+        buffer.reserve(sizeof(msg));
+        buffer << msg;
+
+        auto th = TrackHash({ prefix_namespace, {}, std::nullopt });
+
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending Unsubscribe announces to conn_id: {} prefix_hash: {}",
+                            conn_handle,
+                            th.track_namespace_hash);
+
+        SendCtrlMsg(conn_it->second, buffer);
+    }
+
     void Transport::SendSubscribeError(ConnectionContext& conn_ctx,
-                                       [[maybe_unused]] uint64_t subscribe_id,
+                                       uint64_t subscribe_id,
                                        uint64_t track_alias,
-                                       SubscribeError error,
+                                       SubscribeErrorCode error,
                                        const std::string& reason)
     {
-        auto subscribe_err = MoqSubscribeError{};
-        subscribe_err.subscribe_id = 0x1;
+        auto subscribe_err = SubscribeError{};
+        subscribe_err.subscribe_id = subscribe_id;
         subscribe_err.err_code = static_cast<uint64_t>(error);
         subscribe_err.track_alias = track_alias;
         subscribe_err.reason_phrase.assign(reason.begin(), reason.end());
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqSubscribeError));
+        buffer.reserve(sizeof(SubscribeError));
         buffer << subscribe_err;
 
         SPDLOG_LOGGER_DEBUG(logger_,
@@ -404,8 +505,9 @@ namespace quicr {
                               messages::GroupId end_group,
                               messages::GroupId end_object)
     {
-        MoqFetch fetch;
+        Fetch fetch;
         fetch.subscribe_id = subscribe_id;
+        fetch.fetch_type = FetchType::kStandalone;
         fetch.track_namespace = tfn.name_space;
         fetch.track_name.assign(tfn.name.begin(), tfn.name.end());
         fetch.priority = priority;
@@ -416,7 +518,7 @@ namespace quicr {
         fetch.end_object = end_object;
 
         Bytes buffer;
-        buffer.reserve(MoqFetch::SizeOf(fetch));
+        buffer.reserve(Fetch::SizeOf(fetch));
         buffer << fetch;
 
         SendCtrlMsg(conn_ctx, buffer);
@@ -424,11 +526,11 @@ namespace quicr {
 
     void Transport::SendFetchCancel(ConnectionContext& conn_ctx, uint64_t subscribe_id)
     {
-        MoqFetchCancel fetch_cancel;
+        FetchCancel fetch_cancel;
         fetch_cancel.subscribe_id = subscribe_id;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqFetchCancel));
+        buffer.reserve(sizeof(FetchCancel));
         buffer << fetch_cancel;
 
         SendCtrlMsg(conn_ctx, buffer);
@@ -441,7 +543,7 @@ namespace quicr {
                                 messages::GroupId largest_group,
                                 messages::GroupId largest_object)
     {
-        MoqFetchOk fetch_ok;
+        FetchOk fetch_ok;
         fetch_ok.subscribe_id = subscribe_id;
         fetch_ok.group_order = group_order;
         fetch_ok.end_of_track = end_of_track;
@@ -449,7 +551,7 @@ namespace quicr {
         fetch_ok.largest_object = largest_object;
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqFetchOk));
+        buffer.reserve(sizeof(FetchOk));
         buffer << fetch_ok;
 
         SendCtrlMsg(conn_ctx, buffer);
@@ -457,16 +559,16 @@ namespace quicr {
 
     void Transport::SendFetchError(ConnectionContext& conn_ctx,
                                    [[maybe_unused]] uint64_t subscribe_id,
-                                   FetchError error,
+                                   FetchErrorCode error,
                                    const std::string& reason)
     {
-        auto fetch_err = MoqFetchError{};
+        auto fetch_err = FetchError{};
         fetch_err.subscribe_id = 0x1;
         fetch_err.err_code = static_cast<uint64_t>(error);
         fetch_err.reason_phrase.assign(reason.begin(), reason.end());
 
         Bytes buffer;
-        buffer.reserve(sizeof(MoqFetchError) + sizeof(reason.size()));
+        buffer.reserve(sizeof(FetchError) + sizeof(reason.size()));
         buffer << fetch_err;
 
         SPDLOG_LOGGER_DEBUG(logger_,
@@ -479,6 +581,24 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
+    void Transport::SendNewGroupRequest(ConnectionHandle conn_id, uint64_t subscribe_id, uint64_t track_alias)
+    {
+        NewGroupRequest msg{ subscribe_id, track_alias };
+
+        Bytes buffer;
+        buffer.reserve(sizeof(NewGroupRequest));
+        buffer << msg;
+
+        std::lock_guard<std::mutex> _(state_mutex_);
+        auto conn_it = connections_.find(conn_id);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_id);
+            return;
+        }
+
+        SendCtrlMsg(conn_it->second, buffer);
+    }
+
     void Transport::SubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
         const auto& tfn = track_handler->GetFullTrackName();
@@ -487,9 +607,14 @@ namespace quicr {
         // TODO(tievens): Evaluate; change hash to be more than 62 bits to avoid collisions
         auto th = TrackHash(tfn);
 
-        track_handler->SetTrackAlias(th.track_fullname_hash);
+        auto proposed_track_alias = track_handler->GetTrackAlias();
+        if (not proposed_track_alias.has_value()) {
+            track_handler->SetTrackAlias(th.track_fullname_hash);
+        } else {
+            th.track_fullname_hash = proposed_track_alias.value();
+        }
 
-        SPDLOG_LOGGER_INFO(logger_, "Subscribe track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
+        SPDLOG_LOGGER_INFO(logger_, "Subscribe track conn_id: {0} track_alias: {1}", conn_id, th.track_fullname_hash);
 
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_id);
@@ -508,7 +633,12 @@ namespace quicr {
         auto group_order = track_handler->GetGroupOrder();
         auto filter_type = track_handler->GetFilterType();
 
-        // Set the track handler for pub/sub using _sub_pub_id, which is the subscribe Id in MOQT
+        track_handler->new_group_request_callback_ = [=](auto sub_id, auto track_alias) {
+            SendNewGroupRequest(conn_id, sub_id, track_alias);
+        };
+
+        // Set the track handler for tracking by subscribe ID and track alias
+        conn_it->second.sub_by_track_alias[*track_handler->GetTrackAlias()] = track_handler;
         conn_it->second.tracks_by_sub_id[sid] = std::move(track_handler);
 
         SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type);
@@ -563,6 +693,7 @@ namespace quicr {
 
                 std::lock_guard<std::mutex> _(state_mutex_);
                 conn_ctx.tracks_by_sub_id.erase(*subscribe_id);
+                conn_ctx.sub_by_track_alias.erase(*handler.GetTrackAlias());
             }
         }
     }
@@ -582,6 +713,8 @@ namespace quicr {
             SPDLOG_LOGGER_ERROR(logger_, "Unpublish track conn_id: {0} does not exist.", conn_id);
             return;
         }
+
+        conn_it->second.pub_tracks_by_track_alias.erase(th.track_fullname_hash);
 
         // Check if this published track is a new namespace or existing.
         auto pub_ns_it = conn_it->second.pub_tracks_by_name.find(th.track_namespace_hash);
@@ -699,8 +832,22 @@ namespace quicr {
               *handler, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
         };
 
+        track_handler->forward_publish_data_func_ =
+          [&,
+           weak_handler](uint8_t priority,
+                         uint32_t ttl,
+                         bool stream_header_needed,
+                         std::shared_ptr<const std::vector<uint8_t>> data) -> PublishTrackHandler::PublishObjectStatus {
+            auto handler = weak_handler.lock();
+            if (!handler) {
+                return PublishTrackHandler::PublishObjectStatus::kInternalError;
+            }
+            return SendData(*handler, priority, ttl, stream_header_needed, data);
+        };
+
         // Hold ref to track handler
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
+        conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash] = track_handler;
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
     }
 
@@ -761,6 +908,46 @@ namespace quicr {
         track_handler->SetStatus(FetchTrackHandler::Status::kNotConnected);
     }
 
+    PublishTrackHandler::PublishObjectStatus Transport::SendData(PublishTrackHandler& track_handler,
+                                                                 uint8_t priority,
+                                                                 uint32_t ttl,
+                                                                 bool stream_header_needed,
+                                                                 std::shared_ptr<const std::vector<uint8_t>> data)
+    {
+        if (!track_handler.GetTrackAlias().has_value()) {
+            return PublishTrackHandler::PublishObjectStatus::kNotAnnounced;
+        }
+
+        if (!track_handler.GetSubscribeId().has_value()) {
+            return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
+        }
+
+        ITransport::EnqueueFlags eflags;
+
+        switch (track_handler.default_track_mode_) {
+            case TrackMode::kDatagram: {
+                eflags.use_reliable = false;
+                break;
+            }
+            default: {
+                eflags.use_reliable = true;
+
+                if (stream_header_needed) {
+                    eflags.new_stream = true;
+                    eflags.clear_tx_queue = true;
+                    eflags.use_reset = true;
+                }
+
+                break;
+            }
+        }
+
+        quic_transport_->Enqueue(
+          track_handler.connection_handle_, track_handler.publish_data_ctx_id_, data, priority, ttl, 0, eflags);
+
+        return PublishTrackHandler::PublishObjectStatus::kOk;
+    }
+
     PublishTrackHandler::PublishObjectStatus Transport::SendObject(PublishTrackHandler& track_handler,
                                                                    uint8_t priority,
                                                                    uint32_t ttl,
@@ -785,11 +972,10 @@ namespace quicr {
 
         switch (track_handler.default_track_mode_) {
             case TrackMode::kDatagram: {
-                MoqObjectDatagram object;
+                ObjectDatagram object;
                 object.group_id = group_id;
                 object.object_id = object_id;
                 object.priority = priority;
-                object.subscribe_id = *track_handler.GetSubscribeId();
                 object.track_alias = *track_handler.GetTrackAlias();
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
@@ -805,16 +991,30 @@ namespace quicr {
                     eflags.clear_tx_queue = true;
                     eflags.use_reset = true;
 
-                    MoqStreamHeaderSubGroup subgroup_hdr;
+                    StreamHeaderSubGroup subgroup_hdr;
                     subgroup_hdr.group_id = group_id;
                     subgroup_hdr.subgroup_id = subgroup_id;
                     subgroup_hdr.priority = priority;
                     subgroup_hdr.track_alias = *track_handler.GetTrackAlias();
-                    subgroup_hdr.subscribe_id = *track_handler.GetSubscribeId();
                     track_handler.object_msg_buffer_ << subgroup_hdr;
+
+                    quic_transport_->Enqueue(
+                      track_handler.connection_handle_,
+                      track_handler.publish_data_ctx_id_,
+                      std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
+                                                             track_handler.object_msg_buffer_.end()),
+                      priority,
+                      ttl,
+                      0,
+                      eflags);
+
+                    track_handler.object_msg_buffer_.clear();
+                    eflags.new_stream = false;
+                    eflags.clear_tx_queue = false;
+                    eflags.use_reset = false;
                 }
 
-                MoqStreamSubGroupObject object;
+                StreamSubGroupObject object;
                 object.object_id = object_id;
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
@@ -825,7 +1025,8 @@ namespace quicr {
 
         quic_transport_->Enqueue(track_handler.connection_handle_,
                                  track_handler.publish_data_ctx_id_,
-                                 track_handler.object_msg_buffer_,
+                                 std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
+                                                                        track_handler.object_msg_buffer_.end()),
                                  priority,
                                  ttl,
                                  0,
@@ -866,6 +1067,7 @@ namespace quicr {
         conn_ctx.pub_tracks_by_name.clear();
         conn_ctx.recv_sub_id.clear();
         conn_ctx.tracks_by_sub_id.clear();
+        conn_ctx.sub_by_track_alias.clear();
     }
 
     // ---------------------------------------------------------------------------------------
@@ -966,143 +1168,242 @@ namespace quicr {
                                  uint64_t stream_id,
                                  std::optional<DataContextId> data_ctx_id,
                                  const bool is_bidir)
-    {
-        auto stream_buf = quic_transport_->GetStreamBuffer(conn_id, stream_id);
-        if (stream_buf == nullptr) {
+    try {
+        auto rx_ctx = quic_transport_->GetStreamRxContext(conn_id, stream_id);
+        auto& conn_ctx = connections_[conn_id];
+
+        if (rx_ctx == nullptr) {
             return;
         }
 
-        // TODO(tievens): Considering moving lock to here... std::lock_guard<std::mutex> _(state_mutex_);
-
-        auto& conn_ctx = connections_[conn_id];
-
-        if (is_bidir && not conn_ctx.ctrl_data_ctx_id) {
-            if (not data_ctx_id) {
-                CloseConnection(
-                  conn_id, MoqTerminationReason::INTERNAL_ERROR, "Received bidir is missing data context");
-                return;
-            }
-            conn_ctx.ctrl_data_ctx_id = data_ctx_id;
-        }
-
         /*
-         * Loop many times to continue to read objects. This loop should only continue if the current object is read and
-         * has been completed and there is more data. If there isn't enough data to parse the message, the loop should
-         * be stopped. The ProcessCtrlMessage() and ProcessStreamDataMessage() methods return **true** to indicate that
-         * the loop should continue. They return **false** to indicate that there wasn't enough data and more data
-         * should be provided.
+         * RX data queue may have more messages at time of this callback. Attempt to
+         *      process all of them, up to a max. Setting a max prevents blocking
+         *      of other streams, etc.
          */
-        for (int i = 0; i < kReadLoopMaxPerStream; i++) { // don't loop forever, especially on bad stream
-            if (stream_buf->Empty()) {
+        for (int i = 0; i < kReadLoopMaxPerStream; i++) {
+            if (rx_ctx->data_queue.Empty()) {
                 break;
             }
 
-            // bidir is Control stream, data streams are unidirectional
-            if (is_bidir) {
-                if (not conn_ctx.ctrl_msg_type_received.has_value()) {
-                    auto msg_type = stream_buf->DecodeUintV();
+            auto data_opt = rx_ctx->data_queue.Pop();
+            if (not data_opt.has_value()) {
+                break;
+            }
 
-                    if (msg_type.has_value()) {
-                        conn_ctx.ctrl_msg_type_received = static_cast<ControlMessageType>(*msg_type);
-                    } else {
-                        break;
+            auto& data = *data_opt.value();
+
+            // CONTROL STREAM
+            if (is_bidir) {
+                conn_ctx.ctrl_msg_buffer.insert(conn_ctx.ctrl_msg_buffer.end(), data.begin(), data.end());
+
+                if (not conn_ctx.ctrl_data_ctx_id) {
+                    if (not data_ctx_id) {
+                        CloseConnection(
+                          conn_id, TerminationReason::kInternalError, "Received bidir is missing data context");
+                        return;
                     }
+                    conn_ctx.ctrl_data_ctx_id = data_ctx_id;
                 }
 
-                if (auto msg_bytes = stream_buf->DecodeBytes(); msg_bytes != std::nullopt) {
-                    if (ProcessCtrlMessage(conn_ctx, *msg_bytes)) {
-                        conn_ctx.ctrl_msg_type_received = std::nullopt; // Clear current type now that it's complete
-                    } else {
-                        conn_ctx.metrics.invalid_ctrl_stream_msg++;
+                if (not conn_ctx.ctrl_msg_type_received.has_value()) {
+                    // Decode message type
+                    auto uv_sz = UintVar::Size(conn_ctx.ctrl_msg_buffer.front());
+                    if (conn_ctx.ctrl_msg_buffer.size() < uv_sz) {
+                        i = kReadLoopMaxPerStream - 4;
+                        continue; // Not enough bytes to process control message. Try again once more.
                     }
+
+                    auto msg_type = uint64_t(
+                      quicr::UintVar({ conn_ctx.ctrl_msg_buffer.begin(), conn_ctx.ctrl_msg_buffer.begin() + uv_sz }));
+
+                    conn_ctx.ctrl_msg_buffer.erase(conn_ctx.ctrl_msg_buffer.begin(),
+                                                   conn_ctx.ctrl_msg_buffer.begin() + uv_sz);
+
+                    conn_ctx.ctrl_msg_type_received = static_cast<ControlMessageType>(msg_type);
+                }
+
+                // Decode control payload length in bytes
+                auto uv_sz = UintVar::Size(conn_ctx.ctrl_msg_buffer.front());
+
+                if (conn_ctx.ctrl_msg_buffer.size() < uv_sz) {
+                    i = kReadLoopMaxPerStream - 4;
+                    continue; // Not enough bytes to process control message. Try again once more.
+                }
+
+                auto payload_len = uint64_t(
+                  quicr::UintVar({ conn_ctx.ctrl_msg_buffer.begin(), conn_ctx.ctrl_msg_buffer.begin() + uv_sz }));
+
+                if (conn_ctx.ctrl_msg_buffer.size() < payload_len + uv_sz) {
+                    i = kReadLoopMaxPerStream - 4;
+                    continue; // Not enough bytes to process control message. Try again once more.
+                }
+
+                if (ProcessCtrlMessage(conn_ctx,
+                                       { conn_ctx.ctrl_msg_buffer.begin() + uv_sz, conn_ctx.ctrl_msg_buffer.end() })) {
+
+                    // Reset the control message buffer and message type to start a new message.
+                    conn_ctx.ctrl_msg_type_received = std::nullopt;
+                    conn_ctx.ctrl_msg_buffer.erase(conn_ctx.ctrl_msg_buffer.begin(),
+                                                   conn_ctx.ctrl_msg_buffer.begin() + uv_sz + payload_len);
                 } else {
+                    conn_ctx.metrics.invalid_ctrl_stream_msg++;
+                }
+
+                continue;
+            } // end of is_bidir
+
+            // DATA OBJECT
+            if (rx_ctx->is_new) {
+                /*
+                 * Process data subgroup header - assume that the start of stream will always have enough bytes
+                 * for track alias
+                 */
+                auto type_sz = UintVar::Size(data.front());
+                if (data.size() < type_sz) {
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "New stream {} does not have enough bytes to process start of stream header len: {} < {}",
+                      stream_id,
+                      data.size(),
+                      type_sz);
+                    i = kReadLoopMaxPerStream;
+                    continue; // Not enough bytes to process control message. Try again once more.
+                }
+
+                SPDLOG_LOGGER_DEBUG(
+                  logger_, "New stream conn_id: {} stream_id: {} data size: {}", conn_id, stream_id, data.size());
+
+                auto msg_type = uint64_t(quicr::UintVar({ data.begin(), data.begin() + type_sz }));
+                auto cursor_it = std::next(data.begin(), type_sz);
+
+                if (!msg_type || static_cast<DataMessageType>(msg_type) != DataMessageType::kStreamHeaderSubgroup) {
+                    SPDLOG_LOGGER_DEBUG(logger_, "Received start of stream with invalid header type, dropping");
+                    conn_ctx.metrics.rx_stream_invalid_type++;
+
+                    // TODO(tievens): Need to reset this stream as this is invalid.
+                    return;
+                }
+
+                uint64_t track_alias = 0;
+                uint8_t prioirty = 0;
+
+                try {
+                    // First header in subgroup starts with track alias
+                    auto ta_sz = UintVar::Size(*cursor_it);
+                    track_alias = uint64_t(quicr::UintVar({ cursor_it, cursor_it + ta_sz }));
+                    cursor_it += ta_sz;
+
+                    auto group_id_sz = UintVar::Size(*cursor_it);
+                    cursor_it += group_id_sz;
+
+                    auto subgroup_id_sz = UintVar::Size(*cursor_it);
+                    cursor_it += subgroup_id_sz;
+
+                    prioirty = *cursor_it;
+
+                } catch (std::invalid_argument&) {
+                    SPDLOG_LOGGER_WARN(logger_, "Received start of stream without enough bytes to process uintvar");
                     break;
                 }
-            }
 
-            // Data stream, unidirectional
-            else {
-                if (!ProcessStreamDataMessage(conn_ctx, stream_buf)) {
-                    break; // More data is needed, wait for next callback
+                rx_ctx->is_new = false;
+
+                auto sub_it = conn_ctx.sub_by_track_alias.find(track_alias);
+                if (sub_it == conn_ctx.sub_by_track_alias.end()) {
+                    conn_ctx.metrics.rx_stream_unknown_track_alias++;
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received stream_header_subgroup to unknown subscribe track track_alias: {} stream: {}, ignored",
+                      track_alias,
+                      stream_id);
+
+                    // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+                    break;
+                }
+
+                rx_ctx->caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
+                sub_it->second->SetPriority(prioirty);
+                sub_it->second->StreamDataRecv(true, stream_id, data_opt.value());
+
+            } else if (rx_ctx->caller_any.has_value()) {
+                // fast processing for existing stream using weak pointer to subscribe handler
+                auto sub_handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
+                if (auto sub_handler = sub_handler_weak.lock()) {
+                    sub_handler->StreamDataRecv(false, stream_id, data_opt.value());
                 }
             }
-        }
+        } // end of for loop rx data queue
+    } catch (TransportError& e) {
+        // TODO(tievens): Add metrics to track if this happens
     }
 
     void Transport::OnRecvDgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id)
     {
-        MoqObjectDatagram object_datagram_out;
+        ObjectDatagram object_datagram_out;
         for (int i = 0; i < kReadLoopMaxPerStream; i++) {
             auto data = quic_transport_->Dequeue(conn_id, data_ctx_id);
-            if (data.has_value() && !data->empty()) {
-                StreamBuffer<uint8_t> buffer;
-                buffer.Push(data.value());
+            if (data && !data->empty() && data->size() > 3) {
+                auto msg_type = data->front();
 
-                auto msg_type = buffer.DecodeUintV();
-                if (!msg_type || static_cast<DataMessageType>(*msg_type) != DataMessageType::OBJECT_DATAGRAM) {
-                    SPDLOG_LOGGER_DEBUG(logger_,
-                                        "Received datagram that is not message type OBJECT_DATAGRAM, dropping");
+                // TODO: Handle ObjectDatagramStatus objects as well.
+
+                if (!msg_type || static_cast<DataMessageType>(msg_type) != DataMessageType::kObjectDatagram) {
+                    SPDLOG_LOGGER_DEBUG(
+                      logger_,
+                      "Received datagram that is not message type kObjectDatagram or kObjectDatagramStatus, dropping");
                     auto& conn_ctx = connections_[conn_id];
                     conn_ctx.metrics.rx_dgram_invalid_type++;
                     continue;
                 }
 
-                MoqObjectDatagram msg;
-                if (buffer >> msg) {
-                    ////TODO(tievens): Considering moving lock to here... std::lock_guard<std::mutex> _(state_mutex_);
+                uint64_t track_alias = 0;
+                try {
+                    // Decode and check next header, subscribe ID
+                    auto cursor_it = std::next(data->begin(), 1);
 
-                    auto& conn_ctx = connections_[conn_id];
-                    auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-                    if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                        conn_ctx.metrics.rx_dgram_unknown_subscribe_id++;
+                    auto track_alias_sz = quicr::UintVar::Size(*cursor_it);
+                    track_alias = uint64_t(quicr::UintVar({ cursor_it, cursor_it + track_alias_sz }));
+                    cursor_it += track_alias_sz;
 
-                        SPDLOG_LOGGER_DEBUG(logger_,
-                                            "Received datagram to unknown subscribe track subscribe_id: {0}, ignored",
-                                            msg.subscribe_id);
-
-                        // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
-
-                        continue;
-                    }
-
-                    SPDLOG_LOGGER_TRACE(logger_,
-                                        "Received object datagram conn_id: {0} data_ctx_id: {1} subscriber_id: {2} "
-                                        "track_alias: {3} group_id: {4} object_id: {5} data size: {6}",
-                                        conn_id,
-                                        (data_ctx_id ? *data_ctx_id : 0),
-                                        msg.subscribe_id,
-                                        msg.track_alias,
-                                        msg.group_id,
-                                        msg.object_id,
-                                        msg.payload.size());
-
-                    auto& handler = sub_it->second;
-
-                    handler->subscribe_track_metrics_.objects_received++;
-                    handler->subscribe_track_metrics_.bytes_received += msg.payload.size();
-                    handler->ObjectReceived(
-                      {
-                        msg.group_id,
-                        msg.object_id,
-                        0, // datagrams don't have subgroups
-                        msg.payload.size(),
-                        ObjectStatus::kAvailable,
-                        msg.priority,
-                        std::nullopt,
-                        TrackMode::kDatagram,
-                        msg.extensions,
-                      },
-                      msg.payload);
-
-                } else {
-                    auto& conn_ctx = connections_[conn_id];
-                    conn_ctx.metrics.rx_dgram_decode_failed++;
-
-                    SPDLOG_LOGGER_DEBUG(logger_,
-                                        "Failed to decode datagram conn_id: {0} data_ctx_id: {1}",
-                                        conn_id,
-                                        (data_ctx_id ? *data_ctx_id : 0));
+                } catch (std::invalid_argument&) {
+                    continue; // Invalid, not enough bytes to decode
                 }
+
+                auto& conn_ctx = connections_[conn_id];
+                auto sub_it = conn_ctx.sub_by_track_alias.find(track_alias);
+                if (sub_it == conn_ctx.sub_by_track_alias.end()) {
+                    conn_ctx.metrics.rx_dgram_unknown_track_alias++;
+
+                    SPDLOG_LOGGER_DEBUG(
+                      logger_, "Received datagram to unknown subscribe track track alias: {0}, ignored", track_alias);
+
+                    // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
+
+                    continue;
+                }
+
+                SPDLOG_LOGGER_TRACE(logger_,
+                                    "Received object datagram conn_id: {0} data_ctx_id: {1} subscriber_id: {2} "
+                                    "track_alias: {3} group_id: {4} object_id: {5} data size: {6}",
+                                    conn_id,
+                                    (data_ctx_id ? *data_ctx_id : 0),
+                                    sub_id,
+                                    track_alias,
+                                    data.value()->size());
+
+                auto& handler = sub_it->second;
+
+                handler->DgramDataRecv(data);
+            } else if (data) {
+                auto& conn_ctx = connections_[conn_id];
+                conn_ctx.metrics.rx_dgram_decode_failed++;
+
+                SPDLOG_LOGGER_DEBUG(logger_,
+                                    "Failed to decode datagram conn_id: {} data_ctx_id: {} size: {}",
+                                    conn_id,
+                                    (data_ctx_id ? *data_ctx_id : 0),
+                                    data->size());
             }
         }
     }
@@ -1157,31 +1458,31 @@ namespace quicr {
     void Transport::OnNewDataContext(const ConnectionHandle&, const DataContextId&) {}
 
     void Transport::CloseConnection(TransportConnId conn_id,
-                                    messages::MoqTerminationReason reason,
+                                    messages::TerminationReason reason,
                                     const std::string& reason_str)
     {
         std::ostringstream log_msg;
         log_msg << "Closing conn_id: " << conn_id;
         switch (reason) {
-            case MoqTerminationReason::NO_ERROR:
+            case TerminationReason::kNoError:
                 log_msg << " no error";
                 break;
-            case MoqTerminationReason::INTERNAL_ERROR:
+            case TerminationReason::kInternalError:
                 log_msg << " internal error: " << reason_str;
                 break;
-            case MoqTerminationReason::UNAUTHORIZED:
+            case TerminationReason::kUnauthorized:
                 log_msg << " unauthorized: " << reason_str;
                 break;
-            case MoqTerminationReason::PROTOCOL_VIOLATION:
+            case TerminationReason::kProtocolViolation:
                 log_msg << " protocol violation: " << reason_str;
                 break;
-            case MoqTerminationReason::DUP_TRACK_ALIAS:
+            case TerminationReason::kDupTrackAlias:
                 log_msg << " duplicate track alias: " << reason_str;
                 break;
-            case MoqTerminationReason::PARAM_LEN_MISMATCH:
+            case TerminationReason::kParamLengthMismatch:
                 log_msg << " param length mismatch: " << reason_str;
                 break;
-            case MoqTerminationReason::GOAWAY_TIMEOUT:
+            case TerminationReason::kGoAwayTimeout:
                 log_msg << " goaway timeout: " << reason_str;
                 break;
         }
@@ -1195,138 +1496,5 @@ namespace quicr {
             stop_ = true;
         }
     }
-
-    bool Transport::ProcessStreamDataMessage(ConnectionContext& conn_ctx,
-                                             std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer)
-    {
-        if (stream_buffer->Empty()) { // should never happen
-            conn_ctx.metrics.rx_stream_buffer_error++;
-            SPDLOG_LOGGER_DEBUG(logger_, "Stream buffer cannot be zero when parsing message type, bad stream");
-
-            return false;
-        }
-
-        // Header not set, get the header for this stream or datagram
-        DataMessageType data_type;
-
-        auto dt = stream_buffer->GetAnyType();
-        if (dt.has_value()) {
-            data_type = static_cast<DataMessageType>(*dt);
-        } else {
-            auto val = stream_buffer->DecodeUintV();
-            data_type = static_cast<DataMessageType>(*val);
-            stream_buffer->SetAnyType(*val);
-        }
-
-        switch (data_type) {
-            case messages::DataMessageType::STREAM_HEADER_SUBGROUP: {
-                auto&& [msg, parsed] = ParseStreamData<MoqStreamHeaderSubGroup, MoqStreamSubGroupObject>(
-                  stream_buffer, DataMessageType::STREAM_HEADER_SUBGROUP);
-
-                if (!parsed) {
-                    break;
-                }
-
-                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
-                    conn_ctx.metrics.rx_dgram_unknown_subscribe_id++;
-                    SPDLOG_LOGGER_ERROR(
-                      logger_,
-                      "Received stream_header_subgroup to unknown subscribe track subscribe_id: {0}, ignored",
-                      msg.subscribe_id);
-
-                    // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
-                    stream_buffer->ResetAnyB<MoqStreamSubGroupObject>();
-                    return true;
-                }
-
-                auto& obj = stream_buffer->GetAnyB<MoqStreamSubGroupObject>();
-                if (*stream_buffer >> obj) {
-                    SPDLOG_LOGGER_TRACE(
-                      logger_,
-                      "Received stream_subgroup_object subscribe_id: {0} priority: {1} track_alias: {2} "
-                      "group_id: {3} subgroup_id: {4} object_id: {5} data size: {6}",
-                      msg.subscribe_id,
-                      msg.priority,
-                      msg.track_alias,
-                      msg.group_id,
-                      msg.subgroup_id,
-                      obj.object_id,
-                      obj.payload.size());
-
-                    auto& handler = sub_it->second;
-
-                    handler->subscribe_track_metrics_.objects_received++;
-                    handler->subscribe_track_metrics_.bytes_received += obj.payload.size();
-                    handler->ObjectReceived({ msg.group_id,
-                                              obj.object_id,
-                                              msg.subgroup_id,
-                                              obj.payload.size(),
-                                              obj.object_status,
-                                              msg.priority,
-                                              std::nullopt,
-                                              TrackMode::kStream,
-                                              obj.extensions },
-                                            obj.payload);
-
-                    stream_buffer->ResetAnyB<MoqStreamSubGroupObject>();
-                    return true;
-                }
-                break;
-            }
-            default:
-                // Process the stream object type
-                conn_ctx.metrics.rx_stream_invalid_type++;
-
-                SPDLOG_LOGGER_DEBUG(
-                  logger_, "Unsupported MOQT data message type: {0}, bad stream", static_cast<uint64_t>(data_type));
-                return false;
-        }
-
-        return false;
-    }
-
-    template<class MessageType>
-    std::pair<MessageType&, bool> Transport::ParseDataMessage(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-                                                              DataMessageType msg_type)
-    {
-        if (!stream_buffer->AnyHasValue()) {
-            SPDLOG_LOGGER_DEBUG(logger_,
-                                "Received stream message (type = {0}), init stream buffer",
-                                static_cast<std::uint64_t>(msg_type));
-            stream_buffer->InitAny<MessageType>(static_cast<uint64_t>(msg_type));
-        }
-
-        auto& msg = stream_buffer->GetAny<MessageType>();
-        if (*stream_buffer >> msg) {
-            return { msg, true };
-        }
-
-        return { msg, false };
-    }
-
-    template<class HeaderType, class MessageType>
-    std::pair<HeaderType&, bool> Transport::ParseStreamData(std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-                                                            DataMessageType msg_type)
-    {
-        if (!stream_buffer->AnyHasValue()) {
-            SPDLOG_LOGGER_TRACE(
-              logger_, "Received stream header (type = {0}), init stream buffer", static_cast<std::uint64_t>(msg_type));
-            stream_buffer->InitAny<HeaderType>(static_cast<uint64_t>(msg_type));
-        }
-
-        auto& msg = stream_buffer->GetAny<HeaderType>();
-        if (!stream_buffer->AnyHasValueB() && *stream_buffer >> msg) {
-            stream_buffer->InitAnyB<MessageType>();
-            return { msg, true };
-        }
-
-        return { msg, stream_buffer->AnyHasValueB() };
-    }
-
-    template std::pair<messages::MoqStreamHeaderSubGroup&, bool>
-    Transport::ParseStreamData<messages::MoqStreamHeaderSubGroup, messages::MoqStreamSubGroupObject>(
-      std::shared_ptr<SafeStreamBuffer<uint8_t>>& stream_buffer,
-      DataMessageType msg_type);
 
 } // namespace moq
