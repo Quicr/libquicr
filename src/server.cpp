@@ -715,8 +715,9 @@ namespace quicr {
                         largest_group = *opt_largest_group;
                         largest_object = *opt_largest_object;
 
-                        attrs.start_group =
-                          msg.preceding_group_offset <= largest_group ? largest_group - msg.preceding_group_offset : largest_group;
+                        attrs.start_group = msg.preceding_group_offset <= largest_group
+                                              ? largest_group - msg.preceding_group_offset
+                                              : largest_group;
                         attrs.start_object = 0;
                         attrs.end_group = largest_group;
                         attrs.end_object = largest_object;
