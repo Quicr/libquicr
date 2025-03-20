@@ -503,6 +503,12 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
             continue;
         }
 
+        if (object_id && object_id % 15 == 0) { // Set new group
+            object_id = 0;
+            subgroup_id = 0;
+            group_id++;
+        }
+
         std::string msg;
         if (qclient_vars::publish_clock) {
             std::this_thread::sleep_for(std::chrono::milliseconds(999));
@@ -511,12 +517,6 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
         } else { // stdin
             getline(std::cin, msg);
             SPDLOG_INFO("Send message: {0}", msg);
-        }
-
-        if (object_id && object_id % 15 == 0) { // Set new group
-            object_id = 0;
-            subgroup_id = 0;
-            group_id++;
         }
 
         quicr::ObjectHeaders obj_headers = {
