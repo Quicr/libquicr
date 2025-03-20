@@ -13,7 +13,7 @@ class ProtocolMessageParser:
         self.field_type_map = type_map
 
     def parse_field_definition(
-        self, line: str, group_name: str = None
+        self, message_name: str, line: str, group_name: str = None
     ) -> Field:
         """Parse a single field definition line."""
         # Remove comments and whitespace
@@ -38,30 +38,20 @@ class ProtocolMessageParser:
         is_repeated = "..." in line
         is_variable_length = parsed_field_type == ".."
 
-        if is_variable_length:
-            cpp_type = self.field_type_map.get(
-                name, f'#error "field_type_map look error for {name}"'
-            )  # rename type to the name
-            field_type = cpp_type
-
-        elif field_type == "tuple":
-            cpp_type = self.field_type_map.get(
-                name, f'#error "field_type_map look error for {name}"'
-            )  # rename type to the name
-            field_type = cpp_type
-
+        comp_name = f"{message_name}::{name.replace(" ","")}"
+        if comp_name in self.field_type_map:
+            cpp_type = self.field_type_map[comp_name]
+            name = f"{message_name}{name.replace(" ","")}"
+        elif name in self.field_type_map:
+            cpp_type = self.field_type_map[name]
+        elif spec_type in self.field_type_map:
+            cpp_type = self.field_type_map[spec_type]
         else:
-            if name in self.field_type_map:
-                cpp_type = self.field_type_map[name]
-            else:
-                cpp_type = self.field_type_map.get(
-                    spec_type,
-                    '#error "field_type_map look error for {spec_type}"',
-                )
+            cpp_type = f'#error "field_type_map look error for {name}"'
 
         cpp_using_type = None
         cpp_using_name = None
-        if is_repeated:  # this is a vector in C++
+        if is_repeated:  # this is a vector of {cpp_type} in C++
             cpp_using_type = f"std::vector<{cpp_type}>"
             cpp_using_name = name.replace(" ", "")
 
@@ -147,7 +137,7 @@ class ProtocolMessageParser:
                             line
                         ):  # If there's content before the closing bracket
                             field = self.parse_field_definition(
-                                line, current_group
+                                message_name, line, current_group
                             )
                             if field is not None:
                                 if current_group_field is not None:
@@ -160,7 +150,9 @@ class ProtocolMessageParser:
                         # Remove the opening bracket for the first line
                         line = line[1:].strip()
 
-                    field = self.parse_field_definition(line, current_group)
+                    field = self.parse_field_definition(
+                        message_name, line, current_group
+                    )
                     if field is not None:
                         if current_group_field is not None:
                             if field.is_variable_length:
@@ -177,7 +169,7 @@ class ProtocolMessageParser:
                 optional_groups[current_group] = group_fields
                 current_group = None
             else:
-                field = self.parse_field_definition(line)
+                field = self.parse_field_definition(message_name, line)
                 if field.name == "type":
                     if field.default_value is not None:
                         message_enum = int(field.default_value, 16)

@@ -28,9 +28,11 @@ def main(rfc_filename, output_name):
         "Filter Type": "quicr::ctrl_messages::FilterTypeEnum",
         "Group Order": "quicr::ctrl_messages::GroupOrderEnum",
         "Fetch Type": "quicr::ctrl_messages::FetchTypeEnum",
-        "SubscribeError::ErrorCode": "quicr::ctrl_message_types::SubscribeErrorCode",
-        "AnnounceError::ErrorCode": "quicr::ctrl_message_types::AnnounceErrorCode",
-        "AnnounceCancel::ErrorCode": "quicr::ctrl_message_types::AnnounceCancelErrorCode",
+        # "SubscribeError::ErrorCode": "quicr::ctrl_message_types::SubscribeErrorEnum",
+        # "AnnounceError::ErrorCode": "quicr::ctrl_message_types::AnnounceErrorEnum",
+        # "AnnounceCancel::ErrorCode": "quicr::ctrl_messages::AnnounceCancelErrorEnum",
+        # "SubscribeAnnouncesError::ErrorCode": "quicr::ctrl_message_types:SubscribeAnnouncesErrorEnum",
+        # "FetchError::ErrorCode": "quicr::ctrl_messages::FetchErrorEnum",
     }
 
     field_discards = ["Type", "Length"]
@@ -54,7 +56,7 @@ def main(rfc_filename, output_name):
                             print("gropu_file.cpp_using_name is None")
 
                 # if field.cpp_using_name is not None:
-                if field.spec_name != "Type" and field.spec_name != "Length":
+                if field.spec_name not in field_discards:
                     if field.is_optional is False:
                         using_map[field.cpp_using_name] = field
 
