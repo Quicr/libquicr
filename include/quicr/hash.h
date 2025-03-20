@@ -7,6 +7,8 @@
 #include <array>
 #include <string_view>
 #include <vector>
+#include <cstring>
+#include <cstdint>
 
 namespace quicr {
     /// The generated CRC-64 table.

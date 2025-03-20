@@ -1,0 +1,86 @@
+    /**
+     * @brief {{message.name}}
+     */
+    struct {{ message.name }}
+    {        
+        {% if message.optional_groups | length > 0 %}
+    public:
+        // Optional Groups
+            {% for group_name in message.optional_groups %}
+        struct {{group_name}} {
+            {% for field in message.optional_groups[group_name] %}
+            {{ field.cpp_using_name }} {{ field.name }};
+            {% endfor %}
+        };
+            {% endfor %}
+        {% endif %}
+
+    public:
+        {% if message.optional_groups | length == 0 %}
+        // Default constructor
+        {{message.name}} () {}
+        {% else %}
+        // Have optionals - delete default constructor
+        {{message.name}} () = delete;
+        {% endif %}
+        
+        // All fields constructor
+        {{message.name}} (
+            {% for field in message.fields %}
+                {% if field.spec_name not in field_discards %}
+                    {% if field.is_optional %}
+            std::function<void ({{message.name}}&)> optional_{{field.name}}_cb,
+            std::optional<{{ field.cpp_using_name }}> {{ field.name }}{{ "):" if loop.last else "," }}
+                    {% else %}
+            {{ field.cpp_using_name }} {{ field.name }}{{ "):" if loop.last else "," }}
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+            {% for field in message.fields %}
+                {% if field.name != "type" and field.name != "length" %}
+                {% if field.is_optional %}
+                optional_{{field.name}}_cb(optional_{{field.name}}_cb),
+                {% endif %}
+                {{ field.name }}({{ field.name }}){{ "," if not loop.last else ""}}
+                {% endif %}
+            {% endfor %}
+            {}
+
+        {% set ns = namespace(count=message.optional_groups|length ) %}            
+        {% if ns.count > 0 %}
+        // Optional callback constructor 
+
+        {{message.name}} (
+        {%for field in message.fields %}
+            {% if field.spec_name not in field_discards %}
+                {% if field.is_optional %}
+                {% set ns.count = ns.count -1 %}
+            std::function<void ({{message.name}}&)> optional_{{field.name}}_cb{{ "," if ns.count > 0}}
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+        );
+        {% endif %}
+
+    public:
+        {% for field in message.fields %}
+            {% if field.spec_name not in field_discards %}
+                {% if field.is_optional %}
+        std::function<void ({{message.name}}&)> optional_{{field.name}}_cb;
+        std::optional<{{ field.cpp_using_name }}> {{ field.name }};
+                {% else %}
+        {{ field.cpp_using_name }} {{ field.name }};
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+    };
+
+    Bytes& operator<<(Bytes& buffer, const {{ message.name }}& msg);
+    BytesSpan operator>>(BytesSpan buffer, {{ message.name }}& msg);    
+
+{% for group_name in message.optional_groups %}
+    Bytes& operator<<(Bytes& buffer, const std::optional<{{message.name}}::{{group_name}}>& grp);
+    BytesSpan operator>>(BytesSpan buffer, std::optional<{{message.name}}::{{group_name}}>& grp);
+
+{% endfor %}
+
