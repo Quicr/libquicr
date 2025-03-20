@@ -714,6 +714,7 @@ namespace quicr {
                             // TODO: Possibly missing "No Objects" code per the draft.
                             SendFetchError(
                               conn_ctx, msg.subscribe_id, messages::FetchErrorCode::kInvalidRange, "Nothing to give");
+                            return true;
                         }
                         largest_group = *opt_largest_group;
                         largest_object = *opt_largest_object;
