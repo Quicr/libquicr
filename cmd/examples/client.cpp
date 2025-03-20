@@ -116,8 +116,9 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
   public:
     MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
                             quicr::messages::FilterType filter_type,
+                            const std::optional<JoiningFetch>& joining_fetch,
                             const std::filesystem::path& dir = qclient_consts::kMoqDataDir)
-      : SubscribeTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending, filter_type)
+      : SubscribeTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending, filter_type, joining_fetch)
     {
         if (qclient_vars::record) {
             std::filesystem::create_directory(dir);
@@ -157,6 +158,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                     SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
                 }
             } break;
+
             default:
                 break;
         }
@@ -286,10 +288,11 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
           new MyFetchTrackHandler(full_track_name, start_group, end_group, start_object, end_object));
     }
 
-    void ObjectReceived(const quicr::ObjectHeaders&, quicr::BytesSpan data) override
+    void ObjectReceived(const quicr::ObjectHeaders& headers, quicr::BytesSpan data) override
     {
         std::string msg(data.begin(), data.end());
-        SPDLOG_INFO("Received message: {0}", msg);
+        SPDLOG_INFO(
+          "Received fetched object group_id: {} object_id: {} value: {}", headers.group_id, headers.object_id, msg);
     }
 
     void StatusChanged(Status status) override
@@ -300,6 +303,11 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
                     SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
                 }
             } break;
+
+            case Status::kError: {
+                SPDLOG_INFO("Fetch failed");
+                break;
+            }
             default:
                 break;
         }
@@ -534,9 +542,13 @@ void
 DoSubscriber(const quicr::FullTrackName& full_track_name,
              const std::shared_ptr<quicr::Client>& client,
              quicr::messages::FilterType filter_type,
-             const bool& stop)
+             const bool& stop,
+             bool join_fetch)
 {
-    auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type);
+    typedef quicr::SubscribeTrackHandler::JoiningFetch Fetch;
+    const auto joining_fetch =
+      join_fetch ? Fetch{ 4, quicr::messages::GroupOrder::kAscending, {}, 0 } : std::optional<Fetch>(std::nullopt);
+    const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type, joining_fetch);
 
     SPDLOG_INFO("Started subscriber");
 
@@ -596,6 +608,12 @@ DoFetch(const quicr::FullTrackName& full_track_name,
             SPDLOG_INFO("Fetching track");
             client->FetchTrack(track_handler);
             fetch_track = true;
+        }
+
+        if (track_handler->GetStatus() != quicr::FetchTrackHandler::Status::kOk) {
+            moq_example::terminate = true;
+            moq_example::cv.notify_all();
+            break;
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -726,7 +744,8 @@ main(int argc, char* argv[])
         ("track_alias", "Track alias to use", cxxopts::value<uint64_t>())
         ("new_group", "Requests a new group on subscribe")
         ("sub_announces", "Prefix namespace to subscribe announces to", cxxopts::value<std::string>())
-        ("record", "Record incoming data to moq and dat files", cxxopts::value<bool>());
+        ("record", "Record incoming data to moq and dat files", cxxopts::value<bool>())
+        ("joining_fetch", "Subscribe with a joining fetch", cxxopts::value<bool>());
 
     options.add_options("Fetcher")
         ("fetch_namespace", "Track namespace", cxxopts::value<std::string>())
@@ -805,12 +824,14 @@ main(int argc, char* argv[])
                     SPDLOG_INFO("Setting subscription filter to Latest Group");
                 }
             }
+            bool joining_fetch = result.count("joining_fetch") && result["joining_fetch"].as<bool>();
 
             const auto& sub_track_name = quicr::example::MakeFullTrackName(result["sub_namespace"].as<std::string>(),
                                                                            result["sub_name"].as<std::string>(),
                                                                            qclient_vars::track_alias);
 
-            sub_thread = std::thread(DoSubscriber, sub_track_name, client, filter_type, std::ref(stop_threads));
+            sub_thread =
+              std::thread(DoSubscriber, sub_track_name, client, filter_type, std::ref(stop_threads), joining_fetch);
         }
         if (enable_fetch) {
             const auto& fetch_track_name =

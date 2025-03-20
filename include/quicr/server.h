@@ -7,6 +7,7 @@
 #include <quicr/config.h>
 #include <quicr/detail/transport.h>
 #include <quicr/object.h>
+#include <quicr/publish_fetch_handler.h>
 #include <quicr/track_name.h>
 
 namespace quicr {
@@ -105,6 +106,20 @@ namespace quicr {
          */
         void UnbindPublisherTrack(ConnectionHandle connection_handle,
                                   const std::shared_ptr<PublishTrackHandler>& track_handler);
+
+        /**
+         * @brief Bind a server fetch publisher track handler.
+         * @param conn_id Connection Id of the client/fetcher.
+         * @param track_handler The fetch publisher.
+         */
+        void BindFetchTrack(TransportConnId conn_id, std::shared_ptr<PublishFetchHandler> track_handler);
+
+        /**
+         * @brief Unbind a server fetch publisher track handler.
+         * @param conn_id Connection ID of the client/fetcher.
+         * @param track_handler The fetch publisher.
+         */
+        void UnbindFetchTrack(ConnectionHandle conn_id, const std::shared_ptr<PublishFetchHandler>& track_handler);
 
         /**
          * @brief Accept or reject an subscribe that was received
@@ -274,20 +289,15 @@ namespace quicr {
          */
         virtual void UnsubscribeReceived(ConnectionHandle connection_handle, uint64_t subscribe_id) = 0;
 
+        // TODO: Their is probably a distinction between track not found, and no objects.
+        using LargestAvailable = std::optional<std::pair<messages::GroupId, messages::ObjectId>>;
+
         /**
-         * @brief Callback notification on Fetch message received.
-         *
-         * @param connection_handle Source connection ID.
-         * @param subscribe_id      Subscribe ID received.
-         * @param track_full_name   Track full name
-         * @param attributes        Fetch attributes received.
-         *
-         * @returns true if user defined conditions of Fetch are satisfied, false otherwise.
+         * @brief Get the largest available object for the given track, if any.
+         * @param track_name The track to lookup on.
+         * @return The largest available object, if any.
          */
-        virtual bool FetchReceived(ConnectionHandle connection_handle,
-                                   uint64_t subscribe_id,
-                                   const FullTrackName& track_full_name,
-                                   const FetchAttributes& attributes);
+        virtual LargestAvailable GetLargestAvailable(const FullTrackName& track_name);
 
         /**
          * @brief Event to run on sending FetchOk.
@@ -296,8 +306,10 @@ namespace quicr {
          * @param subscribe_id      Subscribe ID received.
          * @param track_full_name   Track full name
          * @param attributes        Fetch attributes received.
+         *
+         * @returns True to indicate fetch will send data, False if no data is within the requested range
          */
-        virtual void OnFetchOk(ConnectionHandle connection_handle,
+        virtual bool OnFetchOk(ConnectionHandle connection_handle,
                                uint64_t subscribe_id,
                                const FullTrackName& track_full_name,
                                const FetchAttributes& attributes);
@@ -317,6 +329,15 @@ namespace quicr {
 
       private:
         bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes) override;
+        PublishTrackHandler::PublishObjectStatus SendFetchObject(PublishFetchHandler& track_handler,
+                                                                 uint8_t priority,
+                                                                 uint32_t ttl,
+                                                                 bool stream_header_needed,
+                                                                 uint64_t group_id,
+                                                                 uint64_t subgroup_id,
+                                                                 uint64_t object_id,
+                                                                 std::optional<Extensions> extensions,
+                                                                 BytesSpan data) const;
 
         bool stop_{ false };
     };

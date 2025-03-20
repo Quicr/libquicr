@@ -99,7 +99,12 @@ namespace quicr::messages {
 
     enum class FetchErrorCode : uint8_t
     {
-        kTrackDoesNotExist = 0xF0 // Missing in draft
+        kInternalError = 0x0,
+        kUnauthorized = 0x1,
+        kTimeout = 0x2,
+        kNotSupported = 0x3,
+        kTrackDoesNotExist = 0x4,
+        kInvalidRange = 0x5,
     };
 
     // TODO (Suhas): rename it to StreamMapping
@@ -444,6 +449,8 @@ namespace quicr::messages {
         kJoiningFetch,
     };
 
+    // TODO(RichLogan): Consider a separate JoiningFetch structure.
+
     struct Fetch
     {
         uint64_t subscribe_id;
@@ -499,6 +506,44 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, FetchCancel& msg);
     Bytes& operator<<(Bytes& buffer, const FetchCancel& msg);
+
+    struct FetchHeader
+    {
+        uint64_t subscribe_id;
+
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, FetchHeader& msg);
+
+      private:
+        uint64_t current_pos{ 0 };
+        bool parse_completed{ false };
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, FetchHeader& msg);
+    Bytes& operator<<(Bytes& buffer, const FetchHeader& msg);
+
+    struct FetchObject
+    {
+        GroupId group_id;
+        SubGroupId subgroup_id;
+        ObjectId object_id;
+        ObjectPriority publisher_priority;
+        std::optional<Extensions> extensions;
+        uint64_t payload_len{ 0 };
+        ObjectStatus object_status;
+        Bytes payload;
+        template<class StreamBufferType>
+        friend bool operator>>(StreamBufferType& buffer, FetchObject& msg);
+
+      private:
+        uint64_t num_extensions{ 0 };
+        std::optional<uint64_t> current_tag{};
+        uint64_t current_pos{ 0 };
+        bool parse_completed{ false };
+    };
+
+    bool operator>>(Bytes& buffer, FetchObject& msg);
+    Bytes& operator<<(Bytes& buffer, const FetchObject& msg);
 
     //
     // Data Streams

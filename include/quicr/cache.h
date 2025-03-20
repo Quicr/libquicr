@@ -93,6 +93,7 @@ namespace quicr {
 
         std::vector<ValueType> Get(const K& start_key, const K& end_key)
         {
+
             if (!Contains(start_key, end_key)) {
                 return {};
             }
@@ -141,7 +142,7 @@ namespace quicr {
         inline void Advance()
         {
             const TickType new_ticks = tick_service_->Milliseconds();
-            const TickType delta = current_ticks_ ? new_ticks - current_ticks_ : 0;
+            const TickType delta = current_ticks_ ? (new_ticks - current_ticks_) / interval_ : 0;
             current_ticks_ = new_ticks;
 
             if (delta == 0) {
@@ -162,8 +163,6 @@ namespace quicr {
             }
 
             bucket_index_ = (bucket_index_ + delta) % total_buckets_;
-
-            return;
         }
 
         template<typename Value>
@@ -175,7 +174,7 @@ namespace quicr {
                 ttl = duration_;
             }
 
-            ttl = ttl / interval_;
+            ttl /= interval_;
 
             Advance();
             const IndexType future_index = (bucket_index_ + ttl - 1) % total_buckets_;
