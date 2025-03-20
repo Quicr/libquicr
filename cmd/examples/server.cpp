@@ -794,10 +794,10 @@ class MyServer : public quicr::Server
 
         qserver_vars::stop_fetch.try_emplace({ connection_handle, subscribe_id }, false);
 
-        std::unique_lock lock(moq_example::main_mutex);
-        const auto cache_entries =
-          qserver_vars::cache.at(th.track_fullname_hash).Get(attrs.start_group, attrs.end_group + 1);
-        lock.unlock();
+        const auto cache_entries = [&] {
+            std::lock_guard lock(moq_example::main_mutex);
+            return qserver_vars::cache.at(th.track_fullname_hash).Get(attrs.start_group, attrs.end_group + 1);
+        }();
 
         if (cache_entries.empty())
             return false;
