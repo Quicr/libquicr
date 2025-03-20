@@ -13,6 +13,10 @@ def main(rfc_filename, output_name):
         "16": "std::uint16_t",
         "32": "std::uint32_t",
         "64": "std::uint64_t",
+        "Start Group": "quicr::ctrl_messages::GroupId",
+        "End Group": "quicr::ctrl_messages::GroupId",
+        "Start Object": "quicr::ctrl_messages::ObjectId",
+        "End Object": "quicr::ctrl_messages::ObjectId",
         "Track Namespace": "quicr::TrackNamespace",
         "Track Name": "quicr::Bytes",
         "Track Namespace Prefix": "quicr::TrackNamespace",
@@ -29,6 +33,8 @@ def main(rfc_filename, output_name):
         "AnnounceCancel::ErrorCode": "quicr::ctrl_message_types::AnnounceCancelErrorCode",
     }
 
+    field_discards = ["Type", "Length"]
+
     parser = ProtocolMessageParser(type_map)
     generator = CodeGenerator("cpp")
     messages = []
@@ -39,8 +45,6 @@ def main(rfc_filename, output_name):
 
         using_map = {}
         for message in messages:
-            if message.name == "AnnounceCancel":
-                print("fetch")
             for field in message.fields:
                 if field.group_fields:
                     for group_field in field.group_fields:
@@ -50,28 +54,22 @@ def main(rfc_filename, output_name):
                             print("gropu_file.cpp_using_name is None")
 
                 # if field.cpp_using_name is not None:
-                if field.name != "type" and field.name != "length":
+                if field.spec_name != "Type" and field.spec_name != "Length":
                     if field.is_optional is False:
                         using_map[field.cpp_using_name] = field
 
-        # for message in messages:
-        #    if message.optional_groups is not None:
-        #        print(message.optional_groups)
-        # for message in messages:
-        #    for field in message.fields:
-        #        if field.is_optional:
-        #            print(field)
-        #        # print(f"{message.name} {field.name} {field.is_optional}")
-        # return
-
         if len(messages) > 0:
             with open(f"{output_name}.h", "w", encoding="utf8") as header_file:
-                output = generator.generate_header(messages, using_map)
+                output = generator.generate_header(
+                    messages, using_map, field_discards
+                )
                 print(output, file=header_file)
             with open(
                 f"{output_name}.cpp", "w", encoding="utf8"
             ) as source_file:
-                output = generator.generate_source(messages, using_map)
+                output = generator.generate_source(
+                    messages, using_map, field_discards
+                )
                 print(output, file=source_file)
         else:
             print("Protocol parser returned empty parsed messsages list.")

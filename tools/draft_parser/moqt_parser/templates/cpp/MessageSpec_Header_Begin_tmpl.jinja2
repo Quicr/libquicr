@@ -1,9 +1,7 @@
 #pragma once
 #include <vector>
-
-#include <quicr/track_name.h>
-
 #include <quicr/common.h>
+#include <quicr/track_name.h>
 #include "ctrl_message_types.h"
        
 namespace quicr::ctrl_messages {  
@@ -11,7 +9,10 @@ namespace quicr::ctrl_messages {
     struct Parameter
     {
         ParameterTypeEnum type{0};
-        uint64_t length{0};
         Bytes value;
     };
+
+    using GroupId = uint64_t;
+    using ObjectId = uint64_t;
+        
     

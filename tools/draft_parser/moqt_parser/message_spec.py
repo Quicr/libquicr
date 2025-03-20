@@ -10,6 +10,7 @@ class Field:
 
     name: str
     field_type: str
+    spec_name: str
     spec_type: str = None
     cpp_type: str = None
     cpp_using_type: str = None

@@ -1,36 +1,42 @@
 #include "quicr/detail/ctrl_message_types.h"
 
-namespace quicr::ctrl_messages
-{
+namespace quicr::ctrl_messages {
 
-    Bytes &operator<<(Bytes &buffer, BytesSpan bytes)
+    Bytes& operator<<(Bytes& buffer, Bytes bytes)
     {
         buffer << bytes.size(); // length of byte span
         buffer.insert(buffer.end(), bytes.begin(), bytes.end());
         return buffer;
     }
 
-    Bytes &operator<<(Bytes &buffer, UintVar varint)
+    Bytes& operator<<(Bytes& buffer, BytesSpan bytes)
+    {
+        buffer << bytes.size(); // length of byte span
+        buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, UintVar varint)
     {
         buffer.insert(buffer.end(), varint.begin(), varint.end());
         return buffer;
     }
 
-    Bytes &operator<<(Bytes &buffer, std::uint8_t value)
+    Bytes& operator<<(Bytes& buffer, std::uint8_t value)
     {
         // assign 8 bits - not a varint
         buffer.push_back(value);
         return buffer;
     }
 
-    Bytes &operator<<(Bytes &buffer, std::size_t value)
+    Bytes& operator<<(Bytes& buffer, std::size_t value)
     {
         UintVar varint = static_cast<std::uint64_t>(value);
         buffer << varint;
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, Bytes &value)
+    BytesSpan operator>>(BytesSpan buffer, Bytes& value)
     {
         uint64_t size = 0;
         buffer = buffer >> size;
@@ -38,27 +44,27 @@ namespace quicr::ctrl_messages
         return buffer.subspan(value.size());
     }
 
-    BytesSpan operator>>(BytesSpan buffer, uint8_t &value)
+    BytesSpan operator>>(BytesSpan buffer, uint8_t& value)
     {
         // need 8 bits - not a varint
         value = buffer[0];
         return buffer.subspan(sizeof(value));
     }
 
-    BytesSpan operator>>(BytesSpan buffer, uint64_t &value)
+    BytesSpan operator>>(BytesSpan buffer, uint64_t& value)
     {
         UintVar value_uv(buffer);
         value = static_cast<uint64_t>(value_uv);
         return buffer.subspan(value_uv.size());
     }
 
-    Bytes &operator<<(Bytes &buffer, ParameterTypeEnum value)
+    Bytes& operator<<(Bytes& buffer, ParameterTypeEnum value)
     {
         buffer << static_cast<std::uint64_t>(value);
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, ParameterTypeEnum &value)
+    BytesSpan operator>>(BytesSpan buffer, ParameterTypeEnum& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
@@ -66,13 +72,13 @@ namespace quicr::ctrl_messages
         return buffer;
     }
 
-    Bytes &operator<<(Bytes &buffer, GroupOrderEnum value)
+    Bytes& operator<<(Bytes& buffer, GroupOrderEnum value)
     {
         buffer << static_cast<std::uint64_t>(value);
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, GroupOrderEnum &value)
+    BytesSpan operator>>(BytesSpan buffer, GroupOrderEnum& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
@@ -80,13 +86,13 @@ namespace quicr::ctrl_messages
         return buffer;
     }
 
-    Bytes &operator<<(Bytes &buffer, FilterTypeEnum value)
+    Bytes& operator<<(Bytes& buffer, FilterTypeEnum value)
     {
         buffer << static_cast<std::uint64_t>(value);
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, FilterTypeEnum &value)
+    BytesSpan operator>>(BytesSpan buffer, FilterTypeEnum& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
@@ -94,13 +100,13 @@ namespace quicr::ctrl_messages
         return buffer;
     }
 
-    Bytes &operator<<(Bytes &buffer, FetchTypeEnum value)
+    Bytes& operator<<(Bytes& buffer, FetchTypeEnum value)
     {
         buffer << static_cast<std::uint64_t>(value);
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, FetchTypeEnum &value)
+    BytesSpan operator>>(BytesSpan buffer, FetchTypeEnum& value)
     {
         std::uint8_t uvalue;
         buffer = buffer >> uvalue;

@@ -1,31 +1,38 @@
-
+    {% set ns = namespace(count=message.optional_groups|length ) %}
+    {% if ns.count > 0 %}
     /*
-     * {{message.name}}
+     * {{message.name}} stream in constructor
      */
-    Bytes& operator<<(Bytes& buffer, const {{message.name}}& msg)
-    {
-        Bytes payload;
-
-        // fill out payload
-        {% for field in message.fields %}
-            {% if field.name != "type" and field.name != "length" %}
-                {% if field.is_repeated %}
-                    {% set repeated = "..." %}
+    {{message.name}}::{{message.name}}(
+        {%for field in message.fields %}
+            {% if field.spec_name not in field_discards %}
+                {% if field.is_optional %}
+                {% set ns.count = ns.count - 1 %}
+            std::function<void ({{message.name}}&)> optional_{{field.name}}_cb{{"," if ns.count > 0 }}
                 {% endif %}
-        payload << msg.{{field.name}}; // ({{field.spec_type}}) {{repeated}} << {{field.cpp_using_name}}
             {% endif %}
         {% endfor %}
-
-        // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::k{{message.message_type}});
-        buffer << payload;
-        return buffer;
+        ){{ ":" if message.optional_groups|length > 0 }}
+        {% set ns.count = message.optional_groups|length %}
+        {%for field in message.fields %}
+            {% if field.spec_name not in field_discards %}
+                {% if field.is_optional %}
+                    {% set ns.count = ns.count - 1 %}
+            optional_{{field.name}}_cb(optional_{{field.name}}_cb){{"," if ns.count > 0 }}
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+    {
     }
+    {% endif %}
 
+    /*
+     * {{message.name}} stream in
+     */
     BytesSpan operator>>(BytesSpan buffer, {{message.name}}& msg)
     {
         {% for field in message.fields %}
-            {% if field.name != "type" and field.name != "length" %}
+            {% if field.spec_name not in field_discards %}
                 {% if field.is_repeated %}
                     {% set repeated = "..." %}
                 {% endif %}
@@ -40,7 +47,39 @@
         return buffer;
     }
 
+    /*
+     * {{message.name}} stream out
+     */
+    Bytes& operator<<(Bytes& buffer, const {{message.name}}& msg)
+    {
+        Bytes payload;
+        // fill out payload
+        {% for field in message.fields %}
+            {% if field.spec_name not in field_discards %}
+                {% if field.is_repeated %}
+                    {% set repeated = "..." %}
+                {% endif %}
+        payload << msg.{{field.name}}; // ({{field.spec_type}}) {{repeated}} << {{field.cpp_using_name}}
+            {% endif %}
+        {% endfor %}
+
+        // fill out buffer
+        buffer << static_cast<std::uint64_t>(ControlMessageType::k{{message.message_type}});
+        buffer << BytesSpan(payload);
+        return buffer;
+    }
+
     {% for group_name in message.optional_groups %}
+    BytesSpan operator>>(BytesSpan buffer, std::optional<{{message.name}}::{{group_name}}>& grp)
+    {
+        if (grp.has_value()) {
+        {% for field in message.optional_groups[group_name] %}
+            buffer = buffer >> grp->{{field.name}}; // ({{field.spec_type}}) >> {{field.cpp_using_name}}
+        {% endfor %}
+        }
+        return buffer;
+    }  
+
     Bytes& operator<<(Bytes& buffer, const std::optional<{{message.name}}::{{group_name}}>& grp)
     {
         if (grp.has_value()) {
@@ -50,14 +89,4 @@
         }
         return buffer;
     }
-
-    BytesSpan operator>>(BytesSpan buffer, std::optional<{{message.name}}::{{group_name}}>& grp)
-    {
-        if (grp.has_value()) {
-        {% for field in message.optional_groups[group_name] %}
-            buffer = buffer >> grp->{{field.name}}; // ({{field.spec_type}}) >> {{field.cpp_using_name}}
-        {% endfor %}
-        }
-        return buffer;
-    }    
-{% endfor %}
+    {% endfor %}
