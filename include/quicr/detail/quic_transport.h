@@ -16,6 +16,7 @@
 #include <any>
 #include <array>
 #include <chrono>
+#include <cstdlib>
 #include <memory>
 #include <mutex>
 #include <optional>

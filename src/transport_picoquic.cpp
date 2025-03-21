@@ -463,7 +463,7 @@ PicoQuicTransport::Start()
     (void)picoquic_config_set_option(&config_, picoquic_option_ALPN, quicr_alpn);
     (void)picoquic_config_set_option(
       &config_, picoquic_option_CWIN_MIN, std::to_string(tconfig_.quic_cwin_minimum).c_str());
-    (void)picoquic_config_set_option(&config_, picoquic_option_MAX_CONNECTIONS, "10000");
+    (void)picoquic_config_set_option(&config_, picoquic_option_MAX_CONNECTIONS, "1");
 
     quic_ctx_ = picoquic_create_and_configure(&config_, PqEventCb, this, current_time, NULL);
 
@@ -1690,7 +1690,7 @@ PicoQuicTransport::Client(const TransportConnId conn_id)
             return;
         }
 
-        ret = picoquic_packet_loop(quic_ctx_, 0, PF_UNSPEC, 0, 2000000, 0, PqLoopCb, this);
+        ret = picoquic_packet_loop(quic_ctx_, 0, PF_UNSPEC, 0, 0x2048, 0, PqLoopCb, this);
 
         SPDLOG_LOGGER_INFO(logger, "picoquic ended with {0}", ret);
     }
