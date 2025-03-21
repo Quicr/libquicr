@@ -38,10 +38,12 @@ class ProtocolMessageParser:
         is_repeated = "..." in line
         is_variable_length = parsed_field_type == ".."
 
+        cpp_using_name = name.replace(" ", "")
         comp_name = f"{message_name}::{name.replace(" ","")}"
         if comp_name in self.field_type_map:
             cpp_type = self.field_type_map[comp_name]
-            name = f"{message_name}{name.replace(" ","")}"
+            # name = f"{message_name}_{name.replace(" ","")}"
+            cpp_using_name = f"{message_name}{name.replace(" ","")}"
         elif name in self.field_type_map:
             cpp_type = self.field_type_map[name]
         elif spec_type in self.field_type_map:
@@ -49,19 +51,10 @@ class ProtocolMessageParser:
         else:
             cpp_type = f'#error "field_type_map look error for {name}"'
 
-        cpp_using_type = None
-        cpp_using_name = None
+        cpp_using_type = f"{cpp_type}"
+
         if is_repeated:  # this is a vector of {cpp_type} in C++
             cpp_using_type = f"std::vector<{cpp_type}>"
-            cpp_using_name = name.replace(" ", "")
-
-        elif is_variable_length:  # this is a vector in C++
-            cpp_using_type = f"{cpp_type}"
-            cpp_using_name = name.replace(" ", "")
-
-        else:
-            cpp_using_type = f"{cpp_type}"
-            cpp_using_name = name.replace(" ", "")
 
         return Field(
             name=name.lower().replace(" ", "_"),

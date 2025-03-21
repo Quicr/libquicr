@@ -2,14 +2,14 @@
 
 namespace quicr::ctrl_messages {
 
-    Bytes& operator<<(Bytes& buffer, Bytes bytes)
+    Bytes& operator<<(Bytes& buffer, const Bytes& bytes)
     {
         buffer << bytes.size(); // length of byte span
         buffer.insert(buffer.end(), bytes.begin(), bytes.end());
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, BytesSpan bytes)
+    Bytes& operator<<(Bytes& buffer, const BytesSpan& bytes)
     {
         buffer << bytes.size(); // length of byte span
         buffer.insert(buffer.end(), bytes.begin(), bytes.end());
@@ -111,6 +111,76 @@ namespace quicr::ctrl_messages {
         std::uint8_t uvalue;
         buffer = buffer >> uvalue;
         value = static_cast<FetchTypeEnum>(uvalue);
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, AnnounceErrorCodeEnum value)
+    {
+        buffer << static_cast<std::uint64_t>(value);
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, AnnounceErrorCodeEnum& value)
+    {
+        std::uint64_t uvalue;
+        buffer = buffer >> uvalue;
+        value = static_cast<AnnounceErrorCodeEnum>(uvalue);
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, SubscribeAnnouncesErrorCodeEnum value)
+    {
+        buffer << static_cast<std::uint64_t>(value);
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesErrorCodeEnum& value)
+    {
+        std::uint64_t uvalue;
+        buffer = buffer >> uvalue;
+        value = static_cast<SubscribeAnnouncesErrorCodeEnum>(uvalue);
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, FetchErrorCodeEnum value)
+    {
+        buffer << static_cast<std::uint64_t>(value);
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, FetchErrorCodeEnum& value)
+    {
+        std::uint64_t uvalue;
+        buffer = buffer >> uvalue;
+        value = static_cast<FetchErrorCodeEnum>(uvalue);
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, SubscribeDoneStatusCodeEnum value)
+    {
+        buffer << static_cast<std::uint64_t>(value);
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribeDoneStatusCodeEnum& value)
+    {
+        std::uint64_t uvalue;
+        buffer = buffer >> uvalue;
+        value = static_cast<SubscribeDoneStatusCodeEnum>(uvalue);
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, SubscribeErrorCodeEnum value)
+    {
+        buffer << static_cast<std::uint64_t>(value);
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribeErrorCodeEnum& value)
+    {
+        std::uint64_t uvalue;
+        buffer = buffer >> uvalue;
+        value = static_cast<SubscribeErrorCodeEnum>(uvalue);
         return buffer;
     }
 

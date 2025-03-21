@@ -48,6 +48,20 @@ namespace quicr::ctrl_messages {
     Bytes& operator<<(Bytes& buffer, TrackStatusCodeEnum value);
     BytesSpan operator>>(BytesSpan buffer, TrackStatusCodeEnum& value);
 
+    enum class SubscribeDoneStatusCodeEnum : uint64_t
+    {
+        kInternalError = 0x00,
+        kUnauthorized,
+        kTrackEnded,
+        kSubscribtionEnded,
+        kGoingAway,
+        kExpired,
+        kTooFarBehind,
+    };
+
+    Bytes& operator<<(Bytes& buffer, SubscribeDoneStatusCodeEnum value);
+    BytesSpan operator>>(BytesSpan buffer, SubscribeDoneStatusCodeEnum& value);
+
     enum class FetchTypeEnum : uint8_t
     {
         kStandalone = 0x1,
@@ -73,11 +87,28 @@ namespace quicr::ctrl_messages {
 
     enum class FetchErrorCodeEnum : uint8_t
     {
-        kTrackDoesNotExist = 0xF0 // Missing in draft
+        kInternalError = 0x0,
+        kUnauthorized = 0x1,
+        kTimeout = 0x2,
+        kNotSupported = 0x3,
+        kTrackDoesNotExist = 0x4,
+        kInvalidRange = 0x5,
     };
 
     Bytes& operator<<(Bytes& buffer, FetchErrorCodeEnum value);
     BytesSpan operator>>(BytesSpan buffer, FetchErrorCodeEnum& value);
+
+    enum class AnnounceErrorCodeEnum : uint64_t
+    {
+        kInternalError = 0x0,
+        kUnauthorized,
+        kTimeout,
+        kNotSupported,
+        kUninterested
+    };
+
+    Bytes& operator<<(Bytes& buffer, AnnounceErrorCodeEnum value);
+    BytesSpan operator>>(BytesSpan buffer, AnnounceErrorCodeEnum& value);
 
     // TODO (Suhas): rename it to StreamMapping
     enum ForwardingPreferenceEnum : uint8_t
@@ -105,6 +136,9 @@ namespace quicr::ctrl_messages {
         kTrackNotExist = 0xF0 // Missing in draft
     };
 
+    Bytes& operator<<(Bytes& buffer, SubscribeErrorCodeEnum value);
+    BytesSpan operator>>(BytesSpan buffer, SubscribeErrorCodeEnum& value);
+
     enum class SubscribeAnnouncesErrorCodeEnum : uint64_t
     {
         kInternalError = 0x0,
@@ -114,10 +148,13 @@ namespace quicr::ctrl_messages {
         kNamespacePrefixUnknown,
     };
 
-    // SAH - verify this
-    Bytes& operator<<(Bytes& buffer, Bytes bytes);
+    Bytes& operator<<(Bytes& buffer, SubscribeAnnouncesErrorCodeEnum value);
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesErrorCodeEnum& value);
 
-    Bytes& operator<<(Bytes& buffer, BytesSpan bytes);
+    // SAH - verify this
+    Bytes& operator<<(Bytes& buffer, const Bytes& bytes);
+
+    Bytes& operator<<(Bytes& buffer, const BytesSpan& bytes);
     BytesSpan operator>>(BytesSpan buffer, Bytes& value);
 
     Bytes& operator<<(Bytes& buffer, std::size_t value);

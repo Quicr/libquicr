@@ -194,7 +194,7 @@ namespace quicr::ctrl_messages {
     BytesSpan operator>>(BytesSpan buffer, SubscribeError& msg)
     {
         buffer = buffer >> msg.subscribe_id; // (i)  >> SubscribeID
-        buffer = buffer >> msg.error_code; // (i)  >> ErrorCode
+        buffer = buffer >> msg.error_code; // (i)  >> SubscribeErrorErrorCode
         buffer = buffer >> msg.reason_phrase; // (..)  >> ReasonPhrase
         buffer = buffer >> msg.track_alias; // (i)  >> TrackAlias
         return buffer;
@@ -208,7 +208,7 @@ namespace quicr::ctrl_messages {
         Bytes payload;
         // fill out payload
         payload << msg.subscribe_id; // (i)  << SubscribeID
-        payload << msg.error_code; // (i)  << ErrorCode
+        payload << msg.error_code; // (i)  << SubscribeErrorErrorCode
         payload << msg.reason_phrase; // (..)  << ReasonPhrase
         payload << msg.track_alias; // (i)  << TrackAlias
 
@@ -277,7 +277,7 @@ namespace quicr::ctrl_messages {
     BytesSpan operator>>(BytesSpan buffer, AnnounceError& msg)
     {
         buffer = buffer >> msg.track_namespace; // (tuple)  >> TrackNamespace
-        buffer = buffer >> msg.error_code; // (i)  >> ErrorCode
+        buffer = buffer >> msg.error_code; // (i)  >> AnnounceErrorErrorCode
         buffer = buffer >> msg.reason_phrase; // (..)  >> ReasonPhrase
         return buffer;
     }
@@ -290,7 +290,7 @@ namespace quicr::ctrl_messages {
         Bytes payload;
         // fill out payload
         payload << msg.track_namespace; // (tuple)  << TrackNamespace
-        payload << msg.error_code; // (i)  << ErrorCode
+        payload << msg.error_code; // (i)  << AnnounceErrorErrorCode
         payload << msg.reason_phrase; // (..)  << ReasonPhrase
 
         // fill out buffer
@@ -356,7 +356,7 @@ namespace quicr::ctrl_messages {
     BytesSpan operator>>(BytesSpan buffer, SubscribeDone& msg)
     {
         buffer = buffer >> msg.subscribe_id; // (i)  >> SubscribeID
-        buffer = buffer >> msg.status_code; // (i)  >> StatusCode
+        buffer = buffer >> msg.status_code; // (i)  >> SubscribeDoneStatusCode
         buffer = buffer >> msg.stream_count; // (i)  >> StreamCount
         buffer = buffer >> msg.reason_phrase; // (..)  >> ReasonPhrase
         return buffer;
@@ -370,7 +370,7 @@ namespace quicr::ctrl_messages {
         Bytes payload;
         // fill out payload
         payload << msg.subscribe_id; // (i)  << SubscribeID
-        payload << msg.status_code; // (i)  << StatusCode
+        payload << msg.status_code; // (i)  << SubscribeDoneStatusCode
         payload << msg.stream_count; // (i)  << StreamCount
         payload << msg.reason_phrase; // (..)  << ReasonPhrase
 
@@ -387,7 +387,7 @@ namespace quicr::ctrl_messages {
     BytesSpan operator>>(BytesSpan buffer, AnnounceCancel& msg)
     {
         buffer = buffer >> msg.track_namespace; // (tuple)  >> TrackNamespace
-        buffer = buffer >> msg.error_code; // (i)  >> ErrorCode
+        buffer = buffer >> msg.error_code; // (i)  >> AnnounceCancelErrorCode
         buffer = buffer >> msg.reason_phrase; // (..)  >> ReasonPhrase
         return buffer;
     }
@@ -400,7 +400,7 @@ namespace quicr::ctrl_messages {
         Bytes payload;
         // fill out payload
         payload << msg.track_namespace; // (tuple)  << TrackNamespace
-        payload << msg.error_code; // (i)  << ErrorCode
+        payload << msg.error_code; // (i)  << AnnounceCancelErrorCode
         payload << msg.reason_phrase; // (..)  << ReasonPhrase
 
         // fill out buffer
@@ -553,7 +553,7 @@ namespace quicr::ctrl_messages {
     BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesError& msg)
     {
         buffer = buffer >> msg.track_namespace_prefix; // (tuple)  >> TrackNamespacePrefix
-        buffer = buffer >> msg.error_code; // (i)  >> ErrorCode
+        buffer = buffer >> msg.error_code; // (i)  >> SubscribeAnnouncesErrorErrorCode
         buffer = buffer >> msg.reason_phrase; // (..)  >> ReasonPhrase
         return buffer;
     }
@@ -566,7 +566,7 @@ namespace quicr::ctrl_messages {
         Bytes payload;
         // fill out payload
         payload << msg.track_namespace_prefix; // (tuple)  << TrackNamespacePrefix
-        payload << msg.error_code; // (i)  << ErrorCode
+        payload << msg.error_code; // (i)  << SubscribeAnnouncesErrorErrorCode
         payload << msg.reason_phrase; // (..)  << ReasonPhrase
 
         // fill out buffer
@@ -784,7 +784,7 @@ namespace quicr::ctrl_messages {
     BytesSpan operator>>(BytesSpan buffer, FetchError& msg)
     {
         buffer = buffer >> msg.subscribe_id; // (i)  >> SubscribeID
-        buffer = buffer >> msg.error_code; // (i)  >> ErrorCode
+        buffer = buffer >> msg.error_code; // (i)  >> FetchErrorErrorCode
         buffer = buffer >> msg.reason_phrase; // (..)  >> ReasonPhrase
         return buffer;
     }
@@ -797,7 +797,7 @@ namespace quicr::ctrl_messages {
         Bytes payload;
         // fill out payload
         payload << msg.subscribe_id; // (i)  << SubscribeID
-        payload << msg.error_code; // (i)  << ErrorCode
+        payload << msg.error_code; // (i)  << FetchErrorErrorCode
         payload << msg.reason_phrase; // (..)  << ReasonPhrase
 
         // fill out buffer
@@ -962,7 +962,7 @@ namespace quicr::ctrl_messages {
         uint64_t size = 0;
         buffer = buffer >> size;
 
-        for (int i = 0; i < size; ++i) {
+        for (uint64_t i = 0; i < size; ++i) {
             quicr::ctrl_messages::Parameter param;
             buffer = buffer >> param;
             params.push_back(param);
@@ -985,7 +985,7 @@ namespace quicr::ctrl_messages {
         uint64_t size = 0;
         buffer = buffer >> size;
 
-        for (int i = 0; i < size; ++i) {
+        for (uint64_t i = 0; i < size; ++i) {
             std::uint64_t elem;;
             buffer = buffer >> elem;
             vec.push_back(elem);

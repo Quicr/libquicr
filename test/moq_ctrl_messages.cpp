@@ -128,7 +128,7 @@ TEST_CASE("AnnounceError Message encode/decode")
 
     auto announce_err = AnnounceError{};
     announce_err.track_namespace = kTrackNamespaceConf;
-    announce_err.error_code = 0x1234;
+    announce_err.error_code = quicr::ctrl_messages::AnnounceErrorCodeEnum::kNotSupported;
     announce_err.reason_phrase = Bytes{ 0x1, 0x2, 0x3 };
     buffer << announce_err;
 
@@ -606,7 +606,7 @@ TEST_CASE("Error  Message encode/decode")
 
     auto subscribe_err = SubscribeError{};
     subscribe_err.subscribe_id = 0x1;
-    subscribe_err.error_code = 0;
+    subscribe_err.error_code = quicr::ctrl_messages::SubscribeErrorCodeEnum::kTrackDoesNotExist;
     subscribe_err.reason_phrase = Bytes{ 0x0, 0x1 };
     subscribe_err.track_alias = uint64_t(kTrackAliasAliceVideo);
     buffer << subscribe_err;
@@ -638,7 +638,7 @@ TEST_CASE("SubscribeDone  Message encode/decode")
 
     auto subscribe_done = SubscribeDone{};
     subscribe_done.subscribe_id = 0x1;
-    subscribe_done.status_code = 0x0;
+    subscribe_done.status_code = quicr::ctrl_messages::SubscribeDoneStatusCodeEnum::kExpired;
     subscribe_done.stream_count = 0x0;
     subscribe_done.reason_phrase = Bytes{ 0x0 };
 
@@ -659,7 +659,7 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
 
     auto subscribe_done = SubscribeDone{};
     subscribe_done.subscribe_id = 0x1;
-    subscribe_done.status_code = 0x0;
+    subscribe_done.status_code = quicr::ctrl_messages::SubscribeDoneStatusCodeEnum::kGoingAway;
     subscribe_done.stream_count = 0x0;
     subscribe_done.reason_phrase = Bytes{ 0x0 };
 
@@ -954,7 +954,7 @@ TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
     buffer.clear();
     auto fetch_error = FetchError{};
     fetch_error.subscribe_id = 0x1111;
-    fetch_error.error_code = 0x0;
+    fetch_error.error_code = quicr::ctrl_messages::FetchErrorCodeEnum::kInternalError;
 
     buffer << fetch_error;
 
@@ -1022,7 +1022,7 @@ TEST_CASE("Subscribe Announces Error encode/decode")
 
     auto msg = SubscribeAnnouncesError{};
     msg.track_namespace_prefix = TrackNamespace{ "cisco"s, "meetings"s, "video"s, "1080p"s };
-    msg.error_code = static_cast<std::uint64_t>(SubscribeAnnouncesErrorCodeEnum::kNamespacePrefixUnknown);
+    msg.error_code = quicr::ctrl_messages::SubscribeAnnouncesErrorCodeEnum::kNamespacePrefixUnknown;
     msg.reason_phrase = Bytes{ 0x1, 0x2, 0x3 };
     buffer << msg;
 

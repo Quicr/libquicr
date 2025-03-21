@@ -48,7 +48,7 @@
         uint64_t size = 0;
         buffer = buffer >> size;
 
-        for (int i = 0; i < size; ++i) {
+        for (uint64_t i = 0; i < size; ++i) {
             quicr::ctrl_messages::Parameter param;
             buffer = buffer >> param;
             params.push_back(param);
@@ -71,7 +71,7 @@
         uint64_t size = 0;
         buffer = buffer >> size;
 
-        for (int i = 0; i < size; ++i) {
+        for (uint64_t i = 0; i < size; ++i) {
             std::uint64_t elem;;
             buffer = buffer >> elem;
             vec.push_back(elem);

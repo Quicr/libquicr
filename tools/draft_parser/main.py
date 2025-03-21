@@ -28,11 +28,12 @@ def main(rfc_filename, output_name):
         "Filter Type": "quicr::ctrl_messages::FilterTypeEnum",
         "Group Order": "quicr::ctrl_messages::GroupOrderEnum",
         "Fetch Type": "quicr::ctrl_messages::FetchTypeEnum",
-        # "SubscribeError::ErrorCode": "quicr::ctrl_message_types::SubscribeErrorEnum",
-        # "AnnounceError::ErrorCode": "quicr::ctrl_message_types::AnnounceErrorEnum",
-        # "AnnounceCancel::ErrorCode": "quicr::ctrl_messages::AnnounceCancelErrorEnum",
-        # "SubscribeAnnouncesError::ErrorCode": "quicr::ctrl_message_types:SubscribeAnnouncesErrorEnum",
-        # "FetchError::ErrorCode": "quicr::ctrl_messages::FetchErrorEnum",
+        "SubscribeDone::StatusCode": "quicr::ctrl_messages::SubscribeDoneStatusCodeEnum",
+        "SubscribeError::ErrorCode": "quicr::ctrl_messages::SubscribeErrorCodeEnum",
+        "AnnounceError::ErrorCode": "quicr::ctrl_messages::AnnounceErrorCodeEnum",
+        "AnnounceCancel::ErrorCode": "quicr::ctrl_messages::AnnounceErrorCodeEnum",
+        "SubscribeAnnouncesError::ErrorCode": "quicr::ctrl_messages::SubscribeAnnouncesErrorCodeEnum",
+        "FetchError::ErrorCode": "quicr::ctrl_messages::FetchErrorCodeEnum",
     }
 
     field_discards = ["Type", "Length"]

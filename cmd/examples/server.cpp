@@ -141,8 +141,8 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
     MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name)
       : SubscribeTrackHandler(full_track_name,
                               3,
-                              quicr::messages::GroupOrder::kAscending,
-                              quicr::messages::FilterType::kLatestObject)
+                              quicr::ctrl_messages::GroupOrderEnum::kAscending,
+                              quicr::ctrl_messages::FilterTypeEnum::kLatestObject)
     {
     }
 
@@ -398,7 +398,7 @@ class MyServer : public quicr::Server
                     th.track_namespace_hash);
     }
 
-    std::pair<std::optional<quicr::messages::SubscribeAnnouncesErrorCode>, std::vector<quicr::TrackNamespace>>
+    std::pair<std::optional<quicr::ctrl_messages::SubscribeAnnouncesErrorCodeEnum>, std::vector<quicr::TrackNamespace>>
     SubscribeAnnouncesReceived(quicr::ConnectionHandle connection_handle,
                                const quicr::TrackNamespace& prefix_namespace,
                                const quicr::PublishAnnounceAttributes&) override
@@ -638,9 +638,9 @@ class MyServer : public quicr::Server
     void SubscribeReceived(quicr::ConnectionHandle connection_handle,
                            uint64_t subscribe_id,
                            uint64_t proposed_track_alias,
-                           [[maybe_unused]] quicr::messages::FilterType filter_type,
+                           [[maybe_unused]] quicr::ctrl_messages::FilterTypeEnum filter_type,
                            const quicr::FullTrackName& track_full_name,
-                           const quicr::SubscribeAttributes& attrs) override
+                           const quicr::ctrl_messages::SubscribeAttributes& attrs) override
     {
         auto th = quicr::TrackHash(track_full_name);
 
@@ -784,7 +784,7 @@ class MyServer : public quicr::Server
     bool OnFetchOk(quicr::ConnectionHandle connection_handle,
                    uint64_t subscribe_id,
                    const quicr::FullTrackName& track_full_name,
-                   const quicr::FetchAttributes& attrs) override
+                   const quicr::ctrl_messages::FetchAttributes& attrs) override
     {
         auto pub_fetch_h =
           quicr::PublishFetchHandler::Create(track_full_name, attrs.priority, subscribe_id, attrs.group_order, 50000);

@@ -255,7 +255,7 @@ namespace quicr {
          * @param announce_attributes   Announces attributes received
          */
         using SubscribeAnnouncesResponse =
-          std::pair<std::optional<messages::SubscribeAnnouncesErrorCode>, std::vector<TrackNamespace>>;
+          std::pair<std::optional<quicr::ctrl_messages::SubscribeAnnouncesErrorCodeEnum>, std::vector<TrackNamespace>>;
 
         virtual SubscribeAnnouncesResponse SubscribeAnnouncesReceived(
           ConnectionHandle connection_handle,
@@ -277,9 +277,9 @@ namespace quicr {
         virtual void SubscribeReceived(ConnectionHandle connection_handle,
                                        uint64_t subscribe_id,
                                        uint64_t proposed_track_alias,
-                                       quicr::messages::FilterType filter_type,
+                                       quicr::ctrl_messages::FilterTypeEnum filter_type,
                                        const FullTrackName& track_full_name,
-                                       const SubscribeAttributes& subscribe_attributes);
+                                       const quicr::ctrl_messages::SubscribeAttributes& subscribe_attributes);
 
         /**
          * @brief Callback notification on unsubscribe received
@@ -312,7 +312,7 @@ namespace quicr {
         virtual bool OnFetchOk(ConnectionHandle connection_handle,
                                uint64_t subscribe_id,
                                const FullTrackName& track_full_name,
-                               const FetchAttributes& attributes);
+                               const quicr::ctrl_messages::FetchAttributes& attributes);
 
         /**
          * @brief Callback notification on receiving a FetchCancel message.

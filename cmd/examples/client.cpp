@@ -115,10 +115,14 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 {
   public:
     MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
-                            quicr::messages::FilterType filter_type,
+                            quicr::ctrl_messages::FilterTypeEnum filter_type,
                             const std::optional<JoiningFetch>& joining_fetch,
                             const std::filesystem::path& dir = qclient_consts::kMoqDataDir)
-      : SubscribeTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending, filter_type, joining_fetch)
+      : SubscribeTrackHandler(full_track_name,
+                              3,
+                              quicr::ctrl_messages::GroupOrderEnum::kAscending,
+                              filter_type,
+                              joining_fetch)
     {
         if (qclient_vars::record) {
             std::filesystem::create_directory(dir);
@@ -269,7 +273,7 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
                         uint64_t end_object)
       : FetchTrackHandler(full_track_name,
                           3,
-                          quicr::messages::GroupOrder::kAscending,
+                          quicr::ctrl_messages::GroupOrderEnum::kAscending,
                           start_group,
                           end_group,
                           start_object,
@@ -361,9 +365,10 @@ class MyClient : public quicr::Client
         SPDLOG_INFO("Received unannounce for namespace_hash: {}", th.track_namespace_hash);
     }
 
-    void SubscribeAnnouncesStatusChanged(const quicr::TrackNamespace& track_namespace,
-                                         std::optional<quicr::messages::SubscribeAnnouncesErrorCode> error_code,
-                                         std::optional<quicr::messages::ReasonPhrase> reason) override
+    void SubscribeAnnouncesStatusChanged(
+      const quicr::TrackNamespace& track_namespace,
+      std::optional<quicr::ctrl_messages::SubscribeAnnouncesErrorCodeEnum> error_code,
+      std::optional<quicr::ctrl_messages::ReasonPhrase> reason) override
     {
         auto th = quicr::TrackHash({ track_namespace, {}, std::nullopt });
         if (!error_code.has_value()) {
@@ -541,13 +546,13 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
 void
 DoSubscriber(const quicr::FullTrackName& full_track_name,
              const std::shared_ptr<quicr::Client>& client,
-             quicr::messages::FilterType filter_type,
+             quicr::ctrl_messages::FilterTypeEnum filter_type,
              const bool& stop,
              bool join_fetch)
 {
     typedef quicr::SubscribeTrackHandler::JoiningFetch Fetch;
-    const auto joining_fetch =
-      join_fetch ? Fetch{ 4, quicr::messages::GroupOrder::kAscending, {}, 0 } : std::optional<Fetch>(std::nullopt);
+    const auto joining_fetch = join_fetch ? Fetch{ 4, quicr::ctrl_messages::GroupOrderEnum::kAscending, {}, 0 }
+                                          : std::optional<Fetch>(std::nullopt);
     const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type, joining_fetch);
 
     SPDLOG_INFO("Started subscriber");
@@ -817,10 +822,10 @@ main(int argc, char* argv[])
             pub_thread = std::thread(DoPublisher, pub_track_name, client, std::ref(stop_threads));
         }
         if (enable_sub) {
-            auto filter_type = quicr::messages::FilterType::kLatestObject;
+            auto filter_type = quicr::ctrl_messages::FilterTypeEnum::kLatestObject;
             if (result.count("start_point")) {
                 if (result["start_point"].as<uint64_t>() == 0) {
-                    filter_type = quicr::messages::FilterType::kLatestGroup;
+                    filter_type = quicr::ctrl_messages::FilterTypeEnum::kLatestGroup;
                     SPDLOG_INFO("Setting subscription filter to Latest Group");
                 }
             }

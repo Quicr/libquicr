@@ -37,19 +37,24 @@ namespace quicr::ctrl_messages {
     using JoiningSubscribeID = std::uint64_t;
     using PrecedingGroupOffset = std::uint64_t;
     using Parameters = std::vector<quicr::ctrl_messages::Parameter>;
-    using ErrorCode = std::uint64_t;
+    using AnnounceErrorErrorCode = quicr::ctrl_messages::AnnounceErrorCodeEnum;
     using ReasonPhrase = quicr::Bytes;
+    using AnnounceCancelErrorCode = quicr::ctrl_messages::AnnounceErrorCodeEnum;
     using TrackNamespacePrefix = quicr::TrackNamespace;
     using Expires = std::uint64_t;
     using ContentExists = std::uint8_t;
     using LargestGroupID = std::uint64_t;
     using LargestObjectID = std::uint64_t;
+    using SubscribeErrorErrorCode = quicr::ctrl_messages::SubscribeErrorCodeEnum;
     using EndOfTrack = std::uint8_t;
-    using StatusCode = std::uint64_t;
+    using FetchErrorErrorCode = quicr::ctrl_messages::FetchErrorCodeEnum;
+    using SubscribeDoneStatusCode = quicr::ctrl_messages::SubscribeDoneStatusCodeEnum;
     using StreamCount = std::uint64_t;
     using MaximumSubscribeID = std::uint64_t;
+    using StatusCode = std::uint64_t;
     using LastGroupID = std::uint64_t;
     using LastObjectID = std::uint64_t;
+    using SubscribeAnnouncesErrorErrorCode = quicr::ctrl_messages::SubscribeAnnouncesErrorCodeEnum;
 
     // enums
     enum class ControlMessageType : uint64_t
@@ -271,7 +276,7 @@ namespace quicr::ctrl_messages {
         // All fields constructor
         SubscribeError (
             SubscribeID subscribe_id,
-            ErrorCode error_code,
+            SubscribeErrorErrorCode error_code,
             ReasonPhrase reason_phrase,
             TrackAlias track_alias):
                 subscribe_id(subscribe_id),
@@ -284,7 +289,7 @@ namespace quicr::ctrl_messages {
 
     public:
         SubscribeID subscribe_id;
-        ErrorCode error_code;
+        SubscribeErrorErrorCode error_code;
         ReasonPhrase reason_phrase;
         TrackAlias track_alias;
     };
@@ -358,7 +363,7 @@ namespace quicr::ctrl_messages {
         // All fields constructor
         AnnounceError (
             TrackNamespace track_namespace,
-            ErrorCode error_code,
+            AnnounceErrorErrorCode error_code,
             ReasonPhrase reason_phrase):
                 track_namespace(track_namespace),
                 error_code(error_code),
@@ -369,7 +374,7 @@ namespace quicr::ctrl_messages {
 
     public:
         TrackNamespace track_namespace;
-        ErrorCode error_code;
+        AnnounceErrorErrorCode error_code;
         ReasonPhrase reason_phrase;
     };
 
@@ -439,7 +444,7 @@ namespace quicr::ctrl_messages {
         // All fields constructor
         SubscribeDone (
             SubscribeID subscribe_id,
-            StatusCode status_code,
+            SubscribeDoneStatusCode status_code,
             StreamCount stream_count,
             ReasonPhrase reason_phrase):
                 subscribe_id(subscribe_id),
@@ -452,7 +457,7 @@ namespace quicr::ctrl_messages {
 
     public:
         SubscribeID subscribe_id;
-        StatusCode status_code;
+        SubscribeDoneStatusCode status_code;
         StreamCount stream_count;
         ReasonPhrase reason_phrase;
     };
@@ -473,7 +478,7 @@ namespace quicr::ctrl_messages {
         // All fields constructor
         AnnounceCancel (
             TrackNamespace track_namespace,
-            ErrorCode error_code,
+            AnnounceCancelErrorCode error_code,
             ReasonPhrase reason_phrase):
                 track_namespace(track_namespace),
                 error_code(error_code),
@@ -484,7 +489,7 @@ namespace quicr::ctrl_messages {
 
     public:
         TrackNamespace track_namespace;
-        ErrorCode error_code;
+        AnnounceCancelErrorCode error_code;
         ReasonPhrase reason_phrase;
     };
 
@@ -647,7 +652,7 @@ namespace quicr::ctrl_messages {
         // All fields constructor
         SubscribeAnnouncesError (
             TrackNamespacePrefix track_namespace_prefix,
-            ErrorCode error_code,
+            SubscribeAnnouncesErrorErrorCode error_code,
             ReasonPhrase reason_phrase):
                 track_namespace_prefix(track_namespace_prefix),
                 error_code(error_code),
@@ -658,7 +663,7 @@ namespace quicr::ctrl_messages {
 
     public:
         TrackNamespacePrefix track_namespace_prefix;
-        ErrorCode error_code;
+        SubscribeAnnouncesErrorErrorCode error_code;
         ReasonPhrase reason_phrase;
     };
 
@@ -868,7 +873,7 @@ namespace quicr::ctrl_messages {
         // All fields constructor
         FetchError (
             SubscribeID subscribe_id,
-            ErrorCode error_code,
+            FetchErrorErrorCode error_code,
             ReasonPhrase reason_phrase):
                 subscribe_id(subscribe_id),
                 error_code(error_code),
@@ -879,7 +884,7 @@ namespace quicr::ctrl_messages {
 
     public:
         SubscribeID subscribe_id;
-        ErrorCode error_code;
+        FetchErrorErrorCode error_code;
         ReasonPhrase reason_phrase;
     };
 
@@ -1023,7 +1028,7 @@ namespace quicr::ctrl_messages {
         StartGroup start_group;   ///< Fetch starting group in range
         StartObject start_object; ///< Fetch starting object in group
         EndGroup end_group;       ///< Fetch final group in range
-        EndObject end_object;     ///< Fetch final object in group
+        std::optional<EndObject> end_object;     ///< Fetch final object in group
     };
 
     Bytes& operator<<(Bytes& buffer, ControlMessageType message_type);

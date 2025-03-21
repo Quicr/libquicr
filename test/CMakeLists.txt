@@ -3,7 +3,7 @@
 
 add_executable(quicr_test
     main.cpp
-    moq_messages.cpp
+    #moq_messages.cpp
     moq_ctrl_messages.cpp
     #moq_both_messages.cpp
     moq_test.cpp

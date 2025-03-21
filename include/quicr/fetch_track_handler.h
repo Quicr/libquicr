@@ -23,13 +23,16 @@ namespace quicr {
          * @param end_object The final object in a group.
          */
         FetchTrackHandler(const FullTrackName& full_track_name,
-                          messages::ObjectPriority priority,
-                          messages::GroupOrder group_order,
-                          messages::GroupId start_group,
-                          messages::GroupId end_group,
-                          messages::GroupId start_object,
-                          messages::GroupId end_object)
-          : SubscribeTrackHandler(full_track_name, priority, group_order, quicr::messages::FilterType::kLatestGroup)
+                          quicr::ctrl_messages::SubscriberPriority priority,
+                          quicr::ctrl_messages::GroupOrder group_order,
+                          quicr::ctrl_messages::GroupId start_group,
+                          quicr::ctrl_messages::GroupId end_group,
+                          quicr::ctrl_messages::GroupId start_object,
+                          quicr::ctrl_messages::GroupId end_object)
+          : SubscribeTrackHandler(full_track_name,
+                                  priority,
+                                  group_order,
+                                  quicr::ctrl_messages::FilterTypeEnum::kLatestGroup)
           , start_group_(start_group)
           , start_object_(start_object)
           , end_group_(end_group)
@@ -52,12 +55,12 @@ namespace quicr {
          * @returns Shared pointer to a Fetch track handler.
          */
         static std::shared_ptr<FetchTrackHandler> Create(const FullTrackName& full_track_name,
-                                                         messages::ObjectPriority priority,
-                                                         messages::GroupOrder group_order,
-                                                         messages::GroupId start_group,
-                                                         messages::GroupId end_group,
-                                                         messages::GroupId start_object,
-                                                         messages::GroupId end_object)
+                                                         quicr::ctrl_messages::SubscriberPriority priority,
+                                                         quicr::ctrl_messages::GroupOrderEnum group_order,
+                                                         quicr::ctrl_messages::GroupId start_group,
+                                                         quicr::ctrl_messages::GroupId end_group,
+                                                         quicr::ctrl_messages::GroupId start_object,
+                                                         quicr::ctrl_messages::GroupId end_object)
         {
             return std::shared_ptr<FetchTrackHandler>(new FetchTrackHandler(
               full_track_name, priority, group_order, start_group, end_group, start_object, end_object));
@@ -67,35 +70,35 @@ namespace quicr {
          * @brief Get the starting group id of the Fetch range.
          * @returns The starting group ID.
          */
-        constexpr const messages::GroupId& GetStartGroup() const noexcept { return start_group_; }
+        constexpr const quicr::ctrl_messages::GroupId& GetStartGroup() const noexcept { return start_group_; }
 
         /**
          * @brief Get the id of the group one past the end of the Fetch range.
          * @returns The ending group ID.
          */
-        constexpr const messages::GroupId& GetEndGroup() const noexcept { return end_group_; }
+        constexpr const quicr::ctrl_messages::GroupId& GetEndGroup() const noexcept { return end_group_; }
 
         /**
          * @brief Get the starting object id of the Group range.
          * @returns The starting object ID.
          */
-        constexpr const messages::GroupId& GetStartObject() const noexcept { return start_object_; }
+        constexpr const quicr::ctrl_messages::GroupId& GetStartObject() const noexcept { return start_object_; }
 
         /**
          * @brief Get the id of the object one past the end of the group range.
          * @returns The ending object ID.
          */
-        constexpr const messages::GroupId& GetEndObject() const noexcept { return end_object_; }
+        constexpr const quicr::ctrl_messages::GroupId& GetEndObject() const noexcept { return end_object_; }
 
         void StreamDataRecv(bool is_start,
                             uint64_t stream_id,
                             std::shared_ptr<const std::vector<uint8_t>> data) override;
 
       private:
-        messages::GroupId start_group_;
-        messages::GroupId start_object_;
-        messages::GroupId end_group_;
-        messages::GroupId end_object_;
+        quicr::ctrl_messages::GroupId start_group_;
+        quicr::ctrl_messages::GroupId start_object_;
+        quicr::ctrl_messages::GroupId end_group_;
+        quicr::ctrl_messages::GroupId end_object_;
 
         friend class Transport;
         friend class Client;
