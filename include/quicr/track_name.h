@@ -37,7 +37,7 @@ namespace quicr {
 
             std::size_t offset = 0;
             const auto add_entry = [&](auto&& e) {
-                const auto& entry = entries_.emplace_back(Span{ bytes_ }.subspan(offset, e.size()));
+                const auto& entry = entries_.emplace_back(Span<const uint8_t>{ bytes_ }.subspan(offset, e.size()));
                 hash_.emplace_back(quicr::hash({ entry.begin(), entry.end() }));
 
                 offset += e.size();
@@ -61,7 +61,7 @@ namespace quicr {
 
             std::size_t offset = 0;
             const auto add_entry = [&](auto&& e) {
-                const auto& entry = entries_.emplace_back(Span{ bytes_ }.subspan(offset, e.size()));
+                const auto& entry = entries_.emplace_back(Span<const uint8_t>{ bytes_ }.subspan(offset, e.size()));
                 hash_.emplace_back(quicr::hash({ entry.begin(), entry.end() }));
                 offset += e.size();
             };
@@ -84,7 +84,7 @@ namespace quicr {
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries) {
-                entries_[i] = Span{ bytes_ }.subspan(offset, entry.size());
+                entries_[i] = Span<const uint8_t>{ bytes_ }.subspan(offset, entry.size());
                 hash_.emplace_back(quicr::hash(entry));
                 offset += entry.size();
                 ++i;
@@ -105,7 +105,7 @@ namespace quicr {
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries) {
-                entries_[i] = Span{ bytes_ }.subspan(offset, entry.size());
+                entries_[i] = Span<const uint8_t>{ bytes_ }.subspan(offset, entry.size());
                 hash_.emplace_back(quicr::hash(entries_[i]));
                 offset += entry.size();
                 ++i;
@@ -120,7 +120,7 @@ namespace quicr {
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries_) {
-                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                entries_[i++] = Span<const uint8_t>{ bytes_ }.subspan(offset, entry.size());
                 offset += entry.size();
             }
         }
@@ -135,7 +135,7 @@ namespace quicr {
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries_) {
-                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                entries_[i++] = Span<const uint8_t>{ bytes_ }.subspan(offset, entry.size());
                 offset += entry.size();
             }
         }
@@ -149,7 +149,7 @@ namespace quicr {
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries_) {
-                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                entries_[i++] = Span<const uint8_t>{ bytes_ }.subspan(offset, entry.size());
                 offset += entry.size();
             }
 
@@ -165,7 +165,7 @@ namespace quicr {
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries_) {
-                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                entries_[i++] = Span<const uint8_t>{ bytes_ }.subspan(offset, entry.size());
                 offset += entry.size();
             }
 
