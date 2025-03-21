@@ -25,7 +25,7 @@ endif()
 
 configure_file( src/version.h.in ${CMAKE_BINARY_DIR}/include/quicr/version.h )
 
-IF (NOT UNIX AND NOT APPLE)
+IF (NOT UNIX AND NOT APPLE AND NOT PLATFORM_ESP_IDF)
     message(FATAL_ERROR "Unsupported platform, Linux and Apple are the only supported platforms")
 endif ()
 
@@ -53,6 +53,12 @@ endif()
 ###
 set (BUILD_SHARED_LIBS OFF)
 set (BUILD_STATIC_LIBS ON)
+
+if (NOT PLATFORM_ESP_IDF)
+    set (CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+    list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/transport/cmake)
+endif()
+
 set (CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/transport/cmake)
 
