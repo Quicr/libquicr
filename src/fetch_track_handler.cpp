@@ -27,7 +27,10 @@ namespace quicr {
             stream_buffer_.Push(*data);
         }
 
-        stream_buffer_.InitAnyB<messages::FetchObject>();
+        if (not stream_buffer_.AnyHasValueB()) {
+            stream_buffer_.InitAnyB<messages::FetchObject>();
+        }
+
         auto& obj = stream_buffer_.GetAnyB<messages::FetchObject>();
 
         if (stream_buffer_ >> obj) {
