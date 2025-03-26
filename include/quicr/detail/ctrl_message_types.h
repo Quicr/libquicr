@@ -3,6 +3,19 @@
 #include "quicr/detail/uintvar.h"
 
 namespace quicr::ctrl_messages {
+    quicr::Bytes& operator<<(quicr::Bytes& buffer, const quicr::Bytes& bytes);
+
+    quicr::Bytes& operator<<(quicr::Bytes& buffer, const quicr::BytesSpan& bytes);
+    quicr::BytesSpan operator>>(quicr::BytesSpan buffer, quicr::Bytes& value);
+
+    quicr::Bytes& operator<<(quicr::Bytes& buffer, std::size_t value);
+    quicr::BytesSpan operator>>(quicr::BytesSpan buffer, std::size_t& value);
+
+    quicr::Bytes& operator<<(quicr::Bytes& buffer, std::uint8_t value);
+    quicr::BytesSpan operator>>(quicr::BytesSpan buffer, uint8_t& value);
+
+    quicr::Bytes& operator<<(quicr::Bytes& buffer, const quicr::UintVar& value);
+
     enum struct ParameterTypeEnum : uint8_t
     {
         kPath = 0x1,
@@ -150,20 +163,4 @@ namespace quicr::ctrl_messages {
 
     Bytes& operator<<(Bytes& buffer, SubscribeAnnouncesErrorCodeEnum value);
     BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesErrorCodeEnum& value);
-
-    // SAH - verify this
-    Bytes& operator<<(Bytes& buffer, const Bytes& bytes);
-
-    Bytes& operator<<(Bytes& buffer, const BytesSpan& bytes);
-    BytesSpan operator>>(BytesSpan buffer, Bytes& value);
-
-    Bytes& operator<<(Bytes& buffer, std::size_t value);
-    BytesSpan operator>>(BytesSpan buffer, std::size_t& value);
-
-    Bytes& operator<<(Bytes& buffer, std::uint8_t value);
-    BytesSpan operator>>(BytesSpan buffer, uint8_t& value);
-
-    Bytes& operator<<(Bytes& buffer, UintVar value);
-    Bytes& operator<<(Bytes& buffer, UintVar value);
-
 } // namespace

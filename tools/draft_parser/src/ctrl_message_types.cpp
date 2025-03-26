@@ -16,7 +16,7 @@ namespace quicr::ctrl_messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, UintVar varint)
+    Bytes& operator<<(Bytes& buffer, const UintVar& varint)
     {
         buffer.insert(buffer.end(), varint.begin(), varint.end());
         return buffer;
@@ -60,7 +60,7 @@ namespace quicr::ctrl_messages {
 
     Bytes& operator<<(Bytes& buffer, ParameterTypeEnum value)
     {
-        buffer << static_cast<std::uint64_t>(value);
+        buffer << UintVar(value);
         return buffer;
     }
 

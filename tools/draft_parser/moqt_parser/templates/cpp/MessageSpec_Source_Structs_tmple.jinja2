@@ -8,7 +8,7 @@
             {% if field.spec_name not in field_discards %}
                 {% if field.is_optional %}
                 {% set ns.count = ns.count - 1 %}
-            std::function<void ({{message.name}}&)> optional_{{field.name}}_cb{{"," if ns.count > 0 }}
+            std::function<void ({{message.name}}&)> {{field.name}}_cb{{"," if ns.count > 0 }}
                 {% endif %}
             {% endif %}
         {% endfor %}
@@ -18,7 +18,7 @@
             {% if field.spec_name not in field_discards %}
                 {% if field.is_optional %}
                     {% set ns.count = ns.count - 1 %}
-            optional_{{field.name}}_cb(optional_{{field.name}}_cb){{"," if ns.count > 0 }}
+            {{field.name}}_cb({{field.name}}_cb){{"," if ns.count > 0 }}
                 {% endif %}
             {% endif %}
         {% endfor %}
@@ -37,7 +37,7 @@
                     {% set repeated = "..." %}
                 {% endif %}
                 {% if field.is_optional %}
-        if (msg.optional_{{field.name}}_cb) { msg.optional_{{field.name}}_cb(msg); }
+        if (msg.{{field.name}}_cb) { msg.{{field.name}}_cb(msg); }
         buffer = buffer >> msg.{{field.name}}; // ({{field.spec_type}}) {{repeated}} >> {{field.cpp_using_name}}
                 {% else %}
         buffer = buffer >> msg.{{field.name}}; // ({{field.spec_type}}) {{repeated}} >> {{field.cpp_using_name}}
@@ -59,13 +59,15 @@
                 {% if field.is_repeated %}
                     {% set repeated = "..." %}
                 {% endif %}
+                {% if field.is_variable_length %}
+                {% endif %}
         payload << msg.{{field.name}}; // ({{field.spec_type}}) {{repeated}} << {{field.cpp_using_name}}
             {% endif %}
         {% endfor %}
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::k{{message.message_type}});
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 

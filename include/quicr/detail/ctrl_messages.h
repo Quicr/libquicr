@@ -22,6 +22,7 @@ namespace quicr::ctrl_messages {
     using SelectedVersion = std::uint64_t;
     using NewSessionURI = quicr::Bytes;
     using SubscribeID = std::uint64_t;
+    using MaximumSubscribeID = std::uint64_t;
     using TrackAlias = std::uint64_t;
     using TrackNamespace = quicr::TrackNamespace;
     using TrackName = quicr::Bytes;
@@ -32,28 +33,27 @@ namespace quicr::ctrl_messages {
     using StartObject = quicr::ctrl_messages::ObjectId;
     using EndGroup = quicr::ctrl_messages::GroupId;
     using SubscribeParameters = std::vector<quicr::ctrl_messages::Parameter>;
-    using FetchType = quicr::ctrl_messages::FetchTypeEnum;
-    using EndObject = quicr::ctrl_messages::ObjectId;
-    using JoiningSubscribeID = std::uint64_t;
-    using PrecedingGroupOffset = std::uint64_t;
-    using Parameters = std::vector<quicr::ctrl_messages::Parameter>;
-    using AnnounceErrorErrorCode = quicr::ctrl_messages::AnnounceErrorCodeEnum;
-    using ReasonPhrase = quicr::Bytes;
-    using AnnounceCancelErrorCode = quicr::ctrl_messages::AnnounceErrorCodeEnum;
-    using TrackNamespacePrefix = quicr::TrackNamespace;
     using Expires = std::uint64_t;
     using ContentExists = std::uint8_t;
     using LargestGroupID = std::uint64_t;
     using LargestObjectID = std::uint64_t;
     using SubscribeErrorErrorCode = quicr::ctrl_messages::SubscribeErrorCodeEnum;
-    using EndOfTrack = std::uint8_t;
-    using FetchErrorErrorCode = quicr::ctrl_messages::FetchErrorCodeEnum;
+    using ReasonPhrase = quicr::Bytes;
     using SubscribeDoneStatusCode = quicr::ctrl_messages::SubscribeDoneStatusCodeEnum;
     using StreamCount = std::uint64_t;
-    using MaximumSubscribeID = std::uint64_t;
+    using FetchType = quicr::ctrl_messages::FetchTypeEnum;
+    using EndObject = quicr::ctrl_messages::ObjectId;
+    using JoiningSubscribeID = std::uint64_t;
+    using PrecedingGroupOffset = std::uint64_t;
+    using Parameters = std::vector<quicr::ctrl_messages::Parameter>;
+    using EndOfTrack = std::uint8_t;
+    using FetchErrorErrorCode = quicr::ctrl_messages::FetchErrorCodeEnum;
     using StatusCode = std::uint64_t;
     using LastGroupID = std::uint64_t;
     using LastObjectID = std::uint64_t;
+    using AnnounceErrorErrorCode = quicr::ctrl_messages::AnnounceErrorCodeEnum;
+    using AnnounceCancelErrorCode = quicr::ctrl_messages::AnnounceErrorCodeEnum;
+    using TrackNamespacePrefix = quicr::TrackNamespace;
     using SubscribeAnnouncesErrorErrorCode = quicr::ctrl_messages::SubscribeAnnouncesErrorCodeEnum;
 
     // enums
@@ -155,9 +155,9 @@ namespace quicr::ctrl_messages {
             SubscriberPriority subscriber_priority,
             GroupOrder group_order,
             FilterType filter_type,
-            std::function<void (Subscribe&)> optional_group_0_cb,
+            std::function<void (Subscribe&)> group_0_cb,
             std::optional<Subscribe::Group_0> group_0,
-            std::function<void (Subscribe&)> optional_group_1_cb,
+            std::function<void (Subscribe&)> group_1_cb,
             std::optional<Subscribe::Group_1> group_1,
             SubscribeParameters subscribe_parameters):
                 subscribe_id(subscribe_id),
@@ -167,9 +167,9 @@ namespace quicr::ctrl_messages {
                 subscriber_priority(subscriber_priority),
                 group_order(group_order),
                 filter_type(filter_type),
-                optional_group_0_cb(optional_group_0_cb),
+                group_0_cb(group_0_cb),
                 group_0(group_0),
-                optional_group_1_cb(optional_group_1_cb),
+                group_1_cb(group_1_cb),
                 group_1(group_1),
                 subscribe_parameters(subscribe_parameters)
             {}
@@ -178,8 +178,8 @@ namespace quicr::ctrl_messages {
         // Optional callback constructor 
 
         Subscribe (
-            std::function<void (Subscribe&)> optional_group_0_cb,
-            std::function<void (Subscribe&)> optional_group_1_cb
+            std::function<void (Subscribe&)> group_0_cb,
+            std::function<void (Subscribe&)> group_1_cb
         );
 
     public:
@@ -190,9 +190,9 @@ namespace quicr::ctrl_messages {
         SubscriberPriority subscriber_priority;
         GroupOrder group_order;
         FilterType filter_type;
-        std::function<void (Subscribe&)> optional_group_0_cb;
+        std::function<void (Subscribe&)> group_0_cb;
         std::optional<Subscribe::Group_0> group_0;
-        std::function<void (Subscribe&)> optional_group_1_cb;
+        std::function<void (Subscribe&)> group_1_cb;
         std::optional<Subscribe::Group_1> group_1;
         SubscribeParameters subscribe_parameters;
     };
@@ -228,14 +228,14 @@ namespace quicr::ctrl_messages {
             Expires expires,
             GroupOrder group_order,
             ContentExists content_exists,
-            std::function<void (SubscribeOk&)> optional_group_0_cb,
+            std::function<void (SubscribeOk&)> group_0_cb,
             std::optional<SubscribeOk::Group_0> group_0,
             SubscribeParameters subscribe_parameters):
                 subscribe_id(subscribe_id),
                 expires(expires),
                 group_order(group_order),
                 content_exists(content_exists),
-                optional_group_0_cb(optional_group_0_cb),
+                group_0_cb(group_0_cb),
                 group_0(group_0),
                 subscribe_parameters(subscribe_parameters)
             {}
@@ -244,7 +244,7 @@ namespace quicr::ctrl_messages {
         // Optional callback constructor 
 
         SubscribeOk (
-            std::function<void (SubscribeOk&)> optional_group_0_cb
+            std::function<void (SubscribeOk&)> group_0_cb
         );
 
     public:
@@ -252,7 +252,7 @@ namespace quicr::ctrl_messages {
         Expires expires;
         GroupOrder group_order;
         ContentExists content_exists;
-        std::function<void (SubscribeOk&)> optional_group_0_cb;
+        std::function<void (SubscribeOk&)> group_0_cb;
         std::optional<SubscribeOk::Group_0> group_0;
         SubscribeParameters subscribe_parameters;
     };
@@ -750,18 +750,18 @@ namespace quicr::ctrl_messages {
             SubscriberPriority subscriber_priority,
             GroupOrder group_order,
             FetchType fetch_type,
-            std::function<void (Fetch&)> optional_group_0_cb,
+            std::function<void (Fetch&)> group_0_cb,
             std::optional<Fetch::Group_0> group_0,
-            std::function<void (Fetch&)> optional_group_1_cb,
+            std::function<void (Fetch&)> group_1_cb,
             std::optional<Fetch::Group_1> group_1,
             Parameters parameters):
                 subscribe_id(subscribe_id),
                 subscriber_priority(subscriber_priority),
                 group_order(group_order),
                 fetch_type(fetch_type),
-                optional_group_0_cb(optional_group_0_cb),
+                group_0_cb(group_0_cb),
                 group_0(group_0),
-                optional_group_1_cb(optional_group_1_cb),
+                group_1_cb(group_1_cb),
                 group_1(group_1),
                 parameters(parameters)
             {}
@@ -770,8 +770,8 @@ namespace quicr::ctrl_messages {
         // Optional callback constructor 
 
         Fetch (
-            std::function<void (Fetch&)> optional_group_0_cb,
-            std::function<void (Fetch&)> optional_group_1_cb
+            std::function<void (Fetch&)> group_0_cb,
+            std::function<void (Fetch&)> group_1_cb
         );
 
     public:
@@ -779,9 +779,9 @@ namespace quicr::ctrl_messages {
         SubscriberPriority subscriber_priority;
         GroupOrder group_order;
         FetchType fetch_type;
-        std::function<void (Fetch&)> optional_group_0_cb;
+        std::function<void (Fetch&)> group_0_cb;
         std::optional<Fetch::Group_0> group_0;
-        std::function<void (Fetch&)> optional_group_1_cb;
+        std::function<void (Fetch&)> group_1_cb;
         std::optional<Fetch::Group_1> group_1;
         Parameters parameters;
     };

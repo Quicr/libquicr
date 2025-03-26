@@ -29,7 +29,7 @@ namespace quicr {
     {
     }
 
-    void Client::UnpublishedSubscribeReceived(const FullTrackName&, const SubscribeAttributes&)
+    void Client::UnpublishedSubscribeReceived(const FullTrackName&, const quicr::ctrl_messages::SubscribeAttributes&)
     {
         // TODO: add the default response
     }

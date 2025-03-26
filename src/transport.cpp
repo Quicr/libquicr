@@ -8,7 +8,7 @@
 #include <sstream>
 
 namespace quicr {
-    using namespace quicr::messages;
+    using namespace quicr::data_messages;
 
     static std::optional<std::tuple<std::string, uint16_t>> ParseConnectUri(const std::string& connect_uri)
     {
@@ -295,10 +295,10 @@ namespace quicr {
     void Transport::SendSubscribeUpdate(quicr::Transport::ConnectionContext& conn_ctx,
                                         uint64_t subscribe_id,
                                         quicr::TrackHash th,
-                                        messages::GroupId start_group_id,
-                                        messages::ObjectId start_object_id,
-                                        messages::GroupId end_group_id,
-                                        messages::ObjectPriority priority)
+                                        ctrl_messages::GroupId start_group_id,
+                                        ctrl_messages::ObjectId start_object_id,
+                                        ctrl_messages::GroupId end_group_id,
+                                        ctrl_messages::SubscriberPriority priority)
     {
         auto subscribe_update = quicr::ctrl_messages::SubscribeUpdate(
           subscribe_id, start_group_id, start_object_id, end_group_id, priority, {});
@@ -322,8 +322,8 @@ namespace quicr {
                                     uint64_t subscribe_id,
                                     uint64_t expires,
                                     bool content_exists,
-                                    messages::GroupId largest_group_id,
-                                    messages::ObjectId largest_object_id)
+                                    ctrl_messages::LargestGroupID largest_group_id,
+                                    ctrl_messages::LargestObjectID largest_object_id)
     {
         auto group_0 =
           std::make_optional<quicr::ctrl_messages::SubscribeOk::Group_0>({ largest_group_id, largest_object_id });
@@ -425,7 +425,7 @@ namespace quicr {
     void Transport::SendSubscribeAnnouncesError(ConnectionContext& conn_ctx,
                                                 const TrackNamespace& prefix_namespace,
                                                 quicr::ctrl_messages::SubscribeAnnouncesErrorCodeEnum err_code,
-                                                const ReasonPhrase& reason)
+                                                const quicr::ctrl_messages::ReasonPhrase& reason)
     {
 
         auto msg = quicr::ctrl_messages::SubscribeAnnouncesError(
@@ -1014,7 +1014,7 @@ namespace quicr {
 
         switch (track_handler.default_track_mode_) {
             case TrackMode::kDatagram: {
-                ObjectDatagram object;
+                data_messages::ObjectDatagram object;
                 object.group_id = group_id;
                 object.object_id = object_id;
                 object.priority = priority;
@@ -1033,7 +1033,7 @@ namespace quicr {
                     eflags.clear_tx_queue = true;
                     eflags.use_reset = true;
 
-                    StreamHeaderSubGroup subgroup_hdr;
+                    data_messages::StreamHeaderSubGroup subgroup_hdr;
                     subgroup_hdr.group_id = group_id;
                     subgroup_hdr.subgroup_id = subgroup_id;
                     subgroup_hdr.priority = priority;
@@ -1056,7 +1056,7 @@ namespace quicr {
                     eflags.use_reset = false;
                 }
 
-                StreamSubGroupObject object;
+                data_messages::StreamSubGroupObject object;
                 object.object_id = object_id;
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
@@ -1321,11 +1321,11 @@ namespace quicr {
                 auto cursor_it = std::next(data.begin(), type_sz);
 
                 bool break_loop = false;
-                switch (static_cast<DataMessageType>(msg_type)) {
-                    case DataMessageType::kStreamHeaderSubgroup:
+                switch (static_cast<data_messages::DataMessageType>(msg_type)) {
+                    case data_messages::DataMessageType::kStreamHeaderSubgroup:
                         break_loop = OnRecvSubgroup(cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
                         break;
-                    case DataMessageType::kFetchHeader:
+                    case data_messages::DataMessageType::kFetchHeader:
                         break_loop = OnRecvFetch(cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
                         break;
                     default:
@@ -1437,7 +1437,7 @@ namespace quicr {
 
     void Transport::OnRecvDgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id)
     {
-        ObjectDatagram object_datagram_out;
+        data_messages::ObjectDatagram object_datagram_out;
         for (int i = 0; i < kReadLoopMaxPerStream; i++) {
             auto data = quic_transport_->Dequeue(conn_id, data_ctx_id);
             if (data && !data->empty() && data->size() > 3) {
@@ -1445,7 +1445,7 @@ namespace quicr {
 
                 // TODO: Handle ObjectDatagramStatus objects as well.
 
-                if (!msg_type || static_cast<DataMessageType>(msg_type) != DataMessageType::kObjectDatagram) {
+                if (!msg_type || static_cast<data_messages::DataMessageType>(msg_type) != data_messages::DataMessageType::kObjectDatagram) {
                     SPDLOG_LOGGER_DEBUG(logger_,
                                         "Received datagram that is not message type kObjectDatagram or "
                                         "kObjectDatagramStatus, dropping");

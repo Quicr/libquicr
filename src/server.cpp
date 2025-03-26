@@ -337,7 +337,7 @@ namespace quicr {
             eflags.clear_tx_queue = true;
             eflags.use_reset = true;
 
-            messages::FetchHeader fetch_header{};
+            data_messages::FetchHeader fetch_header{};
             fetch_header.subscribe_id = subscribe_id;
             track_handler.object_msg_buffer_ << fetch_header;
 
@@ -356,7 +356,7 @@ namespace quicr {
             eflags.use_reset = false;
         }
 
-        messages::FetchObject object{};
+        data_messages::FetchObject object{};
         object.group_id = group_id;
         object.subgroup_id = subgroup_id;
         object.object_id = object_id;

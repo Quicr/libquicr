@@ -256,25 +256,25 @@ namespace quicr {
                 std::optional<quicr::ctrl_messages::GroupId> largest_group_id{ std::nullopt };
                 std::optional<quicr::ctrl_messages::ObjectId> largest_object_id{ std::nullopt };
             };
-            std::map<messages::SubscribeId, SubscribeContext> recv_sub_id;
+            std::map<ctrl_messages::SubscribeID, SubscribeContext> recv_sub_id;
 
             /// Tracks by subscribe ID (Subscribe and Fetch)
-            std::map<messages::SubscribeId, std::shared_ptr<SubscribeTrackHandler>> tracks_by_sub_id;
+            std::map<ctrl_messages::SubscribeID, std::shared_ptr<SubscribeTrackHandler>> tracks_by_sub_id;
 
             /// Subscribes by Track Alais is used for data object forwarding
-            std::map<messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> sub_by_track_alias;
+            std::map<ctrl_messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> sub_by_track_alias;
 
             /// Publish tracks by namespace and name. map[track namespace][track name] = track handler
             std::map<TrackNamespaceHash, std::map<TrackNameHash, std::shared_ptr<PublishTrackHandler>>>
               pub_tracks_by_name;
 
-            std::map<messages::TrackAlias, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_track_alias;
+            std::map<ctrl_messages::TrackAlias, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_track_alias;
 
             /// Published tracks by quic transport data context ID.
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
 
             /// Fetch Publishers by subscribe ID.
-            std::map<messages::SubscribeId, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_sub_id;
+            std::map<ctrl_messages::SubscribeID, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_sub_id;
 
             ConnectionMetrics metrics{}; ///< Connection metrics
 
@@ -344,7 +344,7 @@ namespace quicr {
         void SendSubscribeAnnouncesError(ConnectionContext& conn_ctx,
                                          const TrackNamespace& prefix_namespace,
                                          quicr::ctrl_messages::SubscribeAnnouncesErrorCodeEnum err_code,
-                                         const messages::ReasonPhrase& reason);
+                                         const quicr::ctrl_messages::ReasonPhrase& reason);
 
         void SendFetch(ConnectionContext& conn_ctx,
                        uint64_t subscribe_id,

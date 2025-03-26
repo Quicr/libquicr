@@ -4,6 +4,7 @@
 #pragma once
 
 #include "quicr/common.h"
+#include "quicr/detail/ctrl_messages.h"
 #include "quicr/object.h"
 #include "quicr/track_name.h"
 #include "stream_buffer.h"
@@ -12,69 +13,11 @@
 #include <string>
 #include <vector>
 
-namespace quicr::messages {
-
-    using Version = uint64_t;
-    using TrackName = Bytes;
-    using ErrorCode = uint64_t;
-    using StatusCode = uint64_t;
-    using ReasonPhrase = Bytes;
-    using GroupId = uint64_t;
-    using SubGroupId = uint64_t;
-    using ObjectId = uint64_t;
+namespace quicr::data_messages {
+    using SubGroupId = quicr::ctrl_messages::GroupId;
+    using ObjectId = quicr::ctrl_messages::ObjectId;
     using ObjectPriority = uint8_t;
-    using SubscribeId = uint64_t;
-    using TrackAlias = uint64_t;
-    using ParamType = uint64_t;
-    using Extensions = std::map<uint64_t, std::vector<uint8_t>>;
-
-    enum class TerminationReason : uint64_t
-    {
-        kNoError = 0x0,
-        kInternalError,
-        kUnauthorized,
-        kProtocolViolation,
-        kDupTrackAlias,
-        kParamLengthMismatch,
-
-        kGoAwayTimeout = 0x10,
-    };
-
-    // Ref: https://moq-wg.github.io/moq-transport/draft-ietf-moq-transport.html#name-messages
-    enum class ControlMessageType : uint64_t
-    {
-        kSubscribeUpdate = 0x02,
-        kSubscribe,
-        kSubscribeOk,
-        kSubscribeError,
-        kAnnounce,
-        kAnnounceOk,
-        kAnnounceError,
-        kUnannounce,
-        kUnsubscribe,
-        kSubscribeDone,
-        kAnnounceCancel,
-        kTrackStatusRequest,
-        kTrackStatus,
-
-        kGoAway = 0x10,
-        kSubscribeAnnounces,
-        kSubscribeAnnouncesOk,
-        kSubscribeAnnouncesError,
-        kUnsubscribeAnnounces,
-
-        kMaxSubscribeID = 0x15,
-        kFetch,
-        kFetchCancel,
-        kFetchOk,
-        kFetchError,
-        kSubscribesBlocked,
-
-        kClientSetup = 0x40,
-        kServerSetup,
-
-        kNewGroup, // Missing in draft
-    };
+    using Extensions = std::map<uint64_t, Bytes>;
 
     enum class DataMessageType : uint8_t
     {
@@ -83,62 +26,6 @@ namespace quicr::messages {
         kStreamHeaderSubgroup = 0x04,
         kFetchHeader = 0x5,
     };
-
-    enum struct ParameterType : uint8_t
-    {
-        kPath = 0x1,
-        kMaxSubscribeId = 0x2, // version specific, unused
-        kEndpointId = 0xF0,    // Endpoint ID, using temp value for now
-        kInvalid = 0xFF,       // used internally.
-    };
-
-    Bytes& operator<<(Bytes& buffer, BytesSpan bytes);
-
-    struct Parameter
-    {
-        uint64_t type{ 0 };
-        uint64_t length{ 0 };
-        Bytes value;
-    };
-
-    BytesSpan operator>>(BytesSpan buffer, Parameter& msg);
-    Bytes& operator<<(Bytes& buffer, const Parameter& msg);
-
-#if 0
-    enum class SubscribeErrorCode : uint8_t
-    {
-        kInternalError = 0x0,
-        kUnauthorized,
-        kTimeout,
-        kNotSupported,
-        kTrackDoesNotExist,
-        kInvalidRange,
-        kRetryTrackAlias,
-
-        kTrackNotExist = 0xF0 // Missing in draft
-    };
-
-    enum class FetchErrorCode : uint8_t
-    {
-        kInternalError = 0x0,
-        kUnauthorized = 0x1,
-        kTimeout = 0x2,
-        kNotSupported = 0x3,
-        kTrackDoesNotExist = 0x4,
-        kInvalidRange = 0x5,
-    };
-
-    // TODO (Suhas): rename it to StreamMapping
-    enum ForwardingPreference : uint8_t
-    {
-        kStreamPerGroup = 0,
-        kStreamPerObject,
-        kStreamPerPriority,
-        kStreamPerTrack,
-        kDatagram
-    };
-
-#endif
 
     struct FetchHeader
     {
@@ -157,7 +44,7 @@ namespace quicr::messages {
 
     struct FetchObject
     {
-        GroupId group_id;
+        ctrl_messages::GroupId group_id;
         SubGroupId subgroup_id;
         ObjectId object_id;
         ObjectPriority publisher_priority;
@@ -184,8 +71,8 @@ namespace quicr::messages {
 
     struct ObjectDatagram
     {
-        TrackAlias track_alias;
-        GroupId group_id;
+        ctrl_messages::TrackAlias track_alias;
+        ctrl_messages::GroupId group_id;
         ObjectId object_id;
         ObjectPriority priority;
         std::optional<Extensions> extensions;
@@ -207,8 +94,8 @@ namespace quicr::messages {
 
     struct ObjectDatagramStatus
     {
-        TrackAlias track_alias;
-        GroupId group_id;
+        ctrl_messages::TrackAlias track_alias;
+        ctrl_messages::GroupId group_id;
         ObjectId object_id;
         ObjectPriority priority;
         ObjectStatus status;
@@ -226,8 +113,8 @@ namespace quicr::messages {
     // SubGroups
     struct StreamHeaderSubGroup
     {
-        TrackAlias track_alias;
-        GroupId group_id;
+        ctrl_messages::TrackAlias track_alias;
+        ctrl_messages::GroupId group_id;
         SubGroupId subgroup_id;
         ObjectPriority priority;
         template<class StreamBufferType>
@@ -261,4 +148,4 @@ namespace quicr::messages {
     bool operator>>(Bytes& buffer, StreamSubGroupObject& msg);
     Bytes& operator<<(Bytes& buffer, const StreamSubGroupObject& msg);
 
-} // end of namespace quicr::messages
+} // end of namespace quicr::data_messages

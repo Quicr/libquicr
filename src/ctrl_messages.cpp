@@ -33,7 +33,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeUpdate);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -41,11 +41,11 @@ namespace quicr::ctrl_messages {
      * Subscribe stream in constructor
      */
     Subscribe::Subscribe(
-            std::function<void (Subscribe&)> optional_group_0_cb,
-            std::function<void (Subscribe&)> optional_group_1_cb
+            std::function<void (Subscribe&)> group_0_cb,
+            std::function<void (Subscribe&)> group_1_cb
         ):
-            optional_group_0_cb(optional_group_0_cb),
-            optional_group_1_cb(optional_group_1_cb)
+            group_0_cb(group_0_cb),
+            group_1_cb(group_1_cb)
     {
     }
 
@@ -61,9 +61,9 @@ namespace quicr::ctrl_messages {
         buffer = buffer >> msg.subscriber_priority; // (8)  >> SubscriberPriority
         buffer = buffer >> msg.group_order; // (8)  >> GroupOrder
         buffer = buffer >> msg.filter_type; // (i)  >> FilterType
-        if (msg.optional_group_0_cb) { msg.optional_group_0_cb(msg); }
+        if (msg.group_0_cb) { msg.group_0_cb(msg); }
         buffer = buffer >> msg.group_0; // (optional group)  >> Subscribe::Group_0
-        if (msg.optional_group_1_cb) { msg.optional_group_1_cb(msg); }
+        if (msg.group_1_cb) { msg.group_1_cb(msg); }
         buffer = buffer >> msg.group_1; // (optional group)  >> Subscribe::Group_1
         buffer = buffer >> msg.subscribe_parameters; // (..) ... >> SubscribeParameters
         return buffer;
@@ -89,7 +89,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribe);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -129,9 +129,9 @@ namespace quicr::ctrl_messages {
      * SubscribeOk stream in constructor
      */
     SubscribeOk::SubscribeOk(
-            std::function<void (SubscribeOk&)> optional_group_0_cb
+            std::function<void (SubscribeOk&)> group_0_cb
         ):
-            optional_group_0_cb(optional_group_0_cb)
+            group_0_cb(group_0_cb)
     {
     }
 
@@ -144,7 +144,7 @@ namespace quicr::ctrl_messages {
         buffer = buffer >> msg.expires; // (i)  >> Expires
         buffer = buffer >> msg.group_order; // (8)  >> GroupOrder
         buffer = buffer >> msg.content_exists; // (8)  >> ContentExists
-        if (msg.optional_group_0_cb) { msg.optional_group_0_cb(msg); }
+        if (msg.group_0_cb) { msg.group_0_cb(msg); }
         buffer = buffer >> msg.group_0; // (optional group)  >> SubscribeOk::Group_0
         buffer = buffer >> msg.subscribe_parameters; // (..) ... >> SubscribeParameters
         return buffer;
@@ -166,7 +166,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeOk);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -214,7 +214,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeError);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -241,7 +241,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kAnnounce);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -266,7 +266,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kAnnounceOk);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -295,7 +295,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kAnnounceError);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -320,7 +320,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kUnannounce);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -345,7 +345,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kUnsubscribe);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -376,7 +376,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeDone);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -405,7 +405,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kAnnounceCancel);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -432,7 +432,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kTrackStatusRequest);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -465,7 +465,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kTrackStatus);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -490,7 +490,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kGoaway);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -517,7 +517,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeAnnounces);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -542,7 +542,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeAnnouncesOk);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -571,7 +571,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeAnnouncesError);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -596,7 +596,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kUnsubscribeAnnounces);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -621,7 +621,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kMaxSubscribeId);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -629,11 +629,11 @@ namespace quicr::ctrl_messages {
      * Fetch stream in constructor
      */
     Fetch::Fetch(
-            std::function<void (Fetch&)> optional_group_0_cb,
-            std::function<void (Fetch&)> optional_group_1_cb
+            std::function<void (Fetch&)> group_0_cb,
+            std::function<void (Fetch&)> group_1_cb
         ):
-            optional_group_0_cb(optional_group_0_cb),
-            optional_group_1_cb(optional_group_1_cb)
+            group_0_cb(group_0_cb),
+            group_1_cb(group_1_cb)
     {
     }
 
@@ -646,9 +646,9 @@ namespace quicr::ctrl_messages {
         buffer = buffer >> msg.subscriber_priority; // (8)  >> SubscriberPriority
         buffer = buffer >> msg.group_order; // (8)  >> GroupOrder
         buffer = buffer >> msg.fetch_type; // (i)  >> FetchType
-        if (msg.optional_group_0_cb) { msg.optional_group_0_cb(msg); }
+        if (msg.group_0_cb) { msg.group_0_cb(msg); }
         buffer = buffer >> msg.group_0; // (optional group)  >> Fetch::Group_0
-        if (msg.optional_group_1_cb) { msg.optional_group_1_cb(msg); }
+        if (msg.group_1_cb) { msg.group_1_cb(msg); }
         buffer = buffer >> msg.group_1; // (optional group)  >> Fetch::Group_1
         buffer = buffer >> msg.parameters; // (..) ... >> Parameters
         return buffer;
@@ -671,7 +671,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kFetch);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -738,7 +738,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kFetchCancel);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -773,7 +773,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kFetchOk);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -802,7 +802,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kFetchError);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -827,7 +827,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribesBlocked);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -854,7 +854,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kClientSetup);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -881,7 +881,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kServerSetup);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -908,7 +908,7 @@ namespace quicr::ctrl_messages {
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kNewGroupRequest);
-        buffer << BytesSpan(payload);
+        buffer << payload;
         return buffer;
     }
 
@@ -940,6 +940,7 @@ namespace quicr::ctrl_messages {
 
         std::vector<Bytes> entries(size);
         for (auto& entry : entries) {
+ 
             buffer = buffer >> entry;
         }
 

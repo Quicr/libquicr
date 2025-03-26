@@ -2,16 +2,11 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/detail/messages.h"
-#include "quicr/detail/ctrl_messages.h"
 
-namespace quicr::messages {
+using namespace quicr::ctrl_messages;
 
-    Bytes& operator<<(Bytes& buffer, BytesSpan bytes)
-    {
-        buffer.insert(buffer.end(), bytes.begin(), bytes.end());
-        return buffer;
-    }
-
+namespace quicr::data_messages {
+    using quicr::ctrl_messages::operator<<;
     //
     // Utility
     //
@@ -92,6 +87,11 @@ namespace quicr::messages {
         return true;
     }
 
+    static void PushBytes(Bytes& buffer, const Bytes& bytes)
+    {
+        buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+    }
+
     static void PushExtensions(Bytes& buffer, const std::optional<Extensions>& extensions)
     {
         if (!extensions.has_value()) {
@@ -111,7 +111,8 @@ namespace quicr::messages {
             }
             // Odd types are varint length + bytes.
             buffer << UintVar(extension.second.size());
-            buffer << extension.second;
+            PushBytes(buffer, extension.second);
+            // SAH buffer << extension.second;
         }
     }
 
@@ -175,7 +176,8 @@ namespace quicr::messages {
             buffer << status;
         } else {
             buffer << UintVar(msg.payload.size());
-            buffer << msg.payload;
+            PushBytes(buffer, msg.payload);
+            // SAH buffer << msg.payload;
         }
         return buffer;
     }
@@ -285,7 +287,8 @@ namespace quicr::messages {
             return buffer;
         }
 
-        buffer << msg.payload;
+        PushBytes(buffer, msg.payload);
+        // SAH buffer << msg.payload;
 
         return buffer;
     }
@@ -342,6 +345,7 @@ namespace quicr::messages {
                 if (!buffer.Available(msg.payload_len)) {
                     return false;
                 }
+
                 msg.payload = std::move(buffer.Front(msg.payload_len));
                 buffer.Pop(msg.payload_len);
                 msg.parse_completed = true;
@@ -491,7 +495,8 @@ namespace quicr::messages {
             buffer << status;
         } else {
             buffer << UintVar(msg.payload.size());
-            buffer << msg.payload;
+            PushBytes(buffer, msg.payload);
+            // SAH buffer << msg.payload;
         }
         return buffer;
     }
