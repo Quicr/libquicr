@@ -4,7 +4,7 @@
 #include <quicr/track_name.h>
 #include "ctrl_message_types.h"
        
-namespace quicr::ctrl_messages {  
+namespace quicr::messages {  
 
     struct Parameter
     {
@@ -18,7 +18,7 @@ namespace quicr::ctrl_messages {
     
     // usings
     using SupportedVersions = std::vector<std::uint64_t>;
-    using SetupParameters = std::vector<quicr::ctrl_messages::Parameter>;
+    using SetupParameters = std::vector<quicr::messages::Parameter>;
     using SelectedVersion = std::uint64_t;
     using NewSessionURI = quicr::Bytes;
     using SubscribeID = std::uint64_t;
@@ -27,34 +27,34 @@ namespace quicr::ctrl_messages {
     using TrackNamespace = quicr::TrackNamespace;
     using TrackName = quicr::Bytes;
     using SubscriberPriority = std::uint8_t;
-    using GroupOrder = quicr::ctrl_messages::GroupOrderEnum;
-    using FilterType = quicr::ctrl_messages::FilterTypeEnum;
-    using StartGroup = quicr::ctrl_messages::GroupId;
-    using StartObject = quicr::ctrl_messages::ObjectId;
-    using EndGroup = quicr::ctrl_messages::GroupId;
-    using SubscribeParameters = std::vector<quicr::ctrl_messages::Parameter>;
+    using GroupOrder = quicr::messages::GroupOrderEnum;
+    using FilterType = quicr::messages::FilterTypeEnum;
+    using StartGroup = quicr::messages::GroupId;
+    using StartObject = quicr::messages::ObjectId;
+    using EndGroup = quicr::messages::GroupId;
+    using SubscribeParameters = std::vector<quicr::messages::Parameter>;
     using Expires = std::uint64_t;
     using ContentExists = std::uint8_t;
     using LargestGroupID = std::uint64_t;
     using LargestObjectID = std::uint64_t;
-    using SubscribeErrorErrorCode = quicr::ctrl_messages::SubscribeErrorCodeEnum;
+    using SubscribeErrorErrorCode = quicr::messages::SubscribeErrorCodeEnum;
     using ReasonPhrase = quicr::Bytes;
-    using SubscribeDoneStatusCode = quicr::ctrl_messages::SubscribeDoneStatusCodeEnum;
+    using SubscribeDoneStatusCode = quicr::messages::SubscribeDoneStatusCodeEnum;
     using StreamCount = std::uint64_t;
-    using FetchType = quicr::ctrl_messages::FetchTypeEnum;
-    using EndObject = quicr::ctrl_messages::ObjectId;
+    using FetchType = quicr::messages::FetchTypeEnum;
+    using EndObject = quicr::messages::ObjectId;
     using JoiningSubscribeID = std::uint64_t;
     using PrecedingGroupOffset = std::uint64_t;
-    using Parameters = std::vector<quicr::ctrl_messages::Parameter>;
+    using Parameters = std::vector<quicr::messages::Parameter>;
     using EndOfTrack = std::uint8_t;
-    using FetchErrorErrorCode = quicr::ctrl_messages::FetchErrorCodeEnum;
+    using FetchErrorErrorCode = quicr::messages::FetchErrorCodeEnum;
     using StatusCode = std::uint64_t;
     using LastGroupID = std::uint64_t;
     using LastObjectID = std::uint64_t;
-    using AnnounceErrorErrorCode = quicr::ctrl_messages::AnnounceErrorCodeEnum;
-    using AnnounceCancelErrorCode = quicr::ctrl_messages::AnnounceErrorCodeEnum;
+    using AnnounceErrorErrorCode = quicr::messages::AnnounceErrorCodeEnum;
+    using AnnounceCancelErrorCode = quicr::messages::AnnounceErrorCodeEnum;
     using TrackNamespacePrefix = quicr::TrackNamespace;
-    using SubscribeAnnouncesErrorErrorCode = quicr::ctrl_messages::SubscribeAnnouncesErrorCodeEnum;
+    using SubscribeAnnouncesErrorErrorCode = quicr::messages::SubscribeAnnouncesErrorCodeEnum;
 
     // enums
     enum class ControlMessageType : uint64_t
@@ -1005,8 +1005,8 @@ namespace quicr::ctrl_messages {
     Bytes& operator<<(Bytes& buffer, const std::vector<std::uint64_t>& vec);
     BytesSpan operator>>(BytesSpan buffer, std::vector<std::uint64_t>& vec);
 
-    Bytes& operator<<(Bytes& buffer, const std::vector<quicr::ctrl_messages::Parameter>& vec);
-    BytesSpan operator>>(BytesSpan buffer, std::vector<quicr::ctrl_messages::Parameter>& vec);
+    Bytes& operator<<(Bytes& buffer, const std::vector<quicr::messages::Parameter>& vec);
+    BytesSpan operator>>(BytesSpan buffer, std::vector<quicr::messages::Parameter>& vec);
 
 
      /**

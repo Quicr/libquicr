@@ -8,9 +8,9 @@
         {% for field in message.fields %}
             {% if field.name != "type" and field.name != "length" %}
                 {% if field.is_optional %}
-        std::optional<ctrl_messages::{{ field.cpp_using_name }}> {{ field.name }}{{ "," if not loop.last else ");" }}
+        std::optional<messages::{{ field.cpp_using_name }}> {{ field.name }}{{ "," if not loop.last else ");" }}
                 {% else %}
-        ctrl_messages::{{ field.cpp_using_name }} {{ field.name }}{{ "," if not loop.last else ");" }}
+        messages::{{ field.cpp_using_name }} {{ field.name }}{{ "," if not loop.last else ");" }}
                 {% endif %}
             {% endif %}
         {% endfor %}

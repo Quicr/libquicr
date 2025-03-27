@@ -10,7 +10,7 @@
 #include <sys/socket.h>
 
 using namespace quicr;
-using namespace quicr::ctrl_messages;
+using namespace quicr::messages;
 using namespace std::string_literals;
 
 static Bytes
@@ -81,7 +81,7 @@ static void
 ObjectDatagramEncodeDecode(bool extensions)
 {
     Bytes buffer;
-    auto object_datagram = data_messages::ObjectDatagram{};
+    auto object_datagram = messages::ObjectDatagram{};
     object_datagram.track_alias = uint64_t(kTrackAliasAliceVideo);
     object_datagram.group_id = 0x1000;
     object_datagram.object_id = 0xFF;
@@ -91,13 +91,13 @@ ObjectDatagramEncodeDecode(bool extensions)
 
     buffer << object_datagram;
 
-    data_messages::ObjectDatagram object_datagram_out;
+    messages::ObjectDatagram object_datagram_out;
     StreamBuffer<uint8_t> sbuf;
     sbuf.Push(buffer);
 
     auto msg_type = sbuf.DecodeUintV();
 
-    CHECK_EQ(msg_type, static_cast<uint64_t>(data_messages::DataMessageType::kObjectDatagram));
+    CHECK_EQ(msg_type, static_cast<uint64_t>(messages::DataMessageType::kObjectDatagram));
 
     sbuf >> object_datagram_out;
 
@@ -119,7 +119,7 @@ TEST_CASE("ObjectDatagram  Message encode/decode")
 TEST_CASE("ObjectDatagramStatus  Message encode/decode")
 {
     Bytes buffer;
-    auto object_datagram_status = data_messages::ObjectDatagramStatus{};
+    auto object_datagram_status = messages::ObjectDatagramStatus{};
     object_datagram_status.track_alias = uint64_t(kTrackAliasAliceVideo);
     object_datagram_status.group_id = 0x1000;
     object_datagram_status.object_id = 0xFF;
@@ -128,9 +128,9 @@ TEST_CASE("ObjectDatagramStatus  Message encode/decode")
 
     buffer << object_datagram_status;
 
-    data_messages::ObjectDatagramStatus object_datagram_status_out;
+    messages::ObjectDatagramStatus object_datagram_status_out;
     CHECK(Verify(buffer,
-                 static_cast<uint64_t>(data_messages::DataMessageType::kObjectDatagramStatus),
+                 static_cast<uint64_t>(messages::DataMessageType::kObjectDatagramStatus),
                  object_datagram_status_out));
     CHECK_EQ(object_datagram_status.track_alias, object_datagram_status_out.track_alias);
     CHECK_EQ(object_datagram_status.group_id, object_datagram_status_out.group_id);
@@ -143,7 +143,7 @@ static void
 StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
 {
     Bytes buffer;
-    auto hdr_grp = data_messages::StreamHeaderSubGroup{};
+    auto hdr_grp = messages::StreamHeaderSubGroup{};
     hdr_grp.track_alias = uint64_t(kTrackAliasAliceVideo);
     hdr_grp.group_id = 0x1000;
     hdr_grp.subgroup_id = 0x5000;
@@ -151,18 +151,18 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
 
     buffer << hdr_grp;
 
-    data_messages::StreamHeaderSubGroup hdr_group_out;
-    CHECK(Verify(buffer, static_cast<uint64_t>(data_messages::DataMessageType::kStreamHeaderSubgroup), hdr_group_out));
+    messages::StreamHeaderSubGroup hdr_group_out;
+    CHECK(Verify(buffer, static_cast<uint64_t>(messages::DataMessageType::kStreamHeaderSubgroup), hdr_group_out));
     CHECK_EQ(hdr_grp.track_alias, hdr_group_out.track_alias);
     CHECK_EQ(hdr_grp.group_id, hdr_group_out.group_id);
     CHECK_EQ(hdr_grp.subgroup_id, hdr_group_out.subgroup_id);
 
     // stream all the objects
     buffer.clear();
-    auto objects = std::vector<data_messages::StreamSubGroupObject>{};
+    auto objects = std::vector<messages::StreamSubGroupObject>{};
     // send 10 objects
     for (size_t i = 0; i < 10; i++) {
-        auto obj = data_messages::StreamSubGroupObject{};
+        auto obj = messages::StreamSubGroupObject{};
         obj.object_id = 0x1234;
 
         if (empty_payload) {
@@ -176,7 +176,7 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
         buffer << obj;
     }
 
-    auto obj_out = data_messages::StreamSubGroupObject{};
+    auto obj_out = messages::StreamSubGroupObject{};
     size_t object_count = 0;
     StreamBuffer<uint8_t> in_buffer;
     for (size_t i = 0; i < buffer.size(); i++) {
@@ -214,21 +214,21 @@ static void
 FetchStreamEncodeDecode(bool extensions, bool empty_payload)
 {
     Bytes buffer;
-    auto fetch_header = data_messages::FetchHeader{};
+    auto fetch_header = messages::FetchHeader{};
     fetch_header.subscribe_id = 0x1234;
 
     buffer << fetch_header;
 
-    data_messages::FetchHeader fetch_header_out;
-    CHECK(Verify(buffer, static_cast<uint64_t>(data_messages::DataMessageType::kFetchHeader), fetch_header_out));
+    messages::FetchHeader fetch_header_out;
+    CHECK(Verify(buffer, static_cast<uint64_t>(messages::DataMessageType::kFetchHeader), fetch_header_out));
     CHECK_EQ(fetch_header.subscribe_id, fetch_header_out.subscribe_id);
 
     // stream all the objects
     buffer.clear();
-    auto objects = std::vector<data_messages::FetchObject>{};
+    auto objects = std::vector<messages::FetchObject>{};
     // send 10 objects
     for (size_t i = 0; i < 10; i++) {
-        auto obj = data_messages::FetchObject{};
+        auto obj = messages::FetchObject{};
         obj.group_id = 0x1234;
         obj.subgroup_id = 0x5678;
         obj.object_id = 0x9012;
@@ -245,7 +245,7 @@ FetchStreamEncodeDecode(bool extensions, bool empty_payload)
         buffer << obj;
     }
 
-    auto obj_out = data_messages::FetchObject{};
+    auto obj_out = messages::FetchObject{};
     size_t object_count = 0;
     StreamBuffer<uint8_t> in_buffer;
     for (size_t i = 0; i < buffer.size(); i++) {

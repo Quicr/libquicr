@@ -11,13 +11,13 @@ namespace quicr {
         if (is_start) {
             stream_buffer_.Clear();
 
-            stream_buffer_.InitAny<data_messages::FetchHeader>();
+            stream_buffer_.InitAny<messages::FetchHeader>();
             stream_buffer_.Push(*data);
             stream_buffer_.Pop(); // Remove type header
 
             // Expect that on initial start of stream, there is enough data to process the stream headers
 
-            auto& f_hdr = stream_buffer_.GetAny<data_messages::FetchHeader>();
+            auto& f_hdr = stream_buffer_.GetAny<messages::FetchHeader>();
             if (not(stream_buffer_ >> f_hdr)) {
                 SPDLOG_ERROR("Not enough data to process new stream headers, stream is invalid");
                 // TODO: Add metrics to track this
@@ -27,8 +27,8 @@ namespace quicr {
             stream_buffer_.Push(*data);
         }
 
-        stream_buffer_.InitAnyB<data_messages::FetchObject>();
-        auto& obj = stream_buffer_.GetAnyB<data_messages::FetchObject>();
+        stream_buffer_.InitAnyB<messages::FetchObject>();
+        auto& obj = stream_buffer_.GetAnyB<messages::FetchObject>();
 
         if (stream_buffer_ >> obj) {
             SPDLOG_TRACE("Received fetch_object subscribe_id: {} priority: {} "
@@ -51,7 +51,7 @@ namespace quicr {
                                                  obj.extensions },
                                                obj.payload);
 
-            stream_buffer_.ResetAnyB<data_messages::FetchObject>();
+            stream_buffer_.ResetAnyB<messages::FetchObject>();
         }
     }
 }

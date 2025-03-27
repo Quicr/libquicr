@@ -1,6 +1,6 @@
 #include "quicr/detail/ctrl_message_types.h"
 
-namespace quicr::ctrl_messages {
+namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const Bytes& bytes)
     {
@@ -60,7 +60,7 @@ namespace quicr::ctrl_messages {
 
     Bytes& operator<<(Bytes& buffer, ParameterTypeEnum value)
     {
-        buffer << static_cast<std::uint8_t>(value);
+        buffer << static_cast<std::uint64_t>(value);
         return buffer;
     }
 

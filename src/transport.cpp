@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/detail/transport.h"
-#include "quicr/detail/ctrl_messages.h"
+#include "quicr/detail/messages.h"
 
 #include <quicr/detail/joining_fetch_handler.h>
 #include <sstream>
 
 namespace quicr {
-    using namespace quicr::data_messages;
+    using namespace quicr::messages;
 
     static std::optional<std::tuple<std::string, uint16_t>> ParseConnectUri(const std::string& connect_uri)
     {
@@ -162,7 +162,7 @@ namespace quicr {
     {
         if (not conn_ctx.ctrl_data_ctx_id) {
             CloseConnection(conn_ctx.connection_handle,
-                            quicr::ctrl_messages::TerminationReasonEnum::kProtocolViolation,
+                            quicr::messages::TerminationReasonEnum::kProtocolViolation,
                             "Control bidir stream not created");
             return;
         }
@@ -179,15 +179,15 @@ namespace quicr {
     void Transport::SendClientSetup()
     {
         auto supported_versions = { kMoqtVersion };
-        quicr::ctrl_messages::SetupParameters setup_parameters;
+        quicr::messages::SetupParameters setup_parameters;
         setup_parameters.push_back(
-          { .type = quicr::ctrl_messages::ParameterTypeEnum::kEndpointId,
+          { .type = quicr::messages::ParameterTypeEnum::kEndpointId,
             .value = { client_config_.endpoint_id.begin(), client_config_.endpoint_id.end() } });
 
-        auto client_setup = quicr::ctrl_messages::ClientSetup(supported_versions, setup_parameters);
+        auto client_setup = quicr::messages::ClientSetup(supported_versions, setup_parameters);
 
         Bytes buffer;
-        // buffer.reserve(sizeof(ClientSetup)); // SAH FIXME
+        // SAH - FIXME - preallocate "buffer" to encode the data...
         buffer << client_setup;
 
         auto& conn_ctx = connections_.begin()->second;
@@ -199,15 +199,14 @@ namespace quicr {
     {
         auto selected_version = conn_ctx.client_version;
 
-        quicr::ctrl_messages::SetupParameters setup_parameters;
+        quicr::messages::SetupParameters setup_parameters;
         setup_parameters.push_back(
-          { .type = quicr::ctrl_messages::ParameterTypeEnum::kEndpointId,
+          { .type = quicr::messages::ParameterTypeEnum::kEndpointId,
             .value = { server_config_.endpoint_id.begin(), server_config_.endpoint_id.end() } });
 
-        auto server_setup = quicr::ctrl_messages::ServerSetup(selected_version, setup_parameters);
+        auto server_setup = quicr::messages::ServerSetup(selected_version, setup_parameters);
 
         Bytes buffer;
-        // SAH FIXME  buffer.reserve(sizeof(ServerSetup));
         buffer << server_setup;
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending SERVER_SETUP to conn_id: {0}", conn_ctx.connection_handle);
@@ -217,7 +216,7 @@ namespace quicr {
 
     void Transport::SendAnnounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
     {
-        auto announce = quicr::ctrl_messages::Announce(track_namespace, {});
+        auto announce = quicr::messages::Announce(track_namespace, {});
 
         Bytes buffer;
         buffer << announce;
@@ -233,7 +232,7 @@ namespace quicr {
 
     void Transport::SendAnnounceOk(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
     {
-        auto announce_ok = quicr::ctrl_messages::AnnounceOk(track_namespace);
+        auto announce_ok = quicr::messages::AnnounceOk(track_namespace);
 
         Bytes buffer;
         buffer << announce_ok;
@@ -245,7 +244,7 @@ namespace quicr {
 
     void Transport::SendUnannounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
     {
-        auto unannounce = quicr::ctrl_messages::Unannounce(track_namespace);
+        auto unannounce = quicr::messages::Unannounce(track_namespace);
 
         Bytes buffer;
         buffer << unannounce;
@@ -259,26 +258,25 @@ namespace quicr {
                                   uint64_t subscribe_id,
                                   const FullTrackName& tfn,
                                   TrackHash th,
-                                  quicr::ctrl_messages::SubscriberPriority priority,
-                                  quicr::ctrl_messages::GroupOrderEnum group_order,
-                                  quicr::ctrl_messages::FilterTypeEnum filter_type)
+                                  quicr::messages::SubscriberPriority priority,
+                                  quicr::messages::GroupOrderEnum group_order,
+                                  quicr::messages::FilterTypeEnum filter_type)
     {
 
-        auto subscribe = quicr::ctrl_messages::Subscribe(subscribe_id,
-                                                         th.track_fullname_hash,
-                                                         tfn.name_space,
-                                                         tfn.name,
-                                                         priority,
-                                                         group_order,
-                                                         filter_type,
-                                                         nullptr,
-                                                         std::nullopt,
-                                                         nullptr,
-                                                         std::nullopt,
-                                                         {});
+        auto subscribe = quicr::messages::Subscribe(subscribe_id,
+                                                    th.track_fullname_hash,
+                                                    tfn.name_space,
+                                                    tfn.name,
+                                                    priority,
+                                                    group_order,
+                                                    filter_type,
+                                                    nullptr,
+                                                    std::nullopt,
+                                                    nullptr,
+                                                    std::nullopt,
+                                                    {});
 
         Bytes buffer;
-        // SAH FIXME buffer.reserve(sizeof(Subscribe));
         buffer << subscribe;
 
         SPDLOG_LOGGER_DEBUG(
@@ -295,16 +293,15 @@ namespace quicr {
     void Transport::SendSubscribeUpdate(quicr::Transport::ConnectionContext& conn_ctx,
                                         uint64_t subscribe_id,
                                         quicr::TrackHash th,
-                                        ctrl_messages::GroupId start_group_id,
-                                        ctrl_messages::ObjectId start_object_id,
-                                        ctrl_messages::GroupId end_group_id,
-                                        ctrl_messages::SubscriberPriority priority)
+                                        messages::GroupId start_group_id,
+                                        messages::ObjectId start_object_id,
+                                        messages::GroupId end_group_id,
+                                        messages::SubscriberPriority priority)
     {
-        auto subscribe_update = quicr::ctrl_messages::SubscribeUpdate(
-          subscribe_id, start_group_id, start_object_id, end_group_id, priority, {});
+        auto subscribe_update =
+          quicr::messages::SubscribeUpdate(subscribe_id, start_group_id, start_object_id, end_group_id, priority, {});
 
         Bytes buffer;
-        // SAH FIXME buffer.reserve(sizeof(SubscribeUpdate));
         buffer << subscribe_update;
 
         SPDLOG_LOGGER_DEBUG(
@@ -322,21 +319,15 @@ namespace quicr {
                                     uint64_t subscribe_id,
                                     uint64_t expires,
                                     bool content_exists,
-                                    ctrl_messages::LargestGroupID largest_group_id,
-                                    ctrl_messages::LargestObjectID largest_object_id)
+                                    messages::LargestGroupID largest_group_id,
+                                    messages::LargestObjectID largest_object_id)
     {
         auto group_0 =
-          std::make_optional<quicr::ctrl_messages::SubscribeOk::Group_0>({ largest_group_id, largest_object_id });
-        auto subscribe_ok = quicr::ctrl_messages::SubscribeOk(subscribe_id,
-                                                              expires,
-                                                              quicr::ctrl_messages::GroupOrderEnum::kAscending,
-                                                              content_exists,
-                                                              nullptr,
-                                                              group_0,
-                                                              {});
+          std::make_optional<quicr::messages::SubscribeOk::Group_0>({ largest_group_id, largest_object_id });
+        auto subscribe_ok = quicr::messages::SubscribeOk(
+          subscribe_id, expires, quicr::messages::GroupOrderEnum::kAscending, content_exists, nullptr, group_0, {});
 
         Bytes buffer;
-        // SAH FIXME buffer.reserve(sizeof(SubscribeOk));
         buffer << subscribe_ok;
 
         SPDLOG_LOGGER_DEBUG(
@@ -348,13 +339,12 @@ namespace quicr {
     void Transport::SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason)
     {
         auto subscribe_done =
-          quicr::ctrl_messages::SubscribeDone(subscribe_id,
-                                              quicr::ctrl_messages::SubscribeDoneStatusCodeEnum::kSubscribtionEnded,
-                                              0,
-                                              quicr::Bytes(reason.begin(), reason.end()));
+          quicr::messages::SubscribeDone(subscribe_id,
+                                         quicr::messages::SubscribeDoneStatusCodeEnum::kSubscribtionEnded,
+                                         0,
+                                         quicr::Bytes(reason.begin(), reason.end()));
 
         Bytes buffer;
-        // SAH FIXME buffer.reserve(sizeof(SubscribeDone));
         buffer << subscribe_done;
 
         SPDLOG_LOGGER_DEBUG(logger_,
@@ -367,10 +357,9 @@ namespace quicr {
 
     void Transport::SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id)
     {
-        auto unsubscribe = quicr::ctrl_messages::Unsubscribe(subscribe_id);
+        auto unsubscribe = quicr::messages::Unsubscribe(subscribe_id);
 
         Bytes buffer;
-        // SAH FIXME buffer.reserve(sizeof(Unsubscribe));
         buffer << unsubscribe;
 
         SPDLOG_LOGGER_DEBUG(
@@ -388,10 +377,9 @@ namespace quicr {
             return;
         }
 
-        auto msg = quicr::ctrl_messages::SubscribeAnnounces(prefix_namespace, {});
+        auto msg = quicr::messages::SubscribeAnnounces(prefix_namespace, {});
 
         Bytes buffer;
-        // SAH FIXME buffer.reserve(sizeof(msg));
         buffer << msg;
 
         auto th = TrackHash({ prefix_namespace, {}, std::nullopt });
@@ -406,10 +394,9 @@ namespace quicr {
 
     void Transport::SendSubscribeAnnouncesOk(ConnectionContext& conn_ctx, const TrackNamespace& prefix_namespace)
     {
-        auto msg = quicr::ctrl_messages::SubscribeAnnouncesOk(prefix_namespace);
+        auto msg = quicr::messages::SubscribeAnnouncesOk(prefix_namespace);
 
         Bytes buffer;
-        // SAH FIXME buffer.reserve(sizeof(msg));
         buffer << msg;
 
         auto th = TrackHash({ prefix_namespace, {}, std::nullopt });
@@ -424,15 +411,14 @@ namespace quicr {
 
     void Transport::SendSubscribeAnnouncesError(ConnectionContext& conn_ctx,
                                                 const TrackNamespace& prefix_namespace,
-                                                quicr::ctrl_messages::SubscribeAnnouncesErrorCodeEnum err_code,
-                                                const quicr::ctrl_messages::ReasonPhrase& reason)
+                                                quicr::messages::SubscribeAnnouncesErrorCodeEnum err_code,
+                                                const quicr::messages::ReasonPhrase& reason)
     {
 
-        auto msg = quicr::ctrl_messages::SubscribeAnnouncesError(
+        auto msg = quicr::messages::SubscribeAnnouncesError(
           prefix_namespace, err_code, quicr::Bytes(reason.begin(), reason.end()));
 
         Bytes buffer;
-        buffer.reserve(sizeof(msg));
         buffer << msg;
 
         auto th = TrackHash({ prefix_namespace, {}, std::nullopt });
@@ -453,10 +439,9 @@ namespace quicr {
             return;
         }
 
-        auto msg = quicr::ctrl_messages::UnsubscribeAnnounces(prefix_namespace);
+        auto msg = quicr::messages::UnsubscribeAnnounces(prefix_namespace);
 
         Bytes buffer;
-        // SAH FIXME buffer.reserve(sizeof(msg));
         buffer << msg;
 
         auto th = TrackHash({ prefix_namespace, {}, std::nullopt });
@@ -472,14 +457,13 @@ namespace quicr {
     void Transport::SendSubscribeError(ConnectionContext& conn_ctx,
                                        uint64_t subscribe_id,
                                        uint64_t track_alias,
-                                       quicr::ctrl_messages::SubscribeErrorCodeEnum error,
+                                       quicr::messages::SubscribeErrorCodeEnum error,
                                        const std::string& reason)
     {
-        auto subscribe_err = quicr::ctrl_messages::SubscribeError(
-          subscribe_id, error, quicr::Bytes(reason.begin(), reason.end()), track_alias);
+        auto subscribe_err =
+          quicr::messages::SubscribeError(subscribe_id, error, quicr::Bytes(reason.begin(), reason.end()), track_alias);
 
         Bytes buffer;
-        // SAH FIXME buffer.reserve(sizeof(SubscribeError));
         buffer << subscribe_err;
 
         SPDLOG_LOGGER_DEBUG(logger_,
@@ -495,28 +479,27 @@ namespace quicr {
     void Transport::SendFetch(ConnectionContext& conn_ctx,
                               uint64_t subscribe_id,
                               const FullTrackName& tfn,
-                              quicr::ctrl_messages::SubscriberPriority priority,
-                              quicr::ctrl_messages::GroupOrderEnum group_order,
-                              quicr::ctrl_messages::GroupId start_group,
-                              quicr::ctrl_messages::GroupId start_object,
-                              quicr::ctrl_messages::GroupId end_group,
-                              quicr::ctrl_messages::GroupId end_object)
+                              quicr::messages::SubscriberPriority priority,
+                              quicr::messages::GroupOrderEnum group_order,
+                              quicr::messages::GroupId start_group,
+                              quicr::messages::GroupId start_object,
+                              quicr::messages::GroupId end_group,
+                              quicr::messages::GroupId end_object)
     {
-        auto group_0 = std::make_optional<quicr::ctrl_messages::Fetch::Group_0>(
+        auto group_0 = std::make_optional<quicr::messages::Fetch::Group_0>(
           { tfn.name_space, tfn.name, start_group, start_object, end_group, end_object });
 
-        auto fetch = quicr::ctrl_messages::Fetch(subscribe_id,
-                                                 priority,
-                                                 group_order,
-                                                 quicr::ctrl_messages::FetchTypeEnum::kStandalone,
-                                                 nullptr,
-                                                 group_0,
-                                                 nullptr,
-                                                 std::nullopt,
-                                                 {});
+        auto fetch = quicr::messages::Fetch(subscribe_id,
+                                            priority,
+                                            group_order,
+                                            quicr::messages::FetchTypeEnum::kStandalone,
+                                            nullptr,
+                                            group_0,
+                                            nullptr,
+                                            std::nullopt,
+                                            {});
 
         Bytes buffer;
-        // SAH buffer.reserve(Fetch::SizeOf(fetch)); // SAH FIXME
         buffer << fetch;
 
         SendCtrlMsg(conn_ctx, buffer);
@@ -524,27 +507,26 @@ namespace quicr {
 
     void Transport::SendJoiningFetch(ConnectionContext& conn_ctx,
                                      uint64_t subscribe_id,
-                                     quicr::ctrl_messages::SubscriberPriority priority,
-                                     quicr::ctrl_messages::GroupOrderEnum group_order,
+                                     quicr::messages::SubscriberPriority priority,
+                                     quicr::messages::GroupOrderEnum group_order,
                                      uint64_t joining_subscribe_id,
-                                     quicr::ctrl_messages::GroupId preceding_group_offset,
-                                     const quicr::ctrl_messages::Parameters parameters)
+                                     quicr::messages::GroupId preceding_group_offset,
+                                     const quicr::messages::Parameters parameters)
     {
         auto group_1 =
-          std::make_optional<quicr::ctrl_messages::Fetch::Group_1>({ joining_subscribe_id, preceding_group_offset });
+          std::make_optional<quicr::messages::Fetch::Group_1>({ joining_subscribe_id, preceding_group_offset });
 
-        auto fetch = quicr::ctrl_messages::Fetch(subscribe_id,
-                                                 priority,
-                                                 group_order,
-                                                 quicr::ctrl_messages::FetchTypeEnum::kJoiningFetch,
-                                                 nullptr,
-                                                 std::nullopt,
-                                                 nullptr,
-                                                 group_1,
-                                                 parameters);
+        auto fetch = quicr::messages::Fetch(subscribe_id,
+                                            priority,
+                                            group_order,
+                                            quicr::messages::FetchTypeEnum::kJoiningFetch,
+                                            nullptr,
+                                            std::nullopt,
+                                            nullptr,
+                                            group_1,
+                                            parameters);
 
         Bytes buffer;
-        // SAH FIXME buffer.reserve(Fetch::SizeOf(fetch));
         buffer << fetch;
 
         SendCtrlMsg(conn_ctx, buffer);
@@ -552,10 +534,9 @@ namespace quicr {
 
     void Transport::SendFetchCancel(ConnectionContext& conn_ctx, uint64_t subscribe_id)
     {
-        auto fetch_cancel = quicr::ctrl_messages::FetchCancel(subscribe_id);
+        auto fetch_cancel = quicr::messages::FetchCancel(subscribe_id);
 
         Bytes buffer;
-        // SAH FIXME buffer.reserve(sizeof(FetchCancel));
         buffer << fetch_cancel;
 
         SendCtrlMsg(conn_ctx, buffer);
@@ -563,16 +544,15 @@ namespace quicr {
 
     void Transport::SendFetchOk(ConnectionContext& conn_ctx,
                                 uint64_t subscribe_id,
-                                quicr::ctrl_messages::GroupOrder group_order,
+                                quicr::messages::GroupOrder group_order,
                                 bool end_of_track,
-                                quicr::ctrl_messages::GroupId largest_group,
-                                quicr::ctrl_messages::GroupId largest_object)
+                                quicr::messages::GroupId largest_group,
+                                quicr::messages::GroupId largest_object)
     {
         auto fetch_ok =
-          quicr::ctrl_messages::FetchOk(subscribe_id, group_order, end_of_track, largest_group, largest_object, {});
+          quicr::messages::FetchOk(subscribe_id, group_order, end_of_track, largest_group, largest_object, {});
 
         Bytes buffer;
-        // SAH FIXME buffer.reserve(sizeof(FetchOk));
         buffer << fetch_ok;
 
         SendCtrlMsg(conn_ctx, buffer);
@@ -580,14 +560,12 @@ namespace quicr {
 
     void Transport::SendFetchError(ConnectionContext& conn_ctx,
                                    uint64_t subscribe_id,
-                                   quicr::ctrl_messages::FetchErrorCodeEnum error,
+                                   quicr::messages::FetchErrorCodeEnum error,
                                    const std::string& reason)
     {
-        auto fetch_err =
-          quicr::ctrl_messages::FetchError(subscribe_id, error, quicr::Bytes(reason.begin(), reason.end()));
+        auto fetch_err = quicr::messages::FetchError(subscribe_id, error, quicr::Bytes(reason.begin(), reason.end()));
 
         Bytes buffer;
-        // SAH FIXME buffer.reserve(sizeof(FetchError) + sizeof(reason.size()));
         buffer << fetch_err;
 
         SPDLOG_LOGGER_DEBUG(logger_,
@@ -602,9 +580,8 @@ namespace quicr {
 
     void Transport::SendNewGroupRequest(ConnectionHandle conn_id, uint64_t subscribe_id, uint64_t track_alias)
     {
-        auto new_group_request = quicr::ctrl_messages::NewGroupRequest(subscribe_id, track_alias);
+        auto new_group_request = quicr::messages::NewGroupRequest(subscribe_id, track_alias);
         Bytes buffer;
-        // SAH FIXME buffer.reserve(sizeof(NewGroupRequest));
         buffer << new_group_request;
 
         std::lock_guard<std::mutex> _(state_mutex_);
@@ -1014,7 +991,7 @@ namespace quicr {
 
         switch (track_handler.default_track_mode_) {
             case TrackMode::kDatagram: {
-                data_messages::ObjectDatagram object;
+                messages::ObjectDatagram object;
                 object.group_id = group_id;
                 object.object_id = object_id;
                 object.priority = priority;
@@ -1033,7 +1010,7 @@ namespace quicr {
                     eflags.clear_tx_queue = true;
                     eflags.use_reset = true;
 
-                    data_messages::StreamHeaderSubGroup subgroup_hdr;
+                    messages::StreamHeaderSubGroup subgroup_hdr;
                     subgroup_hdr.group_id = group_id;
                     subgroup_hdr.subgroup_id = subgroup_id;
                     subgroup_hdr.priority = priority;
@@ -1056,7 +1033,7 @@ namespace quicr {
                     eflags.use_reset = false;
                 }
 
-                data_messages::StreamSubGroupObject object;
+                messages::StreamSubGroupObject object;
                 object.object_id = object_id;
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
@@ -1242,7 +1219,7 @@ namespace quicr {
                 if (not conn_ctx.ctrl_data_ctx_id) {
                     if (not data_ctx_id) {
                         CloseConnection(conn_id,
-                                        quicr::ctrl_messages::TerminationReasonEnum::kInternalError,
+                                        quicr::messages::TerminationReasonEnum::kInternalError,
                                         "Received bidir is missing data context");
                         return;
                     }
@@ -1263,7 +1240,7 @@ namespace quicr {
                     conn_ctx.ctrl_msg_buffer.erase(conn_ctx.ctrl_msg_buffer.begin(),
                                                    conn_ctx.ctrl_msg_buffer.begin() + uv_sz);
 
-                    conn_ctx.ctrl_msg_type_received = static_cast<quicr::ctrl_messages::ControlMessageType>(msg_type);
+                    conn_ctx.ctrl_msg_type_received = static_cast<quicr::messages::ControlMessageType>(msg_type);
                 }
 
                 // Decode control payload length in bytes
@@ -1321,11 +1298,11 @@ namespace quicr {
                 auto cursor_it = std::next(data.begin(), type_sz);
 
                 bool break_loop = false;
-                switch (static_cast<data_messages::DataMessageType>(msg_type)) {
-                    case data_messages::DataMessageType::kStreamHeaderSubgroup:
+                switch (static_cast<messages::DataMessageType>(msg_type)) {
+                    case messages::DataMessageType::kStreamHeaderSubgroup:
                         break_loop = OnRecvSubgroup(cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
                         break;
-                    case data_messages::DataMessageType::kFetchHeader:
+                    case messages::DataMessageType::kFetchHeader:
                         break_loop = OnRecvFetch(cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
                         break;
                     default:
@@ -1437,7 +1414,7 @@ namespace quicr {
 
     void Transport::OnRecvDgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id)
     {
-        data_messages::ObjectDatagram object_datagram_out;
+        messages::ObjectDatagram object_datagram_out;
         for (int i = 0; i < kReadLoopMaxPerStream; i++) {
             auto data = quic_transport_->Dequeue(conn_id, data_ctx_id);
             if (data && !data->empty() && data->size() > 3) {
@@ -1445,7 +1422,8 @@ namespace quicr {
 
                 // TODO: Handle ObjectDatagramStatus objects as well.
 
-                if (!msg_type || static_cast<data_messages::DataMessageType>(msg_type) != data_messages::DataMessageType::kObjectDatagram) {
+                if (!msg_type ||
+                    static_cast<messages::DataMessageType>(msg_type) != messages::DataMessageType::kObjectDatagram) {
                     SPDLOG_LOGGER_DEBUG(logger_,
                                         "Received datagram that is not message type kObjectDatagram or "
                                         "kObjectDatagramStatus, dropping");
@@ -1555,31 +1533,31 @@ namespace quicr {
     void Transport::OnNewDataContext(const ConnectionHandle&, const DataContextId&) {}
 
     void Transport::CloseConnection(TransportConnId conn_id,
-                                    quicr::ctrl_messages::TerminationReasonEnum reason,
+                                    quicr::messages::TerminationReasonEnum reason,
                                     const std::string& reason_str)
     {
         std::ostringstream log_msg;
         log_msg << "Closing conn_id: " << conn_id;
         switch (reason) {
-            case quicr::ctrl_messages::TerminationReasonEnum::kNoError:
+            case quicr::messages::TerminationReasonEnum::kNoError:
                 log_msg << " no error";
                 break;
-            case quicr::ctrl_messages::TerminationReasonEnum::kInternalError:
+            case quicr::messages::TerminationReasonEnum::kInternalError:
                 log_msg << " internal error: " << reason_str;
                 break;
-            case quicr::ctrl_messages::TerminationReasonEnum::kUnauthorized:
+            case quicr::messages::TerminationReasonEnum::kUnauthorized:
                 log_msg << " unauthorized: " << reason_str;
                 break;
-            case quicr::ctrl_messages::TerminationReasonEnum::kProtocolViolation:
+            case quicr::messages::TerminationReasonEnum::kProtocolViolation:
                 log_msg << " protocol violation: " << reason_str;
                 break;
-            case quicr::ctrl_messages::TerminationReasonEnum::kDupTrackAlias:
+            case quicr::messages::TerminationReasonEnum::kDupTrackAlias:
                 log_msg << " duplicate track alias: " << reason_str;
                 break;
-            case quicr::ctrl_messages::TerminationReasonEnum::kParamLengthMismatch:
+            case quicr::messages::TerminationReasonEnum::kParamLengthMismatch:
                 log_msg << " param length mismatch: " << reason_str;
                 break;
-            case quicr::ctrl_messages::TerminationReasonEnum::kGoAwayTimeout:
+            case quicr::messages::TerminationReasonEnum::kGoAwayTimeout:
                 log_msg << " goaway timeout: " << reason_str;
                 break;
         }

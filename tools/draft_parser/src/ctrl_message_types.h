@@ -2,7 +2,7 @@
 #include "quicr/common.h"
 #include "quicr/detail/uintvar.h"
 
-namespace quicr::ctrl_messages {
+namespace quicr::messages {
     quicr::Bytes& operator<<(quicr::Bytes& buffer, const quicr::Bytes& bytes);
 
     quicr::Bytes& operator<<(quicr::Bytes& buffer, const quicr::BytesSpan& bytes);
@@ -16,7 +16,7 @@ namespace quicr::ctrl_messages {
 
     quicr::Bytes& operator<<(quicr::Bytes& buffer, const quicr::UintVar& value);
 
-    enum struct ParameterTypeEnum : uint8_t
+    enum struct ParameterTypeEnum : uint64_t
     {
         kPath = 0x1,
         kMaxSubscribeId = 0x2, // version specific, unused

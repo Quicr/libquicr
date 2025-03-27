@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "quicr/detail/ctrl_messages.h"
 #include "quicr/detail/messages.h"
 
 #include <any>
@@ -12,7 +11,7 @@
 #include <sys/socket.h>
 
 using namespace quicr;
-using namespace quicr::ctrl_messages;
+using namespace quicr::messages;
 using namespace std::string_literals;
 
 static Bytes
@@ -24,8 +23,6 @@ FromASCII(const std::string& ascii)
 const TrackNamespace kTrackNamespaceConf{ FromASCII("conf.example.com"), FromASCII("conf"), FromASCII("1") };
 const Bytes kTrackNameAliceVideo = FromASCII("alice/video");
 const UintVar kTrackAliasAliceVideo{ 0xA11CE };
-// const Extensions kExampleExtensions = { { 0x1, { 0x1, 0x2 } }, { 0x2, { 0, 0, 0, 0, 0, 0x3, 0x2, 0x1 } } };
-// const std::optional<Extensions> kOptionalExtensions = kExampleExtensions;
 
 template<typename T>
 bool
@@ -98,14 +95,12 @@ TEST_CASE("Announce Message encode/decode")
 
     auto announce = Announce{};
     announce.track_namespace = kTrackNamespaceConf;
-    // SAH announce.params = {};
     announce.parameters = {};
     buffer << announce;
 
     Announce announce_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kAnnounce), announce_out));
     CHECK_EQ(kTrackNamespaceConf, announce_out.track_namespace);
-    // CHECK_EQ(0, announce_out.params.size());
     CHECK_EQ(0, announce.parameters.size());
 }
 
@@ -128,7 +123,7 @@ TEST_CASE("AnnounceError Message encode/decode")
 
     auto announce_err = AnnounceError{};
     announce_err.track_namespace = kTrackNamespaceConf;
-    announce_err.error_code = quicr::ctrl_messages::AnnounceErrorCodeEnum::kNotSupported;
+    announce_err.error_code = quicr::messages::AnnounceErrorCodeEnum::kNotSupported;
     announce_err.reason_phrase = Bytes{ 0x1, 0x2, 0x3 };
     buffer << announce_err;
 
@@ -157,18 +152,18 @@ TEST_CASE("AnnounceCancel Message encode/decode")
 TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
 {
     Bytes buffer;
-    auto subscribe = quicr::ctrl_messages::Subscribe(0x1,
-                                                     uint64_t(kTrackAliasAliceVideo),
-                                                     kTrackNamespaceConf,
-                                                     kTrackNameAliceVideo,
-                                                     0x10,
-                                                     GroupOrderEnum::kAscending,
-                                                     FilterTypeEnum::kLatestObject,
-                                                     nullptr,
-                                                     std::nullopt,
-                                                     nullptr,
-                                                     std::nullopt,
-                                                     {});
+    auto subscribe = quicr::messages::Subscribe(0x1,
+                                                uint64_t(kTrackAliasAliceVideo),
+                                                kTrackNamespaceConf,
+                                                kTrackNameAliceVideo,
+                                                0x10,
+                                                GroupOrderEnum::kAscending,
+                                                FilterTypeEnum::kLatestObject,
+                                                nullptr,
+                                                std::nullopt,
+                                                nullptr,
+                                                std::nullopt,
+                                                {});
 
     buffer << subscribe;
 
@@ -196,18 +191,18 @@ TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
 TEST_CASE("Subscribe (kLatestGroup) Message encode/decode")
 {
     Bytes buffer;
-    auto subscribe = quicr::ctrl_messages::Subscribe(0x1,
-                                                     uint64_t(kTrackAliasAliceVideo),
-                                                     kTrackNamespaceConf,
-                                                     kTrackNameAliceVideo,
-                                                     0x10,
-                                                     GroupOrderEnum::kAscending,
-                                                     FilterTypeEnum::kLatestObject,
-                                                     nullptr,
-                                                     std::nullopt,
-                                                     nullptr,
-                                                     std::nullopt,
-                                                     {});
+    auto subscribe = quicr::messages::Subscribe(0x1,
+                                                uint64_t(kTrackAliasAliceVideo),
+                                                kTrackNamespaceConf,
+                                                kTrackNameAliceVideo,
+                                                0x10,
+                                                GroupOrderEnum::kAscending,
+                                                FilterTypeEnum::kLatestObject,
+                                                nullptr,
+                                                std::nullopt,
+                                                nullptr,
+                                                std::nullopt,
+                                                {});
 
     buffer << subscribe;
 
@@ -239,18 +234,18 @@ TEST_CASE("Subscribe (kAbsoluteStart) Message encode/decode")
     group_0->start_group = 0x1000;
     group_0->start_object = 0xFF;
 
-    auto subscribe = quicr::ctrl_messages::Subscribe(0x1,
-                                                     uint64_t(kTrackAliasAliceVideo),
-                                                     kTrackNamespaceConf,
-                                                     kTrackNameAliceVideo,
-                                                     0x10,
-                                                     GroupOrderEnum::kAscending,
-                                                     FilterTypeEnum::kAbsoluteStart,
-                                                     nullptr,
-                                                     group_0,
-                                                     nullptr,
-                                                     std::nullopt,
-                                                     {});
+    auto subscribe = quicr::messages::Subscribe(0x1,
+                                                uint64_t(kTrackAliasAliceVideo),
+                                                kTrackNamespaceConf,
+                                                kTrackNameAliceVideo,
+                                                0x10,
+                                                GroupOrderEnum::kAscending,
+                                                FilterTypeEnum::kAbsoluteStart,
+                                                nullptr,
+                                                group_0,
+                                                nullptr,
+                                                std::nullopt,
+                                                {});
 
     buffer << subscribe;
 
@@ -291,18 +286,18 @@ TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
         group_1->end_group = 0xFFF;
     }
 
-    auto subscribe = quicr::ctrl_messages::Subscribe(0x1,
-                                                     uint64_t(kTrackAliasAliceVideo),
-                                                     kTrackNamespaceConf,
-                                                     kTrackNameAliceVideo,
-                                                     0x10,
-                                                     GroupOrderEnum::kAscending,
-                                                     FilterTypeEnum::kAbsoluteRange,
-                                                     nullptr,
-                                                     group_0,
-                                                     nullptr,
-                                                     group_1,
-                                                     {});
+    auto subscribe = quicr::messages::Subscribe(0x1,
+                                                uint64_t(kTrackAliasAliceVideo),
+                                                kTrackNamespaceConf,
+                                                kTrackNameAliceVideo,
+                                                0x10,
+                                                GroupOrderEnum::kAscending,
+                                                FilterTypeEnum::kAbsoluteRange,
+                                                nullptr,
+                                                group_0,
+                                                nullptr,
+                                                group_1,
+                                                {});
 
     buffer << subscribe;
 
@@ -338,18 +333,18 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
     param.value = { 0x1, 0x2 };
     SubscribeParameters params = { param };
 
-    auto subscribe = quicr::ctrl_messages::Subscribe(0x1,
-                                                     uint64_t(kTrackAliasAliceVideo),
-                                                     kTrackNamespaceConf,
-                                                     kTrackNameAliceVideo,
-                                                     0x10,
-                                                     GroupOrderEnum::kAscending,
-                                                     FilterTypeEnum::kLatestObject,
-                                                     nullptr,
-                                                     std::nullopt,
-                                                     nullptr,
-                                                     std::nullopt,
-                                                     params);
+    auto subscribe = quicr::messages::Subscribe(0x1,
+                                                uint64_t(kTrackAliasAliceVideo),
+                                                kTrackNamespaceConf,
+                                                kTrackNameAliceVideo,
+                                                0x10,
+                                                GroupOrderEnum::kAscending,
+                                                FilterTypeEnum::kLatestObject,
+                                                nullptr,
+                                                std::nullopt,
+                                                nullptr,
+                                                std::nullopt,
+                                                params);
 
     buffer << subscribe;
 
@@ -394,18 +389,18 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 
     SubscribeParameters params = { param1, param2 };
 
-    auto subscribe = quicr::ctrl_messages::Subscribe(0x1,
-                                                     uint64_t(kTrackAliasAliceVideo),
-                                                     kTrackNamespaceConf,
-                                                     kTrackNameAliceVideo,
-                                                     0x10,
-                                                     GroupOrderEnum::kAscending,
-                                                     FilterTypeEnum::kLatestObject,
-                                                     nullptr,
-                                                     std::nullopt,
-                                                     nullptr,
-                                                     std::nullopt,
-                                                     params);
+    auto subscribe = quicr::messages::Subscribe(0x1,
+                                                uint64_t(kTrackAliasAliceVideo),
+                                                kTrackNamespaceConf,
+                                                kTrackNameAliceVideo,
+                                                0x10,
+                                                GroupOrderEnum::kAscending,
+                                                FilterTypeEnum::kLatestObject,
+                                                nullptr,
+                                                std::nullopt,
+                                                nullptr,
+                                                std::nullopt,
+                                                params);
 
     buffer << subscribe;
 
@@ -596,8 +591,9 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
     CHECK_EQ(subscribe_ok.subscribe_id, subscribe_ok_out.subscribe_id);
     CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
     CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
-    // SAH CHECK_EQ(subscribe_ok.largest_group, subscribe_ok_out.largest_group);
-    // SAH CHECK_EQ(subscribe_ok.largest_object, subscribe_ok_out.largest_object);
+    CHECK_EQ(subscribe_ok.group_0.has_value(), subscribe_ok_out.group_0.has_value());
+    CHECK_EQ(subscribe_ok.group_0->largest_group_id, subscribe_ok_out.group_0->largest_group_id);
+    CHECK_EQ(subscribe_ok.group_0->largest_object_id, subscribe_ok_out.group_0->largest_object_id);
 }
 
 TEST_CASE("Error  Message encode/decode")
@@ -606,7 +602,7 @@ TEST_CASE("Error  Message encode/decode")
 
     auto subscribe_err = SubscribeError{};
     subscribe_err.subscribe_id = 0x1;
-    subscribe_err.error_code = quicr::ctrl_messages::SubscribeErrorCodeEnum::kTrackDoesNotExist;
+    subscribe_err.error_code = quicr::messages::SubscribeErrorCodeEnum::kTrackDoesNotExist;
     subscribe_err.reason_phrase = Bytes{ 0x0, 0x1 };
     subscribe_err.track_alias = uint64_t(kTrackAliasAliceVideo);
     buffer << subscribe_err;
@@ -638,7 +634,7 @@ TEST_CASE("SubscribeDone  Message encode/decode")
 
     auto subscribe_done = SubscribeDone{};
     subscribe_done.subscribe_id = 0x1;
-    subscribe_done.status_code = quicr::ctrl_messages::SubscribeDoneStatusCodeEnum::kExpired;
+    subscribe_done.status_code = quicr::messages::SubscribeDoneStatusCodeEnum::kExpired;
     subscribe_done.stream_count = 0x0;
     subscribe_done.reason_phrase = Bytes{ 0x0 };
 
@@ -659,7 +655,7 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
 
     auto subscribe_done = SubscribeDone{};
     subscribe_done.subscribe_id = 0x1;
-    subscribe_done.status_code = quicr::ctrl_messages::SubscribeDoneStatusCodeEnum::kGoingAway;
+    subscribe_done.status_code = quicr::messages::SubscribeDoneStatusCodeEnum::kGoingAway;
     subscribe_done.stream_count = 0x0;
     subscribe_done.reason_phrase = Bytes{ 0x0 };
 
@@ -676,26 +672,25 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
 TEST_CASE("ClientSetup  Message encode/decode")
 {
     Bytes buffer;
-    const std::string endpoint_id = "client test";
-    auto client_setup = ClientSetup{};
-    // client_setup.num_versions = 2;
-    client_setup.supported_versions = { 0x1000, 0x2000 };
-    // SAH client_setup.endpoint_id_parameter.value.assign(endpoint_id.begin(), endpoint_id.end());
 
+    const std::string endpoint_id = "client test";
+
+    auto client_setup = ClientSetup(
+      { 0x1000, 0x2000 }, { { ParameterTypeEnum::kEndpointId, Bytes(endpoint_id.begin(), endpoint_id.end()) } });
     buffer << client_setup;
 
-    ClientSetup client_setup_out;
+    ClientSetup client_setup_out = {};
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kClientSetup), client_setup_out));
     CHECK_EQ(client_setup.supported_versions, client_setup_out.supported_versions);
-    // SAH CHECK_EQ(client_setup.endpoint_id_parameter.value, client_setup_out.endpoint_id_parameter.value);
+    CHECK_EQ(client_setup.setup_parameters[0].type, client_setup_out.setup_parameters[0].type);
+    CHECK_EQ(client_setup.setup_parameters[0].value, client_setup.setup_parameters[0].value);
 }
 
 TEST_CASE("ServerSetup  Message encode/decode")
 {
     const std::string endpoint_id = "server_test";
-    auto server_setup = ServerSetup{};
-    server_setup.selected_version = 0x1000;
-    // SAH server_setup.endpoint_id_parameter.value.assign(endpoint_id.begin(), endpoint_id.end());
+    auto server_setup =
+      ServerSetup(0x1000, { { ParameterTypeEnum::kEndpointId, Bytes(endpoint_id.begin(), endpoint_id.end()) } });
 
     Bytes buffer;
     buffer << server_setup;
@@ -703,140 +698,9 @@ TEST_CASE("ServerSetup  Message encode/decode")
     ServerSetup server_setup_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kServerSetup), server_setup_out));
     CHECK_EQ(server_setup.selected_version, server_setup_out.selected_version);
-    // SAH CHECK_EQ(server_setup.endpoint_id_parameter.value, server_setup_out.endpoint_id_parameter.value);
+    CHECK_EQ(server_setup.setup_parameters[0].type, server_setup.setup_parameters[0].type);
+    CHECK_EQ(server_setup.setup_parameters[0].value, server_setup.setup_parameters[0].value);
 }
-#if 0
-static void
-ObjectDatagramEncodeDecode(bool extensions)
-{
-    Bytes buffer;
-    auto object_datagram = ObjectDatagram{};
-    object_datagram.track_alias = uint64_t(kTrackAliasAliceVideo);
-    object_datagram.group_id = 0x1000;
-    object_datagram.object_id = 0xFF;
-    object_datagram.priority = 0xA;
-    object_datagram.extensions = extensions ? kOptionalExtensions : std::nullopt;
-    object_datagram.payload = { 0x1, 0x2, 0x3, 0x5, 0x6 };
-
-    buffer << object_datagram;
-
-    ObjectDatagram object_datagram_out;
-    StreamBuffer<uint8_t> sbuf;
-    sbuf.Push(buffer);
-
-    auto msg_type = sbuf.DecodeUintV();
-
-    CHECK_EQ(msg_type, static_cast<uint64_t>(DataMessageType::kObjectDatagram));
-
-    sbuf >> object_datagram_out;
-
-    CHECK_EQ(object_datagram.track_alias, object_datagram_out.track_alias);
-    CHECK_EQ(object_datagram.group_id, object_datagram_out.group_id);
-    CHECK_EQ(object_datagram.object_id, object_datagram_out.object_id);
-    CHECK_EQ(object_datagram.priority, object_datagram_out.priority);
-    CHECK_EQ(object_datagram.extensions, object_datagram_out.extensions);
-    CHECK(object_datagram.payload.size() > 0);
-    CHECK_EQ(object_datagram.payload, object_datagram_out.payload);
-}
-
-TEST_CASE("ObjectDatagram  Message encode/decode")
-{
-    ObjectDatagramEncodeDecode(false);
-    ObjectDatagramEncodeDecode(true);
-}
-
-TEST_CASE("ObjectDatagramStatus  Message encode/decode")
-{
-    Bytes buffer;
-    auto object_datagram_status = ObjectDatagramStatus{};
-    object_datagram_status.track_alias = uint64_t(kTrackAliasAliceVideo);
-    object_datagram_status.group_id = 0x1000;
-    object_datagram_status.object_id = 0xFF;
-    object_datagram_status.priority = 0xA;
-    object_datagram_status.status = quicr::ObjectStatus::kAvailable;
-
-    buffer << object_datagram_status;
-
-    ObjectDatagramStatus object_datagram_status_out;
-    CHECK(Verify(buffer, static_cast<uint64_t>(DataMessageType::kObjectDatagramStatus), object_datagram_status_out));
-    CHECK_EQ(object_datagram_status.track_alias, object_datagram_status_out.track_alias);
-    CHECK_EQ(object_datagram_status.group_id, object_datagram_status_out.group_id);
-    CHECK_EQ(object_datagram_status.object_id, object_datagram_status_out.object_id);
-    CHECK_EQ(object_datagram_status.priority, object_datagram_status_out.priority);
-    CHECK_EQ(object_datagram_status.status, object_datagram_status_out.status);
-}
-
-static void
-StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
-{
-    Bytes buffer;
-    auto hdr_grp = StreamHeaderSubGroup{};
-    hdr_grp.track_alias = uint64_t(kTrackAliasAliceVideo);
-    hdr_grp.group_id = 0x1000;
-    hdr_grp.subgroup_id = 0x5000;
-    hdr_grp.priority = 0xA;
-
-    buffer << hdr_grp;
-
-    StreamHeaderSubGroup hdr_group_out;
-    CHECK(Verify(buffer, static_cast<uint64_t>(DataMessageType::kStreamHeaderSubgroup), hdr_group_out));
-    CHECK_EQ(hdr_grp.track_alias, hdr_group_out.track_alias);
-    CHECK_EQ(hdr_grp.group_id, hdr_group_out.group_id);
-    CHECK_EQ(hdr_grp.subgroup_id, hdr_group_out.subgroup_id);
-
-    // stream all the objects
-    buffer.clear();
-    auto objects = std::vector<StreamSubGroupObject>{};
-    // send 10 objects
-    for (size_t i = 0; i < 1; i++) {
-        auto obj = StreamSubGroupObject{};
-        obj.object_id = 0x1234;
-
-        if (empty_payload) {
-            obj.object_status = ObjectStatus::kDoesNotExist;
-        } else {
-            obj.payload = { 0x1, 0x2, 0x3, 0x4, 0x5 };
-        }
-
-        obj.extensions = extensions ? kOptionalExtensions : std::nullopt;
-        objects.push_back(obj);
-        buffer << obj;
-    }
-
-    auto obj_out = StreamSubGroupObject{};
-    size_t object_count = 0;
-    StreamBuffer<uint8_t> in_buffer;
-    for (size_t i = 0; i < buffer.size(); i++) {
-        in_buffer.Push(buffer.at(i));
-        bool done;
-        done = in_buffer >> obj_out;
-        if (done) {
-            CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
-            if (empty_payload) {
-                CHECK_EQ(obj_out.object_status, objects[object_count].object_status);
-            } else {
-                CHECK(obj_out.payload.size() > 0);
-                CHECK_EQ(obj_out.payload, objects[object_count].payload);
-            }
-            CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
-            // got one object
-            object_count++;
-            obj_out = {};
-            in_buffer.Pop(in_buffer.Size());
-        }
-    }
-
-    CHECK_EQ(object_count, 1);
-}
-
-TEST_CASE("StreamPerSubGroup Object  Message encode/decode")
-{
-    StreamPerSubGroupObjectEncodeDecode(false, true);
-    StreamPerSubGroupObjectEncodeDecode(false, false);
-    StreamPerSubGroupObjectEncodeDecode(true, true);
-    StreamPerSubGroupObjectEncodeDecode(true, false);
-}
-#endif
 
 TEST_CASE("Goaway Message encode/decode")
 {
@@ -930,7 +794,7 @@ TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
     fetch_ok.subscribe_id = 0x1234;
     fetch_ok.group_order = GroupOrderEnum::kDescending;
     fetch_ok.largest_group_id = 0x9999;
-    fetch_ok.largest_object_id = 0x9991; // SAH
+    fetch_ok.largest_object_id = 0x9991;
 
     buffer << fetch_ok;
 
@@ -954,7 +818,7 @@ TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
     buffer.clear();
     auto fetch_error = FetchError{};
     fetch_error.subscribe_id = 0x1111;
-    fetch_error.error_code = quicr::ctrl_messages::FetchErrorCodeEnum::kInternalError;
+    fetch_error.error_code = quicr::messages::FetchErrorCodeEnum::kInternalError;
 
     buffer << fetch_error;
 
@@ -1022,7 +886,7 @@ TEST_CASE("Subscribe Announces Error encode/decode")
 
     auto msg = SubscribeAnnouncesError{};
     msg.track_namespace_prefix = TrackNamespace{ "cisco"s, "meetings"s, "video"s, "1080p"s };
-    msg.error_code = quicr::ctrl_messages::SubscribeAnnouncesErrorCodeEnum::kNamespacePrefixUnknown;
+    msg.error_code = quicr::messages::SubscribeAnnouncesErrorCodeEnum::kNamespacePrefixUnknown;
     msg.reason_phrase = Bytes{ 0x1, 0x2, 0x3 };
     buffer << msg;
 

@@ -24,12 +24,12 @@ namespace quicr {
     void Client::UnannounceReceived(const TrackNamespace&) {}
 
     void Client::SubscribeAnnouncesStatusChanged(const TrackNamespace&,
-                                                 std::optional<quicr::ctrl_messages::SubscribeAnnouncesErrorCodeEnum>,
-                                                 std::optional<quicr::ctrl_messages::ReasonPhrase>)
+                                                 std::optional<quicr::messages::SubscribeAnnouncesErrorCodeEnum>,
+                                                 std::optional<quicr::messages::ReasonPhrase>)
     {
     }
 
-    void Client::UnpublishedSubscribeReceived(const FullTrackName&, const quicr::ctrl_messages::SubscribeAttributes&)
+    void Client::UnpublishedSubscribeReceived(const FullTrackName&, const quicr::messages::SubscribeAttributes&)
     {
         // TODO: add the default response
     }
@@ -59,7 +59,7 @@ namespace quicr {
                 SendSubscribeError(conn_it->second,
                                    subscribe_id,
                                    {},
-                                   quicr::ctrl_messages::SubscribeErrorCodeEnum::kInternalError,
+                                   quicr::messages::SubscribeErrorCodeEnum::kInternalError,
                                    "Internal error");
                 break;
         }
@@ -79,17 +79,17 @@ namespace quicr {
     bool Client::ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes)
     {
         switch (*conn_ctx.ctrl_msg_type_received) {
-            case quicr::ctrl_messages::ControlMessageType::kSubscribe: {
-                quicr::ctrl_messages::Subscribe msg(
-                  [](quicr::ctrl_messages::Subscribe& msg) {
-                      if (msg.filter_type == quicr::ctrl_messages::FilterTypeEnum::kAbsoluteStart ||
-                          msg.filter_type == quicr::ctrl_messages::FilterTypeEnum::kAbsoluteRange) {
-                          msg.group_0 = std::make_optional<quicr::ctrl_messages::Subscribe::Group_0>();
+            case quicr::messages::ControlMessageType::kSubscribe: {
+                quicr::messages::Subscribe msg(
+                  [](quicr::messages::Subscribe& msg) {
+                      if (msg.filter_type == quicr::messages::FilterTypeEnum::kAbsoluteStart ||
+                          msg.filter_type == quicr::messages::FilterTypeEnum::kAbsoluteRange) {
+                          msg.group_0 = std::make_optional<quicr::messages::Subscribe::Group_0>();
                       }
                   },
-                  [](quicr::ctrl_messages::Subscribe& msg) {
-                      if (msg.filter_type == quicr::ctrl_messages::FilterTypeEnum::kAbsoluteRange) {
-                          msg.group_1 = std::make_optional<quicr::ctrl_messages::Subscribe::Group_1>();
+                  [](quicr::messages::Subscribe& msg) {
+                      if (msg.filter_type == quicr::messages::FilterTypeEnum::kAbsoluteRange) {
+                          msg.group_1 = std::make_optional<quicr::messages::Subscribe::Group_1>();
                       }
                   });
 
@@ -117,7 +117,7 @@ namespace quicr {
                     SendSubscribeError(conn_ctx,
                                        msg.subscribe_id,
                                        msg.track_alias,
-                                       quicr::ctrl_messages::SubscribeErrorCodeEnum::kTrackNotExist,
+                                       quicr::messages::SubscribeErrorCodeEnum::kTrackNotExist,
                                        "Published track not found");
                     return true;
                 }
@@ -139,8 +139,8 @@ namespace quicr {
                 conn_ctx.recv_sub_id[msg.subscribe_id] = { tfn };
                 return true;
             }
-            case quicr::ctrl_messages::ControlMessageType::kSubscribeUpdate: {
-                quicr::ctrl_messages::SubscribeUpdate msg;
+            case quicr::messages::ControlMessageType::kSubscribeUpdate: {
+                quicr::messages::SubscribeUpdate msg;
                 msg_bytes >> msg;
 
                 if (conn_ctx.recv_sub_id.count(msg.subscribe_id) == 0) {
@@ -153,7 +153,7 @@ namespace quicr {
                     SendSubscribeError(conn_ctx,
                                        msg.subscribe_id,
                                        0x0,
-                                       quicr::ctrl_messages::SubscribeErrorCodeEnum::kTrackNotExist,
+                                       quicr::messages::SubscribeErrorCodeEnum::kTrackNotExist,
                                        "Subscription not found");
                     return true;
                 }
@@ -174,7 +174,7 @@ namespace quicr {
                     SendSubscribeError(conn_ctx,
                                        msg.subscribe_id,
                                        th.track_fullname_hash,
-                                       quicr::ctrl_messages::SubscribeErrorCodeEnum::kTrackNotExist,
+                                       quicr::messages::SubscribeErrorCodeEnum::kTrackNotExist,
                                        "Published track not found");
                     return true;
                 }
@@ -189,10 +189,10 @@ namespace quicr {
                 ptd->SetStatus(PublishTrackHandler::Status::kSubscriptionUpdated);
                 return true;
             }
-            case quicr::ctrl_messages::ControlMessageType::kSubscribeOk: {
-                quicr::ctrl_messages::SubscribeOk msg([](quicr::ctrl_messages::SubscribeOk& msg) {
+            case quicr::messages::ControlMessageType::kSubscribeOk: {
+                quicr::messages::SubscribeOk msg([](quicr::messages::SubscribeOk& msg) {
                     if (msg.content_exists == 1) {
-                        msg.group_0 = std::make_optional<quicr::ctrl_messages::SubscribeOk::Group_0>();
+                        msg.group_0 = std::make_optional<quicr::messages::SubscribeOk::Group_0>();
                     }
                 });
                 msg_bytes >> msg;
@@ -226,8 +226,8 @@ namespace quicr {
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
                 return true;
             }
-            case quicr::ctrl_messages::ControlMessageType::kSubscribeError: {
-                quicr::ctrl_messages::SubscribeError msg;
+            case quicr::messages::ControlMessageType::kSubscribeError: {
+                quicr::messages::SubscribeError msg;
                 msg_bytes >> msg;
 
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
@@ -258,8 +258,8 @@ namespace quicr {
                 return true;
             }
 
-            case quicr::ctrl_messages::ControlMessageType::kAnnounce: {
-                quicr::ctrl_messages::Announce msg;
+            case quicr::messages::ControlMessageType::kAnnounce: {
+                quicr::messages::Announce msg;
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
@@ -268,8 +268,8 @@ namespace quicr {
                 return true;
             }
 
-            case quicr::ctrl_messages::ControlMessageType::kUnannounce: {
-                quicr::ctrl_messages::Unannounce msg;
+            case quicr::messages::ControlMessageType::kUnannounce: {
+                quicr::messages::Unannounce msg;
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
@@ -278,8 +278,8 @@ namespace quicr {
                 return true;
             }
 
-            case quicr::ctrl_messages::ControlMessageType::kAnnounceOk: {
-                quicr::ctrl_messages::AnnounceOk msg;
+            case quicr::messages::ControlMessageType::kAnnounceOk: {
+                quicr::messages::AnnounceOk msg;
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
@@ -297,8 +297,8 @@ namespace quicr {
                 }
                 return true;
             }
-            case quicr::ctrl_messages::ControlMessageType::kAnnounceError: {
-                quicr::ctrl_messages::AnnounceError msg;
+            case quicr::messages::ControlMessageType::kAnnounceError: {
+                quicr::messages::AnnounceError msg;
                 msg_bytes >> msg;
 
                 std::string reason = "unknown";
@@ -314,33 +314,33 @@ namespace quicr {
 
                 return true;
             }
-            case quicr::ctrl_messages::ControlMessageType::kSubscribeAnnouncesOk: {
-                quicr::ctrl_messages::SubscribeAnnouncesOk msg;
+            case quicr::messages::ControlMessageType::kSubscribeAnnouncesOk: {
+                quicr::messages::SubscribeAnnouncesOk msg;
                 msg_bytes >> msg;
 
                 SubscribeAnnouncesStatusChanged(msg.track_namespace_prefix, std::nullopt, std::nullopt);
 
                 return true;
             }
-            case quicr::ctrl_messages::ControlMessageType::kSubscribeAnnouncesError: {
-                quicr::ctrl_messages::SubscribeAnnouncesError msg;
+            case quicr::messages::ControlMessageType::kSubscribeAnnouncesError: {
+                quicr::messages::SubscribeAnnouncesError msg;
                 msg_bytes >> msg;
 
-                // SAH UGH - fix this
-                auto error_code = static_cast<quicr::ctrl_messages::SubscribeAnnouncesErrorCodeEnum>(msg.error_code);
+                // SAH FIXME - is this OK?
+                auto error_code = static_cast<quicr::messages::SubscribeAnnouncesErrorCodeEnum>(msg.error_code);
                 auto optional_error_code =
-                  std::make_optional<quicr::ctrl_messages::SubscribeAnnouncesErrorCodeEnum>(error_code);
+                  std::make_optional<quicr::messages::SubscribeAnnouncesErrorCodeEnum>(error_code);
 
                 SubscribeAnnouncesStatusChanged(
                   msg.track_namespace_prefix,
                   optional_error_code,
-                  std::make_optional<quicr::ctrl_messages::ReasonPhrase>(msg.reason_phrase));
+                  std::make_optional<quicr::messages::ReasonPhrase>(msg.reason_phrase));
 
                 return true;
             }
 
-            case quicr::ctrl_messages::ControlMessageType::kUnsubscribe: {
-                quicr::ctrl_messages::Unsubscribe msg;
+            case quicr::messages::ControlMessageType::kUnsubscribe: {
+                quicr::messages::Unsubscribe msg;
                 msg_bytes >> msg;
 
                 const auto& th_it = conn_ctx.recv_sub_id.find(msg.subscribe_id);
@@ -376,8 +376,8 @@ namespace quicr {
                 }
                 return true;
             }
-            case quicr::ctrl_messages::ControlMessageType::kSubscribeDone: {
-                quicr::ctrl_messages::SubscribeDone msg;
+            case quicr::messages::ControlMessageType::kSubscribeDone: {
+                quicr::messages::SubscribeDone msg;
                 msg_bytes >> msg;
 
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
@@ -405,8 +405,8 @@ namespace quicr {
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
                 return true;
             }
-            case quicr::ctrl_messages::ControlMessageType::kSubscribesBlocked: {
-                quicr::ctrl_messages::SubscribesBlocked msg;
+            case quicr::messages::ControlMessageType::kSubscribesBlocked: {
+                quicr::messages::SubscribesBlocked msg;
                 msg_bytes >> msg;
 
                 SPDLOG_LOGGER_WARN(
@@ -420,8 +420,8 @@ namespace quicr {
 
                 return true;
             }
-            case quicr::ctrl_messages::ControlMessageType::kAnnounceCancel: {
-                quicr::ctrl_messages::AnnounceCancel msg;
+            case quicr::messages::ControlMessageType::kAnnounceCancel: {
+                quicr::messages::AnnounceCancel msg;
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
@@ -432,8 +432,8 @@ namespace quicr {
                 AnnounceStatusChanged(tfn.name_space, PublishAnnounceStatus::kNotAnnounced);
                 return true;
             }
-            case quicr::ctrl_messages::ControlMessageType::kTrackStatusRequest: {
-                quicr::ctrl_messages::TrackStatusRequest msg;
+            case quicr::messages::ControlMessageType::kTrackStatusRequest: {
+                quicr::messages::TrackStatusRequest msg;
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
@@ -445,8 +445,8 @@ namespace quicr {
                                    th.track_name_hash);
                 return true;
             }
-            case quicr::ctrl_messages::ControlMessageType::kTrackStatus: {
-                quicr::ctrl_messages::TrackStatus msg;
+            case quicr::messages::ControlMessageType::kTrackStatus: {
+                quicr::messages::TrackStatus msg;
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
@@ -458,21 +458,21 @@ namespace quicr {
                                    th.track_name_hash);
                 return true;
             }
-            case quicr::ctrl_messages::ControlMessageType::kGoaway: {
-                quicr::ctrl_messages::Goaway msg;
+            case quicr::messages::ControlMessageType::kGoaway: {
+                quicr::messages::Goaway msg;
                 msg_bytes >> msg;
 
                 std::string new_sess_uri(msg.new_session_uri.begin(), msg.new_session_uri.end());
                 SPDLOG_LOGGER_INFO(logger_, "Received goaway new session uri: {0}", new_sess_uri);
                 return true;
             }
-            case quicr::ctrl_messages::ControlMessageType::kServerSetup: {
-                quicr::ctrl_messages::ServerSetup msg;
+            case quicr::messages::ControlMessageType::kServerSetup: {
+                quicr::messages::ServerSetup msg;
                 msg_bytes >> msg;
 
                 std::string endpoint_id = "Unknown Endpoint ID";
                 for (const auto& param : msg.setup_parameters) {
-                    if (param.type == quicr::ctrl_messages::ParameterTypeEnum::kEndpointId) {
+                    if (param.type == quicr::messages::ParameterTypeEnum::kEndpointId) {
                         endpoint_id = std::string(param.value.begin(), param.value.end());
                     }
                 }
@@ -489,8 +489,8 @@ namespace quicr {
                 conn_ctx.setup_complete = true;
                 return true;
             }
-            case quicr::ctrl_messages::ControlMessageType::kFetchOk: {
-                quicr::ctrl_messages::FetchError msg;
+            case quicr::messages::ControlMessageType::kFetchOk: {
+                quicr::messages::FetchError msg;
                 msg_bytes >> msg;
 
                 auto fetch_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
@@ -507,8 +507,8 @@ namespace quicr {
 
                 return true;
             }
-            case quicr::ctrl_messages::ControlMessageType::kFetchError: {
-                quicr::ctrl_messages::FetchError msg;
+            case quicr::messages::ControlMessageType::kFetchError: {
+                quicr::messages::FetchError msg;
                 msg_bytes >> msg;
 
                 auto fetch_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
@@ -535,8 +535,8 @@ namespace quicr {
 
                 return true;
             }
-            case quicr::ctrl_messages::ControlMessageType::kNewGroupRequest: {
-                quicr::ctrl_messages::NewGroupRequest msg;
+            case quicr::messages::ControlMessageType::kNewGroupRequest: {
+                quicr::messages::NewGroupRequest msg;
                 msg_bytes >> msg;
 
                 try {

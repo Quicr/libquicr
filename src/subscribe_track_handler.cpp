@@ -27,13 +27,13 @@ namespace quicr {
         if (is_start) {
             stream_buffer_.Clear();
 
-            stream_buffer_.InitAny<data_messages::StreamHeaderSubGroup>();
+            stream_buffer_.InitAny<messages::StreamHeaderSubGroup>();
             stream_buffer_.Push(*data);
             stream_buffer_.Pop(); // Remove type header
 
             // Expect that on initial start of stream, there is enough data to process the stream headers
 
-            auto& s_hdr = stream_buffer_.GetAny<data_messages::StreamHeaderSubGroup>();
+            auto& s_hdr = stream_buffer_.GetAny<messages::StreamHeaderSubGroup>();
             if (not(stream_buffer_ >> s_hdr)) {
                 SPDLOG_ERROR("Not enough data to process new stream headers, stream is invalid");
                 // TODO: Add metrics to track this
@@ -43,13 +43,13 @@ namespace quicr {
             stream_buffer_.Push(*data);
         }
 
-        auto& s_hdr = stream_buffer_.GetAny<data_messages::StreamHeaderSubGroup>();
+        auto& s_hdr = stream_buffer_.GetAny<messages::StreamHeaderSubGroup>();
 
         if (not stream_buffer_.AnyHasValueB()) {
-            stream_buffer_.InitAnyB<data_messages::StreamSubGroupObject>();
+            stream_buffer_.InitAnyB<messages::StreamSubGroupObject>();
         }
 
-        auto& obj = stream_buffer_.GetAnyB<data_messages::StreamSubGroupObject>();
+        auto& obj = stream_buffer_.GetAnyB<messages::StreamSubGroupObject>();
         if (stream_buffer_ >> obj) {
             SPDLOG_TRACE("Received stream_subgroup_object subscribe_id: {} priority: {} track_alias: {} "
                          "group_id: {} subgroup_id: {} object_id: {} data size: {}",
@@ -75,7 +75,7 @@ namespace quicr {
                              obj.extensions },
                            obj.payload);
 
-            stream_buffer_.ResetAnyB<data_messages::StreamSubGroupObject>();
+            stream_buffer_.ResetAnyB<messages::StreamSubGroupObject>();
         }
     }
 
@@ -86,7 +86,7 @@ namespace quicr {
         stream_buffer_.Push(*data);
         stream_buffer_.Pop(); // Remove type header
 
-        data_messages::ObjectDatagram msg;
+        messages::ObjectDatagram msg;
         if (stream_buffer_ >> msg) {
             SPDLOG_TRACE("Received object datagram conn_id: {0} data_ctx_id: {1} subscriber_id: {2} "
                          "track_alias: {3} group_id: {4} object_id: {5} data size: {6}",

@@ -50,7 +50,7 @@ namespace qserver_vars {
      * @example
      *      track_alias_set = announce_active[track_namespace][connection_handle]
      */
-    std::map<quicr::TrackNamespace, std::map<quicr::ConnectionHandle, std::set<quicr::ctrl_messages::TrackAlias>>>
+    std::map<quicr::TrackNamespace, std::map<quicr::ConnectionHandle, std::set<quicr::messages::TrackAlias>>>
       announce_active;
 
     /**
@@ -61,7 +61,7 @@ namespace qserver_vars {
      *
      * @example track_handler = subscribes[track_alias][connection_handle]
      */
-    std::map<quicr::ctrl_messages::TrackAlias,
+    std::map<quicr::messages::TrackAlias,
              std::map<quicr::ConnectionHandle, std::shared_ptr<quicr::PublishTrackHandler>>>
       subscribes;
 
@@ -72,7 +72,7 @@ namespace qserver_vars {
      * @example
      *      track_alias = subscribe_alias_sub_id[conn_id][subscribe_id]
      */
-    std::map<quicr::ConnectionHandle, std::map<quicr::ctrl_messages::SubscribeID, quicr::ctrl_messages::TrackAlias>>
+    std::map<quicr::ConnectionHandle, std::map<quicr::messages::SubscribeID, quicr::messages::TrackAlias>>
       subscribe_alias_sub_id;
 
     /**
@@ -108,7 +108,7 @@ namespace qserver_vars {
      * @example
      *      track_delegate = pub_subscribes[track_alias][conn_id]
      */
-    std::map<quicr::ctrl_messages::TrackAlias,
+    std::map<quicr::messages::TrackAlias,
              std::map<quicr::ConnectionHandle, std::shared_ptr<quicr::SubscribeTrackHandler>>>
       pub_subscribes;
 
@@ -118,7 +118,7 @@ namespace qserver_vars {
     /**
      * Cache of MoQ objects by track alias
      */
-    std::map<quicr::ctrl_messages::TrackAlias, quicr::Cache<quicr::ctrl_messages::GroupId, std::set<CacheObject>>> cache;
+    std::map<quicr::messages::TrackAlias, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>> cache;
 
     /**
      * Tick Service used by the cache
@@ -128,7 +128,7 @@ namespace qserver_vars {
     /**
      * @brief Map of atomic bools to mark if a fetch thread should be interrupted.
      */
-    std::map<std::pair<quicr::ConnectionHandle, quicr::ctrl_messages::SubscribeID>, std::atomic_bool> stop_fetch;
+    std::map<std::pair<quicr::ConnectionHandle, quicr::messages::SubscribeID>, std::atomic_bool> stop_fetch;
 }
 
 /**
@@ -141,8 +141,8 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
     MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name)
       : SubscribeTrackHandler(full_track_name,
                               3,
-                              quicr::ctrl_messages::GroupOrderEnum::kAscending,
-                              quicr::ctrl_messages::FilterTypeEnum::kLatestObject)
+                              quicr::messages::GroupOrderEnum::kAscending,
+                              quicr::messages::FilterTypeEnum::kLatestObject)
     {
     }
 
@@ -175,7 +175,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         // Cache Object
         if (qserver_vars::cache.count(*track_alias) == 0) {
             qserver_vars::cache.insert(std::make_pair(*track_alias,
-                                                      quicr::Cache<quicr::ctrl_messages::GroupId, std::set<CacheObject>>{
+                                                      quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{
                                                         50000, 1000, qserver_vars::tick_service }));
         }
 
@@ -398,7 +398,7 @@ class MyServer : public quicr::Server
                     th.track_namespace_hash);
     }
 
-    std::pair<std::optional<quicr::ctrl_messages::SubscribeAnnouncesErrorCodeEnum>, std::vector<quicr::TrackNamespace>>
+    std::pair<std::optional<quicr::messages::SubscribeAnnouncesErrorCodeEnum>, std::vector<quicr::TrackNamespace>>
     SubscribeAnnouncesReceived(quicr::ConnectionHandle connection_handle,
                                const quicr::TrackNamespace& prefix_namespace,
                                const quicr::PublishAnnounceAttributes&) override
@@ -528,7 +528,7 @@ class MyServer : public quicr::Server
         }
 
         // Remove active subscribes
-        std::vector<quicr::ctrl_messages::SubscribeID> subscribe_ids;
+        std::vector<quicr::messages::SubscribeID> subscribe_ids;
         auto ta_conn_it = qserver_vars::subscribe_alias_sub_id.find(connection_handle);
         if (ta_conn_it != qserver_vars::subscribe_alias_sub_id.end()) {
             for (const auto& [sub_id, _] : ta_conn_it->second) {
@@ -638,9 +638,9 @@ class MyServer : public quicr::Server
     void SubscribeReceived(quicr::ConnectionHandle connection_handle,
                            uint64_t subscribe_id,
                            uint64_t proposed_track_alias,
-                           [[maybe_unused]] quicr::ctrl_messages::FilterTypeEnum filter_type,
+                           [[maybe_unused]] quicr::messages::FilterTypeEnum filter_type,
                            const quicr::FullTrackName& track_full_name,
-                           const quicr::ctrl_messages::SubscribeAttributes& attrs) override
+                           const quicr::messages::SubscribeAttributes& attrs) override
     {
         auto th = quicr::TrackHash(track_full_name);
 
@@ -784,7 +784,7 @@ class MyServer : public quicr::Server
     bool OnFetchOk(quicr::ConnectionHandle connection_handle,
                    uint64_t subscribe_id,
                    const quicr::FullTrackName& track_full_name,
-                   const quicr::ctrl_messages::FetchAttributes& attrs) override
+                   const quicr::messages::FetchAttributes& attrs) override
     {
         auto pub_fetch_h =
           quicr::PublishFetchHandler::Create(track_full_name, attrs.priority, subscribe_id, attrs.group_order, 50000);

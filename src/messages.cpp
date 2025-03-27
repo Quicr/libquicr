@@ -3,10 +3,9 @@
 
 #include "quicr/detail/messages.h"
 
-using namespace quicr::ctrl_messages;
+using namespace quicr::messages;
 
-namespace quicr::data_messages {
-    using quicr::ctrl_messages::operator<<;
+namespace quicr::messages {
     //
     // Utility
     //
@@ -112,12 +111,11 @@ namespace quicr::data_messages {
             // Odd types are varint length + bytes.
             buffer << UintVar(extension.second.size());
             PushBytes(buffer, extension.second);
-            // SAH buffer << extension.second;
         }
     }
 
     template<class StreamBufferType>
-    bool operator>>(StreamBufferType& buffer, quicr::ctrl_messages::Parameter& param)
+    bool operator>>(StreamBufferType& buffer, quicr::messages::Parameter& param)
     {
         if (!ParseUintVField(buffer, param.type)) {
             return false;
@@ -177,7 +175,6 @@ namespace quicr::data_messages {
         } else {
             buffer << UintVar(msg.payload.size());
             PushBytes(buffer, msg.payload);
-            // SAH buffer << msg.payload;
         }
         return buffer;
     }
@@ -288,7 +285,6 @@ namespace quicr::data_messages {
         }
 
         PushBytes(buffer, msg.payload);
-        // SAH buffer << msg.payload;
 
         return buffer;
     }
@@ -496,7 +492,6 @@ namespace quicr::data_messages {
         } else {
             buffer << UintVar(msg.payload.size());
             PushBytes(buffer, msg.payload);
-            // SAH buffer << msg.payload;
         }
         return buffer;
     }

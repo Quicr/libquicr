@@ -13,9 +13,10 @@
 #include <string>
 #include <vector>
 
-namespace quicr::data_messages {
-    using SubGroupId = quicr::ctrl_messages::GroupId;
-    using ObjectId = quicr::ctrl_messages::ObjectId;
+namespace quicr::messages {
+
+    using SubGroupId = quicr::messages::GroupId;
+    using ObjectId = quicr::messages::ObjectId;
     using ObjectPriority = uint8_t;
     using Extensions = std::map<uint64_t, Bytes>;
 
@@ -44,7 +45,7 @@ namespace quicr::data_messages {
 
     struct FetchObject
     {
-        ctrl_messages::GroupId group_id;
+        messages::GroupId group_id;
         SubGroupId subgroup_id;
         ObjectId object_id;
         ObjectPriority publisher_priority;
@@ -71,8 +72,8 @@ namespace quicr::data_messages {
 
     struct ObjectDatagram
     {
-        ctrl_messages::TrackAlias track_alias;
-        ctrl_messages::GroupId group_id;
+        messages::TrackAlias track_alias;
+        messages::GroupId group_id;
         ObjectId object_id;
         ObjectPriority priority;
         std::optional<Extensions> extensions;
@@ -94,8 +95,8 @@ namespace quicr::data_messages {
 
     struct ObjectDatagramStatus
     {
-        ctrl_messages::TrackAlias track_alias;
-        ctrl_messages::GroupId group_id;
+        messages::TrackAlias track_alias;
+        messages::GroupId group_id;
         ObjectId object_id;
         ObjectPriority priority;
         ObjectStatus status;
@@ -113,8 +114,8 @@ namespace quicr::data_messages {
     // SubGroups
     struct StreamHeaderSubGroup
     {
-        ctrl_messages::TrackAlias track_alias;
-        ctrl_messages::GroupId group_id;
+        messages::TrackAlias track_alias;
+        messages::GroupId group_id;
         SubGroupId subgroup_id;
         ObjectPriority priority;
         template<class StreamBufferType>
@@ -148,4 +149,4 @@ namespace quicr::data_messages {
     bool operator>>(Bytes& buffer, StreamSubGroupObject& msg);
     Bytes& operator<<(Bytes& buffer, const StreamSubGroupObject& msg);
 
-} // end of namespace quicr::data_messages
+} // end of namespace quicr::_messages

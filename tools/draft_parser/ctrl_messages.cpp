@@ -1,7 +1,7 @@
 
-#include "quicr/detail/ctrl_messages.h"
+#include "quicr/detail/messages.h"
 
-namespace quicr::ctrl_messages {
+namespace quicr::messages {
 
     /*
      * SubscribeUpdate stream in
@@ -949,7 +949,7 @@ namespace quicr::ctrl_messages {
         return buffer;
     } 
 
-    Bytes& operator<<(Bytes& buffer, const std::vector<quicr::ctrl_messages::Parameter>& params)
+    Bytes& operator<<(Bytes& buffer, const std::vector<quicr::messages::Parameter>& params)
     {
         buffer << params.size();
         for (const auto& param : params) {
@@ -958,13 +958,13 @@ namespace quicr::ctrl_messages {
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, std::vector<quicr::ctrl_messages::Parameter>& params)
+    BytesSpan operator>>(BytesSpan buffer, std::vector<quicr::messages::Parameter>& params)
     {
         uint64_t size = 0;
         buffer = buffer >> size;
 
         for (uint64_t i = 0; i < size; ++i) {
-            quicr::ctrl_messages::Parameter param;
+            quicr::messages::Parameter param;
             buffer = buffer >> param;
             params.push_back(param);
         }
@@ -995,14 +995,14 @@ namespace quicr::ctrl_messages {
         return buffer;
     }        
 
-    Bytes& operator<<(Bytes& buffer, const quicr::ctrl_messages::Parameter& param)
+    Bytes& operator<<(Bytes& buffer, const quicr::messages::Parameter& param)
     {
         buffer << param.type;
         buffer << param.value;
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, quicr::ctrl_messages::Parameter& param)
+    BytesSpan operator>>(BytesSpan buffer, quicr::messages::Parameter& param)
     {
         buffer = buffer >> param.type;
         buffer = buffer >> param.value;

@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "ctrl_messages.h"
 #include "messages.h"
 #include "tick_service.h"
 
@@ -241,7 +240,7 @@ namespace quicr {
             std::optional<uint64_t> ctrl_data_ctx_id;
             bool setup_complete{ false }; ///< True if both client and server setup messages have completed
             uint64_t client_version{ 0 };
-            std::optional<quicr::ctrl_messages::ControlMessageType>
+            std::optional<quicr::messages::ControlMessageType>
               ctrl_msg_type_received; ///< Indicates the current message type being read
 
             std::vector<uint8_t> ctrl_msg_buffer; ///< Control message buffer
@@ -253,28 +252,28 @@ namespace quicr {
             struct SubscribeContext
             {
                 FullTrackName track_full_name;
-                std::optional<quicr::ctrl_messages::GroupId> largest_group_id{ std::nullopt };
-                std::optional<quicr::ctrl_messages::ObjectId> largest_object_id{ std::nullopt };
+                std::optional<quicr::messages::GroupId> largest_group_id{ std::nullopt };
+                std::optional<quicr::messages::ObjectId> largest_object_id{ std::nullopt };
             };
-            std::map<ctrl_messages::SubscribeID, SubscribeContext> recv_sub_id;
+            std::map<messages::SubscribeID, SubscribeContext> recv_sub_id;
 
             /// Tracks by subscribe ID (Subscribe and Fetch)
-            std::map<ctrl_messages::SubscribeID, std::shared_ptr<SubscribeTrackHandler>> tracks_by_sub_id;
+            std::map<messages::SubscribeID, std::shared_ptr<SubscribeTrackHandler>> tracks_by_sub_id;
 
             /// Subscribes by Track Alais is used for data object forwarding
-            std::map<ctrl_messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> sub_by_track_alias;
+            std::map<messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> sub_by_track_alias;
 
             /// Publish tracks by namespace and name. map[track namespace][track name] = track handler
             std::map<TrackNamespaceHash, std::map<TrackNameHash, std::shared_ptr<PublishTrackHandler>>>
               pub_tracks_by_name;
 
-            std::map<ctrl_messages::TrackAlias, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_track_alias;
+            std::map<messages::TrackAlias, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_track_alias;
 
             /// Published tracks by quic transport data context ID.
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
 
             /// Fetch Publishers by subscribe ID.
-            std::map<ctrl_messages::SubscribeID, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_sub_id;
+            std::map<messages::SubscribeID, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_sub_id;
 
             ConnectionMetrics metrics{}; ///< Connection metrics
 
@@ -313,29 +312,29 @@ namespace quicr {
                            uint64_t subscribe_id,
                            const FullTrackName& tfn,
                            TrackHash th,
-                           quicr::ctrl_messages::SubscriberPriority priority,
-                           quicr::ctrl_messages::GroupOrder group_order,
-                           quicr::ctrl_messages::FilterType filter_type);
+                           quicr::messages::SubscriberPriority priority,
+                           quicr::messages::GroupOrder group_order,
+                           quicr::messages::FilterType filter_type);
         void SendSubscribeUpdate(ConnectionContext& conn_ctx,
                                  uint64_t subscribe_id,
                                  TrackHash th,
-                                 quicr::ctrl_messages::GroupId start_group_id,
-                                 quicr::ctrl_messages::ObjectId start_object_id,
-                                 quicr::ctrl_messages::GroupId end_group_id,
-                                 quicr::ctrl_messages::SubscriberPriority priority);
+                                 quicr::messages::GroupId start_group_id,
+                                 quicr::messages::ObjectId start_object_id,
+                                 quicr::messages::GroupId end_group_id,
+                                 quicr::messages::SubscriberPriority priority);
 
         void SendSubscribeOk(ConnectionContext& conn_ctx,
                              uint64_t subscribe_id,
                              uint64_t expires,
                              bool content_exists,
-                             quicr::ctrl_messages::GroupId largest_group_id,
-                             quicr::ctrl_messages::ObjectId largest_object_id);
+                             quicr::messages::GroupId largest_group_id,
+                             quicr::messages::ObjectId largest_object_id);
         void SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id);
         void SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason);
         void SendSubscribeError(ConnectionContext& conn_ctx,
                                 uint64_t subscribe_id,
                                 uint64_t track_alias,
-                                quicr::ctrl_messages::SubscribeErrorCodeEnum error,
+                                quicr::messages::SubscribeErrorCodeEnum error,
                                 const std::string& reason);
 
         void SendSubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
@@ -343,38 +342,38 @@ namespace quicr {
         void SendSubscribeAnnouncesOk(ConnectionContext& conn_ctx, const TrackNamespace& prefix_namespace);
         void SendSubscribeAnnouncesError(ConnectionContext& conn_ctx,
                                          const TrackNamespace& prefix_namespace,
-                                         quicr::ctrl_messages::SubscribeAnnouncesErrorCodeEnum err_code,
-                                         const quicr::ctrl_messages::ReasonPhrase& reason);
+                                         quicr::messages::SubscribeAnnouncesErrorCodeEnum err_code,
+                                         const quicr::messages::ReasonPhrase& reason);
 
         void SendFetch(ConnectionContext& conn_ctx,
                        uint64_t subscribe_id,
                        const FullTrackName& tfn,
-                       quicr::ctrl_messages::SubscriberPriority priority,
-                       quicr::ctrl_messages::GroupOrder group_order,
-                       quicr::ctrl_messages::GroupId start_group,
-                       quicr::ctrl_messages::GroupId start_object,
-                       quicr::ctrl_messages::GroupId end_group,
-                       quicr::ctrl_messages::GroupId end_object);
+                       quicr::messages::SubscriberPriority priority,
+                       quicr::messages::GroupOrder group_order,
+                       quicr::messages::GroupId start_group,
+                       quicr::messages::GroupId start_object,
+                       quicr::messages::GroupId end_group,
+                       quicr::messages::GroupId end_object);
         void SendJoiningFetch(ConnectionContext& conn_ctx,
                               uint64_t subscribe_id,
-                              quicr::ctrl_messages::SubscriberPriority priority,
-                              quicr::ctrl_messages::GroupOrder group_order,
+                              quicr::messages::SubscriberPriority priority,
+                              quicr::messages::GroupOrder group_order,
                               uint64_t joining_subscribe_id,
-                              quicr::ctrl_messages::GroupId preceding_group_offset,
-                              const quicr::ctrl_messages::Parameters parameters);
+                              quicr::messages::GroupId preceding_group_offset,
+                              const quicr::messages::Parameters parameters);
         void SendFetchCancel(ConnectionContext& conn_ctx, uint64_t subscribe_id);
         void SendFetchOk(ConnectionContext& conn_ctx,
                          uint64_t subscribe_id,
-                         quicr::ctrl_messages::GroupOrder group_order,
+                         quicr::messages::GroupOrder group_order,
                          bool end_of_track,
-                         quicr::ctrl_messages::GroupId largest_group_id,
-                         quicr::ctrl_messages::GroupId largest_object_id);
+                         quicr::messages::GroupId largest_group_id,
+                         quicr::messages::GroupId largest_object_id);
         void SendFetchError(ConnectionContext& conn_ctx,
                             uint64_t subscribe_id,
-                            quicr::ctrl_messages::FetchErrorCodeEnum error,
+                            quicr::messages::FetchErrorCodeEnum error,
                             const std::string& reason);
         void CloseConnection(ConnectionHandle connection_handle,
-                             quicr::ctrl_messages::TerminationReasonEnum reason,
+                             quicr::messages::TerminationReasonEnum reason,
                              const std::string& reason_str);
 
         void RemoveSubscribeTrack(ConnectionContext& conn_ctx,

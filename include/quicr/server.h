@@ -255,7 +255,7 @@ namespace quicr {
          * @param announce_attributes   Announces attributes received
          */
         using SubscribeAnnouncesResponse =
-          std::pair<std::optional<quicr::ctrl_messages::SubscribeAnnouncesErrorCodeEnum>, std::vector<TrackNamespace>>;
+          std::pair<std::optional<quicr::messages::SubscribeAnnouncesErrorCodeEnum>, std::vector<TrackNamespace>>;
 
         virtual SubscribeAnnouncesResponse SubscribeAnnouncesReceived(
           ConnectionHandle connection_handle,
@@ -277,9 +277,9 @@ namespace quicr {
         virtual void SubscribeReceived(ConnectionHandle connection_handle,
                                        uint64_t subscribe_id,
                                        uint64_t proposed_track_alias,
-                                       quicr::ctrl_messages::FilterTypeEnum filter_type,
+                                       quicr::messages::FilterTypeEnum filter_type,
                                        const FullTrackName& track_full_name,
-                                       const quicr::ctrl_messages::SubscribeAttributes& subscribe_attributes);
+                                       const quicr::messages::SubscribeAttributes& subscribe_attributes);
 
         /**
          * @brief Callback notification on unsubscribe received
@@ -290,7 +290,7 @@ namespace quicr {
         virtual void UnsubscribeReceived(ConnectionHandle connection_handle, uint64_t subscribe_id) = 0;
 
         // TODO: Their is probably a distinction between track not found, and no objects.
-        using LargestAvailable = std::optional<std::pair<ctrl_messages::GroupId, ctrl_messages::ObjectId>>;
+        using LargestAvailable = std::optional<std::pair<messages::GroupId, messages::ObjectId>>;
 
         /**
          * @brief Get the largest available object for the given track, if any.
@@ -312,7 +312,7 @@ namespace quicr {
         virtual bool OnFetchOk(ConnectionHandle connection_handle,
                                uint64_t subscribe_id,
                                const FullTrackName& track_full_name,
-                               const quicr::ctrl_messages::FetchAttributes& attributes);
+                               const quicr::messages::FetchAttributes& attributes);
 
         /**
          * @brief Callback notification on receiving a FetchCancel message.
