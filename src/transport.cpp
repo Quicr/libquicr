@@ -322,7 +322,7 @@ namespace quicr {
                                     messages::LargestGroupID largest_group_id,
                                     messages::LargestObjectID largest_object_id)
     {
-        auto group_0 = std::make_optional<messages::SubscribeOk::Group_0>({ largest_group_id, largest_object_id });
+        auto group_0 = std::make_optional<messages::SubscribeOk::Group_0>() = { largest_group_id, largest_object_id };
         auto subscribe_ok = messages::SubscribeOk(
           subscribe_id, expires, messages::GroupOrderEnum::kAscending, content_exists, nullptr, group_0, {});
 
@@ -484,8 +484,8 @@ namespace quicr {
                               messages::GroupId end_group,
                               messages::GroupId end_object)
     {
-        auto group_0 = std::make_optional<messages::Fetch::Group_0>(
-          { tfn.name_space, tfn.name, start_group, start_object, end_group, end_object });
+        auto group_0 = std::make_optional<messages::Fetch::Group_0>() = { tfn.name_space, tfn.name,  start_group,
+                                                                          start_object,   end_group, end_object };
 
         auto fetch = messages::Fetch(subscribe_id,
                                      priority,
@@ -511,7 +511,8 @@ namespace quicr {
                                      messages::GroupId preceding_group_offset,
                                      const messages::Parameters parameters)
     {
-        auto group_1 = std::make_optional<messages::Fetch::Group_1>({ joining_subscribe_id, preceding_group_offset });
+        auto group_1 =
+          std::make_optional<messages::Fetch::Group_1>() = { joining_subscribe_id, preceding_group_offset };
 
         auto fetch = messages::Fetch(subscribe_id,
                                      priority,
