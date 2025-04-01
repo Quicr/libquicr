@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 # SPDX-License-Identifier: BSD-2-Clause
 
-cmake_minimum_required(VERSION 3.5...3.20)
-
 add_executable(quicr_test
     main.cpp
     moq_data_messages.cpp
