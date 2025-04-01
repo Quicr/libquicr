@@ -755,6 +755,7 @@ namespace quicr {
                                            msg.subscribe_id,
                                            messages::FetchErrorCodeEnum::kInvalidRange,
                                            "Nothing to give");
+                            return true;
                         }
                         largest_group = *opt_largest_group;
                         largest_object = *opt_largest_object;
