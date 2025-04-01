@@ -108,8 +108,8 @@ namespace quicr {
          */
         virtual void SubscribeAnnouncesStatusChanged(
           const TrackNamespace& track_namespace,
-          std::optional<quicr::messages::SubscribeAnnouncesErrorCodeEnum> error_code,
-          std::optional<quicr::messages::ReasonPhrase> reason);
+          std::optional<messages::SubscribeAnnouncesErrorCodeEnum> error_code,
+          std::optional<messages::ReasonPhrase> reason);
 
         /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
@@ -129,7 +129,7 @@ namespace quicr {
          * @param subscribe_attributes      Subscribe attributes received
          */
         virtual void UnpublishedSubscribeReceived(const FullTrackName& track_full_name,
-                                                  const quicr::messages::SubscribeAttributes& subscribe_attributes);
+                                                  const messages::SubscribeAttributes& subscribe_attributes);
 
         /**
          * @brief Accept or reject an subscribe that was received

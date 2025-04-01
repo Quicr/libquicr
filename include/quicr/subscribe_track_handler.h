@@ -51,10 +51,10 @@ namespace quicr {
          */
         struct JoiningFetch
         {
-            const quicr::messages::SubscriberPriority priority;
-            const quicr::messages::GroupOrder group_order;
-            const quicr::messages::Parameters parameters;
-            const quicr::messages::GroupId preceding_group_offset;
+            const messages::SubscriberPriority priority;
+            const messages::GroupOrder group_order;
+            const messages::Parameters parameters;
+            const messages::GroupId preceding_group_offset;
         };
 
       protected:
@@ -65,9 +65,9 @@ namespace quicr {
          * @param joining_fetch             If set, subscribe with a joining fetch using these attributes.
          */
         SubscribeTrackHandler(const FullTrackName& full_track_name,
-                              quicr::messages::SubscriberPriority priority,
-                              quicr::messages::GroupOrderEnum group_order,
-                              quicr::messages::FilterTypeEnum filter_type,
+                              messages::SubscriberPriority priority,
+                              messages::GroupOrderEnum group_order,
+                              messages::FilterTypeEnum filter_type,
                               const std::optional<JoiningFetch>& joining_fetch = std::nullopt)
           : BaseTrackHandler(full_track_name)
           , priority_(priority)
@@ -88,9 +88,9 @@ namespace quicr {
          */
         static std::shared_ptr<SubscribeTrackHandler> Create(
           const FullTrackName& full_track_name,
-          quicr::messages::SubscriberPriority priority,
-          quicr::messages::GroupOrderEnum group_order = quicr::messages::GroupOrderEnum::kAscending,
-          quicr::messages::FilterTypeEnum filter_type = quicr::messages::FilterTypeEnum::kLatestObject)
+          messages::SubscriberPriority priority,
+          messages::GroupOrderEnum group_order = messages::GroupOrderEnum::kAscending,
+          messages::FilterTypeEnum filter_type = messages::FilterTypeEnum::kLatestObject)
         {
             return std::shared_ptr<SubscribeTrackHandler>(
               new SubscribeTrackHandler(full_track_name, priority, group_order, filter_type));
@@ -115,7 +115,7 @@ namespace quicr {
          *
          * @return Priority value
          */
-        constexpr quicr::messages::SubscriberPriority GetPriority() const noexcept { return priority_; }
+        constexpr messages::SubscriberPriority GetPriority() const noexcept { return priority_; }
 
         /**
          * @brief Get subscription group order
@@ -123,7 +123,7 @@ namespace quicr {
          * @return GroupOrder value
          */
 
-        constexpr quicr::messages::GroupOrderEnum GetGroupOrder() const noexcept { return group_order_; }
+        constexpr messages::GroupOrderEnum GetGroupOrder() const noexcept { return group_order_; }
 
         /**
          * @brief Get subscription filter type
@@ -131,16 +131,13 @@ namespace quicr {
          * @return FilterType value
          */
 
-        constexpr quicr::messages::FilterTypeEnum GetFilterType() const noexcept { return filter_type_; }
+        constexpr messages::FilterTypeEnum GetFilterType() const noexcept { return filter_type_; }
 
-        constexpr std::optional<quicr::messages::GroupId> GetLatestGroupID() const noexcept { return latest_group_id_; }
-        constexpr std::optional<quicr::messages::ObjectId> GetLatestObjectID() const noexcept
-        {
-            return latest_object_id_;
-        }
+        constexpr std::optional<messages::GroupId> GetLatestGroupID() const noexcept { return latest_group_id_; }
+        constexpr std::optional<messages::ObjectId> GetLatestObjectID() const noexcept { return latest_object_id_; }
 
-        constexpr void SetLatestGroupID(quicr::messages::GroupId new_id) noexcept { latest_group_id_ = new_id; }
-        constexpr void SetLatestObjectID(quicr::messages::ObjectId new_id) noexcept { latest_object_id_ = new_id; }
+        constexpr void SetLatestGroupID(messages::GroupId new_id) noexcept { latest_group_id_ = new_id; }
+        constexpr void SetLatestObjectID(messages::ObjectId new_id) noexcept { latest_object_id_ = new_id; }
 
         /**
          * @brief Get joining fetch info, if any.
@@ -253,12 +250,12 @@ namespace quicr {
 
       private:
         Status status_{ Status::kNotSubscribed };
-        quicr::messages::SubscriberPriority priority_;
-        quicr::messages::GroupOrderEnum group_order_;
-        quicr::messages::FilterTypeEnum filter_type_;
+        messages::SubscriberPriority priority_;
+        messages::GroupOrderEnum group_order_;
+        messages::FilterTypeEnum filter_type_;
         uint64_t current_stream_id_{ 0 };
-        std::optional<quicr::messages::GroupId> latest_group_id_;
-        std::optional<quicr::messages::ObjectId> latest_object_id_;
+        std::optional<messages::GroupId> latest_group_id_;
+        std::optional<messages::ObjectId> latest_object_id_;
         std::optional<JoiningFetch> joining_fetch_;
 
         friend class Transport;
