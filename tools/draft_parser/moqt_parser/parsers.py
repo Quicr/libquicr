@@ -150,7 +150,10 @@ class ProtocolMessageParser:
                         if current_group_field is not None:
                             if field.is_variable_length:
                                 current_group_field.group_fields.pop()
-                                group_fields.pop()
+                                prev_field = group_fields.pop()
+                                field.variable_length_size_cpp_using_type = (
+                                    prev_field.cpp_using_type
+                                )
                             current_group_field.group_fields.append(field)
                             group_fields.append(field)
                     i += 1
@@ -171,7 +174,10 @@ class ProtocolMessageParser:
                         # NOTE: this field is a vector (is_repeated). Assuming previous field is the
                         # size of the vector. Since C++ vectors include a size - remove the previous
                         # field.
-                        fields.pop()
+                        prev_field = fields.pop()
+                        field.variable_length_size_cpp_using_type = (
+                            prev_field.cpp_using_type
+                        )
 
                     if field:
                         fields.append(field)
@@ -203,3 +209,82 @@ class ProtocolMessageParser:
                 message_list.append(message)
 
         return message_list
+
+
+class TableParser:
+    def __init__(self):
+        # This can be used to store any additional configuration if needed.
+        pass
+
+    def parse_tables(self, text):
+        # Regular expressions to match the table structure and extract data
+        # r"\s*(?:\+[-=]+\+[-=]+\+|\|\s*[^|]+\|\s*[^|]+\|)\s*"
+        # r"^\s*(?:\+[-=]+\+[-=]+\+|\|\s*[^|]+\|\s*[^|]+\|)\s*$"
+        table_header_pattern = (
+            r"^\s*(?:\+[-=]+\+[-=]+\+|\|\s*([^|]+)\|\s*([^|]+)\|)\s*$"
+        )
+        row_pattern = r"\s*\|\s*([^|]+?)\s*\|\s*(.*?)\s*\|"
+
+        # Extract all tables from the text
+        matches = re.findall(table_header_pattern, text, re.MULTILINE)
+        start_state = True
+        title_state = False
+        data_begin = False
+        end_state = False
+        for match in matches:
+            if start_state is True:
+                start_state = False
+                title_state = True
+                continue
+            if title_state is True:
+                title_state = False
+                data_divider = True
+                print(match)
+                continue
+            if data_divider is True:
+                data_divider = False
+                data_read = True
+                continue
+            if data_read is True:
+                # check if match for second group...
+                if len(match[0]) == 0:
+                    data_read = True
+                else:
+                    data_read = False
+                    print(match)
+                data_read = False
+                continue
+            break
+
+            print(match)
+        return
+
+        # Convert each match into a dictionary of rows
+        tables = []
+        for match in matches:
+            # table_rows = re.findall(row_pattern, match.replace('|', ''))
+            table_rows = re.findall(row_pattern, match)
+            header = [
+                item.strip()
+                for item in match.split(" +")[1].split(" +")
+                if item.strip()
+            ]
+
+            current_table = {}
+            for row in table_rows:
+                if not row:  # Skip empty lines
+                    continue
+                row_data = dict(
+                    zip(
+                        header,
+                        (
+                            item.strip().replace(" ", "_")
+                            for item in row.split(" | ")
+                        ),
+                    )
+                )
+                current_table[row_data["Code"]] = row_data
+
+            tables.append(current_table)
+
+        return tables

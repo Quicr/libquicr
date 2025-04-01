@@ -56,6 +56,7 @@ namespace quicr::messages {
     using TrackNamespacePrefix = quicr::TrackNamespace;
     using SubscribeAnnouncesErrorErrorCode = quicr::messages::SubscribeAnnouncesErrorCodeEnum;
 
+
     // enums
     enum class ControlMessageType : uint64_t
     {

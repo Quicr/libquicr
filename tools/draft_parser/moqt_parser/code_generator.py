@@ -1,6 +1,6 @@
 """Code Generator"""
 
-from typing import List, Dict
+from typing import List, Dict, Set
 from importlib import resources
 from jinja2 import Environment, FileSystemLoader, PackageLoader
 from .message_spec import MessageSpec
@@ -42,13 +42,17 @@ class CodeGenerator:
         gen_end += template.render(using_map=using_map)
         return gen_end
 
-    def generate_header_message_using(self, using_map: Dict) -> str:
+    def generate_header_message_using(
+        self, using_map: Dict, repeat_using_map: Dict
+    ) -> str:
         """Gen Header Using"""
         gen_usings = ""
         template = self.template_env.get_template(
             "MessageSpec_Header_Using_tmpl.jinja2"
         )
-        gen_usings += template.render(using_map=using_map)
+        gen_usings += template.render(
+            using_map=using_map, repeat_map=repeat_using_map
+        )
         return gen_usings
 
     def generate_header_message_enums(
@@ -72,7 +76,9 @@ class CodeGenerator:
             "MessageSpec_Header_Structs_tmpl.jinja2"
         )
         for message in messages:
-            gen += template.render(message=message, field_discards=field_discards)
+            gen += template.render(
+                message=message, field_discards=field_discards
+            )
         return gen
 
     def generate_source_message_begin(
@@ -95,16 +101,22 @@ class CodeGenerator:
             "MessageSpec_Source_Structs_tmple.jinja2"
         )
         for message in messages:
-            gen += template.render(message=message, field_discards=field_discards)
+            gen += template.render(
+                message=message, field_discards=field_discards
+            )
         return gen
 
-    def generate_source_message_using(self, using_map: Dict) -> str:
+    def generate_source_message_using(
+        self, using_map: Dict, repeat_using_map: Dict
+    ) -> str:
         """Gen Source Using"""
         gen_usings = ""
         template = self.template_env.get_template(
             "MessageSpec_Source_Using_templ.jinja2"
         )
-        gen_usings += template.render(using_map=using_map)
+        gen_usings += template.render(
+            using_map=using_map, repeat_map=repeat_using_map
+        )
         return gen_usings
 
     def generate_source_message_end(self, using_map: Dict) -> str:
@@ -120,14 +132,19 @@ class CodeGenerator:
         self,
         messages: List[MessageSpec],
         using_map: Dict,
+        repeat_using_map: Dict,
         field_discards: List[str],
     ) -> str:
         """Generate Complete Header"""
         header = ""
         header += self.generate_header_message_begin()
-        header += self.generate_header_message_using(using_map)
+        header += self.generate_header_message_using(
+            using_map, repeat_using_map
+        )
         header += self.generate_header_message_enums(messages)
-        header += self.generate_header_message_structs(messages, field_discards)
+        header += self.generate_header_message_structs(
+            messages, field_discards
+        )
         header += self.generate_header_message_end(using_map)
         return header
 
@@ -135,12 +152,15 @@ class CodeGenerator:
         self,
         messages: List[MessageSpec],
         using_map: Dict,
+        repeat_using_map: Dict,
         field_discards: List[str],
     ) -> str:
         """Generate Complete Source"""
         source = ""
         source += self.generate_source_message_begin(messages)
-        # source += self.generate_source_message_using(using_map)
+        source += self.generate_source_message_using(
+            using_map, repeat_using_map
+        )
         source += self.generate_source_message_encode_decode(
             messages, field_discards
         )

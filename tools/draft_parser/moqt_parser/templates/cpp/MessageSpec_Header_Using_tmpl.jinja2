@@ -10,3 +10,11 @@
                 {% endif %}
         {% endif %}
     {% endfor %}
+
+    {# ALREAY PART OF Header_End...
+    // stream vectors
+    {% for cpp_using_type in repeat_map %}
+    Bytes& operator<<(Bytes& buffer, const {{cpp_using_type}}& vec);
+    BytesSpan operator>>(BytesSpan buffer, {{cpp_using_type}}& vec);
+    {% endfor %}
+    #}

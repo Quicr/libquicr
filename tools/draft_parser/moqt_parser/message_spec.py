@@ -20,6 +20,7 @@ class Field:
     is_optional: bool = False
     is_repeated: bool = False
     is_variable_length: bool = False
+    variable_length_size_cpp_using_type = None
     group_name: str = None
     group_fields: List[("Field")] = None
 

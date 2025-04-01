@@ -2,6 +2,59 @@
 #include "quicr/detail/messages.h"
 
 namespace quicr::messages {
+    // usings
+    Bytes& operator<<(Bytes& buffer, const std::vector<std::uint64_t>& vec)
+    {
+        // write vector size
+        buffer << static_cast<std::uint64_t>(vec.size());
+
+        // write elements of vector
+        for (const auto& item : vec) {
+            buffer << item;
+        }
+        
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, std::vector<std::uint64_t>& vec)
+    {
+        std::uint64_t size = 0;
+        buffer = buffer >> size;
+
+        for (uint64_t i=0; i<size; i++) {
+            std::uint64_t item;    
+            buffer = buffer >> item;
+            vec.push_back(item);
+        }
+
+        return buffer;
+    }  
+    Bytes& operator<<(Bytes& buffer, const std::vector<quicr::messages::Parameter>& vec)
+    {
+        // write vector size
+        buffer << static_cast<std::uint64_t>(vec.size());
+
+        // write elements of vector
+        for (const auto& item : vec) {
+            buffer << item;
+        }
+        
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, std::vector<quicr::messages::Parameter>& vec)
+    {
+        std::uint64_t size = 0;
+        buffer = buffer >> size;
+
+        for (uint64_t i=0; i<size; i++) {
+            quicr::messages::Parameter item;    
+            buffer = buffer >> item;
+            vec.push_back(item);
+        }
+
+        return buffer;
+    }  
 
     /*
      * SubscribeUpdate stream in
@@ -948,52 +1001,6 @@ namespace quicr::messages {
 
         return buffer;
     } 
-
-    Bytes& operator<<(Bytes& buffer, const std::vector<quicr::messages::Parameter>& params)
-    {
-        buffer << params.size();
-        for (const auto& param : params) {
-            buffer << param;
-        }
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, std::vector<quicr::messages::Parameter>& params)
-    {
-        uint64_t size = 0;
-        buffer = buffer >> size;
-
-        for (uint64_t i = 0; i < size; ++i) {
-            quicr::messages::Parameter param;
-            buffer = buffer >> param;
-            params.push_back(param);
-        }
-
-        return buffer;
-    }
-
-    Bytes& operator<<(Bytes& buffer, const std::vector<std::uint64_t>& vec)
-    {
-        buffer << vec.size();
-        for (const auto& elem : vec) {
-            buffer << elem;
-        }
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, std::vector<std::uint64_t>& vec)
-    {
-        uint64_t size = 0;
-        buffer = buffer >> size;
-
-        for (uint64_t i = 0; i < size; ++i) {
-            std::uint64_t elem;;
-            buffer = buffer >> elem;
-            vec.push_back(elem);
-        }
-
-        return buffer;
-    }        
 
     Bytes& operator<<(Bytes& buffer, const quicr::messages::Parameter& param)
     {

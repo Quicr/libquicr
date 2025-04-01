@@ -1,7 +1,7 @@
 """MOQ Draft Parser"""
 
 import sys
-from moqt_parser import ProtocolMessageParser, CodeGenerator
+from moqt_parser import ProtocolMessageParser, CodeGenerator #, TableParser
 
 
 def main(rfc_filename, output_name):
@@ -39,14 +39,21 @@ def main(rfc_filename, output_name):
     field_discards = ["Type", "Length"]
 
     parser = ProtocolMessageParser(type_map)
+    #table_parser = TableParser()
     generator = CodeGenerator("cpp")
     messages = []
 
     with open(rfc_filename, "r", encoding="utf8") as rfc_file:
         spec = rfc_file.read()
         messages = parser.parse_messages(spec)
-
+ 
+        # tables = table_parser.parse_tables(spec)
+        # print(tables)
+        # for table in tables:
+            # print(table)
+ 
         using_map = {}
+        repeat_using_map = {}
         for message in messages:
             for field in message.fields:
                 if field.group_fields:
@@ -61,17 +68,22 @@ def main(rfc_filename, output_name):
                     if field.is_optional is False:
                         using_map[field.cpp_using_name] = field
 
+        for using in using_map:
+            field = using_map[using]
+            if field.is_repeated:
+                repeat_using_map[using_map[using].cpp_using_type] = field
+
         if len(messages) > 0:
             with open(f"{output_name}.h", "w", encoding="utf8") as header_file:
                 output = generator.generate_header(
-                    messages, using_map, field_discards
+                    messages, using_map, repeat_using_map, field_discards
                 )
                 print(output, file=header_file)
             with open(
                 f"{output_name}.cpp", "w", encoding="utf8"
             ) as source_file:
                 output = generator.generate_source(
-                    messages, using_map, field_discards
+                    messages, using_map, repeat_using_map, field_discards
                 )
                 print(output, file=source_file)
         else:
