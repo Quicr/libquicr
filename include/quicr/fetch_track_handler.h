@@ -29,10 +29,7 @@ namespace quicr {
                           quicr::messages::GroupId end_group,
                           quicr::messages::GroupId start_object,
                           quicr::messages::GroupId end_object)
-          : SubscribeTrackHandler(full_track_name,
-                                  priority,
-                                  group_order,
-                                  quicr::messages::FilterTypeEnum::kLatestGroup)
+          : SubscribeTrackHandler(full_track_name, priority, group_order, quicr::messages::FilterTypeEnum::kLatestGroup)
           , start_group_(start_group)
           , start_object_(start_object)
           , end_group_(end_group)

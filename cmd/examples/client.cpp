@@ -365,10 +365,9 @@ class MyClient : public quicr::Client
         SPDLOG_INFO("Received unannounce for namespace_hash: {}", th.track_namespace_hash);
     }
 
-    void SubscribeAnnouncesStatusChanged(
-      const quicr::TrackNamespace& track_namespace,
-      std::optional<quicr::messages::SubscribeAnnouncesErrorCodeEnum> error_code,
-      std::optional<quicr::messages::ReasonPhrase> reason) override
+    void SubscribeAnnouncesStatusChanged(const quicr::TrackNamespace& track_namespace,
+                                         std::optional<quicr::messages::SubscribeAnnouncesErrorCodeEnum> error_code,
+                                         std::optional<quicr::messages::ReasonPhrase> reason) override
     {
         auto th = quicr::TrackHash({ track_namespace, {}, std::nullopt });
         if (!error_code.has_value()) {
@@ -551,8 +550,8 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
              bool join_fetch)
 {
     typedef quicr::SubscribeTrackHandler::JoiningFetch Fetch;
-    const auto joining_fetch = join_fetch ? Fetch{ 4, quicr::messages::GroupOrderEnum::kAscending, {}, 0 }
-                                          : std::optional<Fetch>(std::nullopt);
+    const auto joining_fetch =
+      join_fetch ? Fetch{ 4, quicr::messages::GroupOrderEnum::kAscending, {}, 0 } : std::optional<Fetch>(std::nullopt);
     const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type, joining_fetch);
 
     SPDLOG_INFO("Started subscriber");

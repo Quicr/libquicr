@@ -80,10 +80,7 @@ namespace quicr {
         return std::nullopt;
     }
 
-    bool Server::OnFetchOk(ConnectionHandle,
-                           uint64_t,
-                           const FullTrackName&,
-                           const quicr::messages::FetchAttributes&)
+    bool Server::OnFetchOk(ConnectionHandle, uint64_t, const FullTrackName&, const quicr::messages::FetchAttributes&)
     {
         return false;
     }

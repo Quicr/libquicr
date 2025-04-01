@@ -128,9 +128,8 @@ namespace quicr {
          * @param track_full_name           Track full name
          * @param subscribe_attributes      Subscribe attributes received
          */
-        virtual void UnpublishedSubscribeReceived(
-          const FullTrackName& track_full_name,
-          const quicr::messages::SubscribeAttributes& subscribe_attributes);
+        virtual void UnpublishedSubscribeReceived(const FullTrackName& track_full_name,
+                                                  const quicr::messages::SubscribeAttributes& subscribe_attributes);
 
         /**
          * @brief Accept or reject an subscribe that was received

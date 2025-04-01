@@ -331,10 +331,9 @@ namespace quicr {
                 auto optional_error_code =
                   std::make_optional<quicr::messages::SubscribeAnnouncesErrorCodeEnum>(error_code);
 
-                SubscribeAnnouncesStatusChanged(
-                  msg.track_namespace_prefix,
-                  optional_error_code,
-                  std::make_optional<quicr::messages::ReasonPhrase>(msg.reason_phrase));
+                SubscribeAnnouncesStatusChanged(msg.track_namespace_prefix,
+                                                optional_error_code,
+                                                std::make_optional<quicr::messages::ReasonPhrase>(msg.reason_phrase));
 
                 return true;
             }
