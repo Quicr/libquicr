@@ -1265,8 +1265,8 @@ namespace quicr {
                             break; // Not enough bytes to process control message. Try again once more.
                         }
 
-                        auto msg_type = uint64_t(
-                          quicr::UintVar({ conn_ctx.ctrl_msg_buffer.begin(), conn_ctx.ctrl_msg_buffer.begin() + uv_sz }));
+                        auto msg_type = uint64_t(quicr::UintVar(
+                          { conn_ctx.ctrl_msg_buffer.begin(), conn_ctx.ctrl_msg_buffer.begin() + uv_sz }));
 
                         conn_ctx.ctrl_msg_buffer.erase(conn_ctx.ctrl_msg_buffer.begin(),
                                                        conn_ctx.ctrl_msg_buffer.begin() + uv_sz);
