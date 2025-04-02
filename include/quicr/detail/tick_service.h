@@ -36,6 +36,7 @@ namespace quicr {
 
         virtual TickType Milliseconds() const = 0;
         virtual TickType Microseconds() const = 0;
+        virtual ~TickService() = default;
     };
 
     /**
@@ -60,7 +61,7 @@ namespace quicr {
             tick_thread_ = std::thread(&ThreadedTickService::TickLoop, this);
         }
 
-        virtual ~ThreadedTickService()
+        ~ThreadedTickService() override
         {
             stop_ = true;
             if (tick_thread_.joinable())
