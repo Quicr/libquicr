@@ -29,9 +29,9 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, std::size_t value)
+    Bytes& operator<<(Bytes& buffer, std::uint64_t value)
     {
-        UintVar varint = static_cast<std::uint64_t>(value);
+        UintVar varint = value;
         buffer << varint;
         return buffer;
     }
@@ -60,7 +60,7 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, ParameterType value)
     {
-        buffer << UintVar(static_cast<uint64_t>(value));
+        buffer << UintVar(static_cast<std::uint64_t>(value));
         return buffer;
     }
 

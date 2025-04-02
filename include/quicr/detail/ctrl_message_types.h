@@ -8,8 +8,8 @@ namespace quicr::messages {
     quicr::Bytes& operator<<(quicr::Bytes& buffer, const quicr::BytesSpan& bytes);
     quicr::BytesSpan operator>>(quicr::BytesSpan buffer, quicr::Bytes& value);
 
-    quicr::Bytes& operator<<(quicr::Bytes& buffer, std::size_t value);
-    quicr::BytesSpan operator>>(quicr::BytesSpan buffer, std::size_t& value);
+    quicr::Bytes& operator<<(quicr::Bytes& buffer, std::uint64_t value);
+    quicr::BytesSpan operator>>(quicr::BytesSpan buffer, std::uint64_t& value);
 
     quicr::Bytes& operator<<(quicr::Bytes& buffer, std::uint8_t value);
     quicr::BytesSpan operator>>(quicr::BytesSpan buffer, uint8_t& value);
