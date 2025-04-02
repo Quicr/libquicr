@@ -29,7 +29,6 @@ if (NOT TARGET spdlog)
 endif()
 
 if(BUILD_TESTING AND QUICR_BUILD_TESTS AND NOT TARGET doctest)
-    add_definitions(-DCMAKE_POLICY_VERSION_MINIMUM=3.5)
     add_subdirectory(doctest)
 endif()
 
