@@ -5,6 +5,8 @@
 
 #include "quicr/detail/span.h"
 #include <array>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <vector>
 
