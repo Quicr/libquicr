@@ -58,129 +58,129 @@ namespace quicr::messages {
         return buffer.subspan(value_uv.size());
     }
 
-    Bytes& operator<<(Bytes& buffer, ParameterTypeEnum value)
+    Bytes& operator<<(Bytes& buffer, ParameterType value)
     {
         buffer << UintVar(value);
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, ParameterTypeEnum& value)
+    BytesSpan operator>>(BytesSpan buffer, ParameterType& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
-        value = static_cast<ParameterTypeEnum>(uvalue);
+        value = static_cast<ParameterType>(uvalue);
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, GroupOrderEnum value)
+    Bytes& operator<<(Bytes& buffer, GroupOrder value)
     {
         buffer << static_cast<std::uint64_t>(value);
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, GroupOrderEnum& value)
+    BytesSpan operator>>(BytesSpan buffer, GroupOrder& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
-        value = static_cast<GroupOrderEnum>(uvalue);
+        value = static_cast<GroupOrder>(uvalue);
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, FilterTypeEnum value)
+    Bytes& operator<<(Bytes& buffer, FilterType value)
     {
         buffer << static_cast<std::uint64_t>(value);
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, FilterTypeEnum& value)
+    BytesSpan operator>>(BytesSpan buffer, FilterType& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
-        value = static_cast<FilterTypeEnum>(uvalue);
+        value = static_cast<FilterType>(uvalue);
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, FetchTypeEnum value)
+    Bytes& operator<<(Bytes& buffer, FetchType value)
     {
         buffer << static_cast<std::uint64_t>(value);
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, FetchTypeEnum& value)
+    BytesSpan operator>>(BytesSpan buffer, FetchType& value)
     {
         std::uint8_t uvalue;
         buffer = buffer >> uvalue;
-        value = static_cast<FetchTypeEnum>(uvalue);
+        value = static_cast<FetchType>(uvalue);
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, AnnounceErrorCodeEnum value)
+    Bytes& operator<<(Bytes& buffer, AnnounceErrorCode value)
     {
         buffer << static_cast<std::uint64_t>(value);
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, AnnounceErrorCodeEnum& value)
+    BytesSpan operator>>(BytesSpan buffer, AnnounceErrorCode& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
-        value = static_cast<AnnounceErrorCodeEnum>(uvalue);
+        value = static_cast<AnnounceErrorCode>(uvalue);
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, SubscribeAnnouncesErrorCodeEnum value)
+    Bytes& operator<<(Bytes& buffer, SubscribeAnnouncesErrorCode value)
     {
         buffer << static_cast<std::uint64_t>(value);
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesErrorCodeEnum& value)
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesErrorCode& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
-        value = static_cast<SubscribeAnnouncesErrorCodeEnum>(uvalue);
+        value = static_cast<SubscribeAnnouncesErrorCode>(uvalue);
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, FetchErrorCodeEnum value)
+    Bytes& operator<<(Bytes& buffer, FetchErrorCode value)
     {
         buffer << static_cast<std::uint64_t>(value);
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, FetchErrorCodeEnum& value)
+    BytesSpan operator>>(BytesSpan buffer, FetchErrorCode& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
-        value = static_cast<FetchErrorCodeEnum>(uvalue);
+        value = static_cast<FetchErrorCode>(uvalue);
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, SubscribeDoneStatusCodeEnum value)
+    Bytes& operator<<(Bytes& buffer, SubscribeDoneStatusCode value)
     {
         buffer << static_cast<std::uint64_t>(value);
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, SubscribeDoneStatusCodeEnum& value)
+    BytesSpan operator>>(BytesSpan buffer, SubscribeDoneStatusCode& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
-        value = static_cast<SubscribeDoneStatusCodeEnum>(uvalue);
+        value = static_cast<SubscribeDoneStatusCode>(uvalue);
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, SubscribeErrorCodeEnum value)
+    Bytes& operator<<(Bytes& buffer, SubscribeErrorCode value)
     {
         buffer << static_cast<std::uint64_t>(value);
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, SubscribeErrorCodeEnum& value)
+    BytesSpan operator>>(BytesSpan buffer, SubscribeErrorCode& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
-        value = static_cast<SubscribeErrorCodeEnum>(uvalue);
+        value = static_cast<SubscribeErrorCode>(uvalue);
         return buffer;
     }
 

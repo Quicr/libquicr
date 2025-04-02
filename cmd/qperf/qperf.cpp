@@ -122,8 +122,8 @@ namespace {
         PerfSubscribeTrackHandler(const quicr::FullTrackName& full_track_name)
           : SubscribeTrackHandler(full_track_name,
                                   3,
-                                  quicr::messages::GroupOrderEnum::kAscending,
-                                  quicr::messages::FilterTypeEnum::kLatestObject)
+                                  quicr::messages::GroupOrder::kAscending,
+                                  quicr::messages::FilterType::kLatestObject)
         {
         }
 

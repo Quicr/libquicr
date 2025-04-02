@@ -108,7 +108,7 @@ namespace quicr {
          */
         virtual void SubscribeAnnouncesStatusChanged(
           const TrackNamespace& track_namespace,
-          std::optional<messages::SubscribeAnnouncesErrorCodeEnum> error_code,
+          std::optional<messages::SubscribeAnnouncesErrorCode> error_code,
           std::optional<messages::ReasonPhrase> reason);
 
         /**

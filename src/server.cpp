@@ -28,7 +28,7 @@ namespace quicr {
 
     void Server::AnnounceReceived(ConnectionHandle, const TrackNamespace&, const PublishAnnounceAttributes&) {}
 
-    std::pair<std::optional<messages::SubscribeAnnouncesErrorCodeEnum>, std::vector<TrackNamespace>>
+    std::pair<std::optional<messages::SubscribeAnnouncesErrorCode>, std::vector<TrackNamespace>>
     Server::SubscribeAnnouncesReceived(ConnectionHandle, const TrackNamespace&, const PublishAnnounceAttributes&)
     {
         return { std::nullopt, {} };
@@ -69,7 +69,7 @@ namespace quicr {
     void Server::SubscribeReceived(ConnectionHandle,
                                    uint64_t,
                                    uint64_t,
-                                   messages::FilterTypeEnum,
+                                   messages::FilterType,
                                    const FullTrackName&,
                                    const messages::SubscribeAttributes&)
     {
@@ -118,14 +118,14 @@ namespace quicr {
                     SendSubscribeError(conn_it->second,
                                        subscribe_id,
                                        *subscribe_response.track_alias,
-                                       messages::SubscribeErrorCodeEnum::kRetryTrackAlias,
+                                       messages::SubscribeErrorCode::kRetryTrackAlias,
                                        subscribe_response.reason_phrase.has_value() ? *subscribe_response.reason_phrase
                                                                                     : "internal error");
                 } else {
                     SendSubscribeError(conn_it->second,
                                        subscribe_id,
                                        {},
-                                       messages::SubscribeErrorCodeEnum::kInternalError,
+                                       messages::SubscribeErrorCode::kInternalError,
                                        "Missing track alias");
                 }
                 break;
@@ -134,7 +134,7 @@ namespace quicr {
                 SendSubscribeError(conn_it->second,
                                    subscribe_id,
                                    {},
-                                   messages::SubscribeErrorCodeEnum::kInternalError,
+                                   messages::SubscribeErrorCode::kInternalError,
                                    "Internal error");
                 break;
         }
@@ -379,13 +379,13 @@ namespace quicr {
             case messages::ControlMessageType::kSubscribe: {
                 auto msg = messages::Subscribe(
                   [](messages::Subscribe& msg) {
-                      if (msg.filter_type == messages::FilterTypeEnum::kAbsoluteStart ||
-                          msg.filter_type == messages::FilterTypeEnum::kAbsoluteRange) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteStart ||
+                          msg.filter_type == messages::FilterType::kAbsoluteRange) {
                           msg.group_0 = std::make_optional<messages::Subscribe::Group_0>();
                       }
                   },
                   [](messages::Subscribe& msg) {
-                      if (msg.filter_type == messages::FilterTypeEnum::kAbsoluteRange) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteRange) {
                           msg.group_1 = std::make_optional<messages::Subscribe::Group_1>();
                       }
                   });
@@ -405,7 +405,7 @@ namespace quicr {
                                   msg.track_alias,
                                   msg.filter_type,
                                   tfn,
-                                  { msg.subscriber_priority, static_cast<messages::GroupOrderEnum>(msg.group_order) });
+                                  { msg.subscriber_priority, static_cast<messages::GroupOrder>(msg.group_order) });
 
                 return true;
             }
@@ -652,14 +652,14 @@ namespace quicr {
 
                 if (!msg.supported_versions.size()) { // should never happen
                     CloseConnection(conn_ctx.connection_handle,
-                                    messages::TerminationReasonEnum::kProtocolViolation,
+                                    messages::TerminationReason::kProtocolViolation,
                                     "Client setup contained zero versions");
                     return true;
                 }
 
                 std::string endpoint_id = "Unknown Endpoint ID";
                 for (const auto& param : msg.setup_parameters) {
-                    if (param.type == messages::ParameterTypeEnum::kEndpointId) {
+                    if (param.type == messages::ParameterType::kEndpointId) {
                         endpoint_id = std::string(param.value.begin(), param.value.end());
                     }
                 }
@@ -684,12 +684,12 @@ namespace quicr {
             case messages::ControlMessageType::kFetch: {
                 auto msg = messages::Fetch(
                   [](messages::Fetch& msg) {
-                      if (msg.fetch_type == messages::FetchTypeEnum::kStandalone) {
+                      if (msg.fetch_type == messages::FetchType::kStandalone) {
                           msg.group_0 = std::make_optional<messages::Fetch::Group_0>();
                       }
                   },
                   [](messages::Fetch& msg) {
-                      if (msg.fetch_type == messages::FetchTypeEnum::kJoiningFetch) {
+                      if (msg.fetch_type == messages::FetchType::kJoiningFetch) {
                           msg.group_1 = std::make_optional<messages::Fetch::Group_1>();
                       }
                   });
@@ -716,7 +716,7 @@ namespace quicr {
                         if (!largest_available.has_value()) {
                             SendFetchError(conn_ctx,
                                            msg.subscribe_id,
-                                           messages::FetchErrorCodeEnum::kTrackDoesNotExist,
+                                           messages::FetchErrorCode::kTrackDoesNotExist,
                                            "Track does not exist");
                             return true;
                         }
@@ -740,7 +740,7 @@ namespace quicr {
                         if (subscribe_state == conn_ctx.recv_sub_id.end()) {
                             SendFetchError(conn_ctx,
                                            msg.subscribe_id,
-                                           messages::FetchErrorCodeEnum::kTrackDoesNotExist,
+                                           messages::FetchErrorCode::kTrackDoesNotExist,
                                            "Corresponding subscribe does not exist");
                             return true;
                         }
@@ -753,7 +753,7 @@ namespace quicr {
                             // TODO: Possibly missing "No Objects" code per the draft.
                             SendFetchError(conn_ctx,
                                            msg.subscribe_id,
-                                           messages::FetchErrorCodeEnum::kInvalidRange,
+                                           messages::FetchErrorCode::kInvalidRange,
                                            "Nothing to give");
 
                             return true;
@@ -772,7 +772,7 @@ namespace quicr {
                     default: {
                         SendFetchError(conn_ctx,
                                        msg.subscribe_id,
-                                       messages::FetchErrorCodeEnum::kNotSupported,
+                                       messages::FetchErrorCode::kNotSupported,
                                        "Unknown fetch type");
                         return true;
                     }
@@ -792,7 +792,7 @@ namespace quicr {
                 if (!valid_range) {
                     SendFetchError(conn_ctx,
                                    msg.subscribe_id,
-                                   messages::FetchErrorCodeEnum::kInvalidRange,
+                                   messages::FetchErrorCode::kInvalidRange,
                                    "Cannot serve this range");
                     return true;
                 }
@@ -806,7 +806,7 @@ namespace quicr {
                 if (!OnFetchOk(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs)) {
                     SendFetchError(conn_ctx,
                                    msg.subscribe_id,
-                                   messages::FetchErrorCodeEnum::kInvalidRange,
+                                   messages::FetchErrorCode::kInvalidRange,
                                    "Cache does not have any data for given range");
                 }
 
@@ -848,13 +848,13 @@ namespace quicr {
                             static_cast<uint64_t>(*conn_ctx.ctrl_msg_type_received),
                             e.what());
         CloseConnection(conn_ctx.connection_handle,
-                        messages::TerminationReasonEnum::kProtocolViolation,
+                        messages::TerminationReason::kProtocolViolation,
                         "Control message cannot be parsed");
         return false;
     } catch (...) {
         SPDLOG_LOGGER_ERROR(logger_, "Unable to parse control message");
         CloseConnection(conn_ctx.connection_handle,
-                        messages::TerminationReasonEnum::kProtocolViolation,
+                        messages::TerminationReason::kProtocolViolation,
                         "Control message cannot be parsed");
         return false;
     }

@@ -255,7 +255,7 @@ namespace quicr {
          * @param announce_attributes   Announces attributes received
          */
         using SubscribeAnnouncesResponse =
-          std::pair<std::optional<messages::SubscribeAnnouncesErrorCodeEnum>, std::vector<TrackNamespace>>;
+          std::pair<std::optional<messages::SubscribeAnnouncesErrorCode>, std::vector<TrackNamespace>>;
 
         virtual SubscribeAnnouncesResponse SubscribeAnnouncesReceived(
           ConnectionHandle connection_handle,
@@ -277,7 +277,7 @@ namespace quicr {
         virtual void SubscribeReceived(ConnectionHandle connection_handle,
                                        uint64_t subscribe_id,
                                        uint64_t proposed_track_alias,
-                                       messages::FilterTypeEnum filter_type,
+                                       messages::FilterType filter_type,
                                        const FullTrackName& track_full_name,
                                        const messages::SubscribeAttributes& subscribe_attributes);
 

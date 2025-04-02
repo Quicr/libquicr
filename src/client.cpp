@@ -24,7 +24,7 @@ namespace quicr {
     void Client::UnannounceReceived(const TrackNamespace&) {}
 
     void Client::SubscribeAnnouncesStatusChanged(const TrackNamespace&,
-                                                 std::optional<messages::SubscribeAnnouncesErrorCodeEnum>,
+                                                 std::optional<messages::SubscribeAnnouncesErrorCode>,
                                                  std::optional<messages::ReasonPhrase>)
     {
     }
@@ -59,7 +59,7 @@ namespace quicr {
                 SendSubscribeError(conn_it->second,
                                    subscribe_id,
                                    {},
-                                   messages::SubscribeErrorCodeEnum::kInternalError,
+                                   messages::SubscribeErrorCode::kInternalError,
                                    "Internal error");
                 break;
         }
@@ -82,13 +82,13 @@ namespace quicr {
             case messages::ControlMessageType::kSubscribe: {
                 messages::Subscribe msg(
                   [](messages::Subscribe& msg) {
-                      if (msg.filter_type == messages::FilterTypeEnum::kAbsoluteStart ||
-                          msg.filter_type == messages::FilterTypeEnum::kAbsoluteRange) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteStart ||
+                          msg.filter_type == messages::FilterType::kAbsoluteRange) {
                           msg.group_0 = std::make_optional<messages::Subscribe::Group_0>();
                       }
                   },
                   [](messages::Subscribe& msg) {
-                      if (msg.filter_type == messages::FilterTypeEnum::kAbsoluteRange) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteRange) {
                           msg.group_1 = std::make_optional<messages::Subscribe::Group_1>();
                       }
                   });
@@ -117,7 +117,7 @@ namespace quicr {
                     SendSubscribeError(conn_ctx,
                                        msg.subscribe_id,
                                        msg.track_alias,
-                                       messages::SubscribeErrorCodeEnum::kTrackNotExist,
+                                       messages::SubscribeErrorCode::kTrackNotExist,
                                        "Published track not found");
                     return true;
                 }
@@ -153,7 +153,7 @@ namespace quicr {
                     SendSubscribeError(conn_ctx,
                                        msg.subscribe_id,
                                        0x0,
-                                       messages::SubscribeErrorCodeEnum::kTrackNotExist,
+                                       messages::SubscribeErrorCode::kTrackNotExist,
                                        "Subscription not found");
                     return true;
                 }
@@ -174,7 +174,7 @@ namespace quicr {
                     SendSubscribeError(conn_ctx,
                                        msg.subscribe_id,
                                        th.track_fullname_hash,
-                                       messages::SubscribeErrorCodeEnum::kTrackNotExist,
+                                       messages::SubscribeErrorCode::kTrackNotExist,
                                        "Published track not found");
                     return true;
                 }
@@ -327,8 +327,8 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 // SAH FIXME - is this OK?
-                auto error_code = static_cast<messages::SubscribeAnnouncesErrorCodeEnum>(msg.error_code);
-                auto optional_error_code = std::make_optional<messages::SubscribeAnnouncesErrorCodeEnum>(error_code);
+                auto error_code = static_cast<messages::SubscribeAnnouncesErrorCode>(msg.error_code);
+                auto optional_error_code = std::make_optional<messages::SubscribeAnnouncesErrorCode>(error_code);
 
                 SubscribeAnnouncesStatusChanged(msg.track_namespace_prefix,
                                                 optional_error_code,
@@ -470,7 +470,7 @@ namespace quicr {
 
                 std::string endpoint_id = "Unknown Endpoint ID";
                 for (const auto& param : msg.setup_parameters) {
-                    if (param.type == messages::ParameterTypeEnum::kEndpointId) {
+                    if (param.type == messages::ParameterType::kEndpointId) {
                         endpoint_id = std::string(param.value.begin(), param.value.end());
                     }
                 }

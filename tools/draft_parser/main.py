@@ -1,7 +1,7 @@
 """MOQ Draft Parser"""
 
 import sys
-from moqt_parser import ProtocolMessageParser, CodeGenerator #, TableParser
+from moqt_parser import ProtocolMessageParser, CodeGenerator  # , TableParser
 
 
 def main(rfc_filename, output_name):
@@ -25,33 +25,33 @@ def main(rfc_filename, output_name):
         "New Session URI": "quicr::Bytes",
         "Parameters": "quicr::messages::Parameter",
         "Reason Phrase": "quicr::Bytes",
-        "Filter Type": "quicr::messages::FilterTypeEnum",
-        "Group Order": "quicr::messages::GroupOrderEnum",
-        "Fetch Type": "quicr::messages::FetchTypeEnum",
-        "SubscribeDone::StatusCode": "quicr::messages::SubscribeDoneStatusCodeEnum",
-        "SubscribeError::ErrorCode": "quicr::messages::SubscribeErrorCodeEnum",
-        "AnnounceError::ErrorCode": "quicr::messages::AnnounceErrorCodeEnum",
-        "AnnounceCancel::ErrorCode": "quicr::messages::AnnounceErrorCodeEnum",
-        "SubscribeAnnouncesError::ErrorCode": "quicr::messages::SubscribeAnnouncesErrorCodeEnum",
-        "FetchError::ErrorCode": "quicr::messages::FetchErrorCodeEnum",
+        "Filter Type": "quicr::messages::FilterType",
+        "Group Order": "quicr::messages::GroupOrder",
+        "Fetch Type": "quicr::messages::FetchType",
+        "SubscribeDone::StatusCode": "quicr::messages::SubscribeDoneStatusCode",
+        "SubscribeError::ErrorCode": "quicr::messages::SubscribeErrorCode",
+        "AnnounceError::ErrorCode": "quicr::messages::AnnounceErrorCode",
+        "AnnounceCancel::ErrorCode": "quicr::messages::AnnounceErrorCode",
+        "SubscribeAnnouncesError::ErrorCode": "quicr::messages::SubscribeAnnouncesErrorCode",
+        "FetchError::ErrorCode": "quicr::messages::FetchErrorCode",
     }
 
     field_discards = ["Type", "Length"]
 
     parser = ProtocolMessageParser(type_map)
-    #table_parser = TableParser()
+    # table_parser = TableParser()
     generator = CodeGenerator("cpp")
     messages = []
 
     with open(rfc_filename, "r", encoding="utf8") as rfc_file:
         spec = rfc_file.read()
         messages = parser.parse_messages(spec)
- 
+
         # tables = table_parser.parse_tables(spec)
         # print(tables)
         # for table in tables:
-            # print(table)
- 
+        # print(table)
+
         using_map = {}
         repeat_using_map = {}
         for message in messages:

@@ -30,8 +30,8 @@ namespace qperf {
     PerfSubscribeTrackHandler::PerfSubscribeTrackHandler(const PerfConfig& perf_config, std::uint32_t test_identifier)
       : SubscribeTrackHandler(perf_config.full_track_name,
                               perf_config.priority,
-                              quicr::messages::GroupOrderEnum::kOriginalPublisherOrder,
-                              quicr::messages::FilterTypeEnum::kLatestObject)
+                              quicr::messages::GroupOrder::kOriginalPublisherOrder,
+                              quicr::messages::FilterType::kLatestObject)
       , terminate_(false)
       , perf_config_(perf_config)
       , first_pass_(true)

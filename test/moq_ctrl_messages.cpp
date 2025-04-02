@@ -123,7 +123,7 @@ TEST_CASE("AnnounceError Message encode/decode")
 
     auto announce_err = AnnounceError{};
     announce_err.track_namespace = kTrackNamespaceConf;
-    announce_err.error_code = quicr::messages::AnnounceErrorCodeEnum::kNotSupported;
+    announce_err.error_code = quicr::messages::AnnounceErrorCode::kNotSupported;
     announce_err.reason_phrase = Bytes{ 0x1, 0x2, 0x3 };
     buffer << announce_err;
 
@@ -157,8 +157,8 @@ TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
                                                 kTrackNamespaceConf,
                                                 kTrackNameAliceVideo,
                                                 0x10,
-                                                GroupOrderEnum::kAscending,
-                                                FilterTypeEnum::kLatestObject,
+                                                GroupOrder::kAscending,
+                                                FilterType::kLatestObject,
                                                 nullptr,
                                                 std::nullopt,
                                                 nullptr,
@@ -169,12 +169,12 @@ TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
 
     Subscribe subscribe_out(
       [](Subscribe& msg) {
-          if (msg.filter_type == FilterTypeEnum::kLatestObject) {
+          if (msg.filter_type == FilterType::kLatestObject) {
               // do nothing...
           }
       },
       [](Subscribe& msg) {
-          if (msg.filter_type == FilterTypeEnum::kLatestGroup) {
+          if (msg.filter_type == FilterType::kLatestGroup) {
               // again
           }
       });
@@ -196,8 +196,8 @@ TEST_CASE("Subscribe (kLatestGroup) Message encode/decode")
                                                 kTrackNamespaceConf,
                                                 kTrackNameAliceVideo,
                                                 0x10,
-                                                GroupOrderEnum::kAscending,
-                                                FilterTypeEnum::kLatestObject,
+                                                GroupOrder::kAscending,
+                                                FilterType::kLatestObject,
                                                 nullptr,
                                                 std::nullopt,
                                                 nullptr,
@@ -208,12 +208,12 @@ TEST_CASE("Subscribe (kLatestGroup) Message encode/decode")
 
     auto subscribe_out = Subscribe(
       [](Subscribe& msg) {
-          if (msg.filter_type == FilterTypeEnum::kLatestObject) {
+          if (msg.filter_type == FilterType::kLatestObject) {
               // do nothing...
           }
       },
       [](Subscribe& msg) {
-          if (msg.filter_type == FilterTypeEnum::kLatestGroup) {
+          if (msg.filter_type == FilterType::kLatestGroup) {
               // again
           }
       });
@@ -239,8 +239,8 @@ TEST_CASE("Subscribe (kAbsoluteStart) Message encode/decode")
                                                 kTrackNamespaceConf,
                                                 kTrackNameAliceVideo,
                                                 0x10,
-                                                GroupOrderEnum::kAscending,
-                                                FilterTypeEnum::kAbsoluteStart,
+                                                GroupOrder::kAscending,
+                                                FilterType::kAbsoluteStart,
                                                 nullptr,
                                                 group_0,
                                                 nullptr,
@@ -251,13 +251,13 @@ TEST_CASE("Subscribe (kAbsoluteStart) Message encode/decode")
 
     auto subscribe_out = Subscribe(
       [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterTypeEnum::kAbsoluteStart ||
-              subscribe.filter_type == FilterTypeEnum::kAbsoluteRange) {
+          if (subscribe.filter_type == FilterType::kAbsoluteStart ||
+              subscribe.filter_type == FilterType::kAbsoluteRange) {
               subscribe.group_0 = std::make_optional<Subscribe::Group_0>();
           }
       },
       [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterTypeEnum::kAbsoluteRange) {
+          if (subscribe.filter_type == FilterType::kAbsoluteRange) {
               subscribe.group_1 = std::make_optional<Subscribe::Group_1>();
           }
       });
@@ -291,8 +291,8 @@ TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
                                                 kTrackNamespaceConf,
                                                 kTrackNameAliceVideo,
                                                 0x10,
-                                                GroupOrderEnum::kAscending,
-                                                FilterTypeEnum::kAbsoluteRange,
+                                                GroupOrder::kAscending,
+                                                FilterType::kAbsoluteRange,
                                                 nullptr,
                                                 group_0,
                                                 nullptr,
@@ -303,13 +303,13 @@ TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
 
     auto subscribe_out = Subscribe(
       [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterTypeEnum::kAbsoluteStart ||
-              subscribe.filter_type == FilterTypeEnum::kAbsoluteRange) {
+          if (subscribe.filter_type == FilterType::kAbsoluteStart ||
+              subscribe.filter_type == FilterType::kAbsoluteRange) {
               subscribe.group_0 = std::make_optional<Subscribe::Group_0>();
           }
       },
       [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterTypeEnum::kAbsoluteRange) {
+          if (subscribe.filter_type == FilterType::kAbsoluteRange) {
               subscribe.group_1 = std::make_optional<Subscribe::Group_1>();
           }
       });
@@ -329,7 +329,7 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
 {
     Bytes buffer;
     Parameter param;
-    param.type = ParameterTypeEnum::kMaxSubscribeId;
+    param.type = ParameterType::kMaxSubscribeId;
     param.value = { 0x1, 0x2 };
     SubscribeParameters params = { param };
 
@@ -338,8 +338,8 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
                                                 kTrackNamespaceConf,
                                                 kTrackNameAliceVideo,
                                                 0x10,
-                                                GroupOrderEnum::kAscending,
-                                                FilterTypeEnum::kLatestObject,
+                                                GroupOrder::kAscending,
+                                                FilterType::kLatestObject,
                                                 nullptr,
                                                 std::nullopt,
                                                 nullptr,
@@ -350,13 +350,13 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
 
     auto subscribe_out = Subscribe(
       [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterTypeEnum::kAbsoluteStart ||
-              subscribe.filter_type == FilterTypeEnum::kAbsoluteRange) {
+          if (subscribe.filter_type == FilterType::kAbsoluteStart ||
+              subscribe.filter_type == FilterType::kAbsoluteRange) {
               subscribe.group_0 = std::make_optional<Subscribe::Group_0>();
           }
       },
       [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterTypeEnum::kAbsoluteRange) {
+          if (subscribe.filter_type == FilterType::kAbsoluteRange) {
               subscribe.group_1 = std::make_optional<Subscribe::Group_1>();
           }
       }
@@ -378,12 +378,12 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 {
     Bytes buffer;
     Parameter param1;
-    param1.type = ParameterTypeEnum::kMaxSubscribeId;
+    param1.type = ParameterType::kMaxSubscribeId;
     // param1.length = 0x2;
     param1.value = { 0x1, 0x2 };
 
     Parameter param2;
-    param2.type = ParameterTypeEnum::kMaxSubscribeId;
+    param2.type = ParameterType::kMaxSubscribeId;
     // param2.length = 0x3;
     param2.value = { 0x1, 0x2, 0x3 };
 
@@ -394,8 +394,8 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
                                                 kTrackNamespaceConf,
                                                 kTrackNameAliceVideo,
                                                 0x10,
-                                                GroupOrderEnum::kAscending,
-                                                FilterTypeEnum::kLatestObject,
+                                                GroupOrder::kAscending,
+                                                FilterType::kLatestObject,
                                                 nullptr,
                                                 std::nullopt,
                                                 nullptr,
@@ -406,13 +406,13 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 
     auto subscribe_out = Subscribe(
       [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterTypeEnum::kAbsoluteStart ||
-              subscribe.filter_type == FilterTypeEnum::kAbsoluteRange) {
+          if (subscribe.filter_type == FilterType::kAbsoluteStart ||
+              subscribe.filter_type == FilterType::kAbsoluteRange) {
               subscribe.group_0 = std::make_optional<Subscribe::Group_0>();
           }
       },
       [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterTypeEnum::kAbsoluteRange) {
+          if (subscribe.filter_type == FilterType::kAbsoluteRange) {
               subscribe.group_1 = std::make_optional<Subscribe::Group_1>();
           }
       }
@@ -433,17 +433,17 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 }
 
 Subscribe
-GenerateSubscribe(FilterTypeEnum filter, size_t num_params = 0, uint64_t sg = 0, uint64_t so = 0, uint64_t eg = 0)
+GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uint64_t so = 0, uint64_t eg = 0)
 {
     auto out = Subscribe(
       [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterTypeEnum::kAbsoluteStart ||
-              subscribe.filter_type == FilterTypeEnum::kAbsoluteRange) {
+          if (subscribe.filter_type == FilterType::kAbsoluteStart ||
+              subscribe.filter_type == FilterType::kAbsoluteRange) {
               subscribe.group_0 = std::make_optional<Subscribe::Group_0>();
           }
       },
       [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterTypeEnum::kAbsoluteRange) {
+          if (subscribe.filter_type == FilterType::kAbsoluteRange) {
               subscribe.group_1 = std::make_optional<Subscribe::Group_1>();
           }
       });
@@ -453,15 +453,15 @@ GenerateSubscribe(FilterTypeEnum filter, size_t num_params = 0, uint64_t sg = 0,
     out.track_name = kTrackNameAliceVideo;
     out.filter_type = filter;
     switch (filter) {
-        case FilterTypeEnum::kLatestObject:
-        case FilterTypeEnum::kLatestGroup:
+        case FilterType::kLatestObject:
+        case FilterType::kLatestGroup:
             break;
-        case FilterTypeEnum::kAbsoluteStart:
+        case FilterType::kAbsoluteStart:
             out.group_0 = std::make_optional<Subscribe::Group_0>();
             out.group_0->start_group = sg;
             out.group_0->start_object = so;
             break;
-        case FilterTypeEnum::kAbsoluteRange:
+        case FilterType::kAbsoluteRange:
             out.group_0 = std::make_optional<Subscribe::Group_0>();
             out.group_0->start_group = sg;
             out.group_0->start_object = so;
@@ -474,7 +474,7 @@ GenerateSubscribe(FilterTypeEnum filter, size_t num_params = 0, uint64_t sg = 0,
 
     while (num_params > 0) {
         Parameter param1;
-        param1.type = ParameterTypeEnum::kMaxSubscribeId;
+        param1.type = ParameterType::kMaxSubscribeId;
         // param1.length = 0x2;
         param1.value = { 0x1, 0x2 };
         out.subscribe_parameters.push_back(param1);
@@ -486,14 +486,14 @@ GenerateSubscribe(FilterTypeEnum filter, size_t num_params = 0, uint64_t sg = 0,
 TEST_CASE("Subscribe (Combo) Message encode/decode")
 {
     auto subscribes = std::vector<Subscribe>{
-        GenerateSubscribe(FilterTypeEnum::kLatestObject),
-        GenerateSubscribe(FilterTypeEnum::kLatestGroup),
-        GenerateSubscribe(FilterTypeEnum::kLatestObject, 1),
-        GenerateSubscribe(FilterTypeEnum::kLatestGroup, 2),
-        GenerateSubscribe(FilterTypeEnum::kAbsoluteStart, 0, 0x100, 0x2),
-        GenerateSubscribe(FilterTypeEnum::kAbsoluteStart, 2, 0x100, 0x2),
-        GenerateSubscribe(FilterTypeEnum::kAbsoluteRange, 0, 0x100, 0x2, 0x500),
-        GenerateSubscribe(FilterTypeEnum::kAbsoluteRange, 2, 0x100, 0x2, 0x500),
+        GenerateSubscribe(FilterType::kLatestObject),
+        GenerateSubscribe(FilterType::kLatestGroup),
+        GenerateSubscribe(FilterType::kLatestObject, 1),
+        GenerateSubscribe(FilterType::kLatestGroup, 2),
+        GenerateSubscribe(FilterType::kAbsoluteStart, 0, 0x100, 0x2),
+        GenerateSubscribe(FilterType::kAbsoluteStart, 2, 0x100, 0x2),
+        GenerateSubscribe(FilterType::kAbsoluteRange, 0, 0x100, 0x2, 0x500),
+        GenerateSubscribe(FilterType::kAbsoluteRange, 2, 0x100, 0x2, 0x500),
     };
 
     for (size_t i = 0; i < subscribes.size(); i++) {
@@ -501,13 +501,13 @@ TEST_CASE("Subscribe (Combo) Message encode/decode")
         buffer << subscribes[i];
         auto subscribe_out = Subscribe(
           [](Subscribe& subscribe) {
-              if (subscribe.filter_type == FilterTypeEnum::kAbsoluteStart ||
-                  subscribe.filter_type == FilterTypeEnum::kAbsoluteRange) {
+              if (subscribe.filter_type == FilterType::kAbsoluteStart ||
+                  subscribe.filter_type == FilterType::kAbsoluteRange) {
                   subscribe.group_0 = std::make_optional<Subscribe::Group_0>();
               }
           },
           [](Subscribe& subscribe) {
-              if (subscribe.filter_type == FilterTypeEnum::kAbsoluteRange) {
+              if (subscribe.filter_type == FilterType::kAbsoluteRange) {
                   subscribe.group_1 = std::make_optional<Subscribe::Group_1>();
               }
           });
@@ -552,7 +552,7 @@ TEST_CASE("SubscribeUpdate Message encode/decode")
 TEST_CASE("SubscribeOk Message encode/decode")
 {
     Bytes buffer;
-    auto subscribe_ok = SubscribeOk(0x1, 0x100, GroupOrderEnum::kAscending, false, nullptr, std::nullopt, {});
+    auto subscribe_ok = SubscribeOk(0x1, 0x100, GroupOrder::kAscending, false, nullptr, std::nullopt, {});
 
     buffer << subscribe_ok;
 
@@ -577,7 +577,7 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
     group_0->largest_group_id = 100;
     group_0->largest_object_id = 200;
 
-    auto subscribe_ok = SubscribeOk(0x01, 0x100, GroupOrderEnum::kAscending, 0x01, nullptr, group_0, {});
+    auto subscribe_ok = SubscribeOk(0x01, 0x100, GroupOrder::kAscending, 0x01, nullptr, group_0, {});
 
     buffer << subscribe_ok;
 
@@ -602,7 +602,7 @@ TEST_CASE("Error  Message encode/decode")
 
     auto subscribe_err = SubscribeError{};
     subscribe_err.subscribe_id = 0x1;
-    subscribe_err.error_code = quicr::messages::SubscribeErrorCodeEnum::kTrackDoesNotExist;
+    subscribe_err.error_code = quicr::messages::SubscribeErrorCode::kTrackDoesNotExist;
     subscribe_err.reason_phrase = Bytes{ 0x0, 0x1 };
     subscribe_err.track_alias = uint64_t(kTrackAliasAliceVideo);
     buffer << subscribe_err;
@@ -634,7 +634,7 @@ TEST_CASE("SubscribeDone  Message encode/decode")
 
     auto subscribe_done = SubscribeDone{};
     subscribe_done.subscribe_id = 0x1;
-    subscribe_done.status_code = quicr::messages::SubscribeDoneStatusCodeEnum::kExpired;
+    subscribe_done.status_code = quicr::messages::SubscribeDoneStatusCode::kExpired;
     subscribe_done.stream_count = 0x0;
     subscribe_done.reason_phrase = Bytes{ 0x0 };
 
@@ -655,7 +655,7 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
 
     auto subscribe_done = SubscribeDone{};
     subscribe_done.subscribe_id = 0x1;
-    subscribe_done.status_code = quicr::messages::SubscribeDoneStatusCodeEnum::kGoingAway;
+    subscribe_done.status_code = quicr::messages::SubscribeDoneStatusCode::kGoingAway;
     subscribe_done.stream_count = 0x0;
     subscribe_done.reason_phrase = Bytes{ 0x0 };
 
@@ -676,7 +676,7 @@ TEST_CASE("ClientSetup  Message encode/decode")
     const std::string endpoint_id = "client test";
 
     auto client_setup = ClientSetup(
-      { 0x1000, 0x2000 }, { { ParameterTypeEnum::kEndpointId, Bytes(endpoint_id.begin(), endpoint_id.end()) } });
+      { 0x1000, 0x2000 }, { { ParameterType::kEndpointId, Bytes(endpoint_id.begin(), endpoint_id.end()) } });
     buffer << client_setup;
 
     ClientSetup client_setup_out = {};
@@ -690,7 +690,7 @@ TEST_CASE("ServerSetup  Message encode/decode")
 {
     const std::string endpoint_id = "server_test";
     auto server_setup =
-      ServerSetup(0x1000, { { ParameterTypeEnum::kEndpointId, Bytes(endpoint_id.begin(), endpoint_id.end()) } });
+      ServerSetup(0x1000, { { ParameterType::kEndpointId, Bytes(endpoint_id.begin(), endpoint_id.end()) } });
 
     Bytes buffer;
     buffer << server_setup;
@@ -729,13 +729,13 @@ TEST_CASE("Fetch Message encode/decode")
         group_0->end_object = 0x100;
     }
     auto fetch = Fetch(
-      0x10, 1, GroupOrderEnum::kAscending, FetchTypeEnum::kStandalone, nullptr, group_0, nullptr, std::nullopt, {});
+      0x10, 1, GroupOrder::kAscending, FetchType::kStandalone, nullptr, group_0, nullptr, std::nullopt, {});
 
     buffer << fetch;
     {
         auto fetch_out = Fetch(
           [](Fetch& self) {
-              if (self.fetch_type == FetchTypeEnum::kStandalone) {
+              if (self.fetch_type == FetchType::kStandalone) {
                   self.group_0 = std::make_optional<Fetch::Group_0>();
               } else {
                   self.group_1 = std::make_optional<Fetch::Group_1>();
@@ -766,13 +766,13 @@ TEST_CASE("Fetch Message encode/decode")
     }
 
     fetch = Fetch(
-      0x10, 1, GroupOrderEnum::kAscending, FetchTypeEnum::kJoiningFetch, nullptr, std::nullopt, nullptr, group_1, {});
+      0x10, 1, GroupOrder::kAscending, FetchType::kJoiningFetch, nullptr, std::nullopt, nullptr, group_1, {});
 
     buffer << fetch;
     {
         auto fetch_out = Fetch(
           [](Fetch& self) {
-              if (self.fetch_type == FetchTypeEnum::kStandalone) {
+              if (self.fetch_type == FetchType::kStandalone) {
                   self.group_0 = std::make_optional<Fetch::Group_0>();
               } else {
                   self.group_1 = std::make_optional<Fetch::Group_1>();
@@ -792,7 +792,7 @@ TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
 
     auto fetch_ok = FetchOk{};
     fetch_ok.subscribe_id = 0x1234;
-    fetch_ok.group_order = GroupOrderEnum::kDescending;
+    fetch_ok.group_order = GroupOrder::kDescending;
     fetch_ok.largest_group_id = 0x9999;
     fetch_ok.largest_object_id = 0x9991;
 
@@ -818,7 +818,7 @@ TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
     buffer.clear();
     auto fetch_error = FetchError{};
     fetch_error.subscribe_id = 0x1111;
-    fetch_error.error_code = quicr::messages::FetchErrorCodeEnum::kInternalError;
+    fetch_error.error_code = quicr::messages::FetchErrorCode::kInternalError;
 
     buffer << fetch_error;
 
@@ -886,7 +886,7 @@ TEST_CASE("Subscribe Announces Error encode/decode")
 
     auto msg = SubscribeAnnouncesError{};
     msg.track_namespace_prefix = TrackNamespace{ "cisco"s, "meetings"s, "video"s, "1080p"s };
-    msg.error_code = quicr::messages::SubscribeAnnouncesErrorCodeEnum::kNamespacePrefixUnknown;
+    msg.error_code = quicr::messages::SubscribeAnnouncesErrorCode::kNamespacePrefixUnknown;
     msg.reason_phrase = Bytes{ 0x1, 0x2, 0x3 };
     buffer << msg;
 

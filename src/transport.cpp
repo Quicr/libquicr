@@ -162,7 +162,7 @@ namespace quicr {
     {
         if (not conn_ctx.ctrl_data_ctx_id) {
             CloseConnection(conn_ctx.connection_handle,
-                            messages::TerminationReasonEnum::kProtocolViolation,
+                            messages::TerminationReason::kProtocolViolation,
                             "Control bidir stream not created");
             return;
         }
@@ -181,7 +181,7 @@ namespace quicr {
         auto supported_versions = { kMoqtVersion };
         messages::SetupParameters setup_parameters;
         setup_parameters.push_back(
-          { .type = messages::ParameterTypeEnum::kEndpointId,
+          { .type = messages::ParameterType::kEndpointId,
             .value = { client_config_.endpoint_id.begin(), client_config_.endpoint_id.end() } });
 
         auto client_setup = messages::ClientSetup(supported_versions, setup_parameters);
@@ -201,7 +201,7 @@ namespace quicr {
 
         messages::SetupParameters setup_parameters;
         setup_parameters.push_back(
-          { .type = messages::ParameterTypeEnum::kEndpointId,
+          { .type = messages::ParameterType::kEndpointId,
             .value = { server_config_.endpoint_id.begin(), server_config_.endpoint_id.end() } });
 
         auto server_setup = messages::ServerSetup(selected_version, setup_parameters);
@@ -259,8 +259,8 @@ namespace quicr {
                                   const FullTrackName& tfn,
                                   TrackHash th,
                                   messages::SubscriberPriority priority,
-                                  messages::GroupOrderEnum group_order,
-                                  messages::FilterTypeEnum filter_type)
+                                  messages::GroupOrder group_order,
+                                  messages::FilterType filter_type)
     {
 
         auto subscribe = messages::Subscribe(subscribe_id,
@@ -324,7 +324,7 @@ namespace quicr {
     {
         auto group_0 = std::make_optional<messages::SubscribeOk::Group_0>() = { largest_group_id, largest_object_id };
         auto subscribe_ok = messages::SubscribeOk(
-          subscribe_id, expires, messages::GroupOrderEnum::kAscending, content_exists, nullptr, group_0, {});
+          subscribe_id, expires, messages::GroupOrder::kAscending, content_exists, nullptr, group_0, {});
 
         Bytes buffer;
         buffer << subscribe_ok;
@@ -338,7 +338,7 @@ namespace quicr {
     void Transport::SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason)
     {
         auto subscribe_done = messages::SubscribeDone(subscribe_id,
-                                                      messages::SubscribeDoneStatusCodeEnum::kSubscribtionEnded,
+                                                      messages::SubscribeDoneStatusCode::kSubscribtionEnded,
                                                       0,
                                                       quicr::Bytes(reason.begin(), reason.end()));
 
@@ -409,7 +409,7 @@ namespace quicr {
 
     void Transport::SendSubscribeAnnouncesError(ConnectionContext& conn_ctx,
                                                 const TrackNamespace& prefix_namespace,
-                                                messages::SubscribeAnnouncesErrorCodeEnum err_code,
+                                                messages::SubscribeAnnouncesErrorCode err_code,
                                                 const messages::ReasonPhrase& reason)
     {
 
@@ -455,7 +455,7 @@ namespace quicr {
     void Transport::SendSubscribeError(ConnectionContext& conn_ctx,
                                        uint64_t subscribe_id,
                                        uint64_t track_alias,
-                                       messages::SubscribeErrorCodeEnum error,
+                                       messages::SubscribeErrorCode error,
                                        const std::string& reason)
     {
         auto subscribe_err =
@@ -478,7 +478,7 @@ namespace quicr {
                               uint64_t subscribe_id,
                               const FullTrackName& tfn,
                               messages::SubscriberPriority priority,
-                              messages::GroupOrderEnum group_order,
+                              messages::GroupOrder group_order,
                               messages::GroupId start_group,
                               messages::GroupId start_object,
                               messages::GroupId end_group,
@@ -490,7 +490,7 @@ namespace quicr {
         auto fetch = messages::Fetch(subscribe_id,
                                      priority,
                                      group_order,
-                                     messages::FetchTypeEnum::kStandalone,
+                                     messages::FetchType::kStandalone,
                                      nullptr,
                                      group_0,
                                      nullptr,
@@ -506,7 +506,7 @@ namespace quicr {
     void Transport::SendJoiningFetch(ConnectionContext& conn_ctx,
                                      uint64_t subscribe_id,
                                      messages::SubscriberPriority priority,
-                                     messages::GroupOrderEnum group_order,
+                                     messages::GroupOrder group_order,
                                      uint64_t joining_subscribe_id,
                                      messages::GroupId preceding_group_offset,
                                      const messages::Parameters parameters)
@@ -517,7 +517,7 @@ namespace quicr {
         auto fetch = messages::Fetch(subscribe_id,
                                      priority,
                                      group_order,
-                                     messages::FetchTypeEnum::kJoiningFetch,
+                                     messages::FetchType::kJoiningFetch,
                                      nullptr,
                                      std::nullopt,
                                      nullptr,
@@ -557,7 +557,7 @@ namespace quicr {
 
     void Transport::SendFetchError(ConnectionContext& conn_ctx,
                                    uint64_t subscribe_id,
-                                   messages::FetchErrorCodeEnum error,
+                                   messages::FetchErrorCode error,
                                    const std::string& reason)
     {
         auto fetch_err = messages::FetchError(subscribe_id, error, quicr::Bytes(reason.begin(), reason.end()));
@@ -1216,7 +1216,7 @@ namespace quicr {
                 if (not conn_ctx.ctrl_data_ctx_id) {
                     if (not data_ctx_id) {
                         CloseConnection(conn_id,
-                                        messages::TerminationReasonEnum::kInternalError,
+                                        messages::TerminationReason::kInternalError,
                                         "Received bidir is missing data context");
                         return;
                     }
@@ -1530,31 +1530,31 @@ namespace quicr {
     void Transport::OnNewDataContext(const ConnectionHandle&, const DataContextId&) {}
 
     void Transport::CloseConnection(TransportConnId conn_id,
-                                    messages::TerminationReasonEnum reason,
+                                    messages::TerminationReason reason,
                                     const std::string& reason_str)
     {
         std::ostringstream log_msg;
         log_msg << "Closing conn_id: " << conn_id;
         switch (reason) {
-            case messages::TerminationReasonEnum::kNoError:
+            case messages::TerminationReason::kNoError:
                 log_msg << " no error";
                 break;
-            case messages::TerminationReasonEnum::kInternalError:
+            case messages::TerminationReason::kInternalError:
                 log_msg << " internal error: " << reason_str;
                 break;
-            case messages::TerminationReasonEnum::kUnauthorized:
+            case messages::TerminationReason::kUnauthorized:
                 log_msg << " unauthorized: " << reason_str;
                 break;
-            case messages::TerminationReasonEnum::kProtocolViolation:
+            case messages::TerminationReason::kProtocolViolation:
                 log_msg << " protocol violation: " << reason_str;
                 break;
-            case messages::TerminationReasonEnum::kDupTrackAlias:
+            case messages::TerminationReason::kDupTrackAlias:
                 log_msg << " duplicate track alias: " << reason_str;
                 break;
-            case messages::TerminationReasonEnum::kParamLengthMismatch:
+            case messages::TerminationReason::kParamLengthMismatch:
                 log_msg << " param length mismatch: " << reason_str;
                 break;
-            case messages::TerminationReasonEnum::kGoAwayTimeout:
+            case messages::TerminationReason::kGoAwayTimeout:
                 log_msg << " goaway timeout: " << reason_str;
                 break;
         }

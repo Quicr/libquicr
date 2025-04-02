@@ -16,7 +16,11 @@ namespace quicr::messages {
 
     quicr::Bytes& operator<<(quicr::Bytes& buffer, const quicr::UintVar& value);
 
-    enum struct ParameterTypeEnum : uint64_t
+
+    using GroupId = uint64_t;
+    using ObjectId = uint64_t;
+
+    enum struct ParameterType : uint64_t
     {
         kPath = 0x1,
         kMaxSubscribeId = 0x2, // version specific, unused
@@ -24,20 +28,26 @@ namespace quicr::messages {
         kInvalid = 0xFF,       // used internally.
     };
 
-    Bytes& operator<<(Bytes& buffer, ParameterTypeEnum value);
-    BytesSpan operator>>(BytesSpan buffer, ParameterTypeEnum& value);
+    struct Parameter
+    {
+        ParameterType type{ 0 };
+        Bytes value;
+    };
 
-    enum struct GroupOrderEnum : uint8_t
+    Bytes& operator<<(Bytes& buffer, ParameterType value);
+    BytesSpan operator>>(BytesSpan buffer, ParameterType& value);
+
+    enum struct GroupOrder : uint8_t
     {
         kOriginalPublisherOrder = 0x0,
         kAscending,
         kDescending
     };
 
-    Bytes& operator<<(Bytes& buffer, GroupOrderEnum value);
-    BytesSpan operator>>(BytesSpan buffer, GroupOrderEnum& value);
+    Bytes& operator<<(Bytes& buffer, GroupOrder value);
+    BytesSpan operator>>(BytesSpan buffer, GroupOrder& value);
 
-    enum struct FilterTypeEnum : uint64_t
+    enum struct FilterType : uint64_t
     {
         kNone = 0x0,
         kLatestGroup,
@@ -46,10 +56,10 @@ namespace quicr::messages {
         kAbsoluteRange
     };
 
-    Bytes& operator<<(Bytes& buffer, FilterTypeEnum value);
-    BytesSpan operator>>(BytesSpan buffer, FilterTypeEnum& value);
+    Bytes& operator<<(Bytes& buffer, FilterType value);
+    BytesSpan operator>>(BytesSpan buffer, FilterType& value);
 
-    enum class TrackStatusCodeEnum : uint64_t
+    enum class TrackStatusCode : uint64_t
     {
         kInProgress = 0x00,
         kDoesNotExist,
@@ -58,10 +68,10 @@ namespace quicr::messages {
         kUnknown
     };
 
-    Bytes& operator<<(Bytes& buffer, TrackStatusCodeEnum value);
-    BytesSpan operator>>(BytesSpan buffer, TrackStatusCodeEnum& value);
+    Bytes& operator<<(Bytes& buffer, TrackStatusCode value);
+    BytesSpan operator>>(BytesSpan buffer, TrackStatusCode& value);
 
-    enum class SubscribeDoneStatusCodeEnum : uint64_t
+    enum class SubscribeDoneStatusCode : uint64_t
     {
         kInternalError = 0x00,
         kUnauthorized,
@@ -72,19 +82,19 @@ namespace quicr::messages {
         kTooFarBehind,
     };
 
-    Bytes& operator<<(Bytes& buffer, SubscribeDoneStatusCodeEnum value);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeDoneStatusCodeEnum& value);
+    Bytes& operator<<(Bytes& buffer, SubscribeDoneStatusCode value);
+    BytesSpan operator>>(BytesSpan buffer, SubscribeDoneStatusCode& value);
 
-    enum class FetchTypeEnum : uint8_t
+    enum class FetchType : uint8_t
     {
         kStandalone = 0x1,
         kJoiningFetch,
     };
 
-    Bytes& operator<<(Bytes& buffer, FetchTypeEnum value);
-    BytesSpan operator>>(BytesSpan buffer, FetchTypeEnum& value);
+    Bytes& operator<<(Bytes& buffer, FetchType value);
+    BytesSpan operator>>(BytesSpan buffer, FetchType& value);
 
-    enum class TerminationReasonEnum : uint64_t
+    enum class TerminationReason : uint64_t
     {
         kNoError = 0x0,
         kInternalError,
@@ -95,10 +105,10 @@ namespace quicr::messages {
         kGoAwayTimeout = 0x10,
     };
 
-    Bytes& operator<<(Bytes& buffer, TerminationReasonEnum value);
-    BytesSpan operator>>(BytesSpan buffer, TerminationReasonEnum& value);
+    Bytes& operator<<(Bytes& buffer, TerminationReason value);
+    BytesSpan operator>>(BytesSpan buffer, TerminationReason& value);
 
-    enum class FetchErrorCodeEnum : uint8_t
+    enum class FetchErrorCode : uint8_t
     {
         kInternalError = 0x0,
         kUnauthorized = 0x1,
@@ -108,10 +118,10 @@ namespace quicr::messages {
         kInvalidRange = 0x5,
     };
 
-    Bytes& operator<<(Bytes& buffer, FetchErrorCodeEnum value);
-    BytesSpan operator>>(BytesSpan buffer, FetchErrorCodeEnum& value);
+    Bytes& operator<<(Bytes& buffer, FetchErrorCode value);
+    BytesSpan operator>>(BytesSpan buffer, FetchErrorCode& value);
 
-    enum class AnnounceErrorCodeEnum : uint64_t
+    enum class AnnounceErrorCode : uint64_t
     {
         kInternalError = 0x0,
         kUnauthorized,
@@ -120,11 +130,11 @@ namespace quicr::messages {
         kUninterested
     };
 
-    Bytes& operator<<(Bytes& buffer, AnnounceErrorCodeEnum value);
-    BytesSpan operator>>(BytesSpan buffer, AnnounceErrorCodeEnum& value);
+    Bytes& operator<<(Bytes& buffer, AnnounceErrorCode value);
+    BytesSpan operator>>(BytesSpan buffer, AnnounceErrorCode& value);
 
     // TODO (Suhas): rename it to StreamMapping
-    enum ForwardingPreferenceEnum : uint8_t
+    enum ForwardingPreference : uint8_t
     {
         kStreamPerGroup = 0,
         kStreamPerObject,
@@ -133,10 +143,10 @@ namespace quicr::messages {
         kDatagram
     };
 
-    Bytes& operator<<(Bytes& buffer, ForwardingPreferenceEnum value);
-    BytesSpan operator>>(BytesSpan buffer, ForwardingPreferenceEnum& value);
+    Bytes& operator<<(Bytes& buffer, ForwardingPreference value);
+    BytesSpan operator>>(BytesSpan buffer, ForwardingPreference& value);
 
-    enum class SubscribeErrorCodeEnum : uint64_t
+    enum class SubscribeErrorCode : uint64_t
     {
         kInternalError = 0x0,
         kUnauthorized,
@@ -149,10 +159,10 @@ namespace quicr::messages {
         kTrackNotExist = 0xF0 // Missing in draft
     };
 
-    Bytes& operator<<(Bytes& buffer, SubscribeErrorCodeEnum value);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeErrorCodeEnum& value);
+    Bytes& operator<<(Bytes& buffer, SubscribeErrorCode value);
+    BytesSpan operator>>(BytesSpan buffer, SubscribeErrorCode& value);
 
-    enum class SubscribeAnnouncesErrorCodeEnum : uint64_t
+    enum class SubscribeAnnouncesErrorCode : uint64_t
     {
         kInternalError = 0x0,
         kUnauthorized,
@@ -161,6 +171,6 @@ namespace quicr::messages {
         kNamespacePrefixUnknown,
     };
 
-    Bytes& operator<<(Bytes& buffer, SubscribeAnnouncesErrorCodeEnum value);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesErrorCodeEnum& value);
+    Bytes& operator<<(Bytes& buffer, SubscribeAnnouncesErrorCode value);
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesErrorCode& value);
 } // namespace

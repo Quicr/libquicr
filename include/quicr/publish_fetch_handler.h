@@ -25,7 +25,7 @@ namespace quicr {
         static std::shared_ptr<PublishFetchHandler> Create(const FullTrackName& full_track_name,
                                                            uint8_t priority,
                                                            uint64_t subscribe_id,
-                                                           messages::GroupOrderEnum group_order,
+                                                           messages::GroupOrder group_order,
                                                            uint32_t ttl)
         {
             return std::shared_ptr<PublishFetchHandler>(
