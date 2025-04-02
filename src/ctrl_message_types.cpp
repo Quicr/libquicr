@@ -4,7 +4,7 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const Bytes& bytes)
     {
-        buffer << bytes.size(); // length of byte span
+        buffer << static_cast<std::uint64_t>(bytes.size()); // length of byte span
         buffer.insert(buffer.end(), bytes.begin(), bytes.end());
         return buffer;
     }
