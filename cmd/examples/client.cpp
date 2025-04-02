@@ -118,11 +118,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                             quicr::messages::FilterType filter_type,
                             const std::optional<JoiningFetch>& joining_fetch,
                             const std::filesystem::path& dir = qclient_consts::kMoqDataDir)
-      : SubscribeTrackHandler(full_track_name,
-                              3,
-                              quicr::messages::GroupOrder::kAscending,
-                              filter_type,
-                              joining_fetch)
+      : SubscribeTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending, filter_type, joining_fetch)
     {
         if (qclient_vars::record) {
             std::filesystem::create_directory(dir);

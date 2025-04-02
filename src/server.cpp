@@ -131,11 +131,8 @@ namespace quicr {
                 break;
             }
             default:
-                SendSubscribeError(conn_it->second,
-                                   subscribe_id,
-                                   {},
-                                   messages::SubscribeErrorCode::kInternalError,
-                                   "Internal error");
+                SendSubscribeError(
+                  conn_it->second, subscribe_id, {}, messages::SubscribeErrorCode::kInternalError, "Internal error");
                 break;
         }
     }
@@ -751,10 +748,8 @@ namespace quicr {
                         if (!opt_largest_group.has_value() || !opt_largest_object.has_value()) {
                             // We have no data to complete the fetch with.
                             // TODO: Possibly missing "No Objects" code per the draft.
-                            SendFetchError(conn_ctx,
-                                           msg.subscribe_id,
-                                           messages::FetchErrorCode::kInvalidRange,
-                                           "Nothing to give");
+                            SendFetchError(
+                              conn_ctx, msg.subscribe_id, messages::FetchErrorCode::kInvalidRange, "Nothing to give");
 
                             return true;
                         }
@@ -770,10 +765,8 @@ namespace quicr {
                         break;
                     }
                     default: {
-                        SendFetchError(conn_ctx,
-                                       msg.subscribe_id,
-                                       messages::FetchErrorCode::kNotSupported,
-                                       "Unknown fetch type");
+                        SendFetchError(
+                          conn_ctx, msg.subscribe_id, messages::FetchErrorCode::kNotSupported, "Unknown fetch type");
                         return true;
                     }
                 }
@@ -790,10 +783,8 @@ namespace quicr {
                     valid_range &= attrs.end_object <= largest_object;
                 }
                 if (!valid_range) {
-                    SendFetchError(conn_ctx,
-                                   msg.subscribe_id,
-                                   messages::FetchErrorCode::kInvalidRange,
-                                   "Cannot serve this range");
+                    SendFetchError(
+                      conn_ctx, msg.subscribe_id, messages::FetchErrorCode::kInvalidRange, "Cannot serve this range");
                     return true;
                 }
 

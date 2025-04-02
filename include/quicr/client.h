@@ -106,10 +106,9 @@ namespace quicr {
          * @param error_code            Set if there is an error; error code
          * @param reason                Set if there is an error; reason phrase
          */
-        virtual void SubscribeAnnouncesStatusChanged(
-          const TrackNamespace& track_namespace,
-          std::optional<messages::SubscribeAnnouncesErrorCode> error_code,
-          std::optional<messages::ReasonPhrase> reason);
+        virtual void SubscribeAnnouncesStatusChanged(const TrackNamespace& track_namespace,
+                                                     std::optional<messages::SubscribeAnnouncesErrorCode> error_code,
+                                                     std::optional<messages::ReasonPhrase> reason);
 
         /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track

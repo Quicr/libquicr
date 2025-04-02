@@ -675,8 +675,8 @@ TEST_CASE("ClientSetup  Message encode/decode")
 
     const std::string endpoint_id = "client test";
 
-    auto client_setup = ClientSetup(
-      { 0x1000, 0x2000 }, { { ParameterType::kEndpointId, Bytes(endpoint_id.begin(), endpoint_id.end()) } });
+    auto client_setup = ClientSetup({ 0x1000, 0x2000 },
+                                    { { ParameterType::kEndpointId, Bytes(endpoint_id.begin(), endpoint_id.end()) } });
     buffer << client_setup;
 
     ClientSetup client_setup_out = {};
@@ -728,8 +728,8 @@ TEST_CASE("Fetch Message encode/decode")
         group_0->end_group = 0x2000;
         group_0->end_object = 0x100;
     }
-    auto fetch = Fetch(
-      0x10, 1, GroupOrder::kAscending, FetchType::kStandalone, nullptr, group_0, nullptr, std::nullopt, {});
+    auto fetch =
+      Fetch(0x10, 1, GroupOrder::kAscending, FetchType::kStandalone, nullptr, group_0, nullptr, std::nullopt, {});
 
     buffer << fetch;
     {
@@ -765,8 +765,8 @@ TEST_CASE("Fetch Message encode/decode")
         group_1->preceding_group_offset = 0x0;
     }
 
-    fetch = Fetch(
-      0x10, 1, GroupOrder::kAscending, FetchType::kJoiningFetch, nullptr, std::nullopt, nullptr, group_1, {});
+    fetch =
+      Fetch(0x10, 1, GroupOrder::kAscending, FetchType::kJoiningFetch, nullptr, std::nullopt, nullptr, group_1, {});
 
     buffer << fetch;
     {

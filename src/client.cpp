@@ -56,11 +56,8 @@ namespace quicr {
             }
 
             default:
-                SendSubscribeError(conn_it->second,
-                                   subscribe_id,
-                                   {},
-                                   messages::SubscribeErrorCode::kInternalError,
-                                   "Internal error");
+                SendSubscribeError(
+                  conn_it->second, subscribe_id, {}, messages::SubscribeErrorCode::kInternalError, "Internal error");
                 break;
         }
     }

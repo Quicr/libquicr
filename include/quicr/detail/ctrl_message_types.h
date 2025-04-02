@@ -16,7 +16,6 @@ namespace quicr::messages {
 
     quicr::Bytes& operator<<(quicr::Bytes& buffer, const quicr::UintVar& value);
 
-
     using GroupId = uint64_t;
     using ObjectId = uint64_t;
 
