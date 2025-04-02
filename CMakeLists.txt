@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
 cmake_minimum_required(VERSION 3.13)
+add_definitions(-DCMAKE_POLICY_VERSION_MINIMUM=3.5)
+
 
 # Build tests by default only if not a sub-project
 if(DEFINED PROJECT_NAME)
