@@ -716,6 +716,10 @@ namespace quicr {
             return;
         }
 
+        if (not track_handler->GetSubscribeId().has_value()) {
+            return;
+        }
+
         SPDLOG_LOGGER_DEBUG(
           logger_, "subscribe id (from subscribe) to add to memory: {0}", track_handler->GetSubscribeId().value());
 
