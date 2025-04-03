@@ -739,7 +739,6 @@ PicoQuicTransport::Close(const TransportConnId& conn_id, uint64_t app_reason_cod
 
         case 100: // Client shutting down connection
             OnConnectionStatus(conn_id, TransportStatus::kRemoteRequestClose);
-            picoquic_close(conn_it->second.pq_cnx, app_reason_code);
             break;
 
         default:
@@ -750,6 +749,8 @@ PicoQuicTransport::Close(const TransportConnId& conn_id, uint64_t app_reason_cod
     if (not is_server_mode) {
         SetStatus(TransportStatus::kShutdown);
     }
+
+    picoquic_close(conn_it->second.pq_cnx, app_reason_code);
 
     conn_context_.erase(conn_it);
 }
