@@ -716,6 +716,10 @@ namespace quicr {
             return;
         }
 
+        if (not track_handler->GetSubscribeId().has_value()) {
+            return;
+        }
+
         SPDLOG_LOGGER_DEBUG(
           logger_, "subscribe id (from subscribe) to add to memory: {0}", track_handler->GetSubscribeId().value());
 
@@ -1299,6 +1303,9 @@ namespace quicr {
                                                        conn_ctx.ctrl_msg_buffer.begin() + uv_sz + payload_len);
                     } else {
                         conn_ctx.metrics.invalid_ctrl_stream_msg++;
+                        conn_ctx.ctrl_msg_type_received = std::nullopt;
+                        conn_ctx.ctrl_msg_buffer.erase(conn_ctx.ctrl_msg_buffer.begin(),
+                                                       conn_ctx.ctrl_msg_buffer.begin() + uv_sz + payload_len);
                     }
                 }
                 continue;
