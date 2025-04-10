@@ -5,6 +5,8 @@
 
 #include "quicr/detail/uintvar.h"
 
+#include <limits>
+
 namespace var {
 
     // integer values for valdiation tests

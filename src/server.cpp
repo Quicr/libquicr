@@ -471,6 +471,7 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 UnsubscribeAnnouncesReceived(conn_ctx.connection_handle, msg.prefix_namespace);
+                return true;
             }
 
             case messages::ControlMessageType::kAnnounceError: {

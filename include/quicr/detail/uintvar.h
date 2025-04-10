@@ -6,6 +6,7 @@
 #include <bit>
 #include <cstdint>
 #include <cstring>
+#include <exception>
 #include <span>
 #include <vector>
 
