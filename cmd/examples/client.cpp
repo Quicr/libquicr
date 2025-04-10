@@ -419,12 +419,14 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
         json moq_arr_j = json::parse(moq_fs);
 
         for (const auto& moq_j : moq_arr_j) {
-            quicr::ObjectHeaders hdr;
-            hdr.object_id = moq_j["objectID"];
-            hdr.group_id = moq_j["groupID"];
-            hdr.subgroup_id = moq_j["subGroup"];
-            hdr.priority = moq_j["publisherPriority"];
-            hdr.payload_length = moq_j["dataLength"];
+            quicr::ObjectHeaders hdr{
+                .object_id = moq_j["objectID"],
+                .group_id = moq_j["groupID"],
+                .subgroup_id = moq_j["subGroup"],
+                .priority = moq_j["publisherPriority"],
+                .payload_length = moq_j["dataLength"],
+            };
+
             std::size_t data_offset = moq_j["dataOffset"];
 
             auto& msg = messages.emplace_back(std::make_pair(hdr, quicr::Bytes{}));

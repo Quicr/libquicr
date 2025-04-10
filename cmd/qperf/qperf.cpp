@@ -257,7 +257,7 @@ main(int argc, char** argv)
           .transport_config = config,
           .metrics_sample_ms = 5000,
         },
-        .connect_uri = result["connect_uri"].as<std::string>(),
+        result["connect_uri"].as<std::string>(),
     };
 
     const auto logger = spdlog::stderr_color_mt("PERF");
@@ -369,6 +369,8 @@ main(int argc, char** argv)
                     .priority = priority,
                     .ttl = expiry_age,
                     .track_mode = track_mode,
+                    .status = quicr::ObjectStatus::kAvailable,
+                    .extensions = std::nullopt,
                 };
 
                 handler->PublishObject(header, data);

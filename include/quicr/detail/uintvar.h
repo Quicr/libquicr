@@ -6,8 +6,8 @@
 #include <bit>
 #include <cstdint>
 #include <cstring>
-#include <exception>
 #include <span>
+#include <stdexcept>
 #include <vector>
 
 namespace quicr {
