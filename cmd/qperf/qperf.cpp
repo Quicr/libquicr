@@ -366,10 +366,10 @@ main(int argc, char** argv)
                     .group_id = group,
                     .object_id = objects,
                     .payload_length = data.size(),
+                    .status = quicr::ObjectStatus::kAvailable,
                     .priority = priority,
                     .ttl = expiry_age,
                     .track_mode = track_mode,
-                    .status = quicr::ObjectStatus::kAvailable,
                     .extensions = std::nullopt,
                 };
 
