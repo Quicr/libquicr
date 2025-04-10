@@ -3,19 +3,15 @@
 
 #pragma once
 
-#include "span.h"
-
+#include <bit>
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <vector>
 
 namespace quicr {
     namespace {
-#if __cplusplus >= 202002L
         constexpr bool kIsBigEndian = std::endian::native == std::endian::big;
-#else
-        constexpr bool kIsBigEndian = static_cast<const std::uint8_t&>(0x0001) == 0x00;
-#endif
 
         constexpr std::uint16_t SwapBytes(const std::uint16_t value)
         {
@@ -73,7 +69,7 @@ namespace quicr {
             }
         }
 
-        UintVar(Span<const uint8_t> bytes)
+        UintVar(std::span<const uint8_t> bytes)
           : be_value_{ 0 }
         {
             if (bytes.empty() || bytes.size() < Size(bytes[0])) {

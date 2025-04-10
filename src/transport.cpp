@@ -660,7 +660,7 @@ namespace quicr {
         auto filter_type = track_handler->GetFilterType();
         auto joining_fetch = track_handler->GetJoiningFetch();
 
-        track_handler->new_group_request_callback_ = [=](auto sub_id, auto track_alias) {
+        track_handler->new_group_request_callback_ = [=, this](auto sub_id, auto track_alias) {
             SendNewGroupRequest(conn_id, sub_id, track_alias);
         };
 
@@ -873,7 +873,7 @@ namespace quicr {
                             uint64_t subgroup_id,
                             uint64_t object_id,
                             std::optional<Extensions> extensions,
-                            Span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
+                            std::span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
             auto handler = weak_handler.lock();
             if (!handler) {
                 return PublishTrackHandler::PublishObjectStatus::kInternalError;

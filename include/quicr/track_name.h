@@ -3,12 +3,12 @@
 
 #pragma once
 
-#include "detail/span.h"
 #include "hash.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <tuple>
 #include <vector>
 
@@ -37,7 +37,7 @@ namespace quicr {
 
             std::size_t offset = 0;
             const auto add_entry = [&](auto&& e) {
-                const auto& entry = entries_.emplace_back(Span{ bytes_ }.subspan(offset, e.size()));
+                const auto& entry = entries_.emplace_back(std::span{ bytes_ }.subspan(offset, e.size()));
                 hash_.emplace_back(quicr::hash({ entry.begin(), entry.end() }));
 
                 offset += e.size();
@@ -61,7 +61,7 @@ namespace quicr {
 
             std::size_t offset = 0;
             const auto add_entry = [&](auto&& e) {
-                const auto& entry = entries_.emplace_back(Span{ bytes_ }.subspan(offset, e.size()));
+                const auto& entry = entries_.emplace_back(std::span{ bytes_ }.subspan(offset, e.size()));
                 hash_.emplace_back(quicr::hash({ entry.begin(), entry.end() }));
                 offset += e.size();
             };
@@ -84,7 +84,7 @@ namespace quicr {
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries) {
-                entries_[i] = Span{ bytes_ }.subspan(offset, entry.size());
+                entries_[i] = std::span{ bytes_ }.subspan(offset, entry.size());
                 hash_.emplace_back(quicr::hash(entry));
                 offset += entry.size();
                 ++i;
@@ -105,7 +105,7 @@ namespace quicr {
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries) {
-                entries_[i] = Span{ bytes_ }.subspan(offset, entry.size());
+                entries_[i] = std::span{ bytes_ }.subspan(offset, entry.size());
                 hash_.emplace_back(quicr::hash(entries_[i]));
                 offset += entry.size();
                 ++i;
@@ -120,7 +120,7 @@ namespace quicr {
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries_) {
-                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                entries_[i++] = std::span{ bytes_ }.subspan(offset, entry.size());
                 offset += entry.size();
             }
         }
@@ -135,7 +135,7 @@ namespace quicr {
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries_) {
-                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                entries_[i++] = std::span{ bytes_ }.subspan(offset, entry.size());
                 offset += entry.size();
             }
         }
@@ -149,7 +149,7 @@ namespace quicr {
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries_) {
-                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                entries_[i++] = std::span{ bytes_ }.subspan(offset, entry.size());
                 offset += entry.size();
             }
 
@@ -165,14 +165,14 @@ namespace quicr {
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries_) {
-                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                entries_[i++] = std::span{ bytes_ }.subspan(offset, entry.size());
                 offset += entry.size();
             }
 
             return *this;
         }
 
-        const std::vector<Span<const uint8_t>>& GetEntries() const noexcept { return entries_; }
+        const std::vector<std::span<const uint8_t>>& GetEntries() const noexcept { return entries_; }
         const auto& GetHashes() const noexcept { return hash_; }
 
         // NOLINTBEGIN(readability-identifier-naming)
@@ -238,7 +238,7 @@ namespace quicr {
 
       private:
         std::vector<uint8_t> bytes_;
-        std::vector<Span<const uint8_t>> entries_;
+        std::vector<std::span<const uint8_t>> entries_;
         std::vector<std::size_t> hash_;
 
         friend struct std::hash<quicr::TrackNamespace>;

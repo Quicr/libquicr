@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "quicr/detail/span.h"
 #include <array>
+#include <span>
 #include <string_view>
 #include <vector>
 
@@ -31,7 +31,7 @@ namespace quicr {
      * @param bytes  Bytes to hash
      * @returns The hash of the given bytes.
      */
-    static constexpr std::uint64_t hash(const Span<const uint8_t> bytes)
+    static constexpr std::uint64_t hash(const std::span<const uint8_t> bytes)
     {
 
         constexpr size_t word_len = sizeof(std::uint64_t);
