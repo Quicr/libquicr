@@ -12,7 +12,7 @@
 
 namespace quicr {
     namespace {
-        constexpr std::uint16_t ToBigEndian(const std::uint16_t value)
+        constexpr std::uint16_t SwapBytes(const std::uint16_t value)
         {
             if constexpr (std::endian::native == std::endian::big)
                 return value;
@@ -20,7 +20,7 @@ namespace quicr {
             return ((value >> 8) & 0x00FF) | ((value << 8) & 0xFF00);
         }
 
-        constexpr std::uint32_t ToBigEndian(const std::uint32_t value)
+        constexpr std::uint32_t SwapBytes(const std::uint32_t value)
         {
             if constexpr (std::endian::native == std::endian::big)
                 return value;
@@ -29,7 +29,7 @@ namespace quicr {
                    ((value << 24) & 0xFF000000);
         }
 
-        constexpr std::uint64_t ToBigEndian(const std::uint64_t value)
+        constexpr std::uint64_t SwapBytes(const std::uint64_t value)
         {
             if constexpr (std::endian::native == std::endian::big)
                 return value;
@@ -45,7 +45,7 @@ namespace quicr {
     {
       public:
         constexpr UintVar(uint64_t value)
-          : be_value_{ std::bit_cast<std::array<std::uint8_t, sizeof(std::uint64_t)>>(ToBigEndian(value)) }
+          : be_value_{ std::bit_cast<std::array<std::uint8_t, sizeof(std::uint64_t)>>(SwapBytes(value)) }
         {
             constexpr uint64_t k14bitLength = (static_cast<uint64_t>(-1) << (64 - 6) >> (64 - 6));
             constexpr uint64_t k30bitLength = (static_cast<uint64_t>(-1) << (64 - 14) >> (64 - 14));
@@ -102,7 +102,7 @@ namespace quicr {
 
         constexpr std::uint64_t Get() const noexcept
         {
-            return ToBigEndian((std::bit_cast<std::uint64_t>(be_value_) & ToBigEndian(uint64_t(~(~0x3Full << 56))))
+            return SwapBytes((std::bit_cast<std::uint64_t>(be_value_) & SwapBytes(uint64_t(~(~0x3Full << 56))))
                                << (sizeof(uint64_t) - Size()) * 8);
         }
 
