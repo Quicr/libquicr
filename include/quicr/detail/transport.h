@@ -8,7 +8,6 @@
 
 #include "quic_transport.h"
 
-#include "span.h"
 #include <chrono>
 #include <quicr/common.h>
 #include <quicr/config.h>
@@ -16,6 +15,7 @@
 #include <quicr/metrics.h>
 #include <quicr/publish_track_handler.h>
 #include <quicr/subscribe_track_handler.h>
+#include <span>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
