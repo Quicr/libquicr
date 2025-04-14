@@ -103,7 +103,7 @@ namespace quicr {
         constexpr std::uint64_t Get() const noexcept
         {
             return SwapBytes((std::bit_cast<std::uint64_t>(be_value_) & SwapBytes(uint64_t(~(~0x3Full << 56))))
-                               << (sizeof(uint64_t) - Size()) * 8);
+                             << (sizeof(uint64_t) - Size()) * 8);
         }
 
         static constexpr std::size_t Size(uint8_t msb_bytes) noexcept
