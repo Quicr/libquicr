@@ -218,7 +218,7 @@ namespace quicr {
                                   uint64_t subgroup_id,
                                   uint64_t object_id,
                                   std::optional<Extensions> extensions,
-                                  Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
+                                  std::span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
             auto th = weak_track_handler.lock();
             if (!th) {
                 return PublishTrackHandler::PublishObjectStatus::kInternalError;
@@ -294,7 +294,7 @@ namespace quicr {
                             uint64_t subgroup_id,
                             uint64_t object_id,
                             std::optional<Extensions> extensions,
-                            Span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
+                            std::span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
             const auto handler = weak_handler.lock();
             if (!handler) {
                 return PublishTrackHandler::PublishObjectStatus::kInternalError;
@@ -487,7 +487,6 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 UnsubscribeAnnouncesReceived(conn_ctx.connection_handle, msg.track_namespace_prefix);
-
                 return true;
             }
 

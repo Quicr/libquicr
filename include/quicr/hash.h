@@ -3,16 +3,14 @@
 
 #pragma once
 
-#include "quicr/detail/span.h"
 #include <array>
-#include <cstdint>
-#include <cstring>
+#include <span>
 #include <string_view>
 #include <vector>
 
 namespace quicr {
     /// The generated CRC-64 table.
-    static const std::array<std::uint64_t, 256> crc_table = [] {
+    static constexpr std::array<std::uint64_t, 256> crc_table = [] {
         std::array<std::uint64_t, 256> table;
         for (std::uint64_t c = 0; c < 256; ++c) {
             std::uint64_t crc = c;
@@ -33,7 +31,7 @@ namespace quicr {
      * @param bytes  Bytes to hash
      * @returns The hash of the given bytes.
      */
-    static constexpr std::uint64_t hash(const Span<const uint8_t> bytes)
+    static constexpr std::uint64_t hash(const std::span<const uint8_t> bytes)
     {
 
         constexpr size_t word_len = sizeof(std::uint64_t);

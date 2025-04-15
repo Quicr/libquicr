@@ -4,6 +4,8 @@
 #pragma once
 
 #include "detail/quic_transport.h"
+
+#include <span>
 #include <string>
 
 namespace quicr {
@@ -16,7 +18,7 @@ namespace quicr {
 
     using Byte = uint8_t;
     using Bytes = std::vector<Byte>;
-    using BytesSpan = Span<const Byte>;
+    using BytesSpan = std::span<const Byte>;
     using ConnectionHandle = uint64_t;
     /**
      * @brief Publish announce attributes

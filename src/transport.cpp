@@ -626,7 +626,7 @@ namespace quicr {
         auto filter_type = track_handler->GetFilterType();
         auto joining_fetch = track_handler->GetJoiningFetch();
 
-        track_handler->new_group_request_callback_ = [=](auto sub_id, auto track_alias) {
+        track_handler->new_group_request_callback_ = [=, this](auto sub_id, auto track_alias) {
             SendNewGroupRequest(conn_id, sub_id, track_alias);
         };
 
@@ -679,6 +679,10 @@ namespace quicr {
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
             SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_id);
+            return;
+        }
+
+        if (not track_handler->GetSubscribeId().has_value()) {
             return;
         }
 
@@ -839,7 +843,7 @@ namespace quicr {
                             uint64_t subgroup_id,
                             uint64_t object_id,
                             std::optional<Extensions> extensions,
-                            Span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
+                            std::span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
             auto handler = weak_handler.lock();
             if (!handler) {
                 return PublishTrackHandler::PublishObjectStatus::kInternalError;
@@ -1266,6 +1270,9 @@ namespace quicr {
                                                        conn_ctx.ctrl_msg_buffer.begin() + uv_sz + payload_len);
                     } else {
                         conn_ctx.metrics.invalid_ctrl_stream_msg++;
+                        conn_ctx.ctrl_msg_type_received = std::nullopt;
+                        conn_ctx.ctrl_msg_buffer.erase(conn_ctx.ctrl_msg_buffer.begin(),
+                                                       conn_ctx.ctrl_msg_buffer.begin() + uv_sz + payload_len);
                     }
                 }
                 continue;

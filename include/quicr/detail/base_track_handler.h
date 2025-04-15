@@ -3,10 +3,11 @@
 
 #pragma once
 
+#include "quicr/common.h"
+#include "quicr/track_name.h"
+
 #include <optional>
-#include <quicr/common.h>
-#include <quicr/detail/span.h>
-#include <quicr/track_name.h>
+#include <span>
 #include <vector>
 
 namespace quicr {

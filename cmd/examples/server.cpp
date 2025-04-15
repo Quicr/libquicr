@@ -802,7 +802,7 @@ class MyServer : public quicr::Server
         if (cache_entries.empty())
             return false;
 
-        std::thread retrieve_cache_thread([=, cache_entries = cache_entries] {
+        std::thread retrieve_cache_thread([=, this, cache_entries = cache_entries] {
             defer(UnbindFetchTrack(connection_handle, pub_fetch_h));
 
             for (const auto& cache_entry : cache_entries) {

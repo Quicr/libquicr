@@ -3,24 +3,24 @@
 
 #pragma once
 
-#include "span.h"
 #include <cstdint>
 #include <deque>
 #include <memory>
 #include <optional>
+#include <span>
 #include <vector>
 
 namespace quicr {
     template<class T, std::enable_if_t<std::is_standard_layout_v<T>, bool> = true>
-    inline Span<const uint8_t> AsBytes(const T& value)
+    inline std::span<const uint8_t> AsBytes(const T& value)
     {
-        return Span{ reinterpret_cast<const std::uint8_t*>(&value), sizeof(T) };
+        return std::span{ reinterpret_cast<const std::uint8_t*>(&value), sizeof(T) };
     }
 
     template<>
-    inline Span<const uint8_t> AsBytes<std::string>(const std::string& value)
+    inline std::span<const uint8_t> AsBytes<std::string>(const std::string& value)
     {
-        return Span{ reinterpret_cast<const std::uint8_t*>(value.data()), value.size() };
+        return std::span{ reinterpret_cast<const std::uint8_t*>(value.data()), value.size() };
     }
 
     template<class Allocator = std::allocator<std::uint8_t>>
@@ -112,7 +112,7 @@ namespace quicr {
         const SliceType& Last() const noexcept { return *std::prev(this->end()); }
         const SliceType GetLast() const noexcept { return *std::prev(this->end()); }
 
-        void Push(Span<const uint8_t> bytes)
+        void Push(std::span<const uint8_t> bytes)
         {
             auto slice = std::make_shared<typename SliceType::element_type>();
             slice->assign(bytes.begin(), bytes.end());
@@ -122,7 +122,7 @@ namespace quicr {
 
         void Push(SliceType slice) { buffer_.push_back(std::move(slice)); }
 
-        friend DataStorage& operator<<(DataStorage& buffer, Span<const uint8_t> value)
+        friend DataStorage& operator<<(DataStorage& buffer, std::span<const uint8_t> value)
         {
             buffer.Push(value);
             return buffer;

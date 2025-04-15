@@ -25,7 +25,7 @@ target_compile_options(quicr_test
 
 set_target_properties(quicr_test
     PROPERTIES
-        CXX_STANDARD 17
+        CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS ON)
 
