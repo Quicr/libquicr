@@ -694,19 +694,13 @@ namespace quicr {
 
                 // Prepare for fetch lookups, which differ by type.
                 FullTrackName tfn;
-                messages::FetchAttributes attrs = {
-                    msg.subscriber_priority, msg.group_order, 0, 0, 0, std::nullopt
-                }; // SAH FIXME - what are the group/obj values?
-
+                messages::FetchAttributes attrs = { msg.subscriber_priority, msg.group_order, 0, 0, 0, std::nullopt };
                 bool end_of_track = false; // TODO: Need to query this as part of the GetLargestAvailable call.
                 messages::GroupId largest_group;
                 messages::ObjectId largest_object;
 
                 switch (msg.fetch_type) {
                     case messages::FetchType::kStandalone: {
-                        // SAH - FIXME - what about checking if optional group_0 has value?
-                        // What should the error processing be?
-
                         // Standalone fetch is self-containing.
                         tfn = FullTrackName{ msg.group_0->track_namespace, msg.group_0->track_name, std::nullopt };
                         const auto largest_available = GetLargestAvailable(tfn);
@@ -731,8 +725,6 @@ namespace quicr {
                     case messages::FetchType::kJoiningFetch: {
                         // Joining fetch needs to look up its joining subscribe.
                         // TODO: Need a new error code for subscribe doesn't exist.
-
-                        // SAH FIXME - again check to see if group has value otherwise error
                         const auto subscribe_state = conn_ctx.recv_sub_id.find(msg.group_1->joining_subscribe_id);
                         if (subscribe_state == conn_ctx.recv_sub_id.end()) {
                             SendFetchError(conn_ctx,

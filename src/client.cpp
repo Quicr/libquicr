@@ -81,12 +81,14 @@ namespace quicr {
                   [](messages::Subscribe& msg) {
                       if (msg.filter_type == messages::FilterType::kAbsoluteStart ||
                           msg.filter_type == messages::FilterType::kAbsoluteRange) {
-                          msg.group_0 = std::make_optional<messages::Subscribe::Group_0>();
+                          msg.group_0 =
+                            std::make_optional<messages::Subscribe::Group_0>(messages::Subscribe::Group_0{ 0, 0 });
                       }
                   },
                   [](messages::Subscribe& msg) {
                       if (msg.filter_type == messages::FilterType::kAbsoluteRange) {
-                          msg.group_1 = std::make_optional<messages::Subscribe::Group_1>();
+                          msg.group_1 =
+                            std::make_optional<messages::Subscribe::Group_1>(messages::Subscribe::Group_1{ 0 });
                       }
                   });
 
@@ -208,7 +210,7 @@ namespace quicr {
                     return true;
                 }
 
-                if (msg.group_0.has_value()) { // SAH FIXME - is this OK?
+                if (msg.group_0.has_value()) {
                     SPDLOG_LOGGER_DEBUG(
                       logger_,
                       "Received subscribe ok conn_id: {} subscribe_id: {} latest_group: {} latest_object: {}",
@@ -323,12 +325,9 @@ namespace quicr {
                 messages::SubscribeAnnouncesError msg;
                 msg_bytes >> msg;
 
-                // SAH FIXME - is this OK?
                 auto error_code = static_cast<messages::SubscribeAnnouncesErrorCode>(msg.error_code);
-                auto optional_error_code = std::make_optional<messages::SubscribeAnnouncesErrorCode>(error_code);
-
                 SubscribeAnnouncesStatusChanged(msg.track_namespace_prefix,
-                                                optional_error_code,
+                                                error_code,
                                                 std::make_optional<messages::ReasonPhrase>(msg.reason_phrase));
 
                 return true;
@@ -469,6 +468,7 @@ namespace quicr {
                 for (const auto& param : msg.setup_parameters) {
                     if (param.type == messages::ParameterType::kEndpointId) {
                         endpoint_id = std::string(param.value.begin(), param.value.end());
+                        break; // only looking for 1 endpoint ID
                     }
                 }
 

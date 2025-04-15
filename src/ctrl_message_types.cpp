@@ -47,7 +47,7 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, uint8_t& value)
     {
         // need 8 bits - not a varint
-        value = buffer[0];
+        value = buffer.front();
         return buffer.subspan(sizeof(value));
     }
 

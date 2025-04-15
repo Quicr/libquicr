@@ -16,7 +16,6 @@
 namespace quicr::messages {
 
     using SubGroupId = quicr::messages::GroupId;
-    using ObjectId = quicr::messages::ObjectId;
     using ObjectPriority = uint8_t;
     using Extensions = std::map<uint64_t, Bytes>;
 
