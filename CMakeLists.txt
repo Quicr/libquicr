@@ -59,9 +59,6 @@ if (NOT PLATFORM_ESP_IDF)
     list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/transport/cmake)
 endif()
 
-set (CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/transport/cmake)
-
 ###
 ### Include Ctest to ensure BUILD_TESTING is set
 ###
