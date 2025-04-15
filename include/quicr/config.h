@@ -21,6 +21,7 @@ namespace quicr {
     struct ClientConfig : Config
     {
         std::string connect_uri; ///< URI such as moqt://relay[:port][/path?query]
+        std::uint64_t tick_service_sleep_delay_us{ 333 };
     };
 
     struct ServerConfig : Config
@@ -29,6 +30,7 @@ namespace quicr {
         std::string server_bind_ip; ///< IP address to bind to, can be 0.0.0.0 or ::
                                     ///< Empty will be treated as ANY
         uint16_t server_port;       ///< Listening port for server
+        std::uint64_t tick_service_sleep_delay_us{ 333 };
     };
 
 } // namespace moq
