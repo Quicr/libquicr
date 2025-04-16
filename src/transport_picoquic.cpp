@@ -1690,8 +1690,11 @@ PicoQuicTransport::Client(const TransportConnId conn_id)
             SPDLOG_LOGGER_ERROR(logger, "Could not activate connection");
             return;
         }
-
+#ifdef ESP_PLATFORM
         ret = picoquic_packet_loop(quic_ctx_, 0, PF_UNSPEC, 0, 0x2048, 0, PqLoopCb, this);
+#else
+        ret = picoquic_packet_loop(quic_ctx_, 0, PF_UNSPEC, 0, 2000000, 0, PqLoopCb, this);
+#endif
 
         SPDLOG_LOGGER_INFO(logger, "picoquic ended with {0}", ret);
     }
