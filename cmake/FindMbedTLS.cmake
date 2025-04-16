@@ -3,7 +3,8 @@
 
 find_path(MBEDTLS_INCLUDE_DIRS mbedtls/ssl.h)
 if (PLATFORM_ESP_IDF)
-  list(APPEND MBEDTLS_INCLUDE_DIRS  mbedtls/esp_config.h)
+  find_path(MBEDTLS_SSL_INCLUDE_DIR mbedtls/esp_config.h)
+  list(APPEND MBEDTLS_INCLUDE_DIRS ${MBEDTLS_SSL_INCLUDE_DIR})
 endif()
 
 find_library(MBEDTLS_LIBRARY mbedtls)
