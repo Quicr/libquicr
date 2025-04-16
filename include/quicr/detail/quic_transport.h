@@ -16,6 +16,7 @@
 #include <any>
 #include <array>
 #include <chrono>
+#include <cstdlib>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -104,6 +105,7 @@ namespace quicr {
         bool use_bbr{ true };                  /// Use BBR if true, NewReno if false
         std::string quic_qlog_path;            /// If present, log QUIC LOG file to this path
         uint8_t quic_priority_limit{ 0 };      /// Lowest priority that will not be bypassed from pacing/CC in picoquic
+        std::size_t max_connections{ 1 };
     };
 
     /// Stream action that should be done by send/receive processing
