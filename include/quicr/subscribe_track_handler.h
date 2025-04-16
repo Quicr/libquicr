@@ -51,9 +51,9 @@ namespace quicr {
          */
         struct JoiningFetch
         {
-            const messages::ObjectPriority priority;
+            const messages::SubscriberPriority priority;
             const messages::GroupOrder group_order;
-            const std::vector<messages::Parameter> parameters;
+            const messages::Parameters parameters;
             const messages::GroupId preceding_group_offset;
         };
 
@@ -65,7 +65,7 @@ namespace quicr {
          * @param joining_fetch             If set, subscribe with a joining fetch using these attributes.
          */
         SubscribeTrackHandler(const FullTrackName& full_track_name,
-                              messages::ObjectPriority priority,
+                              messages::SubscriberPriority priority,
                               messages::GroupOrder group_order,
                               messages::FilterType filter_type,
                               const std::optional<JoiningFetch>& joining_fetch = std::nullopt)
@@ -88,7 +88,7 @@ namespace quicr {
          */
         static std::shared_ptr<SubscribeTrackHandler> Create(
           const FullTrackName& full_track_name,
-          messages::ObjectPriority priority,
+          messages::SubscriberPriority priority,
           messages::GroupOrder group_order = messages::GroupOrder::kAscending,
           messages::FilterType filter_type = messages::FilterType::kLatestObject)
         {
@@ -115,7 +115,7 @@ namespace quicr {
          *
          * @return Priority value
          */
-        constexpr messages::ObjectPriority GetPriority() const noexcept { return priority_; }
+        constexpr messages::SubscriberPriority GetPriority() const noexcept { return priority_; }
 
         /**
          * @brief Get subscription group order
@@ -233,7 +233,7 @@ namespace quicr {
          */
         SubscribeTrackMetrics subscribe_track_metrics_;
 
-        std::function<void(messages::SubscribeId, messages::TrackAlias)> new_group_request_callback_;
+        std::function<void(messages::SubscribeID, messages::TrackAlias)> new_group_request_callback_;
 
       protected:
         /**
@@ -250,7 +250,7 @@ namespace quicr {
 
       private:
         Status status_{ Status::kNotSubscribed };
-        messages::ObjectPriority priority_;
+        messages::SubscriberPriority priority_;
         messages::GroupOrder group_order_;
         messages::FilterType filter_type_;
         uint64_t current_stream_id_{ 0 };

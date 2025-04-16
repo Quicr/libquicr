@@ -1,0 +1,53 @@
+
+   
+    Bytes &operator<<(Bytes &buffer, ControlMessageType message_type)
+    {
+        UintVar varint = static_cast<std::uint64_t>(message_type);
+        buffer << varint;
+        return buffer;
+    }
+  
+    Bytes& operator<<(Bytes& buffer, const TrackNamespace& ns)
+    {
+        const auto& entries = ns.GetEntries();
+
+        buffer << UintVar(entries.size());
+        for (const auto& entry : entries) {
+            buffer << entry;
+        }
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg)
+    {
+        uint64_t size = 0;
+        buffer = buffer >> size;
+
+        std::vector<Bytes> entries(size);
+        for (auto& entry : entries) {
+ 
+            buffer = buffer >> entry;
+        }
+
+        msg = TrackNamespace{ entries };
+
+        return buffer;
+    } 
+
+    Bytes& operator<<(Bytes& buffer, const quicr::messages::Parameter& param)
+    {
+        buffer << param.type;
+        buffer << param.value;
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, quicr::messages::Parameter& param)
+    {
+        buffer = buffer >> param.type;
+        buffer = buffer >> param.value;
+        return buffer;
+    }    
+
+} // namespace
+
