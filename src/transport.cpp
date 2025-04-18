@@ -853,6 +853,9 @@ namespace quicr {
         } else {
             auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
             if (pub_n_it == pub_ns_it->second.end()) {
+                track_handler->SetStatus(pub_ns_it->second.begin()->second->GetStatus());
+                SendAnnounce(conn_it->second, tfn.name_space);
+
                 SPDLOG_LOGGER_INFO(logger_,
                                    "Publish track has new track namespace hash: {0} name hash: {1}",
                                    th.track_namespace_hash,
