@@ -628,6 +628,7 @@ namespace quicr {
     void Transport::SubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
         const auto& tfn = track_handler->GetFullTrackName();
+        track_handler->connection_handle_ = conn_id;
 
         // Track hash is the track alias for now.
         // TODO(tievens): Evaluate; change hash to be more than 62 bits to avoid collisions
