@@ -628,6 +628,7 @@ namespace quicr {
     void Transport::SubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
         const auto& tfn = track_handler->GetFullTrackName();
+        track_handler->connection_handle_ = conn_id;
 
         // Track hash is the track alias for now.
         // TODO(tievens): Evaluate; change hash to be more than 62 bits to avoid collisions
@@ -853,6 +854,9 @@ namespace quicr {
         } else {
             auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
             if (pub_n_it == pub_ns_it->second.end()) {
+                track_handler->SetStatus(pub_ns_it->second.begin()->second->GetStatus());
+                SendAnnounce(conn_it->second, tfn.name_space);
+
                 SPDLOG_LOGGER_INFO(logger_,
                                    "Publish track has new track namespace hash: {0} name hash: {1}",
                                    th.track_namespace_hash,
