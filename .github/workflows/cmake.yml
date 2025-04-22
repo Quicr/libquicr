@@ -56,7 +56,7 @@ jobs:
 
     - name: Build
       # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -j$(getconf _NPROCESSORS_ONLN) --parallel 16
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -j $(getconf _NPROCESSORS_ONLN)
 
     - name: Test
       working-directory: ${{github.workspace}}/build

@@ -57,11 +57,10 @@ target_link_libraries(quicr
     PUBLIC
         spdlog)
 
-if (NOT PLATFORM_ESP_IDF)
-    target_link_libraries(quicr
-            PUBLIC
-            picoquic-core picoquic-log)
-endif()
+target_link_libraries(quicr
+    PUBLIC
+        picoquic-core picoquic-log)
+
 if (PLATFORM_ESP_IDF)
     add_compile_definitions(${LIB_NAME} PLATFORM_ESP)
 endif()
