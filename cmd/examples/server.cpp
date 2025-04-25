@@ -72,7 +72,7 @@ namespace qserver_vars {
      * @example
      *      track_alias = subscribe_alias_sub_id[conn_id][subscribe_id]
      */
-    std::map<quicr::ConnectionHandle, std::map<quicr::messages::SubscribeId, quicr::messages::TrackAlias>>
+    std::map<quicr::ConnectionHandle, std::map<quicr::messages::SubscribeID, quicr::messages::TrackAlias>>
       subscribe_alias_sub_id;
 
     /**
@@ -128,7 +128,7 @@ namespace qserver_vars {
     /**
      * @brief Map of atomic bools to mark if a fetch thread should be interrupted.
      */
-    std::map<std::pair<quicr::ConnectionHandle, quicr::messages::SubscribeId>, std::atomic_bool> stop_fetch;
+    std::map<std::pair<quicr::ConnectionHandle, quicr::messages::SubscribeID>, std::atomic_bool> stop_fetch;
 }
 
 /**
@@ -528,7 +528,7 @@ class MyServer : public quicr::Server
         }
 
         // Remove active subscribes
-        std::vector<quicr::messages::SubscribeId> subscribe_ids;
+        std::vector<quicr::messages::SubscribeID> subscribe_ids;
         auto ta_conn_it = qserver_vars::subscribe_alias_sub_id.find(connection_handle);
         if (ta_conn_it != qserver_vars::subscribe_alias_sub_id.end()) {
             for (const auto& [sub_id, _] : ta_conn_it->second) {
@@ -640,7 +640,7 @@ class MyServer : public quicr::Server
                            uint64_t proposed_track_alias,
                            [[maybe_unused]] quicr::messages::FilterType filter_type,
                            const quicr::FullTrackName& track_full_name,
-                           const quicr::SubscribeAttributes& attrs) override
+                           const quicr::messages::SubscribeAttributes& attrs) override
     {
         auto th = quicr::TrackHash(track_full_name);
 
@@ -784,7 +784,7 @@ class MyServer : public quicr::Server
     bool OnFetchOk(quicr::ConnectionHandle connection_handle,
                    uint64_t subscribe_id,
                    const quicr::FullTrackName& track_full_name,
-                   const quicr::FetchAttributes& attrs) override
+                   const quicr::messages::FetchAttributes& attrs) override
     {
         auto pub_fetch_h =
           quicr::PublishFetchHandler::Create(track_full_name, attrs.priority, subscribe_id, attrs.group_order, 50000);

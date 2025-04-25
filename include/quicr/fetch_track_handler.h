@@ -23,13 +23,13 @@ namespace quicr {
          * @param end_object The final object in a group.
          */
         FetchTrackHandler(const FullTrackName& full_track_name,
-                          messages::ObjectPriority priority,
+                          messages::SubscriberPriority priority,
                           messages::GroupOrder group_order,
                           messages::GroupId start_group,
                           messages::GroupId end_group,
                           messages::GroupId start_object,
                           messages::GroupId end_object)
-          : SubscribeTrackHandler(full_track_name, priority, group_order, quicr::messages::FilterType::kLatestGroup)
+          : SubscribeTrackHandler(full_track_name, priority, group_order, messages::FilterType::kLatestGroup)
           , start_group_(start_group)
           , start_object_(start_object)
           , end_group_(end_group)
@@ -52,7 +52,7 @@ namespace quicr {
          * @returns Shared pointer to a Fetch track handler.
          */
         static std::shared_ptr<FetchTrackHandler> Create(const FullTrackName& full_track_name,
-                                                         messages::ObjectPriority priority,
+                                                         messages::SubscriberPriority priority,
                                                          messages::GroupOrder group_order,
                                                          messages::GroupId start_group,
                                                          messages::GroupId end_group,

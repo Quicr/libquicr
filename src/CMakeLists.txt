@@ -8,6 +8,8 @@ else()
 endif()
 target_sources (quicr PRIVATE
     client.cpp
+    ctrl_message_types.cpp
+    ctrl_messages.cpp
     messages.cpp
     publish_fetch_handler.cpp
     publish_track_handler.cpp
