@@ -703,6 +703,16 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         qclient_vars::playback_speed_ms = std::chrono::milliseconds(cli_opts["playback_speed_ms"].as<uint64_t>());
     }
 
+    if (cli_opts.count("m")) {
+        config.transport_config.multipath_option = 1;
+    }
+    if (cli_opts.count("a") && cli_opts["a"].as<std::string>() != "" && cli_opts.count("m")) {
+        const std::string alt_iface_str = cli_opts["a"].as<std::string>();
+        config.transport_config.alt_iface = strdup(alt_iface_str.c_str());
+    }else if (cli_opts.count("m")){
+        SPDLOG_ERROR("-m option is only valid with proper -a option");
+    }
+
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
     config.connect_uri = cli_opts["url"].as<std::string>();
     config.transport_config.debug = cli_opts["debug"].as<bool>();
@@ -734,7 +744,9 @@ main(int argc, char* argv[])
         ("v,version", "QuicR Version")                                        // a bool parameter
         ("r,url", "Relay URL", cxxopts::value<std::string>()->default_value("moq://localhost:1234"))
         ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))
-        ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>());
+        ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
+        ("m", "Enable multipath option")
+        ("a", "Alternate interface to use - format for example: 192.168.0.2/2,192.168.1.2/3", cxxopts::value<std::string>());
 
     options.add_options("Publisher")
         ("pub_namespace", "Track namespace", cxxopts::value<std::string>())

@@ -31,6 +31,8 @@
 #include <thread>
 #include <vector>
 
+#include <picoquic_internal.h>
+
 namespace quicr {
 
     constexpr int kPqLoopMaxDelayUs = 500;            /// The max microseconds that pq_loop will be ran again
@@ -47,6 +49,9 @@ namespace quicr {
     {
       public:
         const char* quicr_alpn = "moq-00";
+
+        picoquic_cnx_t* client_cnx{ nullptr }; /// Picoquic connection context
+        bool probed_new_path{ false }; /// Indicates if a new path was probed
 
         using BytesT = std::vector<uint8_t>;
         using DataContextId = uint64_t;
@@ -297,6 +302,8 @@ namespace quicr {
          *      other threads want to call should queue those in `picoquic_runner_queue`.
          */
         void PqRunner();
+
+        char* GetConfigMultipathAltConfig() const;
 
         /*
          * Internal Public Variables

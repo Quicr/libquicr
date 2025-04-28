@@ -318,6 +318,66 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
     return 0;
 }
 
+int picoquic_parse_client_multipath_config(const char* mp_config, int* src_if, struct sockaddr_storage* alt_ip, int* nb_alt_paths)
+{
+    int ret = 0;
+    int valid_ip, valid_index = 0;
+    char* token = nullptr;
+    char* token2 = nullptr;
+    char* str = nullptr;
+    char* ptr = nullptr;
+
+    // Allocate memory for a copy of the input string
+    str = (char*)malloc(strlen(mp_config) + 1);
+    if (str == nullptr) {
+        return -1; // Memory allocation failed
+    }
+
+    // Copy the input string to the allocated memory
+    strcpy(str, mp_config);
+    ptr = str;
+
+    // Split the string by commas
+    while ((token = strsep(&str, ","))) {
+        struct sockaddr_storage ip = {};
+        valid_index = valid_ip = 0;
+
+        // Split each token by '/'
+        while ((token2 = strsep(&token, "/"))) {
+            // Try to parse as an IP address
+            if (inet_pton(AF_INET, token2, &((struct sockaddr_in*)&ip)->sin_addr) == 1) {
+                ip.ss_family = AF_INET;
+                valid_ip = 1;
+            } else if (inet_pton(AF_INET6, token2, &((struct sockaddr_in6*)&ip)->sin6_addr) == 1) {
+                ip.ss_family = AF_INET6;
+                valid_ip = 1;
+            } else {
+                // Try to parse as an interface index
+                int index = atoi(token2);
+                if (index >= 0) {
+                    *(src_if + (*nb_alt_paths)) = index;
+                    valid_index = 1;
+                }
+            }
+        }
+
+        // If both IP and interface index are valid, store them
+        if (valid_ip && valid_index) {
+            memcpy(alt_ip + (*nb_alt_paths), &ip, sizeof(struct sockaddr_storage));
+            (*nb_alt_paths)++;
+
+            // Stop if the maximum number of alternative paths is reached
+            if (*nb_alt_paths >= PICOQUIC_NB_PATH_TARGET) {
+                break;
+            }
+        }
+    }
+
+    // Free the allocated memory
+    free(ptr);
+    return ret;
+}
+
 int
 PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* callback_ctx, void* callback_arg)
 {
@@ -350,10 +410,94 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
             break;
         }
 
-        case picoquic_packet_loop_after_receive:
+        case picoquic_packet_loop_after_receive:{
             //        log_msg << "packet_loop_after_receive";
             //        transport->logger.log(LogLevel::debug, log_msg.str());
+            if (transport->is_server_mode || !transport->client_cnx->is_multipath_enabled || transport->probed_new_path){break;}
+
+            sockaddr_storage server_address = transport->client_cnx->path[0]->peer_addr;
+            int client_alt_if[8];
+            sockaddr_storage client_alt_address[8];
+            int nb_alt_paths = 0;
+
+            picoquic_parse_client_multipath_config(transport->GetConfigMultipathAltConfig(), client_alt_if, client_alt_address, &nb_alt_paths);
+
+            /*
+            else if ((picoquic_get_cnx_state(cb_ctx->cnx_client) == picoquic_state_ready ||
+                picoquic_get_cnx_state(cb_ctx->cnx_client) == picoquic_state_client_ready_start)) {
+                SPDLOG_LOGGER_DEBUG(transport->logger, " Client port not updated");
+                if (picoquic_get_cnx_state(cb_ctx->cnx_client) == picoquic_state_ready) {
+                    SPDLOG_LOGGER_DEBUG(transport->logger, "packet_loop_port_update");
+                    /* Create the required additional paths.
+                     * In some cases, we just want to test the software from a computer that is not actually
+                     * multihomed. In that case, the client_alt_address is set to ::0 (IPv6 null address),
+                     * and the callback will return "PICOQUIC_NO_ERROR_SIMULATE_MIGRATION", which
+                     * causes the socket code to create an additional socket, and issue a
+                     * picoquic_probe_new_path request for the corresponding address.
+                     */
+                    //SPDLOG_LOGGER_INFO(transport->logger, "try to get remote cid ready_______________");
+
+
+                    int remote_cid_ready = (picoquic_obtain_stashed_cnxid(transport->client_cnx, 1) != nullptr);
+                    SPDLOG_LOGGER_INFO(transport->logger, "remote cid state: {0}_______________", remote_cid_ready);
+                    if (picoquic_get_cnx_state(transport->client_cnx) == picoquic_state_ready && !transport->probed_new_path && remote_cid_ready) {
+
+                        struct sockaddr_in6 addr_zero6 = { 0 };
+                        struct sockaddr_in addr_zero4 = { 0 };
+                        struct sockaddr_storage path0_addr = { 0 };
+                        addr_zero6.sin6_family = AF_INET6;
+                        addr_zero4.sin_family = AF_INET;
+
+                        if (picoquic_get_path_addr(transport->client_cnx, 0, 1, &path0_addr) != 0) {
+                            /* This should never happen, as path[0] is always defined before the first migration. */
+                            SPDLOG_LOGGER_INFO(transport->logger, "Cannot use multipath. Cannot get address of path 0");
+                            //picoquic_log_app_message(cb_ctx->cnx_client, "Cannot use multipath. Cannot get address of path 0");
+                        }
+                        printf("\nnumber of alt paths: %d\n", nb_alt_paths);
+                        printf("\ntruth value: %d\n", transport->probed_new_path);
+
+                        for (int i = 0; i < nb_alt_paths; i++) {
+                            if (picoquic_compare_addr((struct sockaddr*)&addr_zero6, (struct sockaddr*)&client_alt_address[i]) == 0 ||
+                                picoquic_compare_addr((struct sockaddr*)&addr_zero4, (struct sockaddr*)&client_alt_address[i]) == 0) {
+                                SPDLOG_LOGGER_INFO(transport->logger, "Will try to simulate new path___________");
+                                ///picoquic_log_app_message(cb_ctx->cnx_client, "%s\n", "Will try to simulate new path");
+                            }
+                            else if (client_alt_address[i].ss_family != path0_addr.ss_family) {
+                                SPDLOG_LOGGER_INFO(transport->logger, "Cannot add new path, wrong address family, {0} vs. {1}_______",
+                                    client_alt_address[i].ss_family, path0_addr.ss_family);
+                                ///picoquic_log_app_message(cb_ctx->cnx_client, "Cannot add new path, wrong address family, %d vs. %d\n",
+                                    ///cb_ctx->client_alt_address[i].ss_family, path0_addr.ss_family);
+                            } else {
+#if 0
+                                /* The configuration code sets the port number in "client_alt_address" to zero,
+                                * but it should be set to the actual value because of the "matching address"
+                                * test when processing path challenges. The actual value is the same as
+                                * used in the default path. */
+                                if (cb_ctx->client_alt_address[i].ss_family == AF_INET6) {
+                                    ((struct sockaddr_in6*)&cb_ctx->client_alt_address[i])->sin6_port =
+                                        ((struct sockaddr_in6*)&path0_addr)->sin6_port;
+                                }
+                                else {
+                                    ((struct sockaddr_in*)&cb_ctx->client_alt_address[i])->sin_port =
+                                        ((struct sockaddr_in*)&path0_addr)->sin_port;
+                                }
+#endif
+                                if ((ret = picoquic_probe_new_path_ex(transport->client_cnx, (struct sockaddr*)&server_address,
+                                    (struct sockaddr*)&client_alt_address[i], client_alt_if[i], picoquic_get_quic_time(quic), 0)) != 0) {
+                                    SPDLOG_LOGGER_INFO(transport->logger, "new path failed with exit code {0}__________", ret);
+                                    ///picoquic_log_app_message(cb_ctx->cnx_client, "Probe new path failed with exit code %d", ret);
+                                }
+                                else {
+                                    SPDLOG_LOGGER_INFO(transport->logger, "new path added, total path available {0}----------------", transport->client_cnx->nb_paths);
+                                    /// picoquic_log_app_message(cb_ctx->cnx_client, "New path added, total path
+                                    /// available %d", cb_ctx->cnx_client->nb_paths);
+                                }
+                                transport->probed_new_path = true;
+                            }
+                        }
+                    }
             break;
+        }
 
         case picoquic_packet_loop_after_send:
             //        log_msg << "packet_loop_after_send";
@@ -420,6 +564,15 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
             break;
         }
 
+        case picoquic_packet_loop_alt_port:
+            SPDLOG_LOGGER_INFO(transport->logger, "packet_loop_alt_port");
+            //cb_ctx.alt_port = *((uint16_t*)callback_arg);
+            break;
+
+        case picoquic_packet_loop_system_call_duration:
+            SPDLOG_LOGGER_DEBUG(transport->logger, "callback_system_call_duration");
+            break;
+
         default:
             // ret = PICOQUIC_ERROR_UNEXPECTED_ERROR;
             SPDLOG_LOGGER_WARN(transport->logger, "pq_loop_cb() does not implement ", std::to_string(cb_mode));
@@ -460,6 +613,8 @@ PicoQuicTransport::Start()
         (void)picoquic_config_set_option(&config_, picoquic_option_CC_ALGO, "reno");
     }
 
+    picoquic_config_set_option(&config_, picoquic_option_SSLKEYLOG, "1");
+
     (void)picoquic_config_set_option(&config_, picoquic_option_ALPN, quicr_alpn);
     (void)picoquic_config_set_option(
       &config_, picoquic_option_CWIN_MIN, std::to_string(tconfig_.quic_cwin_minimum).c_str());
@@ -473,12 +628,22 @@ PicoQuicTransport::Start()
         throw PicoQuicException("Unable to create picoquic context");
     }
 
+    picoquic_set_key_log_file_from_env(quic_ctx_);
+
     /*
      * TODO doc: Apparently need to set some value to send datagrams. If not set,
      *    max datagram size is zero, preventing sending of datagrams. Setting this
      *    also triggers PMTUD to run. This value will be the initial value.
      */
     picoquic_init_transport_parameters(&local_tp_options_, 1);
+
+    if (quic_ctx_->default_multipath_option != 0) {
+        local_tp_options_.is_multipath_enabled = 1;
+        local_tp_options_.initial_max_path_id = 2;
+        SPDLOG_LOGGER_INFO(logger, "Local_tp_options set to multipath");
+    } else {
+        local_tp_options_.is_multipath_enabled = 0;
+    }
 
     // TODO(tievens): revisit PMTU/GSO, removing this breaks some networks
     local_tp_options_.max_datagram_frame_size = 1280;
@@ -910,6 +1075,19 @@ PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
             (void)picoquic_config_set_option(&config_, picoquic_option_KEY, tcfg.tls_key_filename.c_str());
         } else {
             throw InvalidConfigException("Missing cert key filename");
+        }
+    }
+    if (tcfg.multipath_option) {
+        (void)picoquic_config_set_option(&config_, picoquic_option_MULTIPATH, "1");
+        if (!is_server_mode) {
+            ///put the tcfg.alt_iface string to the &config_.multipath_alt_config with memcpy to avoid losing data
+            size_t len = strlen(tcfg.alt_iface);
+            config_.multipath_alt_config = new char[len + 1];
+            std::strncpy(config_.multipath_alt_config, tcfg.alt_iface, len);
+            config_.multipath_alt_config[len] = '\0';
+
+            printf("\nconfig_.multipath_option: %d\n", config_.multipath_option);
+            printf("config_.multipath_alt_config: \"%s\"\n", config_.multipath_alt_config);
         }
     }
 }
@@ -1639,11 +1817,14 @@ PicoQuicTransport::CreateClient()
                                               config_.alpn,
                                               1);
 
+    this->client_cnx = cnx;
+
     if (cnx == NULL) {
         SPDLOG_LOGGER_ERROR(logger, "Could not create picoquic connection client context");
         return 0;
     }
 
+    printf("\n\nlocal_tp_options_ multipath: %d\n", local_tp_options_.is_multipath_enabled);
     // Using default TP
     picoquic_set_transport_parameters(cnx, &local_tp_options_);
     picoquic_set_feedback_loss_notification(cnx, 1);
@@ -1878,6 +2059,14 @@ PicoQuicTransport::MarkStreamActive(const TransportConnId conn_id, const DataCon
       conn_it->second.pq_cnx, *data_ctx_it->second.current_stream_id, 1, &data_ctx_it->second);
     picoquic_set_stream_priority(
       conn_it->second.pq_cnx, *data_ctx_it->second.current_stream_id, (data_ctx_it->second.priority << 1));
+}
+
+char* PicoQuicTransport::GetConfigMultipathAltConfig() const
+{
+    if (is_server_mode){return nullptr;}
+    else {
+        return config_.multipath_alt_config;
+    }
 }
 
 void
