@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include <quicr/detail/messages.h>
 #include <quicr/server.h>
 
 namespace quicr {
@@ -68,9 +69,9 @@ namespace quicr {
     void Server::SubscribeReceived(ConnectionHandle,
                                    uint64_t,
                                    uint64_t,
-                                   quicr::messages::FilterType,
+                                   messages::FilterType,
                                    const FullTrackName&,
-                                   const SubscribeAttributes&)
+                                   const messages::SubscribeAttributes&)
     {
     }
 
@@ -79,7 +80,7 @@ namespace quicr {
         return std::nullopt;
     }
 
-    bool Server::OnFetchOk(ConnectionHandle, uint64_t, const FullTrackName&, const FetchAttributes&)
+    bool Server::OnFetchOk(ConnectionHandle, uint64_t, const FullTrackName&, const messages::FetchAttributes&)
     {
         return false;
     }
@@ -99,17 +100,17 @@ namespace quicr {
             case SubscribeResponse::ReasonCode::kOk: {
                 // Save the latest state for joining fetch.
                 assert(conn_it->second.recv_sub_id.find(subscribe_id) != conn_it->second.recv_sub_id.end());
-                conn_it->second.recv_sub_id[subscribe_id].largest_group = subscribe_response.largest_group;
-                conn_it->second.recv_sub_id[subscribe_id].largest_object = subscribe_response.largest_object;
+                conn_it->second.recv_sub_id[subscribe_id].largest_group_id = subscribe_response.largest_group_id;
+                conn_it->second.recv_sub_id[subscribe_id].largest_object_id = subscribe_response.largest_object_id;
 
                 // Send the ok.
                 SendSubscribeOk(
                   conn_it->second,
                   subscribe_id,
                   kSubscribeExpires,
-                  subscribe_response.largest_group.has_value() && subscribe_response.largest_object.has_value(),
-                  subscribe_response.largest_group.has_value() ? subscribe_response.largest_group.value() : 0,
-                  subscribe_response.largest_object.has_value() ? subscribe_response.largest_object.value() : 0);
+                  subscribe_response.largest_group_id.has_value() && subscribe_response.largest_object_id.has_value(),
+                  subscribe_response.largest_group_id.has_value() ? subscribe_response.largest_group_id.value() : 0,
+                  subscribe_response.largest_object_id.has_value() ? subscribe_response.largest_object_id.value() : 0);
                 break;
             }
             case SubscribeResponse::ReasonCode::kRetryTrackAlias: {
@@ -217,7 +218,7 @@ namespace quicr {
                                   uint64_t subgroup_id,
                                   uint64_t object_id,
                                   std::optional<Extensions> extensions,
-                                  Span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
+                                  std::span<uint8_t const> data) -> PublishTrackHandler::PublishObjectStatus {
             auto th = weak_track_handler.lock();
             if (!th) {
                 return PublishTrackHandler::PublishObjectStatus::kInternalError;
@@ -293,7 +294,7 @@ namespace quicr {
                             uint64_t subgroup_id,
                             uint64_t object_id,
                             std::optional<Extensions> extensions,
-                            Span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
+                            std::span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
             const auto handler = weak_handler.lock();
             if (!handler) {
                 return PublishTrackHandler::PublishObjectStatus::kInternalError;
@@ -373,7 +374,18 @@ namespace quicr {
     try {
         switch (*conn_ctx.ctrl_msg_type_received) {
             case messages::ControlMessageType::kSubscribe: {
-                messages::Subscribe msg;
+                auto msg = messages::Subscribe(
+                  [](messages::Subscribe& msg) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteStart ||
+                          msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                          msg.group_0 = std::make_optional<messages::Subscribe::Group_0>();
+                      }
+                  },
+                  [](messages::Subscribe& msg) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                          msg.group_1 = std::make_optional<messages::Subscribe::Group_1>();
+                      }
+                  });
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
@@ -390,12 +402,16 @@ namespace quicr {
                                   msg.track_alias,
                                   msg.filter_type,
                                   tfn,
-                                  { msg.priority, msg.group_order });
+                                  { msg.subscriber_priority, static_cast<messages::GroupOrder>(msg.group_order) });
 
                 return true;
             }
             case messages::ControlMessageType::kSubscribeOk: {
-                messages::SubscribeOk msg;
+                auto msg = messages::SubscribeOk([](messages::SubscribeOk& msg) {
+                    if (msg.content_exists == 1) {
+                        msg.group_0 = std::make_optional<messages::SubscribeOk::Group_0>();
+                    }
+                });
                 msg_bytes >> msg;
 
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
@@ -417,7 +433,7 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kSubscribeError: {
-                messages::SubscribeError msg;
+                auto msg = messages::SubscribeError{};
                 msg_bytes >> msg;
 
                 auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
@@ -440,7 +456,7 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kAnnounce: {
-                messages::Announce msg;
+                auto msg = messages::Announce{};
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
@@ -450,13 +466,13 @@ namespace quicr {
             }
 
             case messages::ControlMessageType::kSubscribeAnnounces: {
-                messages::SubscribeAnnounces msg;
+                auto msg = messages::SubscribeAnnounces{};
                 msg_bytes >> msg;
 
                 const auto& [err, matched_ns] =
-                  SubscribeAnnouncesReceived(conn_ctx.connection_handle, msg.prefix_namespace, {});
+                  SubscribeAnnouncesReceived(conn_ctx.connection_handle, msg.track_namespace_prefix, {});
                 if (err.has_value()) {
-                    SendSubscribeAnnouncesError(conn_ctx, msg.prefix_namespace, *err, {});
+                    SendSubscribeAnnouncesError(conn_ctx, msg.track_namespace_prefix, *err, {});
                 } else {
                     for (const auto& ns : matched_ns) {
                         SendAnnounce(conn_ctx, ns);
@@ -467,31 +483,28 @@ namespace quicr {
             }
 
             case messages::ControlMessageType::kUnsubscribeAnnounces: {
-                messages::UnsubscribeAnnounces msg;
+                auto msg = messages::UnsubscribeAnnounces{};
                 msg_bytes >> msg;
 
-                UnsubscribeAnnouncesReceived(conn_ctx.connection_handle, msg.prefix_namespace);
+                UnsubscribeAnnouncesReceived(conn_ctx.connection_handle, msg.track_namespace_prefix);
+                return true;
             }
 
             case messages::ControlMessageType::kAnnounceError: {
-                messages::AnnounceError msg;
+                auto msg = messages::AnnounceError{};
                 msg_bytes >> msg;
 
-                if (msg.track_namespace) {
-                    std::string reason = "unknown";
-                    auto tfn = FullTrackName{ *msg.track_namespace, {}, std::nullopt };
-                    auto th = TrackHash(tfn);
+                std::string reason = "unknown";
+                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
+                auto th = TrackHash(tfn);
+                reason.assign(msg.reason_phrase.begin(), msg.reason_phrase.end());
 
-                    if (msg.reason_phrase) {
-                        reason.assign(msg.reason_phrase->begin(), msg.reason_phrase->end());
-                    }
+                SPDLOG_LOGGER_INFO(logger_,
+                                   "Received announce error for namespace_hash: {0} error code: {1} reason: {2}",
+                                   th.track_namespace_hash,
+                                   static_cast<std::uint64_t>(msg.error_code),
+                                   reason);
 
-                    SPDLOG_LOGGER_INFO(logger_,
-                                       "Received announce error for namespace_hash: {0} error code: {1} reason: {2}",
-                                       th.track_namespace_hash,
-                                       (msg.err_code.has_value() ? *msg.err_code : 0),
-                                       reason);
-                }
                 return true;
             }
 
@@ -572,7 +585,8 @@ namespace quicr {
                 messages::SubscribesBlocked msg;
                 msg_bytes >> msg;
 
-                SPDLOG_LOGGER_WARN(logger_, "Subscribe was blocked, maximum_subscribe_id: {}", msg.max_subscribe_id);
+                SPDLOG_LOGGER_WARN(
+                  logger_, "Subscribe was blocked, maximum_subscribe_id: {}", msg.maximum_subscribe_id);
 
                 // TODO: React to this somehow.
                 // See https://www.ietf.org/archive/id/draft-ietf-moq-transport-08.html#section-7.21
@@ -619,8 +633,8 @@ namespace quicr {
                                    th.track_name_hash);
                 return true;
             }
-            case messages::ControlMessageType::kGoAway: {
-                messages::GoAway msg;
+            case messages::ControlMessageType::kGoaway: {
+                messages::Goaway msg;
                 msg_bytes >> msg;
 
                 std::string new_sess_uri(msg.new_session_uri.begin(), msg.new_session_uri.end());
@@ -639,18 +653,20 @@ namespace quicr {
                     return true;
                 }
 
-                std::string client_endpoint_id(msg.endpoint_id_parameter.value.begin(),
-                                               msg.endpoint_id_parameter.value.end());
+                std::string endpoint_id = "Unknown Endpoint ID";
+                for (const auto& param : msg.setup_parameters) {
+                    if (param.type == messages::ParameterType::kEndpointId) {
+                        endpoint_id = std::string(param.value.begin(), param.value.end());
+                    }
+                }
 
-                ClientSetupReceived(
-                  conn_ctx.connection_handle,
-                  { { msg.endpoint_id_parameter.value.begin(), msg.endpoint_id_parameter.value.end() } });
+                ClientSetupReceived(conn_ctx.connection_handle, { endpoint_id });
 
                 SPDLOG_LOGGER_INFO(logger_,
                                    "Client setup received conn_id: {} from: {} num_versions: {} version: {}",
                                    conn_ctx.connection_handle,
-                                   client_endpoint_id,
-                                   msg.num_versions,
+                                   endpoint_id,
+                                   msg.supported_versions.size(),
                                    msg.supported_versions.front());
 
                 conn_ctx.client_version = msg.supported_versions.front();
@@ -662,12 +678,22 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kFetch: {
-                messages::Fetch msg;
+                auto msg = messages::Fetch(
+                  [](messages::Fetch& msg) {
+                      if (msg.fetch_type == messages::FetchType::kStandalone) {
+                          msg.group_0 = std::make_optional<messages::Fetch::Group_0>();
+                      }
+                  },
+                  [](messages::Fetch& msg) {
+                      if (msg.fetch_type == messages::FetchType::kJoiningFetch) {
+                          msg.group_1 = std::make_optional<messages::Fetch::Group_1>();
+                      }
+                  });
                 msg_bytes >> msg;
 
                 // Prepare for fetch lookups, which differ by type.
                 FullTrackName tfn;
-                FetchAttributes attrs = { msg.priority, msg.group_order, 0, 0, 0, std::nullopt };
+                messages::FetchAttributes attrs = { msg.subscriber_priority, msg.group_order, 0, 0, 0, std::nullopt };
                 bool end_of_track = false; // TODO: Need to query this as part of the GetLargestAvailable call.
                 messages::GroupId largest_group;
                 messages::ObjectId largest_object;
@@ -675,7 +701,7 @@ namespace quicr {
                 switch (msg.fetch_type) {
                     case messages::FetchType::kStandalone: {
                         // Standalone fetch is self-containing.
-                        tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+                        tfn = FullTrackName{ msg.group_0->track_namespace, msg.group_0->track_name, std::nullopt };
                         const auto largest_available = GetLargestAvailable(tfn);
                         if (!largest_available.has_value()) {
                             SendFetchError(conn_ctx,
@@ -688,16 +714,17 @@ namespace quicr {
                         largest_group = largest_available->first;
                         largest_object = largest_available->second;
 
-                        attrs.start_group = msg.start_group;
-                        attrs.start_object = msg.start_object;
-                        attrs.end_group = msg.end_group;
-                        attrs.end_object = msg.end_object > 0 ? std::optional(msg.end_object - 1) : std::nullopt;
+                        attrs.start_group = msg.group_0->start_group;
+                        attrs.start_object = msg.group_0->start_object;
+                        attrs.end_group = msg.group_0->end_group;
+                        attrs.end_object =
+                          msg.group_0->end_object > 0 ? std::optional(msg.group_0->end_object - 1) : std::nullopt;
                         break;
                     }
                     case messages::FetchType::kJoiningFetch: {
                         // Joining fetch needs to look up its joining subscribe.
                         // TODO: Need a new error code for subscribe doesn't exist.
-                        const auto subscribe_state = conn_ctx.recv_sub_id.find(msg.joining_subscribe_id);
+                        const auto subscribe_state = conn_ctx.recv_sub_id.find(msg.group_1->joining_subscribe_id);
                         if (subscribe_state == conn_ctx.recv_sub_id.end()) {
                             SendFetchError(conn_ctx,
                                            msg.subscribe_id,
@@ -707,20 +734,21 @@ namespace quicr {
                         }
 
                         tfn = subscribe_state->second.track_full_name;
-                        const auto opt_largest_group = subscribe_state->second.largest_group;
-                        const auto opt_largest_object = subscribe_state->second.largest_object;
+                        const auto opt_largest_group = subscribe_state->second.largest_group_id;
+                        const auto opt_largest_object = subscribe_state->second.largest_object_id;
                         if (!opt_largest_group.has_value() || !opt_largest_object.has_value()) {
                             // We have no data to complete the fetch with.
                             // TODO: Possibly missing "No Objects" code per the draft.
                             SendFetchError(
                               conn_ctx, msg.subscribe_id, messages::FetchErrorCode::kInvalidRange, "Nothing to give");
+
                             return true;
                         }
                         largest_group = *opt_largest_group;
                         largest_object = *opt_largest_object;
 
-                        attrs.start_group = msg.preceding_group_offset <= largest_group
-                                              ? largest_group - msg.preceding_group_offset
+                        attrs.start_group = msg.group_1->preceding_group_offset <= largest_group
+                                              ? largest_group - msg.group_1->preceding_group_offset
                                               : largest_group;
                         attrs.start_object = 0;
                         attrs.end_group = largest_group;
@@ -756,6 +784,7 @@ namespace quicr {
                 }
 
                 SendFetchOk(conn_ctx, msg.subscribe_id, msg.group_order, end_of_track, largest_group, largest_object);
+
                 if (!OnFetchOk(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs)) {
                     SendFetchError(conn_ctx,
                                    msg.subscribe_id,
@@ -779,7 +808,7 @@ namespace quicr {
 
                 return true;
             }
-            case messages::ControlMessageType::kNewGroup: {
+            case messages::ControlMessageType::kNewGroupRequest: {
                 messages::NewGroupRequest msg;
                 msg_bytes >> msg;
 

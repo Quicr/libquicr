@@ -4,8 +4,8 @@
 #pragma once
 
 #include "data_storage.h"
-#include "span.h"
 #include "uintvar.h"
+#include <span>
 
 #include <algorithm>
 #include <any>
@@ -195,16 +195,16 @@ namespace quicr {
             buffer_.push_back(std::move(value));
         }
 
-        void Push(Span<const T> value)
+        void Push(std::span<const T> value)
         {
             std::lock_guard _(rw_lock_);
             PushInternal(std::move(value));
         }
 
-        void PushLengthBytes(Span<const T> value)
+        void PushLengthBytes(std::span<const T> value)
         {
             std::lock_guard _(rw_lock_);
-            PushInternal(Span{ UintVar(static_cast<uint64_t>(value.size())) });
+            PushInternal(std::span{ UintVar(static_cast<uint64_t>(value.size())) });
             PushInternal(std::move(value));
         }
 
@@ -315,7 +315,10 @@ namespace quicr {
             }
         }
 
-        inline void PushInternal(Span<const T> value) { buffer_.insert(buffer_.end(), value.begin(), value.end()); }
+        inline void PushInternal(std::span<const T> value)
+        {
+            buffer_.insert(buffer_.end(), value.begin(), value.end());
+        }
 
       private:
         BufferT buffer_;

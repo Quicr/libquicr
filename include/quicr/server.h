@@ -53,7 +53,7 @@ namespace quicr {
          * @param cfg           MoQ Server Configuration
          */
         Server(const ServerConfig& cfg)
-          : Transport(cfg, std::make_shared<ThreadedTickService>())
+          : Transport(cfg, std::make_shared<ThreadedTickService>(cfg.tick_service_sleep_delay_us))
         {
         }
 
@@ -277,9 +277,9 @@ namespace quicr {
         virtual void SubscribeReceived(ConnectionHandle connection_handle,
                                        uint64_t subscribe_id,
                                        uint64_t proposed_track_alias,
-                                       quicr::messages::FilterType filter_type,
+                                       messages::FilterType filter_type,
                                        const FullTrackName& track_full_name,
-                                       const SubscribeAttributes& subscribe_attributes);
+                                       const messages::SubscribeAttributes& subscribe_attributes);
 
         /**
          * @brief Callback notification on unsubscribe received
@@ -312,7 +312,7 @@ namespace quicr {
         virtual bool OnFetchOk(ConnectionHandle connection_handle,
                                uint64_t subscribe_id,
                                const FullTrackName& track_full_name,
-                               const FetchAttributes& attributes);
+                               const messages::FetchAttributes& attributes);
 
         /**
          * @brief Callback notification on receiving a FetchCancel message.

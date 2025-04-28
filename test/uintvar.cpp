@@ -5,6 +5,8 @@
 
 #include "quicr/detail/uintvar.h"
 
+#include <limits>
+
 namespace var {
 
     // integer values for valdiation tests
@@ -20,6 +22,15 @@ namespace var {
     const std::vector<uint8_t> kValue8ByteEncoded = { 0xC0, 0, 0, 0x1, 0x23, 0x45, 0x67, 0x89 };
 }
 
+TEST_CASE("Check UintVar")
+{
+    CHECK_EQ(sizeof(std::uint64_t), sizeof(quicr::UintVar));
+    CHECK(std::is_trivially_copy_constructible_v<quicr::UintVar>);
+    CHECK(std::is_trivially_copy_assignable_v<quicr::UintVar>);
+    CHECK(std::is_trivially_move_constructible_v<quicr::UintVar>);
+    CHECK(std::is_trivially_move_assignable_v<quicr::UintVar>);
+}
+
 TEST_CASE("Encode/Decode UintVar Uint64")
 {
     CHECK_EQ(var::kValue1Byte, uint64_t(quicr::UintVar(var::kValue1Byte)));
@@ -30,10 +41,10 @@ TEST_CASE("Encode/Decode UintVar Uint64")
 
 TEST_CASE("Encode/Decode UintVar Bytes")
 {
-    CHECK_EQ(var::kValue1Byte, uint64_t(quicr::UintVar(Span{ quicr::UintVar(var::kValue1Byte) })));
-    CHECK_EQ(var::kValue2Byte, uint64_t(quicr::UintVar(Span{ quicr::UintVar(var::kValue2Byte) })));
-    CHECK_EQ(var::kValue4Byte, uint64_t(quicr::UintVar(Span{ quicr::UintVar(var::kValue4Byte) })));
-    CHECK_EQ(var::kValue8Byte, uint64_t(quicr::UintVar(Span{ quicr::UintVar(var::kValue8Byte) })));
+    CHECK_EQ(var::kValue1Byte, uint64_t(quicr::UintVar(std::span{ quicr::UintVar(var::kValue1Byte) })));
+    CHECK_EQ(var::kValue2Byte, uint64_t(quicr::UintVar(std::span{ quicr::UintVar(var::kValue2Byte) })));
+    CHECK_EQ(var::kValue4Byte, uint64_t(quicr::UintVar(std::span{ quicr::UintVar(var::kValue4Byte) })));
+    CHECK_EQ(var::kValue8Byte, uint64_t(quicr::UintVar(std::span{ quicr::UintVar(var::kValue8Byte) })));
 }
 
 TEST_CASE("Length of UintVar")

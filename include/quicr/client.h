@@ -26,7 +26,7 @@ namespace quicr {
          * @param cfg           MoQ Client Configuration
          */
         Client(const ClientConfig& cfg)
-          : Transport(cfg, std::make_shared<ThreadedTickService>())
+          : Transport(cfg, std::make_shared<ThreadedTickService>(cfg.tick_service_sleep_delay_us))
         {
         }
 
@@ -128,7 +128,7 @@ namespace quicr {
          * @param subscribe_attributes      Subscribe attributes received
          */
         virtual void UnpublishedSubscribeReceived(const FullTrackName& track_full_name,
-                                                  const SubscribeAttributes& subscribe_attributes);
+                                                  const messages::SubscribeAttributes& subscribe_attributes);
 
         /**
          * @brief Accept or reject an subscribe that was received

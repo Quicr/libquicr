@@ -20,15 +20,7 @@ namespace quicr {
         uint64_t value_sum{ 0 };   /// Accumulating sum of values in period
         uint64_t value_count{ 0 }; /// Number of values in period
 
-#if __cplusplus >= 202002L
         constexpr auto operator<=>(const MinMaxAvg&) const = default;
-#else
-        constexpr bool operator==(const MinMaxAvg& other) const
-        {
-            return min == other.min && max == other.max && avg == other.avg && value_sum == other.value_sum;
-        }
-        constexpr bool operator!=(const MinMaxAvg& other) const { return !(*this == other); }
-#endif
 
         /**
          * @brief  Add value to period
@@ -92,25 +84,7 @@ namespace quicr {
         uint64_t tx_dgram_spurious{ 0 }; ///< count of picoquic callback for late/delayed dgram acks
         uint64_t tx_dgram_drops{ 0 };    ///< count of drops due to data context missing
 
-#if __cplusplus >= 202002L
         auto operator<=>(const QuicConnectionMetrics&) const = default;
-#else
-        constexpr bool operator==(const QuicConnectionMetrics& other) const
-        {
-            return this->cwin_congested == other.cwin_congested &&
-                   this->prev_cwin_congested == other.prev_cwin_congested && this->tx_congested == other.tx_congested &&
-                   this->tx_rate_bps == other.tx_rate_bps && this->rx_rate_bps == other.rx_rate_bps &&
-                   this->tx_cwin_bytes == other.tx_cwin_bytes &&
-                   this->tx_in_transit_bytes == other.tx_in_transit_bytes && this->rtt_us == other.rtt_us &&
-                   this->srtt_us == other.srtt_us && this->tx_retransmits == other.tx_retransmits &&
-                   this->tx_lost_pkts == other.tx_lost_pkts && this->tx_timer_losses == other.tx_timer_losses &&
-                   this->tx_spurious_losses == other.tx_spurious_losses && this->rx_dgrams == other.rx_dgrams &&
-                   this->rx_dgrams_bytes == other.rx_dgrams_bytes && this->tx_dgram_cb == other.tx_dgram_cb &&
-                   this->tx_dgram_ack == other.tx_dgram_ack && this->tx_dgram_lost == other.tx_dgram_lost &&
-                   this->tx_dgram_spurious == other.tx_dgram_spurious && this->tx_dgram_drops == other.tx_dgram_drops;
-        }
-        constexpr bool operator!=(const QuicConnectionMetrics& other) const { return !(*this == other); }
-#endif
 
         /**
          * @brief Reset metrics for period
@@ -151,25 +125,7 @@ namespace quicr {
         uint64_t tx_stream_objects{ 0 }; /// count of stream objects sent
         uint64_t tx_stream_bytes{ 0 };   /// count of stream bytes sent
 
-#if __cplusplus >= 202002L
         constexpr auto operator<=>(const QuicDataContextMetrics&) const = default;
-#else
-        constexpr bool operator==(const QuicDataContextMetrics& other) const
-        {
-            return this->enqueued_objs == other.enqueued_objs && this->rx_stream_cb == other.rx_stream_cb &&
-                   this->rx_stream_bytes == other.rx_stream_bytes && this->tx_buffer_drops == other.tx_buffer_drops &&
-                   this->tx_queue_discards == other.tx_queue_discards &&
-                   this->tx_queue_expired == other.tx_queue_expired &&
-                   this->tx_delayed_callback == other.tx_delayed_callback &&
-                   this->prev_tx_delayed_callback == other.prev_tx_delayed_callback &&
-                   this->tx_reset_wait == other.tx_reset_wait && this->tx_queue_size == other.tx_queue_size &&
-                   this->tx_callback_ms == other.tx_callback_ms &&
-                   this->tx_object_duration_us == other.tx_object_duration_us && this->tx_dgrams == other.tx_dgrams &&
-                   this->tx_dgrams_bytes == other.tx_dgrams_bytes && this->tx_stream_cb == other.tx_stream_cb &&
-                   this->tx_stream_objects == other.tx_stream_objects && this->tx_stream_bytes == other.tx_stream_bytes;
-        }
-        constexpr bool operator!=(const QuicDataContextMetrics& other) const { return !(*this == other); }
-#endif
 
         /**
          * @brief Reset metrics for period
@@ -197,17 +153,7 @@ namespace quicr {
         uint64_t rx_bytes{ 0 };   /// count of bytes received
         uint64_t rx_objects{ 0 }; /// count of objects received
 
-#if __cplusplus >= 202002L
         constexpr auto operator<=>(const UdpDataContextMetrics&) const = default;
-#else
-        constexpr auto operator==(const UdpDataContextMetrics& other) const
-        {
-            return this->enqueued_objs == other.enqueued_objs && this->tx_queue_expired == other.tx_queue_expired &&
-                   this->tx_bytes == other.tx_bytes && this->tx_objects == other.tx_objects &&
-                   this->rx_bytes == other.rx_bytes && this->rx_objects == other.rx_objects;
-        }
-        constexpr auto operator!=(const UdpDataContextMetrics& other) const { return !(*this == other); }
-#endif
     };
 
     struct UdpConnectionMetrics
