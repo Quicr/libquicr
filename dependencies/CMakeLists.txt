@@ -123,7 +123,6 @@ else ()
     option(WITH_FUSION OFF)
     OPTION(ENABLE_TESTING OFF)
 
-<<<<<<< HEAD
         # BoringSSL (include only for upstream openssl usage)
         set(boringssl_BUILD_TESTS OFF)
         add_subdirectory(boringssl)
