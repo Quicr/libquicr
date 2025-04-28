@@ -14,10 +14,10 @@ CLANG_FORMAT=clang-format -i
 .PHONY: all clean cclean format tidy
 
 all: ${BUILD_DIR}
-	cmake --build ${BUILD_DIR} --parallel 8
+	cmake --build ${BUILD_DIR}  --parallel 8
 
 ${BUILD_DIR}: CMakeLists.txt cmd/CMakeLists.txt
-	cmake -B${BUILD_DIR} -DBUILD_TESTING=TRUE -DQUICR_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DUSE_MBEDTLS=OFF .
+	cmake -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=TRUE -DQUICR_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DUSE_MBEDTLS=OFF .
 
 tidy: CMakeLists.txt cmd/CMakeLists.txt
 	cmake -B${BUILD_DIR} -DBUILD_TESTING=TRUE -DQUICR_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DLINT=ON .
@@ -55,6 +55,7 @@ format:
 	find test -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
 	find cmd -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
 	find benchmark -name "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
+	find tools -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
 
 lint:
 	reuse lint

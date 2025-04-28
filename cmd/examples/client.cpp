@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include <nlohmann/json.hpp>
 #include <oss/cxxopts.hpp>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
@@ -11,10 +12,99 @@
 #include "helper_functions.h"
 #include "signal_handler.h"
 
+#include <filesystem>
+#include <fstream>
+
+using json = nlohmann::json; // NOLINT
+
 namespace qclient_vars {
     bool publish_clock{ false };
     std::optional<uint64_t> track_alias; /// Track alias to use for subscribe
     bool request_new_group = false;
+    bool record = false;
+    bool playback = false;
+    std::chrono::milliseconds playback_speed_ms(20);
+}
+
+namespace qclient_consts {
+    const std::filesystem::path kMoqDataDir = std::filesystem::current_path() / "moq_data";
+}
+
+namespace {
+    // TODO: Escape/drop invalid filename characters.
+    std::string ToString(const quicr::FullTrackName& ftn)
+    {
+        std::string str;
+        const auto& entries = ftn.name_space.GetEntries();
+        for (const auto& entry : entries) {
+            str += std::string(entry.begin(), entry.end()) + '_';
+        }
+
+        str += std::string(ftn.name.begin(), ftn.name.end());
+
+        return str;
+    }
+}
+
+namespace base64 {
+    // From https://gist.github.com/williamdes/308b95ac9ef1ee89ae0143529c361d37;
+
+    constexpr std::string_view kValues = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"; //=
+    static std::string Encode(const std::string& in)
+    {
+        std::string out;
+
+        int val = 0;
+        int valb = -6;
+
+        for (std::uint8_t c : in) {
+            val = (val << 8) + c;
+            valb += 8;
+            while (valb >= 0) {
+                out += kValues[(val >> valb) & 0x3F];
+                valb -= 6;
+            }
+        }
+
+        if (valb > -6) {
+            out += kValues[((val << 8) >> (valb + 8)) & 0x3F];
+        }
+
+        while (out.size() % 4) {
+            out += '=';
+        }
+
+        return out;
+    }
+
+    [[maybe_unused]] static std::string Decode(const std::string& in)
+    {
+        std::string out;
+
+        std::vector<int> values(256, -1);
+        for (int i = 0; i < 64; i++) {
+            values[kValues[i]] = i;
+        }
+
+        int val = 0;
+        int valb = -8;
+
+        for (std::uint8_t c : in) {
+            if (values[c] == -1) {
+                break;
+            }
+
+            val = (val << 6) + values[c];
+            valb += 6;
+
+            if (valb >= 0) {
+                out += char((val >> valb) & 0xFF);
+                valb -= 8;
+            }
+        }
+
+        return out;
+    }
 }
 
 /**
@@ -24,13 +114,38 @@ namespace qclient_vars {
 class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 {
   public:
-    MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name, quicr::messages::FilterType filter_type)
-      : SubscribeTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending, filter_type)
+    MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
+                            quicr::messages::FilterType filter_type,
+                            const std::optional<JoiningFetch>& joining_fetch,
+                            const std::filesystem::path& dir = qclient_consts::kMoqDataDir)
+      : SubscribeTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending, filter_type, joining_fetch)
     {
+        if (qclient_vars::record) {
+            std::filesystem::create_directory(dir);
+
+            const std::string name_str = ToString(full_track_name);
+            data_fs_.open(dir / (name_str + ".dat"), std::ios::in | std::ios::out | std::ios::trunc);
+
+            moq_fs_.open(dir / (name_str + ".moq"), std::ios::in | std::ios::out | std::ios::trunc);
+            moq_fs_ << json::array();
+        }
+    }
+
+    virtual ~MySubscribeTrackHandler()
+    {
+        data_fs_ << std::endl;
+        data_fs_.close();
+
+        moq_fs_ << std::endl;
+        moq_fs_.close();
     }
 
     void ObjectReceived(const quicr::ObjectHeaders& hdr, quicr::BytesSpan data) override
     {
+        if (qclient_vars::record) {
+            RecordObject(GetFullTrackName(), hdr, data);
+        }
+
         std::string msg(data.begin(), data.end());
         SPDLOG_INFO("Received message: Group:{0}, Object:{1} - {2}", hdr.group_id, hdr.object_id, msg);
     }
@@ -43,10 +158,55 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                     SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
                 }
             } break;
+
             default:
                 break;
         }
     }
+
+  private:
+    void RecordObject(const quicr::FullTrackName& ftn, const quicr::ObjectHeaders& hdr, quicr::BytesSpan data)
+    {
+        const std::size_t data_offset = data_fs_.tellp();
+        data_fs_ << std::string(data.begin(), data.end());
+
+        std::vector<std::string> ns_entries;
+        for (const auto& entry : ftn.name_space.GetEntries()) {
+            ns_entries.push_back(base64::Encode({ entry.begin(), entry.end() }));
+        }
+
+        const std::string name_str = ToString(GetFullTrackName());
+        const std::string data_filename = name_str + ".dat";
+
+        json j;
+        j["nameSpace"] = ns_entries;
+        j["trackName"] = base64::Encode(std::string(ftn.name.begin(), ftn.name.end()));
+        j["objectID"] = hdr.object_id;
+        j["groupID"] = hdr.group_id;
+        j["subGroup"] = hdr.subgroup_id;
+        j["publisherPriority"] = hdr.priority.value();
+        j["maxCacheDuration"] = 0;
+        j["publisherDeliveryTimeout"] = 0;
+        j["receiveTime"] = std::chrono::duration_cast<std::chrono::milliseconds>(
+                             std::chrono::high_resolution_clock::now().time_since_epoch())
+                             .count();
+        j["dataFile"] = data_filename;
+        j["dataOffset"] = data_offset;
+        j["dataLength"] = hdr.payload_length;
+
+        moq_fs_.clear();
+        moq_fs_.seekg(0);
+        json moq_j = json::parse(moq_fs_);
+        moq_j.push_back(j);
+
+        moq_fs_.clear();
+        moq_fs_.seekg(0);
+        moq_fs_ << moq_j.dump();
+    }
+
+  private:
+    std::ofstream data_fs_;
+    std::fstream moq_fs_;
 };
 
 /**
@@ -128,10 +288,11 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
           new MyFetchTrackHandler(full_track_name, start_group, end_group, start_object, end_object));
     }
 
-    void ObjectReceived(const quicr::ObjectHeaders&, quicr::BytesSpan data) override
+    void ObjectReceived(const quicr::ObjectHeaders& headers, quicr::BytesSpan data) override
     {
         std::string msg(data.begin(), data.end());
-        SPDLOG_INFO("Received message: {0}", msg);
+        SPDLOG_INFO(
+          "Received fetched object group_id: {} object_id: {} value: {}", headers.group_id, headers.object_id, msg);
     }
 
     void StatusChanged(Status status) override
@@ -142,6 +303,11 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
                     SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
                 }
             } break;
+
+            case Status::kError: {
+                SPDLOG_INFO("Fetch failed");
+                break;
+            }
             default:
                 break;
         }
@@ -238,6 +404,41 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
     uint64_t object_id{ 0 };
     uint64_t subgroup_id{ 0 };
 
+    std::ifstream moq_fs;
+    std::ifstream data_fs;
+
+    std::deque<std::pair<quicr::ObjectHeaders, quicr::Bytes>> messages;
+    if (qclient_vars::playback) {
+        const std::string name_str = ToString(full_track_name);
+        moq_fs.open(qclient_consts::kMoqDataDir / (name_str + ".moq"), std::ios::in);
+        data_fs.open(qclient_consts::kMoqDataDir / (name_str + ".dat"), std::ios::in);
+
+        std::string data;
+        std::getline(data_fs, data);
+
+        json moq_arr_j = json::parse(moq_fs);
+
+        for (const auto& moq_j : moq_arr_j) {
+            quicr::ObjectHeaders hdr{
+                .group_id = moq_j["groupID"],
+                .object_id = moq_j["objectID"],
+                .subgroup_id = moq_j["subGroup"],
+                .payload_length = moq_j["dataLength"],
+                .status = quicr::ObjectStatus::kAvailable,
+                .priority = moq_j["publisherPriority"],
+                .ttl = std::nullopt,
+                .track_mode = std::nullopt,
+                .extensions = std::nullopt,
+            };
+
+            std::size_t data_offset = moq_j["dataOffset"];
+
+            auto& msg = messages.emplace_back(std::make_pair(hdr, quicr::Bytes{}));
+            msg.second.assign(std::next(data.begin(), data_offset),
+                              std::next(data.begin(), data_offset + hdr.payload_length));
+        }
+    }
+
     while (not stop) {
         if ((!published_track) && (client->GetStatus() == MyClient::Status::kReady)) {
             SPDLOG_INFO("Publish track ");
@@ -292,6 +493,28 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
             sending = true;
         }
 
+        if (qclient_vars::playback) {
+            const auto [hdr, msg] = messages.front();
+            messages.pop_front();
+
+            SPDLOG_INFO("Send message: {0}", std::string(msg.begin(), msg.end()));
+
+            track_handler->PublishObject(hdr, msg);
+            std::this_thread::sleep_for(qclient_vars::playback_speed_ms);
+
+            if (messages.empty()) {
+                break;
+            }
+
+            continue;
+        }
+
+        if (object_id && object_id % 15 == 0) { // Set new group
+            object_id = 0;
+            subgroup_id = 0;
+            group_id++;
+        }
+
         std::string msg;
         if (qclient_vars::publish_clock) {
             std::this_thread::sleep_for(std::chrono::milliseconds(999));
@@ -300,12 +523,6 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
         } else { // stdin
             getline(std::cin, msg);
             SPDLOG_INFO("Send message: {0}", msg);
-        }
-
-        if (object_id && object_id % 15 == 0) { // Set new group
-            object_id = 0;
-            subgroup_id = 0;
-            group_id++;
         }
 
         quicr::ObjectHeaders obj_headers = {
@@ -331,9 +548,13 @@ void
 DoSubscriber(const quicr::FullTrackName& full_track_name,
              const std::shared_ptr<quicr::Client>& client,
              quicr::messages::FilterType filter_type,
-             const bool& stop)
+             const bool& stop,
+             bool join_fetch)
 {
-    auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type);
+    typedef quicr::SubscribeTrackHandler::JoiningFetch Fetch;
+    const auto joining_fetch =
+      join_fetch ? Fetch{ 4, quicr::messages::GroupOrder::kAscending, {}, 0 } : std::optional<Fetch>(std::nullopt);
+    const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type, joining_fetch);
 
     SPDLOG_INFO("Started subscriber");
 
@@ -393,6 +614,12 @@ DoFetch(const quicr::FullTrackName& full_track_name,
             SPDLOG_INFO("Fetching track");
             client->FetchTrack(track_handler);
             fetch_track = true;
+        }
+
+        if (track_handler->GetStatus() != quicr::FetchTrackHandler::Status::kOk) {
+            moq_example::terminate = true;
+            moq_example::cv.notify_all();
+            break;
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -464,6 +691,18 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         qclient_vars::request_new_group = true;
     }
 
+    if (cli_opts.count("record")) {
+        qclient_vars::record = true;
+    }
+
+    if (cli_opts.count("playback")) {
+        qclient_vars::playback = true;
+    }
+
+    if (cli_opts.count("playback_speed_ms")) {
+        qclient_vars::playback_speed_ms = std::chrono::milliseconds(cli_opts["playback_speed_ms"].as<uint64_t>());
+    }
+
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
     config.connect_uri = cli_opts["url"].as<std::string>();
     config.transport_config.debug = cli_opts["debug"].as<bool>();
@@ -500,7 +739,9 @@ main(int argc, char* argv[])
     options.add_options("Publisher")
         ("pub_namespace", "Track namespace", cxxopts::value<std::string>())
         ("pub_name", "Track name", cxxopts::value<std::string>())
-        ("clock", "Publish clock timestamp every second instead of using STDIN chat");
+        ("clock", "Publish clock timestamp every second instead of using STDIN chat")
+        ("playback", "Playback recorded data from moq and dat files", cxxopts::value<bool>())
+        ("playback_speed_ms", "Playback speed in ms", cxxopts::value<std::uint64_t>());
 
     options.add_options("Subscriber")
         ("sub_namespace", "Track namespace", cxxopts::value<std::string>())
@@ -508,7 +749,9 @@ main(int argc, char* argv[])
         ("start_point", "Start point for Subscription - 0 for from the beginning, 1 from the latest object", cxxopts::value<uint64_t>())
         ("track_alias", "Track alias to use", cxxopts::value<uint64_t>())
         ("new_group", "Requests a new group on subscribe")
-        ("sub_announces", "Prefix namespace to subscribe announces to", cxxopts::value<std::string>());
+        ("sub_announces", "Prefix namespace to subscribe announces to", cxxopts::value<std::string>())
+        ("record", "Record incoming data to moq and dat files", cxxopts::value<bool>())
+        ("joining_fetch", "Subscribe with a joining fetch", cxxopts::value<bool>());
 
     options.add_options("Fetcher")
         ("fetch_namespace", "Track namespace", cxxopts::value<std::string>())
@@ -587,12 +830,14 @@ main(int argc, char* argv[])
                     SPDLOG_INFO("Setting subscription filter to Latest Group");
                 }
             }
+            bool joining_fetch = result.count("joining_fetch") && result["joining_fetch"].as<bool>();
 
             const auto& sub_track_name = quicr::example::MakeFullTrackName(result["sub_namespace"].as<std::string>(),
                                                                            result["sub_name"].as<std::string>(),
                                                                            qclient_vars::track_alias);
 
-            sub_thread = std::thread(DoSubscriber, sub_track_name, client, filter_type, std::ref(stop_threads));
+            sub_thread =
+              std::thread(DoSubscriber, sub_track_name, client, filter_type, std::ref(stop_threads), joining_fetch);
         }
         if (enable_fetch) {
             const auto& fetch_track_name =

@@ -3,7 +3,8 @@
 
 add_executable(quicr_test
     main.cpp
-    moq_messages.cpp
+    moq_data_messages.cpp
+    moq_ctrl_messages.cpp
     moq_test.cpp
     track_handlers.cpp
     uintvar.cpp
@@ -11,6 +12,7 @@ add_executable(quicr_test
     tick_service.cpp
     track_namespace.cpp
     data_storage.cpp
+    cache.cpp
 )
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
@@ -23,7 +25,7 @@ target_compile_options(quicr_test
 
 set_target_properties(quicr_test
     PROPERTIES
-        CXX_STANDARD 17
+        CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS ON)
 

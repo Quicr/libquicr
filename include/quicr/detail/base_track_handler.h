@@ -3,10 +3,11 @@
 
 #pragma once
 
+#include "quicr/common.h"
+#include "quicr/track_name.h"
+
 #include <optional>
-#include <quicr/common.h>
-#include <quicr/detail/span.h>
-#include <quicr/track_name.h>
+#include <span>
 #include <vector>
 
 namespace quicr {
@@ -44,8 +45,8 @@ namespace quicr {
         std::optional<std::string> reason_phrase = std::nullopt;
         std::optional<uint64_t> track_alias = std::nullopt; ///< Set only when ResponseCode is kRetryTrackAlias
 
-        std::optional<uint64_t> largest_group = std::nullopt;
-        std::optional<uint64_t> largest_object = std::nullopt;
+        std::optional<uint64_t> largest_group_id = std::nullopt;
+        std::optional<uint64_t> largest_object_id = std::nullopt;
     };
 
     /**
