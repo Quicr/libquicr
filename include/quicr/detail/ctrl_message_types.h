@@ -19,6 +19,14 @@ namespace quicr::messages {
     using GroupId = uint64_t;
     using ObjectId = uint64_t;
 
+    struct Location
+    {
+        GroupId group{ 0 };
+        ObjectId object{ 0 };
+    };
+    Bytes& operator<<(Bytes& buffer, const Location& location);
+    BytesSpan operator>>(BytesSpan buffer, Location& location);
+
     enum struct ParameterType : uint64_t
     {
         kPath = 0x1,

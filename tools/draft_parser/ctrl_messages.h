@@ -20,12 +20,12 @@ namespace quicr::messages {
     using GroupOrder = quicr::messages::GroupOrder;
     using Forward = std::uint8_t;
     using FilterType = quicr::messages::FilterType;
-    using StartLocation = #error "field_type_map look error for Start Location";
+    using StartLocation = quicr::messages::Location;
     using EndGroup = quicr::messages::GroupId;
     using SubscribeParameters = std::vector<quicr::messages::Parameter>;
     using Expires = std::uint64_t;
     using ContentExists = std::uint8_t;
-    using LargestLocation = #error "field_type_map look error for Largest Location";
+    using LargestLocation = quicr::messages::Location;
     using SubscribeErrorErrorCode = quicr::messages::SubscribeErrorCode;
     using ErrorReason = quicr::Bytes;
     using SubscribeDoneStatusCode = quicr::messages::SubscribeDoneStatusCode;
@@ -38,7 +38,7 @@ namespace quicr::messages {
     using JoiningStart = std::uint64_t;
     using Parameters = std::vector<quicr::messages::Parameter>;
     using EndOfTrack = std::uint8_t;
-    using EndLocation = #error "field_type_map look error for End Location";
+    using EndLocation = quicr::messages::Location;
     using FetchErrorErrorCode = quicr::messages::FetchErrorCode;
     using StatusCode = std::uint64_t;
     using AnnounceErrorErrorCode = quicr::messages::AnnounceErrorCode;
