@@ -5,6 +5,7 @@
 
 #include <functional>
 #include <quicr/detail/base_track_handler.h>
+#include <quicr/detail/messages.h>
 #include <quicr/metrics.h>
 #include <quicr/object.h>
 
@@ -76,16 +77,30 @@ namespace quicr {
          * @param track_mode            The track mode to operate using
          * @param default_priority      Default priority for objects if not specified in ObjectHeaderss
          * @param default_ttl           Default TTL for objects if not specified in ObjectHeaderss
+         * @param stream_mode           Stream to use when track mode is kStream.
          */
         PublishTrackHandler(const FullTrackName& full_track_name,
                             TrackMode track_mode,
                             uint8_t default_priority,
-                            uint32_t default_ttl)
+                            uint32_t default_ttl,
+                            std::optional<messages::StreamHeaderType> stream_mode = std::nullopt)
           : BaseTrackHandler(full_track_name)
           , default_track_mode_(track_mode)
           , default_priority_(default_priority)
           , default_ttl_(default_ttl)
         {
+            switch (track_mode) {
+                case TrackMode::kDatagram:
+                    if (stream_mode.has_value()) {
+                        throw std::invalid_argument("Datagram track mode should not specify a stream mode");
+                    }
+                    break;
+                case TrackMode::kStream:
+                    // TODO: Is a default acceptable, or enforce?
+                    stream_mode_ =
+                      stream_mode.has_value() ? stream_mode.value() : messages::StreamHeaderType::kZeroWithExtensions;
+                    break;
+            }
         }
 
       public:
@@ -158,6 +173,12 @@ namespace quicr {
          * @brief set/update the default track mode for objects
          */
         void SetDefaultTrackMode(const TrackMode track_mode) noexcept { default_track_mode_ = track_mode; }
+
+        /**
+         * @brief Get the current stream mode.
+         * @return The current stream mode.
+         */
+        constexpr messages::StreamHeaderType GetStreamMode() const noexcept { return stream_mode_; }
 
         /**
          * @brief Get the publish status
@@ -329,6 +350,7 @@ namespace quicr {
         // --------------------------------------------------------------------------
         Status publish_status_{ Status::kNotAnnounced };
         TrackMode default_track_mode_;
+        messages::StreamHeaderType stream_mode_;
         uint8_t default_priority_; // Set by caller and is used when priority is not specified
         uint32_t default_ttl_;     // Set by caller and is used when TTL is not specified
 

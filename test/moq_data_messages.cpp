@@ -41,7 +41,8 @@ Verify(std::vector<uint8_t>& buffer, uint64_t message_type, T& message, [[maybe_
         in_buffer.Push(v);
 
         if (!msg_type) {
-            msg_type = in_buffer.DecodeUintV();
+            bool pop = !typeNeedsTypeField(static_cast<DataMessageType>(message_type));
+            msg_type = in_buffer.DecodeUintV(pop);
             if (!msg_type) {
                 continue;
             }
@@ -139,10 +140,56 @@ TEST_CASE("ObjectDatagramStatus  Message encode/decode")
 }
 
 static void
-StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
+StreamHeaderEncodeDecode(StreamHeaderType type)
+{
+    Bytes buffer;
+    auto hdr = StreamHeaderSubGroup{};
+    hdr.type = type;
+    hdr.track_alias = static_cast<uint64_t>(kTrackAliasAliceVideo);
+    hdr.group_id = 0x1000;
+    hdr.subgroup_id = 0x5000;
+    hdr.priority = 0xA;
+    buffer << hdr;
+    StreamHeaderSubGroup hdr_out;
+    CHECK(Verify(buffer, static_cast<uint64_t>(type), hdr_out));
+    CHECK_EQ(hdr.type, hdr_out.type);
+    CHECK_EQ(hdr.track_alias, hdr_out.track_alias);
+    CHECK_EQ(hdr.group_id, hdr_out.group_id);
+    switch (type) {
+        case StreamHeaderType::kZeroNoExtensions:
+            [[fallthrough]];
+        case StreamHeaderType::kZeroWithExtensions:
+            CHECK_EQ(hdr_out.subgroup_id, 0);
+            break;
+        case StreamHeaderType::kFirstObjectNoExtensions:
+            [[fallthrough]];
+        case StreamHeaderType::kFirstObjectWithExtensions:
+            CHECK_EQ(hdr_out.subgroup_id, std::nullopt);
+            break;
+        case StreamHeaderType::kExplicitNoExtensions:
+            [[fallthrough]];
+        case StreamHeaderType::kExplicitWithExtensions:
+            CHECK_EQ(hdr_out.subgroup_id, hdr.subgroup_id);
+            break;
+    }
+}
+
+TEST_CASE("StreamHeader Message encode/decode")
+{
+    StreamHeaderEncodeDecode(StreamHeaderType::kZeroNoExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kZeroWithExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kFirstObjectNoExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kFirstObjectWithExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kExplicitNoExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kExplicitWithExtensions);
+}
+
+static void
+StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, bool extensions, bool empty_payload)
 {
     Bytes buffer;
     auto hdr_grp = messages::StreamHeaderSubGroup{};
+    hdr_grp.type = type;
     hdr_grp.track_alias = uint64_t(kTrackAliasAliceVideo);
     hdr_grp.group_id = 0x1000;
     hdr_grp.subgroup_id = 0x5000;
@@ -151,10 +198,10 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
     buffer << hdr_grp;
 
     messages::StreamHeaderSubGroup hdr_group_out;
-    CHECK(Verify(buffer, static_cast<uint64_t>(messages::DataMessageType::kStreamHeaderSubgroup), hdr_group_out));
+    CHECK(Verify(buffer, static_cast<uint64_t>(type), hdr_group_out));
+    CHECK_EQ(hdr_grp.type, hdr_group_out.type);
     CHECK_EQ(hdr_grp.track_alias, hdr_group_out.track_alias);
     CHECK_EQ(hdr_grp.group_id, hdr_group_out.group_id);
-    CHECK_EQ(hdr_grp.subgroup_id, hdr_group_out.subgroup_id);
 
     // stream all the objects
     buffer.clear();
@@ -162,6 +209,7 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
     // send 10 objects
     for (size_t i = 0; i < 10; i++) {
         auto obj = messages::StreamSubGroupObject{};
+        obj.serialize_extensions = typeWillSerializeExtensions(type);
         obj.object_id = 0x1234;
 
         if (empty_payload) {
@@ -179,11 +227,13 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
     size_t object_count = 0;
     StreamBuffer<uint8_t> in_buffer;
     for (size_t i = 0; i < buffer.size(); i++) {
+        obj_out.serialize_extensions = typeWillSerializeExtensions(type);
         in_buffer.Push(buffer.at(i));
         bool done = in_buffer >> obj_out;
         if (!done) {
             continue;
         }
+
         CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
         if (empty_payload) {
             CHECK_EQ(obj_out.object_status, objects[object_count].object_status);
@@ -191,7 +241,12 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
             CHECK(obj_out.payload.size() > 0);
             CHECK_EQ(obj_out.payload, objects[object_count].payload);
         }
-        CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
+
+        if (obj_out.serialize_extensions) {
+            CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
+        } else {
+            CHECK_EQ(obj_out.extensions, std::nullopt);
+        }
         // got one object
         object_count++;
         obj_out = {};
@@ -203,10 +258,35 @@ StreamPerSubGroupObjectEncodeDecode(bool extensions, bool empty_payload)
 
 TEST_CASE("StreamPerSubGroup Object  Message encode/decode")
 {
-    StreamPerSubGroupObjectEncodeDecode(false, true);
-    StreamPerSubGroupObjectEncodeDecode(false, false);
-    StreamPerSubGroupObjectEncodeDecode(true, true);
-    StreamPerSubGroupObjectEncodeDecode(true, false);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kZeroNoExtensions, true, true);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kZeroNoExtensions, true, false);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kZeroNoExtensions, false, true);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kZeroNoExtensions, false, false);
+
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kZeroWithExtensions, true, true);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kZeroWithExtensions, true, false);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kZeroWithExtensions, false, true);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kZeroWithExtensions, false, false);
+
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kExplicitNoExtensions, true, true);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kExplicitNoExtensions, true, false);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kExplicitNoExtensions, false, true);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kExplicitNoExtensions, false, false);
+
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kExplicitWithExtensions, true, true);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kExplicitWithExtensions, true, false);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kExplicitWithExtensions, false, true);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kExplicitWithExtensions, false, false);
+
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kFirstObjectNoExtensions, true, true);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kFirstObjectNoExtensions, true, false);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kFirstObjectNoExtensions, false, true);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kFirstObjectNoExtensions, false, false);
+
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kFirstObjectWithExtensions, true, true);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kFirstObjectWithExtensions, true, false);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kFirstObjectWithExtensions, false, true);
+    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kFirstObjectWithExtensions, false, false);
 }
 
 static void

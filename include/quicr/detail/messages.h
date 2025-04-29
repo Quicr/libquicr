@@ -19,13 +19,108 @@ namespace quicr::messages {
     using ObjectPriority = uint8_t;
     using Extensions = std::map<uint64_t, Bytes>;
 
+    /// @brief Stream Header types.
+    enum class StreamHeaderType : uint8_t
+    {
+        kZeroNoExtensions = 0x08,          // No extensions, Subgroup ID = 0
+        kZeroWithExtensions = 0x09,        // With extensions, Subgroup ID = 0
+        kFirstObjectNoExtensions = 0x0A,   // No extensions, Subgroup ID = First Object ID
+        kFirstObjectWithExtensions = 0x0B, // With extensions, Subgroup ID = First Object ID
+        kExplicitNoExtensions = 0x0C,      // No extensions, Explicit Subgroup ID
+        kExplicitWithExtensions = 0x0D,    // With extensions, Explicit Subgroup ID
+    };
+
+    /**
+     * Check if this Stream Header type will serialize extensions (even empty ones).
+     * @param type Type to check.
+     * @return True if the type will serialize extensions (even empty ones), false otherwise.
+     */
+    [[maybe_unused]]
+    static bool typeWillSerializeExtensions(const StreamHeaderType type)
+    {
+        switch (type) {
+            case StreamHeaderType::kZeroWithExtensions:
+                [[fallthrough]];
+            case StreamHeaderType::kFirstObjectWithExtensions:
+                [[fallthrough]];
+            case StreamHeaderType::kExplicitWithExtensions:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Check if this Stream Header type will serialize subgroup.
+     * @param type Type to check.
+     * @return True if a header of this type will have a subgroup field on the wire.
+     */
+    [[maybe_unused]]
+    static bool typeWillSerializeSubgroup(const StreamHeaderType type)
+    {
+        switch (type) {
+            case StreamHeaderType::kExplicitNoExtensions:
+                [[fallthrough]];
+            case StreamHeaderType::kExplicitWithExtensions:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     enum class DataMessageType : uint8_t
     {
         kObjectDatagram = 0x01,
         kObjectDatagramStatus = 0x02,
-        kStreamHeaderSubgroup = 0x04,
         kFetchHeader = 0x5,
+
+        // Subgroup Header Types.
+        kStreamHeaderSubGroupZeroNoExtensions = static_cast<std::uint8_t>(StreamHeaderType::kZeroNoExtensions),
+        kStreamHeaderSubGroupZeroExtensions = static_cast<std::uint8_t>(StreamHeaderType::kZeroWithExtensions),
+        kStreamHeaderSubGroupFirstObjectNoExtensions =
+          static_cast<std::uint8_t>(StreamHeaderType::kFirstObjectNoExtensions),
+        kStreamHeaderSubGroupFirstObjectExtensions =
+          static_cast<std::uint8_t>(StreamHeaderType::kFirstObjectWithExtensions),
+        kStreamHeaderSubGroupExplicitNoExtensions = static_cast<std::uint8_t>(StreamHeaderType::kExplicitNoExtensions),
+        kStreamHeaderSubGroupExplicitExtensions = static_cast<std::uint8_t>(StreamHeaderType::kExplicitWithExtensions),
     };
+
+    /**
+     * @brief Check if the type is a stream header type.
+     * @param type The type to check.
+     * @return true if the type is a stream header type, false otherwise.
+     */
+    [[maybe_unused]]
+    static bool typeIsStreamHeaderType(const DataMessageType type)
+    {
+        switch (type) {
+            case DataMessageType::kStreamHeaderSubGroupZeroNoExtensions:
+                [[fallthrough]];
+            case DataMessageType::kStreamHeaderSubGroupZeroExtensions:
+                [[fallthrough]];
+            case DataMessageType::kStreamHeaderSubGroupFirstObjectNoExtensions:
+                [[fallthrough]];
+            case DataMessageType::kStreamHeaderSubGroupFirstObjectExtensions:
+                [[fallthrough]];
+            case DataMessageType::kStreamHeaderSubGroupExplicitNoExtensions:
+                [[fallthrough]];
+            case DataMessageType::kStreamHeaderSubGroupExplicitExtensions:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Check if this data type needs its type field inside the message.
+     * @param type The type to check.
+     * @return True if the type needs its type field inside the message, false otherwise.
+     */
+    [[maybe_unused]]
+    static bool typeNeedsTypeField(const DataMessageType type)
+    {
+        return typeIsStreamHeaderType(type);
+    }
 
     struct FetchHeader
     {
@@ -113,9 +208,10 @@ namespace quicr::messages {
     // SubGroups
     struct StreamHeaderSubGroup
     {
+        StreamHeaderType type;
         messages::TrackAlias track_alias;
         messages::GroupId group_id;
-        SubGroupId subgroup_id;
+        std::optional<SubGroupId> subgroup_id;
         ObjectPriority priority;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, StreamHeaderSubGroup& msg);
@@ -133,6 +229,7 @@ namespace quicr::messages {
         ObjectId object_id;
         uint64_t payload_len{ 0 };
         ObjectStatus object_status;
+        bool serialize_extensions;
         std::optional<Extensions> extensions;
         Bytes payload;
         template<class StreamBufferType>
