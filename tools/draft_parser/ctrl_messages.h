@@ -11,36 +11,36 @@ namespace quicr::messages {
     using SetupParameters = std::vector<quicr::messages::Parameter>;
     using SelectedVersion = std::uint64_t;
     using NewSessionURI = quicr::Bytes;
-    using SubscribeID = std::uint64_t;
-    using MaximumSubscribeID = std::uint64_t;
+    using RequestID = std::uint64_t;
+    using MaximumRequestID = std::uint64_t;
     using TrackAlias = std::uint64_t;
     using TrackNamespace = quicr::TrackNamespace;
     using TrackName = quicr::Bytes;
     using SubscriberPriority = std::uint8_t;
     using GroupOrder = quicr::messages::GroupOrder;
+    using Forward = std::uint8_t;
     using FilterType = quicr::messages::FilterType;
-    using StartGroup = quicr::messages::GroupId;
-    using StartObject = quicr::messages::ObjectId;
+    using StartLocation = #error "field_type_map look error for Start Location";
     using EndGroup = quicr::messages::GroupId;
     using SubscribeParameters = std::vector<quicr::messages::Parameter>;
     using Expires = std::uint64_t;
     using ContentExists = std::uint8_t;
-    using LargestGroupID = std::uint64_t;
-    using LargestObjectID = std::uint64_t;
+    using LargestLocation = #error "field_type_map look error for Largest Location";
     using SubscribeErrorErrorCode = quicr::messages::SubscribeErrorCode;
-    using ReasonPhrase = quicr::Bytes;
+    using ErrorReason = quicr::Bytes;
     using SubscribeDoneStatusCode = quicr::messages::SubscribeDoneStatusCode;
     using StreamCount = std::uint64_t;
     using FetchType = quicr::messages::FetchType;
+    using StartGroup = quicr::messages::GroupId;
+    using StartObject = quicr::messages::ObjectId;
     using EndObject = quicr::messages::ObjectId;
     using JoiningSubscribeID = std::uint64_t;
-    using PrecedingGroupOffset = std::uint64_t;
+    using JoiningStart = std::uint64_t;
     using Parameters = std::vector<quicr::messages::Parameter>;
     using EndOfTrack = std::uint8_t;
+    using EndLocation = #error "field_type_map look error for End Location";
     using FetchErrorErrorCode = quicr::messages::FetchErrorCode;
     using StatusCode = std::uint64_t;
-    using LastGroupID = std::uint64_t;
-    using LastObjectID = std::uint64_t;
     using AnnounceErrorErrorCode = quicr::messages::AnnounceErrorCode;
     using AnnounceCancelErrorCode = quicr::messages::AnnounceErrorCode;
     using TrackNamespacePrefix = quicr::TrackNamespace;
@@ -67,15 +67,14 @@ namespace quicr::messages {
         kSubscribeAnnouncesOk = 0x12,
         kSubscribeAnnouncesError = 0x13,
         kUnsubscribeAnnounces = 0x14,
-        kMaxSubscribeId = 0x15,
+        kMaxRequestId = 0x15,
         kFetch = 0x16,
         kFetchCancel = 0x17,
         kFetchOk = 0x18,
         kFetchError = 0x19,
-        kSubscribesBlocked = 0x1a,
-        kClientSetup = 0x40,
-        kServerSetup = 0x41,
-        kNewGroupRequest = 0x42,
+        kRequestsBlocked = 0x1a,
+        kClientSetup = 0x20,
+        kServerSetup = 0x21,
     };
     /**
      * @brief SubscribeUpdate
@@ -88,27 +87,27 @@ namespace quicr::messages {
         SubscribeUpdate() {}
 
         // All fields constructor
-        SubscribeUpdate(SubscribeID subscribe_id,
-                        StartGroup start_group,
-                        StartObject start_object,
+        SubscribeUpdate(RequestID request_id,
+                        StartLocation start_location,
                         EndGroup end_group,
                         SubscriberPriority subscriber_priority,
+                        Forward forward,
                         SubscribeParameters subscribe_parameters)
-          : subscribe_id(subscribe_id)
-          , start_group(start_group)
-          , start_object(start_object)
+          : request_id(request_id)
+          , start_location(start_location)
           , end_group(end_group)
           , subscriber_priority(subscriber_priority)
+          , forward(forward)
           , subscribe_parameters(subscribe_parameters)
         {
         }
 
       public:
-        SubscribeID subscribe_id;
-        StartGroup start_group;
-        StartObject start_object;
+        RequestID request_id;
+        StartLocation start_location;
         EndGroup end_group;
         SubscriberPriority subscriber_priority;
+        Forward forward;
         SubscribeParameters subscribe_parameters;
     };
 
@@ -124,8 +123,7 @@ namespace quicr::messages {
         // Optional Groups
         struct Group_0
         {
-            StartGroup start_group;
-            StartObject start_object;
+            StartLocation start_location;
         };
         struct Group_1
         {
@@ -137,24 +135,26 @@ namespace quicr::messages {
         Subscribe() = delete;
 
         // All fields constructor
-        Subscribe(SubscribeID subscribe_id,
+        Subscribe(RequestID request_id,
                   TrackAlias track_alias,
                   TrackNamespace track_namespace,
                   TrackName track_name,
                   SubscriberPriority subscriber_priority,
                   GroupOrder group_order,
+                  Forward forward,
                   FilterType filter_type,
                   std::function<void(Subscribe&)> group_0_cb,
                   std::optional<Subscribe::Group_0> group_0,
                   std::function<void(Subscribe&)> group_1_cb,
                   std::optional<Subscribe::Group_1> group_1,
                   SubscribeParameters subscribe_parameters)
-          : subscribe_id(subscribe_id)
+          : request_id(request_id)
           , track_alias(track_alias)
           , track_namespace(track_namespace)
           , track_name(track_name)
           , subscriber_priority(subscriber_priority)
           , group_order(group_order)
+          , forward(forward)
           , filter_type(filter_type)
           , group_0_cb(group_0_cb)
           , group_0(group_0)
@@ -169,12 +169,13 @@ namespace quicr::messages {
         Subscribe(std::function<void(Subscribe&)> group_0_cb, std::function<void(Subscribe&)> group_1_cb);
 
       public:
-        SubscribeID subscribe_id;
+        RequestID request_id;
         TrackAlias track_alias;
         TrackNamespace track_namespace;
         TrackName track_name;
         SubscriberPriority subscriber_priority;
         GroupOrder group_order;
+        Forward forward;
         FilterType filter_type;
         std::function<void(Subscribe&)> group_0_cb;
         std::optional<Subscribe::Group_0> group_0;
@@ -201,8 +202,7 @@ namespace quicr::messages {
         // Optional Groups
         struct Group_0
         {
-            LargestGroupID largest_group_id;
-            LargestObjectID largest_object_id;
+            LargestLocation largest_location;
         };
 
       public:
@@ -210,14 +210,14 @@ namespace quicr::messages {
         SubscribeOk() = delete;
 
         // All fields constructor
-        SubscribeOk(SubscribeID subscribe_id,
+        SubscribeOk(RequestID request_id,
                     Expires expires,
                     GroupOrder group_order,
                     ContentExists content_exists,
                     std::function<void(SubscribeOk&)> group_0_cb,
                     std::optional<SubscribeOk::Group_0> group_0,
                     SubscribeParameters subscribe_parameters)
-          : subscribe_id(subscribe_id)
+          : request_id(request_id)
           , expires(expires)
           , group_order(group_order)
           , content_exists(content_exists)
@@ -232,7 +232,7 @@ namespace quicr::messages {
         SubscribeOk(std::function<void(SubscribeOk&)> group_0_cb);
 
       public:
-        SubscribeID subscribe_id;
+        RequestID request_id;
         Expires expires;
         GroupOrder group_order;
         ContentExists content_exists;
@@ -258,21 +258,21 @@ namespace quicr::messages {
         SubscribeError() {}
 
         // All fields constructor
-        SubscribeError(SubscribeID subscribe_id,
+        SubscribeError(RequestID request_id,
                        SubscribeErrorErrorCode error_code,
-                       ReasonPhrase reason_phrase,
+                       ErrorReason error_reason,
                        TrackAlias track_alias)
-          : subscribe_id(subscribe_id)
+          : request_id(request_id)
           , error_code(error_code)
-          , reason_phrase(reason_phrase)
+          , error_reason(error_reason)
           , track_alias(track_alias)
         {
         }
 
       public:
-        SubscribeID subscribe_id;
+        RequestID request_id;
         SubscribeErrorErrorCode error_code;
-        ReasonPhrase reason_phrase;
+        ErrorReason error_reason;
         TrackAlias track_alias;
     };
 
@@ -290,13 +290,15 @@ namespace quicr::messages {
         Announce() {}
 
         // All fields constructor
-        Announce(TrackNamespace track_namespace, Parameters parameters)
-          : track_namespace(track_namespace)
+        Announce(RequestID request_id, TrackNamespace track_namespace, Parameters parameters)
+          : request_id(request_id)
+          , track_namespace(track_namespace)
           , parameters(parameters)
         {
         }
 
       public:
+        RequestID request_id;
         TrackNamespace track_namespace;
         Parameters parameters;
     };
@@ -315,13 +317,13 @@ namespace quicr::messages {
         AnnounceOk() {}
 
         // All fields constructor
-        AnnounceOk(TrackNamespace track_namespace)
-          : track_namespace(track_namespace)
+        AnnounceOk(RequestID request_id)
+          : request_id(request_id)
         {
         }
 
       public:
-        TrackNamespace track_namespace;
+        RequestID request_id;
     };
 
     Bytes& operator<<(Bytes& buffer, const AnnounceOk& msg);
@@ -338,17 +340,17 @@ namespace quicr::messages {
         AnnounceError() {}
 
         // All fields constructor
-        AnnounceError(TrackNamespace track_namespace, AnnounceErrorErrorCode error_code, ReasonPhrase reason_phrase)
-          : track_namespace(track_namespace)
+        AnnounceError(RequestID request_id, AnnounceErrorErrorCode error_code, ErrorReason error_reason)
+          : request_id(request_id)
           , error_code(error_code)
-          , reason_phrase(reason_phrase)
+          , error_reason(error_reason)
         {
         }
 
       public:
-        TrackNamespace track_namespace;
+        RequestID request_id;
         AnnounceErrorErrorCode error_code;
-        ReasonPhrase reason_phrase;
+        ErrorReason error_reason;
     };
 
     Bytes& operator<<(Bytes& buffer, const AnnounceError& msg);
@@ -388,13 +390,13 @@ namespace quicr::messages {
         Unsubscribe() {}
 
         // All fields constructor
-        Unsubscribe(SubscribeID subscribe_id)
-          : subscribe_id(subscribe_id)
+        Unsubscribe(RequestID request_id)
+          : request_id(request_id)
         {
         }
 
       public:
-        SubscribeID subscribe_id;
+        RequestID request_id;
     };
 
     Bytes& operator<<(Bytes& buffer, const Unsubscribe& msg);
@@ -411,22 +413,22 @@ namespace quicr::messages {
         SubscribeDone() {}
 
         // All fields constructor
-        SubscribeDone(SubscribeID subscribe_id,
+        SubscribeDone(RequestID request_id,
                       SubscribeDoneStatusCode status_code,
                       StreamCount stream_count,
-                      ReasonPhrase reason_phrase)
-          : subscribe_id(subscribe_id)
+                      ErrorReason error_reason)
+          : request_id(request_id)
           , status_code(status_code)
           , stream_count(stream_count)
-          , reason_phrase(reason_phrase)
+          , error_reason(error_reason)
         {
         }
 
       public:
-        SubscribeID subscribe_id;
+        RequestID request_id;
         SubscribeDoneStatusCode status_code;
         StreamCount stream_count;
-        ReasonPhrase reason_phrase;
+        ErrorReason error_reason;
     };
 
     Bytes& operator<<(Bytes& buffer, const SubscribeDone& msg);
@@ -443,17 +445,17 @@ namespace quicr::messages {
         AnnounceCancel() {}
 
         // All fields constructor
-        AnnounceCancel(TrackNamespace track_namespace, AnnounceCancelErrorCode error_code, ReasonPhrase reason_phrase)
+        AnnounceCancel(TrackNamespace track_namespace, AnnounceCancelErrorCode error_code, ErrorReason error_reason)
           : track_namespace(track_namespace)
           , error_code(error_code)
-          , reason_phrase(reason_phrase)
+          , error_reason(error_reason)
         {
         }
 
       public:
         TrackNamespace track_namespace;
         AnnounceCancelErrorCode error_code;
-        ReasonPhrase reason_phrase;
+        ErrorReason error_reason;
     };
 
     Bytes& operator<<(Bytes& buffer, const AnnounceCancel& msg);
@@ -470,15 +472,22 @@ namespace quicr::messages {
         TrackStatusRequest() {}
 
         // All fields constructor
-        TrackStatusRequest(TrackNamespace track_namespace, TrackName track_name)
-          : track_namespace(track_namespace)
+        TrackStatusRequest(RequestID request_id,
+                           TrackNamespace track_namespace,
+                           TrackName track_name,
+                           Parameters parameters)
+          : request_id(request_id)
+          , track_namespace(track_namespace)
           , track_name(track_name)
+          , parameters(parameters)
         {
         }
 
       public:
+        RequestID request_id;
         TrackNamespace track_namespace;
         TrackName track_name;
+        Parameters parameters;
     };
 
     Bytes& operator<<(Bytes& buffer, const TrackStatusRequest& msg);
@@ -495,25 +504,22 @@ namespace quicr::messages {
         TrackStatus() {}
 
         // All fields constructor
-        TrackStatus(TrackNamespace track_namespace,
-                    TrackName track_name,
+        TrackStatus(RequestID request_id,
                     StatusCode status_code,
-                    LastGroupID last_group_id,
-                    LastObjectID last_object_id)
-          : track_namespace(track_namespace)
-          , track_name(track_name)
+                    LargestLocation largest_location,
+                    Parameters parameters)
+          : request_id(request_id)
           , status_code(status_code)
-          , last_group_id(last_group_id)
-          , last_object_id(last_object_id)
+          , largest_location(largest_location)
+          , parameters(parameters)
         {
         }
 
       public:
-        TrackNamespace track_namespace;
-        TrackName track_name;
+        RequestID request_id;
         StatusCode status_code;
-        LastGroupID last_group_id;
-        LastObjectID last_object_id;
+        LargestLocation largest_location;
+        Parameters parameters;
     };
 
     Bytes& operator<<(Bytes& buffer, const TrackStatus& msg);
@@ -553,13 +559,15 @@ namespace quicr::messages {
         SubscribeAnnounces() {}
 
         // All fields constructor
-        SubscribeAnnounces(TrackNamespacePrefix track_namespace_prefix, Parameters parameters)
-          : track_namespace_prefix(track_namespace_prefix)
+        SubscribeAnnounces(RequestID request_id, TrackNamespacePrefix track_namespace_prefix, Parameters parameters)
+          : request_id(request_id)
+          , track_namespace_prefix(track_namespace_prefix)
           , parameters(parameters)
         {
         }
 
       public:
+        RequestID request_id;
         TrackNamespacePrefix track_namespace_prefix;
         Parameters parameters;
     };
@@ -578,13 +586,13 @@ namespace quicr::messages {
         SubscribeAnnouncesOk() {}
 
         // All fields constructor
-        SubscribeAnnouncesOk(TrackNamespacePrefix track_namespace_prefix)
-          : track_namespace_prefix(track_namespace_prefix)
+        SubscribeAnnouncesOk(RequestID request_id)
+          : request_id(request_id)
         {
         }
 
       public:
-        TrackNamespacePrefix track_namespace_prefix;
+        RequestID request_id;
     };
 
     Bytes& operator<<(Bytes& buffer, const SubscribeAnnouncesOk& msg);
@@ -601,19 +609,19 @@ namespace quicr::messages {
         SubscribeAnnouncesError() {}
 
         // All fields constructor
-        SubscribeAnnouncesError(TrackNamespacePrefix track_namespace_prefix,
+        SubscribeAnnouncesError(RequestID request_id,
                                 SubscribeAnnouncesErrorErrorCode error_code,
-                                ReasonPhrase reason_phrase)
-          : track_namespace_prefix(track_namespace_prefix)
+                                ErrorReason error_reason)
+          : request_id(request_id)
           , error_code(error_code)
-          , reason_phrase(reason_phrase)
+          , error_reason(error_reason)
         {
         }
 
       public:
-        TrackNamespacePrefix track_namespace_prefix;
+        RequestID request_id;
         SubscribeAnnouncesErrorErrorCode error_code;
-        ReasonPhrase reason_phrase;
+        ErrorReason error_reason;
     };
 
     Bytes& operator<<(Bytes& buffer, const SubscribeAnnouncesError& msg);
@@ -643,27 +651,27 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, UnsubscribeAnnounces& msg);
 
     /**
-     * @brief MaxSubscribeId
+     * @brief MaxRequestId
      */
-    struct MaxSubscribeId
+    struct MaxRequestId
     {
 
       public:
         // Default constructor
-        MaxSubscribeId() {}
+        MaxRequestId() {}
 
         // All fields constructor
-        MaxSubscribeId(SubscribeID subscribe_id)
-          : subscribe_id(subscribe_id)
+        MaxRequestId(RequestID request_id)
+          : request_id(request_id)
         {
         }
 
       public:
-        SubscribeID subscribe_id;
+        RequestID request_id;
     };
 
-    Bytes& operator<<(Bytes& buffer, const MaxSubscribeId& msg);
-    BytesSpan operator>>(BytesSpan buffer, MaxSubscribeId& msg);
+    Bytes& operator<<(Bytes& buffer, const MaxRequestId& msg);
+    BytesSpan operator>>(BytesSpan buffer, MaxRequestId& msg);
 
     /**
      * @brief Fetch
@@ -684,7 +692,7 @@ namespace quicr::messages {
         struct Group_1
         {
             JoiningSubscribeID joining_subscribe_id;
-            PrecedingGroupOffset preceding_group_offset;
+            JoiningStart joining_start;
         };
 
       public:
@@ -692,7 +700,7 @@ namespace quicr::messages {
         Fetch() = delete;
 
         // All fields constructor
-        Fetch(SubscribeID subscribe_id,
+        Fetch(RequestID request_id,
               SubscriberPriority subscriber_priority,
               GroupOrder group_order,
               FetchType fetch_type,
@@ -701,7 +709,7 @@ namespace quicr::messages {
               std::function<void(Fetch&)> group_1_cb,
               std::optional<Fetch::Group_1> group_1,
               Parameters parameters)
-          : subscribe_id(subscribe_id)
+          : request_id(request_id)
           , subscriber_priority(subscriber_priority)
           , group_order(group_order)
           , fetch_type(fetch_type)
@@ -718,7 +726,7 @@ namespace quicr::messages {
         Fetch(std::function<void(Fetch&)> group_0_cb, std::function<void(Fetch&)> group_1_cb);
 
       public:
-        SubscribeID subscribe_id;
+        RequestID request_id;
         SubscriberPriority subscriber_priority;
         GroupOrder group_order;
         FetchType fetch_type;
@@ -749,13 +757,13 @@ namespace quicr::messages {
         FetchCancel() {}
 
         // All fields constructor
-        FetchCancel(SubscribeID subscribe_id)
-          : subscribe_id(subscribe_id)
+        FetchCancel(RequestID request_id)
+          : request_id(request_id)
         {
         }
 
       public:
-        SubscribeID subscribe_id;
+        RequestID request_id;
     };
 
     Bytes& operator<<(Bytes& buffer, const FetchCancel& msg);
@@ -772,27 +780,24 @@ namespace quicr::messages {
         FetchOk() {}
 
         // All fields constructor
-        FetchOk(SubscribeID subscribe_id,
+        FetchOk(RequestID request_id,
                 GroupOrder group_order,
                 EndOfTrack end_of_track,
-                LargestGroupID largest_group_id,
-                LargestObjectID largest_object_id,
+                EndLocation end_location,
                 SubscribeParameters subscribe_parameters)
-          : subscribe_id(subscribe_id)
+          : request_id(request_id)
           , group_order(group_order)
           , end_of_track(end_of_track)
-          , largest_group_id(largest_group_id)
-          , largest_object_id(largest_object_id)
+          , end_location(end_location)
           , subscribe_parameters(subscribe_parameters)
         {
         }
 
       public:
-        SubscribeID subscribe_id;
+        RequestID request_id;
         GroupOrder group_order;
         EndOfTrack end_of_track;
-        LargestGroupID largest_group_id;
-        LargestObjectID largest_object_id;
+        EndLocation end_location;
         SubscribeParameters subscribe_parameters;
     };
 
@@ -810,44 +815,44 @@ namespace quicr::messages {
         FetchError() {}
 
         // All fields constructor
-        FetchError(SubscribeID subscribe_id, FetchErrorErrorCode error_code, ReasonPhrase reason_phrase)
-          : subscribe_id(subscribe_id)
+        FetchError(RequestID request_id, FetchErrorErrorCode error_code, ErrorReason error_reason)
+          : request_id(request_id)
           , error_code(error_code)
-          , reason_phrase(reason_phrase)
+          , error_reason(error_reason)
         {
         }
 
       public:
-        SubscribeID subscribe_id;
+        RequestID request_id;
         FetchErrorErrorCode error_code;
-        ReasonPhrase reason_phrase;
+        ErrorReason error_reason;
     };
 
     Bytes& operator<<(Bytes& buffer, const FetchError& msg);
     BytesSpan operator>>(BytesSpan buffer, FetchError& msg);
 
     /**
-     * @brief SubscribesBlocked
+     * @brief RequestsBlocked
      */
-    struct SubscribesBlocked
+    struct RequestsBlocked
     {
 
       public:
         // Default constructor
-        SubscribesBlocked() {}
+        RequestsBlocked() {}
 
         // All fields constructor
-        SubscribesBlocked(MaximumSubscribeID maximum_subscribe_id)
-          : maximum_subscribe_id(maximum_subscribe_id)
+        RequestsBlocked(MaximumRequestID maximum_request_id)
+          : maximum_request_id(maximum_request_id)
         {
         }
 
       public:
-        MaximumSubscribeID maximum_subscribe_id;
+        MaximumRequestID maximum_request_id;
     };
 
-    Bytes& operator<<(Bytes& buffer, const SubscribesBlocked& msg);
-    BytesSpan operator>>(BytesSpan buffer, SubscribesBlocked& msg);
+    Bytes& operator<<(Bytes& buffer, const RequestsBlocked& msg);
+    BytesSpan operator>>(BytesSpan buffer, RequestsBlocked& msg);
 
     /**
      * @brief ClientSetup
@@ -898,31 +903,6 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const ServerSetup& msg);
     BytesSpan operator>>(BytesSpan buffer, ServerSetup& msg);
-
-    /**
-     * @brief NewGroupRequest
-     */
-    struct NewGroupRequest
-    {
-
-      public:
-        // Default constructor
-        NewGroupRequest() {}
-
-        // All fields constructor
-        NewGroupRequest(SubscribeID subscribe_id, TrackAlias track_alias)
-          : subscribe_id(subscribe_id)
-          , track_alias(track_alias)
-        {
-        }
-
-      public:
-        SubscribeID subscribe_id;
-        TrackAlias track_alias;
-    };
-
-    Bytes& operator<<(Bytes& buffer, const NewGroupRequest& msg);
-    BytesSpan operator>>(BytesSpan buffer, NewGroupRequest& msg);
 
     Bytes& operator<<(Bytes& buffer, const std::vector<std::uint64_t>& vec);
     BytesSpan operator>>(BytesSpan buffer, std::vector<std::uint64_t>& vec);
