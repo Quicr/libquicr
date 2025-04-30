@@ -256,37 +256,23 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, bool extensions, bool
     CHECK_EQ(object_count, objects.size());
 }
 
-TEST_CASE("StreamPerSubGroup Object  Message encode/decode")
+TEST_CASE("StreamPerSubGroup Object Message encode/decode")
 {
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kZeroNoExtensions, true, true);
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kZeroNoExtensions, true, false);
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kZeroNoExtensions, false, true);
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kZeroNoExtensions, false, false);
-
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kZeroWithExtensions, true, true);
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kZeroWithExtensions, true, false);
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kZeroWithExtensions, false, true);
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kZeroWithExtensions, false, false);
-
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kExplicitNoExtensions, true, true);
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kExplicitNoExtensions, true, false);
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kExplicitNoExtensions, false, true);
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kExplicitNoExtensions, false, false);
-
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kExplicitWithExtensions, true, true);
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kExplicitWithExtensions, true, false);
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kExplicitWithExtensions, false, true);
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kExplicitWithExtensions, false, false);
-
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kFirstObjectNoExtensions, true, true);
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kFirstObjectNoExtensions, true, false);
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kFirstObjectNoExtensions, false, true);
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kFirstObjectNoExtensions, false, false);
-
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kFirstObjectWithExtensions, true, true);
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kFirstObjectWithExtensions, true, false);
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kFirstObjectWithExtensions, false, true);
-    StreamPerSubGroupObjectEncodeDecode(StreamHeaderType::kFirstObjectWithExtensions, false, false);
+    const auto stream_headers = {
+        StreamHeaderType::kZeroNoExtensions,        StreamHeaderType::kZeroWithExtensions,
+        StreamHeaderType::kExplicitNoExtensions,    StreamHeaderType::kExplicitWithExtensions,
+        StreamHeaderType::kFirstObjectNoExtensions, StreamHeaderType::kFirstObjectWithExtensions
+    };
+    for (const auto& type : stream_headers) {
+        CAPTURE(type);
+        for (bool extensions : { true, false }) {
+            CAPTURE(extensions);
+            for (bool empty_payload : { true, false }) {
+                CAPTURE(empty_payload);
+                StreamPerSubGroupObjectEncodeDecode(type, extensions, empty_payload);
+            }
+        }
+    }
 }
 
 static void
