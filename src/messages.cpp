@@ -115,23 +115,6 @@ namespace quicr::messages {
     }
 
     template<class StreamBufferType>
-    bool operator>>(StreamBufferType& buffer, quicr::messages::Parameter& param)
-    {
-        if (!ParseUintVField(buffer, param.type)) {
-            return false;
-        }
-
-        auto val = buffer.DecodeBytes();
-        if (!val) {
-            return false;
-        }
-
-        param.value = std::move(val.value());
-
-        return true;
-    }
-
-    template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, FetchHeader& msg)
     {
         switch (msg.current_pos) {

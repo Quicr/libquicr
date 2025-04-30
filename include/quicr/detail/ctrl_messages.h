@@ -956,7 +956,4 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg);
     Bytes& operator<<(Bytes& buffer, const TrackNamespace& msg);
 
-    BytesSpan operator>>(BytesSpan buffer, Parameter& msg);
-    Bytes& operator<<(Bytes& buffer, const Parameter& msg);
-
 } // namespace
