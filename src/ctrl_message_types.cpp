@@ -58,20 +58,6 @@ namespace quicr::messages {
         return buffer.subspan(value_uv.size());
     }
 
-    Bytes& operator<<(Bytes& buffer, ParameterType value)
-    {
-        buffer << UintVar(static_cast<std::uint64_t>(value));
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, ParameterType& value)
-    {
-        std::uint64_t uvalue;
-        buffer = buffer >> uvalue;
-        value = static_cast<ParameterType>(uvalue);
-        return buffer;
-    }
-
     Bytes& operator<<(Bytes& buffer, GroupOrder value)
     {
         buffer << static_cast<std::uint64_t>(value);
@@ -83,20 +69,6 @@ namespace quicr::messages {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
         value = static_cast<GroupOrder>(uvalue);
-        return buffer;
-    }
-
-    Bytes& operator<<(Bytes& buffer, FilterType value)
-    {
-        buffer << static_cast<std::uint64_t>(value);
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, FilterType& value)
-    {
-        std::uint64_t uvalue;
-        buffer = buffer >> uvalue;
-        value = static_cast<FilterType>(uvalue);
         return buffer;
     }
 
@@ -114,34 +86,6 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, AnnounceErrorCode value)
-    {
-        buffer << static_cast<std::uint64_t>(value);
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, AnnounceErrorCode& value)
-    {
-        std::uint64_t uvalue;
-        buffer = buffer >> uvalue;
-        value = static_cast<AnnounceErrorCode>(uvalue);
-        return buffer;
-    }
-
-    Bytes& operator<<(Bytes& buffer, SubscribeAnnouncesErrorCode value)
-    {
-        buffer << static_cast<std::uint64_t>(value);
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesErrorCode& value)
-    {
-        std::uint64_t uvalue;
-        buffer = buffer >> uvalue;
-        value = static_cast<SubscribeAnnouncesErrorCode>(uvalue);
-        return buffer;
-    }
-
     Bytes& operator<<(Bytes& buffer, FetchErrorCode value)
     {
         buffer << static_cast<std::uint64_t>(value);
@@ -153,34 +97,6 @@ namespace quicr::messages {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
         value = static_cast<FetchErrorCode>(uvalue);
-        return buffer;
-    }
-
-    Bytes& operator<<(Bytes& buffer, SubscribeDoneStatusCode value)
-    {
-        buffer << static_cast<std::uint64_t>(value);
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, SubscribeDoneStatusCode& value)
-    {
-        std::uint64_t uvalue;
-        buffer = buffer >> uvalue;
-        value = static_cast<SubscribeDoneStatusCode>(uvalue);
-        return buffer;
-    }
-
-    Bytes& operator<<(Bytes& buffer, SubscribeErrorCode value)
-    {
-        buffer << static_cast<std::uint64_t>(value);
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, SubscribeErrorCode& value)
-    {
-        std::uint64_t uvalue;
-        buffer = buffer >> uvalue;
-        value = static_cast<SubscribeErrorCode>(uvalue);
         return buffer;
     }
 
