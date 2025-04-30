@@ -58,20 +58,6 @@ namespace quicr::messages {
         return buffer.subspan(value_uv.size());
     }
 
-    Bytes& operator<<(Bytes& buffer, const Location& location)
-    {
-        buffer << UintVar(location.group);
-        buffer << UIntVar(location.object);
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, Location& location)
-    {
-        buffer = buffer >> location.group;
-        buffer = buffer >> location.object;
-        return buffer;
-    }
-
     Bytes& operator<<(Bytes& buffer, ParameterType value)
     {
         buffer << UintVar(static_cast<std::uint64_t>(value));
