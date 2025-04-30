@@ -184,4 +184,18 @@ namespace quicr::messages {
         return buffer;
     }
 
+    Bytes& operator<<(Bytes& buffer, const Location& location)
+    {
+        buffer << UintVar(location.group);
+        buffer << UintVar(location.object);
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, Location& location)
+    {
+        buffer = buffer >> location.group;
+        buffer = buffer >> location.object;
+        return buffer;
+    }
+
 }
