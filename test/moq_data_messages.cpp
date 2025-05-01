@@ -156,19 +156,19 @@ StreamHeaderEncodeDecode(StreamHeaderType type)
     CHECK_EQ(hdr.track_alias, hdr_out.track_alias);
     CHECK_EQ(hdr.group_id, hdr_out.group_id);
     switch (type) {
-        case StreamHeaderType::kZeroNoExtensions:
+        case StreamHeaderType::kSubgroupZeroNoExtensions:
             [[fallthrough]];
-        case StreamHeaderType::kZeroWithExtensions:
+        case StreamHeaderType::kSubgroupZeroWithExtensions:
             CHECK_EQ(hdr_out.subgroup_id, 0);
             break;
-        case StreamHeaderType::kFirstObjectNoExtensions:
+        case StreamHeaderType::kSubgroupFirstObjectNoExtensions:
             [[fallthrough]];
-        case StreamHeaderType::kFirstObjectWithExtensions:
+        case StreamHeaderType::kSubgroupFirstObjectWithExtensions:
             CHECK_EQ(hdr_out.subgroup_id, std::nullopt);
             break;
-        case StreamHeaderType::kExplicitNoExtensions:
+        case StreamHeaderType::kSubgroupExplicitNoExtensions:
             [[fallthrough]];
-        case StreamHeaderType::kExplicitWithExtensions:
+        case StreamHeaderType::kSubgroupExplicitWithExtensions:
             CHECK_EQ(hdr_out.subgroup_id, hdr.subgroup_id);
             break;
     }
@@ -176,12 +176,12 @@ StreamHeaderEncodeDecode(StreamHeaderType type)
 
 TEST_CASE("StreamHeader Message encode/decode")
 {
-    StreamHeaderEncodeDecode(StreamHeaderType::kZeroNoExtensions);
-    StreamHeaderEncodeDecode(StreamHeaderType::kZeroWithExtensions);
-    StreamHeaderEncodeDecode(StreamHeaderType::kFirstObjectNoExtensions);
-    StreamHeaderEncodeDecode(StreamHeaderType::kFirstObjectWithExtensions);
-    StreamHeaderEncodeDecode(StreamHeaderType::kExplicitNoExtensions);
-    StreamHeaderEncodeDecode(StreamHeaderType::kExplicitWithExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupZeroNoExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupZeroWithExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupFirstObjectNoExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupFirstObjectWithExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupExplicitNoExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupExplicitWithExtensions);
 }
 
 static void
@@ -259,9 +259,9 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, bool extensions, bool
 TEST_CASE("StreamPerSubGroup Object Message encode/decode")
 {
     const auto stream_headers = {
-        StreamHeaderType::kZeroNoExtensions,        StreamHeaderType::kZeroWithExtensions,
-        StreamHeaderType::kExplicitNoExtensions,    StreamHeaderType::kExplicitWithExtensions,
-        StreamHeaderType::kFirstObjectNoExtensions, StreamHeaderType::kFirstObjectWithExtensions
+        StreamHeaderType::kSubgroupZeroNoExtensions,        StreamHeaderType::kSubgroupZeroWithExtensions,
+        StreamHeaderType::kSubgroupExplicitNoExtensions,    StreamHeaderType::kSubgroupExplicitWithExtensions,
+        StreamHeaderType::kSubgroupFirstObjectNoExtensions, StreamHeaderType::kSubgroupFirstObjectWithExtensions
     };
     for (const auto& type : stream_headers) {
         CAPTURE(type);

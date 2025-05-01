@@ -63,8 +63,8 @@ namespace quicr {
 
             if (!s_hdr.subgroup_id.has_value()) {
                 // TODO(RichLogan): This is a protocol error?
-                assert(s_hdr.type == messages::StreamHeaderType::kFirstObjectNoExtensions ||
-                       s_hdr.type == messages::StreamHeaderType::kFirstObjectWithExtensions);
+                assert(s_hdr.type == messages::StreamHeaderType::kSubgroupFirstObjectNoExtensions ||
+                       s_hdr.type == messages::StreamHeaderType::kSubgroupFirstObjectWithExtensions);
                 s_hdr.subgroup_id = obj.object_id;
             }
 

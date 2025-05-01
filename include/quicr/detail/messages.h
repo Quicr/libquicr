@@ -22,12 +22,12 @@ namespace quicr::messages {
     /// @brief Stream Header types.
     enum class StreamHeaderType : uint8_t
     {
-        kZeroNoExtensions = 0x08,          // No extensions, Subgroup ID = 0
-        kZeroWithExtensions = 0x09,        // With extensions, Subgroup ID = 0
-        kFirstObjectNoExtensions = 0x0A,   // No extensions, Subgroup ID = First Object ID
-        kFirstObjectWithExtensions = 0x0B, // With extensions, Subgroup ID = First Object ID
-        kExplicitNoExtensions = 0x0C,      // No extensions, Explicit Subgroup ID
-        kExplicitWithExtensions = 0x0D,    // With extensions, Explicit Subgroup ID
+        kSubgroupZeroNoExtensions = 0x08,          // No extensions, Subgroup ID = 0
+        kSubgroupZeroWithExtensions = 0x09,        // With extensions, Subgroup ID = 0
+        kSubgroupFirstObjectNoExtensions = 0x0A,   // No extensions, Subgroup ID = First Object ID
+        kSubgroupFirstObjectWithExtensions = 0x0B, // With extensions, Subgroup ID = First Object ID
+        kSubgroupExplicitNoExtensions = 0x0C,      // No extensions, Explicit Subgroup ID
+        kSubgroupExplicitWithExtensions = 0x0D,    // With extensions, Explicit Subgroup ID
     };
 
     /**
@@ -39,11 +39,11 @@ namespace quicr::messages {
     static bool typeWillSerializeExtensions(const StreamHeaderType type)
     {
         switch (type) {
-            case StreamHeaderType::kZeroWithExtensions:
+            case StreamHeaderType::kSubgroupZeroWithExtensions:
                 [[fallthrough]];
-            case StreamHeaderType::kFirstObjectWithExtensions:
+            case StreamHeaderType::kSubgroupFirstObjectWithExtensions:
                 [[fallthrough]];
-            case StreamHeaderType::kExplicitWithExtensions:
+            case StreamHeaderType::kSubgroupExplicitWithExtensions:
                 return true;
             default:
                 return false;
@@ -59,9 +59,9 @@ namespace quicr::messages {
     static bool typeWillSerializeSubgroup(const StreamHeaderType type)
     {
         switch (type) {
-            case StreamHeaderType::kExplicitNoExtensions:
+            case StreamHeaderType::kSubgroupExplicitNoExtensions:
                 [[fallthrough]];
-            case StreamHeaderType::kExplicitWithExtensions:
+            case StreamHeaderType::kSubgroupExplicitWithExtensions:
                 return true;
             default:
                 return false;
@@ -75,14 +75,14 @@ namespace quicr::messages {
         kFetchHeader = 0x5,
 
         // Subgroup Header Types.
-        kStreamHeaderSubGroupZeroNoExtensions = static_cast<std::uint8_t>(StreamHeaderType::kZeroNoExtensions),
-        kStreamHeaderSubGroupZeroExtensions = static_cast<std::uint8_t>(StreamHeaderType::kZeroWithExtensions),
-        kStreamHeaderSubGroupFirstObjectNoExtensions =
-          static_cast<std::uint8_t>(StreamHeaderType::kFirstObjectNoExtensions),
-        kStreamHeaderSubGroupFirstObjectExtensions =
-          static_cast<std::uint8_t>(StreamHeaderType::kFirstObjectWithExtensions),
-        kStreamHeaderSubGroupExplicitNoExtensions = static_cast<std::uint8_t>(StreamHeaderType::kExplicitNoExtensions),
-        kStreamHeaderSubGroupExplicitExtensions = static_cast<std::uint8_t>(StreamHeaderType::kExplicitWithExtensions),
+        kStreamHeaderSubgroupZeroNoExtensions = static_cast<std::uint8_t>(StreamHeaderType::kSubgroupZeroNoExtensions),
+        kStreamHeaderSubgroupZeroWithExtensions = static_cast<std::uint8_t>(StreamHeaderType::kSubgroupZeroWithExtensions),
+        kStreamHeaderSubgroupFirstObjectNoExtensions =
+          static_cast<std::uint8_t>(StreamHeaderType::kSubgroupFirstObjectNoExtensions),
+        kStreamHeaderSubgroupFirstObjectWithExtensions =
+          static_cast<std::uint8_t>(StreamHeaderType::kSubgroupFirstObjectWithExtensions),
+        kStreamHeaderSubgroupExplicitNoExtensions = static_cast<std::uint8_t>(StreamHeaderType::kSubgroupExplicitNoExtensions),
+        kStreamHeaderSubgroupExplicitWithExtensions = static_cast<std::uint8_t>(StreamHeaderType::kSubgroupExplicitWithExtensions),
     };
 
     /**
@@ -94,17 +94,17 @@ namespace quicr::messages {
     static bool typeIsStreamHeaderType(const DataMessageType type)
     {
         switch (type) {
-            case DataMessageType::kStreamHeaderSubGroupZeroNoExtensions:
+            case DataMessageType::kStreamHeaderSubgroupZeroNoExtensions:
                 [[fallthrough]];
-            case DataMessageType::kStreamHeaderSubGroupZeroExtensions:
+            case DataMessageType::kStreamHeaderSubgroupZeroWithExtensions:
                 [[fallthrough]];
-            case DataMessageType::kStreamHeaderSubGroupFirstObjectNoExtensions:
+            case DataMessageType::kStreamHeaderSubgroupFirstObjectNoExtensions:
                 [[fallthrough]];
-            case DataMessageType::kStreamHeaderSubGroupFirstObjectExtensions:
+            case DataMessageType::kStreamHeaderSubgroupFirstObjectWithExtensions:
                 [[fallthrough]];
-            case DataMessageType::kStreamHeaderSubGroupExplicitNoExtensions:
+            case DataMessageType::kStreamHeaderSubgroupExplicitNoExtensions:
                 [[fallthrough]];
-            case DataMessageType::kStreamHeaderSubGroupExplicitExtensions:
+            case DataMessageType::kStreamHeaderSubgroupExplicitWithExtensions:
                 return true;
             default:
                 return false;

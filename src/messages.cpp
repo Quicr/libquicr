@@ -430,9 +430,9 @@ namespace quicr::messages {
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
         switch (msg.type) {
-            case StreamHeaderType::kExplicitNoExtensions:
+            case StreamHeaderType::kSubgroupExplicitNoExtensions:
                 [[fallthrough]];
-            case StreamHeaderType::kExplicitWithExtensions:
+            case StreamHeaderType::kSubgroupExplicitWithExtensions:
                 assert(msg.subgroup_id.has_value());
                 buffer << UintVar(msg.subgroup_id.value());
                 break;
@@ -473,16 +473,16 @@ namespace quicr::messages {
             }
             case 3: {
                 switch (msg.type) {
-                    case StreamHeaderType::kZeroNoExtensions:
-                    case StreamHeaderType::kZeroWithExtensions:
+                    case StreamHeaderType::kSubgroupZeroNoExtensions:
+                    case StreamHeaderType::kSubgroupZeroWithExtensions:
                         msg.subgroup_id = 0;
                         break;
-                    case StreamHeaderType::kFirstObjectNoExtensions:
-                    case StreamHeaderType::kFirstObjectWithExtensions:
+                    case StreamHeaderType::kSubgroupFirstObjectNoExtensions:
+                    case StreamHeaderType::kSubgroupFirstObjectWithExtensions:
                         msg.subgroup_id = std::nullopt; // Will be updated by first object.
                         break;
-                    case StreamHeaderType::kExplicitNoExtensions:
-                    case StreamHeaderType::kExplicitWithExtensions:
+                    case StreamHeaderType::kSubgroupExplicitNoExtensions:
+                    case StreamHeaderType::kSubgroupExplicitWithExtensions:
                         messages::SubGroupId subgroup_id;
                         if (!ParseUintVField(buffer, subgroup_id)) {
                             return false;
