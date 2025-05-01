@@ -55,8 +55,9 @@ namespace quicr::messages {
         param.type = static_cast<T>(type);
         if (type % 2 == 0) {
             // Even, single varint of value.
-            std::uint64_t val;
-            buffer = buffer >> val;
+            UintVar uvar(buffer);
+            buffer = buffer.subspan(uvar.size());
+            std::uint64_t val(uvar);
             param.value.resize(sizeof(std::uint64_t));
             std::memcpy(param.value.data(), &val, sizeof(std::uint64_t));
         } else {
@@ -64,6 +65,7 @@ namespace quicr::messages {
             uint64_t size = 0;
             buffer = buffer >> size;
             param.value.assign(buffer.begin(), std::next(buffer.begin(), size));
+            buffer = buffer.subspan(size);
         }
         return buffer;
     }
@@ -88,7 +90,7 @@ namespace quicr::messages {
     {
         kPath = 0x1,
         kMaxSubscribeId = 0x2, // version specific, unused
-        kEndpointId = 0xF0,    // Endpoint ID, using temp value for now
+        kEndpointId = 0xF1,    // Endpoint ID, using temp value for now
         kInvalid = 0xFF,       // used internally.
     };
 
