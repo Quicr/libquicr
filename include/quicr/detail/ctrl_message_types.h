@@ -18,6 +18,8 @@ namespace quicr::messages {
 
     using GroupId = uint64_t;
     using ObjectId = uint64_t;
+    // TODO(RichLogan): Remove when ErrorReason -> ReasonPhrase.
+    using ReasonPhrase = Bytes;
 
     struct Location
     {
