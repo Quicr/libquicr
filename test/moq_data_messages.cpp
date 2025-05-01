@@ -209,7 +209,7 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, bool extensions, bool
     // send 10 objects
     for (size_t i = 0; i < 10; i++) {
         auto obj = messages::StreamSubGroupObject{};
-        obj.serialize_extensions = typeWillSerializeExtensions(type);
+        obj.serialize_extensions = TypeWillSerializeExtensions(type);
         obj.object_id = 0x1234;
 
         if (empty_payload) {
@@ -227,7 +227,7 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, bool extensions, bool
     size_t object_count = 0;
     StreamBuffer<uint8_t> in_buffer;
     for (size_t i = 0; i < buffer.size(); i++) {
-        obj_out.serialize_extensions = typeWillSerializeExtensions(type);
+        obj_out.serialize_extensions = TypeWillSerializeExtensions(type);
         in_buffer.Push(buffer.at(i));
         bool done = in_buffer >> obj_out;
         if (!done) {

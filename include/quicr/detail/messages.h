@@ -36,7 +36,7 @@ namespace quicr::messages {
      * @return True if the type will serialize extensions (even empty ones), false otherwise.
      */
     [[maybe_unused]]
-    static bool typeWillSerializeExtensions(const StreamHeaderType type)
+    static bool TypeWillSerializeExtensions(const StreamHeaderType type)
     {
         switch (type) {
             case StreamHeaderType::kSubgroupZeroWithExtensions:
@@ -56,7 +56,7 @@ namespace quicr::messages {
      * @return True if a header of this type will have a subgroup field on the wire.
      */
     [[maybe_unused]]
-    static bool typeWillSerializeSubgroup(const StreamHeaderType type)
+    static bool TypeWillSerializeSubgroup(const StreamHeaderType type)
     {
         switch (type) {
             case StreamHeaderType::kSubgroupExplicitNoExtensions:
