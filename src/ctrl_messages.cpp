@@ -12,7 +12,7 @@ namespace quicr::messages {
         for (const auto& item : vec) {
             buffer << item;
         }
-
+        
         return buffer;
     }
 
@@ -21,14 +21,14 @@ namespace quicr::messages {
         std::uint64_t size = 0;
         buffer = buffer >> size;
 
-        for (uint64_t i = 0; i < size; i++) {
-            std::uint64_t item;
+        for (uint64_t i=0; i<size; i++) {
+            std::uint64_t item;    
             buffer = buffer >> item;
             vec.push_back(item);
         }
 
         return buffer;
-    }
+    }  
     Bytes& operator<<(Bytes& buffer, const std::vector<quicr::messages::Parameter>& vec)
     {
         // write vector size
@@ -38,7 +38,7 @@ namespace quicr::messages {
         for (const auto& item : vec) {
             buffer << item;
         }
-
+        
         return buffer;
     }
 
@@ -47,25 +47,25 @@ namespace quicr::messages {
         std::uint64_t size = 0;
         buffer = buffer >> size;
 
-        for (uint64_t i = 0; i < size; i++) {
-            quicr::messages::Parameter item;
+        for (uint64_t i=0; i<size; i++) {
+            quicr::messages::Parameter item;    
             buffer = buffer >> item;
             vec.push_back(item);
         }
 
         return buffer;
-    }
+    }  
 
     /*
      * SubscribeUpdate stream in
      */
     BytesSpan operator>>(BytesSpan buffer, SubscribeUpdate& msg)
     {
-        buffer = buffer >> msg.subscribe_id;         // (i)  >> SubscribeID
-        buffer = buffer >> msg.start_group;          // (i)  >> StartGroup
-        buffer = buffer >> msg.start_object;         // (i)  >> StartObject
-        buffer = buffer >> msg.end_group;            // (i)  >> EndGroup
-        buffer = buffer >> msg.subscriber_priority;  // (8)  >> SubscriberPriority
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
+        buffer = buffer >> msg.start_location; // (Location)  >> StartLocation
+        buffer = buffer >> msg.end_group; // (i)  >> EndGroup
+        buffer = buffer >> msg.subscriber_priority; // (8)  >> SubscriberPriority
+        buffer = buffer >> msg.forward; // (8)  >> Forward
         buffer = buffer >> msg.subscribe_parameters; // (..) ... >> SubscribeParameters
         return buffer;
     }
@@ -77,11 +77,11 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
-        payload << msg.subscribe_id;         // (i)  << SubscribeID
-        payload << msg.start_group;          // (i)  << StartGroup
-        payload << msg.start_object;         // (i)  << StartObject
-        payload << msg.end_group;            // (i)  << EndGroup
-        payload << msg.subscriber_priority;  // (8)  << SubscriberPriority
+        payload << msg.request_id; // (i)  << RequestID
+        payload << msg.start_location; // (Location)  << StartLocation
+        payload << msg.end_group; // (i)  << EndGroup
+        payload << msg.subscriber_priority; // (8)  << SubscriberPriority
+        payload << msg.forward; // (8)  << Forward
         payload << msg.subscribe_parameters; // (..) ... << SubscribeParameters
 
         // fill out buffer
@@ -93,9 +93,12 @@ namespace quicr::messages {
     /*
      * Subscribe stream in constructor
      */
-    Subscribe::Subscribe(std::function<void(Subscribe&)> group_0_cb, std::function<void(Subscribe&)> group_1_cb)
-      : group_0_cb(group_0_cb)
-      , group_1_cb(group_1_cb)
+    Subscribe::Subscribe(
+            std::function<void (Subscribe&)> group_0_cb,
+            std::function<void (Subscribe&)> group_1_cb
+        ):
+            group_0_cb(group_0_cb),
+            group_1_cb(group_1_cb)
     {
     }
 
@@ -104,21 +107,18 @@ namespace quicr::messages {
      */
     BytesSpan operator>>(BytesSpan buffer, Subscribe& msg)
     {
-        buffer = buffer >> msg.subscribe_id;        // (i)  >> SubscribeID
-        buffer = buffer >> msg.track_alias;         // (i)  >> TrackAlias
-        buffer = buffer >> msg.track_namespace;     // (tuple)  >> TrackNamespace
-        buffer = buffer >> msg.track_name;          // (..)  >> TrackName
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
+        buffer = buffer >> msg.track_alias; // (i)  >> TrackAlias
+        buffer = buffer >> msg.track_namespace; // (tuple)  >> TrackNamespace
+        buffer = buffer >> msg.track_name; // (..)  >> TrackName
         buffer = buffer >> msg.subscriber_priority; // (8)  >> SubscriberPriority
-        buffer = buffer >> msg.group_order;         // (8)  >> GroupOrder
-        buffer = buffer >> msg.filter_type;         // (i)  >> FilterType
-        if (msg.group_0_cb) {
-            msg.group_0_cb(msg);
-        }
+        buffer = buffer >> msg.group_order; // (8)  >> GroupOrder
+        buffer = buffer >> msg.forward; // (8)  >> Forward
+        buffer = buffer >> msg.filter_type; // (i)  >> FilterType
+        if (msg.group_0_cb) { msg.group_0_cb(msg); }
         buffer = buffer >> msg.group_0; // (optional group)  >> Subscribe::Group_0
-        if (msg.group_1_cb) {
-            msg.group_1_cb(msg);
-        }
-        buffer = buffer >> msg.group_1;              // (optional group)  >> Subscribe::Group_1
+        if (msg.group_1_cb) { msg.group_1_cb(msg); }
+        buffer = buffer >> msg.group_1; // (optional group)  >> Subscribe::Group_1
         buffer = buffer >> msg.subscribe_parameters; // (..) ... >> SubscribeParameters
         return buffer;
     }
@@ -130,15 +130,16 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
-        payload << msg.subscribe_id;         // (i)  << SubscribeID
-        payload << msg.track_alias;          // (i)  << TrackAlias
-        payload << msg.track_namespace;      // (tuple)  << TrackNamespace
-        payload << msg.track_name;           // (..)  << TrackName
-        payload << msg.subscriber_priority;  // (8)  << SubscriberPriority
-        payload << msg.group_order;          // (8)  << GroupOrder
-        payload << msg.filter_type;          // (i)  << FilterType
-        payload << msg.group_0;              // (optional group)  << Subscribe::Group_0
-        payload << msg.group_1;              // (optional group)  << Subscribe::Group_1
+        payload << msg.request_id; // (i)  << RequestID
+        payload << msg.track_alias; // (i)  << TrackAlias
+        payload << msg.track_namespace; // (tuple)  << TrackNamespace
+        payload << msg.track_name; // (..)  << TrackName
+        payload << msg.subscriber_priority; // (8)  << SubscriberPriority
+        payload << msg.group_order; // (8)  << GroupOrder
+        payload << msg.forward; // (8)  << Forward
+        payload << msg.filter_type; // (i)  << FilterType
+        payload << msg.group_0; // (optional group)  << Subscribe::Group_0
+        payload << msg.group_1; // (optional group)  << Subscribe::Group_1
         payload << msg.subscribe_parameters; // (..) ... << SubscribeParameters
 
         // fill out buffer
@@ -150,17 +151,15 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, std::optional<Subscribe::Group_0>& grp)
     {
         if (grp.has_value()) {
-            buffer = buffer >> grp->start_group;  // (i) >> StartGroup
-            buffer = buffer >> grp->start_object; // (i) >> StartObject
+            buffer = buffer >> grp->start_location; // (Location) >> StartLocation
         }
         return buffer;
-    }
+    }  
 
     Bytes& operator<<(Bytes& buffer, const std::optional<Subscribe::Group_0>& grp)
     {
         if (grp.has_value()) {
-            buffer << grp->start_group;  // (i) << StartGroup
-            buffer << grp->start_object; // (i) << StartObject
+            buffer << grp->start_location; // (Location) << StartLocation
         }
         return buffer;
     }
@@ -170,7 +169,7 @@ namespace quicr::messages {
             buffer = buffer >> grp->end_group; // (i) >> EndGroup
         }
         return buffer;
-    }
+    }  
 
     Bytes& operator<<(Bytes& buffer, const std::optional<Subscribe::Group_1>& grp)
     {
@@ -182,8 +181,10 @@ namespace quicr::messages {
     /*
      * SubscribeOk stream in constructor
      */
-    SubscribeOk::SubscribeOk(std::function<void(SubscribeOk&)> group_0_cb)
-      : group_0_cb(group_0_cb)
+    SubscribeOk::SubscribeOk(
+            std::function<void (SubscribeOk&)> group_0_cb
+        ):
+            group_0_cb(group_0_cb)
     {
     }
 
@@ -192,14 +193,12 @@ namespace quicr::messages {
      */
     BytesSpan operator>>(BytesSpan buffer, SubscribeOk& msg)
     {
-        buffer = buffer >> msg.subscribe_id;   // (i)  >> SubscribeID
-        buffer = buffer >> msg.expires;        // (i)  >> Expires
-        buffer = buffer >> msg.group_order;    // (8)  >> GroupOrder
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
+        buffer = buffer >> msg.expires; // (i)  >> Expires
+        buffer = buffer >> msg.group_order; // (8)  >> GroupOrder
         buffer = buffer >> msg.content_exists; // (8)  >> ContentExists
-        if (msg.group_0_cb) {
-            msg.group_0_cb(msg);
-        }
-        buffer = buffer >> msg.group_0;              // (optional group)  >> SubscribeOk::Group_0
+        if (msg.group_0_cb) { msg.group_0_cb(msg); }
+        buffer = buffer >> msg.group_0; // (optional group)  >> SubscribeOk::Group_0
         buffer = buffer >> msg.subscribe_parameters; // (..) ... >> SubscribeParameters
         return buffer;
     }
@@ -211,11 +210,11 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
-        payload << msg.subscribe_id;         // (i)  << SubscribeID
-        payload << msg.expires;              // (i)  << Expires
-        payload << msg.group_order;          // (8)  << GroupOrder
-        payload << msg.content_exists;       // (8)  << ContentExists
-        payload << msg.group_0;              // (optional group)  << SubscribeOk::Group_0
+        payload << msg.request_id; // (i)  << RequestID
+        payload << msg.expires; // (i)  << Expires
+        payload << msg.group_order; // (8)  << GroupOrder
+        payload << msg.content_exists; // (8)  << ContentExists
+        payload << msg.group_0; // (optional group)  << SubscribeOk::Group_0
         payload << msg.subscribe_parameters; // (..) ... << SubscribeParameters
 
         // fill out buffer
@@ -227,17 +226,15 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, std::optional<SubscribeOk::Group_0>& grp)
     {
         if (grp.has_value()) {
-            buffer = buffer >> grp->largest_group_id;  // (i) >> LargestGroupID
-            buffer = buffer >> grp->largest_object_id; // (i) >> LargestObjectID
+            buffer = buffer >> grp->largest_location; // (Location) >> LargestLocation
         }
         return buffer;
-    }
+    }  
 
     Bytes& operator<<(Bytes& buffer, const std::optional<SubscribeOk::Group_0>& grp)
     {
         if (grp.has_value()) {
-            buffer << grp->largest_group_id;  // (i) << LargestGroupID
-            buffer << grp->largest_object_id; // (i) << LargestObjectID
+            buffer << grp->largest_location; // (Location) << LargestLocation
         }
         return buffer;
     }
@@ -247,10 +244,10 @@ namespace quicr::messages {
      */
     BytesSpan operator>>(BytesSpan buffer, SubscribeError& msg)
     {
-        buffer = buffer >> msg.subscribe_id;  // (i)  >> SubscribeID
-        buffer = buffer >> msg.error_code;    // (i)  >> SubscribeErrorErrorCode
-        buffer = buffer >> msg.reason_phrase; // (..)  >> ReasonPhrase
-        buffer = buffer >> msg.track_alias;   // (i)  >> TrackAlias
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
+        buffer = buffer >> msg.error_code; // (i)  >> SubscribeErrorErrorCode
+        buffer = buffer >> msg.error_reason; // (Reason Phrase)  >> ErrorReason
+        buffer = buffer >> msg.track_alias; // (i)  >> TrackAlias
         return buffer;
     }
 
@@ -261,10 +258,10 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
-        payload << msg.subscribe_id;  // (i)  << SubscribeID
-        payload << msg.error_code;    // (i)  << SubscribeErrorErrorCode
-        payload << msg.reason_phrase; // (..)  << ReasonPhrase
-        payload << msg.track_alias;   // (i)  << TrackAlias
+        payload << msg.request_id; // (i)  << RequestID
+        payload << msg.error_code; // (i)  << SubscribeErrorErrorCode
+        payload << msg.error_reason; // (Reason Phrase)  << ErrorReason
+        payload << msg.track_alias; // (i)  << TrackAlias
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeError);
@@ -272,13 +269,15 @@ namespace quicr::messages {
         return buffer;
     }
 
+
     /*
      * Announce stream in
      */
     BytesSpan operator>>(BytesSpan buffer, Announce& msg)
     {
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
         buffer = buffer >> msg.track_namespace; // (tuple)  >> TrackNamespace
-        buffer = buffer >> msg.parameters;      // (..) ... >> Parameters
+        buffer = buffer >> msg.parameters; // (..) ... >> Parameters
         return buffer;
     }
 
@@ -289,8 +288,9 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
+        payload << msg.request_id; // (i)  << RequestID
         payload << msg.track_namespace; // (tuple)  << TrackNamespace
-        payload << msg.parameters;      // (..) ... << Parameters
+        payload << msg.parameters; // (..) ... << Parameters
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kAnnounce);
@@ -298,12 +298,13 @@ namespace quicr::messages {
         return buffer;
     }
 
+
     /*
      * AnnounceOk stream in
      */
     BytesSpan operator>>(BytesSpan buffer, AnnounceOk& msg)
     {
-        buffer = buffer >> msg.track_namespace; // (tuple)  >> TrackNamespace
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
         return buffer;
     }
 
@@ -314,7 +315,7 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
-        payload << msg.track_namespace; // (tuple)  << TrackNamespace
+        payload << msg.request_id; // (i)  << RequestID
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kAnnounceOk);
@@ -322,14 +323,15 @@ namespace quicr::messages {
         return buffer;
     }
 
+
     /*
      * AnnounceError stream in
      */
     BytesSpan operator>>(BytesSpan buffer, AnnounceError& msg)
     {
-        buffer = buffer >> msg.track_namespace; // (tuple)  >> TrackNamespace
-        buffer = buffer >> msg.error_code;      // (i)  >> AnnounceErrorErrorCode
-        buffer = buffer >> msg.reason_phrase;   // (..)  >> ReasonPhrase
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
+        buffer = buffer >> msg.error_code; // (i)  >> AnnounceErrorErrorCode
+        buffer = buffer >> msg.error_reason; // (Reason Phrase)  >> ErrorReason
         return buffer;
     }
 
@@ -340,15 +342,16 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
-        payload << msg.track_namespace; // (tuple)  << TrackNamespace
-        payload << msg.error_code;      // (i)  << AnnounceErrorErrorCode
-        payload << msg.reason_phrase;   // (..)  << ReasonPhrase
+        payload << msg.request_id; // (i)  << RequestID
+        payload << msg.error_code; // (i)  << AnnounceErrorErrorCode
+        payload << msg.error_reason; // (Reason Phrase)  << ErrorReason
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kAnnounceError);
         buffer << payload;
         return buffer;
     }
+
 
     /*
      * Unannounce stream in
@@ -374,12 +377,13 @@ namespace quicr::messages {
         return buffer;
     }
 
+
     /*
      * Unsubscribe stream in
      */
     BytesSpan operator>>(BytesSpan buffer, Unsubscribe& msg)
     {
-        buffer = buffer >> msg.subscribe_id; // (i)  >> SubscribeID
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
         return buffer;
     }
 
@@ -390,7 +394,7 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
-        payload << msg.subscribe_id; // (i)  << SubscribeID
+        payload << msg.request_id; // (i)  << RequestID
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kUnsubscribe);
@@ -398,15 +402,16 @@ namespace quicr::messages {
         return buffer;
     }
 
+
     /*
      * SubscribeDone stream in
      */
     BytesSpan operator>>(BytesSpan buffer, SubscribeDone& msg)
     {
-        buffer = buffer >> msg.subscribe_id;  // (i)  >> SubscribeID
-        buffer = buffer >> msg.status_code;   // (i)  >> SubscribeDoneStatusCode
-        buffer = buffer >> msg.stream_count;  // (i)  >> StreamCount
-        buffer = buffer >> msg.reason_phrase; // (..)  >> ReasonPhrase
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
+        buffer = buffer >> msg.status_code; // (i)  >> SubscribeDoneStatusCode
+        buffer = buffer >> msg.stream_count; // (i)  >> StreamCount
+        buffer = buffer >> msg.error_reason; // (Reason Phrase)  >> ErrorReason
         return buffer;
     }
 
@@ -417,10 +422,10 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
-        payload << msg.subscribe_id;  // (i)  << SubscribeID
-        payload << msg.status_code;   // (i)  << SubscribeDoneStatusCode
-        payload << msg.stream_count;  // (i)  << StreamCount
-        payload << msg.reason_phrase; // (..)  << ReasonPhrase
+        payload << msg.request_id; // (i)  << RequestID
+        payload << msg.status_code; // (i)  << SubscribeDoneStatusCode
+        payload << msg.stream_count; // (i)  << StreamCount
+        payload << msg.error_reason; // (Reason Phrase)  << ErrorReason
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeDone);
@@ -428,14 +433,15 @@ namespace quicr::messages {
         return buffer;
     }
 
+
     /*
      * AnnounceCancel stream in
      */
     BytesSpan operator>>(BytesSpan buffer, AnnounceCancel& msg)
     {
         buffer = buffer >> msg.track_namespace; // (tuple)  >> TrackNamespace
-        buffer = buffer >> msg.error_code;      // (i)  >> AnnounceCancelErrorCode
-        buffer = buffer >> msg.reason_phrase;   // (..)  >> ReasonPhrase
+        buffer = buffer >> msg.error_code; // (i)  >> AnnounceCancelErrorCode
+        buffer = buffer >> msg.error_reason; // (Reason Phrase)  >> ErrorReason
         return buffer;
     }
 
@@ -447,8 +453,8 @@ namespace quicr::messages {
         Bytes payload;
         // fill out payload
         payload << msg.track_namespace; // (tuple)  << TrackNamespace
-        payload << msg.error_code;      // (i)  << AnnounceCancelErrorCode
-        payload << msg.reason_phrase;   // (..)  << ReasonPhrase
+        payload << msg.error_code; // (i)  << AnnounceCancelErrorCode
+        payload << msg.error_reason; // (Reason Phrase)  << ErrorReason
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kAnnounceCancel);
@@ -456,13 +462,16 @@ namespace quicr::messages {
         return buffer;
     }
 
+
     /*
      * TrackStatusRequest stream in
      */
     BytesSpan operator>>(BytesSpan buffer, TrackStatusRequest& msg)
     {
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
         buffer = buffer >> msg.track_namespace; // (tuple)  >> TrackNamespace
-        buffer = buffer >> msg.track_name;      // (..)  >> TrackName
+        buffer = buffer >> msg.track_name; // (..)  >> TrackName
+        buffer = buffer >> msg.parameters; // (..) ... >> Parameters
         return buffer;
     }
 
@@ -473,8 +482,10 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
+        payload << msg.request_id; // (i)  << RequestID
         payload << msg.track_namespace; // (tuple)  << TrackNamespace
-        payload << msg.track_name;      // (..)  << TrackName
+        payload << msg.track_name; // (..)  << TrackName
+        payload << msg.parameters; // (..) ... << Parameters
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kTrackStatusRequest);
@@ -482,16 +493,16 @@ namespace quicr::messages {
         return buffer;
     }
 
+
     /*
      * TrackStatus stream in
      */
     BytesSpan operator>>(BytesSpan buffer, TrackStatus& msg)
     {
-        buffer = buffer >> msg.track_namespace; // (tuple)  >> TrackNamespace
-        buffer = buffer >> msg.track_name;      // (..)  >> TrackName
-        buffer = buffer >> msg.status_code;     // (i)  >> StatusCode
-        buffer = buffer >> msg.last_group_id;   // (i)  >> LastGroupID
-        buffer = buffer >> msg.last_object_id;  // (i)  >> LastObjectID
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
+        buffer = buffer >> msg.status_code; // (i)  >> StatusCode
+        buffer = buffer >> msg.largest_location; // (Location)  >> LargestLocation
+        buffer = buffer >> msg.parameters; // (..) ... >> Parameters
         return buffer;
     }
 
@@ -502,17 +513,17 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
-        payload << msg.track_namespace; // (tuple)  << TrackNamespace
-        payload << msg.track_name;      // (..)  << TrackName
-        payload << msg.status_code;     // (i)  << StatusCode
-        payload << msg.last_group_id;   // (i)  << LastGroupID
-        payload << msg.last_object_id;  // (i)  << LastObjectID
+        payload << msg.request_id; // (i)  << RequestID
+        payload << msg.status_code; // (i)  << StatusCode
+        payload << msg.largest_location; // (Location)  << LargestLocation
+        payload << msg.parameters; // (..) ... << Parameters
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kTrackStatus);
         buffer << payload;
         return buffer;
     }
+
 
     /*
      * Goaway stream in
@@ -538,13 +549,15 @@ namespace quicr::messages {
         return buffer;
     }
 
+
     /*
      * SubscribeAnnounces stream in
      */
     BytesSpan operator>>(BytesSpan buffer, SubscribeAnnounces& msg)
     {
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
         buffer = buffer >> msg.track_namespace_prefix; // (tuple)  >> TrackNamespacePrefix
-        buffer = buffer >> msg.parameters;             // (..) ... >> Parameters
+        buffer = buffer >> msg.parameters; // (..) ... >> Parameters
         return buffer;
     }
 
@@ -555,8 +568,9 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
+        payload << msg.request_id; // (i)  << RequestID
         payload << msg.track_namespace_prefix; // (tuple)  << TrackNamespacePrefix
-        payload << msg.parameters;             // (..) ... << Parameters
+        payload << msg.parameters; // (..) ... << Parameters
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeAnnounces);
@@ -564,12 +578,13 @@ namespace quicr::messages {
         return buffer;
     }
 
+
     /*
      * SubscribeAnnouncesOk stream in
      */
     BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesOk& msg)
     {
-        buffer = buffer >> msg.track_namespace_prefix; // (tuple)  >> TrackNamespacePrefix
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
         return buffer;
     }
 
@@ -580,7 +595,7 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
-        payload << msg.track_namespace_prefix; // (tuple)  << TrackNamespacePrefix
+        payload << msg.request_id; // (i)  << RequestID
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeAnnouncesOk);
@@ -588,14 +603,15 @@ namespace quicr::messages {
         return buffer;
     }
 
+
     /*
      * SubscribeAnnouncesError stream in
      */
     BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesError& msg)
     {
-        buffer = buffer >> msg.track_namespace_prefix; // (tuple)  >> TrackNamespacePrefix
-        buffer = buffer >> msg.error_code;             // (i)  >> SubscribeAnnouncesErrorErrorCode
-        buffer = buffer >> msg.reason_phrase;          // (..)  >> ReasonPhrase
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
+        buffer = buffer >> msg.error_code; // (i)  >> SubscribeAnnouncesErrorErrorCode
+        buffer = buffer >> msg.error_reason; // (Reason Phrase)  >> ErrorReason
         return buffer;
     }
 
@@ -606,15 +622,16 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
-        payload << msg.track_namespace_prefix; // (tuple)  << TrackNamespacePrefix
-        payload << msg.error_code;             // (i)  << SubscribeAnnouncesErrorErrorCode
-        payload << msg.reason_phrase;          // (..)  << ReasonPhrase
+        payload << msg.request_id; // (i)  << RequestID
+        payload << msg.error_code; // (i)  << SubscribeAnnouncesErrorErrorCode
+        payload << msg.error_reason; // (Reason Phrase)  << ErrorReason
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeAnnouncesError);
         buffer << payload;
         return buffer;
     }
+
 
     /*
      * UnsubscribeAnnounces stream in
@@ -640,26 +657,27 @@ namespace quicr::messages {
         return buffer;
     }
 
+
     /*
-     * MaxSubscribeId stream in
+     * MaxRequestId stream in
      */
-    BytesSpan operator>>(BytesSpan buffer, MaxSubscribeId& msg)
+    BytesSpan operator>>(BytesSpan buffer, MaxRequestId& msg)
     {
-        buffer = buffer >> msg.subscribe_id; // (i)  >> SubscribeID
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
         return buffer;
     }
 
     /*
-     * MaxSubscribeId stream out
+     * MaxRequestId stream out
      */
-    Bytes& operator<<(Bytes& buffer, const MaxSubscribeId& msg)
+    Bytes& operator<<(Bytes& buffer, const MaxRequestId& msg)
     {
         Bytes payload;
         // fill out payload
-        payload << msg.subscribe_id; // (i)  << SubscribeID
+        payload << msg.request_id; // (i)  << RequestID
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kMaxSubscribeId);
+        buffer << static_cast<std::uint64_t>(ControlMessageType::kMaxRequestId);
         buffer << payload;
         return buffer;
     }
@@ -667,9 +685,12 @@ namespace quicr::messages {
     /*
      * Fetch stream in constructor
      */
-    Fetch::Fetch(std::function<void(Fetch&)> group_0_cb, std::function<void(Fetch&)> group_1_cb)
-      : group_0_cb(group_0_cb)
-      , group_1_cb(group_1_cb)
+    Fetch::Fetch(
+            std::function<void (Fetch&)> group_0_cb,
+            std::function<void (Fetch&)> group_1_cb
+        ):
+            group_0_cb(group_0_cb),
+            group_1_cb(group_1_cb)
     {
     }
 
@@ -678,18 +699,14 @@ namespace quicr::messages {
      */
     BytesSpan operator>>(BytesSpan buffer, Fetch& msg)
     {
-        buffer = buffer >> msg.subscribe_id;        // (i)  >> SubscribeID
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
         buffer = buffer >> msg.subscriber_priority; // (8)  >> SubscriberPriority
-        buffer = buffer >> msg.group_order;         // (8)  >> GroupOrder
-        buffer = buffer >> msg.fetch_type;          // (i)  >> FetchType
-        if (msg.group_0_cb) {
-            msg.group_0_cb(msg);
-        }
+        buffer = buffer >> msg.group_order; // (8)  >> GroupOrder
+        buffer = buffer >> msg.fetch_type; // (i)  >> FetchType
+        if (msg.group_0_cb) { msg.group_0_cb(msg); }
         buffer = buffer >> msg.group_0; // (optional group)  >> Fetch::Group_0
-        if (msg.group_1_cb) {
-            msg.group_1_cb(msg);
-        }
-        buffer = buffer >> msg.group_1;    // (optional group)  >> Fetch::Group_1
+        if (msg.group_1_cb) { msg.group_1_cb(msg); }
+        buffer = buffer >> msg.group_1; // (optional group)  >> Fetch::Group_1
         buffer = buffer >> msg.parameters; // (..) ... >> Parameters
         return buffer;
     }
@@ -701,13 +718,13 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
-        payload << msg.subscribe_id;        // (i)  << SubscribeID
+        payload << msg.request_id; // (i)  << RequestID
         payload << msg.subscriber_priority; // (8)  << SubscriberPriority
-        payload << msg.group_order;         // (8)  << GroupOrder
-        payload << msg.fetch_type;          // (i)  << FetchType
-        payload << msg.group_0;             // (optional group)  << Fetch::Group_0
-        payload << msg.group_1;             // (optional group)  << Fetch::Group_1
-        payload << msg.parameters;          // (..) ... << Parameters
+        payload << msg.group_order; // (8)  << GroupOrder
+        payload << msg.fetch_type; // (i)  << FetchType
+        payload << msg.group_0; // (optional group)  << Fetch::Group_0
+        payload << msg.group_1; // (optional group)  << Fetch::Group_1
+        payload << msg.parameters; // (..) ... << Parameters
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kFetch);
@@ -719,41 +736,41 @@ namespace quicr::messages {
     {
         if (grp.has_value()) {
             buffer = buffer >> grp->track_namespace; // (tuple) >> TrackNamespace
-            buffer = buffer >> grp->track_name;      // (..) >> TrackName
-            buffer = buffer >> grp->start_group;     // (i) >> StartGroup
-            buffer = buffer >> grp->start_object;    // (i) >> StartObject
-            buffer = buffer >> grp->end_group;       // (i) >> EndGroup
-            buffer = buffer >> grp->end_object;      // (i) >> EndObject
+            buffer = buffer >> grp->track_name; // (..) >> TrackName
+            buffer = buffer >> grp->start_group; // (i) >> StartGroup
+            buffer = buffer >> grp->start_object; // (i) >> StartObject
+            buffer = buffer >> grp->end_group; // (i) >> EndGroup
+            buffer = buffer >> grp->end_object; // (i) >> EndObject
         }
         return buffer;
-    }
+    }  
 
     Bytes& operator<<(Bytes& buffer, const std::optional<Fetch::Group_0>& grp)
     {
         if (grp.has_value()) {
             buffer << grp->track_namespace; // (tuple) << TrackNamespace
-            buffer << grp->track_name;      // (..) << TrackName
-            buffer << grp->start_group;     // (i) << StartGroup
-            buffer << grp->start_object;    // (i) << StartObject
-            buffer << grp->end_group;       // (i) << EndGroup
-            buffer << grp->end_object;      // (i) << EndObject
+            buffer << grp->track_name; // (..) << TrackName
+            buffer << grp->start_group; // (i) << StartGroup
+            buffer << grp->start_object; // (i) << StartObject
+            buffer << grp->end_group; // (i) << EndGroup
+            buffer << grp->end_object; // (i) << EndObject
         }
         return buffer;
     }
     BytesSpan operator>>(BytesSpan buffer, std::optional<Fetch::Group_1>& grp)
     {
         if (grp.has_value()) {
-            buffer = buffer >> grp->joining_subscribe_id;   // (i) >> JoiningSubscribeID
-            buffer = buffer >> grp->preceding_group_offset; // (i) >> PrecedingGroupOffset
+            buffer = buffer >> grp->joining_subscribe_id; // (i) >> JoiningSubscribeID
+            buffer = buffer >> grp->joining_start; // (i) >> JoiningStart
         }
         return buffer;
-    }
+    }  
 
     Bytes& operator<<(Bytes& buffer, const std::optional<Fetch::Group_1>& grp)
     {
         if (grp.has_value()) {
-            buffer << grp->joining_subscribe_id;   // (i) << JoiningSubscribeID
-            buffer << grp->preceding_group_offset; // (i) << PrecedingGroupOffset
+            buffer << grp->joining_subscribe_id; // (i) << JoiningSubscribeID
+            buffer << grp->joining_start; // (i) << JoiningStart
         }
         return buffer;
     }
@@ -763,7 +780,7 @@ namespace quicr::messages {
      */
     BytesSpan operator>>(BytesSpan buffer, FetchCancel& msg)
     {
-        buffer = buffer >> msg.subscribe_id; // (i)  >> SubscribeID
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
         return buffer;
     }
 
@@ -774,7 +791,7 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
-        payload << msg.subscribe_id; // (i)  << SubscribeID
+        payload << msg.request_id; // (i)  << RequestID
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kFetchCancel);
@@ -782,16 +799,16 @@ namespace quicr::messages {
         return buffer;
     }
 
+
     /*
      * FetchOk stream in
      */
     BytesSpan operator>>(BytesSpan buffer, FetchOk& msg)
     {
-        buffer = buffer >> msg.subscribe_id;         // (i)  >> SubscribeID
-        buffer = buffer >> msg.group_order;          // (8)  >> GroupOrder
-        buffer = buffer >> msg.end_of_track;         // (8)  >> EndOfTrack
-        buffer = buffer >> msg.largest_group_id;     // (i)  >> LargestGroupID
-        buffer = buffer >> msg.largest_object_id;    // (i)  >> LargestObjectID
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
+        buffer = buffer >> msg.group_order; // (8)  >> GroupOrder
+        buffer = buffer >> msg.end_of_track; // (8)  >> EndOfTrack
+        buffer = buffer >> msg.end_location; // (Location)  >> EndLocation
         buffer = buffer >> msg.subscribe_parameters; // (..) ... >> SubscribeParameters
         return buffer;
     }
@@ -803,11 +820,10 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
-        payload << msg.subscribe_id;         // (i)  << SubscribeID
-        payload << msg.group_order;          // (8)  << GroupOrder
-        payload << msg.end_of_track;         // (8)  << EndOfTrack
-        payload << msg.largest_group_id;     // (i)  << LargestGroupID
-        payload << msg.largest_object_id;    // (i)  << LargestObjectID
+        payload << msg.request_id; // (i)  << RequestID
+        payload << msg.group_order; // (8)  << GroupOrder
+        payload << msg.end_of_track; // (8)  << EndOfTrack
+        payload << msg.end_location; // (Location)  << EndLocation
         payload << msg.subscribe_parameters; // (..) ... << SubscribeParameters
 
         // fill out buffer
@@ -816,14 +832,15 @@ namespace quicr::messages {
         return buffer;
     }
 
+
     /*
      * FetchError stream in
      */
     BytesSpan operator>>(BytesSpan buffer, FetchError& msg)
     {
-        buffer = buffer >> msg.subscribe_id;  // (i)  >> SubscribeID
-        buffer = buffer >> msg.error_code;    // (i)  >> FetchErrorErrorCode
-        buffer = buffer >> msg.reason_phrase; // (..)  >> ReasonPhrase
+        buffer = buffer >> msg.request_id; // (i)  >> RequestID
+        buffer = buffer >> msg.error_code; // (i)  >> FetchErrorErrorCode
+        buffer = buffer >> msg.error_reason; // (Reason Phrase)  >> ErrorReason
         return buffer;
     }
 
@@ -834,9 +851,9 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
-        payload << msg.subscribe_id;  // (i)  << SubscribeID
-        payload << msg.error_code;    // (i)  << FetchErrorErrorCode
-        payload << msg.reason_phrase; // (..)  << ReasonPhrase
+        payload << msg.request_id; // (i)  << RequestID
+        payload << msg.error_code; // (i)  << FetchErrorErrorCode
+        payload << msg.error_reason; // (Reason Phrase)  << ErrorReason
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kFetchError);
@@ -844,29 +861,31 @@ namespace quicr::messages {
         return buffer;
     }
 
+
     /*
-     * SubscribesBlocked stream in
+     * RequestsBlocked stream in
      */
-    BytesSpan operator>>(BytesSpan buffer, SubscribesBlocked& msg)
+    BytesSpan operator>>(BytesSpan buffer, RequestsBlocked& msg)
     {
-        buffer = buffer >> msg.maximum_subscribe_id; // (i)  >> MaximumSubscribeID
+        buffer = buffer >> msg.maximum_request_id; // (i)  >> MaximumRequestID
         return buffer;
     }
 
     /*
-     * SubscribesBlocked stream out
+     * RequestsBlocked stream out
      */
-    Bytes& operator<<(Bytes& buffer, const SubscribesBlocked& msg)
+    Bytes& operator<<(Bytes& buffer, const RequestsBlocked& msg)
     {
         Bytes payload;
         // fill out payload
-        payload << msg.maximum_subscribe_id; // (i)  << MaximumSubscribeID
+        payload << msg.maximum_request_id; // (i)  << MaximumRequestID
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribesBlocked);
+        buffer << static_cast<std::uint64_t>(ControlMessageType::kRequestsBlocked);
         buffer << payload;
         return buffer;
     }
+
 
     /*
      * ClientSetup stream in
@@ -874,7 +893,7 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, ClientSetup& msg)
     {
         buffer = buffer >> msg.supported_versions; // (i) ... >> SupportedVersions
-        buffer = buffer >> msg.setup_parameters;   // (..) ... >> SetupParameters
+        buffer = buffer >> msg.setup_parameters; // (..) ... >> SetupParameters
         return buffer;
     }
 
@@ -886,13 +905,14 @@ namespace quicr::messages {
         Bytes payload;
         // fill out payload
         payload << msg.supported_versions; // (i) ... << SupportedVersions
-        payload << msg.setup_parameters;   // (..) ... << SetupParameters
+        payload << msg.setup_parameters; // (..) ... << SetupParameters
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kClientSetup);
         buffer << payload;
         return buffer;
     }
+
 
     /*
      * ServerSetup stream in
@@ -920,13 +940,14 @@ namespace quicr::messages {
         return buffer;
     }
 
+
     /*
      * NewGroupRequest stream in
      */
     BytesSpan operator>>(BytesSpan buffer, NewGroupRequest& msg)
     {
         buffer = buffer >> msg.subscribe_id; // (i)  >> SubscribeID
-        buffer = buffer >> msg.track_alias;  // (i)  >> TrackAlias
+        buffer = buffer >> msg.track_alias; // (i)  >> TrackAlias
         return buffer;
     }
 
@@ -938,7 +959,7 @@ namespace quicr::messages {
         Bytes payload;
         // fill out payload
         payload << msg.subscribe_id; // (i)  << SubscribeID
-        payload << msg.track_alias;  // (i)  << TrackAlias
+        payload << msg.track_alias; // (i)  << TrackAlias
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kNewGroupRequest);
@@ -946,13 +967,15 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, ControlMessageType message_type)
+
+   
+    Bytes &operator<<(Bytes &buffer, ControlMessageType message_type)
     {
         UintVar varint = static_cast<std::uint64_t>(message_type);
         buffer << varint;
         return buffer;
     }
-
+  
     Bytes& operator<<(Bytes& buffer, const TrackNamespace& ns)
     {
         const auto& entries = ns.GetEntries();
@@ -972,13 +995,14 @@ namespace quicr::messages {
 
         std::vector<Bytes> entries(size);
         for (auto& entry : entries) {
-
+ 
             buffer = buffer >> entry;
         }
 
         msg = TrackNamespace{ entries };
 
         return buffer;
-    }
+    } 
 
 } // namespace
+

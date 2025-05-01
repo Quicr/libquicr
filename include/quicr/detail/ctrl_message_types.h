@@ -18,6 +18,16 @@ namespace quicr::messages {
 
     using GroupId = uint64_t;
     using ObjectId = uint64_t;
+    // TODO(RichLogan): Remove when ErrorReason -> ReasonPhrase.
+    using ReasonPhrase = Bytes;
+
+    struct Location
+    {
+        GroupId group{ 0 };
+        ObjectId object{ 0 };
+    };
+    Bytes& operator<<(Bytes& buffer, const Location& location);
+    BytesSpan operator>>(BytesSpan buffer, Location& location);
 
     /// MoQ Key Value Pair.
     template<typename T>

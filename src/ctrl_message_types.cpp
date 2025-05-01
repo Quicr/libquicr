@@ -100,4 +100,46 @@ namespace quicr::messages {
         return buffer;
     }
 
+    Bytes& operator<<(Bytes& buffer, SubscribeDoneStatusCode value)
+    {
+        buffer << static_cast<std::uint64_t>(value);
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribeDoneStatusCode& value)
+    {
+        std::uint64_t uvalue;
+        buffer = buffer >> uvalue;
+        value = static_cast<SubscribeDoneStatusCode>(uvalue);
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, SubscribeErrorCode value)
+    {
+        buffer << static_cast<std::uint64_t>(value);
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribeErrorCode& value)
+    {
+        std::uint64_t uvalue;
+        buffer = buffer >> uvalue;
+        value = static_cast<SubscribeErrorCode>(uvalue);
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, const Location& location)
+    {
+        buffer << UintVar(location.group);
+        buffer << UintVar(location.object);
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, Location& location)
+    {
+        buffer = buffer >> location.group;
+        buffer = buffer >> location.object;
+        return buffer;
+    }
+
 }
