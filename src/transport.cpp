@@ -293,13 +293,12 @@ namespace quicr {
     void Transport::SendSubscribeUpdate(quicr::Transport::ConnectionContext& conn_ctx,
                                         uint64_t subscribe_id,
                                         quicr::TrackHash th,
-                                        messages::GroupId start_group_id,
-                                        messages::ObjectId start_object_id,
+                                        Location start_location,
                                         messages::GroupId end_group_id,
                                         messages::SubscriberPriority priority)
     {
         auto subscribe_update =
-          messages::SubscribeUpdate(subscribe_id, start_group_id, start_object_id, end_group_id, priority, {});
+          messages::SubscribeUpdate(subscribe_id, start_location, end_group_id, end_group_id, priority, {});
 
         Bytes buffer;
         buffer << subscribe_update;
@@ -691,7 +690,7 @@ namespace quicr {
           logger_, "subscribe id (from subscribe) to add to memory: {0}", track_handler->GetSubscribeId().value());
 
         auto priority = track_handler->GetPriority();
-        SendSubscribeUpdate(conn_it->second, track_handler->GetSubscribeId().value(), th, 0x0, 0x0, 0x0, priority);
+        SendSubscribeUpdate(conn_it->second, track_handler->GetSubscribeId().value(), th, {0x0, 0x0}, 0x0, priority);
     }
 
     void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx,

@@ -49,9 +49,8 @@ namespace quicr {
                   conn_it->second,
                   subscribe_id,
                   kSubscribeExpires,
-                  subscribe_response.largest_group_id.has_value() && subscribe_response.largest_object_id.has_value(),
-                  subscribe_response.largest_group_id.has_value() ? subscribe_response.largest_group_id.value() : 0,
-                  subscribe_response.largest_object_id.has_value() ? subscribe_response.largest_object_id.value() : 0);
+                  subscribe_response.largest_location.has_value(),
+                  subscribe_response.largest_location.has_value() ? subscribe_response.largest_location.value() : messages::Location());
                 break;
             }
 
@@ -216,11 +215,9 @@ namespace quicr {
                       "Received subscribe ok conn_id: {} subscribe_id: {} latest_group: {} latest_object: {}",
                       conn_ctx.connection_handle,
                       msg.subscribe_id,
-                      msg.group_0->largest_group_id,
-                      msg.group_0->largest_object_id);
+                      msg.group_0->largest_location);
 
-                    sub_it->second.get()->SetLatestGroupID(msg.group_0->largest_group_id);
-                    sub_it->second.get()->SetLatestObjectID(msg.group_0->largest_object_id);
+                    sub_it->second.get()->SetLargestLocation(msg.group_0->largest_location);
                 }
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
                 return true;

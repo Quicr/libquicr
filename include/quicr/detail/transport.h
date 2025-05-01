@@ -318,8 +318,7 @@ namespace quicr {
         void SendSubscribeUpdate(ConnectionContext& conn_ctx,
                                  uint64_t subscribe_id,
                                  TrackHash th,
-                                 messages::GroupId start_group_id,
-                                 messages::ObjectId start_object_id,
+                                 messages::Location start_location,
                                  messages::GroupId end_group_id,
                                  messages::SubscriberPriority priority);
 
@@ -327,8 +326,7 @@ namespace quicr {
                              uint64_t subscribe_id,
                              uint64_t expires,
                              bool content_exists,
-                             messages::GroupId largest_group_id,
-                             messages::ObjectId largest_object_id);
+                             messages::Location largest_location);
         void SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id);
         void SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason);
         void SendSubscribeError(ConnectionContext& conn_ctx,
@@ -366,8 +364,7 @@ namespace quicr {
                          uint64_t subscribe_id,
                          messages::GroupOrder group_order,
                          bool end_of_track,
-                         messages::GroupId largest_group_id,
-                         messages::GroupId largest_object_id);
+                         messages::Location end_location);
         void SendFetchError(ConnectionContext& conn_ctx,
                             uint64_t subscribe_id,
                             messages::FetchErrorCode error,

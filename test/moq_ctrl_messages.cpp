@@ -231,8 +231,7 @@ TEST_CASE("Subscribe (kAbsoluteStart) Message encode/decode")
     Bytes buffer;
 
     auto group_0 = std::make_optional<Subscribe::Group_0>();
-    group_0->start_group = 0x1000;
-    group_0->start_object = 0xFF;
+    group_0->start_location = { 0x1000, 0xFF };
 
     auto subscribe = quicr::messages::Subscribe(0x1,
                                                 uint64_t(kTrackAliasAliceVideo),
@@ -268,8 +267,7 @@ TEST_CASE("Subscribe (kAbsoluteStart) Message encode/decode")
     CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
     CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
-    CHECK_EQ(subscribe.group_0->start_group, subscribe_out.group_0->start_group);
-    CHECK_EQ(subscribe.group_0->start_object, subscribe_out.group_0->start_object);
+    CHECK_EQ(subscribe.group_0->start_location, subscribe_out.group_0->start_location);
 }
 
 TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
@@ -278,8 +276,7 @@ TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
 
     auto group_0 = std::make_optional<Subscribe::Group_0>();
     if (group_0.has_value()) {
-        group_0->start_group = 0x1000;
-        group_0->start_object = 0x1;
+        group_0->start_location = { 0x1000, 0x1 };
     }
     auto group_1 = std::make_optional<Subscribe::Group_1>();
     if (group_1.has_value()) {
@@ -320,8 +317,7 @@ TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
     CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
     CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
-    CHECK_EQ(subscribe.group_0->start_group, subscribe_out.group_0->start_group);
-    CHECK_EQ(subscribe.group_0->start_object, subscribe_out.group_0->start_object);
+    CHECK_EQ(subscribe.group_0->start_location, subscribe_out.group_0->start_location);
     CHECK_EQ(subscribe.group_1->end_group, subscribe_out.group_1->end_group);
 }
 
@@ -458,13 +454,11 @@ GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uin
             break;
         case FilterType::kAbsoluteStart:
             out.group_0 = std::make_optional<Subscribe::Group_0>();
-            out.group_0->start_group = sg;
-            out.group_0->start_object = so;
+            out.group_0->start_location = { sg, so };
             break;
         case FilterType::kAbsoluteRange:
             out.group_0 = std::make_optional<Subscribe::Group_0>();
-            out.group_0->start_group = sg;
-            out.group_0->start_object = so;
+            out.group_0->start_location = { sg, so };
             out.group_1 = std::make_optional<Subscribe::Group_1>();
             out.group_1->end_group = eg;
             break;
@@ -533,8 +527,7 @@ TEST_CASE("SubscribeUpdate Message encode/decode")
 
     auto subscribe_update = SubscribeUpdate{};
     subscribe_update.subscribe_id = 0x1;
-    subscribe_update.start_group = uint64_t(0x1000);
-    subscribe_update.start_object = uint64_t(0x100);
+    subscribe_update.start_location = {uint64_t(0x1000), uint64_t(0x100) };
     subscribe_update.end_group = uint64_t(0x2000);
     subscribe_update.subscriber_priority = static_cast<SubscriberPriority>(0x10);
 
@@ -542,8 +535,8 @@ TEST_CASE("SubscribeUpdate Message encode/decode")
 
     SubscribeUpdate subscribe_update_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeUpdate), subscribe_update_out));
-    CHECK_EQ(0x1000, subscribe_update_out.start_group);
-    CHECK_EQ(0x100, subscribe_update_out.start_object);
+    CHECK_EQ(0x1000, subscribe_update_out.start_location.group);
+    CHECK_EQ(0x100, subscribe_update_out.start_location.object);
     CHECK_EQ(subscribe_update.subscribe_id, subscribe_update_out.subscribe_id);
     CHECK_EQ(0x2000, subscribe_update_out.end_group);
     CHECK_EQ(subscribe_update.subscriber_priority, subscribe_update_out.subscriber_priority);
@@ -574,8 +567,7 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
     Bytes buffer;
 
     auto group_0 = std::make_optional<SubscribeOk::Group_0>();
-    group_0->largest_group_id = 100;
-    group_0->largest_object_id = 200;
+    group_0->largest_location = { 100, 200 };
 
     auto subscribe_ok = SubscribeOk(0x01, 0x100, GroupOrder::kAscending, 0x01, nullptr, group_0, {});
 
@@ -592,8 +584,7 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
     CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
     CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
     CHECK_EQ(subscribe_ok.group_0.has_value(), subscribe_ok_out.group_0.has_value());
-    CHECK_EQ(subscribe_ok.group_0->largest_group_id, subscribe_ok_out.group_0->largest_group_id);
-    CHECK_EQ(subscribe_ok.group_0->largest_object_id, subscribe_ok_out.group_0->largest_object_id);
+    CHECK_EQ(subscribe_ok.group_0->largest_location, subscribe_ok_out.group_0->largest_location);
 }
 
 TEST_CASE("Error  Message encode/decode")
@@ -793,8 +784,7 @@ TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
     auto fetch_ok = FetchOk{};
     fetch_ok.subscribe_id = 0x1234;
     fetch_ok.group_order = GroupOrder::kDescending;
-    fetch_ok.largest_group_id = 0x9999;
-    fetch_ok.largest_object_id = 0x9991;
+    fetch_ok.end_location = { 0x9999, 0x9991 };
 
     buffer << fetch_ok;
 
@@ -802,8 +792,7 @@ TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetchOk), fetch_ok_out));
     CHECK_EQ(fetch_ok.subscribe_id, fetch_ok_out.subscribe_id);
     CHECK_EQ(fetch_ok.group_order, fetch_ok_out.group_order);
-    CHECK_EQ(fetch_ok.largest_group_id, fetch_ok_out.largest_group_id);
-    CHECK_EQ(fetch_ok.largest_object_id, fetch_ok_out.largest_object_id);
+    CHECK_EQ(fetch_ok.end_location, fetch_ok_out.end_location);
 
     buffer.clear();
     auto fetch_cancel = FetchCancel{};
