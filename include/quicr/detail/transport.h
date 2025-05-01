@@ -245,7 +245,7 @@ namespace quicr {
 
             std::vector<uint8_t> ctrl_msg_buffer; ///< Control message buffer
 
-            uint64_t current_subscribe_id{ 0 }; ///< Connection specific ID for subscribe messages
+            uint64_t current_request_id{ 0 }; ///< Connection specific ID for control messages messages
 
             /// Subscribe Context by received subscribe IDs
             /// Used to map published tracks to subscribes in client mode and to handle joining fetch lookups

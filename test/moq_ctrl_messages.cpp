@@ -329,7 +329,7 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
 {
     Bytes buffer;
     Parameter param;
-    param.type = ParameterType::kMaxSubscribeId;
+    param.type = ParameterType::kMaxRequestId;
     param.value = { 0x1, 0x2 };
     SubscribeParameters params = { param };
 
@@ -378,12 +378,12 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 {
     Bytes buffer;
     Parameter param1;
-    param1.type = ParameterType::kMaxSubscribeId;
+    param1.type = ParameterType::kMaxRequestId;
     // param1.length = 0x2;
     param1.value = { 0x1, 0x2 };
 
     Parameter param2;
-    param2.type = ParameterType::kMaxSubscribeId;
+    param2.type = ParameterType::kMaxRequestId;
     // param2.length = 0x3;
     param2.value = { 0x1, 0x2, 0x3 };
 
@@ -474,7 +474,7 @@ GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uin
 
     while (num_params > 0) {
         Parameter param1;
-        param1.type = ParameterType::kMaxSubscribeId;
+        param1.type = ParameterType::kMaxRequestId;
         // param1.length = 0x2;
         param1.value = { 0x1, 0x2 };
         out.subscribe_parameters.push_back(param1);

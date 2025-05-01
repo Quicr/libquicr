@@ -616,11 +616,11 @@ namespace quicr {
             return;
         }
 
-        auto sid = conn_it->second.current_subscribe_id++;
+        auto sid = conn_it->second.current_request_id++;
 
         SPDLOG_LOGGER_DEBUG(logger_, "subscribe id (from subscribe) to add to memory: {0}", sid);
 
-        track_handler->SetSubscribeId(sid);
+        track_handler->SetRequestId(sid);
 
         auto priority = track_handler->GetPriority();
         auto group_order = track_handler->GetGroupOrder();
@@ -642,7 +642,7 @@ namespace quicr {
             // Make a joining fetch handler.
             const auto joining_fetch_handler = std::make_shared<JoiningFetchHandler>(track_handler);
             const auto& info = *joining_fetch;
-            const auto fetch_sid = conn_it->second.current_subscribe_id++;
+            const auto fetch_sid = conn_it->second.current_request_id++;
             SPDLOG_LOGGER_INFO(logger_,
                                "Subscribe with joining fetch conn_id: {0} track_alias: {1} subscribe id: {2} "
                                "joining subscribe id: {3}",
@@ -683,15 +683,15 @@ namespace quicr {
             return;
         }
 
-        if (not track_handler->GetSubscribeId().has_value()) {
+        if (not track_handler->GetRequestId().has_value()) {
             return;
         }
 
         SPDLOG_LOGGER_DEBUG(
-          logger_, "subscribe id (from subscribe) to add to memory: {0}", track_handler->GetSubscribeId().value());
+          logger_, "subscribe id (from subscribe) to add to memory: {0}", track_handler->GetRequestId().value());
 
         auto priority = track_handler->GetPriority();
-        SendSubscribeUpdate(conn_it->second, track_handler->GetSubscribeId().value(), th, 0x0, 0x0, 0x0, priority);
+        SendSubscribeUpdate(conn_it->second, track_handler->GetRequestId().value(), th, 0x0, 0x0, 0x0, priority);
     }
 
     void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx,
@@ -700,9 +700,9 @@ namespace quicr {
     {
         handler.SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
 
-        auto subscribe_id = handler.GetSubscribeId();
+        auto subscribe_id = handler.GetRequestId();
 
-        handler.SetSubscribeId(std::nullopt);
+        handler.SetRequestId(std::nullopt);
 
         if (subscribe_id.has_value()) {
             SendUnsubscribe(conn_ctx, *subscribe_id);
@@ -744,7 +744,7 @@ namespace quicr {
             if (pub_n_it != pub_ns_it->second.end()) {
                 // Send subscribe done if track has subscriber and is sending
                 if (pub_n_it->second->GetStatus() == PublishTrackHandler::Status::kOk &&
-                    pub_n_it->second->GetSubscribeId().has_value()) {
+                    pub_n_it->second->GetRequestId().has_value()) {
                     SPDLOG_LOGGER_INFO(
                       logger_,
                       "Unpublish track namespace hash: {0} track_name_hash: {1} track_alias: {2}, sending "
@@ -752,7 +752,7 @@ namespace quicr {
                       th.track_namespace_hash,
                       th.track_name_hash,
                       th.track_fullname_hash);
-                    SendSubscribeDone(conn_it->second, *pub_n_it->second->GetSubscribeId(), "Unpublish track");
+                    SendSubscribeDone(conn_it->second, *pub_n_it->second->GetRequestId(), "Unpublish track");
                 } else {
                     SPDLOG_LOGGER_INFO(logger_,
                                        "Unpublish track namespace hash: {0} track_name_hash: {1} track_alias: {2}",
@@ -891,11 +891,11 @@ namespace quicr {
             return;
         }
 
-        auto sid = conn_it->second.current_subscribe_id++;
+        auto sid = conn_it->second.current_request_id++;
 
         SPDLOG_LOGGER_DEBUG(logger_, "subscribe id (from fetch) to add to memory: {0}", sid);
 
-        track_handler->SetSubscribeId(sid);
+        track_handler->SetRequestId(sid);
 
         auto priority = track_handler->GetPriority();
         auto group_order = track_handler->GetGroupOrder();
@@ -921,14 +921,14 @@ namespace quicr {
             return;
         }
 
-        const auto sub_id = track_handler->GetSubscribeId();
+        const auto sub_id = track_handler->GetRequestId();
         if (!sub_id.has_value()) {
             return;
         }
 
         SendFetchCancel(conn_it->second, sub_id.value());
 
-        track_handler->SetSubscribeId(std::nullopt);
+        track_handler->SetRequestId(std::nullopt);
         track_handler->SetStatus(FetchTrackHandler::Status::kNotConnected);
     }
 
@@ -942,7 +942,7 @@ namespace quicr {
             return PublishTrackHandler::PublishObjectStatus::kNotAnnounced;
         }
 
-        if (!track_handler.GetSubscribeId().has_value()) {
+        if (!track_handler.GetRequestId().has_value()) {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
 
@@ -986,7 +986,7 @@ namespace quicr {
             return PublishTrackHandler::PublishObjectStatus::kNotAnnounced;
         }
 
-        if (!track_handler.GetSubscribeId().has_value()) {
+        if (!track_handler.GetRequestId().has_value()) {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
 
@@ -1084,7 +1084,7 @@ namespace quicr {
         // Notify publish handlers of disconnect
         for (const auto& [data_ctx_id, handler] : conn_ctx.pub_tracks_by_data_ctx_id) {
             handler->SetStatus(PublishTrackHandler::Status::kNotConnected);
-            handler->SetSubscribeId(std::nullopt);
+            handler->SetRequestId(std::nullopt);
         }
 
         conn_ctx.pub_tracks_by_data_ctx_id.clear();

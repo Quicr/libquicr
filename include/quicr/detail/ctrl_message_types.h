@@ -30,7 +30,7 @@ namespace quicr::messages {
     enum struct ParameterType : uint64_t
     {
         kPath = 0x1,
-        kMaxSubscribeId = 0x2, // version specific, unused
+        kMaxRequestId = 0x2,   // version specific, unused
         kEndpointId = 0xF0,    // Endpoint ID, using temp value for now
         kInvalid = 0xFF,       // used internally.
     };
