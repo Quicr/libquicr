@@ -289,15 +289,12 @@ namespace quicr {
          */
         virtual void UnsubscribeReceived(ConnectionHandle connection_handle, uint64_t subscribe_id) = 0;
 
-        // TODO: Their is probably a distinction between track not found, and no objects.
-        using LargestAvailable = std::optional<std::pair<messages::GroupId, messages::ObjectId>>;
-
         /**
-         * @brief Get the largest available object for the given track, if any.
+         * @brief Get the largest available location for the given track, if any.
          * @param track_name The track to lookup on.
-         * @return The largest available object, if any.
+         * @return The largest available location, if any.
          */
-        virtual LargestAvailable GetLargestAvailable(const FullTrackName& track_name);
+        virtual std::optional<messages::Location> GetLargestAvailable(const FullTrackName& track_name);
 
         /**
          * @brief Event to run on sending FetchOk.
