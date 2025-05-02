@@ -252,8 +252,7 @@ namespace quicr {
             struct SubscribeContext
             {
                 FullTrackName track_full_name;
-                std::optional<messages::GroupId> largest_group_id{ std::nullopt };
-                std::optional<messages::ObjectId> largest_object_id{ std::nullopt };
+                std::optional<messages::Location> largest_location{ std::nullopt };
             };
             std::map<messages::SubscribeID, SubscribeContext> recv_sub_id;
 

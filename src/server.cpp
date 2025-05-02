@@ -100,17 +100,16 @@ namespace quicr {
             case SubscribeResponse::ReasonCode::kOk: {
                 // Save the latest state for joining fetch.
                 assert(conn_it->second.recv_sub_id.find(subscribe_id) != conn_it->second.recv_sub_id.end());
-                conn_it->second.recv_sub_id[subscribe_id].largest_group_id = subscribe_response.largest_group_id;
-                conn_it->second.recv_sub_id[subscribe_id].largest_object_id = subscribe_response.largest_object_id;
+                conn_it->second.recv_sub_id[subscribe_id].largest_location = subscribe_response.largest_location;
 
                 // Send the ok.
-                SendSubscribeOk(
-                  conn_it->second,
-                  subscribe_id,
-                  kSubscribeExpires,
-                  subscribe_response.largest_group_id.has_value() && subscribe_response.largest_object_id.has_value(),
-                  subscribe_response.largest_group_id.has_value() ? subscribe_response.largest_group_id.value() : 0,
-                  subscribe_response.largest_object_id.has_value() ? subscribe_response.largest_object_id.value() : 0);
+                SendSubscribeOk(conn_it->second,
+                                subscribe_id,
+                                kSubscribeExpires,
+                                subscribe_response.largest_location.has_value(),
+                                subscribe_response.largest_location.has_value()
+                                  ? subscribe_response.largest_location.value()
+                                  : messages::Location());
                 break;
             }
             case SubscribeResponse::ReasonCode::kRetryTrackAlias: {

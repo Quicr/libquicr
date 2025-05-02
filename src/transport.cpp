@@ -318,10 +318,9 @@ namespace quicr {
                                     uint64_t subscribe_id,
                                     uint64_t expires,
                                     bool content_exists,
-                                    messages::LargestGroupID largest_group_id,
-                                    messages::LargestObjectID largest_object_id)
+                                    Location largest_location)
     {
-        auto group_0 = std::make_optional<messages::SubscribeOk::Group_0>() = { largest_group_id, largest_object_id };
+        auto group_0 = std::make_optional<messages::SubscribeOk::Group_0>() = { largest_location };
         auto subscribe_ok = messages::SubscribeOk(
           subscribe_id, expires, messages::GroupOrder::kAscending, content_exists, nullptr, group_0, {});
 
@@ -543,10 +542,9 @@ namespace quicr {
                                 uint64_t subscribe_id,
                                 messages::GroupOrder group_order,
                                 bool end_of_track,
-                                messages::GroupId largest_group,
-                                messages::GroupId largest_object)
+                                Location largest_location)
     {
-        auto fetch_ok = messages::FetchOk(subscribe_id, group_order, end_of_track, largest_group, largest_object, {});
+        auto fetch_ok = messages::FetchOk(subscribe_id, group_order, end_of_track, largest_location, {});
 
         Bytes buffer;
         buffer << fetch_ok;
@@ -690,7 +688,7 @@ namespace quicr {
           logger_, "subscribe id (from subscribe) to add to memory: {0}", track_handler->GetSubscribeId().value());
 
         auto priority = track_handler->GetPriority();
-        SendSubscribeUpdate(conn_it->second, track_handler->GetSubscribeId().value(), th, {0x0, 0x0}, 0x0, priority);
+        SendSubscribeUpdate(conn_it->second, track_handler->GetSubscribeId().value(), th, { 0x0, 0x0 }, 0x0, priority);
     }
 
     void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx,
