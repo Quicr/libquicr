@@ -1248,14 +1248,15 @@ namespace quicr {
                         conn_ctx.ctrl_msg_type_received = static_cast<ControlMessageType>(msg_type);
                     }
 
+                    uint16_t payload_len = 0;
+
                     // Decode control payload length in bytes
-                    if (conn_ctx.ctrl_msg_buffer.size() < 2) {
+                    if (conn_ctx.ctrl_msg_buffer.size() < sizeof(payload_len)) {
                         i = kReadLoopMaxPerStream - 4;
                         break; // Not enough bytes to process control message. Try again once more.
                     }
 
-                    uint16_t payload_len = 0;
-                    std::memcpy(&payload_len, conn_ctx.ctrl_msg_buffer.data(), 2);
+                    std::memcpy(&payload_len, conn_ctx.ctrl_msg_buffer.data(), sizeof(payload_len));
                     payload_len = SwapBytes(payload_len);
 
                     if (conn_ctx.ctrl_msg_buffer.size() < payload_len + sizeof(payload_len)) {
