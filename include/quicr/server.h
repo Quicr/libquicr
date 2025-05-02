@@ -44,7 +44,7 @@ namespace quicr {
             };
             ReasonCode reason_code;
 
-            std::optional<Bytes> reason_phrase;
+            std::optional<messages::ReasonPhrase> error_reason;
         };
 
         /**

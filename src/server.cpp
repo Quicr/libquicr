@@ -118,8 +118,8 @@ namespace quicr {
                                        subscribe_id,
                                        *subscribe_response.track_alias,
                                        messages::SubscribeErrorCode::kRetryTrackAlias,
-                                       subscribe_response.reason_phrase.has_value() ? *subscribe_response.reason_phrase
-                                                                                    : "internal error");
+                                       subscribe_response.error_reason.has_value() ? *subscribe_response.error_reason
+                                                                                   : "internal error");
                 } else {
                     SendSubscribeError(conn_it->second,
                                        subscribe_id,
@@ -496,7 +496,7 @@ namespace quicr {
                 std::string reason = "unknown";
                 auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
                 auto th = TrackHash(tfn);
-                reason.assign(msg.reason_phrase.begin(), msg.reason_phrase.end());
+                reason.assign(msg.error_reason.begin(), msg.error_reason.end());
 
                 SPDLOG_LOGGER_INFO(logger_,
                                    "Received announce error for namespace_hash: {0} error code: {1} reason: {2}",
