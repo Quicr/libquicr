@@ -5,6 +5,7 @@
 
 #include "quicr/common.h"
 #include "quicr/track_name.h"
+#include "quicr/detail/messages.h"
 
 #include <optional>
 #include <span>
@@ -45,8 +46,7 @@ namespace quicr {
         std::optional<std::string> reason_phrase = std::nullopt;
         std::optional<uint64_t> track_alias = std::nullopt; ///< Set only when ResponseCode is kRetryTrackAlias
 
-        std::optional<uint64_t> largest_group_id = std::nullopt;
-        std::optional<uint64_t> largest_object_id = std::nullopt;
+        std::optional<messages::Location> largest_location = std::nullopt;
     };
 
     /**
