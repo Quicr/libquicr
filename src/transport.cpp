@@ -1015,6 +1015,7 @@ namespace quicr {
                     eflags.use_reset = true;
 
                     messages::StreamHeaderSubGroup subgroup_hdr;
+                    subgroup_hdr.type = track_handler.GetStreamMode();
                     subgroup_hdr.group_id = group_id;
                     subgroup_hdr.subgroup_id = subgroup_id;
                     subgroup_hdr.priority = priority;
@@ -1039,6 +1040,7 @@ namespace quicr {
 
                 messages::StreamSubGroupObject object;
                 object.object_id = object_id;
+                object.serialize_extensions = TypeWillSerializeExtensions(track_handler.GetStreamMode());
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
                 track_handler.object_msg_buffer_ << object;
@@ -1306,18 +1308,17 @@ namespace quicr {
                 auto cursor_it = std::next(data.begin(), type_sz);
 
                 bool break_loop = false;
-                switch (static_cast<messages::DataMessageType>(msg_type)) {
-                    case messages::DataMessageType::kStreamHeaderSubgroup:
-                        break_loop = OnRecvSubgroup(cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
-                        break;
-                    case messages::DataMessageType::kFetchHeader:
-                        break_loop = OnRecvFetch(cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
-                        break;
-                    default:
-                        SPDLOG_LOGGER_DEBUG(logger_, "Received start of stream with invalid header type, dropping");
-                        conn_ctx.metrics.rx_stream_invalid_type++;
-                        // TODO(tievens): Need to reset this stream as this is invalid.
-                        return;
+                const auto type = static_cast<DataMessageType>(msg_type);
+                if (typeIsStreamHeaderType(type)) {
+                    const auto stream_header_type = static_cast<StreamHeaderType>(msg_type);
+                    break_loop = OnRecvSubgroup(stream_header_type, cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
+                } else if (type == DataMessageType::kFetchHeader) {
+                    break_loop = OnRecvFetch(cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
+                } else {
+                    SPDLOG_LOGGER_DEBUG(logger_, "Received start of stream with invalid header type, dropping");
+                    conn_ctx.metrics.rx_stream_invalid_type++;
+                    // TODO(tievens): Need to reset this stream as this is invalid.
+                    return;
                 }
                 if (break_loop) {
                     break;
@@ -1334,7 +1335,8 @@ namespace quicr {
         // TODO(tievens): Add metrics to track if this happens
     }
 
-    bool Transport::OnRecvSubgroup(std::vector<uint8_t>::const_iterator cursor_it,
+    bool Transport::OnRecvSubgroup(StreamHeaderType type,
+                                   std::vector<uint8_t>::const_iterator cursor_it,
                                    StreamRxContext& rx_ctx,
                                    std::uint64_t stream_id,
                                    ConnectionContext& conn_ctx,
@@ -1352,8 +1354,10 @@ namespace quicr {
             auto group_id_sz = UintVar::Size(*cursor_it);
             cursor_it += group_id_sz;
 
-            auto subgroup_id_sz = UintVar::Size(*cursor_it);
-            cursor_it += subgroup_id_sz;
+            if (TypeWillSerializeSubgroup(type)) {
+                auto subgroup_id_sz = UintVar::Size(*cursor_it);
+                cursor_it += subgroup_id_sz;
+            }
 
             priority = *cursor_it;
 

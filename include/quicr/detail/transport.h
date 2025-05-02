@@ -383,7 +383,8 @@ namespace quicr {
 
         void RemoveAllTracksForConnectionClose(ConnectionContext& conn_ctx);
 
-        bool OnRecvSubgroup(std::vector<uint8_t>::const_iterator cursor_it,
+        bool OnRecvSubgroup(messages::StreamHeaderType type,
+                            std::vector<uint8_t>::const_iterator cursor_it,
                             StreamRxContext& rx_ctx,
                             std::uint64_t stream_id,
                             ConnectionContext& conn_ctx,

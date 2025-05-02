@@ -426,10 +426,20 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const StreamHeaderSubGroup& msg)
     {
-        buffer << UintVar(static_cast<uint64_t>(DataMessageType::kStreamHeaderSubgroup));
+        buffer << UintVar(static_cast<uint64_t>(msg.type));
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
-        buffer << UintVar(msg.subgroup_id);
+        switch (msg.type) {
+            case StreamHeaderType::kSubgroupExplicitNoExtensions:
+                [[fallthrough]];
+            case StreamHeaderType::kSubgroupExplicitWithExtensions:
+                assert(msg.subgroup_id.has_value());
+                buffer << UintVar(msg.subgroup_id.value());
+                break;
+            default:
+                break;
+        }
+
         buffer.push_back(msg.priority);
         return buffer;
     }
@@ -439,27 +449,51 @@ namespace quicr::messages {
     {
         switch (msg.current_pos) {
             case 0: {
+                std::uint64_t subgroup_type;
+                if (!ParseUintVField(buffer, subgroup_type)) {
+                    return false;
+                }
+                msg.type = static_cast<StreamHeaderType>(subgroup_type);
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 1: {
                 if (!ParseUintVField(buffer, msg.track_alias)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 1: {
+            case 2: {
                 if (!ParseUintVField(buffer, msg.group_id)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 2: {
-                if (!ParseUintVField(buffer, msg.subgroup_id)) {
-                    return false;
+            case 3: {
+                switch (msg.type) {
+                    case StreamHeaderType::kSubgroupZeroNoExtensions:
+                    case StreamHeaderType::kSubgroupZeroWithExtensions:
+                        msg.subgroup_id = 0;
+                        break;
+                    case StreamHeaderType::kSubgroupFirstObjectNoExtensions:
+                    case StreamHeaderType::kSubgroupFirstObjectWithExtensions:
+                        msg.subgroup_id = std::nullopt; // Will be updated by first object.
+                        break;
+                    case StreamHeaderType::kSubgroupExplicitNoExtensions:
+                    case StreamHeaderType::kSubgroupExplicitWithExtensions:
+                        messages::SubGroupId subgroup_id;
+                        if (!ParseUintVField(buffer, subgroup_id)) {
+                            return false;
+                        }
+                        msg.subgroup_id = subgroup_id;
+                        break;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 3: {
+            case 4: {
                 auto val = buffer.Front();
                 if (!val) {
                     return false;
@@ -483,7 +517,9 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const StreamSubGroupObject& msg)
     {
         buffer << UintVar(msg.object_id);
-        PushExtensions(buffer, msg.extensions);
+        if (msg.serialize_extensions) {
+            PushExtensions(buffer, msg.extensions);
+        }
         if (msg.payload.empty()) {
             // empty payload needs a object status to be set
             auto status = UintVar(static_cast<uint8_t>(msg.object_status));
@@ -508,8 +544,10 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 1: {
-                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
-                    return false;
+                if (msg.serialize_extensions) {
+                    if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
+                        return false;
+                    }
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
