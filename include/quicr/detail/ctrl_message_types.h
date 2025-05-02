@@ -68,8 +68,8 @@ namespace quicr::messages {
             UintVar uvar(buffer);
             buffer = buffer.subspan(uvar.size());
             std::uint64_t val(uvar);
-            param.value.resize(sizeof(std::uint64_t));
-            std::memcpy(param.value.data(), &val, sizeof(std::uint64_t));
+            param.value.resize(uvar.size());
+            std::memcpy(param.value.data(), &val, uvar.size());
         } else {
             // Odd, decode bytes.
             uint64_t size = 0;
