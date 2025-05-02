@@ -1004,19 +1004,5 @@ namespace quicr::messages {
         return buffer;
     } 
 
-    Bytes& operator<<(Bytes& buffer, const quicr::messages::Parameter& param)
-    {
-        buffer << param.type;
-        buffer << param.value;
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, quicr::messages::Parameter& param)
-    {
-        buffer = buffer >> param.type;
-        buffer = buffer >> param.value;
-        return buffer;
-    }    
-
 } // namespace
 

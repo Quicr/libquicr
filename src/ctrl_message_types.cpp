@@ -58,20 +58,6 @@ namespace quicr::messages {
         return buffer.subspan(value_uv.size());
     }
 
-    Bytes& operator<<(Bytes& buffer, ParameterType value)
-    {
-        buffer << UintVar(static_cast<std::uint64_t>(value));
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, ParameterType& value)
-    {
-        std::uint64_t uvalue;
-        buffer = buffer >> uvalue;
-        value = static_cast<ParameterType>(uvalue);
-        return buffer;
-    }
-
     Bytes& operator<<(Bytes& buffer, GroupOrder value)
     {
         buffer << static_cast<std::uint64_t>(value);
@@ -86,20 +72,6 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, FilterType value)
-    {
-        buffer << static_cast<std::uint64_t>(value);
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, FilterType& value)
-    {
-        std::uint64_t uvalue;
-        buffer = buffer >> uvalue;
-        value = static_cast<FilterType>(uvalue);
-        return buffer;
-    }
-
     Bytes& operator<<(Bytes& buffer, FetchType value)
     {
         buffer << static_cast<std::uint64_t>(value);
@@ -111,34 +83,6 @@ namespace quicr::messages {
         std::uint8_t uvalue;
         buffer = buffer >> uvalue;
         value = static_cast<FetchType>(uvalue);
-        return buffer;
-    }
-
-    Bytes& operator<<(Bytes& buffer, AnnounceErrorCode value)
-    {
-        buffer << static_cast<std::uint64_t>(value);
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, AnnounceErrorCode& value)
-    {
-        std::uint64_t uvalue;
-        buffer = buffer >> uvalue;
-        value = static_cast<AnnounceErrorCode>(uvalue);
-        return buffer;
-    }
-
-    Bytes& operator<<(Bytes& buffer, SubscribeAnnouncesErrorCode value)
-    {
-        buffer << static_cast<std::uint64_t>(value);
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesErrorCode& value)
-    {
-        std::uint64_t uvalue;
-        buffer = buffer >> uvalue;
-        value = static_cast<SubscribeAnnouncesErrorCode>(uvalue);
         return buffer;
     }
 

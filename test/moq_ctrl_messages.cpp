@@ -325,7 +325,7 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
 {
     Bytes buffer;
     Parameter param;
-    param.type = ParameterType::kMaxSubscribeId;
+    param.type = ParameterType::kInvalid;
     param.value = { 0x1, 0x2 };
     SubscribeParameters params = { param };
 
@@ -374,13 +374,11 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 {
     Bytes buffer;
     Parameter param1;
-    param1.type = ParameterType::kMaxSubscribeId;
-    // param1.length = 0x2;
+    param1.type = ParameterType::kPath;
     param1.value = { 0x1, 0x2 };
 
     Parameter param2;
-    param2.type = ParameterType::kMaxSubscribeId;
-    // param2.length = 0x3;
+    param2.type = ParameterType::kPath;
     param2.value = { 0x1, 0x2, 0x3 };
 
     SubscribeParameters params = { param1, param2 };
@@ -468,8 +466,7 @@ GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uin
 
     while (num_params > 0) {
         Parameter param1;
-        param1.type = ParameterType::kMaxSubscribeId;
-        // param1.length = 0x2;
+        param1.type = ParameterType::kPath;
         param1.value = { 0x1, 0x2 };
         out.subscribe_parameters.push_back(param1);
         num_params--;
@@ -515,7 +512,6 @@ TEST_CASE("Subscribe (Combo) Message encode/decode")
         CHECK_EQ(subscribes[i].subscribe_parameters.size(), subscribe_out.subscribe_parameters.size());
         for (size_t j = 0; j < subscribes[i].subscribe_parameters.size(); j++) {
             CHECK_EQ(subscribes[i].subscribe_parameters[j].type, subscribe_out.subscribe_parameters[j].type);
-            // CHECK_EQ(subscribes[i].subscribe_parameters[j].length, subscribe_out.subscribe_parameters[j].length);
             CHECK_EQ(subscribes[i].subscribe_parameters[j].value, subscribe_out.subscribe_parameters[j].value);
         }
     }
@@ -884,4 +880,87 @@ TEST_CASE("Subscribe Announces Error encode/decode")
     CHECK_EQ(msg.track_namespace_prefix, msg_out.track_namespace_prefix);
     CHECK_EQ(msg.error_code, msg_out.error_code);
     CHECK_EQ(msg.reason_phrase, msg_out.reason_phrase);
+}
+
+using TestKVP64 = KeyValuePair<std::uint64_t>;
+enum class ExampleEnum : std::uint64_t
+{
+    kOdd = 1,
+    kEven = 2,
+};
+using TestKVPEnum = KeyValuePair<ExampleEnum>;
+Bytes
+KVP64(const std::uint64_t type, const Bytes& value)
+{
+    TestKVP64 test;
+    test.type = type;
+    test.value = value;
+    Bytes buffer;
+    buffer << test;
+    return buffer;
+}
+Bytes
+KVPEnum(const ExampleEnum type, const Bytes& value)
+{
+    TestKVPEnum test;
+    test.type = type;
+    test.value = value;
+    Bytes buffer;
+    buffer << test;
+    return buffer;
+}
+
+TEST_CASE("Key Value Pair encode/decode")
+{
+    auto value = Bytes(sizeof(std::uint64_t));
+    constexpr std::uint64_t one = 1;
+    std::memcpy(value.data(), &one, value.size());
+    {
+        CAPTURE("UINT64_T");
+        {
+            CAPTURE("EVEN");
+            std::size_t type = 2;
+            Bytes serialized = KVP64(type, value);
+            CHECK_EQ(serialized.size(), 2); // Minimal size, 1 byte for type and 1 byte for value.
+            TestKVP64 out;
+            serialized >> out;
+            CHECK_EQ(out.type, type);
+            CHECK_EQ(out.value, value);
+        }
+        {
+            CAPTURE("ODD");
+            std::size_t type = 1;
+            Bytes serialized = KVP64(type, value);
+            CHECK_EQ(serialized.size(),
+                     value.size() + 1 + 1); // 1 byte for type, 1 byte for length, and the value bytes.
+            TestKVP64 out;
+            serialized >> out;
+            CHECK_EQ(out.type, type);
+            CHECK_EQ(out.value, value);
+        }
+    }
+    {
+        CAPTURE("ENUM");
+        {
+            CAPTURE("EVEN");
+            auto type = ExampleEnum::kEven;
+            Bytes serialized = KVPEnum(type, value);
+            CHECK_EQ(serialized.size(), 2); // Minimal size, 1 byte for type and 1 byte for value.
+            TestKVPEnum out;
+            serialized >> out;
+            CHECK_EQ(out.type, type);
+            CHECK_EQ(out.value, value);
+        }
+        {
+            CAPTURE("ODD");
+            auto type = ExampleEnum::kOdd;
+            Bytes serialized = KVPEnum(type, value);
+            CHECK_EQ(serialized.size(),
+                     value.size() + 1 + 1); // 1 byte for type, 1 byte for length, and the value bytes.
+            TestKVPEnum out;
+            serialized >> out;
+            CHECK_EQ(out.type, type);
+            CHECK_EQ(out.value, value);
+        }
+    }
 }
