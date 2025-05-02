@@ -1248,34 +1248,34 @@ namespace quicr {
                         conn_ctx.ctrl_msg_type_received = static_cast<ControlMessageType>(msg_type);
                     }
 
-                    // Decode control payload length in bytes
-                    auto uv_sz = UintVar::Size(conn_ctx.ctrl_msg_buffer.front());
+                    uint16_t payload_len = 0;
 
-                    if (conn_ctx.ctrl_msg_buffer.size() < uv_sz) {
+                    // Decode control payload length in bytes
+                    if (conn_ctx.ctrl_msg_buffer.size() < sizeof(payload_len)) {
                         i = kReadLoopMaxPerStream - 4;
                         break; // Not enough bytes to process control message. Try again once more.
                     }
 
-                    auto payload_len = uint64_t(
-                      quicr::UintVar({ conn_ctx.ctrl_msg_buffer.begin(), conn_ctx.ctrl_msg_buffer.begin() + uv_sz }));
+                    std::memcpy(&payload_len, conn_ctx.ctrl_msg_buffer.data(), sizeof(payload_len));
+                    payload_len = SwapBytes(payload_len);
 
-                    if (conn_ctx.ctrl_msg_buffer.size() < payload_len + uv_sz) {
+                    if (conn_ctx.ctrl_msg_buffer.size() < payload_len + sizeof(payload_len)) {
                         i = kReadLoopMaxPerStream - 4;
                         break; // Not enough bytes to process control message. Try again once more.
                     }
 
                     if (ProcessCtrlMessage(
-                          conn_ctx, { conn_ctx.ctrl_msg_buffer.begin() + uv_sz, conn_ctx.ctrl_msg_buffer.end() })) {
+                          conn_ctx, { conn_ctx.ctrl_msg_buffer.begin() + sizeof(payload_len), conn_ctx.ctrl_msg_buffer.end() })) {
 
                         // Reset the control message buffer and message type to start a new message.
                         conn_ctx.ctrl_msg_type_received = std::nullopt;
                         conn_ctx.ctrl_msg_buffer.erase(conn_ctx.ctrl_msg_buffer.begin(),
-                                                       conn_ctx.ctrl_msg_buffer.begin() + uv_sz + payload_len);
+                                                       conn_ctx.ctrl_msg_buffer.begin() + sizeof(payload_len) + payload_len);
                     } else {
                         conn_ctx.metrics.invalid_ctrl_stream_msg++;
                         conn_ctx.ctrl_msg_type_received = std::nullopt;
                         conn_ctx.ctrl_msg_buffer.erase(conn_ctx.ctrl_msg_buffer.begin(),
-                                                       conn_ctx.ctrl_msg_buffer.begin() + uv_sz + payload_len);
+                                                       conn_ctx.ctrl_msg_buffer.begin() + sizeof(payload_len) + payload_len);
                     }
                 }
                 continue;

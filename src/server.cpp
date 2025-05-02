@@ -118,8 +118,8 @@ namespace quicr {
                                        request_id,
                                        *subscribe_response.track_alias,
                                        messages::SubscribeErrorCode::kRetryTrackAlias,
-                                       subscribe_response.reason_phrase.has_value() ? *subscribe_response.reason_phrase
-                                                                                    : "internal error");
+                                       subscribe_response.error_reason.has_value() ? *subscribe_response.error_reason
+                                                                                   : "internal error");
                 } else {
                     SendSubscribeError(conn_it->second,
                                        request_id,

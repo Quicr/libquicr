@@ -124,14 +124,14 @@ TEST_CASE("AnnounceError Message encode/decode")
     auto announce_err = AnnounceError{};
     announce_err.track_namespace = kTrackNamespaceConf;
     announce_err.error_code = quicr::messages::AnnounceErrorCode::kNotSupported;
-    announce_err.reason_phrase = Bytes{ 0x1, 0x2, 0x3 };
+    announce_err.error_reason = Bytes{ 0x1, 0x2, 0x3 };
     buffer << announce_err;
 
     AnnounceError announce_err_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kAnnounceError), announce_err_out));
     CHECK_EQ(kTrackNamespaceConf, announce_err_out.track_namespace);
     CHECK_EQ(announce_err.error_code, announce_err_out.error_code);
-    CHECK_EQ(announce_err.reason_phrase, announce_err_out.reason_phrase);
+    CHECK_EQ(announce_err.error_reason, announce_err_out.error_reason);
 }
 
 TEST_CASE("AnnounceCancel Message encode/decode")
@@ -146,7 +146,7 @@ TEST_CASE("AnnounceCancel Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kAnnounceCancel), announce_cancel_out));
     CHECK_EQ(announce_cancel.track_namespace, announce_cancel_out.track_namespace);
     CHECK_EQ(announce_cancel.error_code, announce_cancel_out.error_code);
-    CHECK_EQ(announce_cancel.reason_phrase, announce_cancel_out.reason_phrase);
+    CHECK_EQ(announce_cancel.error_reason, announce_cancel_out.error_reason);
 }
 
 TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
@@ -593,7 +593,7 @@ TEST_CASE("Error  Message encode/decode")
     auto subscribe_err = SubscribeError{};
     subscribe_err.subscribe_id = 0x1;
     subscribe_err.error_code = quicr::messages::SubscribeErrorCode::kTrackDoesNotExist;
-    subscribe_err.reason_phrase = Bytes{ 0x0, 0x1 };
+    subscribe_err.error_reason = Bytes{ 0x0, 0x1 };
     subscribe_err.track_alias = uint64_t(kTrackAliasAliceVideo);
     buffer << subscribe_err;
 
@@ -601,7 +601,7 @@ TEST_CASE("Error  Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeError), subscribe_err_out));
     CHECK_EQ(subscribe_err.subscribe_id, subscribe_err_out.subscribe_id);
     CHECK_EQ(subscribe_err.error_code, subscribe_err_out.error_code);
-    CHECK_EQ(subscribe_err.reason_phrase, subscribe_err_out.reason_phrase);
+    CHECK_EQ(subscribe_err.error_reason, subscribe_err_out.error_reason);
     CHECK_EQ(subscribe_err.track_alias, subscribe_err_out.track_alias);
 }
 
@@ -626,7 +626,7 @@ TEST_CASE("SubscribeDone  Message encode/decode")
     subscribe_done.subscribe_id = 0x1;
     subscribe_done.status_code = quicr::messages::SubscribeDoneStatusCode::kExpired;
     subscribe_done.stream_count = 0x0;
-    subscribe_done.reason_phrase = Bytes{ 0x0 };
+    subscribe_done.error_reason = Bytes{ 0x0 };
 
     buffer << subscribe_done;
 
@@ -636,7 +636,7 @@ TEST_CASE("SubscribeDone  Message encode/decode")
     CHECK_EQ(subscribe_done.subscribe_id, subscribe_done_out.subscribe_id);
     CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
     CHECK_EQ(subscribe_done.stream_count, subscribe_done_out.stream_count);
-    CHECK_EQ(subscribe_done.reason_phrase, subscribe_done_out.reason_phrase);
+    CHECK_EQ(subscribe_done.error_reason, subscribe_done_out.error_reason);
 }
 
 TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
@@ -647,7 +647,7 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
     subscribe_done.subscribe_id = 0x1;
     subscribe_done.status_code = quicr::messages::SubscribeDoneStatusCode::kGoingAway;
     subscribe_done.stream_count = 0x0;
-    subscribe_done.reason_phrase = Bytes{ 0x0 };
+    subscribe_done.error_reason = Bytes{ 0x0 };
 
     buffer << subscribe_done;
 
@@ -656,7 +656,7 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
     CHECK_EQ(subscribe_done.subscribe_id, subscribe_done_out.subscribe_id);
     CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
     CHECK_EQ(subscribe_done.stream_count, subscribe_done_out.stream_count);
-    CHECK_EQ(subscribe_done.reason_phrase, subscribe_done_out.reason_phrase);
+    CHECK_EQ(subscribe_done.error_reason, subscribe_done_out.error_reason);
 }
 
 TEST_CASE("ClientSetup  Message encode/decode")
@@ -875,14 +875,14 @@ TEST_CASE("Subscribe Announces Error encode/decode")
     auto msg = SubscribeAnnouncesError{};
     msg.track_namespace_prefix = TrackNamespace{ "cisco"s, "meetings"s, "video"s, "1080p"s };
     msg.error_code = quicr::messages::SubscribeAnnouncesErrorCode::kNamespacePrefixUnknown;
-    msg.reason_phrase = Bytes{ 0x1, 0x2, 0x3 };
+    msg.error_reason = Bytes{ 0x1, 0x2, 0x3 };
     buffer << msg;
 
     SubscribeAnnouncesError msg_out;
     CHECK(VerifyCtrl(buffer, static_cast<std::uint64_t>(ControlMessageType::kSubscribeAnnouncesError), msg_out));
     CHECK_EQ(msg.track_namespace_prefix, msg_out.track_namespace_prefix);
     CHECK_EQ(msg.error_code, msg_out.error_code);
-    CHECK_EQ(msg.reason_phrase, msg_out.reason_phrase);
+    CHECK_EQ(msg.error_reason, msg_out.error_reason);
 }
 
 using TestKVP64 = KeyValuePair<std::uint64_t>;
