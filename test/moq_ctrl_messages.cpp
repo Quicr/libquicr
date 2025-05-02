@@ -231,8 +231,7 @@ TEST_CASE("Subscribe (kAbsoluteStart) Message encode/decode")
     Bytes buffer;
 
     auto group_0 = std::make_optional<Subscribe::Group_0>();
-    group_0->start_group = 0x1000;
-    group_0->start_object = 0xFF;
+    group_0->start_location = { 0x1000, 0xFF };
 
     auto subscribe = quicr::messages::Subscribe(0x1,
                                                 uint64_t(kTrackAliasAliceVideo),
@@ -268,8 +267,7 @@ TEST_CASE("Subscribe (kAbsoluteStart) Message encode/decode")
     CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
     CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
-    CHECK_EQ(subscribe.group_0->start_group, subscribe_out.group_0->start_group);
-    CHECK_EQ(subscribe.group_0->start_object, subscribe_out.group_0->start_object);
+    CHECK_EQ(subscribe.group_0->start_location, subscribe_out.group_0->start_location);
 }
 
 TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
@@ -278,8 +276,7 @@ TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
 
     auto group_0 = std::make_optional<Subscribe::Group_0>();
     if (group_0.has_value()) {
-        group_0->start_group = 0x1000;
-        group_0->start_object = 0x1;
+        group_0->start_location = { 0x1000, 0x1 };
     }
     auto group_1 = std::make_optional<Subscribe::Group_1>();
     if (group_1.has_value()) {
@@ -320,8 +317,7 @@ TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
     CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
     CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
-    CHECK_EQ(subscribe.group_0->start_group, subscribe_out.group_0->start_group);
-    CHECK_EQ(subscribe.group_0->start_object, subscribe_out.group_0->start_object);
+    CHECK_EQ(subscribe.group_0->start_location, subscribe_out.group_0->start_location);
     CHECK_EQ(subscribe.group_1->end_group, subscribe_out.group_1->end_group);
 }
 
@@ -329,7 +325,7 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
 {
     Bytes buffer;
     Parameter param;
-    param.type = ParameterType::kMaxSubscribeId;
+    param.type = ParameterType::kInvalid;
     param.value = { 0x1, 0x2 };
     SubscribeParameters params = { param };
 
@@ -378,13 +374,11 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 {
     Bytes buffer;
     Parameter param1;
-    param1.type = ParameterType::kMaxSubscribeId;
-    // param1.length = 0x2;
+    param1.type = ParameterType::kPath;
     param1.value = { 0x1, 0x2 };
 
     Parameter param2;
-    param2.type = ParameterType::kMaxSubscribeId;
-    // param2.length = 0x3;
+    param2.type = ParameterType::kPath;
     param2.value = { 0x1, 0x2, 0x3 };
 
     SubscribeParameters params = { param1, param2 };
@@ -458,13 +452,11 @@ GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uin
             break;
         case FilterType::kAbsoluteStart:
             out.group_0 = std::make_optional<Subscribe::Group_0>();
-            out.group_0->start_group = sg;
-            out.group_0->start_object = so;
+            out.group_0->start_location = { sg, so };
             break;
         case FilterType::kAbsoluteRange:
             out.group_0 = std::make_optional<Subscribe::Group_0>();
-            out.group_0->start_group = sg;
-            out.group_0->start_object = so;
+            out.group_0->start_location = { sg, so };
             out.group_1 = std::make_optional<Subscribe::Group_1>();
             out.group_1->end_group = eg;
             break;
@@ -474,8 +466,7 @@ GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uin
 
     while (num_params > 0) {
         Parameter param1;
-        param1.type = ParameterType::kMaxSubscribeId;
-        // param1.length = 0x2;
+        param1.type = ParameterType::kPath;
         param1.value = { 0x1, 0x2 };
         out.subscribe_parameters.push_back(param1);
         num_params--;
@@ -521,7 +512,6 @@ TEST_CASE("Subscribe (Combo) Message encode/decode")
         CHECK_EQ(subscribes[i].subscribe_parameters.size(), subscribe_out.subscribe_parameters.size());
         for (size_t j = 0; j < subscribes[i].subscribe_parameters.size(); j++) {
             CHECK_EQ(subscribes[i].subscribe_parameters[j].type, subscribe_out.subscribe_parameters[j].type);
-            // CHECK_EQ(subscribes[i].subscribe_parameters[j].length, subscribe_out.subscribe_parameters[j].length);
             CHECK_EQ(subscribes[i].subscribe_parameters[j].value, subscribe_out.subscribe_parameters[j].value);
         }
     }
@@ -533,8 +523,7 @@ TEST_CASE("SubscribeUpdate Message encode/decode")
 
     auto subscribe_update = SubscribeUpdate{};
     subscribe_update.subscribe_id = 0x1;
-    subscribe_update.start_group = uint64_t(0x1000);
-    subscribe_update.start_object = uint64_t(0x100);
+    subscribe_update.start_location = {uint64_t(0x1000), uint64_t(0x100) };
     subscribe_update.end_group = uint64_t(0x2000);
     subscribe_update.subscriber_priority = static_cast<SubscriberPriority>(0x10);
 
@@ -542,8 +531,8 @@ TEST_CASE("SubscribeUpdate Message encode/decode")
 
     SubscribeUpdate subscribe_update_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeUpdate), subscribe_update_out));
-    CHECK_EQ(0x1000, subscribe_update_out.start_group);
-    CHECK_EQ(0x100, subscribe_update_out.start_object);
+    CHECK_EQ(0x1000, subscribe_update_out.start_location.group);
+    CHECK_EQ(0x100, subscribe_update_out.start_location.object);
     CHECK_EQ(subscribe_update.subscribe_id, subscribe_update_out.subscribe_id);
     CHECK_EQ(0x2000, subscribe_update_out.end_group);
     CHECK_EQ(subscribe_update.subscriber_priority, subscribe_update_out.subscriber_priority);
@@ -574,8 +563,7 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
     Bytes buffer;
 
     auto group_0 = std::make_optional<SubscribeOk::Group_0>();
-    group_0->largest_group_id = 100;
-    group_0->largest_object_id = 200;
+    group_0->largest_location = { 100, 200 };
 
     auto subscribe_ok = SubscribeOk(0x01, 0x100, GroupOrder::kAscending, 0x01, nullptr, group_0, {});
 
@@ -592,8 +580,7 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
     CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
     CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
     CHECK_EQ(subscribe_ok.group_0.has_value(), subscribe_ok_out.group_0.has_value());
-    CHECK_EQ(subscribe_ok.group_0->largest_group_id, subscribe_ok_out.group_0->largest_group_id);
-    CHECK_EQ(subscribe_ok.group_0->largest_object_id, subscribe_ok_out.group_0->largest_object_id);
+    CHECK_EQ(subscribe_ok.group_0->largest_location, subscribe_ok_out.group_0->largest_location);
 }
 
 TEST_CASE("Error  Message encode/decode")
@@ -793,8 +780,7 @@ TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
     auto fetch_ok = FetchOk{};
     fetch_ok.subscribe_id = 0x1234;
     fetch_ok.group_order = GroupOrder::kDescending;
-    fetch_ok.largest_group_id = 0x9999;
-    fetch_ok.largest_object_id = 0x9991;
+    fetch_ok.end_location = { 0x9999, 0x9991 };
 
     buffer << fetch_ok;
 
@@ -802,8 +788,7 @@ TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetchOk), fetch_ok_out));
     CHECK_EQ(fetch_ok.subscribe_id, fetch_ok_out.subscribe_id);
     CHECK_EQ(fetch_ok.group_order, fetch_ok_out.group_order);
-    CHECK_EQ(fetch_ok.largest_group_id, fetch_ok_out.largest_group_id);
-    CHECK_EQ(fetch_ok.largest_object_id, fetch_ok_out.largest_object_id);
+    CHECK_EQ(fetch_ok.end_location, fetch_ok_out.end_location);
 
     buffer.clear();
     auto fetch_cancel = FetchCancel{};
@@ -895,4 +880,87 @@ TEST_CASE("Subscribe Announces Error encode/decode")
     CHECK_EQ(msg.track_namespace_prefix, msg_out.track_namespace_prefix);
     CHECK_EQ(msg.error_code, msg_out.error_code);
     CHECK_EQ(msg.reason_phrase, msg_out.reason_phrase);
+}
+
+using TestKVP64 = KeyValuePair<std::uint64_t>;
+enum class ExampleEnum : std::uint64_t
+{
+    kOdd = 1,
+    kEven = 2,
+};
+using TestKVPEnum = KeyValuePair<ExampleEnum>;
+Bytes
+KVP64(const std::uint64_t type, const Bytes& value)
+{
+    TestKVP64 test;
+    test.type = type;
+    test.value = value;
+    Bytes buffer;
+    buffer << test;
+    return buffer;
+}
+Bytes
+KVPEnum(const ExampleEnum type, const Bytes& value)
+{
+    TestKVPEnum test;
+    test.type = type;
+    test.value = value;
+    Bytes buffer;
+    buffer << test;
+    return buffer;
+}
+
+TEST_CASE("Key Value Pair encode/decode")
+{
+    auto value = Bytes(sizeof(std::uint64_t));
+    constexpr std::uint64_t one = 1;
+    std::memcpy(value.data(), &one, value.size());
+    {
+        CAPTURE("UINT64_T");
+        {
+            CAPTURE("EVEN");
+            std::size_t type = 2;
+            Bytes serialized = KVP64(type, value);
+            CHECK_EQ(serialized.size(), 2); // Minimal size, 1 byte for type and 1 byte for value.
+            TestKVP64 out;
+            serialized >> out;
+            CHECK_EQ(out.type, type);
+            CHECK_EQ(out.value, value);
+        }
+        {
+            CAPTURE("ODD");
+            std::size_t type = 1;
+            Bytes serialized = KVP64(type, value);
+            CHECK_EQ(serialized.size(),
+                     value.size() + 1 + 1); // 1 byte for type, 1 byte for length, and the value bytes.
+            TestKVP64 out;
+            serialized >> out;
+            CHECK_EQ(out.type, type);
+            CHECK_EQ(out.value, value);
+        }
+    }
+    {
+        CAPTURE("ENUM");
+        {
+            CAPTURE("EVEN");
+            auto type = ExampleEnum::kEven;
+            Bytes serialized = KVPEnum(type, value);
+            CHECK_EQ(serialized.size(), 2); // Minimal size, 1 byte for type and 1 byte for value.
+            TestKVPEnum out;
+            serialized >> out;
+            CHECK_EQ(out.type, type);
+            CHECK_EQ(out.value, value);
+        }
+        {
+            CAPTURE("ODD");
+            auto type = ExampleEnum::kOdd;
+            Bytes serialized = KVPEnum(type, value);
+            CHECK_EQ(serialized.size(),
+                     value.size() + 1 + 1); // 1 byte for type, 1 byte for length, and the value bytes.
+            TestKVPEnum out;
+            serialized >> out;
+            CHECK_EQ(out.type, type);
+            CHECK_EQ(out.value, value);
+        }
+    }
 }

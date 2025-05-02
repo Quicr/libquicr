@@ -18,6 +18,8 @@ namespace quicr::messages {
 
     using GroupId = uint64_t;
     using ObjectId = uint64_t;
+    // TODO(RichLogan): Remove when ErrorReason -> ReasonPhrase.
+    using ReasonPhrase = Bytes;
 
     struct Location
     {
@@ -27,22 +29,82 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const Location& location);
     BytesSpan operator>>(BytesSpan buffer, Location& location);
 
+    /// MoQ Key Value Pair.
+    template<typename T>
+    concept KeyType =
+      std::same_as<T, std::uint64_t> || (std::is_enum_v<T> && std::same_as<std::underlying_type_t<T>, std::uint64_t>);
+    template<KeyType T>
+    struct KeyValuePair
+    {
+        T type;
+        Bytes value;
+    };
+    template<KeyType T>
+    Bytes& operator<<(Bytes& buffer, const KeyValuePair<T>& param)
+    {
+        const auto type = static_cast<std::uint64_t>(param.type);
+        buffer << UintVar(type);
+        if (type % 2 == 0) {
+            // Even, single varint of value.
+            assert(param.value.size() <= 8);
+            std::uint64_t val = 0;
+            std::memcpy(&val, param.value.data(), std::min(param.value.size(), sizeof(std::uint64_t)));
+            buffer << UintVar(val);
+        } else {
+            // Odd, encode bytes.
+            buffer << UintVar(param.value.size());
+            buffer.insert(buffer.end(), param.value.begin(), param.value.end());
+        }
+        return buffer;
+    }
+    template<KeyType T>
+    BytesSpan operator>>(BytesSpan buffer, KeyValuePair<T>& param)
+    {
+        std::uint64_t type;
+        buffer = buffer >> type;
+        param.type = static_cast<T>(type);
+        if (type % 2 == 0) {
+            // Even, single varint of value.
+            UintVar uvar(buffer);
+            buffer = buffer.subspan(uvar.size());
+            std::uint64_t val(uvar);
+            param.value.resize(uvar.size());
+            std::memcpy(param.value.data(), &val, uvar.size());
+        } else {
+            // Odd, decode bytes.
+            uint64_t size = 0;
+            buffer = buffer >> size;
+            param.value.assign(buffer.begin(), std::next(buffer.begin(), size));
+            buffer = buffer.subspan(size);
+        }
+        return buffer;
+    }
+
+    // Serialization for all uint64_t/enum(uint64_t to varint).
+    template<KeyType T>
+    Bytes& operator<<(Bytes& buffer, const T value)
+    {
+        buffer << UintVar(static_cast<std::uint64_t>(value));
+        return buffer;
+    }
+    template<KeyType T>
+    BytesSpan operator>>(BytesSpan buffer, T& value)
+    {
+        std::uint64_t uvalue;
+        buffer = buffer >> uvalue;
+        value = static_cast<T>(uvalue);
+        return buffer;
+    }
+
     enum struct ParameterType : uint64_t
     {
         kPath = 0x1,
         kMaxSubscribeId = 0x2, // version specific, unused
-        kEndpointId = 0xF0,    // Endpoint ID, using temp value for now
+        kEndpointId = 0xF1,    // Endpoint ID, using temp value for now
         kInvalid = 0xFF,       // used internally.
     };
 
-    struct Parameter
-    {
-        ParameterType type{ 0 };
-        Bytes value;
-    };
-
-    Bytes& operator<<(Bytes& buffer, ParameterType value);
-    BytesSpan operator>>(BytesSpan buffer, ParameterType& value);
+    using Parameter = KeyValuePair<ParameterType>;
 
     enum struct GroupOrder : uint8_t
     {
@@ -63,9 +125,6 @@ namespace quicr::messages {
         kAbsoluteRange
     };
 
-    Bytes& operator<<(Bytes& buffer, FilterType value);
-    BytesSpan operator>>(BytesSpan buffer, FilterType& value);
-
     enum class TrackStatusCode : uint64_t
     {
         kInProgress = 0x00,
@@ -74,9 +133,6 @@ namespace quicr::messages {
         kFinished,
         kUnknown
     };
-
-    Bytes& operator<<(Bytes& buffer, TrackStatusCode value);
-    BytesSpan operator>>(BytesSpan buffer, TrackStatusCode& value);
 
     enum class SubscribeDoneStatusCode : uint64_t
     {
@@ -88,9 +144,6 @@ namespace quicr::messages {
         kExpired,
         kTooFarBehind,
     };
-
-    Bytes& operator<<(Bytes& buffer, SubscribeDoneStatusCode value);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeDoneStatusCode& value);
 
     enum class FetchType : uint8_t
     {
@@ -111,9 +164,6 @@ namespace quicr::messages {
         kParamLengthMismatch,
         kGoAwayTimeout = 0x10,
     };
-
-    Bytes& operator<<(Bytes& buffer, TerminationReason value);
-    BytesSpan operator>>(BytesSpan buffer, TerminationReason& value);
 
     enum class FetchErrorCode : uint8_t
     {
@@ -136,9 +186,6 @@ namespace quicr::messages {
         kNotSupported,
         kUninterested
     };
-
-    Bytes& operator<<(Bytes& buffer, AnnounceErrorCode value);
-    BytesSpan operator>>(BytesSpan buffer, AnnounceErrorCode& value);
 
     // TODO (Suhas): rename it to StreamMapping
     enum ForwardingPreference : uint8_t
@@ -166,9 +213,6 @@ namespace quicr::messages {
         kTrackNotExist = 0xF0 // Missing in draft
     };
 
-    Bytes& operator<<(Bytes& buffer, SubscribeErrorCode value);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeErrorCode& value);
-
     enum class SubscribeAnnouncesErrorCode : uint64_t
     {
         kInternalError = 0x0,
@@ -177,7 +221,4 @@ namespace quicr::messages {
         kNotSupported,
         kNamespacePrefixUnknown,
     };
-
-    Bytes& operator<<(Bytes& buffer, SubscribeAnnouncesErrorCode value);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesErrorCode& value);
 } // namespace

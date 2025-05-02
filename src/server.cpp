@@ -75,7 +75,7 @@ namespace quicr {
     {
     }
 
-    Server::LargestAvailable Server::GetLargestAvailable([[maybe_unused]] const FullTrackName& track_name)
+    std::optional<messages::Location> Server::GetLargestAvailable([[maybe_unused]] const FullTrackName& track_name)
     {
         return std::nullopt;
     }
@@ -100,17 +100,16 @@ namespace quicr {
             case SubscribeResponse::ReasonCode::kOk: {
                 // Save the latest state for joining fetch.
                 assert(conn_it->second.recv_sub_id.find(subscribe_id) != conn_it->second.recv_sub_id.end());
-                conn_it->second.recv_sub_id[subscribe_id].largest_group_id = subscribe_response.largest_group_id;
-                conn_it->second.recv_sub_id[subscribe_id].largest_object_id = subscribe_response.largest_object_id;
+                conn_it->second.recv_sub_id[subscribe_id].largest_location = subscribe_response.largest_location;
 
                 // Send the ok.
-                SendSubscribeOk(
-                  conn_it->second,
-                  subscribe_id,
-                  kSubscribeExpires,
-                  subscribe_response.largest_group_id.has_value() && subscribe_response.largest_object_id.has_value(),
-                  subscribe_response.largest_group_id.has_value() ? subscribe_response.largest_group_id.value() : 0,
-                  subscribe_response.largest_object_id.has_value() ? subscribe_response.largest_object_id.value() : 0);
+                SendSubscribeOk(conn_it->second,
+                                subscribe_id,
+                                kSubscribeExpires,
+                                subscribe_response.largest_location.has_value(),
+                                subscribe_response.largest_location.has_value()
+                                  ? subscribe_response.largest_location.value()
+                                  : messages::Location());
                 break;
             }
             case SubscribeResponse::ReasonCode::kRetryTrackAlias: {
@@ -695,8 +694,7 @@ namespace quicr {
                 FullTrackName tfn;
                 messages::FetchAttributes attrs = { msg.subscriber_priority, msg.group_order, 0, 0, 0, std::nullopt };
                 bool end_of_track = false; // TODO: Need to query this as part of the GetLargestAvailable call.
-                messages::GroupId largest_group;
-                messages::ObjectId largest_object;
+                messages::Location largest_location;
 
                 switch (msg.fetch_type) {
                     case messages::FetchType::kStandalone: {
@@ -711,8 +709,7 @@ namespace quicr {
                             return true;
                         }
 
-                        largest_group = largest_available->first;
-                        largest_object = largest_available->second;
+                        largest_location = largest_available.value();
 
                         attrs.start_group = msg.group_0->start_group;
                         attrs.start_object = msg.group_0->start_object;
@@ -734,9 +731,8 @@ namespace quicr {
                         }
 
                         tfn = subscribe_state->second.track_full_name;
-                        const auto opt_largest_group = subscribe_state->second.largest_group_id;
-                        const auto opt_largest_object = subscribe_state->second.largest_object_id;
-                        if (!opt_largest_group.has_value() || !opt_largest_object.has_value()) {
+                        const auto opt_largest_location = subscribe_state->second.largest_location;
+                        if (!opt_largest_location.has_value()) {
                             // We have no data to complete the fetch with.
                             // TODO: Possibly missing "No Objects" code per the draft.
                             SendFetchError(
@@ -744,15 +740,15 @@ namespace quicr {
 
                             return true;
                         }
-                        largest_group = *opt_largest_group;
-                        largest_object = *opt_largest_object;
+                        largest_location = *opt_largest_location;
 
-                        attrs.start_group = msg.group_1->preceding_group_offset <= largest_group
-                                              ? largest_group - msg.group_1->preceding_group_offset
-                                              : largest_group;
+                        // TODO(RichLogan): Check this when FETCH v11 checked.
+                        attrs.start_group = msg.group_1->preceding_group_offset <= largest_location.group
+                                              ? largest_location.group - msg.group_1->preceding_group_offset
+                                              : largest_location.group;
                         attrs.start_object = 0;
-                        attrs.end_group = largest_group;
-                        attrs.end_object = largest_object;
+                        attrs.end_group = largest_location.group;
+                        attrs.end_object = largest_location.object;
                         break;
                     }
                     default: {
@@ -765,13 +761,13 @@ namespace quicr {
                 // TODO: This only covers it being below largest, not what's in cache.
                 // Availability check.
                 bool valid_range = true;
-                valid_range &= attrs.start_group <= largest_group;
-                if (largest_group == attrs.start_group) {
-                    valid_range &= attrs.start_object <= largest_object;
+                valid_range &= attrs.start_group <= largest_location.group;
+                if (largest_location.group == attrs.start_group) {
+                    valid_range &= attrs.start_object <= largest_location.object;
                 }
-                valid_range &= attrs.end_group <= largest_group;
-                if (largest_group == attrs.end_group && attrs.end_object.has_value()) {
-                    valid_range &= attrs.end_object <= largest_object;
+                valid_range &= attrs.end_group <= largest_location.group;
+                if (largest_location.group == attrs.end_group && attrs.end_object.has_value()) {
+                    valid_range &= attrs.end_object <= largest_location.object;
                 }
                 if (!valid_range) {
                     SendFetchError(
@@ -783,7 +779,7 @@ namespace quicr {
                     conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
                 }
 
-                SendFetchOk(conn_ctx, msg.subscribe_id, msg.group_order, end_of_track, largest_group, largest_object);
+                SendFetchOk(conn_ctx, msg.subscribe_id, msg.group_order, end_of_track, largest_location);
 
                 if (!OnFetchOk(conn_ctx.connection_handle, msg.subscribe_id, tfn, attrs)) {
                     SendFetchError(conn_ctx,
