@@ -50,9 +50,6 @@ namespace quicr {
       public:
         const char* quicr_alpn = "moq-00";
 
-        picoquic_cnx_t* client_cnx{ nullptr }; /// Picoquic connection context
-        bool probed_new_path{ false }; /// Indicates if a new path was probed
-
         using BytesT = std::vector<uint8_t>;
         using DataContextId = uint64_t;
 
@@ -303,7 +300,7 @@ namespace quicr {
          */
         void PqRunner();
 
-        char* GetConfigMultipathAltConfig() const;
+        const char* GetConfigMultipathAltConfig() const;
 
         /*
          * Internal Public Variables
@@ -312,6 +309,8 @@ namespace quicr {
         bool is_server_mode;
         bool is_unidirectional{ false };
         bool debug{ false };
+        bool probed_new_path{ false }; /// Indicates if multipath alternate interfaces were probed
+
 
       private:
         TransportConnId CreateClient();

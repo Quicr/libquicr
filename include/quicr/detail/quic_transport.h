@@ -106,8 +106,8 @@ namespace quicr {
         std::string quic_qlog_path;            /// If present, log QUIC LOG file to this path
         uint8_t quic_priority_limit{ 0 };      /// Lowest priority that will not be bypassed from pacing/CC in picoquic
         std::size_t max_connections{ 1 };
-        int multipath_option{ 0 };             /// Enable multipath support
-        char* alt_iface;                /// Alternate interface to use
+        int multipath_option{ 0 };             /// Enable multipath support if set to 1
+        char* alt_ifaces;                      /// Alternate interface(s) to use, format for example: 192.168.0.2/2,192.168.1.2/3"
     };
 
     /// Stream action that should be done by send/receive processing
