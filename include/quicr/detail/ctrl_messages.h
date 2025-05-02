@@ -985,16 +985,16 @@ namespace quicr::messages {
         
         // All fields constructor
         NewGroupRequest (
-            SubscribeID subscribe_id,
+            SubscribeID request_id,
             TrackAlias track_alias):
-                subscribe_id(subscribe_id),
+                request_id(request_id),
                 track_alias(track_alias)
             {}
 
             
 
     public:
-        SubscribeID subscribe_id;
+        RequestID request_id;
         TrackAlias track_alias;
     };
 

@@ -97,8 +97,8 @@ namespace quicr {
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
                 auto th = TrackHash(tfn);
 
-                if (msg.request_id > conn_ctx.current_request_id) {
-                    conn_ctx.current_request_id = msg.request_id + 1;
+                if (msg.request_id > conn_ctx.next_request_id) {
+                    conn_ctx.next_request_id = msg.request_id + 1;
                 }
 
                 conn_ctx.recv_sub_id[msg.request_id] = { .track_full_name = tfn };
@@ -196,9 +196,9 @@ namespace quicr {
                 });
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.request_id);
+                auto sub_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
 
-                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                if (sub_it == conn_ctx.tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received subscribe ok to unknown subscribe track conn_id: {0} request_id: {1}, ignored",
@@ -229,9 +229,9 @@ namespace quicr {
                 messages::SubscribeError msg;
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.request_id);
+                auto sub_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
 
-                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                if (sub_it == conn_ctx.tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received subscribe error to unknown request_id conn_id: {0} request_id: {1}, ignored",
@@ -248,7 +248,7 @@ namespace quicr {
                   "Received subscribe error conn_id: {} request_id: {} reason: {} code: {} requested track_alias: {}",
                   conn_ctx.connection_handle,
                   msg.request_id,
-                  std::string(msg.reason_phrase.begin(), msg.reason_phrase.end()),
+                  std::string(msg.error_reason.begin(), msg.error_reason.end()),
                   static_cast<std::uint64_t>(msg.error_code),
                   msg.track_alias);
 
@@ -280,6 +280,7 @@ namespace quicr {
             case messages::ControlMessageType::kAnnounceOk: {
                 messages::AnnounceOk msg;
                 msg_bytes >> msg;
+
 
                 auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
                 auto th = TrackHash(tfn);
@@ -374,8 +375,8 @@ namespace quicr {
                 messages::SubscribeDone msg;
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.request_id);
-                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                auto sub_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
+                if (sub_it == conn_ctx.tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received subscribe done to unknown request_id conn_id: {0} request_id: {1}",
                                        conn_ctx.connection_handle,
@@ -488,8 +489,8 @@ namespace quicr {
                 messages::FetchError msg;
                 msg_bytes >> msg;
 
-                auto fetch_it = conn_ctx.tracks_by_sub_id.find(msg.request_id);
-                if (fetch_it == conn_ctx.tracks_by_sub_id.end()) {
+                auto fetch_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
+                if (fetch_it == conn_ctx.tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received fetch ok for unknown fetch track conn_id: {0} request_id: {1}, ignored",
@@ -506,8 +507,8 @@ namespace quicr {
                 messages::FetchError msg;
                 msg_bytes >> msg;
 
-                auto fetch_it = conn_ctx.tracks_by_sub_id.find(msg.request_id);
-                if (fetch_it == conn_ctx.tracks_by_sub_id.end()) {
+                auto fetch_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
+                if (fetch_it == conn_ctx.tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received fetch error for unknown fetch track conn_id: {} request_id: {} "
                                        "error code: {}, ignored",
@@ -526,7 +527,7 @@ namespace quicr {
                                    std::string(msg.reason_phrase.begin(), msg.reason_phrase.end()));
 
                 fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kError);
-                conn_ctx.tracks_by_sub_id.erase(fetch_it);
+                conn_ctx.tracks_by_request_id.erase(fetch_it);
 
                 return true;
             }

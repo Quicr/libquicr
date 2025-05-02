@@ -392,8 +392,8 @@ namespace quicr {
 
                 conn_ctx.recv_sub_id[msg.request_id] = { tfn };
 
-                if (msg.request_id > conn_ctx.current_request_id) {
-                    conn_ctx.current_request_id = msg.request_id + 1;
+                if (msg.request_id > conn_ctx.next_request_id) {
+                    conn_ctx.next_request_id = msg.request_id + 1;
                 }
 
                 // TODO(tievens): add filter type when caching supports it
@@ -414,9 +414,9 @@ namespace quicr {
                 });
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.request_id);
+                auto sub_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
 
-                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                if (sub_it == conn_ctx.tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received subscribe ok to unknown subscribe track conn_id: {0} request_id: {1}, ignored",
@@ -436,9 +436,9 @@ namespace quicr {
                 auto msg = messages::SubscribeError{};
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.request_id);
+                auto sub_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
 
-                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                if (sub_it == conn_ctx.tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received subscribe error to unknown request_id conn_id: {0} request_id: {1}, ignored",
@@ -549,8 +549,8 @@ namespace quicr {
                 messages::SubscribeDone msg;
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.request_id);
-                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                auto sub_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
+                if (sub_it == conn_ctx.tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received subscribe done to unknown request_id conn_id: {0} request_id: {1}",
                                        conn_ctx.connection_handle,
@@ -773,8 +773,8 @@ namespace quicr {
                     return true;
                 }
 
-                if (msg.request_id > conn_ctx.current_request_id) {
-                    conn_ctx.current_request_id = msg.request_id + 1;
+                if (msg.request_id > conn_ctx.next_request_id) {
+                    conn_ctx.next_request_id = msg.request_id + 1;
                 }
 
                 SendFetchOk(conn_ctx, msg.request_id, msg.group_order, end_of_track, largest_group, largest_object);
