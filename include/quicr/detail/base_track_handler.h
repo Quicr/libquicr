@@ -43,7 +43,7 @@ namespace quicr {
         };
         ReasonCode reason_code;
 
-        std::optional<std::string> reason_phrase = std::nullopt;
+        std::optional<std::string> error_reason = std::nullopt;
         std::optional<uint64_t> track_alias = std::nullopt; ///< Set only when ResponseCode is kRetryTrackAlias
 
         std::optional<messages::Location> largest_location = std::nullopt;

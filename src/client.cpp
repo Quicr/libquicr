@@ -245,7 +245,7 @@ namespace quicr {
                   "Received subscribe error conn_id: {} subscribe_id: {} reason: {} code: {} requested track_alias: {}",
                   conn_ctx.connection_handle,
                   msg.subscribe_id,
-                  std::string(msg.reason_phrase.begin(), msg.reason_phrase.end()),
+                  std::string(msg.error_reason.begin(), msg.error_reason.end()),
                   static_cast<std::uint64_t>(msg.error_code),
                   msg.track_alias);
 
@@ -300,7 +300,7 @@ namespace quicr {
                 std::string reason = "unknown";
                 auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
                 auto th = TrackHash(tfn);
-                reason.assign(msg.reason_phrase.begin(), msg.reason_phrase.end());
+                reason.assign(msg.error_reason.begin(), msg.error_reason.end());
 
                 SPDLOG_LOGGER_INFO(logger_,
                                    "Received announce error for namespace_hash: {0} error code: {1} reason: {2}",
@@ -325,7 +325,7 @@ namespace quicr {
                 auto error_code = static_cast<messages::SubscribeAnnouncesErrorCode>(msg.error_code);
                 SubscribeAnnouncesStatusChanged(msg.track_namespace_prefix,
                                                 error_code,
-                                                std::make_optional<messages::ReasonPhrase>(msg.reason_phrase));
+                                                std::make_optional<messages::ReasonPhrase>(msg.error_reason));
 
                 return true;
             }
@@ -520,7 +520,7 @@ namespace quicr {
                                    conn_ctx.connection_handle,
                                    msg.subscribe_id,
                                    static_cast<std::uint64_t>(msg.error_code),
-                                   std::string(msg.reason_phrase.begin(), msg.reason_phrase.end()));
+                                   std::string(msg.error_reason.begin(), msg.error_reason.end()));
 
                 fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kError);
                 conn_ctx.tracks_by_sub_id.erase(fetch_it);
