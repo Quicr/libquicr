@@ -381,13 +381,11 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 {
     Bytes buffer;
     Parameter param1;
-    param1.type = ParameterType::kMaxRequestId;
-    // param1.length = 0x2;
+    param1.type = ParameterType::kEndpointId;
     param1.value = { 0x1, 0x2 };
 
     Parameter param2;
-    param2.type = ParameterType::kMaxRequestId;
-    // param2.length = 0x3;
+    param2.type = ParameterType::kEndpointId;
     param2.value = { 0x1, 0x2, 0x3 };
 
     SubscribeParameters params = { param1, param2 };
@@ -938,7 +936,9 @@ TEST_CASE("Key Value Pair encode/decode")
             TestKVP64 out;
             serialized >> out;
             CHECK_EQ(out.type, type);
-            CHECK_EQ(out.value, value);
+            std::uint64_t reconstructed_value = 0;
+            std::memcpy(&reconstructed_value, out.value.data(), out.value.size());
+            CHECK_EQ(reconstructed_value, one);
         }
         {
             CAPTURE("ODD");
@@ -962,7 +962,9 @@ TEST_CASE("Key Value Pair encode/decode")
             TestKVPEnum out;
             serialized >> out;
             CHECK_EQ(out.type, type);
-            CHECK_EQ(out.value, value);
+            std::uint64_t reconstructed_value = 0;
+            std::memcpy(&reconstructed_value, out.value.data(), out.value.size());
+            CHECK_EQ(reconstructed_value, one);
         }
         {
             CAPTURE("ODD");
