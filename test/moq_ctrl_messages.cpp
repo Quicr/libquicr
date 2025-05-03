@@ -979,3 +979,13 @@ TEST_CASE("Key Value Pair encode/decode")
         }
     }
 }
+
+TEST_CASE("UInt16 Encode/decode")
+{
+    std::uint16_t value = 65535;
+    Bytes buffer;
+    buffer << value;
+    std::uint16_t reconstructed_value = 0;
+    buffer >> reconstructed_value;
+    CHECK_EQ(reconstructed_value, value);
+}

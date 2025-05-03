@@ -29,6 +29,14 @@ namespace quicr::messages {
         return buffer;
     }
 
+    Bytes& operator<<(Bytes& buffer, std::uint16_t value)
+    {
+        const std::uint16_t swapped = SwapBytes(value);
+        buffer.push_back(static_cast<uint8_t>(swapped >> 8 & 0xFF));
+        buffer.push_back(static_cast<uint8_t>(swapped & 0xFF));
+        return buffer;
+    }
+
     Bytes& operator<<(Bytes& buffer, std::uint64_t value)
     {
         UintVar varint = value;
@@ -49,6 +57,18 @@ namespace quicr::messages {
         // need 8 bits - not a varint
         value = buffer.front();
         return buffer.subspan(sizeof(value));
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, uint16_t& value)
+    {
+        if (buffer.size() < sizeof(value)) {
+            throw std::invalid_argument("Provider buffer too small");
+        }
+        const std::uint16_t high = buffer[0];
+        const std::uint16_t low = buffer[1];
+        value = high << 8 | low;
+        value = SwapBytes(value);
+        return buffer.subspan(sizeof(std::uint16_t));
     }
 
     BytesSpan operator>>(BytesSpan buffer, uint64_t& value)

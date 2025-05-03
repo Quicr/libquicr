@@ -14,6 +14,9 @@ namespace quicr::messages {
     quicr::Bytes& operator<<(quicr::Bytes& buffer, std::uint8_t value);
     quicr::BytesSpan operator>>(quicr::BytesSpan buffer, uint8_t& value);
 
+    Bytes& operator<<(Bytes& buffer, std::uint16_t value);
+    BytesSpan operator>>(BytesSpan buffer, std::uint16_t& value);
+
     quicr::Bytes& operator<<(quicr::Bytes& buffer, const quicr::UintVar& value);
 
     using GroupId = uint64_t;
