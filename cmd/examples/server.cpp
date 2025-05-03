@@ -428,7 +428,7 @@ class MyServer : public quicr::Server
 
     void AnnounceReceived(quicr::ConnectionHandle connection_handle,
                           const quicr::TrackNamespace& track_namespace,
-                          const quicr::PublishAnnounceAttributes&) override
+                          const quicr::PublishAnnounceAttributes& attrs) override
     {
         auto th = quicr::TrackHash({ track_namespace, {}, std::nullopt });
 
@@ -469,7 +469,7 @@ class MyServer : public quicr::Server
             }
         }
 
-        ResolveAnnounce(connection_handle, track_namespace, sub_annos_connections, announce_response);
+        ResolveAnnounce(connection_handle, attrs.request_id, track_namespace, sub_annos_connections, announce_response);
 
         // Check if there are any subscribes. If so, send subscribe to announce for all tracks matching namespace
         for (const auto& [ns, sub_tracks] : qserver_vars::subscribe_active) {
