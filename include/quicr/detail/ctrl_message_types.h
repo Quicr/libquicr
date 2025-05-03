@@ -24,6 +24,14 @@ namespace quicr::messages {
     // TODO(RichLogan): Remove when ErrorReason -> ReasonPhrase.
     using ReasonPhrase = Bytes;
 
+    struct ControlMessage
+    {
+        std::uint64_t type{ 0 };
+        Bytes payload{};
+    };
+    Bytes& operator<<(Bytes& buffer, const ControlMessage& message);
+    BytesSpan operator>>(BytesSpan buffer, ControlMessage& message);
+
     struct Location
     {
         GroupId group{ 0 };

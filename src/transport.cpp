@@ -1286,7 +1286,7 @@ namespace quicr {
                         break; // Not enough bytes to process control message. Try again once more.
                     }
 
-                    std::memcpy(&payload_len, conn_ctx.ctrl_msg_buffer.data(), sizeof(payload_len));
+                    payload_len = (conn_ctx.ctrl_msg_buffer[0] << 8) | conn_ctx.ctrl_msg_buffer[1];
                     payload_len = SwapBytes(payload_len);
 
                     if (conn_ctx.ctrl_msg_buffer.size() < payload_len + sizeof(payload_len)) {

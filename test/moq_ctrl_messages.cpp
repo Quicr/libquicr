@@ -63,15 +63,12 @@ template<typename T>
 bool
 VerifyCtrl(BytesSpan buffer, uint64_t message_type, T& message)
 {
-    uint64_t msg_type = 0;
-    uint64_t length = 0;
-    buffer = buffer >> msg_type;
-    buffer = buffer >> length;
+    ControlMessage ctrl_message;
+    buffer = buffer >> ctrl_message;
 
-    CHECK_EQ(msg_type, message_type);
-    CHECK_EQ(length, buffer.size());
+    CHECK_EQ(ctrl_message.type, message_type);
 
-    buffer = buffer >> message;
+    ctrl_message.payload >> message;
 
     return true;
 }
@@ -988,4 +985,17 @@ TEST_CASE("UInt16 Encode/decode")
     std::uint16_t reconstructed_value = 0;
     buffer >> reconstructed_value;
     CHECK_EQ(reconstructed_value, value);
+}
+
+TEST_CASE("ControlMessage encode/decode")
+{
+    ControlMessage msg;
+    msg.type = 1234;
+    msg.payload = Bytes{ 1, 2, 3, 4 };
+    Bytes buffer;
+    buffer << msg;
+    ControlMessage out;
+    buffer >> out;
+    CHECK_EQ(out.type, msg.type);
+    CHECK_EQ(out.payload, msg.payload);
 }

@@ -85,8 +85,10 @@ namespace quicr::messages {
         payload << msg.subscribe_parameters; // (..) ... << SubscribeParameters
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeUpdate);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kSubscribeUpdate);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -144,8 +146,10 @@ namespace quicr::messages {
         payload << msg.subscribe_parameters; // (..) ... << SubscribeParameters
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribe);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kSubscribe);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -219,8 +223,10 @@ namespace quicr::messages {
         payload << msg.subscribe_parameters; // (..) ... << SubscribeParameters
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeOk);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kSubscribeOk);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -265,8 +271,10 @@ namespace quicr::messages {
         payload << msg.track_alias;  // (i)  << TrackAlias
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeError);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kSubscribeError);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -293,8 +301,10 @@ namespace quicr::messages {
         payload << msg.parameters;      // (..) ... << Parameters
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kAnnounce);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kAnnounce);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -317,8 +327,10 @@ namespace quicr::messages {
         payload << msg.request_id; // (i)  << RequestID
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kAnnounceOk);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kAnnounceOk);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -345,8 +357,10 @@ namespace quicr::messages {
         payload << msg.error_reason; // (Reason Phrase)  << ErrorReason
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kAnnounceError);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kAnnounceError);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -369,8 +383,10 @@ namespace quicr::messages {
         payload << msg.track_namespace; // (tuple)  << TrackNamespace
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kUnannounce);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kUnannounce);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -393,8 +409,10 @@ namespace quicr::messages {
         payload << msg.request_id; // (i)  << RequestID
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kUnsubscribe);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kUnsubscribe);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -423,8 +441,10 @@ namespace quicr::messages {
         payload << msg.error_reason; // (Reason Phrase)  << ErrorReason
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeDone);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kSubscribeDone);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -451,8 +471,10 @@ namespace quicr::messages {
         payload << msg.error_reason;    // (Reason Phrase)  << ErrorReason
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kAnnounceCancel);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kAnnounceCancel);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -481,8 +503,10 @@ namespace quicr::messages {
         payload << msg.parameters;      // (..) ... << Parameters
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kTrackStatusRequest);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kTrackStatusRequest);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -511,8 +535,10 @@ namespace quicr::messages {
         payload << msg.parameters;       // (..) ... << Parameters
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kTrackStatus);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kTrackStatus);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -535,8 +561,10 @@ namespace quicr::messages {
         payload << msg.new_session_uri; // (..)  << NewSessionURI
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kGoaway);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kGoaway);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -563,8 +591,10 @@ namespace quicr::messages {
         payload << msg.parameters;             // (..) ... << Parameters
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeAnnounces);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kSubscribeAnnounces);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -587,8 +617,10 @@ namespace quicr::messages {
         payload << msg.request_id; // (i)  << RequestID
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeAnnouncesOk);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kSubscribeAnnouncesOk);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -615,8 +647,10 @@ namespace quicr::messages {
         payload << msg.error_reason; // (Reason Phrase)  << ErrorReason
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kSubscribeAnnouncesError);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kSubscribeAnnouncesError);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -639,8 +673,10 @@ namespace quicr::messages {
         payload << msg.track_namespace_prefix; // (tuple)  << TrackNamespacePrefix
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kUnsubscribeAnnounces);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kUnsubscribeAnnounces);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -663,8 +699,10 @@ namespace quicr::messages {
         payload << msg.request_id; // (i)  << RequestID
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kMaxRequestId);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kMaxRequestId);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -714,8 +752,10 @@ namespace quicr::messages {
         payload << msg.parameters;          // (..) ... << Parameters
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kFetch);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kFetch);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -781,8 +821,10 @@ namespace quicr::messages {
         payload << msg.request_id; // (i)  << RequestID
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kFetchCancel);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kFetchCancel);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -813,8 +855,10 @@ namespace quicr::messages {
         payload << msg.subscribe_parameters; // (..) ... << SubscribeParameters
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kFetchOk);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kFetchOk);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -841,8 +885,10 @@ namespace quicr::messages {
         payload << msg.error_reason; // (Reason Phrase)  << ErrorReason
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kFetchError);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kFetchError);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -865,8 +911,10 @@ namespace quicr::messages {
         payload << msg.maximum_request_id; // (i)  << MaximumRequestID
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kRequestsBlocked);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kRequestsBlocked);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -891,8 +939,10 @@ namespace quicr::messages {
         payload << msg.setup_parameters;   // (..) ... << SetupParameters
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kClientSetup);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kClientSetup);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -917,8 +967,10 @@ namespace quicr::messages {
         payload << msg.setup_parameters; // (..) ... << SetupParameters
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kServerSetup);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kServerSetup);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
@@ -943,8 +995,10 @@ namespace quicr::messages {
         payload << msg.track_alias; // (i)  << TrackAlias
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::kNewGroupRequest);
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::kNewGroupRequest);
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 
