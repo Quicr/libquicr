@@ -584,8 +584,7 @@ namespace quicr {
                 messages::SubscribesBlocked msg;
                 msg_bytes >> msg;
 
-                SPDLOG_LOGGER_WARN(
-                  logger_, "Subscribe was blocked, maximum_request_id: {}", msg.maximum_request_id);
+                SPDLOG_LOGGER_WARN(logger_, "Subscribe was blocked, maximum_request_id: {}", msg.maximum_request_id);
 
                 // TODO: React to this somehow.
                 // See https://www.ietf.org/archive/id/draft-ietf-moq-transport-08.html#section-7.21
@@ -623,9 +622,7 @@ namespace quicr {
                 messages::TrackStatus msg;
                 msg_bytes >> msg;
 
-                SPDLOG_LOGGER_INFO(logger_,
-                                   "Received track status for request_id: {}",
-                                   msg.request_id);
+                SPDLOG_LOGGER_INFO(logger_, "Received track status for request_id: {}", msg.request_id);
                 return true;
             }
             case messages::ControlMessageType::kGoaway: {
@@ -791,8 +788,7 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 if (conn_ctx.recv_sub_id.find(msg.request_id) == conn_ctx.recv_sub_id.end()) {
-                    SPDLOG_LOGGER_WARN(
-                      logger_, "Received Fetch Cancel for unknown subscribe ID: {0}", msg.request_id);
+                    SPDLOG_LOGGER_WARN(logger_, "Received Fetch Cancel for unknown subscribe ID: {0}", msg.request_id);
                 }
 
                 FetchCancelReceived(conn_ctx.connection_handle, msg.request_id);

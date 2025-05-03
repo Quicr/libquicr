@@ -45,12 +45,13 @@ namespace quicr {
 
         switch (subscribe_response.reason_code) {
             case SubscribeResponse::ReasonCode::kOk: {
-                SendSubscribeOk(
-                  conn_it->second,
-                  request_id,
-                  kSubscribeExpires,
-                  subscribe_response.largest_location.has_value(),
-                  subscribe_response.largest_location.has_value() ? subscribe_response.largest_location.value() : messages::Location());
+                SendSubscribeOk(conn_it->second,
+                                request_id,
+                                kSubscribeExpires,
+                                subscribe_response.largest_location.has_value(),
+                                subscribe_response.largest_location.has_value()
+                                  ? subscribe_response.largest_location.value()
+                                  : messages::Location());
                 break;
             }
 
@@ -177,7 +178,7 @@ namespace quicr {
                     return true;
                 }
 
-                SendSubscribeOk(conn_ctx, msg.request_id, kSubscribeExpires, false, {0,0});
+                SendSubscribeOk(conn_ctx, msg.request_id, kSubscribeExpires, false, { 0, 0 });
 
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received subscribe_update to track alias: {0} recv request_id: {1}",
@@ -215,7 +216,8 @@ namespace quicr {
                       "Received subscribe ok conn_id: {} request_id: {} latest_group: {} latest_object: {}",
                       conn_ctx.connection_handle,
                       msg.request_id,
-                      msg.group_0->largest_location.group, msg.group_0->largest_location.object);
+                      msg.group_0->largest_location.group,
+                      msg.group_0->largest_location.object);
 
                     sub_it->second.get()->SetLatestLocation(msg.group_0->largest_location);
                 }
@@ -324,9 +326,8 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 auto error_code = static_cast<messages::SubscribeAnnouncesErrorCode>(msg.error_code);
-                SubscribeAnnouncesStatusChanged(msg.track_namespace_prefix,
-                                                error_code,
-                                                std::make_optional<messages::ReasonPhrase>(msg.error_reason));
+                SubscribeAnnouncesStatusChanged(
+                  msg.track_namespace_prefix, error_code, std::make_optional<messages::ReasonPhrase>(msg.error_reason));
 
                 return true;
             }
@@ -401,8 +402,7 @@ namespace quicr {
                 messages::SubscribesBlocked msg;
                 msg_bytes >> msg;
 
-                SPDLOG_LOGGER_WARN(
-                  logger_, "Subscribe was blocked, maximum_request_id: {}", msg.maximum_request_id);
+                SPDLOG_LOGGER_WARN(logger_, "Subscribe was blocked, maximum_request_id: {}", msg.maximum_request_id);
 
                 // TODO: React to this somehow.
                 // See https://www.ietf.org/archive/id/draft-ietf-moq-transport-08.html#section-7.21
@@ -441,9 +441,7 @@ namespace quicr {
                 messages::TrackStatus msg;
                 msg_bytes >> msg;
 
-                SPDLOG_LOGGER_INFO(logger_,
-                                   "Received track status for request_id: {}",
-                                   msg.request_id);
+                SPDLOG_LOGGER_INFO(logger_, "Received track status for request_id: {}", msg.request_id);
                 return true;
             }
             case messages::ControlMessageType::kGoaway: {

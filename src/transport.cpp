@@ -214,7 +214,9 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
-    void Transport::SendAnnounce(ConnectionContext& conn_ctx, RequestID request_id, const TrackNamespace& track_namespace)
+    void Transport::SendAnnounce(ConnectionContext& conn_ctx,
+                                 RequestID request_id,
+                                 const TrackNamespace& track_namespace)
     {
         auto announce = messages::Announce(request_id, track_namespace, {});
 
@@ -238,7 +240,8 @@ namespace quicr {
         Bytes buffer;
         buffer << announce_ok;
 
-        SPDLOG_LOGGER_DEBUG(logger_, "Sending ANNOUNCE OK to conn_id: {} request_id: {}", conn_ctx.connection_handle, request_id);
+        SPDLOG_LOGGER_DEBUG(
+          logger_, "Sending ANNOUNCE OK to conn_id: {} request_id: {}", conn_ctx.connection_handle, request_id);
 
         SendCtrlMsg(conn_ctx, buffer);
     }
@@ -345,10 +348,8 @@ namespace quicr {
         Bytes buffer;
         buffer << subscribe_done;
 
-        SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending SUBSCRIBE DONE to conn_id: {0} request_id: {1}",
-                            conn_ctx.connection_handle,
-                            request_id);
+        SPDLOG_LOGGER_DEBUG(
+          logger_, "Sending SUBSCRIBE DONE to conn_id: {0} request_id: {1}", conn_ctx.connection_handle, request_id);
 
         SendCtrlMsg(conn_ctx, buffer);
     }
@@ -417,8 +418,7 @@ namespace quicr {
                                                 const messages::ReasonPhrase& reason)
     {
 
-        auto msg =
-          messages::SubscribeAnnouncesError(request_id, err_code, quicr::Bytes(reason.begin(), reason.end()));
+        auto msg = messages::SubscribeAnnouncesError(request_id, err_code, quicr::Bytes(reason.begin(), reason.end()));
 
         Bytes buffer;
         buffer << msg;
@@ -514,8 +514,7 @@ namespace quicr {
                                      messages::GroupId preceding_group_offset,
                                      const messages::Parameters parameters)
     {
-        auto group_1 =
-          std::make_optional<messages::Fetch::Group_1>() = { joining_request_id, preceding_group_offset };
+        auto group_1 = std::make_optional<messages::Fetch::Group_1>() = { joining_request_id, preceding_group_offset };
 
         auto fetch = messages::Fetch(request_id,
                                      priority,
@@ -1286,17 +1285,20 @@ namespace quicr {
                     }
 
                     if (ProcessCtrlMessage(
-                          conn_ctx, { conn_ctx.ctrl_msg_buffer.begin() + sizeof(payload_len), conn_ctx.ctrl_msg_buffer.end() })) {
+                          conn_ctx,
+                          { conn_ctx.ctrl_msg_buffer.begin() + sizeof(payload_len), conn_ctx.ctrl_msg_buffer.end() })) {
 
                         // Reset the control message buffer and message type to start a new message.
                         conn_ctx.ctrl_msg_type_received = std::nullopt;
                         conn_ctx.ctrl_msg_buffer.erase(conn_ctx.ctrl_msg_buffer.begin(),
-                                                       conn_ctx.ctrl_msg_buffer.begin() + sizeof(payload_len) + payload_len);
+                                                       conn_ctx.ctrl_msg_buffer.begin() + sizeof(payload_len) +
+                                                         payload_len);
                     } else {
                         conn_ctx.metrics.invalid_ctrl_stream_msg++;
                         conn_ctx.ctrl_msg_type_received = std::nullopt;
                         conn_ctx.ctrl_msg_buffer.erase(conn_ctx.ctrl_msg_buffer.begin(),
-                                                       conn_ctx.ctrl_msg_buffer.begin() + sizeof(payload_len) + payload_len);
+                                                       conn_ctx.ctrl_msg_buffer.begin() + sizeof(payload_len) +
+                                                         payload_len);
                     }
                 }
                 continue;

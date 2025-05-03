@@ -532,7 +532,7 @@ TEST_CASE("SubscribeUpdate Message encode/decode")
 
     auto subscribe_update = SubscribeUpdate{};
     subscribe_update.request_id = 0x1;
-    subscribe_update.start_location = {uint64_t(0x1000), uint64_t(0x100) };
+    subscribe_update.start_location = { uint64_t(0x1000), uint64_t(0x100) };
     subscribe_update.end_group = uint64_t(0x2000);
     subscribe_update.subscriber_priority = static_cast<SubscriberPriority>(0x10);
 

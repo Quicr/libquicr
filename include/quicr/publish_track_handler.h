@@ -97,8 +97,8 @@ namespace quicr {
                     break;
                 case TrackMode::kStream:
                     // TODO: Is a default acceptable, or enforce?
-                    stream_mode_ =
-                      stream_mode.has_value() ? stream_mode.value() : messages::StreamHeaderType::kSubgroupZeroWithExtensions;
+                    stream_mode_ = stream_mode.has_value() ? stream_mode.value()
+                                                           : messages::StreamHeaderType::kSubgroupZeroWithExtensions;
                     break;
             }
         }

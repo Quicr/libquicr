@@ -99,9 +99,9 @@ namespace quicr::messages {
     enum struct ParameterType : uint64_t
     {
         kPath = 0x1,
-        kMaxRequestId = 0x2,   // version specific, unused
-        kEndpointId = 0xF1,    // Endpoint ID, using temp value for now
-        kInvalid = 0xFF,       // used internally.
+        kMaxRequestId = 0x2, // version specific, unused
+        kEndpointId = 0xF1,  // Endpoint ID, using temp value for now
+        kInvalid = 0xFF,     // used internally.
     };
 
     using Parameter = KeyValuePair<ParameterType>;
