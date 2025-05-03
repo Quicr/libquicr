@@ -270,7 +270,8 @@ TEST_CASE("Subscribe (kAbsoluteStart) Message encode/decode")
     CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
     CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
-    CHECK_EQ(subscribe.group_0->start_location, subscribe_out.group_0->start_location);
+    CHECK_EQ(subscribe.group_0->start_location.group, subscribe_out.group_0->start_location.group);
+    CHECK_EQ(subscribe.group_0->start_location.object, subscribe_out.group_0->start_location.object);
 }
 
 TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
@@ -321,7 +322,8 @@ TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
     CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
     CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
-    CHECK_EQ(subscribe.group_0->start_location, subscribe_out.group_0->start_location);
+    CHECK_EQ(subscribe.group_0->start_location.group, subscribe_out.group_0->start_location.group);
+    CHECK_EQ(subscribe.group_0->start_location.object, subscribe_out.group_0->start_location.object);
     CHECK_EQ(subscribe.group_1->end_group, subscribe_out.group_1->end_group);
 }
 
@@ -589,7 +591,8 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
     CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
     CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
     CHECK_EQ(subscribe_ok.group_0.has_value(), subscribe_ok_out.group_0.has_value());
-    CHECK_EQ(subscribe_ok.group_0->largest_location, subscribe_ok_out.group_0->largest_location);
+    CHECK_EQ(subscribe_ok.group_0->largest_location.group, subscribe_ok_out.group_0->largest_location.group);
+    CHECK_EQ(subscribe_ok.group_0->largest_location.object, subscribe_ok_out.group_0->largest_location.object);
 }
 
 TEST_CASE("Error  Message encode/decode")
@@ -797,7 +800,8 @@ TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetchOk), fetch_ok_out));
     CHECK_EQ(fetch_ok.request_id, fetch_ok_out.request_id);
     CHECK_EQ(fetch_ok.group_order, fetch_ok_out.group_order);
-    CHECK_EQ(fetch_ok.end_location, fetch_ok_out.end_location);
+    CHECK_EQ(fetch_ok.end_location.group, fetch_ok_out.end_location.group);
+    CHECK_EQ(fetch_ok.end_location.object, fetch_ok_out.end_location.object);
 
     buffer.clear();
     auto fetch_cancel = FetchCancel{};
@@ -826,12 +830,12 @@ TEST_CASE("SubscribesBlocked Message encode/decode")
 {
     Bytes buffer;
 
-    auto sub_blocked = SubscribesBlocked{};
+    auto sub_blocked = RequestsBlocked{};
     sub_blocked.maximum_request_id = std::numeric_limits<uint64_t>::max() >> 2;
     buffer << sub_blocked;
 
-    SubscribesBlocked sub_blocked_out{};
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribesBlocked), sub_blocked_out));
+    RequestsBlocked sub_blocked_out{};
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kRequestsBlocked), sub_blocked_out));
     CHECK_EQ(sub_blocked.maximum_request_id, sub_blocked_out.maximum_request_id);
 }
 
