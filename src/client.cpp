@@ -35,7 +35,7 @@ namespace quicr {
     }
 
     void Client::ResolveSubscribe(ConnectionHandle connection_handle,
-                                  uint64_t subscribe_id,
+                                  uint64_t request_id,
                                   const SubscribeResponse& subscribe_response)
     {
         auto conn_it = connections_.find(connection_handle);
@@ -45,18 +45,19 @@ namespace quicr {
 
         switch (subscribe_response.reason_code) {
             case SubscribeResponse::ReasonCode::kOk: {
-                SendSubscribeOk(
-                  conn_it->second,
-                  subscribe_id,
-                  kSubscribeExpires,
-                  subscribe_response.largest_location.has_value(),
-                  subscribe_response.largest_location.has_value() ? subscribe_response.largest_location.value() : messages::Location());
+                SendSubscribeOk(conn_it->second,
+                                request_id,
+                                kSubscribeExpires,
+                                subscribe_response.largest_location.has_value(),
+                                subscribe_response.largest_location.has_value()
+                                  ? subscribe_response.largest_location.value()
+                                  : messages::Location());
                 break;
             }
 
             default:
                 SendSubscribeError(
-                  conn_it->second, subscribe_id, {}, messages::SubscribeErrorCode::kInternalError, "Internal error");
+                  conn_it->second, request_id, {}, messages::SubscribeErrorCode::kInternalError, "Internal error");
                 break;
         }
     }
@@ -96,11 +97,11 @@ namespace quicr {
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
                 auto th = TrackHash(tfn);
 
-                if (msg.subscribe_id > conn_ctx.current_subscribe_id) {
-                    conn_ctx.current_subscribe_id = msg.subscribe_id + 1;
+                if (msg.request_id > conn_ctx.next_request_id) {
+                    conn_ctx.next_request_id = msg.request_id + 1;
                 }
 
-                conn_ctx.recv_sub_id[msg.subscribe_id] = { .track_full_name = tfn };
+                conn_ctx.recv_sub_id[msg.request_id] = { .track_full_name = tfn };
 
                 // For client/publisher, notify track that there is a subscriber
                 auto ptd = GetPubTrackHandler(conn_ctx, th);
@@ -113,50 +114,50 @@ namespace quicr {
                                        th.track_name_hash);
 
                     SendSubscribeError(conn_ctx,
-                                       msg.subscribe_id,
+                                       msg.request_id,
                                        msg.track_alias,
                                        messages::SubscribeErrorCode::kTrackNotExist,
                                        "Published track not found");
                     return true;
                 }
 
-                ResolveSubscribe(conn_ctx.connection_handle, msg.subscribe_id, { SubscribeResponse::ReasonCode::kOk });
+                ResolveSubscribe(conn_ctx.connection_handle, msg.request_id, { SubscribeResponse::ReasonCode::kOk });
 
                 SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received subscribe to announced track alias: {0} recv subscribe_id: {1}, setting "
+                                    "Received subscribe to announced track alias: {0} recv request_id: {1}, setting "
                                     "send state to ready",
                                     msg.track_alias,
-                                    msg.subscribe_id);
+                                    msg.request_id);
 
                 // Indicate send is ready upon subscribe
                 // TODO(tievens): Maybe needs a delay as subscriber may have not received ok before data is sent
-                ptd->SetSubscribeId(msg.subscribe_id);
+                ptd->SetRequestId(msg.request_id);
                 ptd->SetTrackAlias(msg.track_alias);
                 ptd->SetStatus(PublishTrackHandler::Status::kOk);
 
-                conn_ctx.recv_sub_id[msg.subscribe_id] = { tfn };
+                conn_ctx.recv_sub_id[msg.request_id] = { tfn };
                 return true;
             }
             case messages::ControlMessageType::kSubscribeUpdate: {
                 messages::SubscribeUpdate msg;
                 msg_bytes >> msg;
 
-                if (conn_ctx.recv_sub_id.count(msg.subscribe_id) == 0) {
+                if (conn_ctx.recv_sub_id.count(msg.request_id) == 0) {
                     // update for invalid subscription
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received subscribe_update {0} for unknown subscription conn_id: {1}",
-                                       msg.subscribe_id,
+                                       msg.request_id,
                                        conn_ctx.connection_handle);
 
                     SendSubscribeError(conn_ctx,
-                                       msg.subscribe_id,
+                                       msg.request_id,
                                        0x0,
                                        messages::SubscribeErrorCode::kTrackNotExist,
                                        "Subscription not found");
                     return true;
                 }
 
-                auto tfn = conn_ctx.recv_sub_id[msg.subscribe_id].track_full_name;
+                auto tfn = conn_ctx.recv_sub_id[msg.request_id].track_full_name;
                 auto th = TrackHash(tfn);
 
                 // For client/publisher, notify track that there is a subscriber
@@ -170,19 +171,19 @@ namespace quicr {
                                        th.track_name_hash);
 
                     SendSubscribeError(conn_ctx,
-                                       msg.subscribe_id,
+                                       msg.request_id,
                                        th.track_fullname_hash,
                                        messages::SubscribeErrorCode::kTrackNotExist,
                                        "Published track not found");
                     return true;
                 }
 
-                SendSubscribeOk(conn_ctx, msg.subscribe_id, kSubscribeExpires, false, 0, 0);
+                SendSubscribeOk(conn_ctx, msg.request_id, kSubscribeExpires, false, { 0, 0 });
 
                 SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received subscribe_update to track alias: {0} recv subscribe_id: {1}",
+                                    "Received subscribe_update to track alias: {0} recv request_id: {1}",
                                     th.track_fullname_hash,
-                                    msg.subscribe_id);
+                                    msg.request_id);
 
                 ptd->SetStatus(PublishTrackHandler::Status::kSubscriptionUpdated);
                 return true;
@@ -195,14 +196,14 @@ namespace quicr {
                 });
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                auto sub_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
 
-                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                if (sub_it == conn_ctx.tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
-                      "Received subscribe ok to unknown subscribe track conn_id: {0} subscribe_id: {1}, ignored",
+                      "Received subscribe ok to unknown subscribe track conn_id: {0} request_id: {1}, ignored",
                       conn_ctx.connection_handle,
-                      msg.subscribe_id);
+                      msg.request_id);
 
                     // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race
                     // condition
@@ -212,12 +213,13 @@ namespace quicr {
                 if (msg.group_0.has_value()) {
                     SPDLOG_LOGGER_DEBUG(
                       logger_,
-                      "Received subscribe ok conn_id: {} subscribe_id: {} latest_group: {} latest_object: {}",
+                      "Received subscribe ok conn_id: {} request_id: {} latest_group: {} latest_object: {}",
                       conn_ctx.connection_handle,
-                      msg.subscribe_id,
-                      msg.group_0->largest_location);
+                      msg.request_id,
+                      msg.group_0->largest_location.group,
+                      msg.group_0->largest_location.object);
 
-                    sub_it->second.get()->SetLargestLocation(msg.group_0->largest_location);
+                    sub_it->second.get()->SetLatestLocation(msg.group_0->largest_location);
                 }
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
                 return true;
@@ -226,14 +228,14 @@ namespace quicr {
                 messages::SubscribeError msg;
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
+                auto sub_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
 
-                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                if (sub_it == conn_ctx.tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
-                      "Received subscribe error to unknown subscribe_id conn_id: {0} subscribe_id: {1}, ignored",
+                      "Received subscribe error to unknown request_id conn_id: {0} request_id: {1}, ignored",
                       conn_ctx.connection_handle,
-                      msg.subscribe_id);
+                      msg.request_id);
 
                     // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race
                     // condition
@@ -242,9 +244,9 @@ namespace quicr {
 
                 SPDLOG_LOGGER_INFO(
                   logger_,
-                  "Received subscribe error conn_id: {} subscribe_id: {} reason: {} code: {} requested track_alias: {}",
+                  "Received subscribe error conn_id: {} request_id: {} reason: {} code: {} requested track_alias: {}",
                   conn_ctx.connection_handle,
-                  msg.subscribe_id,
+                  msg.request_id,
                   std::string(msg.error_reason.begin(), msg.error_reason.end()),
                   static_cast<std::uint64_t>(msg.error_code),
                   msg.track_alias);
@@ -278,15 +280,18 @@ namespace quicr {
                 messages::AnnounceOk msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
-                auto th = TrackHash(tfn);
                 SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received announce ok, conn_id: {0} namespace_hash: {1}",
+                                    "Received announce ok, conn_id: {} request_id: {}",
                                     conn_ctx.connection_handle,
-                                    th.track_namespace_hash);
+                                    msg.request_id);
 
                 // Update each track to indicate status is okay to publish
-                auto pub_it = conn_ctx.pub_tracks_by_name.find(th.track_namespace_hash);
+                auto pub_ns_it = conn_ctx.pub_tracks_ns_by_request_id.find(msg.request_id);
+                if (pub_ns_it == conn_ctx.pub_tracks_ns_by_request_id.end()) {
+                    break;
+                }
+
+                auto pub_it = conn_ctx.pub_tracks_by_name.find(pub_ns_it->second);
                 for (const auto& td : pub_it->second) {
                     if (td.second.get()->GetStatus() != PublishTrackHandler::Status::kOk)
                         td.second.get()->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
@@ -298,13 +303,11 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 std::string reason = "unknown";
-                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
-                auto th = TrackHash(tfn);
                 reason.assign(msg.error_reason.begin(), msg.error_reason.end());
 
                 SPDLOG_LOGGER_INFO(logger_,
-                                   "Received announce error for namespace_hash: {0} error code: {1} reason: {2}",
-                                   th.track_namespace_hash,
+                                   "Received announce error for request_id: {} error code: {} reason: {}",
+                                   msg.request_id,
                                    static_cast<std::uint64_t>(msg.error_code),
                                    reason);
 
@@ -323,9 +326,8 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 auto error_code = static_cast<messages::SubscribeAnnouncesErrorCode>(msg.error_code);
-                SubscribeAnnouncesStatusChanged(msg.track_namespace_prefix,
-                                                error_code,
-                                                std::make_optional<messages::ReasonPhrase>(msg.error_reason));
+                SubscribeAnnouncesStatusChanged(
+                  msg.track_namespace_prefix, error_code, std::make_optional<messages::ReasonPhrase>(msg.error_reason));
 
                 return true;
             }
@@ -334,14 +336,14 @@ namespace quicr {
                 messages::Unsubscribe msg;
                 msg_bytes >> msg;
 
-                const auto& th_it = conn_ctx.recv_sub_id.find(msg.subscribe_id);
+                const auto& th_it = conn_ctx.recv_sub_id.find(msg.request_id);
 
                 if (th_it == conn_ctx.recv_sub_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
-                      "Received unsubscribe to unknown subscribe_id conn_id: {0} subscribe_id: {1}, ignored",
+                      "Received unsubscribe to unknown request_id conn_id: {0} request_id: {1}, ignored",
                       conn_ctx.connection_handle,
-                      msg.subscribe_id);
+                      msg.request_id);
 
                     // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to
                     // race condition
@@ -352,9 +354,9 @@ namespace quicr {
                 const auto& ns_hash = th.track_namespace_hash;
                 const auto& name_hash = th.track_name_hash;
                 SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received unsubscribe conn_id: {0} subscribe_id: {1}",
+                                    "Received unsubscribe conn_id: {0} request_id: {1}",
                                     conn_ctx.connection_handle,
-                                    msg.subscribe_id);
+                                    msg.request_id);
 
                 const auto pub_track_ns_it = conn_ctx.pub_tracks_by_name.find(ns_hash); // Find namespace
                 if (pub_track_ns_it != conn_ctx.pub_tracks_by_name.end()) {
@@ -371,12 +373,12 @@ namespace quicr {
                 messages::SubscribeDone msg;
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-                if (sub_it == conn_ctx.tracks_by_sub_id.end()) {
+                auto sub_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
+                if (sub_it == conn_ctx.tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
-                                       "Received subscribe done to unknown subscribe_id conn_id: {0} subscribe_id: {1}",
+                                       "Received subscribe done to unknown request_id conn_id: {0} request_id: {1}",
                                        conn_ctx.connection_handle,
-                                       msg.subscribe_id);
+                                       msg.request_id);
 
                     // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race
                     // condition
@@ -385,10 +387,10 @@ namespace quicr {
                 auto tfn = sub_it->second->GetFullTrackName();
 
                 SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received subscribe done conn_id: {0} subscribe_id: {1} track namespace hash: {2} "
+                                    "Received subscribe done conn_id: {0} request_id: {1} track namespace hash: {2} "
                                     "name hash: {3} track alias: {4}",
                                     conn_ctx.connection_handle,
-                                    msg.subscribe_id,
+                                    msg.request_id,
                                     TrackHash(tfn).track_namespace_hash,
                                     TrackHash(tfn).track_name_hash,
                                     TrackHash(tfn).track_fullname_hash);
@@ -400,13 +402,12 @@ namespace quicr {
                 messages::SubscribesBlocked msg;
                 msg_bytes >> msg;
 
-                SPDLOG_LOGGER_WARN(
-                  logger_, "Subscribe was blocked, maximum_subscribe_id: {}", msg.maximum_subscribe_id);
+                SPDLOG_LOGGER_WARN(logger_, "Subscribe was blocked, maximum_request_id: {}", msg.maximum_request_id);
 
                 // TODO: React to this somehow.
                 // See https://www.ietf.org/archive/id/draft-ietf-moq-transport-08.html#section-7.21
-                // A publisher MAY send a MAX_SUBSCRIBE_ID upon receipt of SUBSCRIBES_BLOCKED, but it MUST NOT rely on
-                // SUBSCRIBES_BLOCKED to trigger sending a MAX_SUBSCRIBE_ID, because sending SUBSCRIBES_BLOCKED is not
+                // A publisher MAY send a MAX_REQUEST_ID upon receipt of SUBSCRIBES_BLOCKED, but it MUST NOT rely on
+                // SUBSCRIBES_BLOCKED to trigger sending a MAX_REQUEST_ID, because sending SUBSCRIBES_BLOCKED is not
                 // required.
 
                 return true;
@@ -440,13 +441,7 @@ namespace quicr {
                 messages::TrackStatus msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
-                auto th = TrackHash(tfn);
-
-                SPDLOG_LOGGER_INFO(logger_,
-                                   "Received track status for namespace_hash: {0} name_hash: {1}",
-                                   th.track_namespace_hash,
-                                   th.track_name_hash);
+                SPDLOG_LOGGER_INFO(logger_, "Received track status for request_id: {}", msg.request_id);
                 return true;
             }
             case messages::ControlMessageType::kGoaway: {
@@ -485,13 +480,13 @@ namespace quicr {
                 messages::FetchError msg;
                 msg_bytes >> msg;
 
-                auto fetch_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-                if (fetch_it == conn_ctx.tracks_by_sub_id.end()) {
+                auto fetch_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
+                if (fetch_it == conn_ctx.tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
-                      "Received fetch ok for unknown fetch track conn_id: {0} subscribe_id: {1}, ignored",
+                      "Received fetch ok for unknown fetch track conn_id: {0} request_id: {1}, ignored",
                       conn_ctx.connection_handle,
-                      msg.subscribe_id);
+                      msg.request_id);
                     return true;
                 }
 
@@ -503,27 +498,27 @@ namespace quicr {
                 messages::FetchError msg;
                 msg_bytes >> msg;
 
-                auto fetch_it = conn_ctx.tracks_by_sub_id.find(msg.subscribe_id);
-                if (fetch_it == conn_ctx.tracks_by_sub_id.end()) {
+                auto fetch_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
+                if (fetch_it == conn_ctx.tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
-                                       "Received fetch error for unknown fetch track conn_id: {} subscribe_id: {} "
+                                       "Received fetch error for unknown fetch track conn_id: {} request_id: {} "
                                        "error code: {}, ignored",
                                        conn_ctx.connection_handle,
-                                       msg.subscribe_id,
+                                       msg.request_id,
                                        static_cast<std::uint64_t>(msg.error_code));
                     return true;
                 }
 
                 SPDLOG_LOGGER_WARN(logger_,
-                                   "Received fetch error conn_id: {} subscribe_id: {} "
+                                   "Received fetch error conn_id: {} request_id: {} "
                                    "error code: {} reason: {}",
                                    conn_ctx.connection_handle,
-                                   msg.subscribe_id,
+                                   msg.request_id,
                                    static_cast<std::uint64_t>(msg.error_code),
                                    std::string(msg.error_reason.begin(), msg.error_reason.end()));
 
                 fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kError);
-                conn_ctx.tracks_by_sub_id.erase(fetch_it);
+                conn_ctx.tracks_by_request_id.erase(fetch_it);
 
                 return true;
             }

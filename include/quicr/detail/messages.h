@@ -76,13 +76,16 @@ namespace quicr::messages {
 
         // Subgroup Header Types.
         kStreamHeaderSubgroupZeroNoExtensions = static_cast<std::uint8_t>(StreamHeaderType::kSubgroupZeroNoExtensions),
-        kStreamHeaderSubgroupZeroWithExtensions = static_cast<std::uint8_t>(StreamHeaderType::kSubgroupZeroWithExtensions),
+        kStreamHeaderSubgroupZeroWithExtensions =
+          static_cast<std::uint8_t>(StreamHeaderType::kSubgroupZeroWithExtensions),
         kStreamHeaderSubgroupFirstObjectNoExtensions =
           static_cast<std::uint8_t>(StreamHeaderType::kSubgroupFirstObjectNoExtensions),
         kStreamHeaderSubgroupFirstObjectWithExtensions =
           static_cast<std::uint8_t>(StreamHeaderType::kSubgroupFirstObjectWithExtensions),
-        kStreamHeaderSubgroupExplicitNoExtensions = static_cast<std::uint8_t>(StreamHeaderType::kSubgroupExplicitNoExtensions),
-        kStreamHeaderSubgroupExplicitWithExtensions = static_cast<std::uint8_t>(StreamHeaderType::kSubgroupExplicitWithExtensions),
+        kStreamHeaderSubgroupExplicitNoExtensions =
+          static_cast<std::uint8_t>(StreamHeaderType::kSubgroupExplicitNoExtensions),
+        kStreamHeaderSubgroupExplicitWithExtensions =
+          static_cast<std::uint8_t>(StreamHeaderType::kSubgroupExplicitWithExtensions),
     };
 
     /**

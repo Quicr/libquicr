@@ -81,12 +81,12 @@ TEST_CASE("AnnounceOk Message encode/decode")
     Bytes buffer;
 
     auto announce_ok = AnnounceOk();
-    announce_ok.track_namespace = kTrackNamespaceConf;
+    announce_ok.request_id = 0x1234;
     buffer << announce_ok;
 
     AnnounceOk announce_ok_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kAnnounceOk), announce_ok_out));
-    CHECK_EQ(kTrackNamespaceConf, announce_ok_out.track_namespace);
+    CHECK_EQ(0x1234, announce_ok_out.request_id);
 }
 
 TEST_CASE("Announce Message encode/decode")
@@ -112,9 +112,9 @@ TEST_CASE("Unannounce Message encode/decode")
     unannounce.track_namespace = kTrackNamespaceConf;
     buffer << unannounce;
 
-    AnnounceOk announce_ok_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kUnannounce), announce_ok_out));
-    CHECK_EQ(kTrackNamespaceConf, announce_ok_out.track_namespace);
+    Unannounce unannounce_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kUnannounce), unannounce_out));
+    CHECK_EQ(kTrackNamespaceConf, unannounce_out.track_namespace);
 }
 
 TEST_CASE("AnnounceError Message encode/decode")
@@ -122,14 +122,14 @@ TEST_CASE("AnnounceError Message encode/decode")
     Bytes buffer;
 
     auto announce_err = AnnounceError{};
-    announce_err.track_namespace = kTrackNamespaceConf;
+    announce_err.request_id = 0x1234;
     announce_err.error_code = quicr::messages::AnnounceErrorCode::kNotSupported;
     announce_err.error_reason = Bytes{ 0x1, 0x2, 0x3 };
     buffer << announce_err;
 
     AnnounceError announce_err_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kAnnounceError), announce_err_out));
-    CHECK_EQ(kTrackNamespaceConf, announce_err_out.track_namespace);
+    CHECK_EQ(0x1234, announce_err_out.request_id);
     CHECK_EQ(announce_err.error_code, announce_err_out.error_code);
     CHECK_EQ(announce_err.error_reason, announce_err_out.error_reason);
 }
@@ -158,6 +158,7 @@ TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
                                                 kTrackNameAliceVideo,
                                                 0x10,
                                                 GroupOrder::kAscending,
+                                                1,
                                                 FilterType::kLatestObject,
                                                 nullptr,
                                                 std::nullopt,
@@ -181,7 +182,7 @@ TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
-    CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
+    CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
     CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
     CHECK_EQ(subscribe.subscriber_priority, subscribe_out.subscriber_priority);
     CHECK_EQ(subscribe.group_order, subscribe_out.group_order);
@@ -197,6 +198,7 @@ TEST_CASE("Subscribe (kLatestGroup) Message encode/decode")
                                                 kTrackNameAliceVideo,
                                                 0x10,
                                                 GroupOrder::kAscending,
+                                                1,
                                                 FilterType::kLatestObject,
                                                 nullptr,
                                                 std::nullopt,
@@ -221,7 +223,7 @@ TEST_CASE("Subscribe (kLatestGroup) Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
-    CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
+    CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
     CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
 }
@@ -239,6 +241,7 @@ TEST_CASE("Subscribe (kAbsoluteStart) Message encode/decode")
                                                 kTrackNameAliceVideo,
                                                 0x10,
                                                 GroupOrder::kAscending,
+                                                1,
                                                 FilterType::kAbsoluteStart,
                                                 nullptr,
                                                 group_0,
@@ -264,7 +267,7 @@ TEST_CASE("Subscribe (kAbsoluteStart) Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
-    CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
+    CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
     CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
     CHECK_EQ(subscribe.group_0->start_location, subscribe_out.group_0->start_location);
@@ -289,6 +292,7 @@ TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
                                                 kTrackNameAliceVideo,
                                                 0x10,
                                                 GroupOrder::kAscending,
+                                                1,
                                                 FilterType::kAbsoluteRange,
                                                 nullptr,
                                                 group_0,
@@ -314,7 +318,7 @@ TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
-    CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
+    CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
     CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
     CHECK_EQ(subscribe.group_0->start_location, subscribe_out.group_0->start_location);
@@ -325,7 +329,7 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
 {
     Bytes buffer;
     Parameter param;
-    param.type = ParameterType::kInvalid;
+    param.type = ParameterType::kMaxRequestId;
     param.value = { 0x1, 0x2 };
     SubscribeParameters params = { param };
 
@@ -335,6 +339,7 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
                                                 kTrackNameAliceVideo,
                                                 0x10,
                                                 GroupOrder::kAscending,
+                                                1,
                                                 FilterType::kLatestObject,
                                                 nullptr,
                                                 std::nullopt,
@@ -362,7 +367,7 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
-    CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
+    CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
     CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
     CHECK_EQ(subscribe.subscribe_parameters.size(), subscribe_out.subscribe_parameters.size());
@@ -374,11 +379,13 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 {
     Bytes buffer;
     Parameter param1;
-    param1.type = ParameterType::kPath;
+    param1.type = ParameterType::kMaxRequestId;
+    // param1.length = 0x2;
     param1.value = { 0x1, 0x2 };
 
     Parameter param2;
-    param2.type = ParameterType::kPath;
+    param2.type = ParameterType::kMaxRequestId;
+    // param2.length = 0x3;
     param2.value = { 0x1, 0x2, 0x3 };
 
     SubscribeParameters params = { param1, param2 };
@@ -389,6 +396,7 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
                                                 kTrackNameAliceVideo,
                                                 0x10,
                                                 GroupOrder::kAscending,
+                                                1,
                                                 FilterType::kLatestObject,
                                                 nullptr,
                                                 std::nullopt,
@@ -416,7 +424,7 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
-    CHECK_EQ(subscribe.subscribe_id, subscribe_out.subscribe_id);
+    CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
     CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
     CHECK_EQ(subscribe.subscribe_parameters.size(), subscribe_out.subscribe_parameters.size());
@@ -441,7 +449,7 @@ GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uin
               subscribe.group_1 = std::make_optional<Subscribe::Group_1>();
           }
       });
-    out.subscribe_id = 0xABCD;
+    out.request_id = 0xABCD;
     out.track_alias = uint64_t(kTrackAliasAliceVideo);
     out.track_namespace = kTrackNamespaceConf;
     out.track_name = kTrackNameAliceVideo;
@@ -466,7 +474,8 @@ GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uin
 
     while (num_params > 0) {
         Parameter param1;
-        param1.type = ParameterType::kPath;
+        param1.type = ParameterType::kMaxRequestId;
+        // param1.length = 0x2;
         param1.value = { 0x1, 0x2 };
         out.subscribe_parameters.push_back(param1);
         num_params--;
@@ -506,7 +515,7 @@ TEST_CASE("Subscribe (Combo) Message encode/decode")
         CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
         CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
         CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
-        CHECK_EQ(subscribes[i].subscribe_id, subscribe_out.subscribe_id);
+        CHECK_EQ(subscribes[i].request_id, subscribe_out.request_id);
         CHECK_EQ(subscribes[i].track_alias, subscribe_out.track_alias);
         CHECK_EQ(subscribes[i].filter_type, subscribe_out.filter_type);
         CHECK_EQ(subscribes[i].subscribe_parameters.size(), subscribe_out.subscribe_parameters.size());
@@ -522,8 +531,8 @@ TEST_CASE("SubscribeUpdate Message encode/decode")
     Bytes buffer;
 
     auto subscribe_update = SubscribeUpdate{};
-    subscribe_update.subscribe_id = 0x1;
-    subscribe_update.start_location = {uint64_t(0x1000), uint64_t(0x100) };
+    subscribe_update.request_id = 0x1;
+    subscribe_update.start_location = { uint64_t(0x1000), uint64_t(0x100) };
     subscribe_update.end_group = uint64_t(0x2000);
     subscribe_update.subscriber_priority = static_cast<SubscriberPriority>(0x10);
 
@@ -533,7 +542,7 @@ TEST_CASE("SubscribeUpdate Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeUpdate), subscribe_update_out));
     CHECK_EQ(0x1000, subscribe_update_out.start_location.group);
     CHECK_EQ(0x100, subscribe_update_out.start_location.object);
-    CHECK_EQ(subscribe_update.subscribe_id, subscribe_update_out.subscribe_id);
+    CHECK_EQ(subscribe_update.request_id, subscribe_update_out.request_id);
     CHECK_EQ(0x2000, subscribe_update_out.end_group);
     CHECK_EQ(subscribe_update.subscriber_priority, subscribe_update_out.subscriber_priority);
 }
@@ -552,7 +561,7 @@ TEST_CASE("SubscribeOk Message encode/decode")
     });
 
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeOk), subscribe_ok_out));
-    CHECK_EQ(subscribe_ok.subscribe_id, subscribe_ok_out.subscribe_id);
+    CHECK_EQ(subscribe_ok.request_id, subscribe_ok_out.request_id);
     CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
     CHECK_EQ(subscribe_ok.group_order, subscribe_ok_out.group_order);
     CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
@@ -576,7 +585,7 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
     });
 
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeOk), subscribe_ok_out));
-    CHECK_EQ(subscribe_ok.subscribe_id, subscribe_ok_out.subscribe_id);
+    CHECK_EQ(subscribe_ok.request_id, subscribe_ok_out.request_id);
     CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
     CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
     CHECK_EQ(subscribe_ok.group_0.has_value(), subscribe_ok_out.group_0.has_value());
@@ -588,7 +597,7 @@ TEST_CASE("Error  Message encode/decode")
     Bytes buffer;
 
     auto subscribe_err = SubscribeError{};
-    subscribe_err.subscribe_id = 0x1;
+    subscribe_err.request_id = 0x1;
     subscribe_err.error_code = quicr::messages::SubscribeErrorCode::kTrackDoesNotExist;
     subscribe_err.error_reason = Bytes{ 0x0, 0x1 };
     subscribe_err.track_alias = uint64_t(kTrackAliasAliceVideo);
@@ -596,7 +605,7 @@ TEST_CASE("Error  Message encode/decode")
 
     SubscribeError subscribe_err_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeError), subscribe_err_out));
-    CHECK_EQ(subscribe_err.subscribe_id, subscribe_err_out.subscribe_id);
+    CHECK_EQ(subscribe_err.request_id, subscribe_err_out.request_id);
     CHECK_EQ(subscribe_err.error_code, subscribe_err_out.error_code);
     CHECK_EQ(subscribe_err.error_reason, subscribe_err_out.error_reason);
     CHECK_EQ(subscribe_err.track_alias, subscribe_err_out.track_alias);
@@ -607,12 +616,12 @@ TEST_CASE("Unsubscribe  Message encode/decode")
     Bytes buffer;
 
     auto unsubscribe = Unsubscribe{};
-    unsubscribe.subscribe_id = 0x1;
+    unsubscribe.request_id = 0x1;
     buffer << unsubscribe;
 
     Unsubscribe unsubscribe_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kUnsubscribe), unsubscribe_out));
-    CHECK_EQ(unsubscribe.subscribe_id, unsubscribe_out.subscribe_id);
+    CHECK_EQ(unsubscribe.request_id, unsubscribe_out.request_id);
 }
 
 TEST_CASE("SubscribeDone  Message encode/decode")
@@ -620,7 +629,7 @@ TEST_CASE("SubscribeDone  Message encode/decode")
     Bytes buffer;
 
     auto subscribe_done = SubscribeDone{};
-    subscribe_done.subscribe_id = 0x1;
+    subscribe_done.request_id = 0x1;
     subscribe_done.status_code = quicr::messages::SubscribeDoneStatusCode::kExpired;
     subscribe_done.stream_count = 0x0;
     subscribe_done.error_reason = Bytes{ 0x0 };
@@ -630,7 +639,7 @@ TEST_CASE("SubscribeDone  Message encode/decode")
     SubscribeDone subscribe_done_out;
 
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeDone), subscribe_done_out));
-    CHECK_EQ(subscribe_done.subscribe_id, subscribe_done_out.subscribe_id);
+    CHECK_EQ(subscribe_done.request_id, subscribe_done_out.request_id);
     CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
     CHECK_EQ(subscribe_done.stream_count, subscribe_done_out.stream_count);
     CHECK_EQ(subscribe_done.error_reason, subscribe_done_out.error_reason);
@@ -641,7 +650,7 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
     Bytes buffer;
 
     auto subscribe_done = SubscribeDone{};
-    subscribe_done.subscribe_id = 0x1;
+    subscribe_done.request_id = 0x1;
     subscribe_done.status_code = quicr::messages::SubscribeDoneStatusCode::kGoingAway;
     subscribe_done.stream_count = 0x0;
     subscribe_done.error_reason = Bytes{ 0x0 };
@@ -650,7 +659,7 @@ TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
 
     SubscribeDone subscribe_done_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeDone), subscribe_done_out));
-    CHECK_EQ(subscribe_done.subscribe_id, subscribe_done_out.subscribe_id);
+    CHECK_EQ(subscribe_done.request_id, subscribe_done_out.request_id);
     CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
     CHECK_EQ(subscribe_done.stream_count, subscribe_done_out.stream_count);
     CHECK_EQ(subscribe_done.error_reason, subscribe_done_out.error_reason);
@@ -731,7 +740,7 @@ TEST_CASE("Fetch Message encode/decode")
           nullptr);
 
         CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetch), fetch_out));
-        CHECK_EQ(fetch.subscribe_id, fetch_out.subscribe_id);
+        CHECK_EQ(fetch.request_id, fetch_out.request_id);
         CHECK_EQ(fetch.subscriber_priority, fetch_out.subscriber_priority);
         CHECK_EQ(fetch.group_order, fetch_out.group_order);
         CHECK_EQ(fetch.fetch_type, fetch_out.fetch_type);
@@ -749,7 +758,7 @@ TEST_CASE("Fetch Message encode/decode")
     auto group_1 = std::make_optional<Fetch::Group_1>();
     if (group_1.has_value()) {
         group_1->joining_subscribe_id = 0x0;
-        group_1->preceding_group_offset = 0x0;
+        group_1->joining_start = 0x0;
     }
 
     fetch =
@@ -769,7 +778,7 @@ TEST_CASE("Fetch Message encode/decode")
 
         CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetch), fetch_out));
         CHECK_EQ(fetch.group_1->joining_subscribe_id, fetch_out.group_1->joining_subscribe_id);
-        CHECK_EQ(fetch.group_1->preceding_group_offset, fetch_out.group_1->preceding_group_offset);
+        CHECK_EQ(fetch.group_1->joining_start, fetch_out.group_1->joining_start);
     }
 }
 
@@ -778,7 +787,7 @@ TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
     Bytes buffer;
 
     auto fetch_ok = FetchOk{};
-    fetch_ok.subscribe_id = 0x1234;
+    fetch_ok.request_id = 0x1234;
     fetch_ok.group_order = GroupOrder::kDescending;
     fetch_ok.end_location = { 0x9999, 0x9991 };
 
@@ -786,30 +795,30 @@ TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
 
     FetchOk fetch_ok_out{};
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetchOk), fetch_ok_out));
-    CHECK_EQ(fetch_ok.subscribe_id, fetch_ok_out.subscribe_id);
+    CHECK_EQ(fetch_ok.request_id, fetch_ok_out.request_id);
     CHECK_EQ(fetch_ok.group_order, fetch_ok_out.group_order);
     CHECK_EQ(fetch_ok.end_location, fetch_ok_out.end_location);
 
     buffer.clear();
     auto fetch_cancel = FetchCancel{};
-    fetch_cancel.subscribe_id = 0x1111;
+    fetch_cancel.request_id = 0x1111;
 
     buffer << fetch_cancel;
 
     FetchCancel fetch_cancel_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetchCancel), fetch_cancel_out));
-    CHECK_EQ(fetch_cancel.subscribe_id, fetch_cancel_out.subscribe_id);
+    CHECK_EQ(fetch_cancel.request_id, fetch_cancel_out.request_id);
 
     buffer.clear();
     auto fetch_error = FetchError{};
-    fetch_error.subscribe_id = 0x1111;
+    fetch_error.request_id = 0x1111;
     fetch_error.error_code = quicr::messages::FetchErrorCode::kInternalError;
 
     buffer << fetch_error;
 
     FetchError fetch_error_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetchError), fetch_error_out));
-    CHECK_EQ(fetch_error.subscribe_id, fetch_error_out.subscribe_id);
+    CHECK_EQ(fetch_error.request_id, fetch_error_out.request_id);
     CHECK_EQ(fetch_error.error_code, fetch_error_out.error_code);
 }
 
@@ -818,12 +827,12 @@ TEST_CASE("SubscribesBlocked Message encode/decode")
     Bytes buffer;
 
     auto sub_blocked = SubscribesBlocked{};
-    sub_blocked.maximum_subscribe_id = std::numeric_limits<uint64_t>::max() >> 2;
+    sub_blocked.maximum_request_id = std::numeric_limits<uint64_t>::max() >> 2;
     buffer << sub_blocked;
 
     SubscribesBlocked sub_blocked_out{};
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribesBlocked), sub_blocked_out));
-    CHECK_EQ(sub_blocked.maximum_subscribe_id, sub_blocked_out.maximum_subscribe_id);
+    CHECK_EQ(sub_blocked.maximum_request_id, sub_blocked_out.maximum_request_id);
 }
 
 TEST_CASE("Subscribe Announces encode/decode")
@@ -844,12 +853,12 @@ TEST_CASE("Subscribe Announces Ok encode/decode")
     Bytes buffer;
 
     auto msg = SubscribeAnnouncesOk{};
-    msg.track_namespace_prefix = TrackNamespace{ "cisco"s, "meetings"s, "video"s, "1080p"s };
+    msg.request_id = 0x1234;
     buffer << msg;
 
     SubscribeAnnouncesOk msg_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeAnnouncesOk), msg_out));
-    CHECK_EQ(msg.track_namespace_prefix, msg_out.track_namespace_prefix);
+    CHECK_EQ(msg.request_id, msg_out.request_id);
 }
 
 TEST_CASE("Unsubscribe Announces encode/decode")
@@ -870,14 +879,14 @@ TEST_CASE("Subscribe Announces Error encode/decode")
     Bytes buffer;
 
     auto msg = SubscribeAnnouncesError{};
-    msg.track_namespace_prefix = TrackNamespace{ "cisco"s, "meetings"s, "video"s, "1080p"s };
+    msg.request_id = 0x1234;
     msg.error_code = quicr::messages::SubscribeAnnouncesErrorCode::kNamespacePrefixUnknown;
     msg.error_reason = Bytes{ 0x1, 0x2, 0x3 };
     buffer << msg;
 
     SubscribeAnnouncesError msg_out;
     CHECK(VerifyCtrl(buffer, static_cast<std::uint64_t>(ControlMessageType::kSubscribeAnnouncesError), msg_out));
-    CHECK_EQ(msg.track_namespace_prefix, msg_out.track_namespace_prefix);
+    CHECK_EQ(msg.request_id, msg_out.request_id);
     CHECK_EQ(msg.error_code, msg_out.error_code);
     CHECK_EQ(msg.error_reason, msg_out.error_reason);
 }

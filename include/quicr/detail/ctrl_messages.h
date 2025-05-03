@@ -1,13 +1,11 @@
 #pragma once
-#include <vector>
+#include "ctrl_message_types.h"
 #include <quicr/common.h>
 #include <quicr/track_name.h>
-#include "ctrl_message_types.h"
-       
-namespace quicr::messages {  
+#include <vector>
 
-        
-    
+namespace quicr::messages {
+
     // usings
     using SupportedVersions = std::vector<std::uint64_t>;
     using SetupParameters = std::vector<quicr::messages::Parameter>;
@@ -49,7 +47,6 @@ namespace quicr::messages {
     using SubscribeAnnouncesErrorErrorCode = quicr::messages::SubscribeAnnouncesErrorCode;
     using SubscribeID = std::uint64_t;
 
-
     // enums
     enum class ControlMessageType : uint64_t
     {
@@ -85,31 +82,29 @@ namespace quicr::messages {
      * @brief SubscribeUpdate
      */
     struct SubscribeUpdate
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        SubscribeUpdate () {}
-        
+        SubscribeUpdate() {}
+
         // All fields constructor
-        SubscribeUpdate (
-            RequestID request_id,
-            StartLocation start_location,
-            EndGroup end_group,
-            SubscriberPriority subscriber_priority,
-            Forward forward,
-            SubscribeParameters subscribe_parameters):
-                request_id(request_id),
-                start_location(start_location),
-                end_group(end_group),
-                subscriber_priority(subscriber_priority),
-                forward(forward),
-                subscribe_parameters(subscribe_parameters)
-            {}
+        SubscribeUpdate(RequestID request_id,
+                        StartLocation start_location,
+                        EndGroup end_group,
+                        SubscriberPriority subscriber_priority,
+                        Forward forward,
+                        SubscribeParameters subscribe_parameters)
+          : request_id(request_id)
+          , start_location(start_location)
+          , end_group(end_group)
+          , subscriber_priority(subscriber_priority)
+          , forward(forward)
+          , subscribe_parameters(subscribe_parameters)
+        {
+        }
 
-            
-
-    public:
+      public:
         RequestID request_id;
         StartLocation start_location;
         EndGroup end_group;
@@ -119,65 +114,63 @@ namespace quicr::messages {
     };
 
     Bytes& operator<<(Bytes& buffer, const SubscribeUpdate& msg);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeUpdate& msg);    
+    BytesSpan operator>>(BytesSpan buffer, SubscribeUpdate& msg);
 
     /**
      * @brief Subscribe
      */
     struct Subscribe
-    {        
-    public:
+    {
+      public:
         // Optional Groups
-        struct Group_0 {
+        struct Group_0
+        {
             StartLocation start_location;
         };
-        struct Group_1 {
+        struct Group_1
+        {
             EndGroup end_group;
         };
 
-    public:
+      public:
         // Have optionals - delete default constructor
-        Subscribe () = delete;
-        
+        Subscribe() = delete;
+
         // All fields constructor
-        Subscribe (
-            RequestID request_id,
-            TrackAlias track_alias,
-            TrackNamespace track_namespace,
-            TrackName track_name,
-            SubscriberPriority subscriber_priority,
-            GroupOrder group_order,
-            Forward forward,
-            FilterType filter_type,
-            std::function<void (Subscribe&)> group_0_cb,
-            std::optional<Subscribe::Group_0> group_0,
-            std::function<void (Subscribe&)> group_1_cb,
-            std::optional<Subscribe::Group_1> group_1,
-            SubscribeParameters subscribe_parameters):
-                request_id(request_id),
-                track_alias(track_alias),
-                track_namespace(track_namespace),
-                track_name(track_name),
-                subscriber_priority(subscriber_priority),
-                group_order(group_order),
-                forward(forward),
-                filter_type(filter_type),
-                group_0_cb(group_0_cb),
-                group_0(group_0),
-                group_1_cb(group_1_cb),
-                group_1(group_1),
-                subscribe_parameters(subscribe_parameters)
-            {}
+        Subscribe(RequestID request_id,
+                  TrackAlias track_alias,
+                  TrackNamespace track_namespace,
+                  TrackName track_name,
+                  SubscriberPriority subscriber_priority,
+                  GroupOrder group_order,
+                  Forward forward,
+                  FilterType filter_type,
+                  std::function<void(Subscribe&)> group_0_cb,
+                  std::optional<Subscribe::Group_0> group_0,
+                  std::function<void(Subscribe&)> group_1_cb,
+                  std::optional<Subscribe::Group_1> group_1,
+                  SubscribeParameters subscribe_parameters)
+          : request_id(request_id)
+          , track_alias(track_alias)
+          , track_namespace(track_namespace)
+          , track_name(track_name)
+          , subscriber_priority(subscriber_priority)
+          , group_order(group_order)
+          , forward(forward)
+          , filter_type(filter_type)
+          , group_0_cb(group_0_cb)
+          , group_0(group_0)
+          , group_1_cb(group_1_cb)
+          , group_1(group_1)
+          , subscribe_parameters(subscribe_parameters)
+        {
+        }
 
-            
-        // Optional callback constructor 
+        // Optional callback constructor
 
-        Subscribe (
-            std::function<void (Subscribe&)> group_0_cb,
-            std::function<void (Subscribe&)> group_1_cb
-        );
+        Subscribe(std::function<void(Subscribe&)> group_0_cb, std::function<void(Subscribe&)> group_1_cb);
 
-    public:
+      public:
         RequestID request_id;
         TrackAlias track_alias;
         TrackNamespace track_namespace;
@@ -186,15 +179,15 @@ namespace quicr::messages {
         GroupOrder group_order;
         Forward forward;
         FilterType filter_type;
-        std::function<void (Subscribe&)> group_0_cb;
+        std::function<void(Subscribe&)> group_0_cb;
         std::optional<Subscribe::Group_0> group_0;
-        std::function<void (Subscribe&)> group_1_cb;
+        std::function<void(Subscribe&)> group_1_cb;
         std::optional<Subscribe::Group_1> group_1;
         SubscribeParameters subscribe_parameters;
     };
 
     Bytes& operator<<(Bytes& buffer, const Subscribe& msg);
-    BytesSpan operator>>(BytesSpan buffer, Subscribe& msg);    
+    BytesSpan operator>>(BytesSpan buffer, Subscribe& msg);
 
     Bytes& operator<<(Bytes& buffer, const std::optional<Subscribe::Group_0>& grp);
     BytesSpan operator>>(BytesSpan buffer, std::optional<Subscribe::Group_0>& grp);
@@ -206,54 +199,52 @@ namespace quicr::messages {
      * @brief SubscribeOk
      */
     struct SubscribeOk
-    {        
-    public:
+    {
+      public:
         // Optional Groups
-        struct Group_0 {
+        struct Group_0
+        {
             LargestLocation largest_location;
         };
 
-    public:
+      public:
         // Have optionals - delete default constructor
-        SubscribeOk () = delete;
-        
+        SubscribeOk() = delete;
+
         // All fields constructor
-        SubscribeOk (
-            RequestID request_id,
-            Expires expires,
-            GroupOrder group_order,
-            ContentExists content_exists,
-            std::function<void (SubscribeOk&)> group_0_cb,
-            std::optional<SubscribeOk::Group_0> group_0,
-            SubscribeParameters subscribe_parameters):
-                request_id(request_id),
-                expires(expires),
-                group_order(group_order),
-                content_exists(content_exists),
-                group_0_cb(group_0_cb),
-                group_0(group_0),
-                subscribe_parameters(subscribe_parameters)
-            {}
+        SubscribeOk(RequestID request_id,
+                    Expires expires,
+                    GroupOrder group_order,
+                    ContentExists content_exists,
+                    std::function<void(SubscribeOk&)> group_0_cb,
+                    std::optional<SubscribeOk::Group_0> group_0,
+                    SubscribeParameters subscribe_parameters)
+          : request_id(request_id)
+          , expires(expires)
+          , group_order(group_order)
+          , content_exists(content_exists)
+          , group_0_cb(group_0_cb)
+          , group_0(group_0)
+          , subscribe_parameters(subscribe_parameters)
+        {
+        }
 
-            
-        // Optional callback constructor 
+        // Optional callback constructor
 
-        SubscribeOk (
-            std::function<void (SubscribeOk&)> group_0_cb
-        );
+        SubscribeOk(std::function<void(SubscribeOk&)> group_0_cb);
 
-    public:
+      public:
         RequestID request_id;
         Expires expires;
         GroupOrder group_order;
         ContentExists content_exists;
-        std::function<void (SubscribeOk&)> group_0_cb;
+        std::function<void(SubscribeOk&)> group_0_cb;
         std::optional<SubscribeOk::Group_0> group_0;
         SubscribeParameters subscribe_parameters;
     };
 
     Bytes& operator<<(Bytes& buffer, const SubscribeOk& msg);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeOk& msg);    
+    BytesSpan operator>>(BytesSpan buffer, SubscribeOk& msg);
 
     Bytes& operator<<(Bytes& buffer, const std::optional<SubscribeOk::Group_0>& grp);
     BytesSpan operator>>(BytesSpan buffer, std::optional<SubscribeOk::Group_0>& grp);
@@ -262,27 +253,25 @@ namespace quicr::messages {
      * @brief SubscribeError
      */
     struct SubscribeError
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        SubscribeError () {}
-        
+        SubscribeError() {}
+
         // All fields constructor
-        SubscribeError (
-            RequestID request_id,
-            SubscribeErrorErrorCode error_code,
-            ErrorReason error_reason,
-            TrackAlias track_alias):
-                request_id(request_id),
-                error_code(error_code),
-                error_reason(error_reason),
-                track_alias(track_alias)
-            {}
+        SubscribeError(RequestID request_id,
+                       SubscribeErrorErrorCode error_code,
+                       ErrorReason error_reason,
+                       TrackAlias track_alias)
+          : request_id(request_id)
+          , error_code(error_code)
+          , error_reason(error_reason)
+          , track_alias(track_alias)
+        {
+        }
 
-            
-
-    public:
+      public:
         RequestID request_id;
         SubscribeErrorErrorCode error_code;
         ErrorReason error_reason;
@@ -290,170 +279,154 @@ namespace quicr::messages {
     };
 
     Bytes& operator<<(Bytes& buffer, const SubscribeError& msg);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeError& msg);    
+    BytesSpan operator>>(BytesSpan buffer, SubscribeError& msg);
 
     /**
      * @brief Announce
      */
     struct Announce
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        Announce () {}
-        
+        Announce() {}
+
         // All fields constructor
-        Announce (
-            RequestID request_id,
-            TrackNamespace track_namespace,
-            Parameters parameters):
-                request_id(request_id),
-                track_namespace(track_namespace),
-                parameters(parameters)
-            {}
+        Announce(RequestID request_id, TrackNamespace track_namespace, Parameters parameters)
+          : request_id(request_id)
+          , track_namespace(track_namespace)
+          , parameters(parameters)
+        {
+        }
 
-            
-
-    public:
+      public:
         RequestID request_id;
         TrackNamespace track_namespace;
         Parameters parameters;
     };
 
     Bytes& operator<<(Bytes& buffer, const Announce& msg);
-    BytesSpan operator>>(BytesSpan buffer, Announce& msg);    
+    BytesSpan operator>>(BytesSpan buffer, Announce& msg);
 
     /**
      * @brief AnnounceOk
      */
     struct AnnounceOk
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        AnnounceOk () {}
-        
+        AnnounceOk() {}
+
         // All fields constructor
-        AnnounceOk (
-            RequestID request_id):
-                request_id(request_id)
-            {}
+        AnnounceOk(RequestID request_id)
+          : request_id(request_id)
+        {
+        }
 
-            
-
-    public:
+      public:
         RequestID request_id;
     };
 
     Bytes& operator<<(Bytes& buffer, const AnnounceOk& msg);
-    BytesSpan operator>>(BytesSpan buffer, AnnounceOk& msg);    
+    BytesSpan operator>>(BytesSpan buffer, AnnounceOk& msg);
 
     /**
      * @brief AnnounceError
      */
     struct AnnounceError
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        AnnounceError () {}
-        
+        AnnounceError() {}
+
         // All fields constructor
-        AnnounceError (
-            RequestID request_id,
-            AnnounceErrorErrorCode error_code,
-            ErrorReason error_reason):
-                request_id(request_id),
-                error_code(error_code),
-                error_reason(error_reason)
-            {}
+        AnnounceError(RequestID request_id, AnnounceErrorErrorCode error_code, ErrorReason error_reason)
+          : request_id(request_id)
+          , error_code(error_code)
+          , error_reason(error_reason)
+        {
+        }
 
-            
-
-    public:
+      public:
         RequestID request_id;
         AnnounceErrorErrorCode error_code;
         ErrorReason error_reason;
     };
 
     Bytes& operator<<(Bytes& buffer, const AnnounceError& msg);
-    BytesSpan operator>>(BytesSpan buffer, AnnounceError& msg);    
+    BytesSpan operator>>(BytesSpan buffer, AnnounceError& msg);
 
     /**
      * @brief Unannounce
      */
     struct Unannounce
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        Unannounce () {}
-        
+        Unannounce() {}
+
         // All fields constructor
-        Unannounce (
-            TrackNamespace track_namespace):
-                track_namespace(track_namespace)
-            {}
+        Unannounce(TrackNamespace track_namespace)
+          : track_namespace(track_namespace)
+        {
+        }
 
-            
-
-    public:
+      public:
         TrackNamespace track_namespace;
     };
 
     Bytes& operator<<(Bytes& buffer, const Unannounce& msg);
-    BytesSpan operator>>(BytesSpan buffer, Unannounce& msg);    
+    BytesSpan operator>>(BytesSpan buffer, Unannounce& msg);
 
     /**
      * @brief Unsubscribe
      */
     struct Unsubscribe
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        Unsubscribe () {}
-        
+        Unsubscribe() {}
+
         // All fields constructor
-        Unsubscribe (
-            RequestID request_id):
-                request_id(request_id)
-            {}
+        Unsubscribe(RequestID request_id)
+          : request_id(request_id)
+        {
+        }
 
-            
-
-    public:
+      public:
         RequestID request_id;
     };
 
     Bytes& operator<<(Bytes& buffer, const Unsubscribe& msg);
-    BytesSpan operator>>(BytesSpan buffer, Unsubscribe& msg);    
+    BytesSpan operator>>(BytesSpan buffer, Unsubscribe& msg);
 
     /**
      * @brief SubscribeDone
      */
     struct SubscribeDone
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        SubscribeDone () {}
-        
+        SubscribeDone() {}
+
         // All fields constructor
-        SubscribeDone (
-            RequestID request_id,
-            SubscribeDoneStatusCode status_code,
-            StreamCount stream_count,
-            ErrorReason error_reason):
-                request_id(request_id),
-                status_code(status_code),
-                stream_count(stream_count),
-                error_reason(error_reason)
-            {}
+        SubscribeDone(RequestID request_id,
+                      SubscribeDoneStatusCode status_code,
+                      StreamCount stream_count,
+                      ErrorReason error_reason)
+          : request_id(request_id)
+          , status_code(status_code)
+          , stream_count(stream_count)
+          , error_reason(error_reason)
+        {
+        }
 
-            
-
-    public:
+      public:
         RequestID request_id;
         SubscribeDoneStatusCode status_code;
         StreamCount stream_count;
@@ -461,64 +434,58 @@ namespace quicr::messages {
     };
 
     Bytes& operator<<(Bytes& buffer, const SubscribeDone& msg);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeDone& msg);    
+    BytesSpan operator>>(BytesSpan buffer, SubscribeDone& msg);
 
     /**
      * @brief AnnounceCancel
      */
     struct AnnounceCancel
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        AnnounceCancel () {}
-        
+        AnnounceCancel() {}
+
         // All fields constructor
-        AnnounceCancel (
-            TrackNamespace track_namespace,
-            AnnounceCancelErrorCode error_code,
-            ErrorReason error_reason):
-                track_namespace(track_namespace),
-                error_code(error_code),
-                error_reason(error_reason)
-            {}
+        AnnounceCancel(TrackNamespace track_namespace, AnnounceCancelErrorCode error_code, ErrorReason error_reason)
+          : track_namespace(track_namespace)
+          , error_code(error_code)
+          , error_reason(error_reason)
+        {
+        }
 
-            
-
-    public:
+      public:
         TrackNamespace track_namespace;
         AnnounceCancelErrorCode error_code;
         ErrorReason error_reason;
     };
 
     Bytes& operator<<(Bytes& buffer, const AnnounceCancel& msg);
-    BytesSpan operator>>(BytesSpan buffer, AnnounceCancel& msg);    
+    BytesSpan operator>>(BytesSpan buffer, AnnounceCancel& msg);
 
     /**
      * @brief TrackStatusRequest
      */
     struct TrackStatusRequest
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        TrackStatusRequest () {}
-        
+        TrackStatusRequest() {}
+
         // All fields constructor
-        TrackStatusRequest (
-            RequestID request_id,
-            TrackNamespace track_namespace,
-            TrackName track_name,
-            Parameters parameters):
-                request_id(request_id),
-                track_namespace(track_namespace),
-                track_name(track_name),
-                parameters(parameters)
-            {}
+        TrackStatusRequest(RequestID request_id,
+                           TrackNamespace track_namespace,
+                           TrackName track_name,
+                           Parameters parameters)
+          : request_id(request_id)
+          , track_namespace(track_namespace)
+          , track_name(track_name)
+          , parameters(parameters)
+        {
+        }
 
-            
-
-    public:
+      public:
         RequestID request_id;
         TrackNamespace track_namespace;
         TrackName track_name;
@@ -526,33 +493,31 @@ namespace quicr::messages {
     };
 
     Bytes& operator<<(Bytes& buffer, const TrackStatusRequest& msg);
-    BytesSpan operator>>(BytesSpan buffer, TrackStatusRequest& msg);    
+    BytesSpan operator>>(BytesSpan buffer, TrackStatusRequest& msg);
 
     /**
      * @brief TrackStatus
      */
     struct TrackStatus
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        TrackStatus () {}
-        
+        TrackStatus() {}
+
         // All fields constructor
-        TrackStatus (
-            RequestID request_id,
-            StatusCode status_code,
-            LargestLocation largest_location,
-            Parameters parameters):
-                request_id(request_id),
-                status_code(status_code),
-                largest_location(largest_location),
-                parameters(parameters)
-            {}
+        TrackStatus(RequestID request_id,
+                    StatusCode status_code,
+                    LargestLocation largest_location,
+                    Parameters parameters)
+          : request_id(request_id)
+          , status_code(status_code)
+          , largest_location(largest_location)
+          , parameters(parameters)
+        {
+        }
 
-            
-
-    public:
+      public:
         RequestID request_id;
         StatusCode status_code;
         LargestLocation largest_location;
@@ -560,178 +525,165 @@ namespace quicr::messages {
     };
 
     Bytes& operator<<(Bytes& buffer, const TrackStatus& msg);
-    BytesSpan operator>>(BytesSpan buffer, TrackStatus& msg);    
+    BytesSpan operator>>(BytesSpan buffer, TrackStatus& msg);
 
     /**
      * @brief Goaway
      */
     struct Goaway
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        Goaway () {}
-        
+        Goaway() {}
+
         // All fields constructor
-        Goaway (
-            NewSessionURI new_session_uri):
-                new_session_uri(new_session_uri)
-            {}
+        Goaway(NewSessionURI new_session_uri)
+          : new_session_uri(new_session_uri)
+        {
+        }
 
-            
-
-    public:
+      public:
         NewSessionURI new_session_uri;
     };
 
     Bytes& operator<<(Bytes& buffer, const Goaway& msg);
-    BytesSpan operator>>(BytesSpan buffer, Goaway& msg);    
+    BytesSpan operator>>(BytesSpan buffer, Goaway& msg);
 
     /**
      * @brief SubscribeAnnounces
      */
     struct SubscribeAnnounces
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        SubscribeAnnounces () {}
-        
+        SubscribeAnnounces() {}
+
         // All fields constructor
-        SubscribeAnnounces (
-            RequestID request_id,
-            TrackNamespacePrefix track_namespace_prefix,
-            Parameters parameters):
-                request_id(request_id),
-                track_namespace_prefix(track_namespace_prefix),
-                parameters(parameters)
-            {}
+        SubscribeAnnounces(RequestID request_id, TrackNamespacePrefix track_namespace_prefix, Parameters parameters)
+          : request_id(request_id)
+          , track_namespace_prefix(track_namespace_prefix)
+          , parameters(parameters)
+        {
+        }
 
-            
-
-    public:
+      public:
         RequestID request_id;
         TrackNamespacePrefix track_namespace_prefix;
         Parameters parameters;
     };
 
     Bytes& operator<<(Bytes& buffer, const SubscribeAnnounces& msg);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnounces& msg);    
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnounces& msg);
 
     /**
      * @brief SubscribeAnnouncesOk
      */
     struct SubscribeAnnouncesOk
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        SubscribeAnnouncesOk () {}
-        
+        SubscribeAnnouncesOk() {}
+
         // All fields constructor
-        SubscribeAnnouncesOk (
-            RequestID request_id):
-                request_id(request_id)
-            {}
+        SubscribeAnnouncesOk(RequestID request_id)
+          : request_id(request_id)
+        {
+        }
 
-            
-
-    public:
+      public:
         RequestID request_id;
     };
 
     Bytes& operator<<(Bytes& buffer, const SubscribeAnnouncesOk& msg);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesOk& msg);    
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesOk& msg);
 
     /**
      * @brief SubscribeAnnouncesError
      */
     struct SubscribeAnnouncesError
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        SubscribeAnnouncesError () {}
-        
+        SubscribeAnnouncesError() {}
+
         // All fields constructor
-        SubscribeAnnouncesError (
-            RequestID request_id,
-            SubscribeAnnouncesErrorErrorCode error_code,
-            ErrorReason error_reason):
-                request_id(request_id),
-                error_code(error_code),
-                error_reason(error_reason)
-            {}
+        SubscribeAnnouncesError(RequestID request_id,
+                                SubscribeAnnouncesErrorErrorCode error_code,
+                                ErrorReason error_reason)
+          : request_id(request_id)
+          , error_code(error_code)
+          , error_reason(error_reason)
+        {
+        }
 
-            
-
-    public:
+      public:
         RequestID request_id;
         SubscribeAnnouncesErrorErrorCode error_code;
         ErrorReason error_reason;
     };
 
     Bytes& operator<<(Bytes& buffer, const SubscribeAnnouncesError& msg);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesError& msg);    
+    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesError& msg);
 
     /**
      * @brief UnsubscribeAnnounces
      */
     struct UnsubscribeAnnounces
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        UnsubscribeAnnounces () {}
-        
+        UnsubscribeAnnounces() {}
+
         // All fields constructor
-        UnsubscribeAnnounces (
-            TrackNamespacePrefix track_namespace_prefix):
-                track_namespace_prefix(track_namespace_prefix)
-            {}
+        UnsubscribeAnnounces(TrackNamespacePrefix track_namespace_prefix)
+          : track_namespace_prefix(track_namespace_prefix)
+        {
+        }
 
-            
-
-    public:
+      public:
         TrackNamespacePrefix track_namespace_prefix;
     };
 
     Bytes& operator<<(Bytes& buffer, const UnsubscribeAnnounces& msg);
-    BytesSpan operator>>(BytesSpan buffer, UnsubscribeAnnounces& msg);    
+    BytesSpan operator>>(BytesSpan buffer, UnsubscribeAnnounces& msg);
 
     /**
      * @brief MaxRequestId
      */
     struct MaxRequestId
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        MaxRequestId () {}
-        
+        MaxRequestId() {}
+
         // All fields constructor
-        MaxRequestId (
-            RequestID request_id):
-                request_id(request_id)
-            {}
+        MaxRequestId(RequestID request_id)
+          : request_id(request_id)
+        {
+        }
 
-            
-
-    public:
+      public:
         RequestID request_id;
     };
 
     Bytes& operator<<(Bytes& buffer, const MaxRequestId& msg);
-    BytesSpan operator>>(BytesSpan buffer, MaxRequestId& msg);    
+    BytesSpan operator>>(BytesSpan buffer, MaxRequestId& msg);
 
     /**
      * @brief Fetch
      */
     struct Fetch
-    {        
-    public:
+    {
+      public:
         // Optional Groups
-        struct Group_0 {
+        struct Group_0
+        {
             TrackNamespace track_namespace;
             TrackName track_name;
             StartGroup start_group;
@@ -739,59 +691,56 @@ namespace quicr::messages {
             EndGroup end_group;
             EndObject end_object;
         };
-        struct Group_1 {
+        struct Group_1
+        {
             JoiningSubscribeID joining_subscribe_id;
             JoiningStart joining_start;
         };
 
-    public:
+      public:
         // Have optionals - delete default constructor
-        Fetch () = delete;
-        
+        Fetch() = delete;
+
         // All fields constructor
-        Fetch (
-            RequestID request_id,
-            SubscriberPriority subscriber_priority,
-            GroupOrder group_order,
-            FetchType fetch_type,
-            std::function<void (Fetch&)> group_0_cb,
-            std::optional<Fetch::Group_0> group_0,
-            std::function<void (Fetch&)> group_1_cb,
-            std::optional<Fetch::Group_1> group_1,
-            Parameters parameters):
-                request_id(request_id),
-                subscriber_priority(subscriber_priority),
-                group_order(group_order),
-                fetch_type(fetch_type),
-                group_0_cb(group_0_cb),
-                group_0(group_0),
-                group_1_cb(group_1_cb),
-                group_1(group_1),
-                parameters(parameters)
-            {}
+        Fetch(RequestID request_id,
+              SubscriberPriority subscriber_priority,
+              GroupOrder group_order,
+              FetchType fetch_type,
+              std::function<void(Fetch&)> group_0_cb,
+              std::optional<Fetch::Group_0> group_0,
+              std::function<void(Fetch&)> group_1_cb,
+              std::optional<Fetch::Group_1> group_1,
+              Parameters parameters)
+          : request_id(request_id)
+          , subscriber_priority(subscriber_priority)
+          , group_order(group_order)
+          , fetch_type(fetch_type)
+          , group_0_cb(group_0_cb)
+          , group_0(group_0)
+          , group_1_cb(group_1_cb)
+          , group_1(group_1)
+          , parameters(parameters)
+        {
+        }
 
-            
-        // Optional callback constructor 
+        // Optional callback constructor
 
-        Fetch (
-            std::function<void (Fetch&)> group_0_cb,
-            std::function<void (Fetch&)> group_1_cb
-        );
+        Fetch(std::function<void(Fetch&)> group_0_cb, std::function<void(Fetch&)> group_1_cb);
 
-    public:
+      public:
         RequestID request_id;
         SubscriberPriority subscriber_priority;
         GroupOrder group_order;
         FetchType fetch_type;
-        std::function<void (Fetch&)> group_0_cb;
+        std::function<void(Fetch&)> group_0_cb;
         std::optional<Fetch::Group_0> group_0;
-        std::function<void (Fetch&)> group_1_cb;
+        std::function<void(Fetch&)> group_1_cb;
         std::optional<Fetch::Group_1> group_1;
         Parameters parameters;
     };
 
     Bytes& operator<<(Bytes& buffer, const Fetch& msg);
-    BytesSpan operator>>(BytesSpan buffer, Fetch& msg);    
+    BytesSpan operator>>(BytesSpan buffer, Fetch& msg);
 
     Bytes& operator<<(Bytes& buffer, const std::optional<Fetch::Group_0>& grp);
     BytesSpan operator>>(BytesSpan buffer, std::optional<Fetch::Group_0>& grp);
@@ -803,54 +752,50 @@ namespace quicr::messages {
      * @brief FetchCancel
      */
     struct FetchCancel
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        FetchCancel () {}
-        
+        FetchCancel() {}
+
         // All fields constructor
-        FetchCancel (
-            RequestID request_id):
-                request_id(request_id)
-            {}
+        FetchCancel(RequestID request_id)
+          : request_id(request_id)
+        {
+        }
 
-            
-
-    public:
+      public:
         RequestID request_id;
     };
 
     Bytes& operator<<(Bytes& buffer, const FetchCancel& msg);
-    BytesSpan operator>>(BytesSpan buffer, FetchCancel& msg);    
+    BytesSpan operator>>(BytesSpan buffer, FetchCancel& msg);
 
     /**
      * @brief FetchOk
      */
     struct FetchOk
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        FetchOk () {}
-        
+        FetchOk() {}
+
         // All fields constructor
-        FetchOk (
-            RequestID request_id,
-            GroupOrder group_order,
-            EndOfTrack end_of_track,
-            EndLocation end_location,
-            SubscribeParameters subscribe_parameters):
-                request_id(request_id),
-                group_order(group_order),
-                end_of_track(end_of_track),
-                end_location(end_location),
-                subscribe_parameters(subscribe_parameters)
-            {}
+        FetchOk(RequestID request_id,
+                GroupOrder group_order,
+                EndOfTrack end_of_track,
+                EndLocation end_location,
+                SubscribeParameters subscribe_parameters)
+          : request_id(request_id)
+          , group_order(group_order)
+          , end_of_track(end_of_track)
+          , end_location(end_location)
+          , subscribe_parameters(subscribe_parameters)
+        {
+        }
 
-            
-
-    public:
+      public:
         RequestID request_id;
         GroupOrder group_order;
         EndOfTrack end_of_track;
@@ -859,163 +804,145 @@ namespace quicr::messages {
     };
 
     Bytes& operator<<(Bytes& buffer, const FetchOk& msg);
-    BytesSpan operator>>(BytesSpan buffer, FetchOk& msg);    
+    BytesSpan operator>>(BytesSpan buffer, FetchOk& msg);
 
     /**
      * @brief FetchError
      */
     struct FetchError
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        FetchError () {}
-        
+        FetchError() {}
+
         // All fields constructor
-        FetchError (
-            RequestID request_id,
-            FetchErrorErrorCode error_code,
-            ErrorReason error_reason):
-                request_id(request_id),
-                error_code(error_code),
-                error_reason(error_reason)
-            {}
+        FetchError(RequestID request_id, FetchErrorErrorCode error_code, ErrorReason error_reason)
+          : request_id(request_id)
+          , error_code(error_code)
+          , error_reason(error_reason)
+        {
+        }
 
-            
-
-    public:
+      public:
         RequestID request_id;
         FetchErrorErrorCode error_code;
         ErrorReason error_reason;
     };
 
     Bytes& operator<<(Bytes& buffer, const FetchError& msg);
-    BytesSpan operator>>(BytesSpan buffer, FetchError& msg);    
+    BytesSpan operator>>(BytesSpan buffer, FetchError& msg);
 
     /**
      * @brief RequestsBlocked
      */
     struct RequestsBlocked
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        RequestsBlocked () {}
-        
+        RequestsBlocked() {}
+
         // All fields constructor
-        RequestsBlocked (
-            MaximumRequestID maximum_request_id):
-                maximum_request_id(maximum_request_id)
-            {}
+        RequestsBlocked(MaximumRequestID maximum_request_id)
+          : maximum_request_id(maximum_request_id)
+        {
+        }
 
-            
-
-    public:
+      public:
         MaximumRequestID maximum_request_id;
     };
 
     Bytes& operator<<(Bytes& buffer, const RequestsBlocked& msg);
-    BytesSpan operator>>(BytesSpan buffer, RequestsBlocked& msg);    
+    BytesSpan operator>>(BytesSpan buffer, RequestsBlocked& msg);
 
     /**
      * @brief ClientSetup
      */
     struct ClientSetup
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        ClientSetup () {}
-        
+        ClientSetup() {}
+
         // All fields constructor
-        ClientSetup (
-            SupportedVersions supported_versions,
-            SetupParameters setup_parameters):
-                supported_versions(supported_versions),
-                setup_parameters(setup_parameters)
-            {}
+        ClientSetup(SupportedVersions supported_versions, SetupParameters setup_parameters)
+          : supported_versions(supported_versions)
+          , setup_parameters(setup_parameters)
+        {
+        }
 
-            
-
-    public:
+      public:
         SupportedVersions supported_versions;
         SetupParameters setup_parameters;
     };
 
     Bytes& operator<<(Bytes& buffer, const ClientSetup& msg);
-    BytesSpan operator>>(BytesSpan buffer, ClientSetup& msg);    
+    BytesSpan operator>>(BytesSpan buffer, ClientSetup& msg);
 
     /**
      * @brief ServerSetup
      */
     struct ServerSetup
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        ServerSetup () {}
-        
+        ServerSetup() {}
+
         // All fields constructor
-        ServerSetup (
-            SelectedVersion selected_version,
-            SetupParameters setup_parameters):
-                selected_version(selected_version),
-                setup_parameters(setup_parameters)
-            {}
+        ServerSetup(SelectedVersion selected_version, SetupParameters setup_parameters)
+          : selected_version(selected_version)
+          , setup_parameters(setup_parameters)
+        {
+        }
 
-            
-
-    public:
+      public:
         SelectedVersion selected_version;
         SetupParameters setup_parameters;
     };
 
     Bytes& operator<<(Bytes& buffer, const ServerSetup& msg);
-    BytesSpan operator>>(BytesSpan buffer, ServerSetup& msg);    
+    BytesSpan operator>>(BytesSpan buffer, ServerSetup& msg);
 
     /**
      * @brief NewGroupRequest
      */
     struct NewGroupRequest
-    {        
+    {
 
-    public:
+      public:
         // Default constructor
-        NewGroupRequest () {}
-        
+        NewGroupRequest() {}
+
         // All fields constructor
-        NewGroupRequest (
-            SubscribeID subscribe_id,
-            TrackAlias track_alias):
-                subscribe_id(subscribe_id),
-                track_alias(track_alias)
-            {}
+        NewGroupRequest(SubscribeID request_id, TrackAlias track_alias)
+          : request_id(request_id)
+          , track_alias(track_alias)
+        {
+        }
 
-            
-
-    public:
-        SubscribeID subscribe_id;
+      public:
+        RequestID request_id;
         TrackAlias track_alias;
     };
 
     Bytes& operator<<(Bytes& buffer, const NewGroupRequest& msg);
-    BytesSpan operator>>(BytesSpan buffer, NewGroupRequest& msg);    
+    BytesSpan operator>>(BytesSpan buffer, NewGroupRequest& msg);
 
-    
-    
     Bytes& operator<<(Bytes& buffer, const std::vector<std::uint64_t>& vec);
     BytesSpan operator>>(BytesSpan buffer, std::vector<std::uint64_t>& vec);
 
     Bytes& operator<<(Bytes& buffer, const std::vector<quicr::messages::Parameter>& vec);
     BytesSpan operator>>(BytesSpan buffer, std::vector<quicr::messages::Parameter>& vec);
 
-
-     /**
+    /**
      * @brief Subscribe attributes
      */
     struct SubscribeAttributes
     {
-        uint8_t priority;           ///< Subscriber priority
+        uint8_t priority;       ///< Subscriber priority
         GroupOrder group_order; ///< Subscriber group order
     };
 
@@ -1024,12 +951,12 @@ namespace quicr::messages {
      */
     struct FetchAttributes
     {
-        uint8_t priority;         ///< Fetch priority
-        GroupOrder group_order;   ///< Fetch group order
-        StartGroup start_group;   ///< Fetch starting group in range
-        StartObject start_object; ///< Fetch starting object in group
-        EndGroup end_group;       ///< Fetch final group in range
-        std::optional<EndObject> end_object;     ///< Fetch final object in group
+        uint8_t priority;                    ///< Fetch priority
+        GroupOrder group_order;              ///< Fetch group order
+        StartGroup start_group;              ///< Fetch starting group in range
+        StartObject start_object;            ///< Fetch starting object in group
+        EndGroup end_group;                  ///< Fetch final group in range
+        std::optional<EndObject> end_object; ///< Fetch final object in group
     };
 
     Bytes& operator<<(Bytes& buffer, ControlMessageType message_type);
@@ -1037,6 +964,6 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const TrackNamespace& msg);
 
     BytesSpan operator>>(BytesSpan buffer, Parameter& msg);
-    Bytes& operator<<(Bytes& buffer, const Parameter& msg);    
+    Bytes& operator<<(Bytes& buffer, const Parameter& msg);
 
 } // namespace
