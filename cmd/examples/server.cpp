@@ -72,7 +72,7 @@ namespace qserver_vars {
      * @example
      *      track_alias = subscribe_alias_sub_id[conn_id][subscribe_id]
      */
-    std::map<quicr::ConnectionHandle, std::map<quicr::messages::SubscribeID, quicr::messages::TrackAlias>>
+    std::map<quicr::ConnectionHandle, std::map<quicr::messages::RequestID, quicr::messages::TrackAlias>>
       subscribe_alias_sub_id;
 
     /**
@@ -128,7 +128,7 @@ namespace qserver_vars {
     /**
      * @brief Map of atomic bools to mark if a fetch thread should be interrupted.
      */
-    std::map<std::pair<quicr::ConnectionHandle, quicr::messages::SubscribeID>, std::atomic_bool> stop_fetch;
+    std::map<std::pair<quicr::ConnectionHandle, quicr::messages::RequestID>, std::atomic_bool> stop_fetch;
 }
 
 /**
@@ -528,7 +528,7 @@ class MyServer : public quicr::Server
         }
 
         // Remove active subscribes
-        std::vector<quicr::messages::SubscribeID> subscribe_ids;
+        std::vector<quicr::messages::RequestID> subscribe_ids;
         auto ta_conn_it = qserver_vars::subscribe_alias_sub_id.find(connection_handle);
         if (ta_conn_it != qserver_vars::subscribe_alias_sub_id.end()) {
             for (const auto& [sub_id, _] : ta_conn_it->second) {

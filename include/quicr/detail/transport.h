@@ -257,10 +257,10 @@ namespace quicr {
                 FullTrackName track_full_name;
                 std::optional<messages::Location> largest_location{ std::nullopt };
             };
-            std::map<messages::SubscribeID, SubscribeContext> recv_sub_id;
+            std::map<messages::RequestID, SubscribeContext> recv_sub_id;
 
             /// Tracks by request ID (Subscribe and Fetch)
-            std::map<messages::SubscribeID, std::shared_ptr<SubscribeTrackHandler>> tracks_by_request_id;
+            std::map<messages::RequestID, std::shared_ptr<SubscribeTrackHandler>> tracks_by_request_id;
 
             /// Subscribes by Track Alais is used for data object forwarding
             std::map<messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> sub_by_track_alias;
@@ -280,7 +280,7 @@ namespace quicr {
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
 
             /// Fetch Publishers by subscribe ID.
-            std::map<messages::SubscribeID, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_sub_id;
+            std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_sub_id;
 
             /// Subscribe Announces namespace prefix by request Id
             std::map<messages::RequestID, TrackNamespace> sub_announces_by_request_id;

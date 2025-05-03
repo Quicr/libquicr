@@ -1,6 +1,6 @@
 #pragma once
-#include "ctrl_message_types.h"
 #include <quicr/common.h>
+#include <quicr/detail/ctrl_message_types.h>
 #include <quicr/track_name.h>
 #include <vector>
 
@@ -45,7 +45,6 @@ namespace quicr::messages {
     using AnnounceCancelErrorCode = quicr::messages::AnnounceErrorCode;
     using TrackNamespacePrefix = quicr::TrackNamespace;
     using SubscribeAnnouncesErrorErrorCode = quicr::messages::SubscribeAnnouncesErrorCode;
-    using SubscribeID = std::uint64_t;
 
     // enums
     enum class ControlMessageType : uint64_t
@@ -917,14 +916,14 @@ namespace quicr::messages {
         NewGroupRequest() {}
 
         // All fields constructor
-        NewGroupRequest(SubscribeID subscribe_id, TrackAlias track_alias)
-          : subscribe_id(subscribe_id)
+        NewGroupRequest(RequestID request_id, TrackAlias track_alias)
+          : request_id(request_id)
           , track_alias(track_alias)
         {
         }
 
       public:
-        SubscribeID subscribe_id;
+        RequestID request_id;
         TrackAlias track_alias;
     };
 
@@ -962,8 +961,5 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, ControlMessageType message_type);
     BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg);
     Bytes& operator<<(Bytes& buffer, const TrackNamespace& msg);
-
-    BytesSpan operator>>(BytesSpan buffer, Parameter& msg);
-    Bytes& operator<<(Bytes& buffer, const Parameter& msg);
 
 } // namespace

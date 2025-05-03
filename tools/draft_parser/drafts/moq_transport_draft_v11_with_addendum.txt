@@ -4764,7 +4764,7 @@ Nandakumar, et al.       Expires 30 October 2025               [Page 85]    Adde
     NEW_GROUP_REQUEST Message {
         Type (i) = 0x42,
         Length (i),
-        Subscribe ID (i),
+        Request ID (i),
         Track Alias (i)
     }
 

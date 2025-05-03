@@ -927,8 +927,8 @@ namespace quicr::messages {
      */
     BytesSpan operator>>(BytesSpan buffer, NewGroupRequest& msg)
     {
-        buffer = buffer >> msg.subscribe_id; // (i)  >> SubscribeID
-        buffer = buffer >> msg.track_alias;  // (i)  >> TrackAlias
+        buffer = buffer >> msg.request_id;  // (i)  >> RequestID
+        buffer = buffer >> msg.track_alias; // (i)  >> TrackAlias
         return buffer;
     }
 
@@ -939,8 +939,8 @@ namespace quicr::messages {
     {
         Bytes payload;
         // fill out payload
-        payload << msg.subscribe_id; // (i)  << SubscribeID
-        payload << msg.track_alias;  // (i)  << TrackAlias
+        payload << msg.request_id;  // (i)  << RequestID
+        payload << msg.track_alias; // (i)  << TrackAlias
 
         // fill out buffer
         buffer << static_cast<std::uint64_t>(ControlMessageType::kNewGroupRequest);

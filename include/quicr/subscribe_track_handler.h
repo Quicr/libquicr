@@ -231,7 +231,7 @@ namespace quicr {
          */
         SubscribeTrackMetrics subscribe_track_metrics_;
 
-        std::function<void(messages::SubscribeID, messages::TrackAlias)> new_group_request_callback_;
+        std::function<void(messages::RequestID, messages::TrackAlias)> new_group_request_callback_;
 
       protected:
         /**
