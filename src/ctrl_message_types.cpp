@@ -148,6 +148,29 @@ namespace quicr::messages {
         return buffer;
     }
 
+    Bytes& operator<<(Bytes& buffer, const ControlMessage& message)
+    {
+        buffer << message.type;
+        buffer << static_cast<std::uint16_t>(message.payload.size());
+        buffer.insert(buffer.end(), message.payload.begin(), message.payload.end());
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, ControlMessage& message)
+    {
+        buffer = buffer >> message.type;
+        if (buffer.size() < sizeof(std::uint16_t)) {
+            throw std::invalid_argument("Buffer too small");
+        }
+        std::uint16_t payload_length;
+        buffer = buffer >> payload_length;
+        if (buffer.size() < payload_length) {
+            throw std::invalid_argument("Buffer too small");
+        }
+        message.payload.assign(buffer.begin(), std::next(buffer.begin(), payload_length));
+        return buffer.subspan(payload_length);
+    }
+
     Bytes& operator<<(Bytes& buffer, const Location& location)
     {
         buffer << UintVar(location.group);
