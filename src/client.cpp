@@ -317,7 +317,10 @@ namespace quicr {
                 messages::SubscribeAnnouncesOk msg;
                 msg_bytes >> msg;
 
-                SubscribeAnnouncesStatusChanged(msg.track_namespace_prefix, std::nullopt, std::nullopt);
+                const auto it = conn_ctx.sub_announces_by_request_id.find(msg.request_id);
+                if (it != conn_ctx.sub_announces_by_request_id.end()) {
+                    SubscribeAnnouncesStatusChanged(it->second, std::nullopt, std::nullopt);
+                }
 
                 return true;
             }
@@ -325,9 +328,14 @@ namespace quicr {
                 messages::SubscribeAnnouncesError msg;
                 msg_bytes >> msg;
 
-                auto error_code = static_cast<messages::SubscribeAnnouncesErrorCode>(msg.error_code);
-                SubscribeAnnouncesStatusChanged(
-                  msg.track_namespace_prefix, error_code, std::make_optional<messages::ReasonPhrase>(msg.error_reason));
+                const auto it = conn_ctx.sub_announces_by_request_id.find(msg.request_id);
+                if (it != conn_ctx.sub_announces_by_request_id.end()) {
+                    SubscribeAnnouncesStatusChanged(it->second, std::nullopt, std::nullopt);
+
+                    auto error_code = static_cast<messages::SubscribeAnnouncesErrorCode>(msg.error_code);
+                    SubscribeAnnouncesStatusChanged(
+                      it->second, error_code, std::make_optional<messages::ReasonPhrase>(msg.error_reason));
+                }
 
                 return true;
             }
@@ -398,8 +406,8 @@ namespace quicr {
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
                 return true;
             }
-            case messages::ControlMessageType::kSubscribesBlocked: {
-                messages::SubscribesBlocked msg;
+            case messages::ControlMessageType::kRequestsBlocked: {
+                messages::RequestsBlocked msg;
                 msg_bytes >> msg;
 
                 SPDLOG_LOGGER_WARN(logger_, "Subscribe was blocked, maximum_request_id: {}", msg.maximum_request_id);

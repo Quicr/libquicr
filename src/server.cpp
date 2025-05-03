@@ -37,6 +37,7 @@ namespace quicr {
     void Server::UnsubscribeAnnouncesReceived(ConnectionHandle, const TrackNamespace&) {}
 
     void Server::ResolveAnnounce(ConnectionHandle connection_handle,
+                                 uint64_t request_id,
                                  const TrackNamespace& track_namespace,
                                  const std::vector<ConnectionHandle>& subscribers,
                                  const AnnounceResponse& response)
@@ -48,7 +49,7 @@ namespace quicr {
 
         switch (response.reason_code) {
             case AnnounceResponse::ReasonCode::kOk: {
-                SendAnnounceOk(conn_it->second, track_namespace);
+                SendAnnounceOk(conn_it->second, request_id);
 
                 for (const auto& sub_conn_handle : subscribers) {
                     auto it = connections_.find(sub_conn_handle);
@@ -56,7 +57,8 @@ namespace quicr {
                         continue;
                     }
 
-                    SendAnnounce(it->second, track_namespace);
+                    // TODO: what request Id do we send for subscribe announces???
+                    SendAnnounce(it->second, request_id, track_namespace);
                 }
                 break;
             }
@@ -462,7 +464,7 @@ namespace quicr {
 
                 auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
 
-                AnnounceReceived(conn_ctx.connection_handle, tfn.name_space, {});
+                AnnounceReceived(conn_ctx.connection_handle, tfn.name_space, { msg.request_id });
                 return true;
             }
 
@@ -580,8 +582,8 @@ namespace quicr {
 
                 return true;
             }
-            case messages::ControlMessageType::kSubscribesBlocked: {
-                messages::SubscribesBlocked msg;
+            case messages::ControlMessageType::kRequestsBlocked: {
+                messages::RequestsBlocked msg;
                 msg_bytes >> msg;
 
                 SPDLOG_LOGGER_WARN(logger_, "Subscribe was blocked, maximum_request_id: {}", msg.maximum_request_id);

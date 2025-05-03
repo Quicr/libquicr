@@ -4,6 +4,7 @@
 #pragma once
 
 #include "quicr/common.h"
+#include "quicr/detail/ctrl_message_types.h"
 #include "quicr/track_name.h"
 
 #include <optional>
@@ -42,7 +43,7 @@ namespace quicr {
         };
         ReasonCode reason_code;
 
-        std::optional<messages::ReasonPhrase> error_reason = std::nullopt;
+        std::optional<std::string> error_reason = std::nullopt;
         std::optional<uint64_t> track_alias = std::nullopt; ///< Set only when ResponseCode is kRetryTrackAlias
 
         std::optional<messages::Location> largest_location = std::nullopt;

@@ -137,11 +137,11 @@ namespace quicr {
          *      will send the protocol message based on the SubscribeResponse
          *
          * @param connection_handle        source connection ID
-         * @param subscribe_id             subscribe ID
+         * @param request_id               request ID
          * @param subscribe_response       response to for the subscribe
          */
         virtual void ResolveSubscribe(ConnectionHandle connection_handle,
-                                      uint64_t subscribe_id,
+                                      uint64_t request_id,
                                       const SubscribeResponse& subscribe_response);
 
         /**

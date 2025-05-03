@@ -282,6 +282,9 @@ namespace quicr {
             /// Fetch Publishers by subscribe ID.
             std::map<messages::SubscribeID, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_sub_id;
 
+            /// Subscribe Announces namespace prefix by request Id
+            std::map<messages::RequestID, TrackNamespace> sub_announces_by_request_id;
+
             ConnectionMetrics metrics{}; ///< Connection metrics
 
             ConnectionContext() { ctrl_msg_buffer.reserve(kControlMessageBufferSize); }

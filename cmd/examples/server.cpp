@@ -662,16 +662,14 @@ class MyServer : public quicr::Server
             return;
         }
 
-        std::optional<uint64_t> latest_group_id = std::nullopt;
-        std::optional<uint64_t> latest_object_id = std::nullopt;
+        std::optional<quicr::messages::Location> largest_location = std::nullopt;
 
         auto cache_entry_it = qserver_vars::cache.find(th.track_fullname_hash);
         if (cache_entry_it != qserver_vars::cache.end()) {
             auto& [_, cache] = *cache_entry_it;
             if (const auto& latest_group = cache.Last(); latest_group && !latest_group->empty()) {
                 const auto& latest_object = std::prev(latest_group->end());
-                latest_group_id = latest_object->headers.group_id;
-                latest_object_id = latest_object->headers.object_id;
+                largest_location = { latest_object->headers.group_id, latest_object->headers.object_id };
             }
         }
 
@@ -681,8 +679,7 @@ class MyServer : public quicr::Server
                            quicr::SubscribeResponse::ReasonCode::kOk,
                            std::nullopt,
                            std::nullopt,
-                           latest_group_id,
-                           latest_object_id,
+                           largest_location,
                          });
 
         auto pub_track_h =
@@ -760,25 +757,22 @@ class MyServer : public quicr::Server
         }
     }
 
-    LargestAvailable GetLargestAvailable(const quicr::FullTrackName& track_name) override
+    std::optional<quicr::messages::Location> GetLargestAvailable(const quicr::FullTrackName& track_name) override
     {
         // Get the largest object from the cache.
-        std::optional<uint64_t> largest_group_id = std::nullopt;
-        std::optional<uint64_t> largest_object_id = std::nullopt;
+        std::optional<quicr::messages::Location> largest_location = std::nullopt;
+
         const auto& th = quicr::TrackHash(track_name);
         const auto cache_entry_it = qserver_vars::cache.find(th.track_fullname_hash);
         if (cache_entry_it != qserver_vars::cache.end()) {
             auto& [_, cache] = *cache_entry_it;
             if (const auto& latest_group = cache.Last(); latest_group && !latest_group->empty()) {
                 const auto& latest_object = std::prev(latest_group->end());
-                largest_group_id = latest_object->headers.group_id;
-                largest_object_id = latest_object->headers.object_id;
+                largest_location = { latest_object->headers.group_id, latest_object->headers.object_id };
             }
         }
-        if (!largest_group_id.has_value() || !largest_object_id.has_value()) {
-            return std::nullopt;
-        }
-        return std::make_pair(*largest_group_id, *largest_object_id);
+
+        return largest_location;
     }
 
     bool OnFetchOk(quicr::ConnectionHandle connection_handle,

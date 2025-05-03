@@ -381,6 +381,7 @@ namespace quicr {
             rid++;
         }
 
+        conn_it->second.sub_announces_by_request_id[rid] = prefix_namespace;
         auto msg = messages::SubscribeAnnounces(rid, prefix_namespace, {});
 
         Bytes buffer;
@@ -391,7 +392,7 @@ namespace quicr {
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending Subscribe announces to conn_id: {} request_id: {} prefix_hash: {}",
                             conn_it->second.connection_handle,
-                            request_id,
+                            rid,
                             th.track_namespace_hash);
 
         SendCtrlMsg(conn_it->second, buffer);
@@ -438,6 +439,15 @@ namespace quicr {
         if (conn_it == connections_.end()) {
             SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_handle);
             return;
+        }
+
+        for (auto it = conn_it->second.sub_announces_by_request_id.begin();
+             it != conn_it->second.sub_announces_by_request_id.end();
+             ++it) {
+            if (it->second == prefix_namespace) {
+                conn_it->second.sub_announces_by_request_id.erase(it);
+                break;
+            }
         }
 
         auto msg = messages::UnsubscribeAnnounces(prefix_namespace);
