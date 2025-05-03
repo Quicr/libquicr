@@ -5,7 +5,6 @@
 
 #include "quicr/common.h"
 #include "quicr/track_name.h"
-#include "quicr/detail/messages.h"
 
 #include <optional>
 #include <span>

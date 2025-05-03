@@ -126,7 +126,7 @@ namespace quicr {
                                     "Received subscribe to announced track alias: {0} recv request_id: {1}, setting "
                                     "send state to ready",
                                     msg.track_alias,
-                                    msg.subscribe_id);
+                                    msg.request_id);
 
                 // Indicate send is ready upon subscribe
                 // TODO(tievens): Maybe needs a delay as subscriber may have not received ok before data is sent
@@ -177,7 +177,7 @@ namespace quicr {
                     return true;
                 }
 
-                SendSubscribeOk(conn_ctx, msg.request_id, kSubscribeExpires, false, 0, 0);
+                SendSubscribeOk(conn_ctx, msg.request_id, kSubscribeExpires, false, {0,0});
 
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received subscribe_update to track alias: {0} recv request_id: {1}",
@@ -215,9 +215,9 @@ namespace quicr {
                       "Received subscribe ok conn_id: {} request_id: {} latest_group: {} latest_object: {}",
                       conn_ctx.connection_handle,
                       msg.request_id,
-                      msg.group_0->largest_location);
+                      msg.group_0->largest_location.group, msg.group_0->largest_location.object);
 
-                    sub_it->second.get()->SetLargestLocation(msg.group_0->largest_location);
+                    sub_it->second.get()->SetLatestLocation(msg.group_0->largest_location);
                 }
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
                 return true;
@@ -278,15 +278,18 @@ namespace quicr {
                 messages::AnnounceOk msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
-                auto th = TrackHash(tfn);
                 SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received announce ok, conn_id: {0} request_id: {1}",
+                                    "Received announce ok, conn_id: {} request_id: {}",
                                     conn_ctx.connection_handle,
                                     msg.request_id);
 
                 // Update each track to indicate status is okay to publish
-                auto pub_it = conn_ctx.pub_tracks_by_name.find(th.track_namespace_hash);
+                auto pub_ns_it = conn_ctx.pub_tracks_ns_by_request_id.find(msg.request_id);
+                if (pub_ns_it == conn_ctx.pub_tracks_ns_by_request_id.end()) {
+                    break;
+                }
+
+                auto pub_it = conn_ctx.pub_tracks_by_name.find(pub_ns_it->second);
                 for (const auto& td : pub_it->second) {
                     if (td.second.get()->GetStatus() != PublishTrackHandler::Status::kOk)
                         td.second.get()->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
@@ -298,13 +301,11 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 std::string reason = "unknown";
-                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
-                auto th = TrackHash(tfn);
                 reason.assign(msg.error_reason.begin(), msg.error_reason.end());
 
                 SPDLOG_LOGGER_INFO(logger_,
-                                   "Received announce error for namespace_hash: {0} error code: {1} reason: {2}",
-                                   th.track_namespace_hash,
+                                   "Received announce error for request_id: {} error code: {} reason: {}",
+                                   msg.request_id,
                                    static_cast<std::uint64_t>(msg.error_code),
                                    reason);
 
@@ -440,13 +441,9 @@ namespace quicr {
                 messages::TrackStatus msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
-                auto th = TrackHash(tfn);
-
                 SPDLOG_LOGGER_INFO(logger_,
-                                   "Received track status for namespace_hash: {0} name_hash: {1}",
-                                   th.track_namespace_hash,
-                                   th.track_name_hash);
+                                   "Received track status for request_id: {}",
+                                   msg.request_id);
                 return true;
             }
             case messages::ControlMessageType::kGoaway: {

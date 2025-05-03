@@ -154,6 +154,7 @@ namespace quicr {
           th.track_namespace_hash,
           th.track_name_hash);
 
+        conn_it->second.pub_tracks_ns_by_request_id.erase(*track_handler->GetRequestId());
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash].erase(th.track_name_hash);
         conn_it->second.pub_tracks_by_track_alias.erase(th.track_fullname_hash);
 
@@ -198,6 +199,7 @@ namespace quicr {
         }
 
         track_handler->SetRequestId(request_id);
+        conn_it->second.pub_tracks_ns_by_request_id[request_id] = th.track_namespace_hash;
 
         track_handler->connection_handle_ = conn_id;
 
@@ -471,10 +473,10 @@ namespace quicr {
                 const auto& [err, matched_ns] =
                   SubscribeAnnouncesReceived(conn_ctx.connection_handle, msg.track_namespace_prefix, {});
                 if (err.has_value()) {
-                    SendSubscribeAnnouncesError(conn_ctx, msg.track_namespace_prefix, *err, {});
+                    SendSubscribeAnnouncesError(conn_ctx, msg.request_id, *err, {});
                 } else {
                     for (const auto& ns : matched_ns) {
-                        SendAnnounce(conn_ctx, ns);
+                        SendAnnounce(conn_ctx, msg.request_id, ns);
                     }
                 }
 
@@ -715,7 +717,7 @@ namespace quicr {
                     case messages::FetchType::kJoiningFetch: {
                         // Joining fetch needs to look up its joining subscribe.
                         // TODO: Need a new error code for subscribe doesn't exist.
-                        const auto subscribe_state = conn_ctx.recv_sub_id.find(msg.group_1->joining_request_id);
+                        const auto subscribe_state = conn_ctx.recv_sub_id.find(msg.group_1->joining_subscribe_id);
                         if (subscribe_state == conn_ctx.recv_sub_id.end()) {
                             SendFetchError(conn_ctx,
                                            msg.request_id,
@@ -737,8 +739,8 @@ namespace quicr {
                         largest_location = *opt_largest_location;
 
                         // TODO(RichLogan): Check this when FETCH v11 checked.
-                        attrs.start_group = msg.group_1->preceding_group_offset <= largest_location.group
-                                              ? largest_location.group - msg.group_1->preceding_group_offset
+                        attrs.start_group = msg.group_1->joining_start <= largest_location.group
+                                              ? largest_location.group - msg.group_1->joining_start
                                               : largest_location.group;
                         attrs.start_object = 0;
                         attrs.end_group = largest_location.group;

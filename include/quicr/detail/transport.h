@@ -271,6 +271,11 @@ namespace quicr {
 
             std::map<messages::TrackAlias, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_track_alias;
 
+            /** MoQT draft 11 does not send all announce messages with namespace. Instead, they are sent
+             *  with request-id. The namespace is needed. This map is used to map request ID to namespace
+             */
+            std::map<messages::RequestID, TrackNamespaceHash> pub_tracks_ns_by_request_id;
+
             /// Published tracks by quic transport data context ID.
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
 
@@ -342,7 +347,6 @@ namespace quicr {
                                 const std::string& reason);
 
         void SendSubscribeAnnounces(ConnectionHandle conn_handle,
-                                    messages::RequestID request_id,
                                     const TrackNamespace& prefix_namespace);
         void SendUnsubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
         void SendSubscribeAnnouncesOk(ConnectionContext& conn_ctx, messages::RequestID request_id);

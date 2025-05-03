@@ -270,6 +270,7 @@ namespace quicr {
                                    tfn.name,
                                    priority,
                                    group_order,
+                                   1,
                                    filter_type,
                                    nullptr,
                                    std::nullopt,
@@ -365,7 +366,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     }
 
-    void Transport::SendSubscribeAnnounces(ConnectionHandle conn_handle, RequestID request_id, const TrackNamespace& prefix_namespace)
+    void Transport::SendSubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace)
     {
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_handle);
@@ -374,7 +375,12 @@ namespace quicr {
             return;
         }
 
-        auto msg = messages::SubscribeAnnounces(request_id, prefix_namespace, {});
+        auto rid = conn_it->second.next_request_id++ << 1;
+        if (client_mode_) {
+            rid++;
+        }
+
+        auto msg = messages::SubscribeAnnounces(rid, prefix_namespace, {});
 
         Bytes buffer;
         buffer << msg;
@@ -732,6 +738,7 @@ namespace quicr {
             return;
         }
 
+        conn_it->second.pub_tracks_ns_by_request_id.erase(*track_handler->GetRequestId());
         conn_it->second.pub_tracks_by_track_alias.erase(th.track_fullname_hash);
 
         // Check if this published track is a new namespace or existing.
@@ -800,6 +807,15 @@ namespace quicr {
             return;
         }
 
+        auto sid = conn_it->second.next_request_id++ << 1;
+        if (client_mode_) {
+            sid++;
+        }
+
+        track_handler->SetRequestId(sid);
+
+        conn_it->second.pub_tracks_ns_by_request_id[sid] = th.track_namespace_hash;
+
         // Check if this published track is a new namespace or existing.
         auto pub_ns_it = conn_it->second.pub_tracks_by_name.find(th.track_namespace_hash);
         if (pub_ns_it == conn_it->second.pub_tracks_by_name.end()) {
@@ -812,13 +828,13 @@ namespace quicr {
 
             lock.lock();
 
-            SendAnnounce(conn_it->second, tfn.name_space);
+            SendAnnounce(conn_it->second, sid, tfn.name_space);
 
         } else {
             auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
             if (pub_n_it == pub_ns_it->second.end()) {
                 track_handler->SetStatus(pub_ns_it->second.begin()->second->GetStatus());
-                SendAnnounce(conn_it->second, tfn.name_space);
+                SendAnnounce(conn_it->second, sid, tfn.name_space);
 
                 SPDLOG_LOGGER_INFO(logger_,
                                    "Publish track has new track namespace hash: {0} name hash: {1}",
@@ -888,7 +904,12 @@ namespace quicr {
             return;
         }
 
-        auto sid = conn_it->second.next_request_id++;
+        auto sid = conn_it->second.next_request_id++ << 1;
+        if (client_mode_) {
+            sid++;
+        }
+
+        track_handler->SetRequestId(sid);
 
         SPDLOG_LOGGER_DEBUG(logger_, "subscribe id (from fetch) to add to memory: {0}", sid);
 
