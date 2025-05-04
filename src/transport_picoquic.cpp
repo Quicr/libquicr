@@ -319,11 +319,12 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
 }
 
 /*
- * Copied and modified from c to c++ based on private-octopus/picoquic picoquicdemo.c - picoquic_parse_client_multipath_config
- * under MIT license
+ * Copied and modified from c to c++ based on private-octopus/picoquic picoquicdemo.c -
+ * picoquic_parse_client_multipath_config under MIT license
  * https://github.com/private-octopus/picoquic/blob/7bbe5c3fa884ab7475694e41573495ff2055ec97/picoquicfirst/picoquicdemo.c#L443
  */
-int parse_client_multipath_config(const char* mp_config, int* src_if, struct sockaddr_storage* alt_ip, int* nb_alt_paths)
+int
+parse_client_multipath_config(const char* mp_config, int* src_if, struct sockaddr_storage* alt_ip, int* nb_alt_paths)
 {
     int ret = 0;
     int valid_ip, valid_index = 0;
@@ -415,21 +416,28 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
             break;
         }
 
-        case picoquic_packet_loop_after_receive:{
+        case picoquic_packet_loop_after_receive: {
             //        log_msg << "packet_loop_after_receive";
             //        transport->logger.log(LogLevel::debug, log_msg.str());
-            if (transport->is_server_mode || quic->default_multipath_option == 0 || transport->probed_new_path){break;}
+            if (transport->is_server_mode || quic->default_multipath_option == 0 || transport->probed_new_path) {
+                break;
+            }
 
-            // Get the connection context from the Transport using the connection ID without using the client_cnx variable
-            picoquic_cnx_t* client_cnx = transport->GetConnContext(reinterpret_cast<uint64_t>(picoquic_get_first_cnx(quic)))->pq_cnx;
-            if (client_cnx->is_multipath_enabled == 0){break;}
+            // Get the connection context from the Transport using the connection ID without using the client_cnx
+            // variable
+            picoquic_cnx_t* client_cnx =
+              transport->GetConnContext(reinterpret_cast<uint64_t>(picoquic_get_first_cnx(quic)))->pq_cnx;
+            if (client_cnx->is_multipath_enabled == 0) {
+                break;
+            }
 
             sockaddr_storage server_address = client_cnx->path[0]->peer_addr;
             int client_alt_if[8];
             sockaddr_storage client_alt_address[8];
             int nb_alt_paths = 0;
 
-            parse_client_multipath_config(transport->GetConfigMultipathAltConfig(), client_alt_if, client_alt_address, &nb_alt_paths);
+            parse_client_multipath_config(
+              transport->GetConfigMultipathAltConfig(), client_alt_if, client_alt_address, &nb_alt_paths);
 
             /*
              * Copied and modified code logic from private-octopus/picoquic picoquicdemo.c - client_loop_cb
@@ -486,9 +494,8 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
                                                               0)) != 0) {
                             SPDLOG_LOGGER_INFO(transport->logger, "Probe new path failed with exit code {0}", ret);
                         } else {
-                            SPDLOG_LOGGER_INFO(transport->logger,
-                                               "New path added, total path available {0}",
-                                               client_cnx->nb_paths);
+                            SPDLOG_LOGGER_INFO(
+                              transport->logger, "New path added, total path available {0}", client_cnx->nb_paths);
                         }
                         transport->probed_new_path = true;
                     }
@@ -1065,7 +1072,7 @@ PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
     if (tcfg.multipath_option) {
         (void)picoquic_config_set_option(&config_, picoquic_option_MULTIPATH, "1");
         if (!is_server_mode) {
-            ///put the tcfg.alt_iface string to the &config_.multipath_alt_config with memcpy to avoid losing data
+            /// put the tcfg.alt_iface string to the &config_.multipath_alt_config with memcpy to avoid losing data
             size_t len = strlen(tcfg.alt_ifaces);
             config_.multipath_alt_config = new char[len + 1];
             std::strncpy(config_.multipath_alt_config, tcfg.alt_ifaces, len);
@@ -2043,8 +2050,9 @@ PicoQuicTransport::MarkStreamActive(const TransportConnId conn_id, const DataCon
 const char*
 PicoQuicTransport::GetConfigMultipathAltConfig() const
 {
-    if (is_server_mode){return nullptr;}
-    else {
+    if (is_server_mode) {
+        return nullptr;
+    } else {
         return config_.multipath_alt_config;
     }
 }
