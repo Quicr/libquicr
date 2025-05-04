@@ -460,6 +460,8 @@ PicoQuicTransport::Start()
         (void)picoquic_config_set_option(&config_, picoquic_option_CC_ALGO, "reno");
     }
 
+    picoquic_config_set_option(&config_, picoquic_option_SSLKEYLOG, "1");
+
     (void)picoquic_config_set_option(&config_, picoquic_option_ALPN, quicr_alpn);
     (void)picoquic_config_set_option(
       &config_, picoquic_option_CWIN_MIN, std::to_string(tconfig_.quic_cwin_minimum).c_str());
@@ -472,6 +474,8 @@ PicoQuicTransport::Start()
         SPDLOG_LOGGER_CRITICAL(logger, "Unable to create picoquic context, check certificate and key filenames");
         throw PicoQuicException("Unable to create picoquic context");
     }
+
+    picoquic_set_key_log_file_from_env(quic_ctx_);
 
     /*
      * TODO doc: Apparently need to set some value to send datagrams. If not set,
