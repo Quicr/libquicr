@@ -703,13 +703,13 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         qclient_vars::playback_speed_ms = std::chrono::milliseconds(cli_opts["playback_speed_ms"].as<uint64_t>());
     }
 
-    if (cli_opts.count("m")) {
+    if (cli_opts.count("multipath")) {
         config.transport_config.multipath_option = 1;
     }
-    if (cli_opts.count("a") && cli_opts["a"].as<std::string>() != "" && cli_opts.count("m")) {
-        const std::string alt_iface_str = cli_opts["a"].as<std::string>();
+    if (cli_opts.count("alt_ifaces") && cli_opts["alt_ifaces"].as<std::string>() != "" && cli_opts.count("multipath")) {
+        const std::string alt_iface_str = cli_opts["alt_ifaces"].as<std::string>();
         config.transport_config.alt_ifaces = strdup(alt_iface_str.c_str());
-    } else if (cli_opts.count("m")) {
+    } else if (cli_opts.count("multipath")) {
         SPDLOG_ERROR("-m option is only valid with proper -a option");
     }
 

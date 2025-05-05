@@ -886,7 +886,7 @@ InitConfig(cxxopts::ParseResult& cli_opts)
         qserver_vars::force_track_alias = false;
     }
 
-    if (cli_opts.count("m")) {
+    if (cli_opts.count("multipath")) {
         config.transport_config.multipath_option = 1;
     }
 
@@ -922,15 +922,15 @@ main(int argc, char* argv[])
         "e,endpoint_id", "This relay/server endpoint ID", cxxopts::value<std::string>()->default_value("moq-server"))(
         "c,cert", "Certificate file", cxxopts::value<std::string>()->default_value("./server-cert.pem"))(
         "k,key", "Certificate key file", cxxopts::value<std::string>()->default_value("./server-key.pem"))(
-        "q,qlog", "Enable qlog using path", cxxopts::value<std::string>())("m",
-                                                                           "Enable multipath option"); // end of options
-        /*
-        * -m is a flag to enable multipath, when local transport parameters are configured sets multipath option to 1
-        *       and initial_max_path_id to 2 to allow incoming path probes for a connection
-        *
-        *       initial_max_path_id set to 2 doesn't mean that the relay accepts just one alternative path, works with more
-        * incoming path probes (probably because when getting a probe for new paths it increments the usable path id)
-        */
+        "q,qlog", "Enable qlog using path", cxxopts::value<std::string>())(
+        "m,multipath","Enable multipath option"); // end of options
+    /*
+     * -m is a flag to enable multipath, when local transport parameters are configured sets multipath option to 1
+     *       and initial_max_path_id to 2 to allow incoming path probes for a connection
+     *
+     *       initial_max_path_id set to 2 doesn't mean that the relay accepts just one alternative path, works with more
+     * incoming path probes (probably because when getting a probe for new paths it increments the usable path id)
+     */
 
     auto result = options.parse(argc, argv);
 
