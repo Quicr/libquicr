@@ -6,6 +6,18 @@
 
 #include <quicr/detail/joining_fetch_handler.h>
 #include <sstream>
+#include <iomanip>
+
+static std::string
+to_hex(const std::vector<uint8_t>& data)
+{
+    std::stringstream hex(std::ios_base::out);
+    hex.flags(std::ios::hex);
+    for (const auto& byte : data) {
+        hex << std::setw(2) << std::setfill('0') << int(byte);
+    }
+    return hex.str();
+}
 
 namespace quicr {
     using namespace quicr::messages;
@@ -180,15 +192,18 @@ namespace quicr {
     {
         auto supported_versions = { kMoqtVersion };
         messages::SetupParameters setup_parameters;
-        setup_parameters.push_back(
-          { .type = messages::ParameterType::kEndpointId,
-            .value = { client_config_.endpoint_id.begin(), client_config_.endpoint_id.end() } });
+        quicr::messages::Parameter path = {.type = messages::ParameterType::kPath, .value = {}};
+        quicr::messages::Parameter max_request_id = {.type = messages::ParameterType::kMaxRequestId, .value = {100} };
+
+        setup_parameters.push_back(path);
+        setup_parameters.push_back(max_request_id);
 
         auto client_setup = messages::ClientSetup(supported_versions, setup_parameters);
 
         Bytes buffer;
         // SAH - FIXME - preallocate "buffer" to encode the data...
         buffer << client_setup;
+        SPDLOG_LOGGER_DEBUG(logger_, " CLIENT_SETUP: {0}", to_hex(buffer));
 
         auto& conn_ctx = connections_.begin()->second;
 
@@ -1287,7 +1302,7 @@ namespace quicr {
                     }
 
                     payload_len = (conn_ctx.ctrl_msg_buffer[0] << 8) | conn_ctx.ctrl_msg_buffer[1];
-                    payload_len = SwapBytes(payload_len);
+                    //payload_len = SwapBytes(payload_len);
 
                     if (conn_ctx.ctrl_msg_buffer.size() < payload_len + sizeof(payload_len)) {
                         i = kReadLoopMaxPerStream - 4;
