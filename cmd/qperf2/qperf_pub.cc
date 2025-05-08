@@ -15,57 +15,62 @@
 #include <thread>
 
 namespace qperf {
-    PerfPublishTrackHandler::PerfPublishTrackHandler(const PerfConfig& perf_config)
+    PerfPublishTrackHandler::PerfPublishTrackHandler(const std::shared_ptr<spdlog::logger> logger,
+                                                     const PerfConfig& perf_config)
       : PublishTrackHandler(perf_config.full_track_name, perf_config.track_mode, perf_config.priority, perf_config.ttl)
+      , logger_(logger)
       , perf_config_(perf_config)
       , terminate_(false)
       , last_bytes_(0)
       , test_mode_(qperf::TestMode::kNone)
       , group_id_(0)
       , object_id_(0)
-
+      , first_write_(true)
+      , first_metrics_write_(true)
     {
         memset(&test_metrics_, '\0', sizeof(test_metrics_));
     }
 
-    auto PerfPublishTrackHandler::Create(const std::string& section_name, ini::IniFile& inif)
+    auto PerfPublishTrackHandler::Create(const std::shared_ptr<spdlog::logger> logger,
+                                         const std::string& section_name,
+                                         ini::IniFile& inif)
     {
         PerfConfig perf_config;
-        PopulateScenarioFields(section_name, inif, perf_config);
-        return std::shared_ptr<PerfPublishTrackHandler>(new PerfPublishTrackHandler(perf_config));
+        PopulateScenarioFields(logger, section_name, inif, perf_config);
+        return std::shared_ptr<PerfPublishTrackHandler>(new PerfPublishTrackHandler(logger, perf_config));
     }
 
     void PerfPublishTrackHandler::StatusChanged(Status status)
     {
         switch (status) {
             case Status::kOk: {
-                SPDLOG_INFO("PerfPublishTrackeHandler - status kOk");
+                SPDLOG_LOGGER_INFO(logger_, "PerfPublishTrackeHandler - status kOk");
                 auto track_alias = GetTrackAlias();
                 if (track_alias.has_value()) {
-                    SPDLOG_INFO("Track alias: {0} is ready to write", track_alias.value());
+                    SPDLOG_LOGGER_INFO(logger_, "Track alias: {0} is ready to write", track_alias.value());
                     write_thread_ = SpawnWriter();
                 }
             } break;
             case Status::kNotConnected:
-                SPDLOG_INFO("PerfPublishTrackeHandler - status kNotConnected");
+                SPDLOG_LOGGER_INFO(logger_, "PerfPublishTrackeHandler - status kNotConnected");
                 break;
             case Status::kNotAnnounced:
-                SPDLOG_INFO("PerfPublishTrackeHandler - status kNotAnnounced");
+                SPDLOG_LOGGER_INFO(logger_, "PerfPublishTrackeHandler - status kNotAnnounced");
                 break;
             case Status::kPendingAnnounceResponse:
-                SPDLOG_INFO("PerfPublishTrackeHandler - status kPendingAnnounceResponse");
+                SPDLOG_LOGGER_INFO(logger_, "PerfPublishTrackeHandler - status kPendingAnnounceResponse");
                 break;
             case Status::kAnnounceNotAuthorized:
-                SPDLOG_INFO("PerfPublishTrackeHandler - status kAnnounceNotAuthorized");
+                SPDLOG_LOGGER_INFO(logger_, "PerfPublishTrackeHandler - status kAnnounceNotAuthorized");
                 break;
             case Status::kNoSubscribers:
-                SPDLOG_INFO("PerfPublishTrackeHandler - status kNoSubscribers");
+                SPDLOG_LOGGER_INFO(logger_, "PerfPublishTrackeHandler - status kNoSubscribers");
                 break;
             case Status::kSendingUnannounce:
-                SPDLOG_INFO("PerfPublishTrackeHandler - status kSendingUnannounce");
+                SPDLOG_LOGGER_INFO(logger_, "PerfPublishTrackeHandler - status kSendingUnannounce");
                 break;
             default:
-                SPDLOG_INFO("PerfPublishTrackeHandler - status UNKNOWN");
+                SPDLOG_LOGGER_INFO(logger_, "PerfPublishTrackeHandler - status UNKNOWN");
                 break;
         }
     }
@@ -74,28 +79,76 @@ namespace qperf {
     {
         std::lock_guard<std::mutex> _(mutex_);
         auto now = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+
+        std::cerr << "HELLO" << std::endl;
+
+        if (first_metrics_write_) {
+            std::cout << "time, id, log_type, BITRATE, test_name, bitrate, bitrate_str, delta_bytes, time_delta, "
+                         "min_bitrate, "
+                         "max_bitrate, avg_bitrate, "
+                      << perf_config_.test_name << std::endl;
+
+            std::cout << "time, id, log_type, TRACK_METRICS, test_name, bytes_published, "
+                      << "last_sample_time,  "
+                      << "objects_dropped_not_ok, "
+                      << "objects_published, "
+                      << "tx_buffer_drops, "
+                      << "tx_callback_ms, "
+                      << "tx_delayed_callback, "
+                      << "tx_object_duration_us, "
+                      << "tx_queue_discards, "
+                      << "tx_queue_expired, "
+                      << "tx_queue_size, "
+                      << "tx_reset_wait, " << perf_config_.test_name << std::endl;
+        }
+
+        first_metrics_write_ = false;
+
         if (test_mode_ == qperf::TestMode::kRunning && last_bytes_ != 0) { // skip first metric reporting...
             // calculate bitrate metrics
             auto diff = std::chrono::duration_cast<std::chrono::seconds>(now - last_metric_time_);
-            std::uint64_t delta_bytes = metrics.bytes_published - last_bytes_;
-            std::uint64_t bitrate = ((delta_bytes) * 8) / diff.count();
-            test_metrics_.bitrate_total += bitrate;
-            test_metrics_.max_publish_bitrate =
-              bitrate > test_metrics_.max_publish_bitrate ? bitrate : test_metrics_.max_publish_bitrate;
-            test_metrics_.min_publish_bitrate =
-              bitrate < test_metrics_.min_publish_bitrate ? bitrate : test_metrics_.min_publish_bitrate;
-            test_metrics_.metric_samples += 1;
-            test_metrics_.avg_publish_bitrate = test_metrics_.bitrate_total / test_metrics_.metric_samples;
-            SPDLOG_INFO("{}: Bitrate: {} {} delta bytes {}, delta time {}, {}, {}, {}",
-                        perf_config_.test_name,
-                        bitrate,
-                        FormatBitrate(bitrate),
-                        delta_bytes,
-                        diff.count(),
-                        test_metrics_.min_publish_bitrate,
-                        test_metrics_.max_publish_bitrate,
-                        test_metrics_.avg_publish_bitrate);
+            // Check if more than 4 seconds have elapsed
+            if (diff > std::chrono::seconds(4)) {
+
+                std::uint64_t delta_bytes = metrics.bytes_published - last_bytes_;
+                std::uint64_t bitrate = ((delta_bytes) * 8) / diff.count();
+                test_metrics_.bitrate_total += bitrate;
+                test_metrics_.max_publish_bitrate =
+                  bitrate > test_metrics_.max_publish_bitrate ? bitrate : test_metrics_.max_publish_bitrate;
+                test_metrics_.min_publish_bitrate =
+                  bitrate < test_metrics_.min_publish_bitrate ? bitrate : test_metrics_.min_publish_bitrate;
+                test_metrics_.metric_samples += 1;
+                test_metrics_.avg_publish_bitrate = test_metrics_.bitrate_total / test_metrics_.metric_samples;
+                SPDLOG_LOGGER_INFO(logger_,
+                                   "BITRATE, {}, {} {}, {}, {}, {}, {}, {}, TRACK_BITRATE",
+                                   perf_config_.test_name,
+                                   bitrate,
+                                   FormatBitrate(bitrate),
+                                   delta_bytes,
+                                   diff.count(),
+                                   test_metrics_.min_publish_bitrate,
+                                   test_metrics_.max_publish_bitrate,
+                                   test_metrics_.avg_publish_bitrate);
+            }
         }
+
+        SPDLOG_LOGGER_INFO(logger_,
+                           "{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
+                           "TRACK_METRICS",
+                           perf_config_.test_name,
+                           metrics.bytes_published,
+                           metrics.last_sample_time,
+                           metrics.objects_dropped_not_ok,
+                           metrics.objects_published,
+                           metrics.quic.tx_buffer_drops,
+                           metrics.quic.tx_callback_ms,
+                           metrics.quic.tx_delayed_callback,
+                           metrics.quic.tx_object_duration_us,
+                           metrics.quic.tx_queue_discards,
+                           metrics.quic.tx_queue_expired,
+                           metrics.quic.tx_queue_size,
+                           metrics.quic.tx_reset_wait,
+                           "TRACK_METRICS");
 
         last_metric_time_ = now;
         last_bytes_ = metrics.bytes_published;
@@ -145,12 +198,22 @@ namespace qperf {
         // publish
         PublishObject(object_headers, object_span);
 
-        SPDLOG_INFO("PO, RUNNING, {}, {}, {}, {}, {}",
-                    perf_config_.test_name,
-                    group_id_,
-                    object_id_,
-                    publish_track_metrics_.objects_published,
-                    publish_track_metrics_.bytes_published);
+        if (first_write_) {
+            std::cout << "time, id, log_type, PO, state, test_name, priority, ttl, group, object, "
+                         "objects_published, bytes_published, PO "
+                      << perf_config_.test_name << std::endl;
+        }
+
+        first_write_ = false;
+        SPDLOG_LOGGER_INFO(logger_,
+                           "PO, RUNNING, {}, {}, {}, {}, {}, {}, {}",
+                           perf_config_.test_name,
+                           perf_config_.priority,
+                           perf_config_.ttl,
+                           group_id_,
+                           object_id_,
+                           publish_track_metrics_.objects_published,
+                           publish_track_metrics_.bytes_published);
 
         // return current time in ms - publish time
         return now;
@@ -194,27 +257,30 @@ namespace qperf {
         PublishObject(object_headers, object_data);
 
         auto total_transmit_time = test_metrics_.end_transmit_time - test_metrics_.start_transmit_time;
-        SPDLOG_INFO("PO, COMPLETE, {}, {}, {}, {}, {}, {}",
-                    perf_config_.test_name,
-                    group_id_,
-                    object_id_,
-                    test_metrics_.total_published_objects,
-                    test_metrics_.total_published_bytes,
-                    total_transmit_time);
-        SPDLOG_INFO("--------------------------------------------");
-        SPDLOG_INFO("{}", perf_config_.test_name);
-        SPDLOG_INFO("Publish Object - Complete");
-        SPDLOG_INFO("      Total transmit time (ms) {}", total_transmit_time);
-        SPDLOG_INFO("        Total pubished objects {}, bytes {}",
-                    test_metrics_.total_published_objects,
-                    test_metrics_.total_published_bytes);
-        SPDLOG_INFO("                 Bitrate (bps)");
-        SPDLOG_INFO("                           min {}", test_metrics_.min_publish_bitrate);
-        SPDLOG_INFO("                           max {}", test_metrics_.max_publish_bitrate);
-        SPDLOG_INFO("                           avg {}", test_metrics_.avg_publish_bitrate);
-        SPDLOG_INFO("                               {}",
-                    FormatBitrate(static_cast<std::uint32_t>(test_metrics_.avg_publish_bitrate)));
-        SPDLOG_INFO("--------------------------------------------");
+        SPDLOG_LOGGER_INFO(logger_,
+                           "PO, COMPLETE, {}, {}, {}, {}, {}, {}",
+                           perf_config_.test_name,
+                           group_id_,
+                           object_id_,
+                           test_metrics_.total_published_objects,
+                           test_metrics_.total_published_bytes,
+                           total_transmit_time);
+        SPDLOG_LOGGER_INFO(logger_, "--------------------------------------------");
+        SPDLOG_LOGGER_INFO(logger_, "{}", perf_config_.test_name);
+        SPDLOG_LOGGER_INFO(logger_, "Publish Object - Complete");
+        SPDLOG_LOGGER_INFO(logger_, "      Total transmit time (ms) {}", total_transmit_time);
+        SPDLOG_LOGGER_INFO(logger_,
+                           "        Total pubished objects {}, bytes {}",
+                           test_metrics_.total_published_objects,
+                           test_metrics_.total_published_bytes);
+        SPDLOG_LOGGER_INFO(logger_, "                 Bitrate (bps)");
+        SPDLOG_LOGGER_INFO(logger_, "                           min {}", test_metrics_.min_publish_bitrate);
+        SPDLOG_LOGGER_INFO(logger_, "                           max {}", test_metrics_.max_publish_bitrate);
+        SPDLOG_LOGGER_INFO(logger_, "                           avg {}", test_metrics_.avg_publish_bitrate);
+        SPDLOG_LOGGER_INFO(logger_,
+                           "                               {}",
+                           FormatBitrate(static_cast<std::uint32_t>(test_metrics_.avg_publish_bitrate)));
+        SPDLOG_LOGGER_INFO(logger_, "--------------------------------------------");
 
         return test_complete.time;
     }
@@ -253,7 +319,8 @@ namespace qperf {
         if (perf_config_.start_delay > 0) {
             std::this_thread::sleep_for(std::chrono::milliseconds(33));
             test_mode_ = qperf::TestMode::kWaitPreTest;
-            SPDLOG_INFO("{} Waiting start delay {} ms", perf_config_.test_name, perf_config_.start_delay);
+            SPDLOG_LOGGER_INFO(
+              logger_, "{} Waiting start delay {} ms", perf_config_.test_name, perf_config_.start_delay);
             const std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
             auto delay_ms = std::chrono::milliseconds(perf_config_.start_delay);
             auto end_time = start + delay_ms;
@@ -267,7 +334,8 @@ namespace qperf {
         }
 
         // Transmit
-        SPDLOG_INFO("{} Start transmitting for {} ms", perf_config_.test_name, perf_config_.total_transmit_time);
+        SPDLOG_LOGGER_INFO(
+          logger_, "{} Start transmitting for {} ms", perf_config_.test_name, perf_config_.total_transmit_time);
 
         test_mode_ = qperf::TestMode::kRunning;
         while (!terminate_) {
@@ -308,9 +376,13 @@ namespace qperf {
         }
     }
 
-    PerfPubClient::PerfPubClient(const quicr::ClientConfig& cfg, const std::string& configfile)
-      : quicr::Client(cfg)
+    PerfPubClient::PerfPubClient(const std::shared_ptr<spdlog::logger> logger,
+                                 const quicr::ClientConfig& cfg,
+                                 const std::string& configfile)
+      : logger_(logger)
+      , quicr::Client(cfg)
       , configfile_(configfile)
+      , first_write_(true)
     {
     }
 
@@ -319,54 +391,109 @@ namespace qperf {
         std::lock_guard<std::mutex> _(track_handlers_mutex_);
         switch (status) {
             case Status::kReady:
-                SPDLOG_INFO("PerfPubClient - kReady");
+                SPDLOG_LOGGER_INFO(logger_, "PerfPubClient - kReady");
                 inif_.load(configfile_);
                 for (const auto& section_pair : inif_) {
                     const std::string& section_name = section_pair.first;
                     auto pub_handler =
-                      track_handlers_.emplace_back(PerfPublishTrackHandler::Create(section_name, inif_));
+                      track_handlers_.emplace_back(PerfPublishTrackHandler::Create(logger_, section_name, inif_));
                     PublishTrack(pub_handler);
                 }
                 break;
 
             case Status::kNotReady:
-                SPDLOG_INFO("PerfPubClient - kNotReady");
+                SPDLOG_LOGGER_INFO(logger_, "PerfPubClient - kNotReady");
                 break;
             case Status::kConnecting:
-                SPDLOG_INFO("PerfPubClient - kConnecting");
+                SPDLOG_LOGGER_INFO(logger_, "PerfPubClient - kConnecting");
                 break;
             case Status::kDisconnecting:
-                SPDLOG_INFO("PerfPubClient - kDisconnecting");
+                SPDLOG_LOGGER_INFO(logger_, "PerfPubClient - kDisconnecting");
                 break;
             case Status::kPendingSeverSetup:
-                SPDLOG_INFO("PerfPubClient - kPendingSeverSetup");
+                SPDLOG_LOGGER_INFO(logger_, "PerfPubClient - kPendingSeverSetup");
                 break;
 
             // All of the rest of these are 'errors' and will set terminate_.
             case Status::kInternalError:
-                SPDLOG_INFO("PerfPubClient - kInternalError - terminate");
+                SPDLOG_LOGGER_INFO(logger_, "PerfPubClient - kInternalError - terminate");
                 terminate_ = true;
                 break;
             case Status::kInvalidParams:
-                SPDLOG_INFO("PerfPubClient - kInvalidParams - terminate");
+                SPDLOG_LOGGER_INFO(logger_, "PerfPubClient - kInvalidParams - terminate");
                 terminate_ = true;
                 break;
             case Status::kNotConnected:
-                SPDLOG_INFO("PerfPubClient - kNotConnected - terminate");
+                SPDLOG_LOGGER_INFO(logger_, "PerfPubClient - kNotConnected - terminate");
                 terminate_ = true;
                 break;
             case Status::kFailedToConnect:
-                SPDLOG_INFO("PerfPubClient - kFailedToConnect - terminate");
+                SPDLOG_LOGGER_INFO(logger_, "PerfPubClient - kFailedToConnect - terminate");
                 terminate_ = true;
                 break;
             default:
-                SPDLOG_INFO("PerfPubClient - UNKNOWN - Connection failed {0}", static_cast<int>(status));
+                SPDLOG_LOGGER_INFO(
+                  logger_, "PerfPubClient - UNKNOWN - Connection failed {0}", static_cast<int>(status));
                 terminate_ = true;
                 break;
         }
     }
 
-    void PerfPubClient::MetricsSampled(const quicr::ConnectionMetrics&) {}
+    void PerfPubClient::MetricsSampled(const quicr::ConnectionMetrics& connection_metrics)
+    {
+        if (first_write_) {
+            std::cout << "time, id, log_type, invalid_ctrl_stream_msg, last_sample_time,"
+                      << "rx_dgram_decode_failed, rx_dgram_invalid_type, connecrx_stream_buffer_error,"
+                      << "connecrx_stream_invalid_type, connecrx_stream_unknown_track_alias, cwin_congested,"
+                      << "prev_cwin_congested,"
+                      << "rtt_us.min, rtt_us.max, rtt_us.avg,"
+                      << "rx_dgrams,  rx_dgrams_bytes,"
+                      << "rx_rate_bps.min, rx_rate_bps.max, rx_rate_bps.avg,"
+                      << "srtt_us.min, srtt_us.max, srtt_us.avg,"
+                      << " tx_congested,"
+                      << "tx_cwin_bytes.min, tx_cwin_bytes.max, tx_cwin_bytes.avg,"
+                      << "tx_dgram_ack, tx_dgram_cb, tx_dgram_drops,  tx_dgram_spurious,"
+                      << "tx_in_transit_bytes.min, _tx_in_transit_bytes.max, tx_in_transit_bytes.avg,"
+                      << "tx_lost_pkts,"
+                      << "tx_rate_bps.min, tx_rate_bps.max, tx_rate_bps.avg,"
+                      << "tx_retransmits, tx_spurious_losses,tx_timer_losses,"
+                      << "CONNECTION_METRICS" << std::endl;
+        }
+        first_write_ = false;
+
+        auto now = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+        SPDLOG_LOGGER_INFO(logger_,
+                           "{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, "
+                           "{}, {}, {}, {}, CONNECTION_METRICS",
+                           connection_metrics.invalid_ctrl_stream_msg,
+                           connection_metrics.last_sample_time,
+                           connection_metrics.rx_dgram_decode_failed,
+                           connection_metrics.rx_dgram_invalid_type,
+                           connection_metrics.rx_stream_buffer_error,
+                           connection_metrics.rx_stream_invalid_type,
+                           connection_metrics.rx_stream_unknown_track_alias,
+                           connection_metrics.quic.cwin_congested,
+                           connection_metrics.quic.prev_cwin_congested,
+                           connection_metrics.quic.rtt_us,
+                           connection_metrics.quic.rx_dgrams,
+                           connection_metrics.quic.rx_dgrams_bytes,
+                           connection_metrics.quic.rx_rate_bps,
+                           connection_metrics.quic.srtt_us,
+                           connection_metrics.quic.tx_congested,
+                           connection_metrics.quic.tx_cwin_bytes,
+                           connection_metrics.quic.tx_dgram_ack,
+                           connection_metrics.quic.tx_dgram_cb,
+                           connection_metrics.quic.tx_dgram_drops,
+                           connection_metrics.quic.tx_dgram_spurious,
+                           connection_metrics.quic.tx_in_transit_bytes,
+                           connection_metrics.quic.tx_lost_pkts,
+                           connection_metrics.quic.tx_rate_bps,
+                           connection_metrics.quic.tx_retransmits,
+                           connection_metrics.quic.tx_spurious_losses,
+                           connection_metrics.quic.tx_timer_losses);
+
+        last_metric_time_ = now;
+    }
 
     bool PerfPubClient::GetTerminateStatus()
     {
@@ -453,19 +580,20 @@ main(int argc, char** argv)
     client_config.connect_uri = result["connect_uri"].as<std::string>();
 
     const auto logger = spdlog::stderr_color_mt("PERF");
+    logger->set_pattern("%Y-%m-%d %H:%M:%S.%e, %n, %l, %v");
 
     auto config_file = result["config"].as<std::string>();
-    SPDLOG_INFO("--------------------------------------------");
-    SPDLOG_INFO("Starting...pub");
-    SPDLOG_INFO("\tconfig file {}", config_file);
-    SPDLOG_INFO("\tclient config:");
-    SPDLOG_INFO("\t\tconnect_uri = {}", client_config.connect_uri);
-    SPDLOG_INFO("\t\tendpoint = {}", client_config.endpoint_id);
-    SPDLOG_INFO("--------------------------------------------");
+    SPDLOG_LOGGER_INFO(logger, "--------------------------------------------");
+    SPDLOG_LOGGER_INFO(logger, "Starting...pub");
+    SPDLOG_LOGGER_INFO(logger, "\tconfig file {}", config_file);
+    SPDLOG_LOGGER_INFO(logger, "\tclient config:");
+    SPDLOG_LOGGER_INFO(logger, "\t\tconnect_uri = {}", client_config.connect_uri);
+    SPDLOG_LOGGER_INFO(logger, "\t\tendpoint = {}", client_config.endpoint_id);
+    SPDLOG_LOGGER_INFO(logger, "--------------------------------------------");
 
     std::signal(SIGINT, HandleTerminateSignal);
 
-    auto client = std::make_shared<qperf::PerfPubClient>(client_config, config_file);
+    auto client = std::make_shared<qperf::PerfPubClient>(logger, client_config, config_file);
 
     try {
         client->Connect();

@@ -27,11 +27,14 @@ namespace qperf {
      * @brief  Subscribe track handler
      * @details Subscribe track handler used for the subscribe command line option.
      */
-    PerfSubscribeTrackHandler::PerfSubscribeTrackHandler(const PerfConfig& perf_config, std::uint32_t test_identifier)
+    PerfSubscribeTrackHandler::PerfSubscribeTrackHandler(const std::shared_ptr<spdlog::logger> logger,
+                                                         const PerfConfig& perf_config,
+                                                         std::uint32_t test_identifier)
       : SubscribeTrackHandler(perf_config.full_track_name,
                               perf_config.priority,
                               quicr::messages::GroupOrder::kOriginalPublisherOrder,
                               quicr::messages::FilterType::kLatestObject)
+      , logger_(logger)
       , terminate_(false)
       , perf_config_(perf_config)
       , first_pass_(true)
@@ -55,16 +58,19 @@ namespace qperf {
       , min_object_arrival_delta_(std::numeric_limits<std::int64_t>::max())
       , avg_object_arrival_delta_(0.0)
       , total_arrival_delta_(0)
+      , first_metrics_write_(true)
     {
     }
 
-    auto PerfSubscribeTrackHandler::Create(const std::string& section_name,
+    auto PerfSubscribeTrackHandler::Create(std::shared_ptr<spdlog::logger> logger,
+                                           const std::string& section_name,
                                            ini::IniFile& inif,
                                            std::uint32_t test_identifier)
     {
         PerfConfig perf_config;
-        PopulateScenarioFields(section_name, inif, perf_config);
-        return std::shared_ptr<PerfSubscribeTrackHandler>(new PerfSubscribeTrackHandler(perf_config, test_identifier));
+        PopulateScenarioFields(logger, section_name, inif, perf_config);
+        return std::shared_ptr<PerfSubscribeTrackHandler>(
+          new PerfSubscribeTrackHandler(logger, perf_config, test_identifier));
     }
 
     void PerfSubscribeTrackHandler::StatusChanged(Status status)
@@ -73,37 +79,48 @@ namespace qperf {
             case Status::kOk: {
                 auto track_alias = GetTrackAlias();
                 if (track_alias.has_value()) {
-                    SPDLOG_INFO(
-                      "{}, {}, {} Ready to read", test_identifier_, perf_config_.test_name, track_alias.value());
+                    SPDLOG_LOGGER_INFO(logger_,
+                                       "{}, {}, {} Ready to read",
+                                       test_identifier_,
+                                       perf_config_.test_name,
+                                       track_alias.value());
                 }
                 break;
             }
             case Status::kNotConnected:
-                SPDLOG_INFO("{}, {} Subscribe Handler - kNotConnected", test_identifier_, perf_config_.test_name);
+                SPDLOG_LOGGER_INFO(
+                  logger_, "{}, {} Subscribe Handler - kNotConnected", test_identifier_, perf_config_.test_name);
                 break;
             case Status::kNotSubscribed:
-                SPDLOG_INFO("{}, {} Subscribe Handler - kNotSubscribed", test_identifier_, perf_config_.test_name);
+                SPDLOG_LOGGER_INFO(
+                  logger_, "{}, {} Subscribe Handler - kNotSubscribed", test_identifier_, perf_config_.test_name);
                 break;
             case Status::kPendingResponse:
-                SPDLOG_INFO(
-                  "{}, {} Subscribe Handler - kPendingSubscribeResponse", test_identifier_, perf_config_.test_name);
+                SPDLOG_LOGGER_INFO(logger_,
+                                   "{}, {} Subscribe Handler - kPendingSubscribeResponse",
+                                   test_identifier_,
+                                   perf_config_.test_name);
                 break;
 
             // rest of these terminate
             case Status::kSendingUnsubscribe:
-                SPDLOG_INFO("{}, {} Subscribe Handler - kSendingUnsubscribe", test_identifier_, perf_config_.test_name);
+                SPDLOG_LOGGER_INFO(
+                  logger_, "{}, {} Subscribe Handler - kSendingUnsubscribe", test_identifier_, perf_config_.test_name);
                 terminate_ = true;
                 break;
             case Status::kError:
-                SPDLOG_INFO("{}, {} Subscribe Handler - kSubscribeError", test_identifier_, perf_config_.test_name);
+                SPDLOG_LOGGER_INFO(
+                  logger_, "{}, {} Subscribe Handler - kSubscribeError", test_identifier_, perf_config_.test_name);
                 terminate_ = true;
                 break;
             case Status::kNotAuthorized:
-                SPDLOG_INFO("{}, {} Subscribe Handler - kNotAuthorized", test_identifier_, perf_config_.test_name);
+                SPDLOG_LOGGER_INFO(
+                  logger_, "{}, {} Subscribe Handler - kNotAuthorized", test_identifier_, perf_config_.test_name);
                 terminate_ = true;
                 break;
             default:
-                SPDLOG_INFO("{}, {} Subscribe Handler - UNKNOWN", test_identifier_, perf_config_.test_name);
+                SPDLOG_LOGGER_INFO(
+                  logger_, "{}, {} Subscribe Handler - UNKNOWN", test_identifier_, perf_config_.test_name);
                 // leave...
                 terminate_ = true;
                 break;
@@ -140,43 +157,50 @@ namespace qperf {
             std::int64_t arrival_delta = local_now_ - last_local_now_;
 
             if (transmit_delta <= 0) {
-                SPDLOG_INFO("-- negative/zero transmit delta (check ntp) -- {} {} {} {} {}",
-                            object_header.group_id,
-                            object_header.object_id,
-                            local_now_,
-                            remote_now,
-                            transmit_delta);
+                SPDLOG_LOGGER_INFO(logger_,
+                                   "-- negative/zero transmit delta (check ntp) -- {} {} {} {} {}",
+                                   object_header.group_id,
+                                   object_header.object_id,
+                                   local_now_,
+                                   remote_now,
+                                   transmit_delta);
             }
 
             if (arrival_delta <= 0) {
-                SPDLOG_INFO("-- negative/zero arrival delta -- {} {} {} {} {}",
-                            object_header.group_id,
-                            object_header.object_id,
-                            local_now_,
-                            last_local_now_,
-                            arrival_delta);
+                SPDLOG_LOGGER_INFO(logger_,
+                                   "-- negative/zero arrival delta -- {} {} {} {} {}",
+                                   object_header.group_id,
+                                   object_header.object_id,
+                                   local_now_,
+                                   last_local_now_,
+                                   arrival_delta);
             }
 
             if (first_pass_) {
-                SPDLOG_INFO("--------------------------------------------");
-                SPDLOG_INFO("{}", perf_config_.test_name);
-                SPDLOG_INFO("Started Receiving");
-                SPDLOG_INFO("\tTest time {} ms", perf_config_.total_transmit_time);
-                SPDLOG_INFO("--------------------------------------------");
+                SPDLOG_LOGGER_INFO(logger_, "--------------------------------------------");
+                SPDLOG_LOGGER_INFO(logger_, "{}", perf_config_.test_name);
+                SPDLOG_LOGGER_INFO(logger_, "Started Receiving");
+                SPDLOG_LOGGER_INFO(logger_, "\tTest time {} ms", perf_config_.total_transmit_time);
+                SPDLOG_LOGGER_INFO(logger_, "--------------------------------------------");
+
+                std::cout << "time, id, log_type, OR, state, test_id, test_name, group, object, size, local_now, "
+                             "remote_now, transmit_delta, arrival_delta, total_objects, total_bytes, OR "
+                          << perf_config_.test_name << std::endl;
             }
 
-            SPDLOG_INFO("OR, RUNNING, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
-                        test_identifier_,
-                        perf_config_.test_name,
-                        object_header.group_id,
-                        object_header.object_id,
-                        data_span.size(),
-                        local_now_,
-                        remote_now,
-                        transmit_delta,
-                        arrival_delta,
-                        total_objects_,
-                        total_bytes_);
+            SPDLOG_LOGGER_INFO(logger_,
+                               "OR, RUNNING, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
+                               test_identifier_,
+                               perf_config_.test_name,
+                               object_header.group_id,
+                               object_header.object_id,
+                               data_span.size(),
+                               local_now_,
+                               remote_now,
+                               transmit_delta,
+                               arrival_delta,
+                               total_objects_,
+                               total_bytes_);
 
             if (!first_pass_) {
 
@@ -209,65 +233,97 @@ namespace qperf {
             avg_object_arrival_delta_ =
               (double)total_arrival_delta_ / (double)total_objects_ - 1; // subtract 1st object
 
-            SPDLOG_INFO("--------------------------------------------");
-            SPDLOG_INFO("{}", perf_config_.test_name);
-            SPDLOG_INFO("Testing Complete");
-            SPDLOG_INFO("       Total test run time (ms) {}", total_time / 1000.0f);
-            SPDLOG_INFO("      Configured test time (ms) {}", perf_config_.total_transmit_time);
-            SPDLOG_INFO("       Total subscribed objects {}, bytes {}", total_objects_, total_bytes_);
-            SPDLOG_INFO("        Total published objects {}, bytes {}",
-                        test_complete.test_metrics.total_published_objects,
-                        test_complete.test_metrics.total_published_bytes);
-            SPDLOG_INFO("       Subscribed delta objects {}, bytes {}",
-                        test_complete.test_metrics.total_published_objects - total_objects_,
-                        test_complete.test_metrics.total_published_bytes - total_bytes_);
-            SPDLOG_INFO("                  Bitrate (bps):");
-            SPDLOG_INFO("                            min {}", min_bitrate_);
-            SPDLOG_INFO("                            max {}", max_bitrate_);
-            SPDLOG_INFO("                            avg {:.3f}", avg_bitrate_);
-            SPDLOG_INFO("                                {}", FormatBitrate(static_cast<std::uint32_t>(avg_bitrate_)));
-            SPDLOG_INFO("        Object time delta (us):");
-            SPDLOG_INFO("                            min {}", min_object_time_delta_);
-            SPDLOG_INFO("                            max {}", max_object_time_delta_);
-            SPDLOG_INFO("                            avg {:04.3f} ", avg_object_time_delta_);
-            SPDLOG_INFO("     Object arrival delta (us):");
-            SPDLOG_INFO("                            min {}", min_object_arrival_delta_);
-            SPDLOG_INFO("                            max {}", max_object_arrival_delta_);
-            SPDLOG_INFO("                            avg {:04.3f}", avg_object_arrival_delta_);
-            SPDLOG_INFO("--------------------------------------------");
+            SPDLOG_LOGGER_INFO(logger_, "--------------------------------------------");
+            SPDLOG_LOGGER_INFO(logger_, "{}", perf_config_.test_name);
+            SPDLOG_LOGGER_INFO(logger_, "Testing Complete");
+            SPDLOG_LOGGER_INFO(logger_, "       Total test run time (ms) {}", total_time / 1000.0f);
+            SPDLOG_LOGGER_INFO(logger_, "      Configured test time (ms) {}", perf_config_.total_transmit_time);
+            SPDLOG_LOGGER_INFO(logger_, "       Total subscribed objects {}, bytes {}", total_objects_, total_bytes_);
+            SPDLOG_LOGGER_INFO(logger_,
+                               "        Total published objects {}, bytes {}",
+                               test_complete.test_metrics.total_published_objects,
+                               test_complete.test_metrics.total_published_bytes);
+            SPDLOG_LOGGER_INFO(logger_,
+                               "       Subscribed delta objects {}, bytes {}",
+                               test_complete.test_metrics.total_published_objects - total_objects_,
+                               test_complete.test_metrics.total_published_bytes - total_bytes_);
+            SPDLOG_LOGGER_INFO(logger_, "                  Bitrate (bps):");
+            SPDLOG_LOGGER_INFO(logger_, "                            min {}", min_bitrate_);
+            SPDLOG_LOGGER_INFO(logger_, "                            max {}", max_bitrate_);
+            SPDLOG_LOGGER_INFO(logger_, "                            avg {:.3f}", avg_bitrate_);
+            SPDLOG_LOGGER_INFO(
+              logger_, "                                {}", FormatBitrate(static_cast<std::uint32_t>(avg_bitrate_)));
+            SPDLOG_LOGGER_INFO(logger_, "        Object time delta (us):");
+            SPDLOG_LOGGER_INFO(logger_, "                            min {}", min_object_time_delta_);
+            SPDLOG_LOGGER_INFO(logger_, "                            max {}", max_object_time_delta_);
+            SPDLOG_LOGGER_INFO(logger_, "                            avg {:04.3f} ", avg_object_time_delta_);
+            SPDLOG_LOGGER_INFO(logger_, "     Object arrival delta (us):");
+            SPDLOG_LOGGER_INFO(logger_, "                            min {}", min_object_arrival_delta_);
+            SPDLOG_LOGGER_INFO(logger_, "                            max {}", max_object_arrival_delta_);
+            SPDLOG_LOGGER_INFO(logger_, "                            avg {:04.3f}", avg_object_arrival_delta_);
+            SPDLOG_LOGGER_INFO(logger_, "--------------------------------------------");
             // id,test_name,total_time,total_transmit_time,total_objects,total_bytes,sent_object,sent_bytes,min_bitrate,max_bitrate,avg_bitrate,min_time,maxtime,avg_time,min_arrival,max_arrival,avg_arrival
-            SPDLOG_INFO("OR COMPLETE, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
-                        test_identifier_,
-                        perf_config_.test_name,
-                        total_time,
-                        perf_config_.total_transmit_time,
-                        total_objects_,
-                        total_bytes_,
-                        test_complete.test_metrics.total_published_objects,
-                        test_complete.test_metrics.total_published_bytes,
-                        min_bitrate_,
-                        max_bitrate_,
-                        avg_bitrate_,
-                        min_object_time_delta_,
-                        max_object_time_delta_,
-                        avg_object_time_delta_,
-                        min_object_arrival_delta_,
-                        max_object_arrival_delta_,
-                        avg_object_arrival_delta_);
+            SPDLOG_LOGGER_INFO(logger_,
+                               "OR COMPLETE, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
+                               test_identifier_,
+                               perf_config_.test_name,
+                               total_time,
+                               perf_config_.total_transmit_time,
+                               total_objects_,
+                               total_bytes_,
+                               test_complete.test_metrics.total_published_objects,
+                               test_complete.test_metrics.total_published_bytes,
+                               min_bitrate_,
+                               max_bitrate_,
+                               avg_bitrate_,
+                               min_object_time_delta_,
+                               max_object_time_delta_,
+                               avg_object_time_delta_,
+                               min_object_arrival_delta_,
+                               max_object_arrival_delta_,
+                               avg_object_arrival_delta_);
             terminate_ = true;
             return;
         } else {
-            SPDLOG_WARN(
-              "OR, {}, {} - unkown data identifier {}", test_identifier_, perf_config_.test_name, (int)test_mode_);
+            SPDLOG_LOGGER_WARN(logger_,
+                               "OR, {}, {} - unkown data identifier {}",
+                               test_identifier_,
+                               perf_config_.test_name,
+                               (int)test_mode_);
         }
 
         last_local_now_ = local_now_;
         first_pass_ = false;
     }
 
+    uint64_t PerfSubscribeTrackHandler::CalculateBitrate(uint64_t bytes_delta, std::chrono::milliseconds time_delta)
+    {
+        // Convert to bits per second:
+        // bytes_delta * 8 = bits
+        // time_delta.count() = milliseconds
+        // (bits * 1000) / milliseconds = bits per second
+        return (bytes_delta * 8 * 1000) / time_delta.count();
+    }
+
     void PerfSubscribeTrackHandler::MetricsSampled(const quicr::SubscribeTrackMetrics& metrics)
     {
         metrics_ = metrics;
+
+        // LOG CSV header
+        // This is only printed once, so we need to check if this is the first time
+        if (first_metrics_write_) {
+            std::cout << "time, id, log_type, BITRATE, test_id, test_name, current_bitrate, "
+                         "current_bitrate_human, bytes_delta, time_delta, objects_received, bytes_received, "
+                         "max_bitrate, min_bitrate, avg_bitrate, "
+                      << perf_config_.test_name << std::endl;
+            std::cerr << "time, id, log_type, TRACK_METRICS, test_id, test_name, bytes_received, last_sample_time, "
+                         "objects_received, "
+                      << perf_config_.test_name << std::endl;
+        }
+
+        first_metrics_write_ = false;
+
+        // Initialize on first call
         if (last_bytes_ == 0) {
             last_metric_time_ =
               std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
@@ -275,35 +331,54 @@ namespace qperf {
             return;
         }
 
-        auto now = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
-        auto diff = std::chrono::duration_cast<std::chrono::seconds>(now - last_metric_time_);
+        auto current_time = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+        auto time_delta = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - last_metric_time_);
 
         if (test_mode_ == qperf::TestMode::kRunning) {
-            std::uint64_t delta_bytes = metrics_.bytes_received - last_bytes_;
-            std::uint64_t bitrate = ((delta_bytes) * 8) / diff.count();
-            metric_samples_ += 1;
-            bitrate_total_ += bitrate;
-            if (min_bitrate_ == 0) {
-                min_bitrate_ = bitrate;
+            if (time_delta > std::chrono::milliseconds(4000)) {
+
+                uint64_t bytes_delta = metrics_.bytes_received - last_bytes_;
+                uint64_t current_bitrate = CalculateBitrate(bytes_delta, time_delta);
+
+                // Update running statistics
+                metric_samples_++;
+                bitrate_total_ += current_bitrate;
+
+                // Initialize min_bitrate on first calculation
+                if (min_bitrate_ == 0) {
+                    min_bitrate_ = current_bitrate;
+                }
+
+                max_bitrate_ = std::max(current_bitrate, max_bitrate_);
+                min_bitrate_ = std::min(current_bitrate, min_bitrate_);
+                avg_bitrate_ = static_cast<double>(bitrate_total_) / metric_samples_;
+
+                SPDLOG_LOGGER_INFO(logger_,
+                                   "BITRATE, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
+                                   test_identifier_,
+                                   perf_config_.test_name,
+                                   current_bitrate,
+                                   FormatBitrate(current_bitrate),
+                                   bytes_delta,
+                                   time_delta.count(),
+                                   metrics_.objects_received,
+                                   metrics_.bytes_received,
+                                   max_bitrate_,
+                                   min_bitrate_,
+                                   avg_bitrate_);
             }
-            max_bitrate_ = bitrate > max_bitrate_ ? bitrate : max_bitrate_;
-            min_bitrate_ = bitrate < min_bitrate_ ? bitrate : min_bitrate_;
-            avg_bitrate_ = (double)bitrate_total_ / (double)metric_samples_;
-            SPDLOG_INFO("Metrics:, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
-                        test_identifier_,
-                        perf_config_.test_name,
-                        bitrate,
-                        FormatBitrate(bitrate),
-                        delta_bytes,
-                        diff.count(),
-                        metrics_.objects_received,
-                        metrics_.bytes_received,
-                        max_bitrate_,
-                        min_bitrate_,
-                        avg_bitrate_);
         }
 
-        last_metric_time_ = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+        SPDLOG_LOGGER_INFO(logger_,
+                           "TRACK_METRICS {}, {}, {}, {}",
+                           test_identifier_,
+                           perf_config_.test_name,
+                           metrics.bytes_received,
+                           metrics.last_sample_time,
+                           metrics.objects_received);
+
+        // Update state for next calculation
+        last_metric_time_ = current_time;
         last_bytes_ = metrics.bytes_received;
     }
 
@@ -312,12 +387,15 @@ namespace qperf {
      * @details Implementation of the MoQ Client
      */
 
-    PerfSubClient::PerfSubClient(const quicr::ClientConfig& cfg,
+    PerfSubClient::PerfSubClient(const std::shared_ptr<spdlog::logger> logger,
+                                 const quicr::ClientConfig& cfg,
                                  const std::string& configfile,
                                  std::uint32_t test_identifier)
-      : quicr::Client(cfg)
+      : logger_(logger)
+      , quicr::Client(cfg)
       , configfile_(configfile)
       , test_identifier_(test_identifier)
+      , first_write_(true)
     {
     }
 
@@ -325,27 +403,27 @@ namespace qperf {
     {
         switch (status) {
             case Status::kReady:
-                SPDLOG_INFO("Client status - kReady");
+                SPDLOG_LOGGER_INFO(logger_, "Client status - kReady");
                 inif_.load(configfile_);
                 for (const auto& section_pair : inif_) {
                     const std::string& section_name = section_pair.first;
-                    SPDLOG_INFO("Starting test - {}", section_name);
+                    SPDLOG_LOGGER_INFO(logger_, "Starting test - {}", section_name);
                     auto sub_handler = track_handlers_.emplace_back(
-                      PerfSubscribeTrackHandler::Create(section_name, inif_, test_identifier_));
+                      PerfSubscribeTrackHandler::Create(logger_, section_name, inif_, test_identifier_));
                     SubscribeTrack(sub_handler);
                 }
                 break;
             case Status::kNotReady:
-                SPDLOG_INFO("Client status - kNotReady");
+                SPDLOG_LOGGER_INFO(logger_, "Client status - kNotReady");
                 break;
             case Status::kConnecting:
-                SPDLOG_INFO("Client status - kConnecting");
+                SPDLOG_LOGGER_INFO(logger_, "Client status - kConnecting");
                 break;
             case Status::kNotConnected:
-                SPDLOG_INFO("Client status - kNotConnected");
+                SPDLOG_LOGGER_INFO(logger_, "Client status - kNotConnected");
                 break;
             case Status::kPendingSeverSetup:
-                SPDLOG_INFO("Client status - kPendingSeverSetup");
+                SPDLOG_LOGGER_INFO(logger_, "Client status - kPendingSeverSetup");
                 break;
 
             case Status::kFailedToConnect:
@@ -365,6 +443,60 @@ namespace qperf {
                 terminate_ = true;
                 break;
         }
+    }
+
+    void PerfSubClient::MetricsSampled(const quicr::ConnectionMetrics& connection_metrics)
+    {
+        if (first_write_) {
+            std::cout << "time, id, log_type, invalid_ctrl_stream_msg, last_sample_time,"
+                      << "rx_dgram_decode_failed, rx_dgram_invalid_type, connecrx_stream_buffer_error,"
+                      << "connecrx_stream_invalid_type, connecrx_stream_unknown_track_alias, cwin_congested,"
+                      << "prev_cwin_congested,"
+                      << "rtt_us.min, rtt_us.max, rtt_us.avg,"
+                      << "rx_dgrams,  rx_dgrams_bytes,"
+                      << "rx_rate_bps.min, rx_rate_bps.max, rx_rate_bps.avg,"
+                      << "srtt_us.min, srtt_us.max, srtt_us.avg,"
+                      << " tx_congested,"
+                      << "tx_cwin_bytes.min, tx_cwin_bytes.max, tx_cwin_bytes.avg,"
+                      << "tx_dgram_ack, tx_dgram_cb, tx_dgram_drops,  tx_dgram_spurious,"
+                      << "tx_in_transit_bytes.min, _tx_in_transit_bytes.max, tx_in_transit_bytes.avg,"
+                      << "tx_lost_pkts,"
+                      << "tx_rate_bps.min, tx_rate_bps.max, tx_rate_bps.avg,"
+                      << "tx_retransmits, tx_spurious_losses,tx_timer_losses,"
+                      << "CONNECTION_METRICS" << std::endl;
+        }
+        first_write_ = false;
+
+        auto now = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+        SPDLOG_LOGGER_INFO(logger_,
+                           "{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, "
+                           "{}, {}, {}, {}, CONNECTION_METRICS",
+                           connection_metrics.invalid_ctrl_stream_msg,
+                           connection_metrics.last_sample_time,
+                           connection_metrics.rx_dgram_decode_failed,
+                           connection_metrics.rx_dgram_invalid_type,
+                           connection_metrics.rx_stream_buffer_error,
+                           connection_metrics.rx_stream_invalid_type,
+                           connection_metrics.rx_stream_unknown_track_alias,
+                           connection_metrics.quic.cwin_congested,
+                           connection_metrics.quic.prev_cwin_congested,
+                           connection_metrics.quic.rtt_us,
+                           connection_metrics.quic.rx_dgrams,
+                           connection_metrics.quic.rx_dgrams_bytes,
+                           connection_metrics.quic.rx_rate_bps,
+                           connection_metrics.quic.srtt_us,
+                           connection_metrics.quic.tx_congested,
+                           connection_metrics.quic.tx_cwin_bytes,
+                           connection_metrics.quic.tx_dgram_ack,
+                           connection_metrics.quic.tx_dgram_cb,
+                           connection_metrics.quic.tx_dgram_drops,
+                           connection_metrics.quic.tx_dgram_spurious,
+                           connection_metrics.quic.tx_in_transit_bytes,
+                           connection_metrics.quic.tx_lost_pkts,
+                           connection_metrics.quic.tx_rate_bps,
+                           connection_metrics.quic.tx_retransmits,
+                           connection_metrics.quic.tx_spurious_losses,
+                           connection_metrics.quic.tx_timer_losses);
     }
 
     bool PerfSubClient::HandlersComplete()
@@ -390,7 +522,7 @@ namespace qperf {
         std::lock_guard<std::mutex> _(track_handlers_mutex_);
         for (auto handler : track_handlers_) {
             // Unpublish the track
-            SPDLOG_INFO("unsubscribe track {}", handler->TestName());
+            SPDLOG_LOGGER_INFO(logger_, "unsubscribe track {}", handler->TestName());
             UnsubscribeTrack(handler);
         }
         // we are done
@@ -453,11 +585,12 @@ main(int argc, char** argv)
     auto log_id = endpoint_test_id;
 
     const auto logger = spdlog::stderr_color_mt(log_id);
+    logger->set_pattern("%Y-%m-%d %H:%M:%S.%e, %n, %l, %v");
 
     auto test_identifier = result["test_id"].as<std::uint32_t>();
 
-    auto client =
-      std::make_shared<qperf::PerfSubClient>(client_config, result["config"].as<std::string>(), test_identifier);
+    auto client = std::make_shared<qperf::PerfSubClient>(
+      logger, client_config, result["config"].as<std::string>(), test_identifier);
 
     std::signal(SIGINT, HandleTerminateSignal);
 

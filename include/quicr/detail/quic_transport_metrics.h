@@ -6,6 +6,7 @@
 #include <chrono>
 
 #include "safe_queue.h"
+#include <spdlog/fmt/bundled/format.h>
 
 namespace quicr {
     /*
@@ -263,8 +264,17 @@ namespace quicr {
         }
     };
 
-    constexpr uint64_t kMetricsIntervalUs = 5'000'000; /// Metrics interval for samples in microseconds
-    constexpr size_t kMaxMetricsSamplesQueue = 500;    /// Max metric samples pending to be written
+    constexpr uint64_t kMetricsIntervalUs = 15'000; // SAH 5'000'000; /// Metrics interval for samples in microseconds
+    constexpr size_t kMaxMetricsSamplesQueue = 500; /// Max metric samples pending to be written
 
     /// @endcond
 } // end namespace quicr
+
+template<>
+struct fmt::formatter<quicr::MinMaxAvg> : fmt::formatter<std::string>
+{
+    auto format(quicr::MinMaxAvg var, format_context& ctx) const -> decltype(ctx.out())
+    {
+        return fmt::format_to(ctx.out(), "{}, {}, {}", var.min, var.max, var.avg);
+    }
+};

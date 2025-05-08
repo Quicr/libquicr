@@ -1,9 +1,10 @@
 #pragma once
 
+#include "inicpp.h"
 #include <cstdint>
 #include <quicr/client.h>
-
-#include "inicpp.h"
+#include <spdlog/common.h>
+#include <spdlog/logger.h>
 
 namespace qperf {
     struct PerfConfig
@@ -70,7 +71,10 @@ namespace qperf {
         };
     }
 
-    static bool PopulateScenarioFields(const std::string section_name, ini::IniFile& inif, PerfConfig& perf_config)
+    static bool PopulateScenarioFields(const std::shared_ptr<spdlog::logger> logger,
+                                       const std::string section_name,
+                                       ini::IniFile& inif,
+                                       PerfConfig& perf_config)
     {
         bool parsed = false;
         std::string scenario_namespace = "";
@@ -102,21 +106,21 @@ namespace qperf {
         perf_config.total_test_time = inif[section_name]["total_test_time"].as<std::uint64_t>();
         perf_config.total_transmit_time = perf_config.total_test_time - perf_config.start_delay;
 
-        SPDLOG_INFO("--------------------------------------------");
-        SPDLOG_INFO("Test config:");
-        SPDLOG_INFO("                    ns  \"{}\"", scenario_namespace);
-        SPDLOG_INFO("                     n  \"{}\"", scenario_name);
-        SPDLOG_INFO("              track mode {} ({})", (int)perf_config.track_mode, track_mode_ini_str);
-        SPDLOG_INFO("                     pri {}", perf_config.priority);
-        SPDLOG_INFO("                     ttl {}", perf_config.ttl);
-        SPDLOG_INFO("            objspergroup {}", perf_config.objects_per_group);
-        SPDLOG_INFO("   bytes per group start {}", perf_config.bytes_per_group_start);
-        SPDLOG_INFO("         bytes per group {}", perf_config.bytes_per_group);
-        SPDLOG_INFO("       transmit interval {}", perf_config.transmit_interval);
-        SPDLOG_INFO("             start_delay {}", perf_config.start_delay);
-        SPDLOG_INFO("         total test time {}", perf_config.total_test_time);
-        SPDLOG_INFO("           transmit time {}", perf_config.total_transmit_time);
-        SPDLOG_INFO("--------------------------------------------");
+        SPDLOG_LOGGER_INFO(logger, "--------------------------------------------");
+        SPDLOG_LOGGER_INFO(logger, "Test config:");
+        SPDLOG_LOGGER_INFO(logger, "                    ns  \"{}\"", scenario_namespace);
+        SPDLOG_LOGGER_INFO(logger, "                     n  \"{}\"", scenario_name);
+        SPDLOG_LOGGER_INFO(logger, "              track mode {} ({})", (int)perf_config.track_mode, track_mode_ini_str);
+        SPDLOG_LOGGER_INFO(logger, "                     pri {}", perf_config.priority);
+        SPDLOG_LOGGER_INFO(logger, "                     ttl {}", perf_config.ttl);
+        SPDLOG_LOGGER_INFO(logger, "            objspergroup {}", perf_config.objects_per_group);
+        SPDLOG_LOGGER_INFO(logger, "   bytes per group start {}", perf_config.bytes_per_group_start);
+        SPDLOG_LOGGER_INFO(logger, "         bytes per group {}", perf_config.bytes_per_group);
+        SPDLOG_LOGGER_INFO(logger, "       transmit interval {}", perf_config.transmit_interval);
+        SPDLOG_LOGGER_INFO(logger, "             start_delay {}", perf_config.start_delay);
+        SPDLOG_LOGGER_INFO(logger, "         total test time {}", perf_config.total_test_time);
+        SPDLOG_LOGGER_INFO(logger, "           transmit time {}", perf_config.total_transmit_time);
+        SPDLOG_LOGGER_INFO(logger, "--------------------------------------------");
 
         parsed = true;
         return parsed;

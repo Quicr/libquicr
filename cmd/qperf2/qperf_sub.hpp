@@ -5,17 +5,25 @@
 
 #include "inicpp.h"
 #include "qperf.hpp"
+#include <spdlog/common.h>
+#include <spdlog/logger.h>
 
 namespace qperf {
     class PerfSubscribeTrackHandler : public quicr::SubscribeTrackHandler
     {
       private:
-        PerfSubscribeTrackHandler(const PerfConfig& perf_config, std::uint32_t test_identifier);
+        PerfSubscribeTrackHandler(const std::shared_ptr<spdlog::logger> logger,
+                                  const PerfConfig& perf_config,
+                                  std::uint32_t test_identifier);
 
       public:
-        static auto Create(const std::string& section_name, ini::IniFile& inif, std::uint32_t test_identifier);
+        static auto Create(const std::shared_ptr<spdlog::logger> logger,
+                           const std::string& section_name,
+                           ini::IniFile& inif,
+                           std::uint32_t test_identifier);
         void ObjectReceived(const quicr::ObjectHeaders&, quicr::BytesSpan) override;
         void StatusChanged(Status status) override;
+        std::uint64_t CalculateBitrate(uint64_t bytes_delta, std::chrono::milliseconds time_delta);
         void MetricsSampled(const quicr::SubscribeTrackMetrics& metrics) override;
         const quicr::SubscribeTrackMetrics& GetMetrics() const noexcept { return metrics_; }
 
@@ -24,6 +32,7 @@ namespace qperf {
         std::string TestName() { return perf_config_.test_name; }
 
       private:
+        const std::shared_ptr<spdlog::logger> logger_;
         std::atomic_bool terminate_;
         PerfConfig perf_config_;
         quicr::SubscribeTrackMetrics metrics_;
@@ -54,23 +63,29 @@ namespace qperf {
         std::int64_t min_object_arrival_delta_;
         double avg_object_arrival_delta_;
         std::int64_t total_arrival_delta_;
+        bool first_metrics_write_;
     };
 
     class PerfSubClient : public quicr::Client
     {
       public:
-        PerfSubClient(const quicr::ClientConfig& cfg, const std::string& configfile, std::uint32_t test_identifier);
+        PerfSubClient(const std::shared_ptr<spdlog::logger> logger,
+                      const quicr::ClientConfig& cfg,
+                      const std::string& configfile,
+                      std::uint32_t test_identifier);
         void StatusChanged(Status status) override;
-        void MetricsSampled(const quicr::ConnectionMetrics&) override {}
+        void MetricsSampled(const quicr::ConnectionMetrics&) override;
 
         bool HandlersComplete();
         void Terminate();
 
       private:
+        const std::shared_ptr<spdlog::logger> logger_;
         bool terminate_;
         std::string configfile_;
         ini::IniFile inif_;
         std::uint32_t test_identifier_;
+        bool first_write_;
 
         std::vector<std::shared_ptr<PerfSubscribeTrackHandler>> track_handlers_;
 
