@@ -41,6 +41,7 @@ namespace qperf {
         uint64_t group_id_;
         uint64_t object_id_;
         bool first_write_;
+        bool first_bitrate_write_;
         bool first_metrics_write_;
 
         std::thread write_thread_;

@@ -26,6 +26,7 @@ namespace qperf {
       , group_id_(0)
       , object_id_(0)
       , first_write_(true)
+      , first_bitrate_write_(true)
       , first_metrics_write_(true)
     {
         memset(&test_metrics_, '\0', sizeof(test_metrics_));
@@ -102,9 +103,7 @@ namespace qperf {
                       << "tx_reset_wait, " << perf_config_.test_name << std::endl;
         }
 
-        first_metrics_write_ = false;
-
-        if (test_mode_ == qperf::TestMode::kRunning && last_bytes_ != 0) { // skip first metric reporting...
+        if (test_mode_ == qperf::TestMode::kRunning) {
             // calculate bitrate metrics
             auto diff = std::chrono::duration_cast<std::chrono::seconds>(now - last_metric_time_);
             // Check if more than 4 seconds have elapsed
@@ -129,8 +128,14 @@ namespace qperf {
                                    test_metrics_.min_publish_bitrate,
                                    test_metrics_.max_publish_bitrate,
                                    test_metrics_.avg_publish_bitrate);
+                last_metric_time_ = now;
+                last_bytes_ = metrics.bytes_published;
             }
+
+            first_bitrate_write_ = false;
         }
+
+        first_metrics_write_ = false;
 
         SPDLOG_LOGGER_INFO(logger_,
                            "{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
@@ -149,9 +154,6 @@ namespace qperf {
                            metrics.quic.tx_queue_size,
                            metrics.quic.tx_reset_wait,
                            "TRACK_METRICS");
-
-        last_metric_time_ = now;
-        last_bytes_ = metrics.bytes_published;
     }
 
     std::chrono::time_point<std::chrono::system_clock> PerfPublishTrackHandler::PublishObjectWithMetrics(
