@@ -461,7 +461,7 @@ namespace qperf {
                       << "tx_dgram_ack, tx_dgram_cb, tx_dgram_drops,  tx_dgram_spurious,"
                       << "tx_in_transit_bytes_min, tx_in_transit_bytes_max, tx_in_transit_bytes_avg,"
                       << "tx_lost_pkts,"
-                      << "tx_rate_bps_min, tx_rate_bps_max, tx_rate_bp_.avg, "
+                      << "tx_rate_bps_min, tx_rate_bps_max, tx_rate_bp_avg, "
                       << "tx_retransmits, tx_spurious_losses,tx_timer_losses, "
                       << "CONNECTION_METRICS" << std::endl;
         }
