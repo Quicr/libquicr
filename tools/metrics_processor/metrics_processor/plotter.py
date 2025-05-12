@@ -3,9 +3,10 @@ import matplotlib.pyplot as plt
 
 def plot_metrics(df, expressions, separate=False):
     """Plot metrics data"""
+    plt.figure(figsize=(15,10))
     if not separate:
         # Plot everything on one plot
-        plt.figure(figsize=(12, 6))
+        # plt.figure(figsize=(12, 6))
         if df.index.name:  # If we have a named index, iterate through groups
             fig_index = 0
             for idx_val in df.index.unique():
