@@ -452,17 +452,17 @@ namespace qperf {
                       << "rx_dgram_decode_failed, rx_dgram_invalid_type, connecrx_stream_buffer_error,"
                       << "connecrx_stream_invalid_type, connecrx_stream_unknown_track_alias, cwin_congested,"
                       << "prev_cwin_congested,"
-                      << "rtt_us.min, rtt_us.max, rtt_us.avg,"
+                      << "rtt_us_min, rtt_us_max, rtt_us_avg,"
                       << "rx_dgrams,  rx_dgrams_bytes,"
                       << "rx_rate_bps.min, rx_rate_bps.max, rx_rate_bps.avg,"
-                      << "srtt_us.min, srtt_us.max, srtt_us.avg,"
+                      << "srtt_us_min, srtt_us_max, srtt_us_avg,"
                       << " tx_congested,"
-                      << "tx_cwin_bytes.min, tx_cwin_bytes.max, tx_cwin_bytes.avg,"
+                      << "tx_cwin_bytes_min, tx_cwin_bytes_max, tx_cwin_bytes_avg,"
                       << "tx_dgram_ack, tx_dgram_cb, tx_dgram_drops,  tx_dgram_spurious,"
-                      << "tx_in_transit_bytes.min, _tx_in_transit_bytes.max, tx_in_transit_bytes.avg,"
+                      << "tx_in_transit_bytes_min, tx_in_transit_bytes_max, tx_in_transit_bytes_avg,"
                       << "tx_lost_pkts,"
-                      << "tx_rate_bps.min, tx_rate_bps.max, tx_rate_bps.avg,"
-                      << "tx_retransmits, tx_spurious_losses,tx_timer_losses,"
+                      << "tx_rate_bps_min, tx_rate_bps_max, tx_rate_bp_.avg, "
+                      << "tx_retransmits, tx_spurious_losses,tx_timer_losses, "
                       << "CONNECTION_METRICS" << std::endl;
         }
         first_write_ = false;
