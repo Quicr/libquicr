@@ -454,7 +454,7 @@ namespace qperf {
                       << "prev_cwin_congested,"
                       << "rtt_us_min, rtt_us_max, rtt_us_avg,"
                       << "rx_dgrams,  rx_dgrams_bytes,"
-                      << "rx_rate_bps.min, rx_rate_bps.max, rx_rate_bps.avg,"
+                      << "rx_rate_bps_min, rx_rate_bps_max, rx_rate_bps_avg,"
                       << "srtt_us_min, srtt_us_max, srtt_us_avg,"
                       << " tx_congested,"
                       << "tx_cwin_bytes_min, tx_cwin_bytes_max, tx_cwin_bytes_avg,"
