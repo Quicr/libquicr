@@ -52,8 +52,6 @@ def plot_metrics(df, expressions, separate=False):
 
 
 def create_plot(df, expressions, title):
-    plt.figure(figsize=(12, 6))
-
     for expr in expressions:
         try:
             y = eval(expr)
@@ -63,6 +61,7 @@ def create_plot(df, expressions, title):
             print(f"Error plotting {expr}: {e}")
 
     plt.title(f"{expressions}")
+    plt.title("Foo")
     plt.xlabel("Time")
     plt.ylabel("Value")
     plt.legend()
