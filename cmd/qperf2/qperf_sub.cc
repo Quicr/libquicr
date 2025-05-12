@@ -370,7 +370,7 @@ namespace qperf {
         }
 
         SPDLOG_LOGGER_INFO(logger_,
-                           "TRACK_METRICS {}, {}, {}, {}",
+                           "TRACK_METRICS, {}, {}, {}, {}, {}",
                            test_identifier_,
                            perf_config_.test_name,
                            metrics.bytes_received,

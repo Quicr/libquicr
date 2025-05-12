@@ -81,8 +81,6 @@ namespace qperf {
         std::lock_guard<std::mutex> _(mutex_);
         auto now = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
 
-        std::cerr << "HELLO" << std::endl;
-
         if (first_metrics_write_) {
             std::cout << "time, id, log_type, BITRATE, test_name, bitrate, bitrate_str, delta_bytes, time_delta, "
                          "min_bitrate, "
@@ -450,7 +448,7 @@ namespace qperf {
     void PerfPubClient::MetricsSampled(const quicr::ConnectionMetrics& connection_metrics)
     {
         if (first_write_) {
-            std::cout << "time, id, log_type,"
+            std::cout << "time, id, log_type, "
                       << "invalid_ctrl_stream_msg, "
                       << "last_sample_time,"
                       << "rx_dgram_decode_failed, rx_dgram_invalid_type, "
@@ -458,16 +456,16 @@ namespace qperf {
                       << "rx_stream_invalid_type, rx_stream_unknown_track_alias, "
                       << "cwin_congested,"
                       << "prev_cwin_congested, "
-                      << "rtt_us.min, rtt_us.max, rtt_us.avg, "
+                      << "rtt_us_min, rtt_us_max, rtt_us_avg, "
                       << "rx_dgrams,  rx_dgrams_bytes, "
-                      << "rx_rate_bps.min, rx_rate_bps.max, rx_rate_bps.avg, "
-                      << "srtt_us.min, srtt_us.max, srtt_us.avg, "
+                      << "rx_rate_bps_min, rx_rate_bps_max, rx_rate_bps_avg, "
+                      << "srtt_us_min, srtt_us_max, srtt_us_avg, "
                       << "tx_congested, "
-                      << "tx_cwin_bytes.min, tx_cwin_bytes.max, tx_cwin_bytes.avg,"
-                      << "tx_dgram_ack, tx_dgram_cb, tx_dgram_drops, tx_dgram_spurious,"
-                      << "tx_in_transit_bytes.min, tx_in_transit_bytes.max, tx_in_transit_bytes.avg, "
+                      << "tx_cwin_bytes_min, tx_cwin_bytes_max, tx_cwin_bytes_avg, "
+                      << "tx_dgram_ack, tx_dgram_cb, tx_dgram_drops, tx_dgram_spurious, "
+                      << "tx_in_transit_bytes_min, tx_in_transit_bytes_max, tx_in_transit_bytes_avg, "
                       << "tx_lost_pkts, "
-                      << "tx_rate_bps.min, tx_rate_bps.max, tx_rate_bps.avg, "
+                      << "tx_rate_bps_min, tx_rate_bps_max, tx_rate_bps_avg, "
                       << "tx_retransmits, tx_spurious_losses, tx_timer_losses, "
                       << "CONNECTION_METRICS" << std::endl;
         }
