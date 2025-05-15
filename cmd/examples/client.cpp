@@ -703,13 +703,13 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         qclient_vars::playback_speed_ms = std::chrono::milliseconds(cli_opts["playback_speed_ms"].as<uint64_t>());
     }
 
-    if (cli_opts.count("m")) {
+    if (cli_opts.count("multipath")) {
         config.transport_config.multipath_option = 1;
     }
-    if (cli_opts.count("a") && cli_opts["a"].as<std::string>() != "" && cli_opts.count("m")) {
-        const std::string alt_iface_str = cli_opts["a"].as<std::string>();
+    if (cli_opts.count("alt_ifaces") && cli_opts["alt_ifaces"].as<std::string>() != "" && cli_opts.count("multipath")) {
+        const std::string alt_iface_str = cli_opts["alt_ifaces"].as<std::string>();
         config.transport_config.alt_ifaces = strdup(alt_iface_str.c_str());
-    }else if (cli_opts.count("m")){
+    } else if (cli_opts.count("multipath")) {
         SPDLOG_ERROR("-m option is only valid with proper -a option");
     }
 
@@ -747,15 +747,15 @@ main(int argc, char* argv[])
         ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
         ("m,multipath", "Enable multipath option")
         ("a,alt_ifaces", "Alternate interface(s) to use - format for example: 192.168.0.2/2,192.168.1.2/3", cxxopts::value<std::string>());
-    /* -m and -a should be used together
-     * -m is a flag to enable multipath, when local transport parameters are configured sets multipath option to 1
-     *      and initial_max_path_id to 2
-     * -a is a string of alternate interface(s) to use, parsed in the picoquic loop callback funtion and
-     *      path porbes are sent on these interfaces for multiple paths to the relay
-     *
-     *      initial_max_path_id set to 2 doesn't mean that the client can only use one alt interface, works even if more tha one alt interface is defined
-     *      (probably because when probing for new paths it increments the usable path id)
-     */
+        /* -m and -a should be used together
+        * -m is a flag to enable multipath, when local transport parameters are configured sets multipath option to 1
+        *      and initial_max_path_id to 2
+        * -a is a string of alternate interface(s) to use, parsed in the picoquic loop callback funtion and
+        *      path porbes are sent on these interfaces for multiple paths to the relay
+        *
+        *      initial_max_path_id set to 2 doesn't mean that the client can only use one alt interface, works even if more tha one alt interface is defined
+        *      (probably because when probing for new paths it increments the usable path id)
+        */
 
     options.add_options("Publisher")
         ("pub_namespace", "Track namespace", cxxopts::value<std::string>())

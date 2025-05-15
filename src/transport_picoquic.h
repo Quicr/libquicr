@@ -311,7 +311,6 @@ namespace quicr {
         bool debug{ false };
         bool probed_new_path{ false }; /// Indicates if multipath alternate interfaces were probed
 
-
       private:
         TransportConnId CreateClient();
         void Shutdown();
