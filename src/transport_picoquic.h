@@ -36,7 +36,7 @@ namespace quicr {
     constexpr int kPqLoopMaxDelayUs = 500;            /// The max microseconds that pq_loop will be ran again
     constexpr int kPqRestWaitMinPriority = 4;         /// Minimum priority value to consider for RESET and WAIT
     constexpr int kPqCcLowCwin = 4000;                /// Bytes less than this value are considered a low/congested CWIN
-    constexpr int kCongestionCheckInterval = 100'000; /// Congestion check interval in microseconds
+    constexpr int kCongestionCheckInterval = 15'000; /// Congestion check interval in microseconds
 
     /**
      * Minimum bytes needed to write before considering to send. This doesn't

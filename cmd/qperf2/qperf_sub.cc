@@ -571,7 +571,7 @@ main(int argc, char** argv)
     config.tls_key_filename = "";
     config.time_queue_max_duration = 5000;
     config.use_reset_wait_strategy = false;
-    config.quic_qlog_path = "";
+    config.quic_qlog_path = "./";
 
     auto endpoint_test_id =
       result["endpoint_id"].as<std::string>() + ":" + std::to_string(result["test_id"].as<std::uint32_t>());

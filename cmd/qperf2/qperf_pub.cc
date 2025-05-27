@@ -582,6 +582,7 @@ main(int argc, char** argv)
     config.time_queue_max_duration = 5000;
     config.use_reset_wait_strategy = false;
     config.quic_qlog_path = "";
+    config.quic_priority_limit = 6;
 
     quicr::ClientConfig client_config;
     client_config.endpoint_id = result["endpoint_id"].as<std::string>();
