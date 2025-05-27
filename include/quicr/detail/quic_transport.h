@@ -106,6 +106,7 @@ namespace quicr {
         std::string quic_qlog_path;            /// If present, log QUIC LOG file to this path
         uint8_t quic_priority_limit{ 0 };      /// Lowest priority that will not be bypassed from pacing/CC in picoquic
         std::size_t max_connections{ 1 };
+        bool ssl_keylog{ false }; ///< Enable SSL key logging for QUIC connections
     };
 
     /// Stream action that should be done by send/receive processing
