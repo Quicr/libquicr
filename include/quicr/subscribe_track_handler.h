@@ -133,11 +133,9 @@ namespace quicr {
 
         constexpr messages::FilterType GetFilterType() const noexcept { return filter_type_; }
 
-        constexpr std::optional<messages::GroupId> GetLatestGroupID() const noexcept { return latest_group_id_; }
-        constexpr std::optional<messages::ObjectId> GetLatestObjectID() const noexcept { return latest_object_id_; }
+        constexpr std::optional<messages::Location> GetLatestLocation() const noexcept { return latest_location_; }
 
-        constexpr void SetLatestGroupID(messages::GroupId new_id) noexcept { latest_group_id_ = new_id; }
-        constexpr void SetLatestObjectID(messages::ObjectId new_id) noexcept { latest_object_id_ = new_id; }
+        constexpr void SetLatestLocation(messages::Location new_location) noexcept { latest_location_ = new_location; }
 
         /**
          * @brief Get joining fetch info, if any.
@@ -233,7 +231,7 @@ namespace quicr {
          */
         SubscribeTrackMetrics subscribe_track_metrics_;
 
-        std::function<void(messages::SubscribeID, messages::TrackAlias)> new_group_request_callback_;
+        std::function<void(messages::RequestID, messages::TrackAlias)> new_group_request_callback_;
 
       protected:
         /**
@@ -254,8 +252,7 @@ namespace quicr {
         messages::GroupOrder group_order_;
         messages::FilterType filter_type_;
         uint64_t current_stream_id_{ 0 };
-        std::optional<messages::GroupId> latest_group_id_;
-        std::optional<messages::ObjectId> latest_object_id_;
+        std::optional<messages::Location> latest_location_;
         std::optional<JoiningFetch> joining_fetch_;
 
         friend class Transport;
