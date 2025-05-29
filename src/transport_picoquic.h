@@ -31,6 +31,8 @@
 #include <thread>
 #include <vector>
 
+#include <picoquic_internal.h>
+
 namespace quicr {
 
     constexpr int kPqLoopMaxDelayUs = 500;            /// The max microseconds that pq_loop will be ran again
@@ -298,6 +300,8 @@ namespace quicr {
          */
         void PqRunner();
 
+        const char* GetConfigMultipathAltConfig() const;
+
         /*
          * Internal Public Variables
          */
@@ -305,6 +309,7 @@ namespace quicr {
         bool is_server_mode;
         bool is_unidirectional{ false };
         bool debug{ false };
+        bool probed_new_path{ false }; /// Indicates if multipath alternate interfaces were probed
 
       private:
         TransportConnId CreateClient();
