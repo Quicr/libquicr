@@ -473,6 +473,10 @@ PicoQuicTransport::Start()
         throw PicoQuicException("Unable to create picoquic context");
     }
 
+    if (config_.enable_sslkeylog) {
+        picoquic_set_key_log_file_from_env(quic_ctx_);
+    }
+
     /*
      * TODO doc: Apparently need to set some value to send datagrams. If not set,
      *    max datagram size is zero, preventing sending of datagrams. Setting this
@@ -911,6 +915,9 @@ PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
         } else {
             throw InvalidConfigException("Missing cert key filename");
         }
+    }
+    if (tcfg.ssl_keylog == true) {
+        (void)picoquic_config_set_option(&config_, picoquic_option_SSLKEYLOG, "1");
     }
 }
 
