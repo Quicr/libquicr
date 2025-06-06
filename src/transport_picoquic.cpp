@@ -22,6 +22,9 @@
 #include <spdlog/logger.h>
 
 // System.
+#include "picoquic_bbr.h"
+#include "picoquic_newreno.h"
+
 #include <arpa/inet.h>
 #include <cassert>
 #include <chrono>
