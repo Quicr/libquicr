@@ -4,6 +4,7 @@
 #pragma once
 
 #include "quicr/common.h"
+#include "quicr/detail/ctrl_message_types.h"
 #include "quicr/track_name.h"
 
 #include <optional>
@@ -42,11 +43,10 @@ namespace quicr {
         };
         ReasonCode reason_code;
 
-        std::optional<std::string> reason_phrase = std::nullopt;
+        std::optional<std::string> error_reason = std::nullopt;
         std::optional<uint64_t> track_alias = std::nullopt; ///< Set only when ResponseCode is kRetryTrackAlias
 
-        std::optional<uint64_t> largest_group_id = std::nullopt;
-        std::optional<uint64_t> largest_object_id = std::nullopt;
+        std::optional<messages::Location> largest_location = std::nullopt;
     };
 
     /**
@@ -101,20 +101,20 @@ namespace quicr {
         std::optional<uint64_t> GetTrackAlias() const noexcept { return full_track_name_.track_alias; }
 
         /**
-         * @brief Sets the subscribe ID
-         * @details MoQ instance sets the subscribe id based on subscribe track method call. Subscribe
+         * @brief Sets the reqeust ID
+         * @details MoQ instance sets the request id based on subscribe track method call. Request
          *      id is specific to the connection, so it must be set by the moq instance/connection.
          *
-         * @param subscribe_id          62bit subscribe ID
+         * @param request_id          62bit request ID
          */
-        void SetSubscribeId(std::optional<uint64_t> subscribe_id) { subscribe_id_ = subscribe_id; }
+        void SetRequestId(std::optional<uint64_t> request_id) { request_id_ = request_id; }
 
         /**
-         * @brief Get the subscribe ID
+         * @brief Get the request ID
          *
-         * @return nullopt if not subscribed, otherwise the subscribe ID
+         * @return nullopt if not subscribed, otherwise the request ID
          */
-        std::optional<uint64_t> GetSubscribeId() const noexcept { return subscribe_id_; }
+        std::optional<uint64_t> GetRequestId() const noexcept { return request_id_; }
 
         /**
          * @brief Get the full track name
@@ -150,12 +150,12 @@ namespace quicr {
         ConnectionHandle connection_handle_; // QUIC transport connection ID
 
         /**
-         * subscribe_id_ is the primary index/key for subscribe subscribe context/delegate storage.
-         *   It is use as the subscribe_id in MoQ related subscribes.  Subscribe ID will adapt
-         *   to received subscribe IDs, so the value will reflect either the received subscribe ID
+         * request_id_ is the primary index/key for subscribe context/delegate storage.
+         *   It is use as the request_id in MoQ related subscribes.  Request ID will adapt
+         *   to received reqeust IDs, so the value will reflect either the received reqeust ID
          *   or the next one that increments from last received ID.
          */
-        std::optional<uint64_t> subscribe_id_;
+        std::optional<uint64_t> request_id_;
     };
 
 } // namespace moq

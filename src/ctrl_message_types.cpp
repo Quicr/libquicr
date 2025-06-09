@@ -29,6 +29,14 @@ namespace quicr::messages {
         return buffer;
     }
 
+    Bytes& operator<<(Bytes& buffer, std::uint16_t value)
+    {
+        const std::uint16_t swapped = SwapBytes(value);
+        buffer.push_back(static_cast<uint8_t>(swapped >> 8 & 0xFF));
+        buffer.push_back(static_cast<uint8_t>(swapped & 0xFF));
+        return buffer;
+    }
+
     Bytes& operator<<(Bytes& buffer, std::uint64_t value)
     {
         UintVar varint = value;
@@ -51,25 +59,23 @@ namespace quicr::messages {
         return buffer.subspan(sizeof(value));
     }
 
+    BytesSpan operator>>(BytesSpan buffer, uint16_t& value)
+    {
+        if (buffer.size() < sizeof(value)) {
+            throw std::invalid_argument("Provider buffer too small");
+        }
+        const std::uint16_t high = buffer[0];
+        const std::uint16_t low = buffer[1];
+        value = high << 8 | low;
+        value = SwapBytes(value);
+        return buffer.subspan(sizeof(std::uint16_t));
+    }
+
     BytesSpan operator>>(BytesSpan buffer, uint64_t& value)
     {
         UintVar value_uv(buffer);
         value = static_cast<uint64_t>(value_uv);
         return buffer.subspan(value_uv.size());
-    }
-
-    Bytes& operator<<(Bytes& buffer, ParameterType value)
-    {
-        buffer << UintVar(static_cast<std::uint64_t>(value));
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, ParameterType& value)
-    {
-        std::uint64_t uvalue;
-        buffer = buffer >> uvalue;
-        value = static_cast<ParameterType>(uvalue);
-        return buffer;
     }
 
     Bytes& operator<<(Bytes& buffer, GroupOrder value)
@@ -86,20 +92,6 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, FilterType value)
-    {
-        buffer << static_cast<std::uint64_t>(value);
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, FilterType& value)
-    {
-        std::uint64_t uvalue;
-        buffer = buffer >> uvalue;
-        value = static_cast<FilterType>(uvalue);
-        return buffer;
-    }
-
     Bytes& operator<<(Bytes& buffer, FetchType value)
     {
         buffer << static_cast<std::uint64_t>(value);
@@ -111,34 +103,6 @@ namespace quicr::messages {
         std::uint8_t uvalue;
         buffer = buffer >> uvalue;
         value = static_cast<FetchType>(uvalue);
-        return buffer;
-    }
-
-    Bytes& operator<<(Bytes& buffer, AnnounceErrorCode value)
-    {
-        buffer << static_cast<std::uint64_t>(value);
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, AnnounceErrorCode& value)
-    {
-        std::uint64_t uvalue;
-        buffer = buffer >> uvalue;
-        value = static_cast<AnnounceErrorCode>(uvalue);
-        return buffer;
-    }
-
-    Bytes& operator<<(Bytes& buffer, SubscribeAnnouncesErrorCode value)
-    {
-        buffer << static_cast<std::uint64_t>(value);
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, SubscribeAnnouncesErrorCode& value)
-    {
-        std::uint64_t uvalue;
-        buffer = buffer >> uvalue;
-        value = static_cast<SubscribeAnnouncesErrorCode>(uvalue);
         return buffer;
     }
 
@@ -181,6 +145,43 @@ namespace quicr::messages {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
         value = static_cast<SubscribeErrorCode>(uvalue);
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, const ControlMessage& message)
+    {
+        buffer << message.type;
+        buffer << static_cast<std::uint16_t>(message.payload.size());
+        buffer.insert(buffer.end(), message.payload.begin(), message.payload.end());
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, ControlMessage& message)
+    {
+        buffer = buffer >> message.type;
+        if (buffer.size() < sizeof(std::uint16_t)) {
+            throw std::invalid_argument("Buffer too small");
+        }
+        std::uint16_t payload_length;
+        buffer = buffer >> payload_length;
+        if (buffer.size() < payload_length) {
+            throw std::invalid_argument("Buffer too small");
+        }
+        message.payload.assign(buffer.begin(), std::next(buffer.begin(), payload_length));
+        return buffer.subspan(payload_length);
+    }
+
+    Bytes& operator<<(Bytes& buffer, const Location& location)
+    {
+        buffer << UintVar(location.group);
+        buffer << UintVar(location.object);
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, Location& location)
+    {
+        buffer = buffer >> location.group;
+        buffer = buffer >> location.object;
         return buffer;
     }
 

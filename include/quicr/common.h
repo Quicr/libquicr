@@ -26,7 +26,9 @@ namespace quicr {
      * @details Various attributes relative to the publish announce
      */
     struct PublishAnnounceAttributes
-    {};
+    {
+        uint64_t request_id{ 0 };
+    };
 
     /**
      * @brief Client Setup Attributes

@@ -18,7 +18,7 @@ namespace quicr {
           : PublishTrackHandler(full_track_name, TrackMode::kStream, priority, ttl)
           , group_order_(group_order)
         {
-            SetSubscribeId(subscribe_id);
+            SetRequestId(subscribe_id);
         }
 
       public:
