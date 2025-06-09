@@ -1,9 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
 # SPDX-License-Identifier: BSD-2-Clause
 
-# Find doctest package
-find_package(doctest REQUIRED)
-
 # Add the integration test executable
 add_executable(quicr_integration_test
     integration_test.cpp
