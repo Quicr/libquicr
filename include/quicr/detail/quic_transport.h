@@ -90,7 +90,7 @@ namespace quicr {
         std::string tls_cert_filename;               /// QUIC TLS certificate to use
         std::string tls_key_filename;                /// QUIC TLS private key to use
         uint32_t time_queue_init_queue_size{ 1000 }; /// Initial queue size to reserve upfront
-        uint32_t time_queue_max_duration{ 1000 };    /// Max duration for the time queue in milliseconds
+        uint32_t time_queue_max_duration{ 2000 };    /// Max duration for the time queue in milliseconds
         uint32_t time_queue_bucket_interval{ 1 };    /// The bucket interval in milliseconds
         uint32_t time_queue_rx_size{ 1000 };         /// Receive queue size
         bool debug{ false };                         /// Enable debug logging/processing
