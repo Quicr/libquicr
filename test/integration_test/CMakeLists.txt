@@ -6,7 +6,7 @@ find_package(doctest REQUIRED)
 
 # Add the integration test executable
 add_executable(quicr_integration_test
-    moq_integration_test.cpp
+    integration_test.cpp
     test_server.h
     test_server.cpp
     test_client.h
