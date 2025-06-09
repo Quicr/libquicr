@@ -17,24 +17,27 @@ TEST_SUITE("Integration Tests")
     {
         // Server ID.
         const std::string server_id = "test-server";
+        const std::string ip = "127.0.0.1";
+        constexpr uint16_t port = 12345;
 
         // Run the server.
         ServerConfig server_config;
-        server_config.server_bind_ip = "127.0.0.1";
-        server_config.server_port = 12345;
+        server_config.server_bind_ip = ip;
+        server_config.server_port = port;
         server_config.endpoint_id = server_id;
         server_config.transport_config.debug = true;
         server_config.transport_config.tls_cert_filename = "server-cert.pem";
         server_config.transport_config.tls_key_filename = "server-key.pem";
         auto server = TestServer(server_config);
-        server.Start();
+        const auto starting = server.Start();
+        CHECK_EQ(starting, Transport::Status::kReady);
 
         // Wait for the server to start.
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
         // Connect a client.
         ClientConfig client_config;
-        client_config.connect_uri = "moq://127.0.0.1:12345";
+        client_config.connect_uri = "moq://" + ip + ":" + std::to_string(port);
         auto client = TestClient(client_config);
         std::optional<ServerSetupAttributes> recv_attributes;
         client.SetClientConnected([&recv_attributes, server_id](const ServerSetupAttributes& server_setup_attributes) {
