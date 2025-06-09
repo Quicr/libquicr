@@ -29,7 +29,6 @@ namespace quicr {
 
             stream_buffer_.InitAny<messages::StreamHeaderSubGroup>();
             stream_buffer_.Push(*data);
-            stream_buffer_.Pop(); // Remove type header
 
             // Expect that on initial start of stream, there is enough data to process the stream headers
 
@@ -50,23 +49,31 @@ namespace quicr {
         }
 
         auto& obj = stream_buffer_.GetAnyB<messages::StreamSubGroupObject>();
+        obj.serialize_extensions = TypeWillSerializeExtensions(s_hdr.type);
         if (stream_buffer_ >> obj) {
-            SPDLOG_TRACE("Received stream_subgroup_object subscribe_id: {} priority: {} track_alias: {} "
+            SPDLOG_TRACE("Received stream_subgroup_object type: {} priority: {} track_alias: {} "
                          "group_id: {} subgroup_id: {} object_id: {} data size: {}",
-                         s_hdr.subscribe_id,
+                         static_cast<std::uint8_t>(s_hdr.subgroup_type),
                          s_hdr.priority,
                          s_hdr.track_alias,
                          s_hdr.group_id,
-                         s_hdr.subgroup_id,
+                         s_hdr.subgroup_id.has_value() ? *s_hdr.subgroup_id : -1,
                          obj.object_id,
                          obj.payload.size());
+
+            if (!s_hdr.subgroup_id.has_value()) {
+                // TODO(RichLogan): This is a protocol error?
+                assert(s_hdr.type == messages::StreamHeaderType::kSubgroupFirstObjectNoExtensions ||
+                       s_hdr.type == messages::StreamHeaderType::kSubgroupFirstObjectWithExtensions);
+                s_hdr.subgroup_id = obj.object_id;
+            }
 
             subscribe_track_metrics_.objects_received++;
             subscribe_track_metrics_.bytes_received += obj.payload.size();
 
             ObjectReceived({ s_hdr.group_id,
                              obj.object_id,
-                             s_hdr.subgroup_id,
+                             s_hdr.subgroup_id.value(),
                              obj.payload.size(),
                              obj.object_status,
                              s_hdr.priority,
@@ -118,8 +125,8 @@ namespace quicr {
 
     void SubscribeTrackHandler::RequestNewGroup() noexcept
     {
-        if (new_group_request_callback_ && GetSubscribeId().has_value() && GetTrackAlias().has_value()) {
-            new_group_request_callback_(GetSubscribeId().value(), GetTrackAlias().value());
+        if (new_group_request_callback_ && GetRequestId().has_value() && GetTrackAlias().has_value()) {
+            new_group_request_callback_(GetRequestId().value(), GetTrackAlias().value());
         }
     }
 } // namespace quicr

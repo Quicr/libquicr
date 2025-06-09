@@ -34,6 +34,9 @@ def main(rfc_filename, output_name):
         "AnnounceCancel::ErrorCode": "quicr::messages::AnnounceErrorCode",
         "SubscribeAnnouncesError::ErrorCode": "quicr::messages::SubscribeAnnouncesErrorCode",
         "FetchError::ErrorCode": "quicr::messages::FetchErrorCode",
+        "Start Location": "quicr::messages::Location",
+        "End Location": "quicr::messages::Location",
+        "Largest Location": "quicr::messages::Location",
     }
 
     field_discards = ["Type", "Length"]
