@@ -474,6 +474,9 @@ PicoQuicTransport::Start()
     }
 
     if (config_.enable_sslkeylog) {
+        if (std::getenv("SSLKEYLOGFILE") == nullptr) {
+            SPDLOG_LOGGER_WARN(logger, "Key log enabled but $SSLKEYLOGFILE not set");
+        }
         picoquic_set_key_log_file_from_env(quic_ctx_);
     }
 
