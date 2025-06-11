@@ -4,6 +4,8 @@ This is a simple parser and code generator for the Media Over Quic Transport Dra
 
 ## Running the Parser
 
+The parser is integrated into the libquicr build directly. Generally, you should not need to run this tool manually as a consumer of this library.
+
 To run the parser, you will need to have Python 3 installed. The requirements.txt lists any required modules. To install you will probably want to create a virtual environment and install the requirements:
 
 ```bash

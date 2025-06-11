@@ -40,6 +40,7 @@ option(LINT "Perform linting with clang-tidy" OFF)
 option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(PLATFORM_ESP_IDF "Enabble support for esp-idf (Default OFF)" OFF)
 option(USE_MBEDTLS OFF)
+option(DRAFT_PARSER_SETUP_VENV "Set up Python virtual environment for draft parser" ON)
 
 if (NOT PLATFORM_ESP_IDF)
   find_package(Threads REQUIRED)
@@ -68,6 +69,17 @@ include(CTest)
 ### Dependencies
 ###
 add_subdirectory(dependencies)
+
+###
+### Draft Parser Integration
+###
+include(tools/draft_parser/cmake/ParseDraft.cmake)
+parse_draft(
+    RFC_FILE "drafts/moq_transport_draft_v11_with_addendum.txt"
+    OUTPUT_NAME "ctrl_messages"
+    OUTPUT_DIR "${CMAKE_BINARY_DIR}/include/quicr/detail"
+    SETUP_VENV ${DRAFT_PARSER_SETUP_VENV}
+)
 
 ###
 ### Build the quicr library

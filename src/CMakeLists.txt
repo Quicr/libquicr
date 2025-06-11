@@ -9,7 +9,7 @@ endif()
 target_sources (quicr PRIVATE
     client.cpp
     ctrl_message_types.cpp
-    ctrl_messages.cpp
+    ${ctrl_messages_SOURCE}
     messages.cpp
     publish_fetch_handler.cpp
     publish_track_handler.cpp
@@ -21,6 +21,8 @@ target_sources (quicr PRIVATE
     transport_picoquic.cpp
     joining_fetch_handler.cpp
 )
+
+set_source_files_properties(${ctrl_messages_SOURCE} PROPERTIES GENERATED TRUE)
 
 target_include_directories(quicr PUBLIC ${CMAKE_BINARY_DIR}/include )
 
@@ -61,9 +63,10 @@ target_link_libraries(quicr
     PUBLIC
         picoquic-core picoquic-log)
 
+add_dependencies(quicr ${ctrl_messages_TARGET})
+
 if (PLATFORM_ESP_IDF)
     add_compile_definitions(${LIB_NAME} PLATFORM_ESP)
 endif()
 
 target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src)
-
