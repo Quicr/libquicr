@@ -128,6 +128,10 @@ function(parse_draft)
     endif()
 
     # Create custom command to generate the files
+    # Collect all draft parser inputs as dependencies
+    file(GLOB_RECURSE PYTHON_SOURCES "${DRAFT_PARSER_DIR}/*.py")
+    file(GLOB_RECURSE TEMPLATE_FILES "${DRAFT_PARSER_DIR}/*.jinja2")
+
     add_custom_command(
         OUTPUT ${OUTPUT_HEADER} ${OUTPUT_SOURCE}
         COMMAND ${PYTHON_EXECUTABLE} ${DRAFT_PARSER_SCRIPT} 
@@ -136,6 +140,8 @@ function(parse_draft)
         DEPENDS ${DRAFT_PARSER_SCRIPT} 
                 ${RFC_FILE_PATH}
                 ${PARSE_DRAFT_DEPENDS}
+                ${PYTHON_SOURCES}
+                ${TEMPLATE_FILES}
         WORKING_DIRECTORY ${DRAFT_PARSER_DIR}
         COMMENT "Generating MOQ messages from: ${PARSE_DRAFT_RFC_FILE}"
         VERBATIM
