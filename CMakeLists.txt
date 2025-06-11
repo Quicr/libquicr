@@ -42,6 +42,15 @@ option(PLATFORM_ESP_IDF "Enabble support for esp-idf (Default OFF)" OFF)
 option(USE_MBEDTLS OFF)
 option(DRAFT_PARSER_SETUP_VENV "Set up Python virtual environment for draft parser" ON)
 
+# Which MOQ draft to use.
+set(DEFAULT_DRAFT "${CMAKE_CURRENT_SOURCE_DIR}/tools/draft_parser/drafts/moq_transport_draft_v11_with_addendum.txt")
+set(DRAFT "" CACHE FILEPATH "MOQ Draft to build against")
+if (DRAFT STREQUAL "")
+    set(DRAFT_INTERNAL ${DEFAULT_DRAFT})
+else()
+    set(DRAFT_INTERNAL ${DRAFT})
+endif()
+
 if (NOT PLATFORM_ESP_IDF)
   find_package(Threads REQUIRED)
   find_package(PkgConfig REQUIRED)
@@ -75,7 +84,7 @@ add_subdirectory(dependencies)
 ###
 include(tools/draft_parser/cmake/ParseDraft.cmake)
 parse_draft(
-    RFC_FILE "drafts/moq_transport_draft_v11_with_addendum.txt"
+    RFC_FILE ${DRAFT_INTERNAL}
     OUTPUT_NAME "ctrl_messages"
     OUTPUT_DIR "${CMAKE_BINARY_DIR}/include/quicr/detail"
     SETUP_VENV ${DRAFT_PARSER_SETUP_VENV}

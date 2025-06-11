@@ -135,8 +135,9 @@ function(parse_draft)
                 "${PARSE_DRAFT_OUTPUT_DIR}/${PARSE_DRAFT_OUTPUT_NAME}"
         DEPENDS ${DRAFT_PARSER_SCRIPT} 
                 ${RFC_FILE_PATH}
+                ${PARSE_DRAFT_DEPENDS}
         WORKING_DIRECTORY ${DRAFT_PARSER_DIR}
-        COMMENT "Generating MOQ messages: ${PARSE_DRAFT_RFC_FILE} -> ${PARSE_DRAFT_OUTPUT_NAME}"
+        COMMENT "Generating MOQ messages from: ${PARSE_DRAFT_RFC_FILE}"
         VERBATIM
     )
     
@@ -144,8 +145,10 @@ function(parse_draft)
     set(TARGET_NAME "generate_moq_messages")
     add_custom_target(${TARGET_NAME}
         DEPENDS ${OUTPUT_HEADER} ${OUTPUT_SOURCE}
-        COMMENT "Generated MOQ messages: ${PARSE_DRAFT_OUTPUT_NAME}"
+        COMMENT "Generated MOQ messages from: ${PARSE_DRAFT_OUTPUT_NAME}"
     )
+
+    message(STATUS "Will generate MOQ messages from: ${PARSE_DRAFT_RFC_FILE}")
     
     # Outputs
     set(${PARSE_DRAFT_OUTPUT_NAME}_HEADER ${OUTPUT_HEADER} PARENT_SCOPE)
