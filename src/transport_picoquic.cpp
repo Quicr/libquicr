@@ -56,6 +56,7 @@ using namespace quicr;
  * ============================================================================
  */
 
+static
 int
 PqEventCb(picoquic_cnx_t* pq_cnx,
           uint64_t stream_id,
@@ -321,6 +322,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
     return 0;
 }
 
+static
 int
 PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* callback_ctx, void* callback_arg)
 {
