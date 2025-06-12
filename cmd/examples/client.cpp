@@ -703,9 +703,14 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         qclient_vars::playback_speed_ms = std::chrono::milliseconds(cli_opts["playback_speed_ms"].as<uint64_t>());
     }
 
+    if (cli_opts.count("ssl_keylog") && cli_opts["ssl_keylog"].as<bool>() == true) {
+        SPDLOG_INFO("SSL Keylog enabled");
+    }
+
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
     config.connect_uri = cli_opts["url"].as<std::string>();
     config.transport_config.debug = cli_opts["debug"].as<bool>();
+    config.transport_config.ssl_keylog = cli_opts["ssl_keylog"].as<bool>();
 
     config.transport_config.use_reset_wait_strategy = false;
     config.transport_config.time_queue_max_duration = 5000;
@@ -734,7 +739,8 @@ main(int argc, char* argv[])
         ("v,version", "QuicR Version")                                        // a bool parameter
         ("r,url", "Relay URL", cxxopts::value<std::string>()->default_value("moq://localhost:1234"))
         ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))
-        ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>());
+        ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
+        ("s,ssl_keylog", "Enable SSL Keylog for transport debugging");
 
     options.add_options("Publisher")
         ("pub_namespace", "Track namespace", cxxopts::value<std::string>())

@@ -880,12 +880,17 @@ InitConfig(cxxopts::ParseResult& cli_opts)
         qserver_vars::force_track_alias = false;
     }
 
+    if (cli_opts.count("ssl_keylog") && cli_opts["ssl_keylog"].as<bool>() == true) {
+        SPDLOG_INFO("SSL Keylog enabled");
+    }
+
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
 
     config.server_bind_ip = cli_opts["bind_ip"].as<std::string>();
     config.server_port = cli_opts["port"].as<uint16_t>();
 
     config.transport_config.debug = cli_opts["debug"].as<bool>();
+    config.transport_config.ssl_keylog = cli_opts["ssl_keylog"].as<bool>();
     config.transport_config.tls_cert_filename = cli_opts["cert"].as<std::string>();
     config.transport_config.tls_key_filename = cli_opts["key"].as<std::string>();
     config.transport_config.use_reset_wait_strategy = false;
@@ -912,7 +917,8 @@ main(int argc, char* argv[])
         "e,endpoint_id", "This relay/server endpoint ID", cxxopts::value<std::string>()->default_value("moq-server"))(
         "c,cert", "Certificate file", cxxopts::value<std::string>()->default_value("./server-cert.pem"))(
         "k,key", "Certificate key file", cxxopts::value<std::string>()->default_value("./server-key.pem"))(
-        "q,qlog", "Enable qlog using path", cxxopts::value<std::string>()); // end of options
+        "q,qlog", "Enable qlog using path", cxxopts::value<std::string>())(
+        "s,ssl_keylog", "Enable SSL Keylog for transport debugging"); // end of options
 
     auto result = options.parse(argc, argv);
 
