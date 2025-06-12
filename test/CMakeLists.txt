@@ -41,6 +41,11 @@ endif()
 include(${CMAKE_SOURCE_DIR}/dependencies/doctest/scripts/cmake/doctest.cmake)
 doctest_discover_tests(quicr_test)
 
+# Add integration tests
+if (QUICR_BUILD_INTEGRATION_TESTS)
+    add_subdirectory(integration_test)
+endif()
+
 if (LINT)
     include(Lint)
     Lint(quicr_test)
