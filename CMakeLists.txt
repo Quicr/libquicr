@@ -10,6 +10,7 @@ if(DEFINED PROJECT_NAME)
 else()
     option(QUICR_BUILD_TESTS "Build tests for quicr" ON)
     option(quicr_BUILD_BENCHMARKS "Build benchmarks for quicr" ON)
+    option(QUICR_BUILD_INTEGRATION_TESTS "Also build integration tests for quicr" ON)
 endif()
 
 project(quicr

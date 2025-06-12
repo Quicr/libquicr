@@ -30,6 +30,8 @@ cert:
 	@openssl req -nodes -x509 -newkey rsa:2048 -days 365 \
         -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org" \
         -keyout ${BUILD_DIR}/cmd/examples/server-key.pem -out ${BUILD_DIR}/cmd/examples/server-cert.pem
+	@cp ${BUILD_DIR}/cmd/examples/server-key.pem ${BUILD_DIR}/test/integration_test/server-key.pem
+	@cp ${BUILD_DIR}/cmd/examples/server-cert.pem ${BUILD_DIR}/test/integration_test/server-cert.pem
 test: ci
 	cmake --build ${BUILD_DIR}
 	ctest --test-dir ${BUILD_DIR} --output-on-failure
@@ -53,7 +55,7 @@ format:
 	find src/moq -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
 	find src/quic -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
 	find test -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
-	find cmd -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
+	find cmd -iname "*.h" -or -iname "*.cpp" -or -iname "*.cc" -or -iname "*.hpp" | xargs ${CLANG_FORMAT}
 	find benchmark -name "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
 	find tools -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
 
