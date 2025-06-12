@@ -9,9 +9,10 @@ from .message_spec import MessageSpec
 class CodeGenerator:
     """MessageSpec Code Generator"""
 
-    def __init__(self, language: str):
+    def __init__(self, language: str, source_filename: str):
         self.package_name = "draft_parser"
         self.template_language = language
+        self.source_filename = source_filename
         self.package_path = resources.files(__package__)
         self.template_path = (
             f"{self.package_path}/templates/{self.template_language}"
@@ -30,7 +31,9 @@ class CodeGenerator:
         template = self.template_env.get_template(
             "MessageSpec_Header_Begin_tmpl.jinja2"
         )
-        gen_begin += template.render()
+        gen_begin += template.render(
+            source_filename=self.source_filename
+        )
         return gen_begin
 
     def generate_header_message_end(self, using_map) -> str:
@@ -89,7 +92,9 @@ class CodeGenerator:
         template = self.template_env.get_template(
             "MessageSpec_Source_Begin_tmpl.jinja2"
         )
-        gen_begin += template.render()
+        gen_begin += template.render(
+            source_filename=self.source_filename
+        )
         return gen_begin
 
     def generate_source_message_encode_decode(

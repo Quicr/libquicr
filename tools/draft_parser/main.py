@@ -1,5 +1,6 @@
 """MOQ Draft Parser"""
 
+import os
 import sys
 from moqt_parser import ProtocolMessageParser, CodeGenerator  # , TableParser
 
@@ -43,7 +44,8 @@ def main(rfc_filename, output_name):
 
     parser = ProtocolMessageParser(type_map)
     # table_parser = TableParser()
-    generator = CodeGenerator("cpp")
+    filename = os.path.basename(rfc_filename)
+    generator = CodeGenerator("cpp", filename)
     messages = []
 
     with open(rfc_filename, "r", encoding="utf8") as rfc_file:
