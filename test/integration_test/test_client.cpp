@@ -9,7 +9,7 @@ TestClient::TestClient(const ClientConfig& cfg)
 }
 
 void
-TestClient::SetClientConnected(const ClientConnected& cb)
+TestClient::SetClientConnectedCallback(const ClientConnectedCallback& cb)
 {
     client_connected_ = std::move(cb);
 }

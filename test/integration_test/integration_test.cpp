@@ -40,10 +40,11 @@ TEST_SUITE("Integration Tests")
         client_config.connect_uri = "moq://" + ip + ":" + std::to_string(port);
         auto client = TestClient(client_config);
         std::optional<ServerSetupAttributes> recv_attributes;
-        client.SetClientConnected([&recv_attributes, server_id](const ServerSetupAttributes& server_setup_attributes) {
-            recv_attributes.emplace(server_setup_attributes);
-            CHECK_EQ(server_setup_attributes.server_id, server_id);
-        });
+        client.SetClientConnectedCallback(
+          [&recv_attributes, server_id](const ServerSetupAttributes& server_setup_attributes) {
+              recv_attributes.emplace(server_setup_attributes);
+              CHECK_EQ(server_setup_attributes.server_id, server_id);
+          });
         client.Connect();
 
         // Wait for the client to connect.

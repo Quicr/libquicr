@@ -7,11 +7,11 @@ namespace quicr_test {
         explicit TestClient(const quicr::ClientConfig& cfg);
 
         // Connection.
-        using ClientConnected = std::function<void(const quicr::ServerSetupAttributes&)>;
-        void SetClientConnected(const ClientConnected& cb);
+        using ClientConnectedCallback = std::function<void(const quicr::ServerSetupAttributes&)>;
+        void SetClientConnectedCallback(const ClientConnectedCallback& cb);
         void ServerSetupReceived(const quicr::ServerSetupAttributes& server_setup_attributes) override;
 
       private:
-        ClientConnected client_connected_;
+        ClientConnectedCallback client_connected_;
     };
 }
