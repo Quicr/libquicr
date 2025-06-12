@@ -144,7 +144,7 @@ namespace quicr {
 
         std::size_t EraseFront(std::size_t len) noexcept
         {
-            for (const auto & s : buffer_) {
+            for (const auto& s : buffer_) {
                 if (s == nullptr)
                     return 0;
 
