@@ -156,6 +156,9 @@ namespace quicr::messages {
         kTooFarBehind,
     };
 
+    Bytes& operator<<(Bytes& buffer, SubscribeDoneStatusCode value);
+    BytesSpan operator>>(BytesSpan buffer, SubscribeDoneStatusCode& value);
+
     enum class FetchType : uint8_t
     {
         kStandalone = 0x1,
@@ -223,6 +226,9 @@ namespace quicr::messages {
 
         kTrackNotExist = 0xF0 // Missing in draft
     };
+
+    Bytes& operator<<(Bytes& buffer, SubscribeErrorCode value);
+    BytesSpan operator>>(BytesSpan buffer, SubscribeErrorCode& value);
 
     enum class SubscribeAnnouncesErrorCode : uint64_t
     {
