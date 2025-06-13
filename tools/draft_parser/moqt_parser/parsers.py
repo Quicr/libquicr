@@ -39,11 +39,11 @@ class ProtocolMessageParser:
         is_variable_length = parsed_field_type == ".."
 
         cpp_using_name = name.replace(" ", "")
-        comp_name = f"{message_name}::{name.replace(" ","")}"
+        comp_name = f"{message_name}::{name.replace(' ','')}"
         if comp_name in self.field_type_map:
             cpp_type = self.field_type_map[comp_name]
             # name = f"{message_name}_{name.replace(" ","")}"
-            cpp_using_name = f"{message_name}{name.replace(" ","")}"
+            cpp_using_name = f"{message_name}{name.replace(' ','')}"
         elif name in self.field_type_map:
             cpp_type = self.field_type_map[name]
         elif spec_type in self.field_type_map:
