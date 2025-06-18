@@ -1,5 +1,7 @@
 #pragma once
 
+#include <future>
+#include <optional>
 #include <quicr/server.h>
 
 namespace quicr_test {
@@ -7,6 +9,18 @@ namespace quicr_test {
     {
       public:
         explicit TestServer(const quicr::ServerConfig& config);
+        struct SubscribeDetails
+        {
+            quicr::ConnectionHandle connection_handle;
+            uint64_t request_id;
+            uint64_t proposed_track_alias;
+            quicr::messages::FilterType filter_type;
+            quicr::FullTrackName track_full_name;
+            quicr::messages::SubscribeAttributes subscribe_attributes;
+        };
+
+        // Set up promise for subscription event
+        void SetSubscribePromise(std::promise<SubscribeDetails> promise) { subscribe_promise_ = std::move(promise); }
 
       protected:
         ClientSetupResponse ClientSetupReceived(
@@ -27,5 +41,15 @@ namespace quicr_test {
                                  [[maybe_unused]] uint64_t request_id) override {};
         void FetchCancelReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
                                  [[maybe_unused]] uint64_t request_id) override {};
+
+        void SubscribeReceived(quicr::ConnectionHandle connection_handle,
+                               uint64_t request_id,
+                               uint64_t proposed_track_alias,
+                               quicr::messages::FilterType filter_type,
+                               const quicr::FullTrackName& track_full_name,
+                               const quicr::messages::SubscribeAttributes& subscribe_attributes) override;
+
+      private:
+        std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
     };
 }

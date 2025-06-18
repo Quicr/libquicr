@@ -17,6 +17,7 @@ TestClient::SetClientConnectedCallback(const ClientConnectedCallback& cb)
 void
 TestClient::ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes)
 {
-    assert(client_connected_);
-    client_connected_(server_setup_attributes);
+    if (client_connected_) {
+        client_connected_(server_setup_attributes);
+    }
 }
