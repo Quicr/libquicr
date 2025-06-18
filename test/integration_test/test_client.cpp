@@ -9,15 +9,9 @@ TestClient::TestClient(const ClientConfig& cfg)
 }
 
 void
-TestClient::SetClientConnectedCallback(const ClientConnectedCallback& cb)
-{
-    client_connected_ = std::move(cb);
-}
-
-void
 TestClient::ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes)
 {
     if (client_connected_) {
-        client_connected_(server_setup_attributes);
+        client_connected_->set_value(server_setup_attributes);
     }
 }

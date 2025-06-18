@@ -53,18 +53,14 @@ TEST_CASE("Integration - Connection")
 {
     auto server = MakeTestServer();
     auto client = MakeTestClient(false);
-    std::optional<ServerSetupAttributes> recv_attributes;
-    client->SetClientConnectedCallback([&recv_attributes](const ServerSetupAttributes& server_setup_attributes) {
-        recv_attributes.emplace(server_setup_attributes);
-        CHECK_EQ(server_setup_attributes.server_id, kServerId);
-    });
+    std::promise<ServerSetupAttributes> recv_attributes;
+    auto future = recv_attributes.get_future();
+    client->SetConnectedPromise(std::move(recv_attributes));
     client->Connect();
-
-    // Wait for the client to connect.
-    std::this_thread::sleep_for(kDefaultTimeout);
-
-    // Ensure we've received the server setup attributes.
-    CHECK_MESSAGE(recv_attributes.has_value(), "Client didn't receive server setup attributes");
+    auto status = future.wait_for(kDefaultTimeout);
+    REQUIRE(status == std::future_status::ready);
+    const auto& [moqt_version, server_id] = future.get();
+    CHECK_EQ(server_id, kServerId);
 }
 
 TEST_CASE("Integration - Subscribe")
