@@ -77,9 +77,12 @@ namespace quicr {
      */
     struct TransportRemote
     {
-        std::string host_or_ip;  /// IPv4/v6 or FQDN (user input)
-        uint16_t port;           /// Port (user input)
-        TransportProtocol proto; /// Protocol to use for the transport
+        /// IPv4/v6 or FQDN (user input)
+        std::string host_or_ip;
+        /// Port (user input)
+        uint16_t port;
+        /// Protocol to use for the transport
+        TransportProtocol proto;
     };
 
     /**
@@ -87,26 +90,44 @@ namespace quicr {
      */
     struct TransportConfig
     {
-        std::string tls_cert_filename;               /// QUIC TLS certificate to use
-        std::string tls_key_filename;                /// QUIC TLS private key to use
-        uint32_t time_queue_init_queue_size{ 1000 }; /// Initial queue size to reserve upfront
-        uint32_t time_queue_max_duration{ 2000 };    /// Max duration for the time queue in milliseconds
-        uint32_t time_queue_bucket_interval{ 1 };    /// The bucket interval in milliseconds
-        uint32_t time_queue_rx_size{ 1000 };         /// Receive queue size
-        bool debug{ false };                         /// Enable debug logging/processing
-        uint64_t quic_cwin_minimum{ 131072 };        /// QUIC congestion control minimum size (default is 128k)
-        uint32_t quic_wifi_shadow_rtt_us{ 20000 };   /// QUIC wifi shadow RTT in microseconds
+        /// QUIC TLS certificate to use
+        std::string tls_cert_filename;
+        /// QUIC TLS private key to use
+        std::string tls_key_filename;
+        /// Initial queue size to reserve upfront
+        uint32_t time_queue_init_queue_size{ 1000 };
+        /// Max duration for the time queue in milliseconds
+        uint32_t time_queue_max_duration{ 2000 };
+        /// The bucket interval in milliseconds
+        uint32_t time_queue_bucket_interval{ 1 };
+        /// Receive queue size
+        uint32_t time_queue_rx_size{ 1000 };
+        /// Enable debug logging/processing
+        bool debug{ false };
+        /// QUIC congestion control minimum size (default is 128k)
+        uint64_t quic_cwin_minimum{ 131072 };
+        /// QUIC wifi shadow RTT in microseconds
+        uint32_t quic_wifi_shadow_rtt_us{ 20000 };
 
-        uint64_t pacing_decrease_threshold_bps{ 16000 }; /// QUIC pacing rate decrease threshold for notification in Bps
-        uint64_t pacing_increase_threshold_bps{ 16000 }; /// QUIC pacing rate increase threshold for notification in Bps
+        /// QUIC pacing rate decrease threshold for notification in Bps
+        uint64_t pacing_decrease_threshold_bps{ 16000 };
+        /// QUIC pacing rate increase threshold for notification in Bps
+        uint64_t pacing_increase_threshold_bps{ 16000 };
 
-        uint64_t idle_timeout_ms{ 30000 };     /// Idle timeout for transport connection(s) in milliseconds
-        bool use_reset_wait_strategy{ false }; /// Use Reset and wait strategy for congestion control
-        bool use_bbr{ true };                  /// Use BBR if true, NewReno if false
-        std::string quic_qlog_path;            /// If present, log QUIC LOG file to this path
-        uint8_t quic_priority_limit{ 0 };      /// Lowest priority that will not be bypassed from pacing/CC in picoquic
+        /// Idle timeout for transport connection(s) in milliseconds
+        uint64_t idle_timeout_ms{ 30000 };
+        /// Use Reset and wait strategy for congestion control
+        bool use_reset_wait_strategy{ false };
+        /// Use BBR if true, NewReno if false
+        bool use_bbr{ true };
+        /// If present, log QUIC LOG file to this path
+        std::string quic_qlog_path;
+        /// Lowest priority that will not be bypassed from pacing/CC in picoquic
+        uint8_t quic_priority_limit{ 0 };
+        /// Max number of connections to allow
         std::size_t max_connections{ 1 };
-        bool ssl_keylog{ false }; ///< Enable SSL key logging for QUIC connections
+        /// Enable SSL key logging for QUIC connections
+        bool ssl_keylog{ false };
     };
 
     /// Stream action that should be done by send/receive processing
