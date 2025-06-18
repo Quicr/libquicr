@@ -1,3 +1,4 @@
+#include <future>
 #include <quicr/client.h>
 
 namespace quicr_test {
@@ -7,11 +8,13 @@ namespace quicr_test {
         explicit TestClient(const quicr::ClientConfig& cfg);
 
         // Connection.
-        using ClientConnectedCallback = std::function<void(const quicr::ServerSetupAttributes&)>;
-        void SetClientConnectedCallback(const ClientConnectedCallback& cb);
+        void SetConnectedPromise(std::promise<quicr::ServerSetupAttributes> promise)
+        {
+            client_connected_ = std::move(promise);
+        }
         void ServerSetupReceived(const quicr::ServerSetupAttributes& server_setup_attributes) override;
 
       private:
-        ClientConnectedCallback client_connected_;
+        std::optional<std::promise<quicr::ServerSetupAttributes>> client_connected_;
     };
 }
