@@ -31,9 +31,8 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, std::uint16_t value)
     {
-        const std::uint16_t swapped = SwapBytes(value);
-        buffer.push_back(static_cast<uint8_t>(swapped >> 8 & 0xFF));
-        buffer.push_back(static_cast<uint8_t>(swapped & 0xFF));
+        buffer.push_back(static_cast<uint8_t>(value >> 8 & 0xFF));
+        buffer.push_back(static_cast<uint8_t>(value & 0xFF));
         return buffer;
     }
 
@@ -64,9 +63,7 @@ namespace quicr::messages {
         if (buffer.size() < sizeof(value)) {
             throw std::invalid_argument("Provider buffer too small");
         }
-        const std::uint16_t high = buffer[0];
-        const std::uint16_t low = buffer[1];
-        value = high << 8 | low;
+        std::memcpy(&value, buffer.data(), sizeof(value));
         value = SwapBytes(value);
         return buffer.subspan(sizeof(std::uint16_t));
     }
