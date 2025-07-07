@@ -108,6 +108,13 @@ if (BUILD_BENCHMARKING AND quicr_BUILD_BENCHMARKS)
 endif()
 
 ###
+### Fuzzing targets
+###
+if(QUICR_BUILD_FUZZ)
+   add_subdirectory(fuzz)
+endif()
+
+###
 ### Applications
 ###
 if(BUILD_TESTING AND QUICR_BUILD_TESTS)
