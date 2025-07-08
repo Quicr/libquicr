@@ -1,6 +1,7 @@
 #pragma once
 #include "quicr/common.h"
 #include "quicr/detail/uintvar.h"
+#include "quicr/track_name.h"
 
 namespace quicr::messages {
     quicr::Bytes& operator<<(quicr::Bytes& buffer, const quicr::Bytes& bytes);
@@ -238,4 +239,7 @@ namespace quicr::messages {
         kNotSupported,
         kNamespacePrefixUnknown,
     };
+
+    BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg);
+    Bytes& operator<<(Bytes& buffer, const TrackNamespace& msg);
 } // namespace
