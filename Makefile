@@ -22,9 +22,9 @@ ${BUILD_DIR}: CMakeLists.txt cmd/CMakeLists.txt
 	cmake -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=TRUE -DQUICR_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DUSE_MBEDTLS=OFF -DLINT=ON .
 
 # Run fuzzing tests.
-fuzz: ${BUILD_DIR}
-	cmake -B${BUILD_DIR} -DQUICR_BUILD_FUZZ=ON .
-	cmake --build ${BUILD_DIR}
+fuzz:
+	cmake -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DQUICR_BUILD_FUZZ=ON .
+	cmake --build ${BUILD_DIR} --parallel 8
 	./${BUILD_DIR}/fuzz/ctrl_messages_fuzzer -max_total_time=10
 
 # Mimic a CI build.
