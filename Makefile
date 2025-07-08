@@ -23,8 +23,9 @@ ${BUILD_DIR}: CMakeLists.txt cmd/CMakeLists.txt
 
 # Run fuzzing tests.
 fuzz: ${BUILD_DIR}
+	cmake -B${BUILD_DIR} -DQUICR_BUILD_FUZZ=ON .
 	cmake --build ${BUILD_DIR}
-	./${BUILD_DIR}/fuzz/ctrl_messages_fuzzer.cpp
+	./${BUILD_DIR}/fuzz/ctrl_messages_fuzzer -max_total_time=10
 
 # Mimic a CI build.
 ci: CMakeLists.txt cmd/CMakeLists.txt
