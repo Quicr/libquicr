@@ -6,9 +6,9 @@
 #include <optional>
 #include <quicr/common.h>
 #include <quicr/config.h>
+#include <quicr/detail/attributes.h>
 #include <quicr/detail/transport.h>
 #include <quicr/track_name.h>
-#include <quicr/detail/attributes.h>
 
 namespace quicr {
     using namespace quicr;

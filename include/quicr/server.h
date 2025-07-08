@@ -5,11 +5,11 @@
 
 #include "quicr/detail/messages.h"
 #include <quicr/config.h>
+#include <quicr/detail/attributes.h>
 #include <quicr/detail/transport.h>
 #include <quicr/object.h>
 #include <quicr/publish_fetch_handler.h>
 #include <quicr/track_name.h>
-#include <quicr/detail/attributes.h>
 
 namespace quicr {
     using namespace quicr;
