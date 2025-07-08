@@ -190,8 +190,12 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         }
 
         // Fan out to all subscribers
-        for (const auto& [conn_id, pth] : sub_it->second) {
-            pth->PublishObject(object_headers, data);
+        try {
+            for (const auto& [conn_id, pth] : sub_it->second) {
+                pth->PublishObject(object_headers, data);
+            }
+        } catch (const std::exception& e) {
+            SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());
         }
     }
 
@@ -816,8 +820,11 @@ class MyServer : public quicr::Server
 
                     SPDLOG_DEBUG("Fetching group: {} object: {}", object.headers.group_id, object.headers.object_id);
 
-                    pub_fetch_h->PublishObject(object.headers, object.data);
-                    // std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    try {
+                        pub_fetch_h->PublishObject(object.headers, object.data);
+                    } catch (const std::exception& e) {
+                        SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());
+                    }
                 }
             }
         });

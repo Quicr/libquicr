@@ -4,11 +4,21 @@
 #include "quicr/detail/transport.h"
 #include "quicr/detail/messages.h"
 
+#include <format>
 #include <quicr/detail/joining_fetch_handler.h>
 #include <sstream>
 
 namespace quicr {
     using namespace quicr::messages;
+
+    TransportException::TransportException(TransportError error, std::source_location location)
+      : std::runtime_error(std::format("Error in transport (error={}, line={}, file={})",
+                                       static_cast<int>(error),
+                                       location.line(),
+                                       location.file_name()))
+      , Error(error)
+    {
+    }
 
     static std::optional<std::tuple<std::string, uint16_t>> ParseConnectUri(const std::string& connect_uri)
     {
@@ -138,19 +148,19 @@ namespace quicr {
             conn_ctx->second.connection_handle = conn_id;
 
             return status_;
-        } else {
-            TransportRemote server;
-            server.host_or_ip = server_config_.server_bind_ip;
-            server.port = server_config_.server_port;
-            server.proto = TransportProtocol::kQuic;
-
-            quic_transport_ =
-              ITransport::MakeServerTransport(server, server_config_.transport_config, *this, tick_service_, logger_);
-            quic_transport_->Start();
-
-            status_ = Status::kReady;
-            return status_;
         }
+
+        TransportRemote server;
+        server.host_or_ip = server_config_.server_bind_ip;
+        server.port = server_config_.server_port;
+        server.proto = TransportProtocol::kQuic;
+
+        quic_transport_ =
+          ITransport::MakeServerTransport(server, server_config_.transport_config, *this, tick_service_, logger_);
+        quic_transport_->Start();
+
+        status_ = Status::kReady;
+        return status_;
     }
 
     Transport::Status Transport::Stop()
@@ -167,13 +177,17 @@ namespace quicr {
             return;
         }
 
-        quic_transport_->Enqueue(conn_ctx.connection_handle,
-                                 *conn_ctx.ctrl_data_ctx_id,
-                                 std::make_shared<const std::vector<uint8_t>>(data.begin(), data.end()),
-                                 0,
-                                 2000,
-                                 0,
-                                 { true, false, false, false });
+        auto result = quic_transport_->Enqueue(conn_ctx.connection_handle,
+                                               *conn_ctx.ctrl_data_ctx_id,
+                                               std::make_shared<const std::vector<uint8_t>>(data.begin(), data.end()),
+                                               0,
+                                               2000,
+                                               0,
+                                               { true, false, false, false });
+
+        if (result != TransportError::kNone) {
+            throw TransportException(result);
+        }
     }
 
     void Transport::SendClientSetup()
@@ -993,8 +1007,12 @@ namespace quicr {
             }
         }
 
-        quic_transport_->Enqueue(
+        auto result = quic_transport_->Enqueue(
           track_handler.connection_handle_, track_handler.publish_data_ctx_id_, data, priority, ttl, 0, eflags);
+
+        if (result != TransportError::kNone) {
+            throw TransportException(result);
+        }
 
         return PublishTrackHandler::PublishObjectStatus::kOk;
     }
@@ -1050,7 +1068,7 @@ namespace quicr {
                     subgroup_hdr.track_alias = *track_handler.GetTrackAlias();
                     track_handler.object_msg_buffer_ << subgroup_hdr;
 
-                    quic_transport_->Enqueue(
+                    auto result = quic_transport_->Enqueue(
                       track_handler.connection_handle_,
                       track_handler.publish_data_ctx_id_,
                       std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
@@ -1064,6 +1082,10 @@ namespace quicr {
                     eflags.new_stream = false;
                     eflags.clear_tx_queue = false;
                     eflags.use_reset = false;
+
+                    if (result != TransportError::kNone) {
+                        throw TransportException(result);
+                    }
                 }
 
                 messages::StreamSubGroupObject object;
@@ -1076,14 +1098,19 @@ namespace quicr {
             }
         }
 
-        quic_transport_->Enqueue(track_handler.connection_handle_,
-                                 track_handler.publish_data_ctx_id_,
-                                 std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
-                                                                        track_handler.object_msg_buffer_.end()),
-                                 priority,
-                                 ttl,
-                                 0,
-                                 eflags);
+        auto result =
+          quic_transport_->Enqueue(track_handler.connection_handle_,
+                                   track_handler.publish_data_ctx_id_,
+                                   std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
+                                                                          track_handler.object_msg_buffer_.end()),
+                                   priority,
+                                   ttl,
+                                   0,
+                                   eflags);
+
+        if (result != TransportError::kNone) {
+            throw TransportException(result);
+        }
 
         return PublishTrackHandler::PublishObjectStatus::kOk;
     }
@@ -1348,6 +1375,7 @@ namespace quicr {
                 } else {
                     SPDLOG_LOGGER_DEBUG(logger_, "Received start of stream with invalid header type, dropping");
                     conn_ctx.metrics.rx_stream_invalid_type++;
+
                     // TODO(tievens): Need to reset this stream as this is invalid.
                     return;
                 }
@@ -1362,7 +1390,9 @@ namespace quicr {
                 }
             }
         } // end of for loop rx data queue
-    } catch (TransportError& e) {
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception on receiving stream. (error={})", e.what());
+
         // TODO(tievens): Add metrics to track if this happens
     }
 
