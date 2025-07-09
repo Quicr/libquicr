@@ -182,4 +182,32 @@ namespace quicr::messages {
         return buffer;
     }
 
+    Bytes& operator<<(Bytes& buffer, const TrackNamespace& ns)
+    {
+        const auto& entries = ns.GetEntries();
+
+        buffer << UintVar(entries.size());
+        for (const auto& entry : entries) {
+            buffer << entry;
+        }
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg)
+    {
+        uint64_t size = 0;
+        buffer = buffer >> size;
+
+        std::vector<Bytes> entries(size);
+        for (auto& entry : entries) {
+
+            buffer = buffer >> entry;
+        }
+
+        msg = TrackNamespace{ entries };
+
+        return buffer;
+    }
+
 }

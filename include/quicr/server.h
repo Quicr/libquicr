@@ -5,6 +5,7 @@
 
 #include "quicr/detail/messages.h"
 #include <quicr/config.h>
+#include <quicr/detail/attributes.h>
 #include <quicr/detail/transport.h>
 #include <quicr/object.h>
 #include <quicr/publish_fetch_handler.h>
