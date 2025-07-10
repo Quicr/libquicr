@@ -21,11 +21,10 @@ namespace quicr::messages {
      */
     struct FetchAttributes
     {
-        std::uint8_t priority;               ///< Fetch priority
-        GroupOrder group_order;              ///< Fetch group order
-        StartGroup start_group;              ///< Fetch starting group in range
-        StartObject start_object;            ///< Fetch starting object in group
-        EndGroup end_group;                  ///< Fetch final group in range
-        std::optional<EndObject> end_object; ///< Fetch final object in group
+        std::uint8_t priority;              ///< Fetch priority
+        GroupOrder group_order;             ///< Fetch group order
+        Location start_location;            ///< Fetch starting location in range
+        GroupId end_group;                  ///< Fetch final group in range
+        std::optional<ObjectId> end_object; ///< Fetch final object in group
     };
 }

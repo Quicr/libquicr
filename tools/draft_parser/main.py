@@ -38,6 +38,8 @@ def main(rfc_filename, output_name):
         "Start Location": "quicr::messages::Location",
         "End Location": "quicr::messages::Location",
         "Largest Location": "quicr::messages::Location",
+        "Start": "quicr::messages::Location",
+        "Largest": "quicr::messages::Location",
     }
 
     field_discards = ["Type", "Length"]
