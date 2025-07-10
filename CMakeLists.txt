@@ -42,6 +42,7 @@ option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(PLATFORM_ESP_IDF "Enabble support for esp-idf (Default OFF)" OFF)
 option(USE_MBEDTLS OFF)
 option(DRAFT_PARSER_SETUP_VENV "Set up Python virtual environment for draft parser" ON)
+option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
 
 # Which MOQ draft to use.
 set(DEFAULT_DRAFT "${CMAKE_CURRENT_SOURCE_DIR}/tools/draft_parser/drafts/moq_transport_draft_v11_with_addendum.txt")
@@ -105,6 +106,13 @@ endif()
 
 if (BUILD_BENCHMARKING AND quicr_BUILD_BENCHMARKS)
    add_subdirectory(benchmark)
+endif()
+
+###
+### Fuzzing targets
+###
+if(QUICR_BUILD_FUZZ)
+   add_subdirectory(fuzz)
 endif()
 
 ###
