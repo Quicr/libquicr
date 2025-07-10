@@ -89,6 +89,10 @@ namespace quicr {
           , default_priority_(default_priority)
           , default_ttl_(default_ttl)
         {
+            if (!full_track_name.track_alias.has_value()) {
+                throw std::invalid_argument("Track alias must be specified");
+            }
+
             switch (track_mode) {
                 case TrackMode::kDatagram:
                     if (stream_mode.has_value()) {
