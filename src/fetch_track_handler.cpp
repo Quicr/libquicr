@@ -46,16 +46,20 @@ namespace quicr {
             subscribe_track_metrics_.objects_received++;
             subscribe_track_metrics_.bytes_received += obj.payload.size();
 
-            ObjectReceived({ obj.group_id,
-                             obj.object_id,
-                             obj.subgroup_id,
-                             obj.payload.size(),
-                             obj.object_status,
-                             obj.publisher_priority,
-                             std::nullopt,
-                             TrackMode::kStream,
-                             obj.extensions },
-                           obj.payload);
+            try {
+                ObjectReceived({ obj.group_id,
+                                 obj.object_id,
+                                 obj.subgroup_id,
+                                 obj.payload.size(),
+                                 obj.object_status,
+                                 obj.publisher_priority,
+                                 std::nullopt,
+                                 TrackMode::kStream,
+                                 obj.extensions },
+                               obj.payload);
+            } catch (const std::exception& e) {
+                SPDLOG_ERROR("Caught exception trying to receive Fetch object. (error={})", e.what());
+            }
 
             stream_buffer_.ResetAnyB<messages::FetchObject>();
         }

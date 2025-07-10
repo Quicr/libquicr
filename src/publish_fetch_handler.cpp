@@ -12,6 +12,7 @@ namespace quicr {
         if (publish_object_func_ == nullptr) {
             return PublishObjectStatus::kInternalError;
         }
+
         return publish_object_func_(object_headers.priority.has_value() ? object_headers.priority.value()
                                                                         : default_priority_,
                                     object_headers.ttl.has_value() ? object_headers.ttl.value() : default_ttl_,
