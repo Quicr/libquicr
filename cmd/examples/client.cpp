@@ -228,33 +228,23 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
     {
         switch (status) {
             case Status::kOk: {
-                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
-                    SPDLOG_INFO("Publish track alias: {0} is ready to send", track_alias.value());
-                }
+                SPDLOG_INFO("Publish track alias: {0} is ready to send", GetTrackAlias());
                 break;
             }
             case Status::kNoSubscribers: {
-                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
-                    SPDLOG_INFO("Publish track alias: {0} has no subscribers", track_alias.value());
-                }
+                SPDLOG_INFO("Publish track alias: {0} has no subscribers", GetTrackAlias());
                 break;
             }
             case Status::kNewGroupRequested: {
-                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
-                    SPDLOG_INFO("Publish track alias: {0} has new group request", track_alias.value());
-                }
+                SPDLOG_INFO("Publish track alias: {0} has new group request", GetTrackAlias());
                 break;
             }
             case Status::kSubscriptionUpdated: {
-                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
-                    SPDLOG_INFO("Publish track alias: {0} has updated subscription", track_alias.value());
-                }
+                SPDLOG_INFO("Publish track alias: {0} has updated subscription", GetTrackAlias());
                 break;
             }
             default:
-                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
-                    SPDLOG_INFO("Publish track alias: {0} status {1}", track_alias.value(), static_cast<int>(status));
-                }
+                SPDLOG_INFO("Publish track alias: {0} has status {1}", GetTrackAlias(), static_cast<int>(status));
                 break;
         }
     }
