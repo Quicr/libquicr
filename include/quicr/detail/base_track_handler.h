@@ -79,27 +79,12 @@ namespace quicr {
         {
         }
 
+        FullTrackName full_track_name_;
+
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods to be overridden
         // --------------------------------------------------------------------------
       public:
-        /**
-         * @brief Set the track alias
-         * @details MOQ transport instance will set the track alias when the track has
-         *   been assigned.
-         *
-         * @param track_alias       MoQ track alias for track namespace+name that
-         *                          is relative to the QUIC connection session
-         */
-        void SetTrackAlias(uint64_t track_alias) { full_track_name_.track_alias = track_alias; }
-
-        /**
-         * @brief Get the track alias
-         * @returns Track alias as an optional. Track alias may not be set yet. If not
-         *   set, nullopt will be returned.
-         */
-        std::optional<uint64_t> GetTrackAlias() const noexcept { return full_track_name_.track_alias; }
-
         /**
          * @brief Sets the reqeust ID
          * @details MoQ instance sets the request id based on subscribe track method call. Request
@@ -144,8 +129,6 @@ namespace quicr {
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
-
-        FullTrackName full_track_name_;
 
         ConnectionHandle connection_handle_; // QUIC transport connection ID
 

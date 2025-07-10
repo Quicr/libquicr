@@ -37,6 +37,16 @@ namespace quicr::messages {
     {
         GroupId group{ 0 };
         ObjectId object{ 0 };
+
+        auto operator<=>(const Location& other) const
+        {
+            if (const auto cmp = group <=> other.group; cmp != 0) {
+                return cmp;
+            }
+            return object <=> other.object;
+        }
+
+        bool operator==(const Location& other) const = default;
     };
     Bytes& operator<<(Bytes& buffer, const Location& location);
     BytesSpan operator>>(BytesSpan buffer, Location& location);

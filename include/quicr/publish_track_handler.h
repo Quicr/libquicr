@@ -89,6 +89,10 @@ namespace quicr {
           , default_priority_(default_priority)
           , default_ttl_(default_ttl)
         {
+            if (!full_track_name.track_alias.has_value()) {
+                throw std::invalid_argument("Track alias must be specified");
+            }
+
             switch (track_mode) {
                 case TrackMode::kDatagram:
                     if (stream_mode.has_value()) {
@@ -120,6 +124,12 @@ namespace quicr {
             return std::shared_ptr<PublishTrackHandler>(
               new PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl));
         }
+
+        /**
+         * @brief Get the track alias
+         * @returns Track alias
+         */
+        uint64_t GetTrackAlias() const noexcept { return full_track_name_.track_alias.value(); }
 
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods

@@ -268,7 +268,6 @@ namespace quicr {
     {
 
         auto subscribe = Subscribe(request_id,
-                                   th.track_fullname_hash,
                                    tfn.name_space,
                                    tfn.name,
                                    priority,
@@ -321,13 +320,14 @@ namespace quicr {
 
     void Transport::SendSubscribeOk(ConnectionContext& conn_ctx,
                                     uint64_t request_id,
+                                    uint64_t track_alias,
                                     uint64_t expires,
                                     bool content_exists,
                                     Location largest_location)
     {
-        auto group_0 = std::make_optional<messages::SubscribeOk::Group_0>() = { largest_location };
-        auto subscribe_ok = messages::SubscribeOk(
-          request_id, expires, messages::GroupOrder::kAscending, content_exists, nullptr, group_0, {});
+        const auto group_0 = std::make_optional<messages::SubscribeOk::Group_0>() = { largest_location };
+        const auto subscribe_ok =
+          SubscribeOk(request_id, track_alias, expires, GroupOrder::kAscending, content_exists, nullptr, group_0, {});
 
         Bytes buffer;
         buffer << subscribe_ok;
@@ -467,12 +467,10 @@ namespace quicr {
 
     void Transport::SendSubscribeError(ConnectionContext& conn_ctx,
                                        uint64_t request_id,
-                                       uint64_t track_alias,
-                                       messages::SubscribeErrorCode error,
+                                       SubscribeErrorCode error,
                                        const std::string& reason)
     {
-        auto subscribe_err =
-          messages::SubscribeError(request_id, error, quicr::Bytes(reason.begin(), reason.end()), track_alias);
+        const auto subscribe_err = SubscribeError(request_id, error, quicr::Bytes(reason.begin(), reason.end()));
 
         Bytes buffer;
         buffer << subscribe_err;
@@ -497,8 +495,9 @@ namespace quicr {
                               messages::GroupId end_group,
                               messages::GroupId end_object)
     {
-        auto group_0 = std::make_optional<messages::Fetch::Group_0>() = { tfn.name_space, tfn.name,  start_group,
-                                                                          start_object,   end_group, end_object };
+        auto group_0 = std::make_optional<messages::Fetch::Group_0>() = {
+            tfn.name_space, tfn.name, { start_group, start_object }, { end_group, end_object }
+        };
 
         auto fetch = messages::Fetch(request_id,
                                      priority,
@@ -797,16 +796,7 @@ namespace quicr {
 
     void Transport::PublishTrack(TransportConnId conn_id, std::shared_ptr<PublishTrackHandler> track_handler)
     {
-        // Generate track alias
-        auto tfn = track_handler->GetFullTrackName();
-
-        // Track hash is the track alias for now.
-        // TODO(tievens): Evaluate; change hash to be more than 62 bits to avoid collisions
-        auto th = TrackHash(tfn);
-
-        track_handler->SetTrackAlias(th.track_fullname_hash);
-
-        SPDLOG_LOGGER_INFO(logger_, "Publish track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
+        SPDLOG_LOGGER_INFO(logger_, "Publish track conn_id: {0} hash: {1}", conn_id, track_handler->GetTrackAlias());
 
         std::unique_lock<std::mutex> lock(state_mutex_);
 
@@ -823,6 +813,8 @@ namespace quicr {
 
         track_handler->SetRequestId(sid);
 
+        const auto tfn = track_handler->GetFullTrackName();
+        auto th = TrackHash(tfn);
         conn_it->second.pub_tracks_ns_by_request_id[sid] = th.track_namespace_hash;
 
         // Check if this published track is a new namespace or existing.
@@ -965,10 +957,6 @@ namespace quicr {
                                                                  bool stream_header_needed,
                                                                  std::shared_ptr<const std::vector<uint8_t>> data)
     {
-        if (!track_handler.GetTrackAlias().has_value()) {
-            return PublishTrackHandler::PublishObjectStatus::kNotAnnounced;
-        }
-
         if (!track_handler.GetRequestId().has_value()) {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
@@ -1009,10 +997,6 @@ namespace quicr {
                                                                    std::optional<Extensions> extensions,
                                                                    BytesSpan data)
     {
-        if (!track_handler.GetTrackAlias().has_value()) {
-            return PublishTrackHandler::PublishObjectStatus::kNotAnnounced;
-        }
-
         if (!track_handler.GetRequestId().has_value()) {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
@@ -1027,7 +1011,7 @@ namespace quicr {
                 object.group_id = group_id;
                 object.object_id = object_id;
                 object.priority = priority;
-                object.track_alias = *track_handler.GetTrackAlias();
+                object.track_alias = track_handler.GetTrackAlias();
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
                 track_handler.object_msg_buffer_ << object;
@@ -1047,7 +1031,7 @@ namespace quicr {
                     subgroup_hdr.group_id = group_id;
                     subgroup_hdr.subgroup_id = subgroup_id;
                     subgroup_hdr.priority = priority;
-                    subgroup_hdr.track_alias = *track_handler.GetTrackAlias();
+                    subgroup_hdr.track_alias = track_handler.GetTrackAlias();
                     track_handler.object_msg_buffer_ << subgroup_hdr;
 
                     quic_transport_->Enqueue(

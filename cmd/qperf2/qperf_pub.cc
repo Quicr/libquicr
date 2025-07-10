@@ -41,10 +41,8 @@ namespace qperf {
             case Status::kOk: {
                 SPDLOG_INFO("PerfPublishTrackeHandler - status kOk");
                 auto track_alias = GetTrackAlias();
-                if (track_alias.has_value()) {
-                    SPDLOG_INFO("Track alias: {0} is ready to write", track_alias.value());
-                    write_thread_ = SpawnWriter();
-                }
+                SPDLOG_INFO("Track alias: {0} is ready to write", track_alias);
+                write_thread_ = SpawnWriter();
             } break;
             case Status::kNotConnected:
                 SPDLOG_INFO("PerfPublishTrackeHandler - status kNotConnected");

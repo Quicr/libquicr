@@ -130,10 +130,12 @@ namespace quicr {
          *
          * @param connection_handle        source connection ID
          * @param request_id               Request ID
+         * @param track_alias              Track alias the subscriber should use.
          * @param subscribe_response       response to for the subscribe
          */
         virtual void ResolveSubscribe(ConnectionHandle connection_handle,
                                       uint64_t request_id,
+                                      uint64_t track_alias,
                                       const SubscribeResponse& subscribe_response);
 
         // --BEGIN CALLBACKS ----------------------------------------------------------------------------------
@@ -273,13 +275,12 @@ namespace quicr {
          *
          * @param connection_handle     Source connection ID
          * @param request_id            Request ID received
-         * @param proposed_track_alias  The proposed track alias the subscriber would like to use
+         * @param filter_type           Filter type received
          * @param track_full_name       Track full name
          * @param subscribe_attributes  Subscribe attributes received
          */
         virtual void SubscribeReceived(ConnectionHandle connection_handle,
                                        uint64_t request_id,
-                                       uint64_t proposed_track_alias,
                                        messages::FilterType filter_type,
                                        const FullTrackName& track_full_name,
                                        const messages::SubscribeAttributes& subscribe_attributes);

@@ -150,7 +150,6 @@ TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
 {
     Bytes buffer;
     auto subscribe = quicr::messages::Subscribe(0x1,
-                                                uint64_t(kTrackAliasAliceVideo),
                                                 kTrackNamespaceConf,
                                                 kTrackNameAliceVideo,
                                                 0x10,
@@ -180,7 +179,6 @@ TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
-    CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
     CHECK_EQ(subscribe.subscriber_priority, subscribe_out.subscriber_priority);
     CHECK_EQ(subscribe.group_order, subscribe_out.group_order);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
@@ -190,7 +188,6 @@ TEST_CASE("Subscribe (kLatestGroup) Message encode/decode")
 {
     Bytes buffer;
     auto subscribe = quicr::messages::Subscribe(0x1,
-                                                uint64_t(kTrackAliasAliceVideo),
                                                 kTrackNamespaceConf,
                                                 kTrackNameAliceVideo,
                                                 0x10,
@@ -221,7 +218,6 @@ TEST_CASE("Subscribe (kLatestGroup) Message encode/decode")
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
-    CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
 }
 
@@ -233,7 +229,6 @@ TEST_CASE("Subscribe (kAbsoluteStart) Message encode/decode")
     group_0->start_location = { 0x1000, 0xFF };
 
     auto subscribe = quicr::messages::Subscribe(0x1,
-                                                uint64_t(kTrackAliasAliceVideo),
                                                 kTrackNamespaceConf,
                                                 kTrackNameAliceVideo,
                                                 0x10,
@@ -265,7 +260,6 @@ TEST_CASE("Subscribe (kAbsoluteStart) Message encode/decode")
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
-    CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
     CHECK_EQ(subscribe.group_0->start_location.group, subscribe_out.group_0->start_location.group);
     CHECK_EQ(subscribe.group_0->start_location.object, subscribe_out.group_0->start_location.object);
@@ -285,7 +279,6 @@ TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
     }
 
     auto subscribe = quicr::messages::Subscribe(0x1,
-                                                uint64_t(kTrackAliasAliceVideo),
                                                 kTrackNamespaceConf,
                                                 kTrackNameAliceVideo,
                                                 0x10,
@@ -317,7 +310,6 @@ TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
-    CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
     CHECK_EQ(subscribe.group_0->start_location.group, subscribe_out.group_0->start_location.group);
     CHECK_EQ(subscribe.group_0->start_location.object, subscribe_out.group_0->start_location.object);
@@ -333,7 +325,6 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
     SubscribeParameters params = { param };
 
     auto subscribe = quicr::messages::Subscribe(0x1,
-                                                uint64_t(kTrackAliasAliceVideo),
                                                 kTrackNamespaceConf,
                                                 kTrackNameAliceVideo,
                                                 0x10,
@@ -367,7 +358,6 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
-    CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
     CHECK_EQ(subscribe.subscribe_parameters.size(), subscribe_out.subscribe_parameters.size());
     CHECK_EQ(subscribe.subscribe_parameters[0].type, subscribe_out.subscribe_parameters[0].type);
@@ -388,7 +378,6 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
     SubscribeParameters params = { param1, param2 };
 
     auto subscribe = quicr::messages::Subscribe(0x1,
-                                                uint64_t(kTrackAliasAliceVideo),
                                                 kTrackNamespaceConf,
                                                 kTrackNameAliceVideo,
                                                 0x10,
@@ -422,7 +411,6 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
-    CHECK_EQ(subscribe.track_alias, subscribe_out.track_alias);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
     CHECK_EQ(subscribe.subscribe_parameters.size(), subscribe_out.subscribe_parameters.size());
     CHECK_EQ(subscribe.subscribe_parameters[0].type, subscribe_out.subscribe_parameters[0].type);
@@ -447,7 +435,6 @@ GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uin
           }
       });
     out.request_id = 0xABCD;
-    out.track_alias = uint64_t(kTrackAliasAliceVideo);
     out.track_namespace = kTrackNamespaceConf;
     out.track_name = kTrackNameAliceVideo;
     out.filter_type = filter;
@@ -513,7 +500,6 @@ TEST_CASE("Subscribe (Combo) Message encode/decode")
         CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
         CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
         CHECK_EQ(subscribes[i].request_id, subscribe_out.request_id);
-        CHECK_EQ(subscribes[i].track_alias, subscribe_out.track_alias);
         CHECK_EQ(subscribes[i].filter_type, subscribe_out.filter_type);
         CHECK_EQ(subscribes[i].subscribe_parameters.size(), subscribe_out.subscribe_parameters.size());
         for (size_t j = 0; j < subscribes[i].subscribe_parameters.size(); j++) {
@@ -547,7 +533,8 @@ TEST_CASE("SubscribeUpdate Message encode/decode")
 TEST_CASE("SubscribeOk Message encode/decode")
 {
     Bytes buffer;
-    auto subscribe_ok = SubscribeOk(0x1, 0x100, GroupOrder::kAscending, false, nullptr, std::nullopt, {});
+    const auto track_alias = uint64_t(kTrackAliasAliceVideo);
+    auto subscribe_ok = SubscribeOk(0x1, track_alias, 0, GroupOrder::kAscending, false, nullptr, std::nullopt, {});
 
     buffer << subscribe_ok;
 
@@ -559,6 +546,7 @@ TEST_CASE("SubscribeOk Message encode/decode")
 
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeOk), subscribe_ok_out));
     CHECK_EQ(subscribe_ok.request_id, subscribe_ok_out.request_id);
+    CHECK_EQ(subscribe_ok.track_alias, subscribe_ok_out.track_alias);
     CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
     CHECK_EQ(subscribe_ok.group_order, subscribe_ok_out.group_order);
     CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
@@ -571,7 +559,7 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
     auto group_0 = std::make_optional<SubscribeOk::Group_0>();
     group_0->largest_location = { 100, 200 };
 
-    auto subscribe_ok = SubscribeOk(0x01, 0x100, GroupOrder::kAscending, 0x01, nullptr, group_0, {});
+    auto subscribe_ok = SubscribeOk(0x01, 0x1000, 0, GroupOrder::kAscending, 1, nullptr, group_0, {});
 
     buffer << subscribe_ok;
 
@@ -598,7 +586,6 @@ TEST_CASE("Error  Message encode/decode")
     subscribe_err.request_id = 0x1;
     subscribe_err.error_code = quicr::messages::SubscribeErrorCode::kTrackDoesNotExist;
     subscribe_err.error_reason = Bytes{ 0x0, 0x1 };
-    subscribe_err.track_alias = uint64_t(kTrackAliasAliceVideo);
     buffer << subscribe_err;
 
     SubscribeError subscribe_err_out;
@@ -606,7 +593,6 @@ TEST_CASE("Error  Message encode/decode")
     CHECK_EQ(subscribe_err.request_id, subscribe_err_out.request_id);
     CHECK_EQ(subscribe_err.error_code, subscribe_err_out.error_code);
     CHECK_EQ(subscribe_err.error_reason, subscribe_err_out.error_reason);
-    CHECK_EQ(subscribe_err.track_alias, subscribe_err_out.track_alias);
 }
 
 TEST_CASE("Unsubscribe  Message encode/decode")
@@ -717,10 +703,10 @@ TEST_CASE("Fetch Message encode/decode")
     if (group_0.has_value()) {
         group_0->track_namespace = kTrackNamespaceConf;
         group_0->track_name = kTrackNameAliceVideo;
-        group_0->start_group = 0x1000;
-        group_0->start_object = 0x0;
-        group_0->end_group = 0x2000;
-        group_0->end_object = 0x100;
+        group_0->start_location.group = 0x1000;
+        group_0->start_location.object = 0x0;
+        group_0->end_location.group = 0x2000;
+        group_0->end_location.object = 0x100;
     }
     auto fetch =
       Fetch(0x10, 1, GroupOrder::kAscending, FetchType::kStandalone, nullptr, group_0, nullptr, std::nullopt, {});
@@ -745,17 +731,15 @@ TEST_CASE("Fetch Message encode/decode")
 
         CHECK_EQ(fetch.group_0->track_namespace, fetch_out.group_0->track_namespace);
         CHECK_EQ(fetch.group_0->track_name, fetch_out.group_0->track_name);
-        CHECK_EQ(fetch.group_0->start_group, fetch_out.group_0->start_group);
-        CHECK_EQ(fetch.group_0->start_object, fetch_out.group_0->start_object);
-        CHECK_EQ(fetch.group_0->end_group, fetch_out.group_0->end_group);
-        CHECK_EQ(fetch.group_0->end_object, fetch_out.group_0->end_object);
+        CHECK_EQ(fetch.group_0->start_location, fetch_out.group_0->start_location);
+        CHECK_EQ(fetch.group_0->end_location, fetch_out.group_0->end_location);
     }
 
     buffer.clear();
 
     auto group_1 = std::make_optional<Fetch::Group_1>();
     if (group_1.has_value()) {
-        group_1->joining_subscribe_id = 0x0;
+        group_1->joining_request_id = 0x0;
         group_1->joining_start = 0x0;
     }
 
@@ -775,7 +759,7 @@ TEST_CASE("Fetch Message encode/decode")
           nullptr);
 
         CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetch), fetch_out));
-        CHECK_EQ(fetch.group_1->joining_subscribe_id, fetch_out.group_1->joining_subscribe_id);
+        CHECK_EQ(fetch.group_1->joining_request_id, fetch_out.group_1->joining_request_id);
         CHECK_EQ(fetch.group_1->joining_start, fetch_out.group_1->joining_start);
     }
 }
@@ -998,4 +982,66 @@ TEST_CASE("ControlMessage encode/decode")
     buffer >> out;
     CHECK_EQ(out.type, msg.type);
     CHECK_EQ(out.payload, msg.payload);
+}
+
+TEST_CASE("Location Equality / Comparison")
+{
+    // Test equality
+    Location loc1{ 1, 2 };
+    Location loc2{ 1, 2 };
+    Location loc3{ 1, 3 };
+    Location loc4{ 2, 1 };
+
+    // Test equality operator
+    CHECK(loc1 == loc2);
+    CHECK_FALSE(loc1 == loc3);
+    CHECK_FALSE(loc1 == loc4);
+
+    // Test inequality operator
+    CHECK_FALSE(loc1 != loc2);
+    CHECK(loc1 != loc3);
+    CHECK(loc1 != loc4);
+
+    // Test less than operator
+    // Same group, different objects
+    CHECK(loc1 < loc3);       // {1,2} < {1,3}
+    CHECK_FALSE(loc3 < loc1); // {1,3} not < {1,2}
+
+    // Different groups
+    CHECK(loc1 < loc4);       // {1,2} < {2,1}
+    CHECK_FALSE(loc4 < loc1); // {2,1} not < {1,2}
+
+    // Test greater than operator
+    CHECK(loc3 > loc1);       // {1,3} > {1,2}
+    CHECK_FALSE(loc1 > loc3); // {1,2} not > {1,3}
+
+    CHECK(loc4 > loc1);       // {2,1} > {1,2}
+    CHECK_FALSE(loc1 > loc4); // {1,2} not > {2,1}
+
+    // Test less than or equal
+    CHECK(loc1 <= loc2);       // Equal case
+    CHECK(loc1 <= loc3);       // Less than case
+    CHECK_FALSE(loc3 <= loc1); // Greater than case
+
+    // Test greater than or equal
+    CHECK(loc1 >= loc2);       // Equal case
+    CHECK(loc3 >= loc1);       // Greater than case
+    CHECK_FALSE(loc1 >= loc3); // Less than case
+
+    // Test edge cases with zero values
+    Location loc_zero{ 0, 0 };
+    Location loc_group_zero{ 0, 1 };
+    Location loc_object_zero{ 1, 0 };
+
+    CHECK(loc_zero < loc_group_zero);        // {0,0} < {0,1}
+    CHECK(loc_zero < loc_object_zero);       // {0,0} < {1,0}
+    CHECK(loc_group_zero < loc_object_zero); // {0,1} < {1,0}
+
+    // Test comparison with large values
+    Location loc_large1{ UINT64_MAX, UINT64_MAX };
+    Location loc_large2{ UINT64_MAX, UINT64_MAX - 1 };
+
+    CHECK(loc_large2 < loc_large1);
+    CHECK(loc_large1 > loc_large2);
+    CHECK_FALSE(loc_large1 == loc_large2);
 }
