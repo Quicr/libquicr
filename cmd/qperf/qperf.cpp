@@ -95,11 +95,10 @@ namespace {
         {
             switch (status) {
                 case Status::kOk: {
-                    if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
-                        SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
-                        cv.notify_one();
-                    }
-                } break;
+                    SPDLOG_INFO("Track alias: {0} is ready to read", GetTrackAlias());
+                    cv.notify_one();
+                    break;
+                }
                 default:
                     break;
             }

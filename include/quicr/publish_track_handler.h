@@ -121,6 +121,12 @@ namespace quicr {
               new PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl));
         }
 
+        /**
+         * @brief Get the track alias
+         * @returns Track alias
+         */
+        uint64_t GetTrackAlias() const noexcept { return full_track_name_.track_alias.value(); }
+
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
         // --------------------------------------------------------------------------

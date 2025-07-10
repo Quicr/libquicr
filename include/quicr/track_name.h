@@ -261,7 +261,6 @@ namespace quicr {
      * @brief Full track name struct
      *
      * @details Struct of the full track name, which includes the namespace tuple, name, and track alias
-     *   Track alias will be set by the Transport.
      */
     struct FullTrackName
     {
