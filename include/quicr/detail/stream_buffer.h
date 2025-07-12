@@ -215,12 +215,12 @@ namespace quicr {
          *      unsigned 64bit integer will be returned and the buffer
          *      will be moved past the uintV. Nullopt will be returned if not enough
          *      bytes are available.
-         *
+         * @param pop True to move the buffer past the uintV.
          * @return Returns uint64 decoded value or nullopt if not enough bytes are available
          */
-        std::optional<uint64_t> DecodeUintV()
+        std::optional<uint64_t> DecodeUintV(bool pop = true)
         {
-            const auto uintv = ReadUintV();
+            const auto uintv = ReadUintV(pop);
             if (uintv) {
                 return uint64_t(*uintv);
             }
@@ -234,10 +234,10 @@ namespace quicr {
          *      encoded uintV will be returned and the buffer
          *      will be moved past the uintV. Nullopt will be returned if not enough
          *      bytes are available.
-         *
+         * @param pop True to move the buffer past the uintV.
          * @return Returns uintV or nullopt if not enough bytes are available
          */
-        std::optional<UintVar> ReadUintV()
+        std::optional<UintVar> ReadUintV(bool pop = true)
         {
             if (buffer_.empty()) {
                 return std::nullopt;
@@ -251,7 +251,9 @@ namespace quicr {
             if (Available(uv_len)) {
 
                 auto val = UintVar(FrontInternal(uv_len));
-                PopInternal(uv_len);
+                if (pop) {
+                    PopInternal(uv_len);
+                }
 
                 return val;
             }

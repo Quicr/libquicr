@@ -4,11 +4,21 @@
 #include "quicr/detail/transport.h"
 #include "quicr/detail/messages.h"
 
+#include <format>
 #include <quicr/detail/joining_fetch_handler.h>
 #include <sstream>
 
 namespace quicr {
     using namespace quicr::messages;
+
+    TransportException::TransportException(TransportError error, std::source_location location)
+      : std::runtime_error(std::format("Error in transport (error={}, line={}, file={})",
+                                       static_cast<int>(error),
+                                       location.line(),
+                                       location.file_name()))
+      , Error(error)
+    {
+    }
 
     static std::optional<std::tuple<std::string, uint16_t>> ParseConnectUri(const std::string& connect_uri)
     {
@@ -138,19 +148,19 @@ namespace quicr {
             conn_ctx->second.connection_handle = conn_id;
 
             return status_;
-        } else {
-            TransportRemote server;
-            server.host_or_ip = server_config_.server_bind_ip;
-            server.port = server_config_.server_port;
-            server.proto = TransportProtocol::kQuic;
-
-            quic_transport_ =
-              ITransport::MakeServerTransport(server, server_config_.transport_config, *this, tick_service_, logger_);
-            quic_transport_->Start();
-
-            status_ = Status::kReady;
-            return status_;
         }
+
+        TransportRemote server;
+        server.host_or_ip = server_config_.server_bind_ip;
+        server.port = server_config_.server_port;
+        server.proto = TransportProtocol::kQuic;
+
+        quic_transport_ =
+          ITransport::MakeServerTransport(server, server_config_.transport_config, *this, tick_service_, logger_);
+        quic_transport_->Start();
+
+        status_ = Status::kReady;
+        return status_;
     }
 
     Transport::Status Transport::Stop()
@@ -167,17 +177,21 @@ namespace quicr {
             return;
         }
 
-        quic_transport_->Enqueue(conn_ctx.connection_handle,
-                                 *conn_ctx.ctrl_data_ctx_id,
-                                 std::make_shared<const std::vector<uint8_t>>(data.begin(), data.end()),
-                                 0,
-                                 2000,
-                                 0,
-                                 { true, false, false, false });
+        auto result = quic_transport_->Enqueue(conn_ctx.connection_handle,
+                                               *conn_ctx.ctrl_data_ctx_id,
+                                               std::make_shared<const std::vector<uint8_t>>(data.begin(), data.end()),
+                                               0,
+                                               2000,
+                                               0,
+                                               { true, false, false, false });
+
+        if (result != TransportError::kNone) {
+            throw TransportException(result);
+        }
     }
 
     void Transport::SendClientSetup()
-    {
+    try {
         auto supported_versions = { kMoqtVersion };
         messages::SetupParameters setup_parameters;
         setup_parameters.push_back(
@@ -193,10 +207,13 @@ namespace quicr {
         auto& conn_ctx = connections_.begin()->second;
 
         SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending ClientSetup (error={})", e.what());
+        throw;
     }
 
     void Transport::SendServerSetup(ConnectionContext& conn_ctx)
-    {
+    try {
         auto selected_version = conn_ctx.client_version;
 
         messages::SetupParameters setup_parameters;
@@ -212,132 +229,156 @@ namespace quicr {
         SPDLOG_LOGGER_DEBUG(logger_, "Sending SERVER_SETUP to conn_id: {0}", conn_ctx.connection_handle);
 
         SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending ServerSetup (error={})", e.what());
+        throw;
     }
 
-    void Transport::SendAnnounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
-    {
-        auto announce = messages::Announce(track_namespace, {});
+    void Transport::SendAnnounce(ConnectionContext& conn_ctx,
+                                 RequestID request_id,
+                                 const TrackNamespace& track_namespace)
+    try {
+        auto announce = messages::Announce(request_id, track_namespace, {});
 
         Bytes buffer;
         buffer << announce;
 
         auto th = TrackHash({ track_namespace, {}, std::nullopt });
         SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending ANNOUNCE to conn_id: {} namespace_hash: {}",
+                            "Sending ANNOUNCE to conn_id: {} request_id: {} namespace_hash: {}",
                             conn_ctx.connection_handle,
+                            request_id,
                             th.track_namespace_hash);
 
         SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Announce (error={})", e.what());
+        throw;
     }
 
-    void Transport::SendAnnounceOk(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
-    {
-        auto announce_ok = messages::AnnounceOk(track_namespace);
+    void Transport::SendAnnounceOk(ConnectionContext& conn_ctx, RequestID request_id)
+    try {
+        auto announce_ok = messages::AnnounceOk(request_id);
 
         Bytes buffer;
         buffer << announce_ok;
 
-        SPDLOG_LOGGER_DEBUG(logger_, "Sending ANNOUNCE OK to conn_id: {0}", conn_ctx.connection_handle);
+        SPDLOG_LOGGER_DEBUG(
+          logger_, "Sending ANNOUNCE OK to conn_id: {} request_id: {}", conn_ctx.connection_handle, request_id);
 
         SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending AnnounceOk (error={})", e.what());
+        throw;
     }
 
     void Transport::SendUnannounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
-    {
+    try {
         auto unannounce = messages::Unannounce(track_namespace);
 
         Bytes buffer;
         buffer << unannounce;
 
-        SPDLOG_LOGGER_DEBUG(logger_, "Sending UNANNOUNCE to conn_id: {0}", conn_ctx.connection_handle);
+        SPDLOG_LOGGER_DEBUG(logger_, "Sending UNANNOUNCE to conn_id: {}", conn_ctx.connection_handle);
 
         SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Unannounce (error={})", e.what());
+        throw;
     }
 
     void Transport::SendSubscribe(ConnectionContext& conn_ctx,
-                                  uint64_t subscribe_id,
+                                  uint64_t request_id,
                                   const FullTrackName& tfn,
                                   TrackHash th,
-                                  messages::SubscriberPriority priority,
-                                  messages::GroupOrder group_order,
-                                  messages::FilterType filter_type)
-    {
+                                  SubscriberPriority priority,
+                                  GroupOrder group_order,
+                                  FilterType filter_type)
+    try {
 
-        auto subscribe = messages::Subscribe(subscribe_id,
-                                             th.track_fullname_hash,
-                                             tfn.name_space,
-                                             tfn.name,
-                                             priority,
-                                             group_order,
-                                             filter_type,
-                                             nullptr,
-                                             std::nullopt,
-                                             nullptr,
-                                             std::nullopt,
-                                             {});
+        auto subscribe = Subscribe(request_id,
+                                   th.track_fullname_hash,
+                                   tfn.name_space,
+                                   tfn.name,
+                                   priority,
+                                   group_order,
+                                   1,
+                                   filter_type,
+                                   nullptr,
+                                   std::nullopt,
+                                   nullptr,
+                                   std::nullopt,
+                                   {});
 
         Bytes buffer;
         buffer << subscribe;
 
         SPDLOG_LOGGER_DEBUG(
           logger_,
-          "Sending SUBSCRIBE to conn_id: {0} subscribe_id: {1} track namespace hash: {2} name hash: {3}",
+          "Sending SUBSCRIBE to conn_id: {0} request_id: {1} track namespace hash: {2} name hash: {3}",
           conn_ctx.connection_handle,
-          subscribe_id,
+          request_id,
           th.track_namespace_hash,
           th.track_name_hash);
 
         SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Subscribe (error={})", e.what());
+        throw;
     }
 
     void Transport::SendSubscribeUpdate(quicr::Transport::ConnectionContext& conn_ctx,
-                                        uint64_t subscribe_id,
+                                        uint64_t request_id,
                                         quicr::TrackHash th,
-                                        messages::GroupId start_group_id,
-                                        messages::ObjectId start_object_id,
+                                        Location start_location,
                                         messages::GroupId end_group_id,
                                         messages::SubscriberPriority priority)
-    {
+    try {
         auto subscribe_update =
-          messages::SubscribeUpdate(subscribe_id, start_group_id, start_object_id, end_group_id, priority, {});
+          messages::SubscribeUpdate(request_id, start_location, end_group_id, end_group_id, priority, {});
 
         Bytes buffer;
         buffer << subscribe_update;
 
         SPDLOG_LOGGER_DEBUG(
           logger_,
-          "Sending SUBSCRIBE_UPDATe to conn_id: {0} subscribe_id: {1} track namespace hash: {2} name hash: {3}",
+          "Sending SUBSCRIBE_UPDATe to conn_id: {0} request_id: {1} track namespace hash: {2} name hash: {3}",
           conn_ctx.connection_handle,
-          subscribe_id,
+          request_id,
           th.track_namespace_hash,
           th.track_name_hash);
 
         SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeUpdate (error={})", e.what());
+        throw;
     }
 
     void Transport::SendSubscribeOk(ConnectionContext& conn_ctx,
-                                    uint64_t subscribe_id,
+                                    uint64_t request_id,
                                     uint64_t expires,
                                     bool content_exists,
-                                    messages::LargestGroupID largest_group_id,
-                                    messages::LargestObjectID largest_object_id)
-    {
-        auto group_0 = std::make_optional<messages::SubscribeOk::Group_0>() = { largest_group_id, largest_object_id };
+                                    Location largest_location)
+    try {
+        auto group_0 = std::make_optional<messages::SubscribeOk::Group_0>() = { largest_location };
         auto subscribe_ok = messages::SubscribeOk(
-          subscribe_id, expires, messages::GroupOrder::kAscending, content_exists, nullptr, group_0, {});
+          request_id, expires, messages::GroupOrder::kAscending, content_exists, nullptr, group_0, {});
 
         Bytes buffer;
         buffer << subscribe_ok;
 
         SPDLOG_LOGGER_DEBUG(
-          logger_, "Sending SUBSCRIBE OK to conn_id: {0} subscribe_id: {1}", conn_ctx.connection_handle, subscribe_id);
+          logger_, "Sending SUBSCRIBE OK to conn_id: {0} request_id: {1}", conn_ctx.connection_handle, request_id);
 
         SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeOk (error={})", e.what());
+        throw;
     }
 
-    void Transport::SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason)
-    {
-        auto subscribe_done = messages::SubscribeDone(subscribe_id,
+    void Transport::SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t request_id, const std::string& reason)
+    try {
+        auto subscribe_done = messages::SubscribeDone(request_id,
                                                       messages::SubscribeDoneStatusCode::kSubscribtionEnded,
                                                       0,
                                                       quicr::Bytes(reason.begin(), reason.end()));
@@ -345,29 +386,33 @@ namespace quicr {
         Bytes buffer;
         buffer << subscribe_done;
 
-        SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending SUBSCRIBE DONE to conn_id: {0} subscribe_id: {1}",
-                            conn_ctx.connection_handle,
-                            subscribe_id);
+        SPDLOG_LOGGER_DEBUG(
+          logger_, "Sending SUBSCRIBE DONE to conn_id: {0} request_id: {1}", conn_ctx.connection_handle, request_id);
 
         SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeDone (error={})", e.what());
+        throw;
     }
 
-    void Transport::SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id)
-    {
-        auto unsubscribe = messages::Unsubscribe(subscribe_id);
+    void Transport::SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t request_id)
+    try {
+        auto unsubscribe = messages::Unsubscribe(request_id);
 
         Bytes buffer;
         buffer << unsubscribe;
 
         SPDLOG_LOGGER_DEBUG(
-          logger_, "Sending UNSUBSCRIBE to conn_id: {0} subscribe_id: {1}", conn_ctx.connection_handle, subscribe_id);
+          logger_, "Sending UNSUBSCRIBE to conn_id: {0} request_id: {1}", conn_ctx.connection_handle, request_id);
 
         SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Unsubscribe (error={})", e.what());
+        throw;
     }
 
     void Transport::SendSubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace)
-    {
+    try {
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_handle);
         if (conn_it == connections_.end()) {
@@ -375,7 +420,13 @@ namespace quicr {
             return;
         }
 
-        auto msg = messages::SubscribeAnnounces(prefix_namespace, {});
+        auto rid = conn_it->second.next_request_id++ << 1;
+        if (client_mode_) {
+            rid++;
+        }
+
+        conn_it->second.sub_announces_by_request_id[rid] = prefix_namespace;
+        auto msg = messages::SubscribeAnnounces(rid, prefix_namespace, {});
 
         Bytes buffer;
         buffer << msg;
@@ -383,58 +434,73 @@ namespace quicr {
         auto th = TrackHash({ prefix_namespace, {}, std::nullopt });
 
         SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending Subscribe announces to conn_id: {} prefix_hash: {}",
+                            "Sending Subscribe announces to conn_id: {} request_id: {} prefix_hash: {}",
                             conn_it->second.connection_handle,
+                            rid,
                             th.track_namespace_hash);
 
         SendCtrlMsg(conn_it->second, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeAnnounces (error={})", e.what());
+        throw;
     }
 
-    void Transport::SendSubscribeAnnouncesOk(ConnectionContext& conn_ctx, const TrackNamespace& prefix_namespace)
-    {
-        auto msg = messages::SubscribeAnnouncesOk(prefix_namespace);
+    void Transport::SendSubscribeAnnouncesOk(ConnectionContext& conn_ctx, RequestID request_id)
+    try {
+        auto msg = messages::SubscribeAnnouncesOk(request_id);
 
         Bytes buffer;
         buffer << msg;
 
-        auto th = TrackHash({ prefix_namespace, {}, std::nullopt });
-
         SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending Subscribe announces ok to conn_id: {} prefix_hash: {}",
+                            "Sending Subscribe announces ok to conn_id: {} request_id: {}",
                             conn_ctx.connection_handle,
-                            th.track_namespace_hash);
+                            request_id);
 
         SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeAnnouncesOk (error={})", e.what());
+        throw;
     }
 
     void Transport::SendSubscribeAnnouncesError(ConnectionContext& conn_ctx,
-                                                const TrackNamespace& prefix_namespace,
+                                                RequestID request_id,
                                                 messages::SubscribeAnnouncesErrorCode err_code,
                                                 const messages::ReasonPhrase& reason)
-    {
+    try {
 
-        auto msg =
-          messages::SubscribeAnnouncesError(prefix_namespace, err_code, quicr::Bytes(reason.begin(), reason.end()));
+        auto msg = messages::SubscribeAnnouncesError(request_id, err_code, quicr::Bytes(reason.begin(), reason.end()));
 
         Bytes buffer;
         buffer << msg;
 
-        auto th = TrackHash({ prefix_namespace, {}, std::nullopt });
         SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending Subscribe announces error to conn_id: {} prefix_hash: {}",
+                            "Sending Subscribe announces error to conn_id: {} request_id: {}",
                             conn_ctx.connection_handle,
-                            th.track_namespace_hash);
+                            request_id);
 
         SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeAnnouncesError (error={})", e.what());
+        throw;
     }
 
     void Transport::SendUnsubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace)
-    {
+    try {
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_handle);
         if (conn_it == connections_.end()) {
             SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_handle);
             return;
+        }
+
+        for (auto it = conn_it->second.sub_announces_by_request_id.begin();
+             it != conn_it->second.sub_announces_by_request_id.end();
+             ++it) {
+            if (it->second == prefix_namespace) {
+                conn_it->second.sub_announces_by_request_id.erase(it);
+                break;
+            }
         }
 
         auto msg = messages::UnsubscribeAnnounces(prefix_namespace);
@@ -450,32 +516,38 @@ namespace quicr {
                             th.track_namespace_hash);
 
         SendCtrlMsg(conn_it->second, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending UnsubscribeAnnounces (error={})", e.what());
+        throw;
     }
 
     void Transport::SendSubscribeError(ConnectionContext& conn_ctx,
-                                       uint64_t subscribe_id,
+                                       uint64_t request_id,
                                        uint64_t track_alias,
                                        messages::SubscribeErrorCode error,
                                        const std::string& reason)
-    {
+    try {
         auto subscribe_err =
-          messages::SubscribeError(subscribe_id, error, quicr::Bytes(reason.begin(), reason.end()), track_alias);
+          messages::SubscribeError(request_id, error, quicr::Bytes(reason.begin(), reason.end()), track_alias);
 
         Bytes buffer;
         buffer << subscribe_err;
 
         SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending SUBSCRIBE ERROR to conn_id: {0} subscribe_id: {1} error code: {2} reason: {3}",
+                            "Sending SUBSCRIBE ERROR to conn_id: {0} request_id: {1} error code: {2} reason: {3}",
                             conn_ctx.connection_handle,
-                            subscribe_id,
+                            request_id,
                             static_cast<int>(error),
                             reason);
 
         SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeError (error={})", e.what());
+        throw;
     }
 
     void Transport::SendFetch(ConnectionContext& conn_ctx,
-                              uint64_t subscribe_id,
+                              uint64_t request_id,
                               const FullTrackName& tfn,
                               messages::SubscriberPriority priority,
                               messages::GroupOrder group_order,
@@ -483,11 +555,11 @@ namespace quicr {
                               messages::GroupId start_object,
                               messages::GroupId end_group,
                               messages::GroupId end_object)
-    {
+    try {
         auto group_0 = std::make_optional<messages::Fetch::Group_0>() = { tfn.name_space, tfn.name,  start_group,
                                                                           start_object,   end_group, end_object };
 
-        auto fetch = messages::Fetch(subscribe_id,
+        auto fetch = messages::Fetch(request_id,
                                      priority,
                                      group_order,
                                      messages::FetchType::kStandalone,
@@ -501,20 +573,22 @@ namespace quicr {
         buffer << fetch;
 
         SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Fetch (error={})", e.what());
+        throw;
     }
 
     void Transport::SendJoiningFetch(ConnectionContext& conn_ctx,
-                                     uint64_t subscribe_id,
+                                     uint64_t request_id,
                                      messages::SubscriberPriority priority,
                                      messages::GroupOrder group_order,
-                                     uint64_t joining_subscribe_id,
+                                     uint64_t joining_request_id,
                                      messages::GroupId preceding_group_offset,
                                      const messages::Parameters parameters)
-    {
-        auto group_1 =
-          std::make_optional<messages::Fetch::Group_1>() = { joining_subscribe_id, preceding_group_offset };
+    try {
+        auto group_1 = std::make_optional<messages::Fetch::Group_1>() = { joining_request_id, preceding_group_offset };
 
-        auto fetch = messages::Fetch(subscribe_id,
+        auto fetch = messages::Fetch(request_id,
                                      priority,
                                      group_order,
                                      messages::FetchType::kJoiningFetch,
@@ -528,56 +602,67 @@ namespace quicr {
         buffer << fetch;
 
         SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending JoiningFetch (error={})", e.what());
+        throw;
     }
 
-    void Transport::SendFetchCancel(ConnectionContext& conn_ctx, uint64_t subscribe_id)
-    {
-        auto fetch_cancel = messages::FetchCancel(subscribe_id);
+    void Transport::SendFetchCancel(ConnectionContext& conn_ctx, uint64_t request_id)
+    try {
+        auto fetch_cancel = messages::FetchCancel(request_id);
 
         Bytes buffer;
         buffer << fetch_cancel;
 
         SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending FetchCancel (error={})", e.what());
+        throw;
     }
 
     void Transport::SendFetchOk(ConnectionContext& conn_ctx,
-                                uint64_t subscribe_id,
-                                messages::GroupOrder group_order,
+                                uint64_t request_id,
+                                GroupOrder group_order,
                                 bool end_of_track,
-                                messages::GroupId largest_group,
-                                messages::GroupId largest_object)
-    {
-        auto fetch_ok = messages::FetchOk(subscribe_id, group_order, end_of_track, largest_group, largest_object, {});
+                                Location largest_location)
+    try {
+        auto fetch_ok = messages::FetchOk(request_id, group_order, end_of_track, largest_location, {});
 
         Bytes buffer;
         buffer << fetch_ok;
 
         SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending FetchOk (error={})", e.what());
+        throw;
     }
 
     void Transport::SendFetchError(ConnectionContext& conn_ctx,
-                                   uint64_t subscribe_id,
-                                   messages::FetchErrorCode error,
+                                   uint64_t request_id,
+                                   FetchErrorCode error,
                                    const std::string& reason)
-    {
-        auto fetch_err = messages::FetchError(subscribe_id, error, quicr::Bytes(reason.begin(), reason.end()));
+    try {
+        auto fetch_err = messages::FetchError(request_id, error, quicr::Bytes(reason.begin(), reason.end()));
 
         Bytes buffer;
         buffer << fetch_err;
 
         SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending FETCH ERROR to conn_id: {0} subscribe_id: {1} error code: {2} reason: {3}",
+                            "Sending FETCH ERROR to conn_id: {0} request_id: {1} error code: {2} reason: {3}",
                             conn_ctx.connection_handle,
-                            subscribe_id,
+                            request_id,
                             static_cast<int>(error),
                             reason);
 
         SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending FetchError (error={})", e.what());
+        throw;
     }
 
-    void Transport::SendNewGroupRequest(ConnectionHandle conn_id, uint64_t subscribe_id, uint64_t track_alias)
-    {
-        auto new_group_request = messages::NewGroupRequest(subscribe_id, track_alias);
+    void Transport::SendNewGroupRequest(ConnectionHandle conn_id, uint64_t request_id, uint64_t track_alias)
+    try {
+        auto new_group_request = messages::NewGroupRequest(request_id, track_alias);
         Bytes buffer;
         buffer << new_group_request;
 
@@ -589,6 +674,9 @@ namespace quicr {
         }
 
         SendCtrlMsg(conn_it->second, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending NewGroupRequest (error={})", e.what());
+        throw;
     }
 
     void Transport::SubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
@@ -616,11 +704,12 @@ namespace quicr {
             return;
         }
 
-        auto sid = conn_it->second.current_subscribe_id++;
+        auto sid = conn_it->second.next_request_id++ << 1;
+        if (client_mode_) {
+            sid++;
+        }
 
-        SPDLOG_LOGGER_DEBUG(logger_, "subscribe id (from subscribe) to add to memory: {0}", sid);
-
-        track_handler->SetSubscribeId(sid);
+        track_handler->SetRequestId(sid);
 
         auto priority = track_handler->GetPriority();
         auto group_order = track_handler->GetGroupOrder();
@@ -633,7 +722,7 @@ namespace quicr {
 
         // Set the track handler for tracking by subscribe ID and track alias
         conn_it->second.sub_by_track_alias[*track_handler->GetTrackAlias()] = track_handler;
-        conn_it->second.tracks_by_sub_id[sid] = track_handler;
+        conn_it->second.tracks_by_request_id[sid] = track_handler;
 
         SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type);
 
@@ -642,7 +731,7 @@ namespace quicr {
             // Make a joining fetch handler.
             const auto joining_fetch_handler = std::make_shared<JoiningFetchHandler>(track_handler);
             const auto& info = *joining_fetch;
-            const auto fetch_sid = conn_it->second.current_subscribe_id++;
+            const auto fetch_sid = conn_it->second.next_request_id++;
             SPDLOG_LOGGER_INFO(logger_,
                                "Subscribe with joining fetch conn_id: {0} track_alias: {1} subscribe id: {2} "
                                "joining subscribe id: {3}",
@@ -650,7 +739,7 @@ namespace quicr {
                                th.track_fullname_hash,
                                fetch_sid,
                                sid);
-            conn_it->second.tracks_by_sub_id[fetch_sid] = std::move(joining_fetch_handler);
+            conn_it->second.tracks_by_request_id[fetch_sid] = std::move(joining_fetch_handler);
             SendJoiningFetch(conn_it->second,
                              fetch_sid,
                              info.priority,
@@ -683,15 +772,15 @@ namespace quicr {
             return;
         }
 
-        if (not track_handler->GetSubscribeId().has_value()) {
+        if (not track_handler->GetRequestId().has_value()) {
             return;
         }
 
         SPDLOG_LOGGER_DEBUG(
-          logger_, "subscribe id (from subscribe) to add to memory: {0}", track_handler->GetSubscribeId().value());
+          logger_, "subscribe id (from subscribe) to add to memory: {0}", track_handler->GetRequestId().value());
 
         auto priority = track_handler->GetPriority();
-        SendSubscribeUpdate(conn_it->second, track_handler->GetSubscribeId().value(), th, 0x0, 0x0, 0x0, priority);
+        SendSubscribeUpdate(conn_it->second, track_handler->GetRequestId().value(), th, { 0x0, 0x0 }, 0x0, priority);
     }
 
     void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx,
@@ -700,20 +789,20 @@ namespace quicr {
     {
         handler.SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
 
-        auto subscribe_id = handler.GetSubscribeId();
+        auto request_id = handler.GetRequestId();
 
-        handler.SetSubscribeId(std::nullopt);
+        handler.SetRequestId(std::nullopt);
 
-        if (subscribe_id.has_value()) {
-            SendUnsubscribe(conn_ctx, *subscribe_id);
+        if (request_id.has_value()) {
+            SendUnsubscribe(conn_ctx, *request_id);
 
-            SPDLOG_LOGGER_DEBUG(logger_, "Removed subscribe track subscribe id: {0}", *subscribe_id);
+            SPDLOG_LOGGER_DEBUG(logger_, "Removed subscribe track subscribe id: {0}", *request_id);
 
             if (remove_handler) {
                 handler.SetStatus(SubscribeTrackHandler::Status::kNotConnected); // Set after remove subscribe track
 
                 std::lock_guard<std::mutex> _(state_mutex_);
-                conn_ctx.tracks_by_sub_id.erase(*subscribe_id);
+                conn_ctx.tracks_by_request_id.erase(*request_id);
                 conn_ctx.sub_by_track_alias.erase(*handler.GetTrackAlias());
             }
         }
@@ -735,6 +824,7 @@ namespace quicr {
             return;
         }
 
+        conn_it->second.pub_tracks_ns_by_request_id.erase(*track_handler->GetRequestId());
         conn_it->second.pub_tracks_by_track_alias.erase(th.track_fullname_hash);
 
         // Check if this published track is a new namespace or existing.
@@ -744,7 +834,7 @@ namespace quicr {
             if (pub_n_it != pub_ns_it->second.end()) {
                 // Send subscribe done if track has subscriber and is sending
                 if (pub_n_it->second->GetStatus() == PublishTrackHandler::Status::kOk &&
-                    pub_n_it->second->GetSubscribeId().has_value()) {
+                    pub_n_it->second->GetRequestId().has_value()) {
                     SPDLOG_LOGGER_INFO(
                       logger_,
                       "Unpublish track namespace hash: {0} track_name_hash: {1} track_alias: {2}, sending "
@@ -752,7 +842,7 @@ namespace quicr {
                       th.track_namespace_hash,
                       th.track_name_hash,
                       th.track_fullname_hash);
-                    SendSubscribeDone(conn_it->second, *pub_n_it->second->GetSubscribeId(), "Unpublish track");
+                    SendSubscribeDone(conn_it->second, *pub_n_it->second->GetRequestId(), "Unpublish track");
                 } else {
                     SPDLOG_LOGGER_INFO(logger_,
                                        "Unpublish track namespace hash: {0} track_name_hash: {1} track_alias: {2}",
@@ -803,6 +893,15 @@ namespace quicr {
             return;
         }
 
+        auto sid = conn_it->second.next_request_id++ << 1;
+        if (client_mode_) {
+            sid++;
+        }
+
+        track_handler->SetRequestId(sid);
+
+        conn_it->second.pub_tracks_ns_by_request_id[sid] = th.track_namespace_hash;
+
         // Check if this published track is a new namespace or existing.
         auto pub_ns_it = conn_it->second.pub_tracks_by_name.find(th.track_namespace_hash);
         if (pub_ns_it == conn_it->second.pub_tracks_by_name.end()) {
@@ -815,13 +914,13 @@ namespace quicr {
 
             lock.lock();
 
-            SendAnnounce(conn_it->second, tfn.name_space);
+            SendAnnounce(conn_it->second, sid, tfn.name_space);
 
         } else {
             auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
             if (pub_n_it == pub_ns_it->second.end()) {
                 track_handler->SetStatus(pub_ns_it->second.begin()->second->GetStatus());
-                SendAnnounce(conn_it->second, tfn.name_space);
+                SendAnnounce(conn_it->second, sid, tfn.name_space);
 
                 SPDLOG_LOGGER_INFO(logger_,
                                    "Publish track has new track namespace hash: {0} name hash: {1}",
@@ -891,11 +990,16 @@ namespace quicr {
             return;
         }
 
-        auto sid = conn_it->second.current_subscribe_id++;
+        auto sid = conn_it->second.next_request_id++ << 1;
+        if (client_mode_) {
+            sid++;
+        }
+
+        track_handler->SetRequestId(sid);
 
         SPDLOG_LOGGER_DEBUG(logger_, "subscribe id (from fetch) to add to memory: {0}", sid);
 
-        track_handler->SetSubscribeId(sid);
+        track_handler->SetRequestId(sid);
 
         auto priority = track_handler->GetPriority();
         auto group_order = track_handler->GetGroupOrder();
@@ -906,7 +1010,7 @@ namespace quicr {
 
         track_handler->SetStatus(FetchTrackHandler::Status::kPendingResponse);
 
-        conn_it->second.tracks_by_sub_id[sid] = std::move(track_handler);
+        conn_it->second.tracks_by_request_id[sid] = std::move(track_handler);
 
         SendFetch(conn_it->second, sid, tfn, priority, group_order, start_group, start_object, end_group, end_object);
     }
@@ -921,14 +1025,14 @@ namespace quicr {
             return;
         }
 
-        const auto sub_id = track_handler->GetSubscribeId();
+        const auto sub_id = track_handler->GetRequestId();
         if (!sub_id.has_value()) {
             return;
         }
 
         SendFetchCancel(conn_it->second, sub_id.value());
 
-        track_handler->SetSubscribeId(std::nullopt);
+        track_handler->SetRequestId(std::nullopt);
         track_handler->SetStatus(FetchTrackHandler::Status::kNotConnected);
     }
 
@@ -942,7 +1046,7 @@ namespace quicr {
             return PublishTrackHandler::PublishObjectStatus::kNotAnnounced;
         }
 
-        if (!track_handler.GetSubscribeId().has_value()) {
+        if (!track_handler.GetRequestId().has_value()) {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
 
@@ -966,8 +1070,12 @@ namespace quicr {
             }
         }
 
-        quic_transport_->Enqueue(
+        auto result = quic_transport_->Enqueue(
           track_handler.connection_handle_, track_handler.publish_data_ctx_id_, data, priority, ttl, 0, eflags);
+
+        if (result != TransportError::kNone) {
+            throw TransportException(result);
+        }
 
         return PublishTrackHandler::PublishObjectStatus::kOk;
     }
@@ -986,7 +1094,7 @@ namespace quicr {
             return PublishTrackHandler::PublishObjectStatus::kNotAnnounced;
         }
 
-        if (!track_handler.GetSubscribeId().has_value()) {
+        if (!track_handler.GetRequestId().has_value()) {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
 
@@ -1016,13 +1124,14 @@ namespace quicr {
                     eflags.use_reset = true;
 
                     messages::StreamHeaderSubGroup subgroup_hdr;
+                    subgroup_hdr.type = track_handler.GetStreamMode();
                     subgroup_hdr.group_id = group_id;
                     subgroup_hdr.subgroup_id = subgroup_id;
                     subgroup_hdr.priority = priority;
                     subgroup_hdr.track_alias = *track_handler.GetTrackAlias();
                     track_handler.object_msg_buffer_ << subgroup_hdr;
 
-                    quic_transport_->Enqueue(
+                    auto result = quic_transport_->Enqueue(
                       track_handler.connection_handle_,
                       track_handler.publish_data_ctx_id_,
                       std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
@@ -1036,10 +1145,15 @@ namespace quicr {
                     eflags.new_stream = false;
                     eflags.clear_tx_queue = false;
                     eflags.use_reset = false;
+
+                    if (result != TransportError::kNone) {
+                        throw TransportException(result);
+                    }
                 }
 
                 messages::StreamSubGroupObject object;
                 object.object_id = object_id;
+                object.serialize_extensions = TypeWillSerializeExtensions(track_handler.GetStreamMode());
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
                 track_handler.object_msg_buffer_ << object;
@@ -1047,14 +1161,19 @@ namespace quicr {
             }
         }
 
-        quic_transport_->Enqueue(track_handler.connection_handle_,
-                                 track_handler.publish_data_ctx_id_,
-                                 std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
-                                                                        track_handler.object_msg_buffer_.end()),
-                                 priority,
-                                 ttl,
-                                 0,
-                                 eflags);
+        auto result =
+          quic_transport_->Enqueue(track_handler.connection_handle_,
+                                   track_handler.publish_data_ctx_id_,
+                                   std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
+                                                                          track_handler.object_msg_buffer_.end()),
+                                   priority,
+                                   ttl,
+                                   0,
+                                   eflags);
+
+        if (result != TransportError::kNone) {
+            throw TransportException(result);
+        }
 
         return PublishTrackHandler::PublishObjectStatus::kOk;
     }
@@ -1077,20 +1196,20 @@ namespace quicr {
     void Transport::RemoveAllTracksForConnectionClose(ConnectionContext& conn_ctx)
     {
         // clean up subscriber handlers on disconnect
-        for (const auto& [sub_id, handler] : conn_ctx.tracks_by_sub_id) {
+        for (const auto& [sub_id, handler] : conn_ctx.tracks_by_request_id) {
             RemoveSubscribeTrack(conn_ctx, *handler, false);
         }
 
         // Notify publish handlers of disconnect
         for (const auto& [data_ctx_id, handler] : conn_ctx.pub_tracks_by_data_ctx_id) {
             handler->SetStatus(PublishTrackHandler::Status::kNotConnected);
-            handler->SetSubscribeId(std::nullopt);
+            handler->SetRequestId(std::nullopt);
         }
 
         conn_ctx.pub_tracks_by_data_ctx_id.clear();
         conn_ctx.pub_tracks_by_name.clear();
         conn_ctx.recv_sub_id.clear();
-        conn_ctx.tracks_by_sub_id.clear();
+        conn_ctx.tracks_by_request_id.clear();
         conn_ctx.sub_by_track_alias.clear();
     }
 
@@ -1249,34 +1368,37 @@ namespace quicr {
                         conn_ctx.ctrl_msg_type_received = static_cast<ControlMessageType>(msg_type);
                     }
 
-                    // Decode control payload length in bytes
-                    auto uv_sz = UintVar::Size(conn_ctx.ctrl_msg_buffer.front());
+                    uint16_t payload_len = 0;
 
-                    if (conn_ctx.ctrl_msg_buffer.size() < uv_sz) {
+                    // Decode control payload length in bytes
+                    if (conn_ctx.ctrl_msg_buffer.size() < sizeof(payload_len)) {
                         i = kReadLoopMaxPerStream - 4;
                         break; // Not enough bytes to process control message. Try again once more.
                     }
 
-                    auto payload_len = uint64_t(
-                      quicr::UintVar({ conn_ctx.ctrl_msg_buffer.begin(), conn_ctx.ctrl_msg_buffer.begin() + uv_sz }));
+                    std::memcpy(&payload_len, conn_ctx.ctrl_msg_buffer.data(), sizeof(payload_len));
+                    payload_len = SwapBytes(payload_len);
 
-                    if (conn_ctx.ctrl_msg_buffer.size() < payload_len + uv_sz) {
+                    if (conn_ctx.ctrl_msg_buffer.size() < payload_len + sizeof(payload_len)) {
                         i = kReadLoopMaxPerStream - 4;
                         break; // Not enough bytes to process control message. Try again once more.
                     }
 
                     if (ProcessCtrlMessage(
-                          conn_ctx, { conn_ctx.ctrl_msg_buffer.begin() + uv_sz, conn_ctx.ctrl_msg_buffer.end() })) {
+                          conn_ctx,
+                          { conn_ctx.ctrl_msg_buffer.begin() + sizeof(payload_len), conn_ctx.ctrl_msg_buffer.end() })) {
 
                         // Reset the control message buffer and message type to start a new message.
                         conn_ctx.ctrl_msg_type_received = std::nullopt;
                         conn_ctx.ctrl_msg_buffer.erase(conn_ctx.ctrl_msg_buffer.begin(),
-                                                       conn_ctx.ctrl_msg_buffer.begin() + uv_sz + payload_len);
+                                                       conn_ctx.ctrl_msg_buffer.begin() + sizeof(payload_len) +
+                                                         payload_len);
                     } else {
                         conn_ctx.metrics.invalid_ctrl_stream_msg++;
                         conn_ctx.ctrl_msg_type_received = std::nullopt;
                         conn_ctx.ctrl_msg_buffer.erase(conn_ctx.ctrl_msg_buffer.begin(),
-                                                       conn_ctx.ctrl_msg_buffer.begin() + uv_sz + payload_len);
+                                                       conn_ctx.ctrl_msg_buffer.begin() + sizeof(payload_len) +
+                                                         payload_len);
                     }
                 }
                 continue;
@@ -1307,18 +1429,18 @@ namespace quicr {
                 auto cursor_it = std::next(data.begin(), type_sz);
 
                 bool break_loop = false;
-                switch (static_cast<messages::DataMessageType>(msg_type)) {
-                    case messages::DataMessageType::kStreamHeaderSubgroup:
-                        break_loop = OnRecvSubgroup(cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
-                        break;
-                    case messages::DataMessageType::kFetchHeader:
-                        break_loop = OnRecvFetch(cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
-                        break;
-                    default:
-                        SPDLOG_LOGGER_DEBUG(logger_, "Received start of stream with invalid header type, dropping");
-                        conn_ctx.metrics.rx_stream_invalid_type++;
-                        // TODO(tievens): Need to reset this stream as this is invalid.
-                        return;
+                const auto type = static_cast<DataMessageType>(msg_type);
+                if (typeIsStreamHeaderType(type)) {
+                    const auto stream_header_type = static_cast<StreamHeaderType>(msg_type);
+                    break_loop = OnRecvSubgroup(stream_header_type, cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
+                } else if (type == DataMessageType::kFetchHeader) {
+                    break_loop = OnRecvFetch(cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
+                } else {
+                    SPDLOG_LOGGER_DEBUG(logger_, "Received start of stream with invalid header type, dropping");
+                    conn_ctx.metrics.rx_stream_invalid_type++;
+
+                    // TODO(tievens): Need to reset this stream as this is invalid.
+                    return;
                 }
                 if (break_loop) {
                     break;
@@ -1331,11 +1453,15 @@ namespace quicr {
                 }
             }
         } // end of for loop rx data queue
-    } catch (TransportError& e) {
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception on receiving stream. (error={})", e.what());
+        throw;
+
         // TODO(tievens): Add metrics to track if this happens
     }
 
-    bool Transport::OnRecvSubgroup(std::vector<uint8_t>::const_iterator cursor_it,
+    bool Transport::OnRecvSubgroup(StreamHeaderType type,
+                                   std::vector<uint8_t>::const_iterator cursor_it,
                                    StreamRxContext& rx_ctx,
                                    std::uint64_t stream_id,
                                    ConnectionContext& conn_ctx,
@@ -1353,8 +1479,10 @@ namespace quicr {
             auto group_id_sz = UintVar::Size(*cursor_it);
             cursor_it += group_id_sz;
 
-            auto subgroup_id_sz = UintVar::Size(*cursor_it);
-            cursor_it += subgroup_id_sz;
+            if (TypeWillSerializeSubgroup(type)) {
+                auto subgroup_id_sz = UintVar::Size(*cursor_it);
+                cursor_it += subgroup_id_sz;
+            }
 
             priority = *cursor_it;
 
@@ -1390,12 +1518,12 @@ namespace quicr {
                                 ConnectionContext& conn_ctx,
                                 std::shared_ptr<const std::vector<uint8_t>> data) const
     {
-        uint64_t subscribe_id = 0;
+        uint64_t request_id = 0;
 
         try {
             // Extract Subscribe ID.
             const std::size_t sub_sz = UintVar::Size(*cursor_it);
-            subscribe_id = static_cast<std::uint64_t>(UintVar({ cursor_it, cursor_it + sub_sz }));
+            request_id = static_cast<std::uint64_t>(UintVar({ cursor_it, cursor_it + sub_sz }));
 
         } catch (std::invalid_argument&) {
             SPDLOG_LOGGER_WARN(logger_, "Received start of stream without enough bytes to process uintvar");
@@ -1404,12 +1532,12 @@ namespace quicr {
 
         rx_ctx.is_new = false;
 
-        const auto fetch_it = conn_ctx.tracks_by_sub_id.find(subscribe_id);
-        if (fetch_it == conn_ctx.tracks_by_sub_id.end()) {
+        const auto fetch_it = conn_ctx.tracks_by_request_id.find(request_id);
+        if (fetch_it == conn_ctx.tracks_by_request_id.end()) {
             // TODO: Metrics.
             SPDLOG_LOGGER_WARN(logger_,
-                               "Received fetch_header to unknown fetch track subscribe_id: {} stream: {}, ignored",
-                               subscribe_id,
+                               "Received fetch_header to unknown fetch track request_id: {} stream: {}, ignored",
+                               request_id,
                                stream_id);
 
             // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
@@ -1534,7 +1662,7 @@ namespace quicr {
             pub_h->MetricsSampled(pub_h->publish_track_metrics_);
         }
 
-        for (const auto& [_, sub_h] : conn.tracks_by_sub_id) {
+        for (const auto& [_, sub_h] : conn.tracks_by_request_id) {
             sub_h->MetricsSampled(sub_h->subscribe_track_metrics_);
         }
     }

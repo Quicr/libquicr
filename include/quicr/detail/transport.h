@@ -245,20 +245,22 @@ namespace quicr {
 
             std::vector<uint8_t> ctrl_msg_buffer; ///< Control message buffer
 
-            uint64_t current_subscribe_id{ 0 }; ///< Connection specific ID for subscribe messages
+            /** Next Connection request Id. This value is shifted left when setting Request Id.
+             * The least significant bit is used to indicate client (0) vs server (1).
+             */
+            uint64_t next_request_id{ 0 }; ///< Connection specific ID for control messages messages
 
             /// Subscribe Context by received subscribe IDs
             /// Used to map published tracks to subscribes in client mode and to handle joining fetch lookups
             struct SubscribeContext
             {
                 FullTrackName track_full_name;
-                std::optional<messages::GroupId> largest_group_id{ std::nullopt };
-                std::optional<messages::ObjectId> largest_object_id{ std::nullopt };
+                std::optional<messages::Location> largest_location{ std::nullopt };
             };
-            std::map<messages::SubscribeID, SubscribeContext> recv_sub_id;
+            std::map<messages::RequestID, SubscribeContext> recv_sub_id;
 
-            /// Tracks by subscribe ID (Subscribe and Fetch)
-            std::map<messages::SubscribeID, std::shared_ptr<SubscribeTrackHandler>> tracks_by_sub_id;
+            /// Tracks by request ID (Subscribe and Fetch)
+            std::map<messages::RequestID, std::shared_ptr<SubscribeTrackHandler>> tracks_by_request_id;
 
             /// Subscribes by Track Alais is used for data object forwarding
             std::map<messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> sub_by_track_alias;
@@ -269,11 +271,19 @@ namespace quicr {
 
             std::map<messages::TrackAlias, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_track_alias;
 
+            /** MoQT draft 11 does not send all announce messages with namespace. Instead, they are sent
+             *  with request-id. The namespace is needed. This map is used to map request ID to namespace
+             */
+            std::map<messages::RequestID, TrackNamespaceHash> pub_tracks_ns_by_request_id;
+
             /// Published tracks by quic transport data context ID.
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
 
             /// Fetch Publishers by subscribe ID.
-            std::map<messages::SubscribeID, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_sub_id;
+            std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_sub_id;
+
+            /// Subscribe Announces namespace prefix by request Id
+            std::map<messages::RequestID, TrackNamespace> sub_announces_by_request_id;
 
             ConnectionMetrics metrics{}; ///< Connection metrics
 
@@ -305,48 +315,48 @@ namespace quicr {
         void SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data);
         void SendClientSetup();
         void SendServerSetup(ConnectionContext& conn_ctx);
-        void SendAnnounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
-        void SendAnnounceOk(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
+        void SendAnnounce(ConnectionContext& conn_ctx,
+                          messages::RequestID request_id,
+                          const TrackNamespace& track_namespace);
+        void SendAnnounceOk(ConnectionContext& conn_ctx, messages::RequestID request_id);
         void SendUnannounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
         void SendSubscribe(ConnectionContext& conn_ctx,
-                           uint64_t subscribe_id,
+                           messages::RequestID request_id,
                            const FullTrackName& tfn,
                            TrackHash th,
                            messages::SubscriberPriority priority,
                            messages::GroupOrder group_order,
                            messages::FilterType filter_type);
         void SendSubscribeUpdate(ConnectionContext& conn_ctx,
-                                 uint64_t subscribe_id,
+                                 messages::RequestID request_id,
                                  TrackHash th,
-                                 messages::GroupId start_group_id,
-                                 messages::ObjectId start_object_id,
+                                 messages::Location start_location,
                                  messages::GroupId end_group_id,
                                  messages::SubscriberPriority priority);
 
         void SendSubscribeOk(ConnectionContext& conn_ctx,
-                             uint64_t subscribe_id,
+                             messages::RequestID request_id,
                              uint64_t expires,
                              bool content_exists,
-                             messages::GroupId largest_group_id,
-                             messages::ObjectId largest_object_id);
-        void SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t subscribe_id);
-        void SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t subscribe_id, const std::string& reason);
+                             messages::Location largest_location);
+        void SendUnsubscribe(ConnectionContext& conn_ctx, messages::RequestID request_id);
+        void SendSubscribeDone(ConnectionContext& conn_ctx, messages::RequestID request_id, const std::string& reason);
         void SendSubscribeError(ConnectionContext& conn_ctx,
-                                uint64_t subscribe_id,
+                                messages::RequestID request_id,
                                 uint64_t track_alias,
                                 messages::SubscribeErrorCode error,
                                 const std::string& reason);
 
         void SendSubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
         void SendUnsubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
-        void SendSubscribeAnnouncesOk(ConnectionContext& conn_ctx, const TrackNamespace& prefix_namespace);
+        void SendSubscribeAnnouncesOk(ConnectionContext& conn_ctx, messages::RequestID request_id);
         void SendSubscribeAnnouncesError(ConnectionContext& conn_ctx,
-                                         const TrackNamespace& prefix_namespace,
+                                         messages::RequestID request_id,
                                          messages::SubscribeAnnouncesErrorCode err_code,
                                          const messages::ReasonPhrase& reason);
 
         void SendFetch(ConnectionContext& conn_ctx,
-                       uint64_t subscribe_id,
+                       messages::RequestID request_id,
                        const FullTrackName& tfn,
                        messages::SubscriberPriority priority,
                        messages::GroupOrder group_order,
@@ -355,21 +365,20 @@ namespace quicr {
                        messages::GroupId end_group,
                        messages::GroupId end_object);
         void SendJoiningFetch(ConnectionContext& conn_ctx,
-                              uint64_t subscribe_id,
+                              messages::RequestID request_id,
                               messages::SubscriberPriority priority,
                               messages::GroupOrder group_order,
-                              uint64_t joining_subscribe_id,
+                              messages::RequestID joining_request_id,
                               messages::GroupId preceding_group_offset,
                               const messages::Parameters parameters);
-        void SendFetchCancel(ConnectionContext& conn_ctx, uint64_t subscribe_id);
+        void SendFetchCancel(ConnectionContext& conn_ctx, messages::RequestID request_id);
         void SendFetchOk(ConnectionContext& conn_ctx,
-                         uint64_t subscribe_id,
+                         messages::RequestID request_id,
                          messages::GroupOrder group_order,
                          bool end_of_track,
-                         messages::GroupId largest_group_id,
-                         messages::GroupId largest_object_id);
+                         messages::Location end_location);
         void SendFetchError(ConnectionContext& conn_ctx,
-                            uint64_t subscribe_id,
+                            messages::RequestID request_id,
                             messages::FetchErrorCode error,
                             const std::string& reason);
         void CloseConnection(ConnectionHandle connection_handle,
@@ -386,7 +395,8 @@ namespace quicr {
 
         void RemoveAllTracksForConnectionClose(ConnectionContext& conn_ctx);
 
-        bool OnRecvSubgroup(std::vector<uint8_t>::const_iterator cursor_it,
+        bool OnRecvSubgroup(messages::StreamHeaderType type,
+                            std::vector<uint8_t>::const_iterator cursor_it,
                             StreamRxContext& rx_ctx,
                             std::uint64_t stream_id,
                             ConnectionContext& conn_ctx,

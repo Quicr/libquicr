@@ -15,7 +15,7 @@ API documentation can be found under https://quicr.github.io/libquicr
 #### Linux
 
 ```
-sudo apt-get update && sudo apt-get install -y gcc g++ golang pkgconf cmake make git
+sudo apt-get update && sudo apt-get install -y gcc g++ golang pkgconf cmake make git python3
 ```
 
 ### Apple/Mac
@@ -139,6 +139,8 @@ Use `make` to build libquicr.
 Use `make test` to run tests.
 
 Use `make cclean` to clean build files.
+
+Use `make fuzz` to run the fuzzer tests.
 
 ## Self-signed Certificate
 

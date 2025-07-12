@@ -13,6 +13,7 @@
 #include "signal_handler.h"
 
 #include <filesystem>
+#include <format>
 #include <fstream>
 
 using json = nlohmann::json; // NOLINT
@@ -499,7 +500,15 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
 
             SPDLOG_INFO("Send message: {0}", std::string(msg.begin(), msg.end()));
 
-            track_handler->PublishObject(hdr, msg);
+            try {
+                auto status = track_handler->PublishObject(hdr, msg);
+                if (status != decltype(status)::kOk) {
+                    throw std::runtime_error(std::format("PublishObject returned status={}", static_cast<int>(status)));
+                }
+            } catch (const std::exception& e) {
+                SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());
+            }
+
             std::this_thread::sleep_for(qclient_vars::playback_speed_ms);
 
             if (messages.empty()) {
@@ -530,7 +539,16 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
             2 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt
         };
 
-        track_handler->PublishObject(obj_headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
+        try {
+            auto status =
+              track_handler->PublishObject(obj_headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
+
+            if (status != decltype(status)::kOk) {
+                throw std::runtime_error(std::format("PublishObject returned status={}", static_cast<int>(status)));
+            }
+        } catch (const std::exception& e) {
+            SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());
+        }
     }
 
     client->UnpublishTrack(track_handler);
@@ -703,9 +721,14 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         qclient_vars::playback_speed_ms = std::chrono::milliseconds(cli_opts["playback_speed_ms"].as<uint64_t>());
     }
 
+    if (cli_opts.count("ssl_keylog") && cli_opts["ssl_keylog"].as<bool>() == true) {
+        SPDLOG_INFO("SSL Keylog enabled");
+    }
+
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
     config.connect_uri = cli_opts["url"].as<std::string>();
     config.transport_config.debug = cli_opts["debug"].as<bool>();
+    config.transport_config.ssl_keylog = cli_opts["ssl_keylog"].as<bool>();
 
     config.transport_config.use_reset_wait_strategy = false;
     config.transport_config.time_queue_max_duration = 5000;
@@ -734,7 +757,8 @@ main(int argc, char* argv[])
         ("v,version", "QuicR Version")                                        // a bool parameter
         ("r,url", "Relay URL", cxxopts::value<std::string>()->default_value("moq://localhost:1234"))
         ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))
-        ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>());
+        ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
+        ("s,ssl_keylog", "Enable SSL Keylog for transport debugging");
 
     options.add_options("Publisher")
         ("pub_namespace", "Track namespace", cxxopts::value<std::string>())

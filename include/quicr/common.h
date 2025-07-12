@@ -10,7 +10,7 @@
 
 namespace quicr {
 
-    constexpr uint64_t kMoqtVersion = 0xff000008; ///< draft-ietf-quicr-transport-08
+    constexpr uint64_t kMoqtVersion = 0xff00000B; ///< draft-ietf-moq-transport-11
     constexpr uint64_t kSubscribeExpires = 0;     ///< Never expires
     constexpr int kReadLoopMaxPerStream = 60; ///< Support packet/frame bursts, but do not allow starving other streams
 
@@ -26,7 +26,9 @@ namespace quicr {
      * @details Various attributes relative to the publish announce
      */
     struct PublishAnnounceAttributes
-    {};
+    {
+        uint64_t request_id{ 0 };
+    };
 
     /**
      * @brief Client Setup Attributes

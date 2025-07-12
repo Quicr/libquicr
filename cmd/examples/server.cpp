@@ -72,7 +72,7 @@ namespace qserver_vars {
      * @example
      *      track_alias = subscribe_alias_sub_id[conn_id][subscribe_id]
      */
-    std::map<quicr::ConnectionHandle, std::map<quicr::messages::SubscribeID, quicr::messages::TrackAlias>>
+    std::map<quicr::ConnectionHandle, std::map<quicr::messages::RequestID, quicr::messages::TrackAlias>>
       subscribe_alias_sub_id;
 
     /**
@@ -128,7 +128,7 @@ namespace qserver_vars {
     /**
      * @brief Map of atomic bools to mark if a fetch thread should be interrupted.
      */
-    std::map<std::pair<quicr::ConnectionHandle, quicr::messages::SubscribeID>, std::atomic_bool> stop_fetch;
+    std::map<std::pair<quicr::ConnectionHandle, quicr::messages::RequestID>, std::atomic_bool> stop_fetch;
 }
 
 /**
@@ -190,8 +190,12 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         }
 
         // Fan out to all subscribers
-        for (const auto& [conn_id, pth] : sub_it->second) {
-            pth->PublishObject(object_headers, data);
+        try {
+            for (const auto& [conn_id, pth] : sub_it->second) {
+                pth->PublishObject(object_headers, data);
+            }
+        } catch (const std::exception& e) {
+            SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());
         }
     }
 
@@ -428,7 +432,7 @@ class MyServer : public quicr::Server
 
     void AnnounceReceived(quicr::ConnectionHandle connection_handle,
                           const quicr::TrackNamespace& track_namespace,
-                          const quicr::PublishAnnounceAttributes&) override
+                          const quicr::PublishAnnounceAttributes& attrs) override
     {
         auto th = quicr::TrackHash({ track_namespace, {}, std::nullopt });
 
@@ -469,7 +473,7 @@ class MyServer : public quicr::Server
             }
         }
 
-        ResolveAnnounce(connection_handle, track_namespace, sub_annos_connections, announce_response);
+        ResolveAnnounce(connection_handle, attrs.request_id, track_namespace, sub_annos_connections, announce_response);
 
         // Check if there are any subscribes. If so, send subscribe to announce for all tracks matching namespace
         for (const auto& [ns, sub_tracks] : qserver_vars::subscribe_active) {
@@ -528,7 +532,7 @@ class MyServer : public quicr::Server
         }
 
         // Remove active subscribes
-        std::vector<quicr::messages::SubscribeID> subscribe_ids;
+        std::vector<quicr::messages::RequestID> subscribe_ids;
         auto ta_conn_it = qserver_vars::subscribe_alias_sub_id.find(connection_handle);
         if (ta_conn_it != qserver_vars::subscribe_alias_sub_id.end()) {
             for (const auto& [sub_id, _] : ta_conn_it->second) {
@@ -662,16 +666,14 @@ class MyServer : public quicr::Server
             return;
         }
 
-        std::optional<uint64_t> latest_group_id = std::nullopt;
-        std::optional<uint64_t> latest_object_id = std::nullopt;
+        std::optional<quicr::messages::Location> largest_location = std::nullopt;
 
         auto cache_entry_it = qserver_vars::cache.find(th.track_fullname_hash);
         if (cache_entry_it != qserver_vars::cache.end()) {
             auto& [_, cache] = *cache_entry_it;
             if (const auto& latest_group = cache.Last(); latest_group && !latest_group->empty()) {
                 const auto& latest_object = std::prev(latest_group->end());
-                latest_group_id = latest_object->headers.group_id;
-                latest_object_id = latest_object->headers.object_id;
+                largest_location = { latest_object->headers.group_id, latest_object->headers.object_id };
             }
         }
 
@@ -681,8 +683,7 @@ class MyServer : public quicr::Server
                            quicr::SubscribeResponse::ReasonCode::kOk,
                            std::nullopt,
                            std::nullopt,
-                           latest_group_id,
-                           latest_object_id,
+                           largest_location,
                          });
 
         auto pub_track_h =
@@ -760,25 +761,22 @@ class MyServer : public quicr::Server
         }
     }
 
-    LargestAvailable GetLargestAvailable(const quicr::FullTrackName& track_name) override
+    std::optional<quicr::messages::Location> GetLargestAvailable(const quicr::FullTrackName& track_name) override
     {
         // Get the largest object from the cache.
-        std::optional<uint64_t> largest_group_id = std::nullopt;
-        std::optional<uint64_t> largest_object_id = std::nullopt;
+        std::optional<quicr::messages::Location> largest_location = std::nullopt;
+
         const auto& th = quicr::TrackHash(track_name);
         const auto cache_entry_it = qserver_vars::cache.find(th.track_fullname_hash);
         if (cache_entry_it != qserver_vars::cache.end()) {
             auto& [_, cache] = *cache_entry_it;
             if (const auto& latest_group = cache.Last(); latest_group && !latest_group->empty()) {
                 const auto& latest_object = std::prev(latest_group->end());
-                largest_group_id = latest_object->headers.group_id;
-                largest_object_id = latest_object->headers.object_id;
+                largest_location = { latest_object->headers.group_id, latest_object->headers.object_id };
             }
         }
-        if (!largest_group_id.has_value() || !largest_object_id.has_value()) {
-            return std::nullopt;
-        }
-        return std::make_pair(*largest_group_id, *largest_object_id);
+
+        return largest_location;
     }
 
     bool OnFetchOk(quicr::ConnectionHandle connection_handle,
@@ -822,8 +820,11 @@ class MyServer : public quicr::Server
 
                     SPDLOG_DEBUG("Fetching group: {} object: {}", object.headers.group_id, object.headers.object_id);
 
-                    pub_fetch_h->PublishObject(object.headers, object.data);
-                    // std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    try {
+                        pub_fetch_h->PublishObject(object.headers, object.data);
+                    } catch (const std::exception& e) {
+                        SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());
+                    }
                 }
             }
         });
@@ -886,12 +887,17 @@ InitConfig(cxxopts::ParseResult& cli_opts)
         qserver_vars::force_track_alias = false;
     }
 
+    if (cli_opts.count("ssl_keylog") && cli_opts["ssl_keylog"].as<bool>() == true) {
+        SPDLOG_INFO("SSL Keylog enabled");
+    }
+
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
 
     config.server_bind_ip = cli_opts["bind_ip"].as<std::string>();
     config.server_port = cli_opts["port"].as<uint16_t>();
 
     config.transport_config.debug = cli_opts["debug"].as<bool>();
+    config.transport_config.ssl_keylog = cli_opts["ssl_keylog"].as<bool>();
     config.transport_config.tls_cert_filename = cli_opts["cert"].as<std::string>();
     config.transport_config.tls_key_filename = cli_opts["key"].as<std::string>();
     config.transport_config.use_reset_wait_strategy = false;
@@ -918,7 +924,8 @@ main(int argc, char* argv[])
         "e,endpoint_id", "This relay/server endpoint ID", cxxopts::value<std::string>()->default_value("moq-server"))(
         "c,cert", "Certificate file", cxxopts::value<std::string>()->default_value("./server-cert.pem"))(
         "k,key", "Certificate key file", cxxopts::value<std::string>()->default_value("./server-key.pem"))(
-        "q,qlog", "Enable qlog using path", cxxopts::value<std::string>()); // end of options
+        "q,qlog", "Enable qlog using path", cxxopts::value<std::string>())(
+        "s,ssl_keylog", "Enable SSL Keylog for transport debugging"); // end of options
 
     auto result = options.parse(argc, argv);
 

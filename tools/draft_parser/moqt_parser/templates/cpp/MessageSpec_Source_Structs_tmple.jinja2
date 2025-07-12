@@ -66,8 +66,10 @@
         {% endfor %}
 
         // fill out buffer
-        buffer << static_cast<std::uint64_t>(ControlMessageType::k{{message.message_type}});
-        buffer << payload;
+        ControlMessage message;
+        message.type = static_cast<std::uint64_t>(ControlMessageType::k{{message.message_type}});
+        message.payload = payload;
+        buffer << message;
         return buffer;
     }
 

@@ -144,13 +144,15 @@ namespace quicr {
 
         std::size_t EraseFront(std::size_t len) noexcept
         {
-            for (const auto s : buffer_) {
-                if (s == nullptr)
+            for (const auto& s : buffer_) {
+                if (s == nullptr) {
                     return 0;
+                }
 
-                if (len >= s->size()) {
+                const auto size = s->size();
+                if (len >= size) {
                     buffer_.pop_front();
-                    len -= s->size();
+                    len -= size;
                 } else {
                     return len;
                 }

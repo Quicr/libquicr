@@ -5,7 +5,7 @@
     NEW_GROUP_REQUEST Message {
         Type (i) = 0x42,
         Length (i),
-        Subscribe ID (i),
+        Request ID (i),
         Track Alias (i)
     }
 
