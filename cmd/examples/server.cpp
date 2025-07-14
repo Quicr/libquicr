@@ -671,7 +671,6 @@ class MyServer : public quicr::Server
                          {
                            quicr::SubscribeResponse::ReasonCode::kOk,
                            std::nullopt,
-                           std::nullopt,
                            largest_location,
                          });
 
