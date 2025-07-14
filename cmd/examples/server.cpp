@@ -660,8 +660,8 @@ class MyServer : public quicr::Server
             }
         }
 
-        const auto pub_track_h = std::make_shared<MyPublishTrackHandler>(
-          track_full_name, quicr::TrackMode::kStream, attrs.priority, 50000);
+        const auto pub_track_h =
+          std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, 50000);
         const auto track_alias = pub_track_h->GetTrackAlias();
 
         ResolveSubscribe(connection_handle,
@@ -673,7 +673,6 @@ class MyServer : public quicr::Server
                            std::nullopt,
                            largest_location,
                          });
-
 
         qserver_vars::subscribes[track_alias][connection_handle] = pub_track_h;
         qserver_vars::subscribe_alias_sub_id[connection_handle][subscribe_id] = track_alias;

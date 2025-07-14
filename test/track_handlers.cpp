@@ -12,7 +12,7 @@
 class TestPublishTrackHandler : public quicr::PublishTrackHandler
 {
     TestPublishTrackHandler()
-      : PublishTrackHandler({ {}, {}, 1 }, quicr::TrackMode::kDatagram, 0, 0)
+      : PublishTrackHandler({ {}, {} }, quicr::TrackMode::kDatagram, 0, 0)
     {
     }
 
@@ -25,11 +25,6 @@ class TestPublishTrackHandler : public quicr::PublishTrackHandler
 
 TEST_CASE("Create Track Handler")
 {
-    CHECK_NOTHROW(quicr::PublishTrackHandler::Create({ {}, {}, 1 }, quicr::TrackMode::kDatagram, 0, 0));
+    CHECK_NOTHROW(quicr::PublishTrackHandler::Create({ {}, {} }, quicr::TrackMode::kDatagram, 0, 0));
     CHECK_NOTHROW(TestPublishTrackHandler::Create());
-}
-
-TEST_CASE("Create Track Handler - Missing Alias")
-{
-    CHECK_THROWS(quicr::PublishTrackHandler::Create({ {}, {}, std::nullopt }, quicr::TrackMode::kDatagram, 0, 0));
 }
