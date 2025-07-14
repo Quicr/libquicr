@@ -115,19 +115,6 @@ namespace quicr {
                                   : messages::Location());
                 break;
             }
-            case SubscribeResponse::ReasonCode::kRetryTrackAlias: {
-                if (subscribe_response.track_alias.has_value()) {
-                    SendSubscribeError(conn_it->second,
-                                       request_id,
-                                       messages::SubscribeErrorCode::kRetryTrackAlias,
-                                       subscribe_response.error_reason.has_value() ? *subscribe_response.error_reason
-                                                                                   : "internal error");
-                } else {
-                    SendSubscribeError(
-                      conn_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Missing track alias");
-                }
-                break;
-            }
             default:
                 SendSubscribeError(
                   conn_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Internal error");
