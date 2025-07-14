@@ -447,7 +447,7 @@ namespace quicr {
                 auto msg = messages::Announce{};
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, {}};
+                auto tfn = FullTrackName{ msg.track_namespace, {} };
 
                 AnnounceReceived(conn_ctx.connection_handle, tfn.name_space, { msg.request_id });
                 return true;
@@ -498,7 +498,7 @@ namespace quicr {
                 messages::Unannounce msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, {}};
+                auto tfn = FullTrackName{ msg.track_namespace, {} };
                 auto th = TrackHash(tfn);
 
                 SPDLOG_LOGGER_INFO(logger_, "Received unannounce for namespace_hash: {0}", th.track_namespace_hash);

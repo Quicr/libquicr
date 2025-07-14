@@ -122,6 +122,7 @@ namespace quicr {
         }
 
         /**
+         * TODO: Support per SUBSCRIBE track alias here?
          * @brief Produce a track alias for the given subscribe response.
          * @details This method can be overridden to control track alias generation.
          * @returns Track alias
@@ -137,7 +138,7 @@ namespace quicr {
 
         /**
          * @brief Notification of publish track status change
-         * @details Notification of a change to publish track status, such as
+         * @details Notification of a change to  publish track status, such as
          *      when it's ready to publish or not ready to publish
          *
          * @param status        Indicates the status of being able to publish

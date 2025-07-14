@@ -56,14 +56,12 @@ namespace {
     }
 
     inline quicr::FullTrackName MakeFullTrackName(const std::string& track_namespace,
-                                                  const std::string& track_name,
-                                                  const std::optional<uint64_t> track_alias = std::nullopt) noexcept
+                                                  const std::string& track_name) noexcept
     {
 
         return {
             quicr::TrackNamespace{ quicr::Bytes{ track_namespace.begin(), track_namespace.end() } },
             { track_name.begin(), track_name.end() },
-            track_alias,
         };
     }
 
