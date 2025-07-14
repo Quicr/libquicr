@@ -142,6 +142,23 @@ namespace quicr {
          */
         std::optional<JoiningFetch> GetJoiningFetch() const noexcept { return joining_fetch_; }
 
+        /**
+         * @brief Set the track alias
+         *
+         * @param track_alias       MoQ track alias for track namespace+name that
+         *                          is relative to the QUIC connection session
+         */
+        void SetTrackAlias(uint64_t track_alias) { track_alias_ = track_alias; }
+
+        /**
+         * @brief Get the track alias
+         *
+         * @details If the track alias is set, it will be returned, otherwise std::nullopt.
+         *
+         * @return Track alias if set, otherwise std::nullopt.
+         */
+        std::optional<uint64_t> GetTrackAlias() const noexcept { return track_alias_; }
+
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
         // --------------------------------------------------------------------------
@@ -254,6 +271,7 @@ namespace quicr {
         uint64_t current_stream_id_{ 0 };
         std::optional<messages::Location> latest_location_;
         std::optional<JoiningFetch> joining_fetch_;
+        std::optional<uint64_t> track_alias_;
 
         friend class Transport;
         friend class Client;

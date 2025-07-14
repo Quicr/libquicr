@@ -45,7 +45,7 @@ option(DRAFT_PARSER_SETUP_VENV "Set up Python virtual environment for draft pars
 option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
 
 # Which MOQ draft to use.
-set(DEFAULT_DRAFT "${CMAKE_CURRENT_SOURCE_DIR}/tools/draft_parser/drafts/moq_transport_draft_v11_with_addendum.txt")
+set(DEFAULT_DRAFT "${CMAKE_CURRENT_SOURCE_DIR}/tools/draft_parser/drafts/moq_transport_draft_v12_with_addendum.txt")
 set(DRAFT "" CACHE FILEPATH "MOQ Draft to build against")
 if (DRAFT STREQUAL "")
     set(DRAFT_INTERNAL ${DEFAULT_DRAFT})

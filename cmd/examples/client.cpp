@@ -227,35 +227,26 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
 
     void StatusChanged(Status status) override
     {
+        const auto alias = GetTrackAlias(GetRequestId().value());
         switch (status) {
             case Status::kOk: {
-                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
-                    SPDLOG_INFO("Publish track alias: {0} is ready to send", track_alias.value());
-                }
+                SPDLOG_INFO("Publish track alias: {0} is ready to send", alias);
                 break;
             }
             case Status::kNoSubscribers: {
-                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
-                    SPDLOG_INFO("Publish track alias: {0} has no subscribers", track_alias.value());
-                }
+                SPDLOG_INFO("Publish track alias: {0} has no subscribers", alias);
                 break;
             }
             case Status::kNewGroupRequested: {
-                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
-                    SPDLOG_INFO("Publish track alias: {0} has new group request", track_alias.value());
-                }
+                SPDLOG_INFO("Publish track alias: {0} has new group request", alias);
                 break;
             }
             case Status::kSubscriptionUpdated: {
-                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
-                    SPDLOG_INFO("Publish track alias: {0} has updated subscription", track_alias.value());
-                }
+                SPDLOG_INFO("Publish track alias: {0} has updated subscription", alias);
                 break;
             }
             default:
-                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
-                    SPDLOG_INFO("Publish track alias: {0} status {1}", track_alias.value(), static_cast<int>(status));
-                }
+                SPDLOG_INFO("Publish track alias: {0} has status {1}", alias, static_cast<int>(status));
                 break;
         }
     }
@@ -352,13 +343,13 @@ class MyClient : public quicr::Client
     void AnnounceReceived(const quicr::TrackNamespace& track_namespace,
                           const quicr::PublishAnnounceAttributes&) override
     {
-        auto th = quicr::TrackHash({ track_namespace, {}, std::nullopt });
+        auto th = quicr::TrackHash({ track_namespace, {} });
         SPDLOG_INFO("Received announce for namespace_hash: {}", th.track_namespace_hash);
     }
 
     void UnannounceReceived(const quicr::TrackNamespace& track_namespace) override
     {
-        auto th = quicr::TrackHash({ track_namespace, {}, std::nullopt });
+        auto th = quicr::TrackHash({ track_namespace, {} });
         SPDLOG_INFO("Received unannounce for namespace_hash: {}", th.track_namespace_hash);
     }
 
@@ -366,7 +357,7 @@ class MyClient : public quicr::Client
                                          std::optional<quicr::messages::SubscribeAnnouncesErrorCode> error_code,
                                          std::optional<quicr::messages::ReasonPhrase> reason) override
     {
-        auto th = quicr::TrackHash({ track_namespace, {}, std::nullopt });
+        auto th = quicr::TrackHash({ track_namespace, {} });
         if (!error_code.has_value()) {
             SPDLOG_INFO("Subscribe announces namespace_hash: {} status changed to OK", th.track_namespace_hash);
             return;
@@ -827,8 +818,7 @@ main(int argc, char* argv[])
         std::thread fetch_thread;
 
         if (result.count("sub_announces")) {
-            const auto& prefix_ns =
-              quicr::example::MakeFullTrackName(result["sub_announces"].as<std::string>(), "", std::nullopt);
+            const auto& prefix_ns = quicr::example::MakeFullTrackName(result["sub_announces"].as<std::string>(), "");
 
             auto th = quicr::TrackHash(prefix_ns);
 
@@ -841,8 +831,7 @@ main(int argc, char* argv[])
 
         if (enable_pub) {
             const auto& pub_track_name = quicr::example::MakeFullTrackName(result["pub_namespace"].as<std::string>(),
-                                                                           result["pub_name"].as<std::string>(),
-                                                                           qclient_vars::track_alias);
+                                                                           result["pub_name"].as<std::string>());
 
             pub_thread = std::thread(DoPublisher, pub_track_name, client, std::ref(stop_threads));
         }
@@ -857,17 +846,14 @@ main(int argc, char* argv[])
             bool joining_fetch = result.count("joining_fetch") && result["joining_fetch"].as<bool>();
 
             const auto& sub_track_name = quicr::example::MakeFullTrackName(result["sub_namespace"].as<std::string>(),
-                                                                           result["sub_name"].as<std::string>(),
-                                                                           qclient_vars::track_alias);
+                                                                           result["sub_name"].as<std::string>());
 
             sub_thread =
               std::thread(DoSubscriber, sub_track_name, client, filter_type, std::ref(stop_threads), joining_fetch);
         }
         if (enable_fetch) {
-            const auto& fetch_track_name =
-              quicr::example::MakeFullTrackName(result["fetch_namespace"].as<std::string>(),
-                                                result["fetch_name"].as<std::string>(),
-                                                qclient_vars::track_alias);
+            const auto& fetch_track_name = quicr::example::MakeFullTrackName(
+              result["fetch_namespace"].as<std::string>(), result["fetch_name"].as<std::string>());
 
             fetch_thread =
               std::thread(DoFetch,

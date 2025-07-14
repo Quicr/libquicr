@@ -261,13 +261,11 @@ namespace quicr {
      * @brief Full track name struct
      *
      * @details Struct of the full track name, which includes the namespace tuple, name, and track alias
-     *   Track alias will be set by the Transport.
      */
     struct FullTrackName
     {
         TrackNamespace name_space;
         std::vector<uint8_t> name;
-        std::optional<uint64_t> track_alias;
     };
 
     struct TrackHash
