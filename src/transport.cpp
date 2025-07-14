@@ -179,6 +179,7 @@ namespace quicr {
 
         auto result = quic_transport_->Enqueue(conn_ctx.connection_handle,
                                                *conn_ctx.ctrl_data_ctx_id,
+                                               0,
                                                std::make_shared<const std::vector<uint8_t>>(data.begin(), data.end()),
                                                0,
                                                2000,
@@ -1206,7 +1207,7 @@ namespace quicr {
         }
 
         auto result = quic_transport_->Enqueue(
-          track_handler.connection_handle_, track_handler.publish_data_ctx_id_, data, priority, ttl, 0, eflags);
+          track_handler.connection_handle_, track_handler.publish_data_ctx_id_, 0, data, priority, ttl, 0, eflags);
 
         if (result != TransportError::kNone) {
             throw TransportException(result);
@@ -1266,6 +1267,7 @@ namespace quicr {
                     auto result = quic_transport_->Enqueue(
                       track_handler.connection_handle_,
                       track_handler.publish_data_ctx_id_,
+                      group_id,
                       std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
                                                              track_handler.object_msg_buffer_.end()),
                       priority,
@@ -1296,6 +1298,7 @@ namespace quicr {
         auto result =
           quic_transport_->Enqueue(track_handler.connection_handle_,
                                    track_handler.publish_data_ctx_id_,
+                                   group_id,
                                    std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
                                                                           track_handler.object_msg_buffer_.end()),
                                    priority,

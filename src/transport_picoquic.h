@@ -232,6 +232,7 @@ namespace quicr {
 
         TransportError Enqueue(const TransportConnId& conn_id,
                                const DataContextId& data_ctx_id,
+                               std::uint64_t group_id,
                                std::shared_ptr<const std::vector<uint8_t>> bytes,
                                uint8_t priority,
                                uint32_t ttl_ms,
