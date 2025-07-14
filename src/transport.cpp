@@ -223,7 +223,7 @@ namespace quicr {
         Bytes buffer;
         buffer << announce;
 
-        auto th = TrackHash({ track_namespace, {}, std::nullopt });
+        auto th = TrackHash({ track_namespace, {} });
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending ANNOUNCE to conn_id: {} request_id: {} namespace_hash: {}",
                             conn_ctx.connection_handle,
@@ -387,7 +387,7 @@ namespace quicr {
         Bytes buffer;
         buffer << msg;
 
-        auto th = TrackHash({ prefix_namespace, {}, std::nullopt });
+        auto th = TrackHash({ prefix_namespace, {} });
 
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending Subscribe announces to conn_id: {} request_id: {} prefix_hash: {}",
@@ -455,7 +455,7 @@ namespace quicr {
         Bytes buffer;
         buffer << msg;
 
-        auto th = TrackHash({ prefix_namespace, {}, std::nullopt });
+        auto th = TrackHash({ prefix_namespace, {} });
 
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending Unsubscribe announces to conn_id: {} prefix_hash: {}",

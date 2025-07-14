@@ -89,10 +89,6 @@ namespace quicr {
           , default_priority_(default_priority)
           , default_ttl_(default_ttl)
         {
-            if (!full_track_name.track_alias.has_value()) {
-                throw std::invalid_argument("Track alias must be specified");
-            }
-
             switch (track_mode) {
                 case TrackMode::kDatagram:
                     if (stream_mode.has_value()) {
@@ -126,10 +122,11 @@ namespace quicr {
         }
 
         /**
-         * @brief Get the track alias
+         * @brief Produce a track alias for the given subscribe response.
+         * @details This method can be overridden to control track alias generation.
          * @returns Track alias
          */
-        uint64_t GetTrackAlias() const noexcept { return full_track_name_.track_alias.value(); }
+        virtual uint64_t GetTrackAlias() const noexcept { return TrackHash(full_track_name_).track_fullname_hash; }
 
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods

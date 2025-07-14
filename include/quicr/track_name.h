@@ -266,7 +266,6 @@ namespace quicr {
     {
         TrackNamespace name_space;
         std::vector<uint8_t> name;
-        std::optional<uint64_t> track_alias;
     };
 
     struct TrackHash
