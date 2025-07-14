@@ -82,7 +82,7 @@ TEST_CASE("Integration - Subscribe")
     server->SetSubscribePromise(std::move(promise));
 
     // Subscribe.
-    client->SubscribeTrack(handler);
+    CHECK_NOTHROW(client->SubscribeTrack(handler));
 
     // Server should receive the subscribe.
     auto status = future.wait_for(kDefaultTimeout);
@@ -95,4 +95,7 @@ TEST_CASE("Integration - Subscribe")
     // Server should respond, track should go live.
     std::this_thread::sleep_for(std::chrono::milliseconds(kDefaultTimeout));
     CHECK_EQ(handler->GetStatus(), SubscribeTrackHandler::Status::kOk);
+
+    // Test is complete, unsubscribe while we are connected.
+    CHECK_NOTHROW(client->UnsubscribeTrack(handler));
 }

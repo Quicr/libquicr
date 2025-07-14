@@ -612,9 +612,7 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
 
             picoquic_runner_queue_.Push([this, conn_id, data_ctx_id]() { MarkStreamActive(conn_id, data_ctx_id); });
         }
-    }
-
-    else { // datagram
+    } else { // datagram
         ConnData cd{ conn_id,          data_ctx_id,
                      priority,         StreamAction::kNoAction,
                      std::move(bytes), tick_service_->Microseconds() };
@@ -626,6 +624,7 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
             picoquic_runner_queue_.Push([this, conn_id]() { MarkDgramReady(conn_id); });
         }
     }
+
     return TransportError::kNone;
 }
 
@@ -636,7 +635,7 @@ PicoQuicTransport::GetStreamRxContext(TransportConnId conn_id, uint64_t stream_i
 
     const auto conn_ctx_it = conn_context_.find(conn_id);
     if (conn_ctx_it == conn_context_.end()) {
-        throw TransportError::kInvalidConnContextId;
+        throw TransportException(TransportError::kInvalidConnContextId);
     }
 
     const auto sbuf_it = conn_ctx_it->second.rx_stream_buffer.find(stream_id);
@@ -644,7 +643,7 @@ PicoQuicTransport::GetStreamRxContext(TransportConnId conn_id, uint64_t stream_i
         return sbuf_it->second.rx_ctx;
     }
 
-    throw TransportError::kInvalidStreamId;
+    throw TransportException(TransportError::kInvalidStreamId);
 }
 
 std::shared_ptr<const std::vector<uint8_t>>

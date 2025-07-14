@@ -140,6 +140,8 @@ Use `make test` to run tests.
 
 Use `make cclean` to clean build files.
 
+Use `make fuzz` to run the fuzzer tests.
+
 ## Self-signed Certificate
 
 Server requires a TLS certificate and key file. For development and testing, use a self-signed certificate. Below

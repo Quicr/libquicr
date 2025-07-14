@@ -39,17 +39,20 @@ namespace quicr {
                          obj.subgroup_id,
                          obj.object_id,
                          obj.payload.size());
-
-            joining_subscribe_->ObjectReceived({ obj.group_id,
-                                                 obj.object_id,
-                                                 obj.subgroup_id,
-                                                 obj.payload.size(),
-                                                 obj.object_status,
-                                                 obj.publisher_priority,
-                                                 std::nullopt,
-                                                 TrackMode::kStream,
-                                                 obj.extensions },
-                                               obj.payload);
+            try {
+                joining_subscribe_->ObjectReceived({ obj.group_id,
+                                                     obj.object_id,
+                                                     obj.subgroup_id,
+                                                     obj.payload.size(),
+                                                     obj.object_status,
+                                                     obj.publisher_priority,
+                                                     std::nullopt,
+                                                     TrackMode::kStream,
+                                                     obj.extensions },
+                                                   obj.payload);
+            } catch (const std::exception& e) {
+                SPDLOG_ERROR("Caught exception trying to receive Joining Fetch object. (error={})", e.what());
+            }
 
             stream_buffer_.ResetAnyB<messages::FetchObject>();
         }

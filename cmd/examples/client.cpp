@@ -13,6 +13,7 @@
 #include "signal_handler.h"
 
 #include <filesystem>
+#include <format>
 #include <fstream>
 
 using json = nlohmann::json; // NOLINT
@@ -490,7 +491,15 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
 
             SPDLOG_INFO("Send message: {0}", std::string(msg.begin(), msg.end()));
 
-            track_handler->PublishObject(hdr, msg);
+            try {
+                auto status = track_handler->PublishObject(hdr, msg);
+                if (status != decltype(status)::kOk) {
+                    throw std::runtime_error(std::format("PublishObject returned status={}", static_cast<int>(status)));
+                }
+            } catch (const std::exception& e) {
+                SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());
+            }
+
             std::this_thread::sleep_for(qclient_vars::playback_speed_ms);
 
             if (messages.empty()) {
@@ -521,7 +530,16 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
             2 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt
         };
 
-        track_handler->PublishObject(obj_headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
+        try {
+            auto status =
+              track_handler->PublishObject(obj_headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
+
+            if (status != decltype(status)::kOk) {
+                throw std::runtime_error(std::format("PublishObject returned status={}", static_cast<int>(status)));
+            }
+        } catch (const std::exception& e) {
+            SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());
+        }
     }
 
     client->UnpublishTrack(track_handler);

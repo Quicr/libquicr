@@ -76,7 +76,7 @@ namespace quicr {
     void Client::PublishUnannounce(const TrackNamespace&) {}
 
     bool Client::ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes)
-    {
+    try {
         switch (*conn_ctx.ctrl_msg_type_received) {
             case messages::ControlMessageType::kSubscribe: {
                 messages::Subscribe msg(
@@ -552,6 +552,8 @@ namespace quicr {
         } // End of switch(msg type)
 
         return false;
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception trying to process control message. (error={})", e.what());
+        return false;
     }
-
 } // namespace quicr

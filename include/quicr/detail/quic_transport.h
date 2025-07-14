@@ -21,6 +21,7 @@
 #include <mutex>
 #include <optional>
 #include <queue>
+#include <source_location>
 #include <string>
 #include <sys/socket.h>
 #include <vector>
@@ -138,6 +139,13 @@ namespace quicr {
 
         /// Data queue for received data on the stream
         SafeQueue<std::shared_ptr<const std::vector<uint8_t>>> data_queue;
+    };
+
+    struct TransportException : std::runtime_error
+    {
+        TransportException(TransportError, std::source_location = std::source_location::current());
+
+        TransportError Error;
     };
 
     /**
