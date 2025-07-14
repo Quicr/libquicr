@@ -377,7 +377,7 @@ namespace quicr {
                   });
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
 
                 conn_ctx.recv_sub_id[msg.request_id] = { tfn };
 
@@ -447,7 +447,7 @@ namespace quicr {
                 auto msg = messages::Announce{};
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
+                auto tfn = FullTrackName{ msg.track_namespace, {}};
 
                 AnnounceReceived(conn_ctx.connection_handle, tfn.name_space, { msg.request_id });
                 return true;
@@ -498,7 +498,7 @@ namespace quicr {
                 messages::Unannounce msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
+                auto tfn = FullTrackName{ msg.track_namespace, {}};
                 auto th = TrackHash(tfn);
 
                 SPDLOG_LOGGER_INFO(logger_, "Received unannounce for namespace_hash: {0}", th.track_namespace_hash);
@@ -585,7 +585,7 @@ namespace quicr {
                 messages::AnnounceCancel msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
+                auto tfn = FullTrackName{ msg.track_namespace, {} };
                 auto th = TrackHash(tfn);
 
                 SPDLOG_LOGGER_INFO(
@@ -596,7 +596,7 @@ namespace quicr {
                 messages::TrackStatusRequest msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
                 auto th = TrackHash(tfn);
 
                 SPDLOG_LOGGER_INFO(logger_,
@@ -681,7 +681,7 @@ namespace quicr {
                 switch (msg.fetch_type) {
                     case messages::FetchType::kStandalone: {
                         // Standalone fetch is self-containing.
-                        tfn = FullTrackName{ msg.group_0->track_namespace, msg.group_0->track_name, std::nullopt };
+                        tfn = FullTrackName{ msg.group_0->track_namespace, msg.group_0->track_name };
                         const auto largest_available = GetLargestAvailable(tfn);
                         if (!largest_available.has_value()) {
                             SendFetchError(conn_ctx,

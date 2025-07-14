@@ -333,7 +333,7 @@ class MyServer : public quicr::Server
     std::vector<quicr::ConnectionHandle> UnannounceReceived(quicr::ConnectionHandle connection_handle,
                                                             const quicr::TrackNamespace& track_namespace) override
     {
-        auto th = quicr::TrackHash({ track_namespace, {}, std::nullopt });
+        auto th = quicr::TrackHash({ track_namespace, {} });
 
         SPDLOG_DEBUG("Received unannounce from connection handle: {0} for namespace hash: {1}, removing all tracks "
                      "associated with namespace",
@@ -391,7 +391,7 @@ class MyServer : public quicr::Server
             return;
         }
 
-        auto th = quicr::TrackHash({ prefix_namespace, {}, std::nullopt });
+        auto th = quicr::TrackHash({ prefix_namespace, {} });
         SPDLOG_INFO("Unsubscribe announces received connection handle: {} for namespace_hash: {}, removing",
                     connection_handle,
                     th.track_namespace_hash);
@@ -402,7 +402,7 @@ class MyServer : public quicr::Server
                                const quicr::TrackNamespace& prefix_namespace,
                                const quicr::PublishAnnounceAttributes&) override
     {
-        auto th = quicr::TrackHash({ prefix_namespace, {}, std::nullopt });
+        auto th = quicr::TrackHash({ prefix_namespace, {} });
 
         auto [it, is_new] = qserver_vars::subscribes_announces.try_emplace(prefix_namespace);
         it->second.insert(connection_handle);
@@ -429,7 +429,7 @@ class MyServer : public quicr::Server
                           const quicr::TrackNamespace& track_namespace,
                           const quicr::PublishAnnounceAttributes& attrs) override
     {
-        auto th = quicr::TrackHash({ track_namespace, {}, std::nullopt });
+        auto th = quicr::TrackHash({ track_namespace, {} });
 
         SPDLOG_INFO("Received announce from connection handle: {0} for namespace_hash: {1}",
                     connection_handle,
@@ -660,9 +660,13 @@ class MyServer : public quicr::Server
             }
         }
 
+        const auto pub_track_h = std::make_shared<MyPublishTrackHandler>(
+          track_full_name, quicr::TrackMode::kStream, attrs.priority, 50000);
+        const auto track_alias = pub_track_h->GetTrackAlias();
+
         ResolveSubscribe(connection_handle,
                          subscribe_id,
-                         th.track_fullname_hash,
+                         track_alias,
                          {
                            quicr::SubscribeResponse::ReasonCode::kOk,
                            std::nullopt,
@@ -670,16 +674,13 @@ class MyServer : public quicr::Server
                            largest_location,
                          });
 
-        auto track_full_name_with_alias = track_full_name;
-        track_full_name_with_alias.track_alias = th.track_name_hash;
-        const auto pub_track_h = std::make_shared<MyPublishTrackHandler>(
-          track_full_name_with_alias, quicr::TrackMode::kStream, attrs.priority, 50000);
-        qserver_vars::subscribes[th.track_fullname_hash][connection_handle] = pub_track_h;
-        qserver_vars::subscribe_alias_sub_id[connection_handle][subscribe_id] = th.track_fullname_hash;
+
+        qserver_vars::subscribes[track_alias][connection_handle] = pub_track_h;
+        qserver_vars::subscribe_alias_sub_id[connection_handle][subscribe_id] = track_alias;
 
         // record subscribe as active from this subscriber
         qserver_vars::subscribe_active[track_full_name.name_space][th.track_name_hash].emplace(
-          qserver_vars::SubscribeInfo{ connection_handle, subscribe_id, th.track_fullname_hash });
+          qserver_vars::SubscribeInfo{ connection_handle, subscribe_id, track_alias });
 
         // Create a subscribe track that will be used by the relay to send to subscriber for matching objects
         BindPublisherTrack(connection_handle, subscribe_id, pub_track_h, false);
@@ -695,13 +696,13 @@ class MyServer : public quicr::Server
             // Loop through connection handles
             for (auto& [conn_h, tracks] : conns) {
                 // aggregate subscriptions
-                if (tracks.find(th.track_fullname_hash) == tracks.end()) {
+                if (tracks.find(track_alias) == tracks.end()) {
                     last_subscription_time_ = std::chrono::steady_clock::now();
                     SPDLOG_INFO("Sending subscribe to announcer connection handler: {0} subscribe track_alias: {1}",
                                 conn_h,
-                                th.track_fullname_hash);
+                                track_alias);
 
-                    tracks.insert(th.track_fullname_hash); // Add track alias to state
+                    tracks.insert(track_alias); // Add track alias to state
 
                     auto sub_track_h = std::make_shared<MySubscribeTrackHandler>(track_full_name);
                     auto copy_sub_track_h = sub_track_h;
@@ -710,8 +711,8 @@ class MyServer : public quicr::Server
                     SPDLOG_INFO("Sending subscription to announcer connection: {0} hash: {1}, handler: {2}",
                                 conn_h,
                                 th.track_fullname_hash,
-                                sub_track_h->GetFullTrackName().track_alias.value());
-                    qserver_vars::pub_subscribes[th.track_fullname_hash][conn_h] = copy_sub_track_h;
+                                track_alias);
+                    qserver_vars::pub_subscribes[track_alias][conn_h] = copy_sub_track_h;
                 } else {
                     if (!last_subscription_time_.has_value()) {
                         last_subscription_time_ = std::chrono::steady_clock::now();
@@ -722,7 +723,7 @@ class MyServer : public quicr::Server
                         .count();
                     if (elapsed > kSubscriptionDampenDurationMs_) {
                         // send subscription update
-                        auto& sub_track_h = qserver_vars::pub_subscribes[th.track_fullname_hash][conn_h];
+                        auto& sub_track_h = qserver_vars::pub_subscribes[track_alias][conn_h];
                         if (sub_track_h == nullptr) {
 
                             return;

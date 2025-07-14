@@ -96,7 +96,7 @@ namespace quicr {
 
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
                 auto th = TrackHash(tfn);
 
                 if (msg.request_id > conn_ctx.next_request_id) {
@@ -257,7 +257,7 @@ namespace quicr {
                 messages::Announce msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
+                auto tfn = FullTrackName{ msg.track_namespace, {} };
 
                 AnnounceReceived(tfn.name_space, {});
                 return true;
@@ -267,7 +267,7 @@ namespace quicr {
                 messages::Unannounce msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
+                auto tfn = FullTrackName{ msg.track_namespace, {} };
                 UnannounceReceived(tfn.name_space);
 
                 return true;
@@ -421,7 +421,7 @@ namespace quicr {
                 messages::AnnounceCancel msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
+                auto tfn = FullTrackName{ msg.track_namespace, {} };
                 auto th = TrackHash(tfn);
 
                 SPDLOG_LOGGER_INFO(
@@ -433,7 +433,7 @@ namespace quicr {
                 messages::TrackStatusRequest msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
                 auto th = TrackHash(tfn);
 
                 SPDLOG_LOGGER_INFO(logger_,
