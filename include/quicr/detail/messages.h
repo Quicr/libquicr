@@ -217,7 +217,7 @@ namespace quicr::messages {
                 value <= static_cast<uint8_t>(DataMessageType::kExt));
     }
 
-    static bool TypeIsDatagram(const DataMessageType type)
+    [[maybe_unused]] static bool TypeIsDatagram(const DataMessageType type)
     {
         return TypeIsDatagramHeaderType(type) || TypeIsDatagramStatusType(type);
     }
