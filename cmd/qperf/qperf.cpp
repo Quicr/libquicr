@@ -370,7 +370,12 @@ main(int argc, char** argv)
                     .extensions = std::nullopt,
                 };
 
-                handler->PublishObject(header, data);
+                try {
+                    handler->PublishObject(header, data);
+                } catch (const std::exception& e) {
+                    SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());
+                }
+
                 ++total_attempted_published_objects;
             });
 
