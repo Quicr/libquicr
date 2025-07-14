@@ -124,13 +124,13 @@ namespace quicr {
 
                 ResolveSubscribe(conn_ctx.connection_handle,
                                  msg.request_id,
-                                 ptd->GetTrackAlias(),
+                                 ptd->GetTrackAlias(msg.request_id),
                                  { SubscribeResponse::ReasonCode::kOk });
 
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received subscribe to announced track alias: {0} recv request_id: {1}, setting "
                                     "send state to ready",
-                                    ptd->GetTrackAlias(),
+                                    ptd->GetTrackAlias(msg.request_id),
                                     msg.request_id);
 
                 // Indicate send is ready upon subscribe
@@ -177,7 +177,8 @@ namespace quicr {
                     return true;
                 }
 
-                SendSubscribeOk(conn_ctx, msg.request_id, ptd->GetTrackAlias(), kSubscribeExpires, false, { 0, 0 });
+                SendSubscribeOk(
+                  conn_ctx, msg.request_id, ptd->GetTrackAlias(msg.request_id), kSubscribeExpires, false, { 0, 0 });
 
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received subscribe_update to track alias: {0} recv request_id: {1}",

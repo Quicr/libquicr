@@ -40,7 +40,7 @@ namespace qperf {
         switch (status) {
             case Status::kOk: {
                 SPDLOG_INFO("PerfPublishTrackeHandler - status kOk");
-                auto track_alias = GetTrackAlias();
+                auto track_alias = GetTrackAlias(GetRequestId().value());
                 SPDLOG_INFO("Track alias: {0} is ready to write", track_alias);
                 write_thread_ = SpawnWriter();
             } break;

@@ -796,7 +796,9 @@ namespace quicr {
 
     void Transport::PublishTrack(TransportConnId conn_id, std::shared_ptr<PublishTrackHandler> track_handler)
     {
-        SPDLOG_LOGGER_INFO(logger_, "Publish track conn_id: {0} hash: {1}", conn_id, track_handler->GetTrackAlias());
+        const auto tfn = track_handler->GetFullTrackName();
+        auto th = TrackHash(tfn);
+        SPDLOG_LOGGER_INFO(logger_, "Publish track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
 
         std::unique_lock<std::mutex> lock(state_mutex_);
 
@@ -813,8 +815,6 @@ namespace quicr {
 
         track_handler->SetRequestId(sid);
 
-        const auto tfn = track_handler->GetFullTrackName();
-        auto th = TrackHash(tfn);
         conn_it->second.pub_tracks_ns_by_request_id[sid] = th.track_namespace_hash;
 
         // Check if this published track is a new namespace or existing.
@@ -1000,6 +1000,7 @@ namespace quicr {
         if (!track_handler.GetRequestId().has_value()) {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
+        const auto request_id = track_handler.GetRequestId().value();
 
         ITransport::EnqueueFlags eflags;
 
@@ -1011,7 +1012,7 @@ namespace quicr {
                 object.group_id = group_id;
                 object.object_id = object_id;
                 object.priority = priority;
-                object.track_alias = track_handler.GetTrackAlias();
+                object.track_alias = track_handler.GetTrackAlias(request_id);
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
                 track_handler.object_msg_buffer_ << object;
@@ -1031,7 +1032,7 @@ namespace quicr {
                     subgroup_hdr.group_id = group_id;
                     subgroup_hdr.subgroup_id = subgroup_id;
                     subgroup_hdr.priority = priority;
-                    subgroup_hdr.track_alias = track_handler.GetTrackAlias();
+                    subgroup_hdr.track_alias = track_handler.GetTrackAlias(request_id);
                     track_handler.object_msg_buffer_ << subgroup_hdr;
 
                     quic_transport_->Enqueue(
