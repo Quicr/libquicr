@@ -83,9 +83,11 @@ ObjectDatagramEncodeDecode(bool extensions, bool end_of_group)
 {
     DatagramHeaderType expected_type;
     if (end_of_group) {
-        expected_type = extensions ? DatagramHeaderType::kEnd_Ext : DatagramHeaderType::kEnd_NoExt;
+        expected_type =
+          extensions ? DatagramHeaderType::kEndOfGroupWithExtensions : DatagramHeaderType::kEndOfGroupNoExtensions;
     } else {
-        expected_type = extensions ? DatagramHeaderType::kNoEnd_Ext : DatagramHeaderType::kNoEnd_NoExt;
+        expected_type = extensions ? DatagramHeaderType::kNotEndOfGroupWithExtensions
+                                   : DatagramHeaderType::kNotEndOfGroupNoExtensions;
     }
 
     Bytes buffer;
@@ -129,7 +131,8 @@ TEST_CASE("ObjectDatagram  Message encode/decode")
 static void
 ObjectDatagramStatusEncodeDecode(bool extensions)
 {
-    auto expected_type = extensions ? messages::DatagramStatusType::kExt : messages::DatagramStatusType::kNoExt;
+    auto expected_type =
+      extensions ? messages::DatagramStatusType::kWithExtensions : messages::DatagramStatusType::kNoExtensions;
 
     Bytes buffer;
     auto object_datagram_status = ObjectDatagramStatus{};
@@ -187,18 +190,18 @@ StreamHeaderEncodeDecode(StreamHeaderType type)
 
 TEST_CASE("StreamHeader Message encode/decode")
 {
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupId0_NoExt_NoEnd);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupId0_Ext_NoEnd);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupIdFirst_NoExt_NoEnd);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupIdFirst_Ext_NoEnd);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupIdPresent_NoExt_NoEnd);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupIdPresent_Ext_NoEnd);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupId0_NoExt_End);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupId0_Ext_End);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupIdFirst_NoExt_End);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupIdFirst_Ext_End);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupIdPresent_NoExt_End);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupIdPresent_Ext_End);
+    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroup0NotEndOfGroupNoExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupWithExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroup0EndOfGroupNoExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroup0EndOfGroupWithExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupFirstObjectEndOfGroupNoExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupFirstObjectEndOfGroupWithExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupExplicitEndOfGroupNoExtensions);
+    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions);
 }
 
 static void
@@ -275,14 +278,18 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, bool extensions, bool
 
 TEST_CASE("StreamPerSubGroup Object Message encode/decode")
 {
-    const auto stream_headers = {
-        StreamHeaderType::kSubgroupId0_NoExt_NoEnd,       StreamHeaderType::kSubgroupId0_Ext_NoEnd,
-        StreamHeaderType::kSubgroupIdFirst_NoExt_NoEnd,   StreamHeaderType::kSubgroupIdFirst_Ext_NoEnd,
-        StreamHeaderType::kSubgroupIdPresent_NoExt_NoEnd, StreamHeaderType::kSubgroupIdPresent_Ext_NoEnd,
-        StreamHeaderType::kSubgroupId0_NoExt_End,         StreamHeaderType::kSubgroupId0_Ext_End,
-        StreamHeaderType::kSubgroupIdFirst_NoExt_End,     StreamHeaderType::kSubgroupIdFirst_Ext_End,
-        StreamHeaderType::kSubgroupIdPresent_NoExt_End,   StreamHeaderType::kSubgroupIdPresent_Ext_End
-    };
+    const auto stream_headers = { StreamHeaderType::kSubgroup0NotEndOfGroupNoExtensions,
+                                  StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions,
+                                  StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions,
+                                  StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupWithExtensions,
+                                  StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions,
+                                  StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions,
+                                  StreamHeaderType::kSubgroup0EndOfGroupNoExtensions,
+                                  StreamHeaderType::kSubgroup0EndOfGroupWithExtensions,
+                                  StreamHeaderType::kSubgroupFirstObjectEndOfGroupNoExtensions,
+                                  StreamHeaderType::kSubgroupFirstObjectEndOfGroupWithExtensions,
+                                  StreamHeaderType::kSubgroupExplicitEndOfGroupNoExtensions,
+                                  StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions };
     for (const auto& type : stream_headers) {
         CAPTURE(type);
         for (bool extensions : { true, false }) {

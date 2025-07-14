@@ -21,55 +21,72 @@ namespace quicr::messages {
 
     enum class DatagramHeaderType : uint8_t
     {
-        kNoEnd_NoExt = 0x00,
-        kNoEnd_Ext = 0x01,
-        kEnd_NoExt = 0x02,
-        kEnd_Ext = 0x03
+        kNotEndOfGroupNoExtensions = 0x00,
+        kNotEndOfGroupWithExtensions = 0x01,
+        kEndOfGroupNoExtensions = 0x02,
+        kEndOfGroupWithExtensions = 0x03
     };
 
     enum class DatagramStatusType : uint8_t
     {
-        kNoExt = 0x04,
-        kExt = 0x05
+        kNoExtensions = 0x04,
+        kWithExtensions = 0x05
     };
+
+    enum class FetchHeaderType : uint8_t
+    {
+        kFetchHeader = 0x05
+    };
+
+    // TODO: Make a type / factory to better refer to these combinations over the enum.
 
     enum class StreamHeaderType : uint8_t
     {
-        kSubgroupId0_NoExt_NoEnd = 0x10,
-        kSubgroupId0_Ext_NoEnd = 0x11,
-        kSubgroupIdFirst_NoExt_NoEnd = 0x12,
-        kSubgroupIdFirst_Ext_NoEnd = 0x13,
-        kSubgroupIdPresent_NoExt_NoEnd = 0x14,
-        kSubgroupIdPresent_Ext_NoEnd = 0x15,
-        kSubgroupId0_NoExt_End = 0x18,
-        kSubgroupId0_Ext_End = 0x19,
-        kSubgroupIdFirst_NoExt_End = 0x1A,
-        kSubgroupIdFirst_Ext_End = 0x1B,
-        kSubgroupIdPresent_NoExt_End = 0x1C,
-        kSubgroupIdPresent_Ext_End = 0x1D
+        kSubgroup0NotEndOfGroupNoExtensions = 0x10,
+        kSubgroup0NotEndOfGroupWithExtensions = 0x11,
+        kSubgroupFirstObjectNotEndOfGroupNoExtensions = 0x12,
+        kSubgroupFirstObjectNotEndOfGroupWithExtensions = 0x13,
+        kSubgroupExplicitNotEndOfGroupNoExtensions = 0x14,
+        kSubgroupExplicitNotEndOfGroupWithExtensions = 0x15,
+        kSubgroup0EndOfGroupNoExtensions = 0x18,
+        kSubgroup0EndOfGroupWithExtensions = 0x19,
+        kSubgroupFirstObjectEndOfGroupNoExtensions = 0x1A,
+        kSubgroupFirstObjectEndOfGroupWithExtensions = 0x1B,
+        kSubgroupExplicitEndOfGroupNoExtensions = 0x1C,
+        kSubgroupExplicitEndOfGroupWithExtensions = 0x1D
     };
 
     enum class DataMessageType : uint8_t
     {
-        kNoEnd_NoExt = static_cast<uint8_t>(DatagramHeaderType::kEnd_NoExt),
-        kNoEnd_Ext = static_cast<uint8_t>(DatagramHeaderType::kEnd_Ext),
-        kEnd_NoExt = static_cast<uint8_t>(DatagramHeaderType::kNoEnd_NoExt),
-        kEnd_Ext = static_cast<uint8_t>(DatagramHeaderType::kNoEnd_Ext),
-        kNoExt = static_cast<uint8_t>(DatagramStatusType::kNoExt),
-        kExt = static_cast<uint8_t>(DatagramStatusType::kExt),
-        kFetchHeader = 0x05,
-        kSubgroupId0_NoExt_NoExt = static_cast<uint8_t>(StreamHeaderType::kSubgroupId0_NoExt_NoEnd),
-        kSubgroupId0_Ext_NoExt = static_cast<uint8_t>(StreamHeaderType::kSubgroupId0_Ext_NoEnd),
-        kSubgroupIdFirst_NoExt_NoExt = static_cast<uint8_t>(StreamHeaderType::kSubgroupIdFirst_NoExt_NoEnd),
-        kSubgroupIdFirst_Ext_NoExt = static_cast<uint8_t>(StreamHeaderType::kSubgroupIdFirst_Ext_NoEnd),
-        kSubgroupIdPresent_NoExt_NoExt = static_cast<uint8_t>(StreamHeaderType::kSubgroupIdPresent_NoExt_NoEnd),
-        kSubgroupIdPresent_Ext_NoExt = static_cast<uint8_t>(StreamHeaderType::kSubgroupIdPresent_Ext_NoEnd),
-        kSubgroupId0_NoExt_End = static_cast<uint8_t>(StreamHeaderType::kSubgroupId0_NoExt_End),
-        kSubgroupId0_Ext_End = static_cast<uint8_t>(StreamHeaderType::kSubgroupId0_Ext_End),
-        kSubgroupIdFirst_NoExt_End = static_cast<uint8_t>(StreamHeaderType::kSubgroupIdFirst_NoExt_End),
-        kSubgroupIdFirst_Ext_End = static_cast<uint8_t>(StreamHeaderType::kSubgroupIdFirst_Ext_End),
-        kSubgroupIdPresent_NoExt_End = static_cast<uint8_t>(StreamHeaderType::kSubgroupIdPresent_NoExt_End),
-        kSubgroupIdPresent_Ext_End = static_cast<uint8_t>(StreamHeaderType::kSubgroupIdPresent_Ext_End)
+        kDatagramNotEndOfGroupNoExtensions = static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupNoExtensions),
+        kDatagramNotEndOfGroupWithExtensions = static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupWithExtensions),
+        kDatagramEndOfGroupNoExtensions = static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupNoExtensions),
+        kDatagramEndOfGroupWithExtensions = static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupWithExtensions),
+        kDatagramStatusNoExtensions = static_cast<uint8_t>(DatagramStatusType::kNoExtensions),
+        kDatagramStatusWithExtensions = static_cast<uint8_t>(DatagramStatusType::kWithExtensions),
+        kFetchHeader = static_cast<uint8_t>(FetchHeaderType::kFetchHeader),
+        kSubgroup0NotEndOfGroupNoExtensions =
+          static_cast<uint8_t>(StreamHeaderType::kSubgroup0NotEndOfGroupNoExtensions),
+        kSubgroup0NotEndOfGroupWithExtensions =
+          static_cast<uint8_t>(StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions),
+        kSubgroupFirstObjectNotEndOfGroupNoExtensions =
+          static_cast<uint8_t>(StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions),
+        kSubgroupFirstObjectNotEndOfGroupWithExtensions =
+          static_cast<uint8_t>(StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupWithExtensions),
+        kSubgroupExplicitNotEndOfGroupNoExtensions =
+          static_cast<uint8_t>(StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions),
+        kSubgroupExplicitNotEndOfGroupWithExtensions =
+          static_cast<uint8_t>(StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions),
+        kSubgroup0EndOfGroupNoExtensions = static_cast<uint8_t>(StreamHeaderType::kSubgroup0EndOfGroupNoExtensions),
+        kSubgroup0EndOfGroupWithExtensions = static_cast<uint8_t>(StreamHeaderType::kSubgroup0EndOfGroupWithExtensions),
+        kSubgroupFirstObjectEndOfGroupNoExtensions =
+          static_cast<uint8_t>(StreamHeaderType::kSubgroupFirstObjectEndOfGroupNoExtensions),
+        kSubgroupFirstObjectEndOfGroupWithExtensions =
+          static_cast<uint8_t>(StreamHeaderType::kSubgroupFirstObjectEndOfGroupWithExtensions),
+        kSubgroupExplicitEndOfGroupNoExtensions =
+          static_cast<uint8_t>(StreamHeaderType::kSubgroupExplicitEndOfGroupNoExtensions),
+        kSubgroupExplicitEndOfGroupWithExtensions =
+          static_cast<uint8_t>(StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions)
     };
 
     /**
@@ -80,10 +97,10 @@ namespace quicr::messages {
     constexpr bool TypeIsSubgroupId0(const StreamHeaderType type)
     {
         switch (type) {
-            case StreamHeaderType::kSubgroupId0_NoExt_NoEnd:
-            case StreamHeaderType::kSubgroupId0_Ext_NoEnd:
-            case StreamHeaderType::kSubgroupId0_NoExt_End:
-            case StreamHeaderType::kSubgroupId0_Ext_End:
+            case StreamHeaderType::kSubgroup0NotEndOfGroupNoExtensions:
+            case StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions:
+            case StreamHeaderType::kSubgroup0EndOfGroupNoExtensions:
+            case StreamHeaderType::kSubgroup0EndOfGroupWithExtensions:
                 return true;
             default:
                 return false;
@@ -93,10 +110,10 @@ namespace quicr::messages {
     constexpr bool TypeIsSubgroupIdFirst(const StreamHeaderType type)
     {
         switch (type) {
-            case StreamHeaderType::kSubgroupIdFirst_NoExt_NoEnd:
-            case StreamHeaderType::kSubgroupIdFirst_Ext_NoEnd:
-            case StreamHeaderType::kSubgroupIdFirst_NoExt_End:
-            case StreamHeaderType::kSubgroupIdFirst_Ext_End:
+            case StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions:
+            case StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupWithExtensions:
+            case StreamHeaderType::kSubgroupFirstObjectEndOfGroupNoExtensions:
+            case StreamHeaderType::kSubgroupFirstObjectEndOfGroupWithExtensions:
                 return true;
             default:
                 return false;
@@ -106,10 +123,10 @@ namespace quicr::messages {
     constexpr bool TypeHasSubgroupId(const StreamHeaderType type)
     {
         switch (type) {
-            case StreamHeaderType::kSubgroupIdPresent_NoExt_NoEnd:
-            case StreamHeaderType::kSubgroupIdPresent_Ext_NoEnd:
-            case StreamHeaderType::kSubgroupIdPresent_NoExt_End:
-            case StreamHeaderType::kSubgroupIdPresent_Ext_End:
+            case StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions:
+            case StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions:
+            case StreamHeaderType::kSubgroupExplicitEndOfGroupNoExtensions:
+            case StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions:
                 return true;
             default:
                 return false;
@@ -199,22 +216,22 @@ namespace quicr::messages {
     static bool TypeIsStreamHeaderType(const DataMessageType type)
     {
         const auto value = static_cast<uint8_t>(type);
-        return (value >= static_cast<uint8_t>(DataMessageType::kSubgroupId0_NoExt_NoExt) &&
-                value <= static_cast<uint8_t>(DataMessageType::kSubgroupIdPresent_Ext_End));
+        return (value >= static_cast<uint8_t>(DataMessageType::kSubgroup0NotEndOfGroupNoExtensions) &&
+                value <= static_cast<uint8_t>(DataMessageType::kSubgroupExplicitEndOfGroupWithExtensions));
     }
 
     static bool TypeIsDatagramHeaderType(const DataMessageType type)
     {
         const auto value = static_cast<uint8_t>(type);
-        return (value >= static_cast<uint8_t>(DataMessageType::kNoEnd_NoExt) &&
-                value <= static_cast<uint8_t>(DataMessageType::kEnd_Ext));
+        return (value >= static_cast<uint8_t>(DataMessageType::kDatagramNotEndOfGroupNoExtensions) &&
+                value <= static_cast<uint8_t>(DataMessageType::kDatagramStatusWithExtensions));
     }
 
     static bool TypeIsDatagramStatusType(const DataMessageType type)
     {
         const auto value = static_cast<uint8_t>(type);
-        return (value >= static_cast<uint8_t>(DataMessageType::kNoExt) &&
-                value <= static_cast<uint8_t>(DataMessageType::kExt));
+        return (value >= static_cast<uint8_t>(DataMessageType::kDatagramStatusNoExtensions) &&
+                value <= static_cast<uint8_t>(DataMessageType::kDatagramStatusWithExtensions));
     }
 
     [[maybe_unused]] static bool TypeIsDatagram(const DataMessageType type)
@@ -309,7 +326,7 @@ namespace quicr::messages {
 
         DatagramStatusType get_type() const
         {
-            return extensions.has_value() ? DatagramStatusType::kExt : DatagramStatusType::kNoExt;
+            return extensions.has_value() ? DatagramStatusType::kWithExtensions : DatagramStatusType::kNoExtensions;
         }
 
         template<class StreamBufferType>

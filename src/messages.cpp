@@ -259,15 +259,15 @@ namespace quicr::messages {
         DatagramHeaderType type;
         if (msg.end_of_group) {
             if (msg.extensions == std::nullopt) {
-                type = DatagramHeaderType::kEnd_NoExt;
+                type = DatagramHeaderType::kEndOfGroupNoExtensions;
             } else {
-                type = DatagramHeaderType::kEnd_Ext;
+                type = DatagramHeaderType::kEndOfGroupWithExtensions;
             }
         } else {
             if (msg.extensions == std::nullopt) {
-                type = DatagramHeaderType::kNoEnd_NoExt;
+                type = DatagramHeaderType::kNotEndOfGroupNoExtensions;
             } else {
-                type = DatagramHeaderType::kNoEnd_Ext;
+                type = DatagramHeaderType::kNotEndOfGroupWithExtensions;
             }
         }
         buffer << UintVar(static_cast<uint64_t>(type));
