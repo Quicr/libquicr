@@ -16,12 +16,12 @@
 namespace quicr {
 
     template<typename T, typename Duration_t>
-    class GroupTimeQueue : public TimeQueue<std::map<std::uint64_t, std::vector<T>>, Duration_t>
+    class GroupTimeQueue : public TimeQueue<std::vector<T>, Duration_t, std::map<std::uint64_t, std::vector<T>>>
     {
         using Group_t = std::map<uint64_t, std::vector<T>>;
         using TickType = TickService::TickType;
 
-        using base = TimeQueue<Group_t, Duration_t>;
+        using base = TimeQueue<std::vector<T>, Duration_t, Group_t>;
 
       public:
         GroupTimeQueue(size_t duration, size_t interval, std::shared_ptr<TickService> tick_service)
@@ -35,6 +35,33 @@ namespace quicr {
                        size_t initial_queue_size)
           : base(duration, interval, std::move(tick_service), initial_queue_size)
         {
+        }
+
+        /**
+         * @brief Pop (increment) front
+         *
+         * @details This method should be called after front when the object is processed. This
+         *      will move the queue forward. If at the end of the queue, it'll be cleared and reset.
+         */
+        void Pop() noexcept
+        {
+            if (this->queue_.empty())
+                return;
+
+            const auto& front = this->queue_.at(this->queue_index_);
+            const auto& group = front.bucket.at(front.value_index);
+
+            if (++object_index_ < group.size())
+                return;
+
+            object_index_ = 0;
+            base::Pop();
+        }
+
+        void Clear() noexcept
+        {
+            base::Clear();
+            object_index_ = 0;
         }
 
         /**
@@ -87,7 +114,7 @@ namespace quicr {
                 auto& [bucket, value_index, expiry_tick, pop_wait_ttl] = this->queue_.at(this->queue_index_);
 
                 if (value_index >= bucket.size() || ticks > expiry_tick) {
-                    elem.expired_count++;
+                    elem.expired_count += bucket.at(value_index).size();
                     this->queue_index_++;
                     continue;
                 }
@@ -97,7 +124,7 @@ namespace quicr {
                 }
 
                 elem.has_value = true;
-                elem.value = bucket.at(value_index).begin()->second.front();
+                elem.value = *std::next(bucket.at(value_index).begin(), object_index_);
                 return;
             }
 
@@ -120,10 +147,8 @@ namespace quicr {
 
             for (auto it = std::next(this->buckets_.begin(), this->queue_index_); it != this->buckets_.end(); ++it) {
                 const auto& bucket = *it;
-                for (const auto& groups : bucket) {
-                    for (const auto& [_, objects] : groups) {
-                        full_size += objects.size();
-                    }
+                for (const auto& [_, group] : bucket) {
+                    full_size += group.size();
                 }
             }
 
@@ -134,28 +159,38 @@ namespace quicr {
         template<typename Value>
         void InternalPush(std::uint64_t group_id, Value value, size_t ttl, size_t delay_ttl)
         {
-            std::optional<std::reference_wrapper<Group_t>> current_group;
-            for (auto&& bucket : this->buckets_) {
-                for (auto&& group : bucket) {
-                    if (!group.contains(group_id)) {
-                        continue;
-                    }
-                    current_group = group;
-                    break;
-                }
-
-                if (current_group.has_value()) {
-                    break;
-                }
+            if (ttl > this->duration_) {
+                throw std::invalid_argument("TTL is greater than max duration");
             }
 
-            if (!current_group.has_value()) {
-                return base::Push({ { group_id, { value } } }, ttl, delay_ttl);
+            if (ttl == 0) {
+                ttl = this->duration_;
             }
 
-            Group_t& g = current_group.value();
-            g[group_id].emplace_back(value);
+            auto relative_ttl = ttl / this->interval_;
+
+            const TickType ticks = this->Advance();
+
+            const TickType expiry_tick = ticks + ttl;
+
+            auto found = std::find_if(
+              this->queue_.begin(), this->queue_.end(), [&](const auto& v) { return v.value_index == group_id; });
+
+            if (found != this->queue_.end()) {
+                found->bucket.at(group_id).emplace_back(value);
+                return;
+            }
+
+            const typename base::IndexType future_index =
+              (this->bucket_index_ + relative_ttl - 1) % this->total_buckets_;
+
+            auto& bucket = this->buckets_[future_index];
+            bucket[group_id].emplace_back(value);
+            this->queue_.emplace_back(bucket, group_id, expiry_tick, ticks + delay_ttl);
         }
+
+      private:
+        std::size_t object_index_ = 0;
     };
     /**
      * @brief Priority queue that uses time_queue for each priority
