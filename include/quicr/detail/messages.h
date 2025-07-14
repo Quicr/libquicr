@@ -19,31 +19,97 @@ namespace quicr::messages {
     using ObjectPriority = uint8_t;
     using Extensions = std::map<uint64_t, Bytes>;
 
-    /// @brief Stream Header types.
+    enum class DatagramHeaderType : uint8_t
+    {
+        kNoEnd_NoExt = 0x00,
+        kNoEnd_Ext = 0x01,
+        kEnd_NoExt = 0x02,
+        kEnd_Ext = 0x03
+    };
+
+    enum class DatagramStatusType : uint8_t
+    {
+        kNoExt = 0x04,
+        kExt = 0x05
+    };
+
     enum class StreamHeaderType : uint8_t
     {
-        kSubgroupZeroNoExtensions = 0x08,          // No extensions, Subgroup ID = 0
-        kSubgroupZeroWithExtensions = 0x09,        // With extensions, Subgroup ID = 0
-        kSubgroupFirstObjectNoExtensions = 0x0A,   // No extensions, Subgroup ID = First Object ID
-        kSubgroupFirstObjectWithExtensions = 0x0B, // With extensions, Subgroup ID = First Object ID
-        kSubgroupExplicitNoExtensions = 0x0C,      // No extensions, Explicit Subgroup ID
-        kSubgroupExplicitWithExtensions = 0x0D,    // With extensions, Explicit Subgroup ID
+        kSubgroupId0_NoExt_NoEnd = 0x10,
+        kSubgroupId0_Ext_NoEnd = 0x11,
+        kSubgroupIdFirst_NoExt_NoEnd = 0x12,
+        kSubgroupIdFirst_Ext_NoEnd = 0x13,
+        kSubgroupIdPresent_NoExt_NoEnd = 0x14,
+        kSubgroupIdPresent_Ext_NoEnd = 0x15,
+        kSubgroupId0_NoExt_End = 0x18,
+        kSubgroupId0_Ext_End = 0x19,
+        kSubgroupIdFirst_NoExt_End = 0x1A,
+        kSubgroupIdFirst_Ext_End = 0x1B,
+        kSubgroupIdPresent_NoExt_End = 0x1C,
+        kSubgroupIdPresent_Ext_End = 0x1D
+    };
+
+    enum class DataMessageType : uint8_t
+    {
+        kNoEnd_NoExt = static_cast<uint8_t>(DatagramHeaderType::kEnd_NoExt),
+        kNoEnd_Ext = static_cast<uint8_t>(DatagramHeaderType::kEnd_Ext),
+        kEnd_NoExt = static_cast<uint8_t>(DatagramHeaderType::kNoEnd_NoExt),
+        kEnd_Ext = static_cast<uint8_t>(DatagramHeaderType::kNoEnd_Ext),
+        kNoExt = static_cast<uint8_t>(DatagramStatusType::kNoExt),
+        kExt = static_cast<uint8_t>(DatagramStatusType::kExt),
+        kFetchHeader = 0x05,
+        kSubgroupId0_NoExt_NoExt = static_cast<uint8_t>(StreamHeaderType::kSubgroupId0_NoExt_NoEnd),
+        kSubgroupId0_Ext_NoExt = static_cast<uint8_t>(StreamHeaderType::kSubgroupId0_Ext_NoEnd),
+        kSubgroupIdFirst_NoExt_NoExt = static_cast<uint8_t>(StreamHeaderType::kSubgroupIdFirst_NoExt_NoEnd),
+        kSubgroupIdFirst_Ext_NoExt = static_cast<uint8_t>(StreamHeaderType::kSubgroupIdFirst_Ext_NoEnd),
+        kSubgroupIdPresent_NoExt_NoExt = static_cast<uint8_t>(StreamHeaderType::kSubgroupIdPresent_NoExt_NoEnd),
+        kSubgroupIdPresent_Ext_NoExt = static_cast<uint8_t>(StreamHeaderType::kSubgroupIdPresent_Ext_NoEnd),
+        kSubgroupId0_NoExt_End = static_cast<uint8_t>(StreamHeaderType::kSubgroupId0_NoExt_End),
+        kSubgroupId0_Ext_End = static_cast<uint8_t>(StreamHeaderType::kSubgroupId0_Ext_End),
+        kSubgroupIdFirst_NoExt_End = static_cast<uint8_t>(StreamHeaderType::kSubgroupIdFirst_NoExt_End),
+        kSubgroupIdFirst_Ext_End = static_cast<uint8_t>(StreamHeaderType::kSubgroupIdFirst_Ext_End),
+        kSubgroupIdPresent_NoExt_End = static_cast<uint8_t>(StreamHeaderType::kSubgroupIdPresent_NoExt_End),
+        kSubgroupIdPresent_Ext_End = static_cast<uint8_t>(StreamHeaderType::kSubgroupIdPresent_Ext_End)
     };
 
     /**
-     * Check if this Stream Header type will serialize extensions (even empty ones).
+     * True if the subgroup of this stream header is 0.
      * @param type Type to check.
-     * @return True if the type will serialize extensions (even empty ones), false otherwise.
+     * @return True if subgroup should be 0, false otherwise.
      */
-    [[maybe_unused]]
-    static bool TypeWillSerializeExtensions(const StreamHeaderType type)
+    constexpr bool TypeIsSubgroupId0(const StreamHeaderType type)
     {
         switch (type) {
-            case StreamHeaderType::kSubgroupZeroWithExtensions:
-                [[fallthrough]];
-            case StreamHeaderType::kSubgroupFirstObjectWithExtensions:
-                [[fallthrough]];
-            case StreamHeaderType::kSubgroupExplicitWithExtensions:
+            case StreamHeaderType::kSubgroupId0_NoExt_NoEnd:
+            case StreamHeaderType::kSubgroupId0_Ext_NoEnd:
+            case StreamHeaderType::kSubgroupId0_NoExt_End:
+            case StreamHeaderType::kSubgroupId0_Ext_End:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    constexpr bool TypeIsSubgroupIdFirst(const StreamHeaderType type)
+    {
+        switch (type) {
+            case StreamHeaderType::kSubgroupIdFirst_NoExt_NoEnd:
+            case StreamHeaderType::kSubgroupIdFirst_Ext_NoEnd:
+            case StreamHeaderType::kSubgroupIdFirst_NoExt_End:
+            case StreamHeaderType::kSubgroupIdFirst_Ext_End:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    constexpr bool TypeHasSubgroupId(const StreamHeaderType type)
+    {
+        switch (type) {
+            case StreamHeaderType::kSubgroupIdPresent_NoExt_NoEnd:
+            case StreamHeaderType::kSubgroupIdPresent_Ext_NoEnd:
+            case StreamHeaderType::kSubgroupIdPresent_NoExt_End:
+            case StreamHeaderType::kSubgroupIdPresent_Ext_End:
                 return true;
             default:
                 return false;
@@ -55,63 +121,105 @@ namespace quicr::messages {
      * @param type Type to check.
      * @return True if a header of this type will have a subgroup field on the wire.
      */
-    [[maybe_unused]]
-    static bool TypeWillSerializeSubgroup(const StreamHeaderType type)
+    constexpr bool TypeWillSerializeSubgroup(StreamHeaderType type)
     {
-        switch (type) {
-            case StreamHeaderType::kSubgroupExplicitNoExtensions:
-                [[fallthrough]];
-            case StreamHeaderType::kSubgroupExplicitWithExtensions:
-                return true;
-            default:
-                return false;
-        }
+        return (static_cast<uint8_t>(type) & 0x04) != 0;
     }
 
-    enum class DataMessageType : uint8_t
+    /**
+     * True if the Stream's subgroup is the first object ID.
+     * @param type Type to check.
+     * @return True if the Stream's subgroup is the first object ID, false otherwise.
+     */
+    constexpr bool TypeSubgroupIsFirstObjectId(StreamHeaderType type)
     {
-        kObjectDatagram = 0x01,
-        kObjectDatagramStatus = 0x02,
-        kFetchHeader = 0x5,
+        return (static_cast<uint8_t>(type) & 0x06) == 0x02;
+    }
 
-        // Subgroup Header Types.
-        kStreamHeaderSubgroupZeroNoExtensions = static_cast<std::uint8_t>(StreamHeaderType::kSubgroupZeroNoExtensions),
-        kStreamHeaderSubgroupZeroWithExtensions =
-          static_cast<std::uint8_t>(StreamHeaderType::kSubgroupZeroWithExtensions),
-        kStreamHeaderSubgroupFirstObjectNoExtensions =
-          static_cast<std::uint8_t>(StreamHeaderType::kSubgroupFirstObjectNoExtensions),
-        kStreamHeaderSubgroupFirstObjectWithExtensions =
-          static_cast<std::uint8_t>(StreamHeaderType::kSubgroupFirstObjectWithExtensions),
-        kStreamHeaderSubgroupExplicitNoExtensions =
-          static_cast<std::uint8_t>(StreamHeaderType::kSubgroupExplicitNoExtensions),
-        kStreamHeaderSubgroupExplicitWithExtensions =
-          static_cast<std::uint8_t>(StreamHeaderType::kSubgroupExplicitWithExtensions),
-    };
+    constexpr bool TypeWillSerializeExtensions(const uint8_t type)
+    {
+        return (type & 0x01) != 0;
+    }
+
+    /**
+     * Check if this type will serialize extensions.
+     * @param type Type to check.
+     * @return True if the type will serialize extensions, false otherwise.
+     */
+    constexpr bool TypeWillSerializeExtensions(DatagramHeaderType type)
+    {
+        return TypeWillSerializeExtensions(static_cast<uint8_t>(type));
+    }
+
+    /**
+     * Check if this type will serialize extensions.
+     * @param type Type to check.
+     * @return True if the type will serialize extensions, false otherwise.
+     */
+    constexpr bool TypeWillSerializeExtensions(DatagramStatusType type)
+    {
+        return TypeWillSerializeExtensions(static_cast<uint8_t>(type));
+    }
+
+    /**
+     * Check if this type will serialize extensions.
+     * @param type Type to check.
+     * @return True if the type will serialize extensions, false otherwise.
+     */
+    constexpr bool TypeWillSerializeExtensions(StreamHeaderType type)
+    {
+        return TypeWillSerializeExtensions(static_cast<uint8_t>(type));
+    }
+
+    /**
+     * Check is this object is the last object in the group.
+     * @param type Type to check.
+     * @return True if this is the last object in the group.
+     */
+    constexpr bool TypeContainsEndOfGroup(DatagramHeaderType type)
+    {
+        return (static_cast<uint8_t>(type) & 0x02) != 0;
+    }
+
+    /**
+     * Check is this object is the last object in the group.
+     * @param type Type to check.
+     * @return True if this is the last object in the group.
+     */
+    constexpr bool TypeContainsEndOfGroup(StreamHeaderType type)
+    {
+        return (static_cast<uint8_t>(type) & 0x08) != 0;
+    }
 
     /**
      * @brief Check if the type is a stream header type.
      * @param type The type to check.
      * @return true if the type is a stream header type, false otherwise.
      */
-    [[maybe_unused]]
-    static bool typeIsStreamHeaderType(const DataMessageType type)
+    static bool TypeIsStreamHeaderType(const DataMessageType type)
     {
-        switch (type) {
-            case DataMessageType::kStreamHeaderSubgroupZeroNoExtensions:
-                [[fallthrough]];
-            case DataMessageType::kStreamHeaderSubgroupZeroWithExtensions:
-                [[fallthrough]];
-            case DataMessageType::kStreamHeaderSubgroupFirstObjectNoExtensions:
-                [[fallthrough]];
-            case DataMessageType::kStreamHeaderSubgroupFirstObjectWithExtensions:
-                [[fallthrough]];
-            case DataMessageType::kStreamHeaderSubgroupExplicitNoExtensions:
-                [[fallthrough]];
-            case DataMessageType::kStreamHeaderSubgroupExplicitWithExtensions:
-                return true;
-            default:
-                return false;
-        }
+        const auto value = static_cast<uint8_t>(type);
+        return (value >= static_cast<uint8_t>(DataMessageType::kSubgroupId0_NoExt_NoExt) &&
+                value <= static_cast<uint8_t>(DataMessageType::kSubgroupIdPresent_Ext_End));
+    }
+
+    static bool TypeIsDatagramHeaderType(const DataMessageType type)
+    {
+        const auto value = static_cast<uint8_t>(type);
+        return (value >= static_cast<uint8_t>(DataMessageType::kNoEnd_NoExt) &&
+                value <= static_cast<uint8_t>(DataMessageType::kEnd_Ext));
+    }
+
+    static bool TypeIsDatagramStatusType(const DataMessageType type)
+    {
+        const auto value = static_cast<uint8_t>(type);
+        return (value >= static_cast<uint8_t>(DataMessageType::kNoExt) &&
+                value <= static_cast<uint8_t>(DataMessageType::kExt));
+    }
+
+    static bool TypeIsDatagram(const DataMessageType type)
+    {
+        return TypeIsDatagramHeaderType(type) || TypeIsDatagramStatusType(type);
     }
 
     /**
@@ -119,10 +227,9 @@ namespace quicr::messages {
      * @param type The type to check.
      * @return True if the type needs its type field inside the message, false otherwise.
      */
-    [[maybe_unused]]
-    static bool typeNeedsTypeField(const DataMessageType type)
+    constexpr bool TypeNeedsTypeField(const DataMessageType type)
     {
-        return typeIsStreamHeaderType(type);
+        return TypeIsStreamHeaderType(type);
     }
 
     struct FetchHeader
@@ -177,6 +284,7 @@ namespace quicr::messages {
         uint64_t payload_len{ 0 };
         ObjectStatus object_status;
         Bytes payload;
+        bool end_of_group{ false };
 
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, ObjectDatagram& msg);
@@ -192,11 +300,17 @@ namespace quicr::messages {
 
     struct ObjectDatagramStatus
     {
-        messages::TrackAlias track_alias;
-        messages::GroupId group_id;
+        TrackAlias track_alias;
+        GroupId group_id;
         ObjectId object_id;
         ObjectPriority priority;
+        std::optional<Extensions> extensions;
         ObjectStatus status;
+
+        DatagramStatusType get_type() const
+        {
+            return extensions.has_value() ? DatagramStatusType::kExt : DatagramStatusType::kNoExt;
+        }
 
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, ObjectDatagramStatus& msg);

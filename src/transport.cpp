@@ -1325,7 +1325,7 @@ namespace quicr {
 
                 bool break_loop = false;
                 const auto type = static_cast<DataMessageType>(msg_type);
-                if (typeIsStreamHeaderType(type)) {
+                if (TypeIsStreamHeaderType(type)) {
                     const auto stream_header_type = static_cast<StreamHeaderType>(msg_type);
                     break_loop = OnRecvSubgroup(stream_header_type, cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
                 } else if (type == DataMessageType::kFetchHeader) {
@@ -1450,11 +1450,10 @@ namespace quicr {
 
                 // TODO: Handle ObjectDatagramStatus objects as well.
 
-                if (!msg_type ||
-                    static_cast<messages::DataMessageType>(msg_type) != messages::DataMessageType::kObjectDatagram) {
-                    SPDLOG_LOGGER_DEBUG(logger_,
-                                        "Received datagram that is not message type kObjectDatagram or "
-                                        "kObjectDatagramStatus, dropping");
+                // Message type needs to be either datagram header types or status types.
+                const auto data_type = static_cast<DataMessageType>(msg_type);
+                if (!TypeIsDatagram(data_type)) {
+                    SPDLOG_LOGGER_DEBUG(logger_, "Received datagram that is not a datagram type, dropping");
                     auto& conn_ctx = connections_[conn_id];
                     conn_ctx.metrics.rx_dgram_invalid_type++;
                     continue;
