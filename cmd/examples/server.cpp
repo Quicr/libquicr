@@ -249,7 +249,7 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
     void StatusChanged(Status status) override
     {
         if (status == Status::kOk) {
-            SPDLOG_INFO("Publish track alias {0} has subscribers", GetTrackAlias());
+            SPDLOG_INFO("Publish track alias {0} has subscribers", GetTrackAlias(GetRequestId().value()));
         } else {
             std::string reason = "";
             switch (status) {
@@ -274,7 +274,8 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 default:
                     break;
             }
-            SPDLOG_INFO("Publish track alias: {0} not ready, reason: {1}", GetTrackAlias(), reason);
+            SPDLOG_INFO(
+              "Publish track alias: {0} not ready, reason: {1}", GetTrackAlias(GetRequestId().value()), reason);
         }
     }
 
@@ -288,7 +289,7 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                      " queue discards: {5}"
                      " queue size: {6}",
                      metrics.last_sample_time,
-                     GetTrackAlias(),
+                     GetTrackAlias(GetRequestId().value()),
                      metrics.objects_published,
                      metrics.bytes_published,
                      metrics.quic.tx_object_duration_us.avg,
@@ -635,17 +636,17 @@ class MyServer : public quicr::Server
     }
 
     void SubscribeReceived(quicr::ConnectionHandle connection_handle,
-                           uint64_t subscribe_id,
+                           uint64_t request_id,
                            [[maybe_unused]] quicr::messages::FilterType filter_type,
                            const quicr::FullTrackName& track_full_name,
                            const quicr::messages::SubscribeAttributes& attrs) override
     {
         auto th = quicr::TrackHash(track_full_name);
 
-        SPDLOG_INFO("New subscribe connection handle: {} subscribe_id: {} track alias: {} "
+        SPDLOG_INFO("New subscribe connection handle: {} request_id: {} track alias: {} "
                     "priority: {}",
                     connection_handle,
-                    subscribe_id,
+                    request_id,
                     th.track_fullname_hash,
                     attrs.priority);
 
@@ -662,10 +663,10 @@ class MyServer : public quicr::Server
 
         const auto pub_track_h =
           std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, 50000);
-        const auto track_alias = pub_track_h->GetTrackAlias();
+        const auto track_alias = pub_track_h->GetTrackAlias(request_id);
 
         ResolveSubscribe(connection_handle,
-                         subscribe_id,
+                         request_id,
                          track_alias,
                          {
                            quicr::SubscribeResponse::ReasonCode::kOk,
@@ -675,14 +676,14 @@ class MyServer : public quicr::Server
                          });
 
         qserver_vars::subscribes[track_alias][connection_handle] = pub_track_h;
-        qserver_vars::subscribe_alias_sub_id[connection_handle][subscribe_id] = track_alias;
+        qserver_vars::subscribe_alias_sub_id[connection_handle][request_id] = track_alias;
 
         // record subscribe as active from this subscriber
         qserver_vars::subscribe_active[track_full_name.name_space][th.track_name_hash].emplace(
-          qserver_vars::SubscribeInfo{ connection_handle, subscribe_id, track_alias });
+          qserver_vars::SubscribeInfo{ connection_handle, request_id, track_alias });
 
         // Create a subscribe track that will be used by the relay to send to subscriber for matching objects
-        BindPublisherTrack(connection_handle, subscribe_id, pub_track_h, false);
+        BindPublisherTrack(connection_handle, request_id, pub_track_h, false);
 
         // Subscribe to announcer if announcer is active
         bool success = false;
@@ -727,9 +728,9 @@ class MyServer : public quicr::Server
 
                             return;
                         }
-                        SPDLOG_INFO("Sending subscription update to announcer connection: {0} hash: {1}",
+                        SPDLOG_INFO("Sending subscription update to announcer connection: hash: {0} request: {1}",
                                     th.track_namespace_hash,
-                                    subscribe_id);
+                                    request_id);
                         UpdateTrackSubscription(conn_h, sub_track_h);
                         last_subscription_time_ = std::chrono::steady_clock::now();
                     }

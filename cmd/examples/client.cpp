@@ -226,25 +226,26 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
 
     void StatusChanged(Status status) override
     {
+        const auto alias = GetTrackAlias(GetRequestId().value());
         switch (status) {
             case Status::kOk: {
-                SPDLOG_INFO("Publish track alias: {0} is ready to send", GetTrackAlias());
+                SPDLOG_INFO("Publish track alias: {0} is ready to send", alias);
                 break;
             }
             case Status::kNoSubscribers: {
-                SPDLOG_INFO("Publish track alias: {0} has no subscribers", GetTrackAlias());
+                SPDLOG_INFO("Publish track alias: {0} has no subscribers", alias);
                 break;
             }
             case Status::kNewGroupRequested: {
-                SPDLOG_INFO("Publish track alias: {0} has new group request", GetTrackAlias());
+                SPDLOG_INFO("Publish track alias: {0} has new group request", alias);
                 break;
             }
             case Status::kSubscriptionUpdated: {
-                SPDLOG_INFO("Publish track alias: {0} has updated subscription", GetTrackAlias());
+                SPDLOG_INFO("Publish track alias: {0} has updated subscription", alias);
                 break;
             }
             default:
-                SPDLOG_INFO("Publish track alias: {0} has status {1}", GetTrackAlias(), static_cast<int>(status));
+                SPDLOG_INFO("Publish track alias: {0} has status {1}", alias, static_cast<int>(status));
                 break;
         }
     }
