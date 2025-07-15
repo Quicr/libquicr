@@ -1138,7 +1138,8 @@ namespace quicr {
 
                 messages::StreamSubGroupObject object;
                 object.object_id = object_id;
-                object.serialize_extensions = GetStreamHeaderProperties(track_handler.GetStreamMode()).has_extensions;
+                object.serialize_extensions =
+                  GetStreamHeaderProperties(track_handler.GetStreamMode()).may_contain_extensions;
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
                 track_handler.object_msg_buffer_ << object;

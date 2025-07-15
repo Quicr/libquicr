@@ -245,7 +245,7 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, bool extensions, bool
     for (size_t i = 0; i < 10; i++) {
         auto obj = messages::StreamSubGroupObject{};
         const auto properties = GetStreamHeaderProperties(type);
-        obj.serialize_extensions = properties.has_extensions;
+        obj.serialize_extensions = properties.may_contain_extensions;
         obj.object_id = 0x1234;
 
         if (empty_payload) {
@@ -263,7 +263,7 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, bool extensions, bool
     size_t object_count = 0;
     StreamBuffer<uint8_t> in_buffer;
     for (size_t i = 0; i < buffer.size(); i++) {
-        obj_out.serialize_extensions = GetStreamHeaderProperties(type).has_extensions;
+        obj_out.serialize_extensions = GetStreamHeaderProperties(type).may_contain_extensions;
         in_buffer.Push(buffer.at(i));
         bool done = in_buffer >> obj_out;
         if (!done) {

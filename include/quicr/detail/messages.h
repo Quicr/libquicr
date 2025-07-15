@@ -74,8 +74,9 @@ namespace quicr::messages {
         const SubgroupIdType subgroup_id_type;
         // True if the last object in this subgroup is the end of the group.
         const bool end_of_group;
-        // If true, all objects in this subgroup will have an extension header length.
-        const bool has_extensions;
+        // If true, all objects in this subgroup will have an extension header length serialized (it may be 0).
+        // If false, no objects in this subgroup will have extensions, and extension length is not serialized.
+        const bool may_contain_extensions;
     };
 
     /**

@@ -49,7 +49,8 @@ namespace quicr {
         }
 
         auto& obj = stream_buffer_.GetAnyB<messages::StreamSubGroupObject>();
-        obj.serialize_extensions = messages::GetStreamHeaderProperties(s_hdr.type).has_extensions;
+        const auto subgroup_properties = messages::GetStreamHeaderProperties(s_hdr.type);
+        obj.serialize_extensions = subgroup_properties.may_contain_extensions;
         if (stream_buffer_ >> obj) {
             SPDLOG_TRACE("Received stream_subgroup_object type: {} priority: {} track_alias: {} "
                          "group_id: {} subgroup_id: {} object_id: {} data size: {}",
@@ -62,9 +63,9 @@ namespace quicr {
                          obj.payload.size());
 
             if (!s_hdr.subgroup_id.has_value()) {
-                // TODO(RichLogan): This is a protocol error?
-                // assert(s_hdr.type == messages::StreamHeaderType::kSubgroupFirstObjectNoExtensions ||
-                //        s_hdr.type == messages::StreamHeaderType::kSubgroupFirstObjectWithExtensions);
+                // TODO(RichLogan): This assertion actually represents a protocol error?
+                assert(subgroup_properties.subgroup_id_type == messages::SubgroupIdType::kSetFromFirstObject);
+                // Set the subgroup ID from the first object ID.
                 s_hdr.subgroup_id = obj.object_id;
             }
 
