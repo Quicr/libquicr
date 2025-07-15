@@ -256,20 +256,8 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const ObjectDatagram& msg)
     {
-        DatagramHeaderType type;
-        if (msg.end_of_group) {
-            if (msg.extensions == std::nullopt) {
-                type = DatagramHeaderType::kEndOfGroupNoExtensions;
-            } else {
-                type = DatagramHeaderType::kEndOfGroupWithExtensions;
-            }
-        } else {
-            if (msg.extensions == std::nullopt) {
-                type = DatagramHeaderType::kNotEndOfGroupNoExtensions;
-            } else {
-                type = DatagramHeaderType::kNotEndOfGroupWithExtensions;
-            }
-        }
+        const DatagramHeaderProperties properties = { msg.end_of_group, msg.extensions != std::nullopt };
+        const DatagramHeaderType type = properties.GetType();
         buffer << UintVar(static_cast<uint64_t>(type));
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
@@ -356,7 +344,8 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const ObjectDatagramStatus& msg)
     {
-        buffer << UintVar(static_cast<uint64_t>(msg.get_type()));
+        const auto properties = DatagramStatusProperties(msg.extensions != std::nullopt);
+        buffer << UintVar(static_cast<uint64_t>(properties.GetType()));
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
         buffer << UintVar(msg.object_id);

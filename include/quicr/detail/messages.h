@@ -68,8 +68,6 @@ namespace quicr::messages {
      */
     struct StreamHeaderProperties
     {
-        // The type of the stream header.
-        const StreamHeaderType type;
         // The way in which the subgroup ID is serialized & handled.
         const SubgroupIdType subgroup_id_type;
         // True if the last object in this subgroup is the end of the group.
@@ -77,6 +75,42 @@ namespace quicr::messages {
         // If true, all objects in this subgroup will have an extension header length serialized (it may be 0).
         // If false, no objects in this subgroup will have extensions, and extension length is not serialized.
         const bool may_contain_extensions;
+
+        /**
+         * Get the type of this stream header based on its properties.
+         * @return The StreamHeaderType corresponding to these properties.
+         */
+        constexpr StreamHeaderType GetType() const
+        {
+            switch (subgroup_id_type) {
+                case SubgroupIdType::kIsZero: {
+                    if (end_of_group) {
+                        return may_contain_extensions ? StreamHeaderType::kSubgroup0EndOfGroupWithExtensions
+                                                      : StreamHeaderType::kSubgroup0EndOfGroupNoExtensions;
+                    }
+                    return may_contain_extensions ? StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions
+                                                  : StreamHeaderType::kSubgroup0NotEndOfGroupNoExtensions;
+                }
+                case SubgroupIdType::kSetFromFirstObject: {
+                    if (end_of_group) {
+                        return may_contain_extensions ? StreamHeaderType::kSubgroupFirstObjectEndOfGroupWithExtensions
+                                                      : StreamHeaderType::kSubgroupFirstObjectEndOfGroupNoExtensions;
+                    }
+                    return may_contain_extensions ? StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupWithExtensions
+                                                  : StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions;
+                }
+                case SubgroupIdType::kExplicit: {
+                    if (end_of_group) {
+                        return may_contain_extensions ? StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions
+                                                      : StreamHeaderType::kSubgroupExplicitEndOfGroupNoExtensions;
+                    }
+                    return may_contain_extensions ? StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions
+                                                  : StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions;
+                }
+            }
+            assert(false);
+            return StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions; // Default case, should never be reached.
+        }
     };
 
     /**
@@ -88,32 +122,32 @@ namespace quicr::messages {
     {
         switch (type) {
             case StreamHeaderType::kSubgroup0NotEndOfGroupNoExtensions:
-                return { type, SubgroupIdType::kIsZero, false, false };
+                return { SubgroupIdType::kIsZero, false, false };
             case StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions:
-                return { type, SubgroupIdType::kIsZero, false, true };
+                return { SubgroupIdType::kIsZero, false, true };
             case StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions:
-                return { type, SubgroupIdType::kSetFromFirstObject, false, false };
+                return { SubgroupIdType::kSetFromFirstObject, false, false };
             case StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupWithExtensions:
-                return { type, SubgroupIdType::kSetFromFirstObject, false, true };
+                return { SubgroupIdType::kSetFromFirstObject, false, true };
             case StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions:
-                return { type, SubgroupIdType::kExplicit, false, false };
+                return { SubgroupIdType::kExplicit, false, false };
             case StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions:
-                return { type, SubgroupIdType::kExplicit, false, true };
+                return { SubgroupIdType::kExplicit, false, true };
             case StreamHeaderType::kSubgroup0EndOfGroupNoExtensions:
-                return { type, SubgroupIdType::kIsZero, true, false };
+                return { SubgroupIdType::kIsZero, true, false };
             case StreamHeaderType::kSubgroup0EndOfGroupWithExtensions:
-                return { type, SubgroupIdType::kIsZero, true, true };
+                return { SubgroupIdType::kIsZero, true, true };
             case StreamHeaderType::kSubgroupFirstObjectEndOfGroupNoExtensions:
-                return { type, SubgroupIdType::kSetFromFirstObject, true, false };
+                return { SubgroupIdType::kSetFromFirstObject, true, false };
             case StreamHeaderType::kSubgroupFirstObjectEndOfGroupWithExtensions:
-                return { type, SubgroupIdType::kSetFromFirstObject, true, true };
+                return { SubgroupIdType::kSetFromFirstObject, true, true };
             case StreamHeaderType::kSubgroupExplicitEndOfGroupNoExtensions:
-                return { type, SubgroupIdType::kExplicit, true, false };
+                return { SubgroupIdType::kExplicit, true, false };
             case StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions:
-                return { type, SubgroupIdType::kExplicit, true, true };
+                return { SubgroupIdType::kExplicit, true, true };
         }
         assert(false);
-        return { type, SubgroupIdType::kIsZero, false, false };
+        return { SubgroupIdType::kIsZero, false, false };
     }
 
     /**
@@ -121,12 +155,24 @@ namespace quicr::messages {
      */
     struct DatagramHeaderProperties
     {
-        // The type of the datagram header.
-        const DatagramHeaderType type;
         // True if this object is end of the group.
         const bool end_of_group;
         // True if this object has extensions.
         const bool has_extensions;
+
+        /**
+         * Get the type of this datagram header based on its properties.
+         * @return The DatagramHeaderType corresponding to these properties.
+         */
+        constexpr DatagramHeaderType GetType() const
+        {
+            if (end_of_group) {
+                return has_extensions ? DatagramHeaderType::kEndOfGroupWithExtensions
+                                      : DatagramHeaderType::kEndOfGroupNoExtensions;
+            }
+            return has_extensions ? DatagramHeaderType::kNotEndOfGroupWithExtensions
+                                  : DatagramHeaderType::kNotEndOfGroupNoExtensions;
+        }
     };
 
     /**
@@ -138,16 +184,16 @@ namespace quicr::messages {
     {
         switch (type) {
             case DatagramHeaderType::kNotEndOfGroupNoExtensions:
-                return { type, false, false };
+                return { false, false };
             case DatagramHeaderType::kNotEndOfGroupWithExtensions:
-                return { type, false, true };
+                return { false, true };
             case DatagramHeaderType::kEndOfGroupNoExtensions:
-                return { type, true, false };
+                return { true, false };
             case DatagramHeaderType::kEndOfGroupWithExtensions:
-                return { type, true, true };
+                return { true, true };
         }
         assert(false);
-        return { type, false, false };
+        return { false, false };
     }
 
     /**
@@ -155,10 +201,17 @@ namespace quicr::messages {
      */
     struct DatagramStatusProperties
     {
-        // The type of the datagram status.
-        const DatagramStatusType type;
         // True if this datagram status message has extensions.
         const bool has_extensions;
+
+        /**
+         * Get the type of this datagram status based on its properties.
+         * @return The DatagramStatusType corresponding to these properties.
+         */
+        constexpr DatagramStatusType GetType() const
+        {
+            return has_extensions ? DatagramStatusType::kWithExtensions : DatagramStatusType::kNoExtensions;
+        }
     };
 
     /**
@@ -170,12 +223,12 @@ namespace quicr::messages {
     {
         switch (type) {
             case DatagramStatusType::kNoExtensions:
-                return { type, false };
+                return { false };
             case DatagramStatusType::kWithExtensions:
-                return { type, true };
+                return { true };
         }
         assert(false);
-        return { type, false };
+        return { false };
     }
 
     /**
@@ -399,11 +452,6 @@ namespace quicr::messages {
         ObjectPriority priority;
         std::optional<Extensions> extensions;
         ObjectStatus status;
-
-        DatagramStatusType get_type() const
-        {
-            return extensions.has_value() ? DatagramStatusType::kWithExtensions : DatagramStatusType::kNoExtensions;
-        }
 
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, ObjectDatagramStatus& msg);
