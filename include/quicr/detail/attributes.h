@@ -12,9 +12,9 @@ namespace quicr::messages {
      */
     struct SubscribeAttributes
     {
-        std::uint8_t priority;       ///< Subscriber priority
-        GroupOrder group_order;      ///< Subscriber group order
-        std::uint64_t delay_timeout; ///< Subscriber delay timeout
+        std::uint8_t priority;          ///< Subscriber priority
+        GroupOrder group_order;         ///< Subscriber group order
+        std::uint64_t delivery_timeout; ///< Subscriber delivery timeout
     };
 
     /**
