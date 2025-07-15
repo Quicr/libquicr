@@ -344,7 +344,7 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const ObjectDatagramStatus& msg)
     {
-        const auto properties = DatagramStatusProperties(msg.extensions != std::nullopt);
+        const DatagramStatusProperties properties = { msg.extensions != std::nullopt };
         buffer << UintVar(static_cast<uint64_t>(properties.GetType()));
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
