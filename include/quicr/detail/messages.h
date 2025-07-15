@@ -18,6 +18,9 @@ namespace quicr::messages {
     using ObjectPriority = uint8_t;
     using Extensions = std::map<uint64_t, Bytes>;
 
+    /**
+     * Possible datagram object header types.
+     */
     enum class DatagramHeaderType : uint8_t
     {
         kNotEndOfGroupNoExtensions = 0x00,
@@ -26,17 +29,26 @@ namespace quicr::messages {
         kEndOfGroupWithExtensions = 0x03
     };
 
+    /**
+     * Possible datagram status types.
+     */
     enum class DatagramStatusType : uint8_t
     {
         kNoExtensions = 0x04,
         kWithExtensions = 0x05
     };
 
+    /**
+     * Possible fetch header types.
+     */
     enum class FetchHeaderType : uint8_t
     {
         kFetchHeader = 0x05
     };
 
+    /**
+     * Possible stream subgroup header types.
+     */
     enum class StreamHeaderType : uint8_t
     {
         kSubgroup0NotEndOfGroupNoExtensions = 0x10,
@@ -53,6 +65,9 @@ namespace quicr::messages {
         kSubgroupExplicitEndOfGroupWithExtensions = 0x1D
     };
 
+    /**
+     * Possible ways of communicating subgroup ID in stream headers.
+     */
     enum class SubgroupIdType
     {
         // The subgroup ID should be set to zero, and not serialized on the wire.
@@ -205,7 +220,7 @@ namespace quicr::messages {
         const bool has_extensions;
 
         /**
-         * Get the type of this datagram status based on its properties.
+         * Get the datagram status type based on its properties.
          * @return The DatagramStatusType corresponding to these properties.
          */
         constexpr DatagramStatusType GetType() const
@@ -236,10 +251,10 @@ namespace quicr::messages {
      */
     enum class DatagramMessageType : uint8_t
     {
-        kDatagramNotEndOfGroupNoExtensions = static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupNoExtensions),
-        kDatagramNotEndOfGroupWithExtensions = static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupWithExtensions),
-        kDatagramEndOfGroupNoExtensions = static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupNoExtensions),
-        kDatagramEndOfGroupWithExtensions = static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupWithExtensions),
+        kDatagramNotEndOfGroupNoExtensions = static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupNoExtensions),
+        kDatagramNotEndOfGroupWithExtensions = static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupWithExtensions),
+        kDatagramEndOfGroupNoExtensions = static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupNoExtensions),
+        kDatagramEndOfGroupWithExtensions = static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupWithExtensions),
         kDatagramStatusNoExtensions = static_cast<uint8_t>(DatagramStatusType::kNoExtensions),
         kDatagramStatusWithExtensions = static_cast<uint8_t>(DatagramStatusType::kWithExtensions),
     };
