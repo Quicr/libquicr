@@ -372,12 +372,28 @@ namespace quicr {
                     conn_ctx.next_request_id = msg.request_id + 1;
                 }
 
+                const auto dt_param =
+                  std::find_if(msg.subscribe_parameters.begin(), msg.subscribe_parameters.end(), [](const auto& p) {
+                      return static_cast<messages::VersionSpecificParameterType>(p.type) ==
+                             messages::VersionSpecificParameterType::kDeliveryTimeout;
+                  });
+
+                std::uint64_t delivery_timeout = 0;
+
+                if (dt_param != msg.subscribe_parameters.end()) {
+                    std::memcpy(&delivery_timeout, dt_param->value.data(), dt_param->value.size());
+                }
+
                 // TODO(tievens): add filter type when caching supports it
                 SubscribeReceived(conn_ctx.connection_handle,
                                   msg.request_id,
                                   msg.filter_type,
                                   tfn,
-                                  { msg.subscriber_priority, static_cast<messages::GroupOrder>(msg.group_order) });
+                                  {
+                                    msg.subscriber_priority,
+                                    static_cast<messages::GroupOrder>(msg.group_order),
+                                    delivery_timeout,
+                                  });
 
                 return true;
             }
