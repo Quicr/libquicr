@@ -138,7 +138,7 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const FetchHeader& msg)
     {
-        buffer << UintVar(static_cast<uint64_t>(DataMessageType::kFetchHeader));
+        buffer << UintVar(static_cast<uint64_t>(FetchHeaderType::kFetchHeader));
         buffer << UintVar(msg.subscribe_id);
         return buffer;
     }
@@ -426,7 +426,8 @@ namespace quicr::messages {
         buffer << UintVar(static_cast<uint64_t>(msg.type));
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
-        if (TypeWillSerializeSubgroup(msg.type)) {
+        const auto header_properties = GetStreamHeaderProperties(msg.type);
+        if (header_properties.subgroup_id_type == SubgroupIdType::kExplicit) {
             assert(msg.subgroup_id.has_value());
             buffer << UintVar(msg.subgroup_id.value());
         }
@@ -462,19 +463,21 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 3: {
-                if (TypeIsSubgroupId0(msg.type)) {
-                    msg.subgroup_id = 0;
-                } else if (TypeIsSubgroupIdFirst(msg.type)) {
-                    msg.subgroup_id = std::nullopt; // Will be updated by first object.
-                } else if (TypeHasSubgroupId(msg.type)) {
-                    SubGroupId subgroup_id;
-                    if (!ParseUintVField(buffer, subgroup_id)) {
-                        return false;
-                    }
-                    msg.subgroup_id = subgroup_id;
-                } else {
-                    // TODO: Protocol error?
-                    assert(false);
+                const auto properties = GetStreamHeaderProperties(msg.type);
+                switch (properties.subgroup_id_type) {
+                    case SubgroupIdType::kIsZero:
+                        msg.subgroup_id = 0;
+                        break;
+                    case SubgroupIdType::kSetFromFirstObject:
+                        msg.subgroup_id = std::nullopt; // Will be updated by first object.
+                        break;
+                    case SubgroupIdType::kExplicit:
+                        SubGroupId subgroup_id;
+                        if (!ParseUintVField(buffer, subgroup_id)) {
+                            return false;
+                        }
+                        msg.subgroup_id = subgroup_id;
+                        break;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];

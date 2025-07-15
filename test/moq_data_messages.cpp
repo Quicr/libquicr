@@ -25,9 +25,19 @@ const UintVar kTrackAliasAliceVideo{ 0xA11CE };
 const Extensions kExampleExtensions = { { 0x1, { 0x1, 0x2 } }, { 0x2, { 0, 0, 0, 0, 0, 0x3, 0x2, 0x1 } } };
 const std::optional<Extensions> kOptionalExtensions = kExampleExtensions;
 
+enum TransportType
+{
+    kDatagram,
+    kStream
+};
+
 template<typename T>
 bool
-Verify(std::vector<uint8_t>& buffer, uint64_t message_type, T& message, [[maybe_unused]] size_t slice_depth = 1)
+Verify(std::vector<uint8_t>& buffer,
+       uint64_t message_type,
+       T& message,
+       TransportType type,
+       [[maybe_unused]] size_t slice_depth = 1)
 {
     // TODO: support Size_depth > 1, if needed
     StreamBuffer<uint8_t> in_buffer;
@@ -41,7 +51,8 @@ Verify(std::vector<uint8_t>& buffer, uint64_t message_type, T& message, [[maybe_
         in_buffer.Push(v);
 
         if (!msg_type) {
-            bool pop = !TypeNeedsTypeField(static_cast<DataMessageType>(message_type));
+            bool pop =
+              type == TransportType::kDatagram || !TypeNeedsTypeField(static_cast<StreamMessageType>(message_type));
             msg_type = in_buffer.DecodeUintV(pop);
             if (!msg_type) {
                 continue;
@@ -146,7 +157,7 @@ ObjectDatagramStatusEncodeDecode(bool extensions)
     buffer << object_datagram_status;
 
     ObjectDatagramStatus object_datagram_status_out;
-    CHECK(Verify(buffer, static_cast<uint64_t>(expected_type), object_datagram_status_out));
+    CHECK(Verify(buffer, static_cast<uint64_t>(expected_type), object_datagram_status_out, TransportType::kDatagram));
     CHECK_EQ(object_datagram_status.track_alias, object_datagram_status_out.track_alias);
     CHECK_EQ(object_datagram_status.group_id, object_datagram_status_out.group_id);
     CHECK_EQ(object_datagram_status.object_id, object_datagram_status_out.object_id);
@@ -172,20 +183,24 @@ StreamHeaderEncodeDecode(StreamHeaderType type)
     hdr.priority = 0xA;
     buffer << hdr;
     StreamHeaderSubGroup hdr_out;
-    CHECK(Verify(buffer, static_cast<uint64_t>(type), hdr_out));
+    CHECK(Verify(buffer, static_cast<uint64_t>(type), hdr_out, TransportType::kStream));
     CHECK_EQ(hdr.type, hdr_out.type);
     CHECK_EQ(hdr.track_alias, hdr_out.track_alias);
     CHECK_EQ(hdr.group_id, hdr_out.group_id);
 
-    if (TypeIsSubgroupId0(type)) {
-        CHECK_EQ(hdr_out.subgroup_id, 0);
-    } else if (TypeIsSubgroupIdFirst(type)) {
-        CHECK_EQ(hdr_out.subgroup_id, std::nullopt);
-    } else if (TypeHasSubgroupId(type)) {
-        CHECK_EQ(hdr_out.subgroup_id, hdr.subgroup_id);
-    } else {
-        FAIL("Bad subgroup header subgroup handling");
+    const auto hdr_properties = GetStreamHeaderProperties(type);
+    switch (hdr_properties.subgroup_id_type) {
+        case SubgroupIdType::kIsZero:
+            CHECK_EQ(hdr_out.subgroup_id, 0);
+            return;
+        case SubgroupIdType::kSetFromFirstObject:
+            CHECK_EQ(hdr_out.subgroup_id, std::nullopt);
+            return;
+        case SubgroupIdType::kExplicit:
+            CHECK_EQ(hdr_out.subgroup_id, hdr.subgroup_id);
+            return;
     }
+    FAIL("Bad subgroup id type in StreamHeader");
 }
 
 TEST_CASE("StreamHeader Message encode/decode")
@@ -218,7 +233,7 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, bool extensions, bool
     buffer << hdr_grp;
 
     messages::StreamHeaderSubGroup hdr_group_out;
-    CHECK(Verify(buffer, static_cast<uint64_t>(type), hdr_group_out));
+    CHECK(Verify(buffer, static_cast<uint64_t>(type), hdr_group_out, TransportType::kStream));
     CHECK_EQ(hdr_grp.type, hdr_group_out.type);
     CHECK_EQ(hdr_grp.track_alias, hdr_group_out.track_alias);
     CHECK_EQ(hdr_grp.group_id, hdr_group_out.group_id);
@@ -229,7 +244,8 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, bool extensions, bool
     // send 10 objects
     for (size_t i = 0; i < 10; i++) {
         auto obj = messages::StreamSubGroupObject{};
-        obj.serialize_extensions = TypeWillSerializeExtensions(type);
+        const auto properties = GetStreamHeaderProperties(type);
+        obj.serialize_extensions = properties.has_extensions;
         obj.object_id = 0x1234;
 
         if (empty_payload) {
@@ -247,7 +263,7 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, bool extensions, bool
     size_t object_count = 0;
     StreamBuffer<uint8_t> in_buffer;
     for (size_t i = 0; i < buffer.size(); i++) {
-        obj_out.serialize_extensions = TypeWillSerializeExtensions(type);
+        obj_out.serialize_extensions = GetStreamHeaderProperties(type).has_extensions;
         in_buffer.Push(buffer.at(i));
         bool done = in_buffer >> obj_out;
         if (!done) {
@@ -312,7 +328,10 @@ FetchStreamEncodeDecode(bool extensions, bool empty_payload)
     buffer << fetch_header;
 
     messages::FetchHeader fetch_header_out;
-    CHECK(Verify(buffer, static_cast<uint64_t>(messages::DataMessageType::kFetchHeader), fetch_header_out));
+    CHECK(Verify(buffer,
+                 static_cast<uint64_t>(messages::FetchHeaderType::kFetchHeader),
+                 fetch_header_out,
+                 TransportType::kStream));
     CHECK_EQ(fetch_header.subscribe_id, fetch_header_out.subscribe_id);
 
     // stream all the objects
