@@ -520,8 +520,7 @@ namespace quicr::messages {
          */
         DatagramHeaderType GetType() const
         {
-            const auto properties = DatagramHeaderProperties(end_of_group, extensions.has_value());
-            return properties.GetType();
+            return DatagramHeaderProperties(end_of_group, extensions.has_value()).GetType();
         }
 
       private:
