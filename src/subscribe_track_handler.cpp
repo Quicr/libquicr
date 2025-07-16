@@ -49,8 +49,8 @@ namespace quicr {
         }
 
         auto& obj = stream_buffer_.GetAnyB<messages::StreamSubGroupObject>();
-        const auto subgroup_properties = messages::GetStreamHeaderProperties(s_hdr.type);
-        obj.serialize_extensions = subgroup_properties.may_contain_extensions;
+        obj.stream_type = s_hdr.type;
+        const auto subgroup_properties = messages::StreamHeaderProperties(s_hdr.type);
         if (stream_buffer_ >> obj) {
             SPDLOG_TRACE("Received stream_subgroup_object type: {} priority: {} track_alias: {} "
                          "group_id: {} subgroup_id: {} object_id: {} data size: {}",

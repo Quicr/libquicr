@@ -1138,8 +1138,7 @@ namespace quicr {
 
                 messages::StreamSubGroupObject object;
                 object.object_id = object_id;
-                object.serialize_extensions =
-                  GetStreamHeaderProperties(track_handler.GetStreamMode()).may_contain_extensions;
+                object.stream_type = track_handler.GetStreamMode();
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
                 track_handler.object_msg_buffer_ << object;
@@ -1465,7 +1464,7 @@ namespace quicr {
             auto group_id_sz = UintVar::Size(*cursor_it);
             cursor_it += group_id_sz;
 
-            const auto properties = GetStreamHeaderProperties(type);
+            const auto properties = StreamHeaderProperties(type);
             if (properties.subgroup_id_type == SubgroupIdType::kExplicit) {
                 auto subgroup_id_sz = UintVar::Size(*cursor_it);
                 cursor_it += subgroup_id_sz;
