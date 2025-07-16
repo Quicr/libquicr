@@ -116,6 +116,7 @@ namespace quicr {
                 if (value_index >= bucket.size() || ticks > expiry_tick) {
                     elem.expired_count += bucket.at(value_index).size();
                     this->queue_index_++;
+                    object_index_ = 0;
                     continue;
                 }
 
