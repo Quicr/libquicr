@@ -25,12 +25,6 @@ const UintVar kTrackAliasAliceVideo{ 0xA11CE };
 const Extensions kExampleExtensions = { { 0x1, { 0x1, 0x2 } }, { 0x2, { 0, 0, 0, 0, 0, 0x3, 0x2, 0x1 } } };
 const std::optional<Extensions> kOptionalExtensions = kExampleExtensions;
 
-enum TransportType
-{
-    kDatagram,
-    kStream
-};
-
 template<typename T>
 bool
 Verify(std::vector<uint8_t>& buffer, T& message, [[maybe_unused]] size_t slice_depth = 1)
