@@ -392,7 +392,7 @@ namespace quicr {
                                   {
                                     msg.subscriber_priority,
                                     static_cast<messages::GroupOrder>(msg.group_order),
-                                    delivery_timeout,
+                                    std::chrono::milliseconds{ delivery_timeout },
                                   });
 
                 return true;
