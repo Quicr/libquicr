@@ -368,11 +368,11 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 {
     Bytes buffer;
     Parameter param1;
-    param1.type = ParameterType::kDeliveryTimeout;
+    param1.type = ParameterType::kAuthorizationToken;
     param1.value = { 0x1, 0x2 };
 
     Parameter param2;
-    param2.type = ParameterType::kDeliveryTimeout;
+    param2.type = ParameterType::kAuthorizationToken;
     param2.value = { 0x1, 0x2, 0x3 };
 
     SubscribeParameters params = { param1, param2 };
