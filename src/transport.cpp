@@ -195,7 +195,7 @@ namespace quicr {
         auto supported_versions = { kMoqtVersion };
         messages::SetupParameters setup_parameters;
         setup_parameters.push_back(
-          { .type = messages::ParameterType::kEndpointId,
+          { .type = messages::SetupParameterType::kEndpointId,
             .value = { client_config_.endpoint_id.begin(), client_config_.endpoint_id.end() } });
 
         auto client_setup = messages::ClientSetup(supported_versions, setup_parameters);
@@ -218,7 +218,7 @@ namespace quicr {
 
         messages::SetupParameters setup_parameters;
         setup_parameters.push_back(
-          { .type = messages::ParameterType::kEndpointId,
+          { .type = messages::SetupParameterType::kEndpointId,
             .value = { server_config_.endpoint_id.begin(), server_config_.endpoint_id.end() } });
 
         auto server_setup = messages::ServerSetup(selected_version, setup_parameters);

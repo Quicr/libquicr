@@ -374,8 +374,7 @@ namespace quicr {
 
                 const auto dt_param =
                   std::find_if(msg.subscribe_parameters.begin(), msg.subscribe_parameters.end(), [](const auto& p) {
-                      return static_cast<messages::VersionSpecificParameterType>(p.type) ==
-                             messages::VersionSpecificParameterType::kDeliveryTimeout;
+                      return p.type == messages::ParameterType::kDeliveryTimeout;
                   });
 
                 std::uint64_t delivery_timeout = 0;
@@ -637,7 +636,7 @@ namespace quicr {
 
                 std::string endpoint_id = "Unknown Endpoint ID";
                 for (const auto& param : msg.setup_parameters) {
-                    if (param.type == messages::ParameterType::kEndpointId) {
+                    if (param.type == messages::SetupParameterType::kEndpointId) {
                         endpoint_id = std::string(param.value.begin(), param.value.end());
                     }
                 }

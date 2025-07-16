@@ -122,11 +122,12 @@ namespace quicr::messages {
     {
         kPath = 0x01,
         kMaxRequestId = 0x02, // version specific, unused
-        kEndpointId = 0xF1,   // Endpoint ID, using temp value for now
-        kInvalid = 0xFF,      // used internally.
+        kAuthorizationToken = 0x03,
+        kEndpointId = 0xF1, // Endpoint ID, using temp value for now
+        kInvalid = 0xFF,    // used internally.
     };
 
-    enum struct VersionSpecificParameterType : uint64_t
+    enum struct ParameterType : uint64_t
     {
         kDeliveryTimeout = 0x02,
         kAuthorizationToken = 0x03,
@@ -134,11 +135,8 @@ namespace quicr::messages {
         kInvalid = 0xFF, // used internally.
     };
 
-    using ParameterType [[deprecated]] = SetupParameterType;
-
-    using Parameter [[deprecated]] = KeyValuePair<ParameterType>;
+    using Parameter = KeyValuePair<ParameterType>;
     using SetupParameter = KeyValuePair<SetupParameterType>;
-    using VersionSpecificParameter = KeyValuePair<VersionSpecificParameterType>;
 
     enum struct GroupOrder : uint8_t
     {

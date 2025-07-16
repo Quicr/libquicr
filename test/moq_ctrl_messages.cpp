@@ -320,7 +320,7 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
 {
     Bytes buffer;
     Parameter param;
-    param.type = ParameterType::kMaxRequestId;
+    param.type = ParameterType::kDeliveryTimeout;
     param.value = { 0x1, 0x2 };
     SubscribeParameters params = { param };
 
@@ -368,11 +368,11 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
 {
     Bytes buffer;
     Parameter param1;
-    param1.type = ParameterType::kEndpointId;
+    param1.type = ParameterType::kDeliveryTimeout;
     param1.value = { 0x1, 0x2 };
 
     Parameter param2;
-    param2.type = ParameterType::kEndpointId;
+    param2.type = ParameterType::kDeliveryTimeout;
     param2.value = { 0x1, 0x2, 0x3 };
 
     SubscribeParameters params = { param1, param2 };
@@ -458,7 +458,7 @@ GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uin
 
     while (num_params > 0) {
         Parameter param1;
-        param1.type = ParameterType::kMaxRequestId;
+        param1.type = ParameterType::kDeliveryTimeout;
         // param1.length = 0x2;
         param1.value = { 0x1, 0x2 };
         out.subscribe_parameters.push_back(param1);
@@ -655,8 +655,8 @@ TEST_CASE("ClientSetup  Message encode/decode")
 
     const std::string endpoint_id = "client test";
 
-    auto client_setup = ClientSetup({ 0x1000, 0x2000 },
-                                    { { ParameterType::kEndpointId, Bytes(endpoint_id.begin(), endpoint_id.end()) } });
+    auto client_setup = ClientSetup(
+      { 0x1000, 0x2000 }, { { SetupParameterType::kEndpointId, Bytes(endpoint_id.begin(), endpoint_id.end()) } });
     buffer << client_setup;
 
     ClientSetup client_setup_out = {};
@@ -670,7 +670,7 @@ TEST_CASE("ServerSetup  Message encode/decode")
 {
     const std::string endpoint_id = "server_test";
     auto server_setup =
-      ServerSetup(0x1000, { { ParameterType::kEndpointId, Bytes(endpoint_id.begin(), endpoint_id.end()) } });
+      ServerSetup(0x1000, { { SetupParameterType::kEndpointId, Bytes(endpoint_id.begin(), endpoint_id.end()) } });
 
     Bytes buffer;
     buffer << server_setup;
