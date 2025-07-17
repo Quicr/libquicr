@@ -152,6 +152,16 @@ namespace quicr {
         void PublishTrack(ConnectionHandle connection_handle, std::shared_ptr<PublishTrackHandler> track_handler);
 
         /**
+         * @brief Publish to a track and force subscribe
+         *
+         * @param connection_handle           Connection ID from transport for the QUIC connection context
+         * @param track_handler               Track handler to use for track related functions
+         *                                    and callbacks
+         */
+        void PublishTrackSub(ConnectionHandle connection_handle, std::shared_ptr<PublishTrackHandler> track_handler);
+
+
+        /**
          * @brief Unpublish track
          *
          * @param connection_handle           Connection ID from transport for the QUIC connection context
@@ -276,6 +286,8 @@ namespace quicr {
              */
             std::map<messages::RequestID, TrackNamespaceHash> pub_tracks_ns_by_request_id;
 
+            std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_request_id;
+
             /// Published tracks by quic transport data context ID.
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
 
@@ -346,6 +358,28 @@ namespace quicr {
                                 messages::RequestID request_id,
                                 messages::SubscribeErrorCode error,
                                 const std::string& reason);
+
+        void SendPublish(ConnectionContext& conn_ctx,
+                         messages::RequestID request_id,
+                         const FullTrackName& tfn,
+                         TrackHash th,
+                         messages::SubscriberPriority priority,
+                         messages::GroupOrder group_order,
+                         bool content_exists,
+                         messages::Location largest_location,
+                         bool forward);
+
+        void SendPublishOk(ConnectionContext& conn_ctx,
+                           messages::RequestID request_id,
+                           bool forward,
+                           messages::SubscriberPriority priority,
+                           messages::GroupOrder group_order,
+                           messages::FilterType filter_type);
+
+        void SendPublishError(ConnectionContext& conn_ctx,
+                              messages::RequestID request_id,
+                              messages::SubscribeErrorCode error,
+                              const std::string& reason);
 
         void SendSubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
         void SendUnsubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);

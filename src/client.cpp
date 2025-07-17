@@ -543,6 +543,50 @@ namespace quicr {
 
                 return true;
             }
+
+            case messages::ControlMessageType::kPublishOk: {
+                messages::PublishOk msg(
+                    [](messages::PublishOk& msg) {
+                        if (msg.filter_type == messages::FilterType::kAbsoluteStart ||
+                            msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                            msg.group_0 =
+                              std::make_optional<messages::PublishOk::Group_0>(messages::PublishOk::Group_0{ 0, 0 });
+                        }
+                    },
+                    [](messages::PublishOk& msg) {
+                        if (msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                            msg.group_1 =
+                              std::make_optional<messages::PublishOk::Group_1>(messages::PublishOk::Group_1{ 0 });
+                        }
+                    });
+                    msg_bytes >> msg;
+
+                auto pub_it = conn_ctx.pub_tracks_by_request_id.find(msg.request_id);
+
+                if (pub_it == conn_ctx.pub_tracks_by_request_id.end()) {
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received publish ok to unknown publish track conn_id: {0} request_id: {1}, ignored",
+                      conn_ctx.connection_handle,
+                      msg.request_id);
+
+                    return true;
+                }
+
+                if (msg.group_0.has_value()) {
+                    SPDLOG_LOGGER_DEBUG(
+                      logger_,
+                      "Received publish ok conn_id: {} request_id: {} start_group: {} start_object: {} endgroup: {}",
+                      conn_ctx.connection_handle,
+                      msg.request_id,
+                      msg.group_0->start.group,
+                      msg.group_0->start.object,
+                      msg.group_1->endgroup);
+                }
+                pub_it->second.get()->SetStatus(PublishTrackHandler::Status::kOk);
+                return true;
+            }
+
             default:
                 SPDLOG_LOGGER_ERROR(logger_,
                                     "Unsupported MOQT message type: {0}, bad stream",
@@ -552,6 +596,7 @@ namespace quicr {
         } // End of switch(msg type)
 
         return false;
+
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception trying to process control message. (error={})", e.what());
         return false;

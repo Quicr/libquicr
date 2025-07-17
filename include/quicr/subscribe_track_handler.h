@@ -63,17 +63,20 @@ namespace quicr {
          *
          * @param full_track_name           Full track name struct
          * @param joining_fetch             If set, subscribe with a joining fetch using these attributes.
+         * @param publisher_initiated       True if publisher initiated the subscribe, otherwise False
          */
         SubscribeTrackHandler(const FullTrackName& full_track_name,
                               messages::SubscriberPriority priority,
                               messages::GroupOrder group_order,
                               messages::FilterType filter_type,
-                              const std::optional<JoiningFetch>& joining_fetch = std::nullopt)
+                              const std::optional<JoiningFetch>& joining_fetch = std::nullopt,
+                              bool publisher_initiated = false)
           : BaseTrackHandler(full_track_name)
           , priority_(priority)
           , group_order_(group_order)
           , filter_type_(filter_type)
           , joining_fetch_(joining_fetch)
+          , publisher_initiated_(publisher_initiated)
         {
         }
 
@@ -261,6 +264,12 @@ namespace quicr {
             StatusChanged(status);
         }
 
+        /**
+         * @brief Check if the subscribe is publisher initiated or not
+         * @return True if publisher initiated, false if initiated by the relay/server
+         */
+        bool IsPublisherInitiated() const noexcept { return publisher_initiated_; }
+
         StreamBuffer<uint8_t> stream_buffer_;
 
       private:
@@ -272,6 +281,7 @@ namespace quicr {
         std::optional<messages::Location> latest_location_;
         std::optional<JoiningFetch> joining_fetch_;
         std::optional<uint64_t> track_alias_;
+        bool publisher_initiated_{ false };
 
         friend class Transport;
         friend class Client;

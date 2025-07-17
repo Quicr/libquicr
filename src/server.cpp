@@ -122,6 +122,34 @@ namespace quicr {
         }
     }
 
+    void Server::ResolvePublish(ConnectionHandle connection_handle,
+                                uint64_t request_id,
+                                bool forward,
+                                messages::SubscriberPriority priority,
+                                messages::GroupOrder group_order,
+                                const PublishResponse& publish_response)
+    {
+        auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            return;
+        }
+
+        switch (publish_response.reason_code) {
+            case PublishResponse::ReasonCode::kOk: {
+
+                // Send the ok.
+                SendPublishOk(
+                  conn_it->second, request_id, forward, priority, group_order, messages::FilterType::kLatestObject);
+                break;
+            }
+            default:
+                SendPublishError(
+                  conn_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Internal error");
+                break;
+        }
+    }
+
+
     void Server::UnbindPublisherTrack(ConnectionHandle connection_handle,
                                       const std::shared_ptr<PublishTrackHandler>& track_handler)
     {
@@ -780,6 +808,28 @@ namespace quicr {
 
                 return true;
             }
+
+            case messages::ControlMessageType::kPublish: {
+                auto msg = messages::Publish([](messages::Publish& msg) {
+                    if (msg.contentexists) {
+                        msg.group_0 = std::make_optional<messages::Publish::Group_0>();
+                    }
+                });
+                msg_bytes >> msg;
+
+                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
+
+                conn_ctx.recv_sub_id[msg.request_id] = { tfn };
+
+                if (msg.request_id > conn_ctx.next_request_id) {
+                    conn_ctx.next_request_id = msg.request_id + 1;
+                }
+
+                PublishReceived(conn_ctx.connection_handle, msg.request_id, tfn, { 0, msg.group_order, 0 });
+
+                return true;
+            }
+
             default:
                 SPDLOG_LOGGER_ERROR(logger_,
                                     "Unsupported MOQT message type: {0}, bad stream",

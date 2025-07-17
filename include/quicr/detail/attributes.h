@@ -14,6 +14,7 @@ namespace quicr::messages {
     {
         std::uint8_t priority;  ///< Subscriber priority
         GroupOrder group_order; ///< Subscriber group order
+        std::uint8_t forward;   ///< True to Resume/forward data, False to pause/stop data
     };
 
     /**

@@ -383,10 +383,12 @@ class MyClient : public quicr::Client
 /*===========================================================================*/
 
 void
-DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<quicr::Client>& client, const bool& stop)
+DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<quicr::Client>& client, bool use_announce, bool& stop)
 {
     auto track_handler = std::make_shared<MyPublishTrackHandler>(
       full_track_name, quicr::TrackMode::kStream /*mode*/, 2 /*priority*/, 3000 /*ttl*/);
+
+    track_handler->SetUseAnnounce(use_announce)
 
     SPDLOG_INFO("Started publisher track");
 
@@ -647,7 +649,7 @@ DoFetch(const quicr::FullTrackName& full_track_name,
 /*===========================================================================*/
 
 quicr::ClientConfig
-InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, bool& enable_fetch)
+InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, bool& enable_fetch bool& use_announce)
 {
     quicr::ClientConfig config;
 
@@ -671,6 +673,11 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         SPDLOG_INFO("Publisher enabled using track namespace: {0} name: {1}",
                     cli_opts["pub_namespace"].as<std::string>(),
                     cli_opts["pub_name"].as<std::string>());
+    }
+
+    if (cli_opts.count("use_announce")) {
+        use_announce = true;
+        SPDLOG_INFO("Publisher will use announce flow");
     }
 
     if (cli_opts.count("clock") && cli_opts["clock"].as<bool>() == true) {
@@ -752,6 +759,7 @@ main(int argc, char* argv[])
         ("s,ssl_keylog", "Enable SSL Keylog for transport debugging");
 
     options.add_options("Publisher")
+        ("use_announce", "Use Announce flow instead of publish flow", cxxopts::value<bool>()->default_value(false))
         ("pub_namespace", "Track namespace", cxxopts::value<std::string>())
         ("pub_name", "Track name", cxxopts::value<std::string>())
         ("clock", "Publish clock timestamp every second instead of using STDIN chat")
@@ -794,7 +802,8 @@ main(int argc, char* argv[])
     bool enable_pub{ false };
     bool enable_sub{ false };
     bool enable_fetch{ false };
-    quicr::ClientConfig config = InitConfig(result, enable_pub, enable_sub, enable_fetch);
+    bool use_announce{ false };
+    quicr::ClientConfig config = InitConfig(result, enable_pub, enable_sub, enable_fetch, use_announce);
 
     try {
         bool stop_threads{ false };
@@ -833,7 +842,7 @@ main(int argc, char* argv[])
             const auto& pub_track_name = quicr::example::MakeFullTrackName(result["pub_namespace"].as<std::string>(),
                                                                            result["pub_name"].as<std::string>());
 
-            pub_thread = std::thread(DoPublisher, pub_track_name, client, std::ref(stop_threads));
+            pub_thread = std::thread(DoPublisher, pub_track_name, client, use_announce, std::ref(stop_threads));
         }
         if (enable_sub) {
             auto filter_type = quicr::messages::FilterType::kLatestObject;
