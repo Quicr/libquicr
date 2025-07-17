@@ -310,9 +310,13 @@ namespace quicr {
                     std::nullopt,
                     nullptr,
                     std::nullopt,
-                    { Parameter{ ParameterType::kDeliveryTimeout,
-                                 Bytes{ reinterpret_cast<uint8_t*>(&delivery_timeout_ms),
-                                        reinterpret_cast<uint8_t*>(&delivery_timeout_ms) + sizeof(std::uint64_t) } } });
+                    {
+                      Parameter{
+                        ParameterType::kDeliveryTimeout,
+                        Bytes{ reinterpret_cast<uint8_t*>(&delivery_timeout_ms),
+                               reinterpret_cast<uint8_t*>(&delivery_timeout_ms) + sizeof(std::uint64_t) },
+                      },
+                    });
 
         Bytes buffer;
         buffer << subscribe;
