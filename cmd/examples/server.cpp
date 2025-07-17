@@ -665,8 +665,11 @@ class MyServer : public quicr::Server
             }
         }
 
+        const std::uint32_t ttl =
+          attrs.delivery_timeout != std::chrono::milliseconds::zero() ? attrs.delivery_timeout.count() : 50000;
+
         const auto pub_track_h =
-          std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, 50000);
+          std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, ttl);
         const auto track_alias = pub_track_h->GetTrackAlias(request_id);
 
         ResolveSubscribe(connection_handle,
