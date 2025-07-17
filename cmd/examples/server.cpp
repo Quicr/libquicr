@@ -381,9 +381,7 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
 
     void ObjectReceived(const quicr::ObjectHeaders& headers, quicr::BytesSpan data) override
     {
-        std::string msg(data.begin(), data.end());
-        SPDLOG_INFO(
-          "Received fetched object group_id: {} object_id: {} value: {}", headers.group_id, headers.object_id, msg);
+        // Simple - forward what we get to the fetch handler
         if (publish_fetch_handler_) {
             publish_fetch_handler_->PublishObject(headers, data);
         }
@@ -895,9 +893,9 @@ class MyServer : public quicr::Server
                                           track_full_name,
                                           attributes.priority,
                                           attributes.group_order,
-                                          attributes.start_group,
+                                          attributes.start_location.group,
+                                          attributes.start_location.object,
                                           attributes.end_group,
-                                          attributes.start_object,
                                           attributes.end_object.has_value() ? attributes.end_object.value() : 0);
             FetchTrack(pub_connection_handle, fetch_track_handler);
             return true;

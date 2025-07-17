@@ -64,10 +64,10 @@ namespace quicr {
         }
     }
 
-    bool FetchReceived(quicr::ConnectionHandle connection_handle,
-                       uint64_t request_id,
-                       const quicr::FullTrackName& track_full_name,
-                       const quicr::messages::FetchAttributes& attributes)
+    bool Client::FetchReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
+                               [[maybe_unused]] uint64_t request_id,
+                               [[maybe_unused]] const quicr::FullTrackName& track_full_name,
+                               [[maybe_unused]] const quicr::messages::FetchAttributes& attributes)
     {
         return false;
     }
@@ -102,11 +102,11 @@ namespace quicr {
                             uint64_t object_id,
                             std::optional<Extensions> extensions,
                             std::span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
-            std::cerr << "SendFetchObject" << std::endl;
             const auto handler = weak_handler.lock();
             if (!handler) {
                 return PublishTrackHandler::PublishObjectStatus::kInternalError;
             }
+
             return SendFetchObject(
               *handler, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
         };
@@ -670,7 +670,6 @@ namespace quicr {
                       }
                   });
                 msg_bytes >> msg;
-                std::cerr << "Fetch..." << std::endl;
 
                 FullTrackName tfn;
                 messages::FetchAttributes attrs = { msg.subscriber_priority, msg.group_order, 0, 0, 0, std::nullopt };
@@ -678,12 +677,10 @@ namespace quicr {
                 switch (msg.fetch_type) {
                     case messages::FetchType::kStandalone: {
                         // Forward FETCH to a Publisher and bind to this request
-                        attrs.start_group = msg.group_0->start_group;
-                        attrs.start_object = msg.group_0->start_object;
-                        attrs.end_group = msg.group_0->end_group;
-                        attrs.end_object =
-                          msg.group_0->end_object > 0 ? std::optional(msg.group_0->end_object - 1) : std::nullopt;
-                        std::cerr << "FETCH --- FetchReceived()" << std::endl;
+                        attrs.start_location.group = msg.group_0->start_location.group;
+                        attrs.start_location.object = msg.group_0->start_location.object;
+                        attrs.end_group = msg.group_0->end_location.group;
+                        attrs.end_object = msg.group_0->end_location.object;
                         FetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
                         return true;
                     }
@@ -696,6 +693,12 @@ namespace quicr {
                 }
 
             } // End of switch(msg type)
+            case messages::ControlMessageType::kPublish:
+                [[fallthrough]];
+            case messages::ControlMessageType::kPublishOk:
+                [[fallthrough]];
+            case messages::ControlMessageType::kPublishError:
+                [[fallthrough]];
             case messages::ControlMessageType::kSubscribeAnnounces:
                 [[fallthrough]];
             case messages::ControlMessageType::kUnsubscribeAnnounces:

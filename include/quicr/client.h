@@ -149,6 +149,22 @@ namespace quicr {
                                       const SubscribeResponse& subscribe_response);
 
         /**
+         * @brief Callback on fetch message
+         *
+         * @details Client will handle possibly from cache. This callback is called
+         *  when a fetch request has been received.
+         *
+         * @param connection_handle        source connection ID
+         * @param request_id               request ID
+         * @param track_fullname           full track name
+         * @param attributes               fetch attributes
+         */
+        bool FetchReceived(quicr::ConnectionHandle connection_handle,
+                           uint64_t request_id,
+                           const quicr::FullTrackName& track_full_name,
+                           const quicr::messages::FetchAttributes& attributes);
+
+        /**
          * @brief Bind a server fetch publisher track handler.
          * @param conn_id Connection Id of the client/fetcher.
          * @param track_handler The fetch publisher.
