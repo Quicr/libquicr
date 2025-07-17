@@ -53,6 +53,41 @@ namespace qserver_vars {
     std::map<quicr::TrackNamespace, std::map<quicr::ConnectionHandle, std::set<quicr::messages::TrackAlias>>>
       announce_active;
 
+    /*
+        SAH - iterate through this entire map to find the track alias that matches... TA=ABC will get a connection
+       handle.... Now: send a FETCH request to this publisher
+
+        The publish will send tabk a stream 90 map to stream 5 (back to originating client)
+
+        ***Bind together two request ID's. in a state tracking map....
+        FetchOK - following a new stream - will process as a fetch message - what is the requestId - maps to Request ID
+       to original FMT_USE_FULL_CACHE_DRAGONBOX Announce_acive has all of the announcers.. If no match -
+            - create a FetchRequest state
+            - FetchOK - needs to go all the way through
+            - FetchError - needs to go all the way through
+
+            - Assuming data comes...Data hex 16 value - with request_id
+
+            - onrecvstream - data object coming in - where do we determin if it is a fetch
+
+            there is an if block....in transport.cpp:
+                is it a bidrir - it is cbrtl
+                else: it is data
+
+                if new data - line 1418
+
+                    is a stream header type or
+                        stop_fetch
+
+
+
+            The qrelay will need to track handlers -
+                1.) incoming - from subscriber
+                2.) outgoing - to publish fetch handler...
+
+
+    */
+
     /**
      * Active subscriber publish tracks for a given track, indexed (keyed) by track_alias, connection handle
      *
@@ -174,9 +209,12 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 
         // Cache Object
         if (qserver_vars::cache.count(*track_alias) == 0) {
-            qserver_vars::cache.insert(std::make_pair(*track_alias,
-                                                      quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{
-                                                        50000, 1000, qserver_vars::tick_service }));
+            qserver_vars::cache.insert(std::make_pair(
+              *track_alias,
+              quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{
+                50000,
+                1000,
+                qserver_vars::tick_service })); // SAH - copy this... maybe use this as the Fetch handler...
         }
 
         auto& cache_entry = qserver_vars::cache.at(*track_alias);
@@ -300,6 +338,77 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                      metrics.quic.tx_queue_discards,
                      metrics.quic.tx_queue_size.avg);
     }
+};
+
+/**
+ * @brief  Fetch track handler
+ * @details Fetch track handler.
+ */
+class MyFetchTrackHandler : public quicr::FetchTrackHandler
+{
+    MyFetchTrackHandler(const std::shared_ptr<quicr::PublishFetchHandler> publish_fetch_handler,
+                        const quicr::FullTrackName& full_track_name,
+                        quicr::messages::SubscriberPriority priority,
+                        quicr::messages::GroupOrder group_order,
+                        uint64_t start_group,
+                        uint64_t start_object,
+                        uint64_t end_group,
+                        uint64_t end_object)
+      : FetchTrackHandler(full_track_name, priority, group_order, start_group, end_group, start_object, end_object)
+    {
+        publish_fetch_handler_ = publish_fetch_handler;
+    }
+
+  public:
+    static auto Create(const std::shared_ptr<quicr::PublishFetchHandler> publish_fetch_handler,
+                       const quicr::FullTrackName& full_track_name,
+                       std::uint8_t priority,
+                       quicr::messages::GroupOrder group_order,
+                       uint64_t start_group,
+                       uint64_t start_object,
+                       uint64_t end_group,
+                       uint64_t end_object)
+    {
+        return std::shared_ptr<MyFetchTrackHandler>(new MyFetchTrackHandler(publish_fetch_handler,
+                                                                            full_track_name,
+                                                                            priority,
+                                                                            group_order,
+                                                                            start_group,
+                                                                            end_group,
+                                                                            start_object,
+                                                                            end_object));
+    }
+
+    void ObjectReceived(const quicr::ObjectHeaders& headers, quicr::BytesSpan data) override
+    {
+        std::string msg(data.begin(), data.end());
+        SPDLOG_INFO(
+          "Received fetched object group_id: {} object_id: {} value: {}", headers.group_id, headers.object_id, msg);
+        if (publish_fetch_handler_) {
+            publish_fetch_handler_->PublishObject(headers, data);
+        }
+    }
+
+    void StatusChanged(Status status) override
+    {
+        switch (status) {
+            case Status::kOk: {
+                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
+                    SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
+                }
+            } break;
+
+            case Status::kError: {
+                SPDLOG_INFO("Fetch failed");
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+  private:
+    std::shared_ptr<quicr::PublishFetchHandler> publish_fetch_handler_;
 };
 
 /**
@@ -777,6 +886,38 @@ class MyServer : public quicr::Server
         }
 
         return largest_location;
+    }
+
+    bool FetchReceived(quicr::ConnectionHandle connection_handle,
+                       uint64_t request_id,
+                       const quicr::FullTrackName& track_full_name,
+                       const quicr::messages::FetchAttributes& attributes)
+    {
+        // lookup Publisher for this Fetch request
+        auto anno_ns_it = qserver_vars::announce_active.find(track_full_name.name_space);
+        if (anno_ns_it == qserver_vars::announce_active.end()) {
+            return false;
+        }
+
+        for (auto& [pub_connection_handle, tracks] : anno_ns_it->second) {
+            auto pub_fetch_h = quicr::PublishFetchHandler::Create(
+              track_full_name, attributes.priority, request_id, attributes.group_order, 50000);
+            BindFetchTrack(connection_handle, pub_fetch_h);
+
+            auto fetch_track_handler =
+              MyFetchTrackHandler::Create(pub_fetch_h,
+                                          track_full_name,
+                                          attributes.priority,
+                                          attributes.group_order,
+                                          attributes.start_group,
+                                          attributes.end_group,
+                                          attributes.start_object,
+                                          attributes.end_object.has_value() ? attributes.end_object.value() : 0);
+            FetchTrack(pub_connection_handle, fetch_track_handler);
+            return true;
+        }
+
+        return false;
     }
 
     bool OnFetchOk(quicr::ConnectionHandle connection_handle,

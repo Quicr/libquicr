@@ -82,6 +82,11 @@ namespace quicr {
         return std::nullopt;
     }
 
+    bool Server::FetchReceived(ConnectionHandle, uint64_t, const FullTrackName&, const messages::FetchAttributes&)
+    {
+        return false;
+    }
+
     bool Server::OnFetchOk(ConnectionHandle, uint64_t, const FullTrackName&, const messages::FetchAttributes&)
     {
         return false;
@@ -696,21 +701,19 @@ namespace quicr {
                         // Standalone fetch is self-containing.
                         tfn = FullTrackName{ msg.group_0->track_namespace, msg.group_0->track_name, std::nullopt };
                         const auto largest_available = GetLargestAvailable(tfn);
-                        if (!largest_available.has_value()) {
-                            SendFetchError(conn_ctx,
-                                           msg.request_id,
-                                           messages::FetchErrorCode::kTrackDoesNotExist,
-                                           "Track does not exist");
-                            return true;
-                        }
-
-                        largest_location = largest_available.value();
-
                         attrs.start_group = msg.group_0->start_group;
                         attrs.start_object = msg.group_0->start_object;
                         attrs.end_group = msg.group_0->end_group;
                         attrs.end_object =
                           msg.group_0->end_object > 0 ? std::optional(msg.group_0->end_object - 1) : std::nullopt;
+
+                        if (!largest_available.has_value()) {
+                            // Forward FETCH to a Publisher and bind to this request
+                            FetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
+                            return true;
+                        }
+
+                        largest_location = largest_available.value();
                         break;
                     }
                     case messages::FetchType::kJoiningFetch: {

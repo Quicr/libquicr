@@ -16,6 +16,8 @@
 #include <format>
 #include <fstream>
 
+#include <quicr/publish_fetch_handler.h>
+
 using json = nlohmann::json; // NOLINT
 
 namespace qclient_vars {
@@ -383,6 +385,32 @@ class MyClient : public quicr::Client
                     reason_str);
     }
 
+    bool FetchReceived(quicr::ConnectionHandle connection_handle,
+                       uint64_t request_id,
+                       const quicr::FullTrackName& track_full_name,
+                       const quicr::messages::FetchAttributes& attributes)
+    {
+        std::cerr << "In client FetchReceived..." << std::endl;
+        auto pub_fetch_h = quicr::PublishFetchHandler::Create(
+          track_full_name, attributes.priority, request_id, attributes.group_order, 50000);
+        BindFetchTrack(connection_handle, pub_fetch_h);
+        quicr::ObjectHeaders headers{ .group_id = attributes.start_group,
+                                      .object_id = attributes.start_object,
+                                      .subgroup_id = 0,
+                                      .payload_length = 0,
+                                      .status = quicr::ObjectStatus::kAvailable,
+                                      .priority = attributes.priority,
+                                      .ttl = 3000, // in milliseconds
+                                      .track_mode = std::nullopt,
+                                      .extensions = std::nullopt };
+
+        std::string hello = "Hello";
+        std::vector<uint8_t> data_vec(hello.begin(), hello.end());
+        quicr::BytesSpan data{ data_vec.data(), data_vec.size() };
+        pub_fetch_h->PublishObject(headers, data);
+        return true;
+    }
+
   private:
     bool& stop_threads_;
 };
@@ -633,13 +661,13 @@ DoFetch(const quicr::FullTrackName& full_track_name,
             client->FetchTrack(track_handler);
             fetch_track = true;
         }
-
-        if (track_handler->GetStatus() != quicr::FetchTrackHandler::Status::kOk) {
-            moq_example::terminate = true;
-            moq_example::cv.notify_all();
-            break;
-        }
-
+        /*
+                if (track_handler->GetStatus() != quicr::FetchTrackHandler::Status::kOk) {
+                    moq_example::terminate = true;
+                    moq_example::cv.notify_all();
+                    break;
+                }
+        */
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
