@@ -293,21 +293,26 @@ namespace quicr {
                                   TrackHash th,
                                   SubscriberPriority priority,
                                   GroupOrder group_order,
-                                  FilterType filter_type)
+                                  FilterType filter_type,
+                                  std::chrono::milliseconds delivery_timeout)
     try {
+        std::uint64_t delivery_timeout_ms = delivery_timeout.count();
 
-        auto subscribe = Subscribe(request_id,
-                                   tfn.name_space,
-                                   tfn.name,
-                                   priority,
-                                   group_order,
-                                   1,
-                                   filter_type,
-                                   nullptr,
-                                   std::nullopt,
-                                   nullptr,
-                                   std::nullopt,
-                                   {});
+        auto subscribe =
+          Subscribe(request_id,
+                    tfn.name_space,
+                    tfn.name,
+                    priority,
+                    group_order,
+                    1,
+                    filter_type,
+                    nullptr,
+                    std::nullopt,
+                    nullptr,
+                    std::nullopt,
+                    { Parameter{ ParameterType::kDeliveryTimeout,
+                                 Bytes{ reinterpret_cast<uint8_t*>(&delivery_timeout_ms),
+                                        reinterpret_cast<uint8_t*>(&delivery_timeout_ms) + sizeof(std::uint64_t) } } });
 
         Bytes buffer;
         buffer << subscribe;
@@ -714,6 +719,7 @@ namespace quicr {
         auto group_order = track_handler->GetGroupOrder();
         auto filter_type = track_handler->GetFilterType();
         auto joining_fetch = track_handler->GetJoiningFetch();
+        auto delivery_timeout = track_handler->GetDeliveryTimeout();
 
         track_handler->new_group_request_callback_ = [=, this](auto sub_id, auto track_alias) {
             SendNewGroupRequest(conn_id, sub_id, track_alias);
@@ -723,7 +729,7 @@ namespace quicr {
         conn_it->second.sub_by_track_alias[*track_handler->GetTrackAlias()] = track_handler;
         conn_it->second.tracks_by_request_id[sid] = track_handler;
 
-        SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type);
+        SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type, delivery_timeout);
 
         // Handle joining fetch, if requested.
         if (joining_fetch) {

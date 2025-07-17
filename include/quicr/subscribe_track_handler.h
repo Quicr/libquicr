@@ -159,6 +159,10 @@ namespace quicr {
          */
         std::optional<uint64_t> GetTrackAlias() const noexcept { return track_alias_; }
 
+        std::chrono::milliseconds GetDeliveryTimeout() const noexcept { return delivery_timeout_; }
+
+        void SetDeliveryTimeout(std::chrono::milliseconds timeout) noexcept { delivery_timeout_ = timeout; }
+
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
         // --------------------------------------------------------------------------
@@ -272,6 +276,7 @@ namespace quicr {
         std::optional<messages::Location> latest_location_;
         std::optional<JoiningFetch> joining_fetch_;
         std::optional<uint64_t> track_alias_;
+        std::chrono::milliseconds delivery_timeout_{ 0 };
 
         friend class Transport;
         friend class Client;
