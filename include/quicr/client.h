@@ -140,10 +140,12 @@ namespace quicr {
          *
          * @param connection_handle        source connection ID
          * @param request_id               request ID
+         * @param track_alias              track alias for this track
          * @param subscribe_response       response to for the subscribe
          */
         virtual void ResolveSubscribe(ConnectionHandle connection_handle,
                                       uint64_t request_id,
+                                      uint64_t track_alias,
                                       const SubscribeResponse& subscribe_response);
 
         /**

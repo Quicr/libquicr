@@ -56,14 +56,12 @@ namespace {
     }
 
     inline quicr::FullTrackName MakeFullTrackName(const std::string& track_namespace,
-                                                  const std::string& track_name,
-                                                  const std::optional<uint64_t> track_alias = std::nullopt) noexcept
+                                                  const std::string& track_name) noexcept
     {
 
         return {
             quicr::TrackNamespace{ quicr::Bytes{ track_namespace.begin(), track_namespace.end() } },
             { track_name.begin(), track_name.end() },
-            track_alias,
         };
     }
 
@@ -95,11 +93,10 @@ namespace {
         {
             switch (status) {
                 case Status::kOk: {
-                    if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
-                        SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
-                        cv.notify_one();
-                    }
-                } break;
+                    SPDLOG_INFO("Track alias: {0} is ready to read", GetTrackAlias(this->GetRequestId().value()));
+                    cv.notify_one();
+                    break;
+                }
                 default:
                     break;
             }

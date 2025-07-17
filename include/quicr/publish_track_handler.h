@@ -121,6 +121,19 @@ namespace quicr {
               new PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl));
         }
 
+        // TODO: Is this all the info needed for an alias calculation?
+
+        /**
+         * @brief Produce a track alias for the given subscribe response.
+         * @details This method can be overridden to control track alias generation.
+         * @param request_id Request ID of the incoming subscribe requesting an alias.
+         * @returns Track alias to use.
+         */
+        virtual uint64_t GetTrackAlias([[maybe_unused]] uint64_t request_id) const noexcept
+        {
+            return TrackHash(full_track_name_).track_fullname_hash;
+        }
+
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
         // --------------------------------------------------------------------------
@@ -130,7 +143,7 @@ namespace quicr {
 
         /**
          * @brief Notification of publish track status change
-         * @details Notification of a change to publish track status, such as
+         * @details Notification of a change to  publish track status, such as
          *      when it's ready to publish or not ready to publish
          *
          * @param status        Indicates the status of being able to publish

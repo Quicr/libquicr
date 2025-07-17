@@ -60,14 +60,9 @@ namespace qperf {
     };
 
     inline quicr::FullTrackName MakeFullTrackName(const std::string& track_namespace,
-                                                  const std::string& track_name,
-                                                  const std::optional<uint64_t> track_alias = std::nullopt) noexcept
+                                                  const std::string& track_name) noexcept
     {
-        return {
-            quicr::TrackNamespace{ track_namespace },
-            { track_name.begin(), track_name.end() },
-            track_alias,
-        };
+        return { quicr::TrackNamespace{ track_namespace }, { track_name.begin(), track_name.end() } };
     }
 
     static bool PopulateScenarioFields(const std::string section_name, ini::IniFile& inif, PerfConfig& perf_config)

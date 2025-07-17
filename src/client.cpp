@@ -36,6 +36,7 @@ namespace quicr {
 
     void Client::ResolveSubscribe(ConnectionHandle connection_handle,
                                   uint64_t request_id,
+                                  uint64_t track_alias,
                                   const SubscribeResponse& subscribe_response)
     {
         auto conn_it = connections_.find(connection_handle);
@@ -47,6 +48,7 @@ namespace quicr {
             case SubscribeResponse::ReasonCode::kOk: {
                 SendSubscribeOk(conn_it->second,
                                 request_id,
+                                track_alias,
                                 kSubscribeExpires,
                                 subscribe_response.largest_location.has_value(),
                                 subscribe_response.largest_location.has_value()
@@ -57,7 +59,7 @@ namespace quicr {
 
             default:
                 SendSubscribeError(
-                  conn_it->second, request_id, {}, messages::SubscribeErrorCode::kInternalError, "Internal error");
+                  conn_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Internal error");
                 break;
         }
     }
@@ -208,7 +210,7 @@ namespace quicr {
 
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
                 auto th = TrackHash(tfn);
 
                 if (msg.request_id > conn_ctx.next_request_id) {
@@ -229,24 +231,25 @@ namespace quicr {
 
                     SendSubscribeError(conn_ctx,
                                        msg.request_id,
-                                       msg.track_alias,
                                        messages::SubscribeErrorCode::kTrackNotExist,
                                        "Published track not found");
                     return true;
                 }
 
-                ResolveSubscribe(conn_ctx.connection_handle, msg.request_id, { SubscribeResponse::ReasonCode::kOk });
+                ResolveSubscribe(conn_ctx.connection_handle,
+                                 msg.request_id,
+                                 ptd->GetTrackAlias(msg.request_id),
+                                 { SubscribeResponse::ReasonCode::kOk });
 
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received subscribe to announced track alias: {0} recv request_id: {1}, setting "
                                     "send state to ready",
-                                    msg.track_alias,
+                                    ptd->GetTrackAlias(msg.request_id),
                                     msg.request_id);
 
                 // Indicate send is ready upon subscribe
                 // TODO(tievens): Maybe needs a delay as subscriber may have not received ok before data is sent
                 ptd->SetRequestId(msg.request_id);
-                ptd->SetTrackAlias(msg.track_alias);
                 ptd->SetStatus(PublishTrackHandler::Status::kOk);
 
                 conn_ctx.recv_sub_id[msg.request_id] = { tfn };
@@ -263,11 +266,8 @@ namespace quicr {
                                        msg.request_id,
                                        conn_ctx.connection_handle);
 
-                    SendSubscribeError(conn_ctx,
-                                       msg.request_id,
-                                       0x0,
-                                       messages::SubscribeErrorCode::kTrackNotExist,
-                                       "Subscription not found");
+                    SendSubscribeError(
+                      conn_ctx, msg.request_id, messages::SubscribeErrorCode::kTrackNotExist, "Subscription not found");
                     return true;
                 }
 
@@ -286,13 +286,13 @@ namespace quicr {
 
                     SendSubscribeError(conn_ctx,
                                        msg.request_id,
-                                       th.track_fullname_hash,
                                        messages::SubscribeErrorCode::kTrackNotExist,
                                        "Published track not found");
                     return true;
                 }
 
-                SendSubscribeOk(conn_ctx, msg.request_id, kSubscribeExpires, false, { 0, 0 });
+                SendSubscribeOk(
+                  conn_ctx, msg.request_id, ptd->GetTrackAlias(msg.request_id), kSubscribeExpires, false, { 0, 0 });
 
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received subscribe_update to track alias: {0} recv request_id: {1}",
@@ -356,14 +356,12 @@ namespace quicr {
                     return true;
                 }
 
-                SPDLOG_LOGGER_INFO(
-                  logger_,
-                  "Received subscribe error conn_id: {} request_id: {} reason: {} code: {} requested track_alias: {}",
-                  conn_ctx.connection_handle,
-                  msg.request_id,
-                  std::string(msg.error_reason.begin(), msg.error_reason.end()),
-                  static_cast<std::uint64_t>(msg.error_code),
-                  msg.track_alias);
+                SPDLOG_LOGGER_INFO(logger_,
+                                   "Received subscribe error conn_id: {} request_id: {} reason: {} code: {}",
+                                   conn_ctx.connection_handle,
+                                   msg.request_id,
+                                   std::string(msg.error_reason.begin(), msg.error_reason.end()),
+                                   static_cast<std::uint64_t>(msg.error_code));
 
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kError);
                 RemoveSubscribeTrack(conn_ctx, *sub_it->second);
@@ -374,7 +372,7 @@ namespace quicr {
                 messages::Announce msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
+                auto tfn = FullTrackName{ msg.track_namespace, {} };
 
                 AnnounceReceived(tfn.name_space, {});
                 return true;
@@ -384,7 +382,7 @@ namespace quicr {
                 messages::Unannounce msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
+                auto tfn = FullTrackName{ msg.track_namespace, {} };
                 UnannounceReceived(tfn.name_space);
 
                 return true;
@@ -538,7 +536,7 @@ namespace quicr {
                 messages::AnnounceCancel msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, {}, std::nullopt };
+                auto tfn = FullTrackName{ msg.track_namespace, {} };
                 auto th = TrackHash(tfn);
 
                 SPDLOG_LOGGER_INFO(
@@ -550,7 +548,7 @@ namespace quicr {
                 messages::TrackStatusRequest msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name, std::nullopt };
+                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
                 auto th = TrackHash(tfn);
 
                 SPDLOG_LOGGER_INFO(logger_,

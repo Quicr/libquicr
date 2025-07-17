@@ -352,6 +352,7 @@ namespace quicr {
 
         void SendSubscribeOk(ConnectionContext& conn_ctx,
                              messages::RequestID request_id,
+                             uint64_t track_alias,
                              uint64_t expires,
                              bool content_exists,
                              messages::Location largest_location);
@@ -359,7 +360,6 @@ namespace quicr {
         void SendSubscribeDone(ConnectionContext& conn_ctx, messages::RequestID request_id, const std::string& reason);
         void SendSubscribeError(ConnectionContext& conn_ctx,
                                 messages::RequestID request_id,
-                                uint64_t track_alias,
                                 messages::SubscribeErrorCode error,
                                 const std::string& reason);
 
