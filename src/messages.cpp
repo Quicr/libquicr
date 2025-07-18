@@ -119,6 +119,15 @@ namespace quicr::messages {
     {
         switch (msg.current_pos) {
             case 0: {
+                uint64_t type;
+                if (!ParseUintVField(buffer, type)) {
+                    return false;
+                }
+                msg.type = static_cast<FetchHeaderType>(type);
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 1: {
                 if (!ParseUintVField(buffer, msg.subscribe_id)) {
                     return false;
                 }
@@ -138,7 +147,7 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const FetchHeader& msg)
     {
-        buffer << UintVar(static_cast<uint64_t>(DataMessageType::kFetchHeader));
+        buffer << UintVar(static_cast<uint64_t>(msg.type));
         buffer << UintVar(msg.subscribe_id);
         return buffer;
     }
@@ -256,7 +265,7 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const ObjectDatagram& msg)
     {
-        buffer << UintVar(static_cast<uint64_t>(DataMessageType::kObjectDatagram));
+        buffer << UintVar(static_cast<uint64_t>(msg.GetType()));
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
         buffer << UintVar(msg.object_id);
@@ -277,27 +286,39 @@ namespace quicr::messages {
     {
         switch (msg.current_pos) {
             case 0: {
+                uint64_t type;
+                if (!ParseUintVField(buffer, type)) {
+                    return false;
+                }
+                const auto header_type = static_cast<DatagramHeaderType>(type);
+                msg.type = header_type;
+                const auto properties = DatagramHeaderProperties(header_type);
+                msg.end_of_group = properties.end_of_group;
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 1: {
                 if (!ParseUintVField(buffer, msg.track_alias)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 1: {
+            case 2: {
                 if (!ParseUintVField(buffer, msg.group_id)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 2: {
+            case 3: {
                 if (!ParseUintVField(buffer, msg.object_id)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 3: {
+            case 4: {
                 auto val = buffer.Front();
                 if (!val) {
                     return false;
@@ -307,7 +328,7 @@ namespace quicr::messages {
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 4: {
+            case 5: {
                 if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
                     return false;
                 }
@@ -315,7 +336,7 @@ namespace quicr::messages {
                 msg.payload_len = buffer.Size();
                 [[fallthrough]];
             }
-            case 5: {
+            case 6: {
                 if (msg.payload_len == 0) {
                     msg.parse_completed = true;
                     return true;
@@ -342,11 +363,15 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const ObjectDatagramStatus& msg)
     {
-        buffer << UintVar(static_cast<uint64_t>(DataMessageType::kObjectDatagramStatus));
+        const auto properties = DatagramStatusProperties(msg.extensions.has_value());
+        buffer << UintVar(static_cast<uint64_t>(properties.GetType()));
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
         buffer << UintVar(msg.object_id);
         buffer.push_back(msg.priority);
+        if (properties.has_extensions) {
+            PushExtensions(buffer, msg.extensions);
+        }
         buffer << UintVar(static_cast<uint8_t>(msg.status));
 
         return buffer;
@@ -357,27 +382,36 @@ namespace quicr::messages {
     {
         switch (msg.current_pos) {
             case 0: {
+                std::uint64_t type;
+                if (!ParseUintVField(buffer, type)) {
+                    return false;
+                }
+                msg.type = static_cast<DatagramStatusType>(type);
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 1: {
                 if (!ParseUintVField(buffer, msg.track_alias)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 1: {
+            case 2: {
                 if (!ParseUintVField(buffer, msg.group_id)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 2: {
+            case 3: {
                 if (!ParseUintVField(buffer, msg.object_id)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 3: {
+            case 4: {
                 auto val = buffer.Front();
                 if (!val) {
                     return false;
@@ -387,7 +421,17 @@ namespace quicr::messages {
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 4: {
+            case 5: {
+                const auto properties = DatagramStatusProperties(*msg.type);
+                if (properties.has_extensions) {
+                    if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
+                        return false;
+                    }
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 6: {
                 uint64_t status = 0;
                 if (!ParseUintVField(buffer, status)) {
                     return false;
@@ -412,17 +456,11 @@ namespace quicr::messages {
         buffer << UintVar(static_cast<uint64_t>(msg.type));
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
-        switch (msg.type) {
-            case StreamHeaderType::kSubgroupExplicitNoExtensions:
-                [[fallthrough]];
-            case StreamHeaderType::kSubgroupExplicitWithExtensions:
-                assert(msg.subgroup_id.has_value());
-                buffer << UintVar(msg.subgroup_id.value());
-                break;
-            default:
-                break;
+        const auto properties = StreamHeaderProperties(msg.type);
+        if (properties.subgroup_id_type == SubgroupIdType::kExplicit) {
+            assert(msg.subgroup_id.has_value());
+            buffer << UintVar(msg.subgroup_id.value());
         }
-
         buffer.push_back(msg.priority);
         return buffer;
     }
@@ -455,18 +493,16 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 3: {
-                switch (msg.type) {
-                    case StreamHeaderType::kSubgroupZeroNoExtensions:
-                    case StreamHeaderType::kSubgroupZeroWithExtensions:
+                const auto properties = StreamHeaderProperties(msg.type);
+                switch (properties.subgroup_id_type) {
+                    case SubgroupIdType::kIsZero:
                         msg.subgroup_id = 0;
                         break;
-                    case StreamHeaderType::kSubgroupFirstObjectNoExtensions:
-                    case StreamHeaderType::kSubgroupFirstObjectWithExtensions:
+                    case SubgroupIdType::kSetFromFirstObject:
                         msg.subgroup_id = std::nullopt; // Will be updated by first object.
                         break;
-                    case StreamHeaderType::kSubgroupExplicitNoExtensions:
-                    case StreamHeaderType::kSubgroupExplicitWithExtensions:
-                        messages::SubGroupId subgroup_id;
+                    case SubgroupIdType::kExplicit:
+                        SubGroupId subgroup_id;
                         if (!ParseUintVField(buffer, subgroup_id)) {
                             return false;
                         }
@@ -500,7 +536,9 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const StreamSubGroupObject& msg)
     {
         buffer << UintVar(msg.object_id);
-        if (msg.serialize_extensions) {
+        assert(msg.stream_type.has_value()); // Stream type must have been set before serialization.
+        const auto properties = StreamHeaderProperties(*msg.stream_type);
+        if (properties.may_contain_extensions) {
             PushExtensions(buffer, msg.extensions);
         }
         if (msg.payload.empty()) {
@@ -527,7 +565,9 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 1: {
-                if (msg.serialize_extensions) {
+                assert(msg.stream_type.has_value());
+                const auto properties = StreamHeaderProperties(*msg.stream_type);
+                if (properties.may_contain_extensions) {
                     if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
                         return false;
                     }
