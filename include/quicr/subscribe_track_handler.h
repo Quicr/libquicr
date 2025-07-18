@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "spdlog/fmt/bundled/xchar.h"
+
 #include <quicr/detail/base_track_handler.h>
 #include <quicr/detail/messages.h>
 #include <quicr/detail/stream_buffer.h>
@@ -76,7 +78,7 @@ namespace quicr {
           , priority_(priority)
           , group_order_(group_order)
           , filter_type_(filter_type)
-          , joining_fetch_(joining_fetch)
+          , joining_fetch_(publisher_initiated ? std::nullopt : joining_fetch)
           , publisher_initiated_(publisher_initiated)
         {
         }

@@ -346,8 +346,8 @@ namespace quicr {
         /**
          * @brief Callback notification for new publish received
          *
-         * @note The caller **MUST** respond to this via ResolveSubscribe(). If the caller does not
-         * override this method, the default will call ResolveSubscribe() with the status of OK
+         * @note The caller **MUST** respond to this via ResolvePublish(). If the caller does not
+         * override this method, the default will call ResolvePublish() with the status of OK
          *
          * @param connection_handle     Source connection ID
          * @param request_id            Request ID received
