@@ -268,9 +268,9 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, bool extensions, bool
         }
 
         if (properties.may_contain_extensions) {
-            REQUIRE_EQ(obj_out.extensions, objects[object_count].extensions);
+            CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
         } else {
-            REQUIRE_EQ(obj_out.extensions, std::nullopt);
+            CHECK_EQ(obj_out.extensions, std::nullopt);
         }
         // got one object
         object_count++;
@@ -288,6 +288,7 @@ TEST_CASE("StreamPerSubGroup Object Message encode/decode")
                                   StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions,
                                   StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupWithExtensions,
                                   StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions,
+                                  StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions,
                                   StreamHeaderType::kSubgroup0EndOfGroupNoExtensions,
                                   StreamHeaderType::kSubgroup0EndOfGroupWithExtensions,
                                   StreamHeaderType::kSubgroupFirstObjectEndOfGroupNoExtensions,

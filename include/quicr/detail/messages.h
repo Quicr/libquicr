@@ -21,6 +21,18 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const std::optional<Extensions>& extensions);
     Bytes& operator<<(Bytes& buffer, const Extensions& extensions);
 
+    struct ProtocolViolationException : std::runtime_error
+    {
+        const std::string reason;
+        ProtocolViolationException(const std::string& reason,
+                                   const std::source_location location = std::source_location::current())
+          : std::runtime_error(
+              std::format("Protocol violation: {} (line {}, file {})", reason, location.line(), location.file_name()))
+          , reason(reason)
+        {
+        }
+    };
+
     /**
      * Possible datagram object header types.
      */

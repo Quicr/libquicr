@@ -3,6 +3,7 @@
 
 #include "quicr/detail/messages.h"
 #include "quicr/detail/stream_buffer.h"
+
 #include <quicr/subscribe_track_handler.h>
 
 namespace quicr {
@@ -63,8 +64,9 @@ namespace quicr {
                          obj.payload.size());
 
             if (!s_hdr.subgroup_id.has_value()) {
-                // TODO(RichLogan): This assertion actually represents a protocol error?
-                assert(subgroup_properties.subgroup_id_type == messages::SubgroupIdType::kSetFromFirstObject);
+                if (subgroup_properties.subgroup_id_type != messages::SubgroupIdType::kSetFromFirstObject) {
+                    throw messages::ProtocolViolationException("Subgoup ID mismatch");
+                }
                 // Set the subgroup ID from the first object ID.
                 s_hdr.subgroup_id = obj.object_id;
             }
