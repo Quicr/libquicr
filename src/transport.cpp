@@ -1434,7 +1434,15 @@ namespace quicr {
                 // fast processing for existing stream using weak pointer to subscribe handler
                 auto sub_handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
                 if (auto sub_handler = sub_handler_weak.lock()) {
-                    sub_handler->StreamDataRecv(false, stream_id, data_opt.value());
+                    try {
+                        sub_handler->StreamDataRecv(false, stream_id, data_opt.value());
+                    } catch (const ProtocolViolationException& e) {
+                        SPDLOG_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
+                        CloseConnection(conn_id, TerminationReason::kProtocolViolation, e.reason);
+                    } catch (std::exception& e) {
+                        SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream data recv: {}", e.what());
+                        CloseConnection(conn_id, TerminationReason::kInternalError, "Internal error");
+                    }
                 }
             }
         } // end of for loop rx data queue

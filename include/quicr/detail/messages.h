@@ -18,6 +18,18 @@ namespace quicr::messages {
     using ObjectPriority = uint8_t;
     using Extensions = std::map<uint64_t, Bytes>;
 
+    struct ProtocolViolationException : std::runtime_error
+    {
+        const std::string reason;
+        ProtocolViolationException(const std::string& reason,
+                                   const std::source_location location = std::source_location::current())
+          : std::runtime_error(
+              std::format("Protocol violation: {} (line {}, file {})", reason, location.line(), location.file_name()))
+          , reason(reason)
+        {
+        }
+    };
+
     /**
      * Possible datagram object header types.
      */
