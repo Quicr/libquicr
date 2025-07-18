@@ -828,7 +828,7 @@ namespace quicr {
 
         if (!track_handler->IsPublisherInitiated()) {
             SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type, delivery_timeout);
-        SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type, delivery_timeout);
+            SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type, delivery_timeout);
 
             // Handle joining fetch, if requested.
             auto joining_fetch = track_handler->GetJoiningFetch();

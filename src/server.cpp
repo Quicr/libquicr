@@ -839,8 +839,10 @@ namespace quicr {
                     conn_ctx.next_request_id = msg.request_id + 1;
                 }
 
-                PublishReceived(
-                  conn_ctx.connection_handle, msg.request_id, tfn, { 0, msg.group_order, 0, msg.track_alias });
+                PublishReceived(conn_ctx.connection_handle,
+                                msg.request_id,
+                                tfn,
+                                { 0, msg.group_order, std::chrono::milliseconds(0), 0, msg.track_alias });
 
                 return true;
             }
