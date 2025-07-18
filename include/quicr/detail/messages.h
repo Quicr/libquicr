@@ -18,6 +18,9 @@ namespace quicr::messages {
     using ObjectPriority = uint8_t;
     using Extensions = std::map<uint64_t, Bytes>;
 
+    Bytes& operator<<(Bytes& buffer, const std::optional<Extensions>& extensions);
+    Bytes& operator<<(Bytes& buffer, const Extensions& extensions);
+
     struct ProtocolViolationException : std::runtime_error
     {
         const std::string reason;
@@ -498,7 +501,8 @@ namespace quicr::messages {
         friend bool operator>>(StreamBufferType& buffer, FetchObject& msg);
 
       private:
-        uint64_t num_extensions{ 0 };
+        std::optional<std::size_t> extension_headers_length;
+        std::size_t extension_bytes_remaining{ 0 };
         std::optional<uint64_t> current_tag{};
         uint64_t current_pos{ 0 };
         bool parse_completed{ false };
@@ -537,7 +541,8 @@ namespace quicr::messages {
 
       private:
         std::optional<DatagramHeaderType> type;
-        uint64_t num_extensions{ 0 };
+        std::optional<std::size_t> extension_headers_length;
+        std::size_t extension_bytes_left{ 0 };
         std::optional<uint64_t> current_tag{};
         uint64_t current_pos{ 0 };
         bool parse_completed{ false };
@@ -565,7 +570,8 @@ namespace quicr::messages {
 
       private:
         std::optional<DatagramStatusType> type;
-        uint64_t num_extensions{ 0 };
+        std::optional<std::size_t> extension_headers_length;
+        std::size_t extension_bytes_left{ 0 };
         std::optional<uint64_t> current_tag{};
         uint64_t current_pos{ 0 };
         bool parse_completed{ false };
@@ -604,7 +610,8 @@ namespace quicr::messages {
         friend bool operator>>(StreamBufferType& buffer, StreamSubGroupObject& msg);
 
       private:
-        uint64_t num_extensions{ 0 };
+        std::optional<std::size_t> extension_headers_length;
+        std::size_t extension_bytes_left{ 0 };
         std::optional<uint64_t> current_tag{};
         uint64_t current_pos{ 0 };
         bool parse_completed{ false };
