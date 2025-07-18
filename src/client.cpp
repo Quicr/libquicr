@@ -546,20 +546,20 @@ namespace quicr {
 
             case messages::ControlMessageType::kPublishOk: {
                 messages::PublishOk msg(
-                    [](messages::PublishOk& msg) {
-                        if (msg.filter_type == messages::FilterType::kAbsoluteStart ||
-                            msg.filter_type == messages::FilterType::kAbsoluteRange) {
-                            msg.group_0 =
-                              std::make_optional<messages::PublishOk::Group_0>(messages::PublishOk::Group_0{ 0, 0 });
-                        }
-                    },
-                    [](messages::PublishOk& msg) {
-                        if (msg.filter_type == messages::FilterType::kAbsoluteRange) {
-                            msg.group_1 =
-                              std::make_optional<messages::PublishOk::Group_1>(messages::PublishOk::Group_1{ 0 });
-                        }
-                    });
-                    msg_bytes >> msg;
+                  [](messages::PublishOk& msg) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteStart ||
+                          msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                          msg.group_0 =
+                            std::make_optional<messages::PublishOk::Group_0>(messages::PublishOk::Group_0{ 0, 0 });
+                      }
+                  },
+                  [](messages::PublishOk& msg) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                          msg.group_1 =
+                            std::make_optional<messages::PublishOk::Group_1>(messages::PublishOk::Group_1{ 0 });
+                      }
+                  });
+                msg_bytes >> msg;
 
                 auto pub_it = conn_ctx.pub_tracks_by_request_id.find(msg.request_id);
 

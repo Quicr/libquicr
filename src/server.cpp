@@ -149,7 +149,6 @@ namespace quicr {
         }
     }
 
-
     void Server::UnbindPublisherTrack(ConnectionHandle connection_handle,
                                       const std::shared_ptr<PublishTrackHandler>& track_handler)
     {
@@ -555,7 +554,7 @@ namespace quicr {
                 auto sub_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
                 if (sub_it == conn_ctx.tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
-                                       "Received subscribe done to unknown request_id conn_id: {0} request_id: {1}",
+                                       "Received subscribe done to unknown subscribe conn_id: {0} request_id: {1}",
                                        conn_ctx.connection_handle,
                                        msg.request_id);
 
@@ -825,7 +824,8 @@ namespace quicr {
                     conn_ctx.next_request_id = msg.request_id + 1;
                 }
 
-                PublishReceived(conn_ctx.connection_handle, msg.request_id, tfn, { 0, msg.group_order, 0 });
+                PublishReceived(
+                  conn_ctx.connection_handle, msg.request_id, tfn, { 0, msg.group_order, 0, msg.track_alias });
 
                 return true;
             }

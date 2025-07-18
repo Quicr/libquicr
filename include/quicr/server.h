@@ -357,7 +357,7 @@ namespace quicr {
         virtual void PublishReceived(ConnectionHandle connection_handle,
                                      uint64_t request_id,
                                      const FullTrackName& track_full_name,
-                                     const messages::SubscribeAttributes& subscribe_attributes);
+                                     const messages::SubscribeAttributes& subscribe_attributes) = 0;
 
         /**
          * @brief Callback notification on Subscribe Done received
@@ -366,7 +366,6 @@ namespace quicr {
          * @param request_id          Request ID received
          */
         virtual void SubscribeDoneReceived(ConnectionHandle connection_handle, uint64_t request_id) = 0;
-
 
         ///@}
         // --END OF CALLBACKS ----------------------------------------------------------------------------------

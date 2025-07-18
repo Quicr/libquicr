@@ -383,12 +383,15 @@ class MyClient : public quicr::Client
 /*===========================================================================*/
 
 void
-DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<quicr::Client>& client, bool use_announce, bool& stop)
+DoPublisher(const quicr::FullTrackName& full_track_name,
+            const std::shared_ptr<quicr::Client>& client,
+            bool use_announce,
+            bool& stop)
 {
     auto track_handler = std::make_shared<MyPublishTrackHandler>(
       full_track_name, quicr::TrackMode::kStream /*mode*/, 2 /*priority*/, 3000 /*ttl*/);
 
-    track_handler->SetUseAnnounce(use_announce)
+    track_handler->SetUseAnnounce(use_announce);
 
     SPDLOG_INFO("Started publisher track");
 
@@ -649,7 +652,7 @@ DoFetch(const quicr::FullTrackName& full_track_name,
 /*===========================================================================*/
 
 quicr::ClientConfig
-InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, bool& enable_fetch bool& use_announce)
+InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, bool& enable_fetch, bool& use_announce)
 {
     quicr::ClientConfig config;
 
@@ -759,7 +762,7 @@ main(int argc, char* argv[])
         ("s,ssl_keylog", "Enable SSL Keylog for transport debugging");
 
     options.add_options("Publisher")
-        ("use_announce", "Use Announce flow instead of publish flow", cxxopts::value<bool>()->default_value(false))
+        ("use_announce", "Use Announce flow instead of publish flow", cxxopts::value<bool>())
         ("pub_namespace", "Track namespace", cxxopts::value<std::string>())
         ("pub_name", "Track name", cxxopts::value<std::string>())
         ("clock", "Publish clock timestamp every second instead of using STDIN chat")

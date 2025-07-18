@@ -351,13 +351,12 @@ namespace quicr {
         Bytes buffer;
         buffer << publish;
 
-        SPDLOG_LOGGER_DEBUG(
-          logger_,
-          "Sending PUBLISH to conn_id: {0} request_id: {1} track namespace hash: {2} name hash: {3}",
-          conn_ctx.connection_handle,
-          request_id,
-          th.track_namespace_hash,
-          th.track_name_hash);
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending PUBLISH to conn_id: {0} request_id: {1} track namespace hash: {2} name hash: {3}",
+                            conn_ctx.connection_handle,
+                            request_id,
+                            th.track_namespace_hash,
+                            th.track_name_hash);
 
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
@@ -372,25 +371,14 @@ namespace quicr {
                                   messages::GroupOrder group_order,
                                   messages::FilterType filter_type)
     try {
-        auto publish_ok = PublishOk(request_id,
-                                    forward,
-                                    priority,
-                                    group_order,
-                                    filter_type,
-                                    nullptr,
-                                    std::nullopt,
-                                    nullptr,
-                                    std::nullopt,
-                                    {});
+        auto publish_ok = PublishOk(
+          request_id, forward, priority, group_order, filter_type, nullptr, std::nullopt, nullptr, std::nullopt, {});
 
         Bytes buffer;
         buffer << publish_ok;
 
         SPDLOG_LOGGER_DEBUG(
-          logger_,
-          "Sending PUBLISH_OK to conn_id: {0} request_id: {1} ",
-          conn_ctx.connection_handle,
-          request_id);
+          logger_, "Sending PUBLISH_OK to conn_id: {0} request_id: {1} ", conn_ctx.connection_handle, request_id);
 
         SendCtrlMsg(conn_ctx, buffer);
 
@@ -421,7 +409,6 @@ namespace quicr {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Publish Error (error={})", e.what());
         throw;
     }
-
 
     void Transport::SendSubscribeUpdate(quicr::Transport::ConnectionContext& conn_ctx,
                                         uint64_t request_id,
@@ -808,6 +795,8 @@ namespace quicr {
             }
 
             track_handler->SetRequestId(sid);
+        } else {
+            sid = *track_handler->GetRequestId();
         }
 
         auto priority = track_handler->GetPriority();
@@ -827,7 +816,7 @@ namespace quicr {
 
             // Handle joining fetch, if requested.
             auto joining_fetch = track_handler->GetJoiningFetch();
-            if ( track_handler->GetJoiningFetch()) {
+            if (track_handler->GetJoiningFetch()) {
                 // Make a joining fetch handler.
                 const auto joining_fetch_handler = std::make_shared<JoiningFetchHandler>(track_handler);
                 const auto& info = *joining_fetch;
@@ -1006,8 +995,9 @@ namespace quicr {
             // Check if this published track is a new namespace or existing.
             auto pub_ns_it = conn_it->second.pub_tracks_by_name.find(th.track_namespace_hash);
             if (pub_ns_it == conn_it->second.pub_tracks_by_name.end()) {
-                SPDLOG_LOGGER_INFO(
-                  logger_, "Publish track has new namespace hash: {0} sending ANNOUNCE message", th.track_namespace_hash);
+                SPDLOG_LOGGER_INFO(logger_,
+                                   "Publish track has new namespace hash: {0} sending ANNOUNCE message",
+                                   th.track_namespace_hash);
 
                 lock.unlock();
 
@@ -1304,7 +1294,8 @@ namespace quicr {
     {
         // clean up subscriber handlers on disconnect
         for (const auto& [sub_id, handler] : conn_ctx.tracks_by_request_id) {
-            RemoveSubscribeTrack(conn_ctx, *handler, false);
+            if (not handler->IsPublisherInitiated())
+                RemoveSubscribeTrack(conn_ctx, *handler, false);
         }
 
         // Notify publish handlers of disconnect

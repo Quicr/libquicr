@@ -160,7 +160,6 @@ namespace quicr {
          */
         void PublishTrackSub(ConnectionHandle connection_handle, std::shared_ptr<PublishTrackHandler> track_handler);
 
-
         /**
          * @brief Unpublish track
          *

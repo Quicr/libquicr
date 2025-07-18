@@ -205,7 +205,7 @@ namespace quicr {
          * @brief  Get use announce setting.
          * @return true to indicate announce flow will be used. false to indicate publish flow will be used
          */
-         constexpr bool UsingAnnounce() const noexcept { return use_announce; }
+        constexpr bool UsingAnnounce() const noexcept { return use_announce; }
 
         /**
          * @brief Set use announce

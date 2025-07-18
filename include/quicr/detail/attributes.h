@@ -12,9 +12,10 @@ namespace quicr::messages {
      */
     struct SubscribeAttributes
     {
-        std::uint8_t priority;  ///< Subscriber priority
-        GroupOrder group_order; ///< Subscriber group order
-        std::uint8_t forward;   ///< True to Resume/forward data, False to pause/stop data
+        std::uint8_t priority;                 ///< Subscriber priority
+        GroupOrder group_order;                ///< Subscriber group order
+        std::uint8_t forward;                  ///< True to Resume/forward data, False to pause/stop data
+        std::optional<TrackAlias> track_alias; ///< Track alias for subscribe
     };
 
     /**

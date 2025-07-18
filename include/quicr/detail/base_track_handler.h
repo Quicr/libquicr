@@ -70,7 +70,6 @@ namespace quicr {
         std::optional<messages::Location> largest_location = std::nullopt;
     };
 
-
     /**
      * @brief MoQ track base handler for tracks (subscribe/publish)
      *
