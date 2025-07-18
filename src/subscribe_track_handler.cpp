@@ -3,6 +3,7 @@
 
 #include "quicr/detail/messages.h"
 #include "quicr/detail/stream_buffer.h"
+
 #include <quicr/subscribe_track_handler.h>
 
 namespace quicr {
@@ -49,7 +50,8 @@ namespace quicr {
         }
 
         auto& obj = stream_buffer_.GetAnyB<messages::StreamSubGroupObject>();
-        obj.serialize_extensions = TypeWillSerializeExtensions(s_hdr.type);
+        obj.stream_type = s_hdr.type;
+        const auto subgroup_properties = messages::StreamHeaderProperties(s_hdr.type);
         if (stream_buffer_ >> obj) {
             SPDLOG_TRACE("Received stream_subgroup_object type: {} priority: {} track_alias: {} "
                          "group_id: {} subgroup_id: {} object_id: {} data size: {}",
@@ -62,9 +64,10 @@ namespace quicr {
                          obj.payload.size());
 
             if (!s_hdr.subgroup_id.has_value()) {
-                // TODO(RichLogan): This is a protocol error?
-                assert(s_hdr.type == messages::StreamHeaderType::kSubgroupFirstObjectNoExtensions ||
-                       s_hdr.type == messages::StreamHeaderType::kSubgroupFirstObjectWithExtensions);
+                if (subgroup_properties.subgroup_id_type != messages::SubgroupIdType::kSetFromFirstObject) {
+                    throw messages::ProtocolViolationException("Subgoup ID mismatch");
+                }
+                // Set the subgroup ID from the first object ID.
                 s_hdr.subgroup_id = obj.object_id;
             }
 

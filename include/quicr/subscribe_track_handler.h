@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include "spdlog/fmt/bundled/xchar.h"
-
 #include <quicr/detail/base_track_handler.h>
 #include <quicr/detail/messages.h>
 #include <quicr/detail/stream_buffer.h>
@@ -177,6 +175,10 @@ namespace quicr {
          */
         void Resume() noexcept;
 
+        std::chrono::milliseconds GetDeliveryTimeout() const noexcept { return delivery_timeout_; }
+
+        void SetDeliveryTimeout(std::chrono::milliseconds timeout) noexcept { delivery_timeout_ = timeout; }
+
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
         // --------------------------------------------------------------------------
@@ -302,6 +304,7 @@ namespace quicr {
         std::optional<messages::Location> latest_location_;
         std::optional<JoiningFetch> joining_fetch_;
         std::optional<uint64_t> track_alias_;
+        std::chrono::milliseconds delivery_timeout_{ 0 };
 
         SetForwardingFunction set_forwarding_func_; // set by the transport
 

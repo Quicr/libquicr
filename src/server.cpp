@@ -399,12 +399,27 @@ namespace quicr {
                     conn_ctx.next_request_id = msg.request_id + 1;
                 }
 
+                const auto dt_param =
+                  std::find_if(msg.subscribe_parameters.begin(), msg.subscribe_parameters.end(), [](const auto& p) {
+                      return p.type == messages::ParameterType::kDeliveryTimeout;
+                  });
+
+                std::uint64_t delivery_timeout = 0;
+
+                if (dt_param != msg.subscribe_parameters.end()) {
+                    std::memcpy(&delivery_timeout, dt_param->value.data(), dt_param->value.size());
+                }
+
                 // TODO(tievens): add filter type when caching supports it
                 SubscribeReceived(conn_ctx.connection_handle,
                                   msg.request_id,
                                   msg.filter_type,
                                   tfn,
-                                  { msg.subscriber_priority, static_cast<messages::GroupOrder>(msg.group_order) });
+                                  {
+                                    msg.subscriber_priority,
+                                    static_cast<messages::GroupOrder>(msg.group_order),
+                                    std::chrono::milliseconds{ delivery_timeout },
+                                  });
 
                 return true;
             }
@@ -648,7 +663,7 @@ namespace quicr {
 
                 std::string endpoint_id = "Unknown Endpoint ID";
                 for (const auto& param : msg.setup_parameters) {
-                    if (param.type == messages::ParameterType::kEndpointId) {
+                    if (param.type == messages::SetupParameterType::kEndpointId) {
                         endpoint_id = std::string(param.value.begin(), param.value.end());
                     }
                 }

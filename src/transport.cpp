@@ -195,7 +195,7 @@ namespace quicr {
         auto supported_versions = { kMoqtVersion };
         messages::SetupParameters setup_parameters;
         setup_parameters.push_back(
-          { .type = messages::ParameterType::kEndpointId,
+          { .type = messages::SetupParameterType::kEndpointId,
             .value = { client_config_.endpoint_id.begin(), client_config_.endpoint_id.end() } });
 
         auto client_setup = messages::ClientSetup(supported_versions, setup_parameters);
@@ -218,7 +218,7 @@ namespace quicr {
 
         messages::SetupParameters setup_parameters;
         setup_parameters.push_back(
-          { .type = messages::ParameterType::kEndpointId,
+          { .type = messages::SetupParameterType::kEndpointId,
             .value = { server_config_.endpoint_id.begin(), server_config_.endpoint_id.end() } });
 
         auto server_setup = messages::ServerSetup(selected_version, setup_parameters);
@@ -293,21 +293,30 @@ namespace quicr {
                                   TrackHash th,
                                   SubscriberPriority priority,
                                   GroupOrder group_order,
-                                  FilterType filter_type)
+                                  FilterType filter_type,
+                                  std::chrono::milliseconds delivery_timeout)
     try {
+        std::uint64_t delivery_timeout_ms = delivery_timeout.count();
 
-        auto subscribe = Subscribe(request_id,
-                                   tfn.name_space,
-                                   tfn.name,
-                                   priority,
-                                   group_order,
-                                   1,
-                                   filter_type,
-                                   nullptr,
-                                   std::nullopt,
-                                   nullptr,
-                                   std::nullopt,
-                                   {});
+        auto subscribe =
+          Subscribe(request_id,
+                    tfn.name_space,
+                    tfn.name,
+                    priority,
+                    group_order,
+                    1,
+                    filter_type,
+                    nullptr,
+                    std::nullopt,
+                    nullptr,
+                    std::nullopt,
+                    {
+                      Parameter{
+                        ParameterType::kDeliveryTimeout,
+                        Bytes{ reinterpret_cast<uint8_t*>(&delivery_timeout_ms),
+                               reinterpret_cast<uint8_t*>(&delivery_timeout_ms) + sizeof(std::uint64_t) },
+                      },
+                    });
 
         Bytes buffer;
         buffer << subscribe;
@@ -803,6 +812,7 @@ namespace quicr {
         auto priority = track_handler->GetPriority();
         auto group_order = track_handler->GetGroupOrder();
         auto filter_type = track_handler->GetFilterType();
+        auto delivery_timeout = track_handler->GetDeliveryTimeout();
 
         track_handler->new_group_request_callback_ = [=, this](auto req_id, auto track_alias) {
             SendNewGroupRequest(conn_id, req_id, track_alias);
@@ -817,7 +827,8 @@ namespace quicr {
         conn_it->second.tracks_by_request_id[sid] = track_handler;
 
         if (!track_handler->IsPublisherInitiated()) {
-            SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type);
+            SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type, delivery_timeout);
+        SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type, delivery_timeout);
 
             // Handle joining fetch, if requested.
             auto joining_fetch = track_handler->GetJoiningFetch();
@@ -1263,7 +1274,7 @@ namespace quicr {
 
                 messages::StreamSubGroupObject object;
                 object.object_id = object_id;
-                object.serialize_extensions = TypeWillSerializeExtensions(track_handler.GetStreamMode());
+                object.stream_type = track_handler.GetStreamMode();
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
                 track_handler.object_msg_buffer_ << object;
@@ -1540,11 +1551,11 @@ namespace quicr {
                 auto cursor_it = std::next(data.begin(), type_sz);
 
                 bool break_loop = false;
-                const auto type = static_cast<DataMessageType>(msg_type);
-                if (typeIsStreamHeaderType(type)) {
+                const auto type = static_cast<StreamMessageType>(msg_type);
+                if (TypeIsStreamHeaderType(type)) {
                     const auto stream_header_type = static_cast<StreamHeaderType>(msg_type);
                     break_loop = OnRecvSubgroup(stream_header_type, cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
-                } else if (type == DataMessageType::kFetchHeader) {
+                } else if (type == StreamMessageType::kFetchHeader) {
                     break_loop = OnRecvFetch(cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
                 } else {
                     SPDLOG_LOGGER_DEBUG(logger_, "Received start of stream with invalid header type, dropping");
@@ -1560,7 +1571,15 @@ namespace quicr {
                 // fast processing for existing stream using weak pointer to subscribe handler
                 auto sub_handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
                 if (auto sub_handler = sub_handler_weak.lock()) {
-                    sub_handler->StreamDataRecv(false, stream_id, data_opt.value());
+                    try {
+                        sub_handler->StreamDataRecv(false, stream_id, data_opt.value());
+                    } catch (const ProtocolViolationException& e) {
+                        SPDLOG_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
+                        CloseConnection(conn_id, TerminationReason::kProtocolViolation, e.reason);
+                    } catch (std::exception& e) {
+                        SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream data recv: {}", e.what());
+                        CloseConnection(conn_id, TerminationReason::kInternalError, "Internal error");
+                    }
                 }
             }
         } // end of for loop rx data queue
@@ -1590,7 +1609,8 @@ namespace quicr {
             auto group_id_sz = UintVar::Size(*cursor_it);
             cursor_it += group_id_sz;
 
-            if (TypeWillSerializeSubgroup(type)) {
+            const auto properties = StreamHeaderProperties(type);
+            if (properties.subgroup_id_type == SubgroupIdType::kExplicit) {
                 auto subgroup_id_sz = UintVar::Size(*cursor_it);
                 cursor_it += subgroup_id_sz;
             }
@@ -1670,11 +1690,11 @@ namespace quicr {
 
                 // TODO: Handle ObjectDatagramStatus objects as well.
 
-                if (!msg_type ||
-                    static_cast<messages::DataMessageType>(msg_type) != messages::DataMessageType::kObjectDatagram) {
-                    SPDLOG_LOGGER_DEBUG(logger_,
-                                        "Received datagram that is not message type kObjectDatagram or "
-                                        "kObjectDatagramStatus, dropping");
+                // Message type needs to be either datagram header types or status types.
+                const auto data_type = static_cast<DatagramMessageType>(msg_type);
+                if (!TypeIsDatagram(data_type)) {
+                    SPDLOG_LOGGER_DEBUG(
+                      logger_, "Received datagram that is not a supported datagram type, dropping: {0}", msg_type);
                     auto& conn_ctx = connections_[conn_id];
                     conn_ctx.metrics.rx_dgram_invalid_type++;
                     continue;

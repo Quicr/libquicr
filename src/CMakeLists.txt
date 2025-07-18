@@ -31,7 +31,7 @@ set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)
 
 target_compile_options(quicr
     PRIVATE
-        $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall>
+        $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall -Werror=switch>
         $<$<CXX_COMPILER_ID:MSVC>: >)
 set_target_properties(quicr
     PROPERTIES

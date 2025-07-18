@@ -22,7 +22,7 @@ def main(rfc_filename, output_name):
         "Track Name": "quicr::Bytes",
         "Track Namespace Prefix": "quicr::TrackNamespace",
         "Subscribe Parameters": "quicr::messages::Parameter",
-        "Setup Parameters": "quicr::messages::Parameter",
+        "Setup Parameters": "quicr::messages::SetupParameter",
         "New Session URI": "quicr::Bytes",
         "Parameters": "quicr::messages::Parameter",
         "Reason Phrase": "quicr::Bytes",

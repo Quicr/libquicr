@@ -118,15 +118,25 @@ namespace quicr::messages {
         return buffer;
     }
 
+    enum struct SetupParameterType : uint64_t
+    {
+        kPath = 0x01,
+        kMaxRequestId = 0x02, // version specific, unused
+        kAuthorizationToken = 0x03,
+        kEndpointId = 0xF1, // Endpoint ID, using temp value for now
+        kInvalid = 0xFF,    // used internally.
+    };
+
     enum struct ParameterType : uint64_t
     {
-        kPath = 0x1,
-        kMaxRequestId = 0x2, // version specific, unused
-        kEndpointId = 0xF1,  // Endpoint ID, using temp value for now
-        kInvalid = 0xFF,     // used internally.
+        kDeliveryTimeout = 0x02,
+        kAuthorizationToken = 0x03,
+        kMaxCacheDuration = 0x04,
+        kInvalid = 0xFF, // used internally.
     };
 
     using Parameter = KeyValuePair<ParameterType>;
+    using SetupParameter = KeyValuePair<SetupParameterType>;
 
     enum struct GroupOrder : uint8_t
     {
