@@ -388,7 +388,7 @@ class MyClient : public quicr::Client
         for (int pub_group_number = attributes.start_location.group; pub_group_number < attributes.end_group;
              ++pub_group_number) {
             quicr::ObjectHeaders headers{ .group_id = attributes.start_location.group,
-                                          .object_id = 0, // SAH - 0 for now; attributes.start_location.object,
+                                          .object_id = 0,
                                           .subgroup_id = 0,
                                           .payload_length = 0,
                                           .status = quicr::ObjectStatus::kAvailable,

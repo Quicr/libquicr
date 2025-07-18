@@ -52,41 +52,6 @@ namespace qserver_vars {
     std::map<quicr::TrackNamespace, std::map<quicr::ConnectionHandle, std::set<quicr::messages::TrackAlias>>>
       announce_active;
 
-    /*
-        SAH - iterate through this entire map to find the track alias that matches... TA=ABC will get a connection
-       handle.... Now: send a FETCH request to this publisher
-
-        The publish will send tabk a stream 90 map to stream 5 (back to originating client)
-
-        ***Bind together two request ID's. in a state tracking map....
-        FetchOK - following a new stream - will process as a fetch message - what is the requestId - maps to Request ID
-       to original FMT_USE_FULL_CACHE_DRAGONBOX Announce_acive has all of the announcers.. If no match -
-            - create a FetchRequest state
-            - FetchOK - needs to go all the way through
-            - FetchError - needs to go all the way through
-
-            - Assuming data comes...Data hex 16 value - with request_id
-
-            - onrecvstream - data object coming in - where do we determin if it is a fetch
-
-            there is an if block....in transport.cpp:
-                is it a bidrir - it is cbrtl
-                else: it is data
-
-                if new data - line 1418
-
-                    is a stream header type or
-                        stop_fetch
-
-
-
-            The qrelay will need to track handlers -
-                1.) incoming - from subscriber
-                2.) outgoing - to publish fetch handler...
-
-
-    */
-
     /**
      * Active subscriber publish tracks for a given track, indexed (keyed) by track_alias, connection handle
      *
@@ -208,12 +173,9 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 
         // Cache Object
         if (qserver_vars::cache.count(*track_alias) == 0) {
-            qserver_vars::cache.insert(std::make_pair(
-              *track_alias,
-              quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{
-                50000,
-                1000,
-                qserver_vars::tick_service })); // SAH - copy this... maybe use this as the Fetch handler...
+            qserver_vars::cache.insert(std::make_pair(*track_alias,
+                                                      quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{
+                                                        50000, 1000, qserver_vars::tick_service }));
         }
 
         auto& cache_entry = qserver_vars::cache.at(*track_alias);
