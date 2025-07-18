@@ -81,6 +81,11 @@ namespace quicr {
         return std::nullopt;
     }
 
+    bool Server::FetchReceived(ConnectionHandle, uint64_t, const FullTrackName&, const messages::FetchAttributes&)
+    {
+        return false;
+    }
+
     bool Server::OnFetchOk(ConnectionHandle, uint64_t, const FullTrackName&, const messages::FetchAttributes&)
     {
         return false;
@@ -684,22 +689,27 @@ namespace quicr {
                     case messages::FetchType::kStandalone: {
                         // Standalone fetch is self-containing.
                         tfn = FullTrackName{ msg.group_0->track_namespace, msg.group_0->track_name };
-                        const auto largest_available = GetLargestAvailable(tfn);
-                        if (!largest_available.has_value()) {
-                            SendFetchError(conn_ctx,
-                                           msg.request_id,
-                                           messages::FetchErrorCode::kTrackDoesNotExist,
-                                           "Track does not exist");
-                            return true;
-                        }
-
-                        largest_location = largest_available.value();
-
                         attrs.start_location = msg.group_0->start_location;
                         attrs.end_group = msg.group_0->end_location.group;
                         attrs.end_object = msg.group_0->end_location.object > 0
                                              ? std::optional(msg.group_0->end_location.object - 1)
                                              : std::nullopt;
+                        const auto largest_available = GetLargestAvailable(tfn);
+                        if (!largest_available.has_value()) {
+                            // Forward FETCH to a Publisher and bind to this request
+                            if (FetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs)) {
+                                SendFetchOk(conn_ctx, msg.request_id, msg.group_order, end_of_track, largest_location);
+                            } else {
+                                SendFetchError(conn_ctx,
+                                               msg.request_id,
+                                               quicr::messages::FetchErrorCode::kInternalError,
+                                               "Unable to process Fetch");
+                            }
+                            return true;
+                        }
+
+                        largest_location = largest_available.value();
+
                         break;
                     }
                     case messages::FetchType::kJoiningFetch: {
@@ -779,6 +789,7 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 if (conn_ctx.recv_sub_id.find(msg.request_id) == conn_ctx.recv_sub_id.end()) {
+
                     SPDLOG_LOGGER_WARN(logger_, "Received Fetch Cancel for unknown subscribe ID: {0}", msg.request_id);
                 }
 

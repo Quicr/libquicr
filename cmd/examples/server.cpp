@@ -303,6 +303,75 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
 };
 
 /**
+ * @brief  Fetch track handler
+ * @details Fetch track handler.
+ */
+class MyFetchTrackHandler : public quicr::FetchTrackHandler
+{
+    MyFetchTrackHandler(const std::shared_ptr<quicr::PublishFetchHandler> publish_fetch_handler,
+                        const quicr::FullTrackName& full_track_name,
+                        quicr::messages::SubscriberPriority priority,
+                        quicr::messages::GroupOrder group_order,
+                        uint64_t start_group,
+                        uint64_t start_object,
+                        uint64_t end_group,
+                        uint64_t end_object)
+      : FetchTrackHandler(full_track_name, priority, group_order, start_group, end_group, start_object, end_object)
+    {
+        publish_fetch_handler_ = publish_fetch_handler;
+    }
+
+  public:
+    static auto Create(const std::shared_ptr<quicr::PublishFetchHandler> publish_fetch_handler,
+                       const quicr::FullTrackName& full_track_name,
+                       std::uint8_t priority,
+                       quicr::messages::GroupOrder group_order,
+                       uint64_t start_group,
+                       uint64_t start_object,
+                       uint64_t end_group,
+                       uint64_t end_object)
+    {
+        return std::shared_ptr<MyFetchTrackHandler>(new MyFetchTrackHandler(publish_fetch_handler,
+                                                                            full_track_name,
+                                                                            priority,
+                                                                            group_order,
+                                                                            start_group,
+                                                                            end_group,
+                                                                            start_object,
+                                                                            end_object));
+    }
+
+    void ObjectReceived(const quicr::ObjectHeaders& headers, quicr::BytesSpan data) override
+    {
+        // Simple - forward what we get to the fetch handler
+        if (publish_fetch_handler_) {
+            publish_fetch_handler_->PublishObject(headers, data);
+        }
+    }
+
+    void StatusChanged(Status status) override
+    {
+        switch (status) {
+            case Status::kOk: {
+                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
+                    SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
+                }
+            } break;
+
+            case Status::kError: {
+                SPDLOG_INFO("Fetch failed");
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+  private:
+    std::shared_ptr<quicr::PublishFetchHandler> publish_fetch_handler_;
+};
+
+/**
  * @brief MoQ Server
  * @details Implementation of the MoQ Server
  */
@@ -766,6 +835,38 @@ class MyServer : public quicr::Server
         }
 
         return largest_location;
+    }
+
+    bool FetchReceived(quicr::ConnectionHandle connection_handle,
+                       uint64_t request_id,
+                       const quicr::FullTrackName& track_full_name,
+                       const quicr::messages::FetchAttributes& attributes)
+    {
+        // lookup Publisher for this Fetch request
+        auto anno_ns_it = qserver_vars::announce_active.find(track_full_name.name_space);
+        if (anno_ns_it == qserver_vars::announce_active.end()) {
+            return false;
+        }
+
+        for (auto& [pub_connection_handle, tracks] : anno_ns_it->second) {
+            auto pub_fetch_h = quicr::PublishFetchHandler::Create(
+              track_full_name, attributes.priority, request_id, attributes.group_order, 50000);
+            BindFetchTrack(connection_handle, pub_fetch_h);
+
+            auto fetch_track_handler =
+              MyFetchTrackHandler::Create(pub_fetch_h,
+                                          track_full_name,
+                                          attributes.priority,
+                                          attributes.group_order,
+                                          attributes.start_location.group,
+                                          attributes.start_location.object,
+                                          attributes.end_group,
+                                          attributes.end_object.has_value() ? attributes.end_object.value() : 0);
+            FetchTrack(pub_connection_handle, fetch_track_handler);
+            return true;
+        }
+
+        return false;
     }
 
     bool OnFetchOk(quicr::ConnectionHandle connection_handle,
