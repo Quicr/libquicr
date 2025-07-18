@@ -60,6 +60,30 @@ namespace quicr::messages {
     {
         T type;
         Bytes value;
+
+        /**
+         * Get the encoded size of this KeyValuePair, in bytes.
+         * @return Encoded size, in bytes.
+         */
+        std::size_t Size() const
+        {
+            std::size_t size = 0;
+            const auto type_val = static_cast<std::uint64_t>(type);
+            size += UintVar(type_val).size();
+
+            if (type_val % 2 == 0) {
+                // Even types: single varint of value
+                assert(value.size() <= 8);
+                std::uint64_t val = 0;
+                std::memcpy(&val, value.data(), std::min(value.size(), sizeof(std::uint64_t)));
+                size += UintVar(val).size();
+            } else {
+                // Odd types: length + bytes
+                size += UintVar(value.size()).size();
+                size += value.size();
+            }
+            return size;
+        }
     };
     template<KeyType T>
     Bytes& operator<<(Bytes& buffer, const KeyValuePair<T>& param)

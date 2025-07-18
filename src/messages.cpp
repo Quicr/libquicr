@@ -21,57 +21,13 @@ namespace quicr::messages {
     }
 
     template<class StreamBufferType>
-    static bool ParseExtensions(StreamBufferType& buffer,
-                                uint64_t& count,
-                                std::optional<Extensions>& extensions,
-                                std::optional<uint64_t>& current_tag)
+    static bool ReadUintVField(StreamBufferType& buffer, UintVar& field)
     {
-
-        // get the count of extensions
-        if (count == 0 && !ParseUintVField(buffer, count)) {
+        auto val = buffer.ReadUintV();
+        if (!val) {
             return false;
         }
-
-        if (count == 0) {
-            return true;
-        }
-
-        if (extensions == std::nullopt) {
-            extensions = Extensions();
-        }
-
-        size_t completed = 0;
-        for (size_t extension = 0; extension < count; extension++) {
-            if (current_tag == std::nullopt) {
-                uint64_t tag{ 0 };
-                if (!ParseUintVField(buffer, tag)) {
-                    count -= completed;
-                    return false;
-                }
-                current_tag = tag;
-            }
-
-            if (current_tag.value() % 2 == 0) {
-                auto val = buffer.DecodeUintV();
-                if (!val) {
-                    count -= completed;
-                    return false;
-                }
-                std::vector<uint8_t> bytes(8);
-                memcpy(bytes.data(), &val.value(), 8);
-                extensions.value()[current_tag.value()] = std::move(bytes);
-            } else {
-                auto val = buffer.DecodeBytes();
-                if (!val) {
-                    count -= completed;
-                    return false;
-                }
-                extensions.value()[current_tag.value()] = std::move(val.value());
-            }
-            current_tag = std::nullopt;
-            completed++;
-        }
-        count -= completed;
+        field = val.value();
         return true;
     }
 
@@ -86,32 +42,114 @@ namespace quicr::messages {
         return true;
     }
 
+    template<class StreamBufferType>
+    static bool ParseExtensions(StreamBufferType& buffer,
+                                std::optional<std::size_t>& extension_headers_length,
+                                std::optional<Extensions>& extensions,
+                                std::size_t& extension_bytes_remaining,
+                                std::optional<std::uint64_t>& current_header)
+    {
+        // Read the length of the extension block, if we haven't already.
+        if (!extension_headers_length.has_value()) {
+            UintVar length{ 0 };
+            if (!ReadUintVField(buffer, length)) {
+                return false;
+            }
+            extension_headers_length = extension_bytes_remaining = length.Get();
+        }
+
+        // There are no extensions, so we're done.
+        if (*extension_headers_length == 0) {
+            return true;
+        }
+
+        if (extensions == std::nullopt) {
+            extensions = Extensions();
+        }
+
+        // Parse KVPs.
+        while (extension_bytes_remaining > 0) {
+            // Get this KVP's tag, if we can.
+            std::uint64_t tag;
+            if (current_header.has_value()) {
+                // We already have this tag.
+                tag = *current_header;
+            } else {
+                // We're at the start of a KVP.
+                UintVar tag_field{ 0 };
+                if (!ReadUintVField(buffer, tag_field)) {
+                    return false;
+                }
+                extension_bytes_remaining -= tag_field.size();
+                tag = tag_field.Get();
+                current_header.emplace(tag);
+            }
+
+            // Now we're at the data.
+            if (tag % 2 == 0) {
+                // Even types: single varint value.
+                auto val = buffer.ReadUintV();
+                if (!val) {
+                    return false;
+                }
+                // Decode the value and place into extensions.
+                const UintVar value = *val;
+                const std::uint64_t decoded_value = value.Get();
+                extension_bytes_remaining -= value.size();
+                std::vector<uint8_t> bytes(sizeof(std::uint64_t));
+                memcpy(bytes.data(), &decoded_value, sizeof(std::uint64_t));
+                (*extensions)[tag] = std::move(bytes);
+            } else {
+                // Odd types: UIntVar length prefixed bytes.
+                if (!ParseBytesField(buffer, (*extensions)[tag])) {
+                    return false;
+                }
+                const auto& ref = (*extensions)[tag];
+                extension_bytes_remaining -= ref.size() + UintVar(ref.size()).size();
+            }
+            current_header = std::nullopt;
+        }
+        return true;
+    }
+
     static void PushBytes(Bytes& buffer, const Bytes& bytes)
     {
         buffer.insert(buffer.end(), bytes.begin(), bytes.end());
     }
 
-    static void PushExtensions(Bytes& buffer, const std::optional<Extensions>& extensions)
+    Bytes& operator<<(Bytes& buffer, const std::optional<Extensions>& extensions)
     {
         if (!extensions.has_value()) {
+            // If there are no extensions, write a 0 length.
+            // Note: Some MoQ objects (e.g. Datagram) MUST NOT write a 0 length. The caller
+            // MUST NOT even attempt to serialize extensions in this case.
             buffer.push_back(0);
-            return;
+            return buffer;
+        }
+        buffer = buffer << *extensions;
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, const Extensions& extensions)
+    {
+        // Calculate total length of extension headers
+        std::size_t total_length = 0;
+        std::vector<KeyValuePair<std::uint64_t>> kvps;
+        for (const auto& extension : extensions) {
+            KeyValuePair kvp{ extension.first, extension.second };
+            const auto size = kvp.Size();
+            total_length += size;
+            kvps.push_back(kvp);
         }
 
-        buffer << UintVar(extensions.value().size());
-        for (const auto& extension : extensions.value()) {
-            buffer << UintVar(extension.first);
-            if (extension.first % 2 == 0) {
-                // Even types are a single varint value.
-                std::uint64_t val = 0;
-                std::memcpy(&val, extension.second.data(), std::min(extension.second.size(), sizeof(std::uint64_t)));
-                buffer << UintVar(val);
-                continue;
-            }
-            // Odd types are varint length + bytes.
-            buffer << UintVar(extension.second.size());
-            PushBytes(buffer, extension.second);
+        // Total length of all extension headers (varint).
+        buffer << static_cast<std::uint64_t>(total_length);
+
+        // Write the KVP extensions.
+        for (const auto& kvp : kvps) {
+            buffer << kvp;
         }
+        return buffer;
     }
 
     template<class StreamBufferType>
@@ -158,7 +196,7 @@ namespace quicr::messages {
         buffer << UintVar(msg.subgroup_id);
         buffer << UintVar(msg.object_id);
         buffer.push_back(msg.publisher_priority);
-        PushExtensions(buffer, msg.extensions);
+        buffer << msg.extensions;
         if (msg.payload.empty()) {
             // empty payload needs a object status to be set
             auto status = UintVar(static_cast<uint8_t>(msg.object_status));
@@ -207,7 +245,11 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 4: {
-                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
+                if (!ParseExtensions(buffer,
+                                     msg.extension_headers_length,
+                                     msg.extensions,
+                                     msg.extension_bytes_remaining,
+                                     msg.current_tag)) {
                     return false;
                 }
                 msg.current_pos += 1;
@@ -270,7 +312,9 @@ namespace quicr::messages {
         buffer << UintVar(msg.group_id);
         buffer << UintVar(msg.object_id);
         buffer.push_back(msg.priority);
-        PushExtensions(buffer, msg.extensions);
+        if (msg.extensions.has_value()) {
+            buffer << *msg.extensions;
+        }
 
         if (msg.payload.empty()) {
             return buffer;
@@ -329,8 +373,18 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 5: {
-                if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
-                    return false;
+                assert(msg.type.has_value());
+                const auto properties = DatagramHeaderProperties(*msg.type);
+                if (properties.has_extensions) {
+                    if (!ParseExtensions(buffer,
+                                         msg.extension_headers_length,
+                                         msg.extensions,
+                                         msg.extension_bytes_left,
+                                         msg.current_tag)) {
+                        return false;
+                    }
+                } else {
+                    msg.extensions = std::nullopt;
                 }
                 msg.current_pos += 1;
                 msg.payload_len = buffer.Size();
@@ -370,7 +424,7 @@ namespace quicr::messages {
         buffer << UintVar(msg.object_id);
         buffer.push_back(msg.priority);
         if (properties.has_extensions) {
-            PushExtensions(buffer, msg.extensions);
+            buffer << msg.extensions;
         }
         buffer << UintVar(static_cast<uint8_t>(msg.status));
 
@@ -424,7 +478,11 @@ namespace quicr::messages {
             case 5: {
                 const auto properties = DatagramStatusProperties(*msg.type);
                 if (properties.has_extensions) {
-                    if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
+                    if (!ParseExtensions(buffer,
+                                         msg.extension_headers_length,
+                                         msg.extensions,
+                                         msg.extension_bytes_left,
+                                         msg.current_tag)) {
                         return false;
                     }
                 }
@@ -538,8 +596,12 @@ namespace quicr::messages {
         buffer << UintVar(msg.object_id);
         assert(msg.stream_type.has_value()); // Stream type must have been set before serialization.
         const auto properties = StreamHeaderProperties(*msg.stream_type);
+        if (!properties.may_contain_extensions && msg.extensions.has_value()) {
+            // This is not allowed.
+            assert(false);
+        }
         if (properties.may_contain_extensions) {
-            PushExtensions(buffer, msg.extensions);
+            buffer << msg.extensions;
         }
         if (msg.payload.empty()) {
             // empty payload needs a object status to be set
@@ -568,7 +630,11 @@ namespace quicr::messages {
                 assert(msg.stream_type.has_value());
                 const auto properties = StreamHeaderProperties(*msg.stream_type);
                 if (properties.may_contain_extensions) {
-                    if (!ParseExtensions(buffer, msg.num_extensions, msg.extensions, msg.current_tag)) {
+                    if (!ParseExtensions(buffer,
+                                         msg.extension_headers_length,
+                                         msg.extensions,
+                                         msg.extension_bytes_left,
+                                         msg.current_tag)) {
                         return false;
                     }
                 }
