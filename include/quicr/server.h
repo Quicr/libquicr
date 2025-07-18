@@ -138,6 +138,24 @@ namespace quicr {
                                       uint64_t track_alias,
                                       const SubscribeResponse& subscribe_response);
 
+        /**
+         * @brief Accept or reject publish that was received
+         *
+         * @details Accept or reject publish received via PublishReceived(). The MoQ Transport
+         *      will send the protocol message based on the SubscribeResponse
+         *
+         * @param connection_handle        source connection ID
+         * @param request_id               Request ID
+         * @param forward                  True indicates to forward data, False to pause forwarding
+         * @param publish_response         response to for the publish
+         */
+        virtual void ResolvePublish(ConnectionHandle connection_handle,
+                                    uint64_t request_id,
+                                    bool forward,
+                                    messages::SubscriberPriority priority,
+                                    messages::GroupOrder group_order,
+                                    const PublishResponse& publish_response);
+
         // --BEGIN CALLBACKS ----------------------------------------------------------------------------------
         /** @name Server Calbacks
          *      slient transport specific callbacks
@@ -339,6 +357,30 @@ namespace quicr {
         virtual void FetchCancelReceived(ConnectionHandle connection_handle, uint64_t request_id) = 0;
 
         virtual void NewGroupRequested(ConnectionHandle connection_handle, uint64_t request_id, uint64_t track_alias);
+
+        /**
+         * @brief Callback notification for new publish received
+         *
+         * @note The caller **MUST** respond to this via ResolvePublish(). If the caller does not
+         * override this method, the default will call ResolvePublish() with the status of OK
+         *
+         * @param connection_handle     Source connection ID
+         * @param request_id            Request ID received
+         * @param track_full_name       Track full name
+         * @param subscribe_attributes  Subscribe attributes received
+         */
+        virtual void PublishReceived(ConnectionHandle connection_handle,
+                                     uint64_t request_id,
+                                     const FullTrackName& track_full_name,
+                                     const messages::SubscribeAttributes& subscribe_attributes) = 0;
+
+        /**
+         * @brief Callback notification on Subscribe Done received
+         *
+         * @param connection_handle   Source connection ID
+         * @param request_id          Request ID received
+         */
+        virtual void SubscribeDoneReceived(ConnectionHandle connection_handle, uint64_t request_id) = 0;
 
         ///@}
         // --END OF CALLBACKS ----------------------------------------------------------------------------------

@@ -43,7 +43,8 @@ namespace quicr {
             kNotAuthorized,
             kNotSubscribed,
             kPendingResponse,
-            kSendingUnsubscribe ///< In this state, callbacks will not be called
+            kSendingUnsubscribe, ///< In this state, callbacks will not be called,
+            kPaused
         };
 
         /**
@@ -63,17 +64,20 @@ namespace quicr {
          *
          * @param full_track_name           Full track name struct
          * @param joining_fetch             If set, subscribe with a joining fetch using these attributes.
+         * @param publisher_initiated       True if publisher initiated the subscribe, otherwise False
          */
         SubscribeTrackHandler(const FullTrackName& full_track_name,
                               messages::SubscriberPriority priority,
                               messages::GroupOrder group_order,
                               messages::FilterType filter_type,
-                              const std::optional<JoiningFetch>& joining_fetch = std::nullopt)
+                              const std::optional<JoiningFetch>& joining_fetch = std::nullopt,
+                              bool publisher_initiated = false)
           : BaseTrackHandler(full_track_name)
           , priority_(priority)
           , group_order_(group_order)
           , filter_type_(filter_type)
-          , joining_fetch_(joining_fetch)
+          , joining_fetch_(publisher_initiated ? std::nullopt : joining_fetch)
+          , publisher_initiated_(publisher_initiated)
         {
         }
 
@@ -158,6 +162,18 @@ namespace quicr {
          * @return Track alias if set, otherwise std::nullopt.
          */
         std::optional<uint64_t> GetTrackAlias() const noexcept { return track_alias_; }
+
+        /**
+         * @brief Pause receiving data
+         * @details Pause will send a MoQT SUBSCRIBE_UPDATE to change the forwarding state to be stopped         *
+         */
+        void Pause() noexcept;
+
+        /**
+         * @brief Resume receiving data
+         * @details Rresume will send a MoQT SUBSCRIBE_UPDATE to change the forwarding state to send
+         */
+        void Resume() noexcept;
 
         std::chrono::milliseconds GetDeliveryTimeout() const noexcept { return delivery_timeout_; }
 
@@ -245,6 +261,12 @@ namespace quicr {
         ///@}
 
         /**
+         * @brief Check if the subscribe is publisher initiated or not
+         * @return True if publisher initiated, false if initiated by the relay/server
+         */
+        bool IsPublisherInitiated() const noexcept { return publisher_initiated_; }
+
+        /**
          * @brief Subscribe metrics for the track
          *
          * @details Subscribe metrics are updated real-time and transport quic metrics on metrics_sample_ms
@@ -253,6 +275,12 @@ namespace quicr {
         SubscribeTrackMetrics subscribe_track_metrics_;
 
         std::function<void(messages::RequestID, messages::TrackAlias)> new_group_request_callback_;
+
+        /**
+         * @brief Function pointer to send subscribe update with forward setting
+         * @param forward       True or False
+         */
+        using SetForwardingFunction = std::function<void(bool forward)>;
 
       protected:
         /**
@@ -277,6 +305,10 @@ namespace quicr {
         std::optional<JoiningFetch> joining_fetch_;
         std::optional<uint64_t> track_alias_;
         std::chrono::milliseconds delivery_timeout_{ 0 };
+
+        SetForwardingFunction set_forwarding_func_; // set by the transport
+
+        bool publisher_initiated_{ false };
 
         friend class Transport;
         friend class Client;

@@ -9,6 +9,29 @@ TestServer::TestServer(const ServerConfig& config)
 }
 
 void
+SubscribeDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id)
+{
+}
+
+void
+PublishReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id)
+{
+}
+
+void
+TestServer::PublishReceived(quicr::ConnectionHandle connection_handle,
+                            uint64_t request_id,
+                            const quicr::FullTrackName& track_full_name,
+                            const quicr::messages::SubscribeAttributes& subscribe_attributes)
+{
+}
+
+void
+TestServer::SubscribeDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id)
+{
+}
+
+void
 TestServer::SubscribeReceived(ConnectionHandle connection_handle,
                               uint64_t request_id,
                               messages::FilterType filter_type,

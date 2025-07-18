@@ -335,22 +335,107 @@ namespace quicr {
         throw;
     }
 
+    void Transport::SendPublish(ConnectionContext& conn_ctx,
+                                messages::RequestID request_id,
+                                const FullTrackName& tfn,
+                                TrackHash th,
+                                messages::SubscriberPriority priority,
+                                messages::GroupOrder group_order,
+                                bool content_exists,
+                                messages::Location largest_location,
+                                bool forward)
+    try {
+
+        auto publish = Publish(request_id,
+                               tfn.name_space,
+                               tfn.name,
+                               th.track_fullname_hash,
+                               group_order,
+                               1,
+                               nullptr,
+                               std::nullopt,
+                               forward,
+                               {});
+
+        Bytes buffer;
+        buffer << publish;
+
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending PUBLISH to conn_id: {0} request_id: {1} track namespace hash: {2} name hash: {3}",
+                            conn_ctx.connection_handle,
+                            request_id,
+                            th.track_namespace_hash,
+                            th.track_name_hash);
+
+        SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Publish (error={})", e.what());
+        throw;
+    }
+
+    void Transport::SendPublishOk(ConnectionContext& conn_ctx,
+                                  messages::RequestID request_id,
+                                  bool forward,
+                                  messages::SubscriberPriority priority,
+                                  messages::GroupOrder group_order,
+                                  messages::FilterType filter_type)
+    try {
+        auto publish_ok = PublishOk(
+          request_id, forward, priority, group_order, filter_type, nullptr, std::nullopt, nullptr, std::nullopt, {});
+
+        Bytes buffer;
+        buffer << publish_ok;
+
+        SPDLOG_LOGGER_DEBUG(
+          logger_, "Sending PUBLISH_OK to conn_id: {0} request_id: {1} ", conn_ctx.connection_handle, request_id);
+
+        SendCtrlMsg(conn_ctx, buffer);
+
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Publish Ok (error={})", e.what());
+        throw;
+    }
+
+    void Transport::SendPublishError(ConnectionContext& conn_ctx,
+                                     messages::RequestID request_id,
+                                     messages::SubscribeErrorCode error,
+                                     const std::string& reason)
+    try {
+        const auto publish_err = PublishError(request_id, static_cast<int>(error), Bytes(reason.begin(), reason.end()));
+
+        Bytes buffer;
+        buffer << publish_err;
+
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending PUBLISH_ERROR to conn_id: {0} request_id: {1} error code: {2} reason: {3}",
+                            conn_ctx.connection_handle,
+                            request_id,
+                            static_cast<int>(error),
+                            reason);
+
+        SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Publish Error (error={})", e.what());
+        throw;
+    }
+
     void Transport::SendSubscribeUpdate(quicr::Transport::ConnectionContext& conn_ctx,
                                         uint64_t request_id,
                                         quicr::TrackHash th,
                                         Location start_location,
                                         messages::GroupId end_group_id,
-                                        messages::SubscriberPriority priority)
+                                        messages::SubscriberPriority priority,
+                                        bool forward)
     try {
         auto subscribe_update =
-          messages::SubscribeUpdate(request_id, start_location, end_group_id, end_group_id, priority, {});
+          messages::SubscribeUpdate(request_id, start_location, end_group_id, priority, forward, {});
 
         Bytes buffer;
         buffer << subscribe_update;
 
         SPDLOG_LOGGER_DEBUG(
           logger_,
-          "Sending SUBSCRIBE_UPDATe to conn_id: {0} request_id: {1} track namespace hash: {2} name hash: {3}",
+          "Sending SUBSCRIBE_UPDATE to conn_id: {0} request_id: {1} track namespace hash: {2} name hash: {3}",
           conn_ctx.connection_handle,
           request_id,
           th.track_namespace_hash,
@@ -713,49 +798,60 @@ namespace quicr {
         }
 
         auto sid = conn_it->second.next_request_id++ << 1;
-        if (client_mode_) {
-            sid++;
-        }
 
-        track_handler->SetRequestId(sid);
+        if (!track_handler->IsPublisherInitiated()) {
+            if (client_mode_) {
+                sid++;
+            }
+
+            track_handler->SetRequestId(sid);
+        } else {
+            sid = *track_handler->GetRequestId();
+        }
 
         auto priority = track_handler->GetPriority();
         auto group_order = track_handler->GetGroupOrder();
         auto filter_type = track_handler->GetFilterType();
-        auto joining_fetch = track_handler->GetJoiningFetch();
         auto delivery_timeout = track_handler->GetDeliveryTimeout();
 
-        track_handler->new_group_request_callback_ = [=, this](auto sub_id, auto track_alias) {
-            SendNewGroupRequest(conn_id, sub_id, track_alias);
+        track_handler->new_group_request_callback_ = [=, this](auto req_id, auto track_alias) {
+            SendNewGroupRequest(conn_id, req_id, track_alias);
+        };
+
+        track_handler->set_forwarding_func_ = [=, this](bool forward) {
+            SendSubscribeUpdate(conn_it->second, sid, th, {}, 0, track_handler->GetPriority(), forward);
         };
 
         // Set the track handler for tracking by subscribe ID and track alias
         conn_it->second.sub_by_track_alias[*track_handler->GetTrackAlias()] = track_handler;
         conn_it->second.tracks_by_request_id[sid] = track_handler;
 
-        SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type, delivery_timeout);
+        if (!track_handler->IsPublisherInitiated()) {
+            SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type, delivery_timeout);
 
-        // Handle joining fetch, if requested.
-        if (joining_fetch) {
-            // Make a joining fetch handler.
-            const auto joining_fetch_handler = std::make_shared<JoiningFetchHandler>(track_handler);
-            const auto& info = *joining_fetch;
-            const auto fetch_sid = conn_it->second.next_request_id++;
-            SPDLOG_LOGGER_INFO(logger_,
-                               "Subscribe with joining fetch conn_id: {0} track_alias: {1} subscribe id: {2} "
-                               "joining subscribe id: {3}",
-                               conn_id,
-                               th.track_fullname_hash,
-                               fetch_sid,
-                               sid);
-            conn_it->second.tracks_by_request_id[fetch_sid] = std::move(joining_fetch_handler);
-            SendJoiningFetch(conn_it->second,
-                             fetch_sid,
-                             info.priority,
-                             info.group_order,
-                             sid,
-                             info.preceding_group_offset,
-                             info.parameters);
+            // Handle joining fetch, if requested.
+            auto joining_fetch = track_handler->GetJoiningFetch();
+            if (track_handler->GetJoiningFetch()) {
+                // Make a joining fetch handler.
+                const auto joining_fetch_handler = std::make_shared<JoiningFetchHandler>(track_handler);
+                const auto& info = *joining_fetch;
+                const auto fetch_sid = conn_it->second.next_request_id++;
+                SPDLOG_LOGGER_INFO(logger_,
+                                   "Subscribe with joining fetch conn_id: {0} track_alias: {1} subscribe id: {2} "
+                                   "joining subscribe id: {3}",
+                                   conn_id,
+                                   th.track_fullname_hash,
+                                   fetch_sid,
+                                   sid);
+                conn_it->second.tracks_by_request_id[fetch_sid] = std::move(joining_fetch_handler);
+                SendJoiningFetch(conn_it->second,
+                                 fetch_sid,
+                                 info.priority,
+                                 info.group_order,
+                                 sid,
+                                 info.preceding_group_offset,
+                                 info.parameters);
+            }
         }
     }
 
@@ -789,7 +885,8 @@ namespace quicr {
           logger_, "subscribe id (from subscribe) to add to memory: {0}", track_handler->GetRequestId().value());
 
         auto priority = track_handler->GetPriority();
-        SendSubscribeUpdate(conn_it->second, track_handler->GetRequestId().value(), th, { 0x0, 0x0 }, 0x0, priority);
+        SendSubscribeUpdate(
+          conn_it->second, track_handler->GetRequestId().value(), th, { 0x0, 0x0 }, 0x0, priority, true);
     }
 
     void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx,
@@ -833,10 +930,19 @@ namespace quicr {
             return;
         }
 
+        conn_it->second.pub_tracks_by_request_id.erase(*track_handler->GetRequestId());
         conn_it->second.pub_tracks_ns_by_request_id.erase(*track_handler->GetRequestId());
         conn_it->second.pub_tracks_by_track_alias.erase(th.track_fullname_hash);
 
-        // Check if this published track is a new namespace or existing.
+        if (not track_handler->UsingAnnounce()) {
+            conn_it->second.recv_req_id.erase(th.track_fullname_hash);
+        }
+
+        /*
+         * This is a round about way to send subscribe done because of the announce flow. This
+         * will go away if we stop using the announce flow. For now, it works for both announce
+         * and publish flows.
+         */
         auto pub_ns_it = conn_it->second.pub_tracks_by_name.find(th.track_namespace_hash);
         if (pub_ns_it != conn_it->second.pub_tracks_by_name.end()) {
             auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
@@ -864,6 +970,7 @@ namespace quicr {
 
                 lock.unlock();
 
+                // We continue to use the kNotAnnounced state when removing. Might make sense to use kDestroyed instead
                 pub_n_it->second->SetStatus(PublishTrackHandler::Status::kNotAnnounced);
 
                 lock.lock();
@@ -871,7 +978,7 @@ namespace quicr {
                 pub_ns_it->second.erase(pub_n_it);
             }
 
-            if (!pub_ns_it->second.size()) {
+            if (pub_ns_it->second.size() == 0 && track_handler->UsingAnnounce()) {
                 SPDLOG_LOGGER_INFO(
                   logger_, "Unpublish namespace hash: {0}, has no tracks, sending unannounce", th.track_namespace_hash);
 
@@ -904,31 +1011,48 @@ namespace quicr {
 
         conn_it->second.pub_tracks_ns_by_request_id[sid] = th.track_namespace_hash;
 
-        // Check if this published track is a new namespace or existing.
-        auto pub_ns_it = conn_it->second.pub_tracks_by_name.find(th.track_namespace_hash);
-        if (pub_ns_it == conn_it->second.pub_tracks_by_name.end()) {
-            SPDLOG_LOGGER_INFO(
-              logger_, "Publish track has new namespace hash: {0} sending ANNOUNCE message", th.track_namespace_hash);
+        if (track_handler->UsingAnnounce()) {
+            // Check if this published track is a new namespace or existing.
+            auto pub_ns_it = conn_it->second.pub_tracks_by_name.find(th.track_namespace_hash);
+            if (pub_ns_it == conn_it->second.pub_tracks_by_name.end()) {
+                SPDLOG_LOGGER_INFO(logger_,
+                                   "Publish track has new namespace hash: {0} sending ANNOUNCE message",
+                                   th.track_namespace_hash);
 
-            lock.unlock();
+                lock.unlock();
 
-            track_handler->SetStatus(PublishTrackHandler::Status::kPendingAnnounceResponse);
+                track_handler->SetStatus(PublishTrackHandler::Status::kPendingAnnounceResponse);
 
-            lock.lock();
+                lock.lock();
 
-            SendAnnounce(conn_it->second, sid, tfn.name_space);
-
-        } else {
-            auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
-            if (pub_n_it == pub_ns_it->second.end()) {
-                track_handler->SetStatus(pub_ns_it->second.begin()->second->GetStatus());
                 SendAnnounce(conn_it->second, sid, tfn.name_space);
 
-                SPDLOG_LOGGER_INFO(logger_,
-                                   "Publish track has new track namespace hash: {0} name hash: {1}",
-                                   th.track_namespace_hash,
-                                   th.track_name_hash);
+            } else {
+                auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
+                if (pub_n_it == pub_ns_it->second.end()) {
+                    track_handler->SetStatus(pub_ns_it->second.begin()->second->GetStatus());
+                    SendAnnounce(conn_it->second, sid, tfn.name_space);
+
+                    SPDLOG_LOGGER_INFO(logger_,
+                                       "Publish track has new track namespace hash: {0} name hash: {1}",
+                                       th.track_namespace_hash,
+                                       th.track_name_hash);
+                }
             }
+        } else {
+            // Add state to received request ID since a subscribe will not be received for this request
+            conn_it->second.recv_req_id[sid] = { track_handler->GetFullTrackName() };
+
+            track_handler->SetStatus(PublishTrackHandler::Status::kPendingPublishOk);
+            SendPublish(conn_it->second,
+                        sid,
+                        tfn,
+                        th,
+                        track_handler->GetDefaultPriority(),
+                        GroupOrder::kAscending,
+                        1,
+                        { track_handler->prev_object_group_id_, track_handler->prev_object_id_ },
+                        true);
         }
 
         track_handler->connection_handle_ = conn_id;
@@ -971,6 +1095,7 @@ namespace quicr {
         };
 
         // Hold ref to track handler
+        conn_it->second.pub_tracks_by_request_id[sid] = track_handler;
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
         conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash] = track_handler;
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
@@ -1200,7 +1325,8 @@ namespace quicr {
     {
         // clean up subscriber handlers on disconnect
         for (const auto& [sub_id, handler] : conn_ctx.tracks_by_request_id) {
-            RemoveSubscribeTrack(conn_ctx, *handler, false);
+            if (not handler->IsPublisherInitiated())
+                RemoveSubscribeTrack(conn_ctx, *handler, false);
         }
 
         // Notify publish handlers of disconnect
@@ -1211,7 +1337,7 @@ namespace quicr {
 
         conn_ctx.pub_tracks_by_data_ctx_id.clear();
         conn_ctx.pub_tracks_by_name.clear();
-        conn_ctx.recv_sub_id.clear();
+        conn_ctx.recv_req_id.clear();
         conn_ctx.tracks_by_request_id.clear();
         conn_ctx.sub_by_track_alias.clear();
     }

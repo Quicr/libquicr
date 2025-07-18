@@ -65,14 +65,14 @@ namespace qserver_vars {
       subscribes;
 
     /**
-     * Subscribe ID to alias mapping
-     *      Used to lookup the track alias for a given subscribe ID
+     * Request ID to alias mapping
+     *      Used to lookup the track alias for a given request ID
      *
      * @example
-     *      track_alias = subscribe_alias_sub_id[conn_id][subscribe_id]
+     *      track_alias = subscribe_alias_req_id[conn_id][request_id]
      */
     std::map<quicr::ConnectionHandle, std::map<quicr::messages::RequestID, quicr::messages::TrackAlias>>
-      subscribe_alias_sub_id;
+      subscribe_alias_req_id;
 
     /**
      * Map of subscribes set by namespace and track name hash
@@ -111,6 +111,10 @@ namespace qserver_vars {
              std::map<quicr::ConnectionHandle, std::shared_ptr<quicr::SubscribeTrackHandler>>>
       pub_subscribes;
 
+    std::map<quicr::ConnectionHandle,
+             std::map<quicr::messages::RequestID, std::shared_ptr<quicr::SubscribeTrackHandler>>>
+      pub_subscribes_by_req_id;
+
     /// Subscriber connection handles by subscribe prefix namespace for subscribe announces
     std::map<quicr::TrackNamespace, std::set<quicr::ConnectionHandle>> subscribes_announces;
 
@@ -137,11 +141,13 @@ namespace qserver_vars {
 class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 {
   public:
-    MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name)
+    MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name, bool is_publisher_initiated = false)
       : SubscribeTrackHandler(full_track_name,
                               3,
                               quicr::messages::GroupOrder::kAscending,
-                              quicr::messages::FilterType::kLatestObject)
+                              quicr::messages::FilterType::kLatestObject,
+                              std::nullopt,
+                              is_publisher_initiated)
     {
     }
 
@@ -167,7 +173,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         auto sub_it = qserver_vars::subscribes.find(track_alias.value());
 
         if (sub_it == qserver_vars::subscribes.end()) {
-            SPDLOG_INFO("No subscribes, not relaying data size: {0} ", data.size());
+            SPDLOG_TRACE("No subscribes, ignoring data size: {0} ", data.size());
             return;
         }
 
@@ -499,6 +505,52 @@ class MyServer : public quicr::Server
         return { std::nullopt, std::move(matched_ns) };
     }
 
+    void PublishReceived(quicr::ConnectionHandle connection_handle,
+                         uint64_t request_id,
+                         const quicr::FullTrackName& track_full_name,
+                         const quicr::messages::SubscribeAttributes& subscribe_attributes) override
+    {
+        auto th = quicr::TrackHash(track_full_name);
+
+        SPDLOG_INFO("Received publish from connection handle: {} using track alias: {} request_id: {}",
+                    connection_handle,
+                    th.track_fullname_hash,
+                    request_id);
+
+        quicr::PublishResponse publish_response;
+        publish_response.reason_code = quicr::PublishResponse::ReasonCode::kOk;
+
+        // passively create the subscribe handler towards the publisher
+        auto sub_track_handler = std::make_shared<MySubscribeTrackHandler>(track_full_name, true);
+        if (subscribe_attributes.track_alias.has_value()) {
+            // @note, this may not match the computed track alias we use. This is the received track alias
+            sub_track_handler->SetTrackAlias(subscribe_attributes.track_alias.value());
+        }
+
+        sub_track_handler->SetRequestId(request_id);
+        sub_track_handler->SetPriority(subscribe_attributes.priority);
+
+        SubscribeTrack(connection_handle, sub_track_handler);
+        qserver_vars::pub_subscribes[th.track_fullname_hash][connection_handle] = sub_track_handler;
+        qserver_vars::pub_subscribes_by_req_id[connection_handle][request_id] = sub_track_handler;
+
+        ResolvePublish(connection_handle,
+                       request_id,
+                       true,
+                       subscribe_attributes.priority,
+                       subscribe_attributes.group_order,
+                       publish_response);
+
+        // Check if there are any subscribers
+        if (qserver_vars::subscribes[th.track_fullname_hash].empty()) {
+            SPDLOG_INFO("No subscribers, pause publish connection handle: {0} using track alias: {1}",
+                        connection_handle,
+                        th.track_fullname_hash);
+
+            sub_track_handler->Pause();
+        }
+    }
+
     void AnnounceReceived(quicr::ConnectionHandle connection_handle,
                           const quicr::TrackNamespace& track_namespace,
                           const quicr::PublishAnnounceAttributes& attrs) override
@@ -602,8 +654,8 @@ class MyServer : public quicr::Server
 
         // Remove active subscribes
         std::vector<quicr::messages::RequestID> subscribe_ids;
-        auto ta_conn_it = qserver_vars::subscribe_alias_sub_id.find(connection_handle);
-        if (ta_conn_it != qserver_vars::subscribe_alias_sub_id.end()) {
+        auto ta_conn_it = qserver_vars::subscribe_alias_req_id.find(connection_handle);
+        if (ta_conn_it != qserver_vars::subscribe_alias_req_id.end()) {
             for (const auto& [sub_id, _] : ta_conn_it->second) {
                 subscribe_ids.push_back(sub_id);
             }
@@ -624,23 +676,56 @@ class MyServer : public quicr::Server
         return client_setup_response;
     }
 
-    void UnsubscribeReceived(quicr::ConnectionHandle connection_handle, uint64_t subscribe_id) override
+    void SubscribeDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override
     {
-        SPDLOG_INFO("Unsubscribe connection handle: {0} subscribe_id: {1}", connection_handle, subscribe_id);
+        SPDLOG_INFO("Subscribe Done connection handle: {0} request_id: {1}", connection_handle, request_id);
 
-        auto ta_conn_it = qserver_vars::subscribe_alias_sub_id.find(connection_handle);
-        if (ta_conn_it == qserver_vars::subscribe_alias_sub_id.end()) {
-            SPDLOG_WARN("Unable to find track alias connection for connection handle: {0} subscribe_id: {1}",
+        std::lock_guard<std::mutex> _(qserver_vars::state_mutex);
+        auto req_it = qserver_vars::pub_subscribes_by_req_id.find(connection_handle);
+
+        if (req_it == qserver_vars::pub_subscribes_by_req_id.end()) {
+            SPDLOG_WARN("Subscribe Done connection handle: {0} request_id: {1} does not have a connection entry in "
+                        "state, ignoring",
                         connection_handle,
-                        subscribe_id);
+                        request_id);
             return;
         }
 
-        auto ta_it = ta_conn_it->second.find(subscribe_id);
-        if (ta_it == ta_conn_it->second.end()) {
-            SPDLOG_WARN("Unable to find track alias for connection handle: {0} subscribe_id: {1}",
+        auto sub_it = req_it->second.find(request_id);
+        if (sub_it == req_it->second.end()) {
+            SPDLOG_WARN(
+              "Subscribe Done connection handle: {0} request_id: {1} does not matching existing state, ignoring",
+              connection_handle,
+              request_id);
+            return;
+        }
+
+        auto th = quicr::TrackHash(sub_it->second->GetFullTrackName());
+        qserver_vars::pub_subscribes[th.track_fullname_hash].erase(connection_handle);
+
+        req_it->second.erase(sub_it);
+
+        if (req_it->second.empty()) {
+            qserver_vars::pub_subscribes_by_req_id.erase(req_it);
+        }
+    }
+
+    void UnsubscribeReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override
+    {
+        SPDLOG_INFO("Unsubscribe connection handle: {0} subscribe_id: {1}", connection_handle, request_id);
+
+        auto ta_conn_it = qserver_vars::subscribe_alias_req_id.find(connection_handle);
+        if (ta_conn_it == qserver_vars::subscribe_alias_req_id.end()) {
+            SPDLOG_WARN("Unable to find track alias connection for connection handle: {0} request_id: {1}",
                         connection_handle,
-                        subscribe_id);
+                        request_id);
+            return;
+        }
+
+        auto ta_it = ta_conn_it->second.find(request_id);
+        if (ta_it == ta_conn_it->second.end()) {
+            SPDLOG_WARN(
+              "Unable to find track alias for connection handle: {0} request_id: {1}", connection_handle, request_id);
             return;
         }
 
@@ -650,15 +735,15 @@ class MyServer : public quicr::Server
 
         ta_conn_it->second.erase(ta_it);
         if (!ta_conn_it->second.size()) {
-            qserver_vars::subscribe_alias_sub_id.erase(ta_conn_it);
+            qserver_vars::subscribe_alias_req_id.erase(ta_conn_it);
         }
 
         auto& track_h = qserver_vars::subscribes[track_alias][connection_handle];
 
         if (track_h == nullptr) {
-            SPDLOG_WARN("Unsubscribe unable to find track delegate for connection handle: {0} subscribe_id: {1}",
+            SPDLOG_WARN("Unsubscribe unable to find track delegate for connection handle: {0} request_id: {1}",
                         connection_handle,
-                        subscribe_id);
+                        request_id);
             return;
         }
 
@@ -673,7 +758,7 @@ class MyServer : public quicr::Server
         }
 
         qserver_vars::subscribe_active[tfn.name_space][th.track_name_hash].erase(
-          qserver_vars::SubscribeInfo{ connection_handle, subscribe_id, th.track_fullname_hash });
+          qserver_vars::SubscribeInfo{ connection_handle, request_id, th.track_fullname_hash });
 
         if (!qserver_vars::subscribe_active[tfn.name_space][th.track_name_hash].size()) {
             qserver_vars::subscribe_active[tfn.name_space].erase(th.track_name_hash);
@@ -685,6 +770,13 @@ class MyServer : public quicr::Server
 
         if (unsub_pub) {
             SPDLOG_INFO("No subscribers left, unsubscribe publisher track_alias: {0}", track_alias);
+
+            // Pause publisher for PUBLISH initiated subscribes
+            for (const auto [pub_connection_handle, handler] : qserver_vars::pub_subscribes[track_alias]) {
+                if (handler->IsPublisherInitiated()) {
+                    handler->Pause();
+                }
+            }
 
             auto anno_ns_it = qserver_vars::announce_active.find(tfn.name_space);
             if (anno_ns_it == qserver_vars::announce_active.end()) {
@@ -703,7 +795,13 @@ class MyServer : public quicr::Server
                     if (sub_track_h != nullptr) {
                         UnsubscribeTrack(pub_connection_handle, sub_track_h);
                     }
+
+                    qserver_vars::pub_subscribes[th.track_fullname_hash].erase(pub_connection_handle);
                 }
+            }
+
+            if (qserver_vars::pub_subscribes[th.track_fullname_hash].empty()) {
+                qserver_vars::pub_subscribes.erase(th.track_fullname_hash);
             }
         }
     }
@@ -751,7 +849,7 @@ class MyServer : public quicr::Server
                          });
 
         qserver_vars::subscribes[track_alias][connection_handle] = pub_track_h;
-        qserver_vars::subscribe_alias_sub_id[connection_handle][request_id] = track_alias;
+        qserver_vars::subscribe_alias_req_id[connection_handle][request_id] = track_alias;
 
         // record subscribe as active from this subscriber
         qserver_vars::subscribe_active[track_full_name.name_space][th.track_name_hash].emplace(
@@ -759,6 +857,13 @@ class MyServer : public quicr::Server
 
         // Create a subscribe track that will be used by the relay to send to subscriber for matching objects
         BindPublisherTrack(connection_handle, request_id, pub_track_h, false);
+
+        // Resume publishers
+        for (const auto [pub_connection_handle, handler] : qserver_vars::pub_subscribes[track_alias]) {
+            if (handler->IsPublisherInitiated()) {
+                handler->Resume();
+            }
+        }
 
         // Subscribe to announcer if announcer is active
         bool success = false;
@@ -800,7 +905,6 @@ class MyServer : public quicr::Server
                         // send subscription update
                         auto& sub_track_h = qserver_vars::pub_subscribes[track_alias][conn_h];
                         if (sub_track_h == nullptr) {
-
                             return;
                         }
                         SPDLOG_INFO("Sending subscription update to announcer connection: hash: {0} request: {1}",
