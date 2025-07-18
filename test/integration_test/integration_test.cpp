@@ -40,6 +40,7 @@ MakeTestClient(const bool connect = true)
 {
     // Connect a client.
     ClientConfig client_config;
+    client_config.transport_config.debug = true;
     client_config.connect_uri = "moq://" + kIp + ":" + std::to_string(kPort);
     auto client = std::make_unique<TestClient>(client_config);
     if (connect) {
