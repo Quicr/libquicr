@@ -343,7 +343,8 @@ namespace quicr {
                                  TrackHash th,
                                  messages::Location start_location,
                                  messages::GroupId end_group_id,
-                                 messages::SubscriberPriority priority);
+                                 messages::SubscriberPriority priority,
+                                 bool forward);
 
         void SendSubscribeOk(ConnectionContext& conn_ctx,
                              messages::RequestID request_id,

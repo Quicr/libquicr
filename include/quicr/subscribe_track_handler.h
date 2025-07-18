@@ -253,6 +253,12 @@ namespace quicr {
 
         std::function<void(messages::RequestID, messages::TrackAlias)> new_group_request_callback_;
 
+        /**
+         * @brief Function pointer to send subscribe update with forward setting
+         * @param forward       True or False
+         */
+        using SetForwardingFunction = std::function<void(bool forward)>;
+
       protected:
         /**
          * @brief Set the subscribe status
@@ -281,6 +287,9 @@ namespace quicr {
         std::optional<messages::Location> latest_location_;
         std::optional<JoiningFetch> joining_fetch_;
         std::optional<uint64_t> track_alias_;
+
+        SetForwardingFunction set_forwarding_func_; // set by the transport
+
         bool publisher_initiated_{ false };
 
         friend class Transport;

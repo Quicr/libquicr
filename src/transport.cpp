@@ -415,17 +415,18 @@ namespace quicr {
                                         quicr::TrackHash th,
                                         Location start_location,
                                         messages::GroupId end_group_id,
-                                        messages::SubscriberPriority priority)
+                                        messages::SubscriberPriority priority,
+                                        bool forward)
     try {
         auto subscribe_update =
-          messages::SubscribeUpdate(request_id, start_location, end_group_id, end_group_id, priority, {});
+          messages::SubscribeUpdate(request_id, start_location, end_group_id, priority, forward, {});
 
         Bytes buffer;
         buffer << subscribe_update;
 
         SPDLOG_LOGGER_DEBUG(
           logger_,
-          "Sending SUBSCRIBE_UPDATe to conn_id: {0} request_id: {1} track namespace hash: {2} name hash: {3}",
+          "Sending SUBSCRIBE_UPDATE to conn_id: {0} request_id: {1} track namespace hash: {2} name hash: {3}",
           conn_ctx.connection_handle,
           request_id,
           th.track_namespace_hash,
@@ -803,8 +804,13 @@ namespace quicr {
         auto group_order = track_handler->GetGroupOrder();
         auto filter_type = track_handler->GetFilterType();
 
-        track_handler->new_group_request_callback_ = [=, this](auto sub_id, auto track_alias) {
-            SendNewGroupRequest(conn_id, sub_id, track_alias);
+        track_handler->new_group_request_callback_ = [=, this](auto req_id, auto track_alias) {
+            SendNewGroupRequest(conn_id, req_id, track_alias);
+        };
+
+        track_handler->set_forwarding_func_ = [=, this](bool forward) {
+            SendSubscribeUpdate(
+              conn_it->second, track_handler->GetPriority(), th, {}, 0, track_handler->GetPriority(), forward);
         };
 
         // Set the track handler for tracking by subscribe ID and track alias
@@ -870,7 +876,8 @@ namespace quicr {
           logger_, "subscribe id (from subscribe) to add to memory: {0}", track_handler->GetRequestId().value());
 
         auto priority = track_handler->GetPriority();
-        SendSubscribeUpdate(conn_it->second, track_handler->GetRequestId().value(), th, { 0x0, 0x0 }, 0x0, priority);
+        SendSubscribeUpdate(
+          conn_it->second, track_handler->GetRequestId().value(), th, { 0x0, 0x0 }, 0x0, priority, true);
     }
 
     void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx,
