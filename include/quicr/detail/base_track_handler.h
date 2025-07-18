@@ -80,6 +80,7 @@ namespace quicr {
       public:
         friend class Transport;
         friend class Server;
+        friend class Client;
 
         virtual ~BaseTrackHandler() = default;
 

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "attributes.h"
 #include "messages.h"
 #include "tick_service.h"
 
@@ -168,6 +169,21 @@ namespace quicr {
          */
         void UnpublishTrack(ConnectionHandle connection_handle,
                             const std::shared_ptr<PublishTrackHandler>& track_handler);
+
+        /**
+         * @brief Event to run on receiving Fetch request.
+         *
+         * @param connection_handle Source connection ID.
+         * @param request_id        Request ID received.
+         * @param track_full_name   Track full name
+         * @param attributes        Fetch attributes received.
+         *
+         * @returns True to indicate fetch will send data, False if no data is within the requested range
+         */
+        virtual bool FetchReceived(ConnectionHandle connection_handle,
+                                   uint64_t request_id,
+                                   const FullTrackName& track_full_name,
+                                   const quicr::messages::FetchAttributes& attributes);
 
         /**
          * @brief Fetch track

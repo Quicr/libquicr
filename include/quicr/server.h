@@ -319,6 +319,21 @@ namespace quicr {
         virtual std::optional<messages::Location> GetLargestAvailable(const FullTrackName& track_name);
 
         /**
+         * @brief Event to run on receiving Fetch request.
+         *
+         * @param connection_handle Source connection ID.
+         * @param request_id        Request ID received.
+         * @param track_full_name   Track full name
+         * @param attributes        Fetch attributes received.
+         *
+         * @returns True to indicate fetch will send data, False if no data is within the requested range
+         */
+        virtual bool FetchReceived(ConnectionHandle connection_handle,
+                                   uint64_t request_id,
+                                   const FullTrackName& track_full_name,
+                                   const quicr::messages::FetchAttributes& attributes);
+
+        /**
          * @brief Event to run on sending FetchOk.
          *
          * @param connection_handle Source connection ID.
