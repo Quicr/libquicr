@@ -558,6 +558,7 @@ PicoQuicTransport::GetPeerAddrInfo(const TransportConnId& conn_id, sockaddr_stor
 TransportError
 PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
                            const DataContextId& data_ctx_id,
+                           std::uint64_t group_id,
                            std::shared_ptr<const std::vector<uint8_t>> bytes,
                            const uint8_t priority,
                            const uint32_t ttl_ms,
@@ -605,7 +606,7 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
         }
 
         ConnData cd{ conn_id, data_ctx_id, priority, stream_action, std::move(bytes), tick_service_->Microseconds() };
-        data_ctx_it->second.tx_data->Push(std::move(cd), ttl_ms, priority, 0);
+        data_ctx_it->second.tx_data->Push(group_id, std::move(cd), ttl_ms, priority, 0);
 
         if (!data_ctx_it->second.mark_stream_active) {
             data_ctx_it->second.mark_stream_active = true;
@@ -616,7 +617,7 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
         ConnData cd{ conn_id,          data_ctx_id,
                      priority,         StreamAction::kNoAction,
                      std::move(bytes), tick_service_->Microseconds() };
-        conn_ctx_it->second.dgram_tx_data->Push(std::move(cd), ttl_ms, priority, 0);
+        conn_ctx_it->second.dgram_tx_data->Push(group_id, std::move(cd), ttl_ms, priority, 0);
 
         if (!conn_ctx_it->second.mark_dgram_ready) {
             conn_ctx_it->second.mark_dgram_ready = true;
