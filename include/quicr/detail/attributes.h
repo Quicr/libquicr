@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <optional>
 #include <quicr/detail/ctrl_messages.h>
 
@@ -12,8 +13,9 @@ namespace quicr::messages {
      */
     struct SubscribeAttributes
     {
-        std::uint8_t priority;  ///< Subscriber priority
-        GroupOrder group_order; ///< Subscriber group order
+        std::uint8_t priority;                      ///< Subscriber priority
+        GroupOrder group_order;                     ///< Subscriber group order
+        std::chrono::milliseconds delivery_timeout; ///< Subscriber delivery timeout
     };
 
     /**

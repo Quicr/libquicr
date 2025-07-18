@@ -326,7 +326,8 @@ namespace quicr {
                            TrackHash th,
                            messages::SubscriberPriority priority,
                            messages::GroupOrder group_order,
-                           messages::FilterType filter_type);
+                           messages::FilterType filter_type,
+                           std::chrono::milliseconds delivery_timeout);
         void SendSubscribeUpdate(ConnectionContext& conn_ctx,
                                  messages::RequestID request_id,
                                  TrackHash th,
