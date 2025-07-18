@@ -30,11 +30,6 @@ IF (NOT UNIX AND NOT APPLE AND NOT PLATFORM_ESP_IDF)
     message(FATAL_ERROR "Unsupported platform, Linux and Apple are the only supported platforms")
 endif ()
 
-set (supported_archs arm64 x86_64 aarch64)
-if (NOT ${CMAKE_SYSTEM_PROCESSOR} IN_LIST supported_archs)
-    message(FATAL_ERROR "Unsupported system architecture '${CMAKE_SYSTEM_PROCESSOR}'. Supported is arm64 and x86_64")
-endif()
-
 message(STATUS "Building for ${CMAKE_SYSTEM_PROCESSOR}")
 
 option(LINT "Perform linting with clang-tidy" OFF)
