@@ -385,9 +385,9 @@ class MyClient : public quicr::Client
           track_full_name, attributes.priority, request_id, attributes.group_order, 50000);
         BindFetchTrack(connection_handle, pub_fetch_h);
 
-        for (int pub_group_number = attributes.start_location.group; pub_group_number < attributes.end_group;
+        for (uint64_t pub_group_number = attributes.start_location.group; pub_group_number < attributes.end_group;
              ++pub_group_number) {
-            quicr::ObjectHeaders headers{ .group_id = attributes.start_location.group,
+            quicr::ObjectHeaders headers{ .group_id = pub_group_number,
                                           .object_id = 0,
                                           .subgroup_id = 0,
                                           .payload_length = 0,
@@ -402,6 +402,7 @@ class MyClient : public quicr::Client
             quicr::BytesSpan data{ data_vec.data(), data_vec.size() };
             pub_fetch_h->PublishObject(headers, data);
         }
+
         return true;
     }
 
