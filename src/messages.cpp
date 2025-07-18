@@ -136,7 +136,7 @@ namespace quicr::messages {
         std::size_t total_length = 0;
         std::vector<KeyValuePair<std::uint64_t>> kvps;
         for (const auto& extension : extensions) {
-            KeyValuePair kvp{ extension.first, extension.second };
+            const auto kvp = KeyValuePair(extension.first, extension.second);
             const auto size = kvp.Size();
             total_length += size;
             kvps.push_back(kvp);
