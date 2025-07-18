@@ -245,6 +245,10 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 SPDLOG_INFO("Publish track alias: {0} has updated subscription", alias);
                 break;
             }
+            case Status::kPaused: {
+                SPDLOG_INFO("Publish track alias: {0} is paused", alias);
+                break;
+            }
             default:
                 SPDLOG_INFO("Publish track alias: {0} has status {1}", alias, static_cast<int>(status));
                 break;
@@ -539,7 +543,11 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
             auto status =
               track_handler->PublishObject(obj_headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
 
-            if (status != decltype(status)::kOk) {
+            if (status == decltype(status)::kPaused) {
+                SPDLOG_INFO("Publish is paused");
+            } else if (status == decltype(status)::kNoSubscribers) {
+                SPDLOG_INFO("Publish has no subscribers");
+            } else if (status != decltype(status)::kOk) {
                 throw std::runtime_error(std::format("PublishObject returned status={}", static_cast<int>(status)));
             }
         } catch (const std::exception& e) {

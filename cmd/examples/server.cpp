@@ -443,9 +443,10 @@ class MyServer : public quicr::Server
     {
         auto th = quicr::TrackHash(track_full_name);
 
-        SPDLOG_INFO("Received publish from connection handle: {0} using track alias: {1}",
+        SPDLOG_INFO("Received publish from connection handle: {} using track alias: {} request_id: {}",
                     connection_handle,
-                    th.track_fullname_hash);
+                    th.track_fullname_hash,
+                    request_id);
 
         quicr::PublishResponse publish_response;
         publish_response.reason_code = quicr::PublishResponse::ReasonCode::kOk;
@@ -470,6 +471,15 @@ class MyServer : public quicr::Server
                        subscribe_attributes.priority,
                        subscribe_attributes.group_order,
                        publish_response);
+
+        // Check if there are any subscribers
+        if (qserver_vars::subscribes[th.track_fullname_hash].empty()) {
+            SPDLOG_INFO("No subscribers, pause publish connection handle: {0} using track alias: {1}",
+                        connection_handle,
+                        th.track_fullname_hash);
+
+            sub_track_handler->Pause();
+        }
     }
 
     void AnnounceReceived(quicr::ConnectionHandle connection_handle,
@@ -692,6 +702,13 @@ class MyServer : public quicr::Server
         if (unsub_pub) {
             SPDLOG_INFO("No subscribers left, unsubscribe publisher track_alias: {0}", track_alias);
 
+            // Pause publisher for PUBLISH initiated subscribes
+            for (const auto [pub_connection_handle, handler] : qserver_vars::pub_subscribes[track_alias]) {
+                if (handler->IsPublisherInitiated()) {
+                    handler->Pause();
+                }
+            }
+
             auto anno_ns_it = qserver_vars::announce_active.find(tfn.name_space);
             if (anno_ns_it == qserver_vars::announce_active.end()) {
                 return;
@@ -709,7 +726,13 @@ class MyServer : public quicr::Server
                     if (sub_track_h != nullptr) {
                         UnsubscribeTrack(pub_connection_handle, sub_track_h);
                     }
+
+                    qserver_vars::pub_subscribes[th.track_fullname_hash].erase(pub_connection_handle);
                 }
+            }
+
+            if (qserver_vars::pub_subscribes[th.track_fullname_hash].empty()) {
+                qserver_vars::pub_subscribes.erase(th.track_fullname_hash);
             }
         }
     }
@@ -763,6 +786,13 @@ class MyServer : public quicr::Server
         // Create a subscribe track that will be used by the relay to send to subscriber for matching objects
         BindPublisherTrack(connection_handle, request_id, pub_track_h, false);
 
+        // Resume publishers
+        for (const auto [pub_connection_handle, handler] : qserver_vars::pub_subscribes[track_alias]) {
+            if (handler->IsPublisherInitiated()) {
+                handler->Resume();
+            }
+        }
+
         // Subscribe to announcer if announcer is active
         bool success = false;
         for (auto& [ns, conns] : qserver_vars::announce_active) {
@@ -803,7 +833,6 @@ class MyServer : public quicr::Server
                         // send subscription update
                         auto& sub_track_h = qserver_vars::pub_subscribes[track_alias][conn_h];
                         if (sub_track_h == nullptr) {
-
                             return;
                         }
                         SPDLOG_INFO("Sending subscription update to announcer connection: hash: {0} request: {1}",

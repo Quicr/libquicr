@@ -103,17 +103,18 @@ namespace quicr {
                     conn_ctx.next_request_id = msg.request_id + 1;
                 }
 
-                conn_ctx.recv_sub_id[msg.request_id] = { .track_full_name = tfn };
+                conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn };
 
                 // For client/publisher, notify track that there is a subscriber
                 auto ptd = GetPubTrackHandler(conn_ctx, th);
                 if (ptd == nullptr) {
                     SPDLOG_LOGGER_WARN(logger_,
-                                       "Received subscribe unknown publish track conn_id: {0} namespace hash: {1} "
-                                       "name hash: {2}",
+                                       "Received subscribe unknown publish track conn_id: {} namespace hash: {} "
+                                       "name hash: {} request_id: {}",
                                        conn_ctx.connection_handle,
                                        th.track_namespace_hash,
-                                       th.track_name_hash);
+                                       th.track_name_hash,
+                                       msg.request_id);
 
                     SendSubscribeError(conn_ctx,
                                        msg.request_id,
@@ -138,17 +139,17 @@ namespace quicr {
                 ptd->SetRequestId(msg.request_id);
                 ptd->SetStatus(PublishTrackHandler::Status::kOk);
 
-                conn_ctx.recv_sub_id[msg.request_id] = { tfn };
+                conn_ctx.recv_req_id[msg.request_id] = { tfn };
                 return true;
             }
             case messages::ControlMessageType::kSubscribeUpdate: {
                 messages::SubscribeUpdate msg;
                 msg_bytes >> msg;
 
-                if (conn_ctx.recv_sub_id.count(msg.request_id) == 0) {
+                if (conn_ctx.recv_req_id.count(msg.request_id) == 0) {
                     // update for invalid subscription
                     SPDLOG_LOGGER_WARN(logger_,
-                                       "Received subscribe_update {0} for unknown subscription conn_id: {1}",
+                                       "Received subscribe_update request_id: {} for unknown subscription conn_id: {}",
                                        msg.request_id,
                                        conn_ctx.connection_handle);
 
@@ -157,7 +158,7 @@ namespace quicr {
                     return true;
                 }
 
-                auto tfn = conn_ctx.recv_sub_id[msg.request_id].track_full_name;
+                auto tfn = conn_ctx.recv_req_id[msg.request_id].track_full_name;
                 auto th = TrackHash(tfn);
 
                 // For client/publisher, notify track that there is a subscriber
@@ -177,15 +178,20 @@ namespace quicr {
                     return true;
                 }
 
-                SendSubscribeOk(
-                  conn_ctx, msg.request_id, ptd->GetTrackAlias(msg.request_id), kSubscribeExpires, false, { 0, 0 });
+                // SendSubscribeOk(
+                //   conn_ctx, msg.request_id, ptd->GetTrackAlias(msg.request_id), kSubscribeExpires, false, { 0, 0 });
 
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received subscribe_update to track alias: {0} recv request_id: {1}",
                                     th.track_fullname_hash,
                                     msg.request_id);
 
-                ptd->SetStatus(PublishTrackHandler::Status::kSubscriptionUpdated);
+                if (msg.forward) {
+                    ptd->SetStatus(PublishTrackHandler::Status::kPaused);
+                } else {
+                    ptd->SetStatus(PublishTrackHandler::Status::kSubscriptionUpdated);
+                }
+
                 return true;
             }
             case messages::ControlMessageType::kSubscribeOk: {
@@ -342,9 +348,9 @@ namespace quicr {
                 messages::Unsubscribe msg;
                 msg_bytes >> msg;
 
-                const auto& th_it = conn_ctx.recv_sub_id.find(msg.request_id);
+                const auto& th_it = conn_ctx.recv_req_id.find(msg.request_id);
 
-                if (th_it == conn_ctx.recv_sub_id.end()) {
+                if (th_it == conn_ctx.recv_req_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received unsubscribe to unknown request_id conn_id: {0} request_id: {1}, ignored",

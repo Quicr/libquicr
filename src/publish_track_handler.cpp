@@ -14,9 +14,15 @@ namespace quicr {
         switch (publish_status_) {
             case Status::kOk:
                 break;
+
+            case Status::kPaused:
+                publish_track_metrics_.objects_dropped_not_ok++;
+                return PublishObjectStatus::kPaused;
+
             case Status::kNoSubscribers:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNoSubscribers;
+
             case Status::kPendingAnnounceResponse:
                 [[fallthrough]];
             case Status::kNotAnnounced:
@@ -63,9 +69,15 @@ namespace quicr {
         switch (publish_status_) {
             case Status::kOk:
                 break;
+
+            case Status::kPaused:
+                publish_track_metrics_.objects_dropped_not_ok++;
+                return PublishObjectStatus::kPaused;
+
             case Status::kNoSubscribers:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNoSubscribers;
+
             case Status::kPendingAnnounceResponse:
                 [[fallthrough]];
             case Status::kNotAnnounced:

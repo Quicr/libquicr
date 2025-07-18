@@ -43,7 +43,8 @@ namespace quicr {
             kNotAuthorized,
             kNotSubscribed,
             kPendingResponse,
-            kSendingUnsubscribe ///< In this state, callbacks will not be called
+            kSendingUnsubscribe, ///< In this state, callbacks will not be called,
+            kPaused
         };
 
         /**
@@ -162,6 +163,18 @@ namespace quicr {
          */
         std::optional<uint64_t> GetTrackAlias() const noexcept { return track_alias_; }
 
+        /**
+         * @brief Pause receiving data
+         * @details Pause will send a MoQT SUBSCRIBE_UPDATE to change the forwarding state to be stopped         *
+         */
+        void Pause() noexcept;
+
+        /**
+         * @brief Resume receiving data
+         * @details Rresume will send a MoQT SUBSCRIBE_UPDATE to change the forwarding state to send
+         */
+        void Resume() noexcept;
+
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
         // --------------------------------------------------------------------------
@@ -244,6 +257,12 @@ namespace quicr {
         ///@}
 
         /**
+         * @brief Check if the subscribe is publisher initiated or not
+         * @return True if publisher initiated, false if initiated by the relay/server
+         */
+        bool IsPublisherInitiated() const noexcept { return publisher_initiated_; }
+
+        /**
          * @brief Subscribe metrics for the track
          *
          * @details Subscribe metrics are updated real-time and transport quic metrics on metrics_sample_ms
@@ -269,12 +288,6 @@ namespace quicr {
             status_ = status;
             StatusChanged(status);
         }
-
-        /**
-         * @brief Check if the subscribe is publisher initiated or not
-         * @return True if publisher initiated, false if initiated by the relay/server
-         */
-        bool IsPublisherInitiated() const noexcept { return publisher_initiated_; }
 
         StreamBuffer<uint8_t> stream_buffer_;
 

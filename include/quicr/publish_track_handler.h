@@ -51,6 +51,8 @@ namespace quicr {
             /// Previous object payload has not been completed and new object cannot start in per-track track mode
             /// without creating a new track. This requires to unpublish and to publish track again.
             kPreviousObjectNotCompleteMustStartNewTrack,
+
+            kPaused
         };
 
         /**
@@ -68,6 +70,7 @@ namespace quicr {
             kSubscriptionUpdated,
             kNewGroupRequested,
             kPendingPublishOk,
+            kPaused,
         };
 
       protected:

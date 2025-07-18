@@ -809,8 +809,7 @@ namespace quicr {
         };
 
         track_handler->set_forwarding_func_ = [=, this](bool forward) {
-            SendSubscribeUpdate(
-              conn_it->second, track_handler->GetPriority(), th, {}, 0, track_handler->GetPriority(), forward);
+            SendSubscribeUpdate(conn_it->second, sid, th, {}, 0, track_handler->GetPriority(), forward);
         };
 
         // Set the track handler for tracking by subscribe ID and track alias
@@ -925,6 +924,10 @@ namespace quicr {
         conn_it->second.pub_tracks_ns_by_request_id.erase(*track_handler->GetRequestId());
         conn_it->second.pub_tracks_by_track_alias.erase(th.track_fullname_hash);
 
+        if (not track_handler->UsingAnnounce()) {
+            conn_it->second.recv_req_id.erase(th.track_fullname_hash);
+        }
+
         /*
          * This is a round about way to send subscribe done because of the announce flow. This
          * will go away if we stop using the announce flow. For now, it works for both announce
@@ -1027,6 +1030,9 @@ namespace quicr {
                 }
             }
         } else {
+            // Add state to received request ID since a subscribe will not be received for this request
+            conn_it->second.recv_req_id[sid] = { track_handler->GetFullTrackName() };
+
             track_handler->SetStatus(PublishTrackHandler::Status::kPendingPublishOk);
             SendPublish(conn_it->second,
                         sid,
@@ -1313,7 +1319,7 @@ namespace quicr {
 
         conn_ctx.pub_tracks_by_data_ctx_id.clear();
         conn_ctx.pub_tracks_by_name.clear();
-        conn_ctx.recv_sub_id.clear();
+        conn_ctx.recv_req_id.clear();
         conn_ctx.tracks_by_request_id.clear();
         conn_ctx.sub_by_track_alias.clear();
     }
