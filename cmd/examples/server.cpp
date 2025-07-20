@@ -953,7 +953,7 @@ class MyServer : public quicr::Server
             return false;
         }
 
-        auto setupFetchHandler = [&](quicr::ConnectionHandle pub_connection_handle) {
+        auto setup_fetch_handler = [&](quicr::ConnectionHandle pub_connection_handle) {
             auto pub_fetch_h = quicr::PublishFetchHandler::Create(
               track_full_name, attributes.priority, request_id, attributes.group_order, 50000);
             BindFetchTrack(connection_handle, pub_fetch_h);
@@ -974,7 +974,7 @@ class MyServer : public quicr::Server
 
         // Handle announcer case
         for (auto& [pub_connection_handle, _] : anno_ns_it->second) {
-            return setupFetchHandler(pub_connection_handle);
+            return setup_fetch_handler(pub_connection_handle);
         }
 
         return false;
