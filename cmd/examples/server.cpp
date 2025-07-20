@@ -946,13 +946,14 @@ class MyServer : public quicr::Server
                        const quicr::FullTrackName& track_full_name,
                        const quicr::messages::FetchAttributes& attributes)
     {
-        // lookup Publisher for this Fetch request
+        // lookup Announcer/Publisher for this Fetch request
         auto anno_ns_it = qserver_vars::announce_active.find(track_full_name.name_space);
+
         if (anno_ns_it == qserver_vars::announce_active.end()) {
             return false;
         }
 
-        for (auto& [pub_connection_handle, tracks] : anno_ns_it->second) {
+        auto setup_fetch_handler = [&](quicr::ConnectionHandle pub_connection_handle) {
             auto pub_fetch_h = quicr::PublishFetchHandler::Create(
               track_full_name, attributes.priority, request_id, attributes.group_order, 50000);
             BindFetchTrack(connection_handle, pub_fetch_h);
@@ -966,8 +967,14 @@ class MyServer : public quicr::Server
                                           attributes.start_location.object,
                                           attributes.end_group,
                                           attributes.end_object.has_value() ? attributes.end_object.value() : 0);
+
             FetchTrack(pub_connection_handle, fetch_track_handler);
             return true;
+        };
+
+        // Handle announcer case
+        for (auto& [pub_connection_handle, _] : anno_ns_it->second) {
+            return setup_fetch_handler(pub_connection_handle);
         }
 
         return false;

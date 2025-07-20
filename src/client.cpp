@@ -74,8 +74,7 @@ namespace quicr {
 
     void Client::BindFetchTrack(TransportConnId conn_id, std::shared_ptr<PublishFetchHandler> track_handler)
     {
-        // const std::uint64_t request_id = *track_handler->GetRequestId();
-        const std::uint64_t request_id = 1;
+        const std::uint64_t request_id = *track_handler->GetRequestId();
 
         SPDLOG_LOGGER_INFO(logger_, "Publish fetch track conn_id: {0} subscribe: {1}", conn_id, request_id);
 
@@ -603,7 +602,7 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kFetchOk: {
-                messages::FetchError msg;
+                messages::FetchOk msg;
                 msg_bytes >> msg;
 
                 auto fetch_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
