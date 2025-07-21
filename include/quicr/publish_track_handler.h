@@ -343,12 +343,14 @@ namespace quicr {
          *   based on the parameters passed.
          *
          * @param priority              Priority to use for object; set on next track change
+         * @param group_id              Group ID to use for priority group queue
          * @param ttl                   Expire time to live in milliseconds
          * @param stream_header_needed  Indicates if group or track header is needed before this data object
          * @param data                  MoQ Serialized data to write to the remote connection/stream
          */
         using ForwardDataFunction =
           std::function<PublishObjectStatus(uint8_t priority,
+                                            uint64_t group_id,
                                             uint32_t ttl,
                                             bool stream_header_needed,
                                             std::shared_ptr<const std::vector<uint8_t>> data)>;

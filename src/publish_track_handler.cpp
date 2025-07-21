@@ -50,7 +50,7 @@ namespace quicr {
         publish_track_metrics_.bytes_published += data->size();
 
         if (forward_publish_data_func_ != nullptr) {
-            return forward_publish_data_func_(default_priority_, default_ttl_, is_new_stream, data);
+            return forward_publish_data_func_(default_priority_, prev_object_group_id_, default_ttl_, is_new_stream, data);
         }
 
         return PublishObjectStatus::kInternalError;
