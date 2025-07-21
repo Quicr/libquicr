@@ -1056,7 +1056,7 @@ namespace quicr {
                         track_handler->GetDefaultPriority(),
                         GroupOrder::kAscending,
                         1,
-                        { track_handler->prev_object_group_id_, track_handler->prev_object_id_ },
+                        { track_handler->latest_group_id_, track_handler->latest_object_id_ },
                         true);
         }
 

@@ -50,7 +50,7 @@ namespace quicr {
         publish_track_metrics_.bytes_published += data->size();
 
         if (forward_publish_data_func_ != nullptr) {
-            return forward_publish_data_func_(default_priority_, prev_object_group_id_, default_ttl_, is_new_stream, data);
+            return forward_publish_data_func_(default_priority_, latest_group_id_, default_ttl_, is_new_stream, data);
         }
 
         return PublishObjectStatus::kInternalError;
@@ -63,8 +63,8 @@ namespace quicr {
 
         // change in subgroups and groups require a new stream
 
-        is_stream_header_needed = not sent_first_header_ || prev_sub_group_id_ != object_headers.subgroup_id ||
-                                  prev_object_group_id_ != object_headers.group_id;
+        is_stream_header_needed = not sent_first_header_ || latest_sub_group_id_ != object_headers.subgroup_id ||
+                                  latest_group_id_ != object_headers.group_id;
 
         switch (publish_status_) {
             case Status::kOk:
@@ -108,8 +108,8 @@ namespace quicr {
 
         sent_first_header_ = true;
 
-        prev_object_group_id_ = object_headers.group_id;
-        prev_sub_group_id_ = object_headers.subgroup_id;
+        latest_group_id_ = object_headers.group_id;
+        latest_sub_group_id_ = object_headers.subgroup_id;
         publish_track_metrics_.bytes_published += data.size();
         publish_track_metrics_.objects_published++;
 
