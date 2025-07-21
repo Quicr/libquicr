@@ -48,7 +48,7 @@ namespace quicr {
      *                      are of this unit. Ticks are of this unit. For example, setting to millisecond will define
      *                      the unit for ticks and all associated variables to be millisecond.
      */
-    template<typename T, typename Duration_t>
+    template<typename T, typename Duration_t, typename BucketType = std::vector<T>>
     class TimeQueue
     {
         static constexpr uint32_t kMaxBuckets = 1000; /// Maximum number of buckets allowed
@@ -67,12 +67,12 @@ namespace quicr {
 
         static_assert(IsChronoDuration<Duration_t>::value);
 
+      protected:
         /*=======================================================================*/
         // Internal type definitions
         /*=======================================================================*/
 
         using TickType = TickService::TickType;
-        using BucketType = std::vector<T>;
         using IndexType = std::uint32_t;
 
         struct QueueValueType

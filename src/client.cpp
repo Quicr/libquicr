@@ -144,6 +144,7 @@ namespace quicr {
 
             quic_transport_->Enqueue(track_handler.connection_handle_,
                                      track_handler.publish_data_ctx_id_,
+                                     group_id,
                                      std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
                                                                             track_handler.object_msg_buffer_.end()),
                                      priority,
@@ -168,6 +169,7 @@ namespace quicr {
 
         quic_transport_->Enqueue(track_handler.connection_handle_,
                                  track_handler.publish_data_ctx_id_,
+                                 group_id,
                                  std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
                                                                         track_handler.object_msg_buffer_.end()),
                                  priority,
