@@ -16,6 +16,8 @@
 #include <format>
 #include <fstream>
 
+#include <quicr/publish_fetch_handler.h>
+
 using json = nlohmann::json; // NOLINT
 
 namespace qclient_vars {
@@ -245,6 +247,10 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 SPDLOG_INFO("Publish track alias: {0} has updated subscription", alias);
                 break;
             }
+            case Status::kPaused: {
+                SPDLOG_INFO("Publish track alias: {0} is paused", alias);
+                break;
+            }
             default:
                 SPDLOG_INFO("Publish track alias: {0} has status {1}", alias, static_cast<int>(status));
                 break;
@@ -374,6 +380,36 @@ class MyClient : public quicr::Client
                     reason_str);
     }
 
+    bool FetchReceived(quicr::ConnectionHandle connection_handle,
+                       uint64_t request_id,
+                       const quicr::FullTrackName& track_full_name,
+                       const quicr::messages::FetchAttributes& attributes)
+    {
+        auto pub_fetch_h = quicr::PublishFetchHandler::Create(
+          track_full_name, attributes.priority, request_id, attributes.group_order, 50000);
+        BindFetchTrack(connection_handle, pub_fetch_h);
+
+        for (uint64_t pub_group_number = attributes.start_location.group; pub_group_number < attributes.end_group;
+             ++pub_group_number) {
+            quicr::ObjectHeaders headers{ .group_id = pub_group_number,
+                                          .object_id = 0,
+                                          .subgroup_id = 0,
+                                          .payload_length = 0,
+                                          .status = quicr::ObjectStatus::kAvailable,
+                                          .priority = attributes.priority,
+                                          .ttl = 3000, // in milliseconds
+                                          .track_mode = std::nullopt,
+                                          .extensions = std::nullopt };
+
+            std::string hello = "Hello:" + std::to_string(pub_group_number);
+            std::vector<uint8_t> data_vec(hello.begin(), hello.end());
+            quicr::BytesSpan data{ data_vec.data(), data_vec.size() };
+            pub_fetch_h->PublishObject(headers, data);
+        }
+
+        return true;
+    }
+
   private:
     bool& stop_threads_;
 };
@@ -383,10 +419,15 @@ class MyClient : public quicr::Client
 /*===========================================================================*/
 
 void
-DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<quicr::Client>& client, const bool& stop)
+DoPublisher(const quicr::FullTrackName& full_track_name,
+            const std::shared_ptr<quicr::Client>& client,
+            bool use_announce,
+            bool& stop)
 {
     auto track_handler = std::make_shared<MyPublishTrackHandler>(
       full_track_name, quicr::TrackMode::kStream /*mode*/, 2 /*priority*/, 3000 /*ttl*/);
+
+    track_handler->SetUseAnnounce(use_announce);
 
     SPDLOG_INFO("Started publisher track");
 
@@ -534,7 +575,11 @@ DoPublisher(const quicr::FullTrackName& full_track_name, const std::shared_ptr<q
             auto status =
               track_handler->PublishObject(obj_headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
 
-            if (status != decltype(status)::kOk) {
+            if (status == decltype(status)::kPaused) {
+                SPDLOG_INFO("Publish is paused");
+            } else if (status == decltype(status)::kNoSubscribers) {
+                SPDLOG_INFO("Publish has no subscribers");
+            } else if (status != decltype(status)::kOk) {
                 throw std::runtime_error(std::format("PublishObject returned status={}", static_cast<int>(status)));
             }
         } catch (const std::exception& e) {
@@ -612,7 +657,7 @@ DoFetch(const quicr::FullTrackName& full_track_name,
         const bool& stop)
 {
     auto track_handler = MyFetchTrackHandler::Create(
-      full_track_name, group_range.start, group_range.end, object_range.start, object_range.end);
+      full_track_name, group_range.start, object_range.start, group_range.end, object_range.end);
 
     SPDLOG_INFO("Started fetch");
 
@@ -625,7 +670,10 @@ DoFetch(const quicr::FullTrackName& full_track_name,
             fetch_track = true;
         }
 
-        if (track_handler->GetStatus() != quicr::FetchTrackHandler::Status::kOk) {
+        if (track_handler->GetStatus() == quicr::FetchTrackHandler::Status::kPendingResponse) {
+            // do nothing...
+        } else if (!fetch_track || (track_handler->GetStatus() != quicr::FetchTrackHandler::Status::kOk)) {
+            SPDLOG_INFO("GetStatus() != quicr::FetchTrackHandler::Status::kOk {}", (int)track_handler->GetStatus());
             moq_example::terminate = true;
             moq_example::cv.notify_all();
             break;
@@ -638,7 +686,6 @@ DoFetch(const quicr::FullTrackName& full_track_name,
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    SPDLOG_INFO("Fetch done track");
     moq_example::terminate = true;
 }
 
@@ -647,7 +694,7 @@ DoFetch(const quicr::FullTrackName& full_track_name,
 /*===========================================================================*/
 
 quicr::ClientConfig
-InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, bool& enable_fetch)
+InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, bool& enable_fetch, bool& use_announce)
 {
     quicr::ClientConfig config;
 
@@ -671,6 +718,11 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         SPDLOG_INFO("Publisher enabled using track namespace: {0} name: {1}",
                     cli_opts["pub_namespace"].as<std::string>(),
                     cli_opts["pub_name"].as<std::string>());
+    }
+
+    if (cli_opts.count("use_announce")) {
+        use_announce = true;
+        SPDLOG_INFO("Publisher will use announce flow");
     }
 
     if (cli_opts.count("clock") && cli_opts["clock"].as<bool>() == true) {
@@ -752,6 +804,7 @@ main(int argc, char* argv[])
         ("s,ssl_keylog", "Enable SSL Keylog for transport debugging");
 
     options.add_options("Publisher")
+        ("use_announce", "Use Announce flow instead of publish flow", cxxopts::value<bool>())
         ("pub_namespace", "Track namespace", cxxopts::value<std::string>())
         ("pub_name", "Track name", cxxopts::value<std::string>())
         ("clock", "Publish clock timestamp every second instead of using STDIN chat")
@@ -794,7 +847,8 @@ main(int argc, char* argv[])
     bool enable_pub{ false };
     bool enable_sub{ false };
     bool enable_fetch{ false };
-    quicr::ClientConfig config = InitConfig(result, enable_pub, enable_sub, enable_fetch);
+    bool use_announce{ false };
+    quicr::ClientConfig config = InitConfig(result, enable_pub, enable_sub, enable_fetch, use_announce);
 
     try {
         bool stop_threads{ false };
@@ -833,7 +887,7 @@ main(int argc, char* argv[])
             const auto& pub_track_name = quicr::example::MakeFullTrackName(result["pub_namespace"].as<std::string>(),
                                                                            result["pub_name"].as<std::string>());
 
-            pub_thread = std::thread(DoPublisher, pub_track_name, client, std::ref(stop_threads));
+            pub_thread = std::thread(DoPublisher, pub_track_name, client, use_announce, std::ref(stop_threads));
         }
         if (enable_sub) {
             auto filter_type = quicr::messages::FilterType::kLatestObject;

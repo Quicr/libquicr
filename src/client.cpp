@@ -64,6 +64,119 @@ namespace quicr {
         }
     }
 
+    bool Client::FetchReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
+                               [[maybe_unused]] uint64_t request_id,
+                               [[maybe_unused]] const quicr::FullTrackName& track_full_name,
+                               [[maybe_unused]] const quicr::messages::FetchAttributes& attributes)
+    {
+        return false;
+    }
+
+    void Client::BindFetchTrack(TransportConnId conn_id, std::shared_ptr<PublishFetchHandler> track_handler)
+    {
+        const std::uint64_t request_id = *track_handler->GetRequestId();
+
+        SPDLOG_LOGGER_INFO(logger_, "Publish fetch track conn_id: {0} subscribe: {1}", conn_id, request_id);
+
+        std::lock_guard lock(state_mutex_);
+
+        auto conn_it = connections_.find(conn_id);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "Publish fetch track conn_id: {0} does not exist.", conn_id);
+            return;
+        }
+
+        track_handler->connection_handle_ = conn_id;
+        track_handler->publish_data_ctx_id_ =
+          quic_transport_->CreateDataContext(conn_id, true, track_handler->GetDefaultPriority(), false);
+
+        // Setup the function for the track handler to use to send objects with thread safety
+        std::weak_ptr weak_handler(track_handler);
+        track_handler->publish_object_func_ =
+          [&, weak_handler](uint8_t priority,
+                            uint32_t ttl,
+                            bool stream_header_needed,
+                            uint64_t group_id,
+                            uint64_t subgroup_id,
+                            uint64_t object_id,
+                            std::optional<Extensions> extensions,
+                            std::span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
+            const auto handler = weak_handler.lock();
+            if (!handler) {
+                return PublishTrackHandler::PublishObjectStatus::kInternalError;
+            }
+
+            return SendFetchObject(
+              *handler, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
+        };
+
+        // Hold ref to track handler
+        conn_it->second.pub_fetch_tracks_by_sub_id[request_id] = std::move(track_handler);
+    }
+
+    PublishTrackHandler::PublishObjectStatus Client::SendFetchObject(PublishFetchHandler& track_handler,
+                                                                     uint8_t priority,
+                                                                     uint32_t ttl,
+                                                                     bool stream_header_needed,
+                                                                     uint64_t group_id,
+                                                                     uint64_t subgroup_id,
+                                                                     uint64_t object_id,
+                                                                     std::optional<Extensions> extensions,
+                                                                     BytesSpan data) const
+    {
+        const auto request_id = *track_handler.GetRequestId();
+
+        ITransport::EnqueueFlags eflags;
+
+        track_handler.object_msg_buffer_.clear();
+
+        // use stream per subgroup, group change
+        eflags.use_reliable = true;
+
+        if (stream_header_needed) {
+            eflags.new_stream = true;
+            eflags.clear_tx_queue = true;
+            eflags.use_reset = true;
+
+            messages::FetchHeader fetch_header{};
+            fetch_header.subscribe_id = request_id;
+            track_handler.object_msg_buffer_ << fetch_header;
+
+            quic_transport_->Enqueue(track_handler.connection_handle_,
+                                     track_handler.publish_data_ctx_id_,
+                                     std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
+                                                                            track_handler.object_msg_buffer_.end()),
+                                     priority,
+                                     ttl,
+                                     0,
+                                     eflags);
+
+            track_handler.object_msg_buffer_.clear();
+            eflags.new_stream = false;
+            eflags.clear_tx_queue = false;
+            eflags.use_reset = false;
+        }
+
+        messages::FetchObject object{};
+        object.group_id = group_id;
+        object.subgroup_id = subgroup_id;
+        object.object_id = object_id;
+        object.publisher_priority = priority;
+        object.extensions = extensions;
+        object.payload.assign(data.begin(), data.end());
+        track_handler.object_msg_buffer_ << object;
+
+        quic_transport_->Enqueue(track_handler.connection_handle_,
+                                 track_handler.publish_data_ctx_id_,
+                                 std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
+                                                                        track_handler.object_msg_buffer_.end()),
+                                 priority,
+                                 ttl,
+                                 0,
+                                 eflags);
+        return PublishTrackHandler::PublishObjectStatus::kOk;
+    }
+
     void Client::MetricsSampled(const ConnectionMetrics&) {}
 
     PublishAnnounceStatus Client::GetAnnounceStatus(const TrackNamespace&)
@@ -103,17 +216,18 @@ namespace quicr {
                     conn_ctx.next_request_id = msg.request_id + 1;
                 }
 
-                conn_ctx.recv_sub_id[msg.request_id] = { .track_full_name = tfn };
+                conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn };
 
                 // For client/publisher, notify track that there is a subscriber
                 auto ptd = GetPubTrackHandler(conn_ctx, th);
                 if (ptd == nullptr) {
                     SPDLOG_LOGGER_WARN(logger_,
-                                       "Received subscribe unknown publish track conn_id: {0} namespace hash: {1} "
-                                       "name hash: {2}",
+                                       "Received subscribe unknown publish track conn_id: {} namespace hash: {} "
+                                       "name hash: {} request_id: {}",
                                        conn_ctx.connection_handle,
                                        th.track_namespace_hash,
-                                       th.track_name_hash);
+                                       th.track_name_hash,
+                                       msg.request_id);
 
                     SendSubscribeError(conn_ctx,
                                        msg.request_id,
@@ -138,17 +252,17 @@ namespace quicr {
                 ptd->SetRequestId(msg.request_id);
                 ptd->SetStatus(PublishTrackHandler::Status::kOk);
 
-                conn_ctx.recv_sub_id[msg.request_id] = { tfn };
+                conn_ctx.recv_req_id[msg.request_id] = { tfn };
                 return true;
             }
             case messages::ControlMessageType::kSubscribeUpdate: {
                 messages::SubscribeUpdate msg;
                 msg_bytes >> msg;
 
-                if (conn_ctx.recv_sub_id.count(msg.request_id) == 0) {
+                if (conn_ctx.recv_req_id.count(msg.request_id) == 0) {
                     // update for invalid subscription
                     SPDLOG_LOGGER_WARN(logger_,
-                                       "Received subscribe_update {0} for unknown subscription conn_id: {1}",
+                                       "Received subscribe_update request_id: {} for unknown subscription conn_id: {}",
                                        msg.request_id,
                                        conn_ctx.connection_handle);
 
@@ -157,7 +271,7 @@ namespace quicr {
                     return true;
                 }
 
-                auto tfn = conn_ctx.recv_sub_id[msg.request_id].track_full_name;
+                auto tfn = conn_ctx.recv_req_id[msg.request_id].track_full_name;
                 auto th = TrackHash(tfn);
 
                 // For client/publisher, notify track that there is a subscriber
@@ -177,15 +291,20 @@ namespace quicr {
                     return true;
                 }
 
-                SendSubscribeOk(
-                  conn_ctx, msg.request_id, ptd->GetTrackAlias(msg.request_id), kSubscribeExpires, false, { 0, 0 });
+                // SendSubscribeOk(
+                //   conn_ctx, msg.request_id, ptd->GetTrackAlias(msg.request_id), kSubscribeExpires, false, { 0, 0 });
 
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received subscribe_update to track alias: {0} recv request_id: {1}",
                                     th.track_fullname_hash,
                                     msg.request_id);
 
-                ptd->SetStatus(PublishTrackHandler::Status::kSubscriptionUpdated);
+                if (msg.forward) {
+                    ptd->SetStatus(PublishTrackHandler::Status::kPaused);
+                } else {
+                    ptd->SetStatus(PublishTrackHandler::Status::kSubscriptionUpdated);
+                }
+
                 return true;
             }
             case messages::ControlMessageType::kSubscribeOk: {
@@ -342,9 +461,9 @@ namespace quicr {
                 messages::Unsubscribe msg;
                 msg_bytes >> msg;
 
-                const auto& th_it = conn_ctx.recv_sub_id.find(msg.request_id);
+                const auto& th_it = conn_ctx.recv_req_id.find(msg.request_id);
 
-                if (th_it == conn_ctx.recv_sub_id.end()) {
+                if (th_it == conn_ctx.recv_req_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received unsubscribe to unknown request_id conn_id: {0} request_id: {1}, ignored",
@@ -464,7 +583,7 @@ namespace quicr {
 
                 std::string endpoint_id = "Unknown Endpoint ID";
                 for (const auto& param : msg.setup_parameters) {
-                    if (param.type == messages::ParameterType::kEndpointId) {
+                    if (param.type == messages::SetupParameterType::kEndpointId) {
                         endpoint_id = std::string(param.value.begin(), param.value.end());
                         break; // only looking for 1 endpoint ID
                     }
@@ -483,7 +602,7 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kFetchOk: {
-                messages::FetchError msg;
+                messages::FetchOk msg;
                 msg_bytes >> msg;
 
                 auto fetch_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
@@ -543,6 +662,84 @@ namespace quicr {
 
                 return true;
             }
+            case messages::ControlMessageType::kFetch: {
+                auto msg = messages::Fetch(
+                  [](messages::Fetch& msg) {
+                      if (msg.fetch_type == messages::FetchType::kStandalone) {
+                          msg.group_0 = std::make_optional<messages::Fetch::Group_0>();
+                      }
+                  },
+                  [](messages::Fetch& msg) {
+                      if (msg.fetch_type == messages::FetchType::kJoiningFetch) {
+                          msg.group_1 = std::make_optional<messages::Fetch::Group_1>();
+                      }
+                  });
+                msg_bytes >> msg;
+
+                FullTrackName tfn;
+                messages::FetchAttributes attrs = { msg.subscriber_priority, msg.group_order, 0, 0, 0, std::nullopt };
+
+                switch (msg.fetch_type) {
+                    case messages::FetchType::kStandalone: {
+                        // Forward FETCH to a Publisher and bind to this request
+                        attrs.start_location.group = msg.group_0->start_location.group;
+                        attrs.start_location.object = msg.group_0->start_location.object;
+                        attrs.end_group = msg.group_0->end_location.group;
+                        attrs.end_object = msg.group_0->end_location.object;
+                        FetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
+                        return true;
+                    }
+
+                    default:
+                        SPDLOG_LOGGER_ERROR(logger_,
+                                            "Unsupported MOQT message type: {0}, bad stream",
+                                            static_cast<uint64_t>(*conn_ctx.ctrl_msg_type_received));
+                        return false;
+                }
+            }
+            case messages::ControlMessageType::kPublishOk: {
+                messages::PublishOk msg(
+                  [](messages::PublishOk& msg) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteStart ||
+                          msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                          msg.group_0 =
+                            std::make_optional<messages::PublishOk::Group_0>(messages::PublishOk::Group_0{ 0, 0 });
+                      }
+                  },
+                  [](messages::PublishOk& msg) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                          msg.group_1 =
+                            std::make_optional<messages::PublishOk::Group_1>(messages::PublishOk::Group_1{ 0 });
+                      }
+                  });
+                msg_bytes >> msg;
+
+                auto pub_it = conn_ctx.pub_tracks_by_request_id.find(msg.request_id);
+
+                if (pub_it == conn_ctx.pub_tracks_by_request_id.end()) {
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received publish ok to unknown publish track conn_id: {0} request_id: {1}, ignored",
+                      conn_ctx.connection_handle,
+                      msg.request_id);
+
+                    return true;
+                }
+
+                if (msg.group_0.has_value()) {
+                    SPDLOG_LOGGER_DEBUG(
+                      logger_,
+                      "Received publish ok conn_id: {} request_id: {} start_group: {} start_object: {} endgroup: {}",
+                      conn_ctx.connection_handle,
+                      msg.request_id,
+                      msg.group_0->start.group,
+                      msg.group_0->start.object,
+                      msg.group_1->endgroup);
+                }
+                pub_it->second.get()->SetStatus(PublishTrackHandler::Status::kOk);
+                return true;
+            }
+
             default:
                 SPDLOG_LOGGER_ERROR(logger_,
                                     "Unsupported MOQT message type: {0}, bad stream",
@@ -552,6 +749,7 @@ namespace quicr {
         } // End of switch(msg type)
 
         return false;
+
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception trying to process control message. (error={})", e.what());
         return false;

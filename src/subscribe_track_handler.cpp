@@ -141,4 +141,20 @@ namespace quicr {
             new_group_request_callback_(GetRequestId().value(), GetTrackAlias().value());
         }
     }
+
+    void SubscribeTrackHandler::Pause() noexcept
+    {
+        if (status_ != Status::kPaused) {
+            status_ = Status::kPaused;
+            set_forwarding_func_(true);
+        }
+    }
+
+    void SubscribeTrackHandler::Resume() noexcept
+    {
+        if (status_ == Status::kPaused) {
+            status_ = Status::kOk;
+            set_forwarding_func_(false);
+        }
+    }
 } // namespace quicr

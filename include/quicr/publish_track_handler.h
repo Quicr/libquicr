@@ -51,6 +51,8 @@ namespace quicr {
             /// Previous object payload has not been completed and new object cannot start in per-track track mode
             /// without creating a new track. This requires to unpublish and to publish track again.
             kPreviousObjectNotCompleteMustStartNewTrack,
+
+            kPaused
         };
 
         /**
@@ -67,6 +69,8 @@ namespace quicr {
             kSendingUnannounce, ///< In this state, callbacks will not be called
             kSubscriptionUpdated,
             kNewGroupRequested,
+            kPendingPublishOk,
+            kPaused,
         };
 
       protected:
@@ -200,6 +204,18 @@ namespace quicr {
          * @return Status of publish
          */
         constexpr Status GetStatus() const noexcept { return publish_status_; }
+
+        /**
+         * @brief  Get use announce setting.
+         * @return true to indicate announce flow will be used. false to indicate publish flow will be used
+         */
+        constexpr bool UsingAnnounce() const noexcept { return use_announce; }
+
+        /**
+         * @brief Set use announce
+         * @param use           True to request announce flow to be used. False to use publish flow.
+         */
+        constexpr void SetUseAnnounce(bool use) noexcept { use_announce = use; }
 
         // --------------------------------------------------------------------------
         // Methods that normally do not need to be overridden
@@ -379,6 +395,8 @@ namespace quicr {
         bool sent_first_header_{ false }; // Used to indicate if the first stream has sent the header or not
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
+
+        bool use_announce{ false }; // Indicates to use announce publish flow if true, otherwise use publish flow
 
         friend class Transport;
         friend class Client;
