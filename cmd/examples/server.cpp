@@ -712,7 +712,7 @@ class MyServer : public quicr::Server
 
     void UnsubscribeReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override
     {
-        SPDLOG_INFO("Unsubscribe connection handle: {0} subscribe_id: {1}", connection_handle, request_id);
+        SPDLOG_INFO("Unsubscribe received connection handle: {0} subscribe_id: {1}", connection_handle, request_id);
 
         auto ta_conn_it = qserver_vars::subscribe_alias_req_id.find(connection_handle);
         if (ta_conn_it == qserver_vars::subscribe_alias_req_id.end()) {
