@@ -10,6 +10,7 @@
 #include "stream_buffer.h"
 
 #include <map>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -23,10 +24,18 @@ namespace quicr::messages {
         const std::string reason;
         ProtocolViolationException(const std::string& reason,
                                    const std::source_location location = std::source_location::current())
-          : std::runtime_error(
-              std::format("Protocol violation: {} (line {}, file {})", reason, location.line(), location.file_name()))
+          : std::runtime_error(to_string(reason, location))
           , reason(reason)
         {
+        }
+
+      private:
+        static std::string to_string(const std::string& reason, const std::source_location& location)
+        {
+            std::stringstream ss;
+            ss << "Protocol violation: " << reason << " (line " << location.line() << ", file " << location.file_name()
+               << ")";
+            return ss.str();
         }
     };
 
