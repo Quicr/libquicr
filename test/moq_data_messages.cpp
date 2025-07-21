@@ -159,12 +159,16 @@ TEST_CASE("ObjectDatagramStatus  Message encode/decode")
 static void
 StreamHeaderEncodeDecode(StreamHeaderType type)
 {
+    const auto hdr_properties = StreamHeaderProperties(type);
+
     Bytes buffer;
     auto hdr = StreamHeaderSubGroup{};
     hdr.type = type;
     hdr.track_alias = static_cast<uint64_t>(kTrackAliasAliceVideo);
     hdr.group_id = 0x1000;
-    hdr.subgroup_id = 0x5000;
+    if (hdr_properties.subgroup_id_type == SubgroupIdType::kExplicit) {
+        hdr.subgroup_id = 0x5000;
+    }
     hdr.priority = 0xA;
     buffer << hdr;
     StreamHeaderSubGroup hdr_out;
@@ -173,7 +177,6 @@ StreamHeaderEncodeDecode(StreamHeaderType type)
     CHECK_EQ(hdr.track_alias, hdr_out.track_alias);
     CHECK_EQ(hdr.group_id, hdr_out.group_id);
 
-    const auto hdr_properties = StreamHeaderProperties(type);
     switch (hdr_properties.subgroup_id_type) {
         case SubgroupIdType::kIsZero:
             CHECK_EQ(hdr_out.subgroup_id, 0);
@@ -207,12 +210,16 @@ TEST_CASE("StreamHeader Message encode/decode")
 static void
 StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, bool extensions, bool empty_payload)
 {
+    const auto properties = StreamHeaderProperties(type);
+
     Bytes buffer;
     auto hdr_grp = messages::StreamHeaderSubGroup{};
     hdr_grp.type = type;
     hdr_grp.track_alias = uint64_t(kTrackAliasAliceVideo);
     hdr_grp.group_id = 0x1000;
-    hdr_grp.subgroup_id = 0x5000;
+    if (properties.subgroup_id_type == SubgroupIdType::kExplicit) {
+        hdr_grp.subgroup_id = 0x5000;
+    }
     hdr_grp.priority = 0xA;
 
     buffer << hdr_grp;
@@ -222,6 +229,17 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, bool extensions, bool
     CHECK_EQ(hdr_grp.type, hdr_group_out.type);
     CHECK_EQ(hdr_grp.track_alias, hdr_group_out.track_alias);
     CHECK_EQ(hdr_grp.group_id, hdr_group_out.group_id);
+    switch (properties.subgroup_id_type) {
+        case SubgroupIdType::kIsZero:
+            CHECK_EQ(hdr_group_out.subgroup_id, 0);
+            return;
+        case SubgroupIdType::kSetFromFirstObject:
+            CHECK_EQ(hdr_group_out.subgroup_id, std::nullopt);
+            return;
+        case SubgroupIdType::kExplicit:
+            CHECK_EQ(hdr_group_out.subgroup_id, hdr_grp.subgroup_id);
+            return;
+    }
 
     // stream all the objects
     buffer.clear();
@@ -239,14 +257,12 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, bool extensions, bool
         }
 
         // Only set extensions if the header type allows it.
-        if (StreamHeaderProperties(type).may_contain_extensions) {
+        if (properties.may_contain_extensions) {
             obj.extensions = extensions ? kOptionalExtensions : std::nullopt;
         }
         objects.push_back(obj);
         buffer << obj;
     }
-
-    const auto properties = StreamHeaderProperties(type);
 
     auto obj_out = messages::StreamSubGroupObject{};
     size_t object_count = 0;

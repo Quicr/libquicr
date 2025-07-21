@@ -374,7 +374,6 @@ namespace quicr::messages {
             }
             case 5: {
                 const auto properties = DatagramHeaderProperties(msg.type.value());
-                const auto properties = DatagramHeaderProperties(*msg.type);
                 if (properties.has_extensions) {
                     if (!ParseExtensions(buffer,
                                          msg.extension_headers_length,
@@ -476,7 +475,7 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 5: {
-                const auto properties = DatagramStatusProperties(*msg.type);
+                const auto properties = DatagramStatusProperties(msg.type.value());
                 if (properties.has_extensions) {
                     if (!ParseExtensions(buffer,
                                          msg.extension_headers_length,
@@ -516,8 +515,12 @@ namespace quicr::messages {
         buffer << UintVar(msg.group_id);
         const auto properties = StreamHeaderProperties(msg.type);
         if (properties.subgroup_id_type == SubgroupIdType::kExplicit) {
-            assert(msg.subgroup_id.has_value());
+            if (!msg.subgroup_id.has_value()) {
+                throw std::invalid_argument("Subgroup ID must be set when type is kExplicit");
+            }
             buffer << UintVar(msg.subgroup_id.value());
+        } else if (msg.subgroup_id.has_value()) {
+            throw std::invalid_argument("Subgroup ID must be not set when type is not kExplicit");
         }
         buffer.push_back(msg.priority);
         return buffer;
