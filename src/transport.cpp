@@ -1208,8 +1208,14 @@ namespace quicr {
             }
         }
 
-        auto result = quic_transport_->Enqueue(
-          track_handler.connection_handle_, track_handler.publish_data_ctx_id_, group_id, data, priority, ttl, 0, eflags);
+        auto result = quic_transport_->Enqueue(track_handler.connection_handle_,
+                                               track_handler.publish_data_ctx_id_,
+                                               group_id,
+                                               data,
+                                               priority,
+                                               ttl,
+                                               0,
+                                               eflags);
 
         if (result != TransportError::kNone) {
             throw TransportException(result);

@@ -419,7 +419,7 @@ namespace quicr {
          *
          * @param[in] context_id	Identifying the connection
          * @param[in] data_ctx_id	stream Id to send data on
-         * @param[in] groupd_id     The id of the group we're currently enqueuing.
+         * @param[in] group_id     The id of the group we're currently enqueuing.
          * @param[in] bytes		    Data to send/write
          * @param[in] priority      Priority of the object, range should be 0 - 255
          * @param[in] ttl_ms        The age the object should exist in queue in milliseconds
