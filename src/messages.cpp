@@ -373,7 +373,7 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 5: {
-                assert(msg.type.has_value());
+                const auto properties = DatagramHeaderProperties(msg.type.value());
                 const auto properties = DatagramHeaderProperties(*msg.type);
                 if (properties.has_extensions) {
                     if (!ParseExtensions(buffer,
