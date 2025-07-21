@@ -73,7 +73,9 @@ namespace quicr::messages {
 
             if (type_val % 2 == 0) {
                 // Even types: single varint of value
-                assert(value.size() <= 8);
+                if (value.size() > sizeof(std::uint64_t)) {
+                    throw std::invalid_argument("Value too large to encode as uint64_t.");
+                }
                 std::uint64_t val = 0;
                 std::memcpy(&val, value.data(), std::min(value.size(), sizeof(std::uint64_t)));
                 size += UintVar(val).size();
@@ -84,47 +86,31 @@ namespace quicr::messages {
             }
             return size;
         }
+
+        /**
+         * Equality comparison operator for KeyValuePair.
+         * @param other The KeyValuePair to compare with.
+         * @return True if both KeyValuePair objects are equal, false otherwise.
+         */
+        bool operator==(const KeyValuePair<T>& other) const
+        {
+            if (type != other.type) {
+                return false;
+            }
+
+            if (static_cast<std::uint64_t>(type) % 2 != 0) {
+                // Odd types are byte equality.
+                return value == other.value;
+            }
+
+            // Even types are numeric equality.
+            std::uint64_t our_value{ 0 };
+            memcpy(&our_value, value.data(), std::min(value.size(), sizeof(std::uint64_t)));
+            std::uint64_t their_value{ 0 };
+            memcpy(&their_value, other.value.data(), std::min(other.value.size(), sizeof(std::uint64_t)));
+            return our_value == their_value;
+        }
     };
-    template<KeyType T>
-    Bytes& operator<<(Bytes& buffer, const KeyValuePair<T>& param)
-    {
-        const auto type = static_cast<std::uint64_t>(param.type);
-        buffer << UintVar(type);
-        if (type % 2 == 0) {
-            // Even, single varint of value.
-            assert(param.value.size() <= 8);
-            std::uint64_t val = 0;
-            std::memcpy(&val, param.value.data(), std::min(param.value.size(), sizeof(std::uint64_t)));
-            buffer << UintVar(val);
-        } else {
-            // Odd, encode bytes.
-            buffer << UintVar(param.value.size());
-            buffer.insert(buffer.end(), param.value.begin(), param.value.end());
-        }
-        return buffer;
-    }
-    template<KeyType T>
-    BytesSpan operator>>(BytesSpan buffer, KeyValuePair<T>& param)
-    {
-        std::uint64_t type;
-        buffer = buffer >> type;
-        param.type = static_cast<T>(type);
-        if (type % 2 == 0) {
-            // Even, single varint of value.
-            UintVar uvar(buffer);
-            buffer = buffer.subspan(uvar.size());
-            std::uint64_t val(uvar);
-            param.value.resize(uvar.size());
-            std::memcpy(param.value.data(), &val, uvar.size());
-        } else {
-            // Odd, decode bytes.
-            uint64_t size = 0;
-            buffer = buffer >> size;
-            param.value.assign(buffer.begin(), std::next(buffer.begin(), size));
-            buffer = buffer.subspan(size);
-        }
-        return buffer;
-    }
 
     // Serialization for all uint64_t/enum(uint64_t to varint).
     template<KeyType T>
@@ -139,6 +125,43 @@ namespace quicr::messages {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
         value = static_cast<T>(uvalue);
+        return buffer;
+    }
+
+    template<KeyType T>
+    Bytes& operator<<(Bytes& buffer, const KeyValuePair<T>& param)
+    {
+        buffer << param.type;
+        if (static_cast<std::uint64_t>(param.type) % 2 == 0) {
+            // Even, single varint of value.
+            if (param.value.size() > sizeof(std::uint64_t)) {
+                throw std::invalid_argument("Value too large to encode as uint64_t.");
+            }
+            std::uint64_t val = 0;
+            std::memcpy(&val, param.value.data(), std::min(param.value.size(), sizeof(std::uint64_t)));
+            buffer << UintVar(val);
+        } else {
+            // Odd, encode bytes.
+            buffer << param.value;
+        }
+        return buffer;
+    }
+
+    template<KeyType T>
+    BytesSpan operator>>(BytesSpan buffer, KeyValuePair<T>& param)
+    {
+        buffer = buffer >> param.type;
+        if (static_cast<std::uint64_t>(param.type) % 2 == 0) {
+            // Even, single varint of value.
+            UintVar uvar(buffer);
+            buffer = buffer.subspan(uvar.size());
+            std::uint64_t val(uvar);
+            param.value.resize(uvar.size());
+            std::memcpy(param.value.data(), &val, uvar.size());
+        } else {
+            // Odd, decode bytes.
+            buffer = buffer >> param.value;
+        }
         return buffer;
     }
 

@@ -24,6 +24,21 @@ const TrackNamespace kTrackNamespaceConf{ FromASCII("conf.example.com"), FromASC
 const Bytes kTrackNameAliceVideo = FromASCII("alice/video");
 const UintVar kTrackAliasAliceVideo{ 0xA11CE };
 
+// Values that will encode to the corresponding UintVar values.
+const Bytes kExampleBytes = {
+    0x1, 0x2, 0x3, 0x4, 0x5,
+};
+const Bytes kUint1ByteValue = { 0x25 };
+const Bytes kUint2ByteValue = { 0xBD, 0x3B };
+const Bytes kUint4ByteValue = { 0x7D, 0x3E, 0x7F, 0x1D };
+const Bytes kUint8ByteValue = { 0x8C, 0xE8, 0x14, 0xFF, 0x5E, 0x7C, 0x19, 0x02 };
+
+const Parameters kExampleParameters = {
+    { ParameterType::kAuthorizationToken, kExampleBytes }, { static_cast<ParameterType>(2), kUint1ByteValue },
+    { static_cast<ParameterType>(4), kUint2ByteValue },    { static_cast<ParameterType>(6), kUint4ByteValue },
+    { static_cast<ParameterType>(8), kUint8ByteValue },
+};
+
 template<typename T>
 bool
 Verify(std::vector<uint8_t>& buffer, uint64_t message_type, T& message, [[maybe_unused]] size_t slice_depth = 1)
@@ -92,13 +107,13 @@ TEST_CASE("Announce Message encode/decode")
 
     auto announce = Announce{};
     announce.track_namespace = kTrackNamespaceConf;
-    announce.parameters = {};
+    announce.parameters = kExampleParameters;
     buffer << announce;
 
     Announce announce_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kAnnounce), announce_out));
     CHECK_EQ(kTrackNamespaceConf, announce_out.track_namespace);
-    CHECK_EQ(0, announce.parameters.size());
+    CHECK_EQ(announce.parameters, announce_out.parameters);
 }
 
 TEST_CASE("Unannounce Message encode/decode")
@@ -359,9 +374,9 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
-    CHECK_EQ(subscribe.subscribe_parameters.size(), subscribe_out.subscribe_parameters.size());
-    CHECK_EQ(subscribe.subscribe_parameters[0].type, subscribe_out.subscribe_parameters[0].type);
-    CHECK_EQ(subscribe.subscribe_parameters[0].value, subscribe_out.subscribe_parameters[0].value);
+    REQUIRE_EQ(subscribe.subscribe_parameters.size(), 1);
+    REQUIRE_EQ(subscribe.subscribe_parameters.size(), subscribe_out.subscribe_parameters.size());
+    CHECK_EQ(subscribe.subscribe_parameters[0], subscribe_out.subscribe_parameters[0]);
 }
 
 TEST_CASE("Subscribe (Params - 2) Message encode/decode")
@@ -412,11 +427,10 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
-    CHECK_EQ(subscribe.subscribe_parameters.size(), subscribe_out.subscribe_parameters.size());
-    CHECK_EQ(subscribe.subscribe_parameters[0].type, subscribe_out.subscribe_parameters[0].type);
-    CHECK_EQ(subscribe.subscribe_parameters[0].value, subscribe_out.subscribe_parameters[0].value);
-    CHECK_EQ(subscribe.subscribe_parameters[1].type, subscribe_out.subscribe_parameters[1].type);
-    CHECK_EQ(subscribe.subscribe_parameters[1].value, subscribe_out.subscribe_parameters[1].value);
+    REQUIRE_EQ(subscribe.subscribe_parameters.size(), 2);
+    REQUIRE_EQ(subscribe.subscribe_parameters.size(), subscribe_out.subscribe_parameters.size());
+    CHECK_EQ(subscribe.subscribe_parameters[0], subscribe_out.subscribe_parameters[0]);
+    CHECK_EQ(subscribe.subscribe_parameters[1], subscribe_out.subscribe_parameters[1]);
 }
 
 Subscribe
@@ -459,7 +473,6 @@ GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uin
     while (num_params > 0) {
         Parameter param1;
         param1.type = ParameterType::kDeliveryTimeout;
-        // param1.length = 0x2;
         param1.value = { 0x1, 0x2 };
         out.subscribe_parameters.push_back(param1);
         num_params--;
@@ -503,8 +516,7 @@ TEST_CASE("Subscribe (Combo) Message encode/decode")
         CHECK_EQ(subscribes[i].filter_type, subscribe_out.filter_type);
         CHECK_EQ(subscribes[i].subscribe_parameters.size(), subscribe_out.subscribe_parameters.size());
         for (size_t j = 0; j < subscribes[i].subscribe_parameters.size(); j++) {
-            CHECK_EQ(subscribes[i].subscribe_parameters[j].type, subscribe_out.subscribe_parameters[j].type);
-            CHECK_EQ(subscribes[i].subscribe_parameters[j].value, subscribe_out.subscribe_parameters[j].value);
+            CHECK_EQ(subscribes[i].subscribe_parameters[j], subscribe_out.subscribe_parameters[j]);
         }
     }
 }
@@ -662,8 +674,7 @@ TEST_CASE("ClientSetup  Message encode/decode")
     ClientSetup client_setup_out = {};
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kClientSetup), client_setup_out));
     CHECK_EQ(client_setup.supported_versions, client_setup_out.supported_versions);
-    CHECK_EQ(client_setup.setup_parameters[0].type, client_setup_out.setup_parameters[0].type);
-    CHECK_EQ(client_setup.setup_parameters[0].value, client_setup.setup_parameters[0].value);
+    CHECK_EQ(client_setup.setup_parameters[0], client_setup_out.setup_parameters[0]);
 }
 
 TEST_CASE("ServerSetup  Message encode/decode")
@@ -678,8 +689,7 @@ TEST_CASE("ServerSetup  Message encode/decode")
     ServerSetup server_setup_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kServerSetup), server_setup_out));
     CHECK_EQ(server_setup.selected_version, server_setup_out.selected_version);
-    CHECK_EQ(server_setup.setup_parameters[0].type, server_setup.setup_parameters[0].type);
-    CHECK_EQ(server_setup.setup_parameters[0].value, server_setup.setup_parameters[0].value);
+    CHECK_EQ(server_setup.setup_parameters[0], server_setup.setup_parameters[0]);
 }
 
 TEST_CASE("Goaway Message encode/decode")
@@ -874,6 +884,130 @@ TEST_CASE("Subscribe Announces Error encode/decode")
     CHECK_EQ(msg.error_reason, msg_out.error_reason);
 }
 
+TEST_CASE("Publish Message encode/decode")
+{
+    Bytes buffer;
+
+    auto publish = Publish(0x1234,
+                           kTrackNamespaceConf,
+                           kTrackNameAliceVideo,
+                           kTrackAliasAliceVideo.Get(),
+                           GroupOrder::kAscending,
+                           1,
+                           nullptr,
+                           std::nullopt,
+                           true,
+                           {});
+
+    buffer << publish;
+
+    auto publish_out =
+      Publish(0, TrackNamespace{}, Bytes{}, 0, GroupOrder::kAscending, 0, nullptr, std::nullopt, false, {});
+
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublish), publish_out));
+    CHECK_EQ(publish.request_id, publish_out.request_id);
+    CHECK_EQ(publish.track_namespace, publish_out.track_namespace);
+    CHECK_EQ(publish.track_name, publish_out.track_name);
+    CHECK_EQ(publish.track_alias, publish_out.track_alias);
+    CHECK_EQ(publish.group_order, publish_out.group_order);
+    CHECK_EQ(publish.contentexists, publish_out.contentexists);
+    CHECK_EQ(publish.forward, publish_out.forward);
+    CHECK_EQ(publish.parameters, publish_out.parameters);
+}
+
+TEST_CASE("PublishOk Message encode/decode")
+{
+    Bytes buffer;
+
+    auto publish_ok = PublishOk(0x1234,
+                                true,
+                                0x10,
+                                GroupOrder::kAscending,
+                                FilterType::kLatestObject,
+                                nullptr,
+                                std::nullopt,
+                                nullptr,
+                                std::nullopt,
+                                {});
+
+    buffer << publish_ok;
+
+    auto publish_ok_out = PublishOk(
+      [](PublishOk& msg) {
+          if (msg.filter_type == FilterType::kAbsoluteStart || msg.filter_type == FilterType::kAbsoluteRange) {
+              msg.group_0 = std::make_optional<PublishOk::Group_0>();
+          }
+      },
+      [](PublishOk& msg) {
+          if (msg.filter_type == FilterType::kAbsoluteRange) {
+              msg.group_1 = std::make_optional<PublishOk::Group_1>();
+          }
+      });
+
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishOk), publish_ok_out));
+    CHECK_EQ(publish_ok.request_id, publish_ok_out.request_id);
+    CHECK_EQ(publish_ok.forward, publish_ok_out.forward);
+    CHECK_EQ(publish_ok.subscriber_priority, publish_ok_out.subscriber_priority);
+    CHECK_EQ(publish_ok.group_order, publish_ok_out.group_order);
+    CHECK_EQ(publish_ok.filter_type, publish_ok_out.filter_type);
+    CHECK_EQ(publish_ok.parameters, publish_ok_out.parameters);
+}
+
+TEST_CASE("PublishOk (with optional fields) Message encode/decode")
+{
+    Bytes buffer;
+
+    auto group_0 = std::make_optional<PublishOk::Group_0>();
+    group_0->start = { 100, 200 };
+
+    auto group_1 = std::make_optional<PublishOk::Group_1>();
+    group_1->endgroup = 300;
+
+    auto publish_ok = PublishOk(
+      0x1234, true, 0x10, GroupOrder::kAscending, FilterType::kAbsoluteRange, nullptr, group_0, nullptr, group_1, {});
+
+    buffer << publish_ok;
+
+    auto publish_ok_out = PublishOk(
+      [](PublishOk& msg) {
+          if (msg.filter_type == FilterType::kAbsoluteStart || msg.filter_type == FilterType::kAbsoluteRange) {
+              msg.group_0 = std::make_optional<PublishOk::Group_0>();
+          }
+      },
+      [](PublishOk& msg) {
+          if (msg.filter_type == FilterType::kAbsoluteRange) {
+              msg.group_1 = std::make_optional<PublishOk::Group_1>();
+          }
+      });
+
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishOk), publish_ok_out));
+    CHECK_EQ(publish_ok.request_id, publish_ok_out.request_id);
+    CHECK_EQ(publish_ok.forward, publish_ok_out.forward);
+    CHECK_EQ(publish_ok.subscriber_priority, publish_ok_out.subscriber_priority);
+    CHECK_EQ(publish_ok.group_order, publish_ok_out.group_order);
+    CHECK_EQ(publish_ok.filter_type, publish_ok_out.filter_type);
+    CHECK_EQ(publish_ok.group_0.has_value(), publish_ok_out.group_0.has_value());
+    CHECK_EQ(publish_ok.group_0->start.group, publish_ok_out.group_0->start.group);
+    CHECK_EQ(publish_ok.group_0->start.object, publish_ok_out.group_0->start.object);
+    CHECK_EQ(publish_ok.group_1.has_value(), publish_ok_out.group_1.has_value());
+    CHECK_EQ(publish_ok.group_1->endgroup, publish_ok_out.group_1->endgroup);
+    CHECK_EQ(publish_ok.parameters, publish_ok_out.parameters);
+}
+
+TEST_CASE("PublishError Message encode/decode")
+{
+    Bytes buffer;
+
+    auto publish_error = PublishError(0x1234, 0x01, Bytes{ 0x1, 0x2, 0x3 });
+    buffer << publish_error;
+
+    PublishError publish_error_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishError), publish_error_out));
+    CHECK_EQ(publish_error.request_id, publish_error_out.request_id);
+    CHECK_EQ(publish_error.error_code, publish_error_out.error_code);
+    CHECK_EQ(publish_error.error_reason, publish_error_out.error_reason);
+}
+
 using TestKVP64 = KeyValuePair<std::uint64_t>;
 enum class ExampleEnum : std::uint64_t
 {
@@ -1044,4 +1178,14 @@ TEST_CASE("Location Equality / Comparison")
     CHECK(loc_large2 < loc_large1);
     CHECK(loc_large1 > loc_large2);
     CHECK_FALSE(loc_large1 == loc_large2);
+}
+
+TEST_CASE("Parameters encode/decode")
+{
+    const auto params = kExampleParameters;
+    Bytes buffer;
+    buffer << params;
+    Parameters out;
+    buffer >> out;
+    CHECK_EQ(out, params);
 }
