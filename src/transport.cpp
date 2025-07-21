@@ -351,7 +351,7 @@ namespace quicr {
                                tfn.name,
                                th.track_fullname_hash,
                                group_order,
-                               1,
+                               0,
                                nullptr,
                                std::nullopt,
                                forward,
