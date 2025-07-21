@@ -1056,7 +1056,7 @@ namespace quicr {
                         track_handler->GetDefaultPriority(),
                         GroupOrder::kAscending,
                         1,
-                        { track_handler->prev_object_group_id_, track_handler->prev_object_id_ },
+                        { track_handler->latest_group_id_, track_handler->latest_object_id_ },
                         true);
         }
 
@@ -1089,6 +1089,7 @@ namespace quicr {
         track_handler->forward_publish_data_func_ =
           [&,
            weak_handler](uint8_t priority,
+                         uint64_t group_id,
                          uint32_t ttl,
                          bool stream_header_needed,
                          std::shared_ptr<const std::vector<uint8_t>> data) -> PublishTrackHandler::PublishObjectStatus {
@@ -1096,7 +1097,7 @@ namespace quicr {
             if (!handler) {
                 return PublishTrackHandler::PublishObjectStatus::kInternalError;
             }
-            return SendData(*handler, priority, ttl, stream_header_needed, data);
+            return SendData(*handler, priority, group_id, ttl, stream_header_needed, data);
         };
 
         // Hold ref to track handler
@@ -1178,6 +1179,7 @@ namespace quicr {
 
     PublishTrackHandler::PublishObjectStatus Transport::SendData(PublishTrackHandler& track_handler,
                                                                  uint8_t priority,
+                                                                 uint64_t group_id,
                                                                  uint32_t ttl,
                                                                  bool stream_header_needed,
                                                                  std::shared_ptr<const std::vector<uint8_t>> data)
@@ -1207,7 +1209,7 @@ namespace quicr {
         }
 
         auto result = quic_transport_->Enqueue(
-          track_handler.connection_handle_, track_handler.publish_data_ctx_id_, 0, data, priority, ttl, 0, eflags);
+          track_handler.connection_handle_, track_handler.publish_data_ctx_id_, group_id, data, priority, ttl, 0, eflags);
 
         if (result != TransportError::kNone) {
             throw TransportException(result);
