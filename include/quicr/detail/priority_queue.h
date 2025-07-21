@@ -37,6 +37,20 @@ namespace quicr {
         {
         }
 
+        void Clear() noexcept
+        {
+            if (this->queue_.empty())
+                return;
+
+            this->queue_.clear();
+
+            for (auto& bucket : this->buckets_) {
+                bucket.clear();
+            }
+
+            this->queue_index_ = this->bucket_index_ = object_index_ = 0;
+        }
+
         /**
          * @brief Pop (increment) front
          *
@@ -55,42 +69,11 @@ namespace quicr {
                 return;
 
             object_index_ = 0;
-            base::Pop();
-        }
 
-        void Clear() noexcept
-        {
-            base::Clear();
-            object_index_ = 0;
-        }
+            if (this->queue_.empty() || ++this->queue_index_ < this->queue_.size())
+                return;
 
-        /**
-         * @brief Pops (removes) the front of the queue.
-         *
-         * @returns TimeQueueElement of the popped value
-         */
-        [[nodiscard]] TimeQueueElement<T> PopFront()
-        {
-            TimeQueueElement<T> obj{};
-            Front(obj);
-            if (obj.has_value) {
-                this->Pop();
-            }
-
-            return std::move(obj);
-        }
-
-        /**
-         * @brief Pops (removes) the front of the queue using provided storage
-         *
-         * @param elem[out]          Time queue element storage. Will be updated.
-         */
-        void PopFront(TimeQueueElement<T>& elem)
-        {
-            Front(elem);
-            if (elem.has_value) {
-                this->Pop();
-            }
+            this->Clear();
         }
 
         /**
@@ -113,8 +96,8 @@ namespace quicr {
             while (this->queue_index_ < this->queue_.size()) {
                 auto& [bucket, value_index, expiry_tick, pop_wait_ttl] = this->queue_.at(this->queue_index_);
 
-                if (value_index >= bucket.size() || ticks > expiry_tick) {
-                    elem.expired_count += bucket.at(value_index).size();
+                if (!bucket.contains(value_index) || ticks > expiry_tick) {
+                    elem.expired_count += object_index_;
                     this->queue_index_++;
                     object_index_ = 0;
                     continue;
@@ -125,21 +108,50 @@ namespace quicr {
                 }
 
                 elem.has_value = true;
-                elem.value = *std::next(bucket.at(value_index).begin(), object_index_);
+                elem.value = bucket.at(value_index).at(object_index_);
                 return;
             }
 
             this->Clear();
         }
 
+        /**
+         * @brief Pops (removes) the front of the queue.
+         *
+         * @returns TimeQueueElement of the popped value
+         */
+        [[nodiscard]] TimeQueueElement<T> PopFront()
+        {
+            TimeQueueElement<T> obj{};
+            this->Front(obj);
+            if (obj.has_value) {
+                this->Pop();
+            }
+
+            return std::move(obj);
+        }
+
+        /**
+         * @brief Pops (removes) the front of the queue using provided storage
+         *
+         * @param elem[out]          Time queue element storage. Will be updated.
+         */
+        void PopFront(TimeQueueElement<T>& elem)
+        {
+            this->Front(elem);
+            if (elem.has_value) {
+                this->Pop();
+            }
+        }
+
         void Push(std::uint64_t group_id, const T& value, size_t ttl, size_t delay_ttl = 0)
         {
-            InternalPush(group_id, value, ttl, delay_ttl);
+            this->InternalPush(group_id, value, ttl, delay_ttl);
         }
 
         void Push(std::uint64_t group_id, T&& value, size_t ttl, size_t delay_ttl = 0)
         {
-            InternalPush(group_id, std::move(value), ttl, delay_ttl);
+            this->InternalPush(group_id, std::move(value), ttl, delay_ttl);
         }
 
         std::size_t Size() const noexcept
@@ -147,13 +159,12 @@ namespace quicr {
             std::size_t full_size = 0;
 
             for (auto it = std::next(this->buckets_.begin(), this->queue_index_); it != this->buckets_.end(); ++it) {
-                const auto& bucket = *it;
-                for (const auto& [_, group] : bucket) {
+                for (const auto& [_, group] : *it) {
                     full_size += group.size();
                 }
             }
 
-            return full_size;
+            return full_size - object_index_;
         }
 
       private:

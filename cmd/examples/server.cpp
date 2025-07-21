@@ -772,7 +772,7 @@ class MyServer : public quicr::Server
             SPDLOG_INFO("No subscribers left, unsubscribe publisher track_alias: {0}", track_alias);
 
             // Pause publisher for PUBLISH initiated subscribes
-            for (const auto [pub_connection_handle, handler] : qserver_vars::pub_subscribes[track_alias]) {
+            for (const auto& [pub_connection_handle, handler] : qserver_vars::pub_subscribes[track_alias]) {
                 if (handler->IsPublisherInitiated()) {
                     handler->Pause();
                 }
@@ -859,7 +859,7 @@ class MyServer : public quicr::Server
         BindPublisherTrack(connection_handle, request_id, pub_track_h, false);
 
         // Resume publishers
-        for (const auto [pub_connection_handle, handler] : qserver_vars::pub_subscribes[track_alias]) {
+        for (const auto& [pub_connection_handle, handler] : qserver_vars::pub_subscribes[track_alias]) {
             if (handler->IsPublisherInitiated()) {
                 handler->Resume();
             }
@@ -944,7 +944,7 @@ class MyServer : public quicr::Server
     bool FetchReceived(quicr::ConnectionHandle connection_handle,
                        uint64_t request_id,
                        const quicr::FullTrackName& track_full_name,
-                       const quicr::messages::FetchAttributes& attributes)
+                       const quicr::messages::FetchAttributes& attributes) override
     {
         // lookup Announcer/Publisher for this Fetch request
         auto anno_ns_it = qserver_vars::announce_active.find(track_full_name.name_space);

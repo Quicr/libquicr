@@ -331,7 +331,7 @@ namespace quicr {
         virtual bool FetchReceived(ConnectionHandle connection_handle,
                                    uint64_t request_id,
                                    const FullTrackName& track_full_name,
-                                   const quicr::messages::FetchAttributes& attributes);
+                                   const quicr::messages::FetchAttributes& attributes) override;
 
         /**
          * @brief Event to run on sending FetchOk.
