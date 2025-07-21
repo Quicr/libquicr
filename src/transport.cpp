@@ -900,7 +900,11 @@ namespace quicr {
         handler.SetRequestId(std::nullopt);
 
         if (request_id.has_value()) {
-            SendUnsubscribe(conn_ctx, *request_id);
+            try {
+                SendUnsubscribe(conn_ctx, *request_id);
+            } catch (const std::exception& e) {
+                SPDLOG_LOGGER_ERROR(logger_, "Failed to send unsubscribe: {0}", e.what());
+            }
 
             SPDLOG_LOGGER_DEBUG(logger_, "Removed subscribe track subscribe id: {0}", *request_id);
 
