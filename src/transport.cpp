@@ -893,27 +893,34 @@ namespace quicr {
                                          SubscribeTrackHandler& handler,
                                          bool remove_handler)
     {
-        handler.SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
+        auto handler_status = handler.GetStatus();
 
-        auto request_id = handler.GetRequestId();
+        switch (handler_status) {
+            case SubscribeTrackHandler::Status::kOk:
+                try {
+                    if (not handler.IsPublisherInitiated()) {
+                        SendUnsubscribe(conn_ctx, handler.GetRequestId().value());
+                    }
+                } catch (const std::exception& e) {
+                    SPDLOG_LOGGER_ERROR(logger_, "Failed to send unsubscribe: {0}", e.what());
+                }
 
-        handler.SetRequestId(std::nullopt);
+                handler.SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
+                break;
 
-        if (request_id.has_value()) {
-            try {
-                SendUnsubscribe(conn_ctx, *request_id);
-            } catch (const std::exception& e) {
-                SPDLOG_LOGGER_ERROR(logger_, "Failed to send unsubscribe: {0}", e.what());
+            default:
+                break;
+        }
+
+        if (remove_handler) {
+            std::lock_guard<std::mutex> _(state_mutex_);
+
+            if (handler.GetRequestId().has_value()) {
+                conn_ctx.tracks_by_request_id.erase(*handler.GetRequestId());
             }
 
-            SPDLOG_LOGGER_DEBUG(logger_, "Removed subscribe track subscribe id: {0}", *request_id);
-
-            if (remove_handler) {
-                handler.SetStatus(SubscribeTrackHandler::Status::kNotConnected); // Set after remove subscribe track
-
-                std::lock_guard<std::mutex> _(state_mutex_);
-                conn_ctx.tracks_by_request_id.erase(*request_id);
-                conn_ctx.sub_by_track_alias.erase(*handler.GetTrackAlias());
+            if (handler.GetTrackAlias().has_value()) {
+                conn_ctx.sub_by_track_alias.erase(handler.GetTrackAlias().value());
             }
         }
     }
@@ -1329,8 +1336,7 @@ namespace quicr {
     {
         // clean up subscriber handlers on disconnect
         for (const auto& [sub_id, handler] : conn_ctx.tracks_by_request_id) {
-            if (not handler->IsPublisherInitiated())
-                RemoveSubscribeTrack(conn_ctx, *handler, false);
+            RemoveSubscribeTrack(conn_ctx, *handler, false);
         }
 
         // Notify publish handlers of disconnect
