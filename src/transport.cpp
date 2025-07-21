@@ -4,18 +4,24 @@
 #include "quicr/detail/transport.h"
 #include "quicr/detail/messages.h"
 
-#include <format>
 #include <quicr/detail/joining_fetch_handler.h>
 #include <sstream>
 
 namespace quicr {
     using namespace quicr::messages;
 
+    namespace {
+        std::string to_string(TransportError error, const std::source_location& location)
+        {
+            std::stringstream ss;
+            ss << "Error in transport (error=" << static_cast<int>(error) << ", line=" << location.line()
+               << ", file=" << location.file_name() << ")";
+            return ss.str();
+        }
+    } // namespace
+
     TransportException::TransportException(TransportError error, std::source_location location)
-      : std::runtime_error(std::format("Error in transport (error={}, line={}, file={})",
-                                       static_cast<int>(error),
-                                       location.line(),
-                                       location.file_name()))
+      : std::runtime_error(to_string(error, location))
       , Error(error)
     {
     }
