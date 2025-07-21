@@ -900,7 +900,6 @@ namespace quicr {
         handler.SetRequestId(std::nullopt);
 
         if (request_id.has_value()) {
-            // TODO: In the connection close case, we should not even try?
             try {
                 SendUnsubscribe(conn_ctx, *request_id);
             } catch (const std::exception& e) {
