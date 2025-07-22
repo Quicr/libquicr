@@ -712,7 +712,7 @@ class MyServer : public quicr::Server
 
     void UnsubscribeReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override
     {
-        SPDLOG_INFO("Unsubscribe connection handle: {0} subscribe_id: {1}", connection_handle, request_id);
+        SPDLOG_INFO("Unsubscribe received connection handle: {0} subscribe_id: {1}", connection_handle, request_id);
 
         auto ta_conn_it = qserver_vars::subscribe_alias_req_id.find(connection_handle);
         if (ta_conn_it == qserver_vars::subscribe_alias_req_id.end()) {
@@ -772,7 +772,7 @@ class MyServer : public quicr::Server
             SPDLOG_INFO("No subscribers left, unsubscribe publisher track_alias: {0}", track_alias);
 
             // Pause publisher for PUBLISH initiated subscribes
-            for (const auto [pub_connection_handle, handler] : qserver_vars::pub_subscribes[track_alias]) {
+            for (const auto& [pub_connection_handle, handler] : qserver_vars::pub_subscribes[track_alias]) {
                 if (handler->IsPublisherInitiated()) {
                     handler->Pause();
                 }
@@ -859,7 +859,7 @@ class MyServer : public quicr::Server
         BindPublisherTrack(connection_handle, request_id, pub_track_h, false);
 
         // Resume publishers
-        for (const auto [pub_connection_handle, handler] : qserver_vars::pub_subscribes[track_alias]) {
+        for (const auto& [pub_connection_handle, handler] : qserver_vars::pub_subscribes[track_alias]) {
             if (handler->IsPublisherInitiated()) {
                 handler->Resume();
             }
@@ -944,15 +944,16 @@ class MyServer : public quicr::Server
     bool FetchReceived(quicr::ConnectionHandle connection_handle,
                        uint64_t request_id,
                        const quicr::FullTrackName& track_full_name,
-                       const quicr::messages::FetchAttributes& attributes)
+                       const quicr::messages::FetchAttributes& attributes) override
     {
-        // lookup Publisher for this Fetch request
+        // lookup Announcer/Publisher for this Fetch request
         auto anno_ns_it = qserver_vars::announce_active.find(track_full_name.name_space);
+
         if (anno_ns_it == qserver_vars::announce_active.end()) {
             return false;
         }
 
-        for (auto& [pub_connection_handle, tracks] : anno_ns_it->second) {
+        auto setup_fetch_handler = [&](quicr::ConnectionHandle pub_connection_handle) {
             auto pub_fetch_h = quicr::PublishFetchHandler::Create(
               track_full_name, attributes.priority, request_id, attributes.group_order, 50000);
             BindFetchTrack(connection_handle, pub_fetch_h);
@@ -966,8 +967,14 @@ class MyServer : public quicr::Server
                                           attributes.start_location.object,
                                           attributes.end_group,
                                           attributes.end_object.has_value() ? attributes.end_object.value() : 0);
+
             FetchTrack(pub_connection_handle, fetch_track_handler);
             return true;
+        };
+
+        // Handle announcer case
+        for (auto& [pub_connection_handle, _] : anno_ns_it->second) {
+            return setup_fetch_handler(pub_connection_handle);
         }
 
         return false;

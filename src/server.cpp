@@ -239,11 +239,12 @@ namespace quicr {
         track_handler->forward_publish_data_func_ =
           [&, weak_track_handler](
             uint8_t priority,
+            uint64_t group_id,
             uint32_t ttl,
             bool stream_header_needed,
             std::shared_ptr<const std::vector<uint8_t>> data) -> PublishTrackHandler::PublishObjectStatus {
             if (auto handler = weak_track_handler.lock()) {
-                return SendData(*handler, priority, ttl, stream_header_needed, data);
+                return SendData(*handler, priority, group_id, ttl, stream_header_needed, data);
             }
             return PublishTrackHandler::PublishObjectStatus::kInternalError;
         };
@@ -345,6 +346,7 @@ namespace quicr {
 
             quic_transport_->Enqueue(track_handler.connection_handle_,
                                      track_handler.publish_data_ctx_id_,
+                                     group_id,
                                      std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
                                                                             track_handler.object_msg_buffer_.end()),
                                      priority,
@@ -369,6 +371,7 @@ namespace quicr {
 
         quic_transport_->Enqueue(track_handler.connection_handle_,
                                  track_handler.publish_data_ctx_id_,
+                                 group_id,
                                  std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
                                                                         track_handler.object_msg_buffer_.end()),
                                  priority,

@@ -98,7 +98,6 @@ namespace quicr {
         stream_buffer_.Clear();
 
         stream_buffer_.Push(*data);
-        stream_buffer_.Pop(); // Remove type header
 
         messages::ObjectDatagram msg;
         if (stream_buffer_ >> msg) {

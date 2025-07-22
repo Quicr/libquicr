@@ -179,6 +179,7 @@ namespace quicr {
 
         auto result = quic_transport_->Enqueue(conn_ctx.connection_handle,
                                                *conn_ctx.ctrl_data_ctx_id,
+                                               0,
                                                std::make_shared<const std::vector<uint8_t>>(data.begin(), data.end()),
                                                0,
                                                2000,
@@ -364,7 +365,7 @@ namespace quicr {
                                tfn.name,
                                th.track_fullname_hash,
                                group_order,
-                               1,
+                               0,
                                nullptr,
                                std::nullopt,
                                forward,
@@ -911,23 +912,34 @@ namespace quicr {
                                          SubscribeTrackHandler& handler,
                                          bool remove_handler)
     {
-        handler.SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
+        auto handler_status = handler.GetStatus();
 
-        auto request_id = handler.GetRequestId();
+        switch (handler_status) {
+            case SubscribeTrackHandler::Status::kOk:
+                try {
+                    if (not handler.IsPublisherInitiated()) {
+                        SendUnsubscribe(conn_ctx, handler.GetRequestId().value());
+                    }
+                } catch (const std::exception& e) {
+                    SPDLOG_LOGGER_ERROR(logger_, "Failed to send unsubscribe: {0}", e.what());
+                }
 
-        handler.SetRequestId(std::nullopt);
+                handler.SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
+                break;
 
-        if (request_id.has_value()) {
-            SendUnsubscribe(conn_ctx, *request_id);
+            default:
+                break;
+        }
 
-            SPDLOG_LOGGER_DEBUG(logger_, "Removed subscribe track subscribe id: {0}", *request_id);
+        if (remove_handler) {
+            std::lock_guard<std::mutex> _(state_mutex_);
 
-            if (remove_handler) {
-                handler.SetStatus(SubscribeTrackHandler::Status::kNotConnected); // Set after remove subscribe track
+            if (handler.GetRequestId().has_value()) {
+                conn_ctx.tracks_by_request_id.erase(*handler.GetRequestId());
+            }
 
-                std::lock_guard<std::mutex> _(state_mutex_);
-                conn_ctx.tracks_by_request_id.erase(*request_id);
-                conn_ctx.sub_by_track_alias.erase(*handler.GetTrackAlias());
+            if (handler.GetTrackAlias().has_value()) {
+                conn_ctx.sub_by_track_alias.erase(handler.GetTrackAlias().value());
             }
         }
     }
@@ -1069,7 +1081,7 @@ namespace quicr {
                         track_handler->GetDefaultPriority(),
                         GroupOrder::kAscending,
                         1,
-                        { track_handler->prev_object_group_id_, track_handler->prev_object_id_ },
+                        { track_handler->latest_group_id_, track_handler->latest_object_id_ },
                         true);
         }
 
@@ -1102,6 +1114,7 @@ namespace quicr {
         track_handler->forward_publish_data_func_ =
           [&,
            weak_handler](uint8_t priority,
+                         uint64_t group_id,
                          uint32_t ttl,
                          bool stream_header_needed,
                          std::shared_ptr<const std::vector<uint8_t>> data) -> PublishTrackHandler::PublishObjectStatus {
@@ -1109,7 +1122,7 @@ namespace quicr {
             if (!handler) {
                 return PublishTrackHandler::PublishObjectStatus::kInternalError;
             }
-            return SendData(*handler, priority, ttl, stream_header_needed, data);
+            return SendData(*handler, priority, group_id, ttl, stream_header_needed, data);
         };
 
         // Hold ref to track handler
@@ -1191,6 +1204,7 @@ namespace quicr {
 
     PublishTrackHandler::PublishObjectStatus Transport::SendData(PublishTrackHandler& track_handler,
                                                                  uint8_t priority,
+                                                                 uint64_t group_id,
                                                                  uint32_t ttl,
                                                                  bool stream_header_needed,
                                                                  std::shared_ptr<const std::vector<uint8_t>> data)
@@ -1219,8 +1233,14 @@ namespace quicr {
             }
         }
 
-        auto result = quic_transport_->Enqueue(
-          track_handler.connection_handle_, track_handler.publish_data_ctx_id_, data, priority, ttl, 0, eflags);
+        auto result = quic_transport_->Enqueue(track_handler.connection_handle_,
+                                               track_handler.publish_data_ctx_id_,
+                                               group_id,
+                                               data,
+                                               priority,
+                                               ttl,
+                                               0,
+                                               eflags);
 
         if (result != TransportError::kNone) {
             throw TransportException(result);
@@ -1272,7 +1292,10 @@ namespace quicr {
                     messages::StreamHeaderSubGroup subgroup_hdr;
                     subgroup_hdr.type = track_handler.GetStreamMode();
                     subgroup_hdr.group_id = group_id;
-                    subgroup_hdr.subgroup_id = subgroup_id;
+                    auto properties = StreamHeaderProperties(subgroup_hdr.type);
+                    if (properties.subgroup_id_type == SubgroupIdType::kExplicit) {
+                        subgroup_hdr.subgroup_id = subgroup_id;
+                    }
                     subgroup_hdr.priority = priority;
                     subgroup_hdr.track_alias = track_handler.GetTrackAlias(request_id);
                     track_handler.object_msg_buffer_ << subgroup_hdr;
@@ -1280,6 +1303,7 @@ namespace quicr {
                     auto result = quic_transport_->Enqueue(
                       track_handler.connection_handle_,
                       track_handler.publish_data_ctx_id_,
+                      group_id,
                       std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
                                                              track_handler.object_msg_buffer_.end()),
                       priority,
@@ -1310,6 +1334,7 @@ namespace quicr {
         auto result =
           quic_transport_->Enqueue(track_handler.connection_handle_,
                                    track_handler.publish_data_ctx_id_,
+                                   group_id,
                                    std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
                                                                           track_handler.object_msg_buffer_.end()),
                                    priority,
@@ -1343,8 +1368,7 @@ namespace quicr {
     {
         // clean up subscriber handlers on disconnect
         for (const auto& [sub_id, handler] : conn_ctx.tracks_by_request_id) {
-            if (not handler->IsPublisherInitiated())
-                RemoveSubscribeTrack(conn_ctx, *handler, false);
+            RemoveSubscribeTrack(conn_ctx, *handler, false);
         }
 
         // Notify publish handlers of disconnect

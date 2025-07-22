@@ -325,6 +325,7 @@ namespace quicr {
 
         PublishTrackHandler::PublishObjectStatus SendData(PublishTrackHandler& track_handler,
                                                           uint8_t priority,
+                                                          uint64_t group_id,
                                                           uint32_t ttl,
                                                           bool stream_header_needed,
                                                           std::shared_ptr<const std::vector<uint8_t>> data);
