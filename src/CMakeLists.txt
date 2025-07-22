@@ -11,6 +11,7 @@ target_sources (quicr PRIVATE
     ctrl_message_types.cpp
     ${ctrl_messages_SOURCE}
     messages.cpp
+    moqt_validate.cpp
     publish_fetch_handler.cpp
     publish_track_handler.cpp
     fetch_track_handler.cpp
