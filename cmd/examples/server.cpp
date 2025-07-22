@@ -889,7 +889,7 @@ class MyServer : public quicr::Server
                                 conn_h,
                                 th.track_fullname_hash,
                                 track_alias);
-                    qserver_vars::pub_subscribes[1][conn_h] = copy_sub_track_h;
+                    qserver_vars::pub_subscribes[track_alias][conn_h] = copy_sub_track_h;
                 } else {
                     if (!last_subscription_time_.has_value()) {
                         last_subscription_time_ = std::chrono::steady_clock::now();
