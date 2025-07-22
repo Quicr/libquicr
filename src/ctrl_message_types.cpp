@@ -210,4 +210,22 @@ namespace quicr::messages {
         return buffer;
     }
 
+
+    Bytes& operator<<(Bytes& buffer, MoxygenToken value)
+    {
+        buffer << value.alias_type;
+        buffer << value.token_type;
+        buffer.insert(buffer.end(), value.token_value.begin(), value.token_value.end());
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, MoxygenToken& value)
+    {
+        std::uint64_t uvalue;
+        buffer = buffer >> value.alias_type;
+        buffer = buffer >> value.token_type;
+        buffer = buffer >> value.token_value;
+        return buffer;
+    }
+
 }

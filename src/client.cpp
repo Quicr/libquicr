@@ -341,7 +341,16 @@ namespace quicr {
 
                     sub_it->second.get()->SetLatestLocation(msg.group_0->largest_location);
                 }
+
+                // conn_it->second.sub_by_track_alias[*track_handler->GetTrackAlias()] = track_handler;
+                auto entry = conn_ctx.sub_by_track_alias.extract(*sub_it->second.get()->GetTrackAlias());
+                if (entry) {
+                    entry.key() = msg.track_alias;
+                    conn_ctx.sub_by_track_alias.insert(std::move(entry));
+                }
+                sub_it->second.get()->SetTrackAlias(msg.track_alias);
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
+
                 return true;
             }
             case messages::ControlMessageType::kSubscribeError: {

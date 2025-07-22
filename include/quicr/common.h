@@ -59,5 +59,7 @@ namespace quicr {
         kAnnounceNotAuthorized,
         kSendingUnannounce, ///< In this state, callbacks will not be called
     };
+
+
 }
 // namespace quicr

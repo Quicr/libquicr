@@ -262,4 +262,14 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg);
     Bytes& operator<<(Bytes& buffer, const TrackNamespace& msg);
+
+
+    struct MoxygenToken{
+        uint64_t alias_type;
+        uint64_t token_type;
+        Bytes token_value;
+    };
+
+    Bytes& operator<<(Bytes& buffer, MoxygenToken value);
+    BytesSpan operator>>(BytesSpan buffer, MoxygenToken& value);
 } // namespace

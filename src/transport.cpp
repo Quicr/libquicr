@@ -297,6 +297,15 @@ namespace quicr {
                                   std::chrono::milliseconds delivery_timeout)
     try {
         std::uint64_t delivery_timeout_ms = delivery_timeout.count();
+        auto moxy_token_str = std::string("ilovemoxygen");
+        auto moxygen_token = quicr::MoxygenToken {
+            .alias_type = 0x3,
+            .token_type = 0x0,
+            .token_value = {moxy_token_str.begin(), moxy_token_str.end()}
+        };
+
+        Bytes token_bytes;
+        token_bytes << moxygen_token;
 
         auto subscribe =
           Subscribe(request_id,
@@ -316,6 +325,10 @@ namespace quicr {
                         Bytes{ reinterpret_cast<uint8_t*>(&delivery_timeout_ms),
                                reinterpret_cast<uint8_t*>(&delivery_timeout_ms) + sizeof(std::uint64_t) },
                       },
+                      Parameter{
+                        ParameterType::kAuthorizationToken,
+                        token_bytes,
+                      }
                     });
 
         Bytes buffer;
@@ -797,13 +810,18 @@ namespace quicr {
             return;
         }
 
-        auto sid = conn_it->second.next_request_id++ << 1;
+        if (conn_it->second.next_request_id == 0) {
+            if (!client_mode_) {
+                conn_it->second.next_request_id += 1;
+            }
+        }
+
+        auto sid = conn_it->second.next_request_id;
+
+        // per draft-12
+        conn_it->second.next_request_id += 2;
 
         if (!track_handler->IsPublisherInitiated()) {
-            if (client_mode_) {
-                sid++;
-            }
-
             track_handler->SetRequestId(sid);
         } else {
             sid = *track_handler->GetRequestId();
