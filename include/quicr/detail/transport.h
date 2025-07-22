@@ -52,7 +52,7 @@ namespace quicr {
             kDisconnecting,
             kNotConnected,
             kFailedToConnect,
-            kPendingSeverSetup,
+            kPendingServerSetup,
         };
 
         /**

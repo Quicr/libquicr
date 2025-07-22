@@ -344,7 +344,7 @@ namespace qperf {
             case Status::kNotConnected:
                 SPDLOG_INFO("Client status - kNotConnected");
                 break;
-            case Status::kPendingSeverSetup:
+            case Status::kPendingServerSetup:
                 SPDLOG_INFO("Client status - kPendingSeverSetup");
                 break;
 
