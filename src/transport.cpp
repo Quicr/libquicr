@@ -1274,7 +1274,10 @@ namespace quicr {
                     messages::StreamHeaderSubGroup subgroup_hdr;
                     subgroup_hdr.type = track_handler.GetStreamMode();
                     subgroup_hdr.group_id = group_id;
-                    subgroup_hdr.subgroup_id = subgroup_id;
+                    auto properties = StreamHeaderProperties(subgroup_hdr.type);
+                    if (properties.subgroup_id_type == SubgroupIdType::kExplicit) {
+                        subgroup_hdr.subgroup_id = subgroup_id;
+                    }
                     subgroup_hdr.priority = priority;
                     subgroup_hdr.track_alias = track_handler.GetTrackAlias(request_id);
                     track_handler.object_msg_buffer_ << subgroup_hdr;
