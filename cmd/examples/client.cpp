@@ -229,7 +229,7 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
 
     void StatusChanged(Status status) override
     {
-        const auto alias = GetTrackAlias(GetRequestId().value());
+        const auto alias = GetTrackAlias().value();
         switch (status) {
             case Status::kOk: {
                 SPDLOG_INFO("Publish track alias: {0} is ready to send", alias);
@@ -251,6 +251,11 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 SPDLOG_INFO("Publish track alias: {0} is paused", alias);
                 break;
             }
+            case Status::kPendingPublishOk: {
+                SPDLOG_INFO("Publish track alias: {0} is pending publish ok", alias);
+                break;
+            }
+
             default:
                 SPDLOG_INFO("Publish track alias: {0} has status {1}", alias, static_cast<int>(status));
                 break;
@@ -334,6 +339,7 @@ class MyClient : public quicr::Client
             case Status::kConnecting:
                 break;
             case Status::kPendingSeverSetup:
+                SPDLOG_INFO("Connection connected and now pending server setup");
                 SPDLOG_INFO("Connection connected and now pending server setup");
                 break;
             default:
@@ -428,6 +434,10 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
       full_track_name, quicr::TrackMode::kStream /*mode*/, 2 /*priority*/, 3000 /*ttl*/);
 
     track_handler->SetUseAnnounce(use_announce);
+
+    if (qclient_vars::track_alias.has_value()) {
+        track_handler->SetTrackAlias(*qclient_vars::track_alias);
+    }
 
     SPDLOG_INFO("Started publisher track");
 
@@ -805,6 +815,7 @@ main(int argc, char* argv[])
 
     options.add_options("Publisher")
         ("use_announce", "Use Announce flow instead of publish flow", cxxopts::value<bool>())
+        ("track_alias", "Track alias to use", cxxopts::value<uint64_t>())
         ("pub_namespace", "Track namespace", cxxopts::value<std::string>())
         ("pub_name", "Track name", cxxopts::value<std::string>())
         ("clock", "Publish clock timestamp every second instead of using STDIN chat")
@@ -815,7 +826,6 @@ main(int argc, char* argv[])
         ("sub_namespace", "Track namespace", cxxopts::value<std::string>())
         ("sub_name", "Track name", cxxopts::value<std::string>())
         ("start_point", "Start point for Subscription - 0 for from the beginning, 1 from the latest object", cxxopts::value<uint64_t>())
-        ("track_alias", "Track alias to use", cxxopts::value<uint64_t>())
         ("new_group", "Requests a new group on subscribe")
         ("sub_announces", "Prefix namespace to subscribe announces to", cxxopts::value<std::string>())
         ("record", "Record incoming data to moq and dat files", cxxopts::value<bool>())

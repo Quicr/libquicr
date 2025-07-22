@@ -205,6 +205,10 @@ namespace quicr {
             return;
         }
 
+        if (!track_handler->GetTrackAlias().has_value()) {
+            track_handler->SetTrackAlias(th.track_fullname_hash);
+        }
+
         track_handler->SetRequestId(request_id);
         conn_it->second.pub_tracks_ns_by_request_id[request_id] = th.track_namespace_hash;
 
@@ -403,10 +407,6 @@ namespace quicr {
 
                 conn_ctx.recv_req_id[msg.request_id] = { tfn };
 
-                if (msg.request_id > conn_ctx.next_request_id) {
-                    conn_ctx.next_request_id = msg.request_id + 1;
-                }
-
                 const auto dt_param =
                   std::find_if(msg.subscribe_parameters.begin(), msg.subscribe_parameters.end(), [](const auto& p) {
                       return p.type == messages::ParameterType::kDeliveryTimeout;
@@ -453,6 +453,8 @@ namespace quicr {
                     return true;
                 }
 
+                sub_it->second.get()->SetReceivedTrackAlias(msg.track_alias);
+                conn_ctx.sub_by_recv_track_alias[msg.track_alias] = sub_it->second;
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
 
                 return true;
@@ -799,10 +801,6 @@ namespace quicr {
                     return true;
                 }
 
-                if (msg.request_id > conn_ctx.next_request_id) {
-                    conn_ctx.next_request_id = msg.request_id + 1;
-                }
-
                 SendFetchOk(conn_ctx, msg.request_id, msg.group_order, end_of_track, largest_location);
 
                 if (!OnFetchOk(conn_ctx.connection_handle, msg.request_id, tfn, attrs)) {
@@ -847,10 +845,6 @@ namespace quicr {
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
 
                 conn_ctx.recv_req_id[msg.request_id] = { tfn };
-
-                if (msg.request_id > conn_ctx.next_request_id) {
-                    conn_ctx.next_request_id = msg.request_id + 1;
-                }
 
                 PublishReceived(conn_ctx.connection_handle,
                                 msg.request_id,

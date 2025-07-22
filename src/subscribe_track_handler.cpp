@@ -53,9 +53,8 @@ namespace quicr {
         obj.stream_type = s_hdr.type;
         const auto subgroup_properties = messages::StreamHeaderProperties(s_hdr.type);
         if (stream_buffer_ >> obj) {
-            SPDLOG_TRACE("Received stream_subgroup_object type: {} priority: {} track_alias: {} "
+            SPDLOG_TRACE("Received stream_subgroup_object priority: {} track_alias: {} "
                          "group_id: {} subgroup_id: {} object_id: {} data size: {}",
-                         static_cast<std::uint8_t>(s_hdr.subgroup_type),
                          s_hdr.priority,
                          s_hdr.track_alias,
                          s_hdr.group_id,

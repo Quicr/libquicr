@@ -339,7 +339,7 @@ namespace quicr {
     void Transport::SendPublish(ConnectionContext& conn_ctx,
                                 messages::RequestID request_id,
                                 const FullTrackName& tfn,
-                                TrackHash th,
+                                uint64_t track_alias,
                                 messages::SubscriberPriority priority,
                                 messages::GroupOrder group_order,
                                 bool content_exists,
@@ -347,26 +347,17 @@ namespace quicr {
                                 bool forward)
     try {
 
-        auto publish = Publish(request_id,
-                               tfn.name_space,
-                               tfn.name,
-                               th.track_fullname_hash,
-                               group_order,
-                               0,
-                               nullptr,
-                               std::nullopt,
-                               forward,
-                               {});
+        auto publish = Publish(
+          request_id, tfn.name_space, tfn.name, track_alias, group_order, 0, nullptr, std::nullopt, forward, {});
 
         Bytes buffer;
         buffer << publish;
 
         SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending PUBLISH to conn_id: {0} request_id: {1} track namespace hash: {2} name hash: {3}",
+                            "Sending PUBLISH to conn_id: {0} request_id: {1} track alias: {2}",
                             conn_ctx.connection_handle,
                             request_id,
-                            th.track_namespace_hash,
-                            th.track_name_hash);
+                            track_alias);
 
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
@@ -808,6 +799,12 @@ namespace quicr {
             track_handler->SetRequestId(sid);
         } else {
             sid = *track_handler->GetRequestId();
+
+            if (!track_handler->GetReceivedTrackAlias().has_value()) {
+                throw std::runtime_error("Missing received track alias for publisher initiated subscribe");
+            }
+
+            conn_it->second.sub_by_recv_track_alias[*track_handler->GetReceivedTrackAlias()] = track_handler;
         }
 
         auto priority = track_handler->GetPriority();
@@ -823,8 +820,7 @@ namespace quicr {
             SendSubscribeUpdate(conn_it->second, sid, th, {}, 0, track_handler->GetPriority(), forward);
         };
 
-        // Set the track handler for tracking by subscribe ID and track alias
-        conn_it->second.sub_by_track_alias[*track_handler->GetTrackAlias()] = track_handler;
+        // Set the track handler for tracking by request ID
         conn_it->second.tracks_by_request_id[sid] = track_handler;
 
         if (!track_handler->IsPublisherInitiated()) {
@@ -920,8 +916,8 @@ namespace quicr {
                 conn_ctx.tracks_by_request_id.erase(*handler.GetRequestId());
             }
 
-            if (handler.GetTrackAlias().has_value()) {
-                conn_ctx.sub_by_track_alias.erase(handler.GetTrackAlias().value());
+            if (handler.GetReceivedTrackAlias().has_value()) {
+                conn_ctx.sub_by_recv_track_alias.erase(handler.GetReceivedTrackAlias().value());
             }
         }
     }
@@ -1021,6 +1017,10 @@ namespace quicr {
 
         track_handler->SetRequestId(sid);
 
+        if (!track_handler->GetTrackAlias().has_value()) {
+            track_handler->SetTrackAlias(th.track_fullname_hash);
+        }
+
         conn_it->second.pub_tracks_ns_by_request_id[sid] = th.track_namespace_hash;
 
         if (track_handler->UsingAnnounce()) {
@@ -1059,7 +1059,7 @@ namespace quicr {
             SendPublish(conn_it->second,
                         sid,
                         tfn,
-                        th,
+                        track_handler->GetTrackAlias().value(),
                         track_handler->GetDefaultPriority(),
                         GroupOrder::kAscending,
                         1,
@@ -1256,7 +1256,7 @@ namespace quicr {
                 object.group_id = group_id;
                 object.object_id = object_id;
                 object.priority = priority;
-                object.track_alias = track_handler.GetTrackAlias(request_id);
+                object.track_alias = track_handler.GetTrackAlias().value();
                 object.extensions = extensions;
                 object.payload.assign(data.begin(), data.end());
                 track_handler.object_msg_buffer_ << object;
@@ -1279,7 +1279,7 @@ namespace quicr {
                         subgroup_hdr.subgroup_id = subgroup_id;
                     }
                     subgroup_hdr.priority = priority;
-                    subgroup_hdr.track_alias = track_handler.GetTrackAlias(request_id);
+                    subgroup_hdr.track_alias = track_handler.GetTrackAlias().value();
                     track_handler.object_msg_buffer_ << subgroup_hdr;
 
                     auto result = quic_transport_->Enqueue(
@@ -1363,7 +1363,7 @@ namespace quicr {
         conn_ctx.pub_tracks_by_name.clear();
         conn_ctx.recv_req_id.clear();
         conn_ctx.tracks_by_request_id.clear();
-        conn_ctx.sub_by_track_alias.clear();
+        conn_ctx.sub_by_recv_track_alias.clear();
     }
 
     // ---------------------------------------------------------------------------------------
@@ -1655,8 +1655,8 @@ namespace quicr {
 
         rx_ctx.is_new = false;
 
-        auto sub_it = conn_ctx.sub_by_track_alias.find(track_alias);
-        if (sub_it == conn_ctx.sub_by_track_alias.end()) {
+        auto sub_it = conn_ctx.sub_by_recv_track_alias.find(track_alias);
+        if (sub_it == conn_ctx.sub_by_recv_track_alias.end()) {
             conn_ctx.metrics.rx_stream_unknown_track_alias++;
             SPDLOG_LOGGER_WARN(
               logger_,
@@ -1745,8 +1745,8 @@ namespace quicr {
                 }
 
                 auto& conn_ctx = connections_[conn_id];
-                auto sub_it = conn_ctx.sub_by_track_alias.find(track_alias);
-                if (sub_it == conn_ctx.sub_by_track_alias.end()) {
+                auto sub_it = conn_ctx.sub_by_recv_track_alias.find(track_alias);
+                if (sub_it == conn_ctx.sub_by_recv_track_alias.end()) {
                     conn_ctx.metrics.rx_dgram_unknown_track_alias++;
 
                     SPDLOG_LOGGER_DEBUG(

@@ -287,8 +287,13 @@ namespace quicr {
             /// Tracks by request ID (Subscribe and Fetch)
             std::map<messages::RequestID, std::shared_ptr<SubscribeTrackHandler>> tracks_by_request_id;
 
-            /// Subscribes by Track Alais is used for data object forwarding
-            std::map<messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> sub_by_track_alias;
+            /**
+             * Data is received with a track alias that is set by the publisher. The map key
+             * track alias is the received publisher track alias specific to the connection. Data received
+             * is matched to this track alias to find the subscriber handler that matches. The
+             * subscribe handler has both received track alias and generated track alias.
+             */
+            std::map<messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> sub_by_recv_track_alias;
 
             /// Publish tracks by namespace and name. map[track namespace][track name] = track handler
             std::map<TrackNamespaceHash, std::map<TrackNameHash, std::shared_ptr<PublishTrackHandler>>>
@@ -380,7 +385,7 @@ namespace quicr {
         void SendPublish(ConnectionContext& conn_ctx,
                          messages::RequestID request_id,
                          const FullTrackName& tfn,
-                         TrackHash th,
+                         uint64_t track_alias,
                          messages::SubscriberPriority priority,
                          messages::GroupOrder group_order,
                          bool content_exists,

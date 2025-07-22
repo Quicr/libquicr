@@ -214,10 +214,6 @@ namespace quicr {
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
                 auto th = TrackHash(tfn);
 
-                if (msg.request_id > conn_ctx.next_request_id) {
-                    conn_ctx.next_request_id = msg.request_id + 1;
-                }
-
                 conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn };
 
                 // For client/publisher, notify track that there is a subscriber
@@ -240,18 +236,18 @@ namespace quicr {
 
                 ResolveSubscribe(conn_ctx.connection_handle,
                                  msg.request_id,
-                                 ptd->GetTrackAlias(msg.request_id),
+                                 ptd->GetTrackAlias().value(),
                                  { SubscribeResponse::ReasonCode::kOk });
 
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received subscribe to announced track alias: {0} recv request_id: {1}, setting "
                                     "send state to ready",
-                                    ptd->GetTrackAlias(msg.request_id),
+                                    ptd->GetTrackAlias().value(),
                                     msg.request_id);
 
                 // Indicate send is ready upon subscribe
-                // TODO(tievens): Maybe needs a delay as subscriber may have not received ok before data is sent
                 ptd->SetRequestId(msg.request_id);
+                ptd->SetTrackAlias(ptd->GetTrackAlias().value());
                 ptd->SetStatus(PublishTrackHandler::Status::kOk);
 
                 conn_ctx.recv_req_id[msg.request_id] = { tfn };
@@ -342,7 +338,11 @@ namespace quicr {
 
                     sub_it->second.get()->SetLatestLocation(msg.group_0->largest_location);
                 }
+
+                sub_it->second.get()->SetReceivedTrackAlias(msg.track_alias);
+                conn_ctx.sub_by_recv_track_alias[msg.track_alias] = sub_it->second;
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
+
                 return true;
             }
             case messages::ControlMessageType::kSubscribeError: {
