@@ -336,7 +336,7 @@ namespace qperf {
             case Status::kDisconnecting:
                 SPDLOG_INFO("PerfPubClient - kDisconnecting");
                 break;
-            case Status::kPendingSeverSetup:
+            case Status::kPendingServerSetup:
                 SPDLOG_INFO("PerfPubClient - kPendingSeverSetup");
                 break;
 

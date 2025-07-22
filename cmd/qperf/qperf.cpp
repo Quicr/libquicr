@@ -176,7 +176,7 @@ namespace {
                     break;
                 case Status::kConnecting:
                     [[fallthrough]];
-                case Status::kPendingSeverSetup:
+                case Status::kPendingServerSetup:
                     break;
                 default:
                     SPDLOG_INFO("Connection failed {0}", static_cast<int>(status));

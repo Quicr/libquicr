@@ -1388,7 +1388,7 @@ namespace quicr {
                     SendClientSetup();
 
                     if (client_mode_) {
-                        status_ = Status::kPendingSeverSetup;
+                        status_ = Status::kPendingServerSetup;
                     } else {
                         status_ = Status::kReady;
                     }
