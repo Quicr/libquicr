@@ -777,7 +777,8 @@ namespace quicr {
             th.track_fullname_hash = proposed_track_alias.value();
         }
 
-        SPDLOG_LOGGER_INFO(logger_, "Subscribe track conn_id: {0} track_alias: {1} request_id", conn_id, th.track_fullname_hash);
+        SPDLOG_LOGGER_INFO(
+          logger_, "Subscribe track conn_id: {0} track_alias: {1} request_id", conn_id, th.track_fullname_hash);
 
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_id);
@@ -812,14 +813,22 @@ namespace quicr {
         };
 
         track_handler->set_forwarding_func_ = [=, this](bool forward) {
-            SendSubscribeUpdate(conn_it->second, *track_handler->GetRequestId(), th, {}, 0, track_handler->GetPriority(), forward);
+            SendSubscribeUpdate(
+              conn_it->second, *track_handler->GetRequestId(), th, {}, 0, track_handler->GetPriority(), forward);
         };
 
         // Set the track handler for tracking by request ID
         conn_it->second.tracks_by_request_id[*track_handler->GetRequestId()] = track_handler;
 
         if (!track_handler->IsPublisherInitiated()) {
-            SendSubscribe(conn_it->second, *track_handler->GetRequestId(), tfn, th, priority, group_order, filter_type, delivery_timeout);
+            SendSubscribe(conn_it->second,
+                          *track_handler->GetRequestId(),
+                          tfn,
+                          th,
+                          priority,
+                          group_order,
+                          filter_type,
+                          delivery_timeout);
 
             // Handle joining fetch, if requested.
             auto joining_fetch = track_handler->GetJoiningFetch();
@@ -1143,7 +1152,15 @@ namespace quicr {
 
         conn_it->second.tracks_by_request_id[*track_handler->GetRequestId()] = std::move(track_handler);
 
-        SendFetch(conn_it->second, *track_handler->GetRequestId(), tfn, priority, group_order, start_group, start_object, end_group, end_object);
+        SendFetch(conn_it->second,
+                  *track_handler->GetRequestId(),
+                  tfn,
+                  priority,
+                  group_order,
+                  start_group,
+                  start_object,
+                  end_group,
+                  end_object);
     }
 
     void Transport::CancelFetchTrack(ConnectionHandle connection_handle,
