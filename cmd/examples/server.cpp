@@ -259,7 +259,7 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
     void StatusChanged(Status status) override
     {
         if (status == Status::kOk) {
-            SPDLOG_INFO("Publish track alias {0} has subscribers", GetTrackAlias(GetRequestId().value()));
+            SPDLOG_INFO("Publish track alias {0} has subscribers", GetTrackAlias().value());
         } else {
             std::string reason = "";
             switch (status) {
@@ -284,8 +284,7 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 default:
                     break;
             }
-            SPDLOG_INFO(
-              "Publish track alias: {0} not ready, reason: {1}", GetTrackAlias(GetRequestId().value()), reason);
+            SPDLOG_INFO("Publish track alias: {0} not ready, reason: {1}", GetTrackAlias().value(), reason);
         }
     }
 
@@ -299,7 +298,7 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                      " queue discards: {5}"
                      " queue size: {6}",
                      metrics.last_sample_time,
-                     GetTrackAlias(GetRequestId().value()),
+                     GetTrackAlias().value(),
                      metrics.objects_published,
                      metrics.bytes_published,
                      metrics.quic.tx_object_duration_us.avg,
@@ -522,12 +521,9 @@ class MyServer : public quicr::Server
 
         // passively create the subscribe handler towards the publisher
         auto sub_track_handler = std::make_shared<MySubscribeTrackHandler>(track_full_name, true);
-        if (subscribe_attributes.track_alias.has_value()) {
-            // @note, this may not match the computed track alias we use. This is the received track alias
-            sub_track_handler->SetTrackAlias(subscribe_attributes.track_alias.value());
-        }
 
         sub_track_handler->SetRequestId(request_id);
+        sub_track_handler->SetReceivedTrackAlias(subscribe_attributes.track_alias.value());
         sub_track_handler->SetPriority(subscribe_attributes.priority);
 
         SubscribeTrack(connection_handle, sub_track_handler);
@@ -837,7 +833,8 @@ class MyServer : public quicr::Server
 
         const auto pub_track_h =
           std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, ttl);
-        const auto track_alias = pub_track_h->GetTrackAlias(request_id);
+
+        const auto track_alias = th.track_fullname_hash;
 
         ResolveSubscribe(connection_handle,
                          request_id,
@@ -892,7 +889,7 @@ class MyServer : public quicr::Server
                                 conn_h,
                                 th.track_fullname_hash,
                                 track_alias);
-                    qserver_vars::pub_subscribes[track_alias][conn_h] = copy_sub_track_h;
+                    qserver_vars::pub_subscribes[1][conn_h] = copy_sub_track_h;
                 } else {
                     if (!last_subscription_time_.has_value()) {
                         last_subscription_time_ = std::chrono::steady_clock::now();

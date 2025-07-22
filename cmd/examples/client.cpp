@@ -229,7 +229,7 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
 
     void StatusChanged(Status status) override
     {
-        const auto alias = GetTrackAlias(GetRequestId().value());
+        const auto alias = GetTrackAlias().value();
         switch (status) {
             case Status::kOk: {
                 SPDLOG_INFO("Publish track alias: {0} is ready to send", alias);
@@ -251,6 +251,11 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 SPDLOG_INFO("Publish track alias: {0} is paused", alias);
                 break;
             }
+            case Status::kPendingPublishOk: {
+                SPDLOG_INFO("Publish track alias: {0} is pending publish ok", alias);
+                break;
+            }
+
             default:
                 SPDLOG_INFO("Publish track alias: {0} has status {1}", alias, static_cast<int>(status));
                 break;
@@ -334,6 +339,7 @@ class MyClient : public quicr::Client
             case Status::kConnecting:
                 break;
             case Status::kPendingSeverSetup:
+                SPDLOG_INFO("Connection connected and now pending server setup");
                 SPDLOG_INFO("Connection connected and now pending server setup");
                 break;
             default:
@@ -428,6 +434,13 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
       full_track_name, quicr::TrackMode::kStream /*mode*/, 2 /*priority*/, 3000 /*ttl*/);
 
     track_handler->SetUseAnnounce(use_announce);
+
+    if (not use_announce) {
+
+        if (qclient_vars::track_alias.has_value()) {
+            track_handler->SetTrackAlias(*qclient_vars::track_alias);
+        }
+    }
 
     SPDLOG_INFO("Started publisher track");
 

@@ -164,6 +164,23 @@ namespace quicr {
         std::optional<uint64_t> GetTrackAlias() const noexcept { return track_alias_; }
 
         /**
+         * @brief Set the received track alias
+         *
+         * @param track_alias       MoQ track alias for track namespace+name that
+         *                          is relative to the QUIC connection session
+         */
+        void SetReceivedTrackAlias(uint64_t track_alias) { received_track_alias_ = track_alias; }
+
+        /**
+         * @brief Get the received track alias
+         *
+         * @details If the track alias is set, it will be returned, otherwise std::nullopt.
+         *
+         * @return Track alias if set, otherwise std::nullopt.
+         */
+        std::optional<uint64_t> GetReceivedTrackAlias() const noexcept { return received_track_alias_; }
+
+        /**
          * @brief Pause receiving data
          * @details Pause will send a MoQT SUBSCRIBE_UPDATE to change the forwarding state to be stopped         *
          */
@@ -304,6 +321,7 @@ namespace quicr {
         std::optional<messages::Location> latest_location_;
         std::optional<JoiningFetch> joining_fetch_;
         std::optional<uint64_t> track_alias_;
+        std::optional<uint64_t> received_track_alias_; ///< Received track alias from publisher client or relay
         std::chrono::milliseconds delivery_timeout_{ 0 };
 
         SetForwardingFunction set_forwarding_func_; // set by the transport

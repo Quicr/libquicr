@@ -128,17 +128,6 @@ namespace quicr {
 
         // TODO: Is this all the info needed for an alias calculation?
 
-        /**
-         * @brief Produce a track alias for the given subscribe response.
-         * @details This method can be overridden to control track alias generation.
-         * @param request_id Request ID of the incoming subscribe requesting an alias.
-         * @returns Track alias to use.
-         */
-        virtual uint64_t GetTrackAlias([[maybe_unused]] uint64_t request_id) const noexcept
-        {
-            return TrackHash(full_track_name_).track_fullname_hash;
-        }
-
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
         // --------------------------------------------------------------------------
@@ -220,6 +209,22 @@ namespace quicr {
         // --------------------------------------------------------------------------
         // Methods that normally do not need to be overridden
         // --------------------------------------------------------------------------
+
+        /**
+         * @brief Set the track alias
+         *
+         * @param track_alias       MoQ track alias for track namespace+name
+         */
+        void SetTrackAlias(uint64_t track_alias) { track_alias_ = track_alias; }
+
+        /**
+         * @brief Get the track alias
+         *
+         * @details If the track alias is set, it will be returned, otherwise std::nullopt.
+         *
+         * @return Track alias if set, otherwise std::nullopt.
+         */
+        std::optional<uint64_t> GetTrackAlias() const noexcept { return track_alias_; }
 
         /**
          * @brief Publish [full] object
@@ -394,6 +399,7 @@ namespace quicr {
         uint64_t latest_sub_group_id_{ 0 };
         uint64_t latest_object_id_{ 0 };
         uint64_t object_payload_remaining_length_{ 0 };
+        std::optional<uint64_t> track_alias_;
         bool sent_first_header_{ false }; // Used to indicate if the first stream has sent the header or not
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize

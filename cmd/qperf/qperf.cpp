@@ -93,7 +93,7 @@ namespace {
         {
             switch (status) {
                 case Status::kOk: {
-                    SPDLOG_INFO("Track alias: {0} is ready to read", GetTrackAlias(this->GetRequestId().value()));
+                    SPDLOG_INFO("Track alias: {0} is ready to read", GetTrackAlias().value());
                     cv.notify_one();
                     break;
                 }
