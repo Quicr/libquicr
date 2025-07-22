@@ -435,11 +435,8 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
 
     track_handler->SetUseAnnounce(use_announce);
 
-    if (not use_announce) {
-
-        if (qclient_vars::track_alias.has_value()) {
-            track_handler->SetTrackAlias(*qclient_vars::track_alias);
-        }
+    if (qclient_vars::track_alias.has_value()) {
+        track_handler->SetTrackAlias(*qclient_vars::track_alias);
     }
 
     SPDLOG_INFO("Started publisher track");
