@@ -320,6 +320,17 @@ namespace quicr {
             ConnectionMetrics metrics{}; ///< Connection metrics
 
             ConnectionContext() { ctrl_msg_buffer.reserve(kControlMessageBufferSize); }
+
+            /*
+             * Get the next request Id to use
+             */
+            uint64_t GetNextRequestId()
+            {
+                auto rid = next_request_id;
+                next_request_id += 2;
+
+                return rid;
+            }
         };
 
         // -------------------------------------------------------------------------------------------------
@@ -451,6 +462,8 @@ namespace quicr {
         std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(ConnectionContext& conn_ctx, TrackHash& th);
 
         void RemoveAllTracksForConnectionClose(ConnectionContext& conn_ctx);
+
+        uint64_t GetNextRequestId();
 
         bool OnRecvSubgroup(messages::StreamHeaderType type,
                             std::vector<uint8_t>::const_iterator cursor_it,

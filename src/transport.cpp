@@ -506,10 +506,7 @@ namespace quicr {
             return;
         }
 
-        auto rid = conn_it->second.next_request_id++ << 1;
-        if (client_mode_) {
-            rid++;
-        }
+        auto rid = conn_it->second.GetNextRequestId();
 
         conn_it->second.sub_announces_by_request_id[rid] = prefix_namespace;
         auto msg = messages::SubscribeAnnounces(rid, prefix_namespace, {});
@@ -780,7 +777,7 @@ namespace quicr {
             th.track_fullname_hash = proposed_track_alias.value();
         }
 
-        SPDLOG_LOGGER_INFO(logger_, "Subscribe track conn_id: {0} track_alias: {1}", conn_id, th.track_fullname_hash);
+        SPDLOG_LOGGER_INFO(logger_, "Subscribe track conn_id: {0} track_alias: {1} request_id", conn_id, th.track_fullname_hash);
 
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_id);
@@ -789,19 +786,17 @@ namespace quicr {
             return;
         }
 
-        auto sid = conn_it->second.next_request_id++ << 1;
-
         if (!track_handler->IsPublisherInitiated()) {
-            if (client_mode_) {
-                sid++;
-            }
+            // increment and get the next request id if not initiated by publisher, which request Id is reused
+            track_handler->SetRequestId(conn_it->second.GetNextRequestId());
 
-            track_handler->SetRequestId(sid);
         } else {
-            sid = *track_handler->GetRequestId();
-
             if (!track_handler->GetReceivedTrackAlias().has_value()) {
                 throw std::runtime_error("Missing received track alias for publisher initiated subscribe");
+            }
+
+            if (!track_handler->GetRequestId().has_value()) {
+                throw std::runtime_error("Missing request id for publisher initiated subscribe");
             }
 
             conn_it->second.sub_by_recv_track_alias[*track_handler->GetReceivedTrackAlias()] = track_handler;
@@ -817,14 +812,14 @@ namespace quicr {
         };
 
         track_handler->set_forwarding_func_ = [=, this](bool forward) {
-            SendSubscribeUpdate(conn_it->second, sid, th, {}, 0, track_handler->GetPriority(), forward);
+            SendSubscribeUpdate(conn_it->second, *track_handler->GetRequestId(), th, {}, 0, track_handler->GetPriority(), forward);
         };
 
         // Set the track handler for tracking by request ID
-        conn_it->second.tracks_by_request_id[sid] = track_handler;
+        conn_it->second.tracks_by_request_id[*track_handler->GetRequestId()] = track_handler;
 
         if (!track_handler->IsPublisherInitiated()) {
-            SendSubscribe(conn_it->second, sid, tfn, th, priority, group_order, filter_type, delivery_timeout);
+            SendSubscribe(conn_it->second, *track_handler->GetRequestId(), tfn, th, priority, group_order, filter_type, delivery_timeout);
 
             // Handle joining fetch, if requested.
             auto joining_fetch = track_handler->GetJoiningFetch();
@@ -832,20 +827,20 @@ namespace quicr {
                 // Make a joining fetch handler.
                 const auto joining_fetch_handler = std::make_shared<JoiningFetchHandler>(track_handler);
                 const auto& info = *joining_fetch;
-                const auto fetch_sid = conn_it->second.next_request_id++;
+                const auto fetch_rid = conn_it->second.GetNextRequestId();
                 SPDLOG_LOGGER_INFO(logger_,
                                    "Subscribe with joining fetch conn_id: {0} track_alias: {1} subscribe id: {2} "
                                    "joining subscribe id: {3}",
                                    conn_id,
                                    th.track_fullname_hash,
-                                   fetch_sid,
-                                   sid);
-                conn_it->second.tracks_by_request_id[fetch_sid] = std::move(joining_fetch_handler);
+                                   fetch_rid,
+                                   *track_handler->GetRequestId());
+                conn_it->second.tracks_by_request_id[fetch_rid] = std::move(joining_fetch_handler);
                 SendJoiningFetch(conn_it->second,
-                                 fetch_sid,
+                                 fetch_rid,
                                  info.priority,
                                  info.group_order,
-                                 sid,
+                                 *track_handler->GetRequestId(),
                                  info.preceding_group_offset,
                                  info.parameters);
             }
@@ -1010,18 +1005,13 @@ namespace quicr {
             return;
         }
 
-        auto sid = conn_it->second.next_request_id++ << 1;
-        if (client_mode_) {
-            sid++;
-        }
-
-        track_handler->SetRequestId(sid);
+        track_handler->SetRequestId(conn_it->second.GetNextRequestId());
 
         if (!track_handler->GetTrackAlias().has_value()) {
             track_handler->SetTrackAlias(th.track_fullname_hash);
         }
 
-        conn_it->second.pub_tracks_ns_by_request_id[sid] = th.track_namespace_hash;
+        conn_it->second.pub_tracks_ns_by_request_id[*track_handler->GetRequestId()] = th.track_namespace_hash;
 
         if (track_handler->UsingAnnounce()) {
             // Check if this published track is a new namespace or existing.
@@ -1037,13 +1027,13 @@ namespace quicr {
 
                 lock.lock();
 
-                SendAnnounce(conn_it->second, sid, tfn.name_space);
+                SendAnnounce(conn_it->second, *track_handler->GetRequestId(), tfn.name_space);
 
             } else {
                 auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
                 if (pub_n_it == pub_ns_it->second.end()) {
                     track_handler->SetStatus(pub_ns_it->second.begin()->second->GetStatus());
-                    SendAnnounce(conn_it->second, sid, tfn.name_space);
+                    SendAnnounce(conn_it->second, *track_handler->GetRequestId(), tfn.name_space);
 
                     SPDLOG_LOGGER_INFO(logger_,
                                        "Publish track has new track namespace hash: {0} name hash: {1}",
@@ -1053,11 +1043,11 @@ namespace quicr {
             }
         } else {
             // Add state to received request ID since a subscribe will not be received for this request
-            conn_it->second.recv_req_id[sid] = { track_handler->GetFullTrackName() };
+            conn_it->second.recv_req_id[*track_handler->GetRequestId()] = { track_handler->GetFullTrackName() };
 
             track_handler->SetStatus(PublishTrackHandler::Status::kPendingPublishOk);
             SendPublish(conn_it->second,
-                        sid,
+                        *track_handler->GetRequestId(),
                         tfn,
                         track_handler->GetTrackAlias().value(),
                         track_handler->GetDefaultPriority(),
@@ -1108,7 +1098,7 @@ namespace quicr {
         };
 
         // Hold ref to track handler
-        conn_it->second.pub_tracks_by_request_id[sid] = track_handler;
+        conn_it->second.pub_tracks_by_request_id[*track_handler->GetRequestId()] = track_handler;
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
         conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash] = track_handler;
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
@@ -1138,16 +1128,9 @@ namespace quicr {
             return;
         }
 
-        auto sid = conn_it->second.next_request_id++ << 1;
-        if (client_mode_) {
-            sid++;
-        }
+        track_handler->SetRequestId(conn_it->second.GetNextRequestId());
 
-        track_handler->SetRequestId(sid);
-
-        SPDLOG_LOGGER_DEBUG(logger_, "subscribe id (from fetch) to add to memory: {0}", sid);
-
-        track_handler->SetRequestId(sid);
+        SPDLOG_LOGGER_DEBUG(logger_, "subscribe id (from fetch) to add to memory: {0}", *track_handler->GetRequestId());
 
         auto priority = track_handler->GetPriority();
         auto group_order = track_handler->GetGroupOrder();
@@ -1158,9 +1141,9 @@ namespace quicr {
 
         track_handler->SetStatus(FetchTrackHandler::Status::kPendingResponse);
 
-        conn_it->second.tracks_by_request_id[sid] = std::move(track_handler);
+        conn_it->second.tracks_by_request_id[*track_handler->GetRequestId()] = std::move(track_handler);
 
-        SendFetch(conn_it->second, sid, tfn, priority, group_order, start_group, start_object, end_group, end_object);
+        SendFetch(conn_it->second, *track_handler->GetRequestId(), tfn, priority, group_order, start_group, start_object, end_group, end_object);
     }
 
     void Transport::CancelFetchTrack(ConnectionHandle connection_handle,
@@ -1455,6 +1438,7 @@ namespace quicr {
     void Transport::OnNewConnection(const TransportConnId& conn_id, const TransportRemote& remote)
     {
         auto [conn_ctx, is_new] = connections_.try_emplace(conn_id, ConnectionContext{});
+        conn_ctx->second.next_request_id = 1; // Server is odd, starting at 1
 
         conn_ctx->second.connection_handle = conn_id;
         NewConnectionAccepted(conn_id, { remote.host_or_ip, remote.port });
