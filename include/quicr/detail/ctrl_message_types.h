@@ -158,7 +158,7 @@ namespace quicr::messages {
             throw std::invalid_argument("Value too large to encode as uint64_t.");
         }
         std::uint64_t val = 0;
-        std::memcpy(&val, param.value.data(), std::min(param.value.size(), sizeof(std::uint64_t)));
+        std::memcpy(&val, param.value.data(), param.value.size());
         return buffer << UintVar(val);
     }
 
