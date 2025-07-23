@@ -122,7 +122,7 @@ namespace quicr::messages {
             }
 
             // Any remaining bytes could be 0, but nothing else.
-            const auto longer = (value.size() > other.value.size()) ? value : other.value;
+            const auto& longer = (value.size() > other.value.size()) ? value : other.value;
             const auto remaining = larger - smaller;
             static constexpr std::uint8_t kZero[sizeof(std::uint64_t)] = { 0 };
             return memcmp(longer.data() + smaller, kZero, remaining) == 0;
