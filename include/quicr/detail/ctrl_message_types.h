@@ -133,8 +133,7 @@ namespace quicr::messages {
     template<KeyType T>
     Bytes& operator<<(Bytes& buffer, const T value)
     {
-        buffer << UintVar(static_cast<std::uint64_t>(value));
-        return buffer;
+        return buffer << UintVar(static_cast<std::uint64_t>(value));
     }
     template<KeyType T>
     BytesSpan operator>>(BytesSpan buffer, T& value)
@@ -149,36 +148,35 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const KeyValuePair<T>& param)
     {
         buffer << param.type;
-        if (static_cast<std::uint64_t>(param.type) % 2 == 0) {
-            // Even, single varint of value.
-            if (param.value.size() > sizeof(std::uint64_t)) {
-                throw std::invalid_argument("Value too large to encode as uint64_t.");
-            }
-            std::uint64_t val = 0;
-            std::memcpy(&val, param.value.data(), std::min(param.value.size(), sizeof(std::uint64_t)));
-            buffer << UintVar(val);
-        } else {
+        if (static_cast<std::uint64_t>(param.type) % 2 != 0) {
             // Odd, encode bytes.
-            buffer << param.value;
+            return buffer << param.value;
         }
-        return buffer;
+
+        // Even, single varint of value.
+        if (param.value.size() > sizeof(std::uint64_t)) {
+            throw std::invalid_argument("Value too large to encode as uint64_t.");
+        }
+        std::uint64_t val = 0;
+        std::memcpy(&val, param.value.data(), std::min(param.value.size(), sizeof(std::uint64_t)));
+        return buffer << UintVar(val);
     }
 
     template<KeyType T>
     BytesSpan operator>>(BytesSpan buffer, KeyValuePair<T>& param)
     {
         buffer = buffer >> param.type;
-        if (static_cast<std::uint64_t>(param.type) % 2 == 0) {
-            // Even, single varint of value.
-            UintVar uvar(buffer);
-            buffer = buffer.subspan(uvar.size());
-            std::uint64_t val(uvar);
-            param.value.resize(uvar.size());
-            std::memcpy(param.value.data(), &val, uvar.size());
-        } else {
+        if (static_cast<std::uint64_t>(param.type) % 2 != 0) {
             // Odd, decode bytes.
-            buffer = buffer >> param.value;
+            return buffer >> param.value;
         }
+
+        // Even, decode single varint of value.
+        UintVar uvar(buffer);
+        buffer = buffer.subspan(uvar.size());
+        std::uint64_t val(uvar);
+        param.value.resize(uvar.size());
+        std::memcpy(param.value.data(), &val, uvar.size());
         return buffer;
     }
 
