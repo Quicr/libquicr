@@ -1189,3 +1189,63 @@ TEST_CASE("Parameters encode/decode")
     buffer >> out;
     CHECK_EQ(out, params);
 }
+
+TEST_CASE("KVP Value Equality")
+{
+    SUBCASE("Even type - varint compression")
+    {
+        KeyValuePair<std::uint64_t> kvp;
+        kvp.type = 2;             // Even type
+        kvp.value = { 0x1, 0x0 }; // Will be compressed to {0x1}
+        Bytes buffer;
+        buffer << kvp;
+        KeyValuePair<std::uint64_t> out;
+        buffer >> out;
+        CHECK_EQ(out, kvp);
+    }
+
+    SUBCASE("Even type - direct comparison")
+    {
+        KeyValuePair<std::uint64_t> kvp1, kvp2;
+        kvp1.type = kvp2.type = 2; // Even type
+        kvp1.value = { 0x1, 0x0, 0x0 };
+        kvp2.value = { 0x1 };
+        CHECK_EQ(kvp1, kvp2); // Should be equal (same numeric value)
+    }
+
+    SUBCASE("Even type - different values")
+    {
+        KeyValuePair<std::uint64_t> kvp1, kvp2;
+        kvp1.type = kvp2.type = 2; // Even type
+        kvp1.value = { 0x1 };
+        kvp2.value = { 0x2 };
+        CHECK_FALSE(kvp1 == kvp2); // Should be different
+    }
+
+    SUBCASE("Even type - non-zero padding")
+    {
+        KeyValuePair<std::uint64_t> kvp1, kvp2;
+        kvp1.type = kvp2.type = 2; // Even type
+        kvp1.value = { 0x1 };
+        kvp2.value = { 0x1, 0x1 }; // Non-zero padding
+        CHECK_FALSE(kvp1 == kvp2); // Should be different
+    }
+
+    SUBCASE("Odd type - byte equality")
+    {
+        KeyValuePair<std::uint64_t> kvp1, kvp2;
+        kvp1.type = kvp2.type = 1; // Odd type
+        kvp1.value = { 0x1, 0x0 };
+        kvp2.value = { 0x1, 0x0 };
+        CHECK_EQ(kvp1, kvp2); // Should be equal (exact byte match)
+    }
+
+    SUBCASE("Odd type - different bytes")
+    {
+        KeyValuePair<std::uint64_t> kvp1, kvp2;
+        kvp1.type = kvp2.type = 1; // Odd type
+        kvp1.value = { 0x1, 0x0 };
+        kvp2.value = { 0x1 };      // Different size
+        CHECK_FALSE(kvp1 == kvp2); // Should be different (exact byte comparison)
+    }
+}

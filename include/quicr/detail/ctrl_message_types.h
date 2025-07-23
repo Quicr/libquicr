@@ -2,6 +2,7 @@
 #include "quicr/common.h"
 #include "quicr/detail/uintvar.h"
 #include "quicr/track_name.h"
+#include <stdexcept>
 
 namespace quicr::messages {
     quicr::Bytes& operator<<(quicr::Bytes& buffer, const quicr::Bytes& bytes);
@@ -104,11 +105,27 @@ namespace quicr::messages {
             }
 
             // Even types are numeric equality.
-            std::uint64_t our_value{ 0 };
-            memcpy(&our_value, value.data(), std::min(value.size(), sizeof(std::uint64_t)));
-            std::uint64_t their_value{ 0 };
-            memcpy(&their_value, other.value.data(), std::min(other.value.size(), sizeof(std::uint64_t)));
-            return our_value == their_value;
+            if (value.size() > sizeof(std::uint64_t) || other.value.size() > sizeof(std::uint64_t)) {
+                throw std::invalid_argument("Even KVPs must be <= 8 bytes");
+            }
+
+            // Compare numeric values.
+            const auto smaller = std::min(value.size(), other.value.size());
+            if (memcmp(value.data(), other.value.data(), smaller) != 0) {
+                return false;
+            }
+
+            // Are there left over bytes to check?
+            const auto larger = std::max(value.size(), other.value.size());
+            if (larger == smaller) {
+                return true;
+            }
+
+            // Any remaining bytes could be 0, but nothing else.
+            const auto longer = (value.size() > other.value.size()) ? value : other.value;
+            const auto remaining = larger - smaller;
+            static constexpr std::uint8_t kZero[sizeof(std::uint64_t)] = { 0 };
+            return memcmp(longer.data() + smaller, kZero, remaining) == 0;
         }
     };
 
