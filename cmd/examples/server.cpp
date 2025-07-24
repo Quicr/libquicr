@@ -145,7 +145,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
       : SubscribeTrackHandler(full_track_name,
                               3,
                               quicr::messages::GroupOrder::kAscending,
-                              quicr::messages::FilterType::kLatestObject,
+                              quicr::messages::FilterType::kLargestObject,
                               std::nullopt,
                               is_publisher_initiated)
     {

@@ -900,11 +900,11 @@ main(int argc, char* argv[])
             pub_thread = std::thread(DoPublisher, pub_track_name, client, use_announce, std::ref(stop_threads));
         }
         if (enable_sub) {
-            auto filter_type = quicr::messages::FilterType::kLatestObject;
+            auto filter_type = quicr::messages::FilterType::kLargestObject;
             if (result.count("start_point")) {
                 if (result["start_point"].as<uint64_t>() == 0) {
-                    filter_type = quicr::messages::FilterType::kLatestGroup;
-                    SPDLOG_INFO("Setting subscription filter to Latest Group");
+                    filter_type = quicr::messages::FilterType::kNextGroupStart;
+                    SPDLOG_INFO("Setting subscription filter to Next Group Start");
                 }
             }
             bool joining_fetch = result.count("joining_fetch") && result["joining_fetch"].as<bool>();

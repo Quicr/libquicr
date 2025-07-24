@@ -94,7 +94,7 @@ namespace quicr {
           const FullTrackName& full_track_name,
           messages::SubscriberPriority priority,
           messages::GroupOrder group_order = messages::GroupOrder::kAscending,
-          messages::FilterType filter_type = messages::FilterType::kLatestObject)
+          messages::FilterType filter_type = messages::FilterType::kLargestObject)
         {
             return std::shared_ptr<SubscribeTrackHandler>(
               new SubscribeTrackHandler(full_track_name, priority, group_order, filter_type));

@@ -144,7 +144,7 @@ namespace quicr {
 
                 // Send the ok.
                 SendPublishOk(
-                  conn_it->second, request_id, forward, priority, group_order, messages::FilterType::kLatestObject);
+                  conn_it->second, request_id, forward, priority, group_order, messages::FilterType::kLargestObject);
                 break;
             }
             default:

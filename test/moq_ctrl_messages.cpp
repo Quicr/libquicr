@@ -170,7 +170,7 @@ TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
                                                 0x10,
                                                 GroupOrder::kAscending,
                                                 1,
-                                                FilterType::kLatestObject,
+                                                FilterType::kLargestObject,
                                                 nullptr,
                                                 std::nullopt,
                                                 nullptr,
@@ -181,12 +181,12 @@ TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
 
     Subscribe subscribe_out(
       [](Subscribe& msg) {
-          if (msg.filter_type == FilterType::kLatestObject) {
+          if (msg.filter_type == FilterType::kLargestObject) {
               // do nothing...
           }
       },
       [](Subscribe& msg) {
-          if (msg.filter_type == FilterType::kLatestGroup) {
+          if (msg.filter_type == FilterType::kNextGroupStart) {
               // again
           }
       });
@@ -208,7 +208,7 @@ TEST_CASE("Subscribe (kLatestGroup) Message encode/decode")
                                                 0x10,
                                                 GroupOrder::kAscending,
                                                 1,
-                                                FilterType::kLatestObject,
+                                                FilterType::kLargestObject,
                                                 nullptr,
                                                 std::nullopt,
                                                 nullptr,
@@ -219,12 +219,12 @@ TEST_CASE("Subscribe (kLatestGroup) Message encode/decode")
 
     auto subscribe_out = Subscribe(
       [](Subscribe& msg) {
-          if (msg.filter_type == FilterType::kLatestObject) {
+          if (msg.filter_type == FilterType::kLargestObject) {
               // do nothing...
           }
       },
       [](Subscribe& msg) {
-          if (msg.filter_type == FilterType::kLatestGroup) {
+          if (msg.filter_type == FilterType::kNextGroupStart) {
               // again
           }
       });
@@ -345,7 +345,7 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
                                                 0x10,
                                                 GroupOrder::kAscending,
                                                 1,
-                                                FilterType::kLatestObject,
+                                                FilterType::kLargestObject,
                                                 nullptr,
                                                 std::nullopt,
                                                 nullptr,
@@ -398,7 +398,7 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
                                                 0x10,
                                                 GroupOrder::kAscending,
                                                 1,
-                                                FilterType::kLatestObject,
+                                                FilterType::kLargestObject,
                                                 nullptr,
                                                 std::nullopt,
                                                 nullptr,
@@ -453,8 +453,8 @@ GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uin
     out.track_name = kTrackNameAliceVideo;
     out.filter_type = filter;
     switch (filter) {
-        case FilterType::kLatestObject:
-        case FilterType::kLatestGroup:
+        case FilterType::kLargestObject:
+        case FilterType::kNextGroupStart:
             break;
         case FilterType::kAbsoluteStart:
             out.group_0 = std::make_optional<Subscribe::Group_0>();
@@ -483,10 +483,10 @@ GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uin
 TEST_CASE("Subscribe (Combo) Message encode/decode")
 {
     auto subscribes = std::vector<Subscribe>{
-        GenerateSubscribe(FilterType::kLatestObject),
-        GenerateSubscribe(FilterType::kLatestGroup),
-        GenerateSubscribe(FilterType::kLatestObject, 1),
-        GenerateSubscribe(FilterType::kLatestGroup, 2),
+        GenerateSubscribe(FilterType::kLargestObject),
+        GenerateSubscribe(FilterType::kNextGroupStart),
+        GenerateSubscribe(FilterType::kLargestObject, 1),
+        GenerateSubscribe(FilterType::kNextGroupStart, 2),
         GenerateSubscribe(FilterType::kAbsoluteStart, 0, 0x100, 0x2),
         GenerateSubscribe(FilterType::kAbsoluteStart, 2, 0x100, 0x2),
         GenerateSubscribe(FilterType::kAbsoluteRange, 0, 0x100, 0x2, 0x500),
@@ -923,7 +923,7 @@ TEST_CASE("PublishOk Message encode/decode")
                                 true,
                                 0x10,
                                 GroupOrder::kAscending,
-                                FilterType::kLatestObject,
+                                FilterType::kLargestObject,
                                 nullptr,
                                 std::nullopt,
                                 nullptr,
