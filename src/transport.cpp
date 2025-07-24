@@ -447,15 +447,15 @@ namespace quicr {
                                     uint64_t expires,
                                     const std::optional<Location>& largest_location)
     try {
-        const auto subscribe_ok =
-          SubscribeOk(request_id,
-                      track_alias,
-                      expires,
-                      GroupOrder::kAscending,
-                      largest_location.has_value(),
-                      nullptr,
-                      largest_location.has_value() ? SubscribeOk::Group_0(*largest_location) : std::nullopt,
-                      {});
+        const auto subscribe_ok = SubscribeOk(
+          request_id,
+          track_alias,
+          expires,
+          GroupOrder::kAscending,
+          largest_location.has_value(),
+          nullptr,
+          largest_location.has_value() ? std::make_optional<SubscribeOk::Group_0>(*largest_location) : std::nullopt,
+          {});
 
         Bytes buffer;
         buffer << subscribe_ok;
