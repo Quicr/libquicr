@@ -63,6 +63,8 @@
         {% endif %}
 
     public:
+        virtual bool Validate() const;
+
         {% for field in message.fields %}
             {% if field.spec_name not in field_discards %}
                 {% if field.is_optional %}
