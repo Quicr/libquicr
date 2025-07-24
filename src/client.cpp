@@ -46,14 +46,8 @@ namespace quicr {
 
         switch (subscribe_response.reason_code) {
             case SubscribeResponse::ReasonCode::kOk: {
-                SendSubscribeOk(conn_it->second,
-                                request_id,
-                                track_alias,
-                                kSubscribeExpires,
-                                subscribe_response.largest_location.has_value(),
-                                subscribe_response.largest_location.has_value()
-                                  ? subscribe_response.largest_location.value()
-                                  : messages::Location());
+                SendSubscribeOk(
+                  conn_it->second, request_id, track_alias, kSubscribeExpires, subscribe_response.largest_location);
                 break;
             }
 
