@@ -1304,3 +1304,26 @@ TEST_CASE("uint16_t encode/decode")
 {
     IntegerEncodeDecode<std::uint16_t>(true);
 }
+
+TEST_CASE("Varint backed enum encode/decode")
+{
+    enum class Example : std::uint64_t
+    {
+        kOneByteVarint = 63,
+        kTwoByteVarint = 16383,
+        kFourByteVarint = 1073741823,
+        kEightByteVarint = 4611686018427387903
+    };
+    constexpr auto varint_values = std::array{
+        Example::kOneByteVarint, Example::kTwoByteVarint, Example::kFourByteVarint, Example::kEightByteVarint
+    };
+    for (const auto& value : varint_values) {
+        Bytes buffer;
+        buffer << value;
+        UintVar out{ buffer };
+        Example code;
+        buffer >> code;
+        CHECK_EQ(out.Get(), static_cast<std::underlying_type_t<Example>>(value));
+        CHECK_EQ(code, value);
+    }
+}
