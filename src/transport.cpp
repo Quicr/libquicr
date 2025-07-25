@@ -1874,27 +1874,70 @@ namespace quicr {
         std::ostringstream log_msg;
         log_msg << "Closing conn_id: " << conn_id;
         switch (reason) {
-            case messages::TerminationReason::kNoError:
-                log_msg << " no error";
+            case TerminationReason::kNoError:
+                log_msg << " - No error";
                 break;
-            case messages::TerminationReason::kInternalError:
-                log_msg << " internal error: " << reason_str;
+            case TerminationReason::kInternalError:
+                log_msg << " - Internal error occurred";
                 break;
-            case messages::TerminationReason::kUnauthorized:
-                log_msg << " unauthorized: " << reason_str;
+            case TerminationReason::kUnauthorized:
+                log_msg << " - Unauthorized";
                 break;
-            case messages::TerminationReason::kProtocolViolation:
-                log_msg << " protocol violation: " << reason_str;
+            case TerminationReason::kProtocolViolation:
+                log_msg << " - Protocol violation";
                 break;
-            case messages::TerminationReason::kDupTrackAlias:
-                log_msg << " duplicate track alias: " << reason_str;
+            case TerminationReason::kInvalidRequestId:
+                log_msg << " - Invalid request ID";
                 break;
-            case messages::TerminationReason::kParamLengthMismatch:
-                log_msg << " param length mismatch: " << reason_str;
+            case TerminationReason::kDuplicateTrackAlias:
+                log_msg << " - Duplicate track alias";
                 break;
-            case messages::TerminationReason::kGoAwayTimeout:
-                log_msg << " goaway timeout: " << reason_str;
+            case TerminationReason::kKeyValueFormattingError:
+                log_msg << " - Key-value formatting error";
                 break;
+            case TerminationReason::kTooManyRequests:
+                log_msg << " - Too many requests";
+                break;
+            case TerminationReason::kInvalidPath:
+                log_msg << " - Invalid path";
+                break;
+            case TerminationReason::kMalformedPath:
+                log_msg << " - Malformed path";
+                break;
+            case TerminationReason::kGoAwayTimeout:
+                log_msg << " - Go-away timeout";
+                break;
+            case TerminationReason::kControlMessageTimeout:
+                log_msg << " - Control message timeout";
+                break;
+            case TerminationReason::kDataStreamTimeout:
+                log_msg << " - Data stream timeout";
+                break;
+            case TerminationReason::kAuthTokenCacheOverflow:
+                log_msg << " - Auth token cache overflow";
+                break;
+            case TerminationReason::kDuplicateAuthTokenAlias:
+                log_msg << " - Duplicate auth token alias";
+                break;
+            case TerminationReason::kVersionNegotiationFailed:
+                log_msg << " - Version negotiation failed";
+                break;
+            case TerminationReason::kMalformedAuthToken:
+                log_msg << " - Malformed auth token";
+                break;
+            case TerminationReason::kUnknownAuthTokenAlias:
+                log_msg << " - Unknown auth token alias";
+                break;
+            case TerminationReason::kExpiredAuthToken:
+                log_msg << " - Expired auth token";
+                break;
+            default:
+                log_msg << " - Unknown reason code: " << static_cast<uint64_t>(reason);
+                break;
+        }
+
+        if (!reason_str.empty()) {
+            log_msg << " (" << reason_str << ")";
         }
 
         SPDLOG_LOGGER_INFO(logger_, log_msg.str());

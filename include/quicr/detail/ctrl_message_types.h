@@ -254,12 +254,24 @@ namespace quicr::messages {
     enum class TerminationReason : uint64_t
     {
         kNoError = 0x0,
-        kInternalError,
-        kUnauthorized,
-        kProtocolViolation,
-        kDupTrackAlias,
-        kParamLengthMismatch,
+        kInternalError = 0x1,
+        kUnauthorized = 0x2,
+        kProtocolViolation = 0x3,
+        kInvalidRequestId = 0x4,
+        kDuplicateTrackAlias = 0x5,
+        kKeyValueFormattingError = 0x6,
+        kTooManyRequests = 0x7,
+        kInvalidPath = 0x8,
+        kMalformedPath = 0x9,
         kGoAwayTimeout = 0x10,
+        kControlMessageTimeout = 0x11,
+        kDataStreamTimeout = 0x12,
+        kAuthTokenCacheOverflow = 0x13,
+        kDuplicateAuthTokenAlias = 0x14,
+        kVersionNegotiationFailed = 0x15,
+        kMalformedAuthToken = 0x16,
+        kUnknownAuthTokenAlias = 0x17,
+        kExpiredAuthToken = 0x18,
     };
 
     enum class FetchErrorCode : uint8_t
