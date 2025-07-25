@@ -319,9 +319,7 @@ namespace quicr {
                     group_order,
                     1,
                     filter_type,
-                    nullptr,
                     start_location,
-                    nullptr,
                     end_group,
                     {
                       Parameter{
@@ -364,7 +362,6 @@ namespace quicr {
                                track_alias,
                                group_order,
                                largest_location.has_value(),
-                               nullptr,
                                largest_location.has_value() ? std::make_optional(Publish::Group_0{ *largest_location })
                                                             : std::nullopt,
                                forward,
@@ -402,8 +399,8 @@ namespace quicr {
             throw std::runtime_error("Absolute filtering not yet supported for Subscribe");
         }
 
-        auto publish_ok = PublishOk(
-          request_id, forward, priority, group_order, filter_type, nullptr, start_location, nullptr, end_group, {});
+        auto publish_ok =
+          PublishOk(request_id, forward, priority, group_order, filter_type, start_location, end_group, {});
 
         Bytes buffer;
         buffer << publish_ok;
@@ -481,7 +478,6 @@ namespace quicr {
           expires,
           GroupOrder::kAscending,
           largest_location.has_value(),
-          nullptr,
           largest_location.has_value() ? std::make_optional(SubscribeOk::Group_0{ *largest_location }) : std::nullopt,
           {});
 
@@ -676,15 +672,8 @@ namespace quicr {
             tfn.name_space, tfn.name, { start_group, start_object }, { end_group, end_object }
         };
 
-        auto fetch = messages::Fetch(request_id,
-                                     priority,
-                                     group_order,
-                                     messages::FetchType::kStandalone,
-                                     nullptr,
-                                     group_0,
-                                     nullptr,
-                                     std::nullopt,
-                                     {});
+        auto fetch = messages::Fetch(
+          request_id, priority, group_order, messages::FetchType::kStandalone, group_0, std::nullopt, {});
 
         Bytes buffer;
         buffer << fetch;
@@ -705,15 +694,8 @@ namespace quicr {
     try {
         auto group_1 = std::make_optional<messages::Fetch::Group_1>() = { joining_request_id, preceding_group_offset };
 
-        auto fetch = messages::Fetch(request_id,
-                                     priority,
-                                     group_order,
-                                     messages::FetchType::kJoiningFetch,
-                                     nullptr,
-                                     std::nullopt,
-                                     nullptr,
-                                     group_1,
-                                     parameters);
+        auto fetch = messages::Fetch(
+          request_id, priority, group_order, messages::FetchType::kJoiningFetch, std::nullopt, group_1, parameters);
 
         Bytes buffer;
         buffer << fetch;

@@ -23,7 +23,17 @@
             {% endif %}
         {% endfor %}
     {
+        {%for field in message.fields %}
+            {% if field.spec_name not in field_discards %}
+                {% if field.is_optional %}
+        if ({{field.name}}_cb == nullptr) {
+            throw std::invalid_argument("Callbacks must be specified");
+        }
+                {% endif %}
+            {% endif %}
+        {% endfor %}
     }
+
     {% endif %}
 
     /*

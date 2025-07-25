@@ -171,9 +171,7 @@ TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
                                                 GroupOrder::kAscending,
                                                 1,
                                                 FilterType::kLatestObject,
-                                                nullptr,
                                                 std::nullopt,
-                                                nullptr,
                                                 std::nullopt,
                                                 {});
 
@@ -209,9 +207,7 @@ TEST_CASE("Subscribe (kLatestGroup) Message encode/decode")
                                                 GroupOrder::kAscending,
                                                 1,
                                                 FilterType::kLatestObject,
-                                                nullptr,
                                                 std::nullopt,
-                                                nullptr,
                                                 std::nullopt,
                                                 {});
 
@@ -250,9 +246,7 @@ TEST_CASE("Subscribe (kAbsoluteStart) Message encode/decode")
                                                 GroupOrder::kAscending,
                                                 1,
                                                 FilterType::kAbsoluteStart,
-                                                nullptr,
                                                 group_0,
-                                                nullptr,
                                                 std::nullopt,
                                                 {});
 
@@ -300,9 +294,7 @@ TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
                                                 GroupOrder::kAscending,
                                                 1,
                                                 FilterType::kAbsoluteRange,
-                                                nullptr,
                                                 group_0,
-                                                nullptr,
                                                 group_1,
                                                 {});
 
@@ -346,9 +338,7 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
                                                 GroupOrder::kAscending,
                                                 1,
                                                 FilterType::kLatestObject,
-                                                nullptr,
                                                 std::nullopt,
-                                                nullptr,
                                                 std::nullopt,
                                                 params);
 
@@ -399,9 +389,7 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
                                                 GroupOrder::kAscending,
                                                 1,
                                                 FilterType::kLatestObject,
-                                                nullptr,
                                                 std::nullopt,
-                                                nullptr,
                                                 std::nullopt,
                                                 params);
 
@@ -546,7 +534,7 @@ TEST_CASE("SubscribeOk Message encode/decode")
 {
     Bytes buffer;
     const auto track_alias = uint64_t(kTrackAliasAliceVideo);
-    auto subscribe_ok = SubscribeOk(0x1, track_alias, 0, GroupOrder::kAscending, false, nullptr, std::nullopt, {});
+    auto subscribe_ok = SubscribeOk(0x1, track_alias, 0, GroupOrder::kAscending, false, std::nullopt, {});
 
     buffer << subscribe_ok;
 
@@ -571,7 +559,7 @@ TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
     auto group_0 = std::make_optional<SubscribeOk::Group_0>();
     group_0->largest_location = { 100, 200 };
 
-    auto subscribe_ok = SubscribeOk(0x01, 0x1000, 0, GroupOrder::kAscending, 1, nullptr, group_0, {});
+    auto subscribe_ok = SubscribeOk(0x01, 0x1000, 0, GroupOrder::kAscending, 1, group_0, {});
 
     buffer << subscribe_ok;
 
@@ -718,8 +706,7 @@ TEST_CASE("Fetch Message encode/decode")
         group_0->end_location.group = 0x2000;
         group_0->end_location.object = 0x100;
     }
-    auto fetch =
-      Fetch(0x10, 1, GroupOrder::kAscending, FetchType::kStandalone, nullptr, group_0, nullptr, std::nullopt, {});
+    auto fetch = Fetch(0x10, 1, GroupOrder::kAscending, FetchType::kStandalone, group_0, std::nullopt, {});
 
     buffer << fetch;
     {
@@ -727,11 +714,13 @@ TEST_CASE("Fetch Message encode/decode")
           [](Fetch& self) {
               if (self.fetch_type == FetchType::kStandalone) {
                   self.group_0 = std::make_optional<Fetch::Group_0>();
-              } else {
-                  self.group_1 = std::make_optional<Fetch::Group_1>();
               }
           },
-          nullptr);
+          [](Fetch& self) {
+              if (self.fetch_type == FetchType::kJoiningFetch) {
+                  self.group_1 = std::make_optional<Fetch::Group_1>();
+              }
+          });
 
         CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetch), fetch_out));
         CHECK_EQ(fetch.request_id, fetch_out.request_id);
@@ -753,8 +742,7 @@ TEST_CASE("Fetch Message encode/decode")
         group_1->joining_start = 0x0;
     }
 
-    fetch =
-      Fetch(0x10, 1, GroupOrder::kAscending, FetchType::kJoiningFetch, nullptr, std::nullopt, nullptr, group_1, {});
+    fetch = Fetch(0x10, 1, GroupOrder::kAscending, FetchType::kJoiningFetch, std::nullopt, group_1, {});
 
     buffer << fetch;
     {
@@ -762,11 +750,13 @@ TEST_CASE("Fetch Message encode/decode")
           [](Fetch& self) {
               if (self.fetch_type == FetchType::kStandalone) {
                   self.group_0 = std::make_optional<Fetch::Group_0>();
-              } else {
-                  self.group_1 = std::make_optional<Fetch::Group_1>();
               }
           },
-          nullptr);
+          [](Fetch& self) {
+              if (self.fetch_type == FetchType::kJoiningFetch) {
+                  self.group_1 = std::make_optional<Fetch::Group_1>();
+              }
+          });
 
         CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetch), fetch_out));
         CHECK_EQ(fetch.group_1->joining_request_id, fetch_out.group_1->joining_request_id);
@@ -894,15 +884,13 @@ TEST_CASE("Publish Message encode/decode")
                            kTrackAliasAliceVideo.Get(),
                            GroupOrder::kAscending,
                            1,
-                           nullptr,
                            std::nullopt,
                            true,
                            {});
 
     buffer << publish;
 
-    auto publish_out =
-      Publish(0, TrackNamespace{}, Bytes{}, 0, GroupOrder::kAscending, 0, nullptr, std::nullopt, false, {});
+    auto publish_out = Publish(0, TrackNamespace{}, Bytes{}, 0, GroupOrder::kAscending, 0, std::nullopt, false, {});
 
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublish), publish_out));
     CHECK_EQ(publish.request_id, publish_out.request_id);
@@ -919,16 +907,8 @@ TEST_CASE("PublishOk Message encode/decode")
 {
     Bytes buffer;
 
-    auto publish_ok = PublishOk(0x1234,
-                                true,
-                                0x10,
-                                GroupOrder::kAscending,
-                                FilterType::kLatestObject,
-                                nullptr,
-                                std::nullopt,
-                                nullptr,
-                                std::nullopt,
-                                {});
+    auto publish_ok =
+      PublishOk(0x1234, true, 0x10, GroupOrder::kAscending, FilterType::kLatestObject, std::nullopt, std::nullopt, {});
 
     buffer << publish_ok;
 
@@ -963,8 +943,8 @@ TEST_CASE("PublishOk (with optional fields) Message encode/decode")
     auto group_1 = std::make_optional<PublishOk::Group_1>();
     group_1->endgroup = 300;
 
-    auto publish_ok = PublishOk(
-      0x1234, true, 0x10, GroupOrder::kAscending, FilterType::kAbsoluteRange, nullptr, group_0, nullptr, group_1, {});
+    auto publish_ok =
+      PublishOk(0x1234, true, 0x10, GroupOrder::kAscending, FilterType::kAbsoluteRange, group_0, group_1, {});
 
     buffer << publish_ok;
 
