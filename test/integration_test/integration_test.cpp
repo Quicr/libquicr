@@ -73,7 +73,7 @@ TEST_CASE("Integration - Subscribe")
     FullTrackName ftn;
     ftn.name_space = TrackNamespace({ "namespace" });
     ftn.name = { 1, 2, 3 };
-    constexpr auto filter_type = messages::FilterType::kLatestObject;
+    constexpr auto filter_type = messages::FilterType::kLargestObject;
     const auto handler =
       SubscribeTrackHandler::Create(ftn, 0, messages::GroupOrder::kOriginalPublisherOrder, filter_type);
 
