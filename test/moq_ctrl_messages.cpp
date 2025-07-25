@@ -1249,3 +1249,58 @@ TEST_CASE("KVP Value Equality")
         CHECK_FALSE(kvp1 == kvp2); // Should be different (exact byte comparison)
     }
 }
+
+template<typename T>
+concept Numeric = requires { std::numeric_limits<T>::is_specialized; };
+template<Numeric T>
+void
+IntegerEncodeDecode(bool exhaustive)
+{
+    using Limits = std::numeric_limits<T>;
+    if (exhaustive) {
+        static_assert(sizeof(size_t) > sizeof(T));
+        for (std::size_t value = Limits::min(); value <= Limits::max(); ++value) {
+            Bytes buffer;
+            buffer << static_cast<T>(value);
+            T out;
+            buffer >> out;
+            REQUIRE_EQ(out, value);
+        }
+    } else {
+        const std::array<T, 3> values = { Limits::min(), Limits::max(), Limits::max() / static_cast<T>(2) };
+        for (const auto value : values) {
+            Bytes buffer;
+            buffer << value;
+            T out;
+            buffer >> out;
+            CHECK_EQ(out, value);
+        }
+    }
+
+    // A buffer that's not big enough should throw.
+    for (std::size_t size = 0; size < sizeof(T); ++size) {
+        const auto buffer = Bytes(size);
+        T out;
+        CHECK_THROWS(buffer >> out);
+    }
+
+    // A buffer that's too big is fine.
+    auto buffer = Bytes(sizeof(T) + 1);
+    memset(buffer.data(), 0xFF, buffer.size());
+    T out;
+    buffer >> out;
+    CHECK_EQ(out, Limits::max());
+    memset(buffer.data(), 0, sizeof(T));
+    buffer >> out;
+    CHECK_EQ(out, 0);
+}
+
+TEST_CASE("uint8_t encode/decode")
+{
+    IntegerEncodeDecode<std::uint8_t>(true);
+}
+
+TEST_CASE("uint16_t encode/decode")
+{
+    IntegerEncodeDecode<std::uint16_t>(true);
+}
