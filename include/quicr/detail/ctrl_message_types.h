@@ -54,7 +54,7 @@ namespace quicr::messages {
     concept UVarintEncoded =
       std::same_as<T, std::uint64_t> || (std::is_enum_v<T> && std::same_as<std::underlying_type_t<T>, std::uint64_t>);
 
-    // Serialization for all uint64_t/enum(uint64_t) to varint).
+    // Serialization for all uint64_t/enum(uint64_t) to varint.
     template<UVarintEncoded T>
     Bytes& operator<<(Bytes& buffer, const T value)
     {
@@ -66,9 +66,8 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, T& value)
     {
         UintVar uvalue(buffer);
-        buffer = buffer.subspan(uvalue.size());
         value = static_cast<T>(uvalue.Get());
-        return buffer;
+        return buffer.subspan(uvalue.size());
     }
 
     /// MoQ Key Value Pair.
