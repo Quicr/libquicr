@@ -398,8 +398,7 @@ namespace quicr {
                          uint64_t track_alias,
                          messages::SubscriberPriority priority,
                          messages::GroupOrder group_order,
-                         bool content_exists,
-                         messages::Location largest_location,
+                         std::optional<messages::Location> largest_location,
                          bool forward);
 
         void SendPublishOk(ConnectionContext& conn_ctx,

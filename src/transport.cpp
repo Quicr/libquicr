@@ -301,6 +301,16 @@ namespace quicr {
     try {
         std::uint64_t delivery_timeout_ms = delivery_timeout.count();
 
+        // TODO: Add support for these filter types.
+        std::optional<Subscribe::Group_0> start_location;
+        if (filter_type == FilterType::kAbsoluteStart || filter_type == FilterType::kAbsoluteRange) {
+            throw std::runtime_error("Absolute filtering not yet supported for Subscribe");
+        }
+        std::optional<Subscribe::Group_1> end_group;
+        if (filter_type == FilterType::kAbsoluteRange) {
+            throw std::runtime_error("Absolute filtering not yet supported for Subscribe");
+        }
+
         auto subscribe =
           Subscribe(request_id,
                     tfn.name_space,
@@ -310,9 +320,9 @@ namespace quicr {
                     1,
                     filter_type,
                     nullptr,
-                    std::nullopt,
+                    start_location,
                     nullptr,
-                    std::nullopt,
+                    end_group,
                     {
                       Parameter{
                         ParameterType::kDeliveryTimeout,
@@ -344,13 +354,21 @@ namespace quicr {
                                 uint64_t track_alias,
                                 messages::SubscriberPriority priority,
                                 messages::GroupOrder group_order,
-                                bool content_exists,
-                                messages::Location largest_location,
+                                std::optional<Location> largest_location,
                                 bool forward)
     try {
 
-        auto publish = Publish(
-          request_id, tfn.name_space, tfn.name, track_alias, group_order, 0, nullptr, std::nullopt, forward, {});
+        auto publish = Publish(request_id,
+                               tfn.name_space,
+                               tfn.name,
+                               track_alias,
+                               group_order,
+                               largest_location.has_value(),
+                               nullptr,
+                               largest_location.has_value() ? std::make_optional(Publish::Group_0{ *largest_location })
+                                                            : std::nullopt,
+                               forward,
+                               {});
 
         Bytes buffer;
         buffer << publish;
@@ -374,8 +392,18 @@ namespace quicr {
                                   messages::GroupOrder group_order,
                                   messages::FilterType filter_type)
     try {
+        // TODO: Add support for these filter types.
+        std::optional<PublishOk::Group_0> start_location;
+        if (filter_type == FilterType::kAbsoluteStart || filter_type == FilterType::kAbsoluteRange) {
+            throw std::runtime_error("Absolute filtering not yet supported for Subscribe");
+        }
+        std::optional<PublishOk::Group_1> end_group;
+        if (filter_type == FilterType::kAbsoluteRange) {
+            throw std::runtime_error("Absolute filtering not yet supported for Subscribe");
+        }
+
         auto publish_ok = PublishOk(
-          request_id, forward, priority, group_order, filter_type, nullptr, std::nullopt, nullptr, std::nullopt, {});
+          request_id, forward, priority, group_order, filter_type, nullptr, start_location, nullptr, end_group, {});
 
         Bytes buffer;
         buffer << publish_ok;
@@ -1062,15 +1090,15 @@ namespace quicr {
             conn_it->second.recv_req_id[*track_handler->GetRequestId()] = { track_handler->GetFullTrackName() };
 
             track_handler->SetStatus(PublishTrackHandler::Status::kPendingPublishOk);
-            SendPublish(conn_it->second,
-                        *track_handler->GetRequestId(),
-                        tfn,
-                        track_handler->GetTrackAlias().value(),
-                        track_handler->GetDefaultPriority(),
-                        GroupOrder::kAscending,
-                        1,
-                        { track_handler->latest_group_id_, track_handler->latest_object_id_ },
-                        true);
+            SendPublish(
+              conn_it->second,
+              *track_handler->GetRequestId(),
+              tfn,
+              track_handler->GetTrackAlias().value(),
+              track_handler->GetDefaultPriority(),
+              GroupOrder::kAscending,
+              std::make_optional(Location{ track_handler->latest_group_id_, track_handler->latest_object_id_ }),
+              true);
         }
 
         track_handler->connection_handle_ = conn_id;
