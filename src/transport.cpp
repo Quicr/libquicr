@@ -1090,14 +1090,15 @@ namespace quicr {
             conn_it->second.recv_req_id[*track_handler->GetRequestId()] = { track_handler->GetFullTrackName() };
 
             track_handler->SetStatus(PublishTrackHandler::Status::kPendingPublishOk);
-            SendPublish(conn_it->second,
-                        *track_handler->GetRequestId(),
-                        tfn,
-                        track_handler->GetTrackAlias().value(),
-                        track_handler->GetDefaultPriority(),
-                        GroupOrder::kAscending,
-                        std::make_optional<Location>(track_handler->latest_group_id_, track_handler->latest_object_id_),
-                        true);
+            SendPublish(
+              conn_it->second,
+              *track_handler->GetRequestId(),
+              tfn,
+              track_handler->GetTrackAlias().value(),
+              track_handler->GetDefaultPriority(),
+              GroupOrder::kAscending,
+              std::make_optional(Location{ track_handler->latest_group_id_, track_handler->latest_object_id_ }),
+              true);
         }
 
         track_handler->connection_handle_ = conn_id;
