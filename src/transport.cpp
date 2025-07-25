@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/detail/transport.h"
+
+#include "quicr/detail/ctrl_messages.h"
 #include "quicr/detail/messages.h"
 
 #include <format>
@@ -443,12 +445,17 @@ namespace quicr {
                                     uint64_t request_id,
                                     uint64_t track_alias,
                                     uint64_t expires,
-                                    bool content_exists,
-                                    Location largest_location)
+                                    const std::optional<Location>& largest_location)
     try {
-        const auto group_0 = std::make_optional<SubscribeOk::Group_0>() = { largest_location };
-        const auto subscribe_ok =
-          SubscribeOk(request_id, track_alias, expires, GroupOrder::kAscending, content_exists, nullptr, group_0, {});
+        const auto subscribe_ok = SubscribeOk(
+          request_id,
+          track_alias,
+          expires,
+          GroupOrder::kAscending,
+          largest_location.has_value(),
+          nullptr,
+          largest_location.has_value() ? std::make_optional(SubscribeOk::Group_0{ *largest_location }) : std::nullopt,
+          {});
 
         Bytes buffer;
         buffer << subscribe_ok;

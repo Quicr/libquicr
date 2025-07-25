@@ -110,14 +110,8 @@ namespace quicr {
                 conn_it->second.recv_req_id[request_id].largest_location = subscribe_response.largest_location;
 
                 // Send the ok.
-                SendSubscribeOk(conn_it->second,
-                                request_id,
-                                track_alias,
-                                kSubscribeExpires,
-                                subscribe_response.largest_location.has_value(),
-                                subscribe_response.largest_location.has_value()
-                                  ? subscribe_response.largest_location.value()
-                                  : messages::Location());
+                SendSubscribeOk(
+                  conn_it->second, request_id, track_alias, kSubscribeExpires, subscribe_response.largest_location);
                 break;
             }
             default:

@@ -384,8 +384,7 @@ namespace quicr {
                              messages::RequestID request_id,
                              uint64_t track_alias,
                              uint64_t expires,
-                             bool content_exists,
-                             messages::Location largest_location);
+                             const std::optional<messages::Location>& largest_location);
         void SendUnsubscribe(ConnectionContext& conn_ctx, messages::RequestID request_id);
         void SendSubscribeDone(ConnectionContext& conn_ctx, messages::RequestID request_id, const std::string& reason);
         void SendSubscribeError(ConnectionContext& conn_ctx,
