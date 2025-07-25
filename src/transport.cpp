@@ -358,17 +358,17 @@ namespace quicr {
                                 bool forward)
     try {
 
-        auto publish =
-          Publish(request_id,
-                  tfn.name_space,
-                  tfn.name,
-                  track_alias,
-                  group_order,
-                  largest_location.has_value(),
-                  nullptr,
-                  largest_location.has_value() ? std::make_optional<Publish::Group_0>(*largest_location) : std::nullopt,
-                  forward,
-                  {});
+        auto publish = Publish(request_id,
+                               tfn.name_space,
+                               tfn.name,
+                               track_alias,
+                               group_order,
+                               largest_location.has_value(),
+                               nullptr,
+                               largest_location.has_value() ? std::make_optional(Publish::Group_0{ *largest_location })
+                                                            : std::nullopt,
+                               forward,
+                               {});
 
         Bytes buffer;
         buffer << publish;
