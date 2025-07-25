@@ -482,7 +482,7 @@ namespace quicr {
           GroupOrder::kAscending,
           largest_location.has_value(),
           nullptr,
-          largest_location.has_value() ? std::make_optional<SubscribeOk::Group_0>(*largest_location) : std::nullopt,
+          largest_location.has_value() ? std::make_optional(SubscribeOk::Group_0{ *largest_location }) : std::nullopt,
           {});
 
         Bytes buffer;

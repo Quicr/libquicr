@@ -35,8 +35,11 @@ set_target_properties(quicr_integration_test
         CXX_EXTENSIONS OFF
 )
 
-# Enable test discovery with doctest
-doctest_discover_tests(quicr_integration_test)
+# Enable test discovery with doctest - can't run in parallel.
+doctest_discover_tests(quicr_integration_test
+    PROPERTIES
+        RESOURCE_LOCK integration_lock
+)
 
 # Linting configuration
 if(LINT)
