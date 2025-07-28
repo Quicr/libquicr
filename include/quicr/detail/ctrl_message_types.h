@@ -5,21 +5,20 @@
 #include <stdexcept>
 
 namespace quicr::messages {
-    quicr::Bytes& operator<<(quicr::Bytes& buffer, const quicr::Bytes& bytes);
+    Bytes& operator<<(Bytes& buffer, const Bytes& bytes);
+    Bytes& operator<<(Bytes& buffer, const BytesSpan& bytes);
+    BytesSpan operator>>(BytesSpan buffer, Bytes& value);
 
-    quicr::Bytes& operator<<(quicr::Bytes& buffer, const quicr::BytesSpan& bytes);
-    quicr::BytesSpan operator>>(quicr::BytesSpan buffer, quicr::Bytes& value);
+    Bytes& operator<<(Bytes& buffer, std::uint64_t value);
+    BytesSpan operator>>(BytesSpan buffer, std::uint64_t& value);
 
-    quicr::Bytes& operator<<(quicr::Bytes& buffer, std::uint64_t value);
-    quicr::BytesSpan operator>>(quicr::BytesSpan buffer, std::uint64_t& value);
-
-    quicr::Bytes& operator<<(quicr::Bytes& buffer, std::uint8_t value);
-    quicr::BytesSpan operator>>(quicr::BytesSpan buffer, uint8_t& value);
+    Bytes& operator<<(Bytes& buffer, std::uint8_t value);
+    BytesSpan operator>>(BytesSpan buffer, uint8_t& value);
 
     Bytes& operator<<(Bytes& buffer, std::uint16_t value);
     BytesSpan operator>>(BytesSpan buffer, std::uint16_t& value);
 
-    quicr::Bytes& operator<<(quicr::Bytes& buffer, const quicr::UintVar& value);
+    Bytes& operator<<(Bytes& buffer, const UintVar& value);
 
     using GroupId = uint64_t;
     using ObjectId = uint64_t;
