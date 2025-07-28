@@ -396,7 +396,6 @@ namespace quicr {
                          messages::RequestID request_id,
                          const FullTrackName& tfn,
                          uint64_t track_alias,
-                         messages::SubscriberPriority priority,
                          messages::GroupOrder group_order,
                          std::optional<messages::Location> largest_location,
                          bool forward);

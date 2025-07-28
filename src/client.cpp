@@ -673,7 +673,9 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 FullTrackName tfn;
-                messages::FetchAttributes attrs = { msg.subscriber_priority, msg.group_order, 0, 0, 0, std::nullopt };
+                messages::FetchAttributes attrs = {
+                    msg.subscriber_priority, msg.group_order, { 0, 0 }, 0, std::nullopt
+                };
 
                 switch (msg.fetch_type) {
                     case messages::FetchType::kStandalone: {

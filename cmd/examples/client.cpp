@@ -389,7 +389,7 @@ class MyClient : public quicr::Client
     bool FetchReceived(quicr::ConnectionHandle connection_handle,
                        uint64_t request_id,
                        const quicr::FullTrackName& track_full_name,
-                       const quicr::messages::FetchAttributes& attributes)
+                       const quicr::messages::FetchAttributes& attributes) override
     {
         auto pub_fetch_h = quicr::PublishFetchHandler::Create(
           track_full_name, attributes.priority, request_id, attributes.group_order, 50000);

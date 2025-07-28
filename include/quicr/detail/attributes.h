@@ -17,7 +17,11 @@ namespace quicr::messages {
         GroupOrder group_order;                     ///< Subscriber group order
         std::chrono::milliseconds delivery_timeout; ///< Subscriber delivery timeout
         std::uint8_t forward;                       ///< True to Resume/forward data, False to pause/stop data
-        std::optional<TrackAlias> track_alias;      ///< Track alias for subscribe
+    };
+
+    struct PublishAttributes : SubscribeAttributes
+    {
+        TrackAlias track_alias;
     };
 
     /**
