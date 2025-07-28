@@ -507,7 +507,7 @@ class MyServer : public quicr::Server
     void PublishReceived(quicr::ConnectionHandle connection_handle,
                          uint64_t request_id,
                          const quicr::FullTrackName& track_full_name,
-                         const quicr::messages::SubscribeAttributes& subscribe_attributes) override
+                         const quicr::messages::PublishAttributes& publish_attributes) override
     {
         auto th = quicr::TrackHash(track_full_name);
 
@@ -523,8 +523,8 @@ class MyServer : public quicr::Server
         auto sub_track_handler = std::make_shared<MySubscribeTrackHandler>(track_full_name, true);
 
         sub_track_handler->SetRequestId(request_id);
-        sub_track_handler->SetReceivedTrackAlias(subscribe_attributes.track_alias.value());
-        sub_track_handler->SetPriority(subscribe_attributes.priority);
+        sub_track_handler->SetReceivedTrackAlias(publish_attributes.track_alias);
+        sub_track_handler->SetPriority(publish_attributes.priority);
 
         SubscribeTrack(connection_handle, sub_track_handler);
         qserver_vars::pub_subscribes[th.track_fullname_hash][connection_handle] = sub_track_handler;
@@ -533,8 +533,8 @@ class MyServer : public quicr::Server
         ResolvePublish(connection_handle,
                        request_id,
                        true,
-                       subscribe_attributes.priority,
-                       subscribe_attributes.group_order,
+                       publish_attributes.priority,
+                       publish_attributes.group_order,
                        publish_response);
 
         // Check if there are any subscribers

@@ -350,7 +350,6 @@ namespace quicr {
                                 messages::RequestID request_id,
                                 const FullTrackName& tfn,
                                 uint64_t track_alias,
-                                messages::SubscriberPriority priority,
                                 messages::GroupOrder group_order,
                                 std::optional<Location> largest_location,
                                 bool forward)
@@ -1077,7 +1076,6 @@ namespace quicr {
               *track_handler->GetRequestId(),
               tfn,
               track_handler->GetTrackAlias().value(),
-              track_handler->GetDefaultPriority(),
               GroupOrder::kAscending,
               std::make_optional(Location{ track_handler->latest_group_id_, track_handler->latest_object_id_ }),
               true);
@@ -1261,7 +1259,6 @@ namespace quicr {
         if (!track_handler.GetRequestId().has_value()) {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
-        const auto request_id = track_handler.GetRequestId().value();
 
         ITransport::EnqueueFlags eflags;
 
