@@ -170,7 +170,7 @@ TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
                                                 0x10,
                                                 GroupOrder::kAscending,
                                                 1,
-                                                FilterType::kLatestObject,
+                                                FilterType::kLargestObject,
                                                 std::nullopt,
                                                 std::nullopt,
                                                 {});
@@ -179,12 +179,12 @@ TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
 
     Subscribe subscribe_out(
       [](Subscribe& msg) {
-          if (msg.filter_type == FilterType::kLatestObject) {
+          if (msg.filter_type == FilterType::kLargestObject) {
               // do nothing...
           }
       },
       [](Subscribe& msg) {
-          if (msg.filter_type == FilterType::kLatestGroup) {
+          if (msg.filter_type == FilterType::kNextGroupStart) {
               // again
           }
       });
@@ -206,7 +206,7 @@ TEST_CASE("Subscribe (kLatestGroup) Message encode/decode")
                                                 0x10,
                                                 GroupOrder::kAscending,
                                                 1,
-                                                FilterType::kLatestObject,
+                                                FilterType::kLargestObject,
                                                 std::nullopt,
                                                 std::nullopt,
                                                 {});
@@ -215,12 +215,12 @@ TEST_CASE("Subscribe (kLatestGroup) Message encode/decode")
 
     auto subscribe_out = Subscribe(
       [](Subscribe& msg) {
-          if (msg.filter_type == FilterType::kLatestObject) {
+          if (msg.filter_type == FilterType::kLargestObject) {
               // do nothing...
           }
       },
       [](Subscribe& msg) {
-          if (msg.filter_type == FilterType::kLatestGroup) {
+          if (msg.filter_type == FilterType::kNextGroupStart) {
               // again
           }
       });
@@ -337,7 +337,7 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
                                                 0x10,
                                                 GroupOrder::kAscending,
                                                 1,
-                                                FilterType::kLatestObject,
+                                                FilterType::kLargestObject,
                                                 std::nullopt,
                                                 std::nullopt,
                                                 params);
@@ -388,7 +388,7 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
                                                 0x10,
                                                 GroupOrder::kAscending,
                                                 1,
-                                                FilterType::kLatestObject,
+                                                FilterType::kLargestObject,
                                                 std::nullopt,
                                                 std::nullopt,
                                                 params);
@@ -441,8 +441,8 @@ GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uin
     out.track_name = kTrackNameAliceVideo;
     out.filter_type = filter;
     switch (filter) {
-        case FilterType::kLatestObject:
-        case FilterType::kLatestGroup:
+        case FilterType::kLargestObject:
+        case FilterType::kNextGroupStart:
             break;
         case FilterType::kAbsoluteStart:
             out.group_0 = std::make_optional<Subscribe::Group_0>();
@@ -471,10 +471,10 @@ GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uin
 TEST_CASE("Subscribe (Combo) Message encode/decode")
 {
     auto subscribes = std::vector<Subscribe>{
-        GenerateSubscribe(FilterType::kLatestObject),
-        GenerateSubscribe(FilterType::kLatestGroup),
-        GenerateSubscribe(FilterType::kLatestObject, 1),
-        GenerateSubscribe(FilterType::kLatestGroup, 2),
+        GenerateSubscribe(FilterType::kLargestObject),
+        GenerateSubscribe(FilterType::kNextGroupStart),
+        GenerateSubscribe(FilterType::kLargestObject, 1),
+        GenerateSubscribe(FilterType::kNextGroupStart, 2),
         GenerateSubscribe(FilterType::kAbsoluteStart, 0, 0x100, 0x2),
         GenerateSubscribe(FilterType::kAbsoluteStart, 2, 0x100, 0x2),
         GenerateSubscribe(FilterType::kAbsoluteRange, 0, 0x100, 0x2, 0x500),
@@ -908,8 +908,7 @@ TEST_CASE("PublishOk Message encode/decode")
     Bytes buffer;
 
     auto publish_ok =
-      PublishOk(0x1234, true, 0x10, GroupOrder::kAscending, FilterType::kLatestObject, std::nullopt, std::nullopt, {});
-
+      PublishOk(0x1234, true, 0x10, GroupOrder::kAscending, FilterType::kLargestObject, std::nullopt, std::nullopt, {});
     buffer << publish_ok;
 
     auto publish_ok_out = PublishOk(
@@ -1228,4 +1227,59 @@ TEST_CASE("KVP Value Equality")
         kvp2.value = { 0x1 };      // Different size
         CHECK_FALSE(kvp1 == kvp2); // Should be different (exact byte comparison)
     }
+}
+
+template<typename T>
+concept Numeric = requires { std::numeric_limits<T>::is_specialized; };
+template<Numeric T>
+void
+IntegerEncodeDecode(bool exhaustive)
+{
+    using Limits = std::numeric_limits<T>;
+    if (exhaustive) {
+        static_assert(sizeof(size_t) > sizeof(T));
+        for (std::size_t value = Limits::min(); value <= Limits::max(); ++value) {
+            Bytes buffer;
+            buffer << static_cast<T>(value);
+            T out;
+            buffer >> out;
+            REQUIRE_EQ(out, value);
+        }
+    } else {
+        const std::array<T, 3> values = { Limits::min(), Limits::max(), Limits::max() / static_cast<T>(2) };
+        for (const auto value : values) {
+            Bytes buffer;
+            buffer << value;
+            T out;
+            buffer >> out;
+            CHECK_EQ(out, value);
+        }
+    }
+
+    // A buffer that's not big enough should throw.
+    for (std::size_t size = 0; size < sizeof(T); ++size) {
+        const auto buffer = Bytes(size);
+        T out;
+        CHECK_THROWS(buffer >> out);
+    }
+
+    // A buffer that's too big is fine.
+    auto buffer = Bytes(sizeof(T) + 1);
+    memset(buffer.data(), 0xFF, buffer.size());
+    T out;
+    buffer >> out;
+    CHECK_EQ(out, Limits::max());
+    memset(buffer.data(), 0, sizeof(T));
+    buffer >> out;
+    CHECK_EQ(out, 0);
+}
+
+TEST_CASE("uint8_t encode/decode")
+{
+    IntegerEncodeDecode<std::uint8_t>(true);
+}
+
+TEST_CASE("uint16_t encode/decode")
+{
+    IntegerEncodeDecode<std::uint16_t>(true);
 }

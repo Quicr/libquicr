@@ -54,6 +54,9 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, uint8_t& value)
     {
         // need 8 bits - not a varint
+        if (buffer.size() < sizeof(value)) {
+            throw std::invalid_argument("Provided buffer too small");
+        }
         value = buffer.front();
         return buffer.subspan(sizeof(value));
     }
@@ -61,7 +64,7 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, uint16_t& value)
     {
         if (buffer.size() < sizeof(value)) {
-            throw std::invalid_argument("Provider buffer too small");
+            throw std::invalid_argument("Provided buffer too small");
         }
         std::memcpy(&value, buffer.data(), sizeof(value));
         value = SwapBytes(value);

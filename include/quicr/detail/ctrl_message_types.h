@@ -212,11 +212,10 @@ namespace quicr::messages {
 
     enum struct FilterType : uint64_t
     {
-        kNone = 0x0,
-        kLatestGroup,
-        kLatestObject,
-        kAbsoluteStart,
-        kAbsoluteRange
+        kLargestObject = 0x2,
+        kNextGroupStart = 0x1,
+        kAbsoluteStart = 0x3,
+        kAbsoluteRange = 0x4
     };
 
     enum class TrackStatusCode : uint64_t
