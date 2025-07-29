@@ -875,7 +875,17 @@ namespace quicr {
     void Transport::UnsubscribeTrack(quicr::TransportConnId conn_id,
                                      const std::shared_ptr<SubscribeTrackHandler>& track_handler)
     {
-        auto& conn_ctx = connections_[conn_id];
+
+        ConnectionContext conn_ctx;
+        {
+            std::lock_guard _(state_mutex_);
+            const auto& conn_it = connections_.find(conn_id);
+            if (conn_it == connections_.end()) {
+                SPDLOG_LOGGER_ERROR(logger_, "Unsubscribe track conn_id: {0} does not exist.", conn_id);
+                return;
+            }
+            conn_ctx = conn_it->second;
+        }
         RemoveSubscribeTrack(conn_ctx, *track_handler);
     }
 
