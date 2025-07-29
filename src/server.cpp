@@ -138,7 +138,7 @@ namespace quicr {
 
                 // Send the ok.
                 SendPublishOk(
-                  conn_it->second, request_id, forward, priority, group_order, messages::FilterType::kLatestObject);
+                  conn_it->second, request_id, forward, priority, group_order, messages::FilterType::kLargestObject);
                 break;
             }
             default:
@@ -417,11 +417,10 @@ namespace quicr {
                                   msg.request_id,
                                   msg.filter_type,
                                   tfn,
-                                  {
-                                    msg.subscriber_priority,
+                                  { msg.subscriber_priority,
                                     static_cast<messages::GroupOrder>(msg.group_order),
                                     std::chrono::milliseconds{ delivery_timeout },
-                                  });
+                                    msg.forward });
 
                 return true;
             }
@@ -843,7 +842,7 @@ namespace quicr {
                 PublishReceived(conn_ctx.connection_handle,
                                 msg.request_id,
                                 tfn,
-                                { 0, msg.group_order, std::chrono::milliseconds(0), 0, msg.track_alias });
+                                { { 0, msg.group_order, std::chrono::milliseconds(0), 0 }, msg.track_alias });
 
                 return true;
             }

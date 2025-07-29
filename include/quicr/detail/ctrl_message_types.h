@@ -5,18 +5,17 @@
 #include <stdexcept>
 
 namespace quicr::messages {
-    quicr::Bytes& operator<<(quicr::Bytes& buffer, const quicr::Bytes& bytes);
+    Bytes& operator<<(Bytes& buffer, const Bytes& bytes);
+    Bytes& operator<<(Bytes& buffer, const BytesSpan& bytes);
+    BytesSpan operator>>(BytesSpan buffer, Bytes& value);
 
-    quicr::Bytes& operator<<(quicr::Bytes& buffer, const quicr::BytesSpan& bytes);
-    quicr::BytesSpan operator>>(quicr::BytesSpan buffer, quicr::Bytes& value);
-
-    quicr::Bytes& operator<<(quicr::Bytes& buffer, std::uint8_t value);
-    quicr::BytesSpan operator>>(quicr::BytesSpan buffer, uint8_t& value);
+    Bytes& operator<<(Bytes& buffer, std::uint8_t value);
+    BytesSpan operator>>(BytesSpan buffer, uint8_t& value);
 
     Bytes& operator<<(Bytes& buffer, std::uint16_t value);
     BytesSpan operator>>(BytesSpan buffer, std::uint16_t& value);
 
-    quicr::Bytes& operator<<(quicr::Bytes& buffer, const quicr::UintVar& value);
+    Bytes& operator<<(Bytes& buffer, const UintVar& value);
 
     using GroupId = uint64_t;
     using ObjectId = uint64_t;
@@ -51,18 +50,18 @@ namespace quicr::messages {
 
     // All uint64_t and enum(uint64_t) types serialize to varints.
     template<typename T>
-    concept UVarintEncoded =
+    concept VarIntValueType =
       std::same_as<T, std::uint64_t> || (std::is_enum_v<T> && std::same_as<std::underlying_type_t<T>, std::uint64_t>);
 
     // Serialization for all uint64_t/enum(uint64_t) to varint.
-    template<UVarintEncoded T>
+    template<VarIntValueType T>
     Bytes& operator<<(Bytes& buffer, const T value)
     {
         return buffer << UintVar(static_cast<std::uint64_t>(value));
     }
 
     // Deserialization for all uint64_t/enum(uint64_t) from varint.
-    template<UVarintEncoded T>
+    template<VarIntValueType T>
     BytesSpan operator>>(BytesSpan buffer, T& value)
     {
         UintVar uvalue(buffer);
@@ -71,7 +70,7 @@ namespace quicr::messages {
     }
 
     /// MoQ Key Value Pair.
-    template<UVarintEncoded T>
+    template<VarIntValueType T>
     struct KeyValuePair
     {
         T type;
@@ -144,7 +143,7 @@ namespace quicr::messages {
         }
     };
 
-    template<UVarintEncoded T>
+    template<VarIntValueType T>
     Bytes& operator<<(Bytes& buffer, const KeyValuePair<T>& param)
     {
         buffer << param.type;
@@ -162,7 +161,7 @@ namespace quicr::messages {
         return buffer << UintVar(val);
     }
 
-    template<UVarintEncoded T>
+    template<VarIntValueType T>
     BytesSpan operator>>(BytesSpan buffer, KeyValuePair<T>& param)
     {
         buffer = buffer >> param.type;
@@ -212,11 +211,10 @@ namespace quicr::messages {
 
     enum struct FilterType : uint64_t
     {
-        kNone = 0x0,
-        kLatestGroup,
-        kLatestObject,
-        kAbsoluteStart,
-        kAbsoluteRange
+        kLargestObject = 0x2,
+        kNextGroupStart = 0x1,
+        kAbsoluteStart = 0x3,
+        kAbsoluteRange = 0x4
     };
 
     enum class TrackStatusCode : uint64_t

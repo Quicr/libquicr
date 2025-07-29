@@ -120,7 +120,7 @@ namespace {
           : SubscribeTrackHandler(full_track_name,
                                   3,
                                   quicr::messages::GroupOrder::kAscending,
-                                  quicr::messages::FilterType::kLatestObject)
+                                  quicr::messages::FilterType::kLargestObject)
         {
         }
 

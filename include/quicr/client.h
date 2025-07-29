@@ -162,7 +162,7 @@ namespace quicr {
         bool FetchReceived(quicr::ConnectionHandle connection_handle,
                            uint64_t request_id,
                            const quicr::FullTrackName& track_full_name,
-                           const quicr::messages::FetchAttributes& attributes);
+                           const quicr::messages::FetchAttributes& attributes) override;
 
         /**
          * @brief Bind a server fetch publisher track handler.

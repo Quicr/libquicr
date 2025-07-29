@@ -9,25 +9,26 @@ TestServer::TestServer(const ServerConfig& config)
 }
 
 void
-SubscribeDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id)
+SubscribeDoneReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle, [[maybe_unused]] uint64_t request_id)
 {
 }
 
 void
-PublishReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id)
+PublishReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle, [[maybe_unused]] uint64_t request_id)
 {
 }
 
 void
-TestServer::PublishReceived(quicr::ConnectionHandle connection_handle,
-                            uint64_t request_id,
-                            const quicr::FullTrackName& track_full_name,
-                            const quicr::messages::SubscribeAttributes& subscribe_attributes)
+TestServer::PublishReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
+                            [[maybe_unused]] uint64_t request_id,
+                            [[maybe_unused]] const quicr::FullTrackName& track_full_name,
+                            [[maybe_unused]] const quicr::messages::PublishAttributes& publish_attributes)
 {
 }
 
 void
-TestServer::SubscribeDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id)
+TestServer::SubscribeDoneReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
+                                  [[maybe_unused]] uint64_t request_id)
 {
 }
 

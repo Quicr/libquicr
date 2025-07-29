@@ -389,7 +389,7 @@ class MyClient : public quicr::Client
     bool FetchReceived(quicr::ConnectionHandle connection_handle,
                        uint64_t request_id,
                        const quicr::FullTrackName& track_full_name,
-                       const quicr::messages::FetchAttributes& attributes)
+                       const quicr::messages::FetchAttributes& attributes) override
     {
         auto pub_fetch_h = quicr::PublishFetchHandler::Create(
           track_full_name, attributes.priority, request_id, attributes.group_order, 50000);
@@ -900,11 +900,11 @@ main(int argc, char* argv[])
             pub_thread = std::thread(DoPublisher, pub_track_name, client, use_announce, std::ref(stop_threads));
         }
         if (enable_sub) {
-            auto filter_type = quicr::messages::FilterType::kLatestObject;
+            auto filter_type = quicr::messages::FilterType::kLargestObject;
             if (result.count("start_point")) {
                 if (result["start_point"].as<uint64_t>() == 0) {
-                    filter_type = quicr::messages::FilterType::kLatestGroup;
-                    SPDLOG_INFO("Setting subscription filter to Latest Group");
+                    filter_type = quicr::messages::FilterType::kNextGroupStart;
+                    SPDLOG_INFO("Setting subscription filter to Next Group Start");
                 }
             }
             bool joining_fetch = result.count("joining_fetch") && result["joining_fetch"].as<bool>();

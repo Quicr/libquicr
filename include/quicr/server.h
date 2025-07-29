@@ -367,12 +367,12 @@ namespace quicr {
          * @param connection_handle     Source connection ID
          * @param request_id            Request ID received
          * @param track_full_name       Track full name
-         * @param subscribe_attributes  Subscribe attributes received
+         * @param publish_attributes    Publish attributes received
          */
         virtual void PublishReceived(ConnectionHandle connection_handle,
                                      uint64_t request_id,
                                      const FullTrackName& track_full_name,
-                                     const messages::SubscribeAttributes& subscribe_attributes) = 0;
+                                     const messages::PublishAttributes& publish_attributes) = 0;
 
         /**
          * @brief Callback notification on Subscribe Done received
