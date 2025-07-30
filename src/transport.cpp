@@ -446,18 +446,19 @@ namespace quicr {
                                         bool forward)
     try {
         auto subscribe_update =
-          messages::SubscribeUpdate(request_id, start_location, end_group_id, priority, forward, {});
+          messages::SubscribeUpdate(request_id, start_location, end_group_id, priority, static_cast<int>(forward), {});
 
         Bytes buffer;
         buffer << subscribe_update;
 
-        SPDLOG_LOGGER_DEBUG(
-          logger_,
-          "Sending SUBSCRIBE_UPDATE to conn_id: {0} request_id: {1} track namespace hash: {2} name hash: {3}",
-          conn_ctx.connection_handle,
-          request_id,
-          th.track_namespace_hash,
-          th.track_name_hash);
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending SUBSCRIBE_UPDATE to conn_id: {0} request_id: {1} track namespace hash: {2} name "
+                            "hash: {3} forward: {4}",
+                            conn_ctx.connection_handle,
+                            request_id,
+                            th.track_namespace_hash,
+                            th.track_name_hash,
+                            forward);
 
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
@@ -771,6 +772,7 @@ namespace quicr {
             return;
         }
 
+        SPDLOG_LOGGER_DEBUG(logger_, "Sending new group request track conn_id: {} request_id: {}", conn_id, request_id);
         SendCtrlMsg(conn_it->second, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending NewGroupRequest (error={})", e.what());
