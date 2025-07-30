@@ -284,14 +284,16 @@ namespace quicr {
                 }
 
                 // SendSubscribeOk(
-                //   conn_ctx, msg.request_id, ptd->GetTrackAlias(msg.request_id), kSubscribeExpires, false, { 0, 0 });
+                //   conn_ctx, msg.request_id, ptd->GetTrackAlias(msg.request_id), kSubscribeExpires, false, { 0, 0
+                //   });std::to_string(
 
                 SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received subscribe_update to track alias: {0} recv request_id: {1}",
+                                    "Received subscribe_update to track alias: {0} recv request_id: {1} forward: {2}",
                                     th.track_fullname_hash,
-                                    msg.request_id);
+                                    msg.request_id,
+                                    msg.forward);
 
-                if (msg.forward) {
+                if (not msg.forward) {
                     ptd->SetStatus(PublishTrackHandler::Status::kPaused);
                 } else {
                     ptd->SetStatus(PublishTrackHandler::Status::kSubscriptionUpdated);

@@ -144,7 +144,7 @@ namespace quicr {
     {
         if (status_ != Status::kPaused) {
             status_ = Status::kPaused;
-            set_forwarding_func_(true);
+            set_forwarding_func_(false);
         }
     }
 
@@ -152,7 +152,7 @@ namespace quicr {
     {
         if (status_ == Status::kPaused) {
             status_ = Status::kOk;
-            set_forwarding_func_(false);
+            set_forwarding_func_(true);
         }
     }
 } // namespace quicr

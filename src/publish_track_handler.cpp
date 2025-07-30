@@ -89,12 +89,19 @@ namespace quicr {
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNotAuthorized;
             case Status::kNewGroupRequested:
-                [[fallthrough]];
-            case Status::kSubscriptionUpdated:
                 // reset the status to ok to imply change
                 if (!is_stream_header_needed) {
                     break;
                 }
+                publish_status_ = Status::kOk;
+                break;
+            case Status::kSubscriptionUpdated:
+
+                /*
+                 * Always start a new stream on subscription update to support peering/pipelining
+                 */
+                is_stream_header_needed = true;
+
                 publish_status_ = Status::kOk;
                 break;
             default:
