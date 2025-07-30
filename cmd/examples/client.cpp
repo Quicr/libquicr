@@ -502,14 +502,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
 
                 break;
             case MyPublishTrackHandler::Status::kSubscriptionUpdated:
-                /*
-                                if (object_id) {
-                                    group_id++;
-                                    object_id = 0;
-                                    subgroup_id = 0;
-                                    SPDLOG_INFO("Subscription Updated: Restarting a new group {0}", group_id);
-                                }
-                */
+                SPDLOG_INFO("subscribe updated");
                 break;
             case MyPublishTrackHandler::Status::kNoSubscribers:
                 // Start a new group when a subscriber joins
