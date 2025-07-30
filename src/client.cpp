@@ -645,8 +645,10 @@ namespace quicr {
                 messages::NewGroupRequest msg;
                 msg_bytes >> msg;
 
-                SPDLOG_LOGGER_DEBUG(logger_, "Received new group request conn_id: {} request_id: {}",
-                    conn_ctx.client_version, msg.request_id);
+                SPDLOG_LOGGER_DEBUG(logger_,
+                                    "Received new group request conn_id: {} request_id: {}",
+                                    conn_ctx.client_version,
+                                    msg.request_id);
 
                 try {
                     if (auto handler = conn_ctx.pub_tracks_by_track_alias.at(msg.track_alias)) {
