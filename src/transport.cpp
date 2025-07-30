@@ -772,6 +772,7 @@ namespace quicr {
             return;
         }
 
+        SPDLOG_LOGGER_DEBUG(logger_, "Sending new group request track conn_id: {} request_id: {}", conn_id, request_id);
         SendCtrlMsg(conn_it->second, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending NewGroupRequest (error={})", e.what());

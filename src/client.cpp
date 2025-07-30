@@ -283,10 +283,6 @@ namespace quicr {
                     return true;
                 }
 
-                // SendSubscribeOk(
-                //   conn_ctx, msg.request_id, ptd->GetTrackAlias(msg.request_id), kSubscribeExpires, false, { 0, 0
-                //   });std::to_string(
-
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received subscribe_update to track alias: {0} recv request_id: {1} forward: {2}",
                                     th.track_fullname_hash,
@@ -649,13 +645,16 @@ namespace quicr {
                 messages::NewGroupRequest msg;
                 msg_bytes >> msg;
 
+                SPDLOG_LOGGER_DEBUG(logger_, "Received new group request conn_id: {} request_id: {}",
+                    conn_ctx.client_version, msg.request_id);
+
                 try {
                     if (auto handler = conn_ctx.pub_tracks_by_track_alias.at(msg.track_alias)) {
                         handler->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);
                     }
                 } catch (const std::exception& e) {
                     SPDLOG_LOGGER_ERROR(
-                      logger_, "Failed to fins publisher by alias: {} error: {}", msg.track_alias, e.what());
+                      logger_, "Failed to find publisher by alias: {} error: {}", msg.track_alias, e.what());
                 }
 
                 return true;
