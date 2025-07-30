@@ -446,7 +446,7 @@ namespace quicr {
                                         bool forward)
     try {
         auto subscribe_update =
-          messages::SubscribeUpdate(request_id, start_location, end_group_id, priority, forward ? 1 : 0, {});
+          messages::SubscribeUpdate(request_id, start_location, end_group_id, priority, static_cast<int>(forward), {});
 
         Bytes buffer;
         buffer << subscribe_update;
