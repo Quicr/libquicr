@@ -356,8 +356,6 @@ namespace quicr {
          */
         virtual void FetchCancelReceived(ConnectionHandle connection_handle, uint64_t request_id) = 0;
 
-        virtual void NewGroupRequested(ConnectionHandle connection_handle, uint64_t request_id, uint64_t track_alias);
-
         /**
          * @brief Callback notification for new publish received
          *

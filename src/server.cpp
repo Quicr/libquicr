@@ -91,8 +91,6 @@ namespace quicr {
         return false;
     }
 
-    void Server::NewGroupRequested(ConnectionHandle, uint64_t, uint64_t) {}
-
     void Server::ResolveSubscribe(ConnectionHandle connection_handle,
                                   uint64_t request_id,
                                   uint64_t track_alias,
@@ -818,15 +816,6 @@ namespace quicr {
 
                 return true;
             }
-            case messages::ControlMessageType::kNewGroupRequest: {
-                messages::NewGroupRequest msg;
-                msg_bytes >> msg;
-
-                NewGroupRequested(conn_ctx.connection_handle, msg.request_id, msg.track_alias);
-
-                return true;
-            }
-
             case messages::ControlMessageType::kPublish: {
                 auto msg = messages::Publish([](messages::Publish& msg) {
                     if (msg.contentexists) {

@@ -273,8 +273,6 @@ namespace quicr {
          */
         virtual void MetricsSampled([[maybe_unused]] const SubscribeTrackMetrics& metrics) {}
 
-        void RequestNewGroup() noexcept;
-
         ///@}
 
         /**
@@ -290,8 +288,6 @@ namespace quicr {
          *     period.
          */
         SubscribeTrackMetrics subscribe_track_metrics_;
-
-        std::function<void(messages::RequestID, messages::TrackAlias)> new_group_request_callback_;
 
         /**
          * @brief Function pointer to send subscribe update with forward setting
