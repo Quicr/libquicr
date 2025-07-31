@@ -859,6 +859,10 @@ class MyServer : public quicr::Server
         for (const auto& [pub_connection_handle, handler] : qserver_vars::pub_subscribes[track_alias]) {
             if (handler->IsPublisherInitiated()) {
                 handler->Resume();
+                SPDLOG_INFO("Sending subscription update with new group to connection: hash: {0} request: {1}",
+                            th.track_namespace_hash,
+                            request_id);
+                UpdateTrackSubscription(pub_connection_handle, handler, true);
             }
         }
 
@@ -904,10 +908,10 @@ class MyServer : public quicr::Server
                         if (sub_track_h == nullptr) {
                             return;
                         }
-                        SPDLOG_INFO("Sending subscription update to announcer connection: hash: {0} request: {1}",
+                        SPDLOG_INFO("Sending subscription update with new group to connection: hash: {0} request: {1}",
                                     th.track_namespace_hash,
                                     request_id);
-                        UpdateTrackSubscription(conn_h, sub_track_h);
+                        UpdateTrackSubscription(conn_h, sub_track_h, true);
                         last_subscription_time_ = std::chrono::steady_clock::now();
                     }
                 }
@@ -1037,18 +1041,6 @@ class MyServer : public quicr::Server
 
         if (qserver_vars::stop_fetch.count({ connection_handle, subscribe_id }) == 0)
             qserver_vars::stop_fetch[{ connection_handle, subscribe_id }] = true;
-    }
-
-    void NewGroupRequested(quicr::ConnectionHandle conn_id, uint64_t subscribe_id, uint64_t track_alias) override
-    {
-        for (auto [_, handler] : qserver_vars::pub_subscribes[track_alias]) {
-            if (!handler) {
-                continue;
-            }
-            SPDLOG_DEBUG(
-              "Received New Group Request for conn: {} sub_id: {} track_alias: {}", conn_id, subscribe_id, track_alias);
-            handler->RequestNewGroup();
-        }
     }
 
   private:

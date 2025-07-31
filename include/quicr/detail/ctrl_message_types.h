@@ -193,7 +193,8 @@ namespace quicr::messages {
         kDeliveryTimeout = 0x02,
         kAuthorizationToken = 0x03,
         kMaxCacheDuration = 0x04,
-        kInvalid = 0xFF, // used internally.
+        kInvalid = 0xFF,           // used internally
+        kNewGroupRequest = 0xFF00, // Used internally
     };
 
     using Parameter = KeyValuePair<ParameterType>;

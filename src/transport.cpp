@@ -443,10 +443,16 @@ namespace quicr {
                                         Location start_location,
                                         messages::GroupId end_group_id,
                                         messages::SubscriberPriority priority,
-                                        bool forward)
+                                        bool forward,
+                                        bool new_group_request)
     try {
         auto subscribe_update =
           messages::SubscribeUpdate(request_id, start_location, end_group_id, priority, static_cast<int>(forward), {});
+
+        if (new_group_request) {
+            subscribe_update.subscribe_parameters.push_back(
+              { .type = ParameterType::kNewGroupRequest, .value = { 1 } });
+        }
 
         Bytes buffer;
         buffer << subscribe_update;
@@ -759,26 +765,6 @@ namespace quicr {
         throw;
     }
 
-    void Transport::SendNewGroupRequest(ConnectionHandle conn_id, uint64_t request_id, uint64_t track_alias)
-    try {
-        auto new_group_request = messages::NewGroupRequest(request_id, track_alias);
-        Bytes buffer;
-        buffer << new_group_request;
-
-        std::lock_guard<std::mutex> _(state_mutex_);
-        auto conn_it = connections_.find(conn_id);
-        if (conn_it == connections_.end()) {
-            SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_id);
-            return;
-        }
-
-        SPDLOG_LOGGER_DEBUG(logger_, "Sending new group request track conn_id: {} request_id: {}", conn_id, request_id);
-        SendCtrlMsg(conn_it->second, buffer);
-    } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending NewGroupRequest (error={})", e.what());
-        throw;
-    }
-
     void Transport::SubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
         const auto& tfn = track_handler->GetFullTrackName();
@@ -825,10 +811,6 @@ namespace quicr {
         auto group_order = track_handler->GetGroupOrder();
         auto filter_type = track_handler->GetFilterType();
         auto delivery_timeout = track_handler->GetDeliveryTimeout();
-
-        track_handler->new_group_request_callback_ = [=, this](auto req_id, auto track_alias) {
-            SendNewGroupRequest(conn_id, req_id, track_alias);
-        };
 
         track_handler->set_forwarding_func_ = [=, this](bool forward) {
             SendSubscribeUpdate(
@@ -882,12 +864,14 @@ namespace quicr {
     }
 
     void Transport::UpdateTrackSubscription(TransportConnId conn_id,
-                                            std::shared_ptr<SubscribeTrackHandler> track_handler)
+                                            std::shared_ptr<SubscribeTrackHandler> track_handler,
+                                            bool new_group_request)
     {
         const auto& tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
 
-        SPDLOG_LOGGER_INFO(logger_, "Subscribe track conn_id: {0} hash: {1}", conn_id, th.track_fullname_hash);
+        SPDLOG_LOGGER_INFO(
+          logger_, "Subscribe track conn_id: {} hash: {} ≈: {}", conn_id, th.track_fullname_hash, new_group_request);
 
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_id);
@@ -904,8 +888,14 @@ namespace quicr {
           logger_, "subscribe id (from subscribe) to add to memory: {0}", track_handler->GetRequestId().value());
 
         auto priority = track_handler->GetPriority();
-        SendSubscribeUpdate(
-          conn_it->second, track_handler->GetRequestId().value(), th, { 0x0, 0x0 }, 0x0, priority, true);
+        SendSubscribeUpdate(conn_it->second,
+                            track_handler->GetRequestId().value(),
+                            th,
+                            { 0x0, 0x0 },
+                            0x0,
+                            priority,
+                            true,
+                            new_group_request);
     }
 
     void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx,

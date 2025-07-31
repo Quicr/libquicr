@@ -5262,13 +5262,4 @@ Authors' Addresses
 Nandakumar, et al.      Expires 25 December 2025               [Page 94]
     Addendum: 
 
-    New Group Request
-
-    NEW_GROUP_REQUEST Message {
-        Type (i) = 0x42,
-        Length (i),
-        Request ID (i),
-        Track Alias (i)
-    }
-
 

@@ -292,7 +292,16 @@ namespace quicr {
                 if (not msg.forward) {
                     ptd->SetStatus(PublishTrackHandler::Status::kPaused);
                 } else {
-                    ptd->SetStatus(PublishTrackHandler::Status::kSubscriptionUpdated);
+                    bool new_group_request = false;
+                    for (const auto& param : msg.subscribe_parameters) {
+                        if (param.type == messages::ParameterType::kNewGroupRequest) {
+                            new_group_request = true;
+                            break;
+                        }
+                    }
+
+                    ptd->SetStatus(new_group_request ? PublishTrackHandler::Status::kNewGroupRequested
+                                                     : PublishTrackHandler::Status::kSubscriptionUpdated);
                 }
 
                 return true;
@@ -638,26 +647,6 @@ namespace quicr {
 
                 fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kError);
                 conn_ctx.tracks_by_request_id.erase(fetch_it);
-
-                return true;
-            }
-            case messages::ControlMessageType::kNewGroupRequest: {
-                messages::NewGroupRequest msg;
-                msg_bytes >> msg;
-
-                SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received new group request conn_id: {} request_id: {}",
-                                    conn_ctx.client_version,
-                                    msg.request_id);
-
-                try {
-                    if (auto handler = conn_ctx.pub_tracks_by_track_alias.at(msg.track_alias)) {
-                        handler->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);
-                    }
-                } catch (const std::exception& e) {
-                    SPDLOG_LOGGER_ERROR(
-                      logger_, "Failed to find publisher by alias: {} error: {}", msg.track_alias, e.what());
-                }
 
                 return true;
             }
