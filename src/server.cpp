@@ -865,12 +865,13 @@ namespace quicr {
                 auto th = TrackHash(req_id_it->second.track_full_name);
                 auto ptd = GetPubTrackHandler(conn_ctx, th);
                 if (ptd == nullptr) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received subscribe update to unknown publish track conn_id: {0} namespace hash: {1} "
-                                       "name hash: {2}",
-                                       conn_ctx.connection_handle,
-                                       th.track_namespace_hash,
-                                       th.track_name_hash);
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received subscribe update to unknown publish track conn_id: {0} namespace hash: {1} "
+                      "name hash: {2}",
+                      conn_ctx.connection_handle,
+                      th.track_namespace_hash,
+                      th.track_name_hash);
 
                     SendSubscribeError(conn_ctx,
                                        msg.request_id,
