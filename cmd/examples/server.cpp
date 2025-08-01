@@ -303,6 +303,7 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                     break;
                 case Status::kPaused:
                     reason = "paused";
+                    break;
                 default:
                     break;
             }
