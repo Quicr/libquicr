@@ -881,10 +881,6 @@ class MyServer : public quicr::Server
         for (const auto& [pub_connection_handle, handler] : qserver_vars::pub_subscribes[track_alias]) {
             if (handler->IsPublisherInitiated()) {
                 handler->Resume();
-                SPDLOG_INFO("Sending subscription update with new group to connection: hash: {0} request: {1}",
-                            th.track_namespace_hash,
-                            request_id);
-                UpdateTrackSubscription(pub_connection_handle, handler, false);
             }
         }
 
@@ -930,7 +926,7 @@ class MyServer : public quicr::Server
                         if (sub_track_h == nullptr) {
                             return;
                         }
-                        SPDLOG_INFO("Sending subscription update with new group to connection: hash: {0} request: {1}",
+                        SPDLOG_INFO("Sending subscription update to connection: hash: {0} request: {1}",
                                     th.track_namespace_hash,
                                     request_id);
                         UpdateTrackSubscription(conn_h, sub_track_h, false);
