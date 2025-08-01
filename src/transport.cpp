@@ -812,9 +812,15 @@ namespace quicr {
         auto filter_type = track_handler->GetFilterType();
         auto delivery_timeout = track_handler->GetDeliveryTimeout();
 
-        track_handler->set_forwarding_func_ = [=, this](bool forward) {
-            SendSubscribeUpdate(
-              conn_it->second, *track_handler->GetRequestId(), th, {}, 0, track_handler->GetPriority(), forward);
+        track_handler->update_func_ = [=, this](bool forward, bool new_group) {
+            SendSubscribeUpdate(conn_it->second,
+                                *track_handler->GetRequestId(),
+                                th,
+                                {},
+                                0,
+                                track_handler->GetPriority(),
+                                forward,
+                                new_group);
         };
 
         // Set the track handler for tracking by request ID

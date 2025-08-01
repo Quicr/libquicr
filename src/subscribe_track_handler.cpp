@@ -137,7 +137,7 @@ namespace quicr {
     {
         if (status_ != Status::kPaused) {
             status_ = Status::kPaused;
-            set_forwarding_func_(false);
+            update_func_(false, false);
         }
     }
 
@@ -145,7 +145,14 @@ namespace quicr {
     {
         if (status_ == Status::kPaused) {
             status_ = Status::kOk;
-            set_forwarding_func_(true);
+            update_func_(true, false);
+        }
+    }
+
+    void SubscribeTrackHandler::RequestNewGroup() noexcept
+    {
+        if (status_ == Status::kOk) {
+            update_func_(true, true);
         }
     }
 } // namespace quicr

@@ -44,7 +44,8 @@ namespace quicr {
             kNotSubscribed,
             kPendingResponse,
             kSendingUnsubscribe, ///< In this state, callbacks will not be called,
-            kPaused
+            kPaused,
+            kNewGroupRequested,
         };
 
         /**
@@ -192,6 +193,11 @@ namespace quicr {
          */
         void Resume() noexcept;
 
+        /**
+         * @brief Generate a new group request for this subscription
+         */
+        void RequestNewGroup() noexcept;
+
         std::chrono::milliseconds GetDeliveryTimeout() const noexcept { return delivery_timeout_; }
 
         void SetDeliveryTimeout(std::chrono::milliseconds timeout) noexcept { delivery_timeout_ = timeout; }
@@ -293,7 +299,7 @@ namespace quicr {
          * @brief Function pointer to send subscribe update with forward setting
          * @param forward       True or False
          */
-        using SetForwardingFunction = std::function<void(bool forward)>;
+        using UpdateFunction = std::function<void(bool forward, bool new_group)>;
 
       protected:
         /**
@@ -320,7 +326,7 @@ namespace quicr {
         std::optional<uint64_t> received_track_alias_; ///< Received track alias from publisher client or relay
         std::chrono::milliseconds delivery_timeout_{ 0 };
 
-        SetForwardingFunction set_forwarding_func_; // set by the transport
+        UpdateFunction update_func_; // set by the transport
 
         bool publisher_initiated_{ false };
 

@@ -132,6 +132,11 @@ namespace qserver_vars {
      * @brief Map of atomic bools to mark if a fetch thread should be interrupted.
      */
     std::map<std::pair<quicr::ConnectionHandle, quicr::messages::RequestID>, std::atomic_bool> stop_fetch;
+
+    /**
+     * @brief List of track aliases that are pending new group request
+     */
+    std::set<quicr::messages::TrackAlias> track_aliases_new_group_request;
 }
 
 /**
@@ -202,6 +207,11 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         } catch (const std::exception& e) {
             SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());
         }
+
+        if (qserver_vars::track_aliases_new_group_request.count(*track_alias) > 0) {
+            RequestNewGroup();
+            qserver_vars::track_aliases_new_group_request.erase(*track_alias);
+        }
     }
 
     void StatusChanged(Status status) override
@@ -228,6 +238,12 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                     break;
                 case Status::kSendingUnsubscribe:
                     reason = "unsubscribing";
+                    break;
+                case Status::kPaused:
+                    reason = "paused";
+                    break;
+                case Status::kNewGroupRequested:
+                    reason = "new group requested";
                     break;
                 default:
                     break;
@@ -281,6 +297,12 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 case Status::kSendingUnannounce:
                     reason = "sending unannounce";
                     break;
+                case Status::kNewGroupRequested:
+                    reason = "new group requested";
+                    qserver_vars::track_aliases_new_group_request.emplace(GetTrackAlias().value());
+                    break;
+                case Status::kPaused:
+                    reason = "paused";
                 default:
                     break;
             }
@@ -862,7 +884,7 @@ class MyServer : public quicr::Server
                 SPDLOG_INFO("Sending subscription update with new group to connection: hash: {0} request: {1}",
                             th.track_namespace_hash,
                             request_id);
-                UpdateTrackSubscription(pub_connection_handle, handler, true);
+                UpdateTrackSubscription(pub_connection_handle, handler, false);
             }
         }
 
@@ -911,7 +933,7 @@ class MyServer : public quicr::Server
                         SPDLOG_INFO("Sending subscription update with new group to connection: hash: {0} request: {1}",
                                     th.track_namespace_hash,
                                     request_id);
-                        UpdateTrackSubscription(conn_h, sub_track_h, true);
+                        UpdateTrackSubscription(conn_h, sub_track_h, false);
                         last_subscription_time_ = std::chrono::steady_clock::now();
                     }
                 }
