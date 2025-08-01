@@ -37,7 +37,7 @@ TEST_CASE("Hash namespace")
     auto h = hash({ ns.begin(), ns.end() });
     CHECK_EQ(15211761882639286592ull, h);
 
-    TrackHash th({ ns, {}, std::nullopt });
+    TrackHash th({ ns, {} });
     CHECK_EQ(h, th.track_namespace_hash);
 
     auto ns_hash = std::hash<TrackNamespace>{}(ns);

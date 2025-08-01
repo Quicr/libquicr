@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "attributes.h"
 #include "messages.h"
 #include "tick_service.h"
 
@@ -51,7 +52,7 @@ namespace quicr {
             kDisconnecting,
             kNotConnected,
             kFailedToConnect,
-            kPendingSeverSetup,
+            kPendingServerSetup,
         };
 
         /**
@@ -137,10 +138,12 @@ namespace quicr {
          *
          * @param connection_handle         Connection ID to send subscribe
          * @param track_handler             Track handler to use for track related functions and callbacks
+         * @param new_group_request         True to add new group request parameter
          *
          */
         void UpdateTrackSubscription(ConnectionHandle connection_handle,
-                                     std::shared_ptr<SubscribeTrackHandler> track_handler);
+                                     std::shared_ptr<SubscribeTrackHandler> track_handler,
+                                     bool new_group_request = false);
 
         /**
          * @brief Publish to a track
@@ -152,6 +155,15 @@ namespace quicr {
         void PublishTrack(ConnectionHandle connection_handle, std::shared_ptr<PublishTrackHandler> track_handler);
 
         /**
+         * @brief Publish to a track and force subscribe
+         *
+         * @param connection_handle           Connection ID from transport for the QUIC connection context
+         * @param track_handler               Track handler to use for track related functions
+         *                                    and callbacks
+         */
+        void PublishTrackSub(ConnectionHandle connection_handle, std::shared_ptr<PublishTrackHandler> track_handler);
+
+        /**
          * @brief Unpublish track
          *
          * @param connection_handle           Connection ID from transport for the QUIC connection context
@@ -159,6 +171,21 @@ namespace quicr {
          */
         void UnpublishTrack(ConnectionHandle connection_handle,
                             const std::shared_ptr<PublishTrackHandler>& track_handler);
+
+        /**
+         * @brief Event to run on receiving Fetch request.
+         *
+         * @param connection_handle Source connection ID.
+         * @param request_id        Request ID received.
+         * @param track_full_name   Track full name
+         * @param attributes        Fetch attributes received.
+         *
+         * @returns True to indicate fetch will send data, False if no data is within the requested range
+         */
+        virtual bool FetchReceived(ConnectionHandle connection_handle,
+                                   uint64_t request_id,
+                                   const FullTrackName& track_full_name,
+                                   const quicr::messages::FetchAttributes& attributes);
 
         /**
          * @brief Fetch track
@@ -257,13 +284,18 @@ namespace quicr {
                 FullTrackName track_full_name;
                 std::optional<messages::Location> largest_location{ std::nullopt };
             };
-            std::map<messages::RequestID, SubscribeContext> recv_sub_id;
+            std::map<messages::RequestID, SubscribeContext> recv_req_id;
 
             /// Tracks by request ID (Subscribe and Fetch)
             std::map<messages::RequestID, std::shared_ptr<SubscribeTrackHandler>> tracks_by_request_id;
 
-            /// Subscribes by Track Alais is used for data object forwarding
-            std::map<messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> sub_by_track_alias;
+            /**
+             * Data is received with a track alias that is set by the publisher. The map key
+             * track alias is the received publisher track alias specific to the connection. Data received
+             * is matched to this track alias to find the subscriber handler that matches. The
+             * subscribe handler has both received track alias and generated track alias.
+             */
+            std::map<messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> sub_by_recv_track_alias;
 
             /// Publish tracks by namespace and name. map[track namespace][track name] = track handler
             std::map<TrackNamespaceHash, std::map<TrackNameHash, std::shared_ptr<PublishTrackHandler>>>
@@ -275,6 +307,8 @@ namespace quicr {
              *  with request-id. The namespace is needed. This map is used to map request ID to namespace
              */
             std::map<messages::RequestID, TrackNamespaceHash> pub_tracks_ns_by_request_id;
+
+            std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_request_id;
 
             /// Published tracks by quic transport data context ID.
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
@@ -288,6 +322,17 @@ namespace quicr {
             ConnectionMetrics metrics{}; ///< Connection metrics
 
             ConnectionContext() { ctrl_msg_buffer.reserve(kControlMessageBufferSize); }
+
+            /*
+             * Get the next request Id to use
+             */
+            uint64_t GetNextRequestId()
+            {
+                auto rid = next_request_id;
+                next_request_id += 2;
+
+                return rid;
+            }
         };
 
         // -------------------------------------------------------------------------------------------------
@@ -298,6 +343,7 @@ namespace quicr {
 
         PublishTrackHandler::PublishObjectStatus SendData(PublishTrackHandler& track_handler,
                                                           uint8_t priority,
+                                                          uint64_t group_id,
                                                           uint32_t ttl,
                                                           bool stream_header_needed,
                                                           std::shared_ptr<const std::vector<uint8_t>> data);
@@ -326,26 +372,48 @@ namespace quicr {
                            TrackHash th,
                            messages::SubscriberPriority priority,
                            messages::GroupOrder group_order,
-                           messages::FilterType filter_type);
+                           messages::FilterType filter_type,
+                           std::chrono::milliseconds delivery_timeout);
         void SendSubscribeUpdate(ConnectionContext& conn_ctx,
                                  messages::RequestID request_id,
                                  TrackHash th,
                                  messages::Location start_location,
                                  messages::GroupId end_group_id,
-                                 messages::SubscriberPriority priority);
+                                 messages::SubscriberPriority priority,
+                                 bool forward,
+                                 bool new_group_request = false);
 
         void SendSubscribeOk(ConnectionContext& conn_ctx,
                              messages::RequestID request_id,
+                             uint64_t track_alias,
                              uint64_t expires,
-                             bool content_exists,
-                             messages::Location largest_location);
+                             const std::optional<messages::Location>& largest_location);
         void SendUnsubscribe(ConnectionContext& conn_ctx, messages::RequestID request_id);
         void SendSubscribeDone(ConnectionContext& conn_ctx, messages::RequestID request_id, const std::string& reason);
         void SendSubscribeError(ConnectionContext& conn_ctx,
                                 messages::RequestID request_id,
-                                uint64_t track_alias,
                                 messages::SubscribeErrorCode error,
                                 const std::string& reason);
+
+        void SendPublish(ConnectionContext& conn_ctx,
+                         messages::RequestID request_id,
+                         const FullTrackName& tfn,
+                         uint64_t track_alias,
+                         messages::GroupOrder group_order,
+                         std::optional<messages::Location> largest_location,
+                         bool forward);
+
+        void SendPublishOk(ConnectionContext& conn_ctx,
+                           messages::RequestID request_id,
+                           bool forward,
+                           messages::SubscriberPriority priority,
+                           messages::GroupOrder group_order,
+                           messages::FilterType filter_type);
+
+        void SendPublishError(ConnectionContext& conn_ctx,
+                              messages::RequestID request_id,
+                              messages::SubscribeErrorCode error,
+                              const std::string& reason);
 
         void SendSubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
         void SendUnsubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
@@ -389,11 +457,11 @@ namespace quicr {
                                   SubscribeTrackHandler& handler,
                                   bool remove_handler = true);
 
-        void SendNewGroupRequest(ConnectionHandle conn_id, uint64_t subscribe_id, uint64_t track_alias);
-
         std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(ConnectionContext& conn_ctx, TrackHash& th);
 
         void RemoveAllTracksForConnectionClose(ConnectionContext& conn_ctx);
+
+        uint64_t GetNextRequestId();
 
         bool OnRecvSubgroup(messages::StreamHeaderType type,
                             std::vector<uint8_t>::const_iterator cursor_it,

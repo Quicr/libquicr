@@ -3,16 +3,207 @@
 
 #pragma once
 
+#include "time_queue.h"
+
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <forward_list>
+#include <map>
 #include <numeric>
 #include <optional>
 
-#include "time_queue.h"
-
 namespace quicr {
+
+    template<typename T, typename Duration_t>
+    class GroupTimeQueue : public TimeQueue<std::vector<T>, Duration_t, std::map<std::uint64_t, std::vector<T>>>
+    {
+        using Group_t = std::map<uint64_t, std::vector<T>>;
+        using TickType = TickService::TickType;
+
+        using base = TimeQueue<std::vector<T>, Duration_t, Group_t>;
+
+      public:
+        GroupTimeQueue(size_t duration, size_t interval, std::shared_ptr<TickService> tick_service)
+          : base(duration, interval, std::move(tick_service))
+        {
+        }
+
+        GroupTimeQueue(size_t duration,
+                       size_t interval,
+                       std::shared_ptr<TickService> tick_service,
+                       size_t initial_queue_size)
+          : base(duration, interval, std::move(tick_service), initial_queue_size)
+        {
+        }
+
+        void Clear() noexcept
+        {
+            if (this->queue_.empty())
+                return;
+
+            this->queue_.clear();
+
+            for (auto& bucket : this->buckets_) {
+                bucket.clear();
+            }
+
+            this->queue_index_ = this->bucket_index_ = object_index_ = 0;
+        }
+
+        /**
+         * @brief Pop (increment) front
+         *
+         * @details This method should be called after front when the object is processed. This
+         *      will move the queue forward. If at the end of the queue, it'll be cleared and reset.
+         */
+        void Pop() noexcept
+        {
+            if (this->queue_.empty())
+                return;
+
+            const auto& front = this->queue_.at(this->queue_index_);
+            const auto& group = front.bucket.at(front.value_index);
+
+            if (++object_index_ < group.size())
+                return;
+
+            object_index_ = 0;
+
+            if (this->queue_.empty() || ++this->queue_index_ < this->queue_.size())
+                return;
+
+            this->Clear();
+        }
+
+        /**
+         * @brief Returns the most valid front of the queue without popping.
+         *
+         * @param elem[out]          Time queue element storage. Will be updated.
+         *
+         * @returns Element of the front value
+         */
+        void Front(TimeQueueElement<T>& elem)
+        {
+            const TickType ticks = this->Advance();
+
+            elem.has_value = false;
+            elem.expired_count = 0;
+
+            if (this->queue_.empty())
+                return;
+
+            while (this->queue_index_ < this->queue_.size()) {
+                auto& [bucket, value_index, expiry_tick, pop_wait_ttl] = this->queue_.at(this->queue_index_);
+
+                if (!bucket.contains(value_index) || ticks > expiry_tick) {
+                    elem.expired_count += object_index_;
+                    this->queue_index_++;
+                    object_index_ = 0;
+                    continue;
+                }
+
+                if (pop_wait_ttl > ticks) {
+                    return;
+                }
+
+                elem.has_value = true;
+                elem.value = bucket.at(value_index).at(object_index_);
+                return;
+            }
+
+            this->Clear();
+        }
+
+        /**
+         * @brief Pops (removes) the front of the queue.
+         *
+         * @returns TimeQueueElement of the popped value
+         */
+        [[nodiscard]] TimeQueueElement<T> PopFront()
+        {
+            TimeQueueElement<T> obj{};
+            this->Front(obj);
+            if (obj.has_value) {
+                this->Pop();
+            }
+
+            return std::move(obj);
+        }
+
+        /**
+         * @brief Pops (removes) the front of the queue using provided storage
+         *
+         * @param elem[out]          Time queue element storage. Will be updated.
+         */
+        void PopFront(TimeQueueElement<T>& elem)
+        {
+            this->Front(elem);
+            if (elem.has_value) {
+                this->Pop();
+            }
+        }
+
+        void Push(std::uint64_t group_id, const T& value, size_t ttl, size_t delay_ttl = 0)
+        {
+            this->InternalPush(group_id, value, ttl, delay_ttl);
+        }
+
+        void Push(std::uint64_t group_id, T&& value, size_t ttl, size_t delay_ttl = 0)
+        {
+            this->InternalPush(group_id, std::move(value), ttl, delay_ttl);
+        }
+
+        std::size_t Size() const noexcept
+        {
+            std::size_t full_size = 0;
+
+            for (auto it = std::next(this->buckets_.begin(), this->queue_index_); it != this->buckets_.end(); ++it) {
+                for (const auto& [_, group] : *it) {
+                    full_size += group.size();
+                }
+            }
+
+            return full_size - object_index_;
+        }
+
+      private:
+        template<typename Value>
+        void InternalPush(std::uint64_t group_id, Value value, size_t ttl, size_t delay_ttl)
+        {
+            if (ttl > this->duration_) {
+                throw std::invalid_argument("TTL is greater than max duration");
+            }
+
+            if (ttl == 0) {
+                ttl = this->duration_;
+            }
+
+            auto relative_ttl = ttl / this->interval_;
+
+            const TickType ticks = this->Advance();
+
+            const TickType expiry_tick = ticks + ttl;
+
+            auto found = std::find_if(
+              this->queue_.begin(), this->queue_.end(), [&](const auto& v) { return v.value_index == group_id; });
+
+            if (found != this->queue_.end()) {
+                found->bucket.at(group_id).emplace_back(value);
+                return;
+            }
+
+            const typename base::IndexType future_index =
+              (this->bucket_index_ + relative_ttl - 1) % this->total_buckets_;
+
+            auto& bucket = this->buckets_[future_index];
+            bucket[group_id].emplace_back(value);
+            this->queue_.emplace_back(bucket, group_id, expiry_tick, ticks + delay_ttl);
+        }
+
+      private:
+        std::size_t object_index_ = 0;
+    };
     /**
      * @brief Priority queue that uses time_queue for each priority
      *
@@ -29,7 +220,7 @@ namespace quicr {
     class PriorityQueue
     {
         using TimeType = std::chrono::milliseconds;
-        using TimeQueueType = TimeQueue<DataType, TimeType>;
+        using TimeQueueType = GroupTimeQueue<DataType, TimeType>;
 
         struct Exception : public std::runtime_error
         {
@@ -85,12 +276,12 @@ namespace quicr {
          * @param priority  The priority of the value (range is 0 - PMAX)
          * @param delay_ttl Delay POP by this ttl value in milliseconds
          */
-        void Push(DataType& value, uint32_t ttl, uint8_t priority = 0, uint32_t delay_ttl = 0)
+        void Push(std::uint64_t group_id, DataType& value, uint32_t ttl, uint8_t priority = 0, uint32_t delay_ttl = 0)
         {
             std::lock_guard<std::mutex> _(mutex_);
 
             auto& queue = GetQueueByPriority(priority);
-            queue->Push(value, ttl, delay_ttl);
+            queue->Push(group_id, value, ttl, delay_ttl);
         }
 
         /**
@@ -101,12 +292,12 @@ namespace quicr {
          * @param priority  The priority of the value (range is 0 - PMAX)
          * @param delay_ttl Delay POP by this ttl value in milliseconds
          */
-        void Push(DataType&& value, uint32_t ttl, uint8_t priority = 0, uint32_t delay_ttl = 0)
+        void Push(std::uint64_t group_id, DataType&& value, uint32_t ttl, uint8_t priority = 0, uint32_t delay_ttl = 0)
         {
             std::lock_guard<std::mutex> _(mutex_);
 
             auto& queue = GetQueueByPriority(priority);
-            queue->Push(std::move(value), ttl, delay_ttl);
+            queue->Push(group_id, std::move(value), ttl, delay_ttl);
         }
 
         /**

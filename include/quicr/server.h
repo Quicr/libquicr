@@ -5,6 +5,7 @@
 
 #include "quicr/detail/messages.h"
 #include <quicr/config.h>
+#include <quicr/detail/attributes.h>
 #include <quicr/detail/transport.h>
 #include <quicr/object.h>
 #include <quicr/publish_fetch_handler.h>
@@ -129,11 +130,31 @@ namespace quicr {
          *
          * @param connection_handle        source connection ID
          * @param request_id               Request ID
+         * @param track_alias              Track alias the subscriber should use.
          * @param subscribe_response       response to for the subscribe
          */
         virtual void ResolveSubscribe(ConnectionHandle connection_handle,
                                       uint64_t request_id,
+                                      uint64_t track_alias,
                                       const SubscribeResponse& subscribe_response);
+
+        /**
+         * @brief Accept or reject publish that was received
+         *
+         * @details Accept or reject publish received via PublishReceived(). The MoQ Transport
+         *      will send the protocol message based on the SubscribeResponse
+         *
+         * @param connection_handle        source connection ID
+         * @param request_id               Request ID
+         * @param forward                  True indicates to forward data, False to pause forwarding
+         * @param publish_response         response to for the publish
+         */
+        virtual void ResolvePublish(ConnectionHandle connection_handle,
+                                    uint64_t request_id,
+                                    bool forward,
+                                    messages::SubscriberPriority priority,
+                                    messages::GroupOrder group_order,
+                                    const PublishResponse& publish_response);
 
         // --BEGIN CALLBACKS ----------------------------------------------------------------------------------
         /** @name Server Calbacks
@@ -272,13 +293,12 @@ namespace quicr {
          *
          * @param connection_handle     Source connection ID
          * @param request_id            Request ID received
-         * @param proposed_track_alias  The proposed track alias the subscriber would like to use
+         * @param filter_type           Filter type received
          * @param track_full_name       Track full name
          * @param subscribe_attributes  Subscribe attributes received
          */
         virtual void SubscribeReceived(ConnectionHandle connection_handle,
                                        uint64_t request_id,
-                                       uint64_t proposed_track_alias,
                                        messages::FilterType filter_type,
                                        const FullTrackName& track_full_name,
                                        const messages::SubscribeAttributes& subscribe_attributes);
@@ -297,6 +317,21 @@ namespace quicr {
          * @return The largest available location, if any.
          */
         virtual std::optional<messages::Location> GetLargestAvailable(const FullTrackName& track_name);
+
+        /**
+         * @brief Event to run on receiving Fetch request.
+         *
+         * @param connection_handle Source connection ID.
+         * @param request_id        Request ID received.
+         * @param track_full_name   Track full name
+         * @param attributes        Fetch attributes received.
+         *
+         * @returns True to indicate fetch will send data, False if no data is within the requested range
+         */
+        virtual bool FetchReceived(ConnectionHandle connection_handle,
+                                   uint64_t request_id,
+                                   const FullTrackName& track_full_name,
+                                   const quicr::messages::FetchAttributes& attributes) override;
 
         /**
          * @brief Event to run on sending FetchOk.
@@ -321,7 +356,29 @@ namespace quicr {
          */
         virtual void FetchCancelReceived(ConnectionHandle connection_handle, uint64_t request_id) = 0;
 
-        virtual void NewGroupRequested(ConnectionHandle connection_handle, uint64_t request_id, uint64_t track_alias);
+        /**
+         * @brief Callback notification for new publish received
+         *
+         * @note The caller **MUST** respond to this via ResolvePublish(). If the caller does not
+         * override this method, the default will call ResolvePublish() with the status of OK
+         *
+         * @param connection_handle     Source connection ID
+         * @param request_id            Request ID received
+         * @param track_full_name       Track full name
+         * @param publish_attributes    Publish attributes received
+         */
+        virtual void PublishReceived(ConnectionHandle connection_handle,
+                                     uint64_t request_id,
+                                     const FullTrackName& track_full_name,
+                                     const messages::PublishAttributes& publish_attributes) = 0;
+
+        /**
+         * @brief Callback notification on Subscribe Done received
+         *
+         * @param connection_handle   Source connection ID
+         * @param request_id          Request ID received
+         */
+        virtual void SubscribeDoneReceived(ConnectionHandle connection_handle, uint64_t request_id) = 0;
 
         ///@}
         // --END OF CALLBACKS ----------------------------------------------------------------------------------

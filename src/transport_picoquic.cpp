@@ -22,6 +22,9 @@
 #include <spdlog/logger.h>
 
 // System.
+#include "picoquic_bbr.h"
+#include "picoquic_newreno.h"
+
 #include <arpa/inet.h>
 #include <cassert>
 #include <chrono>
@@ -53,7 +56,7 @@ using namespace quicr;
  * ============================================================================
  */
 
-int
+static int
 PqEventCb(picoquic_cnx_t* pq_cnx,
           uint64_t stream_id,
           uint8_t* bytes,
@@ -318,7 +321,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
     return 0;
 }
 
-int
+static int
 PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* callback_ctx, void* callback_arg)
 {
     PicoQuicTransport* transport = static_cast<PicoQuicTransport*>(callback_ctx);
@@ -473,6 +476,13 @@ PicoQuicTransport::Start()
         throw PicoQuicException("Unable to create picoquic context");
     }
 
+    if (config_.enable_sslkeylog) {
+        if (std::getenv("SSLKEYLOGFILE") == nullptr) {
+            SPDLOG_LOGGER_WARN(logger, "Key log enabled but $SSLKEYLOGFILE not set");
+        }
+        picoquic_set_key_log_file_from_env(quic_ctx_);
+    }
+
     /*
      * TODO doc: Apparently need to set some value to send datagrams. If not set,
      *    max datagram size is zero, preventing sending of datagrams. Setting this
@@ -548,6 +558,7 @@ PicoQuicTransport::GetPeerAddrInfo(const TransportConnId& conn_id, sockaddr_stor
 TransportError
 PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
                            const DataContextId& data_ctx_id,
+                           std::uint64_t group_id,
                            std::shared_ptr<const std::vector<uint8_t>> bytes,
                            const uint8_t priority,
                            const uint32_t ttl_ms,
@@ -595,20 +606,18 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
         }
 
         ConnData cd{ conn_id, data_ctx_id, priority, stream_action, std::move(bytes), tick_service_->Microseconds() };
-        data_ctx_it->second.tx_data->Push(std::move(cd), ttl_ms, priority, 0);
+        data_ctx_it->second.tx_data->Push(group_id, std::move(cd), ttl_ms, priority, 0);
 
         if (!data_ctx_it->second.mark_stream_active) {
             data_ctx_it->second.mark_stream_active = true;
 
             picoquic_runner_queue_.Push([this, conn_id, data_ctx_id]() { MarkStreamActive(conn_id, data_ctx_id); });
         }
-    }
-
-    else { // datagram
+    } else { // datagram
         ConnData cd{ conn_id,          data_ctx_id,
                      priority,         StreamAction::kNoAction,
                      std::move(bytes), tick_service_->Microseconds() };
-        conn_ctx_it->second.dgram_tx_data->Push(std::move(cd), ttl_ms, priority, 0);
+        conn_ctx_it->second.dgram_tx_data->Push(group_id, std::move(cd), ttl_ms, priority, 0);
 
         if (!conn_ctx_it->second.mark_dgram_ready) {
             conn_ctx_it->second.mark_dgram_ready = true;
@@ -616,6 +625,7 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
             picoquic_runner_queue_.Push([this, conn_id]() { MarkDgramReady(conn_id); });
         }
     }
+
     return TransportError::kNone;
 }
 
@@ -626,7 +636,7 @@ PicoQuicTransport::GetStreamRxContext(TransportConnId conn_id, uint64_t stream_i
 
     const auto conn_ctx_it = conn_context_.find(conn_id);
     if (conn_ctx_it == conn_context_.end()) {
-        throw TransportError::kInvalidConnContextId;
+        throw TransportException(TransportError::kInvalidConnContextId);
     }
 
     const auto sbuf_it = conn_ctx_it->second.rx_stream_buffer.find(stream_id);
@@ -634,7 +644,7 @@ PicoQuicTransport::GetStreamRxContext(TransportConnId conn_id, uint64_t stream_i
         return sbuf_it->second.rx_ctx;
     }
 
-    throw TransportError::kInvalidStreamId;
+    throw TransportException(TransportError::kInvalidStreamId);
 }
 
 std::shared_ptr<const std::vector<uint8_t>>
@@ -911,6 +921,9 @@ PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
         } else {
             throw InvalidConfigException("Missing cert key filename");
         }
+    }
+    if (tcfg.ssl_keylog == true) {
+        (void)picoquic_config_set_option(&config_, picoquic_option_SSLKEYLOG, "1");
     }
 }
 

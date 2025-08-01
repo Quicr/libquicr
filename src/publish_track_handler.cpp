@@ -14,9 +14,15 @@ namespace quicr {
         switch (publish_status_) {
             case Status::kOk:
                 break;
+
+            case Status::kPaused:
+                publish_track_metrics_.objects_dropped_not_ok++;
+                return PublishObjectStatus::kPaused;
+
             case Status::kNoSubscribers:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNoSubscribers;
+
             case Status::kPendingAnnounceResponse:
                 [[fallthrough]];
             case Status::kNotAnnounced:
@@ -44,7 +50,7 @@ namespace quicr {
         publish_track_metrics_.bytes_published += data->size();
 
         if (forward_publish_data_func_ != nullptr) {
-            return forward_publish_data_func_(default_priority_, default_ttl_, is_new_stream, data);
+            return forward_publish_data_func_(default_priority_, latest_group_id_, default_ttl_, is_new_stream, data);
         }
 
         return PublishObjectStatus::kInternalError;
@@ -57,15 +63,21 @@ namespace quicr {
 
         // change in subgroups and groups require a new stream
 
-        is_stream_header_needed = not sent_first_header_ || prev_sub_group_id_ != object_headers.subgroup_id ||
-                                  prev_object_group_id_ != object_headers.group_id;
+        is_stream_header_needed = not sent_first_header_ || latest_sub_group_id_ != object_headers.subgroup_id ||
+                                  latest_group_id_ != object_headers.group_id;
 
         switch (publish_status_) {
             case Status::kOk:
                 break;
+
+            case Status::kPaused:
+                publish_track_metrics_.objects_dropped_not_ok++;
+                return PublishObjectStatus::kPaused;
+
             case Status::kNoSubscribers:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNoSubscribers;
+
             case Status::kPendingAnnounceResponse:
                 [[fallthrough]];
             case Status::kNotAnnounced:
@@ -77,12 +89,19 @@ namespace quicr {
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNotAuthorized;
             case Status::kNewGroupRequested:
-                [[fallthrough]];
-            case Status::kSubscriptionUpdated:
                 // reset the status to ok to imply change
                 if (!is_stream_header_needed) {
                     break;
                 }
+                publish_status_ = Status::kOk;
+                break;
+            case Status::kSubscriptionUpdated:
+
+                /*
+                 * Always start a new stream on subscription update to support peering/pipelining
+                 */
+                is_stream_header_needed = true;
+
                 publish_status_ = Status::kOk;
                 break;
             default:
@@ -96,8 +115,8 @@ namespace quicr {
 
         sent_first_header_ = true;
 
-        prev_object_group_id_ = object_headers.group_id;
-        prev_sub_group_id_ = object_headers.subgroup_id;
+        latest_group_id_ = object_headers.group_id;
+        latest_sub_group_id_ = object_headers.subgroup_id;
         publish_track_metrics_.bytes_published += data.size();
         publish_track_metrics_.objects_published++;
 

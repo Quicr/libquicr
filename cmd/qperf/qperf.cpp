@@ -56,14 +56,12 @@ namespace {
     }
 
     inline quicr::FullTrackName MakeFullTrackName(const std::string& track_namespace,
-                                                  const std::string& track_name,
-                                                  const std::optional<uint64_t> track_alias = std::nullopt) noexcept
+                                                  const std::string& track_name) noexcept
     {
 
         return {
             quicr::TrackNamespace{ quicr::Bytes{ track_namespace.begin(), track_namespace.end() } },
             { track_name.begin(), track_name.end() },
-            track_alias,
         };
     }
 
@@ -95,11 +93,10 @@ namespace {
         {
             switch (status) {
                 case Status::kOk: {
-                    if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
-                        SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
-                        cv.notify_one();
-                    }
-                } break;
+                    SPDLOG_INFO("Track alias: {0} is ready to read", GetTrackAlias().value());
+                    cv.notify_one();
+                    break;
+                }
                 default:
                     break;
             }
@@ -123,7 +120,7 @@ namespace {
           : SubscribeTrackHandler(full_track_name,
                                   3,
                                   quicr::messages::GroupOrder::kAscending,
-                                  quicr::messages::FilterType::kLatestObject)
+                                  quicr::messages::FilterType::kLargestObject)
         {
         }
 
@@ -179,7 +176,7 @@ namespace {
                     break;
                 case Status::kConnecting:
                     [[fallthrough]];
-                case Status::kPendingSeverSetup:
+                case Status::kPendingServerSetup:
                     break;
                 default:
                     SPDLOG_INFO("Connection failed {0}", static_cast<int>(status));
@@ -373,7 +370,12 @@ main(int argc, char** argv)
                     .extensions = std::nullopt,
                 };
 
-                handler->PublishObject(header, data);
+                try {
+                    handler->PublishObject(header, data);
+                } catch (const std::exception& e) {
+                    SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());
+                }
+
                 ++total_attempted_published_objects;
             });
 

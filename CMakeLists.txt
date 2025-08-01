@@ -10,10 +10,11 @@ if(DEFINED PROJECT_NAME)
 else()
     option(QUICR_BUILD_TESTS "Build tests for quicr" ON)
     option(quicr_BUILD_BENCHMARKS "Build benchmarks for quicr" ON)
+    option(QUICR_BUILD_INTEGRATION_TESTS "Also build integration tests for quicr" ON)
 endif()
 
 project(quicr
-        VERSION 1.0.2
+        VERSION 1.12.2
         DESCRIPTION "QuicR, a Media over QUIC Library"
         LANGUAGES CXX)
 
@@ -35,6 +36,17 @@ option(LINT "Perform linting with clang-tidy" OFF)
 option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(PLATFORM_ESP_IDF "Enabble support for esp-idf (Default OFF)" OFF)
 option(USE_MBEDTLS OFF)
+option(DRAFT_PARSER_SETUP_VENV "Set up Python virtual environment for draft parser" ON)
+option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
+
+# Which MOQ draft to use.
+set(DEFAULT_DRAFT "${CMAKE_CURRENT_SOURCE_DIR}/tools/draft_parser/drafts/moq_transport_draft_v12_with_addendum.txt")
+set(DRAFT "" CACHE FILEPATH "MOQ Draft to build against")
+if (DRAFT STREQUAL "")
+    set(DRAFT_INTERNAL ${DEFAULT_DRAFT})
+else()
+    set(DRAFT_INTERNAL ${DRAFT})
+endif()
 
 if (NOT PLATFORM_ESP_IDF)
   find_package(Threads REQUIRED)
@@ -65,6 +77,17 @@ include(CTest)
 add_subdirectory(dependencies)
 
 ###
+### Draft Parser Integration
+###
+include(tools/draft_parser/cmake/ParseDraft.cmake)
+parse_draft(
+    RFC_FILE ${DRAFT_INTERNAL}
+    OUTPUT_NAME "ctrl_messages"
+    OUTPUT_DIR "${CMAKE_BINARY_DIR}/include/quicr/detail"
+    SETUP_VENV ${DRAFT_PARSER_SETUP_VENV}
+)
+
+###
 ### Build the quicr library
 ###
 add_subdirectory(src)
@@ -78,6 +101,13 @@ endif()
 
 if (BUILD_BENCHMARKING AND quicr_BUILD_BENCHMARKS)
    add_subdirectory(benchmark)
+endif()
+
+###
+### Fuzzing targets
+###
+if(QUICR_BUILD_FUZZ)
+   add_subdirectory(fuzz)
 endif()
 
 ###

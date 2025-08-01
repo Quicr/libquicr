@@ -3,6 +3,7 @@
 
 #include "quicr/detail/messages.h"
 #include "quicr/detail/stream_buffer.h"
+
 #include <quicr/subscribe_track_handler.h>
 
 namespace quicr {
@@ -49,11 +50,11 @@ namespace quicr {
         }
 
         auto& obj = stream_buffer_.GetAnyB<messages::StreamSubGroupObject>();
-        obj.serialize_extensions = TypeWillSerializeExtensions(s_hdr.type);
+        obj.stream_type = s_hdr.type;
+        const auto subgroup_properties = messages::StreamHeaderProperties(s_hdr.type);
         if (stream_buffer_ >> obj) {
-            SPDLOG_TRACE("Received stream_subgroup_object type: {} priority: {} track_alias: {} "
+            SPDLOG_TRACE("Received stream_subgroup_object priority: {} track_alias: {} "
                          "group_id: {} subgroup_id: {} object_id: {} data size: {}",
-                         static_cast<std::uint8_t>(s_hdr.subgroup_type),
                          s_hdr.priority,
                          s_hdr.track_alias,
                          s_hdr.group_id,
@@ -62,25 +63,30 @@ namespace quicr {
                          obj.payload.size());
 
             if (!s_hdr.subgroup_id.has_value()) {
-                // TODO(RichLogan): This is a protocol error?
-                assert(s_hdr.type == messages::StreamHeaderType::kSubgroupFirstObjectNoExtensions ||
-                       s_hdr.type == messages::StreamHeaderType::kSubgroupFirstObjectWithExtensions);
+                if (subgroup_properties.subgroup_id_type != messages::SubgroupIdType::kSetFromFirstObject) {
+                    throw messages::ProtocolViolationException("Subgoup ID mismatch");
+                }
+                // Set the subgroup ID from the first object ID.
                 s_hdr.subgroup_id = obj.object_id;
             }
 
             subscribe_track_metrics_.objects_received++;
             subscribe_track_metrics_.bytes_received += obj.payload.size();
 
-            ObjectReceived({ s_hdr.group_id,
-                             obj.object_id,
-                             s_hdr.subgroup_id.value(),
-                             obj.payload.size(),
-                             obj.object_status,
-                             s_hdr.priority,
-                             std::nullopt,
-                             TrackMode::kStream,
-                             obj.extensions },
-                           obj.payload);
+            try {
+                ObjectReceived({ s_hdr.group_id,
+                                 obj.object_id,
+                                 s_hdr.subgroup_id.value(),
+                                 obj.payload.size(),
+                                 obj.object_status,
+                                 s_hdr.priority,
+                                 std::nullopt,
+                                 TrackMode::kStream,
+                                 obj.extensions },
+                               obj.payload);
+            } catch (const std::exception& e) {
+                SPDLOG_ERROR("Caught exception trying to receive Subscribe object. (error={})", e.what());
+            }
 
             stream_buffer_.ResetAnyB<messages::StreamSubGroupObject>();
         }
@@ -91,7 +97,6 @@ namespace quicr {
         stream_buffer_.Clear();
 
         stream_buffer_.Push(*data);
-        stream_buffer_.Pop(); // Remove type header
 
         messages::ObjectDatagram msg;
         if (stream_buffer_ >> msg) {
@@ -107,26 +112,40 @@ namespace quicr {
 
             subscribe_track_metrics_.objects_received++;
             subscribe_track_metrics_.bytes_received += msg.payload.size();
-            ObjectReceived(
-              {
-                msg.group_id,
-                msg.object_id,
-                0, // datagrams don't have subgroups
-                msg.payload.size(),
-                ObjectStatus::kAvailable,
-                msg.priority,
-                std::nullopt,
-                TrackMode::kDatagram,
-                msg.extensions,
-              },
-              std::move(msg.payload));
+
+            try {
+                ObjectReceived(
+                  {
+                    msg.group_id,
+                    msg.object_id,
+                    0, // datagrams don't have subgroups
+                    msg.payload.size(),
+                    ObjectStatus::kAvailable,
+                    msg.priority,
+                    std::nullopt,
+                    TrackMode::kDatagram,
+                    msg.extensions,
+                  },
+                  std::move(msg.payload));
+            } catch (const std::exception& e) {
+                SPDLOG_ERROR("Caught exception trying to receive Subscribe object. (error={})", e.what());
+            }
         }
     }
 
-    void SubscribeTrackHandler::RequestNewGroup() noexcept
+    void SubscribeTrackHandler::Pause() noexcept
     {
-        if (new_group_request_callback_ && GetRequestId().has_value() && GetTrackAlias().has_value()) {
-            new_group_request_callback_(GetRequestId().value(), GetTrackAlias().value());
+        if (status_ != Status::kPaused) {
+            status_ = Status::kPaused;
+            set_forwarding_func_(false);
+        }
+    }
+
+    void SubscribeTrackHandler::Resume() noexcept
+    {
+        if (status_ == Status::kPaused) {
+            status_ = Status::kOk;
+            set_forwarding_func_(true);
         }
     }
 } // namespace quicr

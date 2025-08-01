@@ -31,9 +31,8 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, std::uint16_t value)
     {
-        const std::uint16_t swapped = SwapBytes(value);
-        buffer.push_back(static_cast<uint8_t>(swapped >> 8 & 0xFF));
-        buffer.push_back(static_cast<uint8_t>(swapped & 0xFF));
+        buffer.push_back(static_cast<uint8_t>(value >> 8 & 0xFF));
+        buffer.push_back(static_cast<uint8_t>(value & 0xFF));
         return buffer;
     }
 
@@ -55,6 +54,9 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, uint8_t& value)
     {
         // need 8 bits - not a varint
+        if (buffer.size() < sizeof(value)) {
+            throw std::invalid_argument("Provided buffer too small");
+        }
         value = buffer.front();
         return buffer.subspan(sizeof(value));
     }
@@ -62,11 +64,9 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, uint16_t& value)
     {
         if (buffer.size() < sizeof(value)) {
-            throw std::invalid_argument("Provider buffer too small");
+            throw std::invalid_argument("Provided buffer too small");
         }
-        const std::uint16_t high = buffer[0];
-        const std::uint16_t low = buffer[1];
-        value = high << 8 | low;
+        std::memcpy(&value, buffer.data(), sizeof(value));
         value = SwapBytes(value);
         return buffer.subspan(sizeof(std::uint16_t));
     }
@@ -182,6 +182,34 @@ namespace quicr::messages {
     {
         buffer = buffer >> location.group;
         buffer = buffer >> location.object;
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, const TrackNamespace& ns)
+    {
+        const auto& entries = ns.GetEntries();
+
+        buffer << UintVar(entries.size());
+        for (const auto& entry : entries) {
+            buffer << entry;
+        }
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg)
+    {
+        uint64_t size = 0;
+        buffer = buffer >> size;
+
+        std::vector<Bytes> entries(size);
+        for (auto& entry : entries) {
+
+            buffer = buffer >> entry;
+        }
+
+        msg = TrackNamespace{ entries };
+
         return buffer;
     }
 

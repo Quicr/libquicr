@@ -1,5 +1,6 @@
 """MOQ Draft Parser"""
 
+import os
 import sys
 from moqt_parser import ProtocolMessageParser, CodeGenerator  # , TableParser
 
@@ -21,7 +22,7 @@ def main(rfc_filename, output_name):
         "Track Name": "quicr::Bytes",
         "Track Namespace Prefix": "quicr::TrackNamespace",
         "Subscribe Parameters": "quicr::messages::Parameter",
-        "Setup Parameters": "quicr::messages::Parameter",
+        "Setup Parameters": "quicr::messages::SetupParameter",
         "New Session URI": "quicr::Bytes",
         "Parameters": "quicr::messages::Parameter",
         "Reason Phrase": "quicr::Bytes",
@@ -37,13 +38,16 @@ def main(rfc_filename, output_name):
         "Start Location": "quicr::messages::Location",
         "End Location": "quicr::messages::Location",
         "Largest Location": "quicr::messages::Location",
+        "Start": "quicr::messages::Location",
+        "Largest": "quicr::messages::Location",
     }
 
     field_discards = ["Type", "Length"]
 
     parser = ProtocolMessageParser(type_map)
     # table_parser = TableParser()
-    generator = CodeGenerator("cpp")
+    filename = os.path.basename(rfc_filename)
+    generator = CodeGenerator("cpp", filename)
     messages = []
 
     with open(rfc_filename, "r", encoding="utf8") as rfc_file:
