@@ -249,7 +249,7 @@ namespace quicr {
             // Hold onto track handler
             conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
             conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash] = track_handler;
-            conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
+            conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = track_handler;
         }
 
         lock.unlock();
