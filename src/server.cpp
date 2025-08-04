@@ -852,18 +852,26 @@ namespace quicr {
                     return true;
                 }
 
-                auto tfn = conn_ctx.recv_req_id[msg.request_id].track_full_name;
-                auto th = TrackHash(tfn);
+                auto req_id_it = conn_ctx.recv_req_id.find(msg.request_id);
+                if (req_id_it == conn_ctx.recv_req_id.end()) {
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received subscribe update to unknown publish track conn_id: {0} request_id: {1}",
+                      conn_ctx.connection_handle,
+                      msg.request_id);
+                    return true;
+                }
 
-                // For client/publisher, notify track that there is a subscriber
+                auto th = TrackHash(req_id_it->second.track_full_name);
                 auto ptd = GetPubTrackHandler(conn_ctx, th);
                 if (ptd == nullptr) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received subscribe unknown publish track conn_id: {0} namespace hash: {1} "
-                                       "name hash: {2}",
-                                       conn_ctx.connection_handle,
-                                       th.track_namespace_hash,
-                                       th.track_name_hash);
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received subscribe update to unknown publish track conn_id: {0} namespace hash: {1} "
+                      "name hash: {2}",
+                      conn_ctx.connection_handle,
+                      th.track_namespace_hash,
+                      th.track_name_hash);
 
                     SendSubscribeError(conn_ctx,
                                        msg.request_id,
@@ -873,14 +881,24 @@ namespace quicr {
                 }
 
                 SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received subscribe_update to track alias: {0} recv request_id: {1}",
+                                    "Received subscribe_update to track alias: {0} recv request_id: {1} forward: {2}",
                                     th.track_fullname_hash,
-                                    msg.request_id);
+                                    msg.request_id,
+                                    msg.forward);
 
-                if (msg.forward) {
+                if (not msg.forward) {
                     ptd->SetStatus(PublishTrackHandler::Status::kPaused);
                 } else {
-                    ptd->SetStatus(PublishTrackHandler::Status::kSubscriptionUpdated);
+                    bool new_group_request = false;
+                    for (const auto& param : msg.subscribe_parameters) {
+                        if (param.type == messages::ParameterType::kNewGroupRequest) {
+                            new_group_request = true;
+                            break;
+                        }
+                    }
+
+                    ptd->SetStatus(new_group_request ? PublishTrackHandler::Status::kNewGroupRequested
+                                                     : PublishTrackHandler::Status::kSubscriptionUpdated);
                 }
 
                 return true;

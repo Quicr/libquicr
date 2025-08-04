@@ -25,6 +25,7 @@ namespace qclient_vars {
     std::optional<uint64_t> track_alias; /// Track alias to use for subscribe
     bool record = false;
     bool playback = false;
+    bool new_group = false;
     std::chrono::milliseconds playback_speed_ms(20);
 }
 
@@ -158,6 +159,10 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
             case Status::kOk: {
                 if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
                     SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
+                    if (qclient_vars::new_group) {
+                        SPDLOG_INFO("Track alias: {0} requesting new group", track_alias.value());
+                        RequestNewGroup();
+                    }
                 }
             } break;
 
@@ -752,6 +757,10 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         qclient_vars::playback = true;
     }
 
+    if (cli_opts.count("new_group")) {
+        qclient_vars::new_group = true;
+    }
+
     if (cli_opts.count("playback_speed_ms")) {
         qclient_vars::playback_speed_ms = std::chrono::milliseconds(cli_opts["playback_speed_ms"].as<uint64_t>());
     }
@@ -810,6 +819,7 @@ main(int argc, char* argv[])
         ("start_point", "Start point for Subscription - 0 for from the beginning, 1 from the latest object", cxxopts::value<uint64_t>())
         ("sub_announces", "Prefix namespace to subscribe announces to", cxxopts::value<std::string>())
         ("record", "Record incoming data to moq and dat files", cxxopts::value<bool>())
+        ("new_group", "Request new group on subscribe", cxxopts::value<bool>())
         ("joining_fetch", "Subscribe with a joining fetch", cxxopts::value<bool>());
 
     options.add_options("Fetcher")
