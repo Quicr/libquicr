@@ -151,6 +151,12 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 
         std::string msg(data.begin(), data.end());
         SPDLOG_INFO("Received message: Group:{0}, Object:{1} - {2}", hdr.group_id, hdr.object_id, msg);
+
+        if (qclient_vars::new_group && not new_group_requested_) {
+            SPDLOG_INFO("Track alias: {} requesting new group", GetTrackAlias().value());
+            RequestNewGroup();
+            new_group_requested_ = true;
+        }
     }
 
     void StatusChanged(Status status) override
@@ -159,10 +165,6 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
             case Status::kOk: {
                 if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
                     SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
-                    if (qclient_vars::new_group) {
-                        SPDLOG_INFO("Track alias: {0} requesting new group", track_alias.value());
-                        RequestNewGroup();
-                    }
                 }
             } break;
 
@@ -214,6 +216,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
   private:
     std::ofstream data_fs_;
     std::fstream moq_fs_;
+    bool new_group_requested_ = false;
 };
 
 /**
