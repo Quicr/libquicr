@@ -100,3 +100,14 @@ TEST_CASE("Integration - Subscribe")
     // Test is complete, unsubscribe while we are connected.
     CHECK_NOTHROW(client->UnsubscribeTrack(handler));
 }
+
+TEST_CASE("Integration - Fetch")
+{
+    auto server = MakeTestServer();
+    auto client = MakeTestClient();
+    FullTrackName ftn;
+    ftn.name_space = TrackNamespace({ "namespace" });
+    ftn.name = { 1, 2, 3 };
+    const auto handler = FetchTrackHandler::Create(ftn, 0, messages::GroupOrder::kOriginalPublisherOrder, 0, 0, 0, 0);
+    client->FetchTrack(handler);
+}
