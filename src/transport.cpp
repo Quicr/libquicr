@@ -1165,17 +1165,12 @@ namespace quicr {
 
         track_handler->SetStatus(FetchTrackHandler::Status::kPendingResponse);
 
+        const auto request_id = *track_handler->GetRequestId();
+
         conn_it->second.tracks_by_request_id[*track_handler->GetRequestId()] = std::move(track_handler);
 
-        SendFetch(conn_it->second,
-                  *track_handler->GetRequestId(),
-                  tfn,
-                  priority,
-                  group_order,
-                  start_group,
-                  start_object,
-                  end_group,
-                  end_object);
+        SendFetch(
+          conn_it->second, request_id, tfn, priority, group_order, start_group, start_object, end_group, end_object);
     }
 
     void Transport::CancelFetchTrack(ConnectionHandle connection_handle,
