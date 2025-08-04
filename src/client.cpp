@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include "quicr/detail/transport.h"
+
 #include <optional>
 #include <quicr/client.h>
 
@@ -208,7 +210,7 @@ namespace quicr {
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
                 auto th = TrackHash(tfn);
 
-                conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn };
+                conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
 
                 // For client/publisher, notify track that there is a subscriber
                 auto ptd = GetPubTrackHandler(conn_ctx, th);
@@ -244,7 +246,7 @@ namespace quicr {
                 ptd->SetTrackAlias(ptd->GetTrackAlias().value());
                 ptd->SetStatus(PublishTrackHandler::Status::kOk);
 
-                conn_ctx.recv_req_id[msg.request_id] = { tfn };
+                conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
                 return true;
             }
             case messages::ControlMessageType::kSubscribeUpdate: {
@@ -263,8 +265,7 @@ namespace quicr {
                     return true;
                 }
 
-                auto tfn = conn_ctx.recv_req_id[msg.request_id].track_full_name;
-                auto th = TrackHash(tfn);
+                auto th = conn_ctx.recv_req_id[msg.request_id].track_hash;
 
                 // For client/publisher, notify track that there is a subscriber
                 auto ptd = GetPubTrackHandler(conn_ctx, th);
@@ -314,9 +315,9 @@ namespace quicr {
                 });
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
+                auto sub_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
 
-                if (sub_it == conn_ctx.tracks_by_request_id.end()) {
+                if (sub_it == conn_ctx.sub_tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received subscribe ok to unknown subscribe track conn_id: {0} request_id: {1}, ignored",
@@ -350,9 +351,9 @@ namespace quicr {
                 messages::SubscribeError msg;
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
+                auto sub_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
 
-                if (sub_it == conn_ctx.tracks_by_request_id.end()) {
+                if (sub_it == conn_ctx.sub_tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received subscribe error to unknown request_id conn_id: {0} request_id: {1}, ignored",
@@ -501,8 +502,8 @@ namespace quicr {
                 messages::SubscribeDone msg;
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
-                if (sub_it == conn_ctx.tracks_by_request_id.end()) {
+                auto sub_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
+                if (sub_it == conn_ctx.sub_tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received subscribe done to unknown request_id conn_id: {0} request_id: {1}",
                                        conn_ctx.connection_handle,
@@ -608,8 +609,8 @@ namespace quicr {
                 messages::FetchOk msg;
                 msg_bytes >> msg;
 
-                auto fetch_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
-                if (fetch_it == conn_ctx.tracks_by_request_id.end()) {
+                auto fetch_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
+                if (fetch_it == conn_ctx.sub_tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received fetch ok for unknown fetch track conn_id: {0} request_id: {1}, ignored",
@@ -626,8 +627,8 @@ namespace quicr {
                 messages::FetchError msg;
                 msg_bytes >> msg;
 
-                auto fetch_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
-                if (fetch_it == conn_ctx.tracks_by_request_id.end()) {
+                auto fetch_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
+                if (fetch_it == conn_ctx.sub_tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received fetch error for unknown fetch track conn_id: {} request_id: {} "
                                        "error code: {}, ignored",
@@ -646,7 +647,7 @@ namespace quicr {
                                    std::string(msg.error_reason.begin(), msg.error_reason.end()));
 
                 fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kError);
-                conn_ctx.tracks_by_request_id.erase(fetch_it);
+                conn_ctx.sub_tracks_by_request_id.erase(fetch_it);
 
                 return true;
             }
