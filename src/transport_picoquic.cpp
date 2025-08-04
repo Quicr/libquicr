@@ -705,6 +705,8 @@ PicoQuicTransport::CreateDataContext(const TransportConnId conn_id,
 
         // Create stream
         if (use_reliable_transport) {
+            CreateStream(conn_it->second, &data_ctx_it->second);
+
             SPDLOG_LOGGER_DEBUG(logger,
                                 "Created reliable data context id: {} pri: {}",
                                 data_ctx_it->second.data_ctx_id,

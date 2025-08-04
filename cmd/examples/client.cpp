@@ -344,7 +344,6 @@ class MyClient : public quicr::Client
                 break;
             case Status::kPendingServerSetup:
                 SPDLOG_INFO("Connection connected and now pending server setup");
-                SPDLOG_INFO("Connection connected and now pending server setup");
                 break;
             default:
                 SPDLOG_INFO("Connection failed {0}", static_cast<int>(status));
