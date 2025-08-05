@@ -178,7 +178,7 @@ namespace quicr {
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash].erase(th.track_name_hash);
 
         conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash].erase(src_id);
-        if (conn_it->second.pub_tracks_by_track_alias.empty()) {
+        if (conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash].empty()) {
             conn_it->second.pub_tracks_by_track_alias.erase(th.track_fullname_hash);
         }
 

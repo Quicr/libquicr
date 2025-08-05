@@ -1161,9 +1161,7 @@ namespace quicr {
 
         track_handler->SetStatus(FetchTrackHandler::Status::kPendingResponse);
 
-        conn_it->second.sub_tracks_by_request_id[*track_handler->GetRequestId()] = std::move(track_handler);
         const auto request_id = *track_handler->GetRequestId();
-
         conn_it->second.sub_tracks_by_request_id[*track_handler->GetRequestId()] = std::move(track_handler);
 
         SendFetch(
