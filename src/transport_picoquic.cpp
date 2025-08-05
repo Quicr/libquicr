@@ -706,8 +706,9 @@ PicoQuicTransport::CreateDataContext(const TransportConnId conn_id,
         // Create stream
         if (use_reliable_transport) {
             CreateStream(conn_it->second, &data_ctx_it->second);
+
             SPDLOG_LOGGER_DEBUG(logger,
-                                "Created STREAM data context id: {} pri: {}",
+                                "Created reliable data context id: {} pri: {}",
                                 data_ctx_it->second.data_ctx_id,
                                 static_cast<int>(priority));
         } else {
@@ -959,7 +960,7 @@ PicoQuicTransport::CreateDataContextBiDirRecv(TransportConnId conn_id, uint64_t 
         data_ctx_it->second.is_bidir = true;
         data_ctx_it->second.data_ctx_id = conn_it->second.next_data_ctx_id++; // Set and bump next data_ctx_id
 
-        data_ctx_it->second.priority = 10; // TODO: Need to get priority from remote
+        data_ctx_it->second.priority = 1; // TODO: Need to get priority from remote
 
         data_ctx_it->second.tx_data = std::make_unique<PriorityQueue<ConnData>>(tconfig_.time_queue_max_duration,
                                                                                 tconfig_.time_queue_bucket_interval,

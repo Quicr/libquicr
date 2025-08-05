@@ -824,7 +824,7 @@ namespace quicr {
         };
 
         // Set the track handler for tracking by request ID
-        conn_it->second.tracks_by_request_id[*track_handler->GetRequestId()] = track_handler;
+        conn_it->second.sub_tracks_by_request_id[*track_handler->GetRequestId()] = track_handler;
 
         if (!track_handler->IsPublisherInitiated()) {
             SendSubscribe(conn_it->second,
@@ -850,7 +850,7 @@ namespace quicr {
                                    th.track_fullname_hash,
                                    fetch_rid,
                                    *track_handler->GetRequestId());
-                conn_it->second.tracks_by_request_id[fetch_rid] = std::move(joining_fetch_handler);
+                conn_it->second.sub_tracks_by_request_id[fetch_rid] = std::move(joining_fetch_handler);
                 SendJoiningFetch(conn_it->second,
                                  fetch_rid,
                                  info.priority,
@@ -931,7 +931,7 @@ namespace quicr {
             std::lock_guard<std::mutex> _(state_mutex_);
 
             if (handler.GetRequestId().has_value()) {
-                conn_ctx.tracks_by_request_id.erase(*handler.GetRequestId());
+                conn_ctx.sub_tracks_by_request_id.erase(*handler.GetRequestId());
             }
 
             if (handler.GetReceivedTrackAlias().has_value()) {
@@ -1034,8 +1034,6 @@ namespace quicr {
             track_handler->SetTrackAlias(th.track_fullname_hash);
         }
 
-        conn_it->second.pub_tracks_ns_by_request_id[*track_handler->GetRequestId()] = th.track_namespace_hash;
-
         if (track_handler->UsingAnnounce()) {
             // Check if this published track is a new namespace or existing.
             auto pub_ns_it = conn_it->second.pub_tracks_by_name.find(th.track_namespace_hash);
@@ -1066,7 +1064,7 @@ namespace quicr {
             }
         } else {
             // Add state to received request ID since a subscribe will not be received for this request
-            conn_it->second.recv_req_id[*track_handler->GetRequestId()] = { track_handler->GetFullTrackName() };
+            conn_it->second.recv_req_id[*track_handler->GetRequestId()] = { track_handler->GetFullTrackName(), th };
 
             track_handler->SetStatus(PublishTrackHandler::Status::kPendingPublishOk);
             SendPublish(
@@ -1122,7 +1120,7 @@ namespace quicr {
         // Hold ref to track handler
         conn_it->second.pub_tracks_by_request_id[*track_handler->GetRequestId()] = track_handler;
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
-        conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash] = track_handler;
+        conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash][conn_id] = track_handler;
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
     }
 
@@ -1164,8 +1162,7 @@ namespace quicr {
         track_handler->SetStatus(FetchTrackHandler::Status::kPendingResponse);
 
         const auto request_id = *track_handler->GetRequestId();
-
-        conn_it->second.tracks_by_request_id[*track_handler->GetRequestId()] = std::move(track_handler);
+        conn_it->second.sub_tracks_by_request_id[*track_handler->GetRequestId()] = std::move(track_handler);
 
         SendFetch(
           conn_it->second, request_id, tfn, priority, group_order, start_group, start_object, end_group, end_object);
@@ -1356,7 +1353,7 @@ namespace quicr {
     void Transport::RemoveAllTracksForConnectionClose(ConnectionContext& conn_ctx)
     {
         // clean up subscriber handlers on disconnect
-        for (const auto& [sub_id, handler] : conn_ctx.tracks_by_request_id) {
+        for (const auto& [sub_id, handler] : conn_ctx.sub_tracks_by_request_id) {
             RemoveSubscribeTrack(conn_ctx, *handler, false);
         }
 
@@ -1369,7 +1366,7 @@ namespace quicr {
         conn_ctx.pub_tracks_by_data_ctx_id.clear();
         conn_ctx.pub_tracks_by_name.clear();
         conn_ctx.recv_req_id.clear();
-        conn_ctx.tracks_by_request_id.clear();
+        conn_ctx.sub_tracks_by_request_id.clear();
         conn_ctx.sub_by_recv_track_alias.clear();
     }
 
@@ -1702,8 +1699,8 @@ namespace quicr {
 
         rx_ctx.is_new = false;
 
-        const auto fetch_it = conn_ctx.tracks_by_request_id.find(request_id);
-        if (fetch_it == conn_ctx.tracks_by_request_id.end()) {
+        const auto fetch_it = conn_ctx.sub_tracks_by_request_id.find(request_id);
+        if (fetch_it == conn_ctx.sub_tracks_by_request_id.end()) {
             // TODO: Metrics.
             SPDLOG_LOGGER_WARN(logger_,
                                "Received fetch_header to unknown fetch track request_id: {} stream: {}, ignored",
@@ -1832,7 +1829,7 @@ namespace quicr {
             pub_h->MetricsSampled(pub_h->publish_track_metrics_);
         }
 
-        for (const auto& [_, sub_h] : conn.tracks_by_request_id) {
+        for (const auto& [_, sub_h] : conn.sub_tracks_by_request_id) {
             sub_h->MetricsSampled(sub_h->subscribe_track_metrics_);
         }
     }

@@ -104,8 +104,17 @@ namespace quicr {
         switch (subscribe_response.reason_code) {
             case SubscribeResponse::ReasonCode::kOk: {
                 // Save the latest state for joining fetch.
-                assert(conn_it->second.recv_req_id.find(request_id) != conn_it->second.recv_req_id.end());
-                conn_it->second.recv_req_id[request_id].largest_location = subscribe_response.largest_location;
+                auto req_it = conn_it->second.recv_req_id.find(request_id);
+                if (req_it == conn_it->second.recv_req_id.end()) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Resolve subscribe has no request_id: {} conn_id: {} track_alias: {}",
+                                       request_id,
+                                       connection_handle,
+                                       track_alias);
+                    break;
+                }
+
+                req_it->second.largest_location = subscribe_response.largest_location;
 
                 // Send the ok.
                 SendSubscribeOk(
@@ -147,6 +156,7 @@ namespace quicr {
     }
 
     void Server::UnbindPublisherTrack(ConnectionHandle connection_handle,
+                                      ConnectionHandle src_id,
                                       const std::shared_ptr<PublishTrackHandler>& track_handler)
     {
         std::lock_guard lock(state_mutex_);
@@ -166,7 +176,11 @@ namespace quicr {
 
         conn_it->second.pub_tracks_ns_by_request_id.erase(*track_handler->GetRequestId());
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash].erase(th.track_name_hash);
-        conn_it->second.pub_tracks_by_track_alias.erase(th.track_fullname_hash);
+
+        conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash].erase(src_id);
+        if (conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash].empty()) {
+            conn_it->second.pub_tracks_by_track_alias.erase(th.track_fullname_hash);
+        }
 
         if (conn_it->second.pub_tracks_by_name.count(th.track_namespace_hash) == 0) {
             SPDLOG_LOGGER_DEBUG(logger_,
@@ -181,7 +195,8 @@ namespace quicr {
         conn_it->second.pub_tracks_by_data_ctx_id.erase(track_handler->publish_data_ctx_id_);
     }
 
-    void Server::BindPublisherTrack(TransportConnId conn_id,
+    void Server::BindPublisherTrack(ConnectionHandle conn_id,
+                                    uint64_t src_id,
                                     uint64_t request_id,
                                     const std::shared_ptr<PublishTrackHandler>& track_handler,
                                     bool ephemeral)
@@ -248,7 +263,7 @@ namespace quicr {
         if (!ephemeral) {
             // Hold onto track handler
             conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
-            conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash] = track_handler;
+            conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash][src_id] = track_handler;
             conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = track_handler;
         }
 
@@ -396,8 +411,9 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
+                auto th = TrackHash(tfn);
 
-                conn_ctx.recv_req_id[msg.request_id] = { tfn };
+                conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
 
                 const auto dt_param =
                   std::find_if(msg.subscribe_parameters.begin(), msg.subscribe_parameters.end(), [](const auto& p) {
@@ -430,9 +446,9 @@ namespace quicr {
                 });
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
+                auto sub_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
 
-                if (sub_it == conn_ctx.tracks_by_request_id.end()) {
+                if (sub_it == conn_ctx.sub_tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received subscribe ok to unknown subscribe track conn_id: {0} request_id: {1}, ignored",
@@ -454,9 +470,9 @@ namespace quicr {
                 auto msg = messages::SubscribeError{};
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
+                auto sub_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
 
-                if (sub_it == conn_ctx.tracks_by_request_id.end()) {
+                if (sub_it == conn_ctx.sub_tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received subscribe error to unknown request_id conn_id: {0} request_id: {1}, ignored",
@@ -552,8 +568,7 @@ namespace quicr {
                 messages::Unsubscribe msg;
                 msg_bytes >> msg;
 
-                const auto& tfn = conn_ctx.recv_req_id[msg.request_id].track_full_name;
-                TrackHash th(tfn);
+                auto& th = conn_ctx.recv_req_id[msg.request_id].track_hash;
                 if (auto pdt = GetPubTrackHandler(conn_ctx, th)) {
                     pdt->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
                 }
@@ -567,8 +582,8 @@ namespace quicr {
                 messages::SubscribeDone msg;
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
-                if (sub_it == conn_ctx.tracks_by_request_id.end()) {
+                auto sub_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
+                if (sub_it == conn_ctx.sub_tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received subscribe done to unknown subscribe conn_id: {0} request_id: {1}",
                                        conn_ctx.connection_handle,
@@ -825,8 +840,9 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
+                auto th = TrackHash(tfn);
 
-                conn_ctx.recv_req_id[msg.request_id] = { tfn };
+                conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
 
                 PublishReceived(conn_ctx.connection_handle,
                                 msg.request_id,
@@ -840,10 +856,11 @@ namespace quicr {
                 messages::SubscribeUpdate msg;
                 msg_bytes >> msg;
 
-                if (conn_ctx.recv_req_id.count(msg.request_id) == 0) {
+                auto sub_ctx_it = conn_ctx.recv_req_id.find(msg.request_id);
+                if (sub_ctx_it == conn_ctx.recv_req_id.end()) {
                     // update for invalid subscription
                     SPDLOG_LOGGER_WARN(logger_,
-                                       "Received subscribe_update {0} for unknown subscription conn_id: {1}",
+                                       "Received subscribe_update for unknown subscription conn_id: {} request_id: {}",
                                        msg.request_id,
                                        conn_ctx.connection_handle);
 
@@ -852,55 +869,30 @@ namespace quicr {
                     return true;
                 }
 
-                auto req_id_it = conn_ctx.recv_req_id.find(msg.request_id);
-                if (req_id_it == conn_ctx.recv_req_id.end()) {
-                    SPDLOG_LOGGER_WARN(
-                      logger_,
-                      "Received subscribe update to unknown publish track conn_id: {0} request_id: {1}",
-                      conn_ctx.connection_handle,
-                      msg.request_id);
-                    return true;
-                }
+                SPDLOG_LOGGER_DEBUG(
+                  logger_, "Received subscribe_update to recv request_id: {} forward: {}", msg.request_id, msg.forward);
 
-                auto th = TrackHash(req_id_it->second.track_full_name);
-                auto ptd = GetPubTrackHandler(conn_ctx, th);
-                if (ptd == nullptr) {
-                    SPDLOG_LOGGER_WARN(
-                      logger_,
-                      "Received subscribe update to unknown publish track conn_id: {0} namespace hash: {1} "
-                      "name hash: {2}",
-                      conn_ctx.connection_handle,
-                      th.track_namespace_hash,
-                      th.track_name_hash);
-
-                    SendSubscribeError(conn_ctx,
-                                       msg.request_id,
-                                       messages::SubscribeErrorCode::kTrackNotExist,
-                                       "Published track not found");
-                    return true;
-                }
-
-                SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received subscribe_update to track alias: {0} recv request_id: {1} forward: {2}",
-                                    th.track_fullname_hash,
-                                    msg.request_id,
-                                    msg.forward);
-
-                if (not msg.forward) {
-                    ptd->SetStatus(PublishTrackHandler::Status::kPaused);
-                } else {
-                    bool new_group_request = false;
-                    for (const auto& param : msg.subscribe_parameters) {
-                        if (param.type == messages::ParameterType::kNewGroupRequest) {
-                            new_group_request = true;
-                            break;
+                /*
+                 * Unlike client, server supports multi-publisher to the client.
+                 *   There is a publish handler per publisher connection
+                 */
+                for (const auto& pub :
+                     conn_ctx.pub_tracks_by_track_alias[sub_ctx_it->second.track_hash.track_fullname_hash]) {
+                    if (not msg.forward) {
+                        pub.second->SetStatus(PublishTrackHandler::Status::kPaused);
+                    } else {
+                        bool new_group_request = false;
+                        for (const auto& param : msg.subscribe_parameters) {
+                            if (param.type == messages::ParameterType::kNewGroupRequest) {
+                                new_group_request = true;
+                                break;
+                            }
                         }
+
+                        pub.second->SetStatus(new_group_request ? PublishTrackHandler::Status::kNewGroupRequested
+                                                                : PublishTrackHandler::Status::kSubscriptionUpdated);
                     }
-
-                    ptd->SetStatus(new_group_request ? PublishTrackHandler::Status::kNewGroupRequested
-                                                     : PublishTrackHandler::Status::kSubscriptionUpdated);
                 }
-
                 return true;
             }
 

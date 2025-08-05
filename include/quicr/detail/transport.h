@@ -282,12 +282,14 @@ namespace quicr {
             struct SubscribeContext
             {
                 FullTrackName track_full_name;
+                TrackHash track_hash{ 0, 0 };
                 std::optional<messages::Location> largest_location{ std::nullopt };
             };
+
             std::map<messages::RequestID, SubscribeContext> recv_req_id;
 
             /// Tracks by request ID (Subscribe and Fetch)
-            std::map<messages::RequestID, std::shared_ptr<SubscribeTrackHandler>> tracks_by_request_id;
+            std::map<messages::RequestID, std::shared_ptr<SubscribeTrackHandler>> sub_tracks_by_request_id;
 
             /**
              * Data is received with a track alias that is set by the publisher. The map key
@@ -297,17 +299,23 @@ namespace quicr {
              */
             std::map<messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> sub_by_recv_track_alias;
 
-            /// Publish tracks by namespace and name. map[track namespace][track name] = track handler
+            /**
+             * Publish tracks by namespace and name. map[track namespace][track name] = track handler
+             * Used mainly in client mode only
+             */
             std::map<TrackNamespaceHash, std::map<TrackNameHash, std::shared_ptr<PublishTrackHandler>>>
               pub_tracks_by_name;
 
-            std::map<messages::TrackAlias, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_track_alias;
+            /// Publish tracks to subscriber by source id of publisher - required for multi-publisher
+            std::map<messages::TrackAlias, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>>
+              pub_tracks_by_track_alias;
 
-            /** MoQT draft 11 does not send all announce messages with namespace. Instead, they are sent
+            /** MoQT does not send all announce messages with namespace. Instead, they are sent
              *  with request-id. The namespace is needed. This map is used to map request ID to namespace
              */
             std::map<messages::RequestID, TrackNamespaceHash> pub_tracks_ns_by_request_id;
 
+            /// Publish tracks by request Id. Used in client mode
             std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_request_id;
 
             /// Published tracks by quic transport data context ID.

@@ -876,7 +876,7 @@ class MyServer : public quicr::Server
           qserver_vars::SubscribeInfo{ connection_handle, request_id, track_alias });
 
         // Create a subscribe track that will be used by the relay to send to subscriber for matching objects
-        BindPublisherTrack(connection_handle, request_id, pub_track_h, false);
+        BindPublisherTrack(connection_handle, connection_handle, request_id, pub_track_h, false);
 
         // Resume publishers
         for (const auto& [pub_connection_handle, handler] : qserver_vars::pub_subscribes[track_alias]) {
