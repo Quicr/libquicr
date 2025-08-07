@@ -997,8 +997,9 @@ PicoQuicTransport::PqRunner()
     while (auto cb = picoquic_runner_queue_.Pop()) {
         try {
             (*cb)();
-        }  catch (const std::exception& e) {
-            SPDLOG_LOGGER_ERROR(logger, "Caught exception running callback via notify thread (error={}), ignoring", e.what());
+        } catch (const std::exception& e) {
+            SPDLOG_LOGGER_ERROR(
+              logger, "Caught exception running callback via notify thread (error={}), ignoring", e.what());
             // TODO(tievens): Add metrics to track if this happens
         }
     }
@@ -1435,7 +1436,7 @@ try {
               logger, "conn_id: {0} stream_id: {1} notify queue is full", conn_ctx->conn_id, stream_id);
         }
     }
-}  catch (const std::exception& e) {
+} catch (const std::exception& e) {
     SPDLOG_LOGGER_ERROR(logger, "Caught exception in OnRecvStreamBytes. (error={})", e.what());
     // TODO(tievens): Add metrics to track if this happens
 }
