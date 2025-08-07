@@ -913,7 +913,7 @@ namespace quicr {
         switch (handler_status) {
             case SubscribeTrackHandler::Status::kOk:
                 try {
-                    if (not handler.IsPublisherInitiated()) {
+                    if (not handler.IsPublisherInitiated() && not conn_ctx.closed) {
                         SendUnsubscribe(conn_ctx, handler.GetRequestId().value());
                     }
                 } catch (const std::exception& e) {
@@ -1378,11 +1378,11 @@ namespace quicr {
         SPDLOG_LOGGER_DEBUG(logger_, "Connection status conn_id: {0} status: {1}", conn_id, static_cast<int>(status));
         ConnectionStatus conn_status = ConnectionStatus::kConnected;
         bool remove_connection = false;
+        auto& conn_ctx = connections_[conn_id];
 
         switch (status) {
             case TransportStatus::kReady: {
                 if (client_mode_) {
-                    auto& conn_ctx = connections_[conn_id];
                     SPDLOG_LOGGER_INFO(logger_,
                                        "Connection established, creating bi-dir stream and sending CLIENT_SETUP");
 
@@ -1410,16 +1410,19 @@ namespace quicr {
                 break;
             case TransportStatus::kRemoteRequestClose:
                 conn_status = ConnectionStatus::kClosedByRemote;
+                conn_ctx.closed = true;
                 remove_connection = true;
                 break;
 
             case TransportStatus::kIdleTimeout:
                 conn_status = ConnectionStatus::kIdleTimeout;
+                conn_ctx.closed = true;
                 remove_connection = true;
                 break;
 
             case TransportStatus::kDisconnected: {
                 conn_status = ConnectionStatus::kNotConnected;
+                conn_ctx.closed = true;
                 remove_connection = true;
                 break;
             }
@@ -1443,8 +1446,8 @@ namespace quicr {
                     status_ = Status::kNotConnected;
                 }
 
-                ConnectionStatusChanged(conn_id, conn_status);
                 RemoveAllTracksForConnectionClose(conn_it->second);
+                ConnectionStatusChanged(conn_id, conn_status);
 
                 std::lock_guard<std::mutex> _(state_mutex_);
                 connections_.erase(conn_it);

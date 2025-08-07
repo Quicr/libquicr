@@ -456,9 +456,7 @@ PicoQuicTransport::Start()
         SPDLOG_LOGGER_INFO(logger, "Using Reset and Wait congestion control strategy");
     }
 
-    if (tconfig_.use_bbr) {
-        (void)picoquic_config_set_option(&config_, picoquic_option_CC_ALGO, "bbr");
-    } else {
+    if (not tconfig_.use_bbr) {
         SPDLOG_LOGGER_INFO(logger, "Using NewReno congestion control");
         (void)picoquic_config_set_option(&config_, picoquic_option_CC_ALGO, "reno");
     }
