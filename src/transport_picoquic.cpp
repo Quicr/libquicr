@@ -995,7 +995,12 @@ PicoQuicTransport::PqRunner()
 
     // note: check before running move of optional, which is more CPU taxing when empty
     while (auto cb = picoquic_runner_queue_.Pop()) {
-        (*cb)();
+        try {
+            (*cb)();
+        }  catch (const std::exception& e) {
+            SPDLOG_LOGGER_ERROR(logger, "Caught exception running callback via notify thread (error={}), ignoring", e.what());
+            // TODO(tievens): Add metrics to track if this happens
+        }
     }
 }
 
@@ -1356,7 +1361,7 @@ PicoQuicTransport::OnNewConnection(const TransportConnId conn_id)
 
 void
 PicoQuicTransport::OnRecvDatagram(ConnectionContext* conn_ctx, uint8_t* bytes, size_t length)
-{
+try {
     if (length == 0) {
         return;
     }
@@ -1378,6 +1383,9 @@ PicoQuicTransport::OnRecvDatagram(ConnectionContext* conn_ctx, uint8_t* bytes, s
         !cbNotifyQueue_.Push([=, this]() { delegate_.OnRecvDgram(conn_ctx->conn_id, std::nullopt); })) {
         SPDLOG_LOGGER_ERROR(logger, "conn_id: {0} DGRAM notify queue is full", conn_ctx->conn_id);
     }
+} catch (const std::exception& e) {
+    SPDLOG_LOGGER_ERROR(logger, "Caught exception in OnRecvDatagram. (error={})", e.what());
+    // TODO(tievens): Add metrics to track if this happens
 }
 
 void
@@ -1385,7 +1393,7 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
                                      DataContext* data_ctx,
                                      uint64_t stream_id,
                                      std::span<const uint8_t> bytes)
-{
+try {
     if (bytes.empty()) {
         SPDLOG_LOGGER_DEBUG(logger, "on_recv_stream_bytes length is ZERO");
         return;
@@ -1427,6 +1435,9 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
               logger, "conn_id: {0} stream_id: {1} notify queue is full", conn_ctx->conn_id, stream_id);
         }
     }
+}  catch (const std::exception& e) {
+    SPDLOG_LOGGER_ERROR(logger, "Caught exception in OnRecvStreamBytes. (error={})", e.what());
+    // TODO(tievens): Add metrics to track if this happens
 }
 
 void
