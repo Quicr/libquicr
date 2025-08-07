@@ -1352,8 +1352,11 @@ namespace quicr {
     void Transport::RemoveAllTracksForConnectionClose(ConnectionContext& conn_ctx)
     {
         // clean up subscriber handlers on disconnect
-        for (const auto& [sub_id, handler] : conn_ctx.sub_tracks_by_request_id) {
+        for (const auto& [req_id, handler] : conn_ctx.sub_tracks_by_request_id) {
             RemoveSubscribeTrack(conn_ctx, *handler, false);
+            if (handler->GetConnectionId() == conn_ctx.connection_handle) {
+                handler->SetStatus(SubscribeTrackHandler::Status::kNotConnected);
+            }
         }
 
         // Notify publish handlers of disconnect

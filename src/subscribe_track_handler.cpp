@@ -135,7 +135,7 @@ namespace quicr {
 
     void SubscribeTrackHandler::Pause() noexcept
     {
-        if (status_ != Status::kPaused) {
+        if (status_ != Status::kPaused && status_ != Status::kNotConnected) {
             status_ = Status::kPaused;
             update_func_(false, false);
         }
