@@ -41,7 +41,7 @@ namespace quicr {
                                  const TrackNamespace& track_namespace,
                                  const std::vector<ConnectionHandle>& subscribers,
                                  const AnnounceResponse& response)
-    try {
+    {
         auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
             return;
@@ -66,8 +66,6 @@ namespace quicr {
                 // TODO: Send announce error
             }
         }
-    } catch (const std::exception& e) {
-        // TODO(trigaux): Error
     }
 
     void Server::SubscribeReceived(ConnectionHandle,
@@ -97,7 +95,7 @@ namespace quicr {
                                   uint64_t request_id,
                                   uint64_t track_alias,
                                   const SubscribeResponse& subscribe_response)
-    try {
+    {
         auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
             return;
@@ -128,8 +126,6 @@ namespace quicr {
                   conn_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Internal error");
                 break;
         }
-    } catch (const std::exception& e) {
-        // TODO(trigaux): Error
     }
 
     void Server::ResolvePublish(ConnectionHandle connection_handle,
@@ -138,7 +134,7 @@ namespace quicr {
                                 messages::SubscriberPriority priority,
                                 messages::GroupOrder group_order,
                                 const PublishResponse& publish_response)
-    try {
+    {
         auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
             return;
@@ -157,8 +153,6 @@ namespace quicr {
                   conn_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Internal error");
                 break;
         }
-    } catch (const std::exception& e) {
-        // TODO(trigaux): Error
     }
 
     void Server::UnbindPublisherTrack(ConnectionHandle connection_handle,

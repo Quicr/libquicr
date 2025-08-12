@@ -12,13 +12,6 @@
 namespace quicr {
     using namespace quicr::messages;
 
-    TransportException::TransportException(TransportError error, std::source_location location)
-      : std::runtime_error("Error in transport (error=" + std::to_string(static_cast<int>(error)) + ", " +
-                           std::to_string(location.line()) + ", " + location.file_name() + ")")
-      , Error(error)
-    {
-    }
-
     static std::optional<std::tuple<std::string, uint16_t>> ParseConnectUri(const std::string& connect_uri)
     {
         // moq://domain:port/<dont-care>
@@ -568,33 +561,6 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeUpdate (error={})", e.what());
-        throw;
-    }
-
-    void Transport::SendTrackStatusOk(ConnectionContext& conn_ctx,
-                                      messages::RequestID request_id,
-                                      [[maybe_unused]] uint64_t track_alias,
-                                      uint64_t expires,
-                                      const std::optional<messages::Location>& largest_location)
-    try {
-        const auto trackstatus_ok = TrackStatusOk(
-          request_id,
-          0, /* Zero per MOQT draft-14 */
-          expires,
-          GroupOrder::kAscending,
-          largest_location.has_value(),
-          largest_location.has_value() ? std::make_optional(TrackStatusOk::Group_0{ *largest_location }) : std::nullopt,
-          {});
-
-        Bytes buffer;
-        buffer << trackstatus_ok;
-
-        SPDLOG_LOGGER_DEBUG(
-          logger_, "Sending TRACK_STATUS_OK to conn_id: {0} request_id: {1}", conn_ctx.connection_handle, request_id);
-
-        SendCtrlMsg(conn_ctx, buffer);
-    } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending TrackStatusOk (error={})", e.what());
         throw;
     }
 
@@ -1821,10 +1787,10 @@ namespace quicr {
         }
     }
 
-    void Transport::OnDataMetricsStampled(const MetricsTimeStamp sample_time,
-                                          const TransportConnId conn_id,
-                                          const DataContextId data_ctx_id,
-                                          const QuicDataContextMetrics& quic_data_context_metrics)
+    void Transport::OnDataMetricsSampled(const MetricsTimeStamp sample_time,
+                                         const TransportConnId conn_id,
+                                         const DataContextId data_ctx_id,
+                                         const QuicDataContextMetrics& quic_data_context_metrics)
     {
         const auto& conn = connections_[conn_id];
         const auto& pub_th_it = conn.pub_tracks_by_data_ctx_id.find(data_ctx_id);
