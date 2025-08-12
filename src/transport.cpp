@@ -13,15 +13,6 @@
 namespace quicr {
     using namespace quicr::messages;
 
-    TransportException::TransportException(TransportError error, std::source_location location)
-      : std::runtime_error(std::format("Error in transport (error={}, line={}, file={})",
-                                       static_cast<int>(error),
-                                       location.line(),
-                                       location.file_name()))
-      , Error(error)
-    {
-    }
-
     static std::optional<std::tuple<std::string, uint16_t>> ParseConnectUri(const std::string& connect_uri)
     {
         // moq://domain:port/<dont-care>
@@ -1820,10 +1811,10 @@ namespace quicr {
         }
     }
 
-    void Transport::OnDataMetricsStampled(const MetricsTimeStamp sample_time,
-                                          const TransportConnId conn_id,
-                                          const DataContextId data_ctx_id,
-                                          const QuicDataContextMetrics& quic_data_context_metrics)
+    void Transport::OnDataMetricsSampled(const MetricsTimeStamp sample_time,
+                                         const TransportConnId conn_id,
+                                         const DataContextId data_ctx_id,
+                                         const QuicDataContextMetrics& quic_data_context_metrics)
     {
         const auto& conn = connections_[conn_id];
         const auto& pub_th_it = conn.pub_tracks_by_data_ctx_id.find(data_ctx_id);

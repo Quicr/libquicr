@@ -618,7 +618,7 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
     typedef quicr::SubscribeTrackHandler::JoiningFetch Fetch;
     const auto joining_fetch =
       join_fetch ? Fetch{ 4, quicr::messages::GroupOrder::kAscending, {}, 0 } : std::optional<Fetch>(std::nullopt);
-    auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type, joining_fetch);
+    const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type, joining_fetch);
 
     SPDLOG_INFO("Started subscriber");
 

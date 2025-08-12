@@ -9,6 +9,14 @@
 #include <utility>
 
 namespace quicr {
+    TransportException::TransportException(TransportError error, std::source_location location)
+      : std::runtime_error(std::format("Error in transport (error={}, line={}, file={})",
+                                       static_cast<int>(error),
+                                       location.line(),
+                                       location.file_name()))
+      , Error(error)
+    {
+    }
 
     std::shared_ptr<ITransport> ITransport::MakeClientTransport(const TransportRemote& server,
                                                                 const TransportConfig& tcfg,
