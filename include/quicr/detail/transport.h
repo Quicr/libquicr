@@ -383,7 +383,7 @@ namespace quicr {
                            messages::GroupOrder group_order,
                            messages::FilterType filter_type,
                            std::chrono::milliseconds delivery_timeout);
-        void SendSubscribeUpdate(ConnectionContext& conn_ctx,
+        void SendSubscribeUpdate(const ConnectionContext& conn_ctx,
                                  messages::RequestID request_id,
                                  TrackHash th,
                                  messages::Location start_location,
