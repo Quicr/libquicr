@@ -99,6 +99,9 @@ TEST_CASE("Integration - Subscribe")
 
     // Test is complete, unsubscribe while we are connected.
     CHECK_NOTHROW(client->UnsubscribeTrack(handler));
+
+    // Check track handler cleanup / strong reference cycles.
+    CHECK_EQ(handler.use_count(), 1);
 }
 
 TEST_CASE("Integration - Fetch")
