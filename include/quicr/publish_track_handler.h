@@ -71,6 +71,7 @@ namespace quicr {
             kNewGroupRequested,
             kPendingPublishOk,
             kPaused,
+            kError = 0xFF,
         };
 
       protected:
