@@ -99,6 +99,9 @@ TEST_CASE("Integration - Subscribe")
 
     // Test is complete, unsubscribe while we are connected.
     CHECK_NOTHROW(client->UnsubscribeTrack(handler));
+
+    // Check track handler cleanup / strong reference cycles.
+    CHECK_EQ(handler.use_count(), 1);
 }
 
 TEST_CASE("Integration - Fetch")
@@ -110,4 +113,40 @@ TEST_CASE("Integration - Fetch")
     ftn.name = { 1, 2, 3 };
     const auto handler = FetchTrackHandler::Create(ftn, 0, messages::GroupOrder::kOriginalPublisherOrder, 0, 0, 0, 0);
     client->FetchTrack(handler);
+}
+
+TEST_CASE("Integration - Handlers with no transport")
+{
+    // Subscribe.
+    {
+        const auto handler = SubscribeTrackHandler::Create(
+          FullTrackName(), 0, messages::GroupOrder::kOriginalPublisherOrder, messages::FilterType::kLargestObject);
+        handler->Pause();
+        handler->Resume();
+        handler->RequestNewGroup();
+    }
+
+    // Publish.
+    {
+        const auto handler = PublishTrackHandler::Create(FullTrackName(), TrackMode::kStream, 0, 0);
+        ObjectHeaders headers = { .group_id = 0,
+                                  .object_id = 0,
+                                  .payload_length = 1,
+                                  .status = ObjectStatus::kAvailable,
+                                  .priority = 0,
+                                  .ttl = 100,
+                                  .track_mode = TrackMode::kStream,
+                                  .extensions = std::nullopt };
+        const auto status = handler->PublishObject(headers, std::vector<uint8_t>(1));
+        CHECK_EQ(status, PublishTrackHandler::PublishObjectStatus::kNotAnnounced);
+    }
+
+    // Fetch.
+    {
+        const auto handler =
+          FetchTrackHandler::Create(FullTrackName(), 0, messages::GroupOrder::kOriginalPublisherOrder, 0, 0, 0, 0);
+        handler->Pause();
+        handler->Resume();
+        handler->RequestNewGroup();
+    }
 }

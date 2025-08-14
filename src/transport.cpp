@@ -437,7 +437,7 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SendSubscribeUpdate(quicr::Transport::ConnectionContext& conn_ctx,
+    void Transport::SendSubscribeUpdate(const ConnectionContext& conn_ctx,
                                         uint64_t request_id,
                                         quicr::TrackHash th,
                                         Location start_location,
@@ -812,15 +812,12 @@ namespace quicr {
         auto filter_type = track_handler->GetFilterType();
         auto delivery_timeout = track_handler->GetDeliveryTimeout();
 
-        track_handler->update_func_ = [=, this](bool forward, bool new_group) {
-            SendSubscribeUpdate(conn_it->second,
-                                *track_handler->GetRequestId(),
-                                th,
-                                {},
-                                0,
-                                track_handler->GetPriority(),
-                                forward,
-                                new_group);
+        track_handler->update_func_ = [this, conn = conn_it->second, th, weak_handler = std::weak_ptr(track_handler)](
+                                        bool forward, bool new_group) {
+            if (const auto handler = weak_handler.lock()) {
+                SendSubscribeUpdate(
+                  conn, *handler->GetRequestId(), th, {}, 0, handler->GetPriority(), forward, new_group);
+            }
         };
 
         // Set the track handler for tracking by request ID
