@@ -113,4 +113,8 @@ TEST_CASE("Integration - Fetch")
     ftn.name = { 1, 2, 3 };
     const auto handler = FetchTrackHandler::Create(ftn, 0, messages::GroupOrder::kOriginalPublisherOrder, 0, 0, 0, 0);
     client->FetchTrack(handler);
+
+    // Check track handler cleanup / strong reference cycles.
+    client->CancelFetchTrack(handler);
+    CHECK_EQ(handler.use_count(), 1);
 }
