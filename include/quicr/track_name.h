@@ -296,6 +296,21 @@ namespace quicr {
             // TODO(tievens): Evaluate; change hash to be more than 62 bits to avoid collisions
             track_fullname_hash = (track_fullname_hash << 2) >> 2;
         }
+
+        TrackHash(const TrackHash& other)
+        {
+            track_fullname_hash = other.track_fullname_hash;
+            track_namespace_hash = other.track_namespace_hash;
+            track_name_hash = other.track_name_hash;
+        }
+
+        TrackHash& operator=(const TrackHash& other)
+        {
+            track_fullname_hash = other.track_fullname_hash;
+            track_namespace_hash = other.track_namespace_hash;
+            track_name_hash = other.track_name_hash;
+            return *this;
+        }
     };
 
 }

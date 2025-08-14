@@ -88,11 +88,13 @@ namespace quicr {
          *      subscribe. It will use this handler to send objects to subscriber.
          *
          * @param connection_handle         Connection ID of the client/subscriber
+         * @param src_id                    Connection or peering Id for publisher origin
          * @param request_id                Request ID from the received subscribe
          * @param track_handler             Server publish track handler
          * @param ephemeral                 Bool value to indicate if the state tracking is needed
          */
         void BindPublisherTrack(ConnectionHandle connection_handle,
+                                ConnectionHandle src_id,
                                 uint64_t request_id,
                                 const std::shared_ptr<PublishTrackHandler>& track_handler,
                                 bool ephemeral = false);
@@ -103,9 +105,11 @@ namespace quicr {
          * @details Removes a server publish track handler state.
          *
          * @param connection_handle         Connection ID of the client/subscriber
+         * @param src_id                    Connect or peering Id of the receiving publisher
          * @param track_handler             Server publish track handler
          */
         void UnbindPublisherTrack(ConnectionHandle connection_handle,
+                                  ConnectionHandle src_id,
                                   const std::shared_ptr<PublishTrackHandler>& track_handler);
 
         /**

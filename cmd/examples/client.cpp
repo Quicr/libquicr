@@ -25,6 +25,7 @@ namespace qclient_vars {
     std::optional<uint64_t> track_alias; /// Track alias to use for subscribe
     bool record = false;
     bool playback = false;
+    bool new_group = false;
     std::chrono::milliseconds playback_speed_ms(20);
 }
 
@@ -150,6 +151,12 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 
         std::string msg(data.begin(), data.end());
         SPDLOG_INFO("Received message: Group:{0}, Object:{1} - {2}", hdr.group_id, hdr.object_id, msg);
+
+        if (qclient_vars::new_group && not new_group_requested_) {
+            SPDLOG_INFO("Track alias: {} requesting new group", GetTrackAlias().value());
+            RequestNewGroup();
+            new_group_requested_ = true;
+        }
     }
 
     void StatusChanged(Status status) override
@@ -209,6 +216,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
   private:
     std::ofstream data_fs_;
     std::fstream moq_fs_;
+    bool new_group_requested_ = false;
 };
 
 /**
@@ -338,7 +346,6 @@ class MyClient : public quicr::Client
             case Status::kConnecting:
                 break;
             case Status::kPendingServerSetup:
-                SPDLOG_INFO("Connection connected and now pending server setup");
                 SPDLOG_INFO("Connection connected and now pending server setup");
                 break;
             default:
@@ -752,6 +759,10 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         qclient_vars::playback = true;
     }
 
+    if (cli_opts.count("new_group")) {
+        qclient_vars::new_group = true;
+    }
+
     if (cli_opts.count("playback_speed_ms")) {
         qclient_vars::playback_speed_ms = std::chrono::milliseconds(cli_opts["playback_speed_ms"].as<uint64_t>());
     }
@@ -810,6 +821,7 @@ main(int argc, char* argv[])
         ("start_point", "Start point for Subscription - 0 for from the beginning, 1 from the latest object", cxxopts::value<uint64_t>())
         ("sub_announces", "Prefix namespace to subscribe announces to", cxxopts::value<std::string>())
         ("record", "Record incoming data to moq and dat files", cxxopts::value<bool>())
+        ("new_group", "Request new group on subscribe", cxxopts::value<bool>())
         ("joining_fetch", "Subscribe with a joining fetch", cxxopts::value<bool>());
 
     options.add_options("Fetcher")

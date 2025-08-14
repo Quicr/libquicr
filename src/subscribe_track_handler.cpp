@@ -135,17 +135,24 @@ namespace quicr {
 
     void SubscribeTrackHandler::Pause() noexcept
     {
-        if (status_ != Status::kPaused) {
+        if (status_ != Status::kPaused && status_ != Status::kNotConnected && update_func_ != nullptr) {
             status_ = Status::kPaused;
-            set_forwarding_func_(false);
+            update_func_(false, false);
         }
     }
 
     void SubscribeTrackHandler::Resume() noexcept
     {
-        if (status_ == Status::kPaused) {
+        if (status_ == Status::kPaused && update_func_ != nullptr) {
             status_ = Status::kOk;
-            set_forwarding_func_(true);
+            update_func_(true, false);
+        }
+    }
+
+    void SubscribeTrackHandler::RequestNewGroup() noexcept
+    {
+        if (status_ == Status::kOk && update_func_ != nullptr) {
+            update_func_(true, true);
         }
     }
 } // namespace quicr

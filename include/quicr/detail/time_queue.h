@@ -73,7 +73,7 @@ namespace quicr {
         /*=======================================================================*/
 
         using TickType = TickService::TickType;
-        using IndexType = std::uint32_t;
+        using IndexType = std::uint64_t;
 
         struct QueueValueType
         {

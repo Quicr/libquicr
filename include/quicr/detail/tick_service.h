@@ -71,7 +71,7 @@ namespace quicr {
         }
 
         ThreadedTickService(const ThreadedTickService& other)
-          : ticks_{ other.ticks_ }
+          : ticks_{ other.ticks_.load(std::memory_order_relaxed) }
           , sleep_delay_us_{ other.sleep_delay_us_ }
           , stop_{ other.stop_.load() }
         {
@@ -88,7 +88,7 @@ namespace quicr {
 
         ThreadedTickService& operator=(const ThreadedTickService& other)
         {
-            ticks_ = other.ticks_;
+            ticks_.store(other.ticks_.load(std::memory_order_relaxed), std::memory_order_relaxed);
             sleep_delay_us_ = other.sleep_delay_us_;
             stop_ = other.stop_.load();
 
@@ -97,9 +97,9 @@ namespace quicr {
             return *this;
         }
 
-        TickType Microseconds() const override { return ticks_; }
+        TickType Microseconds() const override { return ticks_.load(std::memory_order_relaxed); }
 
-        TickType Milliseconds() const override { return ticks_ / 1000; }
+        TickType Milliseconds() const override { return ticks_.load(std::memory_order_relaxed) / 1000; }
 
       private:
         void TickLoop()
@@ -112,7 +112,7 @@ namespace quicr {
                 std::this_thread::sleep_for(std::chrono::microseconds(sleep_delay_us_));
 
                 if (delta >= sleep_delay_us_) {
-                    ticks_ += delta;
+                    ticks_.fetch_add(delta, std::memory_order_relaxed);
                     prev_time = now;
                 }
             }
@@ -120,7 +120,7 @@ namespace quicr {
 
       private:
         /// The current ticks since the tick_service began.
-        uint64_t ticks_{ 0 };
+        std::atomic<uint64_t> ticks_{ 0 };
 
         /// Sleep delay in microseconds
         uint64_t sleep_delay_us_;
