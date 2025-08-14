@@ -135,7 +135,7 @@ namespace quicr {
 
     void SubscribeTrackHandler::Pause() noexcept
     {
-        if (status_ != Status::kPaused && status_ != Status::kNotConnected) {
+        if (status_ != Status::kPaused && status_ != Status::kNotConnected && update_func_ != nullptr) {
             status_ = Status::kPaused;
             update_func_(false, false);
         }
@@ -143,7 +143,7 @@ namespace quicr {
 
     void SubscribeTrackHandler::Resume() noexcept
     {
-        if (status_ == Status::kPaused) {
+        if (status_ == Status::kPaused && update_func_ != nullptr) {
             status_ = Status::kOk;
             update_func_(true, false);
         }
@@ -151,7 +151,7 @@ namespace quicr {
 
     void SubscribeTrackHandler::RequestNewGroup() noexcept
     {
-        if (status_ == Status::kOk) {
+        if (status_ == Status::kOk && update_func_ != nullptr) {
             update_func_(true, true);
         }
     }
