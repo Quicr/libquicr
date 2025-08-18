@@ -47,8 +47,8 @@ jobs:
     - name: Install Packages (Ubuntu)
       run: |        
         sudo apt-get install -y clang-tidy-15
-        echo "{CC}={/usr/bin/gcc-12}" >> "$GITHUB_ENV"
-        echo "{CXX}={/usr/bin/g++-12}" >> "$GITHUB_ENV"
+        export CC=/usr/bin/gcc-12
+        export CXX=/usr/bin/g++-12
       if: matrix.os == 'ubuntu-22.04'
 
     - name: Configure CMake
