@@ -13,7 +13,6 @@
 #include "signal_handler.h"
 
 #include <filesystem>
-#include <format>
 #include <fstream>
 
 #include <quicr/publish_fetch_handler.h>
@@ -545,7 +544,8 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
             try {
                 auto status = track_handler->PublishObject(hdr, msg);
                 if (status != decltype(status)::kOk) {
-                    throw std::runtime_error(std::format("PublishObject returned status={}", static_cast<int>(status)));
+                    throw std::runtime_error("PublishObject returned status=" +
+                                             std::to_string(static_cast<int>(status)));
                 }
             } catch (const std::exception& e) {
                 SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());
@@ -590,7 +590,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
             } else if (status == decltype(status)::kNoSubscribers) {
                 SPDLOG_INFO("Publish has no subscribers");
             } else if (status != decltype(status)::kOk) {
-                throw std::runtime_error(std::format("PublishObject returned status={}", static_cast<int>(status)));
+                throw std::runtime_error("PublishObject returned status=" + std::to_string(static_cast<int>(status)));
             }
         } catch (const std::exception& e) {
             SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());

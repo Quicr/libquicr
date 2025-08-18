@@ -6,7 +6,6 @@
 #include "quicr/detail/ctrl_messages.h"
 #include "quicr/detail/messages.h"
 
-#include <format>
 #include <quicr/detail/joining_fetch_handler.h>
 #include <sstream>
 
