@@ -201,7 +201,7 @@ namespace quicr {
                 Pop();
             }
 
-            return std::move(obj);
+            return obj;
         }
 
         /**
