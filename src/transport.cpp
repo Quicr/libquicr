@@ -14,10 +14,7 @@ namespace quicr {
     using namespace quicr::messages;
 
     TransportException::TransportException(TransportError error, std::source_location location)
-      : std::runtime_error(std::format("Error in transport (error={}, line={}, file={})",
-                                       static_cast<int>(error),
-                                       location.line(),
-                                       location.file_name()))
+      : std::runtime_error("Error in transport (error=" + std::to_string(static_cast<int>(error)) + ", " + std::to_string(location.line()) + ", " + location.file_name() + ")")
       , Error(error)
     {
     }
