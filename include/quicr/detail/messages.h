@@ -26,8 +26,8 @@ namespace quicr::messages {
         const std::string reason;
         ProtocolViolationException(const std::string& reason,
                                    const std::source_location location = std::source_location::current())
-          : std::runtime_error(
-              std::format("Protocol violation: {} (line {}, file {})", reason, location.line(), location.file_name()))
+          : std::runtime_error("Protocol violation: " + reason + " (line " + std::to_string(location.line()) +
+                               ", file " + location.file_name() + ")")
           , reason(reason)
         {
         }
