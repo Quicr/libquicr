@@ -257,10 +257,10 @@ namespace quicr {
              * @param data_ctx_id                   Data context ID for metrics
              * @param quic_data_context_metrics     Data context metrics for sample period
              */
-            virtual void OnDataMetricsStampled([[maybe_unused]] const MetricsTimeStamp sample_time,
-                                               [[maybe_unused]] const TransportConnId conn_id,
-                                               [[maybe_unused]] const DataContextId data_ctx_id,
-                                               [[maybe_unused]] const QuicDataContextMetrics& quic_data_context_metrics)
+            virtual void OnDataMetricsSampled([[maybe_unused]] const MetricsTimeStamp sample_time,
+                                              [[maybe_unused]] const TransportConnId conn_id,
+                                              [[maybe_unused]] const DataContextId data_ctx_id,
+                                              [[maybe_unused]] const QuicDataContextMetrics& quic_data_context_metrics)
             {
             }
         };
