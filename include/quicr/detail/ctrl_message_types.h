@@ -9,9 +9,6 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const BytesSpan& bytes);
     BytesSpan operator>>(BytesSpan buffer, Bytes& value);
 
-    Bytes& operator<<(Bytes& buffer, std::uint64_t value);
-    BytesSpan operator>>(BytesSpan buffer, std::uint64_t& value);
-
     Bytes& operator<<(Bytes& buffer, std::uint8_t value);
     BytesSpan operator>>(BytesSpan buffer, uint8_t& value);
 
@@ -51,11 +48,29 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const Location& location);
     BytesSpan operator>>(BytesSpan buffer, Location& location);
 
-    /// MoQ Key Value Pair.
+    // All uint64_t and enum(uint64_t) types serialize to varints.
     template<typename T>
-    concept KeyType =
+    concept VarIntValueType =
       std::same_as<T, std::uint64_t> || (std::is_enum_v<T> && std::same_as<std::underlying_type_t<T>, std::uint64_t>);
-    template<KeyType T>
+
+    // Serialization for all uint64_t/enum(uint64_t) to varint.
+    template<VarIntValueType T>
+    Bytes& operator<<(Bytes& buffer, const T value)
+    {
+        return buffer << UintVar(static_cast<std::uint64_t>(value));
+    }
+
+    // Deserialization for all uint64_t/enum(uint64_t) from varint.
+    template<VarIntValueType T>
+    BytesSpan operator>>(BytesSpan buffer, T& value)
+    {
+        UintVar uvalue(buffer);
+        value = static_cast<T>(uvalue.Get());
+        return buffer.subspan(uvalue.size());
+    }
+
+    /// MoQ Key Value Pair.
+    template<VarIntValueType T>
     struct KeyValuePair
     {
         T type;
@@ -128,22 +143,7 @@ namespace quicr::messages {
         }
     };
 
-    // Serialization for all uint64_t/enum(uint64_t to varint).
-    template<KeyType T>
-    Bytes& operator<<(Bytes& buffer, const T value)
-    {
-        return buffer << UintVar(static_cast<std::uint64_t>(value));
-    }
-    template<KeyType T>
-    BytesSpan operator>>(BytesSpan buffer, T& value)
-    {
-        std::uint64_t uvalue;
-        buffer = buffer >> uvalue;
-        value = static_cast<T>(uvalue);
-        return buffer;
-    }
-
-    template<KeyType T>
+    template<VarIntValueType T>
     Bytes& operator<<(Bytes& buffer, const KeyValuePair<T>& param)
     {
         buffer << param.type;
@@ -161,7 +161,7 @@ namespace quicr::messages {
         return buffer << UintVar(val);
     }
 
-    template<KeyType T>
+    template<VarIntValueType T>
     BytesSpan operator>>(BytesSpan buffer, KeyValuePair<T>& param)
     {
         buffer = buffer >> param.type;
@@ -238,17 +238,11 @@ namespace quicr::messages {
         kTooFarBehind,
     };
 
-    Bytes& operator<<(Bytes& buffer, SubscribeDoneStatusCode value);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeDoneStatusCode& value);
-
-    enum class FetchType : uint8_t
+    enum class FetchType : std::uint64_t
     {
         kStandalone = 0x1,
         kJoiningFetch,
     };
-
-    Bytes& operator<<(Bytes& buffer, FetchType value);
-    BytesSpan operator>>(BytesSpan buffer, FetchType& value);
 
     enum class TerminationReason : uint64_t
     {
@@ -261,7 +255,7 @@ namespace quicr::messages {
         kGoAwayTimeout = 0x10,
     };
 
-    enum class FetchErrorCode : uint8_t
+    enum class FetchErrorCode : uint64_t
     {
         kInternalError = 0x0,
         kUnauthorized = 0x1,
@@ -270,9 +264,6 @@ namespace quicr::messages {
         kTrackDoesNotExist = 0x4,
         kInvalidRange = 0x5,
     };
-
-    Bytes& operator<<(Bytes& buffer, FetchErrorCode value);
-    BytesSpan operator>>(BytesSpan buffer, FetchErrorCode& value);
 
     enum class AnnounceErrorCode : uint64_t
     {
@@ -308,9 +299,6 @@ namespace quicr::messages {
 
         kTrackNotExist = 0xF0 // Missing in draft
     };
-
-    Bytes& operator<<(Bytes& buffer, SubscribeErrorCode value);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeErrorCode& value);
 
     enum class SubscribeAnnouncesErrorCode : uint64_t
     {
