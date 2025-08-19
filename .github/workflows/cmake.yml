@@ -52,7 +52,7 @@ jobs:
       if: matrix.os == 'ubuntu-22.04'
 
     - name: Configure CMake (Ubuntu)
-      if: matrix.os == 'macos-latest'
+      if: matrix.os == 'ubuntu-22.04'
       env:
         CC: "/usr/bin/gcc-12"
         CXX: "/usr/bin/g++-12"
@@ -60,8 +60,8 @@ jobs:
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run: cmake -B ${{github.workspace}}/build -DLINT=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DBUILD_BENCHMARKING=ON
 
-    - name: Configure CMake
-      if: matrix.os == 'ubuntu-22.04'
+    - name: Configure CMake (macOS)
+      if: matrix.os == 'macos-latest'
       env:
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
