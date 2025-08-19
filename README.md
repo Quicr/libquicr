@@ -31,7 +31,7 @@ ln -s /usr/bin/clang-tidy-15 /usr/bin/clang-tidy
 
 ```
 sudo apt-get update
-sudo apt-get install -y make clang-19 libc++-19-dev libc++abi-19-dev llvm-19-dev openssl golang \
+sudo apt-get install -y make openssl golang \
             wget git cmake ca-certificates libssl-dev python3 python3-venv
 ```
 
