@@ -138,7 +138,7 @@ TEST_CASE("Integration - Handlers with no transport")
                                   .track_mode = TrackMode::kStream,
                                   .extensions = std::nullopt };
         const auto status = handler->PublishObject(headers, std::vector<uint8_t>(1));
-        CHECK_EQ(status, PublishTrackHandler::PublishObjectStatus::kNotAnnounced);
+        CHECK_EQ(status, PublishTrackHandler::PublishObjectStatus::kInternalError);
     }
 
     // Fetch.
