@@ -1180,6 +1180,7 @@ namespace quicr {
 
         track_handler->SetRequestId(std::nullopt);
         track_handler->SetStatus(FetchTrackHandler::Status::kNotConnected);
+        conn_it->second.sub_tracks_by_request_id.erase(*sub_id);
     }
 
     PublishTrackHandler::PublishObjectStatus Transport::SendData(PublishTrackHandler& track_handler,
