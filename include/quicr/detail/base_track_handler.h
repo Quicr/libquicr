@@ -12,6 +12,7 @@
 #include <vector>
 
 namespace quicr {
+    class Transport;
 
     /**
      * @brief Track mode object of object published or received
@@ -137,6 +138,15 @@ namespace quicr {
          */
         uint64_t GetConnectionId() const noexcept { return connection_handle_; };
 
+      protected:
+        /**
+         * Set the transport to use.
+         * @param transport The new transport for the handler to use.
+         */
+        void SetTransport(std::shared_ptr<Transport> transport);
+
+        const std::weak_ptr<Transport>& GetTransport() const noexcept;
+
         // --------------------------------------------------------------------------
         // Internal
         // --------------------------------------------------------------------------
@@ -161,6 +171,8 @@ namespace quicr {
          *   or the next one that increments from last received ID.
          */
         std::optional<uint64_t> request_id_;
+
+        std::weak_ptr<Transport> transport_;
     };
 
 } // namespace moq

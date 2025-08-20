@@ -7,6 +7,7 @@ else()
     add_library(quicr)
 endif()
 target_sources (quicr PRIVATE
+    base_track_handler.cpp
     client.cpp
     ctrl_message_types.cpp
     ${ctrl_messages_SOURCE}

@@ -21,7 +21,7 @@ namespace quicr {
      */
     class Client : public Transport
     {
-      public:
+      protected:
         /**
          * @brief MoQ Client Constructor to create the client mode instance
          *
@@ -32,7 +32,13 @@ namespace quicr {
         {
         }
 
+      public:
         ~Client() = default;
+
+        static std::shared_ptr<Client> Create(const ClientConfig& cfg)
+        {
+            return std::shared_ptr<Client>(new Client(cfg));
+        }
 
         /**
          * @brief Starts a client connection via a transport thread

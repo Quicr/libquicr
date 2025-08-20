@@ -329,11 +329,16 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
  */
 class MyClient : public quicr::Client
 {
-  public:
     MyClient(const quicr::ClientConfig& cfg, bool& stop_threads)
       : quicr::Client(cfg)
       , stop_threads_(stop_threads)
     {
+    }
+
+  public:
+    static std::shared_ptr<MyClient> Create(const quicr::ClientConfig& cfg, bool& stop_threads)
+    {
+        return std::shared_ptr<MyClient>(new MyClient(cfg, stop_threads));
     }
 
     void StatusChanged(Status status) override
@@ -855,7 +860,7 @@ main(int argc, char* argv[])
 
     try {
         bool stop_threads{ false };
-        auto client = std::make_shared<MyClient>(config, stop_threads);
+        auto client = MyClient::Create(config, stop_threads);
 
         if (client->Connect() != quicr::Transport::Status::kConnecting) {
             SPDLOG_ERROR("Failed to connect to server due to invalid params, check URI");

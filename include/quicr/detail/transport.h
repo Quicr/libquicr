@@ -31,7 +31,9 @@ namespace quicr {
      * @details MoQ implementation is the handler for either a client or server. It can run
      *   in only one mode, client or server.
      */
-    class Transport : public ITransport::TransportDelegate
+    class Transport
+      : public ITransport::TransportDelegate
+      , public std::enable_shared_from_this<Transport>
     {
       public:
         Transport() = delete;
@@ -357,16 +359,6 @@ namespace quicr {
                                                           bool stream_header_needed,
                                                           std::shared_ptr<const std::vector<uint8_t>> data);
 
-        PublishTrackHandler::PublishObjectStatus SendObject(PublishTrackHandler& track_handler,
-                                                            uint8_t priority,
-                                                            uint32_t ttl,
-                                                            bool stream_header_needed,
-                                                            uint64_t group_id,
-                                                            uint64_t subgroup_id,
-                                                            uint64_t object_id,
-                                                            std::optional<Extensions> extensions,
-                                                            BytesSpan data);
-
         void SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data);
         void SendClientSetup();
         void SendServerSetup(ConnectionContext& conn_ctx);
@@ -500,6 +492,9 @@ namespace quicr {
         // -------------------------------------------------------------------------------------------------
         virtual void MetricsSampled(const ConnectionMetrics&) {}
 
+      protected:
+        std::shared_ptr<Transport> GetSharedPtr();
+
         // -------------------------------------------------------------------------------------------------
 
       private:
@@ -508,6 +503,15 @@ namespace quicr {
         // ------------------------------------------------------------------------------------------------
 
         virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes) = 0;
+
+        TransportError Enqueue(const TransportConnId& conn_id,
+                               const DataContextId& data_ctx_id,
+                               std::uint64_t group_id,
+                               std::shared_ptr<const std::vector<uint8_t>> bytes,
+                               const uint8_t priority,
+                               const uint32_t ttl_ms,
+                               const uint32_t delay_ms,
+                               const ITransport::EnqueueFlags flags);
 
       private:
         // -------------------------------------------------------------------------------------------------
@@ -529,6 +533,9 @@ namespace quicr {
 
         friend class Client;
         friend class Server;
+        friend class PublishTrackHandler;
+        friend class PublishFetchHandler;
+        friend class SubscribeTrackHandler;
     };
 
 } // namespace quicr
