@@ -32,67 +32,50 @@ namespace quicr {
 
         object_msg_buffer_.clear();
 
-        switch (default_track_mode_) {
-            case TrackMode::kDatagram: {
-                messages::ObjectDatagram object;
-                object.group_id = group_id;
-                object.object_id = object_headers.object_id;
-                object.priority = priority;
-                object.track_alias = GetTrackAlias().value();
-                object.extensions = object_headers.extensions;
-                object.payload.assign(data.begin(), data.end());
-                object_msg_buffer_ << object;
-                break;
+        eflags.use_reliable = true;
+
+        if (is_stream_header_needed) {
+            eflags.new_stream = true;
+            eflags.clear_tx_queue = true;
+            eflags.use_reset = true;
+
+            messages::StreamHeaderSubGroup subgroup_hdr;
+            subgroup_hdr.type = GetStreamMode();
+            subgroup_hdr.group_id = object_headers.group_id;
+            auto properties = messages::StreamHeaderProperties(subgroup_hdr.type);
+            if (properties.subgroup_id_type == messages::SubgroupIdType::kExplicit) {
+                subgroup_hdr.subgroup_id = object_headers.subgroup_id;
             }
-            default: {
-                // use stream per subgroup, group change
-                eflags.use_reliable = true;
+            subgroup_hdr.priority = priority;
+            subgroup_hdr.track_alias = GetTrackAlias().value();
+            object_msg_buffer_ << subgroup_hdr;
 
-                if (is_stream_header_needed) {
-                    eflags.new_stream = true;
-                    eflags.clear_tx_queue = true;
-                    eflags.use_reset = true;
+            auto result = transport->Enqueue(
+              GetConnectionId(),
+              publish_data_ctx_id_,
+              group_id,
+              std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
+              priority,
+              ttl,
+              0,
+              eflags);
 
-                    messages::StreamHeaderSubGroup subgroup_hdr;
-                    subgroup_hdr.type = GetStreamMode();
-                    subgroup_hdr.group_id = object_headers.group_id;
-                    auto properties = messages::StreamHeaderProperties(subgroup_hdr.type);
-                    if (properties.subgroup_id_type == messages::SubgroupIdType::kExplicit) {
-                        subgroup_hdr.subgroup_id = object_headers.subgroup_id;
-                    }
-                    subgroup_hdr.priority = priority;
-                    subgroup_hdr.track_alias = GetTrackAlias().value();
-                    object_msg_buffer_ << subgroup_hdr;
+            object_msg_buffer_.clear();
+            eflags.new_stream = false;
+            eflags.clear_tx_queue = false;
+            eflags.use_reset = false;
 
-                    auto result = transport->Enqueue(
-                      GetConnectionId(),
-                      publish_data_ctx_id_,
-                      group_id,
-                      std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
-                      priority,
-                      ttl,
-                      0,
-                      eflags);
-
-                    object_msg_buffer_.clear();
-                    eflags.new_stream = false;
-                    eflags.clear_tx_queue = false;
-                    eflags.use_reset = false;
-
-                    if (result != TransportError::kNone) {
-                        throw TransportException(result);
-                    }
-                }
-
-                messages::StreamSubGroupObject object;
-                object.object_id = object_id;
-                object.stream_type = GetStreamMode();
-                object.extensions = object_headers.extensions;
-                object.payload.assign(data.begin(), data.end());
-                object_msg_buffer_ << object;
-                break;
+            if (result != TransportError::kNone) {
+                throw TransportException(result);
             }
         }
+
+        messages::StreamSubGroupObject object;
+        object.object_id = object_id;
+        object.stream_type = GetStreamMode();
+        object.extensions = object_headers.extensions;
+        object.payload.assign(data.begin(), data.end());
+        object_msg_buffer_ << object;
 
         auto result = transport->Enqueue(
           GetConnectionId(),
