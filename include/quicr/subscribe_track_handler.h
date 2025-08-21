@@ -295,12 +295,6 @@ namespace quicr {
          */
         SubscribeTrackMetrics subscribe_track_metrics_;
 
-        /**
-         * @brief Function pointer to send subscribe update with forward setting
-         * @param forward       True or False
-         */
-        using UpdateFunction = std::function<void(bool forward, bool new_group)>;
-
       protected:
         /**
          * @brief Set the subscribe status
@@ -325,8 +319,6 @@ namespace quicr {
         std::optional<uint64_t> track_alias_;
         std::optional<uint64_t> received_track_alias_; ///< Received track alias from publisher client or relay
         std::chrono::milliseconds delivery_timeout_{ 0 };
-
-        UpdateFunction update_func_; // set by the transport
 
         bool publisher_initiated_{ false };
 

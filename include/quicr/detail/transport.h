@@ -495,6 +495,8 @@ namespace quicr {
       protected:
         std::shared_ptr<Transport> GetSharedPtr();
 
+        const ConnectionContext& GetConnectionContext(ConnectionHandle conn) const;
+
         // -------------------------------------------------------------------------------------------------
 
       private:

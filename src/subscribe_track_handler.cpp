@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include "quicr/subscribe_track_handler.h"
+
 #include "quicr/detail/messages.h"
 #include "quicr/detail/stream_buffer.h"
-
-#include <quicr/subscribe_track_handler.h>
+#include "quicr/detail/transport.h"
 
 namespace quicr {
 
@@ -135,24 +136,57 @@ namespace quicr {
 
     void SubscribeTrackHandler::Pause() noexcept
     {
-        if (status_ != Status::kPaused && status_ != Status::kNotConnected && update_func_ != nullptr) {
-            status_ = Status::kPaused;
-            update_func_(false, false);
+        auto transport = GetTransport().lock();
+        if (!transport || status_ == Status::kPaused || status_ == Status::kNotConnected) {
+            return;
         }
+
+        status_ = Status::kPaused;
+        transport->SendSubscribeUpdate(transport->GetConnectionContext(GetConnectionId()),
+                                       GetRequestId().value(),
+                                       GetFullTrackName(),
+                                       {},
+                                       0,
+                                       GetPriority(),
+                                       false,
+                                       false);
     }
 
     void SubscribeTrackHandler::Resume() noexcept
     {
-        if (status_ == Status::kPaused && update_func_ != nullptr) {
-            status_ = Status::kOk;
-            update_func_(true, false);
+        auto transport = GetTransport().lock();
+        if (!transport) {
+            return;
         }
+
+        if (status_ != Status::kPaused) {
+            return;
+        }
+
+        transport->SendSubscribeUpdate(transport->GetConnectionContext(GetConnectionId()),
+                                       GetRequestId().value(),
+                                       GetFullTrackName(),
+                                       {},
+                                       0,
+                                       GetPriority(),
+                                       true,
+                                       false);
     }
 
     void SubscribeTrackHandler::RequestNewGroup() noexcept
     {
-        if (status_ == Status::kOk && update_func_ != nullptr) {
-            update_func_(true, true);
+        auto transport = GetTransport().lock();
+        if (!transport || status_ != Status::kOk) {
+            return;
         }
+
+        transport->SendSubscribeUpdate(transport->GetConnectionContext(GetConnectionId()),
+                                       GetRequestId().value(),
+                                       GetFullTrackName(),
+                                       {},
+                                       0,
+                                       GetPriority(),
+                                       true,
+                                       true);
     }
 } // namespace quicr

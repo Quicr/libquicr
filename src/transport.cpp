@@ -815,13 +815,7 @@ namespace quicr {
         auto filter_type = track_handler->GetFilterType();
         auto delivery_timeout = track_handler->GetDeliveryTimeout();
 
-        track_handler->update_func_ = [this, conn = conn_it->second, th, weak_handler = std::weak_ptr(track_handler)](
-                                        bool forward, bool new_group) {
-            if (const auto handler = weak_handler.lock()) {
-                SendSubscribeUpdate(
-                  conn, *handler->GetRequestId(), th, {}, 0, handler->GetPriority(), forward, new_group);
-            }
-        };
+        track_handler->SetTransport(GetSharedPtr());
 
         // Set the track handler for tracking by request ID
         conn_it->second.sub_tracks_by_request_id[*track_handler->GetRequestId()] = track_handler;
@@ -1751,13 +1745,18 @@ namespace quicr {
         }
     }
 
-    std::shared_ptr<Transport> quicr::Transport::GetSharedPtr()
+    std::shared_ptr<Transport> Transport::GetSharedPtr()
     {
         if (!weak_from_this().lock()) {
             throw std::runtime_error("Transport is not shared_ptr");
         }
 
         return shared_from_this();
+    }
+
+    const Transport::ConnectionContext& Transport::GetConnectionContext(ConnectionHandle conn) const
+    {
+        return connections_.at(conn);
     }
 
     TransportError Transport::Enqueue(const TransportConnId& conn_id,
