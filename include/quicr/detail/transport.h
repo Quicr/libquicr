@@ -352,13 +352,6 @@ namespace quicr {
 
         void Init();
 
-        PublishTrackHandler::PublishObjectStatus SendData(PublishTrackHandler& track_handler,
-                                                          uint8_t priority,
-                                                          uint64_t group_id,
-                                                          uint32_t ttl,
-                                                          bool stream_header_needed,
-                                                          std::shared_ptr<const std::vector<uint8_t>> data);
-
         void SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data);
         void SendClientSetup();
         void SendServerSetup(ConnectionContext& conn_ctx);

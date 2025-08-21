@@ -1152,53 +1152,6 @@ namespace quicr {
         track_handler->SetStatus(FetchTrackHandler::Status::kNotConnected);
     }
 
-    PublishTrackHandler::PublishObjectStatus Transport::SendData(PublishTrackHandler& track_handler,
-                                                                 uint8_t priority,
-                                                                 uint64_t group_id,
-                                                                 uint32_t ttl,
-                                                                 bool stream_header_needed,
-                                                                 std::shared_ptr<const std::vector<uint8_t>> data)
-    {
-        if (!track_handler.GetRequestId().has_value()) {
-            return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
-        }
-
-        ITransport::EnqueueFlags eflags;
-
-        switch (track_handler.default_track_mode_) {
-            case TrackMode::kDatagram: {
-                eflags.use_reliable = false;
-                break;
-            }
-            default: {
-                eflags.use_reliable = true;
-
-                if (stream_header_needed) {
-                    eflags.new_stream = true;
-                    eflags.clear_tx_queue = true;
-                    eflags.use_reset = true;
-                }
-
-                break;
-            }
-        }
-
-        auto result = quic_transport_->Enqueue(track_handler.connection_handle_,
-                                               track_handler.publish_data_ctx_id_,
-                                               group_id,
-                                               data,
-                                               priority,
-                                               ttl,
-                                               0,
-                                               eflags);
-
-        if (result != TransportError::kNone) {
-            throw TransportException(result);
-        }
-
-        return PublishTrackHandler::PublishObjectStatus::kOk;
-    }
-
     std::shared_ptr<PublishTrackHandler> Transport::GetPubTrackHandler(ConnectionContext& conn_ctx, TrackHash& th)
     {
         auto pub_ns_it = conn_ctx.pub_tracks_by_name.find(th.track_namespace_hash);
