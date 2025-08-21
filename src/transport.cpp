@@ -73,7 +73,8 @@ namespace quicr {
     }
 
     Transport::Transport(const ClientConfig& cfg, std::shared_ptr<TickService> tick_service)
-      : client_mode_(true)
+      : std::enable_shared_from_this<Transport>()
+      , client_mode_(true)
       , logger_(spdlog::stderr_color_mt("MTC"))
       , server_config_({})
       , client_config_(cfg)
@@ -85,7 +86,8 @@ namespace quicr {
     }
 
     Transport::Transport(const ServerConfig& cfg, std::shared_ptr<TickService> tick_service)
-      : client_mode_(false)
+      : std::enable_shared_from_this<Transport>()
+      , client_mode_(false)
       , logger_(spdlog::stderr_color_mt("MTS"))
       , server_config_(cfg)
       , client_config_({})
@@ -121,6 +123,10 @@ namespace quicr {
 
     Transport::Status Transport::Start()
     {
+        if (!weak_from_this().lock()) {
+            throw std::runtime_error("Transport is not shared_ptr");
+        }
+
         if (client_mode_) {
             TransportRemote relay;
             auto parse_result = ParseConnectUri(client_config_.connect_uri);
@@ -809,13 +815,7 @@ namespace quicr {
         auto filter_type = track_handler->GetFilterType();
         auto delivery_timeout = track_handler->GetDeliveryTimeout();
 
-        track_handler->update_func_ = [this, conn = conn_it->second, th, weak_handler = std::weak_ptr(track_handler)](
-                                        bool forward, bool new_group) {
-            if (const auto handler = weak_handler.lock()) {
-                SendSubscribeUpdate(
-                  conn, *handler->GetRequestId(), th, {}, 0, handler->GetPriority(), forward, new_group);
-            }
-        };
+        track_handler->SetTransport(GetSharedPtr());
 
         // Set the track handler for tracking by request ID
         conn_it->second.sub_tracks_by_request_id[*track_handler->GetRequestId()] = track_handler;
@@ -1077,38 +1077,8 @@ namespace quicr {
                                              track_handler->default_priority_,
                                              false);
 
-        // Setup the function for the track handler to use to send objects with thread safety
-        std::weak_ptr<PublishTrackHandler> weak_handler(track_handler);
-        track_handler->publish_object_func_ =
-          [&, weak_handler](uint8_t priority,
-                            uint32_t ttl,
-                            bool stream_header_needed,
-                            uint64_t group_id,
-                            uint64_t subgroup_id,
-                            uint64_t object_id,
-                            std::optional<Extensions> extensions,
-                            std::span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
-            auto handler = weak_handler.lock();
-            if (!handler) {
-                return PublishTrackHandler::PublishObjectStatus::kInternalError;
-            }
-            return SendObject(
-              *handler, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
-        };
-
-        track_handler->forward_publish_data_func_ =
-          [&,
-           weak_handler](uint8_t priority,
-                         uint64_t group_id,
-                         uint32_t ttl,
-                         bool stream_header_needed,
-                         std::shared_ptr<const std::vector<uint8_t>> data) -> PublishTrackHandler::PublishObjectStatus {
-            auto handler = weak_handler.lock();
-            if (!handler) {
-                return PublishTrackHandler::PublishObjectStatus::kInternalError;
-            }
-            return SendData(*handler, priority, group_id, ttl, stream_header_needed, data);
-        };
+        // Set this transport as the one for the publisher to use.
+        track_handler->SetTransport(GetSharedPtr());
 
         // Hold ref to track handler
         conn_it->second.pub_tracks_by_request_id[*track_handler->GetRequestId()] = track_handler;
@@ -1180,152 +1150,6 @@ namespace quicr {
 
         track_handler->SetRequestId(std::nullopt);
         track_handler->SetStatus(FetchTrackHandler::Status::kNotConnected);
-    }
-
-    PublishTrackHandler::PublishObjectStatus Transport::SendData(PublishTrackHandler& track_handler,
-                                                                 uint8_t priority,
-                                                                 uint64_t group_id,
-                                                                 uint32_t ttl,
-                                                                 bool stream_header_needed,
-                                                                 std::shared_ptr<const std::vector<uint8_t>> data)
-    {
-        if (!track_handler.GetRequestId().has_value()) {
-            return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
-        }
-
-        ITransport::EnqueueFlags eflags;
-
-        switch (track_handler.default_track_mode_) {
-            case TrackMode::kDatagram: {
-                eflags.use_reliable = false;
-                break;
-            }
-            default: {
-                eflags.use_reliable = true;
-
-                if (stream_header_needed) {
-                    eflags.new_stream = true;
-                    eflags.clear_tx_queue = true;
-                    eflags.use_reset = true;
-                }
-
-                break;
-            }
-        }
-
-        auto result = quic_transport_->Enqueue(track_handler.connection_handle_,
-                                               track_handler.publish_data_ctx_id_,
-                                               group_id,
-                                               data,
-                                               priority,
-                                               ttl,
-                                               0,
-                                               eflags);
-
-        if (result != TransportError::kNone) {
-            throw TransportException(result);
-        }
-
-        return PublishTrackHandler::PublishObjectStatus::kOk;
-    }
-
-    PublishTrackHandler::PublishObjectStatus Transport::SendObject(PublishTrackHandler& track_handler,
-                                                                   uint8_t priority,
-                                                                   uint32_t ttl,
-                                                                   bool stream_header_needed,
-                                                                   uint64_t group_id,
-                                                                   uint64_t subgroup_id,
-                                                                   uint64_t object_id,
-                                                                   std::optional<Extensions> extensions,
-                                                                   BytesSpan data)
-    {
-        if (!track_handler.GetRequestId().has_value()) {
-            return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
-        }
-
-        ITransport::EnqueueFlags eflags;
-
-        track_handler.object_msg_buffer_.clear();
-
-        switch (track_handler.default_track_mode_) {
-            case TrackMode::kDatagram: {
-                messages::ObjectDatagram object;
-                object.group_id = group_id;
-                object.object_id = object_id;
-                object.priority = priority;
-                object.track_alias = track_handler.GetTrackAlias().value();
-                object.extensions = extensions;
-                object.payload.assign(data.begin(), data.end());
-                track_handler.object_msg_buffer_ << object;
-                break;
-            }
-            default: {
-                // use stream per subgroup, group change
-                eflags.use_reliable = true;
-
-                if (stream_header_needed) {
-                    eflags.new_stream = true;
-                    eflags.clear_tx_queue = true;
-                    eflags.use_reset = true;
-
-                    messages::StreamHeaderSubGroup subgroup_hdr;
-                    subgroup_hdr.type = track_handler.GetStreamMode();
-                    subgroup_hdr.group_id = group_id;
-                    auto properties = StreamHeaderProperties(subgroup_hdr.type);
-                    if (properties.subgroup_id_type == SubgroupIdType::kExplicit) {
-                        subgroup_hdr.subgroup_id = subgroup_id;
-                    }
-                    subgroup_hdr.priority = priority;
-                    subgroup_hdr.track_alias = track_handler.GetTrackAlias().value();
-                    track_handler.object_msg_buffer_ << subgroup_hdr;
-
-                    auto result = quic_transport_->Enqueue(
-                      track_handler.connection_handle_,
-                      track_handler.publish_data_ctx_id_,
-                      group_id,
-                      std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
-                                                             track_handler.object_msg_buffer_.end()),
-                      priority,
-                      ttl,
-                      0,
-                      eflags);
-
-                    track_handler.object_msg_buffer_.clear();
-                    eflags.new_stream = false;
-                    eflags.clear_tx_queue = false;
-                    eflags.use_reset = false;
-
-                    if (result != TransportError::kNone) {
-                        throw TransportException(result);
-                    }
-                }
-
-                messages::StreamSubGroupObject object;
-                object.object_id = object_id;
-                object.stream_type = track_handler.GetStreamMode();
-                object.extensions = extensions;
-                object.payload.assign(data.begin(), data.end());
-                track_handler.object_msg_buffer_ << object;
-                break;
-            }
-        }
-
-        auto result =
-          quic_transport_->Enqueue(track_handler.connection_handle_,
-                                   track_handler.publish_data_ctx_id_,
-                                   group_id,
-                                   std::make_shared<std::vector<uint8_t>>(track_handler.object_msg_buffer_.begin(),
-                                                                          track_handler.object_msg_buffer_.end()),
-                                   priority,
-                                   ttl,
-                                   0,
-                                   eflags);
-
-        if (result != TransportError::kNone) {
-            throw TransportException(result);
-        }
-
-        return PublishTrackHandler::PublishObjectStatus::kOk;
     }
 
     std::shared_ptr<PublishTrackHandler> Transport::GetPubTrackHandler(ConnectionContext& conn_ctx, TrackHash& th)
@@ -1874,4 +1698,30 @@ namespace quicr {
         }
     }
 
+    std::shared_ptr<Transport> Transport::GetSharedPtr()
+    {
+        if (!weak_from_this().lock()) {
+            throw std::runtime_error("Transport is not shared_ptr");
+        }
+
+        return shared_from_this();
+    }
+
+    const Transport::ConnectionContext& Transport::GetConnectionContext(ConnectionHandle conn) const
+    {
+        return connections_.at(conn);
+    }
+
+    TransportError Transport::Enqueue(const TransportConnId& conn_id,
+                                      const DataContextId& data_ctx_id,
+                                      std::uint64_t group_id,
+                                      std::shared_ptr<const std::vector<uint8_t>> bytes,
+                                      const uint8_t priority,
+                                      const uint32_t ttl_ms,
+                                      const uint32_t delay_ms,
+                                      const ITransport::EnqueueFlags flags)
+    {
+        return quic_transport_->Enqueue(
+          conn_id, data_ctx_id, group_id, std::move(bytes), priority, ttl_ms, delay_ms, flags);
+    }
 } // namespace moq

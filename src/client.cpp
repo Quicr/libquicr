@@ -86,25 +86,7 @@ namespace quicr {
         track_handler->publish_data_ctx_id_ =
           quic_transport_->CreateDataContext(conn_id, true, track_handler->GetDefaultPriority(), false);
 
-        // Setup the function for the track handler to use to send objects with thread safety
-        std::weak_ptr weak_handler(track_handler);
-        track_handler->publish_object_func_ =
-          [&, weak_handler](uint8_t priority,
-                            uint32_t ttl,
-                            bool stream_header_needed,
-                            uint64_t group_id,
-                            uint64_t subgroup_id,
-                            uint64_t object_id,
-                            std::optional<Extensions> extensions,
-                            std::span<const uint8_t> data) -> PublishTrackHandler::PublishObjectStatus {
-            const auto handler = weak_handler.lock();
-            if (!handler) {
-                return PublishTrackHandler::PublishObjectStatus::kInternalError;
-            }
-
-            return SendFetchObject(
-              *handler, priority, ttl, stream_header_needed, group_id, subgroup_id, object_id, extensions, data);
-        };
+        track_handler->SetTransport(GetSharedPtr());
 
         // Hold ref to track handler
         conn_it->second.pub_fetch_tracks_by_sub_id[request_id] = std::move(track_handler);

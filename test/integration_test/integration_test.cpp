@@ -17,7 +17,7 @@ constexpr uint16_t kPort = 12345;
 const std::string kServerId = "test-server";
 constexpr std::chrono::milliseconds kDefaultTimeout(50);
 
-static std::unique_ptr<TestServer>
+static std::shared_ptr<TestServer>
 MakeTestServer()
 {
     // Run the server.
@@ -28,21 +28,21 @@ MakeTestServer()
     server_config.transport_config.debug = true;
     server_config.transport_config.tls_cert_filename = "server-cert.pem";
     server_config.transport_config.tls_key_filename = "server-key.pem";
-    auto server = std::make_unique<TestServer>(server_config);
+    auto server = std::make_shared<TestServer>(server_config);
     const auto starting = server->Start();
     CHECK_EQ(starting, Transport::Status::kReady);
     std::this_thread::sleep_for(std::chrono::milliseconds(kDefaultTimeout));
     return server;
 }
 
-std::unique_ptr<TestClient>
+std::shared_ptr<TestClient>
 MakeTestClient(const bool connect = true)
 {
     // Connect a client.
     ClientConfig client_config;
     client_config.transport_config.debug = true;
     client_config.connect_uri = "moq://" + kIp + ":" + std::to_string(kPort);
-    auto client = std::make_unique<TestClient>(client_config);
+    auto client = std::make_shared<TestClient>(client_config);
     if (connect) {
         client->Connect();
         std::this_thread::sleep_for(kDefaultTimeout);
@@ -138,7 +138,7 @@ TEST_CASE("Integration - Handlers with no transport")
                                   .track_mode = TrackMode::kStream,
                                   .extensions = std::nullopt };
         const auto status = handler->PublishObject(headers, std::vector<uint8_t>(1));
-        CHECK_EQ(status, PublishTrackHandler::PublishObjectStatus::kNotAnnounced);
+        CHECK_EQ(status, PublishTrackHandler::PublishObjectStatus::kInternalError);
     }
 
     // Fetch.
