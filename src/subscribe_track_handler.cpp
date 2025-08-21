@@ -163,6 +163,7 @@ namespace quicr {
             return;
         }
 
+        status_ = Status::kOk;
         transport->SendSubscribeUpdate(transport->GetConnectionContext(GetConnectionId()),
                                        GetRequestId().value(),
                                        GetFullTrackName(),
