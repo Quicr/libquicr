@@ -57,6 +57,10 @@ namespace quicr {
 
         /**
          * @brief  Status codes for the publish track
+         *
+         * @note kOk is not the only status that means it is okay to publish.
+         *      CanPublish() method should be used to determine if the status is okay to still publish or not.
+         *
          */
         enum class Status : uint8_t
         {
@@ -209,6 +213,23 @@ namespace quicr {
         // --------------------------------------------------------------------------
         // Methods that normally do not need to be overridden
         // --------------------------------------------------------------------------
+
+        /**
+         * @brief Check if the state allows publishing or not
+         *
+         * @return true to indicate that the publisher can publish, false if the publisher cannot
+         */
+        constexpr bool CanPublish() const noexcept
+        {
+            switch (publish_status_) {
+                case Status::kOk:
+                case Status::kNewGroupRequested:
+                case Status::kSubscriptionUpdated:
+                    return true;
+                default:
+                    return false;
+            }
+        }
 
         /**
          * @brief Set the track alias
