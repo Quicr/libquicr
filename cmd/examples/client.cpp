@@ -587,15 +587,18 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
         };
 
         try {
-            auto status =
-              track_handler->PublishObject(obj_headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
+            if (track_handler->CanPublish()) {
+                auto status =
+                  track_handler->PublishObject(obj_headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
 
-            if (status == decltype(status)::kPaused) {
-                SPDLOG_INFO("Publish is paused");
-            } else if (status == decltype(status)::kNoSubscribers) {
-                SPDLOG_INFO("Publish has no subscribers");
-            } else if (status != decltype(status)::kOk) {
-                throw std::runtime_error("PublishObject returned status=" + std::to_string(static_cast<int>(status)));
+                if (status == decltype(status)::kPaused) {
+                    SPDLOG_INFO("Publish is paused");
+                } else if (status == decltype(status)::kNoSubscribers) {
+                    SPDLOG_INFO("Publish has no subscribers");
+                } else if (status != decltype(status)::kOk) {
+                    throw std::runtime_error("PublishObject returned status=" +
+                                             std::to_string(static_cast<int>(status)));
+                }
             }
         } catch (const std::exception& e) {
             SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());

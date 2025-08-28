@@ -28,3 +28,10 @@ TEST_CASE("Create Track Handler")
     CHECK_NOTHROW(quicr::PublishTrackHandler::Create({ {}, {} }, quicr::TrackMode::kDatagram, 0, 0));
     CHECK_NOTHROW(TestPublishTrackHandler::Create());
 }
+
+TEST_CASE("Publish Track Handler CanPublish")
+{
+    auto handler = quicr::PublishTrackHandler::Create({ {}, {} }, quicr::TrackMode::kDatagram, 0, 0);
+
+    CHECK_FALSE(handler->CanPublish());
+}
