@@ -1795,7 +1795,13 @@ PicoQuicTransport::CbNotifier()
     while (not stop_) {
         auto cb = cbNotifyQueue_.BlockPop();
         if (cb) {
-            (*cb)();
+            try {
+                (*cb)();
+            } catch (const std::exception& e) {
+                SPDLOG_LOGGER_ERROR(
+                  logger, "Caught exception running callback via notify thread (error={}), ignoring", e.what());
+                // TODO(tievens): Add metrics to track if this happens
+            }
         } else {
             SPDLOG_LOGGER_INFO(logger, "Notify callback is NULL");
         }
