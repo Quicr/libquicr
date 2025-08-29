@@ -158,10 +158,8 @@ namespace quicr {
         {
             std::size_t full_size = 0;
 
-            for (auto it = std::next(this->buckets_.begin(), this->queue_index_); it != this->buckets_.end(); ++it) {
-                for (const auto& [_, group] : *it) {
-                    full_size += group.size();
-                }
+            for (auto it = std::next(this->queue_.begin(), this->queue_index_); it != this->queue_.end(); ++it) {
+                full_size += it->bucket.size();
             }
 
             return full_size - object_index_;
