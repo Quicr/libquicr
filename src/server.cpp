@@ -560,7 +560,7 @@ namespace quicr {
 
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
 
-                UnsubscribeReceived(conn_ctx.connection_handle, msg.request_id);
+                SubscribeDoneReceived(conn_ctx.connection_handle, msg.request_id);
                 conn_ctx.recv_req_id.erase(msg.request_id);
 
                 return true;
