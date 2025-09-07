@@ -106,6 +106,38 @@ namespace quicr::messages {
         return buffer;
     }
 
+    Bytes& operator<<(Bytes& buffer, const StandaloneFetch&& value)
+    {
+        buffer << value.track_namespace;
+        buffer << value.track_name;
+        buffer << value.start;
+        buffer << value.end;
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, StandaloneFetch& value)
+    {
+        buffer = buffer >> value.track_namespace;
+        buffer = buffer >> value.track_name;
+        buffer = buffer >> value.start;
+        buffer = buffer >> value.end;
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, const JoiningFetch&& value)
+    {
+        buffer << value.request_id;
+        buffer << value.joining_start;
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, JoiningFetch& value)
+    {
+        buffer = buffer >> value.request_id;
+        buffer = buffer >> value.joining_start;
+        return buffer;
+    }
+
     Bytes& operator<<(Bytes& buffer, FetchErrorCode value)
     {
         buffer << static_cast<std::uint64_t>(value);

@@ -19,7 +19,7 @@ def main(rfc_filename, output_name):
         "Start Object": "quicr::messages::ObjectId",
         "End Object": "quicr::messages::ObjectId",
         "Track Namespace": "quicr::TrackNamespace",
-        "Track Name": "quicr::Bytes",
+        "Track Name": "quicr::TrackName",
         "Track Namespace Prefix": "quicr::TrackNamespace",
         "Subscribe Parameters": "quicr::messages::Parameter",
         "Setup Parameters": "quicr::messages::SetupParameter",
@@ -40,6 +40,8 @@ def main(rfc_filename, output_name):
         "Largest Location": "quicr::messages::Location",
         "Start": "quicr::messages::Location",
         "Largest": "quicr::messages::Location",
+        "Standalone": "quicr::messages::StandaloneFetch",
+        "Joining": "quicr::messages::JoiningFetch",
     }
 
     field_discards = ["Type", "Length"]

@@ -24,6 +24,7 @@ namespace quicr::messages {
     using ObjectId = uint64_t;
     // TODO(RichLogan): Remove when ErrorReason -> ReasonPhrase.
     using ReasonPhrase = Bytes;
+    using RequestID = uint64_t;
 
     struct ControlMessage
     {
@@ -244,11 +245,36 @@ namespace quicr::messages {
     enum class FetchType : uint8_t
     {
         kStandalone = 0x1,
-        kJoiningFetch,
+        kRelativeJoiningFetch,
+        kAbsoluteJoiningFetch
     };
 
     Bytes& operator<<(Bytes& buffer, FetchType value);
     BytesSpan operator>>(BytesSpan buffer, FetchType& value);
+
+    struct StandaloneFetch
+    {
+        TrackNamespace track_namespace;
+        TrackName track_name;
+        Location start;
+        Location end;
+    };
+
+    Bytes& operator<<(Bytes& buffer, StandaloneFetch value);
+    BytesSpan operator>>(BytesSpan buffer, StandaloneFetch& value);
+
+
+    struct JoiningFetch {
+        RequestID request_id;
+        uint64_t joining_start;
+    };
+
+
+    Bytes& operator<<(Bytes& buffer, JoiningFetch value);
+    BytesSpan operator>>(BytesSpan buffer, JoiningFetch& value);
+
+
+
 
     enum class TerminationReason : uint64_t
     {
