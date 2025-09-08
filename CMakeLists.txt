@@ -46,7 +46,7 @@ option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
 
 # Which MOQ draft to use.
 # Addendum is added automatically
-set(DEFAULT_DRAFT "${CMAKE_CURRENT_SOURCE_DIR}/tools/draft_parser/drafts/draft-ietf-moq-transport-14.txt")
+set(DEFAULT_DRAFT "${CMAKE_CURRENT_SOURCE_DIR}/tools/draft_parser/drafts/draft-ietf-moq-transport-14_edited.txt")
 set(DRAFT "" CACHE FILEPATH "MOQ Draft to build against")
 if (DRAFT STREQUAL "")
     set(DRAFT_INTERNAL ${DEFAULT_DRAFT})

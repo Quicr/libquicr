@@ -535,22 +535,48 @@ namespace quicr {
                 AnnounceStatusChanged(tfn.name_space, PublishAnnounceStatus::kNotAnnounced);
                 return true;
             }
-            case messages::ControlMessageType::kTrackStatusRequest: {
-                messages::TrackStatusRequest msg;
+            case messages::ControlMessageType::kTrackStatus: {
+                // TODO (rilogan): This code duplication with Subscribe is not ideal given
+                // the code generation. Refactor code generation to may be create
+                // variant types for messages that share fields?
+                 messages::TrackStatus msg(
+                  [](messages::TrackStatus& msg) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteStart ||
+                          msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                          msg.group_0 =
+                            std::make_optional<messages::TrackStatus::Group_0>(messages::TrackStatus::Group_0{ 0, 0 });
+                      }
+                  },
+                  [](messages::TrackStatus& msg) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                          msg.group_1 =
+                            std::make_optional<messages::TrackStatus::Group_1>(messages::TrackStatus::Group_1{ 0 });
+                      }
+                  });
+
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
                 auto th = TrackHash(tfn);
 
+
                 SPDLOG_LOGGER_INFO(logger_,
                                    "Received track status request for namespace_hash: {0} name_hash: {1}",
                                    th.track_namespace_hash,
                                    th.track_name_hash);
+                // TODO (Issue #657): Implement state handling and response
                 return true;
             }
-            case messages::ControlMessageType::kTrackStatus: {
-                messages::TrackStatus msg;
+            case messages::ControlMessageType::kTrackStatusOk: {
+                messages::TrackStatusOk msg([](auto& msg) {
+                    if (msg.content_exists == 1) {
+                        msg.group_0 = std::make_optional<messages::TrackStatusOk::Group_0>();
+                    }
+                });
+
+                // TODO (Issue #657): Implement state handling and response
                 msg_bytes >> msg;
+
 
                 SPDLOG_LOGGER_INFO(logger_, "Received track status for request_id: {}", msg.request_id);
                 return true;

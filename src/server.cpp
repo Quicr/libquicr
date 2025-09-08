@@ -591,22 +591,42 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kTrackStatus: {
-                messages::TrackStatusRequest msg;
+
+                auto msg = messages::TrackStatus(
+                  [](messages::TrackStatus& msg) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteStart ||
+                          msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                          msg.group_0 = std::make_optional<messages::TrackStatus::Group_0>();
+                      }
+                  },
+                  [](messages::TrackStatus& msg) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                          msg.group_1 = std::make_optional<messages::TrackStatus::Group_1>();
+                      }
+                  });
+
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
                 auto th = TrackHash(tfn);
 
+                // TODO(Issue #657) :  Impleement state handling and response
                 SPDLOG_LOGGER_INFO(logger_,
                                    "Received track status request for namespace_hash: {0} name_hash: {1}",
                                    th.track_namespace_hash,
                                    th.track_name_hash);
                 return true;
             }
-            case messages::ControlMessageType::kTrackStatus: {
-                messages::TrackStatus msg;
+            case messages::ControlMessageType::kTrackStatusOk: {
+                auto msg = messages::TrackStatusOk([](messages::TrackStatusOk& msg) {
+                    if (msg.content_exists == 1) {
+                        msg.group_0 = std::make_optional<messages::TrackStatusOk::Group_0>();
+                    }
+                });
+
                 msg_bytes >> msg;
 
+                // TOOD (Issue #657) :  Impleement state handling and response
                 SPDLOG_LOGGER_INFO(logger_, "Received track status for request_id: {}", msg.request_id);
                 return true;
             }
