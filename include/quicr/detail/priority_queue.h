@@ -44,8 +44,8 @@ namespace quicr {
 
             this->queue_.clear();
 
-            for (auto& bucket : this->buckets_) {
-                bucket.clear();
+            for (std::size_t i = 0; i < this->buckets_.size(); ++i) {
+                this->buckets_[i].clear();
             }
 
             this->queue_index_ = this->bucket_index_ = object_index_ = 0;
@@ -65,9 +65,12 @@ namespace quicr {
             const auto& front = this->queue_.at(this->queue_index_);
             const auto& group = front.bucket.at(front.value_index);
 
-            if (++object_index_ < group.size())
+            if (++object_index_ < group.size()) {
+                --size_;
                 return;
+            }
 
+            --size_;
             object_index_ = 0;
 
             if (this->queue_.empty() || ++this->queue_index_ < this->queue_.size())
@@ -99,6 +102,7 @@ namespace quicr {
                 if (!bucket.contains(value_index) || ticks > expiry_tick) {
                     elem.expired_count += object_index_;
                     this->queue_index_++;
+                    size_ -= object_index_;
                     object_index_ = 0;
                     continue;
                 }
@@ -154,16 +158,7 @@ namespace quicr {
             this->InternalPush(group_id, std::move(value), ttl, delay_ttl);
         }
 
-        std::size_t Size() const noexcept
-        {
-            std::size_t full_size = 0;
-
-            for (auto it = std::next(this->queue_.begin(), this->queue_index_); it != this->queue_.end(); ++it) {
-                full_size += it->bucket.size();
-            }
-
-            return full_size - object_index_;
-        }
+        std::size_t Size() const noexcept { return size_; }
 
       private:
         template<typename Value>
@@ -197,10 +192,12 @@ namespace quicr {
             auto& bucket = this->buckets_[future_index];
             bucket[group_id].emplace_back(value);
             this->queue_.emplace_back(bucket, group_id, expiry_tick, ticks + delay_ttl);
+            ++size_;
         }
 
       private:
         std::size_t object_index_ = 0;
+        std::size_t size_ = 0;
     };
     /**
      * @brief Priority queue that uses time_queue for each priority
