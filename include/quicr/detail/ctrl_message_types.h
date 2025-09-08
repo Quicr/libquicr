@@ -263,18 +263,13 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, StandaloneFetch value);
     BytesSpan operator>>(BytesSpan buffer, StandaloneFetch& value);
 
-
     struct JoiningFetch {
         RequestID request_id;
         uint64_t joining_start;
     };
 
-
     Bytes& operator<<(Bytes& buffer, JoiningFetch value);
     BytesSpan operator>>(BytesSpan buffer, JoiningFetch& value);
-
-
-
 
     enum class TerminationReason : uint64_t
     {

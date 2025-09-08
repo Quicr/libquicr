@@ -106,7 +106,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, const StandaloneFetch&& value)
+    Bytes& operator<<(Bytes& buffer, StandaloneFetch value)
     {
         buffer << value.track_namespace;
         buffer << value.track_name;
@@ -124,7 +124,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, const JoiningFetch&& value)
+    Bytes& operator<<(Bytes& buffer, JoiningFetch value)
     {
         buffer << value.request_id;
         buffer << value.joining_start;

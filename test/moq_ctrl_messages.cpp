@@ -363,7 +363,7 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
-    REQUIRE_EQ(subscribe.parameters.size(), 1);
+    REQUIRE_EQ(subscribe.parameters.size(), 2);
     REQUIRE_EQ(subscribe.parameters.size(), subscribe_out.parameters.size());
     CHECK_EQ(subscribe.parameters[0], subscribe_out.parameters[0]);
 }
