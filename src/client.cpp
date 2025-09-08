@@ -26,7 +26,7 @@ namespace quicr {
     void Client::UnannounceReceived(const TrackNamespace&) {}
 
     void Client::SubscribeAnnouncesStatusChanged(const TrackNamespace&,
-                                                 std::optional<messages::SubscribeAnnouncesErrorCode>,
+                                                 std::optional<messages::SubscribeNamespaceErrorCode>,
                                                  std::optional<messages::ReasonPhrase>)
     {
     }
@@ -435,7 +435,7 @@ namespace quicr {
                 if (it != conn_ctx.sub_announces_by_request_id.end()) {
                     SubscribeAnnouncesStatusChanged(it->second, std::nullopt, std::nullopt);
 
-                    auto error_code = static_cast<messages::SubscribeAnnouncesErrorCode>(msg.error_code);
+                    auto error_code = static_cast<messages::SubscribeNamespaceErrorCode>(msg.error_code);
                     SubscribeAnnouncesStatusChanged(
                       it->second, error_code, std::make_optional<messages::ReasonPhrase>(msg.error_reason));
                 }

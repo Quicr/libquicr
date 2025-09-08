@@ -152,17 +152,17 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, SubscribeDoneStatusCode value)
+    Bytes& operator<<(Bytes& buffer, PublishDoneStatusCode value)
     {
         buffer << static_cast<std::uint64_t>(value);
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, SubscribeDoneStatusCode& value)
+    BytesSpan operator>>(BytesSpan buffer, PublishDoneStatusCode& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
-        value = static_cast<SubscribeDoneStatusCode>(uvalue);
+        value = static_cast<PublishDoneStatusCode>(uvalue);
         return buffer;
     }
 

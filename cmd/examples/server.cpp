@@ -499,7 +499,7 @@ class MyServer : public quicr::Server
                     th.track_namespace_hash);
     }
 
-    std::pair<std::optional<quicr::messages::SubscribeAnnouncesErrorCode>, std::vector<quicr::TrackNamespace>>
+    std::pair<std::optional<quicr::messages::SubscribeNamespaceErrorCode>, std::vector<quicr::TrackNamespace>>
     SubscribeAnnouncesReceived(quicr::ConnectionHandle connection_handle,
                                const quicr::TrackNamespace& prefix_namespace,
                                const quicr::PublishAnnounceAttributes&) override

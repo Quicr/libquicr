@@ -228,7 +228,7 @@ namespace quicr::messages {
         kUnknown
     };
 
-    enum class SubscribeDoneStatusCode : uint64_t
+    enum class PublishDoneStatusCode : uint64_t
     {
         kInternalError = 0x00,
         kUnauthorized,
@@ -239,8 +239,8 @@ namespace quicr::messages {
         kTooFarBehind,
     };
 
-    Bytes& operator<<(Bytes& buffer, SubscribeDoneStatusCode value);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeDoneStatusCode& value);
+    Bytes& operator<<(Bytes& buffer, PublishDoneStatusCode value);
+    BytesSpan operator>>(BytesSpan buffer, PublishDoneStatusCode& value);
 
     enum class FetchType : uint8_t
     {
@@ -300,7 +300,7 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, FetchErrorCode value);
     BytesSpan operator>>(BytesSpan buffer, FetchErrorCode& value);
 
-    enum class AnnounceErrorCode : uint64_t
+    enum class PublishNamespaceErrorCode : uint64_t
     {
         kInternalError = 0x0,
         kUnauthorized,
@@ -338,7 +338,7 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, SubscribeErrorCode value);
     BytesSpan operator>>(BytesSpan buffer, SubscribeErrorCode& value);
 
-    enum class SubscribeAnnouncesErrorCode : uint64_t
+    enum class SubscribeNamespaceErrorCode : uint64_t
     {
         kInternalError = 0x0,
         kUnauthorized,
