@@ -100,9 +100,8 @@ namespace quicr {
                 auto& [bucket, value_index, expiry_tick, pop_wait_ttl] = this->queue_.at(this->queue_index_);
 
                 if (!bucket.contains(value_index) || ticks > expiry_tick) {
-                    elem.expired_count += object_index_;
+                    elem.expired_count++; // TODO: increment this to show the amount of objects that just expired.
                     this->queue_index_++;
-                    size_ -= object_index_;
                     object_index_ = 0;
                     continue;
                 }
@@ -161,6 +160,31 @@ namespace quicr {
         std::size_t Size() const noexcept { return size_; }
 
       private:
+        TickType Advance() override
+        {
+            const TickType new_ticks = this->tick_service_->Milliseconds();
+            TickType delta = this->current_ticks_ ? new_ticks - this->current_ticks_ : 0;
+            this->current_ticks_ = new_ticks;
+
+            if (delta == 0)
+                return this->current_ticks_;
+
+            delta /= this->interval_; // relative delta based on interval
+
+            if (delta >= static_cast<TickType>(this->total_buckets_)) {
+                Clear();
+                return this->current_ticks_;
+            }
+
+            this->bucket_index_ = (this->bucket_index_ + delta) % this->total_buckets_;
+            if (!this->buckets_[this->bucket_index_].empty()) {
+                size_ -= this->buckets_[this->bucket_index_].size();
+                this->buckets_[this->bucket_index_].clear();
+            }
+
+            return this->current_ticks_;
+        }
+
         template<typename Value>
         void InternalPush(std::uint64_t group_id, Value value, size_t ttl, size_t delay_ttl)
         {
