@@ -12,6 +12,7 @@
 #include <map>
 #include <numeric>
 #include <optional>
+#include <set>
 
 namespace quicr {
 
@@ -22,7 +23,7 @@ namespace quicr {
         using IndexType = std::uint64_t;
         using GroupIdType = std::uint64_t;
 
-        using BucketType = std::vector<GroupIdType>;
+        using BucketType = std::set<GroupIdType>;
         using ValueType = std::vector<T>;
 
         struct QueueValueType
@@ -62,8 +63,8 @@ namespace quicr {
 
             queue_.clear();
 
-            for (auto& bucket : buckets_) {
-                bucket.clear();
+            for (std::size_t i = 0; i < buckets_.size(); ++i) {
+                buckets_[i].clear();
             }
 
             queue_index_ = bucket_index_ = object_index_ = size_ = 0;
@@ -224,18 +225,17 @@ namespace quicr {
 
             const TickType ticks = Advance();
             const TickType expiry_tick = ticks + ttl;
-            const IndexType future_index = (bucket_index_ + relative_ttl - 1) % total_buckets_;
 
-            BucketType& bucket = buckets_[future_index];
-            bucket.push_back(key);
-
-            auto& group = queue_[key];
-            group.group_id = key;
-            group.expiry_tick = expiry_tick;
-            group.wait_for_tick = ticks + delay_ttl;
-            group.objects.emplace_back(value);
+            auto [group, is_new] = queue_.try_emplace(key, key, expiry_tick, ticks + delay_ttl);
+            group->second.objects.emplace_back(value);
 
             ++size_;
+
+            if (is_new) {
+                const IndexType future_index = (bucket_index_ + relative_ttl - 1) % total_buckets_;
+                BucketType& bucket = buckets_[future_index];
+                bucket.emplace(key);
+            }
         }
 
       protected:
