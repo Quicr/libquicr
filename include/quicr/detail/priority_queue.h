@@ -23,15 +23,20 @@ namespace quicr {
         using IndexType = std::uint64_t;
         using GroupIdType = std::uint64_t;
 
-        using BucketType = std::set<GroupIdType>;
-        using ValueType = std::vector<T>;
+        using BucketType = std::vector<T>;
 
         struct QueueValueType
         {
+            struct ObjectRef
+            {
+                BucketType& bucket;
+                IndexType index;
+            };
+
             GroupIdType group_id;
             TickType expiry_tick;
             TickType wait_for_tick;
-            ValueType objects;
+            std::vector<ObjectRef> objects;
 
             auto operator<=>(const QueueValueType& other) const { return group_id <=> other.group_id; }
         };
@@ -68,7 +73,9 @@ namespace quicr {
             queue_.clear();
 
             for (std::size_t i = 0; i < buckets_.size(); ++i) {
-                buckets_[i].clear();
+                if (!this->buckets_[i].empty()) {
+                    buckets_[i].clear();
+                }
             }
 
             queue_index_ = bucket_index_ = object_index_ = size_ = 0;
@@ -121,11 +128,12 @@ namespace quicr {
             while (queue_index_ < queue_.size()) {
                 auto& [group_id, item] = *std::next(queue_.begin(), queue_index_);
                 auto& [_, expiry_tick, pop_wait_ttl, objects] = item;
+                auto& [bucket, index] = objects.at(object_index_);
 
-                if (ticks > expiry_tick) {
-                    elem.expired_count += object_index_;
+                if (index >= bucket.size() || ticks > expiry_tick) {
+                    elem.expired_count += objects.size() - object_index_;
                     queue_index_++;
-                    size_ -= object_index_;
+                    size_ -= objects.size() - object_index_;
                     object_index_ = 0;
                     continue;
                 }
@@ -135,7 +143,7 @@ namespace quicr {
                 }
 
                 elem.has_value = true;
-                elem.value = objects.at(object_index_);
+                elem.value = bucket.at(index);
                 return;
             }
 
@@ -201,15 +209,9 @@ namespace quicr {
                 return current_ticks_;
             }
 
-            for (TickType i = 0; i < delta; ++i) {
-                auto& bucket = buckets_[(bucket_index_ + i) % total_buckets_];
-                for (const auto& key : bucket) {
-                    queue_.erase(key);
-                }
-                bucket.clear();
-            }
-
             bucket_index_ = (bucket_index_ + delta) % total_buckets_;
+            if (!buckets_[bucket_index_].empty())
+                buckets_[bucket_index_].clear();
 
             return current_ticks_;
         }
@@ -229,19 +231,18 @@ namespace quicr {
 
             const TickType ticks = Advance();
             const TickType expiry_tick = ticks + ttl;
+            const IndexType future_index = (bucket_index_ + relative_ttl - 1) % total_buckets_;
+
+            BucketType& bucket = buckets_[future_index];
+            bucket.reserve(group_size_);
+
+            bucket.emplace_back(value);
+            ++size_;
 
             auto [group, is_new] = queue_.try_emplace(key, key, expiry_tick, ticks + delay_ttl);
-
             if (is_new) {
-                group->second.objects.reserve(group_size_);
-
-                const IndexType future_index = (bucket_index_ + relative_ttl - 1) % total_buckets_;
-                BucketType& bucket = buckets_[future_index];
-                bucket.emplace(key);
+                group->second.objects.emplace_back(bucket, bucket.size() - 1);
             }
-
-            group->second.objects.emplace_back(value);
-            ++size_;
         }
 
       protected:
