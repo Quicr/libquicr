@@ -27,9 +27,12 @@ namespace quicr {
 
         struct QueueValueType
         {
+            GroupIdType group_id;
             TickType expiry_tick;
             TickType wait_for_tick;
             ValueType objects;
+
+            auto operator<=>(const QueueValueType& other) const { return group_id <=> other.group_id; }
         };
 
         using QueueType = std::map<GroupIdType, QueueValueType>;
@@ -112,7 +115,7 @@ namespace quicr {
 
             while (queue_index_ < queue_.size()) {
                 auto& [group_id, item] = *std::next(queue_.begin(), queue_index_);
-                auto& [expiry_tick, pop_wait_ttl, objects] = item;
+                auto& [_, expiry_tick, pop_wait_ttl, objects] = item;
 
                 if (ticks > expiry_tick) {
                     elem.expired_count += object_index_;
@@ -227,6 +230,7 @@ namespace quicr {
             bucket.push_back(key);
 
             auto& group = queue_[key];
+            group.group_id = key;
             group.expiry_tick = expiry_tick;
             group.wait_for_tick = ticks + delay_ttl;
             group.objects.emplace_back(value);
