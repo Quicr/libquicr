@@ -368,10 +368,9 @@ namespace quicr {
 
                 conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
 
-                const auto dt_param =
-                  std::find_if(msg.parameters.begin(), msg.parameters.end(), [](const auto& p) {
-                      return p.type == messages::ParameterType::kDeliveryTimeout;
-                  });
+                const auto dt_param = std::find_if(msg.parameters.begin(), msg.parameters.end(), [](const auto& p) {
+                    return p.type == messages::ParameterType::kDeliveryTimeout;
+                });
 
                 std::uint64_t delivery_timeout = 0;
 
@@ -701,7 +700,8 @@ namespace quicr {
                 switch (msg.fetch_type) {
                     case messages::FetchType::kStandalone: {
                         // Standalone fetch is self-containing.
-                        tfn = FullTrackName{ msg.group_0->standalone.track_namespace, msg.group_0->standalone.track_name };
+                        tfn =
+                          FullTrackName{ msg.group_0->standalone.track_namespace, msg.group_0->standalone.track_name };
                         attrs.start_location = msg.group_0->standalone.start;
                         attrs.end_group = msg.group_0->standalone.end.group;
                         attrs.end_object = msg.group_0->standalone.end.object > 0

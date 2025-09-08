@@ -539,7 +539,7 @@ namespace quicr {
                 // TODO (rilogan): This code duplication with Subscribe is not ideal given
                 // the code generation. Refactor code generation to may be create
                 // variant types for messages that share fields?
-                 messages::TrackStatus msg(
+                messages::TrackStatus msg(
                   [](messages::TrackStatus& msg) {
                       if (msg.filter_type == messages::FilterType::kAbsoluteStart ||
                           msg.filter_type == messages::FilterType::kAbsoluteRange) {
@@ -559,7 +559,6 @@ namespace quicr {
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
                 auto th = TrackHash(tfn);
 
-
                 SPDLOG_LOGGER_INFO(logger_,
                                    "Received track status request for namespace_hash: {0} name_hash: {1}",
                                    th.track_namespace_hash,
@@ -576,7 +575,6 @@ namespace quicr {
 
                 // TODO (Issue #657): Implement state handling and response
                 msg_bytes >> msg;
-
 
                 SPDLOG_LOGGER_INFO(logger_, "Received track status for request_id: {}", msg.request_id);
                 return true;

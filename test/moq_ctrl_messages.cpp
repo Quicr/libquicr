@@ -125,7 +125,8 @@ TEST_CASE("PublishNamespaceDoneMessage encode/decode")
     buffer << publish_namespace_done;
 
     PublishNamespaceDone publish_namespace_done_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishNamespaceDone), publish_namespace_done_out));
+    CHECK(
+      VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishNamespaceDone), publish_namespace_done_out));
     CHECK_EQ(kTrackNamespaceConf, publish_namespace_done_out.track_namespace);
 }
 
@@ -140,7 +141,8 @@ TEST_CASE("PublishNamespaceError Message encode/decode")
     buffer << publish_namespace_err;
 
     PublishNamespaceError publish_namespace_err_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishNamespaceError), publish_namespace_err_out));
+    CHECK(
+      VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishNamespaceError), publish_namespace_err_out));
     CHECK_EQ(0x1234, publish_namespace_err_out.request_id);
     CHECK_EQ(publish_namespace_err_out.error_code, publish_namespace_err_out.error_code);
     CHECK_EQ(publish_namespace_err_out.error_reason, publish_namespace_err_out.error_reason);
@@ -155,7 +157,8 @@ TEST_CASE("PublishNamespaceCancel Message encode/decode")
     buffer << publish_namespace_cancel;
 
     PublishNamespaceCancel publish_namespace_cancel_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishNamespaceCancel), publish_namespace_cancel_out));
+    CHECK(VerifyCtrl(
+      buffer, static_cast<uint64_t>(ControlMessageType::kPublishNamespaceCancel), publish_namespace_cancel_out));
     CHECK_EQ(publish_namespace_cancel.track_namespace, publish_namespace_cancel_out.track_namespace);
     CHECK_EQ(publish_namespace_cancel.error_code, publish_namespace_cancel_out.error_code);
     CHECK_EQ(publish_namespace_cancel.error_reason, publish_namespace_cancel_out.error_reason);
@@ -164,9 +167,10 @@ TEST_CASE("PublishNamespaceCancel Message encode/decode")
 TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
 {
     Bytes buffer;
-    auto subscribe = quicr::messages::Subscribe{0x1, kTrackNamespaceConf, kTrackNameAliceVideo, 0x10,
-                                        GroupOrder::kAscending, 1, FilterType::kLargestObject,
-                                        std::nullopt, std::nullopt, {}};
+    auto subscribe = quicr::messages::Subscribe{
+        0x1, kTrackNamespaceConf,        kTrackNameAliceVideo, 0x10,         GroupOrder::kAscending,
+        1,   FilterType::kLargestObject, std::nullopt,         std::nullopt, {}
+    };
 
     buffer << subscribe;
 

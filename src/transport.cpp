@@ -269,8 +269,10 @@ namespace quicr {
         Bytes buffer;
         buffer << publish_namespace_ok;
 
-        SPDLOG_LOGGER_DEBUG(
-          logger_, "Sending PUBLISH_NAMESPACE_OK to conn_id: {} request_id: {}", conn_ctx.connection_handle, request_id);
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending PUBLISH_NAMESPACE_OK to conn_id: {} request_id: {}",
+                            conn_ctx.connection_handle,
+                            request_id);
 
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
@@ -459,8 +461,7 @@ namespace quicr {
                                     {});
 
         if (new_group_request) {
-            subscribe_update.parameters.push_back(
-              { .type = ParameterType::kNewGroupRequest, .value = { 1 } });
+            subscribe_update.parameters.push_back({ .type = ParameterType::kNewGroupRequest, .value = { 1 } });
         }
 
         Bytes buffer;
@@ -511,9 +512,9 @@ namespace quicr {
     void Transport::SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t request_id, const std::string& reason)
     try {
         auto publish_done = messages::PublishDone(request_id,
-                                                      messages::PublishDoneStatusCode::kSubscribtionEnded,
-                                                      0,
-                                                      quicr::Bytes(reason.begin(), reason.end()));
+                                                  messages::PublishDoneStatusCode::kSubscribtionEnded,
+                                                  0,
+                                                  quicr::Bytes(reason.begin(), reason.end()));
 
         Bytes buffer;
         buffer << publish_done;
@@ -709,8 +710,13 @@ namespace quicr {
     try {
         auto group_1 = std::make_optional<messages::Fetch::Group_1>() = { joining_request_id, preceding_group_offset };
 
-        auto fetch = messages::Fetch(
-          request_id, priority, group_order, messages::FetchType::kRelativeJoiningFetch, std::nullopt, group_1, parameters);
+        auto fetch = messages::Fetch(request_id,
+                                     priority,
+                                     group_order,
+                                     messages::FetchType::kRelativeJoiningFetch,
+                                     std::nullopt,
+                                     group_1,
+                                     parameters);
 
         Bytes buffer;
         buffer << fetch;
