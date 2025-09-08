@@ -45,7 +45,9 @@ namespace quicr {
             this->queue_.clear();
 
             for (std::size_t i = 0; i < this->buckets_.size(); ++i) {
-                this->buckets_[i].clear();
+                if (!this->buckets_[i].empty()) {
+                    this->buckets_[i].clear();
+                }
             }
 
             this->queue_index_ = this->bucket_index_ = object_index_ = 0;
