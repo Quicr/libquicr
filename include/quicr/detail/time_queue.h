@@ -147,8 +147,6 @@ namespace quicr {
         TimeQueue(const TimeQueue&) = default;
         TimeQueue(TimeQueue&&) noexcept = default;
 
-        virtual ~TimeQueue() = default;
-
         TimeQueue& operator=(const TimeQueue&) = default;
         TimeQueue& operator=(TimeQueue&&) noexcept = default;
 
@@ -284,7 +282,7 @@ namespace quicr {
          *
          * @returns Current tick value at time of advance
          */
-        virtual TickType Advance()
+        TickType Advance()
         {
             const TickType new_ticks = tick_service_->Milliseconds();
             TickType delta = current_ticks_ ? new_ticks - current_ticks_ : 0;

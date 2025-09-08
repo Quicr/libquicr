@@ -66,11 +66,9 @@ namespace quicr {
             const auto& group = front.bucket.at(front.value_index);
 
             if (++object_index_ < group.size()) {
-                --size_;
                 return;
             }
 
-            --size_;
             object_index_ = 0;
 
             if (this->queue_.empty() || ++this->queue_index_ < this->queue_.size())
@@ -157,34 +155,7 @@ namespace quicr {
             this->InternalPush(group_id, std::move(value), ttl, delay_ttl);
         }
 
-        std::size_t Size() const noexcept { return size_; }
-
       private:
-        TickType Advance() override
-        {
-            const TickType new_ticks = this->tick_service_->Milliseconds();
-            TickType delta = this->current_ticks_ ? new_ticks - this->current_ticks_ : 0;
-            this->current_ticks_ = new_ticks;
-
-            if (delta == 0)
-                return this->current_ticks_;
-
-            delta /= this->interval_; // relative delta based on interval
-
-            if (delta >= static_cast<TickType>(this->total_buckets_)) {
-                Clear();
-                return this->current_ticks_;
-            }
-
-            this->bucket_index_ = (this->bucket_index_ + delta) % this->total_buckets_;
-            if (!this->buckets_[this->bucket_index_].empty()) {
-                size_ -= this->buckets_[this->bucket_index_].size();
-                this->buckets_[this->bucket_index_].clear();
-            }
-
-            return this->current_ticks_;
-        }
-
         template<typename Value>
         void InternalPush(std::uint64_t group_id, Value value, size_t ttl, size_t delay_ttl)
         {
@@ -216,12 +187,10 @@ namespace quicr {
             auto& bucket = this->buckets_[future_index];
             bucket[group_id].emplace_back(value);
             this->queue_.emplace_back(bucket, group_id, expiry_tick, ticks + delay_ttl);
-            ++size_;
         }
 
       private:
         std::size_t object_index_ = 0;
-        std::size_t size_ = 0;
     };
     /**
      * @brief Priority queue that uses time_queue for each priority
