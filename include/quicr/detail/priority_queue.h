@@ -39,10 +39,14 @@ namespace quicr {
         using QueueType = std::map<GroupIdType, QueueValueType>;
 
       public:
-        GroupTimeQueue(size_t duration, size_t interval, std::shared_ptr<TickService> tick_service)
+        GroupTimeQueue(size_t duration,
+                       size_t interval,
+                       std::shared_ptr<TickService> tick_service,
+                       std::size_t group_size)
           : duration_{ duration }
           , interval_{ interval }
           , total_buckets_{ duration_ / interval_ }
+          , group_size_{ group_size }
           , tick_service_(std::move(tick_service))
         {
             if (duration == 0 || duration % interval != 0 || duration == interval) {
@@ -227,15 +231,17 @@ namespace quicr {
             const TickType expiry_tick = ticks + ttl;
 
             auto [group, is_new] = queue_.try_emplace(key, key, expiry_tick, ticks + delay_ttl);
-            group->second.objects.emplace_back(value);
-
-            ++size_;
 
             if (is_new) {
+                group->second.objects.reserve(group_size_);
+
                 const IndexType future_index = (bucket_index_ + relative_ttl - 1) % total_buckets_;
                 BucketType& bucket = buckets_[future_index];
                 bucket.emplace(key);
             }
+
+            group->second.objects.emplace_back(value);
+            ++size_;
         }
 
       protected:
@@ -247,6 +253,9 @@ namespace quicr {
 
         /// The total amount of buckets. Value is calculated by duration / interval.
         const size_t total_buckets_;
+
+        /// The expected size of groups
+        const size_t group_size_;
 
         /// The index in time of the current bucket.
         IndexType bucket_index_{ 0 };
@@ -309,7 +318,7 @@ namespace quicr {
          * @param tick_service Shared pointer to tick_service service
          */
         PriorityQueue(const std::shared_ptr<TickService>& tick_service)
-          : PriorityQueue(1000, 1, tick_service, 1000)
+          : PriorityQueue(1000, 1, tick_service, 150)
         {
         }
 
@@ -467,7 +476,8 @@ namespace quicr {
             }
 
             if (!queue_[priority]) {
-                queue_[priority] = std::make_unique<TimeQueueType>(duration_ms_, interval_ms_, tick_service_);
+                queue_[priority] =
+                  std::make_unique<TimeQueueType>(duration_ms_, interval_ms_, tick_service_, initial_queue_size_);
             }
 
             return queue_[priority];
