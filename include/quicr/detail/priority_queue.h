@@ -107,7 +107,19 @@ namespace quicr {
 
         void Pop() noexcept
         {
-            if (queue_.empty() || ++queue_index_ < queue_.size())
+
+            if (queue_.empty())
+                return;
+
+            auto& group = queue_.at(queue_index_).group;
+
+            if (++group.offset < group.objects.size())
+                return;
+
+            group.offset = 0;
+            group.objects.clear();
+
+            if (++queue_index_ < queue_.size())
                 return;
 
             Clear();
