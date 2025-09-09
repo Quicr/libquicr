@@ -75,7 +75,7 @@ Decode(benchmark::State& state)
 static void
 PQ_Push(benchmark::State& state)
 {
-    quicr::PriorityQueue<std::vector<uint8_t>, 3> pq(30000, 300, tick_service, kIterations);
+    quicr::PriorityQueue<std::vector<uint8_t>, 3> pq(30000, 300, tick_service, kIterations, 150);
     int64_t items_count = 0;
 
     std::vector<uint8_t> data(1, 0);
@@ -95,7 +95,7 @@ PQ_Push(benchmark::State& state)
 static void
 PQ_Pop(benchmark::State& state)
 {
-    quicr::PriorityQueue<std::vector<uint8_t>, 3> pq(30000, 1, tick_service, kIterations);
+    quicr::PriorityQueue<std::vector<uint8_t>, 3> pq(30000, 1, tick_service, kIterations, 150);
     std::vector<uint8_t> data(1000, 0);
 
     for (size_t i = 0; i < kIterations; ++i) {
@@ -114,7 +114,7 @@ PQ_Pop(benchmark::State& state)
 static void
 PQ_PopFront(benchmark::State& state)
 {
-    quicr::PriorityQueue<std::vector<uint8_t>, 3> pq(30000, 1, tick_service, kIterations);
+    quicr::PriorityQueue<std::vector<uint8_t>, 3> pq(30000, 1, tick_service, kIterations, 150);
     std::vector<uint8_t> data(1000, 0);
 
     for (size_t i = 0; i < kIterations; ++i) {
@@ -138,7 +138,7 @@ PQ_ConnDataForwarding(benchmark::State& state)
 {
     std::vector<std::shared_ptr<quicr::PriorityQueue<quicr::ConnData>>> queues;
     for (size_t i = 0; i < kNumSubscribers; i++) {
-        auto ptr = std::make_shared<quicr::PriorityQueue<quicr::ConnData>>(5000, 1, tick_service, 150);
+        auto ptr = std::make_shared<quicr::PriorityQueue<quicr::ConnData>>(500, 1, tick_service, kIterations, 150);
         queues.emplace_back(std::move(ptr));
     }
 
@@ -156,7 +156,7 @@ PQ_ConnDataForwarding(benchmark::State& state)
     for (auto _ : state) {
         ++items_count;
         for (auto& pq : queues) {
-            pq->Push(items_count % 500, cd, 2000);
+            pq->Push(items_count % 500, cd, 500);
 
             quicr::TimeQueueElement<quicr::ConnData> elem;
             pq->PopFront(elem);

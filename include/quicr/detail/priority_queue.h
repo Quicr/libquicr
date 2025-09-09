@@ -9,34 +9,18 @@
 #include <array>
 #include <chrono>
 #include <forward_list>
+#include <map>
 #include <numeric>
 #include <set>
 #include <unordered_map>
 
 namespace quicr {
-
-    template<typename T, typename Duration_t>
+    template<typename T>
     class GroupTimeQueue
     {
-        /*=======================================================================*/
-        // Time queue type assertions
-        /*=======================================================================*/
-
-        template<typename>
-        struct IsChronoDuration : std::false_type
-        {};
-
-        template<typename Rep, typename Period>
-        struct IsChronoDuration<std::chrono::duration<Rep, Period>> : std::true_type
-        {};
-
-        static_assert(IsChronoDuration<Duration_t>::value);
+        static constexpr uint32_t kMaxBuckets = 1000; /// Maximum number of buckets allowed
 
       protected:
-        /*=======================================================================*/
-        // Internal type definitions
-        /*=======================================================================*/
-
         using TickType = TickService::TickType;
         using IndexType = std::uint64_t;
         using GroupIdType = std::uint64_t;
@@ -51,13 +35,11 @@ namespace quicr {
                 IndexType value_index;
             };
 
-            GroupType(GroupIdType id, IndexType offset)
-              : id(id)
-              , offset(offset)
+            GroupType(IndexType offset)
+              : offset(offset)
             {
             }
 
-            GroupIdType id;
             IndexType offset;
             std::vector<ObjectRefType> objects;
         };
@@ -75,9 +57,10 @@ namespace quicr {
         GroupTimeQueue(size_t duration,
                        size_t interval,
                        std::shared_ptr<TickService> tick_service,
+                       std::size_t initial_queue_size,
                        std::size_t group_size)
           : duration_{ duration }
-          , interval_{ interval }
+          , interval_{ (duration / interval > kMaxBuckets ? duration / kMaxBuckets : interval) }
           , total_buckets_{ duration_ / interval_ }
           , group_size_{ group_size }
           , tick_service_(std::move(tick_service))
@@ -91,7 +74,7 @@ namespace quicr {
             }
 
             buckets_.resize(total_buckets_);
-            queue_.reserve(total_buckets_);
+            queue_.reserve(initial_queue_size);
         }
 
         GroupTimeQueue() = delete;
@@ -100,6 +83,25 @@ namespace quicr {
 
         GroupTimeQueue& operator=(const GroupTimeQueue&) = default;
         GroupTimeQueue& operator=(GroupTimeQueue&&) noexcept = default;
+
+        /**
+         * @brief Clear/reset the queue to no objects
+         */
+        void Clear() noexcept
+        {
+            if (queue_.empty())
+                return;
+
+            queue_.clear();
+            groups_.clear();
+
+            for (std::size_t i = 0; i < this->buckets_.size(); ++i) {
+                if (!buckets_[i].empty())
+                    buckets_[i].clear();
+            }
+
+            queue_index_ = bucket_index_ = 0;
+        }
 
         void Push(GroupIdType group_id, const T& value, size_t ttl, size_t delay_ttl = 0)
         {
@@ -113,11 +115,10 @@ namespace quicr {
 
         void Pop() noexcept
         {
-
             if (queue_.empty())
                 return;
 
-            auto& group = queue_.at(queue_index_).group;
+            auto& group = queue_[queue_index_].group;
 
             if (++group.offset < group.objects.size())
                 return;
@@ -158,20 +159,22 @@ namespace quicr {
                 return;
 
             while (queue_index_ < queue_.size()) {
-                auto& [group, expiry_tick, pop_wait_ttl] = queue_.at(queue_index_);
-                auto& [_, offset, objects] = group;
+                auto& [group, expiry_tick, pop_wait_ttl] = queue_[queue_index_];
+                auto& [offset, objects] = group;
 
                 if (offset >= objects.size() || ticks > expiry_tick) {
-                    elem.expired_count++;
-                    queue_index_++;
+                    offset = 0;
+                    objects.clear();
+                    ++elem.expired_count;
+                    ++queue_index_;
                     continue;
                 }
 
-                auto& [bucket, value_index] = objects.at(offset);
+                auto& [bucket, value_index] = objects[offset];
 
                 if (value_index >= bucket.size()) {
-                    elem.expired_count++;
-                    queue_index_++;
+                    ++elem.expired_count;
+                    ++queue_index_;
                     continue;
                 }
 
@@ -180,34 +183,16 @@ namespace quicr {
                 }
 
                 elem.has_value = true;
-                elem.value = bucket.at(value_index);
+                elem.value = bucket[value_index];
                 return;
             }
 
             Clear();
         }
 
-        size_t Size() const noexcept { return queue_.size() - queue_index_; }
+        constexpr size_t Size() const noexcept { return queue_.size() - queue_index_; }
 
-        bool Empty() const noexcept { return queue_.empty() || queue_index_ >= queue_.size(); }
-
-        /**
-         * @brief Clear/reset the queue to no objects
-         */
-        void Clear() noexcept
-        {
-            if (queue_.empty())
-                return;
-
-            queue_.clear();
-            groups_.clear();
-
-            for (auto& bucket : buckets_) {
-                bucket.clear();
-            }
-
-            queue_index_ = bucket_index_ = 0;
-        }
+        constexpr bool Empty() const noexcept { return queue_.empty() || queue_index_ >= queue_.size(); }
 
       protected:
         /**
@@ -262,10 +247,12 @@ namespace quicr {
 
             bucket.push_back(value);
 
-            auto [group, _] = groups_.try_emplace(group_id, group_id, 0);
+            auto [group, is_new] = groups_.try_emplace(group_id, 0);
+            if (is_new) {
+                group->second.objects.reserve(group_size_);
+            }
 
-            group->second.objects.reserve(group_size_);
-            group->second.objects.push_back({ bucket, bucket.size() - 1 });
+            group->second.objects.emplace_back(bucket, bucket.size() - 1);
 
             queue_.emplace_back(group->second, expiry_tick, ticks + delay_ttl);
         }
@@ -321,7 +308,7 @@ namespace quicr {
     class PriorityQueue
     {
         using TimeType = std::chrono::milliseconds;
-        using TimeQueueType = GroupTimeQueue<DataType, TimeType>;
+        using TimeQueueType = GroupTimeQueue<DataType>;
 
         struct Exception : public std::runtime_error
         {
@@ -341,7 +328,7 @@ namespace quicr {
          * @param tick_service Shared pointer to tick_service service
          */
         PriorityQueue(const std::shared_ptr<TickService>& tick_service)
-          : PriorityQueue(1000, 1, tick_service, 150)
+          : PriorityQueue(1000, 1, tick_service, 1000, 150)
         {
         }
 
@@ -352,11 +339,13 @@ namespace quicr {
          * @param interval              Interval per bucket, Default is 1
          * @param tick_service          Shared pointer to tick_service service
          * @param initial_queue_size    Number of default fifo queue size (reserve)
+         * @param group_size            The expected size of a group.
          */
         PriorityQueue(size_t duration,
                       size_t interval,
                       const std::shared_ptr<TickService>& tick_service,
-                      size_t initial_queue_size)
+                      size_t initial_queue_size,
+                      size_t group_size)
           : tick_service_(tick_service)
         {
 
@@ -365,6 +354,7 @@ namespace quicr {
             }
 
             initial_queue_size_ = initial_queue_size;
+            group_size_ = group_size;
             duration_ms_ = duration;
             interval_ms_ = interval;
         }
@@ -382,7 +372,7 @@ namespace quicr {
             std::lock_guard<std::mutex> _(mutex_);
 
             auto& queue = GetQueueByPriority(priority);
-            queue->Push(group_id, value, ttl, delay_ttl);
+            queue.Push(group_id, value, ttl, delay_ttl);
         }
 
         /**
@@ -398,7 +388,7 @@ namespace quicr {
             std::lock_guard<std::mutex> _(mutex_);
 
             auto& queue = GetQueueByPriority(priority);
-            queue->Push(group_id, std::move(value), ttl, delay_ttl);
+            queue.Push(group_id, std::move(value), ttl, delay_ttl);
         }
 
         /**
@@ -412,11 +402,14 @@ namespace quicr {
         {
             std::lock_guard<std::mutex> _(mutex_);
 
-            for (auto& tqueue : queue_) {
-                if (!tqueue || tqueue->Empty())
+            for (auto& [_, tqueue] : queue_) {
+                if (tqueue.Empty())
                     continue;
 
-                tqueue->Front(elem);
+                tqueue.Front(elem);
+                if (elem.has_value) {
+                    return;
+                }
             }
         }
 
@@ -424,18 +417,18 @@ namespace quicr {
          * @brief Get and remove the first object from queue
          *
          * @param elem[out]          Time queue element storage. Will be updated.
-         *
-         * @return TimeQueueElement<DataType> from time queue
          */
         void PopFront(TimeQueueElement<DataType>& elem)
         {
             std::lock_guard<std::mutex> _(mutex_);
 
-            for (auto& tqueue : queue_) {
-                if (!tqueue || tqueue->Empty())
+            for (auto& [_, tqueue] : queue_) {
+                if (tqueue.Empty())
                     continue;
 
-                tqueue->PopFront(elem);
+                tqueue.PopFront(elem);
+                if (elem.has_value)
+                    return;
             }
         }
 
@@ -446,9 +439,9 @@ namespace quicr {
         {
             std::lock_guard<std::mutex> _(mutex_);
 
-            for (auto& tqueue : queue_) {
-                if (tqueue && !tqueue->Empty())
-                    return tqueue->Pop();
+            for (auto& [_, tqueue] : queue_) {
+                if (!tqueue.Empty())
+                    return tqueue.Pop();
             }
         }
 
@@ -459,24 +452,22 @@ namespace quicr {
         {
             std::lock_guard<std::mutex> _(mutex_);
 
-            for (auto& tqueue : queue_) {
-                if (tqueue)
-                    tqueue->Clear();
+            for (auto& [_, tqueue] : queue_) {
+                tqueue.Clear();
             }
         }
 
         // TODO: Consider changing empty/size to look at timeQueue sizes - maybe support blocking pops
         size_t Size() const
         {
-            return std::accumulate(queue_.begin(), queue_.end(), 0, [](auto sum, auto& tqueue) {
-                return tqueue ? sum + tqueue->Size() : sum;
-            });
+            return std::accumulate(
+              queue_.begin(), queue_.end(), 0, [](auto sum, auto& tqueue) { return sum + tqueue.second.Size(); });
         }
 
         bool Empty() const
         {
-            for (auto& tqueue : queue_) {
-                if (tqueue && !tqueue->Empty()) {
+            for (auto& [_, tqueue] : queue_) {
+                if (!tqueue.Empty()) {
                     return false;
                 }
             }
@@ -492,26 +483,25 @@ namespace quicr {
          *
          * @return Unique pointer to queue for the given priority
          */
-        std::unique_ptr<TimeQueueType>& GetQueueByPriority(const uint8_t priority)
+        TimeQueueType& GetQueueByPriority(const uint8_t priority)
         {
             if (priority >= PMAX) {
                 throw InvalidPriorityException("Priority not within range");
             }
 
-            if (!queue_[priority]) {
-                queue_[priority] =
-                  std::make_unique<TimeQueueType>(duration_ms_, interval_ms_, tick_service_, initial_queue_size_);
-            }
+            auto [it, _] =
+              queue_.try_emplace(priority, duration_ms_, interval_ms_, tick_service_, initial_queue_size_, group_size_);
 
-            return queue_[priority];
+            return it->second;
         }
 
         std::mutex mutex_;
         size_t initial_queue_size_;
+        size_t group_size_;
         size_t duration_ms_;
         size_t interval_ms_;
 
-        std::array<std::unique_ptr<TimeQueueType>, PMAX> queue_;
+        std::map<uint8_t, TimeQueueType> queue_;
         std::shared_ptr<TickService> tick_service_;
     };
 }; // end of namespace quicr
