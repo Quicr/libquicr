@@ -185,7 +185,7 @@ namespace quicr {
             if (queue_.empty() || ++queue_index_ < queue_.size())
                 return;
 
-            Clear();
+            // Clear();
         }
 
         /**
@@ -252,7 +252,7 @@ namespace quicr {
                 return;
             }
 
-            Clear();
+            // Clear();
         }
 
         size_t Size() const noexcept { return queue_.size() - queue_index_; }

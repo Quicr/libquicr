@@ -1,7 +1,6 @@
 #include <quicr/detail/priority_queue.h>
 
 #include <benchmark/benchmark.h>
-#include <mach/task_info.h>
 #include <quicr/detail/quic_transport.h>
 
 static auto tick_service = std::make_shared<quicr::ThreadedTickService>();
@@ -157,9 +156,9 @@ PQ_ConnDataForwarding(benchmark::State& state)
     for (auto _ : state) {
         ++items_count;
         for (auto& pq : queues) {
-            pq->Push(150, cd, 2000);
+            pq->Push(items_count / 150, cd, 2000);
             quicr::TimeQueueElement<quicr::ConnData> elem;
-            //pq->PopFront(elem);
+            pq->PopFront(elem);
 
             // if (!elem.has_value)
             //     abort();
