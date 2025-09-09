@@ -138,12 +138,9 @@ PQ_ConnDataForwarding(benchmark::State& state)
 {
     std::vector<std::shared_ptr<quicr::PriorityQueue<quicr::ConnData>>> queues;
     for (size_t i = 0; i < kNumSubscribers; i++) {
-        std::shared_ptr<quicr::PriorityQueue<quicr::ConnData>> ptr =
-          std::make_shared<quicr::PriorityQueue<quicr::ConnData>>(5000, 1, tick_service, kIterations);
+        auto ptr = std::make_shared<quicr::PriorityQueue<quicr::ConnData>>(5000, 1, tick_service, 150);
         queues.emplace_back(std::move(ptr));
     }
-
-    //quicr::PriorityQueue<quicr::ConnData, 3> pq(5000, 1, tick_service, kIterations);
 
     quicr::ConnData cd;
 
@@ -158,7 +155,7 @@ PQ_ConnDataForwarding(benchmark::State& state)
     int64_t items_count = 0;
     for (auto _ : state) {
         ++items_count;
-        for (auto& pq: queues) {
+        for (auto& pq : queues) {
             pq->Push(items_count % 500, cd, 2000);
 
             quicr::TimeQueueElement<quicr::ConnData> elem;
