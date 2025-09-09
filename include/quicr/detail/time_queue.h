@@ -339,7 +339,7 @@ namespace quicr {
 
             BucketType& bucket = buckets_[future_index];
 
-            bucket.push_back(value);
+            bucket.emplace_back(value);
             queue_.emplace_back(bucket, bucket.size() - 1, expiry_tick, ticks + delay_ttl);
         }
 

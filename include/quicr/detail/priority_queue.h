@@ -45,9 +45,8 @@ namespace quicr {
             this->queue_.clear();
 
             for (std::size_t i = 0; i < this->buckets_.size(); ++i) {
-                if (!this->buckets_[i].empty()) {
+                if (!this->buckets_[i].empty())
                     this->buckets_[i].clear();
-                }
             }
 
             this->queue_index_ = this->bucket_index_ = object_index_ = 0;
@@ -88,13 +87,14 @@ namespace quicr {
          */
         void Front(TimeQueueElement<T>& elem)
         {
-            const TickType ticks = this->Advance();
-
             elem.has_value = false;
             elem.expired_count = 0;
 
-            if (this->queue_.empty())
+            const TickType ticks = this->Advance();
+
+            if (this->queue_.empty()) {
                 return;
+            }
 
             while (this->queue_index_ < this->queue_.size()) {
                 auto& [bucket, value_index, expiry_tick, pop_wait_ttl] = this->queue_.at(this->queue_index_);
@@ -313,8 +313,6 @@ namespace quicr {
          * @brief Get and remove the first object from queue
          *
          * @param elem[out]          Time queue element storage. Will be updated.
-         *
-         * @return TimeQueueElement<DataType> from time queue
          */
         void PopFront(TimeQueueElement<DataType>& elem)
         {
@@ -325,6 +323,8 @@ namespace quicr {
                     continue;
 
                 tqueue->PopFront(elem);
+                if (elem.has_value)
+                    return;
             }
         }
 

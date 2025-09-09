@@ -42,12 +42,20 @@ namespace quicr {
      */
     struct TickService
     {
-        using TickType = size_t;
+        using TickType = uint64_t;
         using DurationType = std::chrono::microseconds;
 
-        virtual TickType Milliseconds() const = 0;
-        virtual TickType Microseconds() const = 0;
+        constexpr TickType Microseconds() const { return ticks_; }
+        constexpr TickType Milliseconds() const { return ticks_ / 1000; }
         virtual ~TickService() = default;
+
+        TickService() = default;
+        TickService(const TickService&) = default;
+        TickService& operator=(const TickService&) = default;
+
+      protected:
+        /// The current ticks since the tick_service began.
+        TickType ticks_{ 0 };
     };
 
     /**
@@ -71,7 +79,7 @@ namespace quicr {
         }
 
         ThreadedTickService(const ThreadedTickService& other)
-          : ticks_{ other.ticks_.load(std::memory_order_relaxed) }
+          : TickService(other)
           , sleep_delay_us_{ other.sleep_delay_us_ }
           , stop_{ other.stop_.load() }
         {
@@ -88,7 +96,7 @@ namespace quicr {
 
         ThreadedTickService& operator=(const ThreadedTickService& other)
         {
-            ticks_.store(other.ticks_.load(std::memory_order_relaxed), std::memory_order_relaxed);
+            ticks_ = other.ticks_;
             sleep_delay_us_ = other.sleep_delay_us_;
             stop_ = other.stop_.load();
 
@@ -97,9 +105,6 @@ namespace quicr {
             return *this;
         }
 
-        TickType Microseconds() const override { return ticks_.load(std::memory_order_relaxed); }
-
-        TickType Milliseconds() const override { return ticks_.load(std::memory_order_relaxed) / 1000; }
 
       private:
         void TickLoop()
@@ -112,16 +117,13 @@ namespace quicr {
                 std::this_thread::sleep_for(std::chrono::microseconds(sleep_delay_us_));
 
                 if (delta >= sleep_delay_us_) {
-                    ticks_.fetch_add(delta, std::memory_order_relaxed);
+                    ticks_ += delta;
                     prev_time = now;
                 }
             }
         }
 
       private:
-        /// The current ticks since the tick_service began.
-        std::atomic<uint64_t> ticks_{ 0 };
-
         /// Sleep delay in microseconds
         uint64_t sleep_delay_us_;
 
