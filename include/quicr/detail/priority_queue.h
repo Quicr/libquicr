@@ -51,6 +51,12 @@ namespace quicr {
                 IndexType value_index;
             };
 
+            GroupType(GroupIdType id, IndexType offset)
+              : id(id)
+              , offset(offset)
+            {
+            }
+
             GroupIdType id;
             IndexType offset;
             std::vector<ObjectRefType> objects;
