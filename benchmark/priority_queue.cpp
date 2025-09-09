@@ -157,15 +157,15 @@ PQ_ConnDataForwarding(benchmark::State& state)
     for (auto _ : state) {
         ++items_count;
         for (auto& pq : queues) {
-            //pq->Push(150, cd, 2000);
+            pq->Push(150, cd, 2000);
             quicr::TimeQueueElement<quicr::ConnData> elem;
-            pq->PopFront(elem);
+            //pq->PopFront(elem);
 
             // if (!elem.has_value)
             //     abort();
-            if (pq->Size() > 4 and elem.has_value) {
-                break;
-            }
+            // if (pq->Size() > 4 and elem.has_value) {
+            //     break;
+            //}
         }
     }
 

@@ -389,7 +389,7 @@ namespace quicr {
             }
 
             auto [it, _] = queue_.try_emplace(
-              priority, TimeQueueType{ duration_ms_, interval_ms_, tick_service_, initial_queue_size_ });
+              priority, duration_ms_, interval_ms_, tick_service_, initial_queue_size_);
 
             return it->second;
         }
