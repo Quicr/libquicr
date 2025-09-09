@@ -116,9 +116,6 @@ namespace quicr {
             if (++group.offset < group.objects.size())
                 return;
 
-            group.offset = 0;
-            group.objects.clear();
-
             if (++queue_index_ < queue_.size())
                 return;
 
@@ -157,13 +154,18 @@ namespace quicr {
             while (queue_index_ < queue_.size()) {
                 auto& [group, expiry_tick, pop_wait_ttl] = queue_.at(queue_index_);
                 auto& [_, offset, objects] = group;
+
+                if (offset >= objects.size() || ticks > expiry_tick) {
+                    elem.expired_count++;
+                    queue_index_++;
+                    continue;
+                }
+
                 auto& [bucket, value_index] = objects.at(offset);
 
-                if (value_index >= bucket.size() || ticks > expiry_tick) {
-                    elem.expired_count += objects.size() - offset;
+                if (value_index >= bucket.size()) {
+                    elem.expired_count++;
                     queue_index_++;
-                    objects.clear();
-                    offset = 0;
                     continue;
                 }
 
