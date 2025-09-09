@@ -265,7 +265,7 @@ namespace quicr {
             auto [group, _] = groups_.try_emplace(group_id, group_id, 0);
 
             group->second.objects.reserve(group_size_);
-            group->second.objects.emplace_back(bucket, bucket.size() - 1);
+            group->second.objects.push_back({ bucket, bucket.size() - 1 });
 
             queue_.emplace_back(group->second, expiry_tick, ticks + delay_ttl);
         }
