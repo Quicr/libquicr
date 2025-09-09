@@ -306,6 +306,9 @@ namespace quicr {
                     continue;
 
                 tqueue.Front(elem);
+                if (elem.has_value) {
+                    return;
+                }
             }
         }
 
