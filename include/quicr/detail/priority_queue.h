@@ -271,7 +271,7 @@ namespace quicr {
             std::lock_guard<std::mutex> _(mutex_);
 
             auto& queue = GetQueueByPriority(priority);
-            queue->Push(group_id, value, ttl, delay_ttl);
+            queue.Push(group_id, value, ttl, delay_ttl);
         }
 
         /**
@@ -287,7 +287,7 @@ namespace quicr {
             std::lock_guard<std::mutex> _(mutex_);
 
             auto& queue = GetQueueByPriority(priority);
-            queue->Push(group_id, std::move(value), ttl, delay_ttl);
+            queue.Push(group_id, std::move(value), ttl, delay_ttl);
         }
 
         /**
@@ -301,11 +301,11 @@ namespace quicr {
         {
             std::lock_guard<std::mutex> _(mutex_);
 
-            for (auto& tqueue : queue_) {
-                if (!tqueue || tqueue->Empty())
+            for (auto& [_, tqueue] : queue_) {
+                if (tqueue.Empty())
                     continue;
 
-                tqueue->Front(elem);
+                tqueue.Front(elem);
             }
         }
 
@@ -318,11 +318,11 @@ namespace quicr {
         {
             std::lock_guard<std::mutex> _(mutex_);
 
-            for (auto& tqueue : queue_) {
-                if (!tqueue || tqueue->Empty())
+            for (auto& [_, tqueue] : queue_) {
+                if (tqueue.Empty())
                     continue;
 
-                tqueue->PopFront(elem);
+                tqueue.PopFront(elem);
                 if (elem.has_value)
                     return;
             }
@@ -335,9 +335,9 @@ namespace quicr {
         {
             std::lock_guard<std::mutex> _(mutex_);
 
-            for (auto& tqueue : queue_) {
-                if (tqueue && !tqueue->Empty())
-                    return tqueue->Pop();
+            for (auto& [_, tqueue] : queue_) {
+                if (!tqueue.Empty())
+                    return tqueue.Pop();
             }
         }
 
@@ -348,24 +348,22 @@ namespace quicr {
         {
             std::lock_guard<std::mutex> _(mutex_);
 
-            for (auto& tqueue : queue_) {
-                if (tqueue)
-                    tqueue->Clear();
+            for (auto& [_, tqueue] : queue_) {
+                tqueue.Clear();
             }
         }
 
         // TODO: Consider changing empty/size to look at timeQueue sizes - maybe support blocking pops
         size_t Size() const
         {
-            return std::accumulate(queue_.begin(), queue_.end(), 0, [](auto sum, auto& tqueue) {
-                return tqueue ? sum + tqueue->Size() : sum;
-            });
+            return std::accumulate(
+              queue_.begin(), queue_.end(), 0, [](auto sum, auto& tqueue) { return sum + tqueue.second.Size(); });
         }
 
         bool Empty() const
         {
-            for (auto& tqueue : queue_) {
-                if (tqueue && !tqueue->Empty()) {
+            for (auto& [_, tqueue] : queue_) {
+                if (!tqueue.Empty()) {
                     return false;
                 }
             }
@@ -381,18 +379,16 @@ namespace quicr {
          *
          * @return Unique pointer to queue for the given priority
          */
-        std::unique_ptr<TimeQueueType>& GetQueueByPriority(const uint8_t priority)
+        TimeQueueType& GetQueueByPriority(const uint8_t priority)
         {
             if (priority >= PMAX) {
                 throw InvalidPriorityException("Priority not within range");
             }
 
-            if (!queue_[priority]) {
-                queue_[priority] =
-                  std::make_unique<TimeQueueType>(duration_ms_, interval_ms_, tick_service_, initial_queue_size_);
-            }
+            auto [it, _] = queue_.try_emplace(
+              priority, TimeQueueType{ duration_ms_, interval_ms_, tick_service_, initial_queue_size_ });
 
-            return queue_[priority];
+            return it->second;
         }
 
         std::mutex mutex_;
@@ -400,7 +396,7 @@ namespace quicr {
         size_t duration_ms_;
         size_t interval_ms_;
 
-        std::array<std::unique_ptr<TimeQueueType>, PMAX> queue_;
+        std::map<uint8_t, TimeQueueType> queue_;
         std::shared_ptr<TickService> tick_service_;
     };
 }; // end of namespace quicr
