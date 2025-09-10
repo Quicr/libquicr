@@ -9,7 +9,6 @@
 #include <chrono>
 #include <map>
 #include <numeric>
-#include <queue>
 
 namespace quicr {
 
@@ -51,6 +50,13 @@ namespace quicr {
         PriorityQueue(const std::shared_ptr<TickService>& tick_service)
           : PriorityQueue(1000, 1, tick_service, 1000)
         {
+            /*
+             * Initialize free time queues with two starting entries.
+             */
+            for (int i = free_tqueues_.size(); i < 2; ++i) {
+                free_tqueues_.emplace_back(
+                  std::make_shared<TimeQueueType>(duration_ms_, interval_ms_, tick_service_, initial_queue_size_));
+            }
         }
 
         /**
@@ -75,6 +81,14 @@ namespace quicr {
             initial_queue_size_ = initial_queue_size;
             duration_ms_ = duration;
             interval_ms_ = interval;
+
+            /*
+             * Initialize free time queues with two starting entries.
+             */
+            for (int i = free_tqueues_.size(); i < 2; ++i) {
+                free_tqueues_.emplace_back(
+                  std::make_shared<TimeQueueType>(duration_ms_, interval_ms_, tick_service_, initial_queue_size_));
+            }
         }
 
         /**
@@ -118,37 +132,33 @@ namespace quicr {
          */
         void Front(TimeQueueElement<DataType>& elem)
         {
-            std::vector<uint64_t> remove_groups_ids;
-            remove_groups_ids.reserve(10);
+            std::vector<uint64_t> remove_group_ids;
+            remove_group_ids.reserve(10);
 
             std::lock_guard _(mutex_);
 
-            for (auto& [_, queue] : queues_) {
-                remove_groups_ids.clear();
+            for (auto& [priority, queue] : queues_) {
+                remove_group_ids.clear();
                 for (auto& [group_id, tqueue] : queue) {
-                    if (tqueue.Empty()) {
-                        remove_groups_ids.push_back(group_id);
+                    if (tqueue->Empty()) {
+                        remove_group_ids.push_back(group_id);
                         continue;
                     }
 
-                    tqueue.Front(elem);
+                    tqueue->Front(elem);
                     if (elem.has_value || elem.expired_count) {
 
                         if (elem.expired_count) {
-                            remove_groups_ids.push_back(group_id);
+                            remove_group_ids.push_back(group_id);
                             continue;
                         }
 
-                        for (auto gid : remove_groups_ids) {
-                            queue.erase(gid);
-                        }
+                        RemoveGroupTimeQueue(priority, remove_group_ids);
                         return;
                     }
                 }
 
-                for (auto gid : remove_groups_ids) {
-                    queue.erase(gid);
-                }
+                RemoveGroupTimeQueue(priority, remove_group_ids);
             }
         }
 
@@ -159,39 +169,32 @@ namespace quicr {
          */
         void PopFront(TimeQueueElement<DataType>& elem)
         {
-            std::vector<uint64_t> remove_groups_ids;
-            remove_groups_ids.reserve(10);
+            std::vector<uint64_t> remove_group_ids;
+            remove_group_ids.reserve(10);
 
             std::lock_guard _(mutex_);
 
-            for (auto& [_, queue] : queues_) {
-                remove_groups_ids.clear();
+            for (auto& [priority, queue] : queues_) {
+                remove_group_ids.clear();
                 for (auto& [group_id, tqueue] : queue) {
-                    auto t = tqueue.Empty();
-                    if (t) {
-                        remove_groups_ids.push_back(group_id);
+                    if (tqueue->Empty()) {
+                        remove_group_ids.push_back(group_id);
                         continue;
                     }
 
-                    tqueue.PopFront(elem);
+                    tqueue->PopFront(elem);
                     if (elem.has_value || elem.expired_count) {
-
                         if (elem.expired_count) {
-                            remove_groups_ids.push_back(group_id);
+                            remove_group_ids.push_back(group_id);
                             continue;
                         }
 
-                        for (auto gid : remove_groups_ids) {
-                            queue.erase(gid);
-                        }
-
+                        RemoveGroupTimeQueue(priority, remove_group_ids);
                         return;
                     }
                 }
 
-                for (auto gid : remove_groups_ids) {
-                    queue.erase(gid);
-                }
+                RemoveGroupTimeQueue(priority, remove_group_ids);
             }
         }
 
@@ -200,26 +203,24 @@ namespace quicr {
          */
         void Pop()
         {
-            std::vector<uint64_t> remove_groups_ids;
-            remove_groups_ids.reserve(10);
+            std::vector<uint64_t> remove_group_ids;
+            remove_group_ids.reserve(10);
 
             std::lock_guard _(mutex_);
 
-            for (auto& [_, queue] : queues_) {
-                remove_groups_ids.clear();
+            for (auto& [priority, queue] : queues_) {
+                remove_group_ids.clear();
                 for (auto& [group_id, tqueue] : queue) {
-                    if (tqueue.Empty()) {
-                        remove_groups_ids.push_back(group_id);
+                    if (tqueue->Empty()) {
+                        remove_group_ids.push_back(group_id);
                         continue;
                     }
 
-                    tqueue.Pop();
+                    tqueue->Pop();
                     return;
                 }
 
-                for (auto group_id : remove_groups_ids) {
-                    queue.erase(group_id);
-                }
+                RemoveGroupTimeQueue(priority, remove_group_ids);
             }
         }
 
@@ -230,6 +231,11 @@ namespace quicr {
         {
             std::lock_guard _(mutex_);
             queues_.clear();
+
+            for (int i = free_tqueues_.size(); i < 2; ++i) {
+                free_tqueues_.emplace_back(
+                  std::make_shared<TimeQueueType>(duration_ms_, interval_ms_, tick_service_, initial_queue_size_));
+            }
         }
 
         size_t Size()
@@ -239,7 +245,7 @@ namespace quicr {
             return std::accumulate(queues_.begin(), queues_.end(), 0, [](auto total_sum, auto& group) {
                 auto group_sum = std::accumulate(
                   group.second.begin(), group.second.end(), 0, [](auto group_sum, const auto& group_pair) {
-                      return group_sum + group_pair.second.Size();
+                      return group_sum + group_pair.second->Size();
                   });
                 return total_sum + group_sum;
             });
@@ -258,6 +264,35 @@ namespace quicr {
 
       private:
         /**
+         * @brief Removes the group from the queues and adds the timequeue back to the free list
+         *
+         * @param priority      Queue priority
+         * @param group_id      Group Id to remove
+         */
+        void RemoveGroupTimeQueue(uint8_t priority, uint64_t group_id)
+        {
+            auto grp_it = queues_[priority].find(group_id);
+
+            if (grp_it != queues_[priority].end()) {
+                grp_it->second->Clear();
+                free_tqueues_.emplace_back(grp_it->second);
+                queues_[priority].erase(grp_it);
+            }
+        }
+
+        /**
+         * @brief Removes groups from the queues and adds the timequeue back to the free list
+         * @param priority      Queue priority
+         * @param groups        List of groups to remove
+         */
+        void RemoveGroupTimeQueue(uint8_t priority, const std::vector<uint64_t>& groups)
+        {
+            for (const auto group_id : groups) {
+                RemoveGroupTimeQueue(priority, group_id);
+            }
+        }
+
+        /**
          * @brief Get queue by priority
          *
          * @param priority  The priority queue value (range is 0 - PMAX)
@@ -271,10 +306,21 @@ namespace quicr {
                 throw InvalidPriorityException("Priority not within range");
             }
 
-            auto [it, _] =
-              queues_[priority].try_emplace(group_id, duration_ms_, interval_ms_, tick_service_, initial_queue_size_);
+            auto grp_it = queues_[priority].find(group_id);
+            if (grp_it != queues_[priority].end()) {
+                return *grp_it->second;
+            }
 
-            return it->second;
+            if (free_tqueues_.empty()) {
+                auto [tqueue, _] = queues_[priority].emplace(
+                  group_id,
+                  std::make_shared<TimeQueueType>(duration_ms_, interval_ms_, tick_service_, initial_queue_size_));
+                return *tqueue->second;
+            }
+
+            auto [tqueue, _] = queues_[priority].emplace(group_id, free_tqueues_.back());
+            free_tqueues_.pop_back();
+            return *tqueue->second;
         }
 
         std::mutex mutex_;
@@ -283,7 +329,14 @@ namespace quicr {
         size_t interval_ms_;
 
         /// queues_[priority][group_id] = time queue of objects
-        std::map<uint8_t, std::map<uint64_t, TimeQueueType>> queues_;
+        std::map<uint8_t, std::map<uint64_t, std::shared_ptr<TimeQueueType>>> queues_;
+
+        /**
+         * List of unused and available time queues. Free should be removed when in use. It should
+         * be added back when freed from being used.
+         */
+        std::vector<std::shared_ptr<TimeQueueType>> free_tqueues_;
+
         std::shared_ptr<TickService> tick_service_;
     };
 }; // end of namespace quicr

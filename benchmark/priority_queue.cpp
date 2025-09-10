@@ -160,11 +160,9 @@ PQ_ConnDataForwarding(benchmark::State& state)
             quicr::TimeQueueElement<quicr::ConnData> elem;
             pq->PopFront(elem);
 
-            // if (!elem.has_value)
-            //     abort();
-            // if (pq->Size() > 4 and elem.has_value) {
-            //     break;
-            //}
+            if (pq->Size() > 4 and elem.has_value) {
+                break;
+            }
         }
     }
 
