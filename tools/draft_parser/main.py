@@ -12,7 +12,7 @@ def main(rfc_filename, output_name):
         "i": "std::uint64_t",  # variable-length integer
         "8": "std::uint8_t",
         "Track Namespace": "quicr::TrackNamespace",
-        "Track Name": "quicr::TrackName",
+        "Track Name": "quicr::messages::TrackName",
         "Track Namespace Prefix": "quicr::TrackNamespace",
         "Setup Parameters": "quicr::messages::SetupParameter",
         "New Session URI": "quicr::Bytes",

@@ -25,6 +25,7 @@ namespace quicr::messages {
     // TODO(RichLogan): Remove when ErrorReason -> ReasonPhrase.
     using ReasonPhrase = Bytes;
     using RequestID = uint64_t;
+    using TrackName = Bytes;
 
     struct ControlMessage
     {

@@ -13,12 +13,6 @@
 #include <vector>
 
 namespace quicr {
-
-    /**
-     *  @brief MOQ Track Name type (arbitrary byte sequence).
-     */
-    using TrackName = quicr::Bytes;
-
     /**
      * @brief An N-tuple representation of a MOQ namespace.
      */
