@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 
+#include <cstring>
 #include <memory>
 #include <quicr/detail/priority_queue.h>
 
@@ -22,9 +23,13 @@ TEST_CASE("Priority Queue Push/Pop - one group")
 
     for (size_t i = 0; i < 500; ++i) {
         CHECK(pq.Empty() == false);
-        CHECK(elem.has_value == true);
         pq.PopFront(elem);
-        CHECK(std::memcmp(elem.value.data(), &i, sizeof(i)) == 0);
+        CHECK(elem.has_value == true);
+        CHECK(elem.expired_count == 0);
+
+        size_t num = 0;
+        std::memcpy(&num, elem.value.data(), sizeof(num));
+        CHECK(num == i);
     }
 
     CHECK_EQ(pq.Empty(), true);
