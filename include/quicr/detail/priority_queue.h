@@ -30,6 +30,9 @@ namespace quicr {
         using TimeType = std::chrono::milliseconds;
         using TimeQueueType = TimeQueue<DataType, TimeType>;
 
+        static constexpr int kMinFreeTimeQueues = 2;
+        static constexpr int kMaxFreeTimeQueues = 10;
+
         struct Exception : public std::runtime_error
         {
             using std::runtime_error::runtime_error;
@@ -262,7 +265,7 @@ namespace quicr {
             /*
              * Initialize free time queues with two starting entries.
              */
-            for (int i = free_tqueues_.size(); i < 2; ++i) {
+            for (int i = free_tqueues_.size(); i < kMinFreeTimeQueues; ++i) {
                 free_tqueues_.emplace_back(
                   std::make_shared<TimeQueueType>(duration_ms_, interval_ms_, tick_service_, initial_queue_size_));
             }
@@ -281,7 +284,7 @@ namespace quicr {
             if (grp_it != queues_[priority].end()) {
                 grp_it->second->Clear();
 
-                if (free_tqueues_.size() < 10) {
+                if (free_tqueues_.size() < kMaxFreeTimeQueues) {
                     free_tqueues_.emplace_back(grp_it->second);
                 }
 
