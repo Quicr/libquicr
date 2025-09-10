@@ -21,12 +21,11 @@ TEST_CASE("Priority Queue Push/Pop - one group")
     TimeQueueElement<std::vector<uint8_t>> elem;
 
     for (size_t i = 0; i < 500; ++i) {
-        CHECK_EQ(pq.Empty(), false);
+        CHECK(pq.Empty() == false);
+        CHECK(elem.has_value == true);
         pq.PopFront(elem);
         CHECK(std::memcmp(elem.value.data(), &i, sizeof(i)) == 0);
     }
-
-    pq.Pop();
 
     CHECK_EQ(pq.Empty(), true);
 }
@@ -44,12 +43,16 @@ TEST_CASE("Priority Queue Push/Pop - multi-group")
     TimeQueueElement<std::vector<uint8_t>> elem;
 
     for (size_t i = 0; i < 500; ++i) {
-        CHECK_EQ(pq.Empty(), false);
-        pq.PopFront(elem);
-        CHECK(std::memcmp(elem.value.data(), &i, sizeof(i)) == 0);
-    }
+        CHECK(pq.Empty() == false);
 
-    pq.Pop();
+        pq.PopFront(elem);
+        CHECK(elem.has_value == true);
+        CHECK(elem.expired_count == 0);
+
+        size_t num = 0;
+        std::memcpy(&num, elem.value.data(), sizeof(num));
+        CHECK(num == i);
+    }
 
     CHECK_EQ(pq.Empty(), true);
 }

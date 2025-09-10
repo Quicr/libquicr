@@ -132,26 +132,22 @@ namespace quicr {
             std::map<uint8_t, std::vector<uint64_t>> remove_group_ids;
 
             std::lock_guard _(mutex_);
-
             for (auto& [priority, queue] : queues_) {
-                remove_group_ids.clear();
                 for (auto& [group_id, tqueue] : queue) {
-                    if (tqueue->Empty()) {
-                        remove_group_ids[priority].push_back(group_id);
-                        continue;
-                    }
-
                     tqueue->Front(elem);
-                    if (elem.has_value || elem.expired_count) {
 
-                        if (elem.expired_count) {
-                            remove_group_ids[priority].push_back(group_id);
+                    if (tqueue->Empty() || !elem.has_value || elem.expired_count) {
+                        remove_group_ids[priority].push_back(group_id);
+
+                        if (!elem.has_value) // Only continue to next group if element doesn't have value
                             continue;
-                        }
-
-                        RemoveGroupTimeQueue(priority, remove_group_ids[priority]);
-                        return;
                     }
+
+                    for (auto& [pri, groups] : remove_group_ids) {
+                        RemoveGroupTimeQueue(priority, groups);
+                    }
+
+                    return;
                 }
             }
 
@@ -175,29 +171,21 @@ namespace quicr {
             std::lock_guard _(mutex_);
 
             for (auto& [priority, queue] : queues_) {
-                remove_group_ids.clear();
                 for (auto& [group_id, tqueue] : queue) {
-                    if (tqueue->Empty()) {
-                        remove_group_ids[priority].push_back(group_id);
-                        continue;
-                    }
-
                     tqueue->PopFront(elem);
 
-                    if (tqueue->Empty()) {
+                    if (tqueue->Empty() || !elem.has_value || elem.expired_count) {
                         remove_group_ids[priority].push_back(group_id);
-                        continue;
-                    }
 
-                    if (elem.has_value || elem.expired_count) {
-                        if (elem.expired_count) {
-                            remove_group_ids[priority].push_back(group_id);
+                        if (!elem.has_value) // Only continue to next group if element doesn't have value
                             continue;
-                        }
-
-                        RemoveGroupTimeQueue(priority, remove_group_ids[priority]);
-                        return;
                     }
+
+                    for (auto& [pri, groups] : remove_group_ids) {
+                        RemoveGroupTimeQueue(priority, groups);
+                    }
+
+                    return;
                 }
             }
 
