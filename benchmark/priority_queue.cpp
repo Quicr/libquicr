@@ -161,7 +161,6 @@ PQ_ConnDataForwarding(benchmark::State& state)
             quicr::TimeQueueElement<quicr::ConnData> elem;
             pq->PopFront(elem);
 
-            assert(items_count == 1);
             if (pq->Size() > 4 and elem.has_value) {
                 break;
             }

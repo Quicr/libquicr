@@ -183,6 +183,12 @@ namespace quicr {
                     }
 
                     tqueue->PopFront(elem);
+
+                    if (tqueue->Empty()) {
+                        remove_group_ids[priority].push_back(group_id);
+                        continue;
+                    }
+
                     if (elem.has_value || elem.expired_count) {
                         if (elem.expired_count) {
                             remove_group_ids[priority].push_back(group_id);
@@ -193,7 +199,6 @@ namespace quicr {
                         return;
                     }
                 }
-
             }
 
             for (auto& [priority, groups] : remove_group_ids) {
@@ -264,7 +269,6 @@ namespace quicr {
         }
 
       private:
-
         void InitFreeGroups()
         {
             /*
