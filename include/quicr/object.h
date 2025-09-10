@@ -39,6 +39,7 @@ namespace quicr {
         std::optional<uint16_t> ttl;         ///< Object time to live in milliseconds
         std::optional<TrackMode> track_mode; ///< Track Mode of how the object was received or mode to use when sending
         std::optional<Extensions> extensions;
+        std::optional<Extensions> immutable_extensions;
     };
 
 }

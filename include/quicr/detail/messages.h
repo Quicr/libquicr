@@ -19,8 +19,24 @@ namespace quicr::messages {
     using ObjectPriority = uint8_t;
     using Extensions = std::map<uint64_t, Bytes>;
 
+    constexpr uint64_t kImmutableExtensionsType = 0xB;
+
     Bytes& operator<<(Bytes& buffer, const std::optional<Extensions>& extensions);
     Bytes& operator<<(Bytes& buffer, const Extensions& extensions);
+
+    // Helper function to serialize combined extensions and immutable extensions
+    void SerializeExtensions(Bytes& buffer,
+                             const std::optional<Extensions>& extensions,
+                             const std::optional<Extensions>& immutable_extensions);
+
+    // Helper function to parse extensions with immutable extension separation
+    template<class StreamBufferType>
+    bool ParseExtensions(StreamBufferType& buffer,
+                         std::optional<std::size_t>& extension_headers_length,
+                         std::optional<Extensions>& extensions,
+                         std::optional<Extensions>& immutable_extensions,
+                         std::size_t& extension_bytes_remaining,
+                         std::optional<std::uint64_t>& current_header);
 
     struct ProtocolViolationException : std::runtime_error
     {
@@ -495,6 +511,7 @@ namespace quicr::messages {
         ObjectId object_id;
         ObjectPriority publisher_priority;
         std::optional<Extensions> extensions;
+        std::optional<Extensions> immutable_extensions;
         uint64_t payload_len{ 0 };
         ObjectStatus object_status;
         Bytes payload;
@@ -523,6 +540,7 @@ namespace quicr::messages {
         ObjectId object_id;
         ObjectPriority priority;
         std::optional<Extensions> extensions;
+        std::optional<Extensions> immutable_extensions;
         uint64_t payload_len{ 0 };
         ObjectStatus object_status;
         Bytes payload;
@@ -537,7 +555,8 @@ namespace quicr::messages {
          */
         DatagramHeaderType GetType() const
         {
-            return DatagramHeaderProperties(end_of_group, extensions.has_value()).GetType();
+            return DatagramHeaderProperties(end_of_group, extensions.has_value() || immutable_extensions.has_value())
+              .GetType();
         }
 
       private:
@@ -558,6 +577,7 @@ namespace quicr::messages {
         ObjectId object_id;
         ObjectPriority priority;
         std::optional<Extensions> extensions;
+        std::optional<Extensions> immutable_extensions;
         ObjectStatus status;
 
         template<class StreamBufferType>
@@ -565,7 +585,8 @@ namespace quicr::messages {
 
         DatagramStatusType GetType() const
         {
-            const auto properties = DatagramStatusProperties(extensions.has_value());
+            const auto properties =
+              DatagramStatusProperties(extensions.has_value() || immutable_extensions.has_value());
             return properties.GetType();
         }
 
@@ -605,6 +626,7 @@ namespace quicr::messages {
         uint64_t payload_len{ 0 };
         ObjectStatus object_status;
         std::optional<Extensions> extensions;
+        std::optional<Extensions> immutable_extensions;
         Bytes payload;
         std::optional<StreamHeaderType> stream_type;
         template<class StreamBufferType>
