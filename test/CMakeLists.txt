@@ -13,6 +13,7 @@ add_executable(quicr_test
     track_namespace.cpp
     data_storage.cpp
     cache.cpp
+    priority_queue.cpp
 )
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 

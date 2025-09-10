@@ -6,7 +6,7 @@
 static auto tick_service = std::make_shared<quicr::ThreadedTickService>();
 
 constexpr size_t kIterations = 1'000'000;
-constexpr size_t kNumSubscribers = 500;
+constexpr size_t kNumSubscribers = 10;
 
 template<typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
 std::span<const uint8_t>
@@ -146,20 +146,22 @@ PQ_ConnDataForwarding(benchmark::State& state)
 
     auto data = std::make_shared<std::vector<uint8_t>>(1000, 0);
 
-    cd.conn_id = 1234;
+    cd.conn_id = 1;
     cd.data_ctx_id = 0xffaabbcc;
     cd.priority = 128;
-    cd.tick_microseconds = 0x123456789abc;
+    cd.tick_microseconds = 0;
     cd.data = data;
 
     int64_t items_count = 0;
     for (auto _ : state) {
         ++items_count;
+        cd.tick_microseconds++;
         for (auto& pq : queues) {
-            pq->Push(items_count / 150, cd, 2000);
+            pq->Push(static_cast<int>(items_count / 150), cd, 2000);
             quicr::TimeQueueElement<quicr::ConnData> elem;
             pq->PopFront(elem);
 
+            assert(items_count == 1);
             if (pq->Size() > 4 and elem.has_value) {
                 break;
             }
