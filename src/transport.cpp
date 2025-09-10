@@ -244,52 +244,54 @@ namespace quicr {
                                  RequestID request_id,
                                  const TrackNamespace& track_namespace)
     try {
-        auto announce = messages::Announce(request_id, track_namespace, {});
+        auto publish_namespace = messages::PublishNamespace(request_id, track_namespace, {});
 
         Bytes buffer;
-        buffer << announce;
+        buffer << publish_namespace;
 
         auto th = TrackHash({ track_namespace, {} });
         SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending ANNOUNCE to conn_id: {} request_id: {} namespace_hash: {}",
+                            "Sending PublishNamespace to conn_id: {} request_id: {} namespace_hash: {}",
                             conn_ctx.connection_handle,
                             request_id,
                             th.track_namespace_hash);
 
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Announce (error={})", e.what());
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending PublishNamespace (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
     void Transport::SendAnnounceOk(ConnectionContext& conn_ctx, RequestID request_id)
     try {
-        auto announce_ok = messages::AnnounceOk(request_id);
+        auto publish_namespace_ok = messages::PublishNamespaceOk(request_id);
 
         Bytes buffer;
-        buffer << announce_ok;
+        buffer << publish_namespace_ok;
 
-        SPDLOG_LOGGER_DEBUG(
-          logger_, "Sending ANNOUNCE OK to conn_id: {} request_id: {}", conn_ctx.connection_handle, request_id);
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending PUBLISH_NAMESPACE_OK to conn_id: {} request_id: {}",
+                            conn_ctx.connection_handle,
+                            request_id);
 
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending AnnounceOk (error={})", e.what());
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending PUBLISH_NAMESPACE_OK (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
     void Transport::SendUnannounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
     try {
-        auto unannounce = messages::Unannounce(track_namespace);
+        auto publish_namespace_done = messages::PublishNamespaceDone(track_namespace);
 
         Bytes buffer;
-        buffer << unannounce;
+        buffer << publish_namespace_done;
 
-        SPDLOG_LOGGER_DEBUG(logger_, "Sending UNANNOUNCE to conn_id: {}", conn_ctx.connection_handle);
+        SPDLOG_LOGGER_DEBUG(logger_, "Sending PUBLISH_NAMESPACE_DONE to conn_id: {}", conn_ctx.connection_handle);
 
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Unannounce (error={})", e.what());
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending PUBLISH_NAMESPACE_DONE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -450,11 +452,16 @@ namespace quicr {
                                         bool new_group_request)
     try {
         auto subscribe_update =
-          messages::SubscribeUpdate(request_id, start_location, end_group_id, priority, static_cast<int>(forward), {});
+          messages::SubscribeUpdate(request_id, // Issue #660: This needs to be its own request id space
+                                    request_id,
+                                    start_location,
+                                    end_group_id,
+                                    priority,
+                                    static_cast<int>(forward),
+                                    {});
 
         if (new_group_request) {
-            subscribe_update.subscribe_parameters.push_back(
-              { .type = ParameterType::kNewGroupRequest, .value = { 1 } });
+            subscribe_update.parameters.push_back({ .type = ParameterType::kNewGroupRequest, .value = { 1 } });
         }
 
         Bytes buffer;
@@ -504,20 +511,20 @@ namespace quicr {
 
     void Transport::SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t request_id, const std::string& reason)
     try {
-        auto subscribe_done = messages::SubscribeDone(request_id,
-                                                      messages::SubscribeDoneStatusCode::kSubscribtionEnded,
-                                                      0,
-                                                      quicr::Bytes(reason.begin(), reason.end()));
+        auto publish_done = messages::PublishDone(request_id,
+                                                  messages::PublishDoneStatusCode::kSubscribtionEnded,
+                                                  0,
+                                                  quicr::Bytes(reason.begin(), reason.end()));
 
         Bytes buffer;
-        buffer << subscribe_done;
+        buffer << publish_done;
 
         SPDLOG_LOGGER_DEBUG(
-          logger_, "Sending SUBSCRIBE DONE to conn_id: {0} request_id: {1}", conn_ctx.connection_handle, request_id);
+          logger_, "Sending PUBLISH_DONE to conn_id: {0} request_id: {1}", conn_ctx.connection_handle, request_id);
 
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeDone (error={})", e.what());
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending PUBLISH_DONE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -549,7 +556,7 @@ namespace quicr {
         auto rid = conn_it->second.GetNextRequestId();
 
         conn_it->second.sub_announces_by_request_id[rid] = prefix_namespace;
-        auto msg = messages::SubscribeAnnounces(rid, prefix_namespace, {});
+        auto msg = messages::SubscribeNamespace(rid, prefix_namespace, {});
 
         Bytes buffer;
         buffer << msg;
@@ -557,54 +564,54 @@ namespace quicr {
         auto th = TrackHash({ prefix_namespace, {} });
 
         SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending Subscribe announces to conn_id: {} request_id: {} prefix_hash: {}",
+                            "Sending SUBSCRIBE_NAMESPACE to conn_id: {} request_id: {} prefix_hash: {}",
                             conn_it->second.connection_handle,
                             rid,
                             th.track_namespace_hash);
 
         SendCtrlMsg(conn_it->second, buffer);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeAnnounces (error={})", e.what());
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SUBSCRIBE_NAMESPACE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
     void Transport::SendSubscribeAnnouncesOk(ConnectionContext& conn_ctx, RequestID request_id)
     try {
-        auto msg = messages::SubscribeAnnouncesOk(request_id);
+        auto msg = messages::SubscribeNamespaceOk(request_id);
 
         Bytes buffer;
         buffer << msg;
 
         SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending Subscribe announces ok to conn_id: {} request_id: {}",
+                            "Sending SUBSCRIBE_NAMESPACE_OK ok to conn_id: {} request_id: {}",
                             conn_ctx.connection_handle,
                             request_id);
 
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeAnnouncesOk (error={})", e.what());
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SUBSCRIBE_NAMESPACE_OK (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
     void Transport::SendSubscribeAnnouncesError(ConnectionContext& conn_ctx,
                                                 RequestID request_id,
-                                                messages::SubscribeAnnouncesErrorCode err_code,
+                                                messages::SubscribeNamespaceErrorCode err_code,
                                                 const messages::ReasonPhrase& reason)
     try {
 
-        auto msg = messages::SubscribeAnnouncesError(request_id, err_code, quicr::Bytes(reason.begin(), reason.end()));
+        auto msg = messages::SubscribeNamespaceError(request_id, err_code, quicr::Bytes(reason.begin(), reason.end()));
 
         Bytes buffer;
         buffer << msg;
 
         SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending Subscribe announces error to conn_id: {} request_id: {}",
+                            "Sending SUBSCRIBE_NAMESPACE_ERROR  to conn_id: {} request_id: {}",
                             conn_ctx.connection_handle,
                             request_id);
 
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeAnnouncesError (error={})", e.what());
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SUBSCRIBE_NAMESPACE_ERROR (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -626,7 +633,7 @@ namespace quicr {
             }
         }
 
-        auto msg = messages::UnsubscribeAnnounces(prefix_namespace);
+        auto msg = messages::UnsubscribeNamespace(prefix_namespace);
 
         Bytes buffer;
         buffer << msg;
@@ -634,13 +641,13 @@ namespace quicr {
         auto th = TrackHash({ prefix_namespace, {} });
 
         SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending Unsubscribe announces to conn_id: {} prefix_hash: {}",
+                            "Sending UNSUBSCRIBE_NAMESPACE to conn_id: {} prefix_hash: {}",
                             conn_handle,
                             th.track_namespace_hash);
 
         SendCtrlMsg(conn_it->second, buffer);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending UnsubscribeAnnounces (error={})", e.what());
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending UNSUBSCRIBE_NAMESPACE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -655,7 +662,7 @@ namespace quicr {
         buffer << subscribe_err;
 
         SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending SUBSCRIBE ERROR to conn_id: {0} request_id: {1} error code: {2} reason: {3}",
+                            "Sending SUBSCRIBE_ERROR to conn_id: {0} request_id: {1} error code: {2} reason: {3}",
                             conn_ctx.connection_handle,
                             request_id,
                             static_cast<int>(error),
@@ -663,7 +670,7 @@ namespace quicr {
 
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeError (error={})", e.what());
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SUBSCRIBE_ERROR (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -703,8 +710,13 @@ namespace quicr {
     try {
         auto group_1 = std::make_optional<messages::Fetch::Group_1>() = { joining_request_id, preceding_group_offset };
 
-        auto fetch = messages::Fetch(
-          request_id, priority, group_order, messages::FetchType::kJoiningFetch, std::nullopt, group_1, parameters);
+        auto fetch = messages::Fetch(request_id,
+                                     priority,
+                                     group_order,
+                                     messages::FetchType::kRelativeJoiningFetch,
+                                     std::nullopt,
+                                     group_1,
+                                     parameters);
 
         Bytes buffer;
         buffer << fetch;

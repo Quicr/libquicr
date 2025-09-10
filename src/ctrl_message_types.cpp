@@ -106,6 +106,38 @@ namespace quicr::messages {
         return buffer;
     }
 
+    Bytes& operator<<(Bytes& buffer, StandaloneFetch value)
+    {
+        buffer << value.track_namespace;
+        buffer << value.track_name;
+        buffer << value.start;
+        buffer << value.end;
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, StandaloneFetch& value)
+    {
+        buffer = buffer >> value.track_namespace;
+        buffer = buffer >> value.track_name;
+        buffer = buffer >> value.start;
+        buffer = buffer >> value.end;
+        return buffer;
+    }
+
+    Bytes& operator<<(Bytes& buffer, JoiningFetch value)
+    {
+        buffer << value.request_id;
+        buffer << value.joining_start;
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, JoiningFetch& value)
+    {
+        buffer = buffer >> value.request_id;
+        buffer = buffer >> value.joining_start;
+        return buffer;
+    }
+
     Bytes& operator<<(Bytes& buffer, FetchErrorCode value)
     {
         buffer << static_cast<std::uint64_t>(value);
@@ -120,17 +152,17 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, SubscribeDoneStatusCode value)
+    Bytes& operator<<(Bytes& buffer, PublishDoneStatusCode value)
     {
         buffer << static_cast<std::uint64_t>(value);
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, SubscribeDoneStatusCode& value)
+    BytesSpan operator>>(BytesSpan buffer, PublishDoneStatusCode& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
-        value = static_cast<SubscribeDoneStatusCode>(uvalue);
+        value = static_cast<PublishDoneStatusCode>(uvalue);
         return buffer;
     }
 

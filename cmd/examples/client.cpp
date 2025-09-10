@@ -376,7 +376,7 @@ class MyClient : public quicr::Client
     }
 
     void SubscribeAnnouncesStatusChanged(const quicr::TrackNamespace& track_namespace,
-                                         std::optional<quicr::messages::SubscribeAnnouncesErrorCode> error_code,
+                                         std::optional<quicr::messages::SubscribeNamespaceErrorCode> error_code,
                                          std::optional<quicr::messages::ReasonPhrase> reason) override
     {
         auto th = quicr::TrackHash({ track_namespace, {} });

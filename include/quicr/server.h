@@ -282,7 +282,7 @@ namespace quicr {
          * @param announce_attributes   Announces attributes received
          */
         using SubscribeAnnouncesResponse =
-          std::pair<std::optional<messages::SubscribeAnnouncesErrorCode>, std::vector<TrackNamespace>>;
+          std::pair<std::optional<messages::SubscribeNamespaceErrorCode>, std::vector<TrackNamespace>>;
 
         virtual SubscribeAnnouncesResponse SubscribeAnnouncesReceived(
           ConnectionHandle connection_handle,

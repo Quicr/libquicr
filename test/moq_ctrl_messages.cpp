@@ -88,92 +88,89 @@ VerifyCtrl(BytesSpan buffer, uint64_t message_type, T& message)
     return true;
 }
 
-TEST_CASE("AnnounceOk Message encode/decode")
+TEST_CASE("PublishNamespaceOk Message encode/decode")
 {
     Bytes buffer;
 
-    auto announce_ok = AnnounceOk();
-    announce_ok.request_id = 0x1234;
-    buffer << announce_ok;
+    auto publish_namespace_ok = PublishNamespaceOk();
+    publish_namespace_ok.request_id = 0x1234;
+    buffer << publish_namespace_ok;
 
-    AnnounceOk announce_ok_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kAnnounceOk), announce_ok_out));
-    CHECK_EQ(0x1234, announce_ok_out.request_id);
+    PublishNamespaceOk publish_namespace_ok_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishNamespaceOk), publish_namespace_ok_out));
+    CHECK_EQ(0x1234, publish_namespace_ok_out.request_id);
 }
 
-TEST_CASE("Announce Message encode/decode")
+TEST_CASE("PublishNamespace Message encode/decode")
 {
     Bytes buffer;
 
-    auto announce = Announce{};
-    announce.track_namespace = kTrackNamespaceConf;
-    announce.parameters = kExampleParameters;
-    buffer << announce;
+    auto publish_namespace = PublishNamespace{};
+    publish_namespace.track_namespace = kTrackNamespaceConf;
+    publish_namespace.parameters = kExampleParameters;
+    buffer << publish_namespace;
 
-    Announce announce_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kAnnounce), announce_out));
-    CHECK_EQ(kTrackNamespaceConf, announce_out.track_namespace);
-    CHECK_EQ(announce.parameters, announce_out.parameters);
+    PublishNamespace publish_namespace_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishNamespace), publish_namespace_out));
+    CHECK_EQ(kTrackNamespaceConf, publish_namespace_out.track_namespace);
+    CHECK_EQ(publish_namespace.parameters, publish_namespace_out.parameters);
 }
 
-TEST_CASE("Unannounce Message encode/decode")
+TEST_CASE("PublishNamespaceDoneMessage encode/decode")
 {
     Bytes buffer;
 
-    auto unannounce = Unannounce{};
-    unannounce.track_namespace = kTrackNamespaceConf;
-    buffer << unannounce;
+    auto publish_namespace_done = PublishNamespaceDone{};
+    publish_namespace_done.track_namespace = kTrackNamespaceConf;
+    buffer << publish_namespace_done;
 
-    Unannounce unannounce_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kUnannounce), unannounce_out));
-    CHECK_EQ(kTrackNamespaceConf, unannounce_out.track_namespace);
+    PublishNamespaceDone publish_namespace_done_out;
+    CHECK(
+      VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishNamespaceDone), publish_namespace_done_out));
+    CHECK_EQ(kTrackNamespaceConf, publish_namespace_done_out.track_namespace);
 }
 
-TEST_CASE("AnnounceError Message encode/decode")
+TEST_CASE("PublishNamespaceError Message encode/decode")
 {
     Bytes buffer;
 
-    auto announce_err = AnnounceError{};
-    announce_err.request_id = 0x1234;
-    announce_err.error_code = quicr::messages::AnnounceErrorCode::kNotSupported;
-    announce_err.error_reason = Bytes{ 0x1, 0x2, 0x3 };
-    buffer << announce_err;
+    auto publish_namespace_err = PublishNamespaceError{};
+    publish_namespace_err.request_id = 0x1234;
+    publish_namespace_err.error_code = quicr::messages::PublishNamespaceErrorCode::kNotSupported;
+    publish_namespace_err.error_reason = Bytes{ 0x1, 0x2, 0x3 };
+    buffer << publish_namespace_err;
 
-    AnnounceError announce_err_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kAnnounceError), announce_err_out));
-    CHECK_EQ(0x1234, announce_err_out.request_id);
-    CHECK_EQ(announce_err.error_code, announce_err_out.error_code);
-    CHECK_EQ(announce_err.error_reason, announce_err_out.error_reason);
+    PublishNamespaceError publish_namespace_err_out;
+    CHECK(
+      VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishNamespaceError), publish_namespace_err_out));
+    CHECK_EQ(0x1234, publish_namespace_err_out.request_id);
+    CHECK_EQ(publish_namespace_err_out.error_code, publish_namespace_err_out.error_code);
+    CHECK_EQ(publish_namespace_err_out.error_reason, publish_namespace_err_out.error_reason);
 }
 
-TEST_CASE("AnnounceCancel Message encode/decode")
+TEST_CASE("PublishNamespaceCancel Message encode/decode")
 {
     Bytes buffer;
 
-    auto announce_cancel = AnnounceCancel{};
-    announce_cancel.track_namespace = kTrackNamespaceConf;
-    buffer << announce_cancel;
+    auto publish_namespace_cancel = PublishNamespaceCancel{};
+    publish_namespace_cancel.track_namespace = kTrackNamespaceConf;
+    buffer << publish_namespace_cancel;
 
-    AnnounceCancel announce_cancel_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kAnnounceCancel), announce_cancel_out));
-    CHECK_EQ(announce_cancel.track_namespace, announce_cancel_out.track_namespace);
-    CHECK_EQ(announce_cancel.error_code, announce_cancel_out.error_code);
-    CHECK_EQ(announce_cancel.error_reason, announce_cancel_out.error_reason);
+    PublishNamespaceCancel publish_namespace_cancel_out;
+    CHECK(VerifyCtrl(
+      buffer, static_cast<uint64_t>(ControlMessageType::kPublishNamespaceCancel), publish_namespace_cancel_out));
+    CHECK_EQ(publish_namespace_cancel.track_namespace, publish_namespace_cancel_out.track_namespace);
+    CHECK_EQ(publish_namespace_cancel.error_code, publish_namespace_cancel_out.error_code);
+    CHECK_EQ(publish_namespace_cancel.error_reason, publish_namespace_cancel_out.error_reason);
 }
 
 TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
 {
     Bytes buffer;
-    auto subscribe = quicr::messages::Subscribe(0x1,
-                                                kTrackNamespaceConf,
-                                                kTrackNameAliceVideo,
-                                                0x10,
-                                                GroupOrder::kAscending,
-                                                1,
-                                                FilterType::kLargestObject,
-                                                std::nullopt,
-                                                std::nullopt,
-                                                {});
+    auto subscribe = quicr::messages::Subscribe{
+        0x1, kTrackNamespaceConf,        kTrackNameAliceVideo, 0x10,         GroupOrder::kAscending,
+        1,   FilterType::kLargestObject, std::nullopt,         std::nullopt, {}
+    };
 
     buffer << subscribe;
 
@@ -326,10 +323,16 @@ TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
 TEST_CASE("Subscribe (Params) Message encode/decode")
 {
     Bytes buffer;
-    Parameter param;
-    param.type = ParameterType::kDeliveryTimeout;
-    param.value = { 0x1, 0x2 };
-    SubscribeParameters params = { param };
+
+    Parameter param1;
+    param1.type = ParameterType::kAuthorizationToken;
+    param1.value = { 0x1, 0x2 };
+
+    Parameter param2;
+    param2.type = ParameterType::kAuthorizationToken;
+    param2.value = { 0x1, 0x2, 0x3 };
+
+    Parameters params = { param1, param2 };
 
     auto subscribe = quicr::messages::Subscribe(0x1,
                                                 kTrackNamespaceConf,
@@ -364,9 +367,9 @@ TEST_CASE("Subscribe (Params) Message encode/decode")
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
-    REQUIRE_EQ(subscribe.subscribe_parameters.size(), 1);
-    REQUIRE_EQ(subscribe.subscribe_parameters.size(), subscribe_out.subscribe_parameters.size());
-    CHECK_EQ(subscribe.subscribe_parameters[0], subscribe_out.subscribe_parameters[0]);
+    REQUIRE_EQ(subscribe.parameters.size(), 2);
+    REQUIRE_EQ(subscribe.parameters.size(), subscribe_out.parameters.size());
+    CHECK_EQ(subscribe.parameters[0], subscribe_out.parameters[0]);
 }
 
 TEST_CASE("Subscribe (Params - 2) Message encode/decode")
@@ -380,7 +383,7 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
     param2.type = ParameterType::kAuthorizationToken;
     param2.value = { 0x1, 0x2, 0x3 };
 
-    SubscribeParameters params = { param1, param2 };
+    Parameters params = { param1, param2 };
 
     auto subscribe = quicr::messages::Subscribe(0x1,
                                                 kTrackNamespaceConf,
@@ -415,10 +418,10 @@ TEST_CASE("Subscribe (Params - 2) Message encode/decode")
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
     CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
-    REQUIRE_EQ(subscribe.subscribe_parameters.size(), 2);
-    REQUIRE_EQ(subscribe.subscribe_parameters.size(), subscribe_out.subscribe_parameters.size());
-    CHECK_EQ(subscribe.subscribe_parameters[0], subscribe_out.subscribe_parameters[0]);
-    CHECK_EQ(subscribe.subscribe_parameters[1], subscribe_out.subscribe_parameters[1]);
+    REQUIRE_EQ(subscribe.parameters.size(), 2);
+    REQUIRE_EQ(subscribe.parameters.size(), subscribe_out.parameters.size());
+    CHECK_EQ(subscribe.parameters[0], subscribe_out.parameters[0]);
+    CHECK_EQ(subscribe.parameters[1], subscribe_out.parameters[1]);
 }
 
 Subscribe
@@ -462,7 +465,7 @@ GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uin
         Parameter param1;
         param1.type = ParameterType::kDeliveryTimeout;
         param1.value = { 0x1, 0x2 };
-        out.subscribe_parameters.push_back(param1);
+        out.parameters.push_back(param1);
         num_params--;
     }
     return out;
@@ -502,9 +505,9 @@ TEST_CASE("Subscribe (Combo) Message encode/decode")
         CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
         CHECK_EQ(subscribes[i].request_id, subscribe_out.request_id);
         CHECK_EQ(subscribes[i].filter_type, subscribe_out.filter_type);
-        CHECK_EQ(subscribes[i].subscribe_parameters.size(), subscribe_out.subscribe_parameters.size());
-        for (size_t j = 0; j < subscribes[i].subscribe_parameters.size(); j++) {
-            CHECK_EQ(subscribes[i].subscribe_parameters[j], subscribe_out.subscribe_parameters[j]);
+        CHECK_EQ(subscribes[i].parameters.size(), subscribe_out.parameters.size());
+        for (size_t j = 0; j < subscribes[i].parameters.size(); j++) {
+            CHECK_EQ(subscribes[i].parameters[j], subscribe_out.parameters[j]);
         }
     }
 }
@@ -608,45 +611,45 @@ TEST_CASE("Unsubscribe  Message encode/decode")
     CHECK_EQ(unsubscribe.request_id, unsubscribe_out.request_id);
 }
 
-TEST_CASE("SubscribeDone  Message encode/decode")
+TEST_CASE("PublishDone  Message encode/decode")
 {
     Bytes buffer;
 
-    auto subscribe_done = SubscribeDone{};
-    subscribe_done.request_id = 0x1;
-    subscribe_done.status_code = quicr::messages::SubscribeDoneStatusCode::kExpired;
-    subscribe_done.stream_count = 0x0;
-    subscribe_done.error_reason = Bytes{ 0x0 };
+    auto publish_done = PublishDone{};
+    publish_done.request_id = 0x1;
+    publish_done.status_code = quicr::messages::PublishDoneStatusCode::kExpired;
+    publish_done.stream_count = 0x0;
+    publish_done.error_reason = Bytes{ 0x0 };
 
-    buffer << subscribe_done;
+    buffer << publish_done;
 
-    SubscribeDone subscribe_done_out;
+    PublishDone publish_done_out;
 
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeDone), subscribe_done_out));
-    CHECK_EQ(subscribe_done.request_id, subscribe_done_out.request_id);
-    CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
-    CHECK_EQ(subscribe_done.stream_count, subscribe_done_out.stream_count);
-    CHECK_EQ(subscribe_done.error_reason, subscribe_done_out.error_reason);
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishDone), publish_done_out));
+    CHECK_EQ(publish_done.request_id, publish_done_out.request_id);
+    CHECK_EQ(publish_done.status_code, publish_done_out.status_code);
+    CHECK_EQ(publish_done.stream_count, publish_done_out.stream_count);
+    CHECK_EQ(publish_done.error_reason, publish_done_out.error_reason);
 }
 
-TEST_CASE("SubscribeDone (content-exists)  Message encode/decode")
+TEST_CASE("PublishDone (content-exists)  Message encode/decode")
 {
     Bytes buffer;
 
-    auto subscribe_done = SubscribeDone{};
-    subscribe_done.request_id = 0x1;
-    subscribe_done.status_code = quicr::messages::SubscribeDoneStatusCode::kGoingAway;
-    subscribe_done.stream_count = 0x0;
-    subscribe_done.error_reason = Bytes{ 0x0 };
+    auto publish_done = PublishDone{};
+    publish_done.request_id = 0x1;
+    publish_done.status_code = quicr::messages::PublishDoneStatusCode::kGoingAway;
+    publish_done.stream_count = 0x0;
+    publish_done.error_reason = Bytes{ 0x0 };
 
-    buffer << subscribe_done;
+    buffer << publish_done;
 
-    SubscribeDone subscribe_done_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeDone), subscribe_done_out));
-    CHECK_EQ(subscribe_done.request_id, subscribe_done_out.request_id);
-    CHECK_EQ(subscribe_done.status_code, subscribe_done_out.status_code);
-    CHECK_EQ(subscribe_done.stream_count, subscribe_done_out.stream_count);
-    CHECK_EQ(subscribe_done.error_reason, subscribe_done_out.error_reason);
+    PublishDone publish_done_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishDone), publish_done_out));
+    CHECK_EQ(publish_done.request_id, publish_done_out.request_id);
+    CHECK_EQ(publish_done.status_code, publish_done_out.status_code);
+    CHECK_EQ(publish_done.stream_count, publish_done_out.stream_count);
+    CHECK_EQ(publish_done.error_reason, publish_done_out.error_reason);
 }
 
 TEST_CASE("ClientSetup  Message encode/decode")
@@ -699,12 +702,12 @@ TEST_CASE("Fetch Message encode/decode")
 
     auto group_0 = std::make_optional<Fetch::Group_0>();
     if (group_0.has_value()) {
-        group_0->track_namespace = kTrackNamespaceConf;
-        group_0->track_name = kTrackNameAliceVideo;
-        group_0->start_location.group = 0x1000;
-        group_0->start_location.object = 0x0;
-        group_0->end_location.group = 0x2000;
-        group_0->end_location.object = 0x100;
+        group_0->standalone.track_namespace = kTrackNamespaceConf;
+        group_0->standalone.track_name = kTrackNameAliceVideo;
+        group_0->standalone.start.group = 0x1000;
+        group_0->standalone.start.object = 0x0;
+        group_0->standalone.end.group = 0x2000;
+        group_0->standalone.end.object = 0x100;
     }
     auto fetch = Fetch(0x10, 1, GroupOrder::kAscending, FetchType::kStandalone, group_0, std::nullopt, {});
 
@@ -717,7 +720,7 @@ TEST_CASE("Fetch Message encode/decode")
               }
           },
           [](Fetch& self) {
-              if (self.fetch_type == FetchType::kJoiningFetch) {
+              if (self.fetch_type == FetchType::kRelativeJoiningFetch) {
                   self.group_1 = std::make_optional<Fetch::Group_1>();
               }
           });
@@ -728,21 +731,21 @@ TEST_CASE("Fetch Message encode/decode")
         CHECK_EQ(fetch.group_order, fetch_out.group_order);
         CHECK_EQ(fetch.fetch_type, fetch_out.fetch_type);
 
-        CHECK_EQ(fetch.group_0->track_namespace, fetch_out.group_0->track_namespace);
-        CHECK_EQ(fetch.group_0->track_name, fetch_out.group_0->track_name);
-        CHECK_EQ(fetch.group_0->start_location, fetch_out.group_0->start_location);
-        CHECK_EQ(fetch.group_0->end_location, fetch_out.group_0->end_location);
+        CHECK_EQ(fetch.group_0->standalone.track_namespace, fetch_out.group_0->standalone.track_namespace);
+        CHECK_EQ(fetch.group_0->standalone.track_name, fetch_out.group_0->standalone.track_name);
+        CHECK_EQ(fetch.group_0->standalone.start, fetch_out.group_0->standalone.start);
+        CHECK_EQ(fetch.group_0->standalone.end, fetch_out.group_0->standalone.end);
     }
 
     buffer.clear();
 
     auto group_1 = std::make_optional<Fetch::Group_1>();
     if (group_1.has_value()) {
-        group_1->joining_request_id = 0x0;
-        group_1->joining_start = 0x0;
+        group_1->joining.request_id = 0x0;
+        group_1->joining.joining_start = 0x0;
     }
 
-    fetch = Fetch(0x10, 1, GroupOrder::kAscending, FetchType::kJoiningFetch, std::nullopt, group_1, {});
+    fetch = Fetch(0x10, 1, GroupOrder::kAscending, FetchType::kRelativeJoiningFetch, std::nullopt, group_1, {});
 
     buffer << fetch;
     {
@@ -753,14 +756,14 @@ TEST_CASE("Fetch Message encode/decode")
               }
           },
           [](Fetch& self) {
-              if (self.fetch_type == FetchType::kJoiningFetch) {
+              if (self.fetch_type == FetchType::kRelativeJoiningFetch) {
                   self.group_1 = std::make_optional<Fetch::Group_1>();
               }
           });
 
         CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetch), fetch_out));
-        CHECK_EQ(fetch.group_1->joining_request_id, fetch_out.group_1->joining_request_id);
-        CHECK_EQ(fetch.group_1->joining_start, fetch_out.group_1->joining_start);
+        CHECK_EQ(fetch.group_1->joining.request_id, fetch_out.group_1->joining.request_id);
+        CHECK_EQ(fetch.group_1->joining.joining_start, fetch_out.group_1->joining.joining_start);
     }
 }
 
@@ -818,57 +821,57 @@ TEST_CASE("SubscribesBlocked Message encode/decode")
     CHECK_EQ(sub_blocked.maximum_request_id, sub_blocked_out.maximum_request_id);
 }
 
-TEST_CASE("Subscribe Announces encode/decode")
+TEST_CASE("Subscribe Namespaces encode/decode")
 {
     Bytes buffer;
 
-    auto msg = SubscribeAnnounces{};
+    auto msg = SubscribeNamespace{};
     msg.track_namespace_prefix = TrackNamespace{ "cisco"s, "meetings"s, "video"s, "1080p"s };
     buffer << msg;
 
-    SubscribeAnnounces msg_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeAnnounces), msg_out));
+    SubscribeNamespace msg_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeNamespace), msg_out));
     CHECK_EQ(msg.track_namespace_prefix, msg_out.track_namespace_prefix);
 }
 
-TEST_CASE("Subscribe Announces Ok encode/decode")
+TEST_CASE("Subscribe Namespace Ok encode/decode")
 {
     Bytes buffer;
 
-    auto msg = SubscribeAnnouncesOk{};
+    auto msg = SubscribeNamespaceOk{};
     msg.request_id = 0x1234;
     buffer << msg;
 
-    SubscribeAnnouncesOk msg_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeAnnouncesOk), msg_out));
+    SubscribeNamespaceOk msg_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeNamespaceOk), msg_out));
     CHECK_EQ(msg.request_id, msg_out.request_id);
 }
 
-TEST_CASE("Unsubscribe Announces encode/decode")
+TEST_CASE("Unsubscribe Namespace encode/decode")
 {
     Bytes buffer;
 
-    auto msg = UnsubscribeAnnounces{};
+    auto msg = UnsubscribeNamespace{};
     msg.track_namespace_prefix = TrackNamespace{ "cisco"s, "meetings"s, "video"s, "1080p"s };
     buffer << msg;
 
-    UnsubscribeAnnounces msg_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kUnsubscribeAnnounces), msg_out));
+    UnsubscribeNamespace msg_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kUnsubscribeNamespace), msg_out));
     CHECK_EQ(msg.track_namespace_prefix, msg_out.track_namespace_prefix);
 }
 
-TEST_CASE("Subscribe Announces Error encode/decode")
+TEST_CASE("Subscribe Namespace Error encode/decode")
 {
     Bytes buffer;
 
-    auto msg = SubscribeAnnouncesError{};
+    auto msg = SubscribeNamespaceError{};
     msg.request_id = 0x1234;
-    msg.error_code = quicr::messages::SubscribeAnnouncesErrorCode::kNamespacePrefixUnknown;
+    msg.error_code = quicr::messages::SubscribeNamespaceErrorCode::kNamespacePrefixUnknown;
     msg.error_reason = Bytes{ 0x1, 0x2, 0x3 };
     buffer << msg;
 
-    SubscribeAnnouncesError msg_out;
-    CHECK(VerifyCtrl(buffer, static_cast<std::uint64_t>(ControlMessageType::kSubscribeAnnouncesError), msg_out));
+    SubscribeNamespaceError msg_out;
+    CHECK(VerifyCtrl(buffer, static_cast<std::uint64_t>(ControlMessageType::kSubscribeNamespaceError), msg_out));
     CHECK_EQ(msg.request_id, msg_out.request_id);
     CHECK_EQ(msg.error_code, msg_out.error_code);
     CHECK_EQ(msg.error_reason, msg_out.error_reason);
@@ -898,7 +901,7 @@ TEST_CASE("Publish Message encode/decode")
     CHECK_EQ(publish.track_name, publish_out.track_name);
     CHECK_EQ(publish.track_alias, publish_out.track_alias);
     CHECK_EQ(publish.group_order, publish_out.group_order);
-    CHECK_EQ(publish.contentexists, publish_out.contentexists);
+    CHECK_EQ(publish.content_exists, publish_out.content_exists);
     CHECK_EQ(publish.forward, publish_out.forward);
     CHECK_EQ(publish.parameters, publish_out.parameters);
 }
@@ -937,10 +940,10 @@ TEST_CASE("PublishOk (with optional fields) Message encode/decode")
     Bytes buffer;
 
     auto group_0 = std::make_optional<PublishOk::Group_0>();
-    group_0->start = { 100, 200 };
+    group_0->start_location = { 100, 200 };
 
     auto group_1 = std::make_optional<PublishOk::Group_1>();
-    group_1->endgroup = 300;
+    group_1->end_group = 300;
 
     auto publish_ok =
       PublishOk(0x1234, true, 0x10, GroupOrder::kAscending, FilterType::kAbsoluteRange, group_0, group_1, {});
@@ -966,10 +969,10 @@ TEST_CASE("PublishOk (with optional fields) Message encode/decode")
     CHECK_EQ(publish_ok.group_order, publish_ok_out.group_order);
     CHECK_EQ(publish_ok.filter_type, publish_ok_out.filter_type);
     CHECK_EQ(publish_ok.group_0.has_value(), publish_ok_out.group_0.has_value());
-    CHECK_EQ(publish_ok.group_0->start.group, publish_ok_out.group_0->start.group);
-    CHECK_EQ(publish_ok.group_0->start.object, publish_ok_out.group_0->start.object);
+    CHECK_EQ(publish_ok.group_0->start_location.group, publish_ok_out.group_0->start_location.group);
+    CHECK_EQ(publish_ok.group_0->start_location.object, publish_ok_out.group_0->start_location.object);
     CHECK_EQ(publish_ok.group_1.has_value(), publish_ok_out.group_1.has_value());
-    CHECK_EQ(publish_ok.group_1->endgroup, publish_ok_out.group_1->endgroup);
+    CHECK_EQ(publish_ok.group_1->end_group, publish_ok_out.group_1->end_group);
     CHECK_EQ(publish_ok.parameters, publish_ok_out.parameters);
 }
 

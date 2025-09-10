@@ -414,7 +414,7 @@ namespace quicr {
         void SendSubscribeAnnouncesOk(ConnectionContext& conn_ctx, messages::RequestID request_id);
         void SendSubscribeAnnouncesError(ConnectionContext& conn_ctx,
                                          messages::RequestID request_id,
-                                         messages::SubscribeAnnouncesErrorCode err_code,
+                                         messages::SubscribeNamespaceErrorCode err_code,
                                          const messages::ReasonPhrase& reason);
 
         void SendFetch(ConnectionContext& conn_ctx,

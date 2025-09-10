@@ -28,7 +28,7 @@ namespace quicr {
 
     void Server::AnnounceReceived(ConnectionHandle, const TrackNamespace&, const PublishAnnounceAttributes&) {}
 
-    std::pair<std::optional<messages::SubscribeAnnouncesErrorCode>, std::vector<TrackNamespace>>
+    std::pair<std::optional<messages::SubscribeNamespaceErrorCode>, std::vector<TrackNamespace>>
     Server::SubscribeAnnouncesReceived(ConnectionHandle, const TrackNamespace&, const PublishAnnounceAttributes&)
     {
         return { std::nullopt, {} };
@@ -368,14 +368,13 @@ namespace quicr {
 
                 conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
 
-                const auto dt_param =
-                  std::find_if(msg.subscribe_parameters.begin(), msg.subscribe_parameters.end(), [](const auto& p) {
-                      return p.type == messages::ParameterType::kDeliveryTimeout;
-                  });
+                const auto dt_param = std::find_if(msg.parameters.begin(), msg.parameters.end(), [](const auto& p) {
+                    return p.type == messages::ParameterType::kDeliveryTimeout;
+                });
 
                 std::uint64_t delivery_timeout = 0;
 
-                if (dt_param != msg.subscribe_parameters.end()) {
+                if (dt_param != msg.parameters.end()) {
                     std::memcpy(&delivery_timeout, dt_param->value.data(), dt_param->value.size());
                 }
 
@@ -442,8 +441,8 @@ namespace quicr {
 
                 return true;
             }
-            case messages::ControlMessageType::kAnnounce: {
-                auto msg = messages::Announce{};
+            case messages::ControlMessageType::kPublishNamespace: {
+                auto msg = messages::PublishNamespace{};
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {} };
@@ -452,8 +451,8 @@ namespace quicr {
                 return true;
             }
 
-            case messages::ControlMessageType::kSubscribeAnnounces: {
-                auto msg = messages::SubscribeAnnounces{};
+            case messages::ControlMessageType::kSubscribeNamespace: {
+                auto msg = messages::SubscribeNamespace{};
                 msg_bytes >> msg;
 
                 const auto& [err, matched_ns] =
@@ -469,16 +468,16 @@ namespace quicr {
                 return true;
             }
 
-            case messages::ControlMessageType::kUnsubscribeAnnounces: {
-                auto msg = messages::UnsubscribeAnnounces{};
+            case messages::ControlMessageType::kUnsubscribeNamespace: {
+                auto msg = messages::UnsubscribeNamespace{};
                 msg_bytes >> msg;
 
                 UnsubscribeAnnouncesReceived(conn_ctx.connection_handle, msg.track_namespace_prefix);
                 return true;
             }
 
-            case messages::ControlMessageType::kAnnounceError: {
-                auto msg = messages::AnnounceError{};
+            case messages::ControlMessageType::kPublishNamespaceError: {
+                auto msg = messages::PublishNamespaceError{};
                 msg_bytes >> msg;
 
                 std::string reason = "unknown";
@@ -493,8 +492,8 @@ namespace quicr {
                 return true;
             }
 
-            case messages::ControlMessageType::kUnannounce: {
-                messages::Unannounce msg;
+            case messages::ControlMessageType::kPublishNamespaceDone: {
+                messages::PublishNamespaceDone msg;
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {} };
@@ -531,8 +530,8 @@ namespace quicr {
 
                 return true;
             }
-            case messages::ControlMessageType::kSubscribeDone: {
-                messages::SubscribeDone msg;
+            case messages::ControlMessageType::kPublishDone: {
+                messages::PublishDone msg;
                 msg_bytes >> msg;
 
                 auto sub_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
@@ -579,8 +578,8 @@ namespace quicr {
 
                 return true;
             }
-            case messages::ControlMessageType::kAnnounceCancel: {
-                messages::AnnounceCancel msg;
+            case messages::ControlMessageType::kPublishNamespaceCancel: {
+                messages::PublishNamespaceCancel msg;
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {} };
@@ -590,23 +589,43 @@ namespace quicr {
                   logger_, "Received announce cancel for namespace_hash: {0}", th.track_namespace_hash);
                 return true;
             }
-            case messages::ControlMessageType::kTrackStatusRequest: {
-                messages::TrackStatusRequest msg;
+            case messages::ControlMessageType::kTrackStatus: {
+
+                auto msg = messages::TrackStatus(
+                  [](messages::TrackStatus& msg) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteStart ||
+                          msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                          msg.group_0 = std::make_optional<messages::TrackStatus::Group_0>();
+                      }
+                  },
+                  [](messages::TrackStatus& msg) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                          msg.group_1 = std::make_optional<messages::TrackStatus::Group_1>();
+                      }
+                  });
+
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
                 auto th = TrackHash(tfn);
 
+                // TODO(Issue #657) :  Impleement state handling and response
                 SPDLOG_LOGGER_INFO(logger_,
                                    "Received track status request for namespace_hash: {0} name_hash: {1}",
                                    th.track_namespace_hash,
                                    th.track_name_hash);
                 return true;
             }
-            case messages::ControlMessageType::kTrackStatus: {
-                messages::TrackStatus msg;
+            case messages::ControlMessageType::kTrackStatusOk: {
+                auto msg = messages::TrackStatusOk([](messages::TrackStatusOk& msg) {
+                    if (msg.content_exists == 1) {
+                        msg.group_0 = std::make_optional<messages::TrackStatusOk::Group_0>();
+                    }
+                });
+
                 msg_bytes >> msg;
 
+                // TOOD (Issue #657) :  Impleement state handling and response
                 SPDLOG_LOGGER_INFO(logger_, "Received track status for request_id: {}", msg.request_id);
                 return true;
             }
@@ -662,10 +681,12 @@ namespace quicr {
                       }
                   },
                   [](messages::Fetch& msg) {
-                      if (msg.fetch_type == messages::FetchType::kJoiningFetch) {
+                      // TODO: Add support for absolute joining fetch
+                      if (msg.fetch_type == messages::FetchType::kRelativeJoiningFetch) {
                           msg.group_1 = std::make_optional<messages::Fetch::Group_1>();
                       }
                   });
+
                 msg_bytes >> msg;
 
                 // Prepare for fetch lookups, which differ by type.
@@ -679,11 +700,12 @@ namespace quicr {
                 switch (msg.fetch_type) {
                     case messages::FetchType::kStandalone: {
                         // Standalone fetch is self-containing.
-                        tfn = FullTrackName{ msg.group_0->track_namespace, msg.group_0->track_name };
-                        attrs.start_location = msg.group_0->start_location;
-                        attrs.end_group = msg.group_0->end_location.group;
-                        attrs.end_object = msg.group_0->end_location.object > 0
-                                             ? std::optional(msg.group_0->end_location.object - 1)
+                        tfn =
+                          FullTrackName{ msg.group_0->standalone.track_namespace, msg.group_0->standalone.track_name };
+                        attrs.start_location = msg.group_0->standalone.start;
+                        attrs.end_group = msg.group_0->standalone.end.group;
+                        attrs.end_object = msg.group_0->standalone.end.object > 0
+                                             ? std::optional(msg.group_0->standalone.end.object - 1)
                                              : std::nullopt;
                         const auto largest_available = GetLargestAvailable(tfn);
                         if (!largest_available.has_value()) {
@@ -703,10 +725,11 @@ namespace quicr {
 
                         break;
                     }
-                    case messages::FetchType::kJoiningFetch: {
+                    // TODO: Add support for absolute joining fetch
+                    case messages::FetchType::kRelativeJoiningFetch: {
                         // Joining fetch needs to look up its joining subscribe.
                         // TODO: Need a new error code for subscribe doesn't exist.
-                        const auto subscribe_state = conn_ctx.recv_req_id.find(msg.group_1->joining_request_id);
+                        const auto subscribe_state = conn_ctx.recv_req_id.find(msg.group_1->joining.request_id);
                         if (subscribe_state == conn_ctx.recv_req_id.end()) {
                             SendFetchError(conn_ctx,
                                            msg.request_id,
@@ -728,8 +751,8 @@ namespace quicr {
                         largest_location = *opt_largest_location;
 
                         // TODO(RichLogan): Check this when FETCH v11 checked.
-                        const auto start_group = msg.group_1->joining_start <= largest_location.group
-                                                   ? largest_location.group - msg.group_1->joining_start
+                        const auto start_group = msg.group_1->joining.joining_start <= largest_location.group
+                                                   ? largest_location.group - msg.group_1->joining.joining_start
                                                    : largest_location.group;
                         attrs.start_location = messages::Location{ start_group, 0 };
                         attrs.end_group = largest_location.group;
@@ -786,7 +809,7 @@ namespace quicr {
             }
             case messages::ControlMessageType::kPublish: {
                 auto msg = messages::Publish([](messages::Publish& msg) {
-                    if (msg.contentexists) {
+                    if (msg.content_exists) {
                         msg.group_0 = std::make_optional<messages::Publish::Group_0>();
                     }
                 });
@@ -835,7 +858,7 @@ namespace quicr {
                         pub.second->SetStatus(PublishTrackHandler::Status::kPaused);
                     } else {
                         bool new_group_request = false;
-                        for (const auto& param : msg.subscribe_parameters) {
+                        for (const auto& param : msg.parameters) {
                             if (param.type == messages::ParameterType::kNewGroupRequest) {
                                 new_group_request = true;
                                 break;

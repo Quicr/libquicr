@@ -26,7 +26,7 @@ namespace quicr {
     void Client::UnannounceReceived(const TrackNamespace&) {}
 
     void Client::SubscribeAnnouncesStatusChanged(const TrackNamespace&,
-                                                 std::optional<messages::SubscribeAnnouncesErrorCode>,
+                                                 std::optional<messages::SubscribeNamespaceErrorCode>,
                                                  std::optional<messages::ReasonPhrase>)
     {
     }
@@ -276,7 +276,7 @@ namespace quicr {
                     ptd->SetStatus(PublishTrackHandler::Status::kPaused);
                 } else {
                     bool new_group_request = false;
-                    for (const auto& param : msg.subscribe_parameters) {
+                    for (const auto& param : msg.parameters) {
                         if (param.type == messages::ParameterType::kNewGroupRequest) {
                             new_group_request = true;
                             break;
@@ -359,8 +359,8 @@ namespace quicr {
                 return true;
             }
 
-            case messages::ControlMessageType::kAnnounce: {
-                messages::Announce msg;
+            case messages::ControlMessageType::kPublishNamespace: {
+                messages::PublishNamespace msg;
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {} };
@@ -369,8 +369,8 @@ namespace quicr {
                 return true;
             }
 
-            case messages::ControlMessageType::kUnannounce: {
-                messages::Unannounce msg;
+            case messages::ControlMessageType::kPublishNamespaceDone: {
+                messages::PublishNamespaceDone msg;
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {} };
@@ -379,8 +379,8 @@ namespace quicr {
                 return true;
             }
 
-            case messages::ControlMessageType::kAnnounceOk: {
-                messages::AnnounceOk msg;
+            case messages::ControlMessageType::kPublishNamespaceOk: {
+                messages::PublishNamespaceOk msg;
                 msg_bytes >> msg;
 
                 SPDLOG_LOGGER_DEBUG(logger_,
@@ -401,8 +401,8 @@ namespace quicr {
                 }
                 return true;
             }
-            case messages::ControlMessageType::kAnnounceError: {
-                messages::AnnounceError msg;
+            case messages::ControlMessageType::kPublishNamespaceError: {
+                messages::PublishNamespaceError msg;
                 msg_bytes >> msg;
 
                 std::string reason = "unknown";
@@ -416,8 +416,8 @@ namespace quicr {
 
                 return true;
             }
-            case messages::ControlMessageType::kSubscribeAnnouncesOk: {
-                messages::SubscribeAnnouncesOk msg;
+            case messages::ControlMessageType::kSubscribeNamespaceOk: {
+                messages::SubscribeNamespaceOk msg;
                 msg_bytes >> msg;
 
                 const auto it = conn_ctx.sub_announces_by_request_id.find(msg.request_id);
@@ -427,15 +427,15 @@ namespace quicr {
 
                 return true;
             }
-            case messages::ControlMessageType::kSubscribeAnnouncesError: {
-                messages::SubscribeAnnouncesError msg;
+            case messages::ControlMessageType::kSubscribeNamespaceError: {
+                messages::SubscribeNamespaceError msg;
                 msg_bytes >> msg;
 
                 const auto it = conn_ctx.sub_announces_by_request_id.find(msg.request_id);
                 if (it != conn_ctx.sub_announces_by_request_id.end()) {
                     SubscribeAnnouncesStatusChanged(it->second, std::nullopt, std::nullopt);
 
-                    auto error_code = static_cast<messages::SubscribeAnnouncesErrorCode>(msg.error_code);
+                    auto error_code = static_cast<messages::SubscribeNamespaceErrorCode>(msg.error_code);
                     SubscribeAnnouncesStatusChanged(
                       it->second, error_code, std::make_optional<messages::ReasonPhrase>(msg.error_reason));
                 }
@@ -480,8 +480,8 @@ namespace quicr {
                 }
                 return true;
             }
-            case messages::ControlMessageType::kSubscribeDone: {
-                messages::SubscribeDone msg;
+            case messages::ControlMessageType::kPublishDone: {
+                messages::PublishDone msg;
                 msg_bytes >> msg;
 
                 auto sub_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
@@ -523,8 +523,8 @@ namespace quicr {
 
                 return true;
             }
-            case messages::ControlMessageType::kAnnounceCancel: {
-                messages::AnnounceCancel msg;
+            case messages::ControlMessageType::kPublishNamespaceCancel: {
+                messages::PublishNamespaceCancel msg;
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {} };
@@ -535,8 +535,25 @@ namespace quicr {
                 AnnounceStatusChanged(tfn.name_space, PublishAnnounceStatus::kNotAnnounced);
                 return true;
             }
-            case messages::ControlMessageType::kTrackStatusRequest: {
-                messages::TrackStatusRequest msg;
+            case messages::ControlMessageType::kTrackStatus: {
+                // TODO (rilogan): This code duplication with Subscribe is not ideal given
+                // the code generation. Refactor code generation to may be create
+                // variant types for messages that share fields?
+                messages::TrackStatus msg(
+                  [](messages::TrackStatus& msg) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteStart ||
+                          msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                          msg.group_0 =
+                            std::make_optional<messages::TrackStatus::Group_0>(messages::TrackStatus::Group_0{ 0, 0 });
+                      }
+                  },
+                  [](messages::TrackStatus& msg) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                          msg.group_1 =
+                            std::make_optional<messages::TrackStatus::Group_1>(messages::TrackStatus::Group_1{ 0 });
+                      }
+                  });
+
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
@@ -546,10 +563,17 @@ namespace quicr {
                                    "Received track status request for namespace_hash: {0} name_hash: {1}",
                                    th.track_namespace_hash,
                                    th.track_name_hash);
+                // TODO (Issue #657): Implement state handling and response
                 return true;
             }
-            case messages::ControlMessageType::kTrackStatus: {
-                messages::TrackStatus msg;
+            case messages::ControlMessageType::kTrackStatusOk: {
+                messages::TrackStatusOk msg([](auto& msg) {
+                    if (msg.content_exists == 1) {
+                        msg.group_0 = std::make_optional<messages::TrackStatusOk::Group_0>();
+                    }
+                });
+
+                // TODO (Issue #657): Implement state handling and response
                 msg_bytes >> msg;
 
                 SPDLOG_LOGGER_INFO(logger_, "Received track status for request_id: {}", msg.request_id);
@@ -641,7 +665,8 @@ namespace quicr {
                       }
                   },
                   [](messages::Fetch& msg) {
-                      if (msg.fetch_type == messages::FetchType::kJoiningFetch) {
+                      // TODO: Add support for absolute joining fetch
+                      if (msg.fetch_type == messages::FetchType::kRelativeJoiningFetch) {
                           msg.group_1 = std::make_optional<messages::Fetch::Group_1>();
                       }
                   });
@@ -655,10 +680,10 @@ namespace quicr {
                 switch (msg.fetch_type) {
                     case messages::FetchType::kStandalone: {
                         // Forward FETCH to a Publisher and bind to this request
-                        attrs.start_location.group = msg.group_0->start_location.group;
-                        attrs.start_location.object = msg.group_0->start_location.object;
-                        attrs.end_group = msg.group_0->end_location.group;
-                        attrs.end_object = msg.group_0->end_location.object;
+                        attrs.start_location.group = msg.group_0->standalone.start.group;
+                        attrs.start_location.object = msg.group_0->standalone.start.object;
+                        attrs.end_group = msg.group_0->standalone.end.group;
+                        attrs.end_object = msg.group_0->standalone.end.object;
                         FetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
                         return true;
                     }
@@ -705,9 +730,9 @@ namespace quicr {
                       "Received publish ok conn_id: {} request_id: {} start_group: {} start_object: {} endgroup: {}",
                       conn_ctx.connection_handle,
                       msg.request_id,
-                      msg.group_0->start.group,
-                      msg.group_0->start.object,
-                      msg.group_1->endgroup);
+                      msg.group_0->start_location.group,
+                      msg.group_0->start_location.object,
+                      msg.group_1->end_group);
                 }
                 pub_it->second.get()->SetStatus(PublishTrackHandler::Status::kOk);
                 return true;

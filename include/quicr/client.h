@@ -115,7 +115,7 @@ namespace quicr {
          * @param reason                Set if there is an error; reason phrase
          */
         virtual void SubscribeAnnouncesStatusChanged(const TrackNamespace& track_namespace,
-                                                     std::optional<messages::SubscribeAnnouncesErrorCode> error_code,
+                                                     std::optional<messages::SubscribeNamespaceErrorCode> error_code,
                                                      std::optional<messages::ReasonPhrase> reason);
 
         /**

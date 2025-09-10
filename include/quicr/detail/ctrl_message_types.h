@@ -24,6 +24,7 @@ namespace quicr::messages {
     using ObjectId = uint64_t;
     // TODO(RichLogan): Remove when ErrorReason -> ReasonPhrase.
     using ReasonPhrase = Bytes;
+    using RequestID = uint64_t;
 
     struct ControlMessage
     {
@@ -227,7 +228,7 @@ namespace quicr::messages {
         kUnknown
     };
 
-    enum class SubscribeDoneStatusCode : uint64_t
+    enum class PublishDoneStatusCode : uint64_t
     {
         kInternalError = 0x00,
         kUnauthorized,
@@ -238,17 +239,38 @@ namespace quicr::messages {
         kTooFarBehind,
     };
 
-    Bytes& operator<<(Bytes& buffer, SubscribeDoneStatusCode value);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeDoneStatusCode& value);
+    Bytes& operator<<(Bytes& buffer, PublishDoneStatusCode value);
+    BytesSpan operator>>(BytesSpan buffer, PublishDoneStatusCode& value);
 
     enum class FetchType : uint8_t
     {
         kStandalone = 0x1,
-        kJoiningFetch,
+        kRelativeJoiningFetch,
+        kAbsoluteJoiningFetch
     };
 
     Bytes& operator<<(Bytes& buffer, FetchType value);
     BytesSpan operator>>(BytesSpan buffer, FetchType& value);
+
+    struct StandaloneFetch
+    {
+        TrackNamespace track_namespace;
+        TrackName track_name;
+        Location start;
+        Location end;
+    };
+
+    Bytes& operator<<(Bytes& buffer, StandaloneFetch value);
+    BytesSpan operator>>(BytesSpan buffer, StandaloneFetch& value);
+
+    struct JoiningFetch
+    {
+        RequestID request_id;
+        uint64_t joining_start;
+    };
+
+    Bytes& operator<<(Bytes& buffer, JoiningFetch value);
+    BytesSpan operator>>(BytesSpan buffer, JoiningFetch& value);
 
     enum class TerminationReason : uint64_t
     {
@@ -274,7 +296,7 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, FetchErrorCode value);
     BytesSpan operator>>(BytesSpan buffer, FetchErrorCode& value);
 
-    enum class AnnounceErrorCode : uint64_t
+    enum class PublishNamespaceErrorCode : uint64_t
     {
         kInternalError = 0x0,
         kUnauthorized,
@@ -312,7 +334,7 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, SubscribeErrorCode value);
     BytesSpan operator>>(BytesSpan buffer, SubscribeErrorCode& value);
 
-    enum class SubscribeAnnouncesErrorCode : uint64_t
+    enum class SubscribeNamespaceErrorCode : uint64_t
     {
         kInternalError = 0x0,
         kUnauthorized,
