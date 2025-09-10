@@ -22,6 +22,7 @@ add_executable(quicr_benchmark
     hash.cpp
     data_storage.cpp
     tick_service.cpp
+    priority_queue.cpp
 )
 
 target_link_libraries(quicr_benchmark PRIVATE quicr benchmark::benchmark_main)

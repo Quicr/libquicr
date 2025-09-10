@@ -699,7 +699,8 @@ PicoQuicTransport::CreateDataContext(const TransportConnId conn_id,
         data_ctx_it->second.tx_data = std::make_unique<PriorityQueue<ConnData>>(tconfig_.time_queue_max_duration,
                                                                                 tconfig_.time_queue_bucket_interval,
                                                                                 tick_service_,
-                                                                                tconfig_.time_queue_init_queue_size);
+                                                                                tconfig_.time_queue_init_queue_size,
+                                                                                150);
 
         // Create stream
         if (use_reliable_transport) {
@@ -885,7 +886,8 @@ PicoQuicTransport::CreateConnContext(picoquic_cnx_t* pq_cnx)
         conn_ctx.dgram_tx_data = std::make_shared<PriorityQueue<ConnData>>(tconfig_.time_queue_max_duration,
                                                                            tconfig_.time_queue_bucket_interval,
                                                                            tick_service_,
-                                                                           tconfig_.time_queue_init_queue_size);
+                                                                           tconfig_.time_queue_init_queue_size,
+                                                                           150);
     }
 
     return conn_ctx;
@@ -963,7 +965,8 @@ PicoQuicTransport::CreateDataContextBiDirRecv(TransportConnId conn_id, uint64_t 
         data_ctx_it->second.tx_data = std::make_unique<PriorityQueue<ConnData>>(tconfig_.time_queue_max_duration,
                                                                                 tconfig_.time_queue_bucket_interval,
                                                                                 tick_service_,
-                                                                                tconfig_.time_queue_init_queue_size);
+                                                                                tconfig_.time_queue_init_queue_size,
+                                                                                150);
 
         data_ctx_it->second.current_stream_id = stream_id;
 

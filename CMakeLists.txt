@@ -3,6 +3,8 @@
 
 cmake_minimum_required(VERSION 3.13)
 
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
 # Build tests by default only if not a sub-project
 if(DEFINED PROJECT_NAME)
     option(QUICR_BUILD_TESTS "Build tests for quicr" OFF)
