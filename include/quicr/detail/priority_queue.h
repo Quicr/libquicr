@@ -140,17 +140,12 @@ namespace quicr {
                             continue;
                     }
 
-                    for (auto& [pri, groups] : remove_group_ids) {
-                        RemoveGroupTimeQueue(priority, groups);
-                    }
-
+                    RemoveGroupTimeQueue(remove_group_ids);
                     return;
                 }
             }
 
-            for (auto& [priority, groups] : remove_group_ids) {
-                RemoveGroupTimeQueue(priority, groups);
-            }
+            RemoveGroupTimeQueue(remove_group_ids);
         }
 
         /**
@@ -178,17 +173,12 @@ namespace quicr {
                             continue;
                     }
 
-                    for (auto& [pri, groups] : remove_group_ids) {
-                        RemoveGroupTimeQueue(priority, groups);
-                    }
-
+                    RemoveGroupTimeQueue(remove_group_ids);
                     return;
                 }
             }
 
-            for (auto& [priority, groups] : remove_group_ids) {
-                RemoveGroupTimeQueue(priority, groups);
-            }
+            RemoveGroupTimeQueue(remove_group_ids);
         }
 
         /**
@@ -209,13 +199,16 @@ namespace quicr {
                     }
 
                     tqueue->Pop();
+
+                    if (tqueue->Empty()) {
+                        RemoveGroupTimeQueue(remove_group_ids);
+                    }
+
                     return;
                 }
             }
 
-            for (auto& [priority, groups] : remove_group_ids) {
-                RemoveGroupTimeQueue(priority, groups);
-            }
+            RemoveGroupTimeQueue(remove_group_ids);
         }
 
         /**
@@ -269,32 +262,33 @@ namespace quicr {
          * @brief Removes the group from the queues and adds the timequeue back to the free list
          *
          * @param priority      Queue priority
-         * @param group_id      Group Id to remove
+         * @param group_ids     List of group Ids to remove
          */
-        void RemoveGroupTimeQueue(uint8_t priority, uint64_t group_id)
+        void RemoveGroupTimeQueue(uint8_t priority, const std::vector<uint64_t>& group_ids)
         {
-            auto grp_it = queues_[priority].find(group_id);
+            for (const auto& group_id : group_ids) {
+                auto grp_it = queues_[priority].find(group_id);
 
-            if (grp_it != queues_[priority].end()) {
-                grp_it->second->Clear();
+                if (grp_it != queues_[priority].end()) {
+                    grp_it->second->Clear();
 
-                if (free_tqueues_.size() < kMaxFreeTimeQueues) {
-                    free_tqueues_.emplace_back(grp_it->second);
+                    if (free_tqueues_.size() < kMaxFreeTimeQueues) {
+                        free_tqueues_.emplace_back(grp_it->second);
+                    }
+
+                    queues_[priority].erase(grp_it);
                 }
-
-                queues_[priority].erase(grp_it);
             }
         }
 
         /**
          * @brief Removes groups from the queues and adds the timequeue back to the free list
-         * @param priority      Queue priority
-         * @param groups        List of groups to remove
+         * @param groups        List of groups by priority to remove
          */
-        void RemoveGroupTimeQueue(uint8_t priority, const std::vector<uint64_t>& groups)
+        void RemoveGroupTimeQueue(const std::map<uint8_t, std::vector<uint64_t>>& groups)
         {
-            for (const auto group_id : groups) {
-                RemoveGroupTimeQueue(priority, group_id);
+            for (const auto& [pri, group_id] : groups) {
+                RemoveGroupTimeQueue(pri, group_id);
             }
         }
 
