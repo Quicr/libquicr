@@ -53,7 +53,7 @@ namespace quicr {
         PriorityQueue(const std::shared_ptr<TickService>& tick_service)
           : PriorityQueue(1000, 1, tick_service, 1000)
         {
-            InitFreeGroups();
+            InitFreeTimeQueues();
         }
 
         /**
@@ -79,13 +79,7 @@ namespace quicr {
             duration_ms_ = duration;
             interval_ms_ = interval;
 
-            /*
-             * Initialize free time queues with two starting entries.
-             */
-            for (int i = free_tqueues_.size(); i < 2; ++i) {
-                free_tqueues_.emplace_back(
-                  std::make_shared<TimeQueueType>(duration_ms_, interval_ms_, tick_service_, initial_queue_size_));
-            }
+            InitFreeTimeQueues();
         }
 
         /**
@@ -232,7 +226,7 @@ namespace quicr {
             std::lock_guard _(mutex_);
             queues_.clear();
 
-            InitFreeGroups();
+            InitFreeTimeQueues();
         }
 
         size_t Size()
@@ -260,7 +254,7 @@ namespace quicr {
         }
 
       private:
-        void InitFreeGroups()
+        void InitFreeTimeQueues()
         {
             /*
              * Initialize free time queues with two starting entries.
@@ -328,7 +322,7 @@ namespace quicr {
                   group_id,
                   std::make_shared<TimeQueueType>(duration_ms_, interval_ms_, tick_service_, initial_queue_size_));
 
-                InitFreeGroups();
+                InitFreeTimeQueues();
 
                 return *tqueue->second;
             }

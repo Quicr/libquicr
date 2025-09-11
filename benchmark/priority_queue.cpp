@@ -80,10 +80,6 @@ PQ_Push(benchmark::State& state)
 
     std::vector<uint8_t> data(1, 0);
 
-    for (size_t i = 0; i < kIterations; ++i) {
-        pq.Push(i % 500, data, 5000);
-    }
-
     for (auto _ : state) {
         ++items_count;
         pq.Push(items_count % 500, data, 5000);
