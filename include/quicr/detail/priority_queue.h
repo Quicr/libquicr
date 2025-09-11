@@ -9,6 +9,7 @@
 #include <chrono>
 #include <map>
 #include <numeric>
+#include <quicr/detail/defer.h>
 
 namespace quicr {
 
@@ -129,6 +130,8 @@ namespace quicr {
             std::map<uint8_t, std::vector<uint64_t>> remove_group_ids;
 
             std::lock_guard _(mutex_);
+            defer(RemoveGroupTimeQueue(remove_group_ids));
+
             for (auto& [priority, queue] : queues_) {
                 for (auto& [group_id, tqueue] : queue) {
                     tqueue->Front(elem);
@@ -140,12 +143,9 @@ namespace quicr {
                             continue;
                     }
 
-                    RemoveGroupTimeQueue(remove_group_ids);
                     return;
                 }
             }
-
-            RemoveGroupTimeQueue(remove_group_ids);
         }
 
         /**
@@ -161,6 +161,7 @@ namespace quicr {
             std::map<uint8_t, std::vector<uint64_t>> remove_group_ids;
 
             std::lock_guard _(mutex_);
+            defer(RemoveGroupTimeQueue(remove_group_ids));
 
             for (auto& [priority, queue] : queues_) {
                 for (auto& [group_id, tqueue] : queue) {
@@ -173,12 +174,9 @@ namespace quicr {
                             continue;
                     }
 
-                    RemoveGroupTimeQueue(remove_group_ids);
                     return;
                 }
             }
-
-            RemoveGroupTimeQueue(remove_group_ids);
         }
 
         /**
@@ -189,10 +187,13 @@ namespace quicr {
             std::map<uint8_t, std::vector<uint64_t>> remove_group_ids;
 
             std::lock_guard _(mutex_);
+            defer(RemoveGroupTimeQueue(remove_group_ids));
 
             for (auto& [priority, queue] : queues_) {
                 remove_group_ids.clear();
                 for (auto& [group_id, tqueue] : queue) {
+
+                    // Pop from the group timequeue that isn't empty
                     if (tqueue->Empty()) {
                         remove_group_ids[priority].push_back(group_id);
                         continue;
@@ -201,14 +202,12 @@ namespace quicr {
                     tqueue->Pop();
 
                     if (tqueue->Empty()) {
-                        RemoveGroupTimeQueue(remove_group_ids);
+                        remove_group_ids[priority].push_back(group_id);
                     }
 
                     return;
                 }
             }
-
-            RemoveGroupTimeQueue(remove_group_ids);
         }
 
         /**
