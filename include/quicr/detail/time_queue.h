@@ -23,9 +23,9 @@
 #include <atomic>
 #include <chrono>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <vector>
-#include <set>
 
 #include "tick_service.h"
 
