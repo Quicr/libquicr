@@ -25,6 +25,7 @@
 #include <memory>
 #include <stdexcept>
 #include <vector>
+#include <set>
 
 #include "tick_service.h"
 
@@ -268,9 +269,11 @@ namespace quicr {
 
             queue_.clear();
 
-            for (auto& bucket : buckets_) {
-                bucket.clear();
+            for (const auto idx : bucket_inuse_indexes_) {
+                buckets_[idx].clear();
             }
+
+            bucket_inuse_indexes_.clear();
 
             queue_index_ = bucket_index_ = 0;
         }
@@ -337,6 +340,8 @@ namespace quicr {
 
             const IndexType future_index = (bucket_index_ + relative_ttl - 1) % total_buckets_;
 
+            bucket_inuse_indexes_.insert(future_index);
+
             BucketType& bucket = buckets_[future_index];
 
             bucket.emplace_back(value);
@@ -364,6 +369,9 @@ namespace quicr {
 
         /// The memory storage for all elements to be managed.
         std::vector<BucketType> buckets_;
+
+        /// Set of bucket indexes that are in uses.
+        std::set<uint32_t> bucket_inuse_indexes_;
 
         /// The FIFO ordered queue of values as they were inserted.
         QueueType queue_;
