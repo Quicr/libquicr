@@ -19,7 +19,7 @@ TrackNamespace_ToHash(benchmark::State& state)
 {
 
     for ([[maybe_unused]] const auto& _ : state) {
-        auto h = hash(ns);
+        auto h = hash(kNamespace);
         benchmark::DoNotOptimize(h);
         benchmark::ClobberMemory();
     }
