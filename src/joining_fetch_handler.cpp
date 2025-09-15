@@ -13,7 +13,6 @@ namespace quicr {
 
             stream_buffer_.InitAny<messages::FetchHeader>();
             stream_buffer_.Push(*data);
-            stream_buffer_.Pop(); // Remove type header
 
             // Expect that on initial start of stream, there is enough data to process the stream headers
 
