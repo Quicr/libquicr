@@ -278,6 +278,7 @@ namespace quicr {
             queue_index_ = bucket_index_ = 0;
         }
 
+      protected:
         /**
          * @brief Clear range of buckets
          */
@@ -295,7 +296,6 @@ namespace quicr {
             }
         }
 
-      protected:
         /**
          * @brief Based on current time, adjust and move the bucket index with time
          *        (sliding window)
