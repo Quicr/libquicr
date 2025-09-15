@@ -12,7 +12,7 @@ using namespace std::string_literals;
 
 const TrackNamespace kNamespace{ "example"s, "chat555"s, "user1"s, "dev1"s, "time1"s };
 const std::string kNameStr = "test";
-const FullTrackName kFullTrackName(kNamespace, { kNameStr.begin(), kNameStr.end() });
+const FullTrackName kFullTrackName(kNamespace, std::vector<uint8_t>{ kNameStr.begin(), kNameStr.end() });
 
 static void
 TrackNamespace_ToHash(benchmark::State& state)
