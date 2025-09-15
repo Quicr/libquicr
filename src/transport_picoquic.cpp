@@ -1165,7 +1165,7 @@ PicoQuicTransport::StreamActionCheck(DataContext* data_ctx, StreamAction stream_
                 data_ctx->metrics.tx_buffer_drops++;
             }
 
-            SPDLOG_LOGGER_INFO(logger,
+            SPDLOG_LOGGER_DEBUG(logger,
                                "Replacing stream using FIN; conn_id: {0} existing_stream: {1}",
                                data_ctx->conn_id,
                                *data_ctx->current_stream_id);
@@ -1862,7 +1862,7 @@ PicoQuicTransport::CloseStream(ConnectionContext& conn_ctx, DataContext* data_ct
         picoquic_reset_stream(conn_ctx.pq_cnx, *data_ctx->current_stream_id, 0);
 
     } else {
-        SPDLOG_LOGGER_INFO(
+        SPDLOG_LOGGER_TRACE(
           logger, "Sending FIN for stream_id: {0} conn_id: {1}", *data_ctx->current_stream_id, conn_ctx.conn_id);
 
         picoquic_reset_stream_ctx(conn_ctx.pq_cnx, *data_ctx->current_stream_id);
