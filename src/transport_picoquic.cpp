@@ -1270,8 +1270,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
 
         } else {
             // Queue is empty
-            picoquic_provide_stream_data_buffer(
-              bytes_ctx, 0, 0, data_ctx->mark_stream_active || not data_ctx->tx_data->Empty());
+            picoquic_provide_stream_data_buffer(bytes_ctx, 0, 0, not data_ctx->tx_data->Empty());
 
             return;
         }

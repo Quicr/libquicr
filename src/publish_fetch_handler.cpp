@@ -37,7 +37,7 @@ namespace quicr {
         if (is_stream_header_needed) {
             eflags.new_stream = true;
             eflags.clear_tx_queue = true;
-            eflags.use_reset = true;
+            eflags.use_reset = false;
 
             messages::StreamHeaderSubGroup subgroup_hdr;
             subgroup_hdr.type = GetStreamMode();
