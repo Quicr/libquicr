@@ -24,12 +24,27 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const std::optional<Extensions>& extensions);
     Bytes& operator<<(Bytes& buffer, const Extensions& extensions);
 
-    // Helper function to serialize combined extensions and immutable extensions
+    /**
+     * Serialize extensions to MoQ encoding.
+     * @param buffer Buffer to serialize to.
+     * @param extensions Optionally, mutable extensions.
+     * @param immutable_extensions Optionally, immutable extensions.
+     */
     void SerializeExtensions(Bytes& buffer,
                              const std::optional<Extensions>& extensions,
                              const std::optional<Extensions>& immutable_extensions);
 
-    // Helper function to parse extensions with immutable extension separation
+    /**
+     * Parse extensions from MoQ encoded format.
+     * @tparam StreamBufferType
+     * @param buffer Buffer to parse from.
+     * @param extension_headers_length Extract length of all extension headers.
+     * @param extensions Parsed mutable extensions, if any.
+     * @param immutable_extensions Parsed immutable extensions, if any.
+     * @param extension_bytes_remaining Total bytes of extension headers left to parse.
+     * @param current_header Current header key being parsed.
+     * @return True if parsing completed successfully, false if not.
+     */
     template<class StreamBufferType>
     bool ParseExtensions(StreamBufferType& buffer,
                          std::optional<std::size_t>& extension_headers_length,

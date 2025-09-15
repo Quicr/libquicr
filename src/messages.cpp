@@ -158,32 +158,28 @@ namespace quicr::messages {
     {
         Extensions combined_extensions;
 
-        // Add mutable extensions
+        // Add mutable extensions.
         if (extensions.has_value()) {
             for (const auto& [key, value] : *extensions) {
                 combined_extensions[key] = value;
             }
         }
 
-        // Add combined immutable extensions
+        // Serialize immutable extensions in MoQ form, and insert into combined extensions key.
         if (immutable_extensions.has_value() && !immutable_extensions->empty()) {
-            // Validate that immutable extensions don't contain a nested immutable extension entry.
+            // Immutable extensions MUST NOT contain an immutable extension entry.
             if (immutable_extensions->contains(kImmutableExtensionsType)) {
                 throw ProtocolViolationException(
                   "An immutable extension header must not contain another immutable extension header");
             }
 
-            // Serialize immutable extensions into a byte array
+            // Serialize immutable extensions.
             Bytes immutable_data;
             immutable_data = immutable_data << *immutable_extensions;
             combined_extensions[kImmutableExtensionsType] = immutable_data;
         }
 
-        if (combined_extensions.empty()) {
-            buffer.push_back(0);
-            return;
-        }
-
+        // Serialize combined extensions.
         buffer << combined_extensions;
     }
 
@@ -195,21 +191,21 @@ namespace quicr::messages {
                          std::size_t& extension_bytes_remaining,
                          std::optional<std::uint64_t>& current_header)
     {
-        // First parse all extensions.
+        // First, parse all extensions.
         if (!ParseExtensions(buffer, extension_headers_length, extensions, extension_bytes_remaining, current_header)) {
             return false;
         }
 
-        // Split out immutable extensions
+        // Extract immutable extensions if present and deserialize.
         if (extensions.has_value() && extensions->contains(kImmutableExtensionsType)) {
             auto immutable_data = (*extensions)[kImmutableExtensionsType];
+
+            // Remove from mutable map.
             extensions->erase(kImmutableExtensionsType);
 
-            // Parse the immutable extension data
+            // Deserialize the immutable extension map.
             auto stream_buffer = SafeStreamBuffer<uint8_t>();
             stream_buffer.Push(std::span<const uint8_t>(immutable_data));
-
-            // Parse the immutable extensions from the buffer
             std::optional<std::size_t> immutable_length;
             std::size_t immutable_bytes_remaining = 0;
             std::optional<std::uint64_t> immutable_current_header;
@@ -227,7 +223,7 @@ namespace quicr::messages {
                   "Immutable Extensions header contains another Immutable Extensions key");
             }
 
-            // If extensions is now empty after removing the immutable ones, reset to null.
+            // If no mutable extensions are left, reset to null.
             if (extensions->empty()) {
                 extensions = std::nullopt;
             }
