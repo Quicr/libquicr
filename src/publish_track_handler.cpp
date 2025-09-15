@@ -156,6 +156,31 @@ namespace quicr {
 
         sent_first_header_ = true;
 
+        auto group_id_delta = object_headers.group_id - latest_group_id_;
+        auto object_id_delta = object_headers.object_id - latest_object_id_;
+
+        auto object_extensions = object_headers.extensions;
+
+        if (group_id_delta > 1) {
+            auto value = UintVar(group_id_delta);
+            if (not object_extensions.has_value()) {
+                object_extensions = {};
+            }
+
+            object_extensions->try_emplace(static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorGroupIdGap),
+                                           std::vector(value.begin(), value.end()));
+        }
+
+        if (object_id_delta > 1) {
+            auto value = UintVar(object_id_delta);
+            if (not object_extensions.has_value()) {
+                object_extensions = {};
+            }
+
+            object_extensions->try_emplace(static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorGroupIdGap),
+                                           std::vector(value.begin(), value.end()));
+        }
+
         latest_group_id_ = object_headers.group_id;
         latest_sub_group_id_ = object_headers.subgroup_id;
         publish_track_metrics_.bytes_published += data.size();
@@ -182,7 +207,9 @@ namespace quicr {
                 object.object_id = object_headers.object_id;
                 object.priority = priority;
                 object.track_alias = GetTrackAlias().value();
-                object.extensions = object_headers.extensions;
+                if (object_extensions) {
+                    object.extensions = std::move(*object_extensions);
+                }
                 object.payload.assign(data.begin(), data.end());
                 object_msg_buffer_ << object;
                 break;
@@ -230,7 +257,9 @@ namespace quicr {
                 messages::StreamSubGroupObject object;
                 object.object_id = object_id;
                 object.stream_type = GetStreamMode();
-                object.extensions = object_headers.extensions;
+                if (object_extensions) {
+                    object.extensions = std::move(*object_extensions);
+                }
                 object.payload.assign(data.begin(), data.end());
                 object_msg_buffer_ << object;
                 break;
