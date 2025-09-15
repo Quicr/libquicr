@@ -331,7 +331,7 @@ FetchStreamEncodeDecode(bool extensions, bool empty_payload)
 
     Bytes buffer;
     auto fetch_header = messages::FetchHeader{};
-    fetch_header.subscribe_id = 0x1234;
+    fetch_header.request_id = 0x1234;
 
     buffer << fetch_header;
 
@@ -339,7 +339,7 @@ FetchStreamEncodeDecode(bool extensions, bool empty_payload)
     CHECK(Verify(buffer, fetch_header_out));
     CHECK_EQ(fetch_header.type, fetch_header_out.type);
     CHECK_EQ(fetch_header.type, FetchHeaderType::kFetchHeader);
-    CHECK_EQ(fetch_header.subscribe_id, fetch_header_out.subscribe_id);
+    CHECK_EQ(fetch_header.request_id, fetch_header_out.request_id);
 
     // stream all the objects
     buffer.clear();
