@@ -117,7 +117,7 @@ namespace quicr {
             eflags.use_reset = true;
 
             messages::FetchHeader fetch_header{};
-            fetch_header.request_id = request_id;
+            fetch_header.subscribe_id = request_id;
             track_handler.object_msg_buffer_ << fetch_header;
 
             quic_transport_->Enqueue(track_handler.connection_handle_,

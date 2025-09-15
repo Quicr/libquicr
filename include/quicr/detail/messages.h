@@ -475,7 +475,7 @@ namespace quicr::messages {
     struct FetchHeader
     {
         FetchHeaderType type{ FetchHeaderType::kFetchHeader };
-        uint64_t request_id;
+        uint64_t subscribe_id;
 
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, FetchHeader& msg);
