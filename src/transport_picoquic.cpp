@@ -1166,9 +1166,9 @@ PicoQuicTransport::StreamActionCheck(DataContext* data_ctx, StreamAction stream_
             }
 
             SPDLOG_LOGGER_DEBUG(logger,
-                               "Replacing stream using FIN; conn_id: {0} existing_stream: {1}",
-                               data_ctx->conn_id,
-                               *data_ctx->current_stream_id);
+                                "Replacing stream using FIN; conn_id: {0} existing_stream: {1}",
+                                data_ctx->conn_id,
+                                *data_ctx->current_stream_id);
 
             std::lock_guard<std::mutex> _(state_mutex_);
 
