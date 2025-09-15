@@ -281,7 +281,7 @@ namespace quicr {
         /**
          * @brief Clear range of buckets
          */
-        void ClearRange(size_t start, size_t end) noexcept
+        void ClearRange(std::size_t start, std::size_t end) noexcept
         {
             auto in_use = bucket_inuse_indexes_;
             bucket_inuse_indexes_.clear();
