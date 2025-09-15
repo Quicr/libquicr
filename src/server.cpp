@@ -725,7 +725,9 @@ namespace quicr {
 
                         break;
                     }
-                    // TODO: Add support for absolute joining fetch
+                    case messages::FetchType::kAbsoluteJoiningFetch: {
+                        [[fallthrough]];
+                    }
                     case messages::FetchType::kRelativeJoiningFetch: {
                         // Joining fetch needs to look up its joining subscribe.
                         // TODO: Need a new error code for subscribe doesn't exist.
@@ -750,10 +752,29 @@ namespace quicr {
                         }
                         largest_location = *opt_largest_location;
 
-                        // TODO(RichLogan): Check this when FETCH v11 checked.
-                        const auto start_group = msg.group_1->joining.joining_start <= largest_location.group
-                                                   ? largest_location.group - msg.group_1->joining.joining_start
-                                                   : largest_location.group;
+                        messages::GroupId start_group;
+                        switch (msg.fetch_type) {
+                            case messages::FetchType::kRelativeJoiningFetch: {
+                                // Relative backwards offset.
+                                start_group = msg.group_1->joining.joining_start <= largest_location.group
+                                                ? largest_location.group - msg.group_1->joining.joining_start
+                                                : largest_location.group;
+                                break;
+                            }
+                            case messages::FetchType::kAbsoluteJoiningFetch: {
+                                // From absolute group.
+                                start_group = msg.group_1->joining.joining_start;
+                                break;
+                            }
+                            default: {
+                                // Logic error.
+                                assert(false); // Fetch switch logic has been broken.
+                                SendFetchError(
+                                  conn_ctx, msg.request_id, messages::FetchErrorCode::kInternalError, "Internal error");
+                                return true;
+                            }
+                        }
+
                         attrs.start_location = messages::Location{ start_group, 0 };
                         attrs.end_group = largest_location.group;
                         attrs.end_object = largest_location.object;
