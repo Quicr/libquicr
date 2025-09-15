@@ -4,6 +4,7 @@
 #include <quicr/common.h>
 #include <quicr/hash.h>
 #include <quicr/track_name.h>
+#include <string_view>
 
 #include <benchmark/benchmark.h>
 
@@ -19,7 +20,18 @@ TrackNamespace_ToHash(benchmark::State& state)
 {
 
     for ([[maybe_unused]] const auto& _ : state) {
-        auto h = hash(kNamespace);
+        auto h = quicr::hash(kNamespace);
+        benchmark::DoNotOptimize(h);
+        benchmark::ClobberMemory();
+    }
+}
+
+static void
+TrackNamespace_ToSTLHash(benchmark::State& state)
+{
+
+    for ([[maybe_unused]] const auto& _ : state) {
+        auto h = std::hash<std::string_view>{}({ reinterpret_cast<const char*>(kNamespace.data()), kNamespace.size() });
         benchmark::DoNotOptimize(h);
         benchmark::ClobberMemory();
     }
@@ -37,4 +49,5 @@ TrackNameHash_Construct(benchmark::State& state)
 }
 
 BENCHMARK(TrackNamespace_ToHash);
+BENCHMARK(TrackNamespace_ToSTLHash);
 BENCHMARK(TrackNameHash_Construct);
