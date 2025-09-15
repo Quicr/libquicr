@@ -14,6 +14,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 
 #include <quicr/publish_fetch_handler.h>
 
@@ -25,6 +26,7 @@ namespace qclient_vars {
     bool record = false;
     bool playback = false;
     bool new_group = false;
+    bool add_gaps = false;
     std::chrono::milliseconds playback_speed_ms(20);
 }
 
@@ -148,8 +150,20 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
             RecordObject(GetFullTrackName(), hdr, data);
         }
 
+        std::stringstream ext;
+
+        if (hdr.extensions) {
+            ext << "hdrs: ";
+
+            for (const auto& [type, value] : hdr.extensions.value()) {
+                ext << std::hex << std::setfill('0') << std::setw(2) << type;
+                ext << " = " << std::dec << std::setw(0) << uint64_t(quicr::UintVar(value)) << " ";
+            }
+        }
+
         std::string msg(data.begin(), data.end());
-        SPDLOG_INFO("Received message: Group:{0}, Object:{1} - {2}", hdr.group_id, hdr.object_id, msg);
+
+        SPDLOG_INFO("Received message: {} Group:{}, Object:{} - {}", ext.str(), hdr.group_id, hdr.object_id, msg);
 
         if (qclient_vars::new_group && not new_group_requested_) {
             SPDLOG_INFO("Track alias: {} requesting new group", GetTrackAlias().value());
@@ -571,6 +585,14 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
             group_id++;
         }
 
+        if (qclient_vars::add_gaps && group_id && group_id % 4 == 0) {
+            group_id += 1;
+        }
+
+        if (qclient_vars::add_gaps && object_id && object_id % 8 == 0) {
+            object_id += 2;
+        }
+
         std::string msg;
         if (qclient_vars::publish_clock) {
             std::this_thread::sleep_for(std::chrono::milliseconds(999));
@@ -767,6 +789,11 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         qclient_vars::playback = true;
     }
 
+    if (cli_opts.count("gaps") && cli_opts["gaps"].as<bool>() == true) {
+        SPDLOG_INFO("Adding gaps to group and objects");
+        qclient_vars::add_gaps = true;
+    }
+
     if (cli_opts.count("new_group")) {
         qclient_vars::new_group = true;
     }
@@ -821,7 +848,8 @@ main(int argc, char* argv[])
         ("pub_name", "Track name", cxxopts::value<std::string>())
         ("clock", "Publish clock timestamp every second instead of using STDIN chat")
         ("playback", "Playback recorded data from moq and dat files", cxxopts::value<bool>())
-        ("playback_speed_ms", "Playback speed in ms", cxxopts::value<std::uint64_t>());
+        ("playback_speed_ms", "Playback speed in ms", cxxopts::value<std::uint64_t>())
+        ("gaps", "Add gaps to groups and objects");
 
     options.add_options("Subscriber")
         ("sub_namespace", "Track namespace", cxxopts::value<std::string>())
