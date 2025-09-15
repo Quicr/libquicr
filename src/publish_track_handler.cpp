@@ -173,7 +173,7 @@ namespace quicr {
                                            std::vector(value.begin(), value.end()));
         }
 
-        if (object_id_delta > 2) {
+        if (object_id_delta > 1) {
             auto value = UintVar(object_id_delta - 1);
             if (not object_extensions.has_value()) {
                 object_extensions = Extensions{};
