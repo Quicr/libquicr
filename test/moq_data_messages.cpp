@@ -528,3 +528,13 @@ TEST_CASE("Immutable Extensions Nesting")
     Bytes buffer;
     CHECK_THROWS_AS(buffer << msg, ProtocolViolationException);
 }
+
+TEST_CASE("Null extensions serialize to 0 length")
+{
+    Bytes bytes;
+    std::optional<Extensions> extensions;
+    std::optional<Extensions> immutable;
+    SerializeExtensions(bytes, extensions, immutable);
+    REQUIRE_EQ(bytes.size(), 1);
+    CHECK_EQ(bytes[0], 0);
+}
