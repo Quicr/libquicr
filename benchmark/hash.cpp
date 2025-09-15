@@ -10,32 +10,31 @@
 using namespace quicr;
 using namespace std::string_literals;
 
-static void
-ToHash(benchmark::State& state)
-{
-    TrackNamespace ns{ "example"s, "chat555"s, "user1"s, "dev1"s, "time1"s };
-
-    std::vector<uint8_t> ns_bytes{ ns.begin(), ns.end() };
-
-    for ([[maybe_unused]] const auto& _ : state) {
-        auto h = hash(ns_bytes);
-        benchmark::DoNotOptimize(h);
-    }
-}
+const TrackNamespace ns{ "example"s, "chat555"s, "user1"s, "dev1"s, "time1"s };
+const std::string name_str = "test";
+const FullTrackName ftn(ns, { name_str.begin(), name_str.end() });
 
 static void
-ToHashStl(benchmark::State& state)
+TrackNamespace_ToHash(benchmark::State& state)
 {
-    TrackNamespace ns{ "example"s, "chat555"s, "user1"s, "dev1"s, "time1"s };
-
-    std::string_view ns_sv(reinterpret_cast<const char*>(ns.data()), ns.size());
 
     for ([[maybe_unused]] const auto& _ : state) {
-        auto h = std::hash<std::string_view>{}(ns_sv);
+        auto h = hash(ns);
         benchmark::DoNotOptimize(h);
         benchmark::ClobberMemory();
     }
 }
 
-BENCHMARK(ToHash);
-BENCHMARK(ToHashStl);
+static void
+TrackNameHash_Construct(benchmark::State& state)
+{
+
+    for ([[maybe_unused]] const auto& _ : state) {
+        auto h = TrackHash(ftn);
+        benchmark::DoNotOptimize(h);
+        benchmark::ClobberMemory();
+    }
+}
+
+BENCHMARK(TrackNamespace_ToHash);
+BENCHMARK(TrackNameHash_Construct);

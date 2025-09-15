@@ -3,80 +3,20 @@
 
 #pragma once
 
-#include <array>
+#include <cstdint>
 #include <span>
 #include <string_view>
-#include <vector>
 
 namespace quicr {
-    /// The generated CRC-64 table.
-    static constexpr std::array<std::uint64_t, 256> crc_table = [] {
-        std::array<std::uint64_t, 256> table;
-        for (std::uint64_t c = 0; c < 256; ++c) {
-            std::uint64_t crc = c;
-            for (std::uint64_t i = 0; i < 8; ++i) {
-                std::uint64_t b = (crc & 1);
-                crc >>= 1;
-                crc ^= (0 - b) & 0xc96c5795d7870f42ull;
-            }
-            table[c] = crc;
-        }
-
-        return table;
-    }();
 
     /**
-     * @brief Compute CRC-64-ECMA hash of string.
-     *
-     * @param bytes  Bytes to hash
-     * @returns The hash of the given bytes.
+     * @brief Hash a span of bytes to a 64bit number.
+     * @param bytes The bytes to hash.
+     * @returns The 64bit hash of the given given bytes.
      */
-    static constexpr std::uint64_t hash(const std::span<const uint8_t> bytes)
+    static inline std::uint64_t hash(std::span<const std::uint8_t> bytes)
     {
-
-        constexpr size_t word_len = sizeof(std::uint64_t);
-        std::uint64_t crc = 0;
-
-        if (bytes.size() <= word_len) {
-            std::memcpy(&crc, bytes.data(), bytes.size());
-            return crc;
-        }
-
-        /*
-        const auto word_count = bytes.size() / word_len;
-
-        auto start_it = bytes.begin();
-        for (size_t i = 0; i < word_count; ++i) {
-            uint64_t* word = (uint64_t*)&*start_it;
-
-            crc = crc_table[(crc ^ *word) & 0xFF] ^ (crc >> 8);
-
-            start_it += word_len;
-        }
-
-        for (size_t i = word_count * word_len; i < bytes.size(); i++) {
-            crc = crc_table[(crc & 0xFF) ^ bytes[i]] ^ (crc >> 8);
-        }
-        */
-
-        for (const auto& b : bytes) {
-            crc = crc_table[(crc & 0xFF) ^ b] ^ (crc >> 8);
-        }
-
-        return crc;
-    }
-
-    /**
-     * @brief Compute CRC-64-ECMA hash of string.
-     *
-     * @param str The string to hash
-     *
-     * @returns The hash of the given string.
-     */
-    [[maybe_unused]]
-    static std::uint64_t hash(const std::string_view& str)
-    {
-        return hash(std::vector<uint8_t>{ str.begin(), str.end() });
+        return std::hash<std::string_view>{}({ reinterpret_cast<const char*>(bytes.data()), bytes.size() });
     }
 
     /**
