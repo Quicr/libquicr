@@ -176,7 +176,7 @@ namespace quicr::messages {
             // Serialize immutable extensions.
             Bytes immutable_data;
             immutable_data = immutable_data << *immutable_extensions;
-            combined_extensions[kImmutableExtensionsType] = immutable_data;
+            combined_extensions[kImmutableExtensionsType] = std::move(immutable_data);
         }
 
         // Serialize combined extensions.
@@ -198,7 +198,7 @@ namespace quicr::messages {
 
         // Extract immutable extensions if present and deserialize.
         if (extensions.has_value() && extensions->contains(kImmutableExtensionsType)) {
-            auto immutable_data = (*extensions)[kImmutableExtensionsType];
+            auto immutable_data = std::move((*extensions)[kImmutableExtensionsType]);
 
             // Remove from mutable map.
             extensions->erase(kImmutableExtensionsType);
