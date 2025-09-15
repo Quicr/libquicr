@@ -278,6 +278,23 @@ namespace quicr {
             queue_index_ = bucket_index_ = 0;
         }
 
+        /**
+         * @brief Clear range of buckets
+         */
+        void ClearRange(size_t start, size_t end) noexcept
+        {
+            auto in_use = bucket_inuse_indexes_;
+            bucket_inuse_indexes_.clear();
+
+            for (const auto idx : in_use) {
+                if (idx >= start && idx <= end) {
+                    buckets_[idx].clear();
+                } else {
+                    bucket_inuse_indexes_.insert(idx);
+                }
+            }
+        }
+
       protected:
         /**
          * @brief Based on current time, adjust and move the bucket index with time
@@ -301,9 +318,16 @@ namespace quicr {
                 return current_ticks_;
             }
 
-            bucket_index_ = (bucket_index_ + delta) % total_buckets_;
-            if (!buckets_[bucket_index_].empty())
-                buckets_[bucket_index_].clear();
+            if (bucket_index_ + delta > total_buckets_) {
+                ClearRange(bucket_index_, total_buckets_);
+
+                bucket_index_ = (bucket_index_ + delta) % total_buckets_;
+
+                ClearRange(0, bucket_index_);
+            } else {
+                ClearRange(bucket_index_, bucket_index_ + delta);
+                bucket_index_ = (bucket_index_ + delta) % total_buckets_;
+            }
 
             return current_ticks_;
         }
