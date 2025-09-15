@@ -10,9 +10,9 @@
 using namespace quicr;
 using namespace std::string_literals;
 
-const TrackNamespace ns{ "example"s, "chat555"s, "user1"s, "dev1"s, "time1"s };
-const std::string name_str = "test";
-const FullTrackName ftn(ns, { name_str.begin(), name_str.end() });
+const TrackNamespace kNamespace{ "example"s, "chat555"s, "user1"s, "dev1"s, "time1"s };
+const std::string kNameStr = "test";
+const FullTrackName kFullTrackName(kNamespace, { kNameStr.begin(), kNameStr.end() });
 
 static void
 TrackNamespace_ToHash(benchmark::State& state)
@@ -30,7 +30,7 @@ TrackNameHash_Construct(benchmark::State& state)
 {
 
     for ([[maybe_unused]] const auto& _ : state) {
-        auto h = TrackHash(ftn);
+        auto h = TrackHash(kFullTrackName);
         benchmark::DoNotOptimize(h);
         benchmark::ClobberMemory();
     }
