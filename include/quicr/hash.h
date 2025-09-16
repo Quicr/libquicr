@@ -13,6 +13,12 @@
 
 namespace quicr {
     namespace detail {
+        /**
+         * @brief Computes a CityHash32 or CityHash64 hash based on the size of std::size_t.
+         * @tparam Size The size of hash to use. Currently only 32 and 64 are supported.
+         *
+         * @note Original algorithm from https://github.com/google/cityhash
+         */
         template<std::size_t Size = sizeof(std::size_t) * 8>
         class CityHash
         {
@@ -378,7 +384,7 @@ namespace quicr {
      * @param bytes The bytes to hash.
      * @returns The 64bit hash of the given given bytes.
      */
-    static inline std::uint64_t hash(std::span<const std::uint8_t> bytes)
+    constexpr std::uint64_t hash(std::span<const std::uint8_t> bytes)
     {
         return detail::CityHash{}(bytes);
     }
@@ -392,7 +398,7 @@ namespace quicr {
      * @param[in,out]   seed    Existing hash to update
      * @param[in]       value   New hash to add to the existing (combine)
      */
-    inline void hash_combine(std::uint64_t& seed, const std::uint64_t& value)
+    constexpr void hash_combine(std::uint64_t& seed, const std::uint64_t& value)
     {
         seed ^= value + 0x9e3779b9 + (seed << 6) + (value >> 2);
     }
