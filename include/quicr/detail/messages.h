@@ -66,6 +66,16 @@ namespace quicr::messages {
     };
 
     /**
+     * Extension Header Types
+     */
+    enum class ExtensionHeaderType : uint64_t
+    {
+        kImmutable = 0xb,
+        kPriorGroupIdGap = 0x3c,
+        kPriorObjectIdGap = 0x3e,
+    };
+
+    /**
      * Possible datagram object header types.
      */
     enum class DatagramHeaderType : uint8_t
@@ -506,7 +516,7 @@ namespace quicr::messages {
     struct FetchHeader
     {
         FetchHeaderType type{ FetchHeaderType::kFetchHeader };
-        uint64_t subscribe_id;
+        uint64_t request_id;
 
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, FetchHeader& msg);

@@ -18,7 +18,8 @@ namespace quicr {
         bool is_stream_header_needed{ !sent_first_header_ };
         sent_first_header_ = true;
 
-        if (!GetRequestId().has_value()) {
+        const auto request_id = GetRequestId();
+        if (!request_id.has_value()) {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
 
@@ -39,16 +40,9 @@ namespace quicr {
             eflags.clear_tx_queue = true;
             eflags.use_reset = false;
 
-            messages::StreamHeaderSubGroup subgroup_hdr;
-            subgroup_hdr.type = GetStreamMode();
-            subgroup_hdr.group_id = object_headers.group_id;
-            auto properties = messages::StreamHeaderProperties(subgroup_hdr.type);
-            if (properties.subgroup_id_type == messages::SubgroupIdType::kExplicit) {
-                subgroup_hdr.subgroup_id = object_headers.subgroup_id;
-            }
-            subgroup_hdr.priority = priority;
-            subgroup_hdr.track_alias = GetTrackAlias().value();
-            object_msg_buffer_ << subgroup_hdr;
+            messages::FetchHeader fetch_hdr;
+            fetch_hdr.request_id = *request_id;
+            object_msg_buffer_ << fetch_hdr;
 
             auto result = transport->Enqueue(
               GetConnectionId(),
@@ -70,9 +64,10 @@ namespace quicr {
             }
         }
 
-        messages::StreamSubGroupObject object;
+        messages::FetchObject object;
+        object.group_id = group_id;
         object.object_id = object_id;
-        object.stream_type = GetStreamMode();
+        object.publisher_priority = priority;
         object.extensions = object_headers.extensions;
         object.payload.assign(data.begin(), data.end());
         object_msg_buffer_ << object;

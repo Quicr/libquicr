@@ -23,6 +23,7 @@
 #include <atomic>
 #include <chrono>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <vector>
 
@@ -268,14 +269,33 @@ namespace quicr {
 
             queue_.clear();
 
-            for (auto& bucket : buckets_) {
-                bucket.clear();
+            for (const auto idx : bucket_inuse_indexes_) {
+                buckets_[idx].clear();
             }
+
+            bucket_inuse_indexes_.clear();
 
             queue_index_ = bucket_index_ = 0;
         }
 
       protected:
+        /**
+         * @brief Clear range of buckets
+         */
+        void ClearRange(std::size_t start, std::size_t end) noexcept
+        {
+            auto in_use = bucket_inuse_indexes_;
+            bucket_inuse_indexes_.clear();
+
+            for (const auto idx : in_use) {
+                if (idx >= start && idx <= end) {
+                    buckets_[idx].clear();
+                } else {
+                    bucket_inuse_indexes_.insert(idx);
+                }
+            }
+        }
+
         /**
          * @brief Based on current time, adjust and move the bucket index with time
          *        (sliding window)
@@ -298,9 +318,16 @@ namespace quicr {
                 return current_ticks_;
             }
 
-            bucket_index_ = (bucket_index_ + delta) % total_buckets_;
-            if (!buckets_[bucket_index_].empty())
-                buckets_[bucket_index_].clear();
+            if (bucket_index_ + delta > total_buckets_) {
+                ClearRange(bucket_index_, total_buckets_);
+
+                bucket_index_ = (bucket_index_ + delta) % total_buckets_;
+
+                ClearRange(0, bucket_index_);
+            } else {
+                ClearRange(bucket_index_, bucket_index_ + delta);
+                bucket_index_ = (bucket_index_ + delta) % total_buckets_;
+            }
 
             return current_ticks_;
         }
@@ -337,6 +364,8 @@ namespace quicr {
 
             const IndexType future_index = (bucket_index_ + relative_ttl - 1) % total_buckets_;
 
+            bucket_inuse_indexes_.insert(future_index);
+
             BucketType& bucket = buckets_[future_index];
 
             bucket.emplace_back(value);
@@ -364,6 +393,9 @@ namespace quicr {
 
         /// The memory storage for all elements to be managed.
         std::vector<BucketType> buckets_;
+
+        /// Set of bucket indexes that are in uses.
+        std::set<uint32_t> bucket_inuse_indexes_;
 
         /// The FIFO ordered queue of values as they were inserted.
         QueueType queue_;

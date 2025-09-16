@@ -246,7 +246,7 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 1: {
-                if (!ParseUintVField(buffer, msg.subscribe_id)) {
+                if (!ParseUintVField(buffer, msg.request_id)) {
                     return false;
                 }
                 msg.current_pos += 1;
@@ -266,7 +266,7 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const FetchHeader& msg)
     {
         buffer << UintVar(static_cast<uint64_t>(msg.type));
-        buffer << UintVar(msg.subscribe_id);
+        buffer << UintVar(msg.request_id);
         return buffer;
     }
 
