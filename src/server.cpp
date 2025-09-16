@@ -441,6 +441,96 @@ namespace quicr {
 
                 return true;
             }
+            case messages::ControlMessageType::kTrackStatus: {
+                auto msg = messages::TrackStatus(
+                  [](messages::TrackStatus& msg) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteStart ||
+                          msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                          msg.group_0 = std::make_optional<messages::TrackStatus::Group_0>();
+                      }
+                  },
+                  [](messages::TrackStatus& msg) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                          msg.group_1 = std::make_optional<messages::TrackStatus::Group_1>();
+                      }
+                  });
+
+                msg_bytes >> msg;
+
+                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
+                auto th = TrackHash(tfn);
+
+                SPDLOG_LOGGER_DEBUG(logger_,
+                                    "Received track status request_id: {} for full name hash: {}",
+                                    msg.request_id,
+                                    th.track_fullname_hash);
+
+                TrackStatusReceived(conn_ctx.connection_handle,
+                                    msg.request_id,
+                                    tfn,
+                                    { msg.subscriber_priority,
+                                      static_cast<messages::GroupOrder>(msg.group_order),
+                                      std::chrono::milliseconds{ 0 },
+                                      msg.forward });
+                return true;
+            }
+            case messages::ControlMessageType::kTrackStatusOk: {
+                auto msg = messages::TrackStatusOk([](messages::TrackStatusOk& msg) {
+                    if (msg.content_exists == 1) {
+                        msg.group_0 = std::make_optional<messages::TrackStatusOk::Group_0>();
+                    }
+                });
+                msg_bytes >> msg;
+
+                std::optional<messages::LargestLocation> largest_location;
+
+                if (msg.group_0.has_value()) {
+                    largest_location = msg.group_0->largest_location;
+                }
+
+                SPDLOG_LOGGER_DEBUG(
+                  logger_,
+                  "Received track status for request_id: {} has_content: {} largest group: {} largest object: {}",
+                  msg.request_id,
+                  msg.content_exists ? "Yes" : "No",
+                  largest_location.has_value() ? largest_location->group : 0,
+                  largest_location.has_value() ? largest_location->object : 0);
+
+                TrackStatusResponseReceived(conn_ctx.connection_handle,
+                                            msg.request_id,
+                                            { SubscribeResponse::ReasonCode::kOk, std::nullopt, largest_location });
+
+                return true;
+            }
+            case messages::ControlMessageType::kTrackStatusError: {
+                auto msg = messages::TrackStatusError{};
+                msg_bytes >> msg;
+
+                SubscribeResponse response;
+                response.error_reason = std::string(msg.error_reason.begin(), msg.error_reason.end());
+
+                SPDLOG_LOGGER_DEBUG(logger_,
+                                    "Received track status error request_id: {} error code: {} reason: {}",
+                                    msg.request_id,
+                                    static_cast<std::uint64_t>(msg.error_code),
+                                    response.error_reason.value());
+
+                switch (msg.error_code) {
+                    case messages::SubscribeErrorCode::kUnauthorized:
+                        response.reason_code = SubscribeResponse::ReasonCode::kUnauthorized;
+                        break;
+                    case messages::SubscribeErrorCode::kTrackDoesNotExist:
+                        response.reason_code = SubscribeResponse::ReasonCode::kTrackDoesNotExist;
+                        break;
+                    default:
+                        response.reason_code = SubscribeResponse::ReasonCode::kInternalError;
+                        break;
+                }
+
+                TrackStatusResponseReceived(conn_ctx.connection_handle, msg.request_id, response);
+                return true;
+            }
+
             case messages::ControlMessageType::kPublishNamespace: {
                 auto msg = messages::PublishNamespace{};
                 msg_bytes >> msg;
@@ -587,46 +677,6 @@ namespace quicr {
 
                 SPDLOG_LOGGER_INFO(
                   logger_, "Received announce cancel for namespace_hash: {0}", th.track_namespace_hash);
-                return true;
-            }
-            case messages::ControlMessageType::kTrackStatus: {
-
-                auto msg = messages::TrackStatus(
-                  [](messages::TrackStatus& msg) {
-                      if (msg.filter_type == messages::FilterType::kAbsoluteStart ||
-                          msg.filter_type == messages::FilterType::kAbsoluteRange) {
-                          msg.group_0 = std::make_optional<messages::TrackStatus::Group_0>();
-                      }
-                  },
-                  [](messages::TrackStatus& msg) {
-                      if (msg.filter_type == messages::FilterType::kAbsoluteRange) {
-                          msg.group_1 = std::make_optional<messages::TrackStatus::Group_1>();
-                      }
-                  });
-
-                msg_bytes >> msg;
-
-                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
-                auto th = TrackHash(tfn);
-
-                // TODO(Issue #657) :  Impleement state handling and response
-                SPDLOG_LOGGER_INFO(logger_,
-                                   "Received track status request for namespace_hash: {0} name_hash: {1}",
-                                   th.track_namespace_hash,
-                                   th.track_name_hash);
-                return true;
-            }
-            case messages::ControlMessageType::kTrackStatusOk: {
-                auto msg = messages::TrackStatusOk([](messages::TrackStatusOk& msg) {
-                    if (msg.content_exists == 1) {
-                        msg.group_0 = std::make_optional<messages::TrackStatusOk::Group_0>();
-                    }
-                });
-
-                msg_bytes >> msg;
-
-                // TOOD (Issue #657) :  Impleement state handling and response
-                SPDLOG_LOGGER_INFO(logger_, "Received track status for request_id: {}", msg.request_id);
                 return true;
             }
             case messages::ControlMessageType::kGoaway: {

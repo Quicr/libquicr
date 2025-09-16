@@ -3760,7 +3760,7 @@ Internet-Draft                moq-transport               September 2025
    SUBSCRIBE_ERROR message (Section 9.9).
 
    TRACK_STATUS_ERROR Message {
-  	Type (i) = 0x5,
+  	Type (i) = 0xF,
   	Length (16),
   	Request ID (i),
   	Error Code (i),

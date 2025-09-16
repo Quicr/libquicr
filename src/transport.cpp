@@ -173,6 +173,72 @@ namespace quicr {
         return Status();
     }
 
+    uint64_t Transport::RequestTrackStatus(ConnectionHandle connection_handle,
+                                           const FullTrackName& track_full_name,
+                                           const messages::SubscribeAttributes&)
+    {
+        std::lock_guard<std::mutex> _(state_mutex_);
+        auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "RequestTrackStatus conn_id: {0} does not exist.", connection_handle);
+            return 0;
+        }
+
+        auto request_id = conn_it->second.GetNextRequestId();
+
+        SendTrackStatus(conn_it->second, request_id, track_full_name);
+
+        return request_id;
+    }
+
+    void Transport::TrackStatusResponseReceived(ConnectionHandle, uint64_t, const SubscribeResponse&) {}
+
+    void Transport::TrackStatusReceived(ConnectionHandle,
+                                        uint64_t,
+                                        const FullTrackName&,
+                                        const messages::SubscribeAttributes&)
+    {
+    }
+
+    void Transport::ResolveTrackStatus(ConnectionHandle connection_handle,
+                                       uint64_t request_id,
+                                       uint64_t track_alias,
+                                       const SubscribeResponse& subscribe_response)
+    {
+        auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            return;
+        }
+
+        switch (subscribe_response.reason_code) {
+            case SubscribeResponse::ReasonCode::kOk: {
+
+                // Send the ok.
+                SendTrackStatusOk(
+                  conn_it->second, request_id, track_alias, kSubscribeExpires, subscribe_response.largest_location);
+                break;
+            }
+            case SubscribeResponse::ReasonCode::kTrackDoesNotExist:
+                SendTrackStatusError(conn_it->second,
+                                     request_id,
+                                     messages::SubscribeErrorCode::kTrackDoesNotExist,
+                                     subscribe_response.error_reason.has_value() ? *subscribe_response.error_reason
+                                                                                 : "Track does not exist");
+                break;
+            case SubscribeResponse::ReasonCode::kUnauthorized:
+                SendTrackStatusError(conn_it->second,
+                                     request_id,
+                                     messages::SubscribeErrorErrorCode::kUnauthorized,
+                                     subscribe_response.error_reason.has_value() ? *subscribe_response.error_reason
+                                                                                 : "Unauthorized");
+                break;
+            default:
+                SendTrackStatusError(
+                  conn_it->second, request_id, messages::SubscribeErrorErrorCode::kInternalError, "Internal error");
+                break;
+        }
+    }
+
     void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data)
     {
         if (not conn_ctx.ctrl_data_ctx_id) {
@@ -292,6 +358,33 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending PUBLISH_NAMESPACE_DONE (error={})", e.what());
+        // TODO: add error handling in libquicr in calling function
+    }
+
+    void Transport::SendTrackStatus(ConnectionContext& conn_ctx,
+                                    messages::RequestID request_id,
+                                    const FullTrackName& tfn)
+    try {
+        auto trackstatus = TrackStatus(request_id,
+                                       tfn.name_space,
+                                       tfn.name,
+                                       0,
+                                       GroupOrder::kOriginalPublisherOrder,
+                                       1,
+                                       FilterType::kLargestObject,
+                                       std::nullopt,
+                                       std::nullopt,
+                                       {});
+
+        Bytes buffer;
+        buffer << trackstatus;
+
+        SPDLOG_LOGGER_DEBUG(
+          logger_, "Sending TRACK_STATUS to conn_id: {0} request_id: {1}", conn_ctx.connection_handle, request_id);
+
+        SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Trac (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -482,6 +575,33 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
+    void Transport::SendTrackStatusOk(ConnectionContext& conn_ctx,
+                                      messages::RequestID request_id,
+                                      [[maybe_unused]] uint64_t track_alias,
+                                      uint64_t expires,
+                                      const std::optional<messages::Location>& largest_location)
+    try {
+        const auto trackstatus_ok = TrackStatusOk(
+          request_id,
+          0, /* Zero per MOQT draft-14 */
+          expires,
+          GroupOrder::kAscending,
+          largest_location.has_value(),
+          largest_location.has_value() ? std::make_optional(TrackStatusOk::Group_0{ *largest_location }) : std::nullopt,
+          {});
+
+        Bytes buffer;
+        buffer << trackstatus_ok;
+
+        SPDLOG_LOGGER_DEBUG(
+          logger_, "Sending TRACK_STATUS_OK to conn_id: {0} request_id: {1}", conn_ctx.connection_handle, request_id);
+
+        SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending TrackStatusOk (error={})", e.what());
+        // TODO: add error handling in libquicr in calling function
+    }
+
     void Transport::SendSubscribeOk(ConnectionContext& conn_ctx,
                                     uint64_t request_id,
                                     uint64_t track_alias,
@@ -648,6 +768,29 @@ namespace quicr {
         SendCtrlMsg(conn_it->second, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending UNSUBSCRIBE_NAMESPACE (error={})", e.what());
+        // TODO: add error handling in libquicr in calling function
+    }
+
+    void Transport::SendTrackStatusError(ConnectionContext& conn_ctx,
+                                         uint64_t request_id,
+                                         SubscribeErrorErrorCode error,
+                                         const std::string& reason)
+    try {
+        const auto trackstatus_err = TrackStatusError(request_id, error, Bytes(reason.begin(), reason.end()));
+
+        Bytes buffer;
+        buffer << trackstatus_err;
+
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending TRACK_STATUS_ERROR to conn_id: {0} request_id: {1} error code: {2} reason: {3}",
+                            conn_ctx.connection_handle,
+                            request_id,
+                            static_cast<int>(error),
+                            reason);
+
+        SendCtrlMsg(conn_ctx, buffer);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending TRACK_STATUS_ERROR (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
