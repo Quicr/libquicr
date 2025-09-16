@@ -207,6 +207,7 @@ namespace quicr {
     {
         auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_DEBUG(logger_, "ResolveTrackStatus conn_id: {} not found, ignoring", connection_handle);
             return;
         }
 

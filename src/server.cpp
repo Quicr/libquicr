@@ -476,7 +476,7 @@ namespace quicr {
             }
             case messages::ControlMessageType::kTrackStatusOk: {
                 auto msg = messages::TrackStatusOk([](messages::TrackStatusOk& msg) {
-                    if (msg.content_exists == 1) {
+                    if (msg.content_exists) {
                         msg.group_0 = std::make_optional<messages::TrackStatusOk::Group_0>();
                     }
                 });

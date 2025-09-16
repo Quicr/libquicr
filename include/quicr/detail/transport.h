@@ -226,9 +226,10 @@ namespace quicr {
          *      track status request, ok, and error are the same as subscribe
          *
          * @param connection_handle        source connection ID
-         * @param request_id               Request ID
-         * @param track_alias              Track alias the subscriber should use.
-         * @param subscribe_response       response to for the subscribe
+         * @param request_id               Request ID that was provided by TrackStatusReceived
+         * @param track_alias              Track alias for the track
+         * @param subscribe_response       Response to the track status request, either Ok or Error.
+         *                                 Largest loation should be set if kOk and there is content
          */
         virtual void ResolveTrackStatus(ConnectionHandle connection_handle,
                                         uint64_t request_id,
@@ -255,7 +256,7 @@ namespace quicr {
         virtual void StatusChanged([[maybe_unused]] Status status) {}
 
         /**
-         * @brief Callback notification for track status received
+         * @brief Callback notification for track status message received
          *
          * @note The caller **MUST** respond to this via ResolveTrackStatus(). If the caller does not
          * override this method, the default will call ResolveTrackStatus() with the status of OK
