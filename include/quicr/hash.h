@@ -59,10 +59,10 @@ namespace quicr {
             constexpr std::uint32_t Mur(std::uint32_t a, std::uint32_t h)
             {
                 a *= c1;
-                a = Rotate<std::uint32_t>(a, 17);
+                a = Rotate(a, 17);
                 a *= c2;
                 h ^= a;
-                h = Rotate<std::uint32_t>(h, 19);
+                h = Rotate(h, 19);
                 return h * 5 + 0xe6546b64;
             }
 
@@ -262,51 +262,51 @@ namespace quicr {
                 return Hash32Len13to24(bytes);
             }
 
-            std::uint32_t a0 = Rotate<std::uint32_t>(Fetch<std::uint32_t>(bytes.subspan(len - 4)) * c1, 17) * c2;
-            std::uint32_t a1 = Rotate<std::uint32_t>(Fetch<std::uint32_t>(bytes.subspan(len - 8)) * c1, 17) * c2;
-            std::uint32_t a2 = Rotate<std::uint32_t>(Fetch<std::uint32_t>(bytes.subspan(len - 16)) * c1, 17) * c2;
-            std::uint32_t a3 = Rotate<std::uint32_t>(Fetch<std::uint32_t>(bytes.subspan(len - 12)) * c1, 17) * c2;
-            std::uint32_t a4 = Rotate<std::uint32_t>(Fetch<std::uint32_t>(bytes.subspan(len - 20)) * c1, 17) * c2;
+            std::uint32_t a0 = Rotate(Fetch<std::uint32_t>(bytes.subspan(len - 4)) * c1, 17) * c2;
+            std::uint32_t a1 = Rotate(Fetch<std::uint32_t>(bytes.subspan(len - 8)) * c1, 17) * c2;
+            std::uint32_t a2 = Rotate(Fetch<std::uint32_t>(bytes.subspan(len - 16)) * c1, 17) * c2;
+            std::uint32_t a3 = Rotate(Fetch<std::uint32_t>(bytes.subspan(len - 12)) * c1, 17) * c2;
+            std::uint32_t a4 = Rotate(Fetch<std::uint32_t>(bytes.subspan(len - 20)) * c1, 17) * c2;
 
             std::uint32_t h = static_cast<std::uint32_t>(len);
             std::uint32_t g = c1 * h;
             std::uint32_t f = g;
 
             h ^= a0;
-            h = Rotate<std::uint32_t>(h, 19);
+            h = Rotate(h, 19);
             h = h * 5 + 0xe6546b64;
             h ^= a2;
-            h = Rotate<std::uint32_t>(h, 19);
+            h = Rotate(h, 19);
             h = h * 5 + 0xe6546b64;
             g ^= a1;
-            g = Rotate<std::uint32_t>(g, 19);
+            g = Rotate(g, 19);
             g = g * 5 + 0xe6546b64;
             g ^= a3;
-            g = Rotate<std::uint32_t>(g, 19);
+            g = Rotate(g, 19);
             g = g * 5 + 0xe6546b64;
             f += a4;
-            f = Rotate<std::uint32_t>(f, 19);
+            f = Rotate(f, 19);
             f = f * 5 + 0xe6546b64;
 
             std::size_t iters = (len - 1) / 20;
 
             do {
-                std::uint32_t a0 = Rotate<std::uint32_t>(Fetch<std::uint32_t>(bytes) * c1, 17) * c2;
+                std::uint32_t a0 = Rotate(Fetch<std::uint32_t>(bytes) * c1, 17) * c2;
                 std::uint32_t a1 = Fetch<std::uint32_t>(bytes.subspan(4));
-                std::uint32_t a2 = Rotate<std::uint32_t>(Fetch<std::uint32_t>(bytes.subspan(8)) * c1, 17) * c2;
-                std::uint32_t a3 = Rotate<std::uint32_t>(Fetch<std::uint32_t>(bytes.subspan(12)) * c1, 17) * c2;
+                std::uint32_t a2 = Rotate(Fetch<std::uint32_t>(bytes.subspan(8)) * c1, 17) * c2;
+                std::uint32_t a3 = Rotate(Fetch<std::uint32_t>(bytes.subspan(12)) * c1, 17) * c2;
                 std::uint32_t a4 = Fetch<std::uint32_t>(bytes.subspan(16));
                 h ^= a0;
-                h = Rotate<std::uint32_t>(h, 18);
+                h = Rotate(h, 18);
                 h = h * 5 + 0xe6546b64;
                 f += a1;
-                f = Rotate<std::uint32_t>(f, 19);
+                f = Rotate(f, 19);
                 f = f * c1;
                 g += a2;
-                g = Rotate<std::uint32_t>(g, 18);
+                g = Rotate(g, 18);
                 g = g * 5 + 0xe6546b64;
                 h ^= a3 + a1;
-                h = Rotate<std::uint32_t>(h, 19);
+                h = Rotate(h, 19);
                 h = h * 5 + 0xe6546b64;
                 g ^= a4;
                 g = SwapBytes(g) * 5;
@@ -320,16 +320,16 @@ namespace quicr {
                 bytes = bytes.subspan(20);
             } while (--iters != 0);
 
-            g = Rotate<std::uint32_t>(g, 11) * c1;
-            g = Rotate<std::uint32_t>(g, 17) * c1;
-            f = Rotate<std::uint32_t>(f, 11) * c1;
-            f = Rotate<std::uint32_t>(f, 17) * c1;
-            h = Rotate<std::uint32_t>(h + g, 19);
+            g = Rotate(g, 11) * c1;
+            g = Rotate(g, 17) * c1;
+            f = Rotate(f, 11) * c1;
+            f = Rotate(f, 17) * c1;
+            h = Rotate(h + g, 19);
             h = h * 5 + 0xe6546b64;
-            h = Rotate<std::uint32_t>(h, 17) * c1;
-            h = Rotate<std::uint32_t>(h + f, 19);
+            h = Rotate(h, 17) * c1;
+            h = Rotate(h + f, 19);
             h = h * 5 + 0xe6546b64;
-            h = Rotate<std::uint32_t>(h, 17) * c1;
+            h = Rotate(h, 17) * c1;
             return h;
         }
 
@@ -360,11 +360,11 @@ namespace quicr {
             // Decrease len to the nearest multiple of 64, and operate on 64-byte chunks.
             len = (len - 1) & ~static_cast<size_t>(63);
             do {
-                x = Rotate<std::uint64_t>(x + y + v[0] + Fetch<std::uint64_t>(bytes.subspan(8)), 37) * k1;
-                y = Rotate<std::uint64_t>(y + v[1] + Fetch<std::uint64_t>(bytes.subspan(48)), 42) * k1;
+                x = Rotate(x + y + v[0] + Fetch<std::uint64_t>(bytes.subspan(8)), 37) * k1;
+                y = Rotate(y + v[1] + Fetch<std::uint64_t>(bytes.subspan(48)), 42) * k1;
                 x ^= w[1];
                 y += v[0] + Fetch<std::uint64_t>(bytes.subspan(40));
-                z = Rotate<std::uint64_t>(z + w[0], 33) * k1;
+                z = Rotate(z + w[0], 33) * k1;
                 v = WeakHashLen32WithSeeds(bytes, v[1] * k1, x + w[0]);
                 w = WeakHashLen32WithSeeds(bytes.subspan(32), z + w[1], y + Fetch<std::uint64_t>(bytes.subspan(16)));
                 std::swap(z, x);
