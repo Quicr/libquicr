@@ -431,7 +431,8 @@ namespace quicr {
                               messages::SubscriberPriority priority,
                               messages::GroupOrder group_order,
                               messages::RequestID joining_request_id,
-                              messages::GroupId preceding_group_offset,
+                              messages::GroupId joining_start,
+                              bool absolute,
                               const messages::Parameters parameters);
         void SendFetchCancel(ConnectionContext& conn_ctx, messages::RequestID request_id);
         void SendFetchOk(ConnectionContext& conn_ctx,
