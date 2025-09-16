@@ -23,6 +23,7 @@ def main(rfc_filename, output_name):
         "Fetch Type": "quicr::messages::FetchType",
         "PublishDone::StatusCode": "quicr::messages::PublishDoneStatusCode",
         "SubscribeError::ErrorCode": "quicr::messages::SubscribeErrorCode",
+        "TrackStatusError::ErrorCode": "quicr::messages::SubscribeErrorCode",
         "PublishNamespaceError::ErrorCode": "quicr::messages::PublishNamespaceErrorCode",
         "SubscribeNamespaceError::ErrorCode": "quicr::messages::SubscribeNamespaceErrorCode",
         "FetchError::ErrorCode": "quicr::messages::FetchErrorCode",

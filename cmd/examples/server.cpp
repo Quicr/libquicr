@@ -825,6 +825,58 @@ class MyServer : public quicr::Server
         }
     }
 
+    void TrackStatusReceived(quicr::ConnectionHandle connection_handle,
+                             uint64_t request_id,
+                             const quicr::FullTrackName& track_full_name,
+                             [[maybe_unused]] const quicr::messages::SubscribeAttributes& subscribe_attributes) override
+    {
+        auto th = quicr::TrackHash(track_full_name);
+
+        SPDLOG_INFO("Track status request connection handle: {} request_id: {} track alias: {}",
+                    connection_handle,
+                    request_id,
+                    th.track_fullname_hash);
+
+        std::optional<quicr::messages::Location> largest_location = std::nullopt;
+
+        auto cache_entry_it = qserver_vars::cache.find(th.track_fullname_hash);
+        if (cache_entry_it != qserver_vars::cache.end()) {
+            auto& [_, cache] = *cache_entry_it;
+            if (const auto& latest_group = cache.Last(); latest_group && !latest_group->empty()) {
+                const auto& latest_object = std::prev(latest_group->end());
+                largest_location = { latest_object->headers.group_id, latest_object->headers.object_id };
+            }
+        }
+
+        const auto pubs_it = qserver_vars::pub_subscribes.find(th.track_fullname_hash);
+        if (pubs_it != qserver_vars::pub_subscribes.end()) {
+
+            for (const auto& [conn_id, _] : pubs_it->second) {
+                if (conn_id != connection_handle) {
+                    ResolveTrackStatus(connection_handle,
+                                       request_id,
+                                       th.track_fullname_hash,
+                                       {
+                                         quicr::SubscribeResponse::ReasonCode::kOk,
+                                         std::nullopt,
+                                         largest_location,
+                                       });
+
+                    return;
+                }
+            }
+        }
+
+        ResolveTrackStatus(connection_handle,
+                           request_id,
+                           th.track_fullname_hash,
+                           {
+                             quicr::SubscribeResponse::ReasonCode::kTrackDoesNotExist,
+                             "Track does not exist",
+                             largest_location,
+                           });
+    }
+
     void SubscribeReceived(quicr::ConnectionHandle connection_handle,
                            uint64_t request_id,
                            [[maybe_unused]] quicr::messages::FilterType filter_type,

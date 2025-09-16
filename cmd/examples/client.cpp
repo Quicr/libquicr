@@ -27,7 +27,9 @@ namespace qclient_vars {
     bool playback = false;
     bool new_group = false;
     bool add_gaps = false;
+    bool req_track_status = false;
     std::chrono::milliseconds playback_speed_ms(20);
+
 }
 
 namespace qclient_consts {
@@ -440,8 +442,29 @@ class MyClient : public quicr::Client
         return true;
     }
 
+    void TrackStatusResponseReceived(quicr::ConnectionHandle,
+                                     uint64_t request_id,
+                                     const quicr::SubscribeResponse& response) override
+    {
+        switch (response.reason_code) {
+            case quicr::SubscribeResponse::ReasonCode::kOk:
+                SPDLOG_INFO("Request track status OK response request_id: {} largest group: {} object: {}",
+                            request_id,
+                            response.largest_location.has_value() ? response.largest_location->group : 0,
+                            response.largest_location.has_value() ? response.largest_location->object : 0);
+                break;
+            default:
+                SPDLOG_INFO("Request track status response ERROR request_id: {} error: {} reason: {}",
+                            request_id,
+                            static_cast<int>(response.reason_code),
+                            response.error_reason.has_value() ? response.error_reason.value() : "");
+                break;
+        }
+    }
+
   private:
     bool& stop_threads_;
+    uint64_t track_status_request_id_;
 };
 
 /*===========================================================================*/
@@ -798,6 +821,10 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         qclient_vars::new_group = true;
     }
 
+    if (cli_opts.count("track_status")) {
+        qclient_vars::req_track_status = true;
+    }
+
     if (cli_opts.count("playback_speed_ms")) {
         qclient_vars::playback_speed_ms = std::chrono::milliseconds(cli_opts["playback_speed_ms"].as<uint64_t>());
     }
@@ -858,7 +885,8 @@ main(int argc, char* argv[])
         ("sub_announces", "Prefix namespace to subscribe announces to", cxxopts::value<std::string>())
         ("record", "Record incoming data to moq and dat files", cxxopts::value<bool>())
         ("new_group", "Request new group on subscribe", cxxopts::value<bool>())
-        ("joining_fetch", "Subscribe with a joining fetch", cxxopts::value<bool>());
+        ("joining_fetch", "Subscribe with a joining fetch", cxxopts::value<bool>())
+        ("track_status", "Request track status using sub_namespace and sub_name options", cxxopts::value<bool>());
 
     options.add_options("Fetcher")
         ("fetch_namespace", "Track namespace", cxxopts::value<std::string>())
@@ -940,6 +968,10 @@ main(int argc, char* argv[])
 
             const auto& sub_track_name = quicr::example::MakeFullTrackName(result["sub_namespace"].as<std::string>(),
                                                                            result["sub_name"].as<std::string>());
+
+            if (qclient_vars::req_track_status) {
+                client->RequestTrackStatus(sub_track_name);
+            }
 
             sub_thread =
               std::thread(DoSubscriber, sub_track_name, client, filter_type, std::ref(stop_threads), joining_fetch);
