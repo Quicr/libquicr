@@ -261,6 +261,23 @@ namespace quicr {
         TrackNamespace name_space;
         std::vector<uint8_t> name;
     };
+}
+
+template<>
+struct std::hash<quicr::FullTrackName>
+{
+    constexpr std::size_t operator()(const quicr::FullTrackName& ftn) const
+    {
+        std::uint64_t h = 0;
+        quicr::hash_combine(h, std::hash<quicr::TrackNamespace>{}(ftn.name_space));
+        quicr::hash_combine(h, std::hash<std::span<const std::uint8_t>>{}(ftn.name));
+
+        // TODO(tievens): Evaluate; change hash to be more than 62 bits to avoid collisions
+        return (h << 2) >> 2;
+    }
+};
+
+namespace quicr {
 
     struct TrackHash
     {
@@ -283,28 +300,11 @@ namespace quicr {
         TrackHash(const FullTrackName& ftn) noexcept
           : track_namespace_hash{ hash(ftn.name_space) }
           , track_name_hash{ hash(ftn.name) }
+          , track_fullname_hash(std::hash<FullTrackName>{}(ftn))
         {
-            hash_combine(track_fullname_hash, track_namespace_hash);
-            hash_combine(track_fullname_hash, track_name_hash);
-
-            // TODO(tievens): Evaluate; change hash to be more than 62 bits to avoid collisions
-            track_fullname_hash = (track_fullname_hash << 2) >> 2;
         }
 
-        TrackHash(const TrackHash& other)
-        {
-            track_fullname_hash = other.track_fullname_hash;
-            track_namespace_hash = other.track_namespace_hash;
-            track_name_hash = other.track_name_hash;
-        }
-
-        TrackHash& operator=(const TrackHash& other)
-        {
-            track_fullname_hash = other.track_fullname_hash;
-            track_namespace_hash = other.track_namespace_hash;
-            track_name_hash = other.track_name_hash;
-            return *this;
-        }
+        TrackHash(const TrackHash&) = default;
+        TrackHash& operator=(const TrackHash&) = default;
     };
-
 }

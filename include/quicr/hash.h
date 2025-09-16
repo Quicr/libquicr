@@ -13,9 +13,20 @@
 
 namespace quicr {
     namespace detail {
-        using uint128_t = std::array<std::uint64_t, 2>;
+        template<std::size_t Size = sizeof(std::size_t) * 8>
+        class CityHash
+        {
+            static_assert((Size == 32 || Size == 64), "CityHash must be of valid size (32 or 64)");
 
-        namespace {
+            using uint128_t = std::array<std::uint64_t, 2>;
+
+            static constexpr std::uint32_t c1 = 0xcc9e2d51;
+            static constexpr std::uint32_t c2 = 0x1b873593;
+            static constexpr std::uint64_t k0 = 0xc3a5c85c97cb3127ULL;
+            static constexpr std::uint64_t k1 = 0xb492b66fbe98f273ULL;
+            static constexpr std::uint64_t k2 = 0x9ae16a3b2f90404fULL;
+
+          private:
             template<std::unsigned_integral T>
             constexpr T UnalignedLoad(std::span<const std::uint8_t> bytes)
             {
@@ -53,9 +64,6 @@ namespace quicr {
                 return h;
             }
 
-            constexpr std::uint32_t c1 = 0xcc9e2d51;
-            constexpr std::uint32_t c2 = 0x1b873593;
-
             constexpr std::uint32_t Mur(std::uint32_t a, std::uint32_t h)
             {
                 a *= c1;
@@ -65,10 +73,6 @@ namespace quicr {
                 h = Rotate(h, 19);
                 return h * 5 + 0xe6546b64;
             }
-
-            constexpr std::uint64_t k0 = 0xc3a5c85c97cb3127ULL;
-            constexpr std::uint64_t k1 = 0xb492b66fbe98f273ULL;
-            constexpr std::uint64_t k2 = 0x9ae16a3b2f90404fULL;
 
             constexpr std::uint32_t Hash32Len13to24(std::span<const std::uint8_t> bytes)
             {
@@ -116,10 +120,7 @@ namespace quicr {
                 return fmix(Mur(c, Mur(b, Mur(a, d))));
             }
 
-            constexpr std::uint64_t ShiftMix(std::uint64_t val)
-            {
-                return val ^ (val >> 47);
-            }
+            constexpr std::uint64_t ShiftMix(std::uint64_t val) { return val ^ (val >> 47); }
 
             constexpr std::uint64_t Hash128to64(const uint128_t& x)
             {
@@ -240,17 +241,13 @@ namespace quicr {
 
                 return b + x;
             }
-        }
 
-        template<std::size_t Size>
-        constexpr std::size_t CityHash(std::span<const std::uint8_t>)
-        {
-            static_assert((Size == 32 || Size == 64) && false, "CityHash must be of valid size (32 or 64)");
-            return -1;
-        }
+          public:
+            constexpr std::size_t operator()(std::span<const std::uint8_t>) { return -1; }
+        };
 
         template<>
-        constexpr std::size_t CityHash<32>(std::span<const std::uint8_t> bytes)
+        constexpr std::size_t CityHash<32>::operator()(std::span<const std::uint8_t> bytes)
         {
             const std::size_t len = bytes.size();
 
@@ -334,7 +331,7 @@ namespace quicr {
         }
 
         template<>
-        constexpr std::size_t CityHash<64>(std::span<const std::uint8_t> bytes)
+        constexpr std::size_t CityHash<64>::operator()(std::span<const std::uint8_t> bytes)
         {
             std::size_t len = bytes.size();
 
@@ -371,6 +368,7 @@ namespace quicr {
                 bytes = bytes.subspan(64);
                 len -= 64;
             } while (len != 0);
+
             return HashLen16(HashLen16(v[0], w[0]) + ShiftMix(y) * k1 + z, HashLen16(v[1], w[1]) + x);
         }
     }
@@ -382,7 +380,7 @@ namespace quicr {
      */
     static inline std::uint64_t hash(std::span<const std::uint8_t> bytes)
     {
-        return detail::CityHash<sizeof(std::size_t) * 8>(bytes);
+        return detail::CityHash{}(bytes);
     }
 
     /**
@@ -391,12 +389,17 @@ namespace quicr {
      * @details Adds/combines new hash to existing hash. Existing hash will
      *       be updated.
      *
-     * @param[in,out]   existing_hash   Existing hash to update
-     * @param[in]       add_hash        New hash to add to the existing (combine)
+     * @param[in,out]   seed    Existing hash to update
+     * @param[in]       value   New hash to add to the existing (combine)
      */
-    inline void hash_combine(uint64_t& existing_hash, const uint64_t& add_hash)
+    inline void hash_combine(std::uint64_t& seed, const std::uint64_t& value)
     {
-        existing_hash ^= add_hash + 0x9e3779b9 + (existing_hash << 6) + (add_hash >> 2);
+        seed ^= value + 0x9e3779b9 + (seed << 6) + (value >> 2);
     }
-
 }
+
+template<>
+struct std::hash<std::span<const std::uint8_t>>
+{
+    constexpr std::size_t operator()(std::span<const std::uint8_t> bytes) const { return quicr::hash(bytes); }
+};
