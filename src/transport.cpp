@@ -443,7 +443,8 @@ namespace quicr {
     }
 
     void Transport::SendSubscribeUpdate(const ConnectionContext& conn_ctx,
-                                        uint64_t request_id,
+                                        messages::RequestID request_id,
+                                        messages::RequestID subscribe_request_id,
                                         quicr::TrackHash th,
                                         Location start_location,
                                         messages::GroupId end_group_id,
@@ -451,14 +452,8 @@ namespace quicr {
                                         bool forward,
                                         bool new_group_request)
     try {
-        auto subscribe_update =
-          messages::SubscribeUpdate(request_id, // Issue #660: This needs to be its own request id space
-                                    request_id,
-                                    start_location,
-                                    end_group_id,
-                                    priority,
-                                    static_cast<int>(forward),
-                                    {});
+        auto subscribe_update = messages::SubscribeUpdate(
+          request_id, subscribe_request_id, start_location, end_group_id, priority, static_cast<int>(forward), {});
 
         if (new_group_request) {
             subscribe_update.parameters.push_back({ .type = ParameterType::kNewGroupRequest, .value = { 1 } });
@@ -471,7 +466,7 @@ namespace quicr {
                             "Sending SUBSCRIBE_UPDATE to conn_id: {0} request_id: {1} track namespace hash: {2} name "
                             "hash: {3} forward: {4}",
                             conn_ctx.connection_handle,
-                            request_id,
+                            subscribe_request_id,
                             th.track_namespace_hash,
                             th.track_name_hash,
                             forward);
@@ -901,6 +896,7 @@ namespace quicr {
 
         auto priority = track_handler->GetPriority();
         SendSubscribeUpdate(conn_it->second,
+                            conn_it->second.GetNextRequestId(),
                             track_handler->GetRequestId().value(),
                             th,
                             { 0x0, 0x0 },
@@ -1719,7 +1715,7 @@ namespace quicr {
         return shared_from_this();
     }
 
-    const Transport::ConnectionContext& Transport::GetConnectionContext(ConnectionHandle conn) const
+    Transport::ConnectionContext& Transport::GetConnectionContext(ConnectionHandle conn)
     {
         return connections_.at(conn);
     }

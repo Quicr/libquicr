@@ -853,13 +853,15 @@ namespace quicr {
                 messages::SubscribeUpdate msg;
                 msg_bytes >> msg;
 
-                auto sub_ctx_it = conn_ctx.recv_req_id.find(msg.request_id);
+                auto sub_ctx_it = conn_ctx.recv_req_id.find(msg.subscription_request_id);
                 if (sub_ctx_it == conn_ctx.recv_req_id.end()) {
                     // update for invalid subscription
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received subscribe_update for unknown subscription conn_id: {} request_id: {}",
-                                       msg.request_id,
-                                       conn_ctx.connection_handle);
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received subscribe_update for unknown subscription conn_id: {} request_id: {} / {}",
+                      msg.request_id,
+                      msg.subscription_request_id,
+                      conn_ctx.connection_handle);
 
                     SendSubscribeError(
                       conn_ctx, msg.request_id, messages::SubscribeErrorCode::kTrackNotExist, "Subscription not found");
@@ -867,7 +869,11 @@ namespace quicr {
                 }
 
                 SPDLOG_LOGGER_DEBUG(
-                  logger_, "Received subscribe_update to recv request_id: {} forward: {}", msg.request_id, msg.forward);
+                  logger_,
+                  "Received subscribe_update to recv request_id: {} subscribe request_id: {} forward: {}",
+                  msg.request_id,
+                  msg.subscription_request_id,
+                  msg.forward);
 
                 /*
                  * Unlike client, server supports multi-publisher to the client.

@@ -20,6 +20,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
+#include <atomic>
 #include <map>
 #include <string>
 #include <string_view>
@@ -265,6 +266,11 @@ namespace quicr {
         static constexpr std::size_t kControlMessageBufferSize = 4096;
         struct ConnectionContext
         {
+            ConnectionContext(const ConnectionContext& other)
+              : next_request_id(other.next_request_id.load(std::memory_order_seq_cst))
+            {
+            }
+
             ConnectionHandle connection_handle{ 0 };
             std::optional<uint64_t> ctrl_data_ctx_id;
             bool setup_complete{ false }; ///< True if both client and server setup messages have completed
@@ -278,7 +284,7 @@ namespace quicr {
             /** Next Connection request Id. This value is shifted left when setting Request Id.
              * The least significant bit is used to indicate client (0) vs server (1).
              */
-            uint64_t next_request_id{ 0 }; ///< Connection specific ID for control messages messages
+            std::atomic<uint64_t> next_request_id{ 0 }; ///< Connection specific ID for control messages messages
 
             /// Subscribe Context by received subscribe IDs
             /// Used to map published tracks to subscribes in client mode and to handle joining fetch lookups
@@ -339,7 +345,7 @@ namespace quicr {
              */
             uint64_t GetNextRequestId()
             {
-                auto rid = next_request_id;
+                uint64_t rid = next_request_id;
                 next_request_id += 2;
 
                 return rid;
@@ -370,6 +376,7 @@ namespace quicr {
                            std::chrono::milliseconds delivery_timeout);
         void SendSubscribeUpdate(const ConnectionContext& conn_ctx,
                                  messages::RequestID request_id,
+                                 messages::RequestID subscribe_request_id,
                                  TrackHash th,
                                  messages::Location start_location,
                                  messages::GroupId end_group_id,
@@ -488,7 +495,7 @@ namespace quicr {
       protected:
         std::shared_ptr<Transport> GetSharedPtr();
 
-        const ConnectionContext& GetConnectionContext(ConnectionHandle conn) const;
+        ConnectionContext& GetConnectionContext(ConnectionHandle conn);
 
         // -------------------------------------------------------------------------------------------------
 

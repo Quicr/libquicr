@@ -235,7 +235,7 @@ namespace quicr {
                 messages::SubscribeUpdate msg;
                 msg_bytes >> msg;
 
-                if (conn_ctx.recv_req_id.count(msg.request_id) == 0) {
+                if (conn_ctx.recv_req_id.count(msg.subscription_request_id) == 0) {
                     // update for invalid subscription
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received subscribe_update request_id: {} for unknown subscription conn_id: {}",
@@ -247,7 +247,7 @@ namespace quicr {
                     return true;
                 }
 
-                auto th = conn_ctx.recv_req_id[msg.request_id].track_hash;
+                auto th = conn_ctx.recv_req_id[msg.subscription_request_id].track_hash;
 
                 // For client/publisher, notify track that there is a subscriber
                 auto ptd = GetPubTrackHandler(conn_ctx, th);
@@ -267,9 +267,11 @@ namespace quicr {
                 }
 
                 SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received subscribe_update to track alias: {0} recv request_id: {1} forward: {2}",
+                                    "Received subscribe_update to track alias: {} recv request_id: {} subscribe "
+                                    "request_id: {} forward: {}",
                                     th.track_fullname_hash,
                                     msg.request_id,
+                                    msg.subscription_request_id,
                                     msg.forward);
 
                 if (not msg.forward) {
