@@ -69,6 +69,7 @@ namespace quicr {
         object.object_id = object_id;
         object.publisher_priority = priority;
         object.extensions = object_headers.extensions;
+        object.immutable_extensions = object_headers.immutable_extensions;
         object.payload.assign(data.begin(), data.end());
         object_msg_buffer_ << object;
 

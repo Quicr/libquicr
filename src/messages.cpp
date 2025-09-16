@@ -165,10 +165,12 @@ namespace quicr::messages {
             }
         }
 
+        constexpr auto immutable_key = static_cast<std::uint64_t>(ExtensionHeaderType::kImmutable);
+
         // Serialize immutable extensions in MoQ form, and insert into combined extensions key.
         if (immutable_extensions.has_value() && !immutable_extensions->empty()) {
             // Immutable extensions MUST NOT contain an immutable extension entry.
-            if (immutable_extensions->contains(kImmutableExtensionsType)) {
+            if (immutable_extensions->contains(immutable_key)) {
                 throw ProtocolViolationException(
                   "An immutable extension header must not contain another immutable extension header");
             }
@@ -176,7 +178,7 @@ namespace quicr::messages {
             // Serialize immutable extensions.
             Bytes immutable_data;
             immutable_data = immutable_data << *immutable_extensions;
-            combined_extensions[kImmutableExtensionsType] = std::move(immutable_data);
+            combined_extensions[immutable_key] = std::move(immutable_data);
         }
 
         // Serialize combined extensions.
@@ -196,15 +198,17 @@ namespace quicr::messages {
             return false;
         }
 
+        constexpr auto immutable_key = static_cast<std::uint64_t>(ExtensionHeaderType::kImmutable);
+
         // Extract immutable extensions if present and deserialize.
-        if (extensions.has_value() && extensions->contains(kImmutableExtensionsType)) {
-            auto immutable_data = std::move((*extensions)[kImmutableExtensionsType]);
+        if (extensions.has_value() && extensions->contains(immutable_key)) {
+            auto immutable_data = std::move((*extensions)[immutable_key]);
 
             // Remove from mutable map.
-            extensions->erase(kImmutableExtensionsType);
+            extensions->erase(immutable_key);
 
             // Deserialize the immutable extension map.
-            auto stream_buffer = SafeStreamBuffer<uint8_t>();
+            auto stream_buffer = StreamBuffer<uint8_t>();
             stream_buffer.Push(std::span<const uint8_t>(immutable_data));
             std::optional<std::size_t> immutable_length;
             std::size_t immutable_bytes_remaining = 0;
@@ -218,7 +222,7 @@ namespace quicr::messages {
             }
 
             // Validate that immutable extensions don't nest.
-            if (immutable_extensions.has_value() && immutable_extensions->contains(kImmutableExtensionsType)) {
+            if (immutable_extensions.has_value() && immutable_extensions->contains(immutable_key)) {
                 throw ProtocolViolationException(
                   "Immutable Extensions header contains another Immutable Extensions key");
             }

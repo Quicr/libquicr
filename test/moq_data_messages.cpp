@@ -512,7 +512,8 @@ TEST_CASE("Key Value Pair size")
 TEST_CASE("Immutable Extensions Nesting")
 {
     Extensions nested_immutable = {
-        { kImmutableExtensionsType, { 0xAA, 0xBB } } // This should cause validation to fail
+        { static_cast<std::uint64_t>(ExtensionHeaderType::kImmutable),
+          { 0xAA, 0xBB } } // This should cause validation to fail
     };
 
     FetchObject msg;

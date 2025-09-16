@@ -136,7 +136,8 @@ TEST_CASE("Integration - Handlers with no transport")
                                   .priority = 0,
                                   .ttl = 100,
                                   .track_mode = TrackMode::kStream,
-                                  .extensions = std::nullopt };
+                                  .extensions = std::nullopt,
+                                  .immutable_extensions = std::nullopt };
         const auto status = handler->PublishObject(headers, std::vector<uint8_t>(1));
         CHECK_EQ(status, PublishTrackHandler::PublishObjectStatus::kInternalError);
     }
