@@ -234,8 +234,10 @@ namespace quicr {
                 std::uint64_t x = Rotate(e + f, 42) + c;
                 std::uint64_t y = (SwapBytes((v + w) * mul) + g) * mul;
                 std::uint64_t z = e + f + c;
+
                 a = SwapBytes((x + z) * mul + y) + b;
                 b = ShiftMix((z + a) * mul + d + h) * mul;
+
                 return b + x;
             }
         }
@@ -243,7 +245,7 @@ namespace quicr {
         template<std::size_t Size>
         constexpr std::size_t CityHash(std::span<const std::uint8_t>)
         {
-            static_assert(false, "CityHash must be of valid size (32 or 64)");
+            static_assert((Size == 32 || Size == 64) && false, "CityHash must be of valid size (32 or 64)");
             return -1;
         }
 
