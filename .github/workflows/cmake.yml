@@ -27,7 +27,7 @@ jobs:
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     strategy:
       matrix:
-        os: [  macos-latest, ubuntu-22.04 ]
+        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm ]
 
     runs-on: ${{ matrix.os }}
     continue-on-error: true
@@ -45,12 +45,12 @@ jobs:
       if: matrix.os == 'macos-latest'
 
     - name: Install Packages (Ubuntu)
-      run: |        
+      run: |
         sudo apt-get install -y clang-tidy-15
       if: matrix.os == 'ubuntu-22.04'
 
     - name: Configure CMake (Ubuntu)
-      if: matrix.os == 'ubuntu-22.04'
+      if: matrix.os == 'ubuntu-22.04' || matrix.os == 'ubuntu-22.04-arm'
       env:
         CC: "/usr/bin/gcc-12"
         CXX: "/usr/bin/g++-12"
