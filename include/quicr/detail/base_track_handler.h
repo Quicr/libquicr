@@ -40,6 +40,12 @@ namespace quicr {
             kOk = 0,
             kInternalError,
             kInvalidRange,
+            kUnauthorized,
+            kTimeout,
+            kNotSupported,
+            kTrackDoesNotExist,
+            kMalformedAuthToken,
+            kExpiredAuthToken,
         };
         ReasonCode reason_code;
 
