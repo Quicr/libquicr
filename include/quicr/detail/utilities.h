@@ -4,7 +4,6 @@
 #include <cstdint>
 
 namespace quicr {
-
     constexpr std::uint16_t SwapBytes(const std::uint16_t value)
     {
         if constexpr (std::endian::native == std::endian::big)

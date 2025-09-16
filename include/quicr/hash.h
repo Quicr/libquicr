@@ -14,20 +14,14 @@
 namespace quicr {
     namespace detail {
         /**
-         * @brief Computes a CityHash32 or CityHash64 hash based on the size of std::size_t.
-         * @tparam Size The size of hash to use. Currently only 32 and 64 are supported.
+         * @brief Computes a CityHash64 hash for a span of bytes.
          *
          * @note Original algorithm from https://github.com/google/cityhash
          */
-        template<std::size_t Size = sizeof(std::size_t) * 8>
-        class CityHash
+        class CityHash64
         {
-            static_assert((Size == 32 || Size == 64), "CityHash must be of valid size (32 or 64)");
-
             using uint128_t = std::array<std::uint64_t, 2>;
 
-            static constexpr std::uint32_t c1 = 0xcc9e2d51;
-            static constexpr std::uint32_t c2 = 0x1b873593;
             static constexpr std::uint64_t k0 = 0xc3a5c85c97cb3127ULL;
             static constexpr std::uint64_t k1 = 0xb492b66fbe98f273ULL;
             static constexpr std::uint64_t k2 = 0x9ae16a3b2f90404fULL;
@@ -45,6 +39,7 @@ namespace quicr {
                 } else {
                     std::memcpy(&result, bytes.data(), sizeof(T));
                 }
+
                 return result;
             }
 
@@ -58,72 +53,6 @@ namespace quicr {
             constexpr std::uint32_t Rotate(T val, int shift)
             {
                 return shift == 0 ? val : ((val >> shift) | (val << ((sizeof(T) * 8) - shift)));
-            }
-
-            constexpr std::uint32_t fmix(std::uint32_t h)
-            {
-                h ^= h >> 16;
-                h *= 0x85ebca6b;
-                h ^= h >> 13;
-                h *= 0xc2b2ae35;
-                h ^= h >> 16;
-                return h;
-            }
-
-            constexpr std::uint32_t Mur(std::uint32_t a, std::uint32_t h)
-            {
-                a *= c1;
-                a = Rotate(a, 17);
-                a *= c2;
-                h ^= a;
-                h = Rotate(h, 19);
-                return h * 5 + 0xe6546b64;
-            }
-
-            constexpr std::uint32_t Hash32Len13to24(std::span<const std::uint8_t> bytes)
-            {
-                const std::size_t kLen = bytes.size();
-
-                std::uint32_t a = Fetch<std::uint32_t>(bytes.subspan((kLen >> 1) - 4));
-                std::uint32_t b = Fetch<std::uint32_t>(bytes.subspan(4));
-                std::uint32_t c = Fetch<std::uint32_t>(bytes.subspan(kLen - 8));
-                std::uint32_t d = Fetch<std::uint32_t>(bytes.subspan(kLen >> 1));
-                std::uint32_t e = Fetch<std::uint32_t>(bytes);
-                std::uint32_t f = Fetch<std::uint32_t>(bytes.subspan(kLen - 4));
-                std::uint32_t h = static_cast<std::uint32_t>(kLen);
-
-                return fmix(Mur(f, Mur(e, Mur(d, Mur(c, Mur(b, Mur(a, h)))))));
-            }
-
-            constexpr std::uint32_t Hash32Len0to4(std::span<const std::uint8_t> bytes)
-            {
-                std::uint32_t b = 0;
-                std::uint32_t c = 9;
-
-                const std::size_t len = bytes.size();
-
-                for (size_t i = 0; i < len; i++) {
-                    signed char v = static_cast<signed char>(bytes[i]);
-                    b = b * c1 + static_cast<std::uint32_t>(v);
-                    c ^= b;
-                }
-                return fmix(Mur(b, Mur(static_cast<std::uint32_t>(len), c)));
-            }
-
-            constexpr std::uint32_t Hash32Len5to12(std::span<const std::uint8_t> bytes)
-            {
-                const std::size_t len = bytes.size();
-
-                std::uint32_t a = static_cast<std::uint32_t>(len);
-                std::uint32_t b = a * 5;
-                std::uint32_t c = 9;
-                std::uint32_t d = b;
-
-                a += Fetch<std::uint32_t>(bytes);
-                b += Fetch<std::uint32_t>(bytes.subspan(len - 4));
-                c += Fetch<std::uint32_t>(bytes.subspan(((len >> 1) & 4)));
-
-                return fmix(Mur(c, Mur(b, Mur(a, d))));
             }
 
             constexpr std::uint64_t ShiftMix(std::uint64_t val) { return val ^ (val >> 47); }
@@ -249,134 +178,48 @@ namespace quicr {
             }
 
           public:
-            constexpr std::size_t operator()(std::span<const std::uint8_t>) { return -1; }
+            constexpr std::uint64_t operator()(std::span<const std::uint8_t> bytes)
+            {
+                std::size_t len = bytes.size();
+
+                if (len <= 16) {
+                    return HashLen0to16(bytes);
+                } else if (len <= 32) {
+                    return HashLen17to32(bytes);
+                } else if (len <= 64) {
+                    return HashLen33to64(bytes);
+                }
+
+                // For strings over 64 bytes we hash the end first, and then as we
+                // loop we keep 56 bytes of state: v, w, x, y, and z.
+                std::uint64_t x = Fetch<std::uint64_t>(bytes.subspan(len - 40));
+                std::uint64_t y =
+                  Fetch<std::uint64_t>(bytes.subspan(len - 16)) + Fetch<std::uint64_t>(bytes.subspan(len - 56));
+                std::uint64_t z = HashLen16(Fetch<std::uint64_t>(bytes.subspan(len - 48)) + len,
+                                            Fetch<std::uint64_t>(bytes.subspan(len - 24)));
+                uint128_t v = WeakHashLen32WithSeeds(bytes.subspan(len - 64), len, z);
+                uint128_t w = WeakHashLen32WithSeeds(bytes.subspan(len - 32), y + k1, x);
+                x = x * k1 + Fetch<std::uint64_t>(bytes);
+
+                // Decrease len to the nearest multiple of 64, and operate on 64-byte chunks.
+                len = (len - 1) & ~static_cast<size_t>(63);
+                do {
+                    x = Rotate(x + y + v[0] + Fetch<std::uint64_t>(bytes.subspan(8)), 37) * k1;
+                    y = Rotate(y + v[1] + Fetch<std::uint64_t>(bytes.subspan(48)), 42) * k1;
+                    x ^= w[1];
+                    y += v[0] + Fetch<std::uint64_t>(bytes.subspan(40));
+                    z = Rotate(z + w[0], 33) * k1;
+                    v = WeakHashLen32WithSeeds(bytes, v[1] * k1, x + w[0]);
+                    w =
+                      WeakHashLen32WithSeeds(bytes.subspan(32), z + w[1], y + Fetch<std::uint64_t>(bytes.subspan(16)));
+                    std::swap(z, x);
+                    bytes = bytes.subspan(64);
+                    len -= 64;
+                } while (len != 0);
+
+                return HashLen16(HashLen16(v[0], w[0]) + ShiftMix(y) * k1 + z, HashLen16(v[1], w[1]) + x);
+            }
         };
-
-        template<>
-        constexpr std::size_t CityHash<32>::operator()(std::span<const std::uint8_t> bytes)
-        {
-            const std::size_t len = bytes.size();
-
-            if (len <= 4) {
-                return Hash32Len0to4(bytes);
-            } else if (len <= 12) {
-                return Hash32Len5to12(bytes);
-            } else if (len <= 24) {
-                return Hash32Len13to24(bytes);
-            }
-
-            std::uint32_t a0 = Rotate(Fetch<std::uint32_t>(bytes.subspan(len - 4)) * c1, 17) * c2;
-            std::uint32_t a1 = Rotate(Fetch<std::uint32_t>(bytes.subspan(len - 8)) * c1, 17) * c2;
-            std::uint32_t a2 = Rotate(Fetch<std::uint32_t>(bytes.subspan(len - 16)) * c1, 17) * c2;
-            std::uint32_t a3 = Rotate(Fetch<std::uint32_t>(bytes.subspan(len - 12)) * c1, 17) * c2;
-            std::uint32_t a4 = Rotate(Fetch<std::uint32_t>(bytes.subspan(len - 20)) * c1, 17) * c2;
-
-            std::uint32_t h = static_cast<std::uint32_t>(len);
-            std::uint32_t g = c1 * h;
-            std::uint32_t f = g;
-
-            h ^= a0;
-            h = Rotate(h, 19);
-            h = h * 5 + 0xe6546b64;
-            h ^= a2;
-            h = Rotate(h, 19);
-            h = h * 5 + 0xe6546b64;
-            g ^= a1;
-            g = Rotate(g, 19);
-            g = g * 5 + 0xe6546b64;
-            g ^= a3;
-            g = Rotate(g, 19);
-            g = g * 5 + 0xe6546b64;
-            f += a4;
-            f = Rotate(f, 19);
-            f = f * 5 + 0xe6546b64;
-
-            std::size_t iters = (len - 1) / 20;
-
-            do {
-                std::uint32_t a0 = Rotate(Fetch<std::uint32_t>(bytes) * c1, 17) * c2;
-                std::uint32_t a1 = Fetch<std::uint32_t>(bytes.subspan(4));
-                std::uint32_t a2 = Rotate(Fetch<std::uint32_t>(bytes.subspan(8)) * c1, 17) * c2;
-                std::uint32_t a3 = Rotate(Fetch<std::uint32_t>(bytes.subspan(12)) * c1, 17) * c2;
-                std::uint32_t a4 = Fetch<std::uint32_t>(bytes.subspan(16));
-                h ^= a0;
-                h = Rotate(h, 18);
-                h = h * 5 + 0xe6546b64;
-                f += a1;
-                f = Rotate(f, 19);
-                f = f * c1;
-                g += a2;
-                g = Rotate(g, 18);
-                g = g * 5 + 0xe6546b64;
-                h ^= a3 + a1;
-                h = Rotate(h, 19);
-                h = h * 5 + 0xe6546b64;
-                g ^= a4;
-                g = SwapBytes(g) * 5;
-                h += a4 * 5;
-                h = SwapBytes(h);
-                f += a0;
-
-                std::swap(f, h);
-                std::swap(f, g);
-
-                bytes = bytes.subspan(20);
-            } while (--iters != 0);
-
-            g = Rotate(g, 11) * c1;
-            g = Rotate(g, 17) * c1;
-            f = Rotate(f, 11) * c1;
-            f = Rotate(f, 17) * c1;
-            h = Rotate(h + g, 19);
-            h = h * 5 + 0xe6546b64;
-            h = Rotate(h, 17) * c1;
-            h = Rotate(h + f, 19);
-            h = h * 5 + 0xe6546b64;
-            h = Rotate(h, 17) * c1;
-            return h;
-        }
-
-        template<>
-        constexpr std::size_t CityHash<64>::operator()(std::span<const std::uint8_t> bytes)
-        {
-            std::size_t len = bytes.size();
-
-            if (len <= 16) {
-                return HashLen0to16(bytes);
-            } else if (len <= 32) {
-                return HashLen17to32(bytes);
-            } else if (len <= 64) {
-                return HashLen33to64(bytes);
-            }
-
-            // For strings over 64 bytes we hash the end first, and then as we
-            // loop we keep 56 bytes of state: v, w, x, y, and z.
-            std::uint64_t x = Fetch<std::uint64_t>(bytes.subspan(len - 40));
-            std::uint64_t y =
-              Fetch<std::uint64_t>(bytes.subspan(len - 16)) + Fetch<std::uint64_t>(bytes.subspan(len - 56));
-            std::uint64_t z = HashLen16(Fetch<std::uint64_t>(bytes.subspan(len - 48)) + len,
-                                        Fetch<std::uint64_t>(bytes.subspan(len - 24)));
-            uint128_t v = WeakHashLen32WithSeeds(bytes.subspan(len - 64), len, z);
-            uint128_t w = WeakHashLen32WithSeeds(bytes.subspan(len - 32), y + k1, x);
-            x = x * k1 + Fetch<std::uint64_t>(bytes);
-
-            // Decrease len to the nearest multiple of 64, and operate on 64-byte chunks.
-            len = (len - 1) & ~static_cast<size_t>(63);
-            do {
-                x = Rotate(x + y + v[0] + Fetch<std::uint64_t>(bytes.subspan(8)), 37) * k1;
-                y = Rotate(y + v[1] + Fetch<std::uint64_t>(bytes.subspan(48)), 42) * k1;
-                x ^= w[1];
-                y += v[0] + Fetch<std::uint64_t>(bytes.subspan(40));
-                z = Rotate(z + w[0], 33) * k1;
-                v = WeakHashLen32WithSeeds(bytes, v[1] * k1, x + w[0]);
-                w = WeakHashLen32WithSeeds(bytes.subspan(32), z + w[1], y + Fetch<std::uint64_t>(bytes.subspan(16)));
-                std::swap(z, x);
-                bytes = bytes.subspan(64);
-                len -= 64;
-            } while (len != 0);
-
-            return HashLen16(HashLen16(v[0], w[0]) + ShiftMix(y) * k1 + z, HashLen16(v[1], w[1]) + x);
-        }
     }
 
     /**
@@ -386,7 +229,7 @@ namespace quicr {
      */
     constexpr std::uint64_t hash(std::span<const std::uint8_t> bytes)
     {
-        return detail::CityHash{}(bytes);
+        return detail::CityHash64{}(bytes);
     }
 
     /**
@@ -405,7 +248,5 @@ namespace quicr {
 }
 
 template<>
-struct std::hash<std::span<const std::uint8_t>>
-{
-    constexpr std::size_t operator()(std::span<const std::uint8_t> bytes) const { return quicr::hash(bytes); }
-};
+struct std::hash<std::span<const std::uint8_t>> : public quicr::detail::CityHash64
+{};
