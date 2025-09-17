@@ -176,9 +176,7 @@ namespace quicr::messages {
             }
 
             // Serialize immutable extensions.
-            Bytes immutable_data;
-            immutable_data = immutable_data << *immutable_extensions;
-            combined_extensions[immutable_key] = std::move(immutable_data);
+            combined_extensions[immutable_key] << *immutable_extensions;
         }
 
         // Serialize combined extensions.
@@ -202,14 +200,9 @@ namespace quicr::messages {
 
         // Extract immutable extensions if present and deserialize.
         if (extensions.has_value() && extensions->contains(immutable_key)) {
-            auto immutable_data = std::move((*extensions)[immutable_key]);
-
-            // Remove from mutable map.
-            extensions->erase(immutable_key);
-
             // Deserialize the immutable extension map.
             auto stream_buffer = StreamBuffer<uint8_t>();
-            stream_buffer.Push(std::span<const uint8_t>(immutable_data));
+            stream_buffer.Push(std::span<const uint8_t>((*extensions)[immutable_key]));
             std::optional<std::size_t> immutable_length;
             std::size_t immutable_bytes_remaining = 0;
             std::optional<std::uint64_t> immutable_current_header;
@@ -225,11 +218,6 @@ namespace quicr::messages {
             if (immutable_extensions.has_value() && immutable_extensions->contains(immutable_key)) {
                 throw ProtocolViolationException(
                   "Immutable Extensions header contains another Immutable Extensions key");
-            }
-
-            // If no mutable extensions are left, reset to null.
-            if (extensions->empty()) {
-                extensions = std::nullopt;
             }
         }
 

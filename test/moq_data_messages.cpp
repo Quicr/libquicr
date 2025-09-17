@@ -82,6 +82,29 @@ VerifyCtrl(BytesSpan buffer, uint64_t message_type, T& message)
     return true;
 }
 
+static bool
+CompareExtensions(const std::optional<Extensions>& sent, const std::optional<Extensions>& recv, bool expect_immutable)
+{
+    if (!expect_immutable) {
+        return sent == recv;
+    }
+
+    // The immutable extensions serialized blob will be contained in the received
+    // extensions, but not in the sent. Check it's there, but remove it to make
+    // mutable check 1:1 equality. The blob's content should be ensured
+    // by a separate decoded immutable equality check.
+    REQUIRE(recv.has_value());
+    constexpr auto key = static_cast<std::uint64_t>(ExtensionHeaderType::kImmutable);
+    REQUIRE(recv->contains(key));
+    CHECK_GT(recv->at(key).size(), 0);
+    auto copy = std::move(recv);
+    copy->erase(key);
+    if (copy->size() == 0) {
+        copy = std::nullopt;
+    }
+    return sent == copy;
+}
+
 static void
 ObjectDatagramEncodeDecode(ExtensionTest extensions, bool end_of_group)
 {
@@ -123,7 +146,9 @@ ObjectDatagramEncodeDecode(ExtensionTest extensions, bool end_of_group)
     CHECK_EQ(object_datagram.group_id, object_datagram_out.group_id);
     CHECK_EQ(object_datagram.object_id, object_datagram_out.object_id);
     CHECK_EQ(object_datagram.priority, object_datagram_out.priority);
-    CHECK_EQ(object_datagram.extensions, object_datagram_out.extensions);
+    CompareExtensions(object_datagram.extensions,
+                      object_datagram_out.extensions,
+                      extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kImmutable);
     CHECK_EQ(object_datagram.immutable_extensions, object_datagram_out.immutable_extensions);
     CHECK(object_datagram.payload.size() > 0);
     CHECK_EQ(object_datagram.payload, object_datagram_out.payload);
@@ -173,7 +198,9 @@ ObjectDatagramStatusEncodeDecode(ExtensionTest extensions)
     CHECK_EQ(object_datagram_status.object_id, object_datagram_status_out.object_id);
     CHECK_EQ(object_datagram_status.priority, object_datagram_status_out.priority);
     CHECK_EQ(object_datagram_status.status, object_datagram_status_out.status);
-    CHECK_EQ(object_datagram_status.extensions, object_datagram_status.extensions);
+    CompareExtensions(object_datagram_status.extensions,
+                      object_datagram_status_out.extensions,
+                      extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kImmutable);
     CHECK_EQ(object_datagram_status.immutable_extensions, object_datagram_status.immutable_extensions);
     CHECK_EQ(object_datagram_status.GetType(), object_datagram_status_out.GetType());
 }
@@ -323,6 +350,9 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, ExtensionTest extensi
         }
 
         if (properties.may_contain_extensions) {
+            CompareExtensions(objects[object_count].extensions,
+                              obj_out.extensions,
+                              extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kImmutable);
             CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
             CHECK_EQ(obj_out.immutable_extensions, objects[object_count].immutable_extensions);
         } else {
@@ -433,7 +463,9 @@ FetchStreamEncodeDecode(ExtensionTest extensions, bool empty_payload)
             CHECK(obj_out.payload.size() > 0);
             CHECK_EQ(obj_out.payload, objects[object_count].payload);
         }
-        CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
+        CompareExtensions(objects[object_count].extensions,
+                          obj_out.extensions,
+                          extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kImmutable);
         CHECK_EQ(obj_out.immutable_extensions, objects[object_count].immutable_extensions);
         // got one object
         object_count++;
