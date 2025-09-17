@@ -714,8 +714,8 @@ namespace quicr {
                       }
                   },
                   [](messages::Fetch& msg) {
-                      // TODO: Add support for absolute joining fetch
-                      if (msg.fetch_type == messages::FetchType::kRelativeJoiningFetch) {
+                      if (msg.fetch_type == messages::FetchType::kRelativeJoiningFetch ||
+                          msg.fetch_type == messages::FetchType::kAbsoluteJoiningFetch) {
                           msg.group_1 = std::make_optional<messages::Fetch::Group_1>();
                       }
                   });
@@ -733,7 +733,50 @@ namespace quicr {
                         attrs.start_location.object = msg.group_0->standalone.start.object;
                         attrs.end_group = msg.group_0->standalone.end.group;
                         attrs.end_object = msg.group_0->standalone.end.object;
-                        FetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
+                        if (!FetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs)) {
+                            // TODO: We don't really know enough from this return value to give a specific error.
+                            SendFetchError(conn_ctx, msg.request_id, messages::FetchErrorCode::kInternalError, "");
+                        }
+                        return true;
+                    }
+                    case messages::FetchType::kAbsoluteJoiningFetch: {
+                        [[fallthrough]];
+                    }
+                    case messages::FetchType::kRelativeJoiningFetch: {
+                        const auto& joining = msg.group_1->joining;
+                        const auto sub = conn_ctx.sub_tracks_by_request_id.find(joining.request_id);
+                        if (sub == conn_ctx.sub_tracks_by_request_id.end()) {
+                            SendFetchError(conn_ctx,
+                                           msg.request_id,
+                                           messages::FetchErrorCode::kInvalidJoiningRequestId,
+                                           "Joining track not found");
+                            return true;
+                        }
+                        const auto location = sub->second->GetLatestLocation();
+                        if (!location.has_value()) {
+                            SendFetchError(conn_ctx,
+                                           msg.request_id,
+                                           messages::FetchErrorCode::kInvalidRange,
+                                           "No objects published");
+                            return true;
+                        }
+                        messages::GroupId start_group;
+                        if (msg.fetch_type == messages::FetchType::kAbsoluteJoiningFetch) {
+                            start_group = joining.joining_start;
+                        } else {
+                            start_group = joining.joining_start <= location->group
+                                            ? location->group - joining.joining_start
+                                            : location->group;
+                        }
+                        attrs.start_location.group = start_group;
+                        attrs.start_location.object = 0;
+                        attrs.end_group = location->group;
+                        attrs.end_object = location->object;
+                        if (!FetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs)) {
+                            // TODO: We don't really know enough from this return value to give a specific error.
+                            SendFetchError(conn_ctx, msg.request_id, messages::FetchErrorCode::kInternalError, "");
+                            return true;
+                        }
                         return true;
                     }
 

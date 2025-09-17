@@ -283,6 +283,12 @@ namespace quicr::messages {
         kNotSupported = 0x3,
         kTrackDoesNotExist = 0x4,
         kInvalidRange = 0x5,
+        kNoObjects = 0x6,
+        kInvalidJoiningRequestId = 0x7,
+        kUnknownStatusInRange = 0x8,
+        kMalformedTrack = 0x9,
+        kMalformedAuthToken = 0x10,
+        kExpiredAuthToken = 0x12
     };
 
     Bytes& operator<<(Bytes& buffer, FetchErrorCode value);
