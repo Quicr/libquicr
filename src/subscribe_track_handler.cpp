@@ -144,7 +144,9 @@ namespace quicr {
         }
 
         status_ = Status::kPaused;
-        transport->SendSubscribeUpdate(transport->GetConnectionContext(GetConnectionId()),
+        auto& conn_ctx = transport->GetConnectionContext(GetConnectionId());
+        transport->SendSubscribeUpdate(conn_ctx,
+                                       conn_ctx.GetNextRequestId(),
                                        GetRequestId().value(),
                                        GetFullTrackName(),
                                        {},
@@ -166,7 +168,9 @@ namespace quicr {
         }
 
         status_ = Status::kOk;
-        transport->SendSubscribeUpdate(transport->GetConnectionContext(GetConnectionId()),
+        auto& conn_ctx = transport->GetConnectionContext(GetConnectionId());
+        transport->SendSubscribeUpdate(conn_ctx,
+                                       conn_ctx.GetNextRequestId(),
                                        GetRequestId().value(),
                                        GetFullTrackName(),
                                        {},
@@ -183,7 +187,9 @@ namespace quicr {
             return;
         }
 
-        transport->SendSubscribeUpdate(transport->GetConnectionContext(GetConnectionId()),
+        auto& conn_ctx = transport->GetConnectionContext(GetConnectionId());
+        transport->SendSubscribeUpdate(conn_ctx,
+                                       conn_ctx.GetNextRequestId(),
                                        GetRequestId().value(),
                                        GetFullTrackName(),
                                        {},

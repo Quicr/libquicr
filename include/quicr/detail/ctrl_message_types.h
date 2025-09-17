@@ -220,15 +220,6 @@ namespace quicr::messages {
         kAbsoluteRange = 0x4
     };
 
-    enum class TrackStatusCode : uint64_t
-    {
-        kInProgress = 0x00,
-        kDoesNotExist,
-        kNotStarted,
-        kFinished,
-        kUnknown
-    };
-
     enum class PublishDoneStatusCode : uint64_t
     {
         kInternalError = 0x00,
