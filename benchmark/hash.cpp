@@ -4,38 +4,50 @@
 #include <quicr/common.h>
 #include <quicr/hash.h>
 #include <quicr/track_name.h>
+#include <string_view>
 
 #include <benchmark/benchmark.h>
 
 using namespace quicr;
 using namespace std::string_literals;
 
-static void
-ToHash(benchmark::State& state)
-{
-    TrackNamespace ns{ "example"s, "chat555"s, "user1"s, "dev1"s, "time1"s };
-
-    std::vector<uint8_t> ns_bytes{ ns.begin(), ns.end() };
-
-    for ([[maybe_unused]] const auto& _ : state) {
-        auto h = hash(ns_bytes);
-        benchmark::DoNotOptimize(h);
-    }
-}
+const TrackNamespace kNamespace{ "example"s, "chat555"s, "user1"s, "dev1"s, "time1"s };
+const std::string kNameStr = "test";
+const FullTrackName kFullTrackName{ kNamespace, std::vector<uint8_t>{ kNameStr.begin(), kNameStr.end() } };
 
 static void
-ToHashStl(benchmark::State& state)
+TrackNamespace_ToHash(benchmark::State& state)
 {
-    TrackNamespace ns{ "example"s, "chat555"s, "user1"s, "dev1"s, "time1"s };
-
-    std::string_view ns_sv(reinterpret_cast<const char*>(ns.data()), ns.size());
 
     for ([[maybe_unused]] const auto& _ : state) {
-        auto h = std::hash<std::string_view>{}(ns_sv);
+        auto h = quicr::hash(kNamespace);
         benchmark::DoNotOptimize(h);
         benchmark::ClobberMemory();
     }
 }
 
-BENCHMARK(ToHash);
-BENCHMARK(ToHashStl);
+static void
+TrackNamespace_ToSTLHash(benchmark::State& state)
+{
+
+    for ([[maybe_unused]] const auto& _ : state) {
+        auto h = std::hash<std::string_view>{}({ reinterpret_cast<const char*>(kNamespace.data()), kNamespace.size() });
+        benchmark::DoNotOptimize(h);
+        benchmark::ClobberMemory();
+    }
+}
+
+static void
+TrackNameHash_Construct(benchmark::State& state)
+{
+
+    for ([[maybe_unused]] const auto& _ : state) {
+        auto h = TrackHash(kFullTrackName);
+        benchmark::DoNotOptimize(h);
+        benchmark::ClobberMemory();
+    }
+}
+
+BENCHMARK(TrackNamespace_ToHash);
+BENCHMARK(TrackNamespace_ToSTLHash);
+BENCHMARK(TrackNameHash_Construct);

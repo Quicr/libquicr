@@ -20,6 +20,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
+#include <atomic>
 #include <map>
 #include <string>
 #include <string_view>
@@ -206,6 +207,37 @@ namespace quicr {
         void CancelFetchTrack(ConnectionHandle connection_handle, std::shared_ptr<FetchTrackHandler> track_handler);
 
         /**
+         * @brief Request track status
+         *
+         * @param connection_handle           Source connection ID.
+         * @param track_full_name             Track full name
+         * @param subscribe_attributes        Subscribe attributes for track status
+         *
+         * * @returns Request ID that is used for the track status request
+         */
+        uint64_t RequestTrackStatus(ConnectionHandle connection_handle,
+                                    const FullTrackName& track_full_name,
+                                    const messages::SubscribeAttributes& subscribe_attributes);
+
+        /**
+         * @brief Accept or reject track status that was received
+         *
+         * @details Accept or reject track status received via TrackStatusReceived(). The MoQ Transport
+         *      will send the protocol message based on the SubscribeResponse. Per MOQT draft-14,
+         *      track status request, ok, and error are the same as subscribe
+         *
+         * @param connection_handle        source connection ID
+         * @param request_id               Request ID that was provided by TrackStatusReceived
+         * @param track_alias              Track alias for the track
+         * @param subscribe_response       Response to the track status request, either Ok or Error.
+         *                                 Largest loation should be set if kOk and there is content
+         */
+        virtual void ResolveTrackStatus(ConnectionHandle connection_handle,
+                                        uint64_t request_id,
+                                        uint64_t track_alias,
+                                        const SubscribeResponse& subscribe_response);
+
+        /**
          * @brief Get the status of the Client
          *
          * @return Status of the Client
@@ -223,6 +255,37 @@ namespace quicr {
          * @param status           Changed Status value
          */
         virtual void StatusChanged([[maybe_unused]] Status status) {}
+
+        /**
+         * @brief Callback notification for track status message received
+         *
+         * @note The caller **MUST** respond to this via ResolveTrackStatus(). If the caller does not
+         * override this method, the default will call ResolveTrackStatus() with the status of OK
+         *
+         * @param connection_handle     Source connection ID
+         * @param request_id            Request ID received
+         * @param track_full_name       Track full name
+         * @param subscribe_attributes  Subscribe attributes received
+         */
+        virtual void TrackStatusReceived(ConnectionHandle connection_handle,
+                                         uint64_t request_id,
+                                         const FullTrackName& track_full_name,
+                                         const messages::SubscribeAttributes& subscribe_attributes);
+
+        /**
+         * @brief Callback notification for track status OK received
+         *
+         * @note The caller is able to state track the OK based on the request Id returned
+         *      from RequestTrackStatus method call
+         *
+         * @param connection_handle     Source connection ID
+         * @param request_id            Request ID received
+         * @param response              Track status (track_status = Subscribe) response
+         */
+        virtual void TrackStatusResponseReceived(ConnectionHandle connection_handle,
+                                                 uint64_t request_id,
+                                                 const SubscribeResponse& response);
+
         ///@}
 
         /// @cond
@@ -265,6 +328,11 @@ namespace quicr {
         static constexpr std::size_t kControlMessageBufferSize = 4096;
         struct ConnectionContext
         {
+            ConnectionContext(const ConnectionContext& other)
+              : next_request_id(other.next_request_id.load(std::memory_order_seq_cst))
+            {
+            }
+
             ConnectionHandle connection_handle{ 0 };
             std::optional<uint64_t> ctrl_data_ctx_id;
             bool setup_complete{ false }; ///< True if both client and server setup messages have completed
@@ -278,7 +346,7 @@ namespace quicr {
             /** Next Connection request Id. This value is shifted left when setting Request Id.
              * The least significant bit is used to indicate client (0) vs server (1).
              */
-            uint64_t next_request_id{ 0 }; ///< Connection specific ID for control messages messages
+            std::atomic<uint64_t> next_request_id{ 0 }; ///< Connection specific ID for control messages messages
 
             /// Subscribe Context by received subscribe IDs
             /// Used to map published tracks to subscribes in client mode and to handle joining fetch lookups
@@ -339,7 +407,7 @@ namespace quicr {
              */
             uint64_t GetNextRequestId()
             {
-                auto rid = next_request_id;
+                uint64_t rid = next_request_id;
                 next_request_id += 2;
 
                 return rid;
@@ -370,6 +438,7 @@ namespace quicr {
                            std::chrono::milliseconds delivery_timeout);
         void SendSubscribeUpdate(const ConnectionContext& conn_ctx,
                                  messages::RequestID request_id,
+                                 messages::RequestID subscribe_request_id,
                                  TrackHash th,
                                  messages::Location start_location,
                                  messages::GroupId end_group_id,
@@ -388,6 +457,17 @@ namespace quicr {
                                 messages::RequestID request_id,
                                 messages::SubscribeErrorCode error,
                                 const std::string& reason);
+
+        void SendTrackStatus(ConnectionContext& conn_ctx, messages::RequestID request_id, const FullTrackName& tfn);
+        void SendTrackStatusOk(ConnectionContext& conn_ctx,
+                               messages::RequestID request_id,
+                               uint64_t track_alias,
+                               uint64_t expires,
+                               const std::optional<messages::Location>& largest_location);
+        void SendTrackStatusError(ConnectionContext& conn_ctx,
+                                  messages::RequestID request_id,
+                                  messages::SubscribeErrorErrorCode error,
+                                  const std::string& reason);
 
         void SendPublish(ConnectionContext& conn_ctx,
                          messages::RequestID request_id,
@@ -489,7 +569,7 @@ namespace quicr {
       protected:
         std::shared_ptr<Transport> GetSharedPtr();
 
-        const ConnectionContext& GetConnectionContext(ConnectionHandle conn) const;
+        ConnectionContext& GetConnectionContext(ConnectionHandle conn);
 
         // -------------------------------------------------------------------------------------------------
 

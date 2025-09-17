@@ -219,6 +219,23 @@ namespace quicr {
         }
 
         /**
+         * @brief Request track status
+         *
+         * @param track_full_name             Track full name
+         * @param subscribe_attributes        Subscribe attributes for track status
+         *
+         * @returns Request ID that is used for the track status request
+         */
+        virtual uint64_t RequestTrackStatus(const FullTrackName& track_full_name,
+                                            const messages::SubscribeAttributes& subscribe_attributes = {})
+        {
+            if (connection_handle_) {
+                return Transport::RequestTrackStatus(*connection_handle_, track_full_name, subscribe_attributes);
+            }
+            return 0;
+        }
+
+        /**
          * @brief Unsubscribe track
          *
          * @param track_handler    Track handler to use for track related functions and callbacks

@@ -28,8 +28,7 @@ namespace quicr {
     template<typename DataType, uint8_t PMAX = 32>
     class PriorityQueue
     {
-        using TimeType = std::chrono::milliseconds;
-        using TimeQueueType = TimeQueue<DataType, TimeType>;
+        using TimeQueueType = TimeQueue<DataType>;
 
         static constexpr int kMinFreeTimeQueues = 2;
         static constexpr int kMaxFreeTimeQueues = 10;

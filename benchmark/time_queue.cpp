@@ -7,9 +7,21 @@ static auto service = std::make_shared<quicr::ThreadedTickService>();
 constexpr size_t kIterations = 1'000'000;
 
 static void
+TimeQueue_Construct(benchmark::State& state)
+{
+    for (auto _ : state) {
+        auto tq = quicr::TimeQueue<int>(300, 1, service, kIterations);
+
+        std::size_t size = tq.Size();
+        benchmark::DoNotOptimize(size);
+        benchmark::ClobberMemory();
+    }
+}
+
+static void
 TimeQueue_Push(benchmark::State& state)
 {
-    quicr::TimeQueue<int, std::chrono::milliseconds> tq(300, 1, service, kIterations);
+    quicr::TimeQueue<int> tq(300, 1, service, kIterations);
     int64_t items_count = 0;
 
     for (auto _ : state) {
@@ -23,7 +35,7 @@ TimeQueue_Push(benchmark::State& state)
 static void
 TimeQueue_Pop(benchmark::State& state)
 {
-    quicr::TimeQueue<int, std::chrono::milliseconds> tq(300, 1, service, kIterations);
+    quicr::TimeQueue<int> tq(300, 1, service, kIterations);
     for (size_t i = 0; i < kIterations; ++i) {
         tq.Push(i, 10);
     }
@@ -40,7 +52,7 @@ TimeQueue_Pop(benchmark::State& state)
 static void
 TimeQueue_PopFront(benchmark::State& state)
 {
-    quicr::TimeQueue<int, std::chrono::milliseconds> tq(300, 1, service, kIterations);
+    quicr::TimeQueue<int> tq(300, 1, service, kIterations);
     for (size_t i = 0; i < kIterations; ++i) {
         tq.Push(i, 15);
     }
@@ -56,6 +68,7 @@ TimeQueue_PopFront(benchmark::State& state)
     state.SetItemsProcessed(items_count);
 }
 
+BENCHMARK(TimeQueue_Construct);
 BENCHMARK(TimeQueue_Push)->Iterations(kIterations);
 BENCHMARK(TimeQueue_Pop)->Iterations(kIterations);
 BENCHMARK(TimeQueue_PopFront)->Iterations(kIterations);
