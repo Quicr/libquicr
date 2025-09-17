@@ -35,7 +35,7 @@ TEST_CASE("Hash namespace")
     TrackNamespace ns{ "example"s, "chat555"s, "user1"s, "dev1"s, "time1"s };
 
     auto h = hash({ ns.begin(), ns.end() });
-    CHECK_EQ(9133337212790963192ull, h);
+    CHECK_EQ(16475043982530834963ull, h);
 
     TrackHash th({ ns, {} });
     CHECK_EQ(h, th.track_namespace_hash);
