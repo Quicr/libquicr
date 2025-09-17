@@ -794,7 +794,6 @@ namespace quicr {
                         const auto opt_largest_location = subscribe_state->second.largest_location;
                         if (!opt_largest_location.has_value()) {
                             // We have no data to complete the fetch with.
-                            // TODO: Possibly missing "No Objects" code per the draft.
                             SendFetchError(
                               conn_ctx, msg.request_id, messages::FetchErrorCode::kInvalidRange, "Nothing to give");
 
@@ -857,6 +856,7 @@ namespace quicr {
                 SendFetchOk(conn_ctx, msg.request_id, msg.group_order, end_of_track, largest_location);
 
                 if (!OnFetchOk(conn_ctx.connection_handle, msg.request_id, tfn, attrs)) {
+                    // TODO: Need more info from OnFetchOk to give a better error code.
                     SendFetchError(conn_ctx,
                                    msg.request_id,
                                    messages::FetchErrorCode::kInvalidRange,
