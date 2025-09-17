@@ -670,7 +670,7 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
              const bool absolute)
 {
     typedef quicr::SubscribeTrackHandler::JoiningFetch Fetch;
-    const auto joining_fetch = join_fetch
+    const auto joining_fetch = join_fetch.has_value()
                                  ? Fetch{ 4, quicr::messages::GroupOrder::kAscending, {}, *join_fetch, absolute }
                                  : std::optional<Fetch>(std::nullopt);
     const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type, joining_fetch);
