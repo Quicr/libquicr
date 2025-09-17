@@ -69,10 +69,9 @@ namespace quicr {
                 return SwapBytes(UnalignedLoad<T>(bytes));
             }
 
-            template<std::unsigned_integral T>
-            constexpr std::uint32_t Rotate(T val, int shift)
+            constexpr std::uint64_t Rotate(std::uint64_t val, int shift)
             {
-                return shift == 0 ? val : ((val >> shift) | (val << ((sizeof(T) * 8) - shift)));
+                return shift == 0 ? val : ((val >> shift) | (val << ((sizeof(std::uint64_t) * 8) - shift)));
             }
 
             constexpr std::uint64_t ShiftMix(std::uint64_t val) { return val ^ (val >> 47); }
