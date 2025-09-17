@@ -666,11 +666,13 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
              const std::shared_ptr<quicr::Client>& client,
              quicr::messages::FilterType filter_type,
              const bool& stop,
-             bool join_fetch)
+             const std::optional<std::uint64_t> join_fetch,
+             const bool absolute)
 {
     typedef quicr::SubscribeTrackHandler::JoiningFetch Fetch;
-    const auto joining_fetch =
-      join_fetch ? Fetch{ 4, quicr::messages::GroupOrder::kAscending, {}, 0 } : std::optional<Fetch>(std::nullopt);
+    const auto joining_fetch = join_fetch.has_value()
+                                 ? Fetch{ 4, quicr::messages::GroupOrder::kAscending, {}, *join_fetch, absolute }
+                                 : std::optional<Fetch>(std::nullopt);
     const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type, joining_fetch);
 
     SPDLOG_INFO("Started subscriber");
@@ -885,7 +887,8 @@ main(int argc, char* argv[])
         ("sub_announces", "Prefix namespace to subscribe announces to", cxxopts::value<std::string>())
         ("record", "Record incoming data to moq and dat files", cxxopts::value<bool>())
         ("new_group", "Request new group on subscribe", cxxopts::value<bool>())
-        ("joining_fetch", "Subscribe with a joining fetch", cxxopts::value<bool>())
+        ("joining_fetch", "Subscribe with a joining fetch using this joining start", cxxopts::value<std::uint64_t>())
+        ("absolute", "Joining fetch will be absolute not relative", cxxopts::value<bool>())
         ("track_status", "Request track status using sub_namespace and sub_name options", cxxopts::value<bool>());
 
     options.add_options("Fetcher")
@@ -964,7 +967,11 @@ main(int argc, char* argv[])
                     SPDLOG_INFO("Setting subscription filter to Next Group Start");
                 }
             }
-            bool joining_fetch = result.count("joining_fetch") && result["joining_fetch"].as<bool>();
+            std::optional<std::uint64_t> joining_fetch;
+            if (result.count("joining_fetch")) {
+                joining_fetch = result["joining_fetch"].as<uint64_t>();
+            }
+            bool absolute = result.count("absolute") && result["absolute"].as<bool>();
 
             const auto& sub_track_name = quicr::example::MakeFullTrackName(result["sub_namespace"].as<std::string>(),
                                                                            result["sub_name"].as<std::string>());
@@ -973,8 +980,8 @@ main(int argc, char* argv[])
                 client->RequestTrackStatus(sub_track_name);
             }
 
-            sub_thread =
-              std::thread(DoSubscriber, sub_track_name, client, filter_type, std::ref(stop_threads), joining_fetch);
+            sub_thread = std::thread(
+              DoSubscriber, sub_track_name, client, filter_type, std::ref(stop_threads), joining_fetch, absolute);
         }
         if (enable_fetch) {
             const auto& fetch_track_name = quicr::example::MakeFullTrackName(

@@ -56,7 +56,8 @@ namespace quicr {
             const messages::SubscriberPriority priority;
             const messages::GroupOrder group_order;
             const messages::Parameters parameters;
-            const messages::GroupId preceding_group_offset;
+            const messages::GroupId joining_start;
+            const bool absolute;
         };
 
       protected:

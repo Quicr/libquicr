@@ -844,15 +844,16 @@ namespace quicr {
                                      messages::SubscriberPriority priority,
                                      messages::GroupOrder group_order,
                                      uint64_t joining_request_id,
-                                     messages::GroupId preceding_group_offset,
+                                     messages::GroupId joining_start,
+                                     bool absolute,
                                      const messages::Parameters parameters)
     try {
-        auto group_1 = std::make_optional<messages::Fetch::Group_1>() = { joining_request_id, preceding_group_offset };
+        auto group_1 = std::make_optional<messages::Fetch::Group_1>() = { joining_request_id, joining_start };
 
         auto fetch = messages::Fetch(request_id,
                                      priority,
                                      group_order,
-                                     messages::FetchType::kRelativeJoiningFetch,
+                                     absolute ? FetchType::kAbsoluteJoiningFetch : FetchType::kRelativeJoiningFetch,
                                      std::nullopt,
                                      group_1,
                                      parameters);
@@ -1001,7 +1002,8 @@ namespace quicr {
                                  info.priority,
                                  info.group_order,
                                  *track_handler->GetRequestId(),
-                                 info.preceding_group_offset,
+                                 info.joining_start,
+                                 info.absolute,
                                  info.parameters);
             }
         }
