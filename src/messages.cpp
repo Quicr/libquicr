@@ -152,6 +152,78 @@ namespace quicr::messages {
         return buffer;
     }
 
+    void SerializeExtensions(Bytes& buffer,
+                             const std::optional<Extensions>& extensions,
+                             const std::optional<Extensions>& immutable_extensions)
+    {
+        Extensions combined_extensions;
+
+        // Add mutable extensions.
+        if (extensions.has_value()) {
+            for (const auto& [key, value] : *extensions) {
+                combined_extensions[key] = value;
+            }
+        }
+
+        constexpr auto immutable_key = static_cast<std::uint64_t>(ExtensionHeaderType::kImmutable);
+
+        // Serialize immutable extensions in MoQ form, and insert into combined extensions key.
+        if (immutable_extensions.has_value() && !immutable_extensions->empty()) {
+            // Immutable extensions MUST NOT contain an immutable extension entry.
+            if (immutable_extensions->contains(immutable_key)) {
+                throw ProtocolViolationException(
+                  "An immutable extension header must not contain another immutable extension header");
+            }
+
+            // Serialize immutable extensions.
+            combined_extensions[immutable_key] << *immutable_extensions;
+        }
+
+        // Serialize combined extensions.
+        buffer << combined_extensions;
+    }
+
+    template<class StreamBufferType>
+    bool ParseExtensions(StreamBufferType& buffer,
+                         std::optional<std::size_t>& extension_headers_length,
+                         std::optional<Extensions>& extensions,
+                         std::optional<Extensions>& immutable_extensions,
+                         std::size_t& extension_bytes_remaining,
+                         std::optional<std::uint64_t>& current_header)
+    {
+        // First, parse all extensions.
+        if (!ParseExtensions(buffer, extension_headers_length, extensions, extension_bytes_remaining, current_header)) {
+            return false;
+        }
+
+        constexpr auto immutable_key = static_cast<std::uint64_t>(ExtensionHeaderType::kImmutable);
+
+        // Extract immutable extensions if present and deserialize.
+        if (extensions.has_value() && extensions->contains(immutable_key)) {
+            // Deserialize the immutable extension map.
+            auto stream_buffer = StreamBuffer<uint8_t>();
+            stream_buffer.Push(std::span<const uint8_t>((*extensions)[immutable_key]));
+            std::optional<std::size_t> immutable_length;
+            std::size_t immutable_bytes_remaining = 0;
+            std::optional<std::uint64_t> immutable_current_header;
+            if (!ParseExtensions(stream_buffer,
+                                 immutable_length,
+                                 immutable_extensions,
+                                 immutable_bytes_remaining,
+                                 immutable_current_header)) {
+                return false;
+            }
+
+            // Validate that immutable extensions don't nest.
+            if (immutable_extensions.has_value() && immutable_extensions->contains(immutable_key)) {
+                throw ProtocolViolationException(
+                  "Immutable Extensions header contains another Immutable Extensions key");
+            }
+        }
+
+        return true;
+    }
+
     template<class StreamBufferType>
     bool operator>>(StreamBufferType& buffer, FetchHeader& msg)
     {
@@ -196,7 +268,7 @@ namespace quicr::messages {
         buffer << UintVar(msg.subgroup_id);
         buffer << UintVar(msg.object_id);
         buffer.push_back(msg.publisher_priority);
-        buffer << msg.extensions;
+        SerializeExtensions(buffer, msg.extensions, msg.immutable_extensions);
         if (msg.payload.empty()) {
             // empty payload needs a object status to be set
             auto status = UintVar(static_cast<uint8_t>(msg.object_status));
@@ -248,6 +320,7 @@ namespace quicr::messages {
                 if (!ParseExtensions(buffer,
                                      msg.extension_headers_length,
                                      msg.extensions,
+                                     msg.immutable_extensions,
                                      msg.extension_bytes_remaining,
                                      msg.current_tag)) {
                     return false;
@@ -312,8 +385,8 @@ namespace quicr::messages {
         buffer << UintVar(msg.group_id);
         buffer << UintVar(msg.object_id);
         buffer.push_back(msg.priority);
-        if (msg.extensions.has_value()) {
-            buffer << *msg.extensions;
+        if (msg.extensions.has_value() || msg.immutable_extensions.has_value()) {
+            SerializeExtensions(buffer, msg.extensions, msg.immutable_extensions);
         }
 
         if (msg.payload.empty()) {
@@ -378,12 +451,14 @@ namespace quicr::messages {
                     if (!ParseExtensions(buffer,
                                          msg.extension_headers_length,
                                          msg.extensions,
+                                         msg.immutable_extensions,
                                          msg.extension_bytes_left,
                                          msg.current_tag)) {
                         return false;
                     }
                 } else {
                     msg.extensions = std::nullopt;
+                    msg.immutable_extensions = std::nullopt;
                 }
                 msg.current_pos += 1;
                 msg.payload_len = buffer.Size();
@@ -416,14 +491,15 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const ObjectDatagramStatus& msg)
     {
-        const auto properties = DatagramStatusProperties(msg.extensions.has_value());
+        const auto properties =
+          DatagramStatusProperties(msg.extensions.has_value() || msg.immutable_extensions.has_value());
         buffer << UintVar(static_cast<uint64_t>(properties.GetType()));
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
         buffer << UintVar(msg.object_id);
         buffer.push_back(msg.priority);
         if (properties.has_extensions) {
-            buffer << msg.extensions;
+            SerializeExtensions(buffer, msg.extensions, msg.immutable_extensions);
         }
         buffer << UintVar(static_cast<uint8_t>(msg.status));
 
@@ -480,10 +556,14 @@ namespace quicr::messages {
                     if (!ParseExtensions(buffer,
                                          msg.extension_headers_length,
                                          msg.extensions,
+                                         msg.immutable_extensions,
                                          msg.extension_bytes_left,
                                          msg.current_tag)) {
                         return false;
                     }
+                } else {
+                    msg.extensions = std::nullopt;
+                    msg.immutable_extensions = std::nullopt;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
@@ -599,12 +679,13 @@ namespace quicr::messages {
         buffer << UintVar(msg.object_id);
         assert(msg.stream_type.has_value()); // Stream type must have been set before serialization.
         const auto properties = StreamHeaderProperties(*msg.stream_type);
-        if (!properties.may_contain_extensions && msg.extensions.has_value()) {
+        if (!properties.may_contain_extensions &&
+            (msg.extensions.has_value() || msg.immutable_extensions.has_value())) {
             // This is not allowed.
             assert(false);
         }
         if (properties.may_contain_extensions) {
-            buffer << msg.extensions;
+            SerializeExtensions(buffer, msg.extensions, msg.immutable_extensions);
         }
         if (msg.payload.empty()) {
             // empty payload needs a object status to be set
@@ -636,10 +717,14 @@ namespace quicr::messages {
                     if (!ParseExtensions(buffer,
                                          msg.extension_headers_length,
                                          msg.extensions,
+                                         msg.immutable_extensions,
                                          msg.extension_bytes_left,
                                          msg.current_tag)) {
                         return false;
                     }
+                } else {
+                    msg.extensions = std::nullopt;
+                    msg.immutable_extensions = std::nullopt;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];

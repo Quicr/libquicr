@@ -213,6 +213,9 @@ namespace quicr {
                 if (object_extensions) {
                     object.extensions = std::move(*object_extensions);
                 }
+                if (object_headers.immutable_extensions) {
+                    object.immutable_extensions = std::move(object_headers.immutable_extensions);
+                }
                 object.payload.assign(data.begin(), data.end());
                 object_msg_buffer_ << object;
                 break;
@@ -262,6 +265,9 @@ namespace quicr {
                 object.stream_type = GetStreamMode();
                 if (object_extensions) {
                     object.extensions = std::move(*object_extensions);
+                }
+                if (object_headers.immutable_extensions) {
+                    object.immutable_extensions = std::move(*object_headers.immutable_extensions);
                 }
                 object.payload.assign(data.begin(), data.end());
                 object_msg_buffer_ << object;

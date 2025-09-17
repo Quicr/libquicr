@@ -29,6 +29,13 @@ const Bytes kUint2ByteValue = { 0xBD, 0x3B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
 const Bytes kUint4ByteValue = { 0x7D, 0x3E, 0x7F, 0x1D, 0x00, 0x00, 0x00, 0x00 };
 const Bytes kUint8ByteValue = { 0x8C, 0xE8, 0x14, 0xFF, 0x5E, 0x7C, 0x19, 0x02 };
 
+enum class ExtensionTest
+{
+    kNone = 0,
+    kMutable = 1,
+    kImmutable = 2,
+    kBoth = 3,
+};
 const Extensions kExampleExtensions = { { 0x1, { 0x1, 0x2 } }, // Raw bytes.
                                         { 0x2, kUint1ByteValue },
                                         { 0x4, kUint2ByteValue },
@@ -75,12 +82,35 @@ VerifyCtrl(BytesSpan buffer, uint64_t message_type, T& message)
     return true;
 }
 
+static bool
+CompareExtensions(const std::optional<Extensions>& sent, const std::optional<Extensions>& recv, bool expect_immutable)
+{
+    if (!expect_immutable) {
+        return sent == recv;
+    }
+
+    // The immutable extensions serialized blob will be contained in the received
+    // extensions, but not in the sent. Check it's there, but remove it to make
+    // mutable check 1:1 equality. The blob's content should be ensured
+    // by a separate decoded immutable equality check.
+    REQUIRE(recv.has_value());
+    constexpr auto key = static_cast<std::uint64_t>(ExtensionHeaderType::kImmutable);
+    REQUIRE(recv->contains(key));
+    CHECK_GT(recv->at(key).size(), 0);
+    auto copy = std::move(recv);
+    copy->erase(key);
+    if (copy->size() == 0) {
+        copy = std::nullopt;
+    }
+    return sent == copy;
+}
+
 static void
-ObjectDatagramEncodeDecode(bool extensions, bool end_of_group)
+ObjectDatagramEncodeDecode(ExtensionTest extensions, bool end_of_group)
 {
     CAPTURE(extensions);
     CAPTURE(end_of_group);
-    DatagramHeaderProperties expected = { end_of_group, extensions };
+    DatagramHeaderProperties expected = { end_of_group, extensions != ExtensionTest::kNone };
     const DatagramHeaderType expected_type = expected.GetType();
 
     Bytes buffer;
@@ -89,7 +119,16 @@ ObjectDatagramEncodeDecode(bool extensions, bool end_of_group)
     object_datagram.group_id = 0x1000;
     object_datagram.object_id = 0xFF;
     object_datagram.priority = 0xA;
-    object_datagram.extensions = extensions ? kOptionalExtensions : std::nullopt;
+    if (extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kMutable) {
+        object_datagram.extensions = kOptionalExtensions;
+    } else {
+        object_datagram.extensions = std::nullopt;
+    }
+    if (extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kImmutable) {
+        object_datagram.immutable_extensions = kOptionalExtensions;
+    } else {
+        object_datagram.immutable_extensions = std::nullopt;
+    }
     object_datagram.payload = { 0x1, 0x2, 0x3, 0x5, 0x6 };
     object_datagram.end_of_group = end_of_group;
     REQUIRE_EQ(object_datagram.GetType(), expected_type);
@@ -107,25 +146,29 @@ ObjectDatagramEncodeDecode(bool extensions, bool end_of_group)
     CHECK_EQ(object_datagram.group_id, object_datagram_out.group_id);
     CHECK_EQ(object_datagram.object_id, object_datagram_out.object_id);
     CHECK_EQ(object_datagram.priority, object_datagram_out.priority);
-    CHECK_EQ(object_datagram.extensions, object_datagram_out.extensions);
+    CompareExtensions(object_datagram.extensions,
+                      object_datagram_out.extensions,
+                      extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kImmutable);
+    CHECK_EQ(object_datagram.immutable_extensions, object_datagram_out.immutable_extensions);
     CHECK(object_datagram.payload.size() > 0);
     CHECK_EQ(object_datagram.payload, object_datagram_out.payload);
 }
 
 TEST_CASE("ObjectDatagram  Message encode/decode")
 {
-    ObjectDatagramEncodeDecode(false, false);
-    ObjectDatagramEncodeDecode(false, true);
-    ObjectDatagramEncodeDecode(true, false);
-    ObjectDatagramEncodeDecode(true, true);
+    for (const auto ext :
+         { ExtensionTest::kNone, ExtensionTest::kMutable, ExtensionTest::kImmutable, ExtensionTest::kBoth }) {
+        ObjectDatagramEncodeDecode(ext, false);
+        ObjectDatagramEncodeDecode(ext, true);
+    }
 }
 
 static void
-ObjectDatagramStatusEncodeDecode(bool extensions)
+ObjectDatagramStatusEncodeDecode(ExtensionTest extensions)
 {
     CAPTURE(extensions);
     auto expected_type =
-      extensions ? messages::DatagramStatusType::kWithExtensions : messages::DatagramStatusType::kNoExtensions;
+      extensions != ExtensionTest::kNone ? DatagramStatusType::kWithExtensions : DatagramStatusType::kNoExtensions;
 
     Bytes buffer;
     auto object_datagram_status = ObjectDatagramStatus{};
@@ -134,7 +177,16 @@ ObjectDatagramStatusEncodeDecode(bool extensions)
     object_datagram_status.object_id = 0xFF;
     object_datagram_status.priority = 0xA;
     object_datagram_status.status = ObjectStatus::kAvailable;
-    object_datagram_status.extensions = extensions ? kOptionalExtensions : std::nullopt;
+    if (extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kMutable) {
+        object_datagram_status.extensions = kOptionalExtensions;
+    } else {
+        object_datagram_status.extensions = std::nullopt;
+    }
+    if (extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kImmutable) {
+        object_datagram_status.immutable_extensions = kOptionalExtensions;
+    } else {
+        object_datagram_status.immutable_extensions = std::nullopt;
+    }
     REQUIRE_EQ(object_datagram_status.GetType(), expected_type);
 
     buffer << object_datagram_status;
@@ -146,14 +198,19 @@ ObjectDatagramStatusEncodeDecode(bool extensions)
     CHECK_EQ(object_datagram_status.object_id, object_datagram_status_out.object_id);
     CHECK_EQ(object_datagram_status.priority, object_datagram_status_out.priority);
     CHECK_EQ(object_datagram_status.status, object_datagram_status_out.status);
-    CHECK_EQ(object_datagram_status.extensions, object_datagram_status.extensions);
+    CompareExtensions(object_datagram_status.extensions,
+                      object_datagram_status_out.extensions,
+                      extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kImmutable);
+    CHECK_EQ(object_datagram_status.immutable_extensions, object_datagram_status.immutable_extensions);
     CHECK_EQ(object_datagram_status.GetType(), object_datagram_status_out.GetType());
 }
 
 TEST_CASE("ObjectDatagramStatus  Message encode/decode")
 {
-    ObjectDatagramStatusEncodeDecode(false);
-    ObjectDatagramStatusEncodeDecode(true);
+    for (const auto ext :
+         { ExtensionTest::kNone, ExtensionTest::kMutable, ExtensionTest::kImmutable, ExtensionTest::kBoth }) {
+        ObjectDatagramStatusEncodeDecode(ext);
+    }
 }
 
 static void
@@ -208,7 +265,7 @@ TEST_CASE("StreamHeader Message encode/decode")
 }
 
 static void
-StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, bool extensions, bool empty_payload)
+StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, ExtensionTest extensions, bool empty_payload)
 {
     const auto properties = StreamHeaderProperties(type);
 
@@ -258,7 +315,16 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, bool extensions, bool
 
         // Only set extensions if the header type allows it.
         if (properties.may_contain_extensions) {
-            obj.extensions = extensions ? kOptionalExtensions : std::nullopt;
+            if (extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kMutable) {
+                obj.extensions = kOptionalExtensions;
+            } else {
+                obj.extensions = std::nullopt;
+            }
+            if (extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kImmutable) {
+                obj.immutable_extensions = kOptionalExtensions;
+            } else {
+                obj.immutable_extensions = std::nullopt;
+            }
         }
         objects.push_back(obj);
         buffer << obj;
@@ -284,9 +350,14 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, bool extensions, bool
         }
 
         if (properties.may_contain_extensions) {
+            CompareExtensions(objects[object_count].extensions,
+                              obj_out.extensions,
+                              extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kImmutable);
             CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
+            CHECK_EQ(obj_out.immutable_extensions, objects[object_count].immutable_extensions);
         } else {
             CHECK_EQ(obj_out.extensions, std::nullopt);
+            CHECK_EQ(obj_out.immutable_extensions, std::nullopt);
         }
         // got one object
         object_count++;
@@ -313,18 +384,19 @@ TEST_CASE("StreamPerSubGroup Object Message encode/decode")
                                   StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions };
     for (const auto& type : stream_headers) {
         CAPTURE(type);
-        for (bool extensions : { true, false }) {
-            CAPTURE(extensions);
+        for (const auto ext :
+             { ExtensionTest::kNone, ExtensionTest::kMutable, ExtensionTest::kImmutable, ExtensionTest::kBoth }) {
+            CAPTURE(ext);
             for (bool empty_payload : { true, false }) {
                 CAPTURE(empty_payload);
-                StreamPerSubGroupObjectEncodeDecode(type, extensions, empty_payload);
+                StreamPerSubGroupObjectEncodeDecode(type, ext, empty_payload);
             }
         }
     }
 }
 
 static void
-FetchStreamEncodeDecode(bool extensions, bool empty_payload)
+FetchStreamEncodeDecode(ExtensionTest extensions, bool empty_payload)
 {
     CAPTURE(extensions);
     CAPTURE(empty_payload);
@@ -358,7 +430,16 @@ FetchStreamEncodeDecode(bool extensions, bool empty_payload)
             obj.payload = { 0x1, 0x2, 0x3, 0x4, 0x5 };
         }
 
-        obj.extensions = extensions ? kOptionalExtensions : std::nullopt;
+        if (extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kMutable) {
+            obj.extensions = kOptionalExtensions;
+        } else {
+            obj.extensions = std::nullopt;
+        }
+        if (extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kImmutable) {
+            obj.immutable_extensions = kOptionalExtensions;
+        } else {
+            obj.immutable_extensions = std::nullopt;
+        }
         objects.push_back(obj);
         buffer << obj;
     }
@@ -382,7 +463,10 @@ FetchStreamEncodeDecode(bool extensions, bool empty_payload)
             CHECK(obj_out.payload.size() > 0);
             CHECK_EQ(obj_out.payload, objects[object_count].payload);
         }
-        CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
+        CompareExtensions(objects[object_count].extensions,
+                          obj_out.extensions,
+                          extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kImmutable);
+        CHECK_EQ(obj_out.immutable_extensions, objects[object_count].immutable_extensions);
         // got one object
         object_count++;
         obj_out = {};
@@ -394,10 +478,11 @@ FetchStreamEncodeDecode(bool extensions, bool empty_payload)
 
 TEST_CASE("Fetch Stream Message encode/decode")
 {
-    FetchStreamEncodeDecode(false, true);
-    FetchStreamEncodeDecode(false, false);
-    FetchStreamEncodeDecode(true, true);
-    FetchStreamEncodeDecode(true, false);
+    for (const auto ext :
+         { ExtensionTest::kNone, ExtensionTest::kMutable, ExtensionTest::kImmutable, ExtensionTest::kBoth }) {
+        FetchStreamEncodeDecode(ext, true);
+        FetchStreamEncodeDecode(ext, false);
+    }
 }
 
 TEST_CASE("Key Value Pair size")
@@ -454,4 +539,35 @@ TEST_CASE("Key Value Pair size")
         kvp.value = kUint8ByteValue;
         CHECK_EQ(kvp.Size(), 9); // 1 byte for type, 8 bytes for value.
     }
+}
+
+TEST_CASE("Immutable Extensions Nesting")
+{
+    Extensions nested_immutable = {
+        { static_cast<std::uint64_t>(ExtensionHeaderType::kImmutable),
+          { 0xAA, 0xBB } } // This should cause validation to fail
+    };
+
+    FetchObject msg;
+    msg.group_id = 1;
+    msg.subgroup_id = 2;
+    msg.object_id = 3;
+    msg.publisher_priority = 4;
+    msg.immutable_extensions = nested_immutable;
+    msg.payload_len = 0;
+    msg.object_status = ObjectStatus::kAvailable;
+
+    // Serialization should throw ProtocolViolationException
+    Bytes buffer;
+    CHECK_THROWS_AS(buffer << msg, ProtocolViolationException);
+}
+
+TEST_CASE("Null extensions serialize to 0 length")
+{
+    Bytes bytes;
+    std::optional<Extensions> extensions;
+    std::optional<Extensions> immutable;
+    SerializeExtensions(bytes, extensions, immutable);
+    REQUIRE_EQ(bytes.size(), 1);
+    CHECK_EQ(bytes[0], 0);
 }

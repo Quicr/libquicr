@@ -22,6 +22,35 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const std::optional<Extensions>& extensions);
     Bytes& operator<<(Bytes& buffer, const Extensions& extensions);
 
+    /**
+     * Serialize extensions to MoQ encoding.
+     * @param buffer Buffer to serialize to.
+     * @param extensions Optionally, mutable extensions.
+     * @param immutable_extensions Optionally, immutable extensions.
+     */
+    void SerializeExtensions(Bytes& buffer,
+                             const std::optional<Extensions>& extensions,
+                             const std::optional<Extensions>& immutable_extensions);
+
+    /**
+     * Parse extensions from MoQ encoded format.
+     * @tparam StreamBufferType
+     * @param buffer Buffer to parse from.
+     * @param extension_headers_length Extract length of all extension headers.
+     * @param extensions Parsed mutable extensions, if any.
+     * @param immutable_extensions Parsed immutable extensions, if any.
+     * @param extension_bytes_remaining Total bytes of extension headers left to parse.
+     * @param current_header Current header key being parsed.
+     * @return True if parsing completed successfully, false if not.
+     */
+    template<class StreamBufferType>
+    bool ParseExtensions(StreamBufferType& buffer,
+                         std::optional<std::size_t>& extension_headers_length,
+                         std::optional<Extensions>& extensions,
+                         std::optional<Extensions>& immutable_extensions,
+                         std::size_t& extension_bytes_remaining,
+                         std::optional<std::uint64_t>& current_header);
+
     struct ProtocolViolationException : std::runtime_error
     {
         const std::string reason;
@@ -505,6 +534,7 @@ namespace quicr::messages {
         ObjectId object_id;
         ObjectPriority publisher_priority;
         std::optional<Extensions> extensions;
+        std::optional<Extensions> immutable_extensions;
         uint64_t payload_len{ 0 };
         ObjectStatus object_status;
         Bytes payload;
@@ -533,6 +563,7 @@ namespace quicr::messages {
         ObjectId object_id;
         ObjectPriority priority;
         std::optional<Extensions> extensions;
+        std::optional<Extensions> immutable_extensions;
         uint64_t payload_len{ 0 };
         ObjectStatus object_status;
         Bytes payload;
@@ -547,7 +578,8 @@ namespace quicr::messages {
          */
         DatagramHeaderType GetType() const
         {
-            return DatagramHeaderProperties(end_of_group, extensions.has_value()).GetType();
+            return DatagramHeaderProperties(end_of_group, extensions.has_value() || immutable_extensions.has_value())
+              .GetType();
         }
 
       private:
@@ -568,6 +600,7 @@ namespace quicr::messages {
         ObjectId object_id;
         ObjectPriority priority;
         std::optional<Extensions> extensions;
+        std::optional<Extensions> immutable_extensions;
         ObjectStatus status;
 
         template<class StreamBufferType>
@@ -575,7 +608,8 @@ namespace quicr::messages {
 
         DatagramStatusType GetType() const
         {
-            const auto properties = DatagramStatusProperties(extensions.has_value());
+            const auto properties =
+              DatagramStatusProperties(extensions.has_value() || immutable_extensions.has_value());
             return properties.GetType();
         }
 
@@ -615,6 +649,7 @@ namespace quicr::messages {
         uint64_t payload_len{ 0 };
         ObjectStatus object_status;
         std::optional<Extensions> extensions;
+        std::optional<Extensions> immutable_extensions;
         Bytes payload;
         std::optional<StreamHeaderType> stream_type;
         template<class StreamBufferType>

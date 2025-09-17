@@ -155,9 +155,18 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         std::stringstream ext;
 
         if (hdr.extensions) {
-            ext << "hdrs: ";
+            ext << "mutable hdrs: ";
 
             for (const auto& [type, value] : hdr.extensions.value()) {
+                ext << std::hex << std::setfill('0') << std::setw(2) << type;
+                ext << " = " << std::dec << std::setw(0) << uint64_t(quicr::UintVar(value)) << " ";
+            }
+        }
+
+        if (hdr.immutable_extensions) {
+            ext << "immutable hdrs: ";
+
+            for (const auto& [type, value] : hdr.immutable_extensions.value()) {
                 ext << std::hex << std::setfill('0') << std::setw(2) << type;
                 ext << " = " << std::dec << std::setw(0) << uint64_t(quicr::UintVar(value)) << " ";
             }
@@ -431,7 +440,8 @@ class MyClient : public quicr::Client
                                           .priority = attributes.priority,
                                           .ttl = 3000, // in milliseconds
                                           .track_mode = std::nullopt,
-                                          .extensions = std::nullopt };
+                                          .extensions = std::nullopt,
+                                          .immutable_extensions = std::nullopt };
 
             std::string hello = "Hello:" + std::to_string(pub_group_number);
             std::vector<uint8_t> data_vec(hello.begin(), hello.end());
@@ -519,6 +529,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
                 .ttl = std::nullopt,
                 .track_mode = std::nullopt,
                 .extensions = std::nullopt,
+                .immutable_extensions = std::nullopt,
             };
 
             std::size_t data_offset = moq_j["dataOffset"];
@@ -627,8 +638,8 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
         }
 
         quicr::ObjectHeaders obj_headers = {
-            group_id,       object_id++,    subgroup_id,  msg.size(),  quicr::ObjectStatus::kAvailable,
-            2 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt
+            group_id,       object_id++,    subgroup_id,  msg.size(),   quicr::ObjectStatus::kAvailable,
+            2 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
         };
 
         try {

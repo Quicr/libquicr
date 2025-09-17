@@ -368,6 +368,7 @@ main(int argc, char** argv)
                     .ttl = expiry_age,
                     .track_mode = track_mode,
                     .extensions = std::nullopt,
+                    .immutable_extensions = std::nullopt,
                 };
 
                 try {
