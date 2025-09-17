@@ -104,7 +104,7 @@ namespace quicr {
 
         // change in subgroups and groups require a new stream
 
-        is_stream_header_needed = not sent_first_header_ || latest_sub_group_id_ != object_headers.subgroup_id ||
+        is_stream_header_needed = not seen_first_object_ || latest_sub_group_id_ != object_headers.subgroup_id ||
                                   latest_group_id_ != object_headers.group_id;
 
         switch (publish_status_) {
@@ -154,12 +154,17 @@ namespace quicr {
             SetDefaultTrackMode(*object_headers.track_mode);
         }
 
-        sent_first_header_ = true;
+        uint64_t group_id_delta{ 0 };
+        uint64_t object_id_delta{ 0 };
 
-        auto group_id_delta =
-          latest_group_id_ > object_headers.group_id ? 0 : object_headers.group_id - latest_group_id_;
-        auto object_id_delta =
-          latest_object_id_ > object_headers.object_id ? 0 : object_headers.object_id - latest_object_id_;
+        if (seen_first_object_) {
+            group_id_delta =
+              latest_group_id_ > object_headers.group_id ? 0 : object_headers.group_id - latest_group_id_;
+            object_id_delta =
+              latest_object_id_ > object_headers.object_id ? 0 : object_headers.object_id - latest_object_id_;
+        }
+
+        seen_first_object_ = true;
 
         auto object_extensions = object_headers.extensions;
 

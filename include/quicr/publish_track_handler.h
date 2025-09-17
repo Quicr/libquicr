@@ -375,7 +375,9 @@ namespace quicr {
         uint64_t latest_object_id_{ 0 };
         uint64_t object_payload_remaining_length_{ 0 };
         std::optional<uint64_t> track_alias_;
-        bool sent_first_header_{ false }; // Used to indicate if the first stream has sent the header or not
+        bool seen_first_object_{
+            false
+        }; // Used to indicate if the first object has been seen or not (start of publish)
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
 
