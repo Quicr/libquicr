@@ -1194,7 +1194,7 @@ namespace quicr {
                 } catch (const std::exception& e) {
                     lock.unlock();
                     track_handler->SetStatus(PublishTrackHandler::Status::kError);
-                    lock.lock();
+                    return;
                 }
             } else {
                 auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
@@ -1205,7 +1205,7 @@ namespace quicr {
                     } catch (const std::exception& e) {
                         lock.unlock();
                         track_handler->SetStatus(PublishTrackHandler::Status::kError);
-                        lock.lock();
+                        return;
                     }
 
                     SPDLOG_LOGGER_INFO(logger_,

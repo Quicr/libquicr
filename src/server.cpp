@@ -723,10 +723,9 @@ namespace quicr {
                     conn_ctx.setup_complete = true;
                 } catch (const std::exception&) {
                     conn_ctx.setup_complete = false;
-                    throw;
                 }
 
-                return true;
+                return conn_ctx.setup_complete;
             }
             case messages::ControlMessageType::kFetch: {
                 auto msg = messages::Fetch(
