@@ -474,7 +474,6 @@ class MyClient : public quicr::Client
 
   private:
     bool& stop_threads_;
-    uint64_t track_status_request_id_;
 };
 
 /*===========================================================================*/

@@ -63,12 +63,21 @@ namespace quicr {
                          obj.object_id,
                          obj.payload.size());
 
+            if (sent_first_object_ && current_group_id_ != s_hdr.group_id) {
+                next_object_id_ = 0;
+            } else {
+                next_object_id_ += obj.object_delta;
+            }
+
+            current_group_id_ = s_hdr.group_id;
+            sent_first_object_ = true;
+
             if (!s_hdr.subgroup_id.has_value()) {
                 if (subgroup_properties.subgroup_id_type != messages::SubgroupIdType::kSetFromFirstObject) {
                     throw messages::ProtocolViolationException("Subgoup ID mismatch");
                 }
                 // Set the subgroup ID from the first object ID.
-                s_hdr.subgroup_id = obj.object_id;
+                s_hdr.subgroup_id = next_object_id_;
             }
 
             subscribe_track_metrics_.objects_received++;
@@ -76,7 +85,7 @@ namespace quicr {
 
             try {
                 ObjectReceived({ s_hdr.group_id,
-                                 obj.object_id,
+                                 next_object_id_,
                                  s_hdr.subgroup_id.value(),
                                  obj.payload.size(),
                                  obj.object_status,
@@ -86,6 +95,8 @@ namespace quicr {
                                  obj.extensions,
                                  obj.immutable_extensions },
                                obj.payload);
+
+                ++next_object_id_;
             } catch (const std::exception& e) {
                 SPDLOG_ERROR("Caught exception trying to receive Subscribe object. (error={})", e.what());
             }

@@ -305,7 +305,7 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, ExtensionTest extensi
     for (size_t i = 0; i < 10; i++) {
         auto obj = messages::StreamSubGroupObject{};
         obj.stream_type = type;
-        obj.object_id = 0x1234;
+        obj.object_delta = 0x1234;
 
         if (empty_payload) {
             obj.object_status = ObjectStatus::kDoesNotExist;
@@ -341,7 +341,7 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, ExtensionTest extensi
             continue;
         }
 
-        CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
+        CHECK_EQ(obj_out.object_delta, objects[object_count].object_delta);
         if (empty_payload) {
             CHECK_EQ(obj_out.object_status, objects[object_count].object_status);
         } else {
